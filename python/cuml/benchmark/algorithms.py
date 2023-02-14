@@ -459,8 +459,7 @@ def all_algorithms():
                 fil_algo='NAIVE',
                 storage_type='DENSE',
                 output_class=False,
-                precision='float32',
-                device='gpu'
+                precision='float32'
             ),
             name="FILEX-Optimized",
             accepts_labels=False,
@@ -479,8 +478,7 @@ def all_algorithms():
                 storage_type='DENSE',
                 output_class=False,
                 threshold=0.5,
-                precision='float32',
-                device='gpu'
+                precision='float32'
             ),
             name="FIL-Optimized",
             accepts_labels=False,
@@ -498,8 +496,7 @@ def all_algorithms():
                 fil_algo='NAIVE',
                 storage_type='DENSE',
                 output_class=False,
-                precision='float32',
-                device='cpu'
+                precision='float32'
             ),
             name="FILEX-CPU-Optimized",
             accepts_labels=False,

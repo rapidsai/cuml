@@ -16,6 +16,8 @@
 from cuml.manifold import UMAP
 from cuml.benchmark import datagen
 from cuml.common.device_selection import using_device_type
+from cuml.internals.device_type import DeviceType
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.internals.safe_imports import gpu_only_import
 import sklearn.ensemble as skl_ensemble
@@ -160,111 +162,107 @@ class OptimizedFilWrapper:
             self,
             fil_model,
             optimal_chunk_size,
-            experimental,
-            device='gpu'):
+            experimental):
         self.fil_model = fil_model
         self.predict_kwargs = {}
         if experimental:
             self.predict_kwargs = {'chunk_size': optimal_chunk_size}
-        self.device = device
 
     def predict(self, X):
-        with using_device_type(self.device):
-            return self.fil_model.predict(X, **self.predict_kwargs)
+        return self.fil_model.predict(X, **self.predict_kwargs)
 
 
 def _build_optimized_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking with optimal
     parameters"""
-    from cuml.internals.import_utils import has_xgboost
-    if has_xgboost():
-        import xgboost as xgb
-    else:
-        raise ImportError("No XGBoost package found")
+    with using_device_type('gpu'):
+        from cuml.internals.import_utils import has_xgboost
+        if has_xgboost():
+            import xgboost as xgb
+        else:
+            raise ImportError("No XGBoost package found")
 
-    train_data, train_label = _training_data_to_numpy(data[0], data[1])
+        train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
-    dtrain = xgb.DMatrix(train_data, label=train_label)
+        dtrain = xgb.DMatrix(train_data, label=train_label)
 
-    params = {
-        "silent": 1, "eval_metric": "error",
-        "objective": "binary:logistic", "tree_method": "gpu_hist",
-    }
-    params.update(args)
-    max_depth = args["max_depth"]
-    num_rounds = args["num_rounds"]
-    n_feature = data[0].shape[1]
-    train_size = data[0].shape[0]
-    model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
-    model_path = os.path.join(tmpdir, model_name)
-    bst = xgb.train(params, dtrain, num_rounds)
-    bst.save_model(model_path)
+        params = {
+            "silent": 1, "eval_metric": "error",
+            "objective": "binary:logistic", "tree_method": "gpu_hist",
+        }
+        params.update(args)
+        max_depth = args["max_depth"]
+        num_rounds = args["num_rounds"]
+        n_feature = data[0].shape[1]
+        train_size = data[0].shape[0]
+        model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
+        model_path = os.path.join(tmpdir, model_name)
+        bst = xgb.train(params, dtrain, num_rounds)
+        bst.save_model(model_path)
 
     allowed_chunk_sizes = [1, 2, 4, 8, 16, 32]
-    if args['device'] == 'cpu':
+    if GlobalSettings().device_type is DeviceType.host:
         allowed_chunk_sizes.extend((64, 128, 256))
 
-    with using_device_type(args['device']):
-        fil_kwargs = {}
-        for param, input_name in (
-            ('algo', 'fil_algo'),
-            ('output_class', 'output_class'),
-            ('threshold', 'threshold'),
-            ('storage_type', 'storage_type'),
-            ('precision', 'precision')
-        ):
-            try:
-                fil_kwargs[param] = args[input_name]
-            except KeyError:
-                pass
-        experimental = (m == cuml.experimental.ForestInference)
-        if experimental:
-            allowed_storage_types = ['sparse']
-        else:
-            allowed_storage_types = ['sparse', 'sparse8']
-            if args['storage_type'] == 'dense':
-                allowed_storage_types.append('dense')
+    fil_kwargs = {}
+    for param, input_name in (
+        ('algo', 'fil_algo'),
+        ('output_class', 'output_class'),
+        ('threshold', 'threshold'),
+        ('storage_type', 'storage_type'),
+        ('precision', 'precision')
+    ):
+        try:
+            fil_kwargs[param] = args[input_name]
+        except KeyError:
+            pass
+    experimental = (m == cuml.experimental.ForestInference)
+    if experimental:
+        allowed_storage_types = ['sparse']
+    else:
+        allowed_storage_types = ['sparse', 'sparse8']
+        if args['storage_type'] == 'dense':
+            allowed_storage_types.append('dense')
 
-        optimal_storage_type = 'sparse'
-        optimal_algo = 'NAIVE'
-        optimal_layout = 'breadth_first'
-        optimal_chunk_size = 1
-        best_time = None
-        OPTIMIZATION_CYCLES = 5
-        print("OPTIMIZING")
-        for storage_type in allowed_storage_types:
-            fil_kwargs['storage_type'] = storage_type
-            allowed_algo_types = ['NAIVE']
-            if not experimental and storage_type == 'dense':
-                allowed_algo_types.extend((
-                    'TREE_REORG', 'BATCH_TREE_REORG'
-                ))
-            allowed_layout_types = ['breadth_first']
-            if experimental:
-                allowed_layout_types.append('depth_first')
-            for algo in allowed_algo_types:
-                fil_kwargs['algo'] = algo
-                for layout in allowed_layout_types:
+    optimal_storage_type = 'sparse'
+    optimal_algo = 'NAIVE'
+    optimal_layout = 'breadth_first'
+    optimal_chunk_size = 1
+    best_time = None
+    OPTIMIZATION_CYCLES = 5
+    for storage_type in allowed_storage_types:
+        fil_kwargs['storage_type'] = storage_type
+        allowed_algo_types = ['NAIVE']
+        if not experimental and storage_type == 'dense':
+            allowed_algo_types.extend((
+                'TREE_REORG', 'BATCH_TREE_REORG'
+            ))
+        allowed_layout_types = ['breadth_first']
+        if experimental:
+            allowed_layout_types.append('depth_first')
+        for algo in allowed_algo_types:
+            fil_kwargs['algo'] = algo
+            for layout in allowed_layout_types:
+                if experimental:
+                    fil_kwargs['layout'] = layout
+                for chunk_size in allowed_chunk_sizes:
+                    fil_kwargs['threads_per_tree'] = chunk_size
+                    call_args = {}
                     if experimental:
-                        fil_kwargs['layout'] = layout
-                    for chunk_size in allowed_chunk_sizes:
-                        fil_kwargs['threads_per_tree'] = chunk_size
-                        call_args = {}
-                        if experimental:
-                            call_args = {'chunk_size': chunk_size}
-                        fil_model = m.load(model_path, **fil_kwargs)
+                        call_args = {'chunk_size': chunk_size}
+                    fil_model = m.load(model_path, **fil_kwargs)
+                    fil_model.predict(train_data, **call_args)
+                    begin = perf_counter()
+                    for _ in range(OPTIMIZATION_CYCLES):
                         fil_model.predict(train_data, **call_args)
-                        begin = perf_counter()
-                        for _ in range(OPTIMIZATION_CYCLES):
-                            fil_model.predict(train_data, **call_args)
-                        end = perf_counter()
-                        elapsed = end - begin
-                        if best_time is None or elapsed < best_time:
-                            best_time = elapsed
-                            optimal_storage_type = storage_type
-                            optimal_algo = algo
-                            optimal_chunk_size = chunk_size
-                            optimal_layout = layout
+                    end = perf_counter()
+                    elapsed = end - begin
+                    if best_time is None or elapsed < best_time:
+                        best_time = elapsed
+                        optimal_storage_type = storage_type
+                        optimal_algo = algo
+                        optimal_chunk_size = chunk_size
+                        optimal_layout = layout
 
         fil_kwargs['storage_type'] = optimal_storage_type
         fil_kwargs['algo'] = optimal_algo
@@ -275,8 +273,7 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
         return OptimizedFilWrapper(
             m.load(model_path, **fil_kwargs),
             optimal_chunk_size,
-            experimental,
-            device=args['device']
+            experimental
         )
 
 
