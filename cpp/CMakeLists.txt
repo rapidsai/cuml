@@ -149,6 +149,7 @@ if (NOT DISABLE_OPENMP)
   find_package(OpenMP)
   if(OpenMP_FOUND)
     message(STATUS "CUML_CPP: OpenMP found in ${OPENMP_INCLUDE_DIRS}")
+    list(APPEND CUML_CXX_FLAGS ${OpenMP_CXX_FLAGS})
   endif()
 endif()
 
