@@ -28,6 +28,7 @@ from cuml.benchmark.bench_helper_funcs import (
     _build_optimized_fil_classifier,
     _build_treelite_classifier,
     _treelite_fil_accuracy_score,
+    _training_data_to_numpy,
     _build_mnmg_umap
 )
 from cuml.preprocessing import StandardScaler, MinMaxScaler, \
@@ -200,6 +201,7 @@ def _labels_to_int_hook(data):
 
 def _treelite_format_hook(data):
     """Helper function converting data into treelite format"""
+    data = _training_data_to_numpy(data[0], data[1])
     return treelite_runtime.DMatrix(data[0]), data[1]
 
 

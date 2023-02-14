@@ -31,6 +31,7 @@ np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
 cudf = gpu_only_import('cudf')
 cuda = gpu_only_import_from('numba', 'cuda')
+cp = gpu_only_import('cupy')
 
 
 def call(m, func_name, X, y=None):
@@ -99,6 +100,9 @@ def _training_data_to_numpy(X, y):
     if isinstance(X, np.ndarray):
         X_np = X
         y_np = y
+    elif isinstance(X, cp.ndarray):
+        X_np = cp.asnumpy(X)
+        y_np = cp.asnumpy(y)
     elif isinstance(X, cudf.DataFrame):
         X_np = X.to_numpy()
         y_np = y.to_numpy()
