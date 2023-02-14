@@ -73,10 +73,10 @@ def report_asv(results_df, output_dir,
     db = asvdb.ASVDb(dbDir=output_dir, repo=repo, branches=[branch])
 
     for index, row in results_df.iterrows():
-        val_keys = ['cu_time', 'cpu_time', 'speedup', 'cuml_acc', 'cpu_acc']
+        val_keys = ['cuml_time', 'cpu_time', 'speedup', 'cuml_acc', 'cpu_acc']
         params = [(k, v) for k, v in row.items() if k not in val_keys]
         result = asvdb.BenchmarkResult(
-            row['algo'], params, result=row['cu_time']
+            row['algo'], params, result=row['cuml_time']
         )
         db.addResult(b_info, result)
 

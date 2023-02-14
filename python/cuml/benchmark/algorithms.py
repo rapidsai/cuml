@@ -491,24 +491,6 @@ def all_algorithms():
         AlgorithmPair(
             treelite,
             cuml.experimental.ForestInference,
-            shared_args=dict(num_rounds=100, max_depth=10),
-            cuml_args=dict(
-                fil_algo='NAIVE',
-                storage_type='DENSE',
-                output_class=False,
-                precision='float32'
-            ),
-            name="FILEX-CPU-Optimized",
-            accepts_labels=False,
-            setup_cpu_func=_build_treelite_classifier,
-            setup_cuml_func=_build_optimized_fil_classifier,
-            cpu_data_prep_hook=_treelite_format_hook,
-            accuracy_function=_treelite_fil_accuracy_score,
-            bench_func=predict,
-        ),
-        AlgorithmPair(
-            treelite,
-            cuml.experimental.ForestInference,
             shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
             cuml_args=dict(
                 output_class=False

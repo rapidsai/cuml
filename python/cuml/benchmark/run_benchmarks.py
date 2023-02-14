@@ -208,7 +208,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--device',
         choices=['gpu', 'cpu'],
-        default='gpu',
+        default=['gpu'],
         nargs='+',
         help='The device to use for cuML execution',
     )

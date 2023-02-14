@@ -134,7 +134,7 @@ class SpeedupComparisonRunner:
             )
 
         return dict(
-            cu_time=cu_elapsed,
+            cuml_time=cu_elapsed,
             cpu_time=cpu_elapsed,
             speedup=speedup,
             n_samples=n_samples,
@@ -294,7 +294,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             cpu_elapsed = 0.0
 
         return dict(
-            cu_time=cu_elapsed,
+            cuml_time=cu_elapsed,
             cpu_time=cpu_elapsed,
             cuml_acc=cuml_accuracy,
             cpu_acc=cpu_accuracy,
