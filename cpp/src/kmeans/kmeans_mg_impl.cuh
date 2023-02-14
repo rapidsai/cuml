@@ -579,7 +579,7 @@ void fit(const raft::handle_t& handle,
                                      workspace.data(),
                                      X.extent(0),
                                      X.extent(1),
-                                     n_clusters,
+                                     static_cast<IndexT>(n_clusters),
                                      newCentroids.data_handle(),
                                      stream);
 
