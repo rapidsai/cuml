@@ -17,6 +17,8 @@
 #include "test_utils.h"
 #include <distance/distance.cuh>
 #include <gtest/gtest.h>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -147,7 +149,8 @@ template <typename DataType>
 }
 
 template <raft::distance::DistanceType distanceType, typename DataType>
-void distanceLauncher(DataType* x,
+void distanceLauncher(raft::resources const& handle,
+                      DataType* x,
                       DataType* y,
                       DataType* dist,
                       DataType* dist2,
@@ -165,8 +168,9 @@ void distanceLauncher(DataType* x,
     dist2[g_d_idx] = (d_val < threshold) ? 0.f : d_val;
     return d_val;
   };
+
   distance<distanceType, DataType, DataType, DataType>(
-    x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor);
+    handle, x, y, dist, m, n, k, workspace, worksize, fin_op, isRowMajor);
 }
 
 template <raft::distance::DistanceType distanceType, typename DataType>
@@ -181,12 +185,13 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
   {
     params = ::testing::TestWithParam < DistanceInputs<DataType>::GetParam();
     raft::random::Rng r(params.seed);
-    int m               = params.m;
-    int n               = params.n;
-    int k               = params.k;
-    bool isRowMajor     = params.isRowMajor;
-    cudaStream_t stream = 0;
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    int m           = params.m;
+    int n           = params.n;
+    int k           = params.k;
+    bool isRowMajor = params.isRowMajor;
+
+    raft::resources handle;
+    auto stream = raft::resource::get_cuda_stream(handle);
     x.resize(m * k, stream);
     y.resize(n * k, stream);
     dist_ref.resize(m * n, stream);
@@ -199,7 +204,8 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     rmm::device_uvector<char> workspace(worksize);
 
     DataType threshold = -10000.f;
-    distanceLauncher<distanceType, DataType>(x.data(),
+    distanceLauncher<distanceType, DataType>(handle,
+                                             x.data(),
                                              y.data(),
                                              dist.data(),
                                              dist2.data(),
@@ -210,9 +216,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
                                              threshold,
                                              workspace.data(),
                                              worksize,
-                                             stream,
                                              isRowMajor);
-    RAFT_CUDA_TRY(cudaStreamDestroy(stream));
   }
 
  protected:
