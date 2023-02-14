@@ -23,7 +23,7 @@ import multiprocessing as mp
 import shutil
 
 
-EXPECTED_VERSION = "8.0.1"
+EXPECTED_VERSION = "15.0.7"
 VERSION_REGEX = re.compile(r"  LLVM version ([0-9.]+)")
 GPU_ARCH_REGEX = re.compile(r"sm_(\d+)")
 SPACES = re.compile(r"\s+")

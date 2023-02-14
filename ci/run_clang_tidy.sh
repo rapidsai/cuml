@@ -15,17 +15,17 @@ rapids-mamba-retry env create --force -f env.yaml -n clang_tidy
 # Temporarily allow unbound variables for conda activation.
 set +u && conda activate clang_tidy && set -u
 
-FORMAT_FILE_URL=https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.02/cmake-format-rapids-cmake.json
+FORMAT_FILE_URL=https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.04/cmake-format-rapids-cmake.json
 export RAPIDS_CMAKE_FORMAT_FILE=/tmp/rapids_cmake_ci/cmake-formats-rapids-cmake.json
 mkdir -p $(dirname ${RAPIDS_CMAKE_FORMAT_FILE})
 wget -O ${RAPIDS_CMAKE_FORMAT_FILE} ${FORMAT_FILE_URL}
 
 export LD_LIBRARY_PATH="$CONDA_PREFIX/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-mkdir cpp/build
+mkdir -p cpp/build
 cd cpp/build
 cmake -DGPU_ARCHS=70 \
       -DBLAS_LIBRARIES=${CONDA_PREFIX}/lib/libopenblas.so.0 \
       ..
-make treelite
+make -j treelite
 cd ../..
 python cpp/scripts/run-clang-tidy.py
