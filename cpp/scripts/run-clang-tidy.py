@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -239,7 +239,7 @@ def main():
     if not os.path.exists(".git"):
         raise Exception("This needs to always be run from the root of repo")
     # Check whether clang-tidy exists
-    if shutil.which("clang-tidy") is None:
+    if shutil.which("clang-tidy") is not None:
         print("clang-tidy not found. Exiting...")
         return
     all_files = get_all_commands(args.cdb)

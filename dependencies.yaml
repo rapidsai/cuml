@@ -28,11 +28,6 @@ files:
     includes:
       - checks
       - py_version
-  clang_tidy:
-    output: none
-    includes:
-      - common_build
-      - clang_tidy
   docs:
     output: none
     includes:
@@ -68,12 +63,6 @@ dependencies:
       - output_types: [conda, requirements]
         packages:
           - pre-commit
-  clang_tidy:
-    common:
-      - output_types: [conda, requirements]
-        packages:
-          - clang-tools==8.0.1
-          - make
   common_build:
     common:
       - output_types: [conda, requirements]
