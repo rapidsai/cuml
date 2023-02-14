@@ -35,7 +35,7 @@ void pairwise_distance_jensen_shannon(const raft::handle_t& handle,
 {
   raft::distance::
     distance<raft::distance::DistanceType::JensenShannon, double, double, double, int>(
-      x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+      handle, x, y, dist, m, n, k, isRowMajor);
 }
 
 void pairwise_distance_jensen_shannon(const raft::handle_t& handle,
@@ -49,7 +49,7 @@ void pairwise_distance_jensen_shannon(const raft::handle_t& handle,
                                       float metric_arg)
 {
   raft::distance::distance<raft::distance::DistanceType::JensenShannon, float, float, float, int>(
-    x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+    handle, x, y, dist, m, n, k, isRowMajor);
 }
 
 }  // namespace Metrics
