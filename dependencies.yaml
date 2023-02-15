@@ -29,8 +29,9 @@ files:
   clang_tidy:
     output: none
     includes:
-      - common_build
       - clang_tidy
+      - common_build
+      - cudatoolkit
   docs:
     output: none
     includes:
