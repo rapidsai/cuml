@@ -470,7 +470,7 @@ def tsvd_test_data(request):
     'input_type': ['numpy', 'dataframe', 'cupy',
                    'cudf', 'numba'],
     'metric': ['euclidean', 'cosine'],
-    'n_neighbors': [3, 8].
+    'n_neighbors': [3, 8],
     'return_distance': [True]
 }))
 def nn_test_data(request):
