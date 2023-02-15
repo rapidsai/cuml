@@ -628,7 +628,6 @@ class UniversalBase(Base):
         # put all the kwargs on host
         new_kwargs = dict()
         for kw, arg in kwargs.items():
-            new_kwargs[kw] = input_to_host_array(arg)[0]
             # if array-like, ensure array-like is on the host
             if is_array_like(arg):
                 new_kwargs[kw] = input_to_host_array(arg)[0]
