@@ -39,22 +39,22 @@ void pairwise_distance_euclidean(const raft::handle_t& handle,
     case raft::distance::DistanceType::L2Expanded:
       raft::distance::
         distance<raft::distance::DistanceType::L2Expanded, double, double, double, int>(
-          x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+          handle, x, y, dist, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::L2SqrtExpanded:
       raft::distance::
         distance<raft::distance::DistanceType::L2SqrtExpanded, double, double, double, int>(
-          x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+          handle, x, y, dist, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::L2Unexpanded:
       raft::distance::
         distance<raft::distance::DistanceType::L2Unexpanded, double, double, double, int>(
-          x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+          handle, x, y, dist, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::L2SqrtUnexpanded:
       raft::distance::
         distance<raft::distance::DistanceType::L2SqrtUnexpanded, double, double, double, int>(
-          x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+          handle, x, y, dist, m, n, k, isRowMajor);
       break;
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   }
@@ -75,22 +75,22 @@ void pairwise_distance_euclidean(const raft::handle_t& handle,
   switch (metric) {
     case raft::distance::DistanceType::L2Expanded:
       raft::distance::distance<raft::distance::DistanceType::L2Expanded, float, float, float, int>(
-        x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+        handle, x, y, dist, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::L2SqrtExpanded:
       raft::distance::
         distance<raft::distance::DistanceType::L2SqrtExpanded, float, float, float, int>(
-          x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+          handle, x, y, dist, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::L2Unexpanded:
       raft::distance::
         distance<raft::distance::DistanceType::L2Unexpanded, float, float, float, int>(
-          x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+          handle, x, y, dist, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::L2SqrtUnexpanded:
       raft::distance::
         distance<raft::distance::DistanceType::L2SqrtUnexpanded, float, float, float, int>(
-          x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+          handle, x, y, dist, m, n, k, isRowMajor);
       break;
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   }
