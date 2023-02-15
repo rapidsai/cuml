@@ -482,7 +482,6 @@ def nn_test_data(request):
         'return_distance': request.param['return_distance']
      }
 
-
     sk_model = skNearestNeighbors(**kwargs)
     sk_model.fit(X_train_blob)
 
