@@ -16,6 +16,7 @@
 
 import os
 import threading
+
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
 from cuml.internals.logger import warn

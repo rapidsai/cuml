@@ -12,13 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from cuml.linear_model import MBSGDRegressor as cumlMBSGRegressor
-from cuml.linear_model import MBSGDClassifier as cumlMBSGClassifier
 from cuml import LogisticRegression as cuLog
+from cuml.datasets import make_blobs
 from cuml.linear_model import ElasticNet as cumlElastic
 from cuml.linear_model import Lasso as cumlLasso
-
-from cuml.datasets import make_blobs
+from cuml.linear_model import MBSGDClassifier as cumlMBSGClassifier
+from cuml.linear_model import MBSGDRegressor as cumlMBSGRegressor
 
 
 def test_mbsgd_regressor_attributes():

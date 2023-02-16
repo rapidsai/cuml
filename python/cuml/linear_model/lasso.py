@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 
-from cuml.linear_model.elastic_net import ElasticNet
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.linear_model.elastic_net import ElasticNet
 
 
 class Lasso(ElasticNet):

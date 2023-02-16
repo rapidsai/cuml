@@ -15,13 +15,14 @@
 #
 
 import inspect
-
 from copy import deepcopy
-from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import api_base_return_any_skipall
-from cuml.internals.base_helpers import _tags_class_and_instance
-from cuml.internals.api_decorators import enable_device_interop
 
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.api_decorators import (
+    api_base_return_any_skipall,
+    enable_device_interop,
+)
+from cuml.internals.base_helpers import _tags_class_and_instance
 
 ###############################################################################
 #                          Tag Functionality Mixin                            #

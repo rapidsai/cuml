@@ -9,42 +9,50 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
-from ..preprocessing import FunctionTransformer
-from ....thirdparty_adapters import check_array
-from ..utils.validation import check_is_fitted
-from ..utils.skl_dependencies import TransformerMixin, BaseComposition, \
-    BaseEstimator
+import functools
+import numbers
+import timeit
+from itertools import chain, compress
+
+from joblib import Parallel
+
+import cuml
 from cuml.internals import _deprecate_pos_args
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import _global_settings_data
-import cuml
-from itertools import chain
-from itertools import compress
-from joblib import Parallel
-import functools
-import timeit
-import numbers
 from cuml.internals.import_utils import has_sklearn
+
+from ....thirdparty_adapters import check_array
+from ..preprocessing import FunctionTransformer
+from ..utils.skl_dependencies import (
+    BaseComposition,
+    BaseEstimator,
+    TransformerMixin,
+)
+from ..utils.validation import check_is_fitted
 
 if has_sklearn():
     from sklearn.base import clone
     from sklearn.utils import Bunch
-from contextlib import contextmanager
-from collections import defaultdict
+
 import warnings
+from collections import defaultdict
+from contextlib import contextmanager
 
-from cuml.internals.safe_imports import cpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    cpu_only_import_from,
+    gpu_only_import,
+    gpu_only_import_from,
+)
 
-cpu_np = cpu_only_import('numpy')
-cu_sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
+cudf = gpu_only_import('cudf')
 np = gpu_only_import('cupy')
 numba = gpu_only_import('numba')
+cpu_np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
+cu_sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
 sp_sparse = cpu_only_import_from('scipy', 'sparse')
-cudf = gpu_only_import('cudf')
 
 
 _ERR_MSG_1DCOLUMN = ("1D data passed to a transformer that expects 2D data. "

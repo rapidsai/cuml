@@ -13,54 +13,55 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import treelite_runtime
-import treelite
-from cuml.benchmark.bench_helper_funcs import (
-    fit,
-    transform,
-    predict,
-    fit_transform,
-    fit_predict,
-    fit_kneighbors,
-    _build_cpu_skl_classifier,
-    _build_fil_skl_classifier,
-    _build_fil_classifier,
-    _build_treelite_classifier,
-    _treelite_fil_accuracy_score,
-    _build_mnmg_umap,
-)
-from cuml.preprocessing import (
-    StandardScaler,
-    MinMaxScaler,
-    MaxAbsScaler,
-    Normalizer,
-    SimpleImputer,
-    RobustScaler,
-    PolynomialFeatures,
-)
 import tempfile
-import cuml
 
 import sklearn
 import sklearn.cluster
-import sklearn.neighbors
 import sklearn.ensemble
-import sklearn.random_projection
 import sklearn.naive_bayes
+import sklearn.neighbors
+import sklearn.random_projection
+import treelite
+import treelite_runtime
 from sklearn import metrics
 from sklearn.impute import SimpleImputer as skSimpleImputer
-import cuml.metrics
+
+import cuml
 import cuml.decomposition
+import cuml.metrics
 import cuml.naive_bayes
-from cuml.dask import (
-    neighbors,
+from cuml.benchmark.bench_helper_funcs import (
+    _build_cpu_skl_classifier,
+    _build_fil_classifier,
+    _build_fil_skl_classifier,
+    _build_mnmg_umap,
+    _build_treelite_classifier,
+    _treelite_fil_accuracy_score,
+    fit,
+    fit_kneighbors,
+    fit_predict,
+    fit_transform,
+    predict,
+    transform,
+)
+from cuml.dask import (  # noqa: F401
     cluster,
-    manifold,
     decomposition,
     linear_model,
-)  # noqa: F401
+    manifold,
+    neighbors,
+)
 from cuml.internals.import_utils import has_umap
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.preprocessing import (
+    MaxAbsScaler,
+    MinMaxScaler,
+    Normalizer,
+    PolynomialFeatures,
+    RobustScaler,
+    SimpleImputer,
+    StandardScaler,
+)
 
 np = cpu_only_import("numpy")
 

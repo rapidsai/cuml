@@ -13,38 +13,51 @@
 # limitations under the License.
 #
 
-from cuml.testing.test_preproc_utils import assert_allclose
-from sklearn.utils.sparsefuncs import (
-    inplace_csr_column_scale as sk_inplace_csr_column_scale,
-    inplace_csr_row_scale as sk_inplace_csr_row_scale,
-    inplace_column_scale as sk_inplace_column_scale,
-    mean_variance_axis as sk_mean_variance_axis,
-    min_max_axis as sk_min_max_axis,
+import pytest
+from cuml._thirdparty.sklearn.utils.extmath import (
+    _incremental_mean_and_var as cu_incremental_mean_and_var,
+)
+from cuml._thirdparty.sklearn.utils.extmath import row_norms as cu_row_norms
+from cuml._thirdparty.sklearn.utils.sparsefuncs import (
+    inplace_column_scale as cu_inplace_column_scale,
 )
 from cuml._thirdparty.sklearn.utils.sparsefuncs import (
     inplace_csr_column_scale as cu_inplace_csr_column_scale,
+)
+from cuml._thirdparty.sklearn.utils.sparsefuncs import (
     inplace_csr_row_scale as cu_inplace_csr_row_scale,
-    inplace_column_scale as cu_inplace_column_scale,
+)
+from cuml._thirdparty.sklearn.utils.sparsefuncs import (
     mean_variance_axis as cu_mean_variance_axis,
+)
+from cuml._thirdparty.sklearn.utils.sparsefuncs import (
     min_max_axis as cu_min_max_axis,
 )
+from cuml._thirdparty.sklearn.utils.validation import check_X_y
 from sklearn.utils.extmath import (
-    row_norms as sk_row_norms,
     _incremental_mean_and_var as sk_incremental_mean_and_var,
 )
-from cuml._thirdparty.sklearn.utils.extmath import (
-    row_norms as cu_row_norms,
-    _incremental_mean_and_var as cu_incremental_mean_and_var,
+from sklearn.utils.extmath import row_norms as sk_row_norms
+from sklearn.utils.sparsefuncs import (
+    inplace_column_scale as sk_inplace_column_scale,
 )
-from cuml._thirdparty.sklearn.utils.validation import check_X_y
-from cuml.internals.safe_imports import gpu_only_import
-import pytest
+from sklearn.utils.sparsefuncs import (
+    inplace_csr_column_scale as sk_inplace_csr_column_scale,
+)
+from sklearn.utils.sparsefuncs import (
+    inplace_csr_row_scale as sk_inplace_csr_row_scale,
+)
+from sklearn.utils.sparsefuncs import (
+    mean_variance_axis as sk_mean_variance_axis,
+)
+from sklearn.utils.sparsefuncs import min_max_axis as sk_min_max_axis
 
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.testing.test_preproc_utils import assert_allclose
 
-np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
 cpx = gpu_only_import("cupyx")
+np = cpu_only_import("numpy")
 
 
 @pytest.fixture(scope="session")

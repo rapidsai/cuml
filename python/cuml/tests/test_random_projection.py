@@ -13,20 +13,21 @@
 # limitations under the License.
 #
 
-from cuml.common import has_scipy
+import pytest
 from sklearn.datasets import make_blobs
 from sklearn.random_projection import (
     johnson_lindenstrauss_min_dim as sklearn_johnson_lindenstrauss_min_dim,
 )
-from cuml.random_projection import (
-    johnson_lindenstrauss_min_dim as cuml_johnson_lindenstrauss_min_dim,
-)
+
+from cuml.common import has_scipy
+from cuml.internals.safe_imports import cpu_only_import
 from cuml.random_projection import (
     GaussianRandomProjection,
     SparseRandomProjection,
 )
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.random_projection import (
+    johnson_lindenstrauss_min_dim as cuml_johnson_lindenstrauss_min_dim,
+)
 
 np = cpu_only_import("numpy")
 

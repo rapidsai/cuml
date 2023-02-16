@@ -13,9 +13,10 @@
 # limitations under the License.
 #
 
-from cuml.model_selection import StratifiedKFold
 import pytest
+
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.model_selection import StratifiedKFold
 
 cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")

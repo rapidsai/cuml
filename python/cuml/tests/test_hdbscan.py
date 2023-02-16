@@ -13,31 +13,25 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import
-from sklearn.model_selection import train_test_split
-from sklearn import datasets
-from hdbscan.plots import CondensedTree
 import hdbscan
-from cuml.internals import logger
 import pytest
-
+from hdbscan.plots import CondensedTree
+from sklearn import datasets
+from sklearn.datasets import make_blobs
+from sklearn.model_selection import train_test_split
 
 from cuml.cluster.hdbscan import HDBSCAN, condense_hierarchy
 from cuml.cluster.hdbscan.prediction import (
     all_points_membership_vectors,
     approximate_predict,
 )
-from sklearn.datasets import make_blobs
-
+from cuml.internals import logger
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.metrics import adjusted_rand_score
-from cuml.testing.utils import get_pattern, array_equal
-
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
-
+from cuml.testing.utils import array_equal, get_pattern
 
 cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 dataset_names = ["noisy_circles", "noisy_moons", "varied"]

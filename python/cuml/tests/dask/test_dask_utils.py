@@ -13,8 +13,8 @@
 # limitations under the License.
 #
 import pytest
-
 from dask.distributed import wait
+
 from cuml.dask.common import raise_exception_from_futures
 
 

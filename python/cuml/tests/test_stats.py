@@ -13,10 +13,11 @@
 # limitations under the License.
 #
 
-from cuml.testing.utils import array_equal
-from cuml.prims.stats import cov
 import pytest
+
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.prims.stats import cov
+from cuml.testing.utils import array_equal
 
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")

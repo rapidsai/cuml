@@ -14,14 +14,15 @@
 # limitations under the License.
 #
 
-from cuml.common.exceptions import NotFittedError
-from cuml.testing.utils import array_equal
-from cuml.decomposition.incremental_pca import _svd_flip
-from cuml.decomposition import IncrementalPCA as cuIPCA
-from cuml.datasets import make_blobs
-from sklearn.decomposition import IncrementalPCA as skIPCA
 import pytest
+from sklearn.decomposition import IncrementalPCA as skIPCA
+
+from cuml.common.exceptions import NotFittedError
+from cuml.datasets import make_blobs
+from cuml.decomposition import IncrementalPCA as cuIPCA
+from cuml.decomposition.incremental_pca import _svd_flip
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.testing.utils import array_equal
 
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")

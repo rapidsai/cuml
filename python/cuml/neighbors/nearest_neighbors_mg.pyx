@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,24 +17,27 @@
 # distutils: language = c++
 
 import typing
+
 from cuml.internals.safe_imports import gpu_only_import_from
+
 cudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
-from cuml.internals.array import CumlArray
+import cuml.internals.logger as logger
 from cuml.common import input_to_cuml_array
 from cuml.internals import api_base_return_generic_skipall
-import cuml.internals.logger as logger
-
+from cuml.internals.array import CumlArray
 from cuml.neighbors import NearestNeighbors
 
 from pylibraft.common.handle cimport handle_t
+
 from cuml.common.opg_data_utils_mg cimport *
+
 from cuml.common.opg_data_utils_mg import _build_part_inputs
 
+from cython.operator cimport dereference as deref
+from libc.stdint cimport uintptr_t
+from libc.stdlib cimport calloc, free, malloc
 from libcpp cimport bool
 from libcpp.vector cimport vector
-from libc.stdint cimport uintptr_t
-from cython.operator cimport dereference as deref
-from libc.stdlib cimport calloc, malloc, free
 
 
 cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \

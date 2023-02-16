@@ -15,36 +15,42 @@
 
 # distutils: language = c++
 
-from libc.stdint cimport uintptr_t
-from libcpp cimport bool
-from libc.stdlib cimport free
-
 from cython.operator cimport dereference as deref
+from libc.stdint cimport uintptr_t
+from libc.stdlib cimport free
+from libcpp cimport bool
 
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 from warnings import warn
 
+from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
-from cuml.common.doc_utils import generate_docstring
+
 from pylibraft.common.handle cimport handle_t
 from rmm._lib.device_uvector cimport device_uvector
 
 from pylibraft.common.handle import Handle
-from cuml.common import input_to_cuml_array
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
-from cuml.internals.mixins import ClusterMixin
-from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.internals import logger
-from cuml.internals.import_utils import has_hdbscan_plots
-from cuml.internals.import_utils import has_hdbscan_prediction
 
 import cuml
+from cuml.common import input_to_cuml_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals import logger
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
+from cuml.internals.import_utils import (
+    has_hdbscan_plots,
+    has_hdbscan_prediction,
+)
+from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
+
 from cuml.metrics.distance_type cimport DistanceType
 
 
@@ -602,8 +608,8 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
         if self.prediction_data_obj is None:
             if has_hdbscan_prediction():
-                from sklearn.neighbors import KDTree, BallTree
                 from hdbscan.prediction import PredictionData
+                from sklearn.neighbors import BallTree, KDTree
 
                 FAST_METRICS = KDTree.valid_metrics + \
                     BallTree.valid_metrics + ["cosine", "arccos"]

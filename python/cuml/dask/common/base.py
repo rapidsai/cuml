@@ -13,29 +13,30 @@
 # limitations under the License.
 #
 
-from distributed.client import Future
+from collections.abc import Iterable
 from functools import wraps
+
+import cudf.comm.serialize  # noqa: F401
+import dask
 from dask_cudf.core import Series as dcSeries
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.base import Base
-from cuml.internals import BaseMetaClass
+from distributed.client import Future
+from raft_dask.common.comms import Comms
+from toolz import first
+
 from cuml.dask.common import parts_to_ranks
 from cuml.dask.common.input_utils import DistributedDataHandler
-from raft_dask.common.comms import Comms
-from cuml.dask.common.utils import wait_and_raise_from_futures
+from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
+from cuml.internals import BaseMetaClass
 from cuml.internals.array import CumlArray
-from cuml.dask.common.utils import get_client
-from collections.abc import Iterable
-from toolz import first
-from cuml.internals.safe_imports import cpu_only_import
-import dask
-import cudf.comm.serialize  # noqa: F401
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.base import Base
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+)
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
-
-
 dcDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
 
 

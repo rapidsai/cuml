@@ -14,29 +14,34 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import cpu_only_import
 import math
-from sklearn.naive_bayes import GaussianNB as skGNB
-from sklearn.naive_bayes import ComplementNB as skComplementNB
-from sklearn.naive_bayes import CategoricalNB as skCNB
+
+import pytest
+from numpy.testing import (
+    assert_allclose,
+    assert_array_almost_equal,
+    assert_array_equal,
+    assert_raises,
+)
+from sklearn.metrics import accuracy_score
 from sklearn.naive_bayes import BernoulliNB as skBNB
+from sklearn.naive_bayes import CategoricalNB as skCNB
+from sklearn.naive_bayes import ComplementNB as skComplementNB
+from sklearn.naive_bayes import GaussianNB as skGNB
 from sklearn.naive_bayes import MultinomialNB as skNB
-from numpy.testing import assert_array_almost_equal, assert_raises
-from numpy.testing import assert_allclose, assert_array_equal
+
 from cuml.datasets import make_classification
 from cuml.internals.input_utils import sparse_scipy_to_cp
-from cuml.naive_bayes import GaussianNB
-from cuml.naive_bayes import ComplementNB
-from cuml.naive_bayes import CategoricalNB
-from cuml.naive_bayes import BernoulliNB
-from cuml.naive_bayes import MultinomialNB
-from sklearn.metrics import accuracy_score
-import pytest
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.naive_bayes import (
+    BernoulliNB,
+    CategoricalNB,
+    ComplementNB,
+    GaussianNB,
+    MultinomialNB,
+)
 
 cp = gpu_only_import("cupy")
-
-
 np = cpu_only_import("numpy")
 
 

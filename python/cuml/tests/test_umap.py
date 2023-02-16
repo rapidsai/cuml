@@ -17,31 +17,32 @@
 # Please install UMAP before running the code
 # use 'conda install -c conda-forge umap-learn' command to install it
 
-import pytest
 import copy
+
 import joblib
+import pytest
 import umap
-from sklearn.metrics import adjusted_rand_score
-from sklearn.manifold import trustworthiness
-from sklearn.datasets import make_blobs
-from sklearn.cluster import KMeans
-from sklearn.neighbors import NearestNeighbors
 from sklearn import datasets
+from sklearn.cluster import KMeans
+from sklearn.datasets import make_blobs
+from sklearn.manifold import trustworthiness
+from sklearn.metrics import adjusted_rand_score
+from sklearn.neighbors import NearestNeighbors
+
 from cuml.internals import logger
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.manifold.umap import UMAP as cuUMAP
 from cuml.metrics import pairwise_distances
 from cuml.testing.utils import (
     array_equal,
-    unit_param,
     quality_param,
     stress_param,
+    unit_param,
 )
-from cuml.manifold.umap import UMAP as cuUMAP
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
 
-np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
+np = cpu_only_import("numpy")
 scipy_sparse = cpu_only_import("scipy.sparse")
 
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,28 +16,35 @@
 # distutils: language = c++
 
 import ctypes
+
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 
 from cuml.internals.safe_imports import gpu_only_import
+
 rmm = gpu_only_import('rmm')
 
-from libc.stdlib cimport malloc, free
-
-from libcpp cimport bool
-from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
+from libc.stdint cimport uint32_t, uint64_t, uintptr_t
+from libc.stdlib cimport free, malloc
+from libcpp cimport bool
 
 import cuml.internals
-from cuml.internals.base import Base
 from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+
 from pylibraft.common.handle cimport handle_t
+
 from cuml.common.opg_data_utils_mg cimport *
+
 from cuml.common import input_to_cuml_array
+
 from cuml.decomposition.utils cimport *
 
 from cuml.linear_model import Ridge
 from cuml.linear_model.base_mg import MGFitMixin
+
 
 cdef extern from "cuml/linear_model/ridge_mg.hpp" namespace "ML::Ridge::opg":
 

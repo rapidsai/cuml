@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,13 @@
 # limitations under the License.
 #
 
-from cuml.cluster.dbscan import DBSCAN
-from cuml.cluster.kmeans import KMeans
 from cuml.cluster.agglomerative import AgglomerativeClustering
+from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.hdbscan import HDBSCAN
 
 # TODO: These need to be deprecated and moved to hdbscan namespace
-from cuml.cluster.hdbscan.prediction import all_points_membership_vectors
-from cuml.cluster.hdbscan.prediction import approximate_predict
+from cuml.cluster.hdbscan.prediction import (
+    all_points_membership_vectors,
+    approximate_predict,
+)
+from cuml.cluster.kmeans import KMeans

@@ -15,10 +15,8 @@
 #
 
 import pytest
-
-from dask_cuda import initialize
-from dask_cuda import LocalCUDACluster
 from dask.distributed import Client
+from dask_cuda import LocalCUDACluster, initialize
 
 enable_tcp_over_ucx = True
 enable_nvlink = False

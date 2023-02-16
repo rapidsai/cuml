@@ -13,11 +13,14 @@
 # limitations under the License.
 #
 
-from cuml.dask.common.base import BaseEstimator
-from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.dask.common.base import mnmg_import
-from cuml.dask.common.base import SyncFitMixinLinearModel
 from raft_dask.common.comms import get_raft_comm_state
+
+from cuml.dask.common.base import (
+    BaseEstimator,
+    DelayedPredictionMixin,
+    SyncFitMixinLinearModel,
+    mnmg_import,
+)
 
 
 class LinearRegression(

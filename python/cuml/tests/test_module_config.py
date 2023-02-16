@@ -14,12 +14,11 @@
 # limitations under the License.
 #
 
-from numba.cuda import is_cuda_array, as_cuda_array
-from cuml.internals.safe_imports import cpu_only_import
-import cuml
 import pytest
+from numba.cuda import as_cuda_array, is_cuda_array
 
-from cuml.internals.safe_imports import gpu_only_import
+import cuml
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
 cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")

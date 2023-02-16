@@ -16,8 +16,8 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import gpu_only_import, gpu_only_import_from
+
 np = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
 sparse = gpu_only_import_from('cupyx.scipy', 'sparse')

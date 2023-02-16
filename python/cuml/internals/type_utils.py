@@ -20,6 +20,7 @@ from cuml.internals.safe_imports import gpu_only_import
 
 cp = gpu_only_import("cupy")
 
+
 # Those are the only data types supported by cupyx.scipy.sparse matrices.
 CUPY_SPARSE_DTYPES = [cp.float32, cp.float64, cp.complex64, cp.complex128]
 

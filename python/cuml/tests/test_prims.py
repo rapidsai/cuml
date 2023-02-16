@@ -13,16 +13,11 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.prims.label import make_monotonic
-from cuml.prims.label import invert_labels
-from cuml.prims.label import check_labels
-
-from cuml.testing.utils import array_equal
-
 import pytest
 
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.prims.label import check_labels, invert_labels, make_monotonic
+from cuml.testing.utils import array_equal
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")

@@ -14,23 +14,25 @@
 # limitations under the License.
 #
 
+import pytest
 from pylibraft.common.handle import Handle
 from sklearn.linear_model import LinearRegression as skreg
-from cuml.datasets import make_regression
-from cuml.testing.utils import ClassEnumerator
-from cuml.explainer.common import model_func_call
-from cuml.explainer.common import link_dict
-from cuml.explainer.common import get_tag_from_model_func
-from cuml.explainer.common import get_link_fn_from_str_or_fn
-from cuml.explainer.common import get_handle_from_cuml_model_func
-from cuml.explainer.common import get_dtype_from_model_func
-from cuml.explainer.common import get_cai_ptr
+
+import cuml
 from cuml import PCA
 from cuml import LinearRegression as reg
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
-import cuml
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.datasets import make_regression
+from cuml.explainer.common import (
+    get_cai_ptr,
+    get_dtype_from_model_func,
+    get_handle_from_cuml_model_func,
+    get_link_fn_from_str_or_fn,
+    get_tag_from_model_func,
+    link_dict,
+    model_func_call,
+)
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.testing.utils import ClassEnumerator
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,24 +17,29 @@
 # distutils: language = c++
 
 import ctypes
+
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 import warnings
 
 from cuml.internals.safe_imports import gpu_only_import
+
 rmm = gpu_only_import('rmm')
 
 from cython.operator cimport dereference as deref
+from libc.stdint cimport int64_t, uintptr_t
+from libc.stdlib cimport calloc, free, malloc
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t, int64_t
-from libc.stdlib cimport calloc, malloc, free
 
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+
 from pylibraft.common.handle cimport handle_t
-from cuml.common import input_to_cuml_array
 
 from cuml.cluster import KMeans
+from cuml.common import input_to_cuml_array
+
 from cuml.cluster.kmeans_utils cimport *
 
 

@@ -14,45 +14,40 @@
 #
 
 
-from cuml.testing.test_preproc_utils import assert_allclose
-from sklearn.preprocessing import (
-    StandardScaler as skStandardScaler,
-    Normalizer as skNormalizer,
-    PolynomialFeatures as skPolynomialFeatures,
-    OneHotEncoder as skOneHotEncoder,
-)
-from cuml.preprocessing import (
-    StandardScaler as cuStandardScaler,
-    Normalizer as cuNormalizer,
-    PolynomialFeatures as cuPolynomialFeatures,
-    OneHotEncoder as cuOneHotEncoder,
-)
-from sklearn.compose import (
-    ColumnTransformer as skColumnTransformer,
-    make_column_transformer as sk_make_column_transformer,
-    make_column_selector as sk_make_column_selector,
-)
-from cuml.compose import (
-    ColumnTransformer as cuColumnTransformer,
-    make_column_transformer as cu_make_column_transformer,
-    make_column_selector as cu_make_column_selector,
-)
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import cpu_only_import_from
-from cuml.internals.safe_imports import cpu_only_import
 import pytest
+from sklearn.compose import ColumnTransformer as skColumnTransformer
+from sklearn.compose import make_column_selector as sk_make_column_selector
+from sklearn.compose import (
+    make_column_transformer as sk_make_column_transformer,
+)
+from sklearn.preprocessing import Normalizer as skNormalizer
+from sklearn.preprocessing import OneHotEncoder as skOneHotEncoder
+from sklearn.preprocessing import PolynomialFeatures as skPolynomialFeatures
+from sklearn.preprocessing import StandardScaler as skStandardScaler
 
-from cuml.internals.safe_imports import gpu_only_import
-
-from cuml.testing.test_preproc_utils import (
+from cuml.compose import ColumnTransformer as cuColumnTransformer
+from cuml.compose import make_column_selector as cu_make_column_selector
+from cuml.compose import make_column_transformer as cu_make_column_transformer
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    cpu_only_import_from,
+    gpu_only_import,
+    gpu_only_import_from,
+)
+from cuml.preprocessing import Normalizer as cuNormalizer
+from cuml.preprocessing import OneHotEncoder as cuOneHotEncoder
+from cuml.preprocessing import PolynomialFeatures as cuPolynomialFeatures
+from cuml.preprocessing import StandardScaler as cuStandardScaler
+from cuml.testing.test_preproc_utils import (  # noqa: F401
+    assert_allclose,
     clf_dataset,
     sparse_clf_dataset,
-)  # noqa: F401
+)
 
 cudf = gpu_only_import("cudf")
 np = cpu_only_import("numpy")
-pdDataFrame = cpu_only_import_from("pandas", "DataFrame")
 cuDataFrame = gpu_only_import_from("cudf", "DataFrame")
+pdDataFrame = cpu_only_import_from("pandas", "DataFrame")
 
 
 @pytest.mark.parametrize("remainder", ["drop", "passthrough"])

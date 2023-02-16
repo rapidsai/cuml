@@ -18,6 +18,7 @@
 import copy
 import operator
 import pickle
+from typing import Tuple
 
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
@@ -33,34 +34,33 @@ from cuml.internals.safe_imports import (
     safe_import,
     safe_import_from,
 )
-from typing import Tuple
+
+cached_property = safe_import_from(
+    "functools", "cached_property", alt=null_decorator
+)
 
 cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
-rmm = gpu_only_import("rmm")
 host_xpy = safe_import("numpy", alt=cp)
-
-cuda = gpu_only_import_from("numba", "cuda")
-cached_property = safe_import_from(
-    "functools", "cached_property", alt=null_decorator
-)
-CudfBuffer = gpu_only_import_from("cudf.core.buffer", "Buffer")
+rmm = gpu_only_import("rmm")
 CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
 CudfIndex = gpu_only_import_from("cudf", "Index")
 CudfSeries = gpu_only_import_from("cudf", "Series")
-DaskCudfDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
-DaskCudfSeries = gpu_only_import_from("dask_cudf.core", "Series")
+CudfBuffer = gpu_only_import_from("cudf.core.buffer", "Buffer")
 DaskDataFrame = gpu_only_import_from("dask.dataframe", "DataFrame")
 DaskSeries = gpu_only_import_from("dask.dataframe", "Series")
-DeviceBuffer = gpu_only_import_from("rmm", "DeviceBuffer")
+DaskCudfDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
+DaskCudfSeries = gpu_only_import_from("dask_cudf.core", "Series")
+cuda = gpu_only_import_from("numba", "cuda")
+is_numba_array = gpu_only_import_from(
+    "numba.cuda", "is_cuda_array", alt=return_false
+)
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
 PandasIndex = cpu_only_import_from("pandas", "Index")
 PandasSeries = cpu_only_import_from("pandas", "Series")
-is_numba_array = gpu_only_import_from(
-    "numba.cuda", "is_cuda_array", alt=return_false
-)
+DeviceBuffer = gpu_only_import_from("rmm", "DeviceBuffer")
 
 
 def _order_to_strides(order, shape, dtype):

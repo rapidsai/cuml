@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,13 @@
 # limitations under the License.
 #
 
-from cuml.naive_bayes.naive_bayes import MultinomialNB
-from cuml.naive_bayes.naive_bayes import BernoulliNB
-from cuml.naive_bayes.naive_bayes import GaussianNB
-from cuml.naive_bayes.naive_bayes import ComplementNB
-from cuml.naive_bayes.naive_bayes import CategoricalNB
+from cuml.naive_bayes.naive_bayes import (
+    BernoulliNB,
+    CategoricalNB,
+    ComplementNB,
+    GaussianNB,
+    MultinomialNB,
+)
 
 __all__ = [
     "MultinomialNB",

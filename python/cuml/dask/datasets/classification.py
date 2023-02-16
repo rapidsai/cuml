@@ -13,21 +13,17 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import cpu_only_import
+import dask.array as da
+
+from cuml.common import with_cupy_rmm
+from cuml.dask.common.utils import get_client
+from cuml.dask.datasets.utils import _create_delayed, _get_labels, _get_X
 from cuml.datasets.classification import _generate_hypercube
 from cuml.datasets.classification import (
     make_classification as sg_make_classification,
 )
 from cuml.datasets.utils import _create_rs_generator
-from cuml.dask.datasets.utils import _get_X
-from cuml.dask.datasets.utils import _get_labels
-from cuml.dask.datasets.utils import _create_delayed
-from cuml.dask.common.utils import get_client
-from cuml.common import with_cupy_rmm
-
-import dask.array as da
-
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")

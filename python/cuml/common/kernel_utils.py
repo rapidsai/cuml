@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 
-import cuml.internals.logger as logger
-from uuid import uuid1
 import functools
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
+from uuid import uuid1
+
+import cuml.internals.logger as logger
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")

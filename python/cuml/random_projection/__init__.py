@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 
-from cuml.random_projection.random_projection import GaussianRandomProjection
-from cuml.random_projection.random_projection import SparseRandomProjection
 from cuml.random_projection.random_projection import (
+    GaussianRandomProjection,
+    SparseRandomProjection,
     johnson_lindenstrauss_min_dim,
 )

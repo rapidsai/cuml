@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 import cuml
-
 from cuml.testing.utils import ClassEnumerator
 
 

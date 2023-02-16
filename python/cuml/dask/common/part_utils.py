@@ -13,23 +13,22 @@
 # limitations under the License.
 #
 
-from cuml.dask.common.utils import parse_host_port
-from dask_cudf.core import Series as dcSeries
-from cuml.internals.safe_imports import gpu_only_import_from
-from dask.dataframe import Series as daskSeries
-from dask.dataframe import DataFrame as daskDataFrame
-from dask.array.core import Array as daskArray
-from toolz import first
-from dask.distributed import futures_of, default_client, wait
-from collections.abc import Sequence
-from tornado import gen
-from functools import reduce
 from collections import OrderedDict
-from cuml.internals.safe_imports import cpu_only_import
+from collections.abc import Sequence
+from functools import reduce
+
+from dask.array.core import Array as daskArray
+from dask.dataframe import DataFrame as daskDataFrame
+from dask.dataframe import Series as daskSeries
+from dask.distributed import default_client, futures_of, wait
+from dask_cudf.core import Series as dcSeries
+from toolz import first
+from tornado import gen
+
+from cuml.dask.common.utils import parse_host_port
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import_from
 
 np = cpu_only_import("numpy")
-
-
 dcDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
 
 

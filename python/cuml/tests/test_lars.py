@@ -13,29 +13,28 @@
 # limitations under the License.
 #
 
-import sklearn
+import sys
 
-from sklearn.linear_model import Lars as skLars
+import pytest
+import sklearn
 from sklearn.datasets import fetch_california_housing
+from sklearn.linear_model import Lars as skLars
+
+from cuml.experimental.linear_model import Lars as cuLars
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import (
     array_equal,
-    unit_param,
     quality_param,
     stress_param,
+    unit_param,
 )
-from cuml.experimental.linear_model import Lars as cuLars
-import sys
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
 
 # As tests directory is not a module, we need to add it to the path
 sys.path.insert(0, ".")
 from test_linear_model import make_regression_dataset  # noqa: E402
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 def normalize_data(X, y):

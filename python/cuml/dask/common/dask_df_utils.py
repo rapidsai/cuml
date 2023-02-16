@@ -13,10 +13,10 @@
 # limitations under the License.
 #
 
-import cuml.internals.logger as logger
 import dask.dataframe as dd
-
 from dask.distributed import default_client
+
+import cuml.internals.logger as logger
 
 
 def get_meta(df):

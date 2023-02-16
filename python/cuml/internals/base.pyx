@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,43 +16,45 @@
 
 # distutils: language = c++
 
-import os
 import inspect
+import os
 from importlib import import_module
+
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
-import nvtx
 import typing
+
+import nvtx
+import pylibraft.common.handle
 
 import cuml
 import cuml.common
 import cuml.common.cuda
-import cuml.internals.logger as logger
 import cuml.internals
-import pylibraft.common.handle
 import cuml.internals.input_utils
+import cuml.internals.logger as logger
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
 from cuml.internals.input_utils import (
     determine_array_type,
     input_to_cuml_array,
-    input_to_host_array
+    input_to_host_array,
 )
-from cuml.internals.memory_utils import determine_array_memtype
 from cuml.internals.mem_type import MemoryType
-from cuml.internals.memory_utils import using_memory_type
+from cuml.internals.memory_utils import (
+    determine_array_memtype,
+    using_memory_type,
+)
+from cuml.internals.mixins import TagsMixin
 from cuml.internals.output_type import (
     INTERNAL_VALID_OUTPUT_TYPES,
-    VALID_OUTPUT_TYPES
+    VALID_OUTPUT_TYPES,
 )
-from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.safe_imports import (
-    gpu_only_import, gpu_only_import_from
-)
-
-from cuml.common.doc_utils import generate_docstring
-from cuml.internals.mixins import TagsMixin
+from cuml.internals.safe_imports import gpu_only_import, gpu_only_import_from
 
 cp_ndarray = gpu_only_import_from('cupy', 'ndarray')
 cp = gpu_only_import('cupy')

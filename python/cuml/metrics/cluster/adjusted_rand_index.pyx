@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,16 +17,22 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 import warnings
 
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
+
 from pylibraft.common.handle cimport handle_t
-from cuml.common import input_to_cuml_array
+
 from pylibraft.common.handle import Handle
+
+from cuml.common import input_to_cuml_array
+
 cimport cuml.common.cuda
+
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 

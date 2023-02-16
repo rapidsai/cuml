@@ -21,49 +21,51 @@ from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.safe_imports import (
+    UnavailableError,
     cpu_only_import,
     cpu_only_import_from,
     gpu_only_import,
     gpu_only_import_from,
-    safe_import,
-    safe_import_from,
     null_decorator,
     return_false,
-    UnavailableError,
+    safe_import,
+    safe_import_from,
 )
 
 cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
-global_settings = GlobalSettings()
 numba_cuda = gpu_only_import("numba.cuda")
 np = cpu_only_import("numpy")
 pd = cpu_only_import("pandas")
 scipy_sparse = safe_import(
     "scipy.sparse", msg="Optional dependency scipy is not installed"
 )
-
-cp_ndarray = gpu_only_import_from("cupy", "ndarray")
-CudfSeries = gpu_only_import_from("cudf", "Series")
 CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
-DaskCudfSeries = gpu_only_import_from("dask_cudf.core", "Series")
+CudfSeries = gpu_only_import_from("cudf", "Series")
+cp_ndarray = gpu_only_import_from("cupy", "ndarray")
+cupyx_isspmatrix = gpu_only_import_from(
+    "cupyx.scipy.sparse", "isspmatrix", alt=return_false
+)
 DaskCudfDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
-np_ndarray = cpu_only_import_from("numpy", "ndarray")
+DaskCudfSeries = gpu_only_import_from("dask_cudf.core", "Series")
 numba_devicearray = gpu_only_import_from("numba.cuda", "devicearray")
+np_ndarray = cpu_only_import_from("numpy", "ndarray")
+nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
+PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
+PandasSeries = cpu_only_import_from("pandas", "Series")
+scipy_isspmatrix = safe_import_from(
+    "scipy.sparse", "isspmatrix", alt=return_false
+)
+
+
+global_settings = GlobalSettings()
+
 try:
     NumbaDeviceNDArrayBase = numba_devicearray.DeviceNDArrayBase
 except UnavailableError:
     NumbaDeviceNDArrayBase = numba_devicearray
-scipy_isspmatrix = safe_import_from(
-    "scipy.sparse", "isspmatrix", alt=return_false
-)
-cupyx_isspmatrix = gpu_only_import_from(
-    "cupyx.scipy.sparse", "isspmatrix", alt=return_false
-)
 
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
-PandasSeries = cpu_only_import_from("pandas", "Series")
-PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
 
 cuml_array = namedtuple("cuml_array", "array n_rows n_cols dtype")
 

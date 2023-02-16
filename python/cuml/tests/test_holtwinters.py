@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
 from sklearn.metrics import r2_score
 from statsmodels.tsa.holtwinters import ExponentialSmoothing as sm_ES
-from cuml.tsa.holtwinters import ExponentialSmoothing as cuml_ES
-import pytest
+
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.tsa.holtwinters import ExponentialSmoothing as cuml_ES
 
 np = cpu_only_import("numpy")
 

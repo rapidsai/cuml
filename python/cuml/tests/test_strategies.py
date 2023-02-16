@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
+from hypothesis.extra.numpy import floating_dtypes, integer_dtypes
+
 from cuml.internals.array import CumlArray
 from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.strategies import (
@@ -28,9 +32,6 @@ from cuml.testing.strategies import (
     standard_regression_datasets,
 )
 from cuml.testing.utils import normalized_shape, series_squeezed_shape
-from hypothesis import HealthCheck, given, settings
-from hypothesis import strategies as st
-from hypothesis.extra.numpy import floating_dtypes, integer_dtypes
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")

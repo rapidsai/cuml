@@ -17,9 +17,12 @@
 # distutils: language = c++
 
 import ctypes
+
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
 scipy = cpu_only_import('scipy')
@@ -28,30 +31,37 @@ from enum import IntEnum
 
 rmm = gpu_only_import('rmm')
 
-from libcpp cimport bool
-from libc.stdint cimport uintptr_t
-
 from cython.operator cimport dereference as deref
+from libc.stdint cimport uintptr_t
+from libcpp cimport bool
 
 import cuml.internals
+from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
-from cuml.common.doc_utils import generate_docstring
+
 from pylibraft.common.handle cimport handle_t
+
 from pylibraft.common.handle import Handle
+
 import cuml.internals.logger as logger
+
 from cuml.decomposition.utils cimport *
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.input_utils import input_to_cupy_array
-from cuml.common.array_descriptor import CumlArrayDescriptor
+
 from cuml.common import using_output_type
-from cuml.prims.stats import cov
-from cuml.internals.input_utils import sparse_scipy_to_cp
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.exceptions import NotFittedError
-from cuml.internals.mixins import FMajorInputTagMixin
-from cuml.internals.mixins import SparseInputTagMixin
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
+from cuml.internals.input_utils import (
+    input_to_cuml_array,
+    input_to_cupy_array,
+    sparse_scipy_to_cp,
+)
+from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
+from cuml.prims.stats import cov
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":

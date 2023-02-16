@@ -38,9 +38,8 @@ cuml.dask datatype version of the docstrings will come in a future update.
 
 """
 
-from inspect import signature
 import inspect
-
+from inspect import signature
 
 _parameters_docstrings = {
     "dense": "{name} : array-like (device or host) shape = {shape}\n"

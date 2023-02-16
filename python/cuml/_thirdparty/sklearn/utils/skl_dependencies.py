@@ -10,9 +10,10 @@
 
 
 from cuml.internals.array_sparse import SparseCumlArray
+
 from ....internals.base import Base
-from ..utils.validation import check_X_y
 from ....thirdparty_adapters import check_array
+from ..utils.validation import check_X_y
 
 
 class BaseEstimator(Base):

@@ -13,20 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.manifold import UMAP
-from cuml.benchmark import datagen
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import
-import sklearn.ensemble as skl_ensemble
-import pickle as pickle
 import os
-import cuml
-from cuml.internals import input_utils
-from cuml.internals.safe_imports import cpu_only_import
+import pickle as pickle
 
+import sklearn.ensemble as skl_ensemble
+
+import cuml
+from cuml.benchmark import datagen
+from cuml.internals import input_utils
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+)
+from cuml.manifold import UMAP
+
+cudf = gpu_only_import("cudf")
 np = cpu_only_import("numpy")
 pd = cpu_only_import("pandas")
-cudf = gpu_only_import("cudf")
 cuda = gpu_only_import_from("numba", "cuda")
 
 
@@ -212,9 +216,10 @@ def _build_cpu_skl_classifier(m, data, args, tmpdir):
 
 def _build_treelite_classifier(m, data, args, tmpdir):
     """Setup function for treelite classification benchmarking"""
-    from cuml.internals.import_utils import has_xgboost
     import treelite
     import treelite_runtime
+
+    from cuml.internals.import_utils import has_xgboost
 
     if has_xgboost():
         import xgboost as xgb

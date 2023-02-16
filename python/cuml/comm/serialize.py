@@ -15,22 +15,21 @@
 #
 
 
-import cuml
 import cudf.comm.serialize  # noqa: F401
 
+import cuml
 
 try:
-    from distributed.protocol import dask_deserialize, dask_serialize
-    from distributed.protocol.serialize import pickle_dumps, pickle_loads
+    from distributed.protocol import (
+        dask_deserialize,
+        dask_serialize,
+        register_generic,
+    )
     from distributed.protocol.cuda import cuda_deserialize, cuda_serialize
+    from distributed.protocol.serialize import pickle_dumps, pickle_loads
 
-    from distributed.protocol import register_generic
-
+    from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
     from cuml.internals.array_sparse import SparseCumlArray
-
-    from cuml.ensemble import RandomForestRegressor
-    from cuml.ensemble import RandomForestClassifier
-
     from cuml.naive_bayes import MultinomialNB
 
     # Registering RF Regressor and Classifier to use pickling even when

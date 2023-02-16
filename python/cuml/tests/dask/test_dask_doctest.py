@@ -13,20 +13,20 @@
 # limitations under the License.
 #
 
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
 import contextlib
 import doctest
 import inspect
 import io
 
+import pytest
+
 import cuml
 import cuml.dask
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
+cudf = gpu_only_import("cudf")
 dask_cudf = gpu_only_import("dask_cudf")
 np = cpu_only_import("numpy")
-cudf = gpu_only_import("cudf")
 
 
 def _name_in_all(parent, name):

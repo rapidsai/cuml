@@ -15,8 +15,9 @@
 #
 
 from contextlib import redirect_stdout
+from io import BytesIO, StringIO, TextIOWrapper
+
 import cuml.internals.logger as logger
-from io import StringIO, TextIOWrapper, BytesIO
 
 
 def test_logger():

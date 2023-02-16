@@ -14,14 +14,13 @@
 # limitations under the License.
 #
 
-from cuml.internals.input_utils import sparse_scipy_to_cp
-from cuml.testing.utils import small_classification_dataset
-from cuml.naive_bayes import MultinomialNB
-from cuml import LogisticRegression
-from cuml.internals.safe_imports import cpu_only_import
 import pytest
 
-from cuml.internals.safe_imports import gpu_only_import
+from cuml import LogisticRegression
+from cuml.internals.input_utils import sparse_scipy_to_cp
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.naive_bayes import MultinomialNB
+from cuml.testing.utils import small_classification_dataset
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")

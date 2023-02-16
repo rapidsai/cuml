@@ -14,11 +14,12 @@
 # limitations under the License.
 #
 
-from cuml.dask.common.dask_arr_utils import to_dask_cudf
-import pytest
-from cuml.dask.datasets.blobs import make_blobs
-from cuml.dask.common.input_utils import DistributedDataHandler
 import dask.array as da
+import pytest
+
+from cuml.dask.common.dask_arr_utils import to_dask_cudf
+from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.datasets.blobs import make_blobs
 from cuml.internals.safe_imports import gpu_only_import
 
 cp = gpu_only_import("cupy")

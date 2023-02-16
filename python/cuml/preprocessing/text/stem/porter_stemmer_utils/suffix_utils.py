@@ -14,14 +14,16 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+)
 
-cuda = gpu_only_import_from("numba", "cuda")
 cudf = gpu_only_import("cudf")
-np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
+cuda = gpu_only_import_from("numba", "cuda")
 
 
 def get_str_replacement_series(replacement, bool_mask):

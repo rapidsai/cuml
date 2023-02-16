@@ -16,15 +16,19 @@
 
 import gc
 import operator
-import pytest
 import sys
 from copy import deepcopy
+
+import pytest
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
+
+from cuml import global_settings
 from cuml.internals.array import (
     CumlArray,
     _order_to_strides,
     array_to_memory_order,
 )
-from cuml import global_settings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import (
     _get_size_from_shape,
@@ -47,10 +51,10 @@ from cuml.testing.strategies import (
     cuml_array_dtypes,
     cuml_array_input_types,
     cuml_array_inputs,
+    cuml_array_mem_types,
     cuml_array_orders,
     cuml_array_output_types,
     cuml_array_shapes,
-    cuml_array_mem_types,
 )
 from cuml.testing.utils import (
     normalized_shape,
@@ -58,24 +62,22 @@ from cuml.testing.utils import (
     squeezed_shape,
     to_nparray,
 )
-from hypothesis import assume, given, settings
-from hypothesis import strategies as st
 
-cp = gpu_only_import("cupy")
 cudf = gpu_only_import("cudf")
+cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
 pd = cpu_only_import("pandas")
-
-cuda = gpu_only_import_from("numba", "cuda")
 CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
 CudfSeries = gpu_only_import_from("cudf", "Series")
-PandasSeries = cpu_only_import_from("pandas", "Series")
-PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
 cp_array = gpu_only_import_from("cupy", "ndarray")
-np_array = gpu_only_import_from("numpy", "ndarray")
+cuda = gpu_only_import_from("numba", "cuda")
 numba_array = gpu_only_import_from(
     "numba.cuda.cudadrv.devicearray", "DeviceNDArray"
 )
+np_array = gpu_only_import_from("numpy", "ndarray")
+PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
+PandasSeries = cpu_only_import_from("pandas", "Series")
+
 
 if sys.version_info < (3, 8):
     try:

@@ -13,17 +13,18 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import
 import pytest
-from cuml.dask.common import utils as dask_utils
-from sklearn.metrics import mean_squared_error
 from sklearn.datasets import make_regression
-from cuml.internals.safe_imports import cpu_only_import
+from sklearn.metrics import mean_squared_error
 
-pd = cpu_only_import("pandas")
-np = cpu_only_import("numpy")
-dask_cudf = gpu_only_import("dask_cudf")
+from cuml.dask.common import utils as dask_utils
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+
 cudf = gpu_only_import("cudf")
+dask_cudf = gpu_only_import("dask_cudf")
+np = cpu_only_import("numpy")
+pd = cpu_only_import("pandas")
+
 
 pytestmark = pytest.mark.mg
 

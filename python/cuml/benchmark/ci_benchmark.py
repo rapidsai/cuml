@@ -18,8 +18,8 @@
 NOTE: This is currently experimental as the ops team builds out the CI
 platform to support benchmark reporting.
 """
-from cuml.benchmark.runners import run_variations
 from cuml.benchmark import algorithms
+from cuml.benchmark.runners import run_variations
 from cuml.internals.safe_imports import cpu_only_import
 
 np = cpu_only_import("numpy")
@@ -47,8 +47,9 @@ def report_asv(
     output_dir : str
       Directory for ASV output database
     """
-    import asvdb
     import platform
+
+    import asvdb
     import psutil
 
     uname = platform.uname()

@@ -13,15 +13,15 @@
 # limitations under the License.
 
 import pytest
-from cuml.testing.utils import array_equal
-from cuml.internals.safe_imports import cpu_only_import
+
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.preprocessing.TargetEncoder import TargetEncoder
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.testing.utils import array_equal
 
 cudf = gpu_only_import("cudf")
-pandas = cpu_only_import("pandas")
-np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
+pandas = cpu_only_import("pandas")
 
 
 def test_targetencoder_fit_transform():

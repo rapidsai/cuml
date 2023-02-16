@@ -12,18 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import pytest
+from hypothesis import given, note
+from hypothesis import strategies as st
+from hypothesis import target
 from hypothesis.extra.numpy import (
     array_shapes,
     arrays,
     floating_dtypes,
     integer_dtypes,
 )
-from hypothesis import target
-from hypothesis import strategies as st
-from hypothesis import given, note
-from cuml.testing.utils import array_equal, assert_array_equal
-import pytest
+
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.testing.utils import array_equal, assert_array_equal
 
 np = cpu_only_import("numpy")
 

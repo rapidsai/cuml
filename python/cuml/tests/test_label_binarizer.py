@@ -12,18 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from cuml.internals.safe_imports import gpu_only_import
 import pytest
-from cuml.preprocessing import LabelBinarizer
-from cuml.testing.utils import array_equal
-from cuml.common import has_scipy
-
 from sklearn.preprocessing import LabelBinarizer as skLB
 
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.common import has_scipy
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.preprocessing import LabelBinarizer
+from cuml.testing.utils import array_equal
 
-np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 @pytest.mark.parametrize(

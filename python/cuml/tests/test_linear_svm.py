@@ -13,21 +13,22 @@
 # limitations under the License.
 #
 
-import cuml.internals.logger as logger
-import cuml
-import cuml.svm as cu
-import sklearn.svm as sk
-from cuml.testing.utils import unit_param, quality_param, stress_param
-from queue import Empty
-import cuml.model_selection as dsel
-import cuml.datasets as data
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
 import gc
+import math
 import multiprocessing as mp
 import time
-import math
-from cuml.internals.safe_imports import gpu_only_import
+from queue import Empty
+
+import pytest
+import sklearn.svm as sk
+
+import cuml
+import cuml.datasets as data
+import cuml.internals.logger as logger
+import cuml.model_selection as dsel
+import cuml.svm as cu
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.testing.utils import quality_param, stress_param, unit_param
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")

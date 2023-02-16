@@ -14,8 +14,9 @@
 # limitations under the License.
 #
 
-from cuml.internals.import_utils import has_daskglm
 import warnings
+
+from cuml.internals.import_utils import has_daskglm
 
 if has_daskglm():
     from cuml.dask.extended.linear_model.logistic_regression import (

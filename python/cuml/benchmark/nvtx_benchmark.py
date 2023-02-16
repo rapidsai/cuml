@@ -14,10 +14,10 @@
 # limitations under the License.
 #
 
+import json
 import os
 import sys
 from subprocess import run
-import json
 
 
 class Profiler:

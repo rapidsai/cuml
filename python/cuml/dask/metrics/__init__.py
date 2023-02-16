@@ -14,8 +14,9 @@
 # limitations under the License.
 #
 
-from cuml.internals.import_utils import has_dask
 import warnings
+
+from cuml.internals.import_utils import has_dask
 
 if has_dask():
     from cuml.dask.metrics.confusion_matrix import confusion_matrix

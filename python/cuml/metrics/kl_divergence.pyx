@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,16 +15,21 @@
 #
 
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 import cuml.internals
-from cuml.internals.input_utils import determine_array_type
-from cuml.common import (input_to_cuml_array, CumlArray)
+from cuml.common import CumlArray, input_to_cuml_array
 from cuml.internals import logger
+from cuml.internals.input_utils import determine_array_type
+
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
+
 from pylibraft.common.handle import Handle
+
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
     double c_kl_divergence "ML::Metrics::kl_divergence"(

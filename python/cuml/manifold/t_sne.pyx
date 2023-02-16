@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,38 +19,46 @@
 # cython: wraparound = False
 
 import ctypes
+
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 import inspect
+
 pd = cpu_only_import('pandas')
 import warnings
+
 from cuml.internals.safe_imports import gpu_only_import
+
 cupy = gpu_only_import('cupy')
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
-from pylibraft.common.handle cimport handle_t
-import cuml.internals.logger as logger
 
+from pylibraft.common.handle cimport handle_t
+
+import cuml.internals.logger as logger
+from cuml.common import input_to_cuml_array
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparsefuncs import extract_knn_infos
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.common.sparse_utils import is_sparse
-from cuml.common.doc_utils import generate_docstring
-from cuml.common import input_to_cuml_array
 from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.common.sparsefuncs import extract_knn_infos
+
 from cuml.metrics.distance_type cimport DistanceType
+
 rmm = gpu_only_import('rmm')
 
-from libcpp cimport bool
-from libc.stdint cimport uintptr_t
-from libc.stdint cimport int64_t
-from libc.stdlib cimport free
-from libcpp.memory cimport shared_ptr
 from cython.operator cimport dereference as deref
+from libc.stdint cimport int64_t, uintptr_t
+from libc.stdlib cimport free
+from libcpp cimport bool
+from libcpp.memory cimport shared_ptr
 
 cimport cuml.common.cuda
+
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML":
 

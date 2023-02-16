@@ -14,23 +14,26 @@
 # limitations under the License.
 #
 
-from pandas import Series as pdSeries
-from cuml.internals.safe_imports import cpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.input_utils import convert_dtype
-from cuml.common import has_cupy
-from cuml.internals.input_utils import input_to_cupy_array
-from cuml.common import input_to_host_array
-from cuml.common import input_to_cuml_array, CumlArray
-from cuml.internals.safe_imports import cpu_only_import
 import pytest
+from pandas import Series as pdSeries
 
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.common import (
+    CumlArray,
+    has_cupy,
+    input_to_cuml_array,
+    input_to_host_array,
+)
+from cuml.internals.input_utils import convert_dtype, input_to_cupy_array
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    cpu_only_import_from,
+    gpu_only_import,
+    gpu_only_import_from,
+)
 
 cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
-
 nbcuda = gpu_only_import_from("numba", "cuda")
 pdDF = cpu_only_import_from("pandas", "DataFrame")
 

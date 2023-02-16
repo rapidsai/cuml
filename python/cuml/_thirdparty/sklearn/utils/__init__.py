@@ -3,5 +3,4 @@
 # This code is under BSD 3 clause license.
 
 
-from . import validation
-from . import extmath
+from . import extmath, validation

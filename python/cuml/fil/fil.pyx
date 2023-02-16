@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,34 +19,44 @@
 import copy
 import ctypes
 import math
+
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 import warnings
+
 pd = cpu_only_import('pandas')
 from inspect import getdoc
 
 from cuml.internals.safe_imports import gpu_only_import
+
 rmm = gpu_only_import('rmm')
 
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport calloc, malloc, free
+from libc.stdlib cimport calloc, free, malloc
+from libcpp cimport bool
 
 import cuml.internals
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+
 from pylibraft.common.handle cimport handle_t
+
 from cuml.common import input_to_cuml_array
+from cuml.common.doc_utils import _parameters_docstrings
 from cuml.internals import logger
 from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.common.doc_utils import _parameters_docstrings
-from rmm._lib.memory_resource cimport DeviceMemoryResource
-from rmm._lib.memory_resource cimport get_current_device_resource
+
+from rmm._lib.memory_resource cimport (
+    DeviceMemoryResource,
+    get_current_device_resource,
+)
 
 import treelite
 import treelite.sklearn as tl_skl
 
 cimport cuml.common.cuda
+
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle

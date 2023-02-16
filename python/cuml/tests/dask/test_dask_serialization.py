@@ -14,9 +14,10 @@
 #
 
 from distributed.protocol.serialize import serialize
-from cuml.naive_bayes.naive_bayes import MultinomialNB
+
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.naive_bayes.naive_bayes import MultinomialNB
 
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")

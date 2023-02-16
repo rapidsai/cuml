@@ -15,8 +15,9 @@
 #
 
 from nltk import stem as nltk_stem
-from cuml.preprocessing.text import stem as rapids_stem
+
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.preprocessing.text import stem as rapids_stem
 
 cudf = gpu_only_import("cudf")
 

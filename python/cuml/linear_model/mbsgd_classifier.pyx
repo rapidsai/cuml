@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,10 @@
 # distutils: language = c++
 
 import cuml.internals
+from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.mixins import ClassifierMixin
-from cuml.common.doc_utils import generate_docstring
-from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
 from cuml.solvers import SGD
 
 

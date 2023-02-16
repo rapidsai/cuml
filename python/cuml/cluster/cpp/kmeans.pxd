@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,16 +16,18 @@
 
 # distutils: language = c++
 
-from libc.stdint cimport uintptr_t, int64_t
-
-from cuml.metrics.distance_type cimport DistanceType
+from libc.stdint cimport int64_t, uintptr_t
 from pylibraft.common.handle cimport handle_t
 
+from cuml.metrics.distance_type cimport DistanceType
+
 import ctypes
+
 from libcpp cimport bool
 
-from cuml.metrics.distance_type cimport DistanceType
 from cuml.common.rng_state cimport RngState
+from cuml.metrics.distance_type cimport DistanceType
+
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace \
         "ML::kmeans::KMeansParams":
