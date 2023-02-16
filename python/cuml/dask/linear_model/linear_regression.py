@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@ from cuml.dask.common.base import SyncFitMixinLinearModel
 from raft_dask.common.comms import get_raft_comm_state
 
 
-class LinearRegression(BaseEstimator,
-                       SyncFitMixinLinearModel,
-                       DelayedPredictionMixin):
+class LinearRegression(
+    BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin
+):
     """
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
@@ -63,9 +63,7 @@ class LinearRegression(BaseEstimator,
     """
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
-        super().__init__(client=client,
-                         verbose=verbose,
-                         **kwargs)
+        super().__init__(client=client, verbose=verbose, **kwargs)
 
     def fit(self, X, y):
         """
@@ -79,8 +77,9 @@ class LinearRegression(BaseEstimator,
             Labels (outcome values)
         """
 
-        models = self._fit(model_func=LinearRegression._create_model,
-                           data=(X, y))
+        models = self._fit(
+            model_func=LinearRegression._create_model, data=(X, y)
+        )
 
         self._set_internal_model(models[0])
 
@@ -113,6 +112,8 @@ class LinearRegression(BaseEstimator,
     @mnmg_import
     def _create_model(sessionId, datatype, **kwargs):
         from cuml.linear_model.linear_regression_mg import LinearRegressionMG
+
         handle = get_raft_comm_state(sessionId)["handle"]
-        return LinearRegressionMG(handle=handle, output_type=datatype,
-                                  **kwargs)
+        return LinearRegressionMG(
+            handle=handle, output_type=datatype, **kwargs
+        )

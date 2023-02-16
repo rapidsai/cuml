@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,10 +21,11 @@ from cuml.internals.input_utils import input_to_cupy_array
 import math
 import typing
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
+
+cp = gpu_only_import("cupy")
 
 
-map_kernel_str = r'''
+map_kernel_str = r"""
 ({0} *x, int x_n, {0} *labels, int n_labels) {
 
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
@@ -45,10 +46,10 @@ map_kernel_str = r'''
   }
   x[tid] = n_labels+1;
 }
-'''
+"""
 
 
-validate_kernel_str = r'''
+validate_kernel_str = r"""
 ({0} *x, int x_n, {0} *labels, int n_labels, int *out) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -71,10 +72,10 @@ validate_kernel_str = r'''
 
   if(!found) out[0] = 0;
 }
-'''
+"""
 
 
-inverse_map_kernel_str = r'''
+inverse_map_kernel_str = r"""
 ({0} *labels, int n_labels, {0} *x, int x_n) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -91,32 +92,29 @@ inverse_map_kernel_str = r'''
 
   x[tid] = original_label;
 }
-'''
+"""
 
 
 def _map_kernel(dtype):
-    return cuda_kernel_factory(map_kernel_str,
-                               (dtype,),
-                               "map_labels_kernel")
+    return cuda_kernel_factory(map_kernel_str, (dtype,), "map_labels_kernel")
 
 
 def _inverse_map_kernel(dtype):
-    return cuda_kernel_factory(inverse_map_kernel_str,
-                               (dtype,),
-                               "inv_map_labels_kernel")
+    return cuda_kernel_factory(
+        inverse_map_kernel_str, (dtype,), "inv_map_labels_kernel"
+    )
 
 
 def _validate_kernel(dtype):
-    return cuda_kernel_factory(validate_kernel_str,
-                               (dtype,),
-                               "validate_labels_kernel")
+    return cuda_kernel_factory(
+        validate_kernel_str, (dtype,), "validate_labels_kernel"
+    )
 
 
-@cuml.internals.api_return_generic(input_arg="labels",
-                                   get_output_type=True)
-def make_monotonic(labels,
-                   classes=None,
-                   copy=False) -> typing.Tuple[CumlArray, CumlArray]:
+@cuml.internals.api_return_generic(input_arg="labels", get_output_type=True)
+def make_monotonic(
+    labels, classes=None, copy=False
+) -> typing.Tuple[CumlArray, CumlArray]:
     """
     Takes a set of labels that might not be drawn from the
     set [0, n-1] and renumbers them to be drawn that
@@ -152,12 +150,12 @@ def make_monotonic(labels,
     smem = labels.dtype.itemsize * int(classes.shape[0])
 
     map_labels = _map_kernel(labels.dtype)
-    map_labels((math.ceil(labels.shape[0] / 32),), (32, ),
-               (labels,
-                labels.shape[0],
-                classes,
-                classes.shape[0]),
-               shared_mem=smem)
+    map_labels(
+        (math.ceil(labels.shape[0] / 32),),
+        (32,),
+        (labels, labels.shape[0], classes, classes.shape[0]),
+        shared_mem=smem,
+    )
 
     return labels, classes
 
@@ -185,8 +183,10 @@ def check_labels(labels, classes) -> bool:
     classes = input_to_cupy_array(classes, order="K").array
 
     if labels.dtype != classes.dtype:
-        raise ValueError("Labels and classes must have same dtype (%s != %s" %
-                         (labels.dtype, classes.dtype))
+        raise ValueError(
+            "Labels and classes must have same dtype (%s != %s"
+            % (labels.dtype, classes.dtype)
+        )
 
     if labels.ndim != 1:
         raise ValueError("Labels array must be 1D")
@@ -195,16 +195,17 @@ def check_labels(labels, classes) -> bool:
 
     smem = labels.dtype.itemsize * int(classes.shape[0])
     validate = _validate_kernel(labels.dtype)
-    validate((math.ceil(labels.shape[0] / 32),), (32, ),
-             (labels, labels.shape[0], classes,
-             classes.shape[0], valid),
-             shared_mem=smem)
+    validate(
+        (math.ceil(labels.shape[0] / 32),),
+        (32,),
+        (labels, labels.shape[0], classes, classes.shape[0], valid),
+        shared_mem=smem,
+    )
 
     return valid[0] == 1
 
 
-@cuml.internals.api_return_array(input_arg="labels",
-                                 get_output_type=True)
+@cuml.internals.api_return_array(input_arg="labels", get_output_type=True)
 def invert_labels(labels, classes, copy=False) -> CumlArray:
     """
     Takes a set of labels that have been mapped to be drawn
@@ -232,12 +233,17 @@ def invert_labels(labels, classes, copy=False) -> CumlArray:
     classes = input_to_cupy_array(classes).array
 
     if labels.dtype != classes.dtype:
-        raise ValueError("Labels and classes must have same dtype (%s != %s" %
-                         (labels.dtype, classes.dtype))
+        raise ValueError(
+            "Labels and classes must have same dtype (%s != %s"
+            % (labels.dtype, classes.dtype)
+        )
     smem = labels.dtype.itemsize * len(classes)
     inverse_map = _inverse_map_kernel(labels.dtype)
-    inverse_map((math.ceil(len(labels) / 32),), (32,),
-                (classes, len(classes),
-                labels, len(labels)), shared_mem=smem)
+    inverse_map(
+        (math.ceil(len(labels) / 32),),
+        (32,),
+        (classes, len(classes), labels, len(labels)),
+        shared_mem=smem,
+    )
 
     return labels

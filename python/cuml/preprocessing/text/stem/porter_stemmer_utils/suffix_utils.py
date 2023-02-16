@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,16 +17,17 @@
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
 from cuml.internals.safe_imports import gpu_only_import_from
-cuda = gpu_only_import_from('numba', 'cuda')
-cudf = gpu_only_import('cudf')
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
+
+cuda = gpu_only_import_from("numba", "cuda")
+cudf = gpu_only_import("cudf")
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
 
 
 def get_str_replacement_series(replacement, bool_mask):
     """
-     Get replacement series with replacement at
-     Places marked by bool mask and empty other wise
+    Get replacement series with replacement at
+    Places marked by bool mask and empty other wise
     """
     word_ser = cudf.Series(cudf.core.column.full(len(bool_mask), ""))
     word_ser.iloc[bool_mask] = replacement
@@ -36,7 +37,7 @@ def get_str_replacement_series(replacement, bool_mask):
 
 def get_index_replacement_series(word_str_ser, replacment_index, bool_mask):
     """
-     Get replacement series with nulls at places marked by bool mask
+    Get replacement series with nulls at places marked by bool mask
     """
     valid_indexes = ~bool_mask
     word_str_ser = word_str_ser.str.get(replacment_index)
@@ -48,7 +49,7 @@ def get_index_replacement_series(word_str_ser, replacment_index, bool_mask):
 
 def replace_suffix(word_str_ser, suffix, replacement, can_replace_mask):
     """
-        replaces string column with valid suffix with replacement
+    replaces string column with valid suffix with replacement
     """
 
     len_suffix = len(suffix)
@@ -86,9 +87,9 @@ def subtract_valid(input_array, valid_bool_array, sub_val):
 @cudf.core.buffer.acquire_spill_lock()
 def get_stem_series(word_str_ser, suffix_len, can_replace_mask):
     """
-        word_str_ser: input string column
-        suffix_len: length of suffix to replace
-        can_repalce_mask: bool array marking strings where to replace
+    word_str_ser: input string column
+    suffix_len: length of suffix to replace
+    can_repalce_mask: bool array marking strings where to replace
     """
     NTHRD = 1024
     NBLCK = int(np.ceil(float(len(word_str_ser)) / float(NTHRD)))

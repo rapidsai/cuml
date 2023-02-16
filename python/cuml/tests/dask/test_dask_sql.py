@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,9 +21,10 @@ from cuml.internals.safe_imports import cpu_only_import
 import pytest
 import cuml
 from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
-dask_cudf = gpu_only_import('dask_cudf')
-np = cpu_only_import('numpy')
+
+cudf = gpu_only_import("cudf")
+dask_cudf = gpu_only_import("dask_cudf")
+np = cpu_only_import("numpy")
 
 
 if has_dask_sql():
@@ -38,11 +39,7 @@ else:
 @pytest.mark.parametrize("n_parts", [2, 20])
 @pytest.mark.parametrize("wrap_predict", [True, False])
 def test_dask_sql_sg_logistic_regression(
-    datatype,
-    nrows,
-    ncols,
-    n_parts,
-    wrap_predict
+    datatype, nrows, ncols, n_parts, wrap_predict
 ):
     if wrap_predict:
         cuml.set_global_output_type("input")

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,21 +17,18 @@
 
 from enum import Enum, auto
 from cuml.internals.device_support import GPU_ENABLED
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import
-)
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
-cudf = gpu_only_import('cudf')
-cp = gpu_only_import('cupy')
-cpx_sparse = gpu_only_import('cupyx.scipy.sparse')
-np = cpu_only_import('numpy')
-pandas = cpu_only_import('pandas')
-scipy_sparse = cpu_only_import('scipy.sparse')
+cudf = gpu_only_import("cudf")
+cp = gpu_only_import("cupy")
+cpx_sparse = gpu_only_import("cupyx.scipy.sparse")
+np = cpu_only_import("numpy")
+pandas = cpu_only_import("pandas")
+scipy_sparse = cpu_only_import("scipy.sparse")
 
 
 class MemoryTypeError(Exception):
-    '''An exception thrown to indicate inconsistent memory type selection'''
+    """An exception thrown to indicate inconsistent memory type selection"""
 
 
 class MemoryType(Enum):
@@ -50,14 +47,15 @@ class MemoryType(Enum):
         try:
             return cls[memory_type]
         except KeyError:
-            raise ValueError('Parameter memory_type must be one of "device", '
-                             '"host", "managed" or "mirror"')
+            raise ValueError(
+                'Parameter memory_type must be one of "device", '
+                '"host", "managed" or "mirror"'
+            )
 
     @property
     def xpy(self):
-        if (
-            self is MemoryType.host
-            or (self is MemoryType.mirror and not GPU_ENABLED)
+        if self is MemoryType.host or (
+            self is MemoryType.mirror and not GPU_ENABLED
         ):
             return np
         else:
@@ -65,9 +63,8 @@ class MemoryType(Enum):
 
     @property
     def xdf(self):
-        if (
-            self is MemoryType.host
-            or (self is MemoryType.mirror and not GPU_ENABLED)
+        if self is MemoryType.host or (
+            self is MemoryType.mirror and not GPU_ENABLED
         ):
             return pandas
         else:
@@ -75,9 +72,8 @@ class MemoryType(Enum):
 
     @property
     def xsparse(self):
-        if (
-            self is MemoryType.host
-            or (self is MemoryType.mirror and not GPU_ENABLED)
+        if self is MemoryType.host or (
+            self is MemoryType.mirror and not GPU_ENABLED
         ):
             return scipy_sparse
         else:

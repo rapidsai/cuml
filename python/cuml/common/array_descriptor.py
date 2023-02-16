@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,8 @@ from dataclasses import dataclass, field
 from cuml.internals.array import CumlArray
 import cuml
 from cuml.internals.input_utils import (
-    input_to_cuml_array, determine_array_type
+    input_to_cuml_array,
+    determine_array_type,
 )
 
 
@@ -34,8 +35,9 @@ class CumlArrayDescriptorMeta:
 
     def get_input_value(self):
 
-        assert self.input_type in self.values, \
-            "Missing value for input_type {}".format(self.input_type)
+        assert (
+            self.input_type in self.values
+        ), "Missing value for input_type {}".format(self.input_type)
 
         return self.values[self.input_type]
 
@@ -43,7 +45,7 @@ class CumlArrayDescriptorMeta:
         # Need to only return the input_value from
         return {
             "input_type": self.input_type,
-            "input_value": self.get_input_value()
+            "input_value": self.get_input_value(),
         }
 
     def __setstate__(self, d):
@@ -51,53 +53,57 @@ class CumlArrayDescriptorMeta:
         self.values = {self.input_type: d["input_value"]}
 
 
-class CumlArrayDescriptor():
+class CumlArrayDescriptor:
     """
     Python descriptor object to control getting/setting `CumlArray` attributes
     on `Base` objects. See the Estimator Guide for an in depth guide.
     """
-    def __init__(self, order='K'):
+
+    def __init__(self, order="K"):
         # order corresponds to the order that the CumlArray attribute
         # should be in to work with the C++ algorithms.
         self.order = order
 
     def __set_name__(self, owner, name):
         self.name = name
-        setattr(owner, name + '_order', self.order)
+        setattr(owner, name + "_order", self.order)
 
-    def _get_meta(self,
-                  instance,
-                  throw_on_missing=False) -> CumlArrayDescriptorMeta:
+    def _get_meta(
+        self, instance, throw_on_missing=False
+    ) -> CumlArrayDescriptorMeta:
 
-        if (throw_on_missing):
-            if (self.name not in instance.__dict__):
+        if throw_on_missing:
+            if self.name not in instance.__dict__:
                 raise AttributeError()
 
         return instance.__dict__.setdefault(
-            self.name, CumlArrayDescriptorMeta(input_type=None, values={}))
+            self.name, CumlArrayDescriptorMeta(input_type=None, values={})
+        )
 
     def _to_output(self, instance, to_output_type, to_output_dtype=None):
         existing = self._get_meta(instance, throw_on_missing=True)
 
         # Handle input_type==None which means we have a non-array object stored
-        if (existing.input_type is None):
+        if existing.input_type is None:
             # Dont save in the cache. Just return the value
             return existing.values[existing.input_type]
 
         # Return a cached value if it exists
-        if (to_output_type in existing.values):
+        if to_output_type in existing.values:
             return existing.values[to_output_type]
 
         # If the input type was anything but CumlArray, need to create one now
-        if ("cuml" not in existing.values):
+        if "cuml" not in existing.values:
             existing.values["cuml"] = input_to_cuml_array(
-                existing.get_input_value(), order="K").array
+                existing.get_input_value(), order="K"
+            ).array
 
         cuml_arr: CumlArray = existing.values["cuml"]
 
         # Do the conversion
-        output = cuml_arr.to_output(output_type=to_output_type,
-                                    output_dtype=to_output_dtype)
+        output = cuml_arr.to_output(
+            output_type=to_output_type, output_dtype=to_output_dtype
+        )
 
         # Cache the value
         existing.values[to_output_type] = output
@@ -106,7 +112,7 @@ class CumlArrayDescriptor():
 
     def __get__(self, instance, owner):
 
-        if (instance is None):
+        if instance is None:
             return self
 
         existing = self._get_meta(instance, throw_on_missing=True)
@@ -117,17 +123,17 @@ class CumlArrayDescriptor():
         output_type = cuml.global_settings.output_type
 
         # First, determine if we need to call to_output at all
-        if (output_type == "mirror"):
+        if output_type == "mirror":
             # We must be internal, just return the input type
             return existing.get_input_value()
 
         else:
             # We are external, determine the target output type
-            if (output_type is None):
+            if output_type is None:
                 # Default to the owning base object output_type
                 output_type = instance.output_type
 
-            if (output_type == "input"):
+            if output_type == "input":
                 # Default to the owning base object, _input_type
                 output_type = instance._input_type
 
@@ -148,5 +154,5 @@ class CumlArrayDescriptor():
 
     def __delete__(self, instance):
 
-        if (instance is not None):
+        if instance is not None:
             del instance.__dict__[self.name]

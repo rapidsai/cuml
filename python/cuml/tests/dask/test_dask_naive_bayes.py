@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,8 @@ from cuml.dask.naive_bayes import MultinomialNB
 import pytest
 import dask.array
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
+
+cp = gpu_only_import("cupy")
 
 
 def test_basic_fit_predict(client):
@@ -37,7 +38,7 @@ def test_basic_fit_predict(client):
     y_hat = y_hat.compute()
     y = y.compute()
 
-    assert(accuracy_score(y_hat.get(), y) > .97)
+    assert accuracy_score(y_hat.get(), y) > 0.97
 
 
 def test_single_distributed_exact_results(client):
@@ -57,7 +58,7 @@ def test_single_distributed_exact_results(client):
 
     y_hat = y_hat.compute().get()
 
-    assert(accuracy_score(y_hat, sg_y_hat) == 1.0)
+    assert accuracy_score(y_hat, sg_y_hat) == 1.0
 
 
 def test_score(client):
@@ -74,23 +75,23 @@ def test_score(client):
     y_hat_local = y_hat.compute()
     y_local = y.compute()
 
-    assert(accuracy_score(y_hat_local.get(), y_local) == score)
+    assert accuracy_score(y_hat_local.get(), y_local) == score
 
 
-@pytest.mark.parametrize('dtype', [cp.float32, cp.float64,
-                                   cp.int32])
+@pytest.mark.parametrize("dtype", [cp.float32, cp.float64, cp.int32])
 def test_model_multiple_chunks(client, dtype):
     # tests naive_bayes with n_chunks being greater than one, related to issue
     # https://github.com/rapidsai/cuml/issues/3150
     X = cp.array([[0, 0, 0, 1], [1, 0, 0, 1], [1, 0, 0, 0]])
 
     X = dask.array.from_array(X, chunks=((1, 1, 1), -1)).astype(dtype)
-    y = dask.array.from_array([1, 0, 0], asarray=False,
-                              fancy=False, chunks=(1)).astype(cp.int32)
+    y = dask.array.from_array(
+        [1, 0, 0], asarray=False, fancy=False, chunks=(1)
+    ).astype(cp.int32)
 
     model = MultinomialNB()
     model.fit(X, y)
 
     # this test is a code coverage test, it is too small to be a numeric test,
     # but we call score here to exercise the whole model.
-    assert(0 <= model.score(X, y) <= 1)
+    assert 0 <= model.score(X, y) <= 1

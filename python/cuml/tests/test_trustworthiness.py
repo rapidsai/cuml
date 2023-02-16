@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,29 +21,36 @@ from sklearn.datasets import make_blobs
 from umap import UMAP
 
 from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
-np = cpu_only_import('numpy')
+
+cudf = gpu_only_import("cudf")
+np = cpu_only_import("numpy")
 
 
-@pytest.mark.parametrize('input_type', ['ndarray', 'dataframe'])
-@pytest.mark.parametrize('n_samples', [150, 500])
-@pytest.mark.parametrize('n_features', [10, 100])
-@pytest.mark.parametrize('n_components', [2, 8])
-@pytest.mark.parametrize('batch_size', [128, 1024])
-def test_trustworthiness(input_type, n_samples, n_features, n_components,
-                         batch_size):
-    centers = round(n_samples*0.4)
-    X, y = make_blobs(n_samples=n_samples, centers=centers,
-                      n_features=n_features, random_state=32)
+@pytest.mark.parametrize("input_type", ["ndarray", "dataframe"])
+@pytest.mark.parametrize("n_samples", [150, 500])
+@pytest.mark.parametrize("n_features", [10, 100])
+@pytest.mark.parametrize("n_components", [2, 8])
+@pytest.mark.parametrize("batch_size", [128, 1024])
+def test_trustworthiness(
+    input_type, n_samples, n_features, n_components, batch_size
+):
+    centers = round(n_samples * 0.4)
+    X, y = make_blobs(
+        n_samples=n_samples,
+        centers=centers,
+        n_features=n_features,
+        random_state=32,
+    )
 
-    X_embedded = \
-        UMAP(n_components=n_components, random_state=32).fit_transform(X)
+    X_embedded = UMAP(
+        n_components=n_components, random_state=32
+    ).fit_transform(X)
     X = X.astype(np.float32)
     X_embedded = X_embedded.astype(np.float32)
 
     sk_score = sklearn_trustworthiness(X, X_embedded)
 
-    if input_type == 'dataframe':
+    if input_type == "dataframe":
         X = cudf.DataFrame(X)
         X_embedded = cudf.DataFrame(X_embedded)
 
@@ -53,8 +60,7 @@ def test_trustworthiness(input_type, n_samples, n_features, n_components,
 
 
 def test_trustworthiness_invalid_input():
-    X, y = make_blobs(n_samples=10, centers=1,
-                      n_features=2, random_state=32)
+    X, y = make_blobs(n_samples=10, centers=1, n_features=2, random_state=32)
 
     with pytest.raises(ValueError):
         cuml_trustworthiness(X, X, n_neighbors=50)

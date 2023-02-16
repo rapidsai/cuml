@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import pytest
 
 # Testing parameters
 
-dtype = ['single', 'double']
+dtype = ["single", "double"]
 n_samples = [100, 100000]
 n_features = [10, 100]
 n_informative = [7]
@@ -36,29 +36,44 @@ bias = [-4.0]
 noise = [3.5]
 
 
-@pytest.mark.parametrize('dtype', dtype)
-@pytest.mark.parametrize('n_samples', n_samples)
-@pytest.mark.parametrize('n_features', n_features)
-@pytest.mark.parametrize('n_informative', n_informative)
-@pytest.mark.parametrize('n_targets', n_targets)
-@pytest.mark.parametrize('shuffle', shuffle)
-@pytest.mark.parametrize('coef', coef)
-@pytest.mark.parametrize('effective_rank', effective_rank)
-@pytest.mark.parametrize('random_state', random_state)
-@pytest.mark.parametrize('bias', bias)
-@pytest.mark.parametrize('noise', noise)
-def test_make_regression(dtype, n_samples, n_features,
-                         n_informative, n_targets, shuffle, coef,
-                         effective_rank, random_state, bias,
-                         noise):
+@pytest.mark.parametrize("dtype", dtype)
+@pytest.mark.parametrize("n_samples", n_samples)
+@pytest.mark.parametrize("n_features", n_features)
+@pytest.mark.parametrize("n_informative", n_informative)
+@pytest.mark.parametrize("n_targets", n_targets)
+@pytest.mark.parametrize("shuffle", shuffle)
+@pytest.mark.parametrize("coef", coef)
+@pytest.mark.parametrize("effective_rank", effective_rank)
+@pytest.mark.parametrize("random_state", random_state)
+@pytest.mark.parametrize("bias", bias)
+@pytest.mark.parametrize("noise", noise)
+def test_make_regression(
+    dtype,
+    n_samples,
+    n_features,
+    n_informative,
+    n_targets,
+    shuffle,
+    coef,
+    effective_rank,
+    random_state,
+    bias,
+    noise,
+):
 
-    result = cuml.make_regression(n_samples=n_samples, n_features=n_features,
-                                  n_informative=n_informative,
-                                  n_targets=n_targets, bias=bias,
-                                  effective_rank=effective_rank, noise=noise,
-                                  shuffle=shuffle,
-                                  coef=coef, random_state=random_state,
-                                  dtype=dtype)
+    result = cuml.make_regression(
+        n_samples=n_samples,
+        n_features=n_features,
+        n_informative=n_informative,
+        n_targets=n_targets,
+        bias=bias,
+        effective_rank=effective_rank,
+        noise=noise,
+        shuffle=shuffle,
+        coef=coef,
+        random_state=random_state,
+        dtype=dtype,
+    )
 
     if coef:
         out, values, coefs = result

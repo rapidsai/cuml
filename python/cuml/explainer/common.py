@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,8 @@ from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cupy_array
 from pylibraft.common.handle import Handle
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
+
+cp = gpu_only_import("cupy")
 
 
 def get_tag_from_model_func(func, tag, default=None):
@@ -35,11 +36,7 @@ def get_tag_from_model_func(func, tag, default=None):
     default: object  (default = None)
         Value that will be returned if tags cannot be fetched.
     """
-    tags_fn = getattr(
-        getattr(func, '__self__', None),
-        '_get_tags',
-        None
-    )
+    tags_fn = getattr(getattr(func, "__self__", None), "_get_tags", None)
 
     if tags_fn is not None:
         tag_value = tags_fn().get(tag)
@@ -64,7 +61,7 @@ def get_handle_from_cuml_model_func(func, create_new=False):
         Whether to return a new RAFT handle if none could be fetched. Otherwise
         the function will return None.
     """
-    owner = getattr(func, '__self__', None)
+    owner = getattr(func, "__self__", None)
 
     if owner is not None and isinstance(owner, Base):
         if owner.handle is not None:
@@ -88,36 +85,29 @@ def get_dtype_from_model_func(func, default=None):
         Whether to return a new RAFT handle if none could be fetched. Otherwise
         the function will return None.
     """
-    dtype = getattr(
-        getattr(func, '__self__', None),
-        'dtype',
-        None
-    )
+    dtype = getattr(getattr(func, "__self__", None), "dtype", None)
 
     dtype = default if dtype is None else dtype
 
     return dtype
 
 
-def model_func_call(X,
-                    model_func,
-                    gpu_model=False):
+def model_func_call(X, model_func, gpu_model=False):
     """
     Function to call `model_func(X)` using either `NumPy` arrays if
     gpu_model is False or X directly if model_gpu based is True.
     Returns the results as CuPy arrays.
     """
     if gpu_model:
-        y = input_to_cupy_array(X=model_func(X),
-                                order='K').array
+        y = input_to_cupy_array(X=model_func(X), order="K").array
     else:
         try:
-            y = input_to_cupy_array(model_func(
-                cp.asnumpy(X)
-            )).array
+            y = input_to_cupy_array(model_func(cp.asnumpy(X))).array
         except TypeError:
-            raise TypeError('Explainer can only explain models that can '
-                            'take GPU data or NumPy arrays as input.')
+            raise TypeError(
+                "Explainer can only explain models that can "
+                "take GPU data or NumPy arrays as input."
+            )
 
     return y
 
@@ -127,8 +117,8 @@ def get_cai_ptr(X):
     Function gets the pointer from an object that supports the
     __cuda_array_interface__. Raises TypeError if `X` does not support it.
     """
-    if hasattr(X, '__cuda_array_interface__'):
-        return X.__cuda_array_interface__['data'][0]
+    if hasattr(X, "__cuda_array_interface__"):
+        return X.__cuda_array_interface__["data"][0]
     else:
         raise TypeError("X must support `__cuda_array_interface__`")
 
@@ -138,8 +128,9 @@ def get_link_fn_from_str_or_fn(link):
         if link in link_dict:
             link_fn = link_dict[link]
         else:
-            raise ValueError("'link' string does not identify any known"
-                             " link functions. ")
+            raise ValueError(
+                "'link' string does not identify any known" " link functions. "
+            )
     elif callable(link):
         if callable(getattr(link, "inverse", None)):
             link_fn = link
@@ -150,7 +141,7 @@ def get_link_fn_from_str_or_fn(link):
 
 
 def output_list_shap_values(X, dimensions, output_type):
-    if output_type == 'cupy':
+    if output_type == "cupy":
         if dimensions == 1:
             return X[0]
         else:
@@ -169,6 +160,7 @@ def output_list_shap_values(X, dimensions, output_type):
 
 
 # link functions
+
 
 def identity(x):
     return x
@@ -190,7 +182,4 @@ identity.inverse = _identity_inverse
 logit.inverse = _logit_inverse
 
 
-link_dict = {
-    'identity': identity,
-    'logit': logit
-}
+link_dict = {"identity": identity, "logit": logit}

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,34 +23,38 @@ from cuml.dask.datasets.utils import _get_X
 from cuml.internals.safe_imports import gpu_only_import
 import dask.array as da
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
+
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
 
 
 def _create_rs_generator(random_state):
-    if hasattr(random_state, '__module__'):
-        rs_type = random_state.__module__ + '.' + type(random_state).__name__
+    if hasattr(random_state, "__module__"):
+        rs_type = random_state.__module__ + "." + type(random_state).__name__
     else:
         rs_type = type(random_state).__name__
 
     rs = None
     if rs_type == "NoneType" or rs_type == "int":
-        rs = da.random.RandomState(seed=random_state,
-                                   RandomState=cp.random.RandomState)
+        rs = da.random.RandomState(
+            seed=random_state, RandomState=cp.random.RandomState
+        )
     elif rs_type == "cupy.random.generator.RandomState":
         rs = da.random.RandomState(RandomState=random_state)
     elif rs_type == "dask.array.random.RandomState":
         rs = random_state
     else:
-        raise ValueError('random_state type must be int, CuPy RandomState \
-                          or Dask RandomState')
+        raise ValueError(
+            "random_state type must be int, CuPy RandomState \
+                          or Dask RandomState"
+        )
     return rs
 
 
 def _dask_f_order_standard_normal(nrows, ncols, dtype, seed):
     local_rs = cp.random.RandomState(seed=seed)
     x = local_rs.standard_normal(nrows * ncols, dtype=dtype)
-    x = x.reshape((nrows, ncols), order='F')
+    x = x.reshape((nrows, ncols), order="F")
     return x
 
 
@@ -61,26 +65,35 @@ def _f_order_standard_normal(client, rs, chunksizes, ncols, dtype):
     chunks_workers = (workers * n_chunks)[:n_chunks]
 
     chunk_seeds = rs.permutation(len(chunksizes))
-    chunks = [client.submit(_dask_f_order_standard_normal, chunksize, ncols,
-                            dtype, chunk_seeds[idx],
-                            workers=[chunks_workers[idx]], pure=False)
-              for idx, chunksize in enumerate(chunksizes)]
+    chunks = [
+        client.submit(
+            _dask_f_order_standard_normal,
+            chunksize,
+            ncols,
+            dtype,
+            chunk_seeds[idx],
+            workers=[chunks_workers[idx]],
+            pure=False,
+        )
+        for idx, chunksize in enumerate(chunksizes)
+    ]
 
     chunks_dela = _create_delayed(chunks, dtype, chunksizes, ncols)
 
     return da.concatenate(chunks_dela, axis=0)
 
 
-def _dask_data_from_multivariate_normal(seed, covar, n_samples, n_features,
-                                        dtype):
+def _dask_data_from_multivariate_normal(
+    seed, covar, n_samples, n_features, dtype
+):
     mean = cp.zeros(n_features)
     local_rs = cp.random.RandomState()
-    return local_rs.multivariate_normal(mean, covar, n_samples,
-                                        dtype=dtype)
+    return local_rs.multivariate_normal(mean, covar, n_samples, dtype=dtype)
 
 
-def _data_from_multivariate_normal(client, rs, covar, chunksizes, n_features,
-                                   dtype):
+def _data_from_multivariate_normal(
+    client, rs, covar, chunksizes, n_features, dtype
+):
     workers = list(client.has_what().keys())
 
     n_chunks = len(chunksizes)
@@ -88,12 +101,19 @@ def _data_from_multivariate_normal(client, rs, covar, chunksizes, n_features,
 
     chunk_seeds = rs.permutation(len(chunksizes))
 
-    data_parts = [client.submit(_dask_data_from_multivariate_normal,
-                                chunk_seeds[idx], covar,
-                                chunksizes[idx], n_features,
-                                dtype, workers=[chunks_workers[idx]],
-                                pure=False)
-                  for idx, chunk in enumerate(chunksizes)]
+    data_parts = [
+        client.submit(
+            _dask_data_from_multivariate_normal,
+            chunk_seeds[idx],
+            covar,
+            chunksizes[idx],
+            n_features,
+            dtype,
+            workers=[chunks_workers[idx]],
+            pure=False,
+        )
+        for idx, chunk in enumerate(chunksizes)
+    ]
 
     data_dela = _create_delayed(data_parts, dtype, chunksizes, n_features)
 
@@ -112,22 +132,41 @@ def _dask_shuffle(part, n_samples, seed, features_indices):
     return X, y
 
 
-def _shuffle(client, rs, X, y, chunksizes, n_features,
-             features_indices, n_targets, dtype):
+def _shuffle(
+    client,
+    rs,
+    X,
+    y,
+    chunksizes,
+    n_features,
+    features_indices,
+    n_targets,
+    dtype,
+):
     data_ddh = DistributedDataHandler.create(data=(X, y), client=client)
 
     chunk_seeds = rs.permutation(len(chunksizes))
 
-    shuffled = [client.submit(_dask_shuffle, part,
-                              chunksizes[idx],
-                              chunk_seeds[idx], features_indices,
-                              workers=[w], pure=False)
-                for idx, (w, part) in enumerate(data_ddh.gpu_futures)]
+    shuffled = [
+        client.submit(
+            _dask_shuffle,
+            part,
+            chunksizes[idx],
+            chunk_seeds[idx],
+            features_indices,
+            workers=[w],
+            pure=False,
+        )
+        for idx, (w, part) in enumerate(data_ddh.gpu_futures)
+    ]
 
-    X_shuffled = [client.submit(_get_X, f, pure=False)
-                  for idx, f in enumerate(shuffled)]
-    y_shuffled = [client.submit(_get_labels, f, pure=False)
-                  for idx, f in enumerate(shuffled)]
+    X_shuffled = [
+        client.submit(_get_X, f, pure=False) for idx, f in enumerate(shuffled)
+    ]
+    y_shuffled = [
+        client.submit(_get_labels, f, pure=False)
+        for idx, f in enumerate(shuffled)
+    ]
 
     X_dela = _create_delayed(X_shuffled, dtype, chunksizes, n_features)
     y_dela = _create_delayed(y_shuffled, dtype, chunksizes, n_targets)
@@ -137,9 +176,10 @@ def _shuffle(client, rs, X, y, chunksizes, n_features,
 
 def _convert_to_order(client, X, chunksizes, order, n_features, dtype):
     X_ddh = DistributedDataHandler.create(data=X, client=client)
-    X_converted = [client.submit(cp.array, X_part, copy=False, order=order,
-                                 workers=[w])
-                   for idx, (w, X_part) in enumerate(X_ddh.gpu_futures)]
+    X_converted = [
+        client.submit(cp.array, X_part, copy=False, order=order, workers=[w])
+        for idx, (w, X_part) in enumerate(X_ddh.gpu_futures)
+    ]
 
     X_dela = _create_delayed(X_converted, dtype, chunksizes, n_features)
 
@@ -154,62 +194,90 @@ def _generate_chunks_for_qr(total_size, min_size, n_parts):
 
     n_partitions = int(max(1, total_size / min_size))
     rest = total_size % (n_partitions * min_size)
-    chunks_list = [min_size for i in range(n_partitions-1)]
+    chunks_list = [min_size for i in range(n_partitions - 1)]
     chunks_list.append(min_size + rest)
     return tuple(chunks_list)
 
 
-def _generate_singular_values(n, effective_rank, tail_strength,
-                              n_samples_per_part, dtype='float32'):
+def _generate_singular_values(
+    n, effective_rank, tail_strength, n_samples_per_part, dtype="float32"
+):
     # Index of the singular values
     sing_ind = cp.arange(n, dtype=dtype)
 
     # Build the singular profile by assembling signal and noise components
     tmp = sing_ind / effective_rank
-    low_rank = (1 - tail_strength) * cp.exp(-1.0 * tmp ** 2)
+    low_rank = (1 - tail_strength) * cp.exp(-1.0 * tmp**2)
     tail = tail_strength * cp.exp(-0.1 * tmp)
     s = low_rank + tail
     return s
 
 
-def _dask_make_low_rank_covariance(n_features, effective_rank,
-                                   tail_strength, seed, n_parts,
-                                   n_samples_per_part, dtype):
+def _dask_make_low_rank_covariance(
+    n_features,
+    effective_rank,
+    tail_strength,
+    seed,
+    n_parts,
+    n_samples_per_part,
+    dtype,
+):
     """
-        This approach is a faster approach than making X as a full low
-        rank matrix. Here, we take advantage of the fact that with
-        SVD, X * X^T = V * S^2 * V^T. This means that we can
-        generate a covariance matrix by generating only the right
-        eigen-vector and the squared, low-rank singular values.
-        With a memory usage of only O(n_features ^ 2) in this case, we pass
-        this covariance matrix to workers to generate each part of X
-        embarassingly parallel from a multi-variate normal with mean 0
-        and generated covariance.
+    This approach is a faster approach than making X as a full low
+    rank matrix. Here, we take advantage of the fact that with
+    SVD, X * X^T = V * S^2 * V^T. This means that we can
+    generate a covariance matrix by generating only the right
+    eigen-vector and the squared, low-rank singular values.
+    With a memory usage of only O(n_features ^ 2) in this case, we pass
+    this covariance matrix to workers to generate each part of X
+    embarassingly parallel from a multi-variate normal with mean 0
+    and generated covariance.
     """
     local_rs = cp.random.RandomState(seed=seed)
     m2 = local_rs.standard_normal((n_features, n_features), dtype=dtype)
     v, _ = cp.linalg.qr(m2)
 
-    s = _generate_singular_values(n_features, effective_rank, tail_strength,
-                                  n_samples_per_part)
+    s = _generate_singular_values(
+        n_features, effective_rank, tail_strength, n_samples_per_part
+    )
 
-    v *= (s ** 2)
+    v *= s**2
     return cp.dot(v, cp.transpose(v))
 
 
-def _make_low_rank_covariance(client, n_features, effective_rank,
-                              tail_strength, seed, n_parts,
-                              n_samples_per_part, dtype):
+def _make_low_rank_covariance(
+    client,
+    n_features,
+    effective_rank,
+    tail_strength,
+    seed,
+    n_parts,
+    n_samples_per_part,
+    dtype,
+):
 
-    return client.submit(_dask_make_low_rank_covariance, n_features,
-                         effective_rank, tail_strength, seed,
-                         n_parts, n_samples_per_part, dtype)
+    return client.submit(
+        _dask_make_low_rank_covariance,
+        n_features,
+        effective_rank,
+        tail_strength,
+        seed,
+        n_parts,
+        n_samples_per_part,
+        dtype,
+    )
 
 
-def make_low_rank_matrix(n_samples=100, n_features=100,
-                         effective_rank=10, tail_strength=0.5,
-                         random_state=None, n_parts=1,
-                         n_samples_per_part=None, dtype='float32'):
+def make_low_rank_matrix(
+    n_samples=100,
+    n_features=100,
+    effective_rank=10,
+    tail_strength=0.5,
+    random_state=None,
+    n_parts=1,
+    n_samples_per_part=None,
+    dtype="float32",
+):
     """ Generate a mostly low rank matrix with bell-shaped singular values
 
     Parameters
@@ -244,16 +312,18 @@ def make_low_rank_matrix(n_samples=100, n_features=100,
     n = min(n_samples, n_features)
 
     # Random (ortho normal) vectors
-    m1 = rs.standard_normal((n_samples, n),
-                            chunks=(_generate_chunks_for_qr(n_samples,
-                                                            n, n_parts), -1),
-                            dtype=dtype)
+    m1 = rs.standard_normal(
+        (n_samples, n),
+        chunks=(_generate_chunks_for_qr(n_samples, n, n_parts), -1),
+        dtype=dtype,
+    )
     u, _ = da.linalg.qr(m1)
 
-    m2 = rs.standard_normal((n, n_features),
-                            chunks=(-1, _generate_chunks_for_qr(n_features,
-                                                                n, n_parts)),
-                            dtype=dtype)
+    m2 = rs.standard_normal(
+        (n, n_features),
+        chunks=(-1, _generate_chunks_for_qr(n_features, n, n_parts)),
+        dtype=dtype,
+    )
     v, _ = da.linalg.qr(m2)
 
     # For final multiplication
@@ -262,22 +332,35 @@ def make_low_rank_matrix(n_samples=100, n_features=100,
     u = u.rechunk({0: n_samples_per_part, 1: -1})
     v = v.rechunk({0: n_samples_per_part, 1: -1})
 
-    local_s = _generate_singular_values(n, effective_rank, tail_strength,
-                                        n_samples_per_part)
-    s = da.from_array(local_s,
-                      chunks=(int(n_samples_per_part),))
+    local_s = _generate_singular_values(
+        n, effective_rank, tail_strength, n_samples_per_part
+    )
+    s = da.from_array(local_s, chunks=(int(n_samples_per_part),))
 
     u *= s
     return da.dot(u, v)
 
 
 @with_cupy_rmm
-def make_regression(n_samples=100, n_features=100, n_informative=10,
-                    n_targets=1, bias=0.0, effective_rank=None,
-                    tail_strength=0.5, noise=0.0, shuffle=False, coef=False,
-                    random_state=None, n_parts=1, n_samples_per_part=None,
-                    order='F', dtype='float32', client=None,
-                    use_full_low_rank=True):
+def make_regression(
+    n_samples=100,
+    n_features=100,
+    n_informative=10,
+    n_targets=1,
+    bias=0.0,
+    effective_rank=None,
+    tail_strength=0.5,
+    noise=0.0,
+    shuffle=False,
+    coef=False,
+    random_state=None,
+    n_parts=1,
+    n_samples_per_part=None,
+    order="F",
+    dtype="float32",
+    client=None,
+    use_full_low_rank=True,
+):
     """
     Generate a random regression problem.
 
@@ -377,61 +460,74 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
 
     data_chunksizes = [n_samples_per_part] * n_parts
 
-    data_chunksizes[-1] += (n_samples % n_parts)
+    data_chunksizes[-1] += n_samples % n_parts
 
     data_chunksizes = tuple(data_chunksizes)
 
     if effective_rank is None:
         # Randomly generate a well conditioned input set
-        if order == 'F':
-            X = _f_order_standard_normal(client, rs, data_chunksizes,
-                                         n_features, dtype)
+        if order == "F":
+            X = _f_order_standard_normal(
+                client, rs, data_chunksizes, n_features, dtype
+            )
 
-        elif order == 'C':
-            X = rs.standard_normal((n_samples, n_features),
-                                   chunks=(data_chunksizes, -1),
-                                   dtype=dtype)
+        elif order == "C":
+            X = rs.standard_normal(
+                (n_samples, n_features),
+                chunks=(data_chunksizes, -1),
+                dtype=dtype,
+            )
 
     else:
         # Randomly generate a low rank, fat tail input set
         if use_full_low_rank:
-            X = make_low_rank_matrix(n_samples=n_samples,
-                                     n_features=n_features,
-                                     effective_rank=effective_rank,
-                                     tail_strength=tail_strength,
-                                     random_state=rs,
-                                     n_parts=n_parts,
-                                     n_samples_per_part=n_samples_per_part,
-                                     dtype=dtype)
+            X = make_low_rank_matrix(
+                n_samples=n_samples,
+                n_features=n_features,
+                effective_rank=effective_rank,
+                tail_strength=tail_strength,
+                random_state=rs,
+                n_parts=n_parts,
+                n_samples_per_part=n_samples_per_part,
+                dtype=dtype,
+            )
 
-            X = X.rechunk({0: data_chunksizes,
-                           1: -1})
+            X = X.rechunk({0: data_chunksizes, 1: -1})
         else:
             seed = int(rs.randint(n_samples).compute())
-            covar = _make_low_rank_covariance(client, n_features,
-                                              effective_rank, tail_strength,
-                                              seed, n_parts,
-                                              n_samples_per_part, dtype)
-            X = _data_from_multivariate_normal(client, rs, covar,
-                                               data_chunksizes, n_features,
-                                               dtype)
+            covar = _make_low_rank_covariance(
+                client,
+                n_features,
+                effective_rank,
+                tail_strength,
+                seed,
+                n_parts,
+                n_samples_per_part,
+                dtype,
+            )
+            X = _data_from_multivariate_normal(
+                client, rs, covar, data_chunksizes, n_features, dtype
+            )
 
-        X = _convert_to_order(client, X, data_chunksizes, order,
-                              n_features, dtype)
+        X = _convert_to_order(
+            client, X, data_chunksizes, order, n_features, dtype
+        )
 
     # Generate a ground truth model with only n_informative features being non
     # zeros (the other features are not correlated to y and should be ignored
     # by a sparsifying regularizers such as L1 or elastic net)
-    ground_truth = 100.0 * rs.standard_normal((n_informative, n_targets),
-                                              chunks=(n_samples_per_part, -1),
-                                              dtype=dtype)
+    ground_truth = 100.0 * rs.standard_normal(
+        (n_informative, n_targets),
+        chunks=(n_samples_per_part, -1),
+        dtype=dtype,
+    )
 
     y = da.dot(X[:, :n_informative], ground_truth) + bias
 
     if n_informative != n_features:
-        zeroes = 0.0 * rs.standard_normal((n_features -
-                                           n_informative,
-                                           n_targets), dtype=dtype)
+        zeroes = 0.0 * rs.standard_normal(
+            (n_features - n_informative, n_targets), dtype=dtype
+        )
         ground_truth = da.concatenate([ground_truth, zeroes], axis=0)
 
     ground_truth = ground_truth.rechunk(-1)
@@ -443,20 +539,33 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
     # Randomly permute samples and features
     if shuffle:
         features_indices = np.random.permutation(n_features)
-        X, y = _shuffle(client, rs, X, y, data_chunksizes,
-                        n_features, features_indices,
-                        n_targets, dtype)
+        X, y = _shuffle(
+            client,
+            rs,
+            X,
+            y,
+            data_chunksizes,
+            n_features,
+            features_indices,
+            n_targets,
+            dtype,
+        )
 
         ground_truth = ground_truth[features_indices, :]
 
     y = da.squeeze(y)
 
-    if order == 'F' and n_targets > 1:
+    if order == "F" and n_targets > 1:
         y = _convert_to_order(client, y, y.chunks[0], order, n_targets, dtype)
         if coef:
-            ground_truth = _convert_to_order(client, ground_truth,
-                                             ground_truth.chunks[0], order,
-                                             n_targets, dtype)
+            ground_truth = _convert_to_order(
+                client,
+                ground_truth,
+                ground_truth.chunks[0],
+                order,
+                n_targets,
+                dtype,
+            )
 
     if coef:
         ground_truth = da.squeeze(ground_truth)

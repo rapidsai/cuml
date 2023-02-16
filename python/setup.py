@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,16 +47,16 @@ def clean_folder(path):
     path : String
         Path to the folder to be cleaned.
     """
-    shutil.rmtree(path + '/__pycache__', ignore_errors=True)
+    shutil.rmtree(path + "/__pycache__", ignore_errors=True)
 
-    folders = glob.glob(path + '/*/')
+    folders = glob.glob(path + "/*/")
     for folder in folders:
-        shutil.rmtree(folder + '/__pycache__', ignore_errors=True)
+        shutil.rmtree(folder + "/__pycache__", ignore_errors=True)
 
         clean_folder(folder)
 
-        cython_exts = glob.glob(folder + '/*.cpp')
-        cython_exts.extend(glob.glob(folder + '/*.cpython*'))
+        cython_exts = glob.glob(folder + "/*.cpp")
+        cython_exts.extend(glob.glob(folder + "/*.cpython*"))
         for file in cython_exts:
             os.remove(file)
 
@@ -64,7 +64,7 @@ def clean_folder(path):
 ##############################################################################
 # - Print of build options used by setup.py  --------------------------------
 
-clean_artifacts = get_cli_option('clean')
+clean_artifacts = get_cli_option("clean")
 
 
 ##############################################################################
@@ -78,16 +78,17 @@ if clean_artifacts:
 
     try:
         setup_file_path = str(Path(__file__).parent.absolute())
-        shutil.rmtree(setup_file_path + '/.pytest_cache', ignore_errors=True)
-        shutil.rmtree(setup_file_path + '/_external_repositories',
-                      ignore_errors=True)
-        shutil.rmtree(setup_file_path + '/cuml.egg-info', ignore_errors=True)
-        shutil.rmtree(setup_file_path + '/__pycache__', ignore_errors=True)
+        shutil.rmtree(setup_file_path + "/.pytest_cache", ignore_errors=True)
+        shutil.rmtree(
+            setup_file_path + "/_external_repositories", ignore_errors=True
+        )
+        shutil.rmtree(setup_file_path + "/cuml.egg-info", ignore_errors=True)
+        shutil.rmtree(setup_file_path + "/__pycache__", ignore_errors=True)
 
-        clean_folder(setup_file_path + '/cuml')
-        shutil.rmtree(setup_file_path + '/build', ignore_errors=True)
-        shutil.rmtree(setup_file_path + '/_skbuild', ignore_errors=True)
-        shutil.rmtree(setup_file_path + '/dist', ignore_errors=True)
+        clean_folder(setup_file_path + "/cuml")
+        shutil.rmtree(setup_file_path + "/build", ignore_errors=True)
+        shutil.rmtree(setup_file_path + "/_skbuild", ignore_errors=True)
+        shutil.rmtree(setup_file_path + "/dist", ignore_errors=True)
 
     except IOError:
         pass
@@ -121,27 +122,29 @@ if "RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE" in os.environ:
 
 
 cuda_suffix = os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default="")
-setup(name=f'cuml{cuda_suffix}',
-      version=os.getenv("RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE",
-                        default=versioneer.get_version()),
-      description="cuML - RAPIDS ML Algorithms",
-      url="https://github.com/rapidsai/cuml",
-      author="NVIDIA Corporation",
-      license="Apache 2.0",
-      classifiers=[
-          "Intended Audience :: Developers",
-          "Programming Language :: Python",
-          "Programming Language :: Python :: 3.8",
-          "Programming Language :: Python :: 3.9",
-          "Programming Language :: Python :: 3.10",
-      ],
-      cmdclass=versioneer.get_cmdclass(),
-      include_package_data=True,
-      packages=find_packages(include=['cuml', 'cuml.*']),
-      package_data={
-          key: ["*.pxd"] for key in find_packages(include=['cuml', 'cuml.*'])
-      },
-      install_requires=[
+setup(
+    name=f"cuml{cuda_suffix}",
+    version=os.getenv(
+        "RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE", default=versioneer.get_version()
+    ),
+    description="cuML - RAPIDS ML Algorithms",
+    url="https://github.com/rapidsai/cuml",
+    author="NVIDIA Corporation",
+    license="Apache 2.0",
+    classifiers=[
+        "Intended Audience :: Developers",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+    ],
+    cmdclass=versioneer.get_cmdclass(),
+    include_package_data=True,
+    packages=find_packages(include=["cuml", "cuml.*"]),
+    package_data={
+        key: ["*.pxd"] for key in find_packages(include=["cuml", "cuml.*"])
+    },
+    install_requires=[
         "numba",
         "scipy",
         "seaborn",
@@ -151,23 +154,24 @@ setup(name=f'cuml{cuda_suffix}',
         f"dask-cudf{cuda_suffix}==23.4.*",
         f"pylibraft{cuda_suffix}==23.4.*",
         f"raft-dask{cuda_suffix}==23.4.*",
-      ],
-      extras_require={
-          "test": [
-              "pytest",
-              "hypothesis",
-              "pytest-xdist",
-              "pytest-benchmark",
-              "pytest-cases",
-              "nltk",
-              "dask-ml",
-              "numpydoc",
-              "umap-learn",
-              "statsmodels",
-              "scikit-learn==1.2",
-              "hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master",  # noqa:E501
-              "dask-glm @ git+https://github.com/dask/dask-glm@main",
-              "dask-cuda"
-          ]
-      },
-      zip_safe=False)
+    ],
+    extras_require={
+        "test": [
+            "pytest",
+            "hypothesis",
+            "pytest-xdist",
+            "pytest-benchmark",
+            "pytest-cases",
+            "nltk",
+            "dask-ml",
+            "numpydoc",
+            "umap-learn",
+            "statsmodels",
+            "scikit-learn==1.2",
+            "hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master",  # noqa:E501
+            "dask-glm @ git+https://github.com/dask/dask-glm@main",
+            "dask-cuda",
+        ]
+    },
+    zip_safe=False,
+)

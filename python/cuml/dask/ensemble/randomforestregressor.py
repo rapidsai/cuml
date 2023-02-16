@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,15 +15,15 @@
 #
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.ensemble import RandomForestRegressor as cuRFR
-from cuml.dask.ensemble.base import \
-    BaseRandomForestModel
+from cuml.dask.ensemble.base import BaseRandomForestModel
 from cuml.dask.common.base import BaseEstimator
 
 import dask
 
 
-class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
-                            BaseEstimator):
+class RandomForestRegressor(
+    BaseRandomForestModel, DelayedPredictionMixin, BaseEstimator
+):
     """
     Experimental API implementing a multi-GPU Random Forest classifier
     model which fits multiple decision tree classifiers in an
@@ -153,11 +153,9 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         n_estimators=100,
         random_state=None,
         ignore_empty_partitions=False,
-        **kwargs
+        **kwargs,
     ):
-        super().__init__(client=client,
-                         verbose=verbose,
-                         **kwargs)
+        super().__init__(client=client, verbose=verbose, **kwargs)
 
         self._create_model(
             model_func=RandomForestRegressor._construct_rf,
@@ -166,19 +164,14 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
             n_estimators=n_estimators,
             base_seed=random_state,
             ignore_empty_partitions=ignore_empty_partitions,
-            **kwargs
+            **kwargs,
         )
 
     @staticmethod
-    def _construct_rf(
-        n_estimators,
-        random_state,
-        **kwargs
-    ):
+    def _construct_rf(n_estimators, random_state, **kwargs):
         return cuRFR(
-            n_estimators=n_estimators,
-            random_state=random_state,
-            **kwargs)
+            n_estimators=n_estimators, random_state=random_state, **kwargs
+        )
 
     @staticmethod
     def _predict_model_on_cpu(model, X, convert_dtype):
@@ -250,15 +243,24 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
 
         """
         self.internal_model = None
-        self._fit(model=self.rfs,
-                  dataset=(X, y),
-                  convert_dtype=convert_dtype,
-                  broadcast_data=broadcast_data)
+        self._fit(
+            model=self.rfs,
+            dataset=(X, y),
+            convert_dtype=convert_dtype,
+            broadcast_data=broadcast_data,
+        )
         return self
 
-    def predict(self, X, predict_model="GPU", algo='auto',
-                convert_dtype=True, fil_sparse_format='auto',
-                delayed=True, broadcast_data=False):
+    def predict(
+        self,
+        X,
+        predict_model="GPU",
+        algo="auto",
+        convert_dtype=True,
+        fil_sparse_format="auto",
+        delayed=True,
+        broadcast_data=False,
+    ):
         """
         Predicts the regressor outputs for X.
 
@@ -342,55 +344,51 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
 
         else:
             if broadcast_data:
-                preds = \
-                    self.partial_inference(
-                        X,
-                        algo=algo,
-                        convert_dtype=convert_dtype,
-                        fil_sparse_format=fil_sparse_format,
-                        delayed=delayed
-                    )
+                preds = self.partial_inference(
+                    X,
+                    algo=algo,
+                    convert_dtype=convert_dtype,
+                    fil_sparse_format=fil_sparse_format,
+                    delayed=delayed,
+                )
             else:
-                preds = \
-                    self._predict_using_fil(
-                        X,
-                        algo=algo,
-                        convert_dtype=convert_dtype,
-                        fil_sparse_format=fil_sparse_format,
-                        delayed=delayed
-                    )
+                preds = self._predict_using_fil(
+                    X,
+                    algo=algo,
+                    convert_dtype=convert_dtype,
+                    fil_sparse_format=fil_sparse_format,
+                    delayed=delayed,
+                )
         return preds
 
     def partial_inference(self, X, delayed, **kwargs):
-        partial_infs = \
-            self._partial_inference(X=X,
-                                    op_type='regression',
-                                    delayed=delayed,
-                                    **kwargs)
+        partial_infs = self._partial_inference(
+            X=X, op_type="regression", delayed=delayed, **kwargs
+        )
 
-        def reduce(partial_infs, workers_weights,
-                   unique_classes=None):
-            regressions = dask.array.average(partial_infs, axis=1,
-                                             weights=workers_weights)
+        def reduce(partial_infs, workers_weights, unique_classes=None):
+            regressions = dask.array.average(
+                partial_infs, axis=1, weights=workers_weights
+            )
             merged_regressions = regressions.compute()
             return merged_regressions
 
-        datatype = 'daskArray' if isinstance(X, dask.array.Array) \
-            else 'daskDataframe'
+        datatype = (
+            "daskArray" if isinstance(X, dask.array.Array) else "daskDataframe"
+        )
 
         return self.apply_reduction(reduce, partial_infs, datatype, delayed)
 
     def predict_using_fil(self, X, delayed, **kwargs):
         if self._get_internal_model() is None:
             self._set_internal_model(self._concat_treelite_models())
-        return self._predict_using_fil(X=X,
-                                       delayed=delayed,
-                                       **kwargs)
+        return self._predict_using_fil(X=X, delayed=delayed, **kwargs)
 
     """
     TODO : Update function names used for CPU predict.
            Cuml issue #1854 has been created to track this.
     """
+
     def predict_model_on_cpu(self, X, convert_dtype):
         workers = self.workers
 

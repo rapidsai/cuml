@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,15 +15,26 @@
 from cuml.internals.array import CumlArray
 from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from hypothesis import assume
-from hypothesis.extra.numpy import (array_shapes, arrays, floating_dtypes,
-                                    integer_dtypes)
-from hypothesis.strategies import (composite, integers, just, none, one_of,
-                                   sampled_from)
+from hypothesis.extra.numpy import (
+    array_shapes,
+    arrays,
+    floating_dtypes,
+    integer_dtypes,
+)
+from hypothesis.strategies import (
+    composite,
+    integers,
+    just,
+    none,
+    one_of,
+    sampled_from,
+)
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
-cudf = gpu_only_import('cudf')
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+
+cudf = gpu_only_import("cudf")
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 _CUML_ARRAY_INPUT_TYPES = ["numpy", "cupy", "series"]
@@ -57,10 +68,7 @@ _CUML_ARRAY_OUTPUT_TYPES = [
 
 # TODO(wphicks): Once all memory types are supported, just directly
 # iterate on the enum values
-_CUML_ARRAY_MEM_TYPES = (
-    'host',
-    'device'
-)
+_CUML_ARRAY_MEM_TYPES = ("host", "device")
 
 
 UNSUPPORTED_CUDF_DTYPES = [
@@ -237,7 +245,7 @@ def cuml_array_inputs(
     dtype = draw(dtypes)
     shape = draw(shapes)
     order = draw(orders)
-    multidimensional = (isinstance(shape, tuple) and len(shape) > 1)
+    multidimensional = isinstance(shape, tuple) and len(shape) > 1
     assume(
         not (
             input_type == "series"
@@ -263,8 +271,8 @@ def cuml_array_inputs(
         )
 
     # Cupy currently does not support masked arrays.
-    cai = getattr(ret, '__cuda_array_interface__', dict())
-    assume(cai.get('mask') is None)
+    cai = getattr(ret, "__cuda_array_interface__", dict())
+    assume(cai.get("mask") is None)
 
     return ret
 
@@ -362,7 +370,7 @@ def standard_datasets(
     return draw(X), draw(y)
 
 
-def combined_datasets_strategy(* datasets, name=None, doc=None):
+def combined_datasets_strategy(*datasets, name=None, doc=None):
     """
     Combine multiple datasets strategies into a single datasets strategy.
 
@@ -391,11 +399,12 @@ def combined_datasets_strategy(* datasets, name=None, doc=None):
         draw,
         dtypes=floating_dtypes(),
         n_samples=integers(min_value=0, max_value=200),
-        n_features=integers(min_value=0, max_value=200)
+        n_features=integers(min_value=0, max_value=200),
     ):
         """Datasets strategy composed of multiple datasets strategies."""
         datasets_strategies = (
-            dataset(dtypes, n_samples, n_features) for dataset in datasets)
+            dataset(dtypes, n_samples, n_features) for dataset in datasets
+        )
         return draw(one_of(datasets_strategies))
 
     strategy.__name__ = "datasets" if name is None else name
@@ -542,14 +551,15 @@ def standard_regression_datasets(
 
 
 regression_datasets = combined_datasets_strategy(
-    standard_datasets, standard_regression_datasets,
+    standard_datasets,
+    standard_regression_datasets,
     name="regression_datasets",
     doc="""
     Returns strategy for the generation of regression problem datasets.
 
     Drawn from the standard_datasets and the standard_regression_datasets
     strategies.
-    """
+    """,
 )
 
 
@@ -582,8 +592,9 @@ def standard_classification_datasets(
             #   log_2(n_classes * n_clusters_per_class) <= n_informative
             n_classes_min = min(_get_limits(n_classes))
             n_clusters_per_class_min = min(_get_limits(n_clusters_per_class))
-            n_informative_min = \
-                int(np.ceil(np.log2(n_classes_min * n_clusters_per_class_min)))
+            n_informative_min = int(
+                np.ceil(np.log2(n_classes_min * n_clusters_per_class_min))
+            )
         except AttributeError:
             # Otherwise aim for 10% of n_features, but at least 1.
             n_informative_min = max(1, int(0.1 * n_features_))
@@ -602,8 +613,10 @@ def standard_classification_datasets(
     except AttributeError:
         pass  # unable to determine limits
     else:
-        if np.log2(n_classes_min * n_clusters_per_class_min) \
-                > n_informative_max:
+        if (
+            np.log2(n_classes_min * n_clusters_per_class_min)
+            > n_informative_max
+        ):
             raise ValueError(
                 "Assumptions cannot be met, the following inequality must "
                 "hold: log_2(n_classes * n_clusters_per_class) "

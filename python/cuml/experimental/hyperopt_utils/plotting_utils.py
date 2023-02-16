@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,9 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-pd = cpu_only_import('pandas')
+
+np = cpu_only_import("numpy")
+pd = cpu_only_import("pandas")
 
 
 def plot_heatmap(df, col1, col2):
@@ -35,8 +36,8 @@ def plot_heatmap(df, col1, col2):
 
     """
     max_scores = df.groupby([col1, col2]).max()
-    max_scores = max_scores.unstack()[['mean_test_score']]
-    sns.heatmap(max_scores.mean_test_score, annot=True, fmt='.3g')
+    max_scores = max_scores.unstack()[["mean_test_score"]]
+    sns.heatmap(max_scores.mean_test_score, annot=True, fmt=".3g")
 
 
 def plot_search_results(res):
@@ -53,32 +54,34 @@ def plot_search_results(res):
     """
     # Results from grid search
     results = res.cv_results_
-    means_test = results['mean_test_score']
-    stds_test = results['std_test_score']
+    means_test = results["mean_test_score"]
+    stds_test = results["std_test_score"]
     # Getting indexes of values per hyper-parameter
     masks = []
     masks_names = list(res.best_params_.keys())
     for p_k, p_v in res.best_params_.items():
-        masks.append(list(results['param_' + p_k].data == p_v))
+        masks.append(list(results["param_" + p_k].data == p_v))
     try:
         # Grid Search
         params = res.param_grid
         # Ploting results
-        fig, ax = plt.subplots(1, len(params), sharex='none',
-                               sharey='all', figsize=(20, 5))
-        fig.suptitle('Score per parameter')
-        fig.text(0.04, 0.5, 'MEAN SCORE', va='center', rotation='vertical')
+        fig, ax = plt.subplots(
+            1, len(params), sharex="none", sharey="all", figsize=(20, 5)
+        )
+        fig.suptitle("Score per parameter")
+        fig.text(0.04, 0.5, "MEAN SCORE", va="center", rotation="vertical")
         pram_preformace_in_best = {}
         for i, p in enumerate(masks_names):
-            m = np.stack(masks[:i] + masks[i+1:])
+            m = np.stack(masks[:i] + masks[i + 1 :])
             pram_preformace_in_best
             best_parms_mask = m.all(axis=0)
             best_index = np.where(best_parms_mask)[0]
             x = np.array(params[p])
             y_1 = np.array(means_test[best_index])
             e_1 = np.array(stds_test[best_index])
-            ax[i].errorbar(x, y_1, e_1, linestyle='--',
-                           marker='o', label='test')
+            ax[i].errorbar(
+                x, y_1, e_1, linestyle="--", marker="o", label="test"
+            )
             ax[i].set_xlabel(p.upper())
     except Exception as e:
         # Randomized Seach
@@ -86,23 +89,25 @@ def plot_search_results(res):
         try:
             params = res.param_distributions
             # Ploting results
-            fig, ax = plt.subplots(1, len(params), sharex='none',
-                                   sharey='all', figsize=(20, 5))
-            fig.suptitle('Score per parameter')
-            fig.text(0.04, 0.5, 'MEAN SCORE', va='center', rotation='vertical')
+            fig, ax = plt.subplots(
+                1, len(params), sharex="none", sharey="all", figsize=(20, 5)
+            )
+            fig.suptitle("Score per parameter")
+            fig.text(0.04, 0.5, "MEAN SCORE", va="center", rotation="vertical")
 
             for i, p in enumerate(masks_names):
                 results = pd.DataFrame(res.cv_results_)
-                select_names = masks_names[:i] + masks_names[i+1:]
+                select_names = masks_names[:i] + masks_names[i + 1 :]
                 for j in select_names:
                     best_value = res.best_params_[j]
-                    results = results[results['param_'+j] == best_value]
+                    results = results[results["param_" + j] == best_value]
 
-                x = np.array(results['param_'+p])
-                y_1 = np.array(results['mean_test_score'])
-                e_1 = np.array(results['std_test_score'])
-                ax[i].errorbar(x, y_1, e_1, linestyle='--',
-                               marker='o', label='test')
+                x = np.array(results["param_" + p])
+                y_1 = np.array(results["mean_test_score"])
+                e_1 = np.array(results["std_test_score"])
+                ax[i].errorbar(
+                    x, y_1, e_1, linestyle="--", marker="o", label="test"
+                )
                 ax[i].set_xlabel(p.upper())
         except Exception as e:
             # Something else broke while attempting to plot

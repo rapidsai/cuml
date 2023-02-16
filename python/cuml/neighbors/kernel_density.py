@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,9 +24,10 @@ from cuml.internals.safe_imports import gpu_only_import_from
 import math
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
-cuda = gpu_only_import_from('numba', 'cuda')
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
+cuda = gpu_only_import_from("numba", "cuda")
 
 if has_scipy():
     from scipy.special import gammainc
@@ -91,12 +92,14 @@ def cosine_log_kernel(x, h):
     return y
 
 
-log_probability_kernels_ = {"gaussian": gaussian_log_kernel,
-                            "tophat": tophat_log_kernel,
-                            "epanechnikov": epanechnikov_log_kernel,
-                            "exponential": exponential_log_kernel,
-                            "linear": linear_log_kernel,
-                            "cosine": cosine_log_kernel}
+log_probability_kernels_ = {
+    "gaussian": gaussian_log_kernel,
+    "tophat": tophat_log_kernel,
+    "epanechnikov": epanechnikov_log_kernel,
+    "exponential": exponential_log_kernel,
+    "linear": linear_log_kernel,
+    "cosine": cosine_log_kernel,
+}
 
 
 def logVn(n):
@@ -207,7 +210,7 @@ class KernelDensity(Base):
         metric_params=None,
         output_type=None,
         handle=None,
-        verbose=False
+        verbose=False,
     ):
         super(KernelDensity, self).__init__(
             verbose=verbose, handle=handle, output_type=output_type
@@ -289,14 +292,19 @@ class KernelDensity(Base):
         if self.metric_params:
             if len(self.metric_params) != 1:
                 raise ValueError(
-                    "Cuml only supports metrics with a single arg.")
+                    "Cuml only supports metrics with a single arg."
+                )
             metric_arg = list(self.metric_params.values())[0]
-            distances = pairwise_distances(X_cuml.array, self.X_,
-                                           metric=self.metric,
-                                           metric_arg=metric_arg)
+            distances = pairwise_distances(
+                X_cuml.array,
+                self.X_,
+                metric=self.metric,
+                metric_arg=metric_arg,
+            )
         else:
             distances = pairwise_distances(
-                X_cuml.array, self.X_, metric=self.metric)
+                X_cuml.array, self.X_, metric=self.metric
+            )
 
         distances = cp.asarray(distances)
 
@@ -311,7 +319,8 @@ class KernelDensity(Base):
             distances += cp.log(self.sample_weight_)
 
         logsumexp_kernel.forall(log_probabilities.size)(
-            distances, log_probabilities)
+            distances, log_probabilities
+        )
         # Note that sklearns user guide is wrong
         # It says the (unnormalised) probability output for
         #  the kernel density is sum(K(x,h)).
@@ -380,11 +389,11 @@ class KernelDensity(Base):
             raise NotFittedError()
 
         supported_kernels = ["gaussian", "tophat"]
-        if (self.kernel not in supported_kernels
-                or self.metric != "euclidean"):
+        if self.kernel not in supported_kernels or self.metric != "euclidean":
             raise NotImplementedError(
                 "Only {} kernels, and the euclidean"
-                " metric are supported.".format(supported_kernels))
+                " metric are supported.".format(supported_kernels)
+            )
 
         if isinstance(random_state, cp.random.RandomState):
             rng = random_state
