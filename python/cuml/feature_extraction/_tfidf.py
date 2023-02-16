@@ -188,7 +188,7 @@ class TfidfTransformer(Base):
 
         return self
 
-    @cuml.internals.api_base_return_any_skipall
+    @cuml.internals.api_base_return_array()
     def transform(self, X, copy=True):
         """Transform a count matrix to a tf or tf-idf representation
 
@@ -238,7 +238,7 @@ class TfidfTransformer(Base):
 
         return X
 
-    @cuml.internals.api_base_return_any_skipall
+    @cuml.internals.api_base_return_array()
     def fit_transform(self, X, copy=True):
         """
         Fit TfidfTransformer to X, then transform X.

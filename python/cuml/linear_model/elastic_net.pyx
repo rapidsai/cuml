@@ -18,12 +18,12 @@
 
 from inspect import signature
 
+import cuml.internals
 from cuml.solvers import CD, QN
 from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import RegressorMixin, FMajorInputTagMixin
-from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
 from cuml.internals.logger import warn
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.internals.api_decorators import device_interop_preparation
@@ -252,14 +252,6 @@ class ElasticNet(UniversalBase,
         self.solver_model.fit(X, y, convert_dtype=convert_dtype,
                               sample_weight=sample_weight)
         if isinstance(self.solver_model, QN):
-            coefs = self.solver_model.coef_
-            self.coef_ = CumlArray(
-                data=coefs,
-                index=coefs._index,
-                dtype=coefs.dtype,
-                order=coefs.order,
-                shape=(coefs.shape[1],)
-            )
             self.intercept_ = self.solver_model.intercept_.item()
 
         return self
@@ -286,3 +278,12 @@ class ElasticNet(UniversalBase,
 
     def get_attr_names(self):
         return ['intercept_', 'coef_', 'n_features_in_', 'feature_names_in_']
+
+    @property
+    @cuml.internals.api_base_return_array(input_arg=None)
+    def coef_(self):
+        return self.solver_model.coef_
+
+    @coef_.setter
+    def coef_(self, value):
+        self.solver_model.coef_ = value

@@ -22,22 +22,21 @@ import warnings
 
 # TODO: Try to resolve circular import that makes this necessary:
 from cuml.internals import input_utils as iu
-from cuml.internals.api_context_managers import BaseReturnAnyCM
-from cuml.internals.api_context_managers import BaseReturnArrayCM
-from cuml.internals.api_context_managers import BaseReturnGenericCM
-from cuml.internals.api_context_managers import BaseReturnSparseArrayCM
-from cuml.internals.api_context_managers import InternalAPIContextBase
-from cuml.internals.api_context_managers import ReturnAnyCM
-from cuml.internals.api_context_managers import ReturnArrayCM
-from cuml.internals.api_context_managers import ReturnGenericCM
-from cuml.internals.api_context_managers import ReturnSparseArrayCM
-from cuml.internals.api_context_managers import set_api_output_dtype
-from cuml.internals.api_context_managers import set_api_output_type
+from cuml.internals import logger
+from cuml.internals.api_context import ApiContext
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.constants import CUML_WRAPPED_FLAG
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import using_output_type
 from cuml.internals.type_utils import _DecoratorType, wraps_typed
-from cuml.internals import logger
+from cuml.internals.safe_imports import (
+    gpu_only_import_from, UnavailableNullContext
+)
+
+cupy_using_allocator = gpu_only_import_from(
+    'cupy.cuda', 'using_allocator', alt=UnavailableNullContext
+)
+rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
 
 
 def _wrap_once(wrapped, *args, **kwargs):
@@ -79,10 +78,122 @@ def _get_value(args, kwargs, name, index):
                 "were not found in args or kwargs.")
 
 
+@contextlib.contextmanager
+def _using_output_type(output_type):
+    """
+    Sets global_settings.output_type to output_type for internal API
+    handling.
+
+    Yields
+    -------
+    string
+        Returns the previous value in global_settings.output_type
+    """
+    prev_output_type = GlobalSettings().output_type
+    try:
+        GlobalSettings().output_type = output_type
+        yield prev_output_type
+    finally:
+        GlobalSettings().output_type = prev_output_type
+
+
+@contextlib.contextmanager
+def _using_mirror_output_type():
+    with _using_output_type("mirror") as output_type:
+        yield output_type
+
+
+@contextlib.contextmanager
+def api_context():
+    GlobalSettings()._api_context.stack_level += 1
+
+    try:
+        if GlobalSettings()._api_context.stack_level == 1:
+            with contextlib.ExitStack() as stack:
+                GlobalSettings()._api_context.output_type = None
+                GlobalSettings()._api_context.output_dtype = None
+                stack.enter_context(cupy_using_allocator(rmm_cupy_allocator))
+                GlobalSettings()._api_context.previous_output_type =\
+                    stack.enter_context(_using_mirror_output_type())
+                yield
+        else:
+            yield
+    finally:
+        GlobalSettings()._api_context.stack_level -= 1
+
+
+def in_internal_api():
+    return GlobalSettings()._api_context.stack_level > 1
+
+
+def set_api_output_type(output_type):
+    GlobalSettings()._api_context.output_type = output_type
+
+
+def set_api_output_dtype(output_dtype):
+    GlobalSettings()._api_context.output_dtype = output_dtype
+
+
+def _convert_to_cumlarray(ret_val):
+    # Get the output type
+    ret_val_type_str, is_sparse = iu.determine_array_type_full(ret_val)
+
+    # If we are a supported array and not already cuml, convert to cuml
+    if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
+        if is_sparse:
+            ret_val = SparseCumlArray(
+                ret_val,
+                convert_to_mem_type=GlobalSettings().memory_type,
+                convert_index=False
+            )
+        else:
+            ret_val = iu.input_to_cuml_array(
+                ret_val,
+                convert_to_mem_type=GlobalSettings().memory_type,
+                order="K"
+            ).array
+
+    return ret_val
+
+
+def process_single(value, output_type, output_dtype):
+    ca = _convert_to_cumlarray(value)
+
+    # We need to special-case sparse cuml arrays since unlike CumlArray a
+    # conversion is performed even when output_type is None.
+    if isinstance(ca, SparseCumlArray) and output_type is None:
+        return ca
+
+    ret = ca.to_output(
+        output_type=output_type,
+        output_dtype=output_dtype,
+    )
+    return ret
+
+
+def process_generic(value, output_type=None, output_dtype=None):
+    # TODO: Consider to refactor to not use isinstance() checks but try-fail
+    # approach.
+    if iu.is_array_like(value):
+        return process_single(value, output_type, output_dtype)
+
+    if isinstance(value, tuple):
+        return tuple(process_generic(item, output_type, output_dtype)
+                     for item in value)
+
+    if isinstance(value, dict):
+        return {key: process_generic(value, output_type, output_dtype)
+                for key, value in value.items()}
+
+    if isinstance(value, list):
+        return list(process_generic(item, output_type, output_dtype)
+                    for item in value)
+
+    return value
+
+
 def _make_decorator_function(
-    context_manager_cls: InternalAPIContextBase,
     process_return=True,
-    needs_self: bool = False,
     ** defaults,
 ) -> typing.Callable[..., _DecoratorType]:
     # This function generates a function to be applied as decorator to a
@@ -119,14 +230,24 @@ def _make_decorator_function(
             sig = inspect.signature(func, follow_wrapped=True)
 
             has_self = _has_self(sig)
-            if needs_self and not has_self:
-                raise Exception("No self found on function!")
 
-            if input_arg is not None and (
-                set_output_type
-                or set_output_dtype
-                or set_n_features_in
-                or get_output_type
+            if (
+                any((set_output_type, set_output_dtype, set_n_features_in))
+                or (get_output_type and not input_arg)
+                or (get_output_dtype and not target_arg)
+            ) and not has_self:
+                raise ValueError(
+                    "Specified combination of options can only be used for "
+                    "class functions with self parameter."
+                )
+
+            if input_arg is not None and any(
+                (
+                    get_output_type,
+                    set_n_features_in,
+                    set_output_dtype,
+                    set_output_type,
+                )
             ):
                 input_arg_ = _find_arg(sig, input_arg or "X", 0)
             else:
@@ -141,7 +262,21 @@ def _make_decorator_function(
             def wrapper(*args, **kwargs):
                 # Wraps the decorated function, executed at runtime.
 
-                with context_manager_cls(func, args) as cm:
+                with api_context():
+
+                    if in_internal_api():
+                        ret = func(*args, **kwargs)
+
+                        if process_return:
+                            # Convert to globally specified output_type or at
+                            # least try to convert CumlArray if possible.
+                            global_output_type = GlobalSettings().output_type
+                            if global_output_type in ("mirror", "input"):
+                                global_output_type = None
+
+                            return process_generic(ret, global_output_type)
+                        else:
+                            return ret
 
                     self_val = args[0] if has_self else None
 
@@ -155,13 +290,10 @@ def _make_decorator_function(
                         target_val = None
 
                     if set_output_type:
-                        assert self_val is not None
                         self_val._set_output_type(input_val)
                     if set_output_dtype:
-                        assert self_val is not None
                         self_val._set_target_dtype(target_val)
                     if set_n_features_in and len(input_val.shape) >= 2:
-                        assert self_val is not None
                         self_val._set_n_features_in(input_val)
 
                     if get_output_type:
@@ -174,8 +306,8 @@ def _make_decorator_function(
                                 out_type = self_val._input_type
                         else:
                             out_type = self_val._get_output_type(input_val)
-
-                        set_api_output_type(out_type)
+                    else:
+                        out_type = None
 
                     if get_output_dtype:
                         if self_val is None:
@@ -183,15 +315,31 @@ def _make_decorator_function(
                             output_dtype = iu.determine_array_dtype(target_val)
                         else:
                             output_dtype = self_val._get_target_dtype()
-
-                        set_api_output_dtype(output_dtype)
+                    else:
+                        output_dtype = None
 
                     if process_return:
                         ret = func(*args, **kwargs)
                     else:
                         return func(*args, **kwargs)
 
-                return cm.process_return(ret)
+                    # Check for global output type override
+                    global_api_context = GlobalSettings()._api_context
+                    global_output_type = GlobalSettings().output_type
+                    assert global_output_type in (None, "mirror", "input")
+                    out_type_override = \
+                        global_api_context.previous_output_type \
+                        or global_api_context.output_type
+
+                    if out_type_override not in (None, "mirror", "input"):
+                        out_type = out_type_override
+                    assert not out_type == "input"
+
+                    # Check for global output dtype override
+                    output_dtype = global_api_context.output_dtype \
+                        or output_dtype
+
+                    return process_generic(ret, out_type, output_dtype)
 
             return wrapper
 
@@ -200,76 +348,54 @@ def _make_decorator_function(
     return functools.partial(decorator_function, **defaults)
 
 
-api_return_any = _make_decorator_function(ReturnAnyCM, process_return=False)
+api_return_any = _make_decorator_function(
+    process_return=False)
 api_base_return_any = _make_decorator_function(
-    BaseReturnAnyCM,
-    needs_self=True,
     set_output_type=True,
     set_n_features_in=True,
-)
-api_return_array = _make_decorator_function(ReturnArrayCM, process_return=True)
-api_base_return_array = _make_decorator_function(
-    BaseReturnArrayCM,
-    needs_self=True,
-    process_return=True,
-    get_output_type=True,
 )
 api_return_generic = _make_decorator_function(
-    ReturnGenericCM, process_return=True
+    process_return=True
 )
 api_base_return_generic = _make_decorator_function(
-    BaseReturnGenericCM,
-    needs_self=True,
     process_return=True,
     get_output_type=True,
 )
+
+# aliases:
+api_return_array = api_return_generic
+api_return_sparse_array = api_return_generic
+api_base_return_array = api_base_return_generic
+api_base_return_sparse_array = api_base_return_generic
+
 api_base_fit_transform = _make_decorator_function(
-    # TODO: add tests for this decorator(
-    BaseReturnArrayCM,
-    needs_self=True,
     process_return=True,
     get_output_type=True,
     set_output_type=True,
     set_n_features_in=True,
-)
-
-api_return_sparse_array = _make_decorator_function(
-    ReturnSparseArrayCM, process_return=True
-)
-api_base_return_sparse_array = _make_decorator_function(
-    BaseReturnSparseArrayCM,
-    needs_self=True,
-    process_return=True,
-    get_output_type=True,
 )
 
 api_base_return_any_skipall = api_base_return_any(
-    set_output_type=False, set_n_features_in=False
+    set_output_type=False,
+    set_n_features_in=False,
 )
-api_base_return_array_skipall = api_base_return_array(get_output_type=False)
+api_base_return_array_skipall = api_base_return_array(
+    get_output_type=False,
+)
 api_base_return_generic_skipall = api_base_return_generic(
-    get_output_type=False
+    get_output_type=False,
 )
 
 
 @contextlib.contextmanager
 def exit_internal_api():
-
-    assert (GlobalSettings().root_cm is not None)
-
     try:
-        old_root_cm = GlobalSettings().root_cm
-
-        GlobalSettings().root_cm = None
-
-        # Set the global output type to the previous value to pretend we never
-        # entered the API
-        with using_output_type(old_root_cm.prev_output_type):
-
+        previous_context = GlobalSettings()._api_context
+        with using_output_type(previous_context.previous_output_type):
+            GlobalSettings()._api_context = ApiContext()
             yield
-
     finally:
-        GlobalSettings().root_cm = old_root_cm
+        GlobalSettings()._api_context = previous_context
 
 
 def mirror_args(

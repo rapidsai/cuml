@@ -65,7 +65,7 @@ class LinearPredictMixin:
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    @cuml.internals.api_base_return_array_skipall
+    @cuml.internals.api_base_return_array()
     @enable_device_interop
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """

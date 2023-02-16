@@ -18,7 +18,6 @@ from cuml.prims.label import make_monotonic
 from cuml.metrics.utils import sorted_unique_labels
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.array import CumlArray
-from cuml.common import using_output_type
 from cuml.common import input_to_cuml_array
 import cuml.internals
 from cuml.internals.safe_imports import gpu_only_import
@@ -96,9 +95,8 @@ def confusion_matrix(y_true, y_pred,
               f"{{'true', 'pred', 'all', None}}, got {normalize}."
         raise ValueError(msg)
 
-    with using_output_type("cupy"):
-        y_true, _ = make_monotonic(y_true, labels, copy=True)
-        y_pred, _ = make_monotonic(y_pred, labels, copy=True)
+    y_true = make_monotonic(y_true, labels, copy=True)[0].to_output("cupy")
+    y_pred = make_monotonic(y_pred, labels, copy=True)[0].to_output("cupy")
 
     # intersect y_pred, y_true with labels, eliminate items not in labels
     ind = cp.logical_and(y_pred < n_labels, y_true < n_labels)
