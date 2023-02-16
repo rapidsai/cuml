@@ -60,13 +60,16 @@ for FILE in dependencies.yaml conda/environments/*.yaml; do
    sed_runner "s/rapids-doc-env=${CURRENT_SHORT_TAG}/rapids-doc-env=${NEXT_SHORT_TAG}/g" ${FILE};
 done
 
+sed_runner "s|/branch-.*?/|/branch-${NEXT_SHORT_TAG}/|g" README.md
 sed_runner "s|/branch-.*?/|/branch-${NEXT_SHORT_TAG}/|g" python/README.md
 
 # Wheel builds clone cumlprims_mg, update its branch
 sed_runner "s/extra-repo-sha: branch-.*/extra-repo-sha: branch-${NEXT_SHORT_TAG}/g" .github/workflows/*.yaml
 
 # Wheel builds install dask-cuda from source, update its branch
-sed_runner "s/dask-cuda.git@branch-[^\"\s]\+/dask-cuda.git@branch-${NEXT_SHORT_TAG}/g" .github/workflows/*.yaml
+for FILE in .github/workflows/*.yaml; do
+  sed_runner "s/dask-cuda.git@branch-[^\"\s]\+/dask-cuda.git@branch-${NEXT_SHORT_TAG}/g" ${FILE};
+done
 
 # Need to distutils-normalize the original version
 NEXT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_SHORT_TAG}'))")

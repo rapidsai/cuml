@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,16 +24,17 @@ from cuml.internals.safe_imports import cpu_only_import_from
 from cuml.internals.safe_imports import gpu_only_import
 import pytest
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
-scipy_csr_matrix = cpu_only_import_from('scipy.sparse', 'csr_matrix')
-cp_csr_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csr_matrix')
+
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
+scipy_csr_matrix = cpu_only_import_from("scipy.sparse", "csr_matrix")
+cp_csr_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csr_matrix")
 
 
 # Testing Util Functions
 def generate_dask_array(np_array, n_parts):
     """
-        Creates a dask array from a numpy 2d array
+    Creates a dask array from a numpy 2d array
     """
     n_samples = np_array.shape[0]
     n_samples_per_part = int(n_samples / n_parts)
@@ -46,14 +47,14 @@ def generate_dask_array(np_array, n_parts):
 
 def create_cp_sparse_ar_from_dense_np_ar(ar, dtype=np.float32):
     """
-        Creates a gpu array from a dense cpu array
+    Creates a gpu array from a dense cpu array
     """
     return cp_csr_matrix(scipy_csr_matrix(ar), dtype=dtype)
 
 
 def create_cp_sparse_dask_array(np_ar, n_parts):
     """
-        Creates a sparse gpu dask array from the given numpy array
+    Creates a sparse gpu dask array from the given numpy array
     """
     ar = generate_dask_array(np_ar, n_parts)
     meta = dask.array.from_array(cp_csr_matrix(cp.zeros(1, dtype=cp.float32)))
@@ -63,9 +64,9 @@ def create_cp_sparse_dask_array(np_ar, n_parts):
 
 def create_scipy_sparse_array_from_dask_cp_sparse_array(ar):
     """
-        Creates a cpu sparse array from the given numpy array
-        Will not be needed probably once we have
-        https://github.com/cupy/cupy/issues/3178
+    Creates a cpu sparse array from the given numpy array
+    Will not be needed probably once we have
+    https://github.com/cupy/cupy/issues/3178
     """
     meta = dask.array.from_array(scipy_csr_matrix(np.zeros(1, dtype=ar.dtype)))
     ar = ar.map_blocks(lambda x: x.get(), meta=meta)
@@ -97,8 +98,9 @@ data = [
 @pytest.mark.parametrize("use_idf", [True, False])
 @pytest.mark.parametrize("smooth_idf", [True, False])
 @pytest.mark.parametrize("sublinear_tf", [True, False])
-@pytest.mark.filterwarnings("ignore:divide by zero(.*):RuntimeWarning:"
-                            "sklearn[.*]")
+@pytest.mark.filterwarnings(
+    "ignore:divide by zero(.*):RuntimeWarning:" "sklearn[.*]"
+)
 def test_tfidf_transformer(
     data, norm, use_idf, smooth_idf, sublinear_tf, client
 ):

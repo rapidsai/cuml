@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,9 @@ from cuml.testing.utils import array_equal
 from cuml.prims.stats import cov
 import pytest
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
+
+cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
 
 
 @pytest.mark.parametrize("nrows", [1000])
@@ -27,8 +28,9 @@ cupyx = gpu_only_import('cupyx')
 @pytest.mark.parametrize("dtype", [cp.float32, cp.float64])
 def test_cov(nrows, ncols, sparse, dtype):
     if sparse:
-        x = cupyx.scipy.sparse.random(nrows, ncols, density=0.07,
-                                      format='csr', dtype=dtype)
+        x = cupyx.scipy.sparse.random(
+            nrows, ncols, density=0.07, format="csr", dtype=dtype
+        )
     else:
         x = cp.random.random((nrows, ncols), dtype=dtype)
 

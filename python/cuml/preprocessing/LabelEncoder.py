@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,10 +19,11 @@ from cuml.internals.safe_imports import cpu_only_import_from
 from cuml import Base
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
-pdSeries = cpu_only_import_from('pandas', 'Series')
+
+cudf = gpu_only_import("cudf")
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
+pdSeries = cpu_only_import_from("pandas", "Series")
 
 
 class LabelEncoder(Base):
@@ -117,15 +118,18 @@ class LabelEncoder(Base):
 
     """
 
-    def __init__(self, *,
-                 handle_unknown='error',
-                 handle=None,
-                 verbose=False,
-                 output_type=None):
+    def __init__(
+        self,
+        *,
+        handle_unknown="error",
+        handle=None,
+        verbose=False,
+        output_type=None,
+    ):
 
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
+        super().__init__(
+            handle=handle, verbose=verbose, output_type=output_type
+        )
 
         self.classes_ = None
         self.dtype = None
@@ -134,14 +138,18 @@ class LabelEncoder(Base):
 
     def _check_is_fitted(self):
         if not self._fitted:
-            msg = ("This LabelEncoder instance is not fitted yet. Call 'fit' "
-                   "with appropriate arguments before using this estimator.")
+            msg = (
+                "This LabelEncoder instance is not fitted yet. Call 'fit' "
+                "with appropriate arguments before using this estimator."
+            )
             raise NotFittedError(msg)
 
     def _validate_keywords(self):
-        if self.handle_unknown not in ('error', 'ignore'):
-            msg = ("handle_unknown should be either 'error' or 'ignore', "
-                   "got {0}.".format(self.handle_unknown))
+        if self.handle_unknown not in ("error", "ignore"):
+            msg = (
+                "handle_unknown should be either 'error' or 'ignore', "
+                "got {0}.".format(self.handle_unknown)
+            )
             raise ValueError(msg)
 
     def fit(self, y, _classes=None):
@@ -168,7 +176,7 @@ class LabelEncoder(Base):
 
         self._validate_keywords()
 
-        self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
+        self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
         if _classes is not None:
             self.classes_ = _classes
         else:
@@ -205,12 +213,12 @@ class LabelEncoder(Base):
 
         self._check_is_fitted()
 
-        y = y.astype('category')
+        y = y.astype("category")
 
         encoded = y.cat.set_categories(self.classes_)._column.codes
         encoded = cudf.Series(encoded, index=y.index)
 
-        if encoded.has_nulls and self.handle_unknown == 'error':
+        if encoded.has_nulls and self.handle_unknown == "error":
             raise KeyError("Attempted to encode unseen key")
 
         return encoded
@@ -224,9 +232,9 @@ class LabelEncoder(Base):
         """
 
         y = self._to_cudf_series(y)
-        self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
+        self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
 
-        y = y.astype('category')
+        y = y.astype("category")
         self.classes_ = y._column.categories
 
         self._fitted = True
@@ -255,11 +263,12 @@ class LabelEncoder(Base):
         # check if ord_label out of bound
         ord_label = y.unique()
         category_num = len(self.classes_)
-        if self.handle_unknown == 'error':
+        if self.handle_unknown == "error":
             for ordi in ord_label.values_host:
                 if ordi < 0 or ordi >= category_num:
                     raise ValueError(
-                        'y contains previously unseen label {}'.format(ordi))
+                        "y contains previously unseen label {}".format(ordi)
+                    )
 
         y = y.astype(self.dtype)
 
@@ -283,9 +292,11 @@ class LabelEncoder(Base):
         elif isinstance(y, np.ndarray):
             y = cudf.Series(y)
         elif not isinstance(y, cudf.Series):
-            msg = ("input should be either 'cupy.ndarray'"
-                   " or 'numpy.ndarray' or 'pandas.Series',"
-                   " or 'cudf.Series'"
-                   "got {0}.".format(type(y)))
+            msg = (
+                "input should be either 'cupy.ndarray'"
+                " or 'numpy.ndarray' or 'pandas.Series',"
+                " or 'cudf.Series'"
+                "got {0}.".format(type(y))
+            )
             raise TypeError(msg)
         return y

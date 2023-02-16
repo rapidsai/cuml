@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -88,17 +88,20 @@ class MulticlassClassifier(Base, ClassifierMixin):
         Number of classes.
 
     """
+
     @_deprecate_pos_args(version="21.06")
-    def __init__(self,
-                 estimator,
-                 *,
-                 handle=None,
-                 verbose=False,
-                 output_type=None,
-                 strategy='ovr'):
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
+    def __init__(
+        self,
+        estimator,
+        *,
+        handle=None,
+        verbose=False,
+        output_type=None,
+        strategy="ovr",
+    ):
+        super().__init__(
+            handle=handle, verbose=verbose, output_type=output_type
+        )
         self.strategy = strategy
         self.estimator = estimator
 
@@ -112,36 +115,47 @@ class MulticlassClassifier(Base, ClassifierMixin):
     def n_classes_(self):
         return self.multiclass_estimator.n_classes_
 
-    @generate_docstring(y='dense_anydtype')
-    def fit(self, X, y) -> 'MulticlassClassifier':
+    @generate_docstring(y="dense_anydtype")
+    def fit(self, X, y) -> "MulticlassClassifier":
         """
         Fit a multiclass classifier.
         """
         if not has_sklearn():
-            raise ImportError("Scikit-learn is needed to use "
-                              "MulticlassClassifier derived classes.")
+            raise ImportError(
+                "Scikit-learn is needed to use "
+                "MulticlassClassifier derived classes."
+            )
         import sklearn.multiclass
-        if self.strategy == 'ovr':
-            self.multiclass_estimator = sklearn.multiclass.\
-                OneVsRestClassifier(self.estimator, n_jobs=None)
-        elif self.strategy == 'ovo':
-            self.multiclass_estimator = \
-                sklearn.multiclass.OneVsOneClassifier(
-                    self.estimator, n_jobs=None)
+
+        if self.strategy == "ovr":
+            self.multiclass_estimator = sklearn.multiclass.OneVsRestClassifier(
+                self.estimator, n_jobs=None
+            )
+        elif self.strategy == "ovo":
+            self.multiclass_estimator = sklearn.multiclass.OneVsOneClassifier(
+                self.estimator, n_jobs=None
+            )
         else:
-            raise ValueError('Invalid multiclass strategy ' +
-                             str(self.strategy) + ', must be one of '
-                             '{"ovr", "ovo"}')
+            raise ValueError(
+                "Invalid multiclass strategy "
+                + str(self.strategy)
+                + ", must be one of "
+                '{"ovr", "ovo"}'
+            )
         X = input_to_host_array(X).array
         y = input_to_host_array(y).array
         with cuml.internals.exit_internal_api():
             self.multiclass_estimator.fit(X, y)
             return self
 
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted values',
-                                       'shape': '(n_samples, 1)'})
+    @generate_docstring(
+        return_values={
+            "name": "preds",
+            "type": "dense",
+            "description": "Predicted values",
+            "shape": "(n_samples, 1)",
+        }
+    )
     def predict(self, X) -> CumlArray:
         """
         Predict using multi class classifier.
@@ -150,11 +164,15 @@ class MulticlassClassifier(Base, ClassifierMixin):
         with cuml.internals.exit_internal_api():
             return self.multiclass_estimator.predict(X)
 
-    @generate_docstring(return_values={'name': 'results',
-                                       'type': 'dense',
-                                       'description': 'Decision function \
-                                       values',
-                                       'shape': '(n_samples, 1)'})
+    @generate_docstring(
+        return_values={
+            "name": "results",
+            "type": "dense",
+            "description": "Decision function \
+                                       values",
+            "shape": "(n_samples, 1)",
+        }
+    )
     def decision_function(self, X) -> CumlArray:
         """
         Calculate the decision function.
@@ -164,7 +182,7 @@ class MulticlassClassifier(Base, ClassifierMixin):
             return self.multiclass_estimator.decision_function(X)
 
     def get_param_names(self):
-        return super().get_param_names() + ['estimator', 'strategy']
+        return super().get_param_names() + ["estimator", "strategy"]
 
 
 class OneVsRestClassifier(MulticlassClassifier):
@@ -222,20 +240,23 @@ class OneVsRestClassifier(MulticlassClassifier):
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
     """
+
     @_deprecate_pos_args(version="21.06")
-    def __init__(self,
-                 estimator,
-                 *args,
-                 handle=None,
-                 verbose=False,
-                 output_type=None):
+    def __init__(
+        self, estimator, *args, handle=None, verbose=False, output_type=None
+    ):
         super().__init__(
-            estimator, *args, handle=handle, verbose=verbose,
-            output_type=output_type, strategy='ovr')
+            estimator,
+            *args,
+            handle=handle,
+            verbose=verbose,
+            output_type=output_type,
+            strategy="ovr",
+        )
 
     def get_param_names(self):
         param_names = super().get_param_names()
-        param_names.remove('strategy')
+        param_names.remove("strategy")
         return param_names
 
 
@@ -293,18 +314,21 @@ class OneVsOneClassifier(MulticlassClassifier):
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
     """
+
     @_deprecate_pos_args(version="21.06")
-    def __init__(self,
-                 estimator,
-                 *args,
-                 handle=None,
-                 verbose=False,
-                 output_type=None):
+    def __init__(
+        self, estimator, *args, handle=None, verbose=False, output_type=None
+    ):
         super().__init__(
-            estimator, *args, handle=handle, verbose=verbose,
-            output_type=output_type, strategy='ovo')
+            estimator,
+            *args,
+            handle=handle,
+            verbose=verbose,
+            output_type=output_type,
+            strategy="ovo",
+        )
 
     def get_param_names(self):
         param_names = super().get_param_names()
-        param_names.remove('strategy')
+        param_names.remove("strategy")
         return param_names

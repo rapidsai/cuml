@@ -68,7 +68,7 @@ if has_scipy():
     import scipy.sparse
 
 
-cdef extern from "raft/spatial/knn/ball_cover_common.h" \
+cdef extern from "raft/spatial/knn/ball_cover_types.hpp" \
         namespace "raft::spatial::knn":
     cdef cppclass BallCoverIndex[int64_t, float, uint32_t]:
         BallCoverIndex(const handle_t &handle,

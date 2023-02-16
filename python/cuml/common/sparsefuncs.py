@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,18 +23,20 @@ from cuml.common.kernel_utils import cuda_kernel_factory
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
 from cuml.internals.safe_imports import gpu_only_import_from
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
-cp_csr_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csr_matrix')
-cp_coo_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'coo_matrix')
-cp_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')
+
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
+cp_csr_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csr_matrix")
+cp_coo_matrix = gpu_only_import_from("cupyx.scipy.sparse", "coo_matrix")
+cp_csc_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csc_matrix")
 
 
 if has_scipy():
     from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
 else:
     from cuml.common.import_utils import DummyClass
+
     csr_matrix = DummyClass
     coo_matrix = DummyClass
     csc_matrix = DummyClass
@@ -43,7 +45,7 @@ else:
 def _map_l1_norm_kernel(dtype):
     """Creates cupy RawKernel for csr_raw_normalize_l1 function."""
 
-    map_kernel_str = r'''
+    map_kernel_str = r"""
     ({0} *data, {1} *indices, {2} *indptr, int n_samples) {
 
       int tid = blockDim.x * blockIdx.x + threadIdx.x;
@@ -63,14 +65,14 @@ def _map_l1_norm_kernel(dtype):
         data[i] /= sum;
       }
     }
-    '''
+    """
     return cuda_kernel_factory(map_kernel_str, dtype, "map_l1_norm_kernel")
 
 
 def _map_l2_norm_kernel(dtype):
     """Creates cupy RawKernel for csr_raw_normalize_l2 function."""
 
-    map_kernel_str = r'''
+    map_kernel_str = r"""
     ({0} *data, {1} *indices, {2} *indptr, int n_samples) {
 
       int tid = blockDim.x * blockIdx.x + threadIdx.x;
@@ -90,7 +92,7 @@ def _map_l2_norm_kernel(dtype):
         data[i] /= sum;
       }
     }
-    '''
+    """
     return cuda_kernel_factory(map_kernel_str, dtype, "map_l2_norm_kernel")
 
 
@@ -101,8 +103,11 @@ def csr_row_normalize_l1(X, inplace=True):
         X = X.copy()
 
     kernel = _map_l1_norm_kernel((X.dtype, X.indices.dtype, X.indptr.dtype))
-    kernel((math.ceil(X.shape[0] / 32),), (32,),
-           (X.data, X.indices, X.indptr, X.shape[0]))
+    kernel(
+        (math.ceil(X.shape[0] / 32),),
+        (32,),
+        (X.data, X.indices, X.indptr, X.shape[0]),
+    )
 
     return X
 
@@ -114,8 +119,11 @@ def csr_row_normalize_l2(X, inplace=True):
         X = X.copy()
 
     kernel = _map_l2_norm_kernel((X.dtype, X.indices.dtype, X.indptr.dtype))
-    kernel((math.ceil(X.shape[0] / 32),), (32,),
-           (X.data, X.indices, X.indptr, X.shape[0]))
+    kernel(
+        (math.ceil(X.shape[0] / 32),),
+        (32,),
+        (X.data, X.indices, X.indptr, X.shape[0]),
+    )
 
     return X
 
@@ -132,8 +140,9 @@ def csr_diag_mul(X, y, inplace=True):
 
 
 @cuml.internals.api_return_any()
-def create_csr_matrix_from_count_df(count_df, empty_doc_ids, n_doc, n_features,
-                                    dtype=cp.float32):
+def create_csr_matrix_from_count_df(
+    count_df, empty_doc_ids, n_doc, n_features, dtype=cp.float32
+):
     """
     Create a sparse matrix from the count of tokens by document
 
@@ -162,8 +171,7 @@ def create_csr_matrix_from_count_df(count_df, empty_doc_ids, n_doc, n_features,
     indptr = cp.pad(indptr, (1, 0), "constant")
 
     return cupyx.scipy.sparse.csr_matrix(
-        arg1=(data, indices, indptr), dtype=dtype,
-        shape=(n_doc, n_features)
+        arg1=(data, indices, indptr), dtype=dtype, shape=(n_doc, n_features)
     )
 
 
@@ -182,8 +190,9 @@ def _insert_zeros(ary, zero_indices):
     new_ary = cp.zeros((len(ary) + len(zero_indices)), dtype=cp.int32)
 
     # getting mask of non-zeros
-    data_mask = ~cp.in1d(cp.arange(0, len(new_ary), dtype=cp.int32),
-                         zero_indices)
+    data_mask = ~cp.in1d(
+        cp.arange(0, len(new_ary), dtype=cp.int32), zero_indices
+    )
 
     new_ary[data_mask] = ary
     return new_ary
@@ -270,9 +279,17 @@ def extract_knn_infos(knn_info, n_neighbors):
         # dists and indices provided as a tuple
         results = knn_info
     else:
-        isaKNNGraph = isinstance(knn_info, (csr_matrix, coo_matrix, csc_matrix,
-                                            cp_csr_matrix, cp_coo_matrix,
-                                            cp_csc_matrix))
+        isaKNNGraph = isinstance(
+            knn_info,
+            (
+                csr_matrix,
+                coo_matrix,
+                csc_matrix,
+                cp_csr_matrix,
+                cp_coo_matrix,
+                cp_csc_matrix,
+            ),
+        )
         if isaKNNGraph:
             # extract dists and indices from a KNN graph
             deepcopy = True
@@ -284,19 +301,21 @@ def extract_knn_infos(knn_info, n_neighbors):
     if results is not None:
         knn_indices, knn_dists = results
 
-        knn_indices_m, _, _, _ = \
-            input_to_cuml_array(knn_indices.flatten(),
-                                order='C',
-                                deepcopy=deepcopy,
-                                check_dtype=np.int64,
-                                convert_to_dtype=np.int64)
+        knn_indices_m, _, _, _ = input_to_cuml_array(
+            knn_indices.flatten(),
+            order="C",
+            deepcopy=deepcopy,
+            check_dtype=np.int64,
+            convert_to_dtype=np.int64,
+        )
 
-        knn_dists_m, _, _, _ = \
-            input_to_cuml_array(knn_dists.flatten(),
-                                order='C',
-                                deepcopy=deepcopy,
-                                check_dtype=np.float32,
-                                convert_to_dtype=np.float32)
+        knn_dists_m, _, _, _ = input_to_cuml_array(
+            knn_dists.flatten(),
+            order="C",
+            deepcopy=deepcopy,
+            check_dtype=np.float32,
+            convert_to_dtype=np.float32,
+        )
 
         return knn_indices_m, knn_dists_m
     else:

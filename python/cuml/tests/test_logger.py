@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,8 +28,8 @@ def test_logger():
     logger.critical("This is a critical message")
 
     with logger.set_level(logger.level_warn):
-        assert(logger.should_log_for(logger.level_warn))
-        assert(not logger.should_log_for(logger.level_info))
+        assert logger.should_log_for(logger.level_warn)
+        assert not logger.should_log_for(logger.level_info)
 
     with logger.set_pattern("%v"):
         logger.info("This is an info message")
@@ -80,9 +80,9 @@ def test_log_flush():
         test_msg = "This is a debug message"
         with redirect_stdout(new_stdout):
             logger.debug(test_msg)
-            assert test_msg not in stdout_buffer.getvalue().decode('utf-8')
+            assert test_msg not in stdout_buffer.getvalue().decode("utf-8")
             logger.flush()
-            assert test_msg in stdout_buffer.getvalue().decode('utf-8')
+            assert test_msg in stdout_buffer.getvalue().decode("utf-8")
 
     # Check that logging flush does not error with sys.stdout of None
     with redirect_stdout(None):

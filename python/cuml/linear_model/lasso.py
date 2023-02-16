@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -129,19 +129,37 @@ class Lasso(ElasticNet):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
 
-    _cpu_estimator_import_path = 'sklearn.linear_model.Lasso'
+    _cpu_estimator_import_path = "sklearn.linear_model.Lasso"
 
     @device_interop_preparation
-    def __init__(self, *, alpha=1.0, fit_intercept=True,
-                 normalize=False, max_iter=1000, tol=1e-3,
-                 solver='cd', selection='cyclic',
-                 handle=None, output_type=None, verbose=False):
+    def __init__(
+        self,
+        *,
+        alpha=1.0,
+        fit_intercept=True,
+        normalize=False,
+        max_iter=1000,
+        tol=1e-3,
+        solver="cd",
+        selection="cyclic",
+        handle=None,
+        output_type=None,
+        verbose=False,
+    ):
         # Lasso is just a special case of ElasticNet
         super().__init__(
-            l1_ratio=1.0, alpha=alpha, fit_intercept=fit_intercept,
-            normalize=normalize, max_iter=max_iter, tol=tol,
-            solver=solver, selection=selection,
-            handle=handle, output_type=output_type, verbose=verbose)
+            l1_ratio=1.0,
+            alpha=alpha,
+            fit_intercept=fit_intercept,
+            normalize=normalize,
+            max_iter=max_iter,
+            tol=tol,
+            solver=solver,
+            selection=selection,
+            handle=handle,
+            output_type=output_type,
+            verbose=verbose,
+        )
 
     def get_param_names(self):
-        return list(set(super().get_param_names()) - {'l1_ratio'})
+        return list(set(super().get_param_names()) - {"l1_ratio"})

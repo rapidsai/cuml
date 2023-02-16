@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,8 +67,9 @@ def reduce(futures, func, client=None):
         # locality
         if len(worker_parts) > 1:
             # Local tree reduction for scalability
-            futures = client.compute([tree_reduce(p, func)
-                                     for w, p in worker_parts.items()])
+            futures = client.compute(
+                [tree_reduce(p, func) for w, p in worker_parts.items()]
+            )
 
             wait(futures)
 
@@ -105,15 +106,13 @@ def tree_reduce(objs, func=sum):
         if func is a future, the result will be a future
     """
 
-    func = dask.delayed(func) \
-        if not isinstance(func, Delayed) else func
+    func = dask.delayed(func) if not isinstance(func, Delayed) else func
 
     while len(objs) > 1:
         new_objs = []
         n_objs = len(objs)
         for i in range(0, n_objs, 2):
-            inputs = dask.delayed(objs[i:i + 2],
-                                  pure=False)
+            inputs = dask.delayed(objs[i : i + 2], pure=False)
             obj = func(inputs)
             new_objs.append(obj)
         wait(new_objs)

@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,7 @@ from cuml.dask.common.base import BaseEstimator, DelayedTransformMixin
 from cuml.dask.common.input_utils import DistributedDataHandler
 
 
-class UMAP(BaseEstimator,
-           DelayedTransformMixin):
+class UMAP(BaseEstimator, DelayedTransformMixin):
     """
     Uniform Manifold Approximation and Projection
 
@@ -97,6 +96,7 @@ class UMAP(BaseEstimator,
        Reduction. <https://arxiv.org/abs/1802.03426>`_
 
     """
+
     def __init__(self, *, model, client=None, **kwargs):
         super().__init__(client=client, **kwargs)
 
@@ -127,5 +127,4 @@ class UMAP(BaseEstimator,
         """
         data = DistributedDataHandler.create(data=X, client=self.client)
         self.datatype = data.datatype
-        return self._transform(X,
-                               convert_dtype=convert_dtype)
+        return self._transform(X, convert_dtype=convert_dtype)

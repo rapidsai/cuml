@@ -64,11 +64,12 @@ __global__ void exact_rows_kernel(float* X,
     int curr_X = (int)X[row + col];
 
     // Iterate over nrows_background
-    for (int row_idx = blockIdx.x * nrows_background;
-         row_idx < blockIdx.x * nrows_background + nrows_background;
-         row_idx += 1) {
+    int row_idx_base = blockIdx.x * nrows_background;
+
+    for (int r = 0; r < nrows_background; r++) {
+      int row_idx = row_idx_base + r;
       if (curr_X == 0) {
-        dataset[row_idx * ncols + col] = background[(row_idx % nrows_background) * ncols + col];
+        dataset[row_idx * ncols + col] = background[r * ncols + col];
       } else {
         dataset[row_idx * ncols + col] = observation[col];
       }
@@ -139,26 +140,25 @@ __global__ void sampled_rows_kernel(IdxT* nsamples,
     int curr_X                                = (int)X[2 * blockIdx.x * ncols + col_idx];
     X[(2 * blockIdx.x + 1) * ncols + col_idx] = 1 - curr_X;
 
-    for (int bg_row_idx = 2 * blockIdx.x * nrows_background;
-         bg_row_idx < 2 * blockIdx.x * nrows_background + nrows_background;
-         bg_row_idx += 1) {
+    int bg_row_idx_base = 2 * blockIdx.x * nrows_background;
+
+    for (int r = 0; r < nrows_background; r++) {
+      int bg_row_idx = bg_row_idx_base + r;
       if (curr_X == 0) {
-        dataset[bg_row_idx * ncols + col_idx] =
-          background[(bg_row_idx % nrows_background) * ncols + col_idx];
+        dataset[bg_row_idx * ncols + col_idx] = background[r * ncols + col_idx];
       } else {
         dataset[bg_row_idx * ncols + col_idx] = observation[col_idx];
       }
     }
 
-    for (int bg_row_idx = (2 * blockIdx.x + 1) * nrows_background;
-         bg_row_idx < (2 * blockIdx.x + 1) * nrows_background + nrows_background;
-         bg_row_idx += 1) {
+    bg_row_idx_base = 2 * (blockIdx.x + 1) * nrows_background;
+
+    for (int r = 0; r < nrows_background; r++) {
+      int bg_row_idx = bg_row_idx_base + r;
       if (curr_X == 0) {
         dataset[bg_row_idx * ncols + col_idx] = observation[col_idx];
       } else {
-        // if(threadIdx.x == 0) printf("tid bg_row_idx: %d %d\n", tid, bg_row_idx);
-        dataset[bg_row_idx * ncols + col_idx] =
-          background[(bg_row_idx) % nrows_background * ncols + col_idx];
+        dataset[bg_row_idx * ncols + col_idx] = background[r * ncols + col_idx];
       }
     }
 

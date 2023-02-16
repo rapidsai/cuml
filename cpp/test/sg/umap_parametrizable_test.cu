@@ -54,8 +54,6 @@
 using namespace ML;
 using namespace ML::Metrics;
 
-using namespace std;
-
 using namespace MLCommon;
 using namespace MLCommon::Datasets::Digits;
 

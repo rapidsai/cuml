@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,16 +21,17 @@ import warnings
 import pytest
 
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+
+np = cpu_only_import("numpy")
 
 
 ###############################################################################
 #                       Helpers and reference functions                       #
 ###############################################################################
 
+
 def prepare_data(y, d, D, s):
-    """Applies differencing and seasonal differencing to the data
-    """
+    """Applies differencing and seasonal differencing to the data"""
     n_obs, batch_size = y.shape
     s1 = s if D else (1 if d else 0)
     s2 = 1 if d + D == 2 else 0
@@ -42,15 +43,15 @@ def prepare_data(y, d, D, s):
 
 
 def kpss_ref(y):
-    """Wrapper around statsmodels' KPSS test
-    """
+    """Wrapper around statsmodels' KPSS test"""
     batch_size = y.shape[1]
     test_results = np.zeros(batch_size, dtype=bool)
     for i in range(batch_size):
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
             _, pval, *_ = stattools.kpss(
-                y[:, i], regression='c', nlags='legacy')
+                y[:, i], regression="c", nlags="legacy"
+            )
         test_results[i] = pval > 0.05
     return test_results
 
@@ -68,15 +69,15 @@ ref_tests = {
 #                                    Tests                                    #
 ###############################################################################
 
-@pytest.mark.parametrize('batch_size', [25, 100])
-@pytest.mark.parametrize('n_obs', [50, 130])
-@pytest.mark.parametrize('dD', [(0, 0), (1, 0), (2, 0), (0, 1), (1, 1)])
-@pytest.mark.parametrize('s', [4, 12])
-@pytest.mark.parametrize('dtype', [np.float32, np.float64])
-@pytest.mark.parametrize('test_type', ['kpss'])
+
+@pytest.mark.parametrize("batch_size", [25, 100])
+@pytest.mark.parametrize("n_obs", [50, 130])
+@pytest.mark.parametrize("dD", [(0, 0), (1, 0), (2, 0), (0, 1), (1, 1)])
+@pytest.mark.parametrize("s", [4, 12])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("test_type", ["kpss"])
 def test_stationarity(batch_size, n_obs, dD, s, dtype, test_type):
-    """Test stationarity tests against a reference implementation
-    """
+    """Test stationarity tests against a reference implementation"""
     d, D = dD
 
     # Fix seed for stability
@@ -86,8 +87,9 @@ def test_stationarity(batch_size, n_obs, dD, s, dtype, test_type):
     pattern = np.zeros((s, batch_size))
     pattern[0, :] = np.random.uniform(-1.0, 1.0, batch_size)
     for i in range(1, s):
-        pattern[i, :] = pattern[i-1, :] + \
-            np.random.uniform(-1.0, 1.0, batch_size)
+        pattern[i, :] = pattern[i - 1, :] + np.random.uniform(
+            -1.0, 1.0, batch_size
+        )
     pattern /= s
 
     # Decide for each series whether to include a linear and/or quadratic
@@ -99,23 +101,30 @@ def test_stationarity(batch_size, n_obs, dD, s, dtype, test_type):
     # Generate coefficients for the linear, quadratic and seasonal terms,
     # taking into account the masks computed above and avoiding coefficients
     # close to zero
-    linear_coef = linear_mask * \
-        np.random.choice([-1.0, 1.0], batch_size) * \
-        np.random.uniform(0.2, 2.0, batch_size)
-    quadra_coef = quadra_mask * \
-        np.random.choice([-1.0, 1.0], batch_size) * \
-        np.random.uniform(0.2, 2.0, batch_size)
+    linear_coef = (
+        linear_mask
+        * np.random.choice([-1.0, 1.0], batch_size)
+        * np.random.uniform(0.2, 2.0, batch_size)
+    )
+    quadra_coef = (
+        quadra_mask
+        * np.random.choice([-1.0, 1.0], batch_size)
+        * np.random.uniform(0.2, 2.0, batch_size)
+    )
     season_coef = season_mask * np.random.uniform(0.4, 0.8, batch_size)
 
     # Generate the data
     x = np.linspace(0.0, 2.0, n_obs)
     offset = np.random.uniform(-2.0, 2.0, batch_size)
-    y = np.zeros((n_obs, batch_size), order='F', dtype=dtype)
+    y = np.zeros((n_obs, batch_size), order="F", dtype=dtype)
     for i in range(n_obs):
-        y[i, :] = (offset[:] + linear_coef[:] * x[i]
-                   + quadra_coef[:] * x[i] * x[i]
-                   + season_coef[:] * pattern[i % s, :]
-                   + np.random.normal(0.0, 0.2, batch_size))
+        y[i, :] = (
+            offset[:]
+            + linear_coef[:] * x[i]
+            + quadra_coef[:] * x[i] * x[i]
+            + season_coef[:] * pattern[i % s, :]
+            + np.random.normal(0.0, 0.2, batch_size)
+        )
 
     # Call the cuML function
     test_cuml = cuml_tests[test_type](y, d, D, s)

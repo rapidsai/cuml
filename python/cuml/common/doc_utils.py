@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,130 +43,99 @@ import inspect
 
 
 _parameters_docstrings = {
-    'dense':
-    '{name} : array-like (device or host) shape = {shape}\n'
-    '    Dense matrix containing floats or doubles.\n'
-    '    Acceptable formats: CUDA array interface compliant objects like\n'
-    '    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n'
-    '    DataFrame/Series.',
-
-    'dense_anydtype':
-    '{name} : array-like (device or host) shape = {shape}\n'
-    '    Dense matrix of any dtype.\n'
-    '    Acceptable formats: CUDA array interface compliant objects like\n'
-    '    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n'
-    '    DataFrame/Series.',
-
-    'dense_intdtype':
-    '{name} : array-like (device or host) shape = {shape}\n'
-    '    Dense matrix of type np.int32.\n'
-    '    Acceptable formats: CUDA array interface compliant objects like\n'
-    '    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n'
-    '    DataFrame/Series.',
-
-    'sparse':
-    '{name} : sparse array-like (device) shape = {shape}\n'
-    '    Dense matrix containing floats or doubles.\n'
-    '    Acceptable formats: cupyx.scipy.sparse',
-
-    'dense_sparse':
-    '{name} : array-like (device or host) shape = {shape}\n'
-    '    Dense or sparse matrix containing floats or doubles.\n'
-    '    Acceptable dense formats: CUDA array interface compliant objects like\n'  # noqa
-    '    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n'
-    '    DataFrame/Series.',
-
-    'convert_dtype_fit':
-    'convert_dtype : bool, optional (default = {default})\n'
-    '    When set to True, the train method will, when necessary, convert\n'
-    '    y to be the same data type as X if they differ. This\n'
-    '    will increase memory used for the method.',
-
-    'convert_dtype_other':
-    'convert_dtype : bool, optional (default = {default})\n'
-    '    When set to True, the {func_name} method will, when necessary,\n'
-    '    convert the input to the data type which was used to train the\n'
-    '    model. This will increase memory used for the method.',
-
-    'convert_dtype_single':
-    'convert_dtype : bool, optional (default = {default})\n'
-    '    When set to True, the method will automatically\n'
-    '    convert the inputs to {dtype}.',
-
-    'sample_weight':
-    'sample_weight : array-like (device or host) shape = (n_samples,), default={default}\n'  # noqa
-    '    The weights for each observation in X. If None, all observations\n'
-    '    are assigned equal weight.\n'
-    '    Acceptable dense formats: CUDA array interface compliant objects like\n'  # noqa
-    '    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n'
-    '    DataFrame/Series.',  # noqa
-    'return_sparse':
-    'return_sparse : bool, optional (default = {default})\n'
-    '    Ignored when the model is not fit on a sparse matrix\n'
-    '    If True, the method will convert the result to a\n'
-    '    cupyx.scipy.sparse.csr_matrix object.\n'
-    '    NOTE: Currently, there is a loss of information when converting\n'
-    '    to csr matrix (cusolver bug). Default will be switched to True\n'
-    '    once this is solved.',
-
-    'sparse_tol':
-    'sparse_tol : float, optional (default = {default})\n'
-    '    Ignored when return_sparse=False.\n'
-    '    If True, values in the inverse transform below this parameter\n'
-    '    are clipped to 0.'
+    "dense": "{name} : array-like (device or host) shape = {shape}\n"
+    "    Dense matrix containing floats or doubles.\n"
+    "    Acceptable formats: CUDA array interface compliant objects like\n"
+    "    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n"
+    "    DataFrame/Series.",
+    "dense_anydtype": "{name} : array-like (device or host) shape = {shape}\n"
+    "    Dense matrix of any dtype.\n"
+    "    Acceptable formats: CUDA array interface compliant objects like\n"
+    "    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n"
+    "    DataFrame/Series.",
+    "dense_intdtype": "{name} : array-like (device or host) shape = {shape}\n"
+    "    Dense matrix of type np.int32.\n"
+    "    Acceptable formats: CUDA array interface compliant objects like\n"
+    "    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n"
+    "    DataFrame/Series.",
+    "sparse": "{name} : sparse array-like (device) shape = {shape}\n"
+    "    Dense matrix containing floats or doubles.\n"
+    "    Acceptable formats: cupyx.scipy.sparse",
+    "dense_sparse": "{name} : array-like (device or host) shape = {shape}\n"
+    "    Dense or sparse matrix containing floats or doubles.\n"
+    "    Acceptable dense formats: CUDA array interface compliant objects like\n"  # noqa
+    "    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n"
+    "    DataFrame/Series.",
+    "convert_dtype_fit": "convert_dtype : bool, optional (default = {default})\n"
+    "    When set to True, the train method will, when necessary, convert\n"
+    "    y to be the same data type as X if they differ. This\n"
+    "    will increase memory used for the method.",
+    "convert_dtype_other": "convert_dtype : bool, optional (default = {default})\n"
+    "    When set to True, the {func_name} method will, when necessary,\n"
+    "    convert the input to the data type which was used to train the\n"
+    "    model. This will increase memory used for the method.",
+    "convert_dtype_single": "convert_dtype : bool, optional (default = {default})\n"
+    "    When set to True, the method will automatically\n"
+    "    convert the inputs to {dtype}.",
+    "sample_weight": "sample_weight : array-like (device or host) shape = (n_samples,), default={default}\n"  # noqa
+    "    The weights for each observation in X. If None, all observations\n"
+    "    are assigned equal weight.\n"
+    "    Acceptable dense formats: CUDA array interface compliant objects like\n"  # noqa
+    "    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n"
+    "    DataFrame/Series.",  # noqa
+    "return_sparse": "return_sparse : bool, optional (default = {default})\n"
+    "    Ignored when the model is not fit on a sparse matrix\n"
+    "    If True, the method will convert the result to a\n"
+    "    cupyx.scipy.sparse.csr_matrix object.\n"
+    "    NOTE: Currently, there is a loss of information when converting\n"
+    "    to csr matrix (cusolver bug). Default will be switched to True\n"
+    "    once this is solved.",
+    "sparse_tol": "sparse_tol : float, optional (default = {default})\n"
+    "    Ignored when return_sparse=False.\n"
+    "    If True, values in the inverse transform below this parameter\n"
+    "    are clipped to 0.",
 }
 
-_parameter_possible_values = ['name',
-                              'type',
-                              'shape',
-                              'default',
-                              'description',
-                              'accepted']
+_parameter_possible_values = [
+    "name",
+    "type",
+    "shape",
+    "default",
+    "description",
+    "accepted",
+]
 
 _return_values_docstrings = {
-    'dense':
-    '{name} : cuDF, CuPy or NumPy object depending on cuML\'s output type configuration, shape = {shape}\n'  # noqa
-    '    {description}\n\n    For more information on how to configure cuML\'s output type,\n'  # noqa
-    '    refer to: `Output Data Type Configuration`_.',  # noqa
-
-    'dense_sparse':
-    '{name} : cuDF, CuPy or NumPy object depending on cuML\'s output type configuration, cupyx.scipy.sparse for sparse output, shape = {shape}\n'  # noqa
-    '    {description}\n\n    For more information on how to configure cuML\'s dense output type,\n'  # noqa
-    '    refer to: `Output Data Type Configuration`_.',  # noqa
-
-    'dense_datatype':
-    'cuDF, CuPy or NumPy object depending on cuML\'s output type'
-    'configuration, shape ={shape}',
-
-    'dense_sparse_datatype':
-    'cuDF, CuPy or NumPy object depending on cuML\'s output type'
-    'configuration, shape ={shape}',
-
-    'custom_type':
-    '{name} : {type}\n'
-    '    {description}'
+    "dense": "{name} : cuDF, CuPy or NumPy object depending on cuML's output type configuration, shape = {shape}\n"  # noqa
+    "    {description}\n\n    For more information on how to configure cuML's output type,\n"  # noqa
+    "    refer to: `Output Data Type Configuration`_.",  # noqa
+    "dense_sparse": "{name} : cuDF, CuPy or NumPy object depending on cuML's output type configuration, cupyx.scipy.sparse for sparse output, shape = {shape}\n"  # noqa
+    "    {description}\n\n    For more information on how to configure cuML's dense output type,\n"  # noqa
+    "    refer to: `Output Data Type Configuration`_.",  # noqa
+    "dense_datatype": "cuDF, CuPy or NumPy object depending on cuML's output type"
+    "configuration, shape ={shape}",
+    "dense_sparse_datatype": "cuDF, CuPy or NumPy object depending on cuML's output type"
+    "configuration, shape ={shape}",
+    "custom_type": "{name} : {type}\n" "    {description}",
 }
 
-_return_values_possible_values = ['name',
-                                  'type',
-                                  'shape',
-                                  'description']
+_return_values_possible_values = ["name", "type", "shape", "description"]
 
-_simple_params = ['return_sparse',
-                  'sparse_tol',
-                  'sample_weight']
+_simple_params = ["return_sparse", "sparse_tol", "sample_weight"]
 
 
-def generate_docstring(X='dense',
-                       X_shape='(n_samples, n_features)',
-                       y='dense',
-                       y_shape='(n_samples, 1)',
-                       convert_dtype_cast=False,
-                       skip_parameters=[],
-                       skip_parameters_heading=False,
-                       prepend_parameters=True,
-                       parameters=False,
-                       return_values=False):
+def generate_docstring(
+    X="dense",
+    X_shape="(n_samples, n_features)",
+    y="dense",
+    y_shape="(n_samples, 1)",
+    convert_dtype_cast=False,
+    skip_parameters=[],
+    skip_parameters_heading=False,
+    prepend_parameters=True,
+    parameters=False,
+    return_values=False,
+):
     """
     Decorator to generate dostrings of common functions in the codebase.
     It will auto detect what parameters and default values the function has.
@@ -249,66 +218,64 @@ def generate_docstring(X='dense',
         params = signature(func).parameters
 
         # Add parameter section header if needed, can be skipped
-        if(('X' in params or 'y' in params or parameters) and not
-                skip_parameters_heading):
+        if (
+            "X" in params or "y" in params or parameters
+        ) and not skip_parameters_heading:
 
-            func.__doc__ += \
-                '\nParameters\n----------\n'
+            func.__doc__ += "\nParameters\n----------\n"
 
         # Check if we want to prepend the parameters
         if skip_parameters_heading and prepend_parameters:
             loc_pars = func.__doc__.find("----------") + 11
-            current_params_in_docstring = \
-                func.__doc__[loc_pars:]
+            current_params_in_docstring = func.__doc__[loc_pars:]
 
             func.__doc__ = func.__doc__[:loc_pars]
 
         # Process each parameter
         for par, value in params.items():
-            if par == 'self':
+            if par == "self":
                 pass
 
             # X and y are the most common
-            elif par == 'X' and par not in skip_parameters:
-                func.__doc__ += \
-                    _parameters_docstrings[X].format(name=par,
-                                                     shape=X_shape)
-            elif par == 'y' and par not in skip_parameters:
-                func.__doc__ += \
-                    _parameters_docstrings[y].format(name=par,
-                                                     shape=y_shape)
+            elif par == "X" and par not in skip_parameters:
+                func.__doc__ += _parameters_docstrings[X].format(
+                    name=par, shape=X_shape
+                )
+            elif par == "y" and par not in skip_parameters:
+                func.__doc__ += _parameters_docstrings[y].format(
+                    name=par, shape=y_shape
+                )
 
             # convert_dtype requires some magic to distinguish
             # whether we use the fit version or the version
             # for the other methods.
-            elif par == 'convert_dtype' and par not in skip_parameters:
+            elif par == "convert_dtype" and par not in skip_parameters:
                 if not convert_dtype_cast:
-                    if func.__name__ == 'fit':
-                        k = 'convert_dtype_fit'
+                    if func.__name__ == "fit":
+                        k = "convert_dtype_fit"
                     else:
-                        k = 'convert_dtype_other'
+                        k = "convert_dtype_other"
 
-                    func.__doc__ += \
-                        _parameters_docstrings[k].format(
-                            default=params['convert_dtype'].default,
-                            func_name=func.__name__
-                        )
+                    func.__doc__ += _parameters_docstrings[k].format(
+                        default=params["convert_dtype"].default,
+                        func_name=func.__name__,
+                    )
 
                 else:
-                    func.__doc__ += \
-                        _parameters_docstrings['convert_dtype_single'].format(
-                            default=params['convert_dtype'].default,
-                            dtype=convert_dtype_cast
-                        )
+                    func.__doc__ += _parameters_docstrings[
+                        "convert_dtype_single"
+                    ].format(
+                        default=params["convert_dtype"].default,
+                        dtype=convert_dtype_cast,
+                    )
 
             # All other parameters only take a default (for now).
             else:
                 if par in _simple_params:
-                    func.__doc__ += \
-                        _parameters_docstrings[par].format(
-                            default=params[par].default
-                        )
-            func.__doc__ += '\n\n'
+                    func.__doc__ += _parameters_docstrings[par].format(
+                        default=params[par].default
+                    )
+            func.__doc__ += "\n\n"
 
         if skip_parameters_heading and prepend_parameters:
             # indexing at 8 to match indentation of inserted parameters
@@ -317,40 +284,39 @@ def generate_docstring(X='dense',
             func.__doc__ += current_params_in_docstring[8:]
 
         # Add return section header if needed, no option to skip currently.
-        if(return_values):
-            func.__doc__ += \
-                '\nReturns\n-------\n'
+        if return_values:
+            func.__doc__ += "\nReturns\n-------\n"
 
             # convenience call to allow users to pass a single return
             # value as a dictionary instead of a list of dictionaries
-            rets = [return_values] if not isinstance(return_values, list) \
+            rets = (
+                [return_values]
+                if not isinstance(return_values, list)
                 else return_values
+            )
 
             # process each entry in the return_values
             # auto naming of predicted variable names will be a
             # future improvement
             for ret in rets:
-                if ret['type'] in _return_values_docstrings:
-                    key = ret['type']
+                if ret["type"] in _return_values_docstrings:
+                    key = ret["type"]
                     # non custom types don't take the type parameter
-                    del ret['type']
+                    del ret["type"]
                 else:
-                    key = 'custom_type'
+                    key = "custom_type"
 
                 # ret is already a dictionary, we just use it for the named
                 # parameters
-                func.__doc__ += \
-                    _return_values_docstrings[key].format(
-                        **ret
-                    )
-                func.__doc__ += '\n\n'
+                func.__doc__ += _return_values_docstrings[key].format(**ret)
+                func.__doc__ += "\n\n"
 
         return func
+
     return deco
 
 
-def insert_into_docstring(parameters=False,
-                          return_values=False):
+def insert_into_docstring(parameters=False, return_values=False):
     """
     Decorator to insert a single entry into an existing docstring. Use
     standard {} format parameters in your docstring, and then use this
@@ -421,15 +387,16 @@ def insert_into_docstring(parameters=False,
         if return_values:
             for ret in return_values:
                 to_add.append(
-                    _return_values_docstrings[ret[0] + '_datatype'].format(
+                    _return_values_docstrings[ret[0] + "_datatype"].format(
                         shape=ret[1]
                     )
                 )
 
-        if(len(to_add) > 0):
+        if len(to_add) > 0:
             func.__doc__ = str(inspect.getdoc(func)).format(*to_add)
 
-        func.__doc__ += '\n\n'
+        func.__doc__ += "\n\n"
 
         return func
+
     return deco

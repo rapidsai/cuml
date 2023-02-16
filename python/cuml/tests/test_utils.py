@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,15 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from hypothesis.extra.numpy import (array_shapes, arrays, floating_dtypes,
-                                    integer_dtypes)
+from hypothesis.extra.numpy import (
+    array_shapes,
+    arrays,
+    floating_dtypes,
+    integer_dtypes,
+)
 from hypothesis import target
 from hypothesis import strategies as st
 from hypothesis import given, note
 from cuml.testing.utils import array_equal, assert_array_equal
 import pytest
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+
+np = cpu_only_import("numpy")
 
 
 @given(
@@ -28,7 +33,8 @@ np = cpu_only_import('numpy')
         dtype=st.one_of(floating_dtypes(), integer_dtypes()),
         shape=array_shapes(),
     ),
-    st.floats(1e-4, 1.0))
+    st.floats(1e-4, 1.0),
+)
 @pytest.mark.filterwarnings("ignore:invalid value encountered in subtract")
 def test_array_equal_same_array(array, tol):
     equal = array_equal(array, array, tol)
@@ -44,17 +50,16 @@ def test_array_equal_same_array(array, tol):
 
 @given(
     arrays=array_shapes().flatmap(
-        lambda shape:
-            st.tuples(
-                arrays(
-                    dtype=st.one_of(floating_dtypes(), integer_dtypes()),
-                    shape=shape,
-                ),
-                arrays(
-                    dtype=st.one_of(floating_dtypes(), integer_dtypes()),
-                    shape=shape,
-                ),
-            )
+        lambda shape: st.tuples(
+            arrays(
+                dtype=st.one_of(floating_dtypes(), integer_dtypes()),
+                shape=shape,
+            ),
+            arrays(
+                dtype=st.one_of(floating_dtypes(), integer_dtypes()),
+                shape=shape,
+            ),
+        )
     ),
     unit_tol=st.floats(1e-4, 1.0),
     with_sign=st.booleans(),
@@ -64,11 +69,13 @@ def test_array_equal_two_arrays(arrays, unit_tol, with_sign):
     array_a, array_b = arrays
     equal = array_equal(array_a, array_b, unit_tol, with_sign=with_sign)
     equal_flipped = array_equal(
-        array_b, array_a, unit_tol, with_sign=with_sign)
+        array_b, array_a, unit_tol, with_sign=with_sign
+    )
     note(equal)
     difference = equal.compute_difference()
-    a, b = (array_a, array_b) if with_sign else \
-        (np.abs(array_a), np.abs(array_b))
+    a, b = (
+        (array_a, array_b) if with_sign else (np.abs(array_a), np.abs(array_b))
+    )
     expect_equal = np.sum(np.abs(a - b) > unit_tol) / array_a.size < 1e-4
     if expect_equal:
         assert_array_equal(array_a, array_b, unit_tol, with_sign=with_sign)

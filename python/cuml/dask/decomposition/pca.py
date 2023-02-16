@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,10 +21,12 @@ from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedInverseTransformMixin
 
 
-class PCA(BaseDecomposition,
-          DelayedTransformMixin,
-          DelayedInverseTransformMixin,
-          DecompositionSyncFitMixin):
+class PCA(
+    BaseDecomposition,
+    DelayedTransformMixin,
+    DelayedInverseTransformMixin,
+    DecompositionSyncFitMixin,
+):
     """
     PCA (Principal Component Analysis) is a fundamental dimensionality
     reduction technique used to combine features in X in linear combinations
@@ -145,10 +147,12 @@ class PCA(BaseDecomposition,
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
 
-        super().__init__(model_func=PCA._create_pca,
-                         client=client,
-                         verbose=verbose,
-                         **kwargs)
+        super().__init__(
+            model_func=PCA._create_pca,
+            client=client,
+            verbose=verbose,
+            **kwargs,
+        )
 
     def fit(self, X):
         """
@@ -192,9 +196,7 @@ class PCA(BaseDecomposition,
         X_new : dask cuDF
 
         """
-        return self._transform(X,
-                               n_dims=2,
-                               delayed=delayed)
+        return self._transform(X, n_dims=2, delayed=delayed)
 
     def inverse_transform(self, X, delayed=True):
         """
@@ -211,9 +213,7 @@ class PCA(BaseDecomposition,
         X_original : dask cuDF
 
         """
-        return self._inverse_transform(X,
-                                       n_dims=2,
-                                       delayed=delayed)
+        return self._inverse_transform(X, n_dims=2, delayed=delayed)
 
     def get_param_names(self):
         return list(self.kwargs.keys())
@@ -222,4 +222,5 @@ class PCA(BaseDecomposition,
     @mnmg_import
     def _create_pca(handle, datatype, **kwargs):
         from cuml.decomposition.pca_mg import PCAMG as cumlPCA
+
         return cumlPCA(handle=handle, output_type=datatype, **kwargs)

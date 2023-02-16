@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,41 +20,46 @@ import pytest
 from cuml.internals.safe_imports import gpu_only_import
 from cuml.benchmark import datagen, algorithms
 from cuml.benchmark.bench_helper_funcs import _training_data_to_numpy
-from cuml.benchmark.runners import AccuracyComparisonRunner, \
-    SpeedupComparisonRunner, run_variations
+from cuml.benchmark.runners import (
+    AccuracyComparisonRunner,
+    SpeedupComparisonRunner,
+    run_variations,
+)
 from cuml.internals.import_utils import has_umap
 from cuml.internals.import_utils import has_xgboost
 
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-cudf = gpu_only_import('cudf')
-cuda = gpu_only_import_from('numba', 'cuda')
-pd = cpu_only_import('pandas')
+
+np = cpu_only_import("numpy")
+cudf = gpu_only_import("cudf")
+cuda = gpu_only_import_from("numba", "cuda")
+pd = cpu_only_import("pandas")
 
 
 pytestmark = pytest.mark.skip
 
 
-@pytest.mark.parametrize('dataset', ['blobs', 'regression', 'classification'])
+@pytest.mark.parametrize("dataset", ["blobs", "regression", "classification"])
 def test_data_generators(dataset):
     data = datagen.gen_data(dataset, "numpy", n_samples=100, n_features=10)
     assert isinstance(data[0], np.ndarray)
     assert data[0].shape[0] == 100
 
 
-@pytest.mark.parametrize('input_type',
-                         ['numpy', 'cudf', 'pandas', 'gpuarray', 'gpuarray-c'])
+@pytest.mark.parametrize(
+    "input_type", ["numpy", "cudf", "pandas", "gpuarray", "gpuarray-c"]
+)
 def test_data_generator_types(input_type):
-    X, *_ = datagen.gen_data('blobs', input_type, n_samples=100, n_features=10)
-    if input_type == 'numpy':
+    X, *_ = datagen.gen_data("blobs", input_type, n_samples=100, n_features=10)
+    if input_type == "numpy":
         assert isinstance(X, np.ndarray)
-    elif input_type == 'cudf':
+    elif input_type == "cudf":
         assert isinstance(X, cudf.DataFrame)
-    elif input_type == 'pandas':
+    elif input_type == "pandas":
         assert isinstance(X, pd.DataFrame)
-    elif input_type == 'gpuarray':
+    elif input_type == "gpuarray":
         assert cuda.is_cuda_array(X)
-    elif input_type == 'gpuarray-c':
+    elif input_type == "gpuarray-c":
         assert cuda.is_cuda_array(X)
     else:
         assert False
@@ -62,7 +67,7 @@ def test_data_generator_types(input_type):
 
 def test_data_generator_split():
     X_train, y_train, X_test, y_test = datagen.gen_data(
-        'blobs', 'numpy', n_samples=100, n_features=10, test_fraction=0.20
+        "blobs", "numpy", n_samples=100, n_features=10, test_fraction=0.20
     )
     assert X_train.shape == (100, 10)
     assert X_test.shape == (25, 10)
@@ -94,7 +99,7 @@ def test_speedup_runner():
         def predict(self, X):
             nr = X.shape[0]
             res = np.zeros(nr)
-            res[0:int(nr / 5.0)] = 1.0
+            res[0 : int(nr / 5.0)] = 1.0
             return res
 
     class FastMockAlgo(MockAlgo):
@@ -114,9 +119,7 @@ def test_speedup_runner():
         accuracy_function=metrics.accuracy_score,
     )
 
-    runner = SpeedupComparisonRunner(
-        [20], [5], dataset_name='zeros'
-    )
+    runner = SpeedupComparisonRunner([20], [5], dataset_name="zeros")
     results = runner.run(pair)[0]
 
     expected_speedup = SlowMockAlgo().t / FastMockAlgo().t
@@ -140,7 +143,7 @@ def test_multi_reps():
     )
 
     runner = AccuracyComparisonRunner(
-        [20], [5], dataset_name='zeros', test_fraction=0.20, n_reps=4
+        [20], [5], dataset_name="zeros", test_fraction=0.20, n_reps=4
     )
     runner.run(pair)
 
@@ -157,7 +160,7 @@ def test_accuracy_runner():
         def predict(self, X):
             nr = X.shape[0]
             res = np.zeros(nr)
-            res[0:int(nr / 5.0)] = 1.0
+            res[0 : int(nr / 5.0)] = 1.0
             return res
 
     pair = algorithms.AlgorithmPair(
@@ -170,7 +173,7 @@ def test_accuracy_runner():
     )
 
     runner = AccuracyComparisonRunner(
-        [20], [5], dataset_name='zeros', test_fraction=0.20
+        [20], [5], dataset_name="zeros", test_fraction=0.20
     )
     results = runner.run(pair)[0]
 
@@ -181,19 +184,19 @@ def test_accuracy_runner():
 # to reduce runtime burden
 # skipping UMAP-Supervised due to issue
 # https://github.com/rapidsai/cuml/issues/4243
-@pytest.mark.parametrize('algo_name', ['DBSCAN',
-                                       'LogisticRegression',
-                                       'ElasticNet',
-                                       'FIL'])
+@pytest.mark.parametrize(
+    "algo_name", ["DBSCAN", "LogisticRegression", "ElasticNet", "FIL"]
+)
 def test_real_algos_runner(algo_name):
     pair = algorithms.algorithm_by_name(algo_name)
 
-    if (algo_name == 'UMAP-Supervised' and not has_umap()) or \
-       (algo_name == 'FIL' and not has_xgboost()):
+    if (algo_name == "UMAP-Supervised" and not has_umap()) or (
+        algo_name == "FIL" and not has_xgboost()
+    ):
         pytest.xfail()
 
     runner = AccuracyComparisonRunner(
-        [50], [5], dataset_name='classification', test_fraction=0.20
+        [50], [5], dataset_name="classification", test_fraction=0.20
     )
     results = runner.run(pair)[0]
     print(results)
@@ -201,25 +204,30 @@ def test_real_algos_runner(algo_name):
 
 
 # Test FIL with several input types
-@pytest.mark.parametrize('input_type', ['numpy', 'cudf', 'gpuarray',
-                                        'gpuarray-c'])
+@pytest.mark.parametrize(
+    "input_type", ["numpy", "cudf", "gpuarray", "gpuarray-c"]
+)
 def test_fil_input_types(input_type):
-    pair = algorithms.algorithm_by_name('FIL')
+    pair = algorithms.algorithm_by_name("FIL")
 
     if not has_xgboost():
         pytest.xfail()
 
     runner = AccuracyComparisonRunner(
-        [20], [5], dataset_name='classification', test_fraction=0.5,
-        input_type=input_type)
+        [20],
+        [5],
+        dataset_name="classification",
+        test_fraction=0.5,
+        input_type=input_type,
+    )
     results = runner.run(pair, run_cpu=False)[0]
     assert results["cuml_acc"] is not None
 
 
-@pytest.mark.parametrize('input_type', ['numpy', 'cudf', 'pandas', 'gpuarray'])
+@pytest.mark.parametrize("input_type", ["numpy", "cudf", "pandas", "gpuarray"])
 def test_training_data_to_numpy(input_type):
     X, y, *_ = datagen.gen_data(
-        'blobs', input_type, n_samples=100, n_features=10
+        "blobs", input_type, n_samples=100, n_features=10
     )
     X_np, y_np = _training_data_to_numpy(X, y)
     assert isinstance(X_np, np.ndarray)

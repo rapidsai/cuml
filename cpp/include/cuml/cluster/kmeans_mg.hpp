@@ -68,6 +68,25 @@ void fit(const raft::handle_t& handle,
          double& inertia,
          int& n_iter);
 
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const float* X,
+         int64_t n_samples,
+         int64_t n_features,
+         const float* sample_weight,
+         float* centroids,
+         float& inertia,
+         int64_t& n_iter);
+
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const double* X,
+         int64_t n_samples,
+         int64_t n_features,
+         const double* sample_weight,
+         double* centroids,
+         double& inertia,
+         int64_t& n_iter);
 };  // end namespace opg
 };  // end namespace kmeans
 };  // end namespace ML

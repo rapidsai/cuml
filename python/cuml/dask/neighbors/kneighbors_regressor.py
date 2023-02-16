@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,11 +55,11 @@ class KNeighborsRegressor(NearestNeighbors):
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     """
-    def __init__(self, *, client=None, streams_per_handle=0,
-                 verbose=False, **kwargs):
-        super().__init__(client=client,
-                         verbose=verbose,
-                         **kwargs)
+
+    def __init__(
+        self, *, client=None, streams_per_handle=0, verbose=False, **kwargs
+    ):
+        super().__init__(client=client, verbose=verbose, **kwargs)
         self.streams_per_handle = streams_per_handle
 
     def fit(self, X, y):
@@ -80,9 +80,9 @@ class KNeighborsRegressor(NearestNeighbors):
         -------
         self : KNeighborsRegressor model
         """
-        self.data_handler = \
-            DistributedDataHandler.create(data=[X, y],
-                                          client=self.client)
+        self.data_handler = DistributedDataHandler.create(
+            data=[X, y], client=self.client
+        )
         self.n_outputs = y.shape[1] if y.ndim != 1 else 1
 
         return self
@@ -90,8 +90,9 @@ class KNeighborsRegressor(NearestNeighbors):
     @staticmethod
     def _func_create_model(sessionId, **kwargs):
         try:
-            from cuml.neighbors.kneighbors_regressor_mg import \
-                KNeighborsRegressorMG as cumlKNN
+            from cuml.neighbors.kneighbors_regressor_mg import (
+                KNeighborsRegressorMG as cumlKNN,
+            )
         except ImportError:
             raise_mg_import_exception()
 
@@ -99,13 +100,30 @@ class KNeighborsRegressor(NearestNeighbors):
         return cumlKNN(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_predict(model, index, index_parts_to_ranks, index_nrows,
-                      query, query_parts_to_ranks, query_nrows,
-                      ncols, rank, n_output, convert_dtype):
+    def _func_predict(
+        model,
+        index,
+        index_parts_to_ranks,
+        index_nrows,
+        query,
+        query_parts_to_ranks,
+        query_nrows,
+        ncols,
+        rank,
+        n_output,
+        convert_dtype,
+    ):
         return model.predict(
-            index, index_parts_to_ranks, index_nrows,
-            query, query_parts_to_ranks, query_nrows,
-            ncols, rank, n_output, convert_dtype
+            index,
+            index_parts_to_ranks,
+            index_nrows,
+            query,
+            query_parts_to_ranks,
+            query_nrows,
+            ncols,
+            rank,
+            n_output,
+            convert_dtype,
         )
 
     def predict(self, X, convert_dtype=True):
@@ -128,14 +146,14 @@ class KNeighborsRegressor(NearestNeighbors):
         -------
         predictions : Dask futures or Dask CuPy Arrays
         """
-        query_handler = \
-            DistributedDataHandler.create(data=X,
-                                          client=self.client)
+        query_handler = DistributedDataHandler.create(
+            data=X, client=self.client
+        )
         self.datatype = query_handler.datatype
 
-        comms = KNeighborsRegressor._build_comms(self.data_handler,
-                                                 query_handler,
-                                                 self.streams_per_handle)
+        comms = KNeighborsRegressor._build_comms(
+            self.data_handler, query_handler, self.streams_per_handle
+        )
 
         worker_info = comms.worker_info(comms.worker_addresses)
 
@@ -145,60 +163,75 @@ class KNeighborsRegressor(NearestNeighbors):
         self.data_handler.calculate_parts_to_sizes(comms=comms)
         query_handler.calculate_parts_to_sizes(comms=comms)
 
-        data_parts_to_ranks, data_nrows = \
-            parts_to_ranks(self.client,
-                           worker_info,
-                           self.data_handler.gpu_futures)
+        data_parts_to_ranks, data_nrows = parts_to_ranks(
+            self.client, worker_info, self.data_handler.gpu_futures
+        )
 
-        query_parts_to_ranks, query_nrows = \
-            parts_to_ranks(self.client,
-                           worker_info,
-                           query_handler.gpu_futures)
+        query_parts_to_ranks, query_nrows = parts_to_ranks(
+            self.client, worker_info, query_handler.gpu_futures
+        )
 
         """
         Each Dask worker creates a single model
         """
         key = uuid1()
-        models = dict([(worker, self.client.submit(
-            self._func_create_model,
-            comms.sessionId,
-            **self.kwargs,
-            workers=[worker],
-            key="%s-%s" % (key, idx)))
-            for idx, worker in enumerate(comms.worker_addresses)])
+        models = dict(
+            [
+                (
+                    worker,
+                    self.client.submit(
+                        self._func_create_model,
+                        comms.sessionId,
+                        **self.kwargs,
+                        workers=[worker],
+                        key="%s-%s" % (key, idx),
+                    ),
+                )
+                for idx, worker in enumerate(comms.worker_addresses)
+            ]
+        )
 
         """
         Invoke knn_classify on Dask workers to perform distributed query
         """
         key = uuid1()
-        knn_reg_res = dict([(worker_info[worker]["rank"], self.client.submit(
-                            self._func_predict,
-                            models[worker],
-                            self.data_handler.worker_to_parts[worker] if
-                            worker in self.data_handler.workers else [],
-                            data_parts_to_ranks,
-                            data_nrows,
-                            query_handler.worker_to_parts[worker] if
-                            worker in query_handler.workers else [],
-                            query_parts_to_ranks,
-                            query_nrows,
-                            X.shape[1],
-                            self.n_outputs,
-                            worker_info[worker]["rank"],
-                            convert_dtype,
-                            key="%s-%s" % (key, idx),
-                            workers=[worker]))
-                           for idx, worker in enumerate(comms.worker_addresses)
-                            ])
+        knn_reg_res = dict(
+            [
+                (
+                    worker_info[worker]["rank"],
+                    self.client.submit(
+                        self._func_predict,
+                        models[worker],
+                        self.data_handler.worker_to_parts[worker]
+                        if worker in self.data_handler.workers
+                        else [],
+                        data_parts_to_ranks,
+                        data_nrows,
+                        query_handler.worker_to_parts[worker]
+                        if worker in query_handler.workers
+                        else [],
+                        query_parts_to_ranks,
+                        query_nrows,
+                        X.shape[1],
+                        self.n_outputs,
+                        worker_info[worker]["rank"],
+                        convert_dtype,
+                        key="%s-%s" % (key, idx),
+                        workers=[worker],
+                    ),
+                )
+                for idx, worker in enumerate(comms.worker_addresses)
+            ]
+        )
 
         wait_and_raise_from_futures(list(knn_reg_res.values()))
 
         """
         Gather resulting partitions and return result
         """
-        out_futures = flatten_grouped_results(self.client,
-                                              query_parts_to_ranks,
-                                              knn_reg_res)
+        out_futures = flatten_grouped_results(
+            self.client, query_parts_to_ranks, knn_reg_res
+        )
 
         comms.destroy()
 
@@ -229,7 +262,7 @@ class KNeighborsRegressor(NearestNeighbors):
             y = y.to_dask_array(lengths=True)
         y_true = y.squeeze()
         y_mean = y_true.mean(axis=0)
-        residual_sss = ((y_true - y_pred) ** 2).sum(axis=0, dtype='float64')
-        total_sss = ((y_true - y_mean) ** 2).sum(axis=0, dtype='float64')
+        residual_sss = ((y_true - y_pred) ** 2).sum(axis=0, dtype="float64")
+        total_sss = ((y_true - y_mean) ** 2).sum(axis=0, dtype="float64")
         r2_score = da.mean(1 - (residual_sss / total_sss))
         return r2_score.compute()

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,12 @@
 from cuml.common.kernel_utils import cuda_kernel_factory
 import math
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
+
+cp = gpu_only_import("cupy")
 
 
 def _binarize_kernel(x_dtype):
-    binarize_kernel_str = r'''({0} *x, float threshold, int x_n) {
+    binarize_kernel_str = r"""({0} *x, float threshold, int x_n) {
 
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -34,10 +35,10 @@ def _binarize_kernel(x_dtype):
         val = 0;
 
     x[tid] = val;
-    }'''
-    return cuda_kernel_factory(binarize_kernel_str,
-                               (x_dtype,),
-                               "binarize_kernel")
+    }"""
+    return cuda_kernel_factory(
+        binarize_kernel_str, (x_dtype,), "binarize_kernel"
+    )
 
 
 def binarize(x, threshold, copy=False):
@@ -64,9 +65,6 @@ def binarize(x, threshold, copy=False):
 
     tpb = 512
     binarizer = _binarize_kernel(x.dtype)
-    binarizer((math.ceil(arr.size / tpb),), (tpb, ),
-              (x,
-               threshold,
-               arr.size))
+    binarizer((math.ceil(arr.size / tpb),), (tpb,), (x, threshold, arr.size))
 
     return arr

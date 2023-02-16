@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,8 +22,9 @@ from cuml.internals.safe_imports import cpu_only_import
 import pytest
 
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 try:
@@ -45,8 +46,9 @@ def test_dummy_allocator():
 
 def test_logistic_regression():
     with cupy_using_allocator(dummy_allocator):
-        X_train, X_test, y_train, y_test = \
-            small_classification_dataset(np.float32)
+        X_train, X_test, y_train, y_test = small_classification_dataset(
+            np.float32
+        )
         y_train = y_train.astype(np.float32)
         y_test = y_test.astype(np.float32)
         culog = LogisticRegression()

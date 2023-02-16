@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,44 +22,67 @@ from cuml.datasets import make_blobs
 from sklearn.decomposition import IncrementalPCA as skIPCA
 import pytest
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
+
+cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
 
 
 @pytest.mark.parametrize(
-    'nrows, ncols, n_components, sparse_input, density, sparse_format,'
-    ' batch_size_divider, whiten',  [
-        (500, 15, 2, True, 0.4, 'csr', 5, True),
-        (5000, 25, 12, False, 0.07, 'csc', 10, False),
-        (5000, 15, None, True, 0.4, 'csc', 5, False),
-        (500, 25, 2, False, 0.07, 'csr', 10, False),
-        (5000, 25, 12, False, 0.07, 'csr', 10, True),
-        (500, 2500, 9, False, 0.07, 'csr', 50, True),
-        (500, 250, 14, True, 0.07, 'csr', 1, True),
-    ]
+    "nrows, ncols, n_components, sparse_input, density, sparse_format,"
+    " batch_size_divider, whiten",
+    [
+        (500, 15, 2, True, 0.4, "csr", 5, True),
+        (5000, 25, 12, False, 0.07, "csc", 10, False),
+        (5000, 15, None, True, 0.4, "csc", 5, False),
+        (500, 25, 2, False, 0.07, "csr", 10, False),
+        (5000, 25, 12, False, 0.07, "csr", 10, True),
+        (500, 2500, 9, False, 0.07, "csr", 50, True),
+        (500, 250, 14, True, 0.07, "csr", 1, True),
+    ],
 )
 @pytest.mark.no_bad_cuml_array_check
-def test_fit(nrows, ncols, n_components, sparse_input, density,
-             sparse_format, batch_size_divider, whiten):
+def test_fit(
+    nrows,
+    ncols,
+    n_components,
+    sparse_input,
+    density,
+    sparse_format,
+    batch_size_divider,
+    whiten,
+):
 
-    if sparse_format == 'csc':
-        pytest.skip("cupyx.scipy.sparse.csc.csc_matrix does not support"
-                    " indexing as of cupy 7.6.0")
+    if sparse_format == "csc":
+        pytest.skip(
+            "cupyx.scipy.sparse.csc.csc_matrix does not support"
+            " indexing as of cupy 7.6.0"
+        )
 
     if sparse_input:
-        X = cupyx.scipy.sparse.random(nrows, ncols, density=density,
-                                      random_state=10, format=sparse_format)
+        X = cupyx.scipy.sparse.random(
+            nrows,
+            ncols,
+            density=density,
+            random_state=10,
+            format=sparse_format,
+        )
     else:
         X, _ = make_blobs(n_samples=nrows, n_features=ncols, random_state=10)
 
-    cu_ipca = cuIPCA(n_components=n_components, whiten=whiten,
-                     batch_size=int(nrows / batch_size_divider))
+    cu_ipca = cuIPCA(
+        n_components=n_components,
+        whiten=whiten,
+        batch_size=int(nrows / batch_size_divider),
+    )
     cu_ipca.fit(X)
     cu_t = cu_ipca.transform(X)
     cu_inv = cu_ipca.inverse_transform(cu_t)
 
-    sk_ipca = skIPCA(n_components=n_components, whiten=whiten,
-                     batch_size=int(nrows / batch_size_divider))
+    sk_ipca = skIPCA(
+        n_components=n_components,
+        whiten=whiten,
+        batch_size=int(nrows / batch_size_divider),
+    )
     if sparse_input:
         X = X.get()
     else:
@@ -68,23 +91,24 @@ def test_fit(nrows, ncols, n_components, sparse_input, density,
     sk_t = sk_ipca.transform(X)
     sk_inv = sk_ipca.inverse_transform(sk_t)
 
-    assert array_equal(cu_inv, sk_inv,
-                       5e-5, with_sign=True)
+    assert array_equal(cu_inv, sk_inv, 5e-5, with_sign=True)
 
 
 @pytest.mark.parametrize(
-    'nrows, ncols, n_components, density, batch_size_divider, whiten', [
+    "nrows, ncols, n_components, density, batch_size_divider, whiten",
+    [
         (500, 15, 2, 0.07, 5, False),
         (500, 15, 2, 0.07, 5, True),
         (5000, 25, 12, 0.07, 10, False),
         (5000, 15, 2, 0.4, 5, True),
         (500, 25, 12, 0.4, 10, False),
-        (5000, 4, 2, 0.1, 100, False)
-    ]
+        (5000, 4, 2, 0.1, 100, False),
+    ],
 )
 @pytest.mark.no_bad_cuml_array_check
-def test_partial_fit(nrows, ncols, n_components, density,
-                     batch_size_divider, whiten):
+def test_partial_fit(
+    nrows, ncols, n_components, density, batch_size_divider, whiten
+):
 
     X, _ = make_blobs(n_samples=nrows, n_features=ncols, random_state=10)
 
@@ -92,7 +116,7 @@ def test_partial_fit(nrows, ncols, n_components, density,
 
     sample_size = int(nrows / batch_size_divider)
     for i in range(0, nrows, sample_size):
-        cu_ipca.partial_fit(X[i:i + sample_size].copy())
+        cu_ipca.partial_fit(X[i : i + sample_size].copy())
 
     cu_t = cu_ipca.transform(X)
     cu_inv = cu_ipca.inverse_transform(cu_t)
@@ -102,13 +126,12 @@ def test_partial_fit(nrows, ncols, n_components, density,
     X = cp.asnumpy(X)
 
     for i in range(0, nrows, sample_size):
-        sk_ipca.partial_fit(X[i:i + sample_size].copy())
+        sk_ipca.partial_fit(X[i : i + sample_size].copy())
 
     sk_t = sk_ipca.transform(X)
     sk_inv = sk_ipca.inverse_transform(sk_t)
 
-    assert array_equal(cu_inv, sk_inv,
-                       5e-5, with_sign=True)
+    assert array_equal(cu_inv, sk_inv, 5e-5, with_sign=True)
 
 
 def test_exceptions():

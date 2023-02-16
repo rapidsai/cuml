@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,70 +17,74 @@
 import platform
 from sklearn.preprocessing import normalize as sk_normalize
 from cuml.testing.test_preproc_utils import assert_allclose
-from cuml.thirdparty_adapters.sparsefuncs_fast import \
-    csr_mean_variance_axis0, \
-    csc_mean_variance_axis0, \
-    _csc_mean_variance_axis0, \
-    inplace_csr_row_normalize_l1, \
-    inplace_csr_row_normalize_l2
+from cuml.thirdparty_adapters.sparsefuncs_fast import (
+    csr_mean_variance_axis0,
+    csc_mean_variance_axis0,
+    _csc_mean_variance_axis0,
+    inplace_csr_row_normalize_l1,
+    inplace_csr_row_normalize_l2,
+)
 from sklearn.utils._mask import _get_mask as sk_get_mask
-from cuml.thirdparty_adapters.adapters import check_array, \
-    _get_mask as cu_get_mask, \
-    _masked_column_median, \
-    _masked_column_mean, \
-    _masked_column_mode
+from cuml.thirdparty_adapters.adapters import (
+    check_array,
+    _get_mask as cu_get_mask,
+    _masked_column_median,
+    _masked_column_mean,
+    _masked_column_mode,
+)
 from cuml.internals.safe_imports import cpu_only_import_from
 from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.internals.safe_imports import cpu_only_import
 import pytest
 
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-cpx = gpu_only_import('cupyx')
-np = cpu_only_import('numpy')
-coo_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'coo_matrix')
-stats = cpu_only_import_from('scipy', 'stats')
+
+cp = gpu_only_import("cupy")
+cpx = gpu_only_import("cupyx")
+np = cpu_only_import("numpy")
+coo_matrix = gpu_only_import_from("cupyx.scipy.sparse", "coo_matrix")
+stats = cpu_only_import_from("scipy", "stats")
 
 
 IS_ARM = platform.processor() == "aarch64"
 
 
-@pytest.fixture(scope="session",
-                params=["zero", "one", "nan"])
+@pytest.fixture(scope="session", params=["zero", "one", "nan"])
 def mask_dataset(request, random_seed):
     cp.random.seed(random_seed)
     randint = cp.random.randint(30, size=(500, 20))
     randint = randint.astype(cp.float64)
-    if request.param == 'zero':
+    if request.param == "zero":
         mask_value = 0
-    elif request.param == 'one':
+    elif request.param == "one":
         mask_value = 1
     else:
         mask_value = cp.nan
-    random_loc = cp.random.choice(randint.size,
-                                  int(randint.size * 0.3),
-                                  replace=False)
+    random_loc = cp.random.choice(
+        randint.size, int(randint.size * 0.3), replace=False
+    )
     randint.ravel()[random_loc] = mask_value
     return mask_value, randint.get(), randint
 
 
-@pytest.fixture(scope="session",
-                params=["cupy-csr", "cupy-csc"])
+@pytest.fixture(scope="session", params=["cupy-csr", "cupy-csc"])
 def sparse_random_dataset(request, random_seed):
     cp.random.seed(random_seed)
     X = cp.random.rand(100, 10)
-    random_loc = cp.random.choice(X.size, int(X.size * 0.3),
-                                  replace=False)
+    random_loc = cp.random.choice(X.size, int(X.size * 0.3), replace=False)
     X.ravel()[random_loc] = 0
-    if request.param == 'cupy-csr':
+    if request.param == "cupy-csr":
         X_sparse = cpx.scipy.sparse.csr_matrix(X)
-    elif request.param == 'cupy-csc':
+    elif request.param == "cupy-csc":
         X_sparse = cpx.scipy.sparse.csc_matrix(X)
     return X.get(), X, X_sparse.get(), X_sparse
 
 
-@pytest.mark.skipif(IS_ARM, reason="Test fails unexpectedly on ARM. "
-                                   "github.com/rapidsai/cuml/issues/5100")
+@pytest.mark.skipif(
+    IS_ARM,
+    reason="Test fails unexpectedly on ARM. "
+    "github.com/rapidsai/cuml/issues/5100",
+)
 def test_check_array():
     # accept_sparse
     arr = coo_matrix((3, 4), dtype=cp.float64)
@@ -97,10 +101,10 @@ def test_check_array():
     assert new_arr.dtype == cp.int64
 
     # order
-    arr = cp.array([[1, 2]], dtype=cp.int64, order='F')
-    new_arr = check_array(arr, order='F')
+    arr = cp.array([[1, 2]], dtype=cp.int64, order="F")
+    new_arr = check_array(arr, order="F")
     assert new_arr.flags.f_contiguous
-    new_arr = check_array(arr, order='C')
+    new_arr = check_array(arr, order="C")
     assert new_arr.flags.c_contiguous
 
     # force_all_finite
@@ -134,8 +138,8 @@ def test_check_array():
 
 def test_csr_mean_variance_axis0(failure_logger, sparse_random_dataset):
     X_np, _, _, X_sparse = sparse_random_dataset
-    if X_sparse.format != 'csr':
-        pytest.skip('Skip non CSR matrices')
+    if X_sparse.format != "csr":
+        pytest.skip("Skip non CSR matrices")
 
     means, variances = csr_mean_variance_axis0(X_sparse)
 
@@ -148,8 +152,8 @@ def test_csr_mean_variance_axis0(failure_logger, sparse_random_dataset):
 
 def test_csc_mean_variance_axis0(failure_logger, sparse_random_dataset):
     X_np, _, _, X_sparse = sparse_random_dataset
-    if X_sparse.format != 'csc':
-        pytest.skip('Skip non CSC matrices')
+    if X_sparse.format != "csc":
+        pytest.skip("Skip non CSC matrices")
 
     means, variances = csc_mean_variance_axis0(X_sparse)
 
@@ -162,8 +166,8 @@ def test_csc_mean_variance_axis0(failure_logger, sparse_random_dataset):
 
 def test__csc_mean_variance_axis0(failure_logger, sparse_random_dataset):
     X_np, _, _, X_sparse = sparse_random_dataset
-    if X_sparse.format != 'csc':
-        pytest.skip('Skip non CSC matrices')
+    if X_sparse.format != "csc":
+        pytest.skip("Skip non CSC matrices")
 
     means, variances, counts_nan = _csc_mean_variance_axis0(X_sparse)
 
@@ -178,21 +182,21 @@ def test__csc_mean_variance_axis0(failure_logger, sparse_random_dataset):
 
 def test_inplace_csr_row_normalize_l1(failure_logger, sparse_random_dataset):
     X_np, _, _, X_sparse = sparse_random_dataset
-    if X_sparse.format != 'csr':
-        pytest.skip('Skip non CSR matrices')
+    if X_sparse.format != "csr":
+        pytest.skip("Skip non CSR matrices")
 
     inplace_csr_row_normalize_l1(X_sparse)
-    X_np = sk_normalize(X_np, norm='l1', axis=1)
+    X_np = sk_normalize(X_np, norm="l1", axis=1)
     assert_allclose(X_sparse, X_np)
 
 
 def test_inplace_csr_row_normalize_l2(failure_logger, sparse_random_dataset):
     X_np, _, _, X_sparse = sparse_random_dataset
-    if X_sparse.format != 'csr':
-        pytest.skip('Skip non CSR matrices')
+    if X_sparse.format != "csr":
+        pytest.skip("Skip non CSR matrices")
 
     inplace_csr_row_normalize_l2(X_sparse)
-    X_np = sk_normalize(X_np, norm='l2', axis=1)
+    X_np = sk_normalize(X_np, norm="l2", axis=1)
     assert_allclose(X_sparse, X_np)
 
 

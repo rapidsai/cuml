@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,14 +24,18 @@ def pytest_addoption(parser):
 
     group = parser.getgroup("Quick Run Plugin")
 
-    group.addoption("--quick_run",
-                    default=False,
-                    action="store_true",
-                    help=("Selecting this option will reduce the number of "
-                          "tests run by only running parameter combinations "
-                          "if one of the parameters has never been seen "
-                          "before. Useful for testing code correctness while "
-                          "not running all numeric tests for the algorithms."))
+    group.addoption(
+        "--quick_run",
+        default=False,
+        action="store_true",
+        help=(
+            "Selecting this option will reduce the number of "
+            "tests run by only running parameter combinations "
+            "if one of the parameters has never been seen "
+            "before. Useful for testing code correctness while "
+            "not running all numeric tests for the algorithms."
+        ),
+    )
 
 
 # This hook must be run last after all others as some plugins may have skipped
@@ -68,7 +72,7 @@ def pytest_collection_modifyitems(config, items):
 
                 # Add the interior node if it doesnt exist. Must be a function
                 # to be a leaf
-                if (name not in curr_node):
+                if name not in curr_node:
                     if isinstance(n, _pytest.python.Function):
                         curr_node[name] = []
                         leafs.append(curr_node[name])
