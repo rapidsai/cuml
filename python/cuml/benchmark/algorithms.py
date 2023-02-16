@@ -29,7 +29,6 @@ from cuml.benchmark.bench_helper_funcs import (
     _build_treelite_classifier,
     _treelite_fil_accuracy_score,
     _training_data_to_numpy,
-    _build_mnmg_umap
     _build_mnmg_umap,
 )
 from cuml.preprocessing import (
@@ -423,7 +422,7 @@ def all_algorithms():
                 output_class=False,
                 threshold=0.5,
                 storage_type="auto",
-                precision='float32'
+                precision="float32",
             ),
             name="FIL",
             accepts_labels=False,
@@ -442,7 +441,7 @@ def all_algorithms():
                 output_class=False,
                 threshold=0.5,
                 storage_type=True,
-                precision='float32'
+                precision="float32",
             ),
             name="Sparse-FIL-SKL",
             accepts_labels=False,
@@ -455,9 +454,7 @@ def all_algorithms():
             treelite,
             cuml.experimental.ForestInference,
             shared_args=dict(num_rounds=100, max_depth=10),
-            cuml_args=dict(
-                output_class=False
-            ),
+            cuml_args=dict(output_class=False),
             name="FILEX",
             accepts_labels=False,
             setup_cpu_func=_build_treelite_classifier,
@@ -471,10 +468,10 @@ def all_algorithms():
             cuml.experimental.ForestInference,
             shared_args=dict(num_rounds=100, max_depth=10),
             cuml_args=dict(
-                fil_algo='NAIVE',
-                storage_type='DENSE',
+                fil_algo="NAIVE",
+                storage_type="DENSE",
                 output_class=False,
-                precision='float32'
+                precision="float32",
             ),
             name="FILEX-Optimized",
             accepts_labels=False,
@@ -489,11 +486,11 @@ def all_algorithms():
             cuml.ForestInference,
             shared_args=dict(num_rounds=100, max_depth=10),
             cuml_args=dict(
-                fil_algo='NAIVE',
-                storage_type='DENSE',
+                fil_algo="NAIVE",
+                storage_type="DENSE",
                 output_class=False,
                 threshold=0.5,
-                precision='float32'
+                precision="float32",
             ),
             name="FIL-Optimized",
             accepts_labels=False,
@@ -507,9 +504,7 @@ def all_algorithms():
             treelite,
             cuml.experimental.ForestInference,
             shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
-            cuml_args=dict(
-                output_class=False
-            ),
+            cuml_args=dict(output_class=False),
             name="Sparse-FILEX-SKL",
             accepts_labels=False,
             setup_cpu_func=_build_cpu_skl_classifier,

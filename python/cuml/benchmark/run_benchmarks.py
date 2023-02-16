@@ -204,11 +204,11 @@ if __name__ == "__main__":
         help="Precision of the dataset to benchmark with",
     )
     parser.add_argument(
-        '--device',
-        choices=['gpu', 'cpu'],
-        default=['gpu'],
-        nargs='+',
-        help='The device to use for cuML execution',
+        "--device",
+        choices=["gpu", "cpu"],
+        default=["gpu"],
+        nargs="+",
+        help="The device to use for cuML execution",
     )
     args = parser.parse_args()
 

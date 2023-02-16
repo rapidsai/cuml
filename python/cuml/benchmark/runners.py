@@ -82,7 +82,7 @@ class SpeedupComparisonRunner:
         dataset_param_overrides={},
         dtype=np.float32,
         run_cpu=True,
-        device='gpu',
+        device="gpu",
         verbose=False,
     ):
         data = datagen.gen_data(
@@ -104,7 +104,7 @@ class SpeedupComparisonRunner:
                     data,
                     **param_overrides,
                     **cuml_param_overrides,
-                    **setup_overrides
+                    **setup_overrides,
                 )
             cu_elapsed = np.min(cuml_timer.timings)
 
@@ -171,7 +171,7 @@ class SpeedupComparisonRunner:
         dtype=np.float32,
         *,
         run_cpu=True,
-        device='gpu',
+        device="gpu",
         raise_on_error=False,
         verbose=False,
     ):
@@ -235,7 +235,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
         dataset_param_overrides={},
         dtype=np.float32,
         run_cpu=True,
-        device='gpu',
+        device="gpu",
         verbose=False,
     ):
         data = datagen.gen_data(
@@ -257,7 +257,11 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             for _ in cuml_timer.benchmark_runs():
                 cuml_model = algo_pair.run_cuml(
                     data,
-                    **{**param_overrides, **cuml_param_overrides, **setup_override}
+                    **{
+                        **param_overrides,
+                        **cuml_param_overrides,
+                        **setup_override,
+                    },
                 )
             cu_elapsed = np.min(cuml_timer.timings)
 
@@ -336,7 +340,7 @@ def run_variations(
     input_type="numpy",
     test_fraction=0.1,
     run_cpu=True,
-    device_list=('gpu',),
+    device_list=("gpu",),
     raise_on_error=False,
     n_reps=1,
 ):
@@ -384,14 +388,17 @@ def run_variations(
     for algo in algos:
         print("Running %s..." % (algo.name))
         for (
-            overrides, cuml_overrides, cpu_overrides, dataset_overrides,
-            device
+            overrides,
+            cuml_overrides,
+            cpu_overrides,
+            dataset_overrides,
+            device,
         ) in itertools.product(
             param_override_list,
             cuml_param_override_list,
             cpu_param_override_list,
             dataset_param_override_list,
-            device_list
+            device_list,
         ):
             results = runner.run(
                 algo,
@@ -410,7 +417,7 @@ def run_variations(
                         "algo": algo.name,
                         "input": input_type,
                         "device": device,
-                        **r
+                        **r,
                     }
                 )
 
