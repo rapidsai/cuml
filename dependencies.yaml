@@ -93,7 +93,9 @@ dependencies:
         packages:
           - clang==15.0.7
           - clang-tools==15.0.7
+          - gcc_linux-64=9.*
           - make
+          - sysroot_linux-64==2.17
   common_build:
     common:
       - output_types: [conda, requirements, pyproject]
