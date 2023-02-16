@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,16 +23,12 @@ from cuml.internals.safe_imports import (
     gpu_only_import,
     gpu_only_import_from,
     null_decorator,
-    UnavailableError
+    UnavailableError,
 )
 
-cpx_sparse = gpu_only_import('cupyx.scipy.sparse')
-nvtx_annotate = gpu_only_import_from(
-    'nvtx',
-    'annotate',
-    alt=null_decorator
-)
-scipy_sparse = cpu_only_import('scipy.sparse')
+cpx_sparse = gpu_only_import("cupyx.scipy.sparse")
+nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
+scipy_sparse = cpu_only_import("scipy.sparse")
 
 sparse_matrix_classes = []
 try:
@@ -47,7 +43,7 @@ sparse_matrix_classes = tuple(sparse_matrix_classes)
 
 
 @class_with_cupy_rmm()
-class SparseCumlArray():
+class SparseCumlArray:
     """
     SparseCumlArray abstracts sparse array allocations. This will
     accept either a Scipy or Cupy sparse array and construct CumlArrays
@@ -90,13 +86,19 @@ class SparseCumlArray():
         Number of nonzeros in underlying arrays
     """
 
-    @nvtx_annotate(message="common.SparseCumlArray.__init__", category="utils",
-                   domain="cuml_python")
-    def __init__(self, data=None,
-                 convert_to_dtype=False,
-                 convert_to_mem_type=None,
-                 convert_index=None,
-                 convert_format=True):
+    @nvtx_annotate(
+        message="common.SparseCumlArray.__init__",
+        category="utils",
+        domain="cuml_python",
+    )
+    def __init__(
+        self,
+        data=None,
+        convert_to_dtype=False,
+        convert_to_mem_type=None,
+        convert_index=None,
+        convert_format=True,
+    ):
         is_sparse = False
         try:
             is_sparse = cpx_sparse.isspmatrix(data)
@@ -110,17 +112,21 @@ class SparseCumlArray():
             except UnavailableError:
                 pass
         if not is_sparse:
-            raise ValueError("A sparse matrix is expected as input. "
-                             "Received %s" % type(data))
+            raise ValueError(
+                "A sparse matrix is expected as input. "
+                "Received %s" % type(data)
+            )
 
         if not isinstance(data, sparse_matrix_classes):
             if convert_format:
-                debug('Received sparse matrix in {} format but CSR is '
-                      'expected. Data will be converted to CSR, but this '
-                      'will require additional memory copies. If this '
-                      'conversion is not desired, set '
-                      'set_convert_format=False to raise an exception '
-                      'instead.'.format(type(data)))
+                debug(
+                    "Received sparse matrix in {} format but CSR is "
+                    "expected. Data will be converted to CSR, but this "
+                    "will require additional memory copies. If this "
+                    "conversion is not desired, set "
+                    "set_convert_format=False to raise an exception "
+                    "instead.".format(type(data))
+                )
                 data = data.tocsr()  # currently only CSR is supported
             else:
                 raise ValueError(
@@ -151,19 +157,19 @@ class SparseCumlArray():
         self.indptr = CumlArray.from_input(
             data.indptr,
             convert_to_dtype=convert_index,
-            convert_to_mem_type=convert_to_mem_type
+            convert_to_mem_type=convert_to_mem_type,
         )
 
         self.indices = CumlArray.from_input(
             data.indices,
             convert_to_dtype=convert_index,
-            convert_to_mem_type=convert_to_mem_type
+            convert_to_mem_type=convert_to_mem_type,
         )
 
         self.data = CumlArray.from_input(
             data.data,
             convert_to_dtype=convert_to_dtype,
-            convert_to_mem_type=convert_to_mem_type
+            convert_to_mem_type=convert_to_mem_type,
         )
 
         self.shape = data.shape
@@ -171,12 +177,18 @@ class SparseCumlArray():
         self.nnz = data.nnz
         self.index = None
 
-    @nvtx_annotate(message="common.SparseCumlArray.to_output",
-                   category="utils", domain="cuml_python")
-    def to_output(self, output_type='cupy',
-                  output_format=None,
-                  output_dtype=None,
-                  output_mem_type=None):
+    @nvtx_annotate(
+        message="common.SparseCumlArray.to_output",
+        category="utils",
+        domain="cuml_python",
+    )
+    def to_output(
+        self,
+        output_type="cupy",
+        output_format=None,
+        output_dtype=None,
+        output_mem_type=None,
+    ):
         """
         Convert array to output format
 
@@ -207,12 +219,12 @@ class SparseCumlArray():
         else:
             output_mem_type = MemoryType.from_str(output_mem_type)
         # Treat numpy and scipy as the same
-        if output_type in ('numpy', 'scipy'):
+        if output_type in ("numpy", "scipy"):
             if GlobalSettings().memory_type.is_host_accessible:
                 output_mem_type = GlobalSettings().memory_type
             else:
                 output_mem_type = MemoryType.host
-        elif output_type == 'cupy':
+        elif output_type == "cupy":
             if GlobalSettings().memory_type.is_device_accessible:
                 output_mem_type = GlobalSettings().memory_type
             else:
@@ -221,35 +233,34 @@ class SparseCumlArray():
             output_mem_type = self.mem_type
 
         data = self.data.to_output(
-            'array',
-            output_dtype=output_dtype,
-            output_mem_type=output_mem_type
+            "array", output_dtype=output_dtype, output_mem_type=output_mem_type
         )
         indices = self.indices.to_output(
-            'array', output_mem_type=output_mem_type
+            "array", output_mem_type=output_mem_type
         )
         indptr = self.indptr.to_output(
-            'array',
-            output_mem_type=output_mem_type
+            "array", output_mem_type=output_mem_type
         )
 
-        if output_type in ('scipy', 'numpy'):
+        if output_type in ("scipy", "numpy"):
             constructor = scipy_sparse.csr_matrix
         elif output_mem_type.is_device_accessible:
             constructor = cpx_sparse.csr_matrix
         else:
             constructor = scipy_sparse.csr_matrix
 
-        ret = constructor((data, indices, indptr),
-                          dtype=output_dtype, shape=self.shape)
+        ret = constructor(
+            (data, indices, indptr), dtype=output_dtype, shape=self.shape
+        )
 
         if output_format is not None:
-            if output_format == 'coo':
+            if output_format == "coo":
                 ret = ret.tocoo()
-            elif output_format == 'csc':
+            elif output_format == "csc":
                 ret = ret.tocsc()
             else:
-                raise ValueError("Output format %s not supported"
-                                 % output_format)
+                raise ValueError(
+                    "Output format %s not supported" % output_format
+                )
 
         return ret

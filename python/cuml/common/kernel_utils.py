@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,36 +19,39 @@ from uuid import uuid1
 import functools
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 # Mapping of common PyData dtypes to their corresponding C-primitive
-dtype_str_map = {cp.dtype("float32"): "float",
-                 cp.dtype("float64"): "double",
-                 cp.dtype("int32"): "int",
-                 cp.dtype("int64"): "long long int",
-                 np.dtype("float32"): "float",
-                 np.dtype("float64"): "double",
-                 np.dtype("int32"): "int",
-                 np.dtype("int64"): "long long int",
-                 "float32": "float",
-                 "float64": "double",
-                 "int32": "int",
-                 "int64": "long long int",
-                 }
+dtype_str_map = {
+    cp.dtype("float32"): "float",
+    cp.dtype("float64"): "double",
+    cp.dtype("int32"): "int",
+    cp.dtype("int64"): "long long int",
+    np.dtype("float32"): "float",
+    np.dtype("float64"): "double",
+    np.dtype("int32"): "int",
+    np.dtype("int64"): "long long int",
+    "float32": "float",
+    "float64": "double",
+    "int32": "int",
+    "int64": "long long int",
+}
 
 extern_prefix = r'extern "C" __global__'
 
 
 def get_dtype_str(dtype):
     if dtype not in dtype_str_map:
-        raise ValueError(f'{dtype} is not a valid type for this kernel.')
+        raise ValueError(f"{dtype} is not a valid type for this kernel.")
 
     return dtype_str_map[dtype]
 
 
-def get_dtype_strs(dtypes): return list(map(get_dtype_str, dtypes))
+def get_dtype_strs(dtypes):
+    return list(map(get_dtype_str, dtypes))
 
 
 @functools.lru_cache(maxsize=5000)
@@ -98,17 +101,21 @@ def cuda_kernel_factory(nvrtc_kernel_str, dtypes, kernel_name=None):
     dtype_strs = get_dtype_strs(dtypes)
 
     for idx, dtype in enumerate(dtypes):
-        nvrtc_kernel_str = nvrtc_kernel_str.replace("{%d}" % idx,
-                                                    dtype_strs[idx])
+        nvrtc_kernel_str = nvrtc_kernel_str.replace(
+            "{%d}" % idx, dtype_strs[idx]
+        )
 
-    kernel_name = f'''{uuid1()
+    kernel_name = f"""{uuid1()
                       if kernel_name is None
                       else kernel_name}_{
                         "".join(dtype_strs).replace(" ", "_")
-                    }'''
+                    }"""
 
-    nvrtc_kernel_str = "%s\nvoid %s%s" % \
-                       (extern_prefix, kernel_name, nvrtc_kernel_str)
+    nvrtc_kernel_str = "%s\nvoid %s%s" % (
+        extern_prefix,
+        kernel_name,
+        nvrtc_kernel_str,
+    )
 
     if logger.should_log_for(logger.level_debug):
         logger.debug(str(nvrtc_kernel_str))

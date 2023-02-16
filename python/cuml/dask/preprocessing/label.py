@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,8 +21,9 @@ from cuml.common import rmm_cupy_ary
 
 import dask
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
+
+cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
 
 
 class LabelBinarizer(BaseEstimator):
@@ -91,10 +92,13 @@ class LabelBinarizer(BaseEstimator):
         """
         # Sparse output will be added once sparse CuPy arrays are supported
         # by Dask.Array: https://github.com/rapidsai/cuml/issues/1665
-        if "sparse_output" in self.kwargs and \
-                self.kwargs["sparse_output"] is True:
-            raise ValueError("Sparse output not yet "
-                             "supported in distributed mode")
+        if (
+            "sparse_output" in self.kwargs
+            and self.kwargs["sparse_output"] is True
+        ):
+            raise ValueError(
+                "Sparse output not yet " "supported in distributed mode"
+            )
 
     @staticmethod
     def _func_create_model(**kwargs):
@@ -132,12 +136,15 @@ class LabelBinarizer(BaseEstimator):
         # Take the unique classes and broadcast them all around the cluster.
         futures = self.client.sync(_extract_partitions, y)
 
-        unique = [self.client.submit(LabelBinarizer._func_unique_classes, f)
-                  for w, f in futures]
+        unique = [
+            self.client.submit(LabelBinarizer._func_unique_classes, f)
+            for w, f in futures
+        ]
 
         classes = self.client.compute(unique, True)
-        classes = rmm_cupy_ary(cp.unique, rmm_cupy_ary(cp.stack,
-                               classes, axis=0))
+        classes = rmm_cupy_ary(
+            cp.unique, rmm_cupy_ary(cp.stack, classes, axis=0)
+        )
 
         self._set_internal_model(LB(**self.kwargs).fit(classes))
 
@@ -182,12 +189,17 @@ class LabelBinarizer(BaseEstimator):
         meta = rmm_cupy_ary(cp.zeros, 1)
         if internal_model.sparse_output:
             meta = cupyx.scipy.sparse.csr_matrix(meta)
-        f = [dask.array.from_delayed(xform_func(internal_model, part),
-             meta=meta, dtype=cp.float32,
-             shape=(cp.nan, len(self.classes_))) for w, part in parts]
+        f = [
+            dask.array.from_delayed(
+                xform_func(internal_model, part),
+                meta=meta,
+                dtype=cp.float32,
+                shape=(cp.nan, len(self.classes_)),
+            )
+            for w, part in parts
+        ]
 
-        arr = dask.array.concatenate(f, axis=0,
-                                     allow_unknown_chunksizes=True)
+        arr = dask.array.concatenate(f, axis=0, allow_unknown_chunksizes=True)
         return arr
 
     def inverse_transform(self, y, threshold=None):
@@ -216,11 +228,15 @@ class LabelBinarizer(BaseEstimator):
 
         internal_model = self._get_internal_model()
 
-        f = [dask.array.from_delayed(
-            inv_func(internal_model, part, threshold),
-            dtype=dtype, shape=(cp.nan,), meta=meta)
-            for w, part in parts]
+        f = [
+            dask.array.from_delayed(
+                inv_func(internal_model, part, threshold),
+                dtype=dtype,
+                shape=(cp.nan,),
+                meta=meta,
+            )
+            for w, part in parts
+        ]
 
-        arr = dask.array.concatenate(f, axis=0,
-                                     allow_unknown_chunksizes=True)
+        arr = dask.array.concatenate(f, axis=0, allow_unknown_chunksizes=True)
         return arr

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,13 @@
 from nltk import stem as nltk_stem
 from cuml.preprocessing.text import stem as rapids_stem
 from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
+
+cudf = gpu_only_import("cudf")
 
 
 def get_words():
     """
-        Returns list of words from nltk treebank
+    Returns list of words from nltk treebank
     """
     import nltk
 
@@ -50,5 +51,6 @@ def test_same_results():
     cuml_stemmer = rapids_stem.PorterStemmer()
     cuml_stemmed = cuml_stemmer.stem(word_ser)
 
-    assert all([a == b for a, b in
-                zip(nltk_stemmed, cuml_stemmed.to_pandas().values)])
+    assert all(
+        [a == b for a, b in zip(nltk_stemmed, cuml_stemmed.to_pandas().values)]
+    )

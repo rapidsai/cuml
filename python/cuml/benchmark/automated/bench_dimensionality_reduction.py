@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,75 +24,83 @@ from .. import datagen
 #
 
 
-@pytest.fixture(**fixture_generation_helper({
-                    'n_samples': [1000, 10000],
-                    'n_features': [5, 500]
-                }))
+@pytest.fixture(
+    **fixture_generation_helper(
+        {"n_samples": [1000, 10000], "n_features": [5, 500]}
+    )
+)
 def blobs1(request):
     data = datagen.gen_data(
-        'blobs',
-        'cupy',
-        n_samples=request.param['n_samples'],
-        n_features=request.param['n_features']
+        "blobs",
+        "cupy",
+        n_samples=request.param["n_samples"],
+        n_features=request.param["n_features"],
     )
-    return data, {
-                    'dataset_type': 'blobs',
-                    **request.param
-                 }
+    return data, {"dataset_type": "blobs", **request.param}
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def blobs2(request):
     dataset_kwargs = {
-        'dataset_type': 'blobs',
-        'n_samples': 10000,
-        'n_features': 100
+        "dataset_type": "blobs",
+        "n_samples": 10000,
+        "n_features": 100,
     }
     dataset = datagen.gen_data(
-        dataset_kwargs['dataset_type'],
-        'cupy',
-        n_samples=dataset_kwargs['n_samples'],
-        n_features=dataset_kwargs['n_features']
+        dataset_kwargs["dataset_type"],
+        "cupy",
+        n_samples=dataset_kwargs["n_samples"],
+        n_features=dataset_kwargs["n_features"],
     )
     return dataset, dataset_kwargs
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def blobs3(request):
     dataset_kwargs = {
-        'dataset_type': 'blobs',
-        'n_samples': 50000,
-        'n_features': 100
+        "dataset_type": "blobs",
+        "n_samples": 50000,
+        "n_features": 100,
     }
     dataset = datagen.gen_data(
-        dataset_kwargs['dataset_type'],
-        'cupy',
-        n_samples=dataset_kwargs['n_samples'],
-        n_features=dataset_kwargs['n_features']
+        dataset_kwargs["dataset_type"],
+        "cupy",
+        n_samples=dataset_kwargs["n_samples"],
+        n_features=dataset_kwargs["n_features"],
     )
     return dataset, dataset_kwargs
 
 
 def bench_kmeans(gpubenchmark, bench_step, blobs1):  # noqa: F811
-    _benchmark_algo(gpubenchmark, 'KMeans', bench_step, blobs1)
+    _benchmark_algo(gpubenchmark, "KMeans", bench_step, blobs1)
 
 
-@pytest.mark.parametrize('algo_name', ['DBSCAN',
-                                       'UMAP-Unsupervised',
-                                       'UMAP-Supervised',
-                                       'NearestNeighbors',
-                                       'TSNE'])
-def bench_with_blobs(gpubenchmark, algo_name, bench_step,  # noqa: F811
-                     blobs2):
+@pytest.mark.parametrize(
+    "algo_name",
+    [
+        "DBSCAN",
+        "UMAP-Unsupervised",
+        "UMAP-Supervised",
+        "NearestNeighbors",
+        "TSNE",
+    ],
+)
+def bench_with_blobs(
+    gpubenchmark, algo_name, bench_step, blobs2  # noqa: F811
+):
     # Lump together a bunch of simple blobs-based tests
     _benchmark_algo(gpubenchmark, algo_name, bench_step, blobs2)
 
 
-@pytest.mark.parametrize('n_components', [2, 10, 50])
-@pytest.mark.parametrize('algo_name', ['tSVD',
-                                       'PCA'])
-def bench_dimensionality_reduction(gpubenchmark, algo_name,
-                                   bench_step, blobs3,  # noqa: F811
-                                   n_components):
-    _benchmark_algo(gpubenchmark, algo_name, bench_step, blobs3,
-                    setup_kwargs={'n_components': n_components})
+@pytest.mark.parametrize("n_components", [2, 10, 50])
+@pytest.mark.parametrize("algo_name", ["tSVD", "PCA"])
+def bench_dimensionality_reduction(
+    gpubenchmark, algo_name, bench_step, blobs3, n_components  # noqa: F811
+):
+    _benchmark_algo(
+        gpubenchmark,
+        algo_name,
+        bench_step,
+        blobs3,
+        setup_kwargs={"n_components": n_components},
+    )

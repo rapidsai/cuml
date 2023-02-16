@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,7 +48,9 @@ import cuml.feature_extraction
 from cuml.fil import fil
 
 from cuml.internals.global_settings import (
-    GlobalSettings, _global_settings_data)
+    GlobalSettings,
+    _global_settings_data,
+)
 
 from cuml.kernel_ridge.kernel_ridge import KernelRidge
 
@@ -75,11 +77,11 @@ from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
 
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 
-from cuml.random_projection.random_projection import \
-    GaussianRandomProjection
+from cuml.random_projection.random_projection import GaussianRandomProjection
 from cuml.random_projection.random_projection import SparseRandomProjection
-from cuml.random_projection.random_projection import \
-    johnson_lindenstrauss_min_dim
+from cuml.random_projection.random_projection import (
+    johnson_lindenstrauss_min_dim,
+)
 
 from cuml.solvers.cd import CD
 from cuml.solvers.sgd import SGD
@@ -96,7 +98,8 @@ from cuml.tsa.holtwinters import ExponentialSmoothing
 
 from cuml.common.pointer_utils import device_of_gpu_matrix
 from cuml.internals.memory_utils import (
-    set_global_output_type, using_output_type
+    set_global_output_type,
+    using_output_type,
 )
 
 # Universal packages
@@ -108,13 +111,13 @@ from ._version import get_versions
 
 
 # Version configuration
-__version__ = get_versions()['version']
+__version__ = get_versions()["version"]
 del get_versions
 
 
 def __getattr__(name):
 
-    if name == 'global_settings':
+    if name == "global_settings":
         try:
             return _global_settings_data.settings
         except AttributeError:

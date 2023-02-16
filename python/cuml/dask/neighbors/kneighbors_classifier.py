@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,9 +27,10 @@ from dask.dataframe import Series as DaskSeries
 import dask.array as da
 from uuid import uuid1
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-pd = cpu_only_import('pandas')
-cudf = gpu_only_import('cudf')
+
+np = cpu_only_import("numpy")
+pd = cpu_only_import("pandas")
+cudf = gpu_only_import("cudf")
 
 
 class KNeighborsClassifier(NearestNeighbors):
@@ -62,11 +63,10 @@ class KNeighborsClassifier(NearestNeighbors):
         See :ref:`verbosity-levels` for more info.
     """
 
-    def __init__(self, *, client=None, streams_per_handle=0,
-                 verbose=False, **kwargs):
-        super().__init__(client=client,
-                         verbose=verbose,
-                         **kwargs)
+    def __init__(
+        self, *, client=None, streams_per_handle=0, verbose=False, **kwargs
+    ):
+        super().__init__(client=client, verbose=verbose, **kwargs)
         self.streams_per_handle = streams_per_handle
 
     def fit(self, X, y):
@@ -89,17 +89,17 @@ class KNeighborsClassifier(NearestNeighbors):
         """
 
         if not isinstance(X._meta, (np.ndarray, pd.DataFrame, cudf.DataFrame)):
-            raise ValueError('This chunk type is not supported')
+            raise ValueError("This chunk type is not supported")
 
-        self.data_handler = \
-            DistributedDataHandler.create(data=[X, y],
-                                          client=self.client)
+        self.data_handler = DistributedDataHandler.create(
+            data=[X, y], client=self.client
+        )
 
         # uniq_labels: set of possible labels for each labels column
         # n_unique: number of possible labels for each labels column
 
         uniq_labels = []
-        if self.data_handler.datatype == 'cupy':
+        if self.data_handler.datatype == "cupy":
             if y.ndim == 1:
                 uniq_labels.append(da.unique(y))
             else:
@@ -115,9 +115,9 @@ class KNeighborsClassifier(NearestNeighbors):
                     uniq_labels.append(y.iloc[:, i].unique())
 
         uniq_labels = da.compute(uniq_labels)[0]
-        if hasattr(uniq_labels[0], 'values_host'):  # for cuDF Series
+        if hasattr(uniq_labels[0], "values_host"):  # for cuDF Series
             uniq_labels = list(map(lambda x: x.values_host, uniq_labels))
-        elif hasattr(uniq_labels[0], 'values'):  # for pandas Series
+        elif hasattr(uniq_labels[0], "values"):  # for pandas Series
             uniq_labels = list(map(lambda x: x.values, uniq_labels))
         self.uniq_labels = np.array(uniq_labels)
         self.n_unique = list(map(lambda x: len(x), self.uniq_labels))
@@ -127,8 +127,9 @@ class KNeighborsClassifier(NearestNeighbors):
     @staticmethod
     def _func_create_model(sessionId, **kwargs):
         try:
-            from cuml.neighbors.kneighbors_classifier_mg import \
-                KNeighborsClassifierMG as cumlKNN
+            from cuml.neighbors.kneighbors_classifier_mg import (
+                KNeighborsClassifierMG as cumlKNN,
+            )
         except ImportError:
             raise_mg_import_exception()
 
@@ -136,21 +137,48 @@ class KNeighborsClassifier(NearestNeighbors):
         return cumlKNN(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_predict(model, index, index_parts_to_ranks, index_nrows,
-                      query, query_parts_to_ranks, query_nrows,
-                      uniq_labels, n_unique, ncols, rank, convert_dtype,
-                      probas_only):
+    def _func_predict(
+        model,
+        index,
+        index_parts_to_ranks,
+        index_nrows,
+        query,
+        query_parts_to_ranks,
+        query_nrows,
+        uniq_labels,
+        n_unique,
+        ncols,
+        rank,
+        convert_dtype,
+        probas_only,
+    ):
         if probas_only:
             return model.predict_proba(
-                index, index_parts_to_ranks, index_nrows,
-                query, query_parts_to_ranks, query_nrows,
-                uniq_labels, n_unique, ncols, rank, convert_dtype
+                index,
+                index_parts_to_ranks,
+                index_nrows,
+                query,
+                query_parts_to_ranks,
+                query_nrows,
+                uniq_labels,
+                n_unique,
+                ncols,
+                rank,
+                convert_dtype,
             )
         else:
             return model.predict(
-                index, index_parts_to_ranks, index_nrows,
-                query, query_parts_to_ranks, query_nrows,
-                uniq_labels, n_unique, ncols, rank, convert_dtype
+                index,
+                index_parts_to_ranks,
+                index_nrows,
+                query,
+                query_parts_to_ranks,
+                query_nrows,
+                uniq_labels,
+                n_unique,
+                ncols,
+                rank,
+                convert_dtype,
             )
 
     def predict(self, X, convert_dtype=True):
@@ -173,14 +201,14 @@ class KNeighborsClassifier(NearestNeighbors):
         -------
         predictions : Dask futures or Dask CuPy Arrays
         """
-        query_handler = \
-            DistributedDataHandler.create(data=X,
-                                          client=self.client)
+        query_handler = DistributedDataHandler.create(
+            data=X, client=self.client
+        )
         self.datatype = query_handler.datatype
 
-        comms = KNeighborsClassifier._build_comms(self.data_handler,
-                                                  query_handler,
-                                                  self.streams_per_handle)
+        comms = KNeighborsClassifier._build_comms(
+            self.data_handler, query_handler, self.streams_per_handle
+        )
 
         worker_info = comms.worker_info(comms.worker_addresses)
 
@@ -190,62 +218,77 @@ class KNeighborsClassifier(NearestNeighbors):
         self.data_handler.calculate_parts_to_sizes(comms=comms)
         query_handler.calculate_parts_to_sizes(comms=comms)
 
-        data_parts_to_ranks, data_nrows = \
-            parts_to_ranks(self.client,
-                           worker_info,
-                           self.data_handler.gpu_futures)
+        data_parts_to_ranks, data_nrows = parts_to_ranks(
+            self.client, worker_info, self.data_handler.gpu_futures
+        )
 
-        query_parts_to_ranks, query_nrows = \
-            parts_to_ranks(self.client,
-                           worker_info,
-                           query_handler.gpu_futures)
+        query_parts_to_ranks, query_nrows = parts_to_ranks(
+            self.client, worker_info, query_handler.gpu_futures
+        )
 
         """
         Each Dask worker creates a single model
         """
         key = uuid1()
-        models = dict([(worker, self.client.submit(
-            self._func_create_model,
-            comms.sessionId,
-            **self.kwargs,
-            workers=[worker],
-            key="%s-%s" % (key, idx)))
-            for idx, worker in enumerate(comms.worker_addresses)])
+        models = dict(
+            [
+                (
+                    worker,
+                    self.client.submit(
+                        self._func_create_model,
+                        comms.sessionId,
+                        **self.kwargs,
+                        workers=[worker],
+                        key="%s-%s" % (key, idx),
+                    ),
+                )
+                for idx, worker in enumerate(comms.worker_addresses)
+            ]
+        )
 
         """
         Invoke knn_classify on Dask workers to perform distributed query
         """
         key = uuid1()
-        knn_clf_res = dict([(worker_info[worker]["rank"], self.client.submit(
-                            self._func_predict,
-                            models[worker],
-                            self.data_handler.worker_to_parts[worker] if
-                            worker in self.data_handler.workers else [],
-                            data_parts_to_ranks,
-                            data_nrows,
-                            query_handler.worker_to_parts[worker] if
-                            worker in query_handler.workers else [],
-                            query_parts_to_ranks,
-                            query_nrows,
-                            self.uniq_labels,
-                            self.n_unique,
-                            X.shape[1],
-                            worker_info[worker]["rank"],
-                            convert_dtype,
-                            False,
-                            key="%s-%s" % (key, idx),
-                            workers=[worker]))
-                           for idx, worker in enumerate(comms.worker_addresses)
-                            ])
+        knn_clf_res = dict(
+            [
+                (
+                    worker_info[worker]["rank"],
+                    self.client.submit(
+                        self._func_predict,
+                        models[worker],
+                        self.data_handler.worker_to_parts[worker]
+                        if worker in self.data_handler.workers
+                        else [],
+                        data_parts_to_ranks,
+                        data_nrows,
+                        query_handler.worker_to_parts[worker]
+                        if worker in query_handler.workers
+                        else [],
+                        query_parts_to_ranks,
+                        query_nrows,
+                        self.uniq_labels,
+                        self.n_unique,
+                        X.shape[1],
+                        worker_info[worker]["rank"],
+                        convert_dtype,
+                        False,
+                        key="%s-%s" % (key, idx),
+                        workers=[worker],
+                    ),
+                )
+                for idx, worker in enumerate(comms.worker_addresses)
+            ]
+        )
 
         wait_and_raise_from_futures(list(knn_clf_res.values()))
 
         """
         Gather resulting partitions and return result
         """
-        out_futures = flatten_grouped_results(self.client,
-                                              query_parts_to_ranks,
-                                              knn_clf_res)
+        out_futures = flatten_grouped_results(
+            self.client, query_parts_to_ranks, knn_clf_res
+        )
         comms.destroy()
 
         return to_output(out_futures, self.datatype).squeeze()
@@ -276,7 +319,7 @@ class KNeighborsClassifier(NearestNeighbors):
         if not isinstance(y, da.Array):
             y = y.to_dask_array(lengths=True)
         y_true = y.squeeze()
-        matched = (y_pred == y_true)
+        matched = y_pred == y_true
         mean_match = matched.mean()
         return float(mean_match.compute())
 
@@ -298,14 +341,14 @@ class KNeighborsClassifier(NearestNeighbors):
         -------
         probabilities : Dask futures or Dask CuPy Arrays
         """
-        query_handler = \
-            DistributedDataHandler.create(data=X,
-                                          client=self.client)
+        query_handler = DistributedDataHandler.create(
+            data=X, client=self.client
+        )
         self.datatype = query_handler.datatype
 
-        comms = KNeighborsClassifier._build_comms(self.data_handler,
-                                                  query_handler,
-                                                  self.streams_per_handle)
+        comms = KNeighborsClassifier._build_comms(
+            self.data_handler, query_handler, self.streams_per_handle
+        )
 
         worker_info = comms.worker_info(comms.worker_addresses)
 
@@ -315,53 +358,68 @@ class KNeighborsClassifier(NearestNeighbors):
         self.data_handler.calculate_parts_to_sizes(comms=comms)
         query_handler.calculate_parts_to_sizes(comms=comms)
 
-        data_parts_to_ranks, data_nrows = \
-            parts_to_ranks(self.client,
-                           worker_info,
-                           self.data_handler.gpu_futures)
+        data_parts_to_ranks, data_nrows = parts_to_ranks(
+            self.client, worker_info, self.data_handler.gpu_futures
+        )
 
-        query_parts_to_ranks, query_nrows = \
-            parts_to_ranks(self.client,
-                           worker_info,
-                           query_handler.gpu_futures)
+        query_parts_to_ranks, query_nrows = parts_to_ranks(
+            self.client, worker_info, query_handler.gpu_futures
+        )
 
         """
         Each Dask worker creates a single model
         """
         key = uuid1()
-        models = dict([(worker, self.client.submit(
-            self._func_create_model,
-            comms.sessionId,
-            **self.kwargs,
-            workers=[worker],
-            key="%s-%s" % (key, idx)))
-            for idx, worker in enumerate(comms.worker_addresses)])
+        models = dict(
+            [
+                (
+                    worker,
+                    self.client.submit(
+                        self._func_create_model,
+                        comms.sessionId,
+                        **self.kwargs,
+                        workers=[worker],
+                        key="%s-%s" % (key, idx),
+                    ),
+                )
+                for idx, worker in enumerate(comms.worker_addresses)
+            ]
+        )
 
         """
         Invoke knn_classify on Dask workers to perform distributed query
         """
         key = uuid1()
-        knn_prob_res = dict([(worker_info[worker]["rank"], self.client.submit(
-                            self._func_predict,
-                            models[worker],
-                            self.data_handler.worker_to_parts[worker] if
-                            worker in self.data_handler.workers else [],
-                            data_parts_to_ranks,
-                            data_nrows,
-                            query_handler.worker_to_parts[worker] if
-                            worker in query_handler.workers else [],
-                            query_parts_to_ranks,
-                            query_nrows,
-                            self.uniq_labels,
-                            self.n_unique,
-                            X.shape[1],
-                            worker_info[worker]["rank"],
-                            convert_dtype,
-                            True,
-                            key="%s-%s" % (key, idx),
-                            workers=[worker]))
-            for idx, worker in enumerate(comms.worker_addresses)
-        ])
+        knn_prob_res = dict(
+            [
+                (
+                    worker_info[worker]["rank"],
+                    self.client.submit(
+                        self._func_predict,
+                        models[worker],
+                        self.data_handler.worker_to_parts[worker]
+                        if worker in self.data_handler.workers
+                        else [],
+                        data_parts_to_ranks,
+                        data_nrows,
+                        query_handler.worker_to_parts[worker]
+                        if worker in query_handler.workers
+                        else [],
+                        query_parts_to_ranks,
+                        query_nrows,
+                        self.uniq_labels,
+                        self.n_unique,
+                        X.shape[1],
+                        worker_info[worker]["rank"],
+                        convert_dtype,
+                        True,
+                        key="%s-%s" % (key, idx),
+                        workers=[worker],
+                    ),
+                )
+                for idx, worker in enumerate(comms.worker_addresses)
+            ]
+        )
 
         wait_and_raise_from_futures(list(knn_prob_res.values()))
 
@@ -370,6 +428,7 @@ class KNeighborsClassifier(NearestNeighbors):
         def _custom_getter(o):
             def func_get(f, idx):
                 return f[o][idx]
+
             return func_get
 
         """
@@ -377,10 +436,12 @@ class KNeighborsClassifier(NearestNeighbors):
         """
         outputs = []
         for o in range(n_outputs):
-            futures = flatten_grouped_results(self.client,
-                                              query_parts_to_ranks,
-                                              knn_prob_res,
-                                              getter_func=_custom_getter(o))
+            futures = flatten_grouped_results(
+                self.client,
+                query_parts_to_ranks,
+                knn_prob_res,
+                getter_func=_custom_getter(o),
+            )
             outputs.append(to_output(futures, self.datatype))
 
         comms.destroy()

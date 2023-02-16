@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +15,9 @@
 
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.datasets.classification import _generate_hypercube
-from cuml.datasets.classification import make_classification \
-    as sg_make_classification
+from cuml.datasets.classification import (
+    make_classification as sg_make_classification,
+)
 from cuml.datasets.utils import _create_rs_generator
 from cuml.dask.datasets.utils import _get_X
 from cuml.dask.datasets.utils import _get_labels
@@ -27,22 +28,38 @@ from cuml.common import with_cupy_rmm
 import dask.array as da
 
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
-def _create_covariance(dims, seed, dtype='float32'):
+def _create_covariance(dims, seed, dtype="float32"):
     local_rs = cp.random.RandomState(seed=seed)
     return 2 * local_rs.rand(*dims, dtype=dtype) - 1
 
 
 @with_cupy_rmm
-def make_classification(n_samples=100, n_features=20, n_informative=2,
-                        n_redundant=2, n_repeated=0, n_classes=2,
-                        n_clusters_per_class=2, weights=None, flip_y=0.01,
-                        class_sep=1.0, hypercube=True, shift=0.0, scale=1.0,
-                        shuffle=True, random_state=None, order='F',
-                        dtype='float32', n_parts=None, client=None):
+def make_classification(
+    n_samples=100,
+    n_features=20,
+    n_informative=2,
+    n_redundant=2,
+    n_repeated=0,
+    n_classes=2,
+    n_clusters_per_class=2,
+    weights=None,
+    flip_y=0.01,
+    class_sep=1.0,
+    hypercube=True,
+    shift=0.0,
+    scale=1.0,
+    shuffle=True,
+    random_state=None,
+    order="F",
+    dtype="float32",
+    n_parts=None,
+    client=None,
+):
     """
     Generate a random n-class classification problem.
 
@@ -183,7 +200,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
 
     rs = _create_rs_generator(random_state)
 
-    workers = list(client.scheduler_info()['workers'].keys())
+    workers = list(client.scheduler_info()["workers"].keys())
 
     n_parts = n_parts if n_parts is not None else len(workers)
     parts_workers = (workers * n_parts)[:n_parts]
@@ -191,26 +208,30 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     n_clusters = n_classes * n_clusters_per_class
 
     # create centroids
-    centroids = cp.array(_generate_hypercube(n_clusters, n_informative,
-                                             rs)).astype(dtype, copy=False)
+    centroids = cp.array(
+        _generate_hypercube(n_clusters, n_informative, rs)
+    ).astype(dtype, copy=False)
 
     covariance_seeds = rs.randint(n_features, size=2)
-    informative_covariance = client.submit(_create_covariance,
-                                           (n_clusters, n_informative,
-                                            n_informative),
-                                           int(covariance_seeds[0]),
-                                           pure=False)
+    informative_covariance = client.submit(
+        _create_covariance,
+        (n_clusters, n_informative, n_informative),
+        int(covariance_seeds[0]),
+        pure=False,
+    )
 
-    redundant_covariance = client.submit(_create_covariance,
-                                         (n_informative,
-                                          n_redundant),
-                                         int(covariance_seeds[1]),
-                                         pure=False)
+    redundant_covariance = client.submit(
+        _create_covariance,
+        (n_informative, n_redundant),
+        int(covariance_seeds[1]),
+        pure=False,
+    )
 
     # repeated indices
     n = n_informative + n_redundant
-    repeated_indices = ((n - 1) * rs.rand(n_repeated, dtype=dtype)
-                        + 0.5).astype(np.intp)
+    repeated_indices = (
+        (n - 1) * rs.rand(n_repeated, dtype=dtype) + 0.5
+    ).astype(np.intp)
 
     # scale and shift
     if shift is None:
@@ -224,25 +245,48 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
 
     worker_rows = [rows_per_part] * n_parts
 
-    worker_rows[-1] += (n_samples % n_parts)
+    worker_rows[-1] += n_samples % n_parts
 
     worker_rows = tuple(worker_rows)
 
     part_seeds = rs.permutation(n_parts)
-    parts = [client.submit(sg_make_classification, worker_rows[i], n_features,
-                           n_informative, n_redundant, n_repeated, n_classes,
-                           n_clusters_per_class, weights, flip_y, class_sep,
-                           hypercube, shift, scale, shuffle,
-                           int(part_seeds[i]), order, dtype, centroids,
-                           informative_covariance, redundant_covariance,
-                           repeated_indices, pure=False,
-                           workers=[parts_workers[i]])
-             for i in range(len(parts_workers))]
+    parts = [
+        client.submit(
+            sg_make_classification,
+            worker_rows[i],
+            n_features,
+            n_informative,
+            n_redundant,
+            n_repeated,
+            n_classes,
+            n_clusters_per_class,
+            weights,
+            flip_y,
+            class_sep,
+            hypercube,
+            shift,
+            scale,
+            shuffle,
+            int(part_seeds[i]),
+            order,
+            dtype,
+            centroids,
+            informative_covariance,
+            redundant_covariance,
+            repeated_indices,
+            pure=False,
+            workers=[parts_workers[i]],
+        )
+        for i in range(len(parts_workers))
+    ]
 
-    X_parts = [client.submit(_get_X, f, pure=False)
-               for idx, f in enumerate(parts)]
-    y_parts = [client.submit(_get_labels, f, pure=False)
-               for idx, f in enumerate(parts)]
+    X_parts = [
+        client.submit(_get_X, f, pure=False) for idx, f in enumerate(parts)
+    ]
+    y_parts = [
+        client.submit(_get_labels, f, pure=False)
+        for idx, f in enumerate(parts)
+    ]
 
     X_dela = _create_delayed(X_parts, dtype, worker_rows, n_features)
     y_dela = _create_delayed(y_parts, np.int64, worker_rows)

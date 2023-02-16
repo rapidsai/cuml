@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,10 +33,11 @@ from cuml.naive_bayes import MultinomialNB
 from sklearn.metrics import accuracy_score
 import pytest
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
+
+cp = gpu_only_import("cupy")
 
 
-np = cpu_only_import('numpy')
+np = cpu_only_import("numpy")
 
 
 @pytest.mark.parametrize("x_dtype", [cp.int32, cp.int64])
@@ -61,11 +62,11 @@ def test_sparse_integral_dtype_fails(x_dtype, y_dtype, nlp_20news):
         model.predict(X)
 
 
-@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64,
-                                     cp.int32])
+@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64, cp.int32])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_multinomial_basic_fit_predict_dense_numpy(x_dtype, y_dtype,
-                                                   nlp_20news):
+def test_multinomial_basic_fit_predict_dense_numpy(
+    x_dtype, y_dtype, nlp_20news
+):
     """
     Cupy Test
     """
@@ -89,8 +90,7 @@ def test_multinomial_basic_fit_predict_dense_numpy(x_dtype, y_dtype,
 
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
-@pytest.mark.parametrize("y_dtype", [cp.int32,
-                                     cp.float32, cp.float64])
+@pytest.mark.parametrize("y_dtype", [cp.int32, cp.float32, cp.float64])
 def test_multinomial_partial_fit(x_dtype, y_dtype, nlp_20news):
     chunk_size = 500
 
@@ -109,20 +109,20 @@ def test_multinomial_partial_fit(x_dtype, y_dtype, nlp_20news):
 
     for i in range(math.ceil(X.shape[0] / chunk_size)):
 
-        upper = i*chunk_size+chunk_size
+        upper = i * chunk_size + chunk_size
         if upper > X.shape[0]:
             upper = -1
 
         if upper > 0:
-            x = X[i*chunk_size:upper]
-            y_c = y[i*chunk_size:upper]
+            x = X[i * chunk_size : upper]
+            y_c = y[i * chunk_size : upper]
         else:
-            x = X[i*chunk_size:]
-            y_c = y[i*chunk_size:]
+            x = X[i * chunk_size :]
+            y_c = y[i * chunk_size :]
 
         model.partial_fit(x, y_c, classes=classes)
 
-        total_fit += (upper - (i*chunk_size))
+        total_fit += upper - (i * chunk_size)
 
         if upper == -1:
             break
@@ -202,15 +202,15 @@ def test_bernoulli(x_dtype, y_dtype, is_sparse, nlp_20news):
     THRES = 1e-3
 
     assert_array_equal(sk_model.class_count_, cuml_model.class_count_.get())
-    assert_allclose(sk_model.class_log_prior_,
-                    cuml_model.class_log_prior_.get(), 1e-6)
+    assert_allclose(
+        sk_model.class_log_prior_, cuml_model.class_log_prior_.get(), 1e-6
+    )
     assert_allclose(cuml_proba, sk_proba, atol=1e-2, rtol=1e-2)
     assert sk_score - THRES <= cuml_score <= sk_score + THRES
 
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
-@pytest.mark.parametrize("y_dtype", [cp.int32,
-                                     cp.float32, cp.float64])
+@pytest.mark.parametrize("y_dtype", [cp.int32, cp.float32, cp.float64])
 def test_bernoulli_partial_fit(x_dtype, y_dtype, nlp_20news):
     chunk_size = 500
     n_rows = 1500
@@ -229,16 +229,16 @@ def test_bernoulli_partial_fit(x_dtype, y_dtype, nlp_20news):
 
     for i in range(math.ceil(X.shape[0] / chunk_size)):
 
-        upper = i*chunk_size+chunk_size
+        upper = i * chunk_size + chunk_size
         if upper > X.shape[0]:
             upper = -1
 
         if upper > 0:
-            x = X[i*chunk_size:upper]
-            y_c = y[i*chunk_size:upper]
+            x = X[i * chunk_size : upper]
+            y_c = y[i * chunk_size : upper]
         else:
-            x = X[i*chunk_size:]
-            y_c = y[i*chunk_size:]
+            x = X[i * chunk_size :]
+            y_c = y[i * chunk_size :]
 
         model.partial_fit(x, y_c, classes=classes)
         modelsk.partial_fit(x.get(), y_c.get(), classes=classes.get())
@@ -282,15 +282,15 @@ def test_complement(x_dtype, y_dtype, is_sparse, norm, nlp_20news):
     THRES = 1e-3
 
     assert_array_equal(sk_model.class_count_, cuml_model.class_count_.get())
-    assert_allclose(sk_model.class_log_prior_,
-                    cuml_model.class_log_prior_.get(), 1e-6)
+    assert_allclose(
+        sk_model.class_log_prior_, cuml_model.class_log_prior_.get(), 1e-6
+    )
     assert_allclose(cuml_proba, sk_proba, atol=1e-2, rtol=1e-2)
     assert sk_score - THRES <= cuml_score <= sk_score + THRES
 
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
-@pytest.mark.parametrize("y_dtype", [cp.int32,
-                                     cp.float32, cp.float64])
+@pytest.mark.parametrize("y_dtype", [cp.int32, cp.float32, cp.float64])
 @pytest.mark.parametrize("norm", [True, False])
 def test_complement_partial_fit(x_dtype, y_dtype, norm):
     chunk_size = 500
@@ -298,9 +298,15 @@ def test_complement_partial_fit(x_dtype, y_dtype, norm):
     weights = [0.6, 0.2, 0.15, 0.05]
     rtol = 1e-3 if x_dtype == cp.float32 else 1e-6
 
-    X, y = make_classification(n_rows, n_cols, n_classes=len(weights),
-                               weights=weights, dtype=x_dtype,
-                               n_informative=9, random_state=1)
+    X, y = make_classification(
+        n_rows,
+        n_cols,
+        n_classes=len(weights),
+        weights=weights,
+        dtype=x_dtype,
+        n_informative=9,
+        random_state=1,
+    )
     X -= X.min(0)  # Make all inputs positive
     y = y.astype(y_dtype)
 
@@ -311,16 +317,16 @@ def test_complement_partial_fit(x_dtype, y_dtype, norm):
 
     for i in range(math.ceil(X.shape[0] / chunk_size)):
 
-        upper = i*chunk_size+chunk_size
+        upper = i * chunk_size + chunk_size
         if upper > X.shape[0]:
             upper = -1
 
         if upper > 0:
-            x = X[i*chunk_size:upper]
-            y_c = y[i*chunk_size:upper]
+            x = X[i * chunk_size : upper]
+            y_c = y[i * chunk_size : upper]
         else:
-            x = X[i*chunk_size:]
-            y_c = y[i*chunk_size:]
+            x = X[i * chunk_size :]
+            y_c = y[i * chunk_size :]
 
         model.partial_fit(x, y_c, classes=classes)
         modelsk.partial_fit(x.get(), y_c.get(), classes=classes.get())
@@ -335,8 +341,17 @@ def test_complement_partial_fit(x_dtype, y_dtype, norm):
 
 def test_gaussian_basic():
     # Data is just 6 separable points in the plane
-    X = cp.array([[-2, -1, -1], [-1, -1, -1], [-1, -2, -1],
-                  [1, 1, 1], [1, 2, 1], [2, 1, 1]], dtype=cp.float32)
+    X = cp.array(
+        [
+            [-2, -1, -1],
+            [-1, -1, -1],
+            [-1, -2, -1],
+            [1, 1, 1],
+            [1, 2, 1],
+            [2, 1, 1],
+        ],
+        dtype=cp.float32,
+    )
     y = cp.array([1, 1, 1, 2, 2, 2])
 
     skclf = skGNB()
@@ -356,16 +371,17 @@ def test_gaussian_basic():
 
     assert_array_equal(y_pred.get(), y.get())
     assert_array_almost_equal(y_pred_proba.get(), y_pred_proba_sk, 8)
-    assert_allclose(y_pred_log_proba.get(), y_pred_log_proba_sk,
-                    atol=1e-2, rtol=1e-2)
+    assert_allclose(
+        y_pred_log_proba.get(), y_pred_log_proba_sk, atol=1e-2, rtol=1e-2
+    )
 
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
-@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64,
-                                     cp.float32, cp.float64])
+@pytest.mark.parametrize(
+    "y_dtype", [cp.int32, cp.int64, cp.float32, cp.float64]
+)
 @pytest.mark.parametrize("is_sparse", [True, False])
-def test_gaussian_fit_predict(x_dtype, y_dtype, is_sparse,
-                              nlp_20news):
+def test_gaussian_fit_predict(x_dtype, y_dtype, is_sparse, nlp_20news):
     """
     Cupy Test
     """
@@ -411,20 +427,20 @@ def test_gaussian_partial_fit(nlp_20news):
 
     for i in range(math.ceil(X.shape[0] / chunk_size)):
 
-        upper = i*chunk_size+chunk_size
+        upper = i * chunk_size + chunk_size
         if upper > X.shape[0]:
             upper = -1
 
         if upper > 0:
-            x = X[i*chunk_size:upper]
-            y_c = y[i*chunk_size:upper]
+            x = X[i * chunk_size : upper]
+            y_c = y[i * chunk_size : upper]
         else:
-            x = X[i*chunk_size:]
-            y_c = y[i*chunk_size:]
+            x = X[i * chunk_size :]
+            y_c = y[i * chunk_size :]
 
         model.partial_fit(x, y_c, classes=classes)
 
-        total_fit += (upper - (i*chunk_size))
+        total_fit += upper - (i * chunk_size)
         if upper == -1:
             break
 
@@ -435,13 +451,14 @@ def test_gaussian_partial_fit(nlp_20news):
     assert accuracy_score(y, y_hat) >= 0.99
 
     # Test whether label mismatch between target y and classes raises an Error
-    assert_raises(ValueError,
-                  GaussianNB().partial_fit, X, y, classes=cp.array([0, 1]))
+    assert_raises(
+        ValueError, GaussianNB().partial_fit, X, y, classes=cp.array([0, 1])
+    )
     # Raise because classes is required on first call of partial_fit
     assert_raises(ValueError, GaussianNB().partial_fit, X, y)
 
 
-@pytest.mark.parametrize("priors", [None, 'balanced', 'unbalanced'])
+@pytest.mark.parametrize("priors", [None, "balanced", "unbalanced"])
 @pytest.mark.parametrize("var_smoothing", [1e-5, 1e-7, 1e-9])
 def test_gaussian_parameters(priors, var_smoothing, nlp_20news):
     x_dtype = cp.float32
@@ -454,14 +471,16 @@ def test_gaussian_parameters(priors, var_smoothing, nlp_20news):
     X = sparse_scipy_to_cp(X[:nrows], x_dtype).todense()[:, :ncols]
     y = y.astype(y_dtype)[:nrows]
 
-    if priors == 'balanced':
-        priors = cp.array([1/20] * 20)
-    elif priors == 'unbalanced':
+    if priors == "balanced":
+        priors = cp.array([1 / 20] * 20)
+    elif priors == "unbalanced":
         priors = cp.linspace(0.01, 0.09, 20)
 
     model = GaussianNB(priors=priors, var_smoothing=var_smoothing)
-    model_sk = skGNB(priors=priors.get() if priors is not None else None,
-                     var_smoothing=var_smoothing)
+    model_sk = skGNB(
+        priors=priors.get() if priors is not None else None,
+        var_smoothing=var_smoothing,
+    )
     model.fit(X, y)
     model_sk.fit(X.get(), y.get())
 
@@ -506,14 +525,14 @@ def test_categorical(x_dtype, y_dtype, is_sparse, nlp_20news):
     THRES = 1e-3
 
     assert_array_equal(sk_model.class_count_, cuml_model.class_count_.get())
-    assert_allclose(sk_model.class_log_prior_,
-                    cuml_model.class_log_prior_.get(), 1e-6)
+    assert_allclose(
+        sk_model.class_log_prior_, cuml_model.class_log_prior_.get(), 1e-6
+    )
     assert_allclose(cuml_proba, sk_proba, atol=1e-2, rtol=1e-2)
     assert sk_score - THRES <= cuml_score <= sk_score + THRES
 
 
-@pytest.mark.parametrize("x_dtype", [cp.int32,
-                                     cp.float32, cp.float64])
+@pytest.mark.parametrize("x_dtype", [cp.int32, cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
 @pytest.mark.parametrize("is_sparse", [True, False])
 def test_categorical_partial_fit(x_dtype, y_dtype, is_sparse, nlp_20news):
@@ -526,7 +545,7 @@ def test_categorical_partial_fit(x_dtype, y_dtype, is_sparse, nlp_20news):
 
     X, y = nlp_20news
 
-    X = sparse_scipy_to_cp(X, 'float32').tocsr()[:n_rows, :n_cols]
+    X = sparse_scipy_to_cp(X, "float32").tocsr()[:n_rows, :n_cols]
     if is_sparse:
         X.data = X.data.astype(x_dtype)
     else:
@@ -538,16 +557,16 @@ def test_categorical_partial_fit(x_dtype, y_dtype, is_sparse, nlp_20news):
     classes = np.unique(y)
     for i in range(math.ceil(X.shape[0] / chunk_size)):
 
-        upper = i*chunk_size+chunk_size
+        upper = i * chunk_size + chunk_size
         if upper > X.shape[0]:
             upper = -1
 
         if upper > 0:
-            x = X[i*chunk_size:upper]
-            y_c = y[i*chunk_size:upper]
+            x = X[i * chunk_size : upper]
+            y_c = y[i * chunk_size : upper]
         else:
-            x = X[i*chunk_size:]
-            y_c = y[i*chunk_size:]
+            x = X[i * chunk_size :]
+            y_c = y[i * chunk_size :]
         model.partial_fit(x, y_c, classes=classes)
         if upper == -1:
             break
@@ -557,12 +576,13 @@ def test_categorical_partial_fit(x_dtype, y_dtype, is_sparse, nlp_20news):
     assert expected_score - THRES <= cuml_score <= expected_score + THRES
 
 
-@pytest.mark.parametrize("class_prior", [None, 'balanced', 'unbalanced'])
+@pytest.mark.parametrize("class_prior", [None, "balanced", "unbalanced"])
 @pytest.mark.parametrize("alpha", [0.1, 0.5, 1.5])
 @pytest.mark.parametrize("fit_prior", [False, True])
 @pytest.mark.parametrize("is_sparse", [False, True])
-def test_categorical_parameters(class_prior, alpha, fit_prior,
-                                is_sparse, nlp_20news):
+def test_categorical_parameters(
+    class_prior, alpha, fit_prior, is_sparse, nlp_20news
+):
     x_dtype = cp.float32
     y_dtype = cp.int32
     nrows = 2000
@@ -575,17 +595,15 @@ def test_categorical_parameters(class_prior, alpha, fit_prior,
         X = X.todense()
     y = y.astype(y_dtype)[:nrows]
 
-    if class_prior == 'balanced':
-        class_prior = np.array([1/20] * 20)
-    elif class_prior == 'unbalanced':
+    if class_prior == "balanced":
+        class_prior = np.array([1 / 20] * 20)
+    elif class_prior == "unbalanced":
         class_prior = np.linspace(0.01, 0.09, 20)
 
-    model = CategoricalNB(class_prior=class_prior,
-                          alpha=alpha,
-                          fit_prior=fit_prior)
-    model_sk = skCNB(class_prior=class_prior,
-                     alpha=alpha,
-                     fit_prior=fit_prior)
+    model = CategoricalNB(
+        class_prior=class_prior, alpha=alpha, fit_prior=fit_prior
+    )
+    model_sk = skCNB(class_prior=class_prior, alpha=alpha, fit_prior=fit_prior)
     model.fit(X, y)
     y_hat = model.predict(X).get()
     y_log_prob = model.predict_log_proba(X).get()

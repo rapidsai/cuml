@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,13 +25,14 @@ from cuml.pipeline import Pipeline, make_pipeline
 import pytest
 import cuml
 from cuml.internals.safe_imports import gpu_only_import
-cupy = gpu_only_import('cupy')
+
+cupy = gpu_only_import("cupy")
 
 
 def test_pipeline():
     X, y = make_classification(random_state=0)
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
-    pipe = Pipeline(steps=[('scaler', StandardScaler()), ('svc', SVC())])
+    pipe = Pipeline(steps=[("scaler", StandardScaler()), ("svc", SVC())])
     pipe.fit(X_train, y_train)
     score = pipe.score(X_test, y_test)
     assert score > 0.8
@@ -39,11 +40,11 @@ def test_pipeline():
 
 def test_gridsearchCV():
     iris = load_iris()
-    parameters = {'kernel': ('linear', 'rbf'), 'C': [1, 10]}
+    parameters = {"kernel": ("linear", "rbf"), "C": [1, 10]}
     clf = GridSearchCV(SVC(), parameters)
     clf.fit(iris.data, iris.target)
-    assert clf.best_params_['kernel'] == 'rbf'
-    assert clf.best_params_['C'] == 10
+    assert clf.best_params_["kernel"] == "rbf"
+    assert clf.best_params_["C"] == 10
 
 
 @pytest.fixture(scope="session")
@@ -62,27 +63,33 @@ models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()
 
 
-@pytest.mark.parametrize('model_key', ['ElasticNet',
-                                       'Lasso',
-                                       'Ridge',
-                                       'LinearRegression',
-                                       'LogisticRegression',
-                                       'MBSGDRegressor',
-                                       'RandomForestRegressor',
-                                       'KNeighborsRegressor'])
-@pytest.mark.parametrize('instantiation', ['Pipeline', 'make_pipeline'])
-def test_pipeline_with_regression(regression_dataset, model_key,
-                                  instantiation):
+@pytest.mark.parametrize(
+    "model_key",
+    [
+        "ElasticNet",
+        "Lasso",
+        "Ridge",
+        "LinearRegression",
+        "LogisticRegression",
+        "MBSGDRegressor",
+        "RandomForestRegressor",
+        "KNeighborsRegressor",
+    ],
+)
+@pytest.mark.parametrize("instantiation", ["Pipeline", "make_pipeline"])
+def test_pipeline_with_regression(
+    regression_dataset, model_key, instantiation
+):
     X_train, X_test, y_train, y_test = regression_dataset
     model_const = models[model_key]
-    if model_key == 'RandomForestRegressor':
+    if model_key == "RandomForestRegressor":
         model = model_const(n_bins=2)
     else:
         model = model_const()
 
-    if instantiation == 'Pipeline':
-        pipe = Pipeline(steps=[('scaler', StandardScaler()), ('model', model)])
-    elif instantiation == 'make_pipeline':
+    if instantiation == "Pipeline":
+        pipe = Pipeline(steps=[("scaler", StandardScaler()), ("model", model)])
+    elif instantiation == "make_pipeline":
         pipe = make_pipeline(StandardScaler(), model)
     pipe.fit(X_train, y_train)
     prediction = pipe.predict(X_test)
@@ -90,26 +97,30 @@ def test_pipeline_with_regression(regression_dataset, model_key,
     _ = pipe.score(X_test, y_test)
 
 
-@pytest.mark.parametrize('model_key', ['MBSGDClassifier',
-                                       'RandomForestClassifier',
-                                       'KNeighborsClassifier'])
-@pytest.mark.parametrize('instantiation', ['Pipeline', 'make_pipeline'])
-def test_pipeline_with_classification(classification_dataset, model_key,
-                                      instantiation):
+@pytest.mark.parametrize(
+    "model_key",
+    ["MBSGDClassifier", "RandomForestClassifier", "KNeighborsClassifier"],
+)
+@pytest.mark.parametrize("instantiation", ["Pipeline", "make_pipeline"])
+def test_pipeline_with_classification(
+    classification_dataset, model_key, instantiation
+):
     X_train, X_test, y_train, y_test = classification_dataset
     model_const = models[model_key]
-    if model_key == 'RandomForestClassifier':
+    if model_key == "RandomForestClassifier":
         model = model_const(n_bins=2)
     else:
         model = model_const()
-    if instantiation == 'Pipeline':
-        pipe = Pipeline(steps=[('scaler', StandardScaler()), ('model', model)])
-    elif instantiation == 'make_pipeline':
+    if instantiation == "Pipeline":
+        pipe = Pipeline(steps=[("scaler", StandardScaler()), ("model", model)])
+    elif instantiation == "make_pipeline":
         pipe = make_pipeline(StandardScaler(), model)
     pipe.fit(X_train, y_train)
     prediction = pipe.predict(X_test)
     assert isinstance(prediction, cupy.ndarray)
-    if model_key == 'RandomForestClassifier':
-        pytest.skip("RandomForestClassifier is not yet supported"
-                    "by the Pipeline utility")
+    if model_key == "RandomForestClassifier":
+        pytest.skip(
+            "RandomForestClassifier is not yet supported"
+            "by the Pipeline utility"
+        )
     _ = pipe.score(X_test, y_test)

@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,10 +23,11 @@ import dask.dataframe as dd
 import dask
 from cuml.internals.safe_imports import gpu_only_import
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
-cudf = gpu_only_import('cudf')
+
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
+cudf = gpu_only_import("cudf")
 
 
 def validate_dask_array(darray, client=None):
@@ -37,9 +38,7 @@ def validate_dask_array(darray, client=None):
 
 
 def _conv_df_to_sparse(x):
-    cupy_ary = rmm_cupy_ary(cp.asarray,
-                            x.to_cupy(),
-                            dtype=x.dtypes[0])
+    cupy_ary = rmm_cupy_ary(cp.asarray, x.to_cupy(), dtype=x.dtypes[0])
 
     return cupyx.scipy.sparse.csr_matrix(cupy_ary)
 
@@ -54,19 +53,17 @@ def _conv_array_to_sparse(arr):
     if has_scipy():
         from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
     else:
-        from cuml.internals.import_utils import dummy_function_always_false \
-            as scipy_sparse_isspmatrix
+        from cuml.internals.import_utils import (
+            dummy_function_always_false as scipy_sparse_isspmatrix,
+        )
     if scipy_sparse_isspmatrix(arr):
-        ret = \
-            cupyx.scipy.sparse.csr_matrix(arr.tocsr())
+        ret = cupyx.scipy.sparse.csr_matrix(arr.tocsr())
     elif cupyx.scipy.sparse.isspmatrix(arr):
         ret = arr
     elif isinstance(arr, cudf.DataFrame):
         ret = _conv_df_to_sparse(arr)
     elif isinstance(arr, np.ndarray):
-        cupy_ary = rmm_cupy_ary(cp.asarray,
-                                arr,
-                                dtype=arr.dtype)
+        cupy_ary = rmm_cupy_ary(cp.asarray, arr, dtype=arr.dtype)
         ret = cupyx.scipy.sparse.csr_matrix(cupy_ary)
 
     elif isinstance(arr, cp.ndarray):
@@ -130,14 +127,14 @@ def to_sparse_dask_array(cudf_or_array, client=None):
         # to convert a Dask.Array to CuPy sparse arrays underneath.
 
         def _conv_np_to_df(x):
-            cupy_ary = rmm_cupy_ary(cp.asarray,
-                                    x,
-                                    dtype=x.dtype)
+            cupy_ary = rmm_cupy_ary(cp.asarray, x, dtype=x.dtype)
             return cudf.DataFrame(cupy_ary)
 
         parts = client.sync(_extract_partitions, ret)
-        futures = [client.submit(_conv_np_to_df, part, workers=[w], pure=False)
-                   for w, part in parts]
+        futures = [
+            client.submit(_conv_np_to_df, part, workers=[w], pure=False)
+            for w, part in parts
+        ]
 
         ret = df_to_dask_cudf(futures)
 
@@ -148,7 +145,8 @@ def to_sparse_dask_array(cudf_or_array, client=None):
     # Dataframe.
     if isinstance(ret, dask.dataframe.DataFrame):
         ret = ret.map_partitions(
-            _conv_df_to_sparse, meta=dask.array.from_array(meta))
+            _conv_df_to_sparse, meta=dask.array.from_array(meta)
+        )
 
         # This will also handle the input of dask.array.Array
         return ret
@@ -160,8 +158,7 @@ def to_sparse_dask_array(cudf_or_array, client=None):
         # Push to worker
         final_result = client.scatter(ret)
 
-        return dask.array.from_delayed(final_result, shape=shape,
-                                       meta=meta)
+        return dask.array.from_delayed(final_result, shape=shape, meta=meta)
 
 
 def _get_meta(df):

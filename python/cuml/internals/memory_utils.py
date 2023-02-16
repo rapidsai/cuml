@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,22 +24,22 @@ from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.output_type import (
     INTERNAL_VALID_OUTPUT_TYPES,
-    VALID_OUTPUT_TYPES
+    VALID_OUTPUT_TYPES,
 )
 from cuml.internals.safe_imports import (
     cpu_only_import_from,
     gpu_only_import_from,
-    UnavailableNullContext
+    UnavailableNullContext,
 )
 
-CudfSeries = gpu_only_import_from('cudf', 'Series')
-CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
+CudfSeries = gpu_only_import_from("cudf", "Series")
+CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
 cupy_using_allocator = gpu_only_import_from(
-    'cupy.cuda', 'using_allocator', alt=UnavailableNullContext
+    "cupy.cuda", "using_allocator", alt=UnavailableNullContext
 )
-PandasSeries = cpu_only_import_from('pandas', 'Series')
-PandasDataFrame = cpu_only_import_from('pandas', 'DataFrame')
-rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
+PandasSeries = cpu_only_import_from("pandas", "Series")
+PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
+rmm_cupy_allocator = gpu_only_import_from("rmm", "rmm_cupy_allocator")
 
 
 def set_global_memory_type(memory_type):
@@ -75,7 +75,7 @@ def with_cupy_rmm(func):
 
     """
 
-    if (func.__dict__.get("__cuml_rmm_wrapped", False)):
+    if func.__dict__.get("__cuml_rmm_wrapped", False):
         return func
 
     @wraps(func)
@@ -91,35 +91,37 @@ def with_cupy_rmm(func):
     return cupy_rmm_wrapper
 
 
-def class_with_cupy_rmm(skip_init=False,
-                        skip_private=True,
-                        skip_dunder=True,
-                        ignore_pattern: list = []):
+def class_with_cupy_rmm(
+    skip_init=False,
+    skip_private=True,
+    skip_dunder=True,
+    ignore_pattern: list = [],
+):
 
     regex_list = ignore_pattern
 
-    if (skip_private):
+    if skip_private:
         # Match private but not dunder
         regex_list.append(r"^_(?!(_))\w+$")
 
-    if (skip_dunder):
-        if (not skip_init):
+    if skip_dunder:
+        if not skip_init:
             # Make sure to not match __init__
             regex_list.append(r"^__(?!(init))\w+__$")
         else:
             # Match all dunder
             regex_list.append(r"^__\w+__$")
-    elif (skip_init):
+    elif skip_init:
         regex_list.append(r"^__init__$")
 
-    final_regex = '(?:%s)' % '|'.join(regex_list)
+    final_regex = "(?:%s)" % "|".join(regex_list)
 
     def inner(klass):
 
         for attributeName, attribute in klass.__dict__.items():
 
             # Skip patters that dont match
-            if (re.match(final_regex, attributeName)):
+            if re.match(final_regex, attributeName):
                 continue
 
             if callable(attribute):
@@ -130,19 +132,21 @@ def class_with_cupy_rmm(skip_init=False,
 
             # Class/Static methods work differently since they are descriptors
             # (and not callable). Instead unwrap the function, and rewrap it
-            elif (isinstance(attribute, classmethod)):
+            elif isinstance(attribute, classmethod):
                 unwrapped = attribute.__func__
 
-                setattr(klass,
-                        attributeName,
-                        classmethod(with_cupy_rmm(unwrapped)))
+                setattr(
+                    klass, attributeName, classmethod(with_cupy_rmm(unwrapped))
+                )
 
-            elif (isinstance(attribute, staticmethod)):
+            elif isinstance(attribute, staticmethod):
                 unwrapped = attribute.__func__
 
-                setattr(klass,
-                        attributeName,
-                        staticmethod(with_cupy_rmm(unwrapped)))
+                setattr(
+                    klass,
+                    attributeName,
+                    staticmethod(with_cupy_rmm(unwrapped)),
+                )
 
         return klass
 
@@ -205,7 +209,7 @@ def _get_size_from_shape(shape, dtype):
     itemsize = GlobalSettings().xpy.dtype(dtype).itemsize
     if isinstance(shape, int):
         size = itemsize * shape
-        shape = (shape, )
+        shape = (shape,)
     elif isinstance(shape, tuple):
         size = functools.reduce(operator.mul, shape)
         size = size * itemsize
@@ -285,21 +289,21 @@ def set_global_output_type(output_type):
     CPU memory.
 
     """
-    if (isinstance(output_type, str)):
+    if isinstance(output_type, str):
         output_type = output_type.lower()
 
     # Check for allowed types. Allow 'cuml' to support internal estimators
     if (
         output_type is not None
-        and output_type != 'cuml'
+        and output_type != "cuml"
         and output_type not in INTERNAL_VALID_OUTPUT_TYPES
     ):
-        valid_output_types_str = ', '.join(
+        valid_output_types_str = ", ".join(
             [f"'{x}'" for x in VALID_OUTPUT_TYPES]
         )
         raise ValueError(
-            f'output_type must be one of {valid_output_types_str}'
-            f' or None. Got: {output_type}'
+            f"output_type must be one of {valid_output_types_str}"
+            f" or None. Got: {output_type}"
         )
 
     GlobalSettings().output_type = output_type
@@ -393,9 +397,9 @@ def determine_array_memtype(X):
         return X.mem_type
     except AttributeError:
         pass
-    if hasattr(X, '__cuda_array_interface__'):
+    if hasattr(X, "__cuda_array_interface__"):
         return MemoryType.device
-    if hasattr(X, '__array_interface__'):
+    if hasattr(X, "__array_interface__"):
         return MemoryType.host
     if isinstance(X, (CudfDataFrame, CudfSeries)):
         return MemoryType.device

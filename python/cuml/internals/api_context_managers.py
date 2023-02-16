@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 import contextlib
 import typing
 from collections import deque
+
 try:
     from typing import TYPE_CHECKING
 except ImportError:
@@ -26,18 +27,20 @@ import cuml.internals.input_utils
 import cuml.internals.memory_utils
 
 from cuml.internals.array_sparse import SparseCumlArray
+
 if TYPE_CHECKING:
     from cuml.internals.base import Base
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.safe_imports import (
-    gpu_only_import_from, UnavailableNullContext
+    gpu_only_import_from,
+    UnavailableNullContext,
 )
 
 cupy_using_allocator = gpu_only_import_from(
-    'cupy.cuda', 'using_allocator', alt=UnavailableNullContext
+    "cupy.cuda", "using_allocator", alt=UnavailableNullContext
 )
-rmm_cupy_allocator = gpu_only_import_from('rmm', 'rmm_cupy_allocator')
+rmm_cupy_allocator = gpu_only_import_from("rmm", "rmm_cupy_allocator")
 
 
 @contextlib.contextmanager
@@ -65,10 +68,10 @@ def in_internal_api():
 
 
 def set_api_output_type(output_type: str):
-    assert (GlobalSettings().root_cm is not None)
+    assert GlobalSettings().root_cm is not None
 
     # Quick exit
-    if (isinstance(output_type, str)):
+    if isinstance(output_type, str):
         GlobalSettings().root_cm.output_type = output_type
         return
 
@@ -82,12 +85,10 @@ def set_api_output_type(output_type: str):
 
 
 def set_api_memory_type(mem_type):
-    assert (GlobalSettings().root_cm is not None)
+    assert GlobalSettings().root_cm is not None
 
     try:
-        mem_type = MemoryType.from_str(
-            mem_type
-        )
+        mem_type = MemoryType.from_str(mem_type)
     except ValueError:
         mem_type = cuml.internals.memory_utils.determine_array_memtype(
             mem_type
@@ -97,15 +98,17 @@ def set_api_memory_type(mem_type):
 
 
 def set_api_output_dtype(output_dtype):
-    assert (GlobalSettings().root_cm is not None)
+    assert GlobalSettings().root_cm is not None
 
     # Try to convert any array objects to their type
-    if (output_dtype is not None
-            and cuml.internals.input_utils.is_array_like(output_dtype)):
+    if output_dtype is not None and cuml.internals.input_utils.is_array_like(
+        output_dtype
+    ):
         output_dtype = cuml.internals.input_utils.determine_array_dtype(
-            output_dtype)
+            output_dtype
+        )
 
-        assert (output_dtype is not None)
+        assert output_dtype is not None
 
     GlobalSettings().root_cm.output_dtype = output_dtype
 
@@ -128,8 +131,9 @@ class InternalAPIContext(contextlib.ExitStack):
 
         # Set the output type to the prev_output_type. If "input", set to None
         # to allow inner functions to specify the input
-        self.output_type = (None if self.prev_output_type == "input" else
-                            self.prev_output_type)
+        self.output_type = (
+            None if self.prev_output_type == "input" else self.prev_output_type
+        )
 
         self._count = 0
 
@@ -184,10 +188,16 @@ class InternalAPIContext(contextlib.ExitStack):
             yield
 
         finally:
-            self.output_type = (old_output_type if old_output_type is not None
-                                else self.output_type)
-            self.output_dtype = (old_output_dtype if old_output_dtype
-                                 is not None else self.output_dtype)
+            self.output_type = (
+                old_output_type
+                if old_output_type is not None
+                else self.output_type
+            )
+            self.output_dtype = (
+                old_output_dtype
+                if old_output_dtype is not None
+                else self.output_dtype
+            )
 
 
 def get_internal_context() -> InternalAPIContext:
@@ -195,7 +205,7 @@ def get_internal_context() -> InternalAPIContext:
     for external API calls and minimize unnecessary internal output
     conversions"""
 
-    if (GlobalSettings().root_cm is None):
+    if GlobalSettings().root_cm is None:
         GlobalSettings().root_cm = InternalAPIContext()
 
     return GlobalSettings().root_cm
@@ -221,8 +231,9 @@ class ProcessReturn(object):
 
         self._context = context
 
-        self._process_return_cbs: typing.Deque[typing.Callable[
-            [typing.Any], typing.Any]] = deque()
+        self._process_return_cbs: typing.Deque[
+            typing.Callable[[typing.Any], typing.Any]
+        ] = deque()
 
     def process_return(self, ret_val):
 
@@ -236,8 +247,9 @@ EnterT = typing.TypeVar("EnterT", bound=ProcessEnter)
 ProcessT = typing.TypeVar("ProcessT", bound=ProcessReturn)
 
 
-class InternalAPIContextBase(contextlib.ExitStack,
-                             typing.Generic[EnterT, ProcessT]):
+class InternalAPIContextBase(
+    contextlib.ExitStack, typing.Generic[EnterT, ProcessT]
+):
 
     ProcessEnter_Type: typing.Type[EnterT] = None
     ProcessReturn_Type: typing.Type[ProcessT] = None
@@ -278,7 +290,7 @@ class InternalAPIContextBase(contextlib.ExitStack,
     def __class_getitem__(cls: typing.Type["InternalAPIContextBase"], params):
 
         param_names = [
-            param.__name__ if hasattr(param, '__name__') else str(param)
+            param.__name__ if hasattr(param, "__name__") else str(param)
             for param in params
         ]
 
@@ -289,7 +301,7 @@ class InternalAPIContextBase(contextlib.ExitStack,
             "ProcessReturn_Type": params[1],
         }
 
-        return type(type_name, (cls, ), ns)
+        return type(type_name, (cls,), ns)
 
 
 class ProcessEnterBaseMixin(ProcessEnter):
@@ -314,8 +326,9 @@ class ProcessEnterReturnArray(ProcessEnter):
         self._context.enter_context(self._context.root_cm.push_output_types())
 
 
-class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
-                                  ProcessEnterBaseMixin):
+class ProcessEnterBaseReturnArray(
+    ProcessEnterReturnArray, ProcessEnterBaseMixin
+):
     def __init__(self, context: "InternalAPIContextBase"):
         super().__init__(context)
 
@@ -323,8 +336,10 @@ class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
         # `root_cm.output_type` is None. Since we default to using the incoming
         # value if its set, there is no need to do any processing if the user
         # has specified the output type
-        if (self._context.root_cm.prev_output_type is None
-                or self._context.root_cm.prev_output_type == "input"):
+        if (
+            self._context.root_cm.prev_output_type is None
+            or self._context.root_cm.prev_output_type == "input"
+        ):
             self._process_enter_cbs.append(self.base_output_type_callback)
 
     def base_output_type_callback(self):
@@ -337,24 +352,24 @@ class ProcessEnterBaseReturnArray(ProcessEnterReturnArray,
 
             # Check if output_type is None, can happen if no output type has
             # been set by estimator
-            if (output_type is None):
+            if output_type is None:
                 output_type = self.base_obj.output_type
             if mem_type is None:
                 mem_type = self.base_obj.output_mem_type
 
-            if (output_type == "input"):
+            if output_type == "input":
                 output_type = self.base_obj._input_type
                 mem_type = self.base_obj._input_mem_type
 
             if mem_type is None:
                 mem_type = GlobalSettings().memory_type
 
-            if (output_type != root_cm.output_type):
+            if output_type != root_cm.output_type:
                 set_api_output_type(output_type)
-            if (mem_type != root_cm.memory_type):
+            if mem_type != root_cm.memory_type:
                 set_api_memory_type(mem_type)
 
-            assert (output_type != "mirror")
+            assert output_type != "mirror"
 
         self._context.callback(set_output_type)
 
@@ -369,29 +384,30 @@ class ProcessReturnArray(ProcessReturn):
 
         self._process_return_cbs.append(self.convert_to_cumlarray)
 
-        if (self._context.is_root
-                or GlobalSettings().output_type != "mirror"):
+        if self._context.is_root or GlobalSettings().output_type != "mirror":
             self._process_return_cbs.append(self.convert_to_outputtype)
 
     def convert_to_cumlarray(self, ret_val):
 
         # Get the output type
-        ret_val_type_str, is_sparse = \
-            cuml.internals.input_utils.determine_array_type_full(ret_val)
+        (
+            ret_val_type_str,
+            is_sparse,
+        ) = cuml.internals.input_utils.determine_array_type_full(ret_val)
 
         # If we are a supported array and not already cuml, convert to cuml
-        if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
+        if ret_val_type_str is not None and ret_val_type_str != "cuml":
             if is_sparse:
                 ret_val = SparseCumlArray(
                     ret_val,
                     convert_to_mem_type=GlobalSettings().memory_type,
-                    convert_index=False
+                    convert_index=False,
                 )
             else:
                 ret_val = cuml.internals.input_utils.input_to_cuml_array(
                     ret_val,
                     convert_to_mem_type=GlobalSettings().memory_type,
-                    order="K"
+                    order="K",
                 ).array
 
         return ret_val
@@ -401,47 +417,51 @@ class ProcessReturnArray(ProcessReturn):
         output_type = GlobalSettings().output_type
         memory_type = GlobalSettings().memory_type
 
-        if (output_type is None or output_type == "mirror"
-                or output_type == "input"):
+        if (
+            output_type is None
+            or output_type == "mirror"
+            or output_type == "input"
+        ):
             output_type = self._context.root_cm.output_type
 
         if GlobalSettings().memory_type in (None, MemoryType.mirror):
             memory_type = self._context.root_cm.memory_type
 
-        assert (output_type is not None
-                and output_type != "mirror"
-                and output_type != "input"), \
-            ("Invalid root_cm.output_type: "
-             "'{}'.").format(output_type)
+        assert (
+            output_type is not None
+            and output_type != "mirror"
+            and output_type != "input"
+        ), ("Invalid root_cm.output_type: " "'{}'.").format(output_type)
 
         return ret_val.to_output(
             output_type=output_type,
             output_dtype=self._context.root_cm.output_dtype,
-            output_mem_type=memory_type
+            output_mem_type=memory_type,
         )
 
 
 class ProcessReturnSparseArray(ProcessReturnArray):
-
     def convert_to_cumlarray(self, ret_val):
 
         # Get the output type
-        ret_val_type_str, is_sparse = \
-            cuml.internals.input_utils.determine_array_type_full(ret_val)
+        (
+            ret_val_type_str,
+            is_sparse,
+        ) = cuml.internals.input_utils.determine_array_type_full(ret_val)
 
         # If we are a supported array and not already cuml, convert to cuml
-        if (ret_val_type_str is not None and ret_val_type_str != "cuml"):
+        if ret_val_type_str is not None and ret_val_type_str != "cuml":
             if is_sparse:
                 ret_val = SparseCumlArray(
                     ret_val,
                     convert_to_mem_type=GlobalSettings().memory_type,
-                    convert_index=False
+                    convert_index=False,
                 )
             else:
                 ret_val = cuml.internals.input_utils.input_to_cuml_array(
                     ret_val,
                     convert_to_mem_type=GlobalSettings().memory_type,
-                    order="K"
+                    order="K",
                 ).array
 
         return ret_val
@@ -494,57 +514,66 @@ class ProcessReturnGeneric(ProcessReturnArray):
 
     def process_generic(self, ret_val):
 
-        if (cuml.internals.input_utils.is_array_like(ret_val)):
+        if cuml.internals.input_utils.is_array_like(ret_val):
             return self.process_single(ret_val)
 
-        if (isinstance(ret_val, tuple)):
+        if isinstance(ret_val, tuple):
             return self.process_tuple(ret_val)
 
-        if (isinstance(ret_val, dict)):
+        if isinstance(ret_val, dict):
             return self.process_dict(ret_val)
 
-        if (isinstance(ret_val, list)):
+        if isinstance(ret_val, list):
             return self.process_list(ret_val)
 
         return ret_val
 
 
-class ReturnAnyCM(InternalAPIContextBase[ProcessEnterReturnAny,
-                                         ProcessReturnAny]):
+class ReturnAnyCM(
+    InternalAPIContextBase[ProcessEnterReturnAny, ProcessReturnAny]
+):
     pass
 
 
-class ReturnArrayCM(InternalAPIContextBase[ProcessEnterReturnArray,
-                                           ProcessReturnArray]):
+class ReturnArrayCM(
+    InternalAPIContextBase[ProcessEnterReturnArray, ProcessReturnArray]
+):
     pass
 
 
-class ReturnSparseArrayCM(InternalAPIContextBase[ProcessEnterReturnArray,
-                                                 ProcessReturnSparseArray]):
+class ReturnSparseArrayCM(
+    InternalAPIContextBase[ProcessEnterReturnArray, ProcessReturnSparseArray]
+):
     pass
 
 
-class ReturnGenericCM(InternalAPIContextBase[ProcessEnterReturnArray,
-                                             ProcessReturnGeneric]):
+class ReturnGenericCM(
+    InternalAPIContextBase[ProcessEnterReturnArray, ProcessReturnGeneric]
+):
     pass
 
 
-class BaseReturnAnyCM(InternalAPIContextBase[ProcessEnterReturnAny,
-                                             ProcessReturnAny]):
+class BaseReturnAnyCM(
+    InternalAPIContextBase[ProcessEnterReturnAny, ProcessReturnAny]
+):
     pass
 
 
-class BaseReturnArrayCM(InternalAPIContextBase[ProcessEnterBaseReturnArray,
-                                               ProcessReturnArray]):
+class BaseReturnArrayCM(
+    InternalAPIContextBase[ProcessEnterBaseReturnArray, ProcessReturnArray]
+):
     pass
 
 
 class BaseReturnSparseArrayCM(
-        InternalAPIContextBase[ProcessEnterBaseReturnArray,
-                               ProcessReturnSparseArray]):
+    InternalAPIContextBase[
+        ProcessEnterBaseReturnArray, ProcessReturnSparseArray
+    ]
+):
     pass
 
 
-class BaseReturnGenericCM(InternalAPIContextBase[ProcessEnterBaseReturnArray,
-                                                 ProcessReturnGeneric]):
+class BaseReturnGenericCM(
+    InternalAPIContextBase[ProcessEnterBaseReturnArray, ProcessReturnGeneric]
+):
     pass

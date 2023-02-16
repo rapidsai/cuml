@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,9 @@ from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
 import cuml.internals
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
+
+cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
 
 
 def _sparse_document_frequency(X):
@@ -34,9 +35,10 @@ def _sparse_document_frequency(X):
 
 def _get_dtype(X):
     """
-        Returns the valid dtype for tf-idf transformer
+    Returns the valid dtype for tf-idf transformer
     """
     import numpy as np
+
     FLOAT_DTYPES = (np.float64, np.float32, np.float16)
 
     dtype = X.dtype if X.dtype in FLOAT_DTYPES else cp.float32
@@ -121,13 +123,21 @@ class TfidfTransformer(Base):
 
     """
 
-    def __init__(self, *, norm='l2', use_idf=True, smooth_idf=True,
-                 sublinear_tf=False, handle=None, verbose=False,
-                 output_type=None):
+    def __init__(
+        self,
+        *,
+        norm="l2",
+        use_idf=True,
+        smooth_idf=True,
+        sublinear_tf=False,
+        handle=None,
+        verbose=False,
+        output_type=None,
+    ):
 
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
+        super().__init__(
+            handle=handle, verbose=verbose, output_type=output_type
+        )
         self.norm = norm
         self.use_idf = use_idf
         self.smooth_idf = smooth_idf
@@ -154,10 +164,10 @@ class TfidfTransformer(Base):
 
     def _set_idf_diag(self):
         """
-            Sets idf_diagonal sparse array
+        Sets idf_diagonal sparse array
         """
         # perform idf smoothing if required
-        df = self.__df.to_output('cupy') + int(self.smooth_idf)
+        df = self.__df.to_output("cupy") + int(self.smooth_idf)
         n_samples = self.__n_samples + int(self.smooth_idf)
 
         # log+1 instead of log makes sure terms with zero idf don't get
@@ -166,7 +176,7 @@ class TfidfTransformer(Base):
         self._idf_diag = cupyx.scipy.sparse.dia_matrix(
             (idf, 0),
             shape=(self.__n_features, self.__n_features),
-            dtype=df.dtype
+            dtype=df.dtype,
         )
         # Free up memory occupied by below
         del self.__df
@@ -224,16 +234,18 @@ class TfidfTransformer(Base):
 
             expected_n_features = self._idf_diag.shape[0]
             if n_features != expected_n_features:
-                raise ValueError("Input has n_features=%d while the model"
-                                 " has been trained with n_features=%d" % (
-                                     n_features, expected_n_features))
+                raise ValueError(
+                    "Input has n_features=%d while the model"
+                    " has been trained with n_features=%d"
+                    % (n_features, expected_n_features)
+                )
 
             csr_diag_mul(X, self._idf_diag, inplace=True)
 
         if self.norm:
-            if self.norm == 'l1':
+            if self.norm == "l1":
                 csr_row_normalize_l1(X, inplace=True)
-            elif self.norm == 'l2':
+            elif self.norm == "l2":
                 csr_row_normalize_l2(X, inplace=True)
 
         return X
@@ -258,10 +270,12 @@ class TfidfTransformer(Base):
         return self.fit(X).transform(X, copy=copy)
 
     def _check_is_idf_fitted(self):
-        if not hasattr(self, 'idf_'):
-            msg = ("This TfidfTransformer instance is not fitted or the "
-                   "value of use_idf is not consistant between "
-                   ".fit() and .transform().")
+        if not hasattr(self, "idf_"):
+            msg = (
+                "This TfidfTransformer instance is not fitted or the "
+                "value of use_idf is not consistant between "
+                ".fit() and .transform()."
+            )
             raise NotFittedError(msg)
 
     def _convert_to_csr(self, X, dtype):
@@ -284,11 +298,13 @@ class TfidfTransformer(Base):
         value = cp.asarray(value, dtype=cp.float32)
         n_features = value.shape[0]
         self._idf_diag = cupyx.scipy.sparse.dia_matrix(
-            (value, 0),
-            shape=(n_features, n_features),
-            dtype=cp.float32
+            (value, 0), shape=(n_features, n_features), dtype=cp.float32
         )
 
     def get_param_names(self):
-        return super().get_param_names() + \
-            ["norm", "use_idf", "smooth_idf", "sublinear_tf"]
+        return super().get_param_names() + [
+            "norm",
+            "use_idf",
+            "smooth_idf",
+            "sublinear_tf",
+        ]

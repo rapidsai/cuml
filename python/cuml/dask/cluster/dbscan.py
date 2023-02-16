@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@ from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import BaseEstimator
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+
+np = cpu_only_import("numpy")
 
 
 class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -72,19 +73,20 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     """
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
-        super().__init__(client=client,
-                         verbose=verbose,
-                         **kwargs)
+        super().__init__(client=client, verbose=verbose, **kwargs)
 
     @staticmethod
     @mnmg_import
     def _func_fit(out_dtype):
         def _func(sessionId, data, **kwargs):
             from cuml.cluster.dbscan_mg import DBSCANMG as cumlDBSCAN
+
             handle = get_raft_comm_state(sessionId)["handle"]
 
-            return cumlDBSCAN(handle=handle, **kwargs
-                              ).fit(data, out_dtype=out_dtype)
+            return cumlDBSCAN(handle=handle, **kwargs).fit(
+                data, out_dtype=out_dtype
+            )
+
         return _func
 
     @with_cupy_rmm
@@ -104,22 +106,28 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             "int64", np.int64}.
         """
         if out_dtype not in ["int32", np.int32, "int64", np.int64]:
-            raise ValueError("Invalid value for out_dtype. "
-                             "Valid values are {'int32', 'int64', "
-                             "np.int32, np.int64}")
+            raise ValueError(
+                "Invalid value for out_dtype. "
+                "Valid values are {'int32', 'int64', "
+                "np.int32, np.int64}"
+            )
 
         data = self.client.scatter(X, broadcast=True)
 
         comms = Comms(comms_p2p=True)
         comms.init()
 
-        dbscan_fit = [self.client.submit(DBSCAN._func_fit(out_dtype),
-                                         comms.sessionId,
-                                         data,
-                                         **self.kwargs,
-                                         workers=[worker],
-                                         pure=False)
-                      for worker in comms.worker_addresses]
+        dbscan_fit = [
+            self.client.submit(
+                DBSCAN._func_fit(out_dtype),
+                comms.sessionId,
+                data,
+                **self.kwargs,
+                workers=[worker],
+                pure=False,
+            )
+            for worker in comms.worker_addresses
+        ]
 
         wait_and_raise_from_futures(dbscan_fit)
 

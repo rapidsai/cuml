@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,15 +26,16 @@ from cuml.internals.api_context_managers import _using_mirror_output_type
 from cuml.internals.global_settings import (
     _global_settings_data,
     _GlobalSettingsData,
-    GlobalSettings
+    GlobalSettings,
 )
 
-test_output_types_str = ('numpy', 'numba', 'cupy', 'cudf')
+test_output_types_str = ("numpy", "numba", "cupy", "cudf")
 test_global_settings_data_obj = _GlobalSettingsData()
 
 
 def test_set_global_output_type():
     """Ensure that set_global_output_type is thread-safe"""
+
     def check_correct_type(index):
         output_type = test_output_types_str[index]
         # Force a race condition
@@ -54,6 +55,7 @@ def test_set_global_output_type():
 
 def test_using_output_type():
     """Ensure that using_output_type is thread-safe"""
+
     def check_correct_type(index):
         output_type = test_output_types_str[index]
         # Force a race condition
@@ -73,6 +75,7 @@ def test_using_output_type():
 
 def test_using_mirror_output_type():
     """Ensure that _using_mirror_output_type is thread-safe"""
+
     def check_correct_type(index):
         # Force a race condition
         if index == 0:
@@ -80,7 +83,7 @@ def test_using_mirror_output_type():
         if index % 2 == 0:
             with _using_mirror_output_type():
                 sleep(0.5)
-                return cuml.global_settings.output_type == 'mirror'
+                return cuml.global_settings.output_type == "mirror"
         else:
             output_type = test_output_types_str[index]
             with using_output_type(output_type):
@@ -98,6 +101,7 @@ def test_using_mirror_output_type():
 def test_global_settings_data():
     """Ensure that GlobalSettingsData objects are properly initialized
     per-thread"""
+
     def check_initialized(index):
         if index == 0:
             sleep(0.1)
@@ -108,21 +112,19 @@ def test_global_settings_data():
 
         sleep(0.5)
         return (
-            test_global_settings_data_obj.shared_state['_output_type'] is None
-            and test_global_settings_data_obj.shared_state['root_cm'] is None
+            test_global_settings_data_obj.shared_state["_output_type"] is None
+            and test_global_settings_data_obj.shared_state["root_cm"] is None
             and _global_settings_data.testing_index == index
         )
 
-    results = [
-        delayed(check_initialized)(index)
-        for index in range(5)
-    ]
+    results = [delayed(check_initialized)(index) for index in range(5)]
 
     assert (delayed(all)(results)).compute()
 
 
 def test_global_settings():
     """Ensure that GlobalSettings acts as a proper thread-local borg"""
+
     def check_settings(index):
         # Force a race condition
         if index == 0:
@@ -134,9 +136,6 @@ def test_global_settings():
             and cuml.global_settings.index == GlobalSettings().index
         )
 
-    results = [
-        delayed(check_settings)(index)
-        for index in range(5)
-    ]
+    results = [delayed(check_settings)(index) for index in range(5)]
 
     assert (delayed(all)(results)).compute()

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,8 +40,9 @@ from .porter_stemmer_utils.suffix_utils import (
     replace_suffix,
 )
 from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
-cp = gpu_only_import('cupy')
+
+cudf = gpu_only_import("cudf")
+cp = gpu_only_import("cupy")
 
 
 # Implementation based on nltk//stem/porter.html
@@ -720,8 +721,8 @@ def map_irregular_forms(word_str_ser, can_replace_mask):
 
 def get_condition_flag(word_str_ser, condition):
     """
-        condition  = None or a function that returns a bool series
-        return a bool series where flag is valid
+    condition  = None or a function that returns a bool series
+    return a bool series where flag is valid
     """
     if condition is None:
         return cudf.Series(cp.ones(len(word_str_ser), bool))
@@ -798,8 +799,8 @@ def apply_rule_list(word_str_ser, rules, condition_flag):
 
 def build_can_replace_mask(len_mask, mask):
     """
-      Creates a cudf series represeting can_replace_mask of length=len_mask
-      if mask is None else returns mask
+    Creates a cudf series represeting can_replace_mask of length=len_mask
+    if mask is None else returns mask
     """
     if mask is None:
         mask = cudf.Series(cp.ones(len_mask, dtype=bool))

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@ if has_sklearn():
     Pipeline.__doc__ = disclaimer + Pipeline.__doc__
     make_pipeline.__doc__ = disclaimer + make_pipeline.__doc__
 
-    __all__ = ['Pipeline', 'make_pipeline']
+    __all__ = ["Pipeline", "make_pipeline"]
 else:
-    raise ImportError("Scikit-learn is needed to use "
-                      "Pipeline and make_pipeline")
+    raise ImportError(
+        "Scikit-learn is needed to use " "Pipeline and make_pipeline"
+    )

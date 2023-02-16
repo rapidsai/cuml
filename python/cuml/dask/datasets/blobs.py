@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,24 +30,40 @@ from cuml.dask.common.utils import get_client
 import math
 
 
-def _create_local_data(m, n, centers, cluster_std, shuffle, random_state,
-                       order, dtype):
-    X, y = sg_make_blobs(m, n, centers=centers,
-                         cluster_std=cluster_std,
-                         random_state=random_state,
-                         shuffle=shuffle,
-                         order=order,
-                         dtype=dtype)
+def _create_local_data(
+    m, n, centers, cluster_std, shuffle, random_state, order, dtype
+):
+    X, y = sg_make_blobs(
+        m,
+        n,
+        centers=centers,
+        cluster_std=cluster_std,
+        random_state=random_state,
+        shuffle=shuffle,
+        order=order,
+        dtype=dtype,
+    )
 
     return X, y
 
 
 @with_cupy_rmm
-def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
-               n_parts=None, center_box=(-10, 10), shuffle=True,
-               random_state=None, return_centers=False,
-               verbose=False, order='F', dtype='float32',
-               client=None, workers=None):
+def make_blobs(
+    n_samples=100,
+    n_features=2,
+    centers=None,
+    cluster_std=1.0,
+    n_parts=None,
+    center_box=(-10, 10),
+    shuffle=True,
+    random_state=None,
+    return_centers=False,
+    verbose=False,
+    order="F",
+    dtype="float32",
+    client=None,
+    workers=None,
+):
     """
     Makes labeled Dask-Cupy arrays containing blobs
     for a randomly generated set of centroids.
@@ -131,46 +147,57 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
     generator = _create_rs_generator(random_state=random_state)
 
     if workers is None:
-        workers = list(client.scheduler_info()['workers'].keys())
+        workers = list(client.scheduler_info()["workers"].keys())
 
     n_parts = n_parts if n_parts is not None else len(workers)
     parts_workers = (workers * n_parts)[:n_parts]
 
-    centers, n_centers = _get_centers(generator, centers, center_box,
-                                      n_samples, n_features,
-                                      dtype)
+    centers, n_centers = _get_centers(
+        generator, centers, center_box, n_samples, n_features, dtype
+    )
 
     rows_per_part = max(1, int(n_samples / n_parts))
 
     worker_rows = [rows_per_part] * n_parts
 
-    worker_rows[-1] += (n_samples % n_parts)
+    worker_rows[-1] += n_samples % n_parts
 
     worker_rows = tuple(worker_rows)
 
-    logger.debug("Generating %d samples across %d partitions on "
-                 "%d workers (total=%d samples)" %
-                 (math.ceil(n_samples / len(workers)),
-                  n_parts, len(workers), n_samples))
+    logger.debug(
+        "Generating %d samples across %d partitions on "
+        "%d workers (total=%d samples)"
+        % (
+            math.ceil(n_samples / len(workers)),
+            n_parts,
+            len(workers),
+            n_samples,
+        )
+    )
 
     seeds = generator.randint(n_samples, size=len(parts_workers))
-    parts = [client.submit(_create_local_data,
-                           part_rows,
-                           n_features,
-                           centers,
-                           cluster_std,
-                           shuffle,
-                           int(seeds[idx]),
-                           order,
-                           dtype,
-                           pure=False,
-                           workers=[parts_workers[idx]])
-             for idx, part_rows in enumerate(worker_rows)]
+    parts = [
+        client.submit(
+            _create_local_data,
+            part_rows,
+            n_features,
+            centers,
+            cluster_std,
+            shuffle,
+            int(seeds[idx]),
+            order,
+            dtype,
+            pure=False,
+            workers=[parts_workers[idx]],
+        )
+        for idx, part_rows in enumerate(worker_rows)
+    ]
 
-    X = [client.submit(_get_X, f, pure=False)
-         for idx, f in enumerate(parts)]
-    y = [client.submit(_get_labels, f, pure=False)
-         for idx, f in enumerate(parts)]
+    X = [client.submit(_get_X, f, pure=False) for idx, f in enumerate(parts)]
+    y = [
+        client.submit(_get_labels, f, pure=False)
+        for idx, f in enumerate(parts)
+    ]
 
     X_del = _create_delayed(X, dtype, worker_rows, n_features)
     y_del = _create_delayed(y, dtype, worker_rows)

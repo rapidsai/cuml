@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,10 +28,11 @@ import json
 import pytest
 import treelite
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-pd = cpu_only_import('pandas')
-cp = gpu_only_import('cupy')
-cudf = gpu_only_import('cudf')
+
+np = cpu_only_import("numpy")
+pd = cpu_only_import("pandas")
+cp = gpu_only_import("cupy")
+cudf = gpu_only_import("cudf")
 
 pytestmark = pytest.mark.skip
 
@@ -55,20 +56,34 @@ if has_sklearn():
 
 
 def make_classification_with_categorical(
-        *, n_samples, n_features, n_categorical, n_informative, n_redundant,
-        n_repeated, n_classes, random_state, numeric_dtype=np.float32):
+    *,
+    n_samples,
+    n_features,
+    n_categorical,
+    n_informative,
+    n_redundant,
+    n_repeated,
+    n_classes,
+    random_state,
+    numeric_dtype=np.float32,
+):
     X, y = make_classification(
-        n_samples=n_samples, n_features=n_features,
-        n_informative=n_informative, n_redundant=n_redundant,
-        n_repeated=n_repeated, n_classes=n_classes, random_state=random_state,
-        n_clusters_per_class=min(2, n_features))
+        n_samples=n_samples,
+        n_features=n_features,
+        n_informative=n_informative,
+        n_redundant=n_redundant,
+        n_repeated=n_repeated,
+        n_classes=n_classes,
+        random_state=random_state,
+        n_clusters_per_class=min(2, n_features),
+    )
     X, y = X.astype(numeric_dtype), y.astype(numeric_dtype)
 
     # Turn some columns into categorical, by taking quartiles
     n = np.atleast_1d(y).shape[0]
-    X = pd.DataFrame({f'f{i}': X[:, i] for i in range(n_features)})
+    X = pd.DataFrame({f"f{i}": X[:, i] for i in range(n_features)})
     for i in range(n_categorical):
-        column = f'f{i}'
+        column = f"f{i}"
         n_bins = min(4, n)
         X[column] = pd.qcut(X[column], n_bins, labels=range(n_bins))
     # make sure each target exists
@@ -79,18 +94,29 @@ def make_classification_with_categorical(
 
 
 def make_regression_with_categorical(
-        *, n_samples, n_features, n_categorical, n_informative, random_state,
-        numeric_dtype=np.float32, n_targets=1):
-    X, y = make_regression(n_samples=n_samples, n_features=n_features,
-                           n_informative=n_informative, n_targets=n_targets,
-                           random_state=random_state)
+    *,
+    n_samples,
+    n_features,
+    n_categorical,
+    n_informative,
+    random_state,
+    numeric_dtype=np.float32,
+    n_targets=1,
+):
+    X, y = make_regression(
+        n_samples=n_samples,
+        n_features=n_features,
+        n_informative=n_informative,
+        n_targets=n_targets,
+        random_state=random_state,
+    )
     X, y = X.astype(numeric_dtype), y.astype(numeric_dtype)
 
     # Turn some columns into categorical, by taking quartiles
     n = np.atleast_1d(y).shape[0]
-    X = pd.DataFrame({f'f{i}': X[:, i] for i in range(n_features)})
+    X = pd.DataFrame({f"f{i}": X[:, i] for i in range(n_features)})
     for i in range(n_categorical):
-        column = f'f{i}'
+        column = f"f{i}"
         n_bins = min(4, n)
         X[column] = pd.qcut(X[column], n_bins, labels=range(n_bins))
     return X, y
@@ -106,27 +132,44 @@ def count_categorical_split(tl_model):
     return count
 
 
-@pytest.mark.parametrize('objective', ['reg:linear', 'reg:squarederror',
-                                       'reg:squaredlogerror',
-                                       'reg:pseudohubererror'])
+@pytest.mark.parametrize(
+    "objective",
+    [
+        "reg:linear",
+        "reg:squarederror",
+        "reg:squaredlogerror",
+        "reg:pseudohubererror",
+    ],
+)
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 @pytest.mark.skipif(not has_shap(), reason="need to install shap")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_regressor(objective):
     n_samples = 100
-    X, y = make_regression(n_samples=n_samples, n_features=8, n_informative=8,
-                           n_targets=1, random_state=2021)
+    X, y = make_regression(
+        n_samples=n_samples,
+        n_features=8,
+        n_informative=8,
+        n_targets=1,
+        random_state=2021,
+    )
     # Ensure that the label exceeds -1
     y += (-0.5) - np.min(y)
     assert np.all(y > -1)
     X, y = X.astype(np.float32), y.astype(np.float32)
     dtrain = xgb.DMatrix(X, label=y)
-    params = {'objective': objective, 'base_score': 0.5, 'seed': 0,
-              'max_depth': 6, 'tree_method': 'gpu_hist',
-              'predictor': 'gpu_predictor'}
+    params = {
+        "objective": objective,
+        "base_score": 0.5,
+        "seed": 0,
+        "max_depth": 6,
+        "tree_method": "gpu_hist",
+        "predictor": "gpu_predictor",
+    }
     num_round = 10
-    xgb_model = xgb.train(params, dtrain, num_boost_round=num_round,
-                          evals=[(dtrain, 'train')])
+    xgb_model = xgb.train(
+        params, dtrain, num_boost_round=num_round, evals=[(dtrain, "train")]
+    )
     tl_model = treelite.Model.from_xgboost(xgb_model)
 
     # Insert NaN randomly into X
@@ -142,42 +185,65 @@ def test_xgb_regressor(objective):
     ref_explainer = shap.explainers.Tree(model=xgb_model)
     correct_out = ref_explainer.shap_values(X_test)
     np.testing.assert_almost_equal(out, correct_out, decimal=5)
-    np.testing.assert_almost_equal(explainer.expected_value,
-                                   ref_explainer.expected_value, decimal=5)
+    np.testing.assert_almost_equal(
+        explainer.expected_value, ref_explainer.expected_value, decimal=5
+    )
 
 
-@pytest.mark.parametrize('objective,n_classes',
-                         [('binary:logistic', 2),
-                          ('binary:hinge', 2),
-                          ('binary:logitraw', 2),
-                          ('count:poisson', 4),
-                          ('rank:pairwise', 5),
-                          ('rank:ndcg', 5),
-                          ('rank:map', 5),
-                          ('multi:softmax', 5),
-                          ('multi:softprob', 5)],
-                         ids=['binary:logistic', 'binary:hinge',
-                              'binary:logitraw', 'count:poisson',
-                              'rank:pairwise', 'rank:ndcg', 'rank:map',
-                              'multi:softmax', 'multi:softprob'])
+@pytest.mark.parametrize(
+    "objective,n_classes",
+    [
+        ("binary:logistic", 2),
+        ("binary:hinge", 2),
+        ("binary:logitraw", 2),
+        ("count:poisson", 4),
+        ("rank:pairwise", 5),
+        ("rank:ndcg", 5),
+        ("rank:map", 5),
+        ("multi:softmax", 5),
+        ("multi:softprob", 5),
+    ],
+    ids=[
+        "binary:logistic",
+        "binary:hinge",
+        "binary:logitraw",
+        "count:poisson",
+        "rank:pairwise",
+        "rank:ndcg",
+        "rank:map",
+        "multi:softmax",
+        "multi:softprob",
+    ],
+)
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 @pytest.mark.skipif(not has_shap(), reason="need to install shap")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_classifier(objective, n_classes):
     n_samples = 100
-    X, y = make_classification(n_samples=n_samples, n_features=8,
-                               n_informative=8, n_redundant=0, n_repeated=0,
-                               n_classes=n_classes, random_state=2021)
+    X, y = make_classification(
+        n_samples=n_samples,
+        n_features=8,
+        n_informative=8,
+        n_redundant=0,
+        n_repeated=0,
+        n_classes=n_classes,
+        random_state=2021,
+    )
     X, y = X.astype(np.float32), y.astype(np.float32)
     num_round = 10
     dtrain = xgb.DMatrix(X, label=y)
-    params = {'objective': objective, 'base_score': 0.5, 'seed': 0,
-              'max_depth': 6, 'tree_method': 'gpu_hist',
-              'predictor': 'gpu_predictor'}
-    if objective.startswith('rank:'):
+    params = {
+        "objective": objective,
+        "base_score": 0.5,
+        "seed": 0,
+        "max_depth": 6,
+        "tree_method": "gpu_hist",
+        "predictor": "gpu_predictor",
+    }
+    if objective.startswith("rank:"):
         dtrain.set_group([10] * 10)
-    if n_classes > 2 and objective.startswith('multi:'):
-        params['num_class'] = n_classes
+    if n_classes > 2 and objective.startswith("multi:"):
+        params["num_class"] = n_classes
     xgb_model = xgb.train(params, dtrain=dtrain, num_boost_round=num_round)
 
     # Insert NaN randomly into X
@@ -193,16 +259,25 @@ def test_xgb_classifier(objective, n_classes):
     ref_explainer = shap.explainers.Tree(model=xgb_model)
     correct_out = ref_explainer.shap_values(X_test)
     np.testing.assert_almost_equal(out, correct_out, decimal=5)
-    np.testing.assert_almost_equal(explainer.expected_value,
-                                   ref_explainer.expected_value, decimal=5)
+    np.testing.assert_almost_equal(
+        explainer.expected_value, ref_explainer.expected_value, decimal=5
+    )
 
 
 def test_degenerate_cases():
     n_samples = 100
-    cuml_model = curfr(max_features=1.0, max_samples=0.1, n_bins=128,
-                       min_samples_leaf=2, random_state=123,
-                       n_streams=1, n_estimators=10, max_leaves=-1,
-                       max_depth=16, accuracy_metric="mse")
+    cuml_model = curfr(
+        max_features=1.0,
+        max_samples=0.1,
+        n_bins=128,
+        min_samples_leaf=2,
+        random_state=123,
+        n_streams=1,
+        n_estimators=10,
+        max_leaves=-1,
+        max_depth=16,
+        accuracy_metric="mse",
+    )
     # Attempt to import un-fitted model
     with pytest.raises(NotFittedError):
         TreeExplainer(model=cuml_model)
@@ -221,31 +296,44 @@ def test_degenerate_cases():
     assert explainer.expected_value == 1.0
 
 
-@pytest.mark.parametrize('input_type', ['numpy', 'cupy', 'cudf'])
+@pytest.mark.parametrize("input_type", ["numpy", "cupy", "cudf"])
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_cuml_rf_regressor(input_type):
     n_samples = 100
-    X, y = make_regression(n_samples=n_samples, n_features=8, n_informative=8,
-                           n_targets=1, random_state=2021)
+    X, y = make_regression(
+        n_samples=n_samples,
+        n_features=8,
+        n_informative=8,
+        n_targets=1,
+        random_state=2021,
+    )
     X, y = X.astype(np.float32), y.astype(np.float32)
-    if input_type == 'cupy':
+    if input_type == "cupy":
         X, y = cp.array(X), cp.array(y)
-    elif input_type == 'cudf':
+    elif input_type == "cudf":
         X, y = cudf.DataFrame(X), cudf.Series(y)
-    cuml_model = curfr(max_features=1.0, max_samples=0.1, n_bins=128,
-                       min_samples_leaf=2, random_state=123,
-                       n_streams=1, n_estimators=10, max_leaves=-1,
-                       max_depth=16, accuracy_metric="mse")
+    cuml_model = curfr(
+        max_features=1.0,
+        max_samples=0.1,
+        n_bins=128,
+        min_samples_leaf=2,
+        random_state=123,
+        n_streams=1,
+        n_estimators=10,
+        max_leaves=-1,
+        max_depth=16,
+        accuracy_metric="mse",
+    )
     cuml_model.fit(X, y)
     pred = cuml_model.predict(X)
 
     explainer = TreeExplainer(model=cuml_model)
     out = explainer.shap_values(X)
-    if input_type == 'cupy':
+    if input_type == "cupy":
         pred = pred.get()
         out = out.get()
         expected_value = explainer.expected_value.get()
-    elif input_type == 'cudf':
+    elif input_type == "cudf":
         pred = pred.to_numpy()
         out = out.get()
         expected_value = explainer.expected_value.get()
@@ -256,33 +344,47 @@ def test_cuml_rf_regressor(input_type):
     np.testing.assert_almost_equal(shap_sum, pred, decimal=4)
 
 
-@pytest.mark.parametrize('input_type', ['numpy', 'cupy', 'cudf'])
-@pytest.mark.parametrize('n_classes', [2, 5])
+@pytest.mark.parametrize("input_type", ["numpy", "cupy", "cudf"])
+@pytest.mark.parametrize("n_classes", [2, 5])
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_cuml_rf_classifier(n_classes, input_type):
     n_samples = 100
-    X, y = make_classification(n_samples=n_samples, n_features=8,
-                               n_informative=8, n_redundant=0, n_repeated=0,
-                               n_classes=n_classes, random_state=2021)
+    X, y = make_classification(
+        n_samples=n_samples,
+        n_features=8,
+        n_informative=8,
+        n_redundant=0,
+        n_repeated=0,
+        n_classes=n_classes,
+        random_state=2021,
+    )
     X, y = X.astype(np.float32), y.astype(np.float32)
-    if input_type == 'cupy':
+    if input_type == "cupy":
         X, y = cp.array(X), cp.array(y)
-    elif input_type == 'cudf':
+    elif input_type == "cudf":
         X, y = cudf.DataFrame(X), cudf.Series(y)
-    cuml_model = curfc(max_features=1.0, max_samples=0.1, n_bins=128,
-                       min_samples_leaf=2, random_state=123,
-                       n_streams=1, n_estimators=10, max_leaves=-1,
-                       max_depth=16, accuracy_metric="mse")
+    cuml_model = curfc(
+        max_features=1.0,
+        max_samples=0.1,
+        n_bins=128,
+        min_samples_leaf=2,
+        random_state=123,
+        n_streams=1,
+        n_estimators=10,
+        max_leaves=-1,
+        max_depth=16,
+        accuracy_metric="mse",
+    )
     cuml_model.fit(X, y)
     pred = cuml_model.predict_proba(X)
 
     explainer = TreeExplainer(model=cuml_model)
     out = explainer.shap_values(X)
-    if input_type == 'cupy':
+    if input_type == "cupy":
         pred = pred.get()
         out = out.get()
         expected_value = explainer.expected_value.get()
-    elif input_type == 'cudf':
+    elif input_type == "cudf":
         pred = pred.to_numpy()
         out = out.get()
         expected_value = explainer.expected_value.get()
@@ -299,12 +401,22 @@ def test_cuml_rf_classifier(n_classes, input_type):
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_sklearn_rf_regressor():
     n_samples = 100
-    X, y = make_regression(n_samples=n_samples, n_features=8, n_informative=8,
-                           n_targets=1, random_state=2021)
+    X, y = make_regression(
+        n_samples=n_samples,
+        n_features=8,
+        n_informative=8,
+        n_targets=1,
+        random_state=2021,
+    )
     X, y = X.astype(np.float32), y.astype(np.float32)
-    skl_model = sklrfr(max_features=1.0, max_samples=0.1,
-                       min_samples_leaf=2, random_state=123,
-                       n_estimators=10, max_depth=16)
+    skl_model = sklrfr(
+        max_features=1.0,
+        max_samples=0.1,
+        min_samples_leaf=2,
+        random_state=123,
+        n_estimators=10,
+        max_depth=16,
+    )
     skl_model.fit(X, y)
 
     explainer = TreeExplainer(model=skl_model)
@@ -313,22 +425,34 @@ def test_sklearn_rf_regressor():
     ref_explainer = shap.explainers.Tree(model=skl_model)
     correct_out = ref_explainer.shap_values(X)
     np.testing.assert_almost_equal(out, correct_out, decimal=5)
-    np.testing.assert_almost_equal(explainer.expected_value,
-                                   ref_explainer.expected_value, decimal=5)
+    np.testing.assert_almost_equal(
+        explainer.expected_value, ref_explainer.expected_value, decimal=5
+    )
 
 
-@pytest.mark.parametrize('n_classes', [2, 3, 5])
+@pytest.mark.parametrize("n_classes", [2, 3, 5])
 @pytest.mark.skipif(not has_shap(), reason="need to install shap")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_sklearn_rf_classifier(n_classes):
     n_samples = 100
-    X, y = make_classification(n_samples=n_samples, n_features=8,
-                               n_informative=8, n_redundant=0, n_repeated=0,
-                               n_classes=n_classes, random_state=2021)
+    X, y = make_classification(
+        n_samples=n_samples,
+        n_features=8,
+        n_informative=8,
+        n_redundant=0,
+        n_repeated=0,
+        n_classes=n_classes,
+        random_state=2021,
+    )
     X, y = X.astype(np.float32), y.astype(np.float32)
-    skl_model = sklrfc(max_features=1.0, max_samples=0.1,
-                       min_samples_leaf=2, random_state=123,
-                       n_estimators=10, max_depth=16)
+    skl_model = sklrfc(
+        max_features=1.0,
+        max_samples=0.1,
+        min_samples_leaf=2,
+        random_state=123,
+        n_estimators=10,
+        max_depth=16,
+    )
     skl_model.fit(X, y)
 
     explainer = TreeExplainer(model=skl_model)
@@ -341,45 +465,68 @@ def test_sklearn_rf_classifier(n_classes):
         correct_out = correct_out[1, :, :]
         expected_value = expected_value[1:]
     np.testing.assert_almost_equal(out, correct_out, decimal=5)
-    np.testing.assert_almost_equal(explainer.expected_value,
-                                   expected_value, decimal=5)
+    np.testing.assert_almost_equal(
+        explainer.expected_value, expected_value, decimal=5
+    )
 
 
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 def test_xgb_toy_categorical():
-    X = pd.DataFrame({'dummy': np.zeros(5, dtype=np.float32),
-                      'x': np.array([0, 1, 2, 3, 4], dtype=np.int32)})
+    X = pd.DataFrame(
+        {
+            "dummy": np.zeros(5, dtype=np.float32),
+            "x": np.array([0, 1, 2, 3, 4], dtype=np.int32),
+        }
+    )
     y = np.array([0, 0, 1, 1, 1], dtype=np.float32)
-    X['x'] = X['x'].astype("category")
+    X["x"] = X["x"].astype("category")
     dtrain = xgb.DMatrix(X, y, enable_categorical=True)
-    params = {"tree_method": "gpu_hist", "eval_metric": "error",
-              "objective": "binary:logistic", "max_depth": 2,
-              "min_child_weight": 0, "lambda": 0}
-    xgb_model = xgb.train(params, dtrain, num_boost_round=1,
-                          evals=[(dtrain, 'train')])
+    params = {
+        "tree_method": "gpu_hist",
+        "eval_metric": "error",
+        "objective": "binary:logistic",
+        "max_depth": 2,
+        "min_child_weight": 0,
+        "lambda": 0,
+    }
+    xgb_model = xgb.train(
+        params, dtrain, num_boost_round=1, evals=[(dtrain, "train")]
+    )
     explainer = TreeExplainer(model=xgb_model)
     out = explainer.shap_values(X)
 
     ref_out = xgb_model.predict(dtrain, pred_contribs=True)
     np.testing.assert_almost_equal(out, ref_out[:, :-1], decimal=5)
-    np.testing.assert_almost_equal(explainer.expected_value, ref_out[0, -1],
-                                   decimal=5)
+    np.testing.assert_almost_equal(
+        explainer.expected_value, ref_out[0, -1], decimal=5
+    )
 
 
-@pytest.mark.parametrize('n_classes', [2, 3])
+@pytest.mark.parametrize("n_classes", [2, 3])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_classifier_with_categorical(n_classes):
     n_samples = 100
     n_features = 8
     X, y = make_classification_with_categorical(
-        n_samples=n_samples, n_features=n_features, n_categorical=4,
-        n_informative=n_features, n_redundant=0, n_repeated=0,
-        n_classes=n_classes, random_state=2022)
+        n_samples=n_samples,
+        n_features=n_features,
+        n_categorical=4,
+        n_informative=n_features,
+        n_redundant=0,
+        n_repeated=0,
+        n_classes=n_classes,
+        random_state=2022,
+    )
 
     dtrain = xgb.DMatrix(X, y, enable_categorical=True)
-    params = {"tree_method": "gpu_hist", "max_depth": 6,
-              "base_score": 0.5, "seed": 0, "predictor": "gpu_predictor"}
+    params = {
+        "tree_method": "gpu_hist",
+        "max_depth": 6,
+        "base_score": 0.5,
+        "seed": 0,
+        "predictor": "gpu_predictor",
+    }
     if n_classes == 2:
         params["objective"] = "binary:logistic"
         params["eval_metric"] = "logloss"
@@ -387,8 +534,9 @@ def test_xgb_classifier_with_categorical(n_classes):
         params["objective"] = "multi:softprob"
         params["eval_metric"] = "mlogloss"
         params["num_class"] = n_classes
-    xgb_model = xgb.train(params, dtrain, num_boost_round=10,
-                          evals=[(dtrain, 'train')])
+    xgb_model = xgb.train(
+        params, dtrain, num_boost_round=10, evals=[(dtrain, "train")]
+    )
     assert count_categorical_split(treelite.Model.from_xgboost(xgb_model)) > 0
 
     # Insert NaN randomly into X
@@ -402,16 +550,18 @@ def test_xgb_classifier_with_categorical(n_classes):
     out = explainer.shap_values(X_test)
 
     dtest = xgb.DMatrix(X_test)
-    ref_out = xgb_model.predict(dtest, pred_contribs=True,
-                                validate_features=False)
+    ref_out = xgb_model.predict(
+        dtest, pred_contribs=True, validate_features=False
+    )
     if n_classes == 2:
         ref_out, ref_expected_value = ref_out[:, :-1], ref_out[0, -1]
     else:
         ref_out = ref_out.transpose((1, 0, 2))
         ref_out, ref_expected_value = ref_out[:, :, :-1], ref_out[:, 0, -1]
     np.testing.assert_almost_equal(out, ref_out, decimal=5)
-    np.testing.assert_almost_equal(explainer.expected_value,
-                                   ref_expected_value, decimal=5)
+    np.testing.assert_almost_equal(
+        explainer.expected_value, ref_expected_value, decimal=5
+    )
 
 
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
@@ -420,15 +570,26 @@ def test_xgb_regressor_with_categorical():
     n_samples = 100
     n_features = 8
     X, y = make_regression_with_categorical(
-        n_samples=n_samples, n_features=n_features, n_categorical=4,
-        n_informative=n_features, random_state=2022)
+        n_samples=n_samples,
+        n_features=n_features,
+        n_categorical=4,
+        n_informative=n_features,
+        random_state=2022,
+    )
 
     dtrain = xgb.DMatrix(X, y, enable_categorical=True)
-    params = {"tree_method": "gpu_hist", "max_depth": 6,
-              "base_score": 0.5, "seed": 0, "predictor": "gpu_predictor",
-              "objective": "reg:squarederror", "eval_metric": "rmse"}
-    xgb_model = xgb.train(params, dtrain, num_boost_round=10,
-                          evals=[(dtrain, 'train')])
+    params = {
+        "tree_method": "gpu_hist",
+        "max_depth": 6,
+        "base_score": 0.5,
+        "seed": 0,
+        "predictor": "gpu_predictor",
+        "objective": "reg:squarederror",
+        "eval_metric": "rmse",
+    }
+    xgb_model = xgb.train(
+        params, dtrain, num_boost_round=10, evals=[(dtrain, "train")]
+    )
     assert count_categorical_split(treelite.Model.from_xgboost(xgb_model)) > 0
 
     explainer = TreeExplainer(model=xgb_model)
@@ -437,8 +598,9 @@ def test_xgb_regressor_with_categorical():
     ref_out = xgb_model.predict(dtrain, pred_contribs=True)
     ref_out, ref_expected_value = ref_out[:, :-1], ref_out[0, -1]
     np.testing.assert_almost_equal(out, ref_out, decimal=5)
-    np.testing.assert_almost_equal(explainer.expected_value,
-                                   ref_expected_value, decimal=5)
+    np.testing.assert_almost_equal(
+        explainer.expected_value, ref_expected_value, decimal=5
+    )
 
 
 @pytest.mark.skipif(not has_lightgbm(), reason="need to install lightgbm")
@@ -449,17 +611,29 @@ def test_lightgbm_regressor_with_categorical():
     n_features = 8
     n_categorical = 8
     X, y = make_regression_with_categorical(
-        n_samples=n_samples, n_features=n_features,
-        n_categorical=n_categorical, n_informative=n_features,
-        random_state=2022)
+        n_samples=n_samples,
+        n_features=n_features,
+        n_categorical=n_categorical,
+        n_informative=n_features,
+        random_state=2022,
+    )
 
     dtrain = lgb.Dataset(X, label=y, categorical_feature=range(n_categorical))
-    params = {"num_leaves": 64, "seed": 0, "objective": "regression",
-              "metric": "rmse", "min_data_per_group": 1}
-    lgb_model = lgb.train(params, dtrain, num_boost_round=10,
-                          valid_sets=[dtrain], valid_names=['train'])
-    assert count_categorical_split(
-        treelite.Model.from_lightgbm(lgb_model)) > 0
+    params = {
+        "num_leaves": 64,
+        "seed": 0,
+        "objective": "regression",
+        "metric": "rmse",
+        "min_data_per_group": 1,
+    }
+    lgb_model = lgb.train(
+        params,
+        dtrain,
+        num_boost_round=10,
+        valid_sets=[dtrain],
+        valid_names=["train"],
+    )
+    assert count_categorical_split(treelite.Model.from_lightgbm(lgb_model)) > 0
 
     explainer = TreeExplainer(model=lgb_model)
     out = explainer.shap_values(X)
@@ -467,11 +641,12 @@ def test_lightgbm_regressor_with_categorical():
     ref_explainer = shap.explainers.Tree(model=lgb_model)
     ref_out = ref_explainer.shap_values(X)
     np.testing.assert_almost_equal(out, ref_out, decimal=5)
-    np.testing.assert_almost_equal(explainer.expected_value,
-                                   ref_explainer.expected_value, decimal=5)
+    np.testing.assert_almost_equal(
+        explainer.expected_value, ref_explainer.expected_value, decimal=5
+    )
 
 
-@pytest.mark.parametrize('n_classes', [2, 3])
+@pytest.mark.parametrize("n_classes", [2, 3])
 @pytest.mark.skipif(not has_lightgbm(), reason="need to install lightgbm")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 @pytest.mark.skipif(not has_shap(), reason="need to install shap")
@@ -480,10 +655,15 @@ def test_lightgbm_classifier_with_categorical(n_classes):
     n_features = 8
     n_categorical = 8
     X, y = make_classification_with_categorical(
-        n_samples=n_samples, n_features=n_features,
-        n_categorical=n_categorical, n_informative=n_features,
-        n_redundant=0, n_repeated=0, n_classes=n_classes,
-        random_state=2022)
+        n_samples=n_samples,
+        n_features=n_features,
+        n_categorical=n_categorical,
+        n_informative=n_features,
+        n_redundant=0,
+        n_repeated=0,
+        n_classes=n_classes,
+        random_state=2022,
+    )
 
     dtrain = lgb.Dataset(X, label=y, categorical_feature=range(n_categorical))
     params = {"num_leaves": 64, "seed": 0, "min_data_per_group": 1}
@@ -494,10 +674,14 @@ def test_lightgbm_classifier_with_categorical(n_classes):
         params["objective"] = "multiclass"
         params["metric"] = "multi_logloss"
         params["num_class"] = n_classes
-    lgb_model = lgb.train(params, dtrain, num_boost_round=10,
-                          valid_sets=[dtrain], valid_names=['train'])
-    assert count_categorical_split(
-        treelite.Model.from_lightgbm(lgb_model)) > 0
+    lgb_model = lgb.train(
+        params,
+        dtrain,
+        num_boost_round=10,
+        valid_sets=[dtrain],
+        valid_names=["train"],
+    )
+    assert count_categorical_split(treelite.Model.from_lightgbm(lgb_model)) > 0
 
     # Insert NaN randomly into X
     X_test = X.values.copy()
@@ -517,73 +701,87 @@ def test_lightgbm_classifier_with_categorical(n_classes):
     else:
         ref_expected_value = ref_explainer.expected_value
     np.testing.assert_almost_equal(out, ref_out, decimal=5)
-    np.testing.assert_almost_equal(explainer.expected_value,
-                                   ref_expected_value, decimal=5)
+    np.testing.assert_almost_equal(
+        explainer.expected_value, ref_expected_value, decimal=5
+    )
 
 
-def learn_model(
-        draw, X, y, task, learner, n_estimators, n_targets):
+def learn_model(draw, X, y, task, learner, n_estimators, n_targets):
     # for lgbm or xgb return the booster or sklearn object?
     use_sklearn_estimator = draw(st.booleans())
-    if learner == 'xgb':
+    if learner == "xgb":
         assume(has_xgboost())
-        if task == 'regression':
-            objective = draw(st.sampled_from(['reg:squarederror',
-                                              'reg:pseudohubererror']))
+        if task == "regression":
+            objective = draw(
+                st.sampled_from(["reg:squarederror", "reg:pseudohubererror"])
+            )
             model = xgb.XGBRegressor(
-                n_estimators=n_estimators, tree_method='gpu_hist',
-                objective=objective, enable_categorical=True, verbosity=0).fit(
-                X, y)
-        elif task == 'classification':
-            valid_objectives = ['binary:logistic', 'binary:hinge',
-                                'binary:logitraw', 'count:poisson', ]
+                n_estimators=n_estimators,
+                tree_method="gpu_hist",
+                objective=objective,
+                enable_categorical=True,
+                verbosity=0,
+            ).fit(X, y)
+        elif task == "classification":
+            valid_objectives = [
+                "binary:logistic",
+                "binary:hinge",
+                "binary:logitraw",
+                "count:poisson",
+            ]
             if n_targets > 2:
-                valid_objectives += ['rank:pairwise', 'rank:ndcg', 'rank:map',
-                                     'multi:softmax', 'multi:softprob']
+                valid_objectives += [
+                    "rank:pairwise",
+                    "rank:ndcg",
+                    "rank:map",
+                    "multi:softmax",
+                    "multi:softprob",
+                ]
 
             objective = draw(st.sampled_from(valid_objectives))
             model = xgb.XGBClassifier(
-                n_estimators=n_estimators, tree_method='gpu_hist',
-                objective=objective, enable_categorical=True, verbosity=0).fit(
-                X, y)
+                n_estimators=n_estimators,
+                tree_method="gpu_hist",
+                objective=objective,
+                enable_categorical=True,
+                verbosity=0,
+            ).fit(X, y)
         pred = model.predict(X, output_margin=True)
         if not use_sklearn_estimator:
             model = model.get_booster()
         return model, pred
-    elif learner == 'rf':
-        predict_model = 'GPU 'if y.dtype == np.float32 else 'CPU'
-        if task == 'regression':
+    elif learner == "rf":
+        predict_model = "GPU " if y.dtype == np.float32 else "CPU"
+        if task == "regression":
             model = cuml.ensemble.RandomForestRegressor(
-                n_estimators=n_estimators)
+                n_estimators=n_estimators
+            )
             model.fit(X, y)
             pred = model.predict(X, predict_model=predict_model)
-        elif task == 'classification':
+        elif task == "classification":
             model = cuml.ensemble.RandomForestClassifier(
-                n_estimators=n_estimators)
+                n_estimators=n_estimators
+            )
             model.fit(X, y)
             pred = model.predict_proba(X)
         return model, pred
-    elif learner == 'skl_rf':
+    elif learner == "skl_rf":
         assume(has_sklearn())
-        if task == 'regression':
-            model = sklrfr(
-                n_estimators=n_estimators)
+        if task == "regression":
+            model = sklrfr(n_estimators=n_estimators)
             model.fit(X, y)
             pred = model.predict(X)
-        elif task == 'classification':
-            model = sklrfc(
-                n_estimators=n_estimators)
+        elif task == "classification":
+            model = sklrfc(n_estimators=n_estimators)
             model.fit(X, y)
             pred = model.predict_proba(X)
         return model, pred
-    elif learner == 'lgbm':
+    elif learner == "lgbm":
         assume(has_lightgbm())
-        if task == 'regression':
-            model = lgb.LGBMRegressor(
-                n_estimators=n_estimators).fit(X, y)
-        elif task == 'classification':
-            model = lgb.LGBMClassifier(
-                n_estimators=n_estimators).fit(X, y)
+        if task == "regression":
+            model = lgb.LGBMRegressor(n_estimators=n_estimators).fit(X, y)
+        elif task == "classification":
+            model = lgb.LGBMClassifier(n_estimators=n_estimators).fit(X, y)
         pred = model.predict(X, raw_score=True)
         if not use_sklearn_estimator:
             model = model.booster_
@@ -592,15 +790,15 @@ def learn_model(
 
 @st.composite
 def shap_strategy(draw):
-    task = draw(st.sampled_from(['regression', 'classification']))
+    task = draw(st.sampled_from(["regression", "classification"]))
 
     n_estimators = draw(st.integers(1, 16))
     n_samples = draw(st.integers(2, 100))
     n_features = draw(st.integers(2, 100))
-    learner = draw(st.sampled_from(['xgb', 'rf', 'skl_rf', 'lgbm']))
-    supports_categorical = learner in ['xgb', 'lgbm']
-    supports_nan = learner in ['xgb', 'lgbm']
-    if task == 'classification':
+    learner = draw(st.sampled_from(["xgb", "rf", "skl_rf", "lgbm"]))
+    supports_categorical = learner in ["xgb", "lgbm"]
+    supports_nan = learner in ["xgb", "lgbm"]
+    if task == "classification":
         n_targets = draw(st.integers(2, 5))
     else:
         n_targets = 1
@@ -617,12 +815,12 @@ def shap_strategy(draw):
     has_nan = not has_categoricals and supports_nan
 
     # Filter issues and invalid examples here
-    if task == 'classification' and learner == 'rf':
+    if task == "classification" and learner == "rf":
         # No way to predict_proba with RandomForestClassifier
         # trained on 64-bit data
         # https://github.com/rapidsai/cuml/issues/4663
         assume(dtype == np.float32)
-    if task == 'regression' and learner == 'skl_rf':
+    if task == "regression" and learner == "skl_rf":
         # multi-output regression not working
         # https://github.com/dmlc/treelite/issues/375
         assume(n_targets == 1)
@@ -630,32 +828,43 @@ def shap_strategy(draw):
     # treelite considers a binary classification model to have
     # n_classes=1, which produces an unexpected output shape
     # in the shap values
-    if task == 'classification' and learner == 'skl_rf':
+    if task == "classification" and learner == "skl_rf":
         assume(n_targets > 2)
 
     # ensure we get some variation in test datasets
     dataset_seed = draw(st.integers(1, 5))
-    if task == 'classification':
+    if task == "classification":
         X, y = make_classification_with_categorical(
-            n_samples=n_samples, n_features=n_features,
-            n_categorical=n_categorical, n_informative=n_features,
-            n_redundant=0, n_repeated=0, random_state=dataset_seed,
-            n_classes=n_targets, numeric_dtype=dtype)
+            n_samples=n_samples,
+            n_features=n_features,
+            n_categorical=n_categorical,
+            n_informative=n_features,
+            n_redundant=0,
+            n_repeated=0,
+            random_state=dataset_seed,
+            n_classes=n_targets,
+            numeric_dtype=dtype,
+        )
     else:
         X, y = make_regression_with_categorical(
-            n_samples=n_samples, n_features=n_features,
-            n_categorical=n_categorical, n_informative=n_features,
-            random_state=dataset_seed, numeric_dtype=dtype,
-            n_targets=n_targets)
+            n_samples=n_samples,
+            n_features=n_features,
+            n_categorical=n_categorical,
+            n_informative=n_features,
+            random_state=dataset_seed,
+            numeric_dtype=dtype,
+            n_targets=n_targets,
+        )
 
     if has_nan:
         # set about half the first column to nan
-        X.iloc[np.random.randint(0, n_samples, n_samples//2), 0] = np.nan
+        X.iloc[np.random.randint(0, n_samples, n_samples // 2), 0] = np.nan
 
-    assert len(X.select_dtypes(include='category').columns) == n_categorical
+    assert len(X.select_dtypes(include="category").columns) == n_categorical
 
     model, preds = learn_model(
-        draw, X, y, task, learner, n_estimators, n_targets)
+        draw, X, y, task, learner, n_estimators, n_targets
+    )
 
     # convert any DataFrame categorical columns to numeric
     return X.astype(dtype), y.astype(dtype), model, preds
@@ -664,56 +873,71 @@ def shap_strategy(draw):
 def check_efficiency(expected_value, pred, shap_values):
     # shap values add up to prediction
     if len(shap_values.shape) <= 2:
-        assert np.allclose(np.sum(shap_values, axis=-1) +
-                           expected_value, pred, 1e-3, 1e-3)
+        assert np.allclose(
+            np.sum(shap_values, axis=-1) + expected_value, pred, 1e-3, 1e-3
+        )
     else:
         n_targets = shap_values.shape[0]
         for i in range(n_targets):
             assert np.allclose(
-                np.sum(shap_values[i],
-                       axis=-1) + expected_value[i],
+                np.sum(shap_values[i], axis=-1) + expected_value[i],
                 pred[:, i],
-                1e-3, 1e-3)
+                1e-3,
+                1e-3,
+            )
 
 
 def check_efficiency_interactions(expected_value, pred, shap_values):
     # shap values add up to prediction
     if len(shap_values.shape) <= 3:
-        assert np.allclose(np.sum(shap_values, axis=(-2, -1)) +
-                           expected_value, pred, 1e-3, 1e-3)
+        assert np.allclose(
+            np.sum(shap_values, axis=(-2, -1)) + expected_value,
+            pred,
+            1e-3,
+            1e-3,
+        )
     else:
         n_targets = shap_values.shape[0]
         for i in range(n_targets):
             assert np.allclose(
-                np.sum(shap_values[i],
-                       axis=(-2, -1)) + expected_value[i],
+                np.sum(shap_values[i], axis=(-2, -1)) + expected_value[i],
                 pred[:, i],
-                1e-3, 1e-3)
+                1e-3,
+                1e-3,
+            )
 
 
 # Generating input data/models can be time consuming and triggers
 # hypothesis HealthCheck
-@settings(deadline=None, max_examples=20,
-          suppress_health_check=[HealthCheck.too_slow,
-                                 HealthCheck.data_too_large])
-@given(shap_strategy(),
-       st.sampled_from(["shapley-interactions", "shapley-taylor"]))
+@settings(
+    deadline=None,
+    max_examples=20,
+    suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large],
+)
+@given(
+    shap_strategy(),
+    st.sampled_from(["shapley-interactions", "shapley-taylor"]),
+)
 def test_with_hypothesis(params, interactions_method):
     X, y, model, preds = params
     explainer = TreeExplainer(model=model)
     shap_values = explainer.shap_values(X)
     shap_interactions = explainer.shap_interaction_values(
-        X, method=interactions_method)
+        X, method=interactions_method
+    )
     check_efficiency(explainer.expected_value, preds, shap_values)
     check_efficiency_interactions(
-        explainer.expected_value, preds, shap_interactions)
+        explainer.expected_value, preds, shap_interactions
+    )
 
     # Interventional
-    explainer = TreeExplainer(model=model, data=X.sample(
-        n=15, replace=True, random_state=0))
+    explainer = TreeExplainer(
+        model=model, data=X.sample(n=15, replace=True, random_state=0)
+    )
     interventional_shap_values = explainer.shap_values(X)
-    check_efficiency(explainer.expected_value, preds,
-                     interventional_shap_values)
+    check_efficiency(
+        explainer.expected_value, preds, interventional_shap_values
+    )
 
 
 def test_wrong_inputs():
@@ -722,8 +946,9 @@ def test_wrong_inputs():
     model = cuml.ensemble.RandomForestRegressor().fit(X, y)
 
     # background/X different dtype
-    with pytest.raises(ValueError, match="Expected background data"
-                       " to have the same dtype"):
+    with pytest.raises(
+        ValueError, match="Expected background data" " to have the same dtype"
+    ):
         explainer = TreeExplainer(model=model, data=X.astype(np.float32))
         explainer.shap_values(X)
 
@@ -732,15 +957,18 @@ def test_wrong_inputs():
         explainer = TreeExplainer(model=model, data=X[:, 0:1])
         explainer.shap_values(X)
 
-    with pytest.raises(ValueError, match="Interventional algorithm not"
-                       " supported for interactions. Please"
-                       " specify data as None in constructor."):
+    with pytest.raises(
+        ValueError,
+        match="Interventional algorithm not"
+        " supported for interactions. Please"
+        " specify data as None in constructor.",
+    ):
         explainer = TreeExplainer(model=model, data=X.astype(np.float32))
         explainer.shap_interaction_values(X)
 
     with pytest.raises(ValueError, match="Unknown interactions method."):
         explainer = TreeExplainer(model=model)
-        explainer.shap_interaction_values(X, method='asdasd')
+        explainer.shap_interaction_values(X, method="asdasd")
 
 
 def test_different_algorithms_different_output():
@@ -751,15 +979,17 @@ def test_different_algorithms_different_output():
     model = cuml.ensemble.RandomForestRegressor().fit(X, y)
     interventional_explainer = TreeExplainer(model=model, data=X)
     explainer = TreeExplainer(model=model)
-    assert not np.all(explainer.shap_values(
-        X) == interventional_explainer.shap_values(X))
     assert not np.all(
-        explainer.shap_interaction_values(X, method="shapley-interactions") ==
-        explainer.shap_interaction_values(X, method="shapley-taylor"))
+        explainer.shap_values(X) == interventional_explainer.shap_values(X)
+    )
+    assert not np.all(
+        explainer.shap_interaction_values(X, method="shapley-interactions")
+        == explainer.shap_interaction_values(X, method="shapley-taylor")
+    )
 
 
 @settings(deadline=None)
-@given(st.sampled_from(['numpy', 'cupy', 'cudf', 'pandas']))
+@given(st.sampled_from(["numpy", "cupy", "cudf", "pandas"]))
 def test_input_types(input_type):
     # simple test to not crash on different input data-frames
     X = np.array([[0.0, 2.0], [1.0, 0.5]])
