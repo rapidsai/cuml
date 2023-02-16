@@ -100,7 +100,7 @@ void olsFit(const raft::handle_t& handle,
     raft::linalg::sqrt(sample_weight, sample_weight, n_rows, stream);
     raft::matrix::matrixVectorBinaryMult(
       input, sample_weight, n_rows, n_cols, false, false, stream);
-    raft::linalg::map(
+    raft::linalg::map_k(
       labels,
       n_rows,
       [] __device__(math_t a, math_t b) { return a * b; },
@@ -129,7 +129,7 @@ void olsFit(const raft::handle_t& handle,
   if (sample_weight != nullptr) {
     raft::matrix::matrixVectorBinaryDivSkipZero(
       input, sample_weight, n_rows, n_cols, false, false, stream);
-    raft::linalg::map(
+    raft::linalg::map_k(
       labels,
       n_rows,
       [] __device__(math_t a, math_t b) { return a / b; },

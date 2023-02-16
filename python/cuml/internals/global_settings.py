@@ -25,25 +25,6 @@ from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
 
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
-
-cuda_gpu_present = gpu_only_import_from(
-    'rmm._cuda.gpu',
-    'getDeviceCount',
-)
-
-
-BUILT_WITH_CUDA = True
-
-
-def has_cuda_gpu():
-    try:
-       dc = cuda_gpu_present()
-       return dc >= 1
-    except UnavailableError:
-        return False
-
 
 class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
     """Thread-local storage class with per-thread initialization of default

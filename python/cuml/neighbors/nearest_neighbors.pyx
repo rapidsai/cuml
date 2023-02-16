@@ -320,8 +320,8 @@ class NearestNeighbors(UniversalBase,
 
         self.n_neighbors = n_neighbors
         self.n_indices = 0
-        self.effective_metric_ = metric
-        self.effective_metric_params_ = metric_params if metric_params else {}
+        self.metric = metric
+        self.metric_params = metric_params
         self.algo_params = algo_params
         self.p = p
         self.algorithm = algorithm

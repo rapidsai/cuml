@@ -73,8 +73,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 class Ridge(UniversalBase,
             RegressorMixin,
             LinearPredictMixin,
-            FMajorInputTagMixin,
-            Base):
+            FMajorInputTagMixin):
 
     """
     Ridge extends LinearRegression by providing L2 regularization on the

@@ -81,7 +81,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
     handle.sync_stream(handle.get_stream());
 
-    raft::hierarchy::linkage_output<IdxT, T> out_arrs;
+    raft::hierarchy::linkage_output<IdxT> out_arrs;
     out_arrs.labels = labels.data();
 
     rmm::device_uvector<IdxT> out_children((params.n_row - 1) * 2, handle.get_stream());

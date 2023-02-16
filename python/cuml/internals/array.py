@@ -825,9 +825,7 @@ class CumlArray:
         if mem_type is None:
             mem_type = GlobalSettings().memory_type
 
-        return cls(
-            mem_type.xpy.empty(shape, dtype, order), index=index
-        )
+        return CumlArray(mem_type.xpy.empty(shape, dtype, order), index=index)
 
     @classmethod
     @nvtx_annotate(
@@ -848,8 +846,8 @@ class CumlArray:
         """
 
         if mem_type is None:
-            mem_type = global_settings.memory_type
-        return cls(
+            mem_type = GlobalSettings().memory_type
+        return CumlArray(
             mem_type.xpy.full(shape, value, dtype, order), index=index
         )
 
@@ -874,8 +872,14 @@ class CumlArray:
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-        return cls.full(value=0, shape=shape, dtype=dtype, order=order,
-                              index=index, mem_type=mem_type)
+        return CumlArray.full(
+            value=0,
+            shape=shape,
+            dtype=dtype,
+            order=order,
+            index=index,
+            mem_type=mem_type,
+        )
 
     @classmethod
     @nvtx_annotate(
@@ -896,8 +900,14 @@ class CumlArray:
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-        return cls.full(value=1, shape=shape, dtype=dtype, order=order,
-                              index=index, mem_type=mem_type)
+        return CumlArray.full(
+            value=1,
+            shape=shape,
+            dtype=dtype,
+            order=order,
+            index=index,
+            mem_type=mem_type,
+        )
 
     @classmethod
     @nvtx_annotate(

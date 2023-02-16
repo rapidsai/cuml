@@ -19,6 +19,7 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <raft/core/handle.hpp>
+#include <raft/core/kvp.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <cuml/common/logger.hpp>
@@ -56,7 +57,7 @@ struct FixConnectivitiesRedOp {
   FixConnectivitiesRedOp(value_idx* colors_, value_t* core_dists_, value_idx m_)
     : colors(colors_), core_dists(core_dists_), m(m_){};
 
-  typedef typename cub::KeyValuePair<value_idx, value_t> KVP;
+  typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
   DI void operator()(value_idx rit, KVP* out, const KVP& other)
   {
     if (rit < m && other.value < std::numeric_limits<value_t>::max() &&

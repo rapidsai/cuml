@@ -41,10 +41,6 @@ PandasSeries = cpu_only_import_from("pandas", "Series")
 PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
 rmm_cupy_allocator = gpu_only_import_from("rmm", "rmm_cupy_allocator")
 
-rmm = gpu_only_import('rmm')
-
-global_settings = GlobalSettings()
-
 
 def set_global_memory_type(memory_type):
     GlobalSettings().memory_type = MemoryType.from_str(memory_type)

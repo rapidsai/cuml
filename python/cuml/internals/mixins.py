@@ -217,30 +217,6 @@ class RegressorMixin:
         preds = self.predict(X, **kwargs)
         return r2_score(y, preds, handle=handle)
 
-    # TODO : remove score function duplicate
-    # once updated CPU/GPU interoperability class is ready
-    @generate_docstring(
-        return_values={
-            'name': 'score',
-            'type': 'float',
-            'description': 'R^2 of self.predict(X) '
-                           'wrt. y.'
-        })
-    @api_base_return_any_skipall
-    def _score(self, X, y, **kwargs):
-        """
-        Scoring function for regression estimators
-
-        Returns the coefficient of determination R^2 of the prediction.
-
-        """
-        from cuml.metrics.regression import r2_score
-
-        handle = getattr(self, 'handle', None)
-
-        preds = self._predict(X, **kwargs)
-        return r2_score(y, preds, handle=handle)
-
     @staticmethod
     def _more_static_tags():
         return {"requires_y": True}
@@ -278,30 +254,6 @@ class ClassifierMixin:
             handle = None
 
         preds = self.predict(X, **kwargs)
-        return accuracy_score(y, preds, handle=handle)
-
-    # TODO : remove score function duplicate
-    # once updated CPU/GPU interoperability class is ready
-    @generate_docstring(
-        return_values={
-            'name':
-                'score',
-            'type':
-                'float',
-            'description': ('Accuracy of self.predict(X) wrt. y '
-                            '(fraction where y == pred_y)')
-        })
-    @api_base_return_any_skipall
-    def _score(self, X, y, **kwargs):
-        """
-        Scoring function for classifier estimators based on mean accuracy.
-
-        """
-        from cuml.metrics.accuracy import accuracy_score
-
-        handle = getattr(self, 'handle', None)
-
-        preds = self._predict(X, **kwargs)
         return accuracy_score(y, preds, handle=handle)
 
     @staticmethod

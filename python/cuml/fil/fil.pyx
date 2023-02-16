@@ -138,21 +138,26 @@ cdef class TreeliteModel():
         """
         filename_bytes = filename.encode("UTF-8")
         cdef ModelHandle handle
-
         if model_type == "xgboost":
             res = TreeliteLoadXGBoostModel(filename_bytes, &handle)
+            if res < 0:
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "xgboost_json":
             res = TreeliteLoadXGBoostJSON(filename_bytes, &handle)
+            if res < 0:
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "lightgbm":
+            logger.warn("Treelite currently does not support float64 model"
+                        " parameters. Accuracy may degrade slightly relative"
+                        " to native LightGBM invocation.")
             res = TreeliteLoadLightGBMModel(filename_bytes, &handle)
-        elif model_type == "treelite_checkpoint":
-            res = TreeliteDeserializeModel(filename_bytes, &handle)
+            if res < 0:
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         else:
             raise ValueError("Unknown model type %s" % model_type)
-
-        if res < 0:
-            err = TreeliteGetLastError()
-            raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         model = TreeliteModel()
         model.set_handle(handle)
         return model

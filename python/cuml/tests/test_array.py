@@ -77,6 +77,13 @@ numba_array = gpu_only_import_from(
     "numba.cuda.cudadrv.devicearray", "DeviceNDArray"
 )
 
+if sys.version_info < (3, 8):
+    try:
+        import pickle5 as pickle
+    except ImportError:
+        import pickle
+else:
+    import pickle
 
 
 test_input_types = ["numpy", "numba", "cupy", "series", None]
@@ -92,6 +99,7 @@ test_output_types = (
     "series",
     "df_obj",
 )
+
 
 _OUTPUT_TYPES_MAPPING = {
     "cupy": cp.ndarray,
@@ -163,7 +171,6 @@ def test_array_init(input_type, dtype, shape, order, mem_type, force_gc):
 
     _assert_equal(input_array_copy, cuml_array)
 
-        _assert_equal(input_array_copy, cuml_array)
 
 @given(
     data_type=st.sampled_from([bytes, bytearray, memoryview]),
@@ -334,10 +341,6 @@ def test_create_full(shape, dtype, order, mem_type):
         )
         test = mem_type.xpy.zeros(shape).astype(dtype) + value[0]
         assert mem_type.xpy.all(test == mem_type.xpy.asarray(ary))
-
-
-def cudf_compatible_dtypes(dtype):
-    return dtype not in UNSUPPORTED_CUDF_DTYPES
 
 
 def cudf_compatible_dtypes(dtype):
