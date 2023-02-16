@@ -21,8 +21,8 @@ def replace_requirements(func):
         orig_list = getattr(_orig, func.__name__)(config_settings)
         cuda_suffix = os.getenv('RAPIDS_PY_WHEEL_CUDA_SUFFIX', default='')
         append_list = [
-            f"rmm{cuda_suffix}==23.2.*",
-            f"pylibraft{cuda_suffix}==23.2.*",
+            f"rmm{cuda_suffix}==23.4.*",
+            f"pylibraft{cuda_suffix}==23.4.*",
         ]
         return orig_list + append_list
 
