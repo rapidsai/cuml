@@ -41,6 +41,10 @@ cp = gpu_only_import("cupy")
 pytest_plugins = "cuml.testing.plugins.quick_run_plugin"
 
 CI = os.environ.get("CI") in ("true", "1")
+HYPOTHESIS_ENABLED = os.environ.get("RAPIDS_CUML_RUN_HYPOTHESIS") in (
+    "true",
+    "1",
+)
 
 
 # Configure hypothesis profiles
@@ -54,10 +58,25 @@ HEALTH_CHECKS_SUPPRESSED_BY_DEFAULT = (
     ]
 )
 
+
+HYPOTHESIS_DEFAULT_PHASES = (
+    (
+        hypothesis.Phase.explicit,
+        hypothesis.Phase.reuse,
+        hypothesis.Phase.generate,
+        hypothesis.Phase.target,
+        hypothesis.Phase.shrink,
+    )
+    if HYPOTHESIS_ENABLED
+    else (hypothesis.Phase.explicit,)
+)
+
+
 hypothesis.settings.register_profile(
     name="unit",
     deadline=None if CI else timedelta(milliseconds=2000),
     parent=hypothesis.settings.get_profile("default"),
+    phases=HYPOTHESIS_DEFAULT_PHASES,
     max_examples=20,
     suppress_health_check=HEALTH_CHECKS_SUPPRESSED_BY_DEFAULT,
 )
