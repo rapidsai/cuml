@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,11 +21,12 @@ from cuml import Base
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.safe_imports import gpu_only_import
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
 
-GenericIndex = gpu_only_import_from('cudf', 'GenericIndex')
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
+
+GenericIndex = gpu_only_import_from("cudf", "GenericIndex")
 
 
 class OneHotEncoder(Base):
@@ -107,18 +108,21 @@ class OneHotEncoder(Base):
 
     """
 
-    def __init__(self, *,
-                 categories='auto',
-                 drop=None,
-                 sparse=True,
-                 dtype=np.float32,
-                 handle_unknown='error',
-                 handle=None,
-                 verbose=False,
-                 output_type=None):
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
+    def __init__(
+        self,
+        *,
+        categories="auto",
+        drop=None,
+        sparse=True,
+        dtype=np.float32,
+        handle_unknown="error",
+        handle=None,
+        verbose=False,
+        output_type=None,
+    ):
+        super().__init__(
+            handle=handle, verbose=verbose, output_type=output_type
+        )
         self.categories = categories
         self.sparse = sparse
         self.dtype = dtype
@@ -129,64 +133,80 @@ class OneHotEncoder(Base):
         self._features = None
         self._encoders = None
         self.input_type = None
-        if sparse and np.dtype(dtype) not in ['f', 'd', 'F', 'D']:
-            raise ValueError('Only float32, float64, complex64 and complex128 '
-                             'are supported when using sparse')
+        if sparse and np.dtype(dtype) not in ["f", "d", "F", "D"]:
+            raise ValueError(
+                "Only float32, float64, complex64 and complex128 "
+                "are supported when using sparse"
+            )
 
     def _validate_keywords(self):
-        if self.handle_unknown not in ('error', 'ignore'):
-            msg = ("handle_unknown should be either 'error' or 'ignore', "
-                   "got {0}.".format(self.handle_unknown))
+        if self.handle_unknown not in ("error", "ignore"):
+            msg = (
+                "handle_unknown should be either 'error' or 'ignore', "
+                "got {0}.".format(self.handle_unknown)
+            )
             raise ValueError(msg)
         # If we have both dropped columns and ignored unknown
         # values, there will be ambiguous cells. This creates difficulties
         # in interpreting the model.
-        if self.drop is not None and self.handle_unknown != 'error':
+        if self.drop is not None and self.handle_unknown != "error":
             raise ValueError(
                 "`handle_unknown` must be 'error' when the drop parameter is "
                 "specified, as both would create categories that are all "
-                "zero.")
+                "zero."
+            )
 
     def _check_is_fitted(self):
         if not self._fitted:
-            msg = ("This OneHotEncoder instance is not fitted yet. Call 'fit' "
-                   "with appropriate arguments before using this estimator.")
+            msg = (
+                "This OneHotEncoder instance is not fitted yet. Call 'fit' "
+                "with appropriate arguments before using this estimator."
+            )
             raise NotFittedError(msg)
 
     def _compute_drop_idx(self):
         """Helper to compute indices to drop from category to drop"""
         if self.drop is None:
             return None
-        elif isinstance(self.drop, str) and self.drop == 'first':
+        elif isinstance(self.drop, str) and self.drop == "first":
             return {feature: 0 for feature in self._encoders.keys()}
         elif isinstance(self.drop, (dict, list)):
             if isinstance(self.drop, list):
                 self.drop = dict(zip(range(len(self.drop)), self.drop))
             if len(self.drop.keys()) != len(self._encoders):
-                msg = ("`drop` should have as many columns as the number "
-                       "of features ({}), got {}")
-                raise ValueError(msg.format(len(self._encoders),
-                                            len(self.drop.keys())))
+                msg = (
+                    "`drop` should have as many columns as the number "
+                    "of features ({}), got {}"
+                )
+                raise ValueError(
+                    msg.format(len(self._encoders), len(self.drop.keys()))
+                )
             drop_idx = dict()
             for feature in self.drop.keys():
                 self.drop[feature] = Series(self.drop[feature])
                 if len(self.drop[feature]) != 1:
-                    msg = ("Trying to drop multiple values for feature {}, "
-                           "this is not supported.").format(feature)
+                    msg = (
+                        "Trying to drop multiple values for feature {}, "
+                        "this is not supported."
+                    ).format(feature)
                     raise ValueError(msg)
                 cats = self._encoders[feature].classes_
                 if not self.drop[feature].isin(cats).all():
-                    msg = ("Some categories for feature {} were supposed "
-                           "to be dropped, but were not found in the encoder "
-                           "categories.".format(feature))
+                    msg = (
+                        "Some categories for feature {} were supposed "
+                        "to be dropped, but were not found in the encoder "
+                        "categories.".format(feature)
+                    )
                     raise ValueError(msg)
                 cats = Series(cats)
                 idx = cats.isin(self.drop[feature])
                 drop_idx[feature] = cp.asarray(cats[idx].index)
             return drop_idx
         else:
-            msg = ("Wrong input for parameter `drop`. Expected "
-                   "'first', None or a dict, got {}")
+            msg = (
+                "Wrong input for parameter `drop`. Expected "
+                "'first', None or a dict, got {}"
+            )
             raise ValueError(msg.format(type(self.drop)))
 
     @property
@@ -205,20 +225,20 @@ class OneHotEncoder(Base):
         If input is cupy, convert it to a DataFrame with 0 copies
         """
         if isinstance(X, cp.ndarray):
-            self._set_input_type('array')
+            self._set_input_type("array")
             if is_categories:
                 X = X.transpose()
             return DataFrame(X)
         else:
-            self._set_input_type('df')
+            self._set_input_type("df")
             return X
 
     def _check_input_fit(self, X, is_categories=False):
-        """Helper function used in fit. Can be overridden in subclasses. """
+        """Helper function used in fit. Can be overridden in subclasses."""
         return self._check_input(X, is_categories=is_categories)
 
     def _unique(self, inp):
-        """Helper function used in fit. Can be overridden in subclasses. """
+        """Helper function used in fit. Can be overridden in subclasses."""
 
         # Default implementation passes input through directly since this is
         # performed in `LabelEncoder.fit()`
@@ -246,37 +266,45 @@ class OneHotEncoder(Base):
         """
         self._validate_keywords()
         X = self._check_input_fit(X)
-        if type(self.categories) is str and self.categories == 'auto':
+        if type(self.categories) is str and self.categories == "auto":
             self._features = X.columns
             self._encoders = {
-                feature: LabelEncoder(handle=self.handle,
-                                      verbose=self.verbose,
-                                      output_type=self.output_type,
-                                      handle_unknown=self.handle_unknown).fit(
-                                          self._unique(X[feature]))
+                feature: LabelEncoder(
+                    handle=self.handle,
+                    verbose=self.verbose,
+                    output_type=self.output_type,
+                    handle_unknown=self.handle_unknown,
+                ).fit(self._unique(X[feature]))
                 for feature in self._features
             }
         else:
             self.categories = self._check_input_fit(self.categories, True)
             self._features = self.categories.columns
             if len(self._features) != X.shape[1]:
-                raise ValueError("Shape mismatch: if categories is not 'auto',"
-                                 " it has to be of shape (n_features, _).")
+                raise ValueError(
+                    "Shape mismatch: if categories is not 'auto',"
+                    " it has to be of shape (n_features, _)."
+                )
             self._encoders = dict()
             for feature in self._features:
 
-                le = LabelEncoder(handle=self.handle,
-                                  verbose=self.verbose,
-                                  output_type=self.output_type,
-                                  handle_unknown=self.handle_unknown)
+                le = LabelEncoder(
+                    handle=self.handle,
+                    verbose=self.verbose,
+                    output_type=self.output_type,
+                    handle_unknown=self.handle_unknown,
+                )
 
                 self._encoders[feature] = le.fit(self.categories[feature])
 
-                if self.handle_unknown == 'error':
-                    if self._has_unknown(X[feature],
-                                         self._encoders[feature].classes_):
-                        msg = ("Found unknown categories in column {0}"
-                               " during fit".format(feature))
+                if self.handle_unknown == "error":
+                    if self._has_unknown(
+                        X[feature], self._encoders[feature].classes_
+                    ):
+                        msg = (
+                            "Found unknown categories in column {0}"
+                            " during fit".format(feature)
+                        )
                         raise KeyError(msg)
 
         self.drop_idx_ = self._compute_drop_idx()
@@ -337,13 +365,14 @@ class OneHotEncoder(Base):
                 max_value = int(max(len(encoder.classes_) - 1, 0) + j)
 
                 # If we exceed the max value, upconvert
-                if (max_value > np.iinfo(col_idx.dtype).max):
+                if max_value > np.iinfo(col_idx.dtype).max:
                     col_idx = col_idx.astype(np.min_scalar_type(max_value))
-                    logger.debug("Upconverting column: '{}', to dtype: '{}', "
-                                 "to support up to {} classes".format(
-                                     feature,
-                                     np.min_scalar_type(max_value),
-                                     max_value))
+                    logger.debug(
+                        "Upconverting column: '{}', to dtype: '{}', "
+                        "to support up to {} classes".format(
+                            feature, np.min_scalar_type(max_value), max_value
+                        )
+                    )
 
                 # increase indices to take previous features into account
                 col_idx += j
@@ -369,9 +398,9 @@ class OneHotEncoder(Base):
             cols = cp.concatenate(cols)
             rows = cp.concatenate(rows)
             val = cp.ones(rows.shape[0], dtype=self.dtype)
-            ohe = cupyx.scipy.sparse.coo_matrix((val, (rows, cols)),
-                                                shape=(len(X), j),
-                                                dtype=self.dtype)
+            ohe = cupyx.scipy.sparse.coo_matrix(
+                (val, (rows, cols)), shape=(len(X), j), dtype=self.dtype
+            )
 
             if not self.sparse:
                 ohe = ohe.toarray()
@@ -392,7 +421,8 @@ class OneHotEncoder(Base):
                 "of categories, resulting in different category code dtypes "
                 "for different columns."
                 "Calculated column code dtypes: {}.\n"
-                "Internal Error: {}".format(input_types_str, repr(e)))
+                "Internal Error: {}".format(input_types_str, repr(e))
+            )
 
     def inverse_transform(self, X):
         """
@@ -437,11 +467,11 @@ class OneHotEncoder(Base):
                 cats = cats[~dropped_class_mask]
 
             enc_size = len(cats)
-            x_feature = X[:, j:j + enc_size]
+            x_feature = X[:, j : j + enc_size]
             idx = cp.argmax(x_feature, axis=1)
             inv = Series(cats.iloc[idx]).reset_index(drop=True)
 
-            if self.handle_unknown == 'ignore':
+            if self.handle_unknown == "ignore":
                 not_null_idx = x_feature.any(axis=1)
                 inv.iloc[~not_null_idx] = None
             elif self.drop is not None:
@@ -451,19 +481,22 @@ class OneHotEncoder(Base):
                 dropped_mask = cp.asarray(x_feature.sum(axis=1) == 0).flatten()
                 if dropped_mask.any():
                     inv[dropped_mask] = feature_enc.inverse_transform(
-                        Series(self.drop_idx_[feature]))[0]
+                        Series(self.drop_idx_[feature])
+                    )[0]
 
             result[feature] = inv
             j += enc_size
-        if self.input_type == 'array':
+        if self.input_type == "array":
             try:
                 result = result.to_cupy()
             except ValueError:
-                warnings.warn("The input one hot encoding contains rows with "
-                              "unknown categories. Since device arrays do not "
-                              "support null values, the output will be "
-                              "returned as a DataFrame "
-                              "instead.")
+                warnings.warn(
+                    "The input one hot encoding contains rows with "
+                    "unknown categories. Since device arrays do not "
+                    "support null values, the output will be "
+                    "returned as a DataFrame "
+                    "instead."
+                )
         return result
 
     def get_feature_names(self, input_features=None):
@@ -494,8 +527,9 @@ class OneHotEncoder(Base):
 
         feature_names = []
         for i in range(len(cats)):
-            names = [input_features[i] + "_" + str(t)
-                     for t in cats[i].values_host]
+            names = [
+                input_features[i] + "_" + str(t) for t in cats[i].values_host
+            ]
             if self.drop_idx_ is not None and self.drop_idx_[i] is not None:
                 names.pop(self.drop_idx_[i])
             feature_names.extend(names)

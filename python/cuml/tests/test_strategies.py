@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,27 +14,34 @@
 #
 from cuml.internals.array import CumlArray
 from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-from cuml.testing.strategies import (create_cuml_array_input,
-                                     cuml_array_dtypes, cuml_array_input_types,
-                                     cuml_array_inputs, cuml_array_orders,
-                                     cuml_array_shapes, regression_datasets,
-                                     split_datasets,
-                                     standard_classification_datasets,
-                                     standard_datasets,
-                                     standard_regression_datasets)
+from cuml.testing.strategies import (
+    create_cuml_array_input,
+    cuml_array_dtypes,
+    cuml_array_input_types,
+    cuml_array_inputs,
+    cuml_array_orders,
+    cuml_array_shapes,
+    regression_datasets,
+    split_datasets,
+    standard_classification_datasets,
+    standard_datasets,
+    standard_regression_datasets,
+)
 from cuml.testing.utils import normalized_shape, series_squeezed_shape
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import floating_dtypes, integer_dtypes
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 @given(
     input_type=cuml_array_input_types(),
     dtype=cuml_array_dtypes(),
     shape=cuml_array_shapes(),
-    order=cuml_array_orders())
+    order=cuml_array_orders(),
+)
 @settings(deadline=None)
 def test_cuml_array_input_elements(input_type, dtype, shape, order):
     input_array = create_cuml_array_input(input_type, dtype, shape, order)
@@ -56,9 +63,11 @@ def test_cuml_array_input_elements(input_type, dtype, shape, order):
 def test_cuml_array_inputs(array_input):
     array = CumlArray(data=array_input)
     assert cp.array_equal(
-        cp.asarray(array_input), array.to_output("cupy"), equal_nan=True)
+        cp.asarray(array_input), array.to_output("cupy"), equal_nan=True
+    )
     assert np.array_equal(
-        cp.asnumpy(array_input), array.to_output("numpy"), equal_nan=True)
+        cp.asnumpy(array_input), array.to_output("numpy"), equal_nan=True
+    )
 
 
 @given(standard_datasets())
@@ -204,7 +213,9 @@ def test_standard_classification_datasets(dataset):
     assert np.issubdtype(y.dtype, np.integer)
 
     X_cmp, y_cmp = make_classification(
-        n_samples=X.shape[0], n_features=X.shape[1], random_state=0,
+        n_samples=X.shape[0],
+        n_features=X.shape[1],
+        random_state=0,
     )
 
     assert X.dtype.type == X_cmp.dtype.type

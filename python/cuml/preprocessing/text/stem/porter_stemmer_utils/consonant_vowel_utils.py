@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,14 +31,14 @@ def is_consonant(str_ser, i):
 
 def is_vowel(str_ser, i):
     """Returns True if word[i] is a vowel, False otherwise
-       see:  is_consonant for more description
+    see:  is_consonant for more description
     """
     return str_ser.str.is_vowel(i)
 
 
 def contains_vowel(stem_ser):
     """
-         Returns True if stem contains a vowel, else False
+    Returns True if stem contains a vowel, else False
     """
     len_ser = stem_ser.str.len()
     max_len = len_ser.max()

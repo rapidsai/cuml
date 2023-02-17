@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,24 +23,25 @@ import os
 import cuml
 from cuml.internals import input_utils
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-pd = cpu_only_import('pandas')
-cudf = gpu_only_import('cudf')
-cuda = gpu_only_import_from('numba', 'cuda')
+
+np = cpu_only_import("numpy")
+pd = cpu_only_import("pandas")
+cudf = gpu_only_import("cudf")
+cuda = gpu_only_import_from("numba", "cuda")
 
 
 def call(m, func_name, X, y=None):
     def unwrap_and_get_args(func):
-        if hasattr(func, '__wrapped__'):
+        if hasattr(func, "__wrapped__"):
             return unwrap_and_get_args(func.__wrapped__)
         else:
             return func.__code__.co_varnames
 
     if not hasattr(m, func_name):
-        raise ValueError('Model does not have function ' + func_name)
+        raise ValueError("Model does not have function " + func_name)
     func = getattr(m, func_name)
     argnames = unwrap_and_get_args(func)
-    if y is not None and 'y' in argnames:
+    if y is not None and "y" in argnames:
         func(X, y=y)
     else:
         func(X)
@@ -51,43 +52,43 @@ def pass_func(m, x, y=None):
 
 
 def fit(m, x, y=None):
-    call(m, 'fit', x, y)
+    call(m, "fit", x, y)
 
 
 def predict(m, x, y=None):
-    call(m, 'predict', x)
+    call(m, "predict", x)
 
 
 def transform(m, x, y=None):
-    call(m, 'transform', x)
+    call(m, "transform", x)
 
 
 def kneighbors(m, x, y=None):
-    call(m, 'kneighbors', x)
+    call(m, "kneighbors", x)
 
 
 def fit_predict(m, x, y=None):
-    if hasattr(m, 'predict'):
+    if hasattr(m, "predict"):
         fit(m, x, y)
         predict(m, x)
     else:
-        call(m, 'fit_predict', x, y)
+        call(m, "fit_predict", x, y)
 
 
 def fit_transform(m, x, y=None):
-    if hasattr(m, 'transform'):
+    if hasattr(m, "transform"):
         fit(m, x, y)
         transform(m, x)
     else:
-        call(m, 'fit_transform', x, y)
+        call(m, "fit_transform", x, y)
 
 
 def fit_kneighbors(m, x, y=None):
-    if hasattr(m, 'kneighbors'):
+    if hasattr(m, "kneighbors"):
         fit(m, x, y)
         kneighbors(m, x)
     else:
-        call(m, 'fit_kneighbors', x, y)
+        call(m, "fit_kneighbors", x, y)
 
 
 def _training_data_to_numpy(X, y):
@@ -112,6 +113,7 @@ def _training_data_to_numpy(X, y):
 def _build_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking"""
     from cuml.internals.import_utils import has_xgboost
+
     if has_xgboost():
         import xgboost as xgb
     else:
@@ -122,8 +124,10 @@ def _build_fil_classifier(m, data, args, tmpdir):
     dtrain = xgb.DMatrix(train_data, label=train_label)
 
     params = {
-        "silent": 1, "eval_metric": "error",
-        "objective": "binary:logistic", "tree_method": "gpu_hist",
+        "silent": 1,
+        "eval_metric": "error",
+        "objective": "binary:logistic",
+        "tree_method": "gpu_hist",
     }
     params.update(args)
     max_depth = args["max_depth"]
@@ -135,10 +139,13 @@ def _build_fil_classifier(m, data, args, tmpdir):
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
 
-    return m.load(model_path, algo=args["fil_algo"],
-                  output_class=args["output_class"],
-                  threshold=args["threshold"],
-                  storage_type=args["storage_type"])
+    return m.load(
+        model_path,
+        algo=args["fil_algo"],
+        output_class=args["output_class"],
+        threshold=args["threshold"],
+        storage_type=args["storage_type"],
+    )
 
 
 def _build_fil_skl_classifier(m, data, args, tmpdir):
@@ -156,25 +163,34 @@ def _build_fil_skl_classifier(m, data, args, tmpdir):
     params.update(args)
 
     # remove keyword arguments not understood by SKLearn
-    for param_name in ["fil_algo", "output_class", "threshold",
-                       "storage_type"]:
+    for param_name in [
+        "fil_algo",
+        "output_class",
+        "threshold",
+        "storage_type",
+    ]:
         params.pop(param_name, None)
 
     max_leaf_nodes = args["max_leaf_nodes"]
     n_estimators = args["n_estimators"]
     n_feature = data[0].shape[1]
     train_size = data[0].shape[0]
-    model_name = (f"skl_{max_leaf_nodes}_{n_estimators}_{n_feature}_" +
-                  f"{train_size}.model.pkl")
+    model_name = (
+        f"skl_{max_leaf_nodes}_{n_estimators}_{n_feature}_"
+        + f"{train_size}.model.pkl"
+    )
     model_path = os.path.join(tmpdir, model_name)
     skl_model = skl_ensemble.RandomForestClassifier(**params)
     skl_model.fit(train_data, train_label)
     pickle.dump(skl_model, open(model_path, "wb"))
 
-    return m.load_from_sklearn(skl_model, algo=args["fil_algo"],
-                               output_class=args["output_class"],
-                               threshold=args["threshold"],
-                               storage_type=args["storage_type"])
+    return m.load_from_sklearn(
+        skl_model,
+        algo=args["fil_algo"],
+        output_class=args["output_class"],
+        threshold=args["threshold"],
+        storage_type=args["storage_type"],
+    )
 
 
 def _build_cpu_skl_classifier(m, data, args, tmpdir):
@@ -184,8 +200,10 @@ def _build_cpu_skl_classifier(m, data, args, tmpdir):
     n_estimators = args["n_estimators"]
     n_feature = data[0].shape[1]
     train_size = data[0].shape[0]
-    model_name = (f"skl_{max_leaf_nodes}_{n_estimators}_{n_feature}_" +
-                  f"{train_size}.model.pkl")
+    model_name = (
+        f"skl_{max_leaf_nodes}_{n_estimators}_{n_feature}_"
+        + f"{train_size}.model.pkl"
+    )
     model_path = os.path.join(tmpdir, model_name)
 
     skl_model = pickle.load(open(model_path, "rb"))
@@ -197,6 +215,7 @@ def _build_treelite_classifier(m, data, args, tmpdir):
     from cuml.internals.import_utils import has_xgboost
     import treelite
     import treelite_runtime
+
     if has_xgboost():
         import xgboost as xgb
     else:
@@ -213,28 +232,37 @@ def _build_treelite_classifier(m, data, args, tmpdir):
     bst.load_model(model_path)
     tl_model = treelite.Model.from_xgboost(bst)
     tl_model.export_lib(
-        toolchain="gcc", libpath=os.path.join(tmpdir, 'treelite.so'),
-        params={'parallel_comp': 40}, verbose=False
+        toolchain="gcc",
+        libpath=os.path.join(tmpdir, "treelite.so"),
+        params={"parallel_comp": 40},
+        verbose=False,
     )
-    return treelite_runtime.Predictor(os.path.join(tmpdir, 'treelite.so'),
-                                      verbose=False)
+    return treelite_runtime.Predictor(
+        os.path.join(tmpdir, "treelite.so"), verbose=False
+    )
 
 
 def _treelite_fil_accuracy_score(y_true, y_pred):
     """Function to get correct accuracy for FIL (returns class index)"""
     # convert the input if necessary
-    y_pred1 = (y_pred.copy_to_host() if
-               cuda.devicearray.is_cuda_ndarray(y_pred) else y_pred)
-    y_true1 = (y_true.copy_to_host() if
-               cuda.devicearray.is_cuda_ndarray(y_true) else y_true)
+    y_pred1 = (
+        y_pred.copy_to_host()
+        if cuda.devicearray.is_cuda_ndarray(y_pred)
+        else y_pred
+    )
+    y_true1 = (
+        y_true.copy_to_host()
+        if cuda.devicearray.is_cuda_ndarray(y_true)
+        else y_true
+    )
 
     y_pred_binary = input_utils.convert_dtype(y_pred1 > 0.5, np.int32)
     return cuml.metrics.accuracy_score(y_true1, y_pred_binary)
 
 
 def _build_mnmg_umap(m, data, args, tmpdir):
-    client = args['client']
-    del args['client']
+    client = args["client"]
+    del args["client"]
     local_model = UMAP(**args)
 
     if isinstance(data, (tuple, list)):

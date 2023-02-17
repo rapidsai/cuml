@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 from cuml.internals.mixins import ClassifierMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
 
-__all__ = ['LinearSVC']
+__all__ = ["LinearSVC"]
 
 
 class LinearSVC(LinearSVM, ClassifierMixin):
-    '''
+    """
     LinearSVC (Support Vector Classification with the linear kernel)
 
     Construct a linear SVM classifier for training and predictions.
@@ -133,25 +133,23 @@ class LinearSVC(LinearSVM, ClassifierMixin):
 
     For additional docs, see `scikitlearn's LinearSVC
     <https://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html>`_.
-    '''
+    """
 
-    REGISTERED_LOSSES = set([
-        'hinge',
-        'squared_hinge'])
+    REGISTERED_LOSSES = set(["hinge", "squared_hinge"])
 
     def __init__(self, **kwargs):
         # NB: the keyword arguments are filtered in python/cuml/svm/linear.pyx
         #     the default parameter values are reexported from
         #                                      cpp/include/cuml/svm/linear.hpp
         # set classification-specific defaults
-        if 'loss' not in kwargs:
-            kwargs['loss'] = 'squared_hinge'
-        if 'multi_class' not in kwargs:
+        if "loss" not in kwargs:
+            kwargs["loss"] = "squared_hinge"
+        if "multi_class" not in kwargs:
             # 'multi_class' is a real parameter here
             # 'multiclass_strategy' is an ephemeral compatibility parameter
             #              for easier switching between
             #              sklearn.LinearSVC <-> cuml.LinearSVC <-> cuml.SVC
-            kwargs['multi_class'] = kwargs.pop('multiclass_strategy', 'ovr')
+            kwargs["multi_class"] = kwargs.pop("multiclass_strategy", "ovr")
 
         super().__init__(**kwargs)
 
@@ -165,23 +163,26 @@ class LinearSVC(LinearSVM, ClassifierMixin):
             raise ValueError(
                 f"Classification loss type "
                 f"must be one of {self.REGISTERED_LOSSES}, "
-                f"but given '{loss}'.")
+                f"but given '{loss}'."
+            )
         self.__loss = loss
 
     def get_param_names(self):
-        return list({
-            "handle",
-            "verbose",
-            'penalty',
-            'loss',
-            'fit_intercept',
-            'penalized_intercept',
-            'probability',
-            'max_iter',
-            'linesearch_max_iter',
-            'lbfgs_memory',
-            'C',
-            'grad_tol',
-            'change_tol',
-            'multi_class',
-        }.union(super().get_param_names()))
+        return list(
+            {
+                "handle",
+                "verbose",
+                "penalty",
+                "loss",
+                "fit_intercept",
+                "penalized_intercept",
+                "probability",
+                "max_iter",
+                "linesearch_max_iter",
+                "lbfgs_memory",
+                "C",
+                "grad_tol",
+                "change_tol",
+                "multi_class",
+            }.union(super().get_param_names())
+        )

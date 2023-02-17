@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,9 @@ from distributed.protocol.serialize import serialize
 from cuml.naive_bayes.naive_bayes import MultinomialNB
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
+
+cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
 
 
 def test_register_naive_bayes_serialization():
@@ -39,25 +40,25 @@ def test_register_naive_bayes_serialization():
     # Unfortunately, Dask has no `unregister` function and Pytest
     # shares the same process so cannot test the base-state here.
 
-    stype, sbytes = serialize(mnb, serializers=['cuda'])
+    stype, sbytes = serialize(mnb, serializers=["cuda"])
 
-    assert stype['serializer'] == 'cuda'
+    assert stype["serializer"] == "cuda"
 
-    stype, sbytes = serialize(mnb, serializers=['dask'])
+    stype, sbytes = serialize(mnb, serializers=["dask"])
 
-    assert stype['serializer'] == 'dask'
+    assert stype["serializer"] == "dask"
 
 
 def test_sparse_cumlarray_serialization():
 
-    X = cupyx.scipy.sparse.random(10, 5, format='csr', density=0.9)
+    X = cupyx.scipy.sparse.random(10, 5, format="csr", density=0.9)
 
     X_m = SparseCumlArray(X)
 
-    stype, sbytes = serialize(X_m, serializers=['cuda'])
+    stype, sbytes = serialize(X_m, serializers=["cuda"])
 
-    assert stype['serializer'] == 'cuda'
+    assert stype["serializer"] == "cuda"
 
-    stype, sbytes = serialize(X_m, serializers=['dask'])
+    stype, sbytes = serialize(X_m, serializers=["dask"])
 
-    assert stype['serializer'] == 'dask'
+    assert stype["serializer"] == "dask"

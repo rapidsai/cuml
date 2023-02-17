@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,11 +21,13 @@ import numpydoc.docscrape
 
 from pylibraft.common.cuda import Stream
 
-from cuml.testing.utils import \
-    get_classes_from_package, \
-    small_classification_dataset
-from cuml._thirdparty.sklearn.utils.skl_dependencies import BaseEstimator \
-    as sklBaseEstimator
+from cuml.testing.utils import (
+    get_classes_from_package,
+    small_classification_dataset,
+)
+from cuml._thirdparty.sklearn.utils.skl_dependencies import (
+    BaseEstimator as sklBaseEstimator,
+)
 
 all_base_children = get_classes_from_package(cuml, import_sub_packages=True)
 
@@ -59,8 +61,8 @@ def test_base_hasattr():
     assert not hasattr(base, "somefakeattr")
 
 
-@pytest.mark.parametrize('datatype', ["float32", "float64"])
-@pytest.mark.parametrize('use_integer_n_features', [True, False])
+@pytest.mark.parametrize("datatype", ["float32", "float64"])
+@pytest.mark.parametrize("use_integer_n_features", [True, False])
 def test_base_n_features_in(datatype, use_integer_n_features):
     X_train, _, _, _ = small_classification_dataset(datatype)
     integer_n_features = 8
@@ -74,7 +76,7 @@ def test_base_n_features_in(datatype, use_integer_n_features):
         assert clf.n_features_in_ == X_train.shape[1]
 
 
-@pytest.mark.parametrize('child_class', list(all_base_children.keys()))
+@pytest.mark.parametrize("child_class", list(all_base_children.keys()))
 def test_base_subclass_init_matches_docs(child_class: str):
     """
     This test is comparing the docstrings for arguments in __init__ for any
@@ -94,8 +96,10 @@ def test_base_subclass_init_matches_docs(child_class: str):
     klass = all_base_children[child_class]
 
     if issubclass(klass, sklBaseEstimator):
-        pytest.skip("Preprocessing models do not have "
-                    "the base arguments in constructors.")
+        pytest.skip(
+            "Preprocessing models do not have "
+            "the base arguments in constructors."
+        )
 
     # To quickly find and replace all instances in the documentation, the below
     # regex's may be useful
@@ -106,8 +110,9 @@ def test_base_subclass_init_matches_docs(child_class: str):
     def get_param_doc(param_doc_obj, name: str):
         found_doc = next((x for x in param_doc_obj if x.name == name), None)
 
-        assert found_doc is not None, \
-            "Could not find {} in docstring".format(name)
+        assert found_doc is not None, "Could not find {} in docstring".format(
+            name
+        )
 
         return found_doc
 
@@ -122,7 +127,7 @@ def test_base_subclass_init_matches_docs(child_class: str):
     klass_doc_params = klass_doc["Parameters"]
 
     for name, param in base_sig.parameters.items():
-        if param.name == 'output_mem_type':
+        if param.name == "output_mem_type":
             continue  # TODO(wphicks): Add this to all algos
         # Ensure the base param exists in the derived
         assert param.name in klass_sig.parameters
@@ -133,23 +138,26 @@ def test_base_subclass_init_matches_docs(child_class: str):
         assert param.default == klass_param.default
 
         # Make sure we arent accidentally a *args or **kwargs
-        assert (klass_param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
-                or klass_param.kind == inspect.Parameter.KEYWORD_ONLY)
+        assert (
+            klass_param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
+            or klass_param.kind == inspect.Parameter.KEYWORD_ONLY
+        )
 
-        if (klass.__doc__ is not None):
+        if klass.__doc__ is not None:
 
             found_doc = get_param_doc(klass_doc_params, name)
 
             base_item_doc = get_param_doc(base_doc_params, name)
 
             # Ensure the docstring is identical
-            assert found_doc.type == base_item_doc.type, \
-                "Docstring mismatch for {}".format(name)
+            assert (
+                found_doc.type == base_item_doc.type
+            ), "Docstring mismatch for {}".format(name)
 
             assert " ".join(found_doc.desc) == " ".join(base_item_doc.desc)
 
 
-@pytest.mark.parametrize('child_class', list(all_base_children.keys()))
+@pytest.mark.parametrize("child_class", list(all_base_children.keys()))
 # ignore ColumnTransformer init warning
 @pytest.mark.filterwarnings("ignore:Transformers are required")
 def test_base_children_get_param_names(child_class: str):
@@ -167,8 +175,10 @@ def test_base_children_get_param_names(child_class: str):
         bound.apply_defaults()
     except TypeError:
         pytest.skip(
-            "{}.__init__ requires non-default arguments to create. Skipping.".
-            format(klass.__name__))
+            "{}.__init__ requires non-default arguments to create. Skipping.".format(
+                klass.__name__
+            )
+        )
     else:
         # Create an instance
         obj = klass(*bound.args, **bound.kwargs)
@@ -177,10 +187,12 @@ def test_base_children_get_param_names(child_class: str):
 
         # Now ensure the base parameters are included in get_param_names
         for name, param in sig.parameters.items():
-            if param.name == 'output_mem_type':
+            if param.name == "output_mem_type":
                 continue  # TODO(wphicks): Add this to all algos
-            if (param.kind == inspect.Parameter.VAR_KEYWORD
-                    or param.kind == inspect.Parameter.VAR_POSITIONAL):
+            if (
+                param.kind == inspect.Parameter.VAR_KEYWORD
+                or param.kind == inspect.Parameter.VAR_POSITIONAL
+            ):
                 continue
 
             assert name in param_names

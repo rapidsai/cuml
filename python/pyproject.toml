@@ -27,3 +27,27 @@ requires = [
 ]
 build-backend = "backend"
 backend-path = ["_custom_build"]
+
+[tool.black]
+line-length = 79
+target-version = ["py38"]
+include = '\.py?$'
+force-exclude = '''
+_stop_words\.py |
+_version\.py |
+versioneer\.py |
+/(
+    \.eggs |
+    \.git |
+    \.hg |
+    \.mypy_cache |
+    \.tox |
+    \.venv |
+    _build |
+    _thirdparty |
+    buck-out |
+    build |
+    dist |
+    thirdparty
+)/
+'''

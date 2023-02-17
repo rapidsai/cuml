@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,8 @@ from cuml.common import has_scipy
 import nvtx
 import cuml.internals.logger as logger
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+
+np = cpu_only_import("numpy")
 
 
 def _fd_fprime(x, f, h):
@@ -31,19 +32,27 @@ def _fd_fprime(x, f, h):
         xmh[i] -= h
         fph = f(xph)
         fmh = f(xmh)
-        g[i] = (fph - fmh)/(2*h)
+        g[i] = (fph - fmh) / (2 * h)
 
     return g
 
 
-@nvtx.annotate(
-    message="LBFGS",
-    domain="cuml_python")
-def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
-                         bounds=None, m=10, factr=1e7, pgtol=1e-5,
-                         epsilon=1e-8,
-                         iprint=-1, maxiter=15000,
-                         maxls=20):
+@nvtx.annotate(message="LBFGS", domain="cuml_python")
+def batched_fmin_lbfgs_b(
+    func,
+    x0,
+    num_batches,
+    fprime=None,
+    args=(),
+    bounds=None,
+    m=10,
+    factr=1e7,
+    pgtol=1e-5,
+    epsilon=1e-8,
+    iprint=-1,
+    maxiter=15000,
+    maxls=20,
+):
     """A batch-aware L-BFGS-B implementation to minimize a loss function `f` given
     an initial set of parameters `x0`.
 
@@ -93,8 +102,10 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
     n = len(x0) // num_batches
 
     if fprime is None:
+
         def fprime_f(x):
             return _fd_fprime(x, func, epsilon)
+
         fprime = fprime_f
 
     if bounds is None:
@@ -103,10 +114,7 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
     nbd = np.zeros(n, np.int32)
     low_bnd = np.zeros(n, np.float64)
     upper_bnd = np.zeros(n, np.float64)
-    bounds_map = {(None, None): 0,
-                  (1, None): 1,
-                  (1, 1): 2,
-                  (None, 1): 3}
+    bounds_map = {(None, None): 0, (1, None): 1, (1, 1): 2, (None, 1): 3}
     for i in range(0, n):
         lb, ub = bounds[i]
         if lb is not None:
@@ -119,21 +127,24 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
 
     # working arrays needed by L-BFGS-B implementation in SciPy.
     # One for each series
-    x = [np.copy(np.array(x0[ib*n:(ib+1)*n],
-                          np.float64)) for ib in range(num_batches)]
-    f = [np.copy(np.array(0.0,
-                          np.float64)) for ib in range(num_batches)]
+    x = [
+        np.copy(np.array(x0[ib * n : (ib + 1) * n], np.float64))
+        for ib in range(num_batches)
+    ]
+    f = [np.copy(np.array(0.0, np.float64)) for ib in range(num_batches)]
     g = [np.copy(np.zeros((n,), np.float64)) for ib in range(num_batches)]
-    wa = [np.copy(np.zeros(2*m*n + 5*n + 11*m*m + 8*m,
-                           np.float64)) for ib in range(num_batches)]
-    iwa = [np.copy(np.zeros(3*n, np.int32)) for ib in range(num_batches)]
-    task = [np.copy(np.zeros(1, 'S60')) for ib in range(num_batches)]
-    csave = [np.copy(np.zeros(1, 'S60')) for ib in range(num_batches)]
+    wa = [
+        np.copy(np.zeros(2 * m * n + 5 * n + 11 * m * m + 8 * m, np.float64))
+        for ib in range(num_batches)
+    ]
+    iwa = [np.copy(np.zeros(3 * n, np.int32)) for ib in range(num_batches)]
+    task = [np.copy(np.zeros(1, "S60")) for ib in range(num_batches)]
+    csave = [np.copy(np.zeros(1, "S60")) for ib in range(num_batches)]
     lsave = [np.copy(np.zeros(4, np.int32)) for ib in range(num_batches)]
     isave = [np.copy(np.zeros(44, np.int32)) for ib in range(num_batches)]
     dsave = [np.copy(np.zeros(29, np.float64)) for ib in range(num_batches)]
     for ib in range(num_batches):
-        task[ib][:] = 'START'
+        task[ib][:] = "START"
 
     n_iterations = np.zeros(num_batches, dtype=np.int32)
 
@@ -148,19 +159,25 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
                     continue
 
                 _lbfgsb.setulb(
-                    m, x[ib],
-                    low_bnd, upper_bnd,
+                    m,
+                    x[ib],
+                    low_bnd,
+                    upper_bnd,
                     nbd,
-                    f[ib], g[ib],
-                    factr, pgtol,
-                    wa[ib], iwa[ib],
+                    f[ib],
+                    g[ib],
+                    factr,
+                    pgtol,
+                    wa[ib],
+                    iwa[ib],
                     task[ib],
                     iprint,
                     csave[ib],
                     lsave[ib],
                     isave[ib],
                     dsave[ib],
-                    maxls)
+                    maxls,
+                )
 
             xk = np.concatenate(x)
             fk = func(xk)
@@ -169,17 +186,18 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
                 if converged[ib]:
                     continue
                 task_str = task[ib].tobytes()
-                task_str_strip = task[ib].tobytes().strip(b'\x00').strip()
-                if task_str.startswith(b'FG'):
+                task_str_strip = task[ib].tobytes().strip(b"\x00").strip()
+                if task_str.startswith(b"FG"):
                     # needs function evalation
                     f[ib] = fk[ib]
-                    g[ib] = gk[ib*n:(ib+1)*n]
-                elif task_str.startswith(b'NEW_X'):
+                    g[ib] = gk[ib * n : (ib + 1) * n]
+                elif task_str.startswith(b"NEW_X"):
                     n_iterations[ib] += 1
                     if n_iterations[ib] >= maxiter:
-                        task[ib][:] = \
-                            'STOP: TOTAL NO. of ITERATIONS REACHED LIMIT'
-                elif task_str_strip.startswith(b'CONV'):
+                        task[ib][
+                            :
+                        ] = "STOP: TOTAL NO. of ITERATIONS REACHED LIMIT"
+                elif task_str_strip.startswith(b"CONV"):
                     converged[ib] = True
                     warn_flag[ib] = 0
                 else:
@@ -190,15 +208,21 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
     xk = np.concatenate(x)
 
     if iprint > 0:
-        logger.info("CONVERGED in ({}-{}) iterations (|\\/f|={})".format(
-            np.min(n_iterations),
-            np.max(n_iterations),
-            np.linalg.norm(fprime(xk), np.inf)))
+        logger.info(
+            "CONVERGED in ({}-{}) iterations (|\\/f|={})".format(
+                np.min(n_iterations),
+                np.max(n_iterations),
+                np.linalg.norm(fprime(xk), np.inf),
+            )
+        )
 
         if (warn_flag > 0).any():
             for ib in range(num_batches):
                 if warn_flag[ib] > 0:
-                    logger.info("WARNING: id={} convergence issue: {}".format(
-                        ib, task[ib].tobytes()))
+                    logger.info(
+                        "WARNING: id={} convergence issue: {}".format(
+                            ib, task[ib].tobytes()
+                        )
+                    )
 
     return xk, n_iterations, warn_flag

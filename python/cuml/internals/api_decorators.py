@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,9 +61,7 @@ def _find_arg(sig, arg_name, default_position):
         index = int(_has_self(sig)) + default_position
         return params[index], index
     else:
-        raise ValueError(
-            f"Unable to find parameter '{arg_name}'."
-        )
+        raise ValueError(f"Unable to find parameter '{arg_name}'.")
 
 
 def _get_value(args, kwargs, name, index):
@@ -76,14 +74,15 @@ def _get_value(args, kwargs, name, index):
         except IndexError:
             raise IndexError(
                 f"Specified arg idx: {index}, and argument name: {name}, "
-                "were not found in args or kwargs.")
+                "were not found in args or kwargs."
+            )
 
 
 def _make_decorator_function(
     context_manager_cls: InternalAPIContextBase,
     process_return=True,
     needs_self: bool = False,
-    ** defaults,
+    **defaults,
 ) -> typing.Callable[..., _DecoratorType]:
     # This function generates a function to be applied as decorator to a
     # wrapped function. For example:
@@ -108,7 +107,6 @@ def _make_decorator_function(
         set_output_dtype: bool = False,
         set_n_features_in: bool = False,
     ) -> _DecoratorType:
-
         def decorator_closure(func):
             # This function constitutes the closed decorator that will return
             # the wrapped function. It performs function introspection at
@@ -146,11 +144,11 @@ def _make_decorator_function(
                     self_val = args[0] if has_self else None
 
                     if input_arg_:
-                        input_val = _get_value(args, kwargs, * input_arg_)
+                        input_val = _get_value(args, kwargs, *input_arg_)
                     else:
                         input_val = None
                     if target_arg_:
-                        target_val = _get_value(args, kwargs, * target_arg_)
+                        target_val = _get_value(args, kwargs, *target_arg_)
                     else:
                         target_val = None
 
@@ -255,7 +253,7 @@ api_base_return_generic_skipall = api_base_return_generic(
 @contextlib.contextmanager
 def exit_internal_api():
 
-    assert (GlobalSettings().root_cm is not None)
+    assert GlobalSettings().root_cm is not None
 
     try:
         old_root_cm = GlobalSettings().root_cm
@@ -274,8 +272,8 @@ def exit_internal_api():
 
 def mirror_args(
     wrapped: _DecoratorType,
-    assigned=('__doc__', '__annotations__'),
-    updated=functools.WRAPPER_UPDATES
+    assigned=("__doc__", "__annotations__"),
+    updated=functools.WRAPPER_UPDATES,
 ) -> typing.Callable[[_DecoratorType], _DecoratorType]:
     return _wrap_once(wrapped=wrapped, assigned=assigned, updated=updated)
 
@@ -325,16 +323,20 @@ class _deprecate_pos_args:
             if extra_args > 0:
                 # ignore first 'self' argument for instance methods
                 args_msg = [
-                    '{}={}'.format(name, arg) for name,
-                    arg in zip(kwonly_args[:extra_args], args[-extra_args:])
+                    "{}={}".format(name, arg)
+                    for name, arg in zip(
+                        kwonly_args[:extra_args], args[-extra_args:]
+                    )
                 ]
                 warnings.warn(
                     "Pass {} as keyword args. From version {}, "
                     "passing these as positional arguments will "
-                    "result in an error".format(", ".join(args_msg),
-                                                self._version),
+                    "result in an error".format(
+                        ", ".join(args_msg), self._version
+                    ),
                     FutureWarning,
-                    stacklevel=2)
+                    stacklevel=2,
+                )
 
             # Convert all positional args to keyword
             kwargs.update({k: arg for k, arg in zip(sig.parameters, args)})
@@ -357,7 +359,7 @@ def device_interop_preparation(init_func):
     @functools.wraps(init_func)
     def processor(self, *args, **kwargs):
         # if child class is already prepared for interop, skip
-        if hasattr(self, '_full_kwargs'):
+        if hasattr(self, "_full_kwargs"):
             return init_func(self, *args, **kwargs)
 
         # Save all kwargs
@@ -371,11 +373,14 @@ def device_interop_preparation(init_func):
             if keyword in gpu_hyperparams:
                 filtered_kwargs[keyword] = arg
             else:
-                logger.info("Unused keyword parameter: {} "
-                            "during cuML estimator "
-                            "initialization".format(keyword))
+                logger.info(
+                    "Unused keyword parameter: {} "
+                    "during cuML estimator "
+                    "initialization".format(keyword)
+                )
 
         return init_func(self, *args, **filtered_kwargs)
+
     return processor
 
 
@@ -383,9 +388,10 @@ def enable_device_interop(gpu_func):
     @functools.wraps(gpu_func)
     def dispatch(self, *args, **kwargs):
         # check that the estimator implements CPU/GPU interoperability
-        if hasattr(self, 'dispatch_func'):
+        if hasattr(self, "dispatch_func"):
             func_name = gpu_func.__name__
             return self.dispatch_func(func_name, gpu_func, *args, **kwargs)
         else:
             return gpu_func(self, *args, **kwargs)
+
     return dispatch

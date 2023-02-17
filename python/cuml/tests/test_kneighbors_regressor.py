@@ -1,5 +1,4 @@
-
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,34 +23,34 @@ from cuml.neighbors import KNeighborsRegressor as cuKNN
 import pytest
 
 from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
+
+cudf = gpu_only_import("cudf")
 
 
 assert_array_almost_equal = cpu_only_import_from(
-    'numpy.testing', 'assert_array_almost_equal')
+    "numpy.testing", "assert_array_almost_equal"
+)
 
-np = cpu_only_import('numpy')
-
-
-cp = gpu_only_import('cupy')
+np = cpu_only_import("numpy")
 
 
-def test_kneighbors_regressor(n_samples=40,
-                              n_features=5,
-                              n_test_pts=10,
-                              n_neighbors=3,
-                              random_state=0):
+cp = gpu_only_import("cupy")
+
+
+def test_kneighbors_regressor(
+    n_samples=40, n_features=5, n_test_pts=10, n_neighbors=3, random_state=0
+):
     # Test k-neighbors regression
     rng = np.random.RandomState(random_state)
     X = 2 * rng.rand(n_samples, n_features) - 1
-    y = np.sqrt((X ** 2).sum(1))
+    y = np.sqrt((X**2).sum(1))
     y /= y.max()
 
     y_target = y[:n_test_pts]
 
     knn = cuKNN(n_neighbors=n_neighbors)
     knn.fit(X, y)
-    epsilon = 1E-5 * (2 * rng.rand(1, n_features) - 1)
+    epsilon = 1e-5 * (2 * rng.rand(1, n_features) - 1)
     y_pred = knn.predict(X[:n_test_pts] + epsilon)
     assert np.all(abs(y_pred - y_target) < 0.3)
 
@@ -72,8 +71,7 @@ def test_kneighborsRegressor_multioutput_uniform_weight():
 
     neigh_idx = knn.kneighbors(X_test, return_distance=False).astype(np.int32)
 
-    y_pred_idx = np.array([np.mean(y_train[idx], axis=0)
-                           for idx in neigh_idx])
+    y_pred_idx = np.array([np.mean(y_train[idx], axis=0) for idx in neigh_idx])
 
     y_pred = knn.predict(X_test)
 
@@ -90,9 +88,13 @@ def test_kneighborsRegressor_multioutput_uniform_weight():
 def test_score(nrows, ncols, n_neighbors, n_clusters, datatype):
 
     # Using make_blobs here to check averages and neighborhoods
-    X, y = make_blobs(n_samples=nrows, centers=n_clusters,
-                      cluster_std=0.01,
-                      n_features=ncols, random_state=0)
+    X, y = make_blobs(
+        n_samples=nrows,
+        centers=n_clusters,
+        cluster_std=0.01,
+        n_features=ncols,
+        random_state=0,
+    )
 
     X = X.astype(np.float32)
     y = y.astype(np.float32)
@@ -110,9 +112,13 @@ def test_score(nrows, ncols, n_neighbors, n_clusters, datatype):
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_score_dtype(dtype):
     # Using make_blobs here to check averages and neighborhoods
-    X, y = make_blobs(n_samples=1000, centers=2,
-                      cluster_std=0.01,
-                      n_features=50, random_state=0)
+    X, y = make_blobs(
+        n_samples=1000,
+        centers=2,
+        cluster_std=0.01,
+        n_features=50,
+        random_state=0,
+    )
 
     X = X.astype(dtype)
     y = y.astype(dtype)

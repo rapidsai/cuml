@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,14 +19,15 @@ from cuml.internals.safe_imports import gpu_only_import, UnavailableError
 from distutils.version import LooseVersion
 
 
-numba = gpu_only_import('numba')
+numba = gpu_only_import("numba")
 
 
 def has_dask():
     try:
-        import dask   # NOQA
-        import dask.distributed   # NOQA
-        import dask.dataframe   # NOQA
+        import dask  # NOQA
+        import dask.distributed  # NOQA
+        import dask.dataframe  # NOQA
+
         return True
     except ImportError:
         return False
@@ -34,7 +35,8 @@ def has_dask():
 
 def has_dask_cudf():
     try:
-        import dask_cudf # NOQA
+        import dask_cudf  # NOQA
+
         return True
     except ImportError:
         return False
@@ -42,7 +44,8 @@ def has_dask_cudf():
 
 def has_dask_sql():
     try:
-        import dask_sql # NOQA
+        import dask_sql  # NOQA
+
         return True
     except ImportError:
         return False
@@ -50,7 +53,8 @@ def has_dask_sql():
 
 def has_cupy():
     try:
-        import cupy   # NOQA
+        import cupy  # NOQA
+
         return True
     except ImportError:
         return False
@@ -59,6 +63,7 @@ def has_cupy():
 def has_ucp():
     try:
         import ucp  # NOQA
+
         return True
     except ImportError:
         return False
@@ -67,6 +72,7 @@ def has_ucp():
 def has_umap():
     try:
         import umap  # NOQA
+
         return True
     except ImportError:
         return False
@@ -75,6 +81,7 @@ def has_umap():
 def has_lightgbm():
     try:
         import lightgbm  # NOQA
+
         return True
     except ImportError:
         return False
@@ -83,21 +90,27 @@ def has_lightgbm():
 def has_xgboost():
     try:
         import xgboost  # NOQA
+
         return True
     except ImportError:
         return False
     except Exception as ex:
         import warnings
+
         warnings.warn(
-            ("The XGBoost library was found but raised an exception during "
-             "import. Importing xgboost will be skipped. "
-             "Error message:\n{}").format(str(ex)))
+            (
+                "The XGBoost library was found but raised an exception during "
+                "import. Importing xgboost will be skipped. "
+                "Error message:\n{}"
+            ).format(str(ex))
+        )
         return False
 
 
 def has_pytest_benchmark():
     try:
         import pytest_benchmark  # NOQA
+
         return True
     except ImportError:
         return False
@@ -106,6 +119,7 @@ def has_pytest_benchmark():
 def check_min_dask_version(version):
     try:
         import dask
+
         return LooseVersion(dask.__version__) >= LooseVersion(version)
     except ImportError:
         return False
@@ -121,6 +135,7 @@ def check_min_numba_version(version):
 def check_min_cupy_version(version):
     if has_cupy():
         import cupy
+
         return LooseVersion(str(cupy.__version__)) >= LooseVersion(version)
     else:
         return False
@@ -128,7 +143,8 @@ def check_min_cupy_version(version):
 
 def has_scipy(raise_if_unavailable=False):
     try:
-        import scipy   # NOQA
+        import scipy  # NOQA
+
         return True
     except ImportError:
         if not raise_if_unavailable:
@@ -139,7 +155,8 @@ def has_scipy(raise_if_unavailable=False):
 
 def has_sklearn():
     try:
-        import sklearn   # NOQA
+        import sklearn  # NOQA
+
         return True
     except ImportError:
         return False
@@ -148,9 +165,10 @@ def has_sklearn():
 def has_hdbscan_plots(raise_if_unavailable=True):
     try:
         from hdbscan.plots import SingleLinkageTree  # NOQA
+
         return True
     except ImportError:
-        if(raise_if_unavailable):
+        if raise_if_unavailable:
             raise ImportError("hdbscan must be installed to use plots.")
         else:
             return False
@@ -159,11 +177,13 @@ def has_hdbscan_plots(raise_if_unavailable=True):
 def has_hdbscan_prediction(raise_if_unavailable=True):
     try:
         from hdbscan.prediction import PredictionData  # NOQA
+
         return True
     except ImportError:
-        if(raise_if_unavailable):
-            raise ImportError("hdbscan.prediction must be installed "
-                              "to use prediction.")
+        if raise_if_unavailable:
+            raise ImportError(
+                "hdbscan.prediction must be installed " "to use prediction."
+            )
         else:
             return False
 
@@ -171,11 +191,13 @@ def has_hdbscan_prediction(raise_if_unavailable=True):
 def has_shap(min_version="0.37"):
     try:
         import shap  # noqa
+
         if min_version is None:
             return True
         else:
-            return (LooseVersion(str(shap.__version__)) >=
-                    LooseVersion(min_version))
+            return LooseVersion(str(shap.__version__)) >= LooseVersion(
+                min_version
+            )
     except ImportError:
         return False
 
@@ -183,11 +205,13 @@ def has_shap(min_version="0.37"):
 def has_daskglm(min_version=None):
     try:
         import dask_glm  # noqa
+
         if min_version is None:
             return True
         else:
-            return (LooseVersion(str(dask_glm.__version__)) >=
-                    LooseVersion(min_version))
+            return LooseVersion(str(dask_glm.__version__)) >= LooseVersion(
+                min_version
+            )
     except ImportError:
         return False
 

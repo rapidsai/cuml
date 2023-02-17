@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,15 +18,23 @@
 The following imports are needed so that we can import those classes
 from cuml.feature_extraction.text just like scikit-learn. Do not remove.
 """
-from cuml.feature_extraction._tfidf import TfidfTransformer  # noqa # pylint: disable=unused-import
-from cuml.feature_extraction._tfidf_vectorizer import TfidfVectorizer  # noqa # pylint: disable=unused-import
-from cuml.feature_extraction._vectorizers import CountVectorizer  # noqa # pylint: disable=unused-import
-from cuml.feature_extraction._vectorizers import HashingVectorizer # noqa # pylint: disable=unused-import
+from cuml.feature_extraction._tfidf import (
+    TfidfTransformer,
+)  # noqa # pylint: disable=unused-import
+from cuml.feature_extraction._tfidf_vectorizer import (
+    TfidfVectorizer,
+)  # noqa # pylint: disable=unused-import
+from cuml.feature_extraction._vectorizers import (
+    CountVectorizer,
+)  # noqa # pylint: disable=unused-import
+from cuml.feature_extraction._vectorizers import (
+    HashingVectorizer,
+)  # noqa # pylint: disable=unused-import
 
 
 __all__ = [
     "CountVectorizer",
     "HashingVectorizer",
     "TfidfTransformer",
-    "TfidfVectorizer"
+    "TfidfVectorizer",
 ]

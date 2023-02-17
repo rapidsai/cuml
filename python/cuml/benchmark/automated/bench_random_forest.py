@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,38 +24,34 @@ from .. import datagen
 #
 
 
-@pytest.fixture(**fixture_generation_helper({
-                    'n_samples': [1000, 10000],
-                    'n_features': [5, 500]
-                }))
+@pytest.fixture(
+    **fixture_generation_helper(
+        {"n_samples": [1000, 10000], "n_features": [5, 500]}
+    )
+)
 def classification(request):
     data = datagen.gen_data(
-        'classification',
-        'cupy',
-        n_samples=request.param['n_samples'],
-        n_features=request.param['n_features']
+        "classification",
+        "cupy",
+        n_samples=request.param["n_samples"],
+        n_features=request.param["n_features"],
     )
-    return data, {
-                    'dataset_type': 'classification',
-                    **request.param
-                 }
+    return data, {"dataset_type": "classification", **request.param}
 
 
-@pytest.fixture(**fixture_generation_helper({
-                    'n_samples': [1000, 10000],
-                    'n_features': [5, 500]
-                }))
+@pytest.fixture(
+    **fixture_generation_helper(
+        {"n_samples": [1000, 10000], "n_features": [5, 500]}
+    )
+)
 def regression(request):
     data = datagen.gen_data(
-        'regression',
-        'cupy',
-        n_samples=request.param['n_samples'],
-        n_features=request.param['n_features']
+        "regression",
+        "cupy",
+        n_samples=request.param["n_samples"],
+        n_features=request.param["n_features"],
     )
-    return data, {
-                    'dataset_type': 'regression',
-                    **request.param
-                 }
+    return data, {"dataset_type": "regression", **request.param}
 
 
 """
@@ -66,10 +62,12 @@ def bench_fil(gpubenchmark, bench_step, classification):
 
 
 def bench_rfc(gpubenchmark, bench_step, classification):  # noqa: F811
-    _benchmark_algo(gpubenchmark, 'RandomForestClassifier',
-                    bench_step, classification)
+    _benchmark_algo(
+        gpubenchmark, "RandomForestClassifier", bench_step, classification
+    )
 
 
 def bench_rfr(gpubenchmark, bench_step, regression):  # noqa: F811
-    _benchmark_algo(gpubenchmark, 'RandomForestRegressor',
-                    bench_step, regression)
+    _benchmark_algo(
+        gpubenchmark, "RandomForestRegressor", bench_step, regression
+    )

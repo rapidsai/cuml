@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,12 +20,10 @@ from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
 from cuml.internals.logger import warn
 from cuml.internals.mem_type import MemoryType
-from cuml.internals.safe_imports import (
-    cpu_only_import, gpu_only_import
-)
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
@@ -40,20 +38,17 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
                 default_device_type = DeviceType.device
                 default_memory_type = MemoryType.device
             else:
-                warn('GPU will not be used')
+                warn("GPU will not be used")
                 default_device_type = DeviceType.host
                 default_memory_type = MemoryType.host
             self.shared_state = {
-                '_output_type': None,
-                '_device_type': default_device_type,
-                '_memory_type': default_memory_type,
-                'root_cm': None
+                "_output_type": None,
+                "_device_type": default_device_type,
+                "_memory_type": default_memory_type,
+                "root_cm": None,
             }
         else:
-            self.shared_state = {
-                '_output_type': None,
-                'root_cm': None
-            }
+            self.shared_state = {"_output_type": None, "root_cm": None}
 
 
 _global_settings_data = _GlobalSettingsData()

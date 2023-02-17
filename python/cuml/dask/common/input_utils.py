@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,13 +36,14 @@ import dask.array as da
 from cuml.internals.safe_imports import cpu_only_import
 import cuml.internals.logger as logger
 from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+
+cudf = gpu_only_import("cudf")
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
-DataFrame = gpu_only_import_from('cudf', 'DataFrame')
-dcDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
+DataFrame = gpu_only_import_from("cudf", "DataFrame")
+dcDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
 
 
 class DistributedDataHandler:
@@ -62,8 +63,14 @@ class DistributedDataHandler:
 
     """
 
-    def __init__(self, gpu_futures=None, workers=None,
-                 datatype=None, multiple=False, client=None):
+    def __init__(
+        self,
+        gpu_futures=None,
+        workers=None,
+        datatype=None,
+        multiple=False,
+        client=None,
+    ):
         self.client = get_client(client)
         self.gpu_futures = gpu_futures
         self.worker_to_parts = _workers_to_parts(gpu_futures)
@@ -104,9 +111,13 @@ class DistributedDataHandler:
 
         workers = tuple(set(map(lambda x: x[0], gpu_futures)))
 
-        return DistributedDataHandler(gpu_futures=gpu_futures, workers=workers,
-                                      datatype=datatype, multiple=multiple,
-                                      client=client)
+        return DistributedDataHandler(
+            gpu_futures=gpu_futures,
+            workers=workers,
+            datatype=datatype,
+            multiple=multiple,
+            client=client,
+        )
 
     """ Methods to calculate further attributes """
 
@@ -127,20 +138,25 @@ class DistributedDataHandler:
 
         self.parts_to_sizes = dict()
 
-        parts = [(wf[0], self.client.submit(
-            _get_rows,
-            wf[1],
-            self.multiple,
-            workers=[wf[0]],
-            pure=False))
-            for idx, wf in enumerate(self.worker_to_parts.items())]
+        parts = [
+            (
+                wf[0],
+                self.client.submit(
+                    _get_rows,
+                    wf[1],
+                    self.multiple,
+                    workers=[wf[0]],
+                    pure=False,
+                ),
+            )
+            for idx, wf in enumerate(self.worker_to_parts.items())
+        ]
 
         sizes = self.client.compute(parts, sync=True)
 
         for w, sizes_parts in sizes:
             sizes, total = sizes_parts
-            self.parts_to_sizes[self.worker_info[w]["rank"]] = \
-                sizes
+            self.parts_to_sizes[self.worker_info[w]["rank"]] = sizes
 
             self.total_rows += total
 
@@ -163,11 +179,13 @@ def _get_datatype_from_inputs(data):
 
     multiple = isinstance(data, Sequence)
 
-    if isinstance(first(data) if multiple else data,
-                  (daskSeries, daskDataFrame, dcDataFrame, dcSeries)):
-        datatype = 'cudf'
+    if isinstance(
+        first(data) if multiple else data,
+        (daskSeries, daskDataFrame, dcDataFrame, dcSeries),
+    ):
+        datatype = "cudf"
     else:
-        datatype = 'cupy'
+        datatype = "cupy"
         if multiple:
             for d in data:
                 validate_dask_array(d)
@@ -193,7 +211,7 @@ def concatenate(objs, axis=0):
 
 # TODO: This should be delayed.
 def to_output(futures, type, client=None):
-    if type == 'cupy':
+    if type == "cupy":
         return to_dask_cupy(futures, client=client)
     else:
         return to_dask_cudf(futures, client=client)
@@ -251,12 +269,15 @@ def _get_ary_meta(ary):
     elif isinstance(ary, cudf.DataFrame):
         return ary.shape, first(set(ary.dtypes))
     else:
-        raise ValueError("Expected dask.Dataframe "
-                         "or dask.Array, received %s" % type(ary))
+        raise ValueError(
+            "Expected dask.Dataframe " "or dask.Array, received %s" % type(ary)
+        )
 
 
 def _get_rows(objs, multiple):
-    def get_obj(x): return x[0] if multiple else x
+    def get_obj(x):
+        return x[0] if multiple else x
+
     total = list(map(lambda x: get_obj(x).shape[0], objs))
     return total, reduce(lambda a, b: a + b, total)
 
@@ -266,16 +287,14 @@ def to_dask_cupy(futures, dtype=None, shapes=None, client=None):
     wait(futures)
 
     c = default_client() if client is None else client
-    meta = [c.submit(_get_ary_meta, future, pure=False)
-            for future in futures]
+    meta = [c.submit(_get_ary_meta, future, pure=False) for future in futures]
 
     objs = []
     for i in range(len(futures)):
         if not isinstance(futures[i].type, type(None)):
             met_future = meta[i]
             met = met_future.result()
-            obj = da.from_delayed(futures[i], shape=met[0],
-                                  dtype=met[1])
+            obj = da.from_delayed(futures[i], shape=met[0], dtype=met[1])
             objs.append(obj)
 
     return da.concatenate(objs, axis=0)
