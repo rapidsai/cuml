@@ -67,7 +67,7 @@ class FILEX : public RegressionFixture<float> {
 
     auto filex_model = ML::experimental::fil::import_from_treelite_handle(
       model,
-      raft_proto::tree_layout::breadth_first,
+      ML::experimental::fil::tree_layout::breadth_first,
       128,
       false,
       raft_proto::device_type::gpu,
@@ -88,7 +88,7 @@ class FILEX : public RegressionFixture<float> {
     auto optimal_chunk_size = 1;
     auto optimal_storage_type = p_rest.storage;
     auto optimal_algo_type = ML::fil::algo_t::NAIVE;
-    auto optimal_layout = raft_proto::tree_layout::breadth_first;
+    auto optimal_layout = ML::experimental::fil::tree_layout::breadth_first;
     auto allowed_storage_types = std::vector<ML::fil::storage_type_t>{};
     if (p_rest.storage == ML::fil::storage_type_t::DENSE) {
       allowed_storage_types.push_back(ML::fil::storage_type_t::DENSE);
@@ -98,9 +98,9 @@ class FILEX : public RegressionFixture<float> {
       allowed_storage_types.push_back(ML::fil::storage_type_t::SPARSE);
       allowed_storage_types.push_back(ML::fil::storage_type_t::SPARSE8);
     }
-    auto allowed_layouts = std::vector<raft_proto::tree_layout>{
-      raft_proto::tree_layout::breadth_first,
-      raft_proto::tree_layout::depth_first,
+    auto allowed_layouts = std::vector<ML::experimental::fil::tree_layout>{
+      ML::experimental::fil::tree_layout::breadth_first,
+      ML::experimental::fil::tree_layout::depth_first,
     };
     auto min_time = std::numeric_limits<std::int64_t>::max();
 

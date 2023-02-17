@@ -30,7 +30,7 @@
 #include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/exceptions.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/tree_layout.hpp>
+#include <cuml/experimental/fil/tree_layout.hpp>
 #include <limits>
 #include <optional>
 #include <variant>
@@ -62,7 +62,7 @@ namespace fil {
  * its most distant child. This type must be large enough to store the
  * largest such offset in the entire forest.
  */
-template <raft_proto::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
+template <tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
 struct decision_forest {
 
   /**
@@ -344,7 +344,7 @@ namespace detail {
  * 8191 features or contains nodes whose child is offset more than 2**16 - 1 = 65535 nodes away.
  */
 template<
-  raft_proto::tree_layout layout,
+  tree_layout layout,
   bool double_precision,
   bool large_trees
 >
@@ -424,7 +424,7 @@ inline auto get_forest_variant_index(
   index_type num_categorical_nodes = index_type{},
   index_type max_num_categories = index_type{},
   index_type num_vector_leaves = index_type{},
-  raft_proto::tree_layout layout = preferred_tree_layout
+  tree_layout layout = preferred_tree_layout
 ) {
   using small_index_t = typename detail::specialization_types<preferred_tree_layout, false, false>::index_type;
   auto max_local_categories = index_type(sizeof(small_index_t) * 8);
@@ -453,7 +453,7 @@ inline auto get_forest_variant_index(
     ) || max_node_offset > std::numeric_limits<small_offset_t>::max()
   );
 
-  auto layout_value = static_cast<std::underlying_type_t<raft_proto::tree_layout>>(layout);
+  auto layout_value = static_cast<std::underlying_type_t<tree_layout>>(layout);
 
   return (
     (index_type{layout_value} << index_type{2})

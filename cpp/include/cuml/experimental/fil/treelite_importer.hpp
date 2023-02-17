@@ -27,7 +27,7 @@
 #include <cuml/experimental/fil/exceptions.hpp>
 #include <cuml/experimental/fil/forest_model.hpp>
 #include <cuml/experimental/fil/postproc_ops.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/tree_layout.hpp>
+#include <cuml/experimental/fil/tree_layout.hpp>
 
 namespace ML {
 namespace experimental {
@@ -36,10 +36,10 @@ namespace fil {
 namespace detail {
 /** A template for storing nodes in either a depth or breadth-first traversal
  */
-template <raft_proto::tree_layout layout, typename T>
+template <tree_layout layout, typename T>
 struct traversal_container {
   using backing_container_t = std::conditional_t<
-    layout == raft_proto::tree_layout::depth_first,
+    layout == tree_layout::depth_first,
     std::stack<T>,
     std::queue<T>
   >;
@@ -47,7 +47,7 @@ struct traversal_container {
     data_.push(val);
   }
   void add(T const& hot, T const& distant) {
-    if constexpr (layout == raft_proto::tree_layout::depth_first) {
+    if constexpr (layout == tree_layout::depth_first) {
       data_.push(distant);
       data_.push(hot);
     } else {
@@ -95,7 +95,7 @@ struct traversal_container {
  *
  * @tparam layout The in-memory layout for nodes to be loaded into FIL
  */
-template<raft_proto::tree_layout layout>
+template<tree_layout layout>
 struct treelite_importer {
   template<typename tl_threshold_t, typename tl_output_t>
   struct treelite_node {
@@ -667,7 +667,7 @@ struct treelite_importer {
    */
 auto import_from_treelite_model(
   treelite::Model const& tl_model,
-  raft_proto::tree_layout layout=preferred_tree_layout,
+  tree_layout layout=preferred_tree_layout,
   index_type align_bytes = index_type{},
   std::optional<bool> use_double_precision = std::nullopt,
   raft_proto::device_type dev_type=raft_proto::device_type::cpu,
@@ -676,8 +676,8 @@ auto import_from_treelite_model(
 ) {
   auto result = forest_model{};
   switch(layout) {
-    case raft_proto::tree_layout::depth_first:
-      result = treelite_importer<raft_proto::tree_layout::depth_first>{}.import(
+    case tree_layout::depth_first:
+      result = treelite_importer<tree_layout::depth_first>{}.import(
         tl_model,
         align_bytes,
         use_double_precision,
@@ -686,8 +686,8 @@ auto import_from_treelite_model(
         stream
       );
       break;
-    case raft_proto::tree_layout::breadth_first:
-      result = treelite_importer<raft_proto::tree_layout::breadth_first>{}.import(
+    case tree_layout::breadth_first:
+      result = treelite_importer<tree_layout::breadth_first>{}.import(
         tl_model,
         align_bytes,
         use_double_precision,
@@ -721,7 +721,7 @@ auto import_from_treelite_model(
  */
 auto import_from_treelite_handle(
   ModelHandle tl_handle,
-  raft_proto::tree_layout layout=preferred_tree_layout,
+  tree_layout layout=preferred_tree_layout,
   index_type align_bytes = index_type{},
   std::optional<bool> use_double_precision = std::nullopt,
   raft_proto::device_type dev_type=raft_proto::device_type::cpu,

@@ -18,7 +18,7 @@
 #include <type_traits>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/tree_layout.hpp>
+#include <cuml/experimental/fil/tree_layout.hpp>
 
 namespace ML {
 namespace experimental {
@@ -96,7 +96,7 @@ auto constexpr get_node_alignment() {
  * this node to its most distant child. This type must be large enough to store
  * the largest such offset in the forest model.
  */
-template <raft_proto::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
+template <tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
 struct alignas(
   detail::get_node_alignment<threshold_t, index_t, metadata_storage_t, offset_t>()
 ) node {
@@ -178,12 +178,12 @@ struct alignas(
   }
   /* The offset to the child of this node if it evaluates to given condition */
   HOST DEVICE auto constexpr child_offset(bool condition) const {
-    if constexpr (layout == raft_proto::tree_layout::depth_first) {
+    if constexpr (layout == tree_layout::depth_first) {
       return offset_type{1} + condition * (aligned_data.inner_data.distant_offset - offset_type{1});
-    } else if constexpr (layout == raft_proto::tree_layout::breadth_first) {
+    } else if constexpr (layout == tree_layout::breadth_first) {
       return condition * offset_type{1} + (aligned_data.inner_data.distant_offset - offset_type{1});
     } else {
-      static_assert(layout == raft_proto::tree_layout::depth_first);
+      static_assert(layout == tree_layout::depth_first);
     }
   }
   /* The threshold value for this node */

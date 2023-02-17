@@ -18,7 +18,7 @@
 #include <cstdint>
 #include <type_traits>
 #include <variant>
-#include <cuml/experimental/fil/detail/raft_proto/tree_layout.hpp>
+#include <cuml/experimental/fil/tree_layout.hpp>
 namespace ML {
 namespace experimental {
 namespace fil {
@@ -38,7 +38,7 @@ namespace detail {
  * @tparam large_trees Whether this forest expects more than 2**(16 -3) - 1 =
  * 8191 features or contains nodes whose child is offset more than 2**16 - 1 = 65535 nodes away.
  */
-template <raft_proto::tree_layout layout_v, bool double_precision, bool large_trees>
+template <tree_layout layout_v, bool double_precision, bool large_trees>
 struct specialization_types {
   /* The node threshold type to be used based on the template parameters
    */
@@ -75,14 +75,14 @@ struct specialization_types {
  * in standard cuML FIL
  */
 using specialization_variant = std::variant<
-  specialization_types<raft_proto::tree_layout::depth_first, false, false>,
-  specialization_types<raft_proto::tree_layout::depth_first, false, true>,
-  specialization_types<raft_proto::tree_layout::depth_first, true, false>,
-  specialization_types<raft_proto::tree_layout::depth_first, true, true>,
-  specialization_types<raft_proto::tree_layout::breadth_first, false, false>,
-  specialization_types<raft_proto::tree_layout::breadth_first, false, true>,
-  specialization_types<raft_proto::tree_layout::breadth_first, true, false>,
-  specialization_types<raft_proto::tree_layout::breadth_first, true, true>
+  specialization_types<tree_layout::depth_first, false, false>,
+  specialization_types<tree_layout::depth_first, false, true>,
+  specialization_types<tree_layout::depth_first, true, false>,
+  specialization_types<tree_layout::depth_first, true, true>,
+  specialization_types<tree_layout::breadth_first, false, false>,
+  specialization_types<tree_layout::breadth_first, false, true>,
+  specialization_types<tree_layout::breadth_first, true, false>,
+  specialization_types<tree_layout::breadth_first, true, true>
 >;
 
 }

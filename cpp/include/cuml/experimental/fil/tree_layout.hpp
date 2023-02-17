@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 #pragma once
-namespace raft_proto {
+namespace ML {
+namespace experimental {
+namespace fil {
 enum class tree_layout : unsigned char {
   depth_first=0,
   breadth_first=1
 };
+}
+}
 }

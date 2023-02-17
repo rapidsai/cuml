@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/fil/detail/raft_proto/tree_layout.hpp>
+#include <cuml/experimental/fil/tree_layout.hpp>
 
 namespace ML {
 namespace experimental {
@@ -22,7 +22,7 @@ namespace fil {
   /**
    * The default memory layout for FIL trees if not otherwise specified
    */
-  auto constexpr static const preferred_tree_layout = raft_proto::tree_layout::breadth_first;
+  auto constexpr static const preferred_tree_layout = tree_layout::breadth_first;
   /**
    * The number of bits used for flags in node metadata
    *

@@ -25,10 +25,10 @@ from libc.stdint cimport uint32_t, uintptr_t
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
 from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport cuda_stream as raft_proto_stream_t
 from cuml.experimental.fil.detail.raft_proto.device_type cimport device_type as raft_proto_device_t
 from cuml.experimental.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
-from cuml.experimental.fil.detail.raft_proto.tree_layout cimport tree_layout as raft_proto_tree_layout
 from cuml.experimental.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
 from cuml.experimental.fil.detail.raft_proto.optional cimport optional, nullopt
 from cuml.internals import set_api_output_dtype
@@ -187,7 +187,7 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
 cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil":
     forest_model import_from_treelite_handle(
         ModelHandle,
-        raft_proto_tree_layout,
+        fil_tree_layout,
         uint32_t,
         optional[bool],
         raft_proto_device_t,
@@ -239,11 +239,11 @@ cdef class ForestInference_impl():
             dev_type = raft_proto_device_t.gpu
         else:
             dev_type = raft_proto_device_t.cpu
-        cdef raft_proto_tree_layout tree_layout
+        cdef fil_tree_layout tree_layout
         if layout.lower() == 'breadth_first':
-            tree_layout = raft_proto_tree_layout.breadth_first
+            tree_layout = fil_tree_layout.breadth_first
         else:
-            tree_layout = raft_proto_tree_layout.depth_first
+            tree_layout = fil_tree_layout.depth_first
 
         self.model = import_from_treelite_handle(
             <ModelHandle><uintptr_t>model_handle,
