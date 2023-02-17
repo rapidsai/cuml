@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 #include <cuml/fil/fil.h>
 #include <cuml/experimental/fil/treelite_importer.hpp>
-#include <cuml/experimental/kayak/device_type.hpp>
-#include <cuml/experimental/kayak/tree_layout.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/tree_layout.hpp>
 
 #include "benchmark.cuh"
 #include <chrono>
@@ -67,10 +67,10 @@ class FILEX : public RegressionFixture<float> {
 
     auto filex_model = ML::experimental::fil::import_from_treelite_handle(
       model,
-      kayak::tree_layout::breadth_first,
+      raft_proto::tree_layout::breadth_first,
       128,
       false,
-      kayak::device_type::gpu,
+      raft_proto::device_type::gpu,
       0,
       stream
     );
@@ -88,7 +88,7 @@ class FILEX : public RegressionFixture<float> {
     auto optimal_chunk_size = 1;
     auto optimal_storage_type = p_rest.storage;
     auto optimal_algo_type = ML::fil::algo_t::NAIVE;
-    auto optimal_layout = kayak::tree_layout::breadth_first;
+    auto optimal_layout = raft_proto::tree_layout::breadth_first;
     auto allowed_storage_types = std::vector<ML::fil::storage_type_t>{};
     if (p_rest.storage == ML::fil::storage_type_t::DENSE) {
       allowed_storage_types.push_back(ML::fil::storage_type_t::DENSE);
@@ -98,9 +98,9 @@ class FILEX : public RegressionFixture<float> {
       allowed_storage_types.push_back(ML::fil::storage_type_t::SPARSE);
       allowed_storage_types.push_back(ML::fil::storage_type_t::SPARSE8);
     }
-    auto allowed_layouts = std::vector<kayak::tree_layout>{
-      kayak::tree_layout::breadth_first,
-      kayak::tree_layout::depth_first,
+    auto allowed_layouts = std::vector<raft_proto::tree_layout>{
+      raft_proto::tree_layout::breadth_first,
+      raft_proto::tree_layout::depth_first,
     };
     auto min_time = std::numeric_limits<std::int64_t>::max();
 
@@ -122,7 +122,7 @@ class FILEX : public RegressionFixture<float> {
             layout,
             128,
             false,
-            kayak::device_type::gpu,
+            raft_proto::device_type::gpu,
             0,
             stream
           );
@@ -143,8 +143,8 @@ class FILEX : public RegressionFixture<float> {
                   data.y.data(),
                   data.X.data(),
                   params.nrows,
-                  kayak::device_type::gpu,
-                  kayak::device_type::gpu,
+                  raft_proto::device_type::gpu,
+                  raft_proto::device_type::gpu,
                   chunk_size
                 );
               } else {
@@ -199,7 +199,7 @@ class FILEX : public RegressionFixture<float> {
       optimal_layout,
       128,
       false,
-      kayak::device_type::gpu,
+      raft_proto::device_type::gpu,
       0,
       stream
     );
@@ -216,8 +216,8 @@ class FILEX : public RegressionFixture<float> {
             this->data.y.data(),
             this->data.X.data(),
             this->params.nrows,
-            kayak::device_type::gpu,
-            kayak::device_type::gpu,
+            raft_proto::device_type::gpu,
+            raft_proto::device_type::gpu,
             optimal_chunk_size
           );
           handle->sync_stream();
