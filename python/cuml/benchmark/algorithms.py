@@ -278,7 +278,7 @@ def all_algorithms():
         ),
         AlgorithmPair(
             hdbscan.HDBSCAN
-            if has_hdbscan_prediction(raise_if_unavailable=True)
+            if has_hdbscan_prediction(raise_if_unavailable=False)
             else None,
             cuml.cluster.HDBSCAN,
             shared_args={},
