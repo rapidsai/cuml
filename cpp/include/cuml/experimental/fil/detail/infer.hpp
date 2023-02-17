@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <cstddef>
 #include <iostream>
@@ -10,9 +25,9 @@
 #endif
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <cuml/experimental/fil/exceptions.hpp>
-#include <cuml/experimental/kayak/cuda_stream.hpp>
-#include <cuml/experimental/kayak/device_id.hpp>
-#include <cuml/experimental/kayak/device_type.hpp>
+#include <cuml/experimental/raft_proto/cuda_stream.hpp>
+#include <cuml/experimental/raft_proto/device_id.hpp>
+#include <cuml/experimental/raft_proto/device_type.hpp>
 namespace ML {
 namespace experimental {
 namespace fil {
@@ -42,7 +57,7 @@ namespace detail {
  * @param device The device on which to execute evaluation
  * @param stream Optionally, the CUDA stream to use
  */
-template<kayak::device_type D, typename forest_t>
+template<raft_proto::device_type D, typename forest_t>
 void infer(
   forest_t const& forest,
   postprocessor<typename forest_t::io_type> const& postproc,
@@ -55,8 +70,8 @@ void infer(
   typename forest_t::io_type* vector_output=nullptr,
   typename forest_t::node_type::index_type* categorical_data=nullptr,
   std::optional<index_type> specified_chunk_size=std::nullopt,
-  kayak::device_id<D> device=kayak::device_id<D>{},
-  kayak::cuda_stream stream=kayak::cuda_stream{}
+  raft_proto::device_id<D> device=raft_proto::device_id<D>{},
+  raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
 ) {
   if (vector_output == nullptr) {
     if (categorical_data == nullptr) {

@@ -1,6 +1,21 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <stddef.h>
-#include <cuml/experimental/kayak/gpu_support.hpp>
+#include <cuml/experimental/raft_proto/gpu_support.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/node.hpp>
 
@@ -10,7 +25,7 @@ namespace fil {
 
 /* A collection of trees which together form a forest model
  */
-template <kayak::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
+template <raft_proto::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
 struct forest {
   using node_type = node<layout_v, threshold_t, index_t, metadata_storage_t, offset_t>;
   using io_type = threshold_t;

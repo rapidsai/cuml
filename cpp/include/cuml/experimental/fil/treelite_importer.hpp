@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <cstddef>
 #include <queue>
@@ -12,7 +27,7 @@
 #include <cuml/experimental/fil/exceptions.hpp>
 #include <cuml/experimental/fil/forest_model.hpp>
 #include <cuml/experimental/fil/postproc_ops.hpp>
-#include <cuml/experimental/kayak/tree_layout.hpp>
+#include <cuml/experimental/raft_proto/tree_layout.hpp>
 
 namespace ML {
 namespace experimental {
@@ -21,10 +36,10 @@ namespace fil {
 namespace detail {
 /** A template for storing nodes in either a depth or breadth-first traversal
  */
-template <kayak::tree_layout layout, typename T>
+template <raft_proto::tree_layout layout, typename T>
 struct traversal_container {
   using backing_container_t = std::conditional_t<
-    layout == kayak::tree_layout::depth_first,
+    layout == raft_proto::tree_layout::depth_first,
     std::stack<T>,
     std::queue<T>
   >;
@@ -32,7 +47,7 @@ struct traversal_container {
     data_.push(val);
   }
   void add(T const& hot, T const& distant) {
-    if constexpr (layout == kayak::tree_layout::depth_first) {
+    if constexpr (layout == raft_proto::tree_layout::depth_first) {
       data_.push(distant);
       data_.push(hot);
     } else {
@@ -80,7 +95,7 @@ struct traversal_container {
  *
  * @tparam layout The in-memory layout for nodes to be loaded into FIL
  */
-template<kayak::tree_layout layout>
+template<raft_proto::tree_layout layout>
 struct treelite_importer {
   template<typename tl_threshold_t, typename tl_output_t>
   struct treelite_node {
@@ -473,9 +488,9 @@ struct treelite_importer {
     index_type max_num_categories,
     std::vector<std::vector<index_type>> const& offsets,
     index_type align_bytes = index_type{},
-    kayak::device_type mem_type=kayak::device_type::cpu,
+    raft_proto::device_type mem_type=raft_proto::device_type::cpu,
     int device=0,
-    kayak::cuda_stream stream=kayak::cuda_stream{}
+    raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
   ) {
     auto result = decision_forest_variant{};
     if constexpr (variant_index != std::variant_size_v<decision_forest_variant>) {
@@ -577,9 +592,9 @@ struct treelite_importer {
     treelite::Model const& tl_model,
     index_type align_bytes = index_type{},
     std::optional<bool> use_double_precision = std::nullopt,
-    kayak::device_type dev_type=kayak::device_type::cpu,
+    raft_proto::device_type dev_type=raft_proto::device_type::cpu,
     int device=0,
-    kayak::cuda_stream stream=kayak::cuda_stream{}
+    raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
   ) {
     auto result = decision_forest_variant{};
     auto num_feature = get_num_feature(tl_model);
@@ -652,17 +667,17 @@ struct treelite_importer {
    */
 auto import_from_treelite_model(
   treelite::Model const& tl_model,
-  kayak::tree_layout layout=preferred_tree_layout,
+  raft_proto::tree_layout layout=preferred_tree_layout,
   index_type align_bytes = index_type{},
   std::optional<bool> use_double_precision = std::nullopt,
-  kayak::device_type dev_type=kayak::device_type::cpu,
+  raft_proto::device_type dev_type=raft_proto::device_type::cpu,
   int device=0,
-  kayak::cuda_stream stream=kayak::cuda_stream{}
+  raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
 ) {
   auto result = forest_model{};
   switch(layout) {
-    case kayak::tree_layout::depth_first:
-      result = treelite_importer<kayak::tree_layout::depth_first>{}.import(
+    case raft_proto::tree_layout::depth_first:
+      result = treelite_importer<raft_proto::tree_layout::depth_first>{}.import(
         tl_model,
         align_bytes,
         use_double_precision,
@@ -671,8 +686,8 @@ auto import_from_treelite_model(
         stream
       );
       break;
-    case kayak::tree_layout::breadth_first:
-      result = treelite_importer<kayak::tree_layout::breadth_first>{}.import(
+    case raft_proto::tree_layout::breadth_first:
+      result = treelite_importer<raft_proto::tree_layout::breadth_first>{}.import(
         tl_model,
         align_bytes,
         use_double_precision,
@@ -706,12 +721,12 @@ auto import_from_treelite_model(
  */
 auto import_from_treelite_handle(
   ModelHandle tl_handle,
-  kayak::tree_layout layout=preferred_tree_layout,
+  raft_proto::tree_layout layout=preferred_tree_layout,
   index_type align_bytes = index_type{},
   std::optional<bool> use_double_precision = std::nullopt,
-  kayak::device_type dev_type=kayak::device_type::cpu,
+  raft_proto::device_type dev_type=raft_proto::device_type::cpu,
   int device=0,
-  kayak::cuda_stream stream=kayak::cuda_stream{}
+  raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
 ) {
   return import_from_treelite_model(
     *static_cast<treelite::Model*>(tl_handle),

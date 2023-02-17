@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <cstddef>
 #include <optional>
@@ -9,12 +24,12 @@
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <cuml/experimental/fil/detail/specializations/infer_macros.hpp>
 #include <cuml/experimental/fil/exceptions.hpp>
-#include <cuml/experimental/kayak/ceildiv.hpp>
-#include <cuml/experimental/kayak/cuda_stream.hpp>
-#include <cuml/experimental/kayak/device_id.hpp>
-#include <cuml/experimental/kayak/device_type.hpp>
-#include <cuml/experimental/kayak/gpu_support.hpp>
-#include <cuml/experimental/kayak/padding.hpp>
+#include <cuml/experimental/raft_proto/ceildiv.hpp>
+#include <cuml/experimental/raft_proto/cuda_stream.hpp>
+#include <cuml/experimental/raft_proto/device_id.hpp>
+#include <cuml/experimental/raft_proto/device_type.hpp>
+#include <cuml/experimental/raft_proto/gpu_support.hpp>
+#include <cuml/experimental/raft_proto/padding.hpp>
 
 namespace ML {
 namespace experimental {
@@ -27,7 +42,7 @@ inline auto compute_output_size(
   index_type threads_per_block,
   index_type rows_per_block_iteration
 ) {
-  return row_output_size * kayak::ceildiv(
+  return row_output_size * raft_proto::ceildiv(
     threads_per_block,
     rows_per_block_iteration
   ) * rows_per_block_iteration;
@@ -66,13 +81,13 @@ inline auto compute_output_size(
  * of 2 from 1 to 32.
  */
 template<
-  kayak::device_type D,
+  raft_proto::device_type D,
   bool has_categorical_nodes,
   typename forest_t,
   typename vector_output_t=std::nullptr_t,
   typename categorical_data_t=std::nullptr_t
 >
-std::enable_if_t<D==kayak::device_type::gpu, void> infer(
+std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   forest_t const& forest,
   postprocessor<typename forest_t::io_type> const& postproc,
   typename forest_t::io_type* output,
@@ -83,8 +98,8 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
   vector_output_t vector_output=nullptr,
   categorical_data_t categorical_data=nullptr,
   std::optional<index_type> specified_chunk_size=std::nullopt,
-  kayak::device_id<D> device=kayak::device_id<D>{},
-  kayak::cuda_stream stream=kayak::cuda_stream{}
+  raft_proto::device_id<D> device=raft_proto::device_id<D>{},
+  raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
 ) {
 
   auto sm_count = get_sm_count(device);
@@ -105,7 +120,7 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
   // block.
   auto threads_per_block = min(
     MAX_THREADS_PER_BLOCK,
-    kayak::downpadded_size(
+    raft_proto::downpadded_size(
       (max_shared_mem_per_block  - row_size_bytes) / row_output_size_bytes,
       WARP_SIZE
     )
@@ -117,7 +132,7 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
     row_size_bytes = index_type{};  // Do not store input rows in shared mem
     threads_per_block = min(
       MAX_THREADS_PER_BLOCK,
-      kayak::downpadded_size(
+      raft_proto::downpadded_size(
         max_shared_mem_per_block / row_output_size_bytes,
         WARP_SIZE
       )
@@ -158,7 +173,7 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
   );
 
   auto resident_blocks_per_sm = min(
-    kayak::ceildiv(max_shared_mem_per_sm, shared_mem_per_block),
+    raft_proto::ceildiv(max_shared_mem_per_sm, shared_mem_per_block),
     max_resident_blocks
   );
 
@@ -192,7 +207,7 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
   );
 
   auto num_blocks = std::min(
-    kayak::ceildiv(row_count, rows_per_block_iteration),
+    raft_proto::ceildiv(row_count, rows_per_block_iteration),
     MAX_BLOCKS
   );
   if (rows_per_block_iteration <= 1) {
@@ -310,7 +325,7 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
       categorical_data
     );
   }
-  kayak::cuda_check(cudaGetLastError());
+  raft_proto::cuda_check(cudaGetLastError());
 }
 
 /* This macro is invoked here to declare all standard specializations of this
@@ -318,14 +333,14 @@ std::enable_if_t<D==kayak::device_type::gpu, void> infer(
  * compiled as few times as possible. A macro is used because ever
  * specialization must be explicitly declared. The final argument to the macro
  * references the 8 specialization variants compiled in standard cuML FIL. */
-CUML_FIL_INFER_ALL(extern template, kayak::device_type::gpu, 0)
-CUML_FIL_INFER_ALL(extern template, kayak::device_type::gpu, 1)
-CUML_FIL_INFER_ALL(extern template, kayak::device_type::gpu, 2)
-CUML_FIL_INFER_ALL(extern template, kayak::device_type::gpu, 3)
-CUML_FIL_INFER_ALL(extern template, kayak::device_type::gpu, 4)
-CUML_FIL_INFER_ALL(extern template, kayak::device_type::gpu, 5)
-CUML_FIL_INFER_ALL(extern template, kayak::device_type::gpu, 6)
-CUML_FIL_INFER_ALL(extern template, kayak::device_type::gpu, 7)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::gpu, 0)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::gpu, 1)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::gpu, 2)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::gpu, 3)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::gpu, 4)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::gpu, 5)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::gpu, 6)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::gpu, 7)
 
 }
 }

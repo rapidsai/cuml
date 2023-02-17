@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <cstddef>
 #include <optional>
@@ -8,10 +23,10 @@
 #include <cuml/experimental/fil/detail/infer_kernel/cpu.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <cuml/experimental/fil/detail/specializations/infer_macros.hpp>
-#include <cuml/experimental/kayak/cuda_stream.hpp>
-#include <cuml/experimental/kayak/device_id.hpp>
-#include <cuml/experimental/kayak/device_type.hpp>
-#include <cuml/experimental/kayak/gpu_support.hpp>
+#include <cuml/experimental/raft_proto/cuda_stream.hpp>
+#include <cuml/experimental/raft_proto/device_id.hpp>
+#include <cuml/experimental/raft_proto/device_type.hpp>
+#include <cuml/experimental/raft_proto/gpu_support.hpp>
 namespace ML {
 namespace experimental {
 namespace fil {
@@ -55,13 +70,13 @@ namespace inference {
  * inference). A value of 64 is a generally-useful default.
  */
 template<
-  kayak::device_type D,
+  raft_proto::device_type D,
   bool has_categorical_nodes,
   typename forest_t,
   typename vector_output_t=std::nullptr_t,
   typename categorical_data_t=std::nullptr_t
 >
-std::enable_if_t<D==kayak::device_type::cpu || !kayak::GPU_ENABLED, void> infer(
+std::enable_if_t<D==raft_proto::device_type::cpu || !raft_proto::GPU_ENABLED, void> infer(
   forest_t const& forest,
   postprocessor<typename forest_t::io_type> const& postproc,
   typename forest_t::io_type* output,
@@ -72,11 +87,11 @@ std::enable_if_t<D==kayak::device_type::cpu || !kayak::GPU_ENABLED, void> infer(
   vector_output_t vector_output=nullptr,
   categorical_data_t categorical_data=nullptr,
   std::optional<index_type> specified_chunk_size=std::nullopt,
-  kayak::device_id<D> device=kayak::device_id<D>{},
-  kayak::cuda_stream=kayak::cuda_stream{}
+  raft_proto::device_id<D> device=raft_proto::device_id<D>{},
+  raft_proto::cuda_stream=raft_proto::cuda_stream{}
 ) {
-  if constexpr(D==kayak::device_type::gpu) {
-    throw kayak::gpu_unsupported("Tried to use GPU inference in CPU-only build");
+  if constexpr(D==raft_proto::device_type::gpu) {
+    throw raft_proto::gpu_unsupported("Tried to use GPU inference in CPU-only build");
   } else {
     infer_kernel_cpu<has_categorical_nodes>(
       forest,
@@ -99,14 +114,14 @@ std::enable_if_t<D==kayak::device_type::cpu || !kayak::GPU_ENABLED, void> infer(
  * compiled as few times as possible. A macro is used because ever
  * specialization must be explicitly declared. The final argument to the macro
  * references the 8 specialization variants compiled in standard cuML FIL. */
-CUML_FIL_INFER_ALL(extern template, kayak::device_type::cpu, 0)
-CUML_FIL_INFER_ALL(extern template, kayak::device_type::cpu, 1)
-CUML_FIL_INFER_ALL(extern template, kayak::device_type::cpu, 2)
-CUML_FIL_INFER_ALL(extern template, kayak::device_type::cpu, 3)
-CUML_FIL_INFER_ALL(extern template, kayak::device_type::cpu, 4)
-CUML_FIL_INFER_ALL(extern template, kayak::device_type::cpu, 5)
-CUML_FIL_INFER_ALL(extern template, kayak::device_type::cpu, 6)
-CUML_FIL_INFER_ALL(extern template, kayak::device_type::cpu, 7)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 0)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 1)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 2)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 3)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 4)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 5)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 6)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 7)
 
 }
 }

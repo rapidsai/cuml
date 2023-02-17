@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <cstddef>
 #include <iostream>
@@ -8,7 +23,7 @@
 #include <cuml/experimental/fil/detail/evaluate_tree.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
-#include <cuml/experimental/kayak/ceildiv.hpp>
+#include <cuml/experimental/raft_proto/ceildiv.hpp>
 
 namespace ML {
 namespace experimental {
@@ -76,8 +91,8 @@ void infer_kernel_cpu(
   >;
 
   auto const num_tree = forest.tree_count();
-  auto const num_grove = kayak::ceildiv(num_tree, grove_size);
-  auto const num_chunk = kayak::ceildiv(row_count, chunk_size);
+  auto const num_grove = raft_proto::ceildiv(num_tree, grove_size);
+  auto const num_chunk = raft_proto::ceildiv(row_count, chunk_size);
 
   auto output_workspace = std::vector<output_t>(
     row_count * num_outputs * num_grove,

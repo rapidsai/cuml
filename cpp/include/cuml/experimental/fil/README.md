@@ -21,9 +21,9 @@ available in the top-level include directory. The `detail` directory
 contains implementation details that are not required to use FIL and which
 will certainly change over time.
 
-**A NOTE ON THE `kayak` NAMESPACE:** For the first iteration of this FIL
+**A NOTE ON THE `raft_proto` NAMESPACE:** For the first iteration of this FIL
 implementation, much of the more general-purpose CPU-GPU interoperable code
-has temporarily been put in the `kayak` namespace. As the name suggests,
+has temporarily been put in the `raft_proto` namespace. As the name suggests,
 the intention is that most or all of this functionality will either be moved
 to RAFT or that RAFT features will be updated to provide CPU-GPU
 compatible versions of the same. The public API includes just a few
@@ -54,7 +54,7 @@ auto fil_model = import_from_treelite_model(
   *tl_model,  // The Treelite model
   128u,  // align_bytes
   false,  // use_double_precision
-  kayak::device_type::gpu,  // mem_type
+  raft_proto::device_type::gpu,  // mem_type
   0,  // device_id
   stream  // CUDA stream
 );
@@ -73,7 +73,7 @@ serialization format will be used. Otherwise, the model will be evaluated
 at double precision if this value is set to `true` or single precision if this
 value is set to `false`.
 
-**dev_type**: This argument controls where the model will be executed. If `kayak::device_type::gpu`, then it will be executed on GPU. If `kayak::device_type::cpu`, then it will be executed on CPU.
+**dev_type**: This argument controls where the model will be executed. If `raft_proto::device_type::gpu`, then it will be executed on GPU. If `raft_proto::device_type::cpu`, then it will be executed on CPU.
 
 **device_id**: This integer indicates the ID of the GPU which should be used.
 If CPU is being used, this argument is ignored.
@@ -81,9 +81,9 @@ If CPU is being used, this argument is ignored.
 **stream**: The CUDA stream which will be used for the actual model import.
 If CPU is being used, this argument is ignored. Note that you do *not* need
 CUDA headers if you are working with a CPU-only build of FIL. This
-argument uses a `kayak::cuda_stream` type which evaluates to a
+argument uses a `raft_proto::cuda_stream` type which evaluates to a
 placeholder type in CPU-only builds. For applications which themselves want to
-implement CPU-GPU interoperable builds, the `kayak::cuda_stream` type can be
+implement CPU-GPU interoperable builds, the `raft_proto::cuda_stream` type can be
 used directly.
 
 
@@ -105,25 +105,25 @@ cudaMalloc((void**)&output, num_rows * num_outputs * sizeof(float));
 
 // Assuming that input is a float* pointing to data already located on-device
 
-auto handle = kayak::handle_t{};
+auto handle = raft_proto::handle_t{};
 
 fil_model.predict(
   handle,
   output,
   input,
   num_rows,
-  kayak::device_type::gpu,  // out_mem_type
-  kayak::device_type::gpu,  // in_mem_type
+  raft_proto::device_type::gpu,  // out_mem_type
+  raft_proto::device_type::gpu,  // in_mem_type
   out_mem_type,
   4  // chunk_size
 );
 ```
 
 **handle**: To provide a unified interface on CPU and GPU, we introduce
-`kayak::handle_t` as a wrapper for `raft::handle_t`. This is currently just a
+`raft_proto::handle_t` as a wrapper for `raft::handle_t`. This is currently just a
 placeholder in CPU-only builds, and using it does not require any CUDA
 functionality. For GPU-enabled builds, you can construct a
-`kayak_handle_t` directly from the `raft::handle_t` you wish to use.
+`raft_proto_handle_t` directly from the `raft::handle_t` you wish to use.
 
 **output**: Pointer to pre-allocated buffer where results should be
 written. If the model has been loaded at single precision, this should be a

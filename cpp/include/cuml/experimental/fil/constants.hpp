@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/kayak/tree_layout.hpp>
+#include <cuml/experimental/raft_proto/tree_layout.hpp>
 
 namespace ML {
 namespace experimental {
@@ -22,7 +22,7 @@ namespace fil {
   /**
    * The default memory layout for FIL trees if not otherwise specified
    */
-  auto constexpr static const preferred_tree_layout = kayak::tree_layout::breadth_first;
+  auto constexpr static const preferred_tree_layout = raft_proto::tree_layout::breadth_first;
   /**
    * The number of bits used for flags in node metadata
    *

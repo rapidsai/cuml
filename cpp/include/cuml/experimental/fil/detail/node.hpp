@@ -1,9 +1,24 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <iostream>
 #include <type_traits>
 #include <cuml/experimental/fil/detail/index_type.hpp>
-#include <cuml/experimental/kayak/gpu_support.hpp>
-#include <cuml/experimental/kayak/tree_layout.hpp>
+#include <cuml/experimental/raft_proto/gpu_support.hpp>
+#include <cuml/experimental/raft_proto/tree_layout.hpp>
 
 namespace ML {
 namespace experimental {
@@ -81,7 +96,7 @@ auto constexpr get_node_alignment() {
  * this node to its most distant child. This type must be large enough to store
  * the largest such offset in the forest model.
  */
-template <kayak::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
+template <raft_proto::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
 struct alignas(
   detail::get_node_alignment<threshold_t, index_t, metadata_storage_t, offset_t>()
 ) node {
@@ -163,12 +178,12 @@ struct alignas(
   }
   /* The offset to the child of this node if it evaluates to given condition */
   HOST DEVICE auto constexpr child_offset(bool condition) const {
-    if constexpr (layout == kayak::tree_layout::depth_first) {
+    if constexpr (layout == raft_proto::tree_layout::depth_first) {
       return offset_type{1} + condition * (aligned_data.inner_data.distant_offset - offset_type{1});
-    } else if constexpr (layout == kayak::tree_layout::breadth_first) {
+    } else if constexpr (layout == raft_proto::tree_layout::breadth_first) {
       return condition * offset_type{1} + (aligned_data.inner_data.distant_offset - offset_type{1});
     } else {
-      static_assert(layout == kayak::tree_layout::depth_first);
+      static_assert(layout == raft_proto::tree_layout::depth_first);
     }
   }
   /* The threshold value for this node */

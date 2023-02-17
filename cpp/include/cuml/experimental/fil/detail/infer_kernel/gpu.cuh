@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <cstddef>
 #include <stddef.h>
@@ -6,8 +21,8 @@
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <cuml/experimental/fil/detail/infer_kernel/shared_memory_buffer.cuh>
-#include <cuml/experimental/kayak/ceildiv.hpp>
-#include <cuml/experimental/kayak/padding.hpp>
+#include <cuml/experimental/raft_proto/ceildiv.hpp>
+#include <cuml/experimental/raft_proto/padding.hpp>
 
 namespace ML {
 namespace experimental {
@@ -109,7 +124,7 @@ infer_kernel(
 
     auto task_count = chunk_size * forest.tree_count();
 
-    auto num_grove = kayak::ceildiv(
+    auto num_grove = raft_proto::ceildiv(
       min(index_type(blockDim.x), task_count),
       chunk_size
     );
@@ -122,7 +137,7 @@ infer_kernel(
     // deadlock on __syncthreads, so we round the task_count up to the next
     // multiple of the number of threads in this block. We then only perform
     // work within the loop if the task_index is below the actual task_count.
-    auto const task_count_rounded_up = blockDim.x * kayak::ceildiv(task_count, blockDim.x);
+    auto const task_count_rounded_up = blockDim.x * raft_proto::ceildiv(task_count, blockDim.x);
 
     // Infer on each tree and row
     for (
@@ -181,7 +196,7 @@ infer_kernel(
       __syncthreads();
     }
 
-    auto padded_num_groves = kayak::padded_size(num_grove, WARP_SIZE);
+    auto padded_num_groves = raft_proto::padded_size(num_grove, WARP_SIZE);
     for (
       auto row_index = threadIdx.x / WARP_SIZE;
       row_index < rows_in_this_iteration;

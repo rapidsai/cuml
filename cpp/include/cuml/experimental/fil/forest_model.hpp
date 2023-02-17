@@ -1,12 +1,27 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <cstddef>
 #include <type_traits>
 #include <variant>
 #include <cuml/experimental/fil/decision_forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
-#include <cuml/experimental/kayak/buffer.hpp>
-#include <cuml/experimental/kayak/gpu_support.hpp>
-#include <cuml/experimental/kayak/handle.hpp>
+#include <cuml/experimental/raft_proto/buffer.hpp>
+#include <cuml/experimental/raft_proto/gpu_support.hpp>
+#include <cuml/experimental/raft_proto/handle.hpp>
 
 namespace ML {
 namespace experimental {
@@ -67,7 +82,7 @@ struct forest_model {
    * @param[out] output The buffer where model output should be stored.
    * This must be of size at least ROWS x num_outputs().
    * @param[in] input The buffer containing input data.
-   * @param[in] stream A kayak::cuda_stream, which (on GPU-enabled builds) is
+   * @param[in] stream A raft_proto::cuda_stream, which (on GPU-enabled builds) is
    * a transparent wrapper for the cudaStream_t or (on CPU-only builds) a
    * CUDA-free placeholder object.
    * @param[in] specified_chunk_size: Specifies the mini-batch size for
@@ -81,9 +96,9 @@ struct forest_model {
    */
   template <typename io_t>
   void predict(
-    kayak::buffer<io_t>& output,
-    kayak::buffer<io_t> const& input,
-    kayak::cuda_stream stream = kayak::cuda_stream{},
+    raft_proto::buffer<io_t>& output,
+    raft_proto::buffer<io_t> const& input,
+    raft_proto::cuda_stream stream = raft_proto::cuda_stream{},
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
     std::visit([this, &output, &input, &stream, &specified_chunk_size](auto&& concrete_forest) {
@@ -98,7 +113,7 @@ struct forest_model {
   /**
    * Perform inference on given input
    *
-   * @param[in] handle The kayak::handle_t (wrapper for raft::handle_t
+   * @param[in] handle The raft_proto::handle_t (wrapper for raft::handle_t
    * on GPU) which will be used to provide streams for evaluation.
    * @param[out] output The buffer where model output should be stored. If
    * this buffer is on host while the model is on device or vice versa,
@@ -119,9 +134,9 @@ struct forest_model {
    */
   template <typename io_t>
   void predict(
-    kayak::handle_t const& handle,
-    kayak::buffer<io_t>& output,
-    kayak::buffer<io_t> const& input,
+    raft_proto::handle_t const& handle,
+    raft_proto::buffer<io_t>& output,
+    raft_proto::buffer<io_t> const& input,
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
     std::visit([this, &handle, &output, &input, &specified_chunk_size](auto&& concrete_forest) {
@@ -140,20 +155,20 @@ struct forest_model {
 
           auto row_count = input.size() / num_feature();
           auto partition_size = std::max(
-            kayak::ceildiv(row_count, handle.get_usable_stream_count()),
+            raft_proto::ceildiv(row_count, handle.get_usable_stream_count()),
             specified_chunk_size.value_or(MAX_CHUNK_SIZE) * MIN_CHUNKS_PER_PARTITION
           );
-          auto partition_count = kayak::ceildiv(row_count, partition_size);
+          auto partition_count = raft_proto::ceildiv(row_count, partition_size);
           for (auto i = std::size_t{}; i < partition_count; ++i) {
             auto stream = handle.get_next_usable_stream();
             auto rows_in_this_partition = std::min(partition_size, row_count - i * partition_size);
-            auto partition_in = kayak::buffer<io_t>{};
+            auto partition_in = raft_proto::buffer<io_t>{};
             if (input.memory_type() != memory_type()) {
-              partition_in = kayak::buffer<io_t>{
+              partition_in = raft_proto::buffer<io_t>{
                 rows_in_this_partition * num_feature(),
                 memory_type()
               };
-              kayak::copy<kayak::DEBUG_ENABLED>(
+              raft_proto::copy<raft_proto::DEBUG_ENABLED>(
                 partition_in,
                 input,
                 0,
@@ -162,20 +177,20 @@ struct forest_model {
                 stream
               );
             } else {
-              partition_in = kayak::buffer<io_t>{
+              partition_in = raft_proto::buffer<io_t>{
                 input.data() + i * partition_size * num_feature(),
                 rows_in_this_partition * num_feature(),
                 memory_type()
               };
             }
-            auto partition_out = kayak::buffer<io_t>{};
+            auto partition_out = raft_proto::buffer<io_t>{};
             if (output.memory_type() != memory_type()) {
-              partition_out = kayak::buffer<io_t>{
+              partition_out = raft_proto::buffer<io_t>{
                 rows_in_this_partition * num_outputs(),
                 memory_type()
               };
             } else {
-              partition_out = kayak::buffer<io_t>{
+              partition_out = raft_proto::buffer<io_t>{
                 output.data() + i * partition_size * num_outputs(),
                 rows_in_this_partition * num_outputs(),
                 memory_type()
@@ -188,7 +203,7 @@ struct forest_model {
               specified_chunk_size
             );
             if (output.memory_type() != memory_type()) {
-              kayak::copy<kayak::DEBUG_ENABLED>(
+              raft_proto::copy<raft_proto::DEBUG_ENABLED>(
                 output,
                 partition_out,
                 i * partition_size * num_outputs(),
@@ -208,7 +223,7 @@ struct forest_model {
   /**
    * Perform inference on given input
    *
-   * @param[in] handle The kayak::handle_t (wrapper for raft::handle_t
+   * @param[in] handle The raft_proto::handle_t (wrapper for raft::handle_t
    * on GPU) which will be used to provide streams for evaluation.
    * @param[out] output Pointer to the memory location where output should end
    * up
@@ -228,21 +243,21 @@ struct forest_model {
    */
   template <typename io_t>
   void predict(
-    kayak::handle_t const& handle,
+    raft_proto::handle_t const& handle,
     io_t* output,
     io_t* input,
     std::size_t num_rows,
-    kayak::device_type out_mem_type,
-    kayak::device_type in_mem_type,
+    raft_proto::device_type out_mem_type,
+    raft_proto::device_type in_mem_type,
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
     // TODO(wphicks): Make sure buffer lands on same device as model
-    auto out_buffer = kayak::buffer{
+    auto out_buffer = raft_proto::buffer{
       output,
       num_rows * num_outputs(),
       out_mem_type
     };
-    auto in_buffer = kayak::buffer{
+    auto in_buffer = raft_proto::buffer{
       input,
       num_rows * num_feature(),
       in_mem_type

@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <algorithm>
 #include <cmath>
@@ -10,11 +25,11 @@
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/exceptions.hpp>
-#include <cuml/experimental/kayak/buffer.hpp>
-#include <cuml/experimental/kayak/bitset.hpp>
-#include <cuml/experimental/kayak/ceildiv.hpp>
-#include <cuml/experimental/kayak/cuda_stream.hpp>
-#include <cuml/experimental/kayak/device_type.hpp>
+#include <cuml/experimental/raft_proto/buffer.hpp>
+#include <cuml/experimental/raft_proto/bitset.hpp>
+#include <cuml/experimental/raft_proto/ceildiv.hpp>
+#include <cuml/experimental/raft_proto/cuda_stream.hpp>
+#include <cuml/experimental/raft_proto/device_type.hpp>
 
 namespace ML {
 namespace experimental {
@@ -79,12 +94,12 @@ struct decision_forest_builder {
     if (max_num_categories_ > bin_width) {
       // TODO(wphicks): Check for overflow here
       node_value = categorical_storage_.size();
-      auto bins_required = kayak::ceildiv(max_node_categories, bin_width);
+      auto bins_required = raft_proto::ceildiv(max_node_categories, bin_width);
       categorical_storage_.push_back(max_node_categories);
       categorical_storage_.resize(categorical_storage_.size() + bins_required);
       set_storage = &(categorical_storage_[node_value + 1]);
     }
-    auto set = kayak::bitset{set_storage, max_node_categories};
+    auto set = raft_proto::bitset{set_storage, max_node_categories};
     std::for_each(
       vec_begin,
       vec_end, 
@@ -182,9 +197,9 @@ struct decision_forest_builder {
   auto get_decision_forest(
       index_type num_feature,
       index_type num_class,
-      kayak::device_type mem_type=kayak::device_type::cpu,
+      raft_proto::device_type mem_type=raft_proto::device_type::cpu,
       int device=0,
-      kayak::cuda_stream stream=kayak::cuda_stream{}
+      raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
   ) {
 
     // Allow narrowing for preprocessing constants. They are stored as doubles
@@ -193,14 +208,14 @@ struct decision_forest_builder {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wnarrowing"
     return decision_forest_t{
-      kayak::buffer{
-        kayak::buffer{nodes_.data(), nodes_.size()},
+      raft_proto::buffer{
+        raft_proto::buffer{nodes_.data(), nodes_.size()},
         mem_type,
         device,
         stream
       },
-      kayak::buffer{
-        kayak::buffer{root_node_indexes_.data(), root_node_indexes_.size()},
+      raft_proto::buffer{
+        raft_proto::buffer{root_node_indexes_.data(), root_node_indexes_.size()},
         mem_type,
         device,
         stream
@@ -210,16 +225,16 @@ struct decision_forest_builder {
       max_num_categories_ != 0,
       vector_output_.size() == 0 ?
         std::nullopt :
-        std::make_optional<kayak::buffer<typename node_type::threshold_type>>(
-          kayak::buffer{vector_output_.data(), vector_output_.size()},
+        std::make_optional<raft_proto::buffer<typename node_type::threshold_type>>(
+          raft_proto::buffer{vector_output_.data(), vector_output_.size()},
           mem_type,
           device,
           stream
         ),
       categorical_storage_.size() == 0 ?
         std::nullopt :
-        std::make_optional<kayak::buffer<typename node_type::index_type>>(
-          kayak::buffer{categorical_storage_.data(), categorical_storage_.size()},
+        std::make_optional<raft_proto::buffer<typename node_type::index_type>>(
+          raft_proto::buffer{categorical_storage_.data(), categorical_storage_.size()},
           mem_type,
           device,
           stream

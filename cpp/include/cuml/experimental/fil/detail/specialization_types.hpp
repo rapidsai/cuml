@@ -1,9 +1,24 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
 #include <variant>
-#include <cuml/experimental/kayak/tree_layout.hpp>
+#include <cuml/experimental/raft_proto/tree_layout.hpp>
 namespace ML {
 namespace experimental {
 namespace fil {
@@ -23,7 +38,7 @@ namespace detail {
  * @tparam large_trees Whether this forest expects more than 2**(16 -3) - 1 =
  * 8191 features or contains nodes whose child is offset more than 2**16 - 1 = 65535 nodes away.
  */
-template <kayak::tree_layout layout_v, bool double_precision, bool large_trees>
+template <raft_proto::tree_layout layout_v, bool double_precision, bool large_trees>
 struct specialization_types {
   /* The node threshold type to be used based on the template parameters
    */
@@ -60,14 +75,14 @@ struct specialization_types {
  * in standard cuML FIL
  */
 using specialization_variant = std::variant<
-  specialization_types<kayak::tree_layout::depth_first, false, false>,
-  specialization_types<kayak::tree_layout::depth_first, false, true>,
-  specialization_types<kayak::tree_layout::depth_first, true, false>,
-  specialization_types<kayak::tree_layout::depth_first, true, true>,
-  specialization_types<kayak::tree_layout::breadth_first, false, false>,
-  specialization_types<kayak::tree_layout::breadth_first, false, true>,
-  specialization_types<kayak::tree_layout::breadth_first, true, false>,
-  specialization_types<kayak::tree_layout::breadth_first, true, true>
+  specialization_types<raft_proto::tree_layout::depth_first, false, false>,
+  specialization_types<raft_proto::tree_layout::depth_first, false, true>,
+  specialization_types<raft_proto::tree_layout::depth_first, true, false>,
+  specialization_types<raft_proto::tree_layout::depth_first, true, true>,
+  specialization_types<raft_proto::tree_layout::breadth_first, false, false>,
+  specialization_types<raft_proto::tree_layout::breadth_first, false, true>,
+  specialization_types<raft_proto::tree_layout::breadth_first, true, false>,
+  specialization_types<raft_proto::tree_layout::breadth_first, true, true>
 >;
 
 }

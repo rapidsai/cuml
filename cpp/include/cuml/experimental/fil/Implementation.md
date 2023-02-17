@@ -6,15 +6,15 @@ does *not* require nvcc, CUDA or any other GPU-related library for its CPU-only
 build, we also go over general strategies for CPU/GPU interoperability as used
 by FIL.
 
-**A NOTE ON THE `kayak` NAMESPACE:** In addition to FIL-specific code, the new
+**A NOTE ON THE `raft_proto` NAMESPACE:** In addition to FIL-specific code, the new
 implementation requires some more general-purpose CPU-GPU interoperable
 utilities. Many of these utilities are either already implemented in RAFT (but
 do not provide the required CPU-interoperable compilation guarantees) or are a
 natural fit for incorporation in RAFT. In order to allow for more careful
 integration with the existing RAFT codebase and interoperability
-strategies, these utilities are currently provided in the `kayak`
+strategies, these utilities are currently provided in the `raft_proto`
 namespace but will be moved into RAFT over time. Other algorithms should
-not make use of the `kayak` namespace but instead wait until this
+not make use of the `raft_proto` namespace but instead wait until this
 transition has taken place.
 
 ## Design Goals
@@ -43,7 +43,7 @@ codebase.
 
 It is also occasionally useful to make use of a `constexpr` value
 indicating whether or not `ENABLE_GPU` is set, which we introduce as
-`kayak::GPU_ENABLED`.
+`raft_proto::GPU_ENABLED`.
 
 ### Avoiding CUDA symbols in CPU-only builds
 The most significant challenge of attempting to create a unified CPU/GPU
@@ -88,7 +88,7 @@ between GPU and CPU.
 Where we _need_ to provide distinct logic between GPU and CPU
 implementations, we do so in implementation headers. In `infer/cpu.hpp`, we
 have a fully-defined template for CPU specializations of
-`detail::inference::infer`. If `kayak::GPU_ENABLED` is `true`, we also include the
+`detail::inference::infer`. If `raft_proto::GPU_ENABLED` is `true`, we also include the
 failure case for the GPU specialization. In `infer/gpu.hpp` we *declare* but do
 not *define* the GPU specializations. In `infer/gpu.cuh` we provide the
 definition for the GPU specializations.
@@ -157,8 +157,8 @@ a standard benchmark) on the CPU.
 
 With some motivation for the general approach to CPU-GPU interoperability, we
 now offer an overview of the layout of the codebase to help guide future
-improvements. Because `kayak` utilities are going to be moved to RAFT or other
-general-purpose libraries, we will not review anything within the `kayak`
+improvements. Because `raft_proto` utilities are going to be moved to RAFT or other
+general-purpose libraries, we will not review anything within the `raft_proto`
 directory here.
 
 ### Public Headers

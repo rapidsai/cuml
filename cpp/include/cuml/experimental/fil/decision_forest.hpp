@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,10 +27,10 @@
 #include <cuml/experimental/fil/detail/specialization_types.hpp>
 #include <cuml/experimental/fil/exceptions.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
-#include <cuml/experimental/kayak/buffer.hpp>
-#include <cuml/experimental/kayak/cuda_stream.hpp>
-#include <cuml/experimental/kayak/exceptions.hpp>
-#include <cuml/experimental/kayak/tree_layout.hpp>
+#include <cuml/experimental/raft_proto/buffer.hpp>
+#include <cuml/experimental/raft_proto/cuda_stream.hpp>
+#include <cuml/experimental/raft_proto/exceptions.hpp>
+#include <cuml/experimental/raft_proto/tree_layout.hpp>
 #include <limits>
 #include <optional>
 #include <variant>
@@ -62,7 +62,7 @@ namespace fil {
  * its most distant child. This type must be large enough to store the
  * largest such offset in the entire forest.
  */
-template <kayak::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
+template <raft_proto::tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
 struct decision_forest {
 
   /**
@@ -154,13 +154,13 @@ struct decision_forest {
    * logarithm_one_plus_exp
    */
   decision_forest(
-    kayak::buffer<node_type>&& nodes,
-    kayak::buffer<index_type>&& root_node_indexes,
+    raft_proto::buffer<node_type>&& nodes,
+    raft_proto::buffer<index_type>&& root_node_indexes,
     index_type num_feature,
     index_type num_outputs=index_type{2},
     bool has_categorical_nodes = false,
-    std::optional<kayak::buffer<io_type>>&& vector_output=std::nullopt,
-    std::optional<kayak::buffer<typename node_type::index_type>>&& categorical_storage=std::nullopt,
+    std::optional<raft_proto::buffer<io_type>>&& vector_output=std::nullopt,
+    std::optional<raft_proto::buffer<typename node_type::index_type>>&& categorical_storage=std::nullopt,
     index_type leaf_size=index_type{1},
     row_op row_postproc=row_op::disable,
     element_op elem_postproc=element_op::disable,
@@ -183,12 +183,12 @@ struct decision_forest {
     postproc_constant_{postproc_constant}
   {
     if (nodes.memory_type() != root_node_indexes.memory_type()) {
-      throw kayak::mem_type_mismatch(
+      throw raft_proto::mem_type_mismatch(
         "Nodes and indexes of forest must both be stored on either host or device"
       );
     }
     if (nodes.device_index() != root_node_indexes.device_index()) {
-      throw kayak::mem_type_mismatch(
+      throw raft_proto::mem_type_mismatch(
         "Nodes and indexes of forest must both be stored on same device"
       );
     }
@@ -227,18 +227,18 @@ struct decision_forest {
    * larger values.
    */
   void predict(
-    kayak::buffer<typename forest_type::io_type>& output,
-    kayak::buffer<typename forest_type::io_type> const& input,
-    kayak::cuda_stream stream = kayak::cuda_stream{},
+    raft_proto::buffer<typename forest_type::io_type>& output,
+    raft_proto::buffer<typename forest_type::io_type> const& input,
+    raft_proto::cuda_stream stream = raft_proto::cuda_stream{},
     std::optional<index_type> specified_rows_per_block_iter=std::nullopt
   ) {
     if (output.memory_type() != memory_type() || input.memory_type() != memory_type()) {
-      throw kayak::wrong_device_type{
+      throw raft_proto::wrong_device_type{
         "Tried to use host I/O data with model on device or vice versa"
       };
     }
     if (output.device_index() != device_index() || input.device_index() != device_index()) {
-      throw kayak::wrong_device{
+      throw raft_proto::wrong_device{
         "I/O data on different device than model"
       };
     }
@@ -288,13 +288,13 @@ struct decision_forest {
 
  private:
   /** The nodes for all trees in the forest */
-  kayak::buffer<node_type> nodes_;
+  raft_proto::buffer<node_type> nodes_;
   /** The index of the root node for each tree in the forest */
-  kayak::buffer<index_type> root_node_indexes_;
+  raft_proto::buffer<index_type> root_node_indexes_;
   /** Buffer of outputs for all leaves in vector-leaf models */
-  std::optional<kayak::buffer<io_type>> vector_output_;
+  std::optional<raft_proto::buffer<io_type>> vector_output_;
   /** Buffer of outputs for all leaves in vector-leaf models */
-  std::optional<kayak::buffer<categorical_storage_type>> categorical_storage_;
+  std::optional<raft_proto::buffer<categorical_storage_type>> categorical_storage_;
 
   // Metadata
   index_type num_feature_;
@@ -344,7 +344,7 @@ namespace detail {
  * 8191 features or contains nodes whose child is offset more than 2**16 - 1 = 65535 nodes away.
  */
 template<
-  kayak::tree_layout layout,
+  raft_proto::tree_layout layout,
   bool double_precision,
   bool large_trees
 >
@@ -424,7 +424,7 @@ inline auto get_forest_variant_index(
   index_type num_categorical_nodes = index_type{},
   index_type max_num_categories = index_type{},
   index_type num_vector_leaves = index_type{},
-  kayak::tree_layout layout = preferred_tree_layout
+  raft_proto::tree_layout layout = preferred_tree_layout
 ) {
   using small_index_t = typename detail::specialization_types<preferred_tree_layout, false, false>::index_type;
   auto max_local_categories = index_type(sizeof(small_index_t) * 8);
@@ -436,7 +436,7 @@ inline auto get_forest_variant_index(
     max_num_categories > max_local_categories
     && (
       (
-        kayak::ceildiv(max_num_categories, max_local_categories) + 1
+        raft_proto::ceildiv(max_num_categories, max_local_categories) + 1
         * num_categorical_nodes
       ) > std::numeric_limits<small_index_t>::max()
     )
@@ -453,7 +453,7 @@ inline auto get_forest_variant_index(
     ) || max_node_offset > std::numeric_limits<small_offset_t>::max()
   );
 
-  auto layout_value = static_cast<std::underlying_type_t<kayak::tree_layout>>(layout);
+  auto layout_value = static_cast<std::underlying_type_t<raft_proto::tree_layout>>(layout);
 
   return (
     (index_type{layout_value} << index_type{2})

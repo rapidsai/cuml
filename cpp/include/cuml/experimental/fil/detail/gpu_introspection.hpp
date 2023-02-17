@@ -1,9 +1,24 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <cuda_runtime_api.h>
 #include <cuml/experimental/fil/detail/index_type.hpp>
-#include <cuml/experimental/kayak/cuda_check.hpp>
-#include <cuml/experimental/kayak/device_id.hpp>
-#include <cuml/experimental/kayak/device_type.hpp>
+#include <cuml/experimental/raft_proto/cuda_check.hpp>
+#include <cuml/experimental/raft_proto/device_id.hpp>
+#include <cuml/experimental/raft_proto/device_type.hpp>
 #include <vector>
 
 namespace ML {
@@ -11,14 +26,14 @@ namespace experimental {
 namespace fil {
 namespace detail {
 
-inline auto get_max_shared_mem_per_block(kayak::device_id<kayak::device_type::gpu> device_id) {
+inline auto get_max_shared_mem_per_block(raft_proto::device_id<raft_proto::device_type::gpu> device_id) {
   auto static cache = std::vector<int>{};
   if (cache.size() == 0) {
     auto device_count = int{};
-    kayak::cuda_check(cudaGetDeviceCount(&device_count));
+    raft_proto::cuda_check(cudaGetDeviceCount(&device_count));
     cache.resize(device_count);
     for (auto dev=0; dev < device_count; ++dev) {
-      kayak::cuda_check(
+      raft_proto::cuda_check(
         cudaDeviceGetAttribute(
           &(cache[dev]),
           cudaDevAttrMaxSharedMemoryPerBlockOptin,
@@ -30,14 +45,14 @@ inline auto get_max_shared_mem_per_block(kayak::device_id<kayak::device_type::gp
   return index_type(cache.at(device_id.value()));
 }
 
-inline auto get_sm_count(kayak::device_id<kayak::device_type::gpu> device_id) {
+inline auto get_sm_count(raft_proto::device_id<raft_proto::device_type::gpu> device_id) {
   auto static cache = std::vector<int>{};
   if (cache.size() == 0) {
     auto device_count = int{};
-    kayak::cuda_check(cudaGetDeviceCount(&device_count));
+    raft_proto::cuda_check(cudaGetDeviceCount(&device_count));
     cache.resize(device_count);
     for (auto dev=0; dev < device_count; ++dev) {
-      kayak::cuda_check(
+      raft_proto::cuda_check(
         cudaDeviceGetAttribute(
           &(cache[dev]),
           cudaDevAttrMultiProcessorCount,
@@ -49,9 +64,9 @@ inline auto get_sm_count(kayak::device_id<kayak::device_type::gpu> device_id) {
   return index_type(cache.at(device_id.value()));
 }
 
-inline auto get_max_threads_per_block(kayak::device_id<kayak::device_type::gpu> device_id) {
+inline auto get_max_threads_per_block(raft_proto::device_id<raft_proto::device_type::gpu> device_id) {
   auto result = int{};
-  kayak::cuda_check(
+  raft_proto::cuda_check(
     cudaDeviceGetAttribute(
       &result,
       cudaDevAttrMaxThreadsPerBlock,
@@ -61,9 +76,9 @@ inline auto get_max_threads_per_block(kayak::device_id<kayak::device_type::gpu> 
   return index_type(result);
 }
 
-inline auto get_max_threads_per_sm(kayak::device_id<kayak::device_type::gpu> device_id) {
+inline auto get_max_threads_per_sm(raft_proto::device_id<raft_proto::device_type::gpu> device_id) {
   auto result = int{};
-  kayak::cuda_check(
+  raft_proto::cuda_check(
     cudaDeviceGetAttribute(
       &result,
       cudaDevAttrMaxThreadsPerMultiProcessor,
@@ -73,14 +88,14 @@ inline auto get_max_threads_per_sm(kayak::device_id<kayak::device_type::gpu> dev
   return index_type(result);
 }
 
-inline auto get_max_shared_mem_per_sm(kayak::device_id<kayak::device_type::gpu> device_id) {
+inline auto get_max_shared_mem_per_sm(raft_proto::device_id<raft_proto::device_type::gpu> device_id) {
   auto static cache = std::vector<int>{};
   if (cache.size() == 0) {
     auto device_count = int{};
-    kayak::cuda_check(cudaGetDeviceCount(&device_count));
+    raft_proto::cuda_check(cudaGetDeviceCount(&device_count));
     cache.resize(device_count);
     for (auto dev=0; dev < device_count; ++dev) {
-      kayak::cuda_check(
+      raft_proto::cuda_check(
         cudaDeviceGetAttribute(
           &(cache[dev]),
           cudaDevAttrMaxSharedMemoryPerMultiprocessor,
@@ -92,9 +107,9 @@ inline auto get_max_shared_mem_per_sm(kayak::device_id<kayak::device_type::gpu> 
   return index_type(cache.at(device_id.value()));
 }
 
-inline auto get_mem_clock_rate(kayak::device_id<kayak::device_type::gpu> device_id) {
+inline auto get_mem_clock_rate(raft_proto::device_id<raft_proto::device_type::gpu> device_id) {
   auto result = int{};
-  kayak::cuda_check(
+  raft_proto::cuda_check(
     cudaDeviceGetAttribute(
       &result,
       cudaDevAttrMemoryClockRate,
@@ -104,9 +119,9 @@ inline auto get_mem_clock_rate(kayak::device_id<kayak::device_type::gpu> device_
   return index_type(result);
 }
 
-inline auto get_core_clock_rate(kayak::device_id<kayak::device_type::gpu> device_id) {
+inline auto get_core_clock_rate(raft_proto::device_id<raft_proto::device_type::gpu> device_id) {
   auto result = int{};
-  kayak::cuda_check(
+  raft_proto::cuda_check(
     cudaDeviceGetAttribute(
       &result,
       cudaDevAttrClockRate,
@@ -121,7 +136,7 @@ auto get_max_active_blocks_per_sm(
   T kernel, index_type block_size, index_type dynamic_smem_size=index_type{}
 ) {
   auto result = int{};
-  kayak::cuda_check(
+  raft_proto::cuda_check(
     cudaOccupancyMaxActiveBlocksPerMultiprocessor(
       &result, kernel, block_size, dynamic_smem_size
     )

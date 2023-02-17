@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <cstddef>
 #include <variant>
@@ -7,9 +22,9 @@
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <cuml/experimental/fil/detail/specialization_types.hpp>
 #include <cuml/experimental/fil/detail/specializations/forest_macros.hpp>
-#include <cuml/experimental/kayak/cuda_stream.hpp>
-#include <cuml/experimental/kayak/device_id.hpp>
-#include <cuml/experimental/kayak/device_type.hpp>
+#include <cuml/experimental/raft_proto/cuda_stream.hpp>
+#include <cuml/experimental/raft_proto/device_id.hpp>
+#include <cuml/experimental/raft_proto/device_type.hpp>
 
 /* Macro which expands to the valid arguments to an inference call for a forest
  * model without vector leaves or non-local categorical data.*/
@@ -24,8 +39,8 @@
   std::nullptr_t,\
   std::nullptr_t,\
   std::optional<index_type>,\
-  kayak::device_id<dev>,\
-  kayak::cuda_stream stream\
+  raft_proto::device_id<dev>,\
+  raft_proto::cuda_stream stream\
 )
 
 /* Macro which expands to the valid arguments to an inference call for a forest
@@ -41,8 +56,8 @@
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
   std::nullptr_t,\
   std::optional<index_type>,\
-  kayak::device_id<dev>,\
-  kayak::cuda_stream stream\
+  raft_proto::device_id<dev>,\
+  raft_proto::cuda_stream stream\
 )
 
 /* Macro which expands to the valid arguments to an inference call for a forest
@@ -58,8 +73,8 @@
   std::nullptr_t,\
   CUML_FIL_SPEC(variant_index)::index_type*,\
   std::optional<index_type>,\
-  kayak::device_id<dev>,\
-  kayak::cuda_stream stream\
+  raft_proto::device_id<dev>,\
+  raft_proto::cuda_stream stream\
 )
 
 /* Macro which expands to the valid arguments to an inference call for a forest
@@ -75,8 +90,8 @@
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
   CUML_FIL_SPEC(variant_index)::index_type*,\
   std::optional<index_type>,\
-  kayak::device_id<dev>,\
-  kayak::cuda_stream stream\
+  raft_proto::device_id<dev>,\
+  raft_proto::cuda_stream stream\
 )
 
 /* Macro which expands to the declaration of an inference template for a forest
