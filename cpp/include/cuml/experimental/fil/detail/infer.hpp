@@ -20,7 +20,7 @@
 #include <type_traits>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/infer/cpu.hpp>
-#ifdef ENABLE_GPU
+#ifdef CUML_ENABLE_GPU
 #include <cuml/experimental/fil/detail/infer/gpu.hpp>
 #endif
 #include <cuml/experimental/fil/detail/postprocessor.hpp>

@@ -19,7 +19,7 @@
 #include <stdint.h>
 
 namespace raft_proto {
-#ifdef ENABLE_GPU
+#ifdef CUML_ENABLE_GPU
 auto constexpr static const GPU_ENABLED = true;
 #else
 auto constexpr static const GPU_ENABLED = false;

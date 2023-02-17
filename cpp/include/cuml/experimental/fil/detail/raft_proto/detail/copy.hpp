@@ -17,7 +17,7 @@
 #include <stdint.h>
 #include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/detail/copy/cpu.hpp>
-#ifdef ENABLE_GPU
+#ifdef CUML_ENABLE_GPU
 #include <cuml/experimental/fil/detail/raft_proto/detail/copy/gpu.hpp>
 #endif
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>

@@ -16,7 +16,7 @@
 #pragma once
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/detail/owning_buffer/cpu.hpp>
-#ifdef ENABLE_GPU
+#ifdef CUML_ENABLE_GPU
 #include <cuml/experimental/fil/detail/raft_proto/detail/owning_buffer/gpu.hpp>
 #endif
 namespace raft_proto {

@@ -15,7 +15,7 @@
  */
 #pragma once
 #include <cuml/experimental/fil/detail/raft_proto/detail/device_setter/base.hpp>
-#ifdef ENABLE_GPU
+#ifdef CUML_ENABLE_GPU
 #include <cuml/experimental/fil/detail/raft_proto/detail/device_setter/gpu.hpp>
 #endif
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>

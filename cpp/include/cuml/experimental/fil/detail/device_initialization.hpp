@@ -17,7 +17,7 @@
 
 #include <variant>
 #include <cuml/experimental/fil/detail/device_initialization/cpu.hpp>
-#ifdef ENABLE_GPU
+#ifdef CUML_ENABLE_GPU
 #include <cuml/experimental/fil/detail/device_initialization/gpu.hpp>
 #endif
 

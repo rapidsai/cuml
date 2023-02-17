@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023 NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
-option(ENABLE_GPU "Enable building GPU-accelerated algorithms" ON)
+option(CUML_ENABLE_GPU "Enable building GPU-accelerated algorithms" ON)
 option(BUILD_SHARED_LIBS "Build cuML shared libraries" ON)
 option(BUILD_CUML_C_LIBRARY "Build libcuml_c shared library. Contains the cuML C API" ON)
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml shared library" ON)
@@ -282,8 +282,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   # common components
   add_library(${CUML_CPP_TARGET}
               src/common/logger.cpp)
-  if (ENABLE_GPU)
-    target_compile_definitions(${CUML_CPP_TARGET} PUBLIC ENABLE_GPU)
+  if (CUML_ENABLE_GPU)
+    target_compile_definitions(${CUML_CPP_TARGET} PUBLIC CUML_ENABLE_GPU)
   endif()
 
   if(all_algo OR arima_algo)

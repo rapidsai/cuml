@@ -29,8 +29,8 @@ transition has taken place.
 ## Strategies for CPU/GPU code re-use
 
 This FIL implementation now makes use of a build-time variable
-`ENABLE_GPU` to determine whether or not to compile CUDA code. If
-`ENABLE_GPU` is not set, FIL is guaranteed to compile without nvcc, access
+`CUML_ENABLE_GPU` to determine whether or not to compile CUDA code. If
+`CUML_ENABLE_GPU` is not set, FIL is guaranteed to compile without nvcc, access
 to CUDA headers, or any other GPU-related library.
 
 We explicitly wish to avoid excessive use of `#ifdef` statements based on this
@@ -42,7 +42,7 @@ opportunities for a cleaner implementation of a unified CPU/GPU
 codebase.
 
 It is also occasionally useful to make use of a `constexpr` value
-indicating whether or not `ENABLE_GPU` is set, which we introduce as
+indicating whether or not `CUML_ENABLE_GPU` is set, which we introduce as
 `raft_proto::GPU_ENABLED`.
 
 ### Avoiding CUDA symbols in CPU-only builds
@@ -64,7 +64,7 @@ detail/
 For brevity, we introduce the concepts of "consumable" and "implementation"
 headers. Consumable headers can be included in any other header and are
 guaranteed not to themselves include any header with CUDA symbols
-`ENABLE_GPU` is not defined.
+`CUML_ENABLE_GPU` is not defined.
 Implementation headers can *only* be included by their associated consumable
 header or directly in a source file. They should *never* be directly included
 by any other consumable header except their own.
