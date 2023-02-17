@@ -26,7 +26,7 @@
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/exceptions.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/bitset.hpp>
+#include <cuml/experimental/fil/detail/bitset.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/ceildiv.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
@@ -99,7 +99,7 @@ struct decision_forest_builder {
       categorical_storage_.resize(categorical_storage_.size() + bins_required);
       set_storage = &(categorical_storage_[node_value + 1]);
     }
-    auto set = raft_proto::bitset{set_storage, max_node_categories};
+    auto set = bitset{set_storage, max_node_categories};
     std::for_each(
       vec_begin,
       vec_end, 

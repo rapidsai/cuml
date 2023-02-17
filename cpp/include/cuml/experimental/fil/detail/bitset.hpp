@@ -25,7 +25,10 @@
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 
-namespace raft_proto {
+namespace ML {
+namespace experimental {
+namespace fil {
+namespace detail {
 template<typename index_t=size_t, typename storage_t=std::byte>
 struct bitset {
   using storage_type = storage_t;
@@ -117,4 +120,7 @@ struct bitset {
   }
 };
 
+}
+}
+}
 }

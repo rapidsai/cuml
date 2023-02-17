@@ -18,7 +18,7 @@
 #ifndef __CUDACC__
 #include <math.h>
 #endif
-#include <cuml/experimental/fil/detail/raft_proto/bitset.hpp>
+#include <cuml/experimental/fil/detail/bitset.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 namespace ML {
 namespace experimental {
@@ -47,7 +47,7 @@ HOST DEVICE auto evaluate_tree(
     node_t const* __restrict__ node,
     io_t const* __restrict__ row
 ) {
-  using categorical_set_type = raft_proto::bitset<uint32_t, typename node_t::index_type const>;
+  using categorical_set_type = bitset<uint32_t, typename node_t::index_type const>;
   auto cur_node = *node;
   do {
     auto input_val = row[cur_node.feature_index()];
@@ -108,7 +108,7 @@ HOST DEVICE auto evaluate_tree(
     io_t const* __restrict__ row,
     categorical_storage_t const* __restrict__ categorical_storage
 ) {
-  using categorical_set_type = raft_proto::bitset<uint32_t, categorical_storage_t const>;
+  using categorical_set_type = bitset<uint32_t, categorical_storage_t const>;
   auto cur_node = *node;
   do {
     auto input_val = row[cur_node.feature_index()];
