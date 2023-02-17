@@ -143,6 +143,10 @@ class LinearRegression(LinearPredictMixin,
     and provides 2 algorithms SVD and Eig to fit a linear model. SVD is more
     stable, but Eig (default) is much faster.
 
+    This estimator supports cuML's experimental device selection capabilities.
+    It can be configured to run on either the CPU or the GPU.
+    To learn more, please see :ref:`device-selection`.
+
     Examples
     --------
 
