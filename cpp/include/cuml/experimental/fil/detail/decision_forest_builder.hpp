@@ -25,11 +25,11 @@
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/exceptions.hpp>
-#include <cuml/experimental/raft_proto/buffer.hpp>
-#include <cuml/experimental/raft_proto/bitset.hpp>
-#include <cuml/experimental/raft_proto/ceildiv.hpp>
-#include <cuml/experimental/raft_proto/cuda_stream.hpp>
-#include <cuml/experimental/raft_proto/device_type.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/bitset.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/ceildiv.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 
 namespace ML {
 namespace experimental {

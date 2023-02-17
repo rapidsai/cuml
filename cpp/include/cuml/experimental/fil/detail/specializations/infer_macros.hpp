@@ -22,9 +22,9 @@
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <cuml/experimental/fil/detail/specialization_types.hpp>
 #include <cuml/experimental/fil/detail/specializations/forest_macros.hpp>
-#include <cuml/experimental/raft_proto/cuda_stream.hpp>
-#include <cuml/experimental/raft_proto/device_id.hpp>
-#include <cuml/experimental/raft_proto/device_type.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 
 /* Macro which expands to the valid arguments to an inference call for a forest
  * model without vector leaves or non-local categorical data.*/

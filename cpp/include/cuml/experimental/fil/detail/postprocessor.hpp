@@ -22,7 +22,7 @@
 #include <type_traits>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/postproc_ops.hpp>
-#include <cuml/experimental/raft_proto/gpu_support.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 
 namespace ML {
 namespace experimental {

@@ -18,8 +18,8 @@
 #ifndef __CUDACC__
 #include <math.h>
 #endif
-#include <cuml/experimental/raft_proto/bitset.hpp>
-#include <cuml/experimental/raft_proto/gpu_support.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/bitset.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 namespace ML {
 namespace experimental {
 namespace fil {

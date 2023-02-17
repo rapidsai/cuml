@@ -18,7 +18,7 @@
 #include <cstdint>
 #include <type_traits>
 #include <variant>
-#include <cuml/experimental/raft_proto/tree_layout.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/tree_layout.hpp>
 namespace ML {
 namespace experimental {
 namespace fil {

@@ -27,7 +27,7 @@
 #include <cuml/experimental/fil/exceptions.hpp>
 #include <cuml/experimental/fil/forest_model.hpp>
 #include <cuml/experimental/fil/postproc_ops.hpp>
-#include <cuml/experimental/raft_proto/tree_layout.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/tree_layout.hpp>
 
 namespace ML {
 namespace experimental {

@@ -27,10 +27,10 @@
 #include <cuml/experimental/fil/detail/specialization_types.hpp>
 #include <cuml/experimental/fil/exceptions.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
-#include <cuml/experimental/raft_proto/buffer.hpp>
-#include <cuml/experimental/raft_proto/cuda_stream.hpp>
-#include <cuml/experimental/raft_proto/exceptions.hpp>
-#include <cuml/experimental/raft_proto/tree_layout.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/exceptions.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/tree_layout.hpp>
 #include <limits>
 #include <optional>
 #include <variant>

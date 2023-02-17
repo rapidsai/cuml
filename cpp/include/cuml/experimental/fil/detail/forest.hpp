@@ -15,7 +15,7 @@
  */
 #pragma once
 #include <stddef.h>
-#include <cuml/experimental/raft_proto/gpu_support.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/node.hpp>
 

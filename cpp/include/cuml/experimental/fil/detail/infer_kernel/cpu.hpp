@@ -23,7 +23,7 @@
 #include <cuml/experimental/fil/detail/evaluate_tree.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
-#include <cuml/experimental/raft_proto/ceildiv.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/ceildiv.hpp>
 
 namespace ML {
 namespace experimental {

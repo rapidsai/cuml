@@ -21,8 +21,8 @@
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <cuml/experimental/fil/detail/infer_kernel/shared_memory_buffer.cuh>
-#include <cuml/experimental/raft_proto/ceildiv.hpp>
-#include <cuml/experimental/raft_proto/padding.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/ceildiv.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/padding.hpp>
 
 namespace ML {
 namespace experimental {

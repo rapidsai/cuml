@@ -14,12 +14,26 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/experimental/fil/detail/specializations/forest_macros.hpp>
-/* Declare device initialization function for the types specified by the given
- * variant index */
-#define CUML_FIL_INITIALIZE_DEVICE(template_type, variant_index) template_type void initialize_device<\
-  CUML_FIL_FOREST(variant_index),\
-  raft_proto::device_type::gpu\
->(raft_proto::device_id<raft_proto::device_type::gpu>);
+#include <memory>
+#include <type_traits>
+
+namespace raft_proto {
+namespace detail {
+template<device_type D, typename T>
+struct non_owning_buffer {
+  // TODO(wphicks): Assess need for buffers of const T
+  using value_type = std::remove_const_t<T>;
+  non_owning_buffer() : data_{nullptr} { }
+
+  non_owning_buffer(T* ptr) : data_{ptr} { }
+
+  auto* get() const { return data_; }
+
+ private:
+  // TODO(wphicks): Back this with RMM-allocated host memory
+  T* data_;
+};
+}
+}
+

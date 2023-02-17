@@ -19,9 +19,9 @@
 #include <variant>
 #include <cuml/experimental/fil/decision_forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
-#include <cuml/experimental/raft_proto/buffer.hpp>
-#include <cuml/experimental/raft_proto/gpu_support.hpp>
-#include <cuml/experimental/raft_proto/handle.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/handle.hpp>
 
 namespace ML {
 namespace experimental {

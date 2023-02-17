@@ -14,12 +14,20 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
+#include <cuda_runtime_api.h>
+#include <cuml/experimental/fil/detail/raft_proto/detail/cuda_check/base.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/experimental/fil/detail/specializations/forest_macros.hpp>
-/* Declare device initialization function for the types specified by the given
- * variant index */
-#define CUML_FIL_INITIALIZE_DEVICE(template_type, variant_index) template_type void initialize_device<\
-  CUML_FIL_FOREST(variant_index),\
-  raft_proto::device_type::gpu\
->(raft_proto::device_id<raft_proto::device_type::gpu>);
+#include <cuml/experimental/fil/detail/raft_proto/exceptions.hpp>
+namespace raft_proto {
+namespace detail {
+
+template <>
+inline void cuda_check<device_type::gpu, cudaError_t>(cudaError_t const& err) noexcept(false) {
+  if (err != cudaSuccess) {
+    cudaGetLastError();
+    throw bad_cuda_call(cudaGetErrorString(err));
+  }
+}
+
+}
+}

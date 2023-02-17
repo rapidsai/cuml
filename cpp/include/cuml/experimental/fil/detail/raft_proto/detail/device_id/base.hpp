@@ -14,12 +14,16 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/experimental/fil/detail/specializations/forest_macros.hpp>
-/* Declare device initialization function for the types specified by the given
- * variant index */
-#define CUML_FIL_INITIALIZE_DEVICE(template_type, variant_index) template_type void initialize_device<\
-  CUML_FIL_FOREST(variant_index),\
-  raft_proto::device_type::gpu\
->(raft_proto::device_id<raft_proto::device_type::gpu>);
+
+namespace raft_proto {
+namespace detail {
+template<device_type D>
+struct device_id {
+  using value_type = int;
+
+  device_id(value_type device_index) {}
+  auto value() const { return value_type{}; }
+};
+}
+}

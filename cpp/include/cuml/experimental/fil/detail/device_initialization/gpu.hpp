@@ -15,10 +15,10 @@
  */
 #pragma once
 #include <type_traits>
-#include <cuml/experimental/raft_proto/device_id.hpp>
-#include <cuml/experimental/raft_proto/device_setter.hpp>
-#include <cuml/experimental/raft_proto/device_type.hpp>
-#include <cuml/experimental/raft_proto/gpu_support.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_setter.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 namespace ML {
 namespace experimental {
 namespace fil {

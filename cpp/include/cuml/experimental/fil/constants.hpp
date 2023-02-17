@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/raft_proto/tree_layout.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/tree_layout.hpp>
 
 namespace ML {
 namespace experimental {

@@ -14,26 +14,25 @@
  * limitations under the License.
  */
 #pragma once
-#include <type_traits>
-#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
+#include <stdint.h>
+#include <algorithm>
+#include <cstring>
+#include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
-namespace ML {
-namespace experimental {
-namespace fil {
+
+namespace raft_proto {
 namespace detail {
-namespace device_initialization {
 
-/* Specialization for any initialization required for CPUs
- *
- * This specialization will also be used for non-GPU-enabled builds
- * (as a GPU no-op).
- */
-template<typename forest_t, raft_proto::device_type D>
-std::enable_if_t<!raft_proto::GPU_ENABLED || D == raft_proto::device_type::cpu, void> initialize_device(raft_proto::device_id<D> device) {}
+template<device_type dst_type, device_type src_type, typename T>
+std::enable_if_t<dst_type == device_type::cpu && src_type == device_type::cpu, void> copy(T* dst, T const* src, uint32_t size, cuda_stream stream) {
+  std::copy(src, src + size, dst);
+}
 
+template<device_type dst_type, device_type src_type, typename T>
+std::enable_if_t<(dst_type != device_type::cpu || src_type != device_type::cpu) && !GPU_ENABLED, void> copy(T* dst, T const* src, uint32_t size, cuda_stream stream) {
+  throw gpu_unsupported("Copying from or to device in non-GPU build");
 }
-}
-}
+
 }
 }

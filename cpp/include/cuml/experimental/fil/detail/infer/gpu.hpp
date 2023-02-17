@@ -18,9 +18,9 @@
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
-#include <cuml/experimental/raft_proto/cuda_stream.hpp>
-#include <cuml/experimental/raft_proto/device_id.hpp>
-#include <cuml/experimental/raft_proto/device_type.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 
 namespace ML {
 namespace experimental {

@@ -18,7 +18,7 @@
 #include <cuml/experimental/fil/constants.hpp>
 #include <cuml/experimental/fil/detail/specialization_types.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
-#include <cuml/experimental/raft_proto/tree_layout.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/tree_layout.hpp>
 
 /* Macro which, given a variant index, will extract the type of the
  * corresponding variant from the specialization_variant type. This allows us

@@ -24,12 +24,12 @@
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <cuml/experimental/fil/detail/specializations/infer_macros.hpp>
 #include <cuml/experimental/fil/exceptions.hpp>
-#include <cuml/experimental/raft_proto/ceildiv.hpp>
-#include <cuml/experimental/raft_proto/cuda_stream.hpp>
-#include <cuml/experimental/raft_proto/device_id.hpp>
-#include <cuml/experimental/raft_proto/device_type.hpp>
-#include <cuml/experimental/raft_proto/gpu_support.hpp>
-#include <cuml/experimental/raft_proto/padding.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/ceildiv.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/padding.hpp>
 
 namespace ML {
 namespace experimental {

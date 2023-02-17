@@ -21,10 +21,10 @@
 #include <cuml/experimental/fil/detail/infer_kernel/gpu.cuh>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/specializations/device_initialization_macros.hpp>
-#include <cuml/experimental/raft_proto/device_id.hpp>
-#include <cuml/experimental/raft_proto/device_setter.hpp>
-#include <cuml/experimental/raft_proto/device_type.hpp>
-#include <cuml/experimental/raft_proto/gpu_support.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_setter.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 namespace ML {
 namespace experimental {
 namespace fil {

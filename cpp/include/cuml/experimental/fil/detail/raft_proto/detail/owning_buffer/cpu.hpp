@@ -16,10 +16,33 @@
 #pragma once
 #include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/experimental/fil/detail/specializations/forest_macros.hpp>
-/* Declare device initialization function for the types specified by the given
- * variant index */
-#define CUML_FIL_INITIALIZE_DEVICE(template_type, variant_index) template_type void initialize_device<\
-  CUML_FIL_FOREST(variant_index),\
-  raft_proto::device_type::gpu\
->(raft_proto::device_id<raft_proto::device_type::gpu>);
+#include <cuml/experimental/fil/detail/raft_proto/detail/owning_buffer/base.hpp>
+#include <memory>
+#include <type_traits>
+
+namespace raft_proto {
+namespace detail {
+template<typename T>
+struct owning_buffer<device_type::cpu, T> {
+  // TODO(wphicks): Assess need for buffers of const T
+  using value_type = std::remove_const_t<T>;
+
+  owning_buffer()
+    : data_{std::unique_ptr<T[]>{nullptr}}
+  {
+  }
+
+  owning_buffer(std::size_t size)
+    : data_{std::make_unique<T[]>(size)}
+  {
+  }
+
+  auto* get() const { return data_.get(); }
+
+ private:
+  // TODO(wphicks): Back this with RMM-allocated host memory
+  std::unique_ptr<T[]> data_;
+};
+}
+}
+

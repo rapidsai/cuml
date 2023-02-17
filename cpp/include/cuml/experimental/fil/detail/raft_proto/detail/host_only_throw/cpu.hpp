@@ -14,12 +14,17 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/experimental/fil/detail/specializations/forest_macros.hpp>
-/* Declare device initialization function for the types specified by the given
- * variant index */
-#define CUML_FIL_INITIALIZE_DEVICE(template_type, variant_index) template_type void initialize_device<\
-  CUML_FIL_FOREST(variant_index),\
-  raft_proto::device_type::gpu\
->(raft_proto::device_id<raft_proto::device_type::gpu>);
+#include <cuml/experimental/fil/detail/raft_proto/detail/host_only_throw/base.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
+
+namespace raft_proto {
+namespace detail {
+template<typename T>
+struct host_only_throw<T, true>{
+  template <typename... Args>
+  host_only_throw(Args&&... args) noexcept(false)  {
+    throw T{std::forward<Args>(args)...};
+  }
+};
+}
+}
