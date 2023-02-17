@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2023, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #pragma once
 #include <stdint.h>
 #ifndef __CUDACC__
@@ -33,13 +48,7 @@ HOST DEVICE auto evaluate_tree(
     io_t const* __restrict__ row
 ) {
   using categorical_set_type = kayak::bitset<uint32_t, typename node_t::index_type const>;
-  // TODO(wphicks): FIX THIS BEFORE MERGE
-#ifndef __CUDACC__
-  using float2 = node_t;
-#endif
-  auto* node = reinterpret_cast<float2 const*>(reinterpret_cast<void const*>(root));
-  auto alias = *node;
-  auto cur_node = *reinterpret_cast<node_t*>(reinterpret_cast<void*>(&alias));
+  auto cur_node = *node;
   do {
     auto input_val = row[cur_node.feature_index()];
     auto condition = true;
