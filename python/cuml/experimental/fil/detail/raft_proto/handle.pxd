@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@
 # cython: language_level = 3
 
 
-from cuml.experimental.kayak.cuda_stream cimport cuda_stream as kayak_stream_t
+from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport cuda_stream as raft_proto_stream_t
 from pylibraft.common.handle cimport handle_t as raft_handle_t
 
-cdef extern from "cuml/experimental/kayak/handle.hpp" namespace "kayak" nogil:
+cdef extern from "cuml/experimental/fil/detail/raft_proto/handle.hpp" namespace "raft_proto" nogil:
     cdef cppclass handle_t:
         handle_t() except +
         handle_t(const raft_handle_t* handle_ptr) except +
         handle_t(const raft_handle_t& handle) except +
-        kayak_stream_t get_next_usable_stream() except +
+        raft_proto_stream_t get_next_usable_stream() except +
         void synchronize() except+

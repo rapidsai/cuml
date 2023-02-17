@@ -25,12 +25,12 @@ from libc.stdint cimport uint32_t, uintptr_t
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.experimental.kayak.cuda_stream cimport cuda_stream as kayak_stream_t
-from cuml.experimental.kayak.device_type cimport device_type as kayak_device_t
-from cuml.experimental.kayak.handle cimport handle_t as kayak_handle_t
-from cuml.experimental.kayak.tree_layout cimport tree_layout as kayak_tree_layout
-from cuml.experimental.kayak.handle cimport handle_t as kayak_handle_t
-from cuml.experimental.kayak.optional cimport optional, nullopt
+from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport cuda_stream as raft_proto_stream_t
+from cuml.experimental.fil.detail.raft_proto.device_type cimport device_type as raft_proto_device_t
+from cuml.experimental.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
+from cuml.experimental.fil.detail.raft_proto.tree_layout cimport tree_layout as raft_proto_tree_layout
+from cuml.experimental.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
+from cuml.experimental.fil.detail.raft_proto.optional cimport optional, nullopt
 from cuml.internals import set_api_output_dtype
 from cuml.internals.base import UniversalBase
 from cuml.internals.device_type import DeviceType
@@ -172,12 +172,12 @@ cdef class TreeliteModel():
 cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experimental::fil":
     cdef cppclass forest_model:
         void predict[io_t](
-            const kayak_handle_t&,
+            const raft_proto_handle_t&,
             io_t*,
             io_t*,
             size_t,
-            kayak_device_t,
-            kayak_device_t,
+            raft_proto_device_t,
+            raft_proto_device_t,
             optional[uint32_t]
         )
 
@@ -187,17 +187,17 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
 cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil":
     forest_model import_from_treelite_handle(
         ModelHandle,
-        kayak_tree_layout,
+        raft_proto_tree_layout,
         uint32_t,
         optional[bool],
-        kayak_device_t,
+        raft_proto_device_t,
         int,
-        kayak_stream_t
+        raft_proto_stream_t
     )
 
 cdef class ForestInference_impl():
     cdef forest_model model
-    cdef kayak_handle_t kayak_handle
+    cdef raft_proto_handle_t raft_proto_handle
     cdef object raft_handle
 
     def __cinit__(
@@ -210,10 +210,10 @@ cdef class ForestInference_impl():
             use_double_precision=None,
             mem_type=None,
             device_id=0):
-        # Store reference to RAFT handle to control lifetime, since kayak
+        # Store reference to RAFT handle to control lifetime, since raft_proto
         # handle keeps a pointer to it
         self.raft_handle = raft_handle
-        self.kayak_handle = kayak_handle_t(
+        self.raft_proto_handle = raft_proto_handle_t(
             <raft_handle_t*><size_t>self.raft_handle.getHandle()
         )
         if mem_type is None:
@@ -234,16 +234,16 @@ cdef class ForestInference_impl():
         except AttributeError:
             model_handle = tl_model
 
-        cdef kayak_device_t dev_type
+        cdef raft_proto_device_t dev_type
         if mem_type.is_device_accessible:
-            dev_type = kayak_device_t.gpu
+            dev_type = raft_proto_device_t.gpu
         else:
-            dev_type = kayak_device_t.cpu
-        cdef kayak_tree_layout tree_layout
+            dev_type = raft_proto_device_t.cpu
+        cdef raft_proto_tree_layout tree_layout
         if layout.lower() == 'breadth_first':
-            tree_layout = kayak_tree_layout.breadth_first
+            tree_layout = raft_proto_tree_layout.breadth_first
         else:
-            tree_layout = kayak_tree_layout.depth_first
+            tree_layout = raft_proto_tree_layout.depth_first
 
         self.model = import_from_treelite_handle(
             <ModelHandle><uintptr_t>model_handle,
@@ -252,7 +252,7 @@ cdef class ForestInference_impl():
             use_double_precision_c,
             dev_type,
             device_id,
-            self.kayak_handle.get_next_usable_stream()
+            self.raft_proto_handle.get_next_usable_stream()
         )
 
     def get_dtype(self):
@@ -275,17 +275,17 @@ cdef class ForestInference_impl():
             convert_to_dtype=model_dtype,
             check_dtype=model_dtype
         )
-        cdef kayak_device_t in_dev
+        cdef raft_proto_device_t in_dev
         if in_arr.is_device_accessible:
             if (
                 GlobalSettings().device_type == DeviceType.host
                 and in_arr.is_host_accessible
             ):
-                in_dev = kayak_device_t.cpu
+                in_dev = raft_proto_device_t.cpu
             else:
-                in_dev = kayak_device_t.gpu
+                in_dev = raft_proto_device_t.gpu
         else:
-            in_dev = kayak_device_t.cpu
+            in_dev = raft_proto_device_t.cpu
 
         in_ptr = in_arr.ptr
 
@@ -300,17 +300,17 @@ cdef class ForestInference_impl():
         else:
             # TODO(wphicks): Handle incorrect dtype/device/layout in C++
             preds.index = in_arr.index
-        cdef kayak_device_t out_dev
+        cdef raft_proto_device_t out_dev
         if preds.is_device_accessible:
             if (
                 GlobalSettings().device_type == DeviceType.host
                 and preds.is_host_accessible
             ):
-                out_dev = kayak_device_t.cpu
+                out_dev = raft_proto_device_t.cpu
             else:
-                out_dev = kayak_device_t.gpu
+                out_dev = raft_proto_device_t.gpu
         else:
-            out_dev = kayak_device_t.cpu
+            out_dev = raft_proto_device_t.cpu
 
         out_ptr = preds.ptr
 
@@ -322,7 +322,7 @@ cdef class ForestInference_impl():
 
         if model_dtype == np.float32:
             self.model.predict[float](
-                self.kayak_handle,
+                self.raft_proto_handle,
                 <float*> out_ptr,
                 <float*> in_ptr,
                 n_rows,
@@ -332,7 +332,7 @@ cdef class ForestInference_impl():
             )
         else:
             self.model.predict[double](
-                self.kayak_handle,
+                self.raft_proto_handle,
                 <double*> out_ptr,
                 <double*> in_ptr,
                 n_rows,
@@ -341,7 +341,7 @@ cdef class ForestInference_impl():
                 chunk_specification
             )
 
-        self.kayak_handle.synchronize()
+        self.raft_proto_handle.synchronize()
 
         return preds
 
