@@ -71,8 +71,8 @@ If a CUDA-enabled GPU is available on the system, cuML will default to using it.
    model.fit(X_train, y_train)
    predictions = model.predict(X_test)
 
-For more detailed examples, please see the `Execution Device
-Interoperability Notebook<execution_device_interoperability.ipynb>`_in the User Guide.
+For more detailed examples, please see the `Execution Device Interoperability Notebook
+<execution_device_interoperability.ipynb>`_ in the User Guide.
 
 .. _verbosity-levels:
 
