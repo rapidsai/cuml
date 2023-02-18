@@ -62,6 +62,49 @@ __global__ void merge_height_kernel(value_t* heights,
   }
 }
 
+template <typename value_idx, typename value_t, int tpb = 256>
+__global__ void merge_height_kernel(value_t* heights,
+                                    value_t* lambdas,
+                                    value_t* prediction_lambdas,
+                                    value_idx* min_mr_indices,
+                                    value_idx* index_into_children,
+                                    value_idx* parents,
+                                    size_t n_prediction_points,
+                                    value_idx n_selected_clusters,
+                                    value_idx* selected_clusters)
+{
+  value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
+  if (idx < value_idx(n_prediction_points * n_selected_clusters)) {
+    value_idx row           = idx / n_selected_clusters;
+    value_idx col           = idx % n_selected_clusters;
+    value_idx right_cluster = selected_clusters[col];
+    value_idx left_cluster  = parents[index_into_children[min_mr_indices[row]]];
+    bool took_right_parent  = false;
+    bool took_left_parent   = false;
+    value_idx last_cluster;
+
+    while (left_cluster != right_cluster) {
+      if (left_cluster > right_cluster) {
+        took_left_parent = true;
+        last_cluster     = left_cluster;
+        left_cluster     = parents[index_into_children[left_cluster]];
+      } else {
+        took_right_parent = true;
+        last_cluster      = right_cluster;
+        right_cluster     = parents[index_into_children[right_cluster]];
+      }
+    }
+
+    if (took_left_parent && took_right_parent) {
+      heights[idx] = lambdas[index_into_children[last_cluster]];
+    }
+
+    else {
+      heights[idx] = prediction_lambdas[row];
+    }
+  }
+}
+
 template <typename value_idx, typename value_t>
 __global__ void prob_in_some_cluster_kernel(value_t* heights,
                                             value_t* height_argmax,

@@ -35,8 +35,7 @@ namespace Predict {
 /**
 Find the nearest mutual reachability neighbor of a point, and  compute
 the associated lambda value for the point, given the mutual reachability
-distance to a nearest neighbor.
- *
+distance to a nearest neighbor. This KNN and core distances for prediction points are computed on the fly. *
  * @tparam value_idx
  * @tparam value_t
  * @tparam tpb
@@ -149,6 +148,67 @@ void _find_cluster_and_probability(const raft::handle_t& handle,
                                                            out_labels,
                                                            out_probabilities);
 }
+
+
+
+// This funciton builds the mutual reachability graph and obtains the nearest neighbors for the prediction points.
+template <typename value_idx, typename value_t, int tpb = 256>
+void _compute_knn_and_nearest_neighbor(const raft::handle_t& handle,
+                                       Common::PredictionData<value_idx, value_t>& prediction_data,
+                                       X,
+                                       m,
+                                       n,
+                                       min_samples,
+                                       n_prediction_points,
+                                       min_mr_inds,
+                                       prediction_lambdas,
+                                       metric)
+{
+  size_t m                  = prediction_data.n_rows;
+  size_t n                  = prediction_data.n_cols;
+  value_t* input_core_dists = prediction_data.get_core_dists();
+  int neighborhood = (min_samples - 1) * 2;
+
+  rmm::device_uvector<value_idx> inds(neighborhood * n_prediction_points, stream);
+  rmm::device_uvector<value_t> dists(neighborhood * n_prediction_points, stream);
+  rmm::device_uvector<value_t> prediction_core_dists(n_prediction_points, stream);
+
+  // perform knn
+  Reachability::compute_knn(handle,
+                            X,
+                            inds.data(),
+                            dists.data(),
+                            m,
+                            n,
+                            points_to_predict,
+                            n_prediction_points,
+                            neighborhood,
+                            metric);
+
+  // Slice core distances (distances to kth nearest neighbor). The index of the neighbor is
+  // consistent with Scikit-learn Contrib
+  Reachability::core_distances<value_idx>(dists.data(),
+                                          min_samples,
+                                          neighborhood,
+                                          n_prediction_points,
+                                          prediction_core_dists.data(),
+                                          stream);}
+
+
+  _find_neighbor_and_lambda(handle,
+                            input_core_dists,
+                            prediction_core_dists.data(),
+                            dists.data(),
+                            inds.data(),
+                            n_prediction_points,
+                            neighborhood,
+                            min_mr_inds,
+                            prediction_lambdas.data());
+
+
+
+
+
 /**
  * Predict the cluster label and the probability of the label for new points.
  * The returned labels are those of the original clustering,
@@ -188,38 +248,6 @@ void approximate_predict(const raft::handle_t& handle,
 
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
-
-  size_t m                  = prediction_data.n_rows;
-  size_t n                  = prediction_data.n_cols;
-  value_t* input_core_dists = prediction_data.get_core_dists();
-
-  // this is the neighborhood of prediction points for which MR distances are computed
-  int neighborhood = (min_samples - 1) * 2;
-
-  rmm::device_uvector<value_idx> inds(neighborhood * n_prediction_points, stream);
-  rmm::device_uvector<value_t> dists(neighborhood * n_prediction_points, stream);
-  rmm::device_uvector<value_t> prediction_core_dists(n_prediction_points, stream);
-
-  // perform knn
-  Reachability::compute_knn(handle,
-                            X,
-                            inds.data(),
-                            dists.data(),
-                            m,
-                            n,
-                            points_to_predict,
-                            n_prediction_points,
-                            neighborhood,
-                            metric);
-
-  // Slice core distances (distances to kth nearest neighbor). The index of the neighbor is
-  // consistent with Scikit-learn Contrib
-  Reachability::core_distances<value_idx>(dists.data(),
-                                          min_samples,
-                                          neighborhood,
-                                          n_prediction_points,
-                                          prediction_core_dists.data(),
-                                          stream);
 
   // Obtain lambdas for each prediction point using the closest point in mutual reachability space
   rmm::device_uvector<value_t> prediction_lambdas(n_prediction_points, stream);
