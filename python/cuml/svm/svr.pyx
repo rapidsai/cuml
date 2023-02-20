@@ -62,6 +62,22 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         double epsilon
         SvmType svmType
 
+cdef extern from "cuml/matrix/cumlmatrix.hpp" namespace "MLCommon::Matrix":
+    cdef cppclass Matrix[math_t]:
+        int n_rows
+        int n_cols
+
+    cdef cppclass CsrMatrix[math_t](Matrix[math_t]):
+        int nnz;
+        int* indptr;
+        int* indices;
+        math_t* data;
+        CsrMatrix(int* indptr, int* indices, math_t* data, int nnz, int rows, int cols) except +
+
+    cdef cppclass DenseMatrix[math_t](Matrix[math_t]):
+        math_t* data;
+        DenseMatrix(math_t* data, int rows, int cols) except +
+
 cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
     cdef cppclass SvmModel[math_t]:
         # parameters of a fitted model
@@ -69,7 +85,7 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
         int n_cols
         math_t b
         math_t *dual_coefs
-        math_t *x_support
+        Matrix[math_t] *support_matrix
         int *support_idx
         int n_classes
         math_t *unique_labels

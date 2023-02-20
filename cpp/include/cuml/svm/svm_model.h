@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <cuml/matrix/cumlmatrix.hpp>
+
 namespace ML {
 namespace SVM {
 
@@ -32,8 +34,9 @@ struct SvmModel {
   //! Size [n_support].
   math_t* dual_coefs;
 
-  //! Support vectors in column major format. Size [n_support x n_cols].
-  math_t* x_support;
+  //! Support vectors in matrix format. Size [n_support x n_cols].
+  MLCommon::Matrix::Matrix<math_t>* support_matrix;
+
   //! Indices (from the training set) of the support vectors, size [n_support].
   int* support_idx;
 

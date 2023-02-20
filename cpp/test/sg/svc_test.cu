@@ -639,7 +639,7 @@ void checkResults(SvmModel<math_t> model,
 
   if (x_support_exp) {
     EXPECT_TRUE(devArrMatchHost(x_support_exp,
-                                model.x_support,
+                                model.support_matrix->asDense()->data,
                                 model.n_support * model.n_cols,
                                 MLCommon::CompareApprox<math_t>(1e-6f),
                                 stream));
@@ -651,7 +651,8 @@ void checkResults(SvmModel<math_t> model,
   }
 
   math_t* x_support_host = new math_t[model.n_support * model.n_cols];
-  raft::update_host(x_support_host, model.x_support, model.n_support * model.n_cols, stream);
+  raft::update_host(
+    x_support_host, model.support_matrix->asDense()->data, model.n_support * model.n_cols, stream);
   raft::interruptible::synchronize(stream);
 
   if (w_exp) {
@@ -907,14 +908,15 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
       KernelFactory<TypeParam>::create(p.kernel_params, this->handle.get_cublas_handle());
     SmoSolver<TypeParam> smo(this->handle, param, p.kernel_params.kernel, kernel);
     SvmModel<TypeParam> model{0, this->n_cols, 0, nullptr, nullptr, nullptr, 0, nullptr};
-    smo.Solve(this->x_dev.data(),
+    MLCommon::Matrix::DenseMatrix matrix_wrapper(this->x_dev.data(), this->n_rows, this->n_cols);
+    smo.Solve(matrix_wrapper,
               this->n_rows,
               this->n_cols,
               this->y_dev.data(),
               nullptr,
               &model.dual_coefs,
               &model.n_support,
-              &model.x_support,
+              &model.support_matrix,
               &model.support_idx,
               &model.b,
               p.max_iter,
@@ -1298,12 +1300,12 @@ class SvrTest : public ::testing::Test {
     raft::update_device(x_dev.data(), x_host, n_rows * n_cols, stream);
     raft::update_device(y_dev.data(), y_host, n_rows, stream);
 
-    model.n_support     = 0;
-    model.dual_coefs    = nullptr;
-    model.x_support     = nullptr;
-    model.support_idx   = nullptr;
-    model.n_classes     = 0;
-    model.unique_labels = nullptr;
+    model.n_support      = 0;
+    model.dual_coefs     = nullptr;
+    model.support_matrix = nullptr;
+    model.support_idx    = nullptr;
+    model.n_classes      = 0;
+    model.unique_labels  = nullptr;
   }
 
   void TearDown() override { svmFreeBuffers(handle, model); }
@@ -1363,7 +1365,7 @@ class SvrTest : public ::testing::Test {
             &model.dual_coefs,
             &model.n_support,
             &model.support_idx,
-            &model.x_support,
+            &model.support_matrix,
             &model.b);
     ASSERT_EQ(model.n_support, 5);
     math_t dc_exp[] = {0.1, 0.3, -0.4, 0.9, -0.9};
@@ -1372,7 +1374,7 @@ class SvrTest : public ::testing::Test {
 
     math_t x_exp[] = {1, 2, 3, 5, 6};
     EXPECT_TRUE(devArrMatchHost(x_exp,
-                                model.x_support,
+                                model.support_matrix->asDense()->data,
                                 model.n_support * n_cols,
                                 MLCommon::CompareApprox<math_t>(1.0e-6),
                                 stream));

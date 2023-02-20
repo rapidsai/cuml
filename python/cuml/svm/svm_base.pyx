@@ -98,7 +98,7 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
         int n_cols
         math_t b
         math_t *dual_coefs
-        math_t *x_support
+        Matrix[math_t] *support_matrix
         int *support_idx
         int n_classes
         math_t *unique_labels
@@ -425,8 +425,8 @@ class SVMBase(Base,
             model_f.b = self._intercept_.item()
             model_f.dual_coefs = \
                 <float*><size_t>self.dual_coef_.ptr
-            model_f.x_support = \
-                <float*><uintptr_t>self.support_vectors_.ptr
+            model_f.support_matrix = \
+                new DenseMatrix[float](<float*><uintptr_t>self.support_vectors_.ptr, self.n_support_, self.n_cols)
             model_f.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
             model_f.n_classes = self.n_classes_
@@ -443,8 +443,8 @@ class SVMBase(Base,
             model_d.b = self._intercept_.item()
             model_d.dual_coefs = \
                 <double*><size_t>self.dual_coef_.ptr
-            model_d.x_support = \
-                <double*><uintptr_t>self.support_vectors_.ptr
+            model_d.support_matrix = \
+                new DenseMatrix[double](<double*><uintptr_t>self.support_vectors_.ptr, self.n_support_, self.n_cols)
             model_d.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
             model_d.n_classes = self.n_classes_
@@ -483,11 +483,11 @@ class SVMBase(Base,
                     dtype=np.int32,
                     order='F')
 
-                self.support_vectors_ = CumlArray(
-                    data=<uintptr_t>model_f.x_support,
-                    shape=(self.n_support_, self.n_cols),
-                    dtype=self.dtype,
-                    order='F')
+#                self.support_vectors_ = CumlArray(
+#                    data=<uintptr_t>model_f.x_support,
+#                    shape=(self.n_support_, self.n_cols),
+#                    dtype=self.dtype,
+#                    order='F')
 
             self.n_classes_ = model_f.n_classes
             if self.n_classes_ > 0:
@@ -516,11 +516,11 @@ class SVMBase(Base,
                     dtype=np.int32,
                     order='F')
 
-                self.support_vectors_ = CumlArray(
-                    data=<uintptr_t>model_d.x_support,
-                    shape=(self.n_support_, self.n_cols),
-                    dtype=self.dtype,
-                    order='F')
+#                self.support_vectors_ = CumlArray(
+#                    data=<uintptr_t>model_d.x_support,
+#                    shape=(self.n_support_, self.n_cols),
+#                    dtype=self.dtype,
+#                    order='F')
 
             self.n_classes_ = model_d.n_classes
             if self.n_classes_ > 0:

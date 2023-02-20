@@ -164,6 +164,29 @@ class Results {
     handle.sync_stream(stream);
   }
 
+  void Get(const math_t* alpha,
+           const math_t* f,
+           math_t** dual_coefs,
+           int* n_support,
+           int** idx,
+           MLCommon::Matrix::Matrix<math_t>** support_matrix,
+           math_t* b)
+  {
+    CombineCoefs(alpha, val_tmp.data());
+    GetDualCoefs(val_tmp.data(), dual_coefs, n_support);
+    *b = CalcB(alpha, f, *n_support);
+    if (*n_support > 0) {
+      *idx            = GetSupportVectorIndices(val_tmp.data(), *n_support);
+      *support_matrix = CollectSupportVectorMatrix(*idx, *n_support);
+    } else {
+      *dual_coefs     = nullptr;
+      *idx            = nullptr;
+      *support_matrix = nullptr;
+    }
+    // Make sure that all pending GPU calculations finished before we return
+    handle.sync_stream(stream);
+  }
+
   /**
    * Collect support vectors into a contiguous buffer
    *
@@ -199,6 +222,49 @@ class Results {
     }
 
     return x_support;
+  }
+
+  MLCommon::Matrix::Matrix<math_t>* CollectSupportVectorMatrix(const int* idx, int n_support)
+  {
+    switch (matrix.getType()) {
+      case MLCommon::Matrix::MatrixType::CSR: {
+        MLCommon::Matrix::Matrix<math_t>* support_matrix;
+
+        // allow ~1GB dense support matrix
+        if (n_support * n_cols * sizeof(math_t) < (1 << 30)) {
+          math_t* x_support =
+            (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
+          support_matrix = new MLCommon::Matrix::DenseMatrix<math_t>(x_support, n_support, n_cols);
+        } else {
+          support_matrix = new MLCommon::Matrix::ResizableCsrMatrix<math_t>(0, 0, 0, stream);
+        }
+
+        const MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix.asCsr();
+        ML::SVM::copySparseRowsToMatrix<math_t>(csr_matrix->indptr,
+                                                csr_matrix->indices,
+                                                csr_matrix->data,
+                                                n_rows,
+                                                n_cols,
+                                                *support_matrix,
+                                                idx,
+                                                n_support,
+                                                stream);
+        return support_matrix;
+        break;
+      }
+      case MLCommon::Matrix::MatrixType::DENSE: {
+        // Collect support vectors into a contiguous block
+        math_t* x_support =
+          (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
+        raft::matrix::copyRows(
+          matrix.asDense()->data, n_rows, n_cols, x_support, idx, n_support, stream);
+        return new MLCommon::Matrix::DenseMatrix(x_support, n_support, n_cols);
+        break;
+      }
+      default: THROW("Solve not implemented for matrix type %d", matrix.getType());
+    }
+
+    return nullptr;
   }
 
   /**

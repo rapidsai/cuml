@@ -136,7 +136,7 @@ class SmoSolver {
   /**
    * @brief Solve the quadratic optimization problem.
    *
-   * The output arrays (dual_coefs, x_support, idx) will be allocated on the
+   * The output arrays (dual_coefs, support_matrix, idx) will be allocated on the
    * device, they should be unallocated on entry.
    *
    * @param [in] matrix training vectors in matrix format(MLCommon::Matrix::Matrix), size [n_rows x
@@ -148,7 +148,7 @@ class SmoSolver {
    *     applicable)
    * @param [out] dual_coefs size [n_support] on exit
    * @param [out] n_support number of support vectors
-   * @param [out] x_support support vectors in column major format, size [n_support, n_cols]
+   * @param [out] support_matrix support vectors in matrix format, size [n_support, n_cols]
    * @param [out] idx the original training set indices of the support vectors, size [n_support]
    * @param [out] b scalar constant for the decision function
    * @param [in] max_outer_iter maximum number of outer iteration (default 100 * n_rows)
@@ -161,7 +161,7 @@ class SmoSolver {
              const math_t* sample_weight,
              math_t** dual_coefs,
              int* n_support,
-             math_t** x_support,
+             MLCommon::Matrix::Matrix<math_t>** support_matrix,
              int** idx,
              math_t* b,
              int max_outer_iter = -1,
@@ -604,7 +604,7 @@ class SmoSolver {
       diff_prev);
 
     Results<math_t> res(handle, matrix, y, C_vec.data(), svmType);
-    res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, x_support, b);
+    res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, support_matrix, b);
 
     ReleaseBuffers();
   }
@@ -624,6 +624,7 @@ class SmoSolver {
              int max_inner_iter = 10000)
   {
     MLCommon::Matrix::DenseMatrix dense_matrix(x, n_rows, n_cols);
+    MLCommon::Matrix::DenseMatrix<math_t>* support_matrix_ptr;
     Solve(dense_matrix,
           n_rows,
           n_cols,
@@ -631,11 +632,13 @@ class SmoSolver {
           sample_weight,
           dual_coefs,
           n_support,
-          x_support,
+          (MLCommon::Matrix::Matrix<math_t>**)&support_matrix_ptr,
           idx,
           b,
           max_outer_iter,
           max_inner_iter);
+    *x_support = support_matrix_ptr->data;
+    delete support_matrix_ptr;
   }
 
   /**

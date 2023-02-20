@@ -126,11 +126,11 @@ SVC<math_t>::SVC(raft::handle_t& handle,
     param(SvmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity}),
     kernel_params(kernel_params)
 {
-  model.n_support     = 0;
-  model.dual_coefs    = nullptr;
-  model.x_support     = nullptr;
-  model.support_idx   = nullptr;
-  model.unique_labels = nullptr;
+  model.n_support      = 0;
+  model.dual_coefs     = nullptr;
+  model.support_matrix = nullptr;
+  model.support_idx    = nullptr;
+  model.unique_labels  = nullptr;
 }
 
 template <typename math_t>

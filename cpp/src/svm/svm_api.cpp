@@ -79,7 +79,7 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle,
       *n_support     = model.n_support;
       *b             = model.b;
       *dual_coefs    = model.dual_coefs;
-      *x_support     = model.x_support;
+      *x_support     = model.support_matrix->asDense()->data;
       *support_idx   = model.support_idx;
       *n_classes     = model.n_classes;
       *unique_labels = model.unique_labels;
@@ -153,7 +153,7 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle,
       *n_support     = model.n_support;
       *b             = model.b;
       *dual_coefs    = model.dual_coefs;
-      *x_support     = model.x_support;
+      *x_support     = model.support_matrix->asDense()->data;
       *support_idx   = model.support_idx;
       *n_classes     = model.n_classes;
       *unique_labels = model.unique_labels;
@@ -196,13 +196,13 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle,
   kernel_param.coef0  = coef0;
 
   ML::SVM::SvmModel<float> model;
-  model.n_support     = n_support;
-  model.b             = b;
-  model.dual_coefs    = dual_coefs;
-  model.x_support     = x_support;
-  model.support_idx   = nullptr;
-  model.n_classes     = n_classes;
-  model.unique_labels = unique_labels;
+  model.n_support      = n_support;
+  model.b              = b;
+  model.dual_coefs     = dual_coefs;
+  model.support_matrix = new MLCommon::Matrix::DenseMatrix<float>(x_support, n_support, n_cols);
+  model.support_idx    = nullptr;
+  model.n_classes      = n_classes;
+  model.unique_labels  = unique_labels;
 
   cumlError_t status;
   raft::handle_t* handle_ptr;
@@ -250,13 +250,13 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle,
   kernel_param.coef0  = coef0;
 
   ML::SVM::SvmModel<double> model;
-  model.n_support     = n_support;
-  model.b             = b;
-  model.dual_coefs    = dual_coefs;
-  model.x_support     = x_support;
-  model.support_idx   = nullptr;
-  model.n_classes     = n_classes;
-  model.unique_labels = unique_labels;
+  model.n_support      = n_support;
+  model.b              = b;
+  model.dual_coefs     = dual_coefs;
+  model.support_matrix = new MLCommon::Matrix::DenseMatrix<double>(x_support, n_support, n_cols);
+  model.support_idx    = nullptr;
+  model.n_classes      = n_classes;
+  model.unique_labels  = unique_labels;
 
   cumlError_t status;
   raft::handle_t* handle_ptr;

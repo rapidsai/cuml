@@ -64,14 +64,15 @@ void svrFit(const raft::handle_t& handle,
                                                            handle_impl.get_cublas_handle());
 
   SmoSolver<math_t> smo(handle_impl, param, kernel_params.kernel, kernel);
-  smo.Solve(X,
+  MLCommon::Matrix::DenseMatrix matrix_wrapper(X, n_rows, n_cols);
+  smo.Solve(matrix_wrapper,
             n_rows,
             n_cols,
             y,
             sample_weight,
             &(model.dual_coefs),
             &(model.n_support),
-            &(model.x_support),
+            &(model.support_matrix),
             &(model.support_idx),
             &(model.b),
             param.max_iter);
