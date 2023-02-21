@@ -144,6 +144,10 @@ class UMAP(UniversalBase,
     The UMAP algorithm is outlined in [1]. This implementation follows the
     GPU-accelerated version as described in [2].
 
+    This estimator supports cuML's experimental device selection capabilities.
+    It can be configured to run on either the CPU or the GPU.
+    To learn more, please see :ref:`device-selection`.
+
     Parameters
     ----------
     n_neighbors: float (optional, default 15)

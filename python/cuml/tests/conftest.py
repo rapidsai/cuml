@@ -41,7 +41,7 @@ cp = gpu_only_import("cupy")
 pytest_plugins = "cuml.testing.plugins.quick_run_plugin"
 
 CI = os.environ.get("CI") in ("true", "1")
-HYPOTHESIS_ENABLED = os.environ.get("RAPIDS_CUML_RUN_HYPOTHESIS") in (
+HYPOTHESIS_ENABLED = os.environ.get("HYPOTHESIS_ENABLED") in (
     "true",
     "1",
 )
