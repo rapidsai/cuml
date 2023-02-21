@@ -59,7 +59,7 @@ from cuml.dask import (
     decomposition,
     linear_model,
 )  # noqa: F401
-from cuml.internals.import_utils import has_umap, has_hdbscan_prediction
+from cuml.internals.import_utils import has_hdbscan, has_umap
 from cuml.internals.safe_imports import cpu_only_import
 
 np = cpu_only_import("numpy")
@@ -69,7 +69,7 @@ if has_umap():
     import umap
 
 
-if has_hdbscan_prediction(raise_if_unavailable=False):
+if has_hdbscan():
     import hdbscan
 
 
@@ -277,9 +277,7 @@ def all_algorithms():
             accepts_labels=False,
         ),
         AlgorithmPair(
-            hdbscan.HDBSCAN
-            if has_hdbscan_prediction(raise_if_unavailable=False)
-            else None,
+            hdbscan.HDBSCAN if has_hdbscan() else None,
             cuml.cluster.HDBSCAN,
             shared_args={},
             cpu_args={},
