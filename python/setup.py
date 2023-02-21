@@ -106,9 +106,8 @@ if clean_artifacts:
 ##############################################################################
 # - Python package generation ------------------------------------------------
 
-cuda_suffix = os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default="")
 setup(
-    name=f"cuml{cuda_suffix}",
+    name="cuml",
     version="23.04.00",
     description="cuML - RAPIDS ML Algorithms",
     url="https://github.com/rapidsai/cuml",
@@ -132,10 +131,10 @@ setup(
         "seaborn",
         "treelite==3.1.0",
         "treelite_runtime==3.1.0",
-        f"cudf{cuda_suffix}==23.4.*",
-        f"dask-cudf{cuda_suffix}==23.4.*",
-        f"pylibraft{cuda_suffix}==23.4.*",
-        f"raft-dask{cuda_suffix}==23.4.*",
+        "cudf==23.4.*",
+        "dask-cudf==23.4.*",
+        "pylibraft==23.4.*",
+        "raft-dask==23.4.*",
     ],
     extras_require={
         "test": [
