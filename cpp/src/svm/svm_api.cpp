@@ -196,13 +196,14 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle,
   kernel_param.coef0  = coef0;
 
   ML::SVM::SvmModel<float> model;
-  model.n_support      = n_support;
-  model.b              = b;
-  model.dual_coefs     = dual_coefs;
-  model.support_matrix = new MLCommon::Matrix::DenseMatrix<float>(x_support, n_support, n_cols);
-  model.support_idx    = nullptr;
-  model.n_classes      = n_classes;
-  model.unique_labels  = unique_labels;
+  model.n_support  = n_support;
+  model.b          = b;
+  model.dual_coefs = dual_coefs;
+  model.support_matrix =
+    new raft::distance::matrix::detail::DenseMatrix<float>(x_support, n_support, n_cols);
+  model.support_idx   = nullptr;
+  model.n_classes     = n_classes;
+  model.unique_labels = unique_labels;
 
   cumlError_t status;
   raft::handle_t* handle_ptr;
@@ -250,13 +251,14 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle,
   kernel_param.coef0  = coef0;
 
   ML::SVM::SvmModel<double> model;
-  model.n_support      = n_support;
-  model.b              = b;
-  model.dual_coefs     = dual_coefs;
-  model.support_matrix = new MLCommon::Matrix::DenseMatrix<double>(x_support, n_support, n_cols);
-  model.support_idx    = nullptr;
-  model.n_classes      = n_classes;
-  model.unique_labels  = unique_labels;
+  model.n_support  = n_support;
+  model.b          = b;
+  model.dual_coefs = dual_coefs;
+  model.support_matrix =
+    new raft::distance::matrix::detail::DenseMatrix<double>(x_support, n_support, n_cols);
+  model.support_idx   = nullptr;
+  model.n_classes     = n_classes;
+  model.unique_labels = unique_labels;
 
   cumlError_t status;
   raft::handle_t* handle_ptr;

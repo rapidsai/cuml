@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <cuml/matrix/cumlmatrix.hpp>
+#include <raft/distance/detail/matrix/matrix.hpp>
 
 namespace ML {
 namespace SVM {
@@ -35,7 +35,7 @@ struct SvmModel {
   math_t* dual_coefs;
 
   //! Support vectors in matrix format. Size [n_support x n_cols].
-  MLCommon::Matrix::Matrix<math_t>* support_matrix;
+  raft::distance::matrix::detail::Matrix<math_t>* support_matrix;
 
   //! Indices (from the training set) of the support vectors, size [n_support].
   int* support_idx;

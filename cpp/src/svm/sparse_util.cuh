@@ -15,13 +15,52 @@
  */
 
 #pragma once
-#include <cuml/matrix/cumlmatrix.hpp>
+#include <raft/distance/detail/matrix/matrix.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 #include <thrust/transform_scan.h>
 
 namespace ML {
 namespace SVM {
+
+using namespace raft::distance::matrix::detail;
+
+/*
+ * Extension to raft matrix wrapper that owns the backing memory
+ * and allows dynamic resizing. This simplifies CSR row extraction
+ * where the target nnz is not known in advance
+ */
+template <typename math_t>
+class ResizableCsrMatrix : public CsrMatrix<math_t> {
+ public:
+  ResizableCsrMatrix(int rows, int cols, int nnz, cudaStream_t stream)
+    : CsrMatrix<math_t>(nullptr, nullptr, nullptr, nnz, rows, cols),
+      d_indptr(rows + 1, stream),
+      d_indices(nnz, stream),
+      d_data(nnz, stream)
+  {
+    CsrMatrix<math_t>::indptr  = d_indptr.data();
+    CsrMatrix<math_t>::indices = d_indices.data();
+    CsrMatrix<math_t>::data    = d_data.data();
+  }
+
+  void reserveRows(int rows, cudaStream_t stream)
+  {
+    d_indptr.reserve(rows + 1, stream);
+    CsrMatrix<math_t>::indptr = d_indptr.data();
+  }
+
+  void reserveNnz(int nnz, cudaStream_t stream)
+  {
+    d_indices.reserve(nnz, stream);
+    d_data.reserve(nnz, stream);
+    CsrMatrix<math_t>::indices = d_indices.data();
+    CsrMatrix<math_t>::data    = d_data.data();
+  }
+
+  rmm::device_uvector<int> d_indptr, d_indices;
+  rmm::device_uvector<math_t> d_data;
+};
 
 template <typename math_t>
 static __global__ void extractDenseRowsFromCSR(math_t* out,
@@ -107,45 +146,66 @@ struct rowsize : public thrust::unary_function<int, int> {
 };
 
 template <typename math_t>
-static void copySparseRowsToMatrix(const int* indptr,
-                                   const int* indices,
-                                   const math_t* data,
-                                   int n_rows,
-                                   int n_cols,
-                                   MLCommon::Matrix::Matrix<math_t>& matrix_out,
-                                   const int* row_indices,
-                                   int num_indices,
-                                   cudaStream_t stream)
+static void extractRows(const Matrix<math_t>& matrix_in,
+                        Matrix<math_t>& matrix_out,
+                        const int* row_indices,
+                        int num_indices,
+                        cudaStream_t stream)
 {
+  matrix_out.n_rows = num_indices;
+  matrix_out.n_cols = matrix_in.n_cols;
+
   // initialize dense target
-  if (matrix_out.getType() == MLCommon::Matrix::MatrixType::DENSE) {
+  if (!matrix_in.isDense() && matrix_out.isDense()) {
     thrust::device_ptr<math_t> output_ptr(matrix_out.asDense()->data);
-    thrust::fill(
-      thrust::cuda::par.on(stream), output_ptr, output_ptr + num_indices * n_cols, (math_t)0);
+    thrust::fill(thrust::cuda::par.on(stream),
+                 output_ptr,
+                 output_ptr + num_indices * matrix_in.n_cols,
+                 (math_t)0);
   }
 
-  matrix_out.n_rows = num_indices;
-  matrix_out.n_cols = n_cols;
+  if (matrix_in.isDense()) {
+    ASSERT(matrix_out.isDense(), "Cannot extract sparse rows from dense matrix");
+    auto dense_matrix_in  = matrix_in.asDense();
+    auto dense_matrix_out = matrix_out.asDense();
+    int minor             = dense_matrix_in->is_row_major ? matrix_in.n_cols : matrix_in.n_rows;
+    ASSERT(minor == dense_matrix_in->ld, "No padding supported");
+    dense_matrix_out->is_row_major = dense_matrix_in->is_row_major;
+    dense_matrix_out->ld = dense_matrix_out->is_row_major ? matrix_out.n_cols : matrix_out.n_rows;
 
-  // copy with 1 warp per row for now, blocksize 256
-  const dim3 bs(32, 8, 1);
-  const dim3 gs(raft::ceildiv(num_indices, (int)bs.y), 1, 1);
-  switch (matrix_out.getType()) {
-    case MLCommon::Matrix::MatrixType::DENSE: {
+    raft::matrix::copyRows<math_t, int, size_t>(matrix_in.asDense()->data,
+                                                matrix_in.n_rows,
+                                                matrix_in.n_cols,
+                                                matrix_out.asDense()->data,
+                                                row_indices,
+                                                num_indices,
+                                                stream,
+                                                false);
+  } else {
+    auto csr_matrix_in = matrix_in.asCsr();
+    int* indptr        = csr_matrix_in->indptr;
+    int* indices       = csr_matrix_in->indices;
+    math_t* data       = csr_matrix_in->data;
+
+    // copy with 1 warp per row for now, blocksize 256
+    const dim3 bs(32, 8, 1);
+    const dim3 gs(raft::ceildiv(num_indices, (int)bs.y), 1, 1);
+    if (matrix_out.isDense()) {
+      auto dense_matrix_out          = matrix_out.asDense();
+      dense_matrix_out->is_row_major = false;
+      dense_matrix_out->ld           = num_indices;
       extractDenseRowsFromCSR<math_t><<<gs, bs, 0, stream>>>(
-        matrix_out.asDense()->data, indptr, indices, data, row_indices, num_indices);
-      break;
-    }
-    case MLCommon::Matrix::MatrixType::CSR: {
-      MLCommon::Matrix::CsrMatrix<math_t>* csr_out            = matrix_out.asCsr();
-      MLCommon::Matrix::ResizableCsrMatrix<math_t>* resizable = matrix_out.asResizableCsr();
+        dense_matrix_out->data, indptr, indices, data, row_indices, num_indices);
+    } else {
+      ResizableCsrMatrix<math_t>* csr_matrix_out =
+        dynamic_cast<ResizableCsrMatrix<math_t>*>(&matrix_out);
+      ASSERT(csr_matrix_out != nullptr, "Matrix csr target should be resizable.");
 
-      ASSERT(resizable != nullptr || csr_out->row_capacity >= csr_out->n_rows,
-             "Matrix row capacity not sufficient.");
-      if (resizable != nullptr) { resizable->reserveRows(num_indices); }
+      csr_matrix_out->reserveRows(num_indices, stream);
 
       // row sizes + inclusive_scan -> row end positions
-      thrust::device_ptr<int> row_sizes_ptr(csr_out->indptr);  // store size in target for now
+      thrust::device_ptr<int> row_sizes_ptr(
+        csr_matrix_out->indptr);  // store size in target for now
       thrust::device_ptr<const int> row_new_indices_ptr(row_indices);
       // thrust::fill(thrust::cuda::par.on(stream), row_sizes_ptr, row_sizes_ptr + 1, 0); // will be
       // done inside kernel
@@ -159,24 +219,19 @@ static void copySparseRowsToMatrix(const int* indptr,
       cudaDeviceSynchronize();
 
       // retrieve nnz from indptr[num_indices]
-      raft::update_host(&(csr_out->nnz), csr_out->indptr + num_indices, 1, stream);
+      raft::update_host(&(csr_matrix_out->nnz), csr_matrix_out->indptr + num_indices, 1, stream);
 
-      ASSERT(resizable != nullptr || csr_out->nnz_capacity >= csr_out->nnz,
-             "Matrix nnz capacity not sufficient.");
-      if (resizable != nullptr) { resizable->reserveNnz(csr_out->nnz); }
+      csr_matrix_out->reserveNnz(csr_matrix_out->nnz, stream);
 
-      extractCSRRowsFromCSR<math_t><<<gs, bs, 0, stream>>>(csr_out->indptr,
-                                                           csr_out->indices,
-                                                           csr_out->data,
+      extractCSRRowsFromCSR<math_t><<<gs, bs, 0, stream>>>(csr_matrix_out->indptr,
+                                                           csr_matrix_out->indices,
+                                                           csr_matrix_out->data,
                                                            indptr,
                                                            indices,
                                                            data,
                                                            row_indices,
                                                            num_indices);
-
-      break;
     }
-    default: THROW("Solve not implemented for matrix type %d", matrix_out.getType());
   }
   cudaDeviceSynchronize();
   RAFT_CUDA_TRY(cudaPeekAtLastError());

@@ -35,6 +35,7 @@ namespace SVM {
 
 using namespace MLCommon;
 using namespace raft::distance::kernels;
+using namespace raft::distance::matrix::detail;
 
 // Explicit instantiation for the library
 template void svcFit<float>(const raft::handle_t& handle,
@@ -58,7 +59,7 @@ template void svcFit<double>(const raft::handle_t& handle,
                              const double* sample_weight);
 
 template void svcFitX<float>(const raft::handle_t& handle,
-                             const MLCommon::Matrix::Matrix<float>& matrix,
+                             const Matrix<float>& matrix,
                              float* labels,
                              const SvmParameter& param,
                              KernelParams& kernel_params,
@@ -66,35 +67,15 @@ template void svcFitX<float>(const raft::handle_t& handle,
                              const float* sample_weight);
 
 template void svcFitX<double>(const raft::handle_t& handle,
-                              const MLCommon::Matrix::Matrix<double>& matrix,
+                              const Matrix<double>& matrix,
                               double* labels,
                               const SvmParameter& param,
                               KernelParams& kernel_params,
                               SvmModel<double>& model,
                               const double* sample_weight);
 
-/*template void svcPredict<float>(const raft::handle_t& handle,
-                                float* input,
-                                int n_rows,
-                                int n_cols,
-                                KernelParams& kernel_params,
-                                const SvmModel<float>& model,
-                                float* preds,
-                                float buffer_size,
-                                bool predict_class);
-
-template void svcPredict<double>(const raft::handle_t& handle,
-                                 double* input,
-                                 int n_rows,
-                                 int n_cols,
-                                 KernelParams& kernel_params,
-                                 const SvmModel<double>& model,
-                                 double* preds,
-                                 double buffer_size,
-                                 bool predict_class);
-*/
 template void svcPredictX<float>(const raft::handle_t& handle,
-                                 const MLCommon::Matrix::Matrix<float>& matrix,
+                                 const Matrix<float>& matrix,
                                  KernelParams& kernel_params,
                                  const SvmModel<float>& model,
                                  float* preds,
@@ -102,7 +83,7 @@ template void svcPredictX<float>(const raft::handle_t& handle,
                                  bool predict_class);
 
 template void svcPredictX<double>(const raft::handle_t& handle,
-                                  const MLCommon::Matrix::Matrix<double>& matrix,
+                                  const Matrix<double>& matrix,
                                   KernelParams& kernel_params,
                                   const SvmModel<double>& model,
                                   double* preds,

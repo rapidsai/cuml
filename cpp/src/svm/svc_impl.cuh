@@ -26,10 +26,10 @@
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 #include <cublas_v2.h>
-#include <cuml/matrix/cumlmatrix.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <raft/core/handle.hpp>
+#include <raft/distance/detail/matrix/matrix.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/label/classlabels.cuh>
 // #TODO: Replace with public header when ready
@@ -45,17 +45,19 @@
 namespace ML {
 namespace SVM {
 
+using namespace raft::distance::matrix::detail;
+
 template <typename math_t>
 void svcFitX(const raft::handle_t& handle,
-             const MLCommon::Matrix::Matrix<math_t>& matrix,
+             const Matrix<math_t>& matrix,
              math_t* labels,
              const SvmParameter& param,
              raft::distance::kernels::KernelParams& kernel_params,
              SvmModel<math_t>& model,
              const math_t* sample_weight)
 {
-  int n_cols = matrix.numCols();
-  int n_rows = matrix.numRows();
+  int n_cols = matrix.n_cols;
+  int n_rows = matrix.n_rows;
 
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");
@@ -82,8 +84,7 @@ void svcFitX(const raft::handle_t& handle,
     labels, n_rows, model.unique_labels, model.n_classes, y.data(), 1, stream);
 
   raft::distance::kernels::GramMatrixBase<math_t>* kernel =
-    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params,
-                                                           handle_impl.get_cublas_handle());
+    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params, handle_impl);
   SmoSolver<math_t> smo(handle_impl, param, kernel_params.kernel, kernel);
   smo.Solve(matrix,
             n_rows,
@@ -112,43 +113,37 @@ void svcFit(const raft::handle_t& handle,
             SvmModel<math_t>& model,
             const math_t* sample_weight)
 {
-  MLCommon::Matrix::DenseMatrix<math_t> dense_matrix(input, n_rows, n_cols);
+  DenseMatrix<math_t> dense_matrix(input, n_rows, n_cols);
   svcFitX(handle, dense_matrix, labels, param, kernel_params, model, sample_weight);
 }
 
 template <typename math_t>
-void matrixRowNorm(const MLCommon::Matrix::Matrix<math_t>& matrix,
+void matrixRowNorm(const Matrix<math_t>& matrix,
                    math_t* target,
                    raft::linalg::NormType norm,
                    cudaStream_t stream)
 {
-  switch (matrix.getType()) {
-    case MLCommon::Matrix::MatrixType::CSR: {
-      const MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix.asCsr();
-      raft::sparse::linalg::rowNormCsr(
-        target, csr_matrix->indptr, csr_matrix->data, csr_matrix->nnz, matrix.n_rows, norm, stream);
-      break;
-    }
-    case MLCommon::Matrix::MatrixType::DENSE: {
-      raft::linalg::rowNorm(
-        target, matrix.asDense()->data, matrix.n_cols, matrix.n_rows, norm, false, stream);
-      break;
-    }
-    default: THROW("Solve not implemented for matrix type %d", matrix.getType());
+  if (matrix.isDense()) {
+    raft::linalg::rowNorm(
+      target, matrix.asDense()->data, matrix.n_cols, matrix.n_rows, norm, false, stream);
+  } else {
+    auto csr_matrix = matrix.asCsr();
+    raft::sparse::linalg::rowNormCsr(
+      target, csr_matrix->indptr, csr_matrix->data, csr_matrix->nnz, matrix.n_rows, norm, stream);
   }
 }
 
 template <typename math_t>
 void svcPredictX(const raft::handle_t& handle,
-                 const MLCommon::Matrix::Matrix<math_t>& matrix,
+                 const Matrix<math_t>& matrix,
                  raft::distance::kernels::KernelParams& kernel_params,
                  const SvmModel<math_t>& model,
                  math_t* preds,
                  math_t buffer_size,
                  bool predict_class)
 {
-  int n_rows = matrix.numRows();
-  int n_cols = matrix.numCols();
+  int n_rows = matrix.n_rows;
+  int n_cols = matrix.n_cols;
 
   ASSERT(n_cols == model.n_cols, "Parameter n_cols: shall be the same that was used for fitting");
   // We might want to query the available memory before selecting the batch size.
@@ -173,10 +168,8 @@ void svcPredictX(const raft::handle_t& handle,
     RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
   }
 
-  cublasHandle_t cublas_handle = handle_impl.get_cublas_handle();
-
   raft::distance::kernels::GramMatrixBase<math_t>* kernel =
-    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params, cublas_handle);
+    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params, handle_impl);
 
   /*
     // kernel computation:
@@ -194,26 +187,18 @@ void svcPredictX(const raft::handle_t& handle,
   */
 
   // store matrix dot product for RBF kernels if applicable
-  rmm::device_uvector<math_t> row_norm_l2(0, stream);
-  rmm::device_uvector<int> row_norm_idx(0, stream);
-  bool is_csr_input     = matrix.getType() == MLCommon::Matrix::MatrixType::CSR;
-  bool is_csr_support   = model.support_matrix->getType() == MLCommon::Matrix::MatrixType::CSR;
+  rmm::device_uvector<math_t> dot_input(0, stream);
+  rmm::device_uvector<math_t> dot_support(0, stream);
+  bool is_csr_input     = !matrix.isDense();
+  bool is_csr_support   = !model.support_matrix->isDense();
   bool transpose_kernel = is_csr_support && !is_csr_input;
-  if (model.n_support > 0 && kernel_params.kernel == raft::distance::kernels::RBF &&
-      !(is_csr_input && is_csr_support)) {
-    row_norm_l2.reserve(n_rows + model.n_support, stream);
-    row_norm_idx.reserve(n_rows + model.n_support, stream);
-    matrixRowNorm(matrix, row_norm_l2.data(), raft::linalg::NormType::L2Norm, stream);
+  if (model.n_support > 0 && kernel_params.kernel == raft::distance::kernels::RBF) {
+    dot_input.reserve(n_rows, stream);
+    dot_support.reserve(model.n_support, stream);
+    matrixRowNorm(matrix, dot_input.data(), raft::linalg::NormType::L2Norm, stream);
     if (model.n_support > 0)
       matrixRowNorm(
-        *model.support_matrix, row_norm_l2.data() + n_rows, raft::linalg::NormType::L2Norm, stream);
-
-    // the norm row ids need to be addressed via index for 2nd operand
-    thrust::device_ptr<int> row_norm_idx_ptr(row_norm_idx.data());
-    thrust::sequence(thrust::cuda::par.on(stream),
-                     row_norm_idx_ptr,
-                     row_norm_idx_ptr + model.n_support + n_rows,
-                     0);
+        *model.support_matrix, dot_support.data(), raft::linalg::NormType::L2Norm, stream);
   }
 
   // additional row pointer information needed for batched CSR access
@@ -221,7 +206,7 @@ void svcPredictX(const raft::handle_t& handle,
   std::vector<int> host_indptr;
   rmm::device_uvector<int> indptr_batched(0, stream);
   if (model.n_support > 0 && is_csr_input) {
-    const MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix.asCsr();
+    auto csr_matrix = matrix.asCsr();
     host_indptr.reserve(n_rows + 1);
     indptr_batched.reserve(n_batch + 1, stream);
     raft::update_host(host_indptr.data(), csr_matrix->indptr, n_rows + 1, stream);
@@ -232,52 +217,23 @@ void svcPredictX(const raft::handle_t& handle,
   //  - calculate y(x_batch) = K[x_batch, x_support] * dual_coeffs
   for (int i = 0; i < n_rows && model.n_support > 0; i += n_batch) {
     if (i + n_batch >= n_rows) { n_batch = n_rows - i; }
+    Matrix<math_t>* kernel_input1 = nullptr;
+    Matrix<math_t>* kernel_input2 = nullptr;
+    DenseMatrix<math_t> kernel_out(K.data(),
+                                   transpose_kernel ? model.n_support : n_batch,
+                                   transpose_kernel ? n_batch : model.n_support);
+    math_t* dot_input1 = dot_input.data() + i;
+    math_t* dot_input2 = dot_support.data();
 
-    if (!is_csr_input && !is_csr_support) {
-      // dense*dense kernel
-      (*kernel)(matrix.asDense()->data + i,
-                n_batch,
-                n_cols,
-                model.support_matrix->asDense()->data,
-                model.n_support,
-                K.data(),
-                false,
-                stream,
-                n_rows,           // ld1
-                model.n_support,  // ld2
-                n_batch,          // ldout
-                row_norm_l2.data(),
-                i,
-                row_norm_idx.data() + n_rows);
-    } else if (!is_csr_input) {
-      // transpose csr*dense kernel
-      const MLCommon::Matrix::CsrMatrix<math_t>* support = model.support_matrix->asCsr();
-      (*kernel)(handle,
-                support->indptr,
-                support->indices,
-                support->data,
-                support->nnz,
-                model.n_support,
-                n_cols,
-                matrix.asDense()->data + i,
-                n_batch,
-                K.data(),
-                false,
-                stream,
-                n_rows,           // ld2
-                model.n_support,  // ldout
-                row_norm_l2.data(),
-                n_rows,
-                row_norm_idx.data() + i);
-    } else {
+    if (is_csr_input) {
       // we have csr input to batch over
       // create indptr array for batch interval
       // indptr_batched = indices[i, i+n_batch+1] - indices[i]
       // allows for batched csr access on original col/data
-      const MLCommon::Matrix::CsrMatrix<math_t>* input = matrix.asCsr();
-      int batch_nnz                                    = host_indptr[i + n_batch] - host_indptr[i];
+      auto csr_input = matrix.asCsr();
+      int batch_nnz  = host_indptr[i + n_batch] - host_indptr[i];
       {
-        thrust::device_ptr<int> inptr_src(input->indptr + i);
+        thrust::device_ptr<int> inptr_src(csr_input->indptr + i);
         thrust::device_ptr<int> inptr_tgt(indptr_batched.data());
         thrust::transform(thrust::cuda::par.on(stream),
                           inptr_src,
@@ -286,51 +242,36 @@ void svcPredictX(const raft::handle_t& handle,
                           inptr_tgt,
                           thrust::minus<int>());
       }
-      if (is_csr_support) {
-        // csr*csr kernel
-        const MLCommon::Matrix::CsrMatrix<math_t>* support = model.support_matrix->asCsr();
-        (*kernel)(handle,
-                  indptr_batched.data(),
-                  input->indices + host_indptr[i],
-                  input->data + host_indptr[i],
-                  batch_nnz,
-                  n_batch,
-                  n_cols,
-                  support->indptr,
-                  support->indices,
-                  support->data,
-                  support->nnz,
-                  model.n_support,
-                  K.data(),
-                  false,
-                  stream);
-      } else {
-        // csr*dense kernel
-        (*kernel)(handle,
-                  indptr_batched.data(),
-                  input->indices + host_indptr[i],
-                  input->data + host_indptr[i],
-                  batch_nnz,
-                  n_batch,
-                  n_cols,
-                  model.support_matrix->asDense()->data,
-                  model.n_support,
-                  K.data(),
-                  false,
-                  stream,
-                  model.n_support,  // ld2
-                  n_batch,          // ldout
-                  row_norm_l2.data(),
-                  i,
-                  row_norm_idx.data() + n_rows);
-      }
+      kernel_input1 = new CsrMatrix(indptr_batched.data(),
+                                    csr_input->indices + host_indptr[i],
+                                    csr_input->data + host_indptr[i],
+                                    batch_nnz,
+                                    n_batch,
+                                    n_cols);
+    } else {
+      kernel_input1 = new DenseMatrix(matrix.asDense()->data + i, n_batch, n_cols, false, n_rows);
+    }
 
-    }  // end kernel computes
+    if (is_csr_support) {
+      kernel_input2 = new CsrMatrix(*(model.support_matrix->asCsr()));
+    } else {
+      kernel_input2 = new DenseMatrix(*(model.support_matrix->asDense()));
+    }
+
+    (*kernel)(transpose_kernel ? *kernel_input2 : *kernel_input1,
+              transpose_kernel ? *kernel_input1 : *kernel_input2,
+              kernel_out,
+              stream,
+              transpose_kernel ? dot_input2 : dot_input1,
+              transpose_kernel ? dot_input1 : dot_input2);
+
+    delete kernel_input1;
+    delete kernel_input2;
 
     math_t one  = 1;
     math_t null = 0;
     // #TODO: Call from public API when ready
-    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(cublas_handle,
+    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(handle_impl.get_cublas_handle(),
                                                      transpose_kernel ? CUBLAS_OP_T : CUBLAS_OP_N,
                                                      transpose_kernel ? model.n_support : n_batch,
                                                      transpose_kernel ? n_batch : model.n_support,
@@ -378,7 +319,7 @@ void svcPredict(const raft::handle_t& handle,
                 math_t buffer_size,
                 bool predict_class)
 {
-  MLCommon::Matrix::DenseMatrix<math_t> dense_matrix(input, n_rows, n_cols);
+  DenseMatrix<math_t> dense_matrix(input, n_rows, n_cols);
   svcPredictX(handle, dense_matrix, kernel_params, model, preds, buffer_size, predict_class);
 }
 

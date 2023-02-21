@@ -157,7 +157,6 @@ class KernelCacheTest : public ::testing::Test {
  public:
   KernelCacheTest()
     : stream(handle.get_stream()),
-      cublas_handle(handle.get_cublas_handle()),
       n_rows(4),
       n_cols(2),
       n_ws(3),
@@ -224,7 +223,6 @@ class KernelCacheTest : public ::testing::Test {
   }
 
   raft::handle_t handle;
-  cublasHandle_t cublas_handle;
   cudaStream_t stream = 0;
 
   int n_rows;
@@ -252,8 +250,7 @@ TYPED_TEST_P(KernelCacheTest, EvalTest)
   float cache_size = 0;
 
   for (auto params : param_vec) {
-    GramMatrixBase<TypeParam>* kernel =
-      KernelFactory<TypeParam>::create(params, this->handle.get_cublas_handle());
+    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(params, this->handle);
     KernelCache<TypeParam> cache(this->handle,
                                  this->x_dev.data(),
                                  this->n_rows,
@@ -279,8 +276,7 @@ TYPED_TEST_P(KernelCacheTest, CacheEvalTest)
   KernelParams param{LINEAR, 3, 1, 0};
   float cache_size = sizeof(TypeParam) * this->n_rows * 32 / (1024.0 * 1024);
 
-  GramMatrixBase<TypeParam>* kernel =
-    KernelFactory<TypeParam>::create(param, this->handle.get_cublas_handle());
+  GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param, this->handle);
   KernelCache<TypeParam> cache(this->handle,
                                this->x_dev.data(),
                                this->n_rows,
@@ -306,8 +302,7 @@ TYPED_TEST_P(KernelCacheTest, SvrEvalTest)
   int ws_idx_svr[6] = {0, 5, 1, 4, 3, 7};
   raft::update_device(this->ws_idx_dev.data(), ws_idx_svr, 6, this->stream);
 
-  GramMatrixBase<TypeParam>* kernel =
-    KernelFactory<TypeParam>::create(param, this->handle.get_cublas_handle());
+  GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param, this->handle);
   KernelCache<TypeParam> cache(this->handle,
                                this->x_dev.data(),
                                this->n_rows,
@@ -456,7 +451,6 @@ class SmoBlockSolverTest : public ::testing::Test {
  public:
   SmoBlockSolverTest()
     : stream(handle.get_stream()),
-      cublas_handle(handle.get_cublas_handle()),
       n_rows(4),
       n_cols(2),
       n_ws(4),
@@ -520,7 +514,6 @@ class SmoBlockSolverTest : public ::testing::Test {
 
  protected:
   raft::handle_t handle;
-  cublasHandle_t cublas_handle;
   cudaStream_t stream = 0;
 
   int n_rows;
@@ -685,7 +678,6 @@ class SmoSolverTest : public ::testing::Test {
  public:
   SmoSolverTest()
     : stream(handle.get_stream()),
-      cublas_handle(handle.get_cublas_handle()),
       x_dev(n_rows * n_cols, stream),
       ws_idx_dev(n_ws, stream),
       y_dev(n_rows, stream),
@@ -716,7 +708,7 @@ class SmoSolverTest : public ::testing::Test {
     raft::update_device(kernel_dev.data(), kernel_host, n_ws * n_rows, stream);
     RAFT_CUDA_TRY(cudaMemsetAsync(delta_alpha_dev.data(), 0, n_ws * sizeof(math_t), stream));
 
-    kernel = std::make_unique<GramMatrixBase<math_t>>(cublas_handle);
+    kernel = std::make_unique<GramMatrixBase<math_t>>(handle);
   }
 
  public:
@@ -828,7 +820,6 @@ class SmoSolverTest : public ::testing::Test {
 
  protected:
   raft::handle_t handle;
-  cublasHandle_t cublas_handle;
   cudaStream_t stream = 0;
 
   std::unique_ptr<GramMatrixBase<math_t>> kernel;
@@ -905,10 +896,11 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
     param.tol          = p.tol;
     // param.max_iter = p.max_iter;
     GramMatrixBase<TypeParam>* kernel =
-      KernelFactory<TypeParam>::create(p.kernel_params, this->handle.get_cublas_handle());
+      KernelFactory<TypeParam>::create(p.kernel_params, this->handle);
     SmoSolver<TypeParam> smo(this->handle, param, p.kernel_params.kernel, kernel);
     SvmModel<TypeParam> model{0, this->n_cols, 0, nullptr, nullptr, nullptr, 0, nullptr};
-    MLCommon::Matrix::DenseMatrix matrix_wrapper(this->x_dev.data(), this->n_rows, this->n_cols);
+    raft::distance::matrix::detail::DenseMatrix matrix_wrapper(
+      this->x_dev.data(), this->n_rows, this->n_cols);
     smo.Solve(matrix_wrapper,
               this->n_rows,
               this->n_cols,
@@ -1075,8 +1067,7 @@ void make_blobs(const raft::handle_t& handle,
                 int n_cluster,
                 float* centers = nullptr)
 {
-  auto cublas_h = handle.get_cublas_handle();
-  auto stream   = handle.get_stream();
+  auto stream = handle.get_stream();
   rmm::device_uvector<float> x_float(n_rows * n_cols, stream);
   rmm::device_uvector<int> y_int(n_rows, stream);
 

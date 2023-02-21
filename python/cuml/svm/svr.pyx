@@ -62,7 +62,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         double epsilon
         SvmType svmType
 
-cdef extern from "cuml/matrix/cumlmatrix.hpp" namespace "MLCommon::Matrix":
+cdef extern from "raft/distance/detail/matrix/matrix.hpp" namespace "raft::distance::matrix::detail":
     cdef cppclass Matrix[math_t]:
         int n_rows
         int n_cols

@@ -25,7 +25,7 @@
 #include "ws_util.cuh"
 #include <cub/device/device_select.cuh>
 #include <raft/core/handle.hpp>
-#include <cuml/matrix/cumlmatrix.hpp>
+#include <raft/distance/detail/matrix/matrix.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
@@ -38,6 +38,8 @@
 
 namespace ML {
 namespace SVM {
+
+using namespace raft::distance::matrix::detail;
 
 template <typename math_t, typename Lambda>
 __global__ void set_flag(bool* flag, const math_t* alpha, int n, Lambda op)
@@ -54,22 +56,22 @@ class Results {
    * fitted using SMO.
    *
    * @param handle cuML handle implementation
-   * @param matrix training vectors in matrix format (MLCommon::Matrix::Matrix)
+   * @param matrix training vectors in matrix format (raft::distance::matrix::detail::Matrix)
    * @param y target labels (values +/-1), size [n_train]
    * @param n_rows number of training vectors
    * @param n_cols number of features
    * @param C penalty parameter
    */
   Results(const raft::handle_t& handle,
-          const MLCommon::Matrix::Matrix<math_t>& matrix,
+          const Matrix<math_t>& matrix,
           const math_t* y,
           const math_t* C,
           SvmType svmType)
     : rmm_alloc(rmm::mr::get_current_device_resource()),
       stream(handle.get_stream()),
       handle(handle),
-      n_rows(matrix.numRows()),
-      n_cols(matrix.numCols()),
+      n_rows(matrix.n_rows),
+      n_cols(matrix.n_cols),
       matrix(matrix),
       y(y),
       C(C),
@@ -115,7 +117,7 @@ class Results {
       val_selected(n_train, stream),
       val_tmp(n_train, stream),
       flag(n_train, stream),
-      tmp_matrix(new MLCommon::Matrix::DenseMatrix<math_t>(x, n_rows, n_cols)),
+      tmp_matrix(new DenseMatrix<math_t>(x, n_rows, n_cols)),
       matrix(*tmp_matrix)
   {
     InitCubBuffers();
@@ -169,7 +171,7 @@ class Results {
            math_t** dual_coefs,
            int* n_support,
            int** idx,
-           MLCommon::Matrix::Matrix<math_t>** support_matrix,
+           Matrix<math_t>** support_matrix,
            math_t* b)
   {
     CombineCoefs(alpha, val_tmp.data());
@@ -198,73 +200,25 @@ class Results {
   math_t* CollectSupportVectors(const int* idx, int n_support)
   {
     math_t* x_support = (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
+    DenseMatrix<math_t> support_matrix(x_support, n_support, n_cols);
     // Collect support vectors into a contiguous block
-    switch (matrix.getType()) {
-      case MLCommon::Matrix::MatrixType::CSR: {
-        const MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix.asCsr();
-        ML::SVM::copySparseRowsToDense<math_t>(csr_matrix->indptr,
-                                               csr_matrix->indices,
-                                               csr_matrix->data,
-                                               n_rows,
-                                               n_cols,
-                                               x_support,
-                                               idx,
-                                               n_support,
-                                               stream);
-        break;
-      }
-      case MLCommon::Matrix::MatrixType::DENSE: {
-        raft::matrix::copyRows(
-          matrix.asDense()->data, n_rows, n_cols, x_support, idx, n_support, stream);
-        break;
-      }
-      default: THROW("Solve not implemented for matrix type %d", matrix.getType());
-    }
-
+    ML::SVM::extractRows<math_t>(matrix, support_matrix, idx, n_support, stream);
     return x_support;
   }
 
-  MLCommon::Matrix::Matrix<math_t>* CollectSupportVectorMatrix(const int* idx, int n_support)
+  Matrix<math_t>* CollectSupportVectorMatrix(const int* idx, int n_support)
   {
-    switch (matrix.getType()) {
-      case MLCommon::Matrix::MatrixType::CSR: {
-        MLCommon::Matrix::Matrix<math_t>* support_matrix;
-
-        // allow ~1GB dense support matrix
-        if (n_support * n_cols * sizeof(math_t) < (1 << 30)) {
-          math_t* x_support =
-            (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
-          support_matrix = new MLCommon::Matrix::DenseMatrix<math_t>(x_support, n_support, n_cols);
-        } else {
-          support_matrix = new MLCommon::Matrix::ResizableCsrMatrix<math_t>(0, 0, 0, stream);
-        }
-
-        const MLCommon::Matrix::CsrMatrix<math_t>* csr_matrix = matrix.asCsr();
-        ML::SVM::copySparseRowsToMatrix<math_t>(csr_matrix->indptr,
-                                                csr_matrix->indices,
-                                                csr_matrix->data,
-                                                n_rows,
-                                                n_cols,
-                                                *support_matrix,
-                                                idx,
-                                                n_support,
-                                                stream);
-        return support_matrix;
-        break;
-      }
-      case MLCommon::Matrix::MatrixType::DENSE: {
-        // Collect support vectors into a contiguous block
-        math_t* x_support =
-          (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
-        raft::matrix::copyRows(
-          matrix.asDense()->data, n_rows, n_cols, x_support, idx, n_support, stream);
-        return new MLCommon::Matrix::DenseMatrix(x_support, n_support, n_cols);
-        break;
-      }
-      default: THROW("Solve not implemented for matrix type %d", matrix.getType());
+    Matrix<math_t>* support_matrix;
+    // allow ~1GB dense support matrix
+    if (matrix.isDense() || (n_support * n_cols * sizeof(math_t) < (1 << 30))) {
+      math_t* x_support = (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
+      support_matrix    = new DenseMatrix<math_t>(x_support, n_support, n_cols);
+    } else {
+      support_matrix = new ResizableCsrMatrix<math_t>(0, 0, 0, stream);
     }
+    ML::SVM::extractRows<math_t>(matrix, *support_matrix, idx, n_support, stream);
 
-    return nullptr;
+    return support_matrix;
   }
 
   /**
@@ -408,15 +362,15 @@ class Results {
   const raft::handle_t& handle;
   cudaStream_t stream;
 
-  int n_rows;                                      //!< number of rows in the training vector matrix
-  int n_cols;                                      //!< number of features
-  const MLCommon::Matrix::Matrix<math_t>& matrix;  //!< training vector matrix
-  MLCommon::Matrix::Matrix<math_t>* tmp_matrix;    //!< training vector matrix
-  const math_t* y;                                 //!< labels
-  const math_t* C;                                 //!< penalty parameter
-  SvmType svmType;                                 //!< SVM problem type: SVC or SVR
-  int n_train;          //!< number of training vectors (including duplicates for SVR)
-  const int TPB = 256;  // threads per block
+  int n_rows;                    //!< number of rows in the training vector matrix
+  int n_cols;                    //!< number of features
+  const Matrix<math_t>& matrix;  //!< training vector matrix
+  Matrix<math_t>* tmp_matrix;    //!< training vector matrix
+  const math_t* y;               //!< labels
+  const math_t* C;               //!< penalty parameter
+  SvmType svmType;               //!< SVM problem type: SVC or SVR
+  int n_train;                   //!< number of training vectors (including duplicates for SVR)
+  const int TPB = 256;           // threads per block
   // Temporary variables used by cub in GetResults
   rmm::device_scalar<int> d_num_selected;
   rmm::device_scalar<math_t> d_val_reduced;

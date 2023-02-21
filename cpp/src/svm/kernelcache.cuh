@@ -223,7 +223,14 @@ class KernelCache {
         raft::matrix::copyRows<math_t, int, size_t>(
           x, n_rows, n_cols, x_ws.data(), ws_idx_new, non_cached, stream, false);
         math_t* tile_new = tile.data() + (size_t)n_cached * n_rows;
-        (*kernel)(x, n_rows, n_cols, x_ws.data(), non_cached, tile_new, false, stream);
+
+        raft::distance::matrix::detail::DenseMatrix<math_t> x_mat(
+          const_cast<math_t*>(x), n_rows, n_cols);
+        raft::distance::matrix::detail::DenseMatrix<math_t> x_ws_mat(
+          x_ws.data(), non_cached, n_cols);
+        raft::distance::matrix::detail::DenseMatrix<math_t> kernel_mat(
+          tile_new, n_rows, non_cached);
+        (*kernel)(x_mat, x_ws_mat, kernel_mat, stream);
         // We need AssignCacheIdx to be finished before calling StoreCols
         cache.StoreVecs(tile_new, n_rows, non_cached, ws_cache_idx.data() + n_cached, stream);
       }
@@ -232,7 +239,13 @@ class KernelCache {
         // collect all the feature vectors in the working set
         raft::matrix::copyRows<math_t, int, size_t>(
           x, n_rows, n_cols, x_ws.data(), unique_idx.data(), n_unique, stream, false);
-        (*kernel)(x, n_rows, n_cols, x_ws.data(), n_unique, tile.data(), false, stream);
+
+        raft::distance::matrix::detail::DenseMatrix<math_t> x_mat(
+          const_cast<math_t*>(x), n_rows, n_cols);
+        raft::distance::matrix::detail::DenseMatrix<math_t> x_ws_mat(x_ws.data(), n_unique, n_cols);
+        raft::distance::matrix::detail::DenseMatrix<math_t> kernel_mat(
+          tile.data(), n_rows, n_unique);
+        (*kernel)(x_mat, x_ws_mat, kernel_mat, stream);
       }
     }
     return tile.data();

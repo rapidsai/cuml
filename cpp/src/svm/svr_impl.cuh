@@ -29,6 +29,7 @@
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <raft/core/handle.hpp>
+#include <raft/distance/detail/matrix/matrix.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
@@ -60,11 +61,10 @@ void svrFit(const raft::handle_t& handle,
 
   cudaStream_t stream = handle_impl.get_stream();
   raft::distance::kernels::GramMatrixBase<math_t>* kernel =
-    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params,
-                                                           handle_impl.get_cublas_handle());
+    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params, handle_impl);
 
   SmoSolver<math_t> smo(handle_impl, param, kernel_params.kernel, kernel);
-  MLCommon::Matrix::DenseMatrix matrix_wrapper(X, n_rows, n_cols);
+  raft::distance::matrix::detail::DenseMatrix matrix_wrapper(X, n_rows, n_cols);
   smo.Solve(matrix_wrapper,
             n_rows,
             n_cols,
