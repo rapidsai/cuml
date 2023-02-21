@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ from cuml.internals.mem_type import MemoryType
 
 
 class DeviceTypeError(Exception):
-    '''An exception thrown to indicate bad device type selection'''
+    """An exception thrown to indicate bad device type selection"""
 
 
 class DeviceType(Enum):
@@ -32,13 +32,14 @@ class DeviceType(Enum):
         if isinstance(device_type, str):
             device_type = device_type.lower()
 
-        if device_type in ('cpu', 'host', DeviceType.host):
+        if device_type in ("cpu", "host", DeviceType.host):
             return cls.host
-        elif device_type in ('gpu', 'device', DeviceType.device):
+        elif device_type in ("gpu", "device", DeviceType.device):
             return cls.device
         else:
-            raise ValueError('Parameter device_type must be one of "cpu" or '
-                             '"gpu"')
+            raise ValueError(
+                'Parameter device_type must be one of "cpu" or ' '"gpu"'
+            )
 
     def is_compatible(self, mem_type: MemoryType) -> bool:
         if self is DeviceType.device:

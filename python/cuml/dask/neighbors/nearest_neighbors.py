@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,10 +53,9 @@ class NearestNeighbors(BaseEstimator):
         See :ref:`verbosity-levels` for more info.
 
     """
-    def __init__(self, *, client=None, streams_per_handle=0,
-                 **kwargs):
-        super().__init__(client=client,
-                         **kwargs)
+
+    def __init__(self, *, client=None, streams_per_handle=0, **kwargs):
+        super().__init__(client=client, **kwargs)
         self.streams_per_handle = streams_per_handle
 
     def fit(self, X):
@@ -71,8 +70,9 @@ class NearestNeighbors(BaseEstimator):
         -------
         self: NearestNeighbors model
         """
-        self.X_handler = DistributedDataHandler.create(data=X,
-                                                       client=self.client)
+        self.X_handler = DistributedDataHandler.create(
+            data=X, client=self.client
+        )
         self.datatype = self.X_handler.datatype
         self.n_cols = X.shape[1]
 
@@ -87,8 +87,9 @@ class NearestNeighbors(BaseEstimator):
     @staticmethod
     def _func_create_model(sessionId, **kwargs):
         try:
-            from cuml.neighbors.nearest_neighbors_mg import \
-                NearestNeighborsMG as cumlNN
+            from cuml.neighbors.nearest_neighbors_mg import (
+                NearestNeighborsMG as cumlNN,
+            )
         except ImportError:
             raise_mg_import_exception()
 
@@ -96,13 +97,30 @@ class NearestNeighbors(BaseEstimator):
         return cumlNN(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_kneighbors(model, index, index_parts_to_ranks, index_nrows,
-                         query, query_parts_to_ranks, query_nrows,
-                         ncols, rank, n_neighbors, convert_dtype):
+    def _func_kneighbors(
+        model,
+        index,
+        index_parts_to_ranks,
+        index_nrows,
+        query,
+        query_parts_to_ranks,
+        query_nrows,
+        ncols,
+        rank,
+        n_neighbors,
+        convert_dtype,
+    ):
         return model.kneighbors(
-            index, index_parts_to_ranks, index_nrows, query,
-            query_parts_to_ranks, query_nrows, ncols, rank,
-            n_neighbors, convert_dtype
+            index,
+            index_parts_to_ranks,
+            index_nrows,
+            query,
+            query_parts_to_ranks,
+            query_nrows,
+            ncols,
+            rank,
+            n_neighbors,
+            convert_dtype,
         )
 
     @staticmethod
@@ -112,8 +130,7 @@ class NearestNeighbors(BaseEstimator):
         workers = set(index_handler.workers)
         workers.update(query_handler.workers)
 
-        comms = Comms(comms_p2p=True,
-                      streams_per_handle=streams_per_handle)
+        comms = Comms(comms_p2p=True, streams_per_handle=streams_per_handle)
         comms.init(workers=workers)
         return comms
 
@@ -133,13 +150,16 @@ class NearestNeighbors(BaseEstimator):
             Default n_neighbors if parameter n_neighbors is none
         """
         if n_neighbors is None:
-            if "n_neighbors" in self.kwargs \
-                    and self.kwargs["n_neighbors"] is not None:
+            if (
+                "n_neighbors" in self.kwargs
+                and self.kwargs["n_neighbors"] is not None
+            ):
                 n_neighbors = self.kwargs["n_neighbors"]
             else:
                 try:
-                    from cuml.neighbors.nearest_neighbors_mg import \
-                        NearestNeighborsMG as cumlNN
+                    from cuml.neighbors.nearest_neighbors_mg import (
+                        NearestNeighborsMG as cumlNN,
+                    )
                 except ImportError:
                     raise_mg_import_exception()
                 n_neighbors = cumlNN().n_neighbors
@@ -152,19 +172,27 @@ class NearestNeighbors(BaseEstimator):
         Each Dask worker creates a single model
         """
         key = uuid1()
-        nn_models = dict([(worker, self.client.submit(
-            NearestNeighbors._func_create_model,
-            comms.sessionId,
-            **self.kwargs,
-            workers=[worker],
-            key="%s-%s" % (key, idx)))
-            for idx, worker in enumerate(comms.worker_addresses)])
+        nn_models = dict(
+            [
+                (
+                    worker,
+                    self.client.submit(
+                        NearestNeighbors._func_create_model,
+                        comms.sessionId,
+                        **self.kwargs,
+                        workers=[worker],
+                        key="%s-%s" % (key, idx),
+                    ),
+                )
+                for idx, worker in enumerate(comms.worker_addresses)
+            ]
+        )
 
         return nn_models
 
-    def _query_models(self, n_neighbors,
-                      comms, nn_models,
-                      index_handler, query_handler):
+    def _query_models(
+        self, n_neighbors, comms, nn_models, index_handler, query_handler
+    ):
 
         worker_info = comms.worker_info(comms.worker_addresses)
 
@@ -174,27 +202,33 @@ class NearestNeighbors(BaseEstimator):
         index_handler.calculate_parts_to_sizes(comms=comms)
         query_handler.calculate_parts_to_sizes(comms=comms)
 
-        idx_parts_to_ranks, _ = parts_to_ranks(self.client,
-                                               worker_info,
-                                               index_handler.gpu_futures)
+        idx_parts_to_ranks, _ = parts_to_ranks(
+            self.client, worker_info, index_handler.gpu_futures
+        )
 
-        query_parts_to_ranks, _ = parts_to_ranks(self.client,
-                                                 worker_info,
-                                                 query_handler.gpu_futures)
+        query_parts_to_ranks, _ = parts_to_ranks(
+            self.client, worker_info, query_handler.gpu_futures
+        )
 
         """
         Invoke kneighbors on Dask workers to perform distributed query
         """
         key = uuid1()
-        nn_fit = dict([(worker_info[worker]["rank"], self.client.submit(
+        nn_fit = dict(
+            [
+                (
+                    worker_info[worker]["rank"],
+                    self.client.submit(
                         NearestNeighbors._func_kneighbors,
                         nn_models[worker],
-                        index_handler.worker_to_parts[worker] if
-                        worker in index_handler.workers else [],
+                        index_handler.worker_to_parts[worker]
+                        if worker in index_handler.workers
+                        else [],
                         idx_parts_to_ranks,
                         index_handler.total_rows,
-                        query_handler.worker_to_parts[worker] if
-                        worker in query_handler.workers else [],
+                        query_handler.worker_to_parts[worker]
+                        if worker in query_handler.workers
+                        else [],
                         query_parts_to_ranks,
                         query_handler.total_rows,
                         self.n_cols,
@@ -202,33 +236,47 @@ class NearestNeighbors(BaseEstimator):
                         n_neighbors,
                         False,
                         key="%s-%s" % (key, idx),
-                        workers=[worker]))
-                       for idx, worker in enumerate(comms.worker_addresses)])
+                        workers=[worker],
+                    ),
+                )
+                for idx, worker in enumerate(comms.worker_addresses)
+            ]
+        )
 
         wait_and_raise_from_futures(list(nn_fit.values()))
 
         def _custom_getter(o):
             def func_get(f, idx):
                 return f[o][idx]
+
             return func_get
 
         """
         Gather resulting partitions and return dask_cudfs
         """
-        out_d_futures = flatten_grouped_results(self.client,
-                                                query_parts_to_ranks,
-                                                nn_fit,
-                                                getter_func=_custom_getter(0))
+        out_d_futures = flatten_grouped_results(
+            self.client,
+            query_parts_to_ranks,
+            nn_fit,
+            getter_func=_custom_getter(0),
+        )
 
-        out_i_futures = flatten_grouped_results(self.client,
-                                                query_parts_to_ranks,
-                                                nn_fit,
-                                                getter_func=_custom_getter(1))
+        out_i_futures = flatten_grouped_results(
+            self.client,
+            query_parts_to_ranks,
+            nn_fit,
+            getter_func=_custom_getter(1),
+        )
 
         return nn_fit, out_d_futures, out_i_futures
 
-    def kneighbors(self, X=None, n_neighbors=None, return_distance=True,
-                   _return_futures=False):
+    def kneighbors(
+        self,
+        X=None,
+        n_neighbors=None,
+        return_distance=True,
+        _return_futures=False,
+    ):
         """
         Query the distributed nearest neighbors index
 
@@ -251,18 +299,24 @@ class NearestNeighbors(BaseEstimator):
         """
         n_neighbors = self.get_neighbors(n_neighbors)
 
-        query_handler = self.X_handler if X is None else \
-            DistributedDataHandler.create(data=X, client=self.client)
+        query_handler = (
+            self.X_handler
+            if X is None
+            else DistributedDataHandler.create(data=X, client=self.client)
+        )
 
         if query_handler is None:
-            raise ValueError("Model needs to be trained using fit() "
-                             "before calling kneighbors()")
+            raise ValueError(
+                "Model needs to be trained using fit() "
+                "before calling kneighbors()"
+            )
 
         """
         Create communicator clique
         """
-        comms = NearestNeighbors._build_comms(self.X_handler, query_handler,
-                                              self.streams_per_handle)
+        comms = NearestNeighbors._build_comms(
+            self.X_handler, query_handler, self.streams_per_handle
+        )
 
         """
         Initialize models on workers
@@ -272,20 +326,26 @@ class NearestNeighbors(BaseEstimator):
         """
         Perform model query
         """
-        nn_fit, out_d_futures, out_i_futures = \
-            self._query_models(n_neighbors, comms, nn_models,
-                               self.X_handler, query_handler)
+        nn_fit, out_d_futures, out_i_futures = self._query_models(
+            n_neighbors, comms, nn_models, self.X_handler, query_handler
+        )
 
         comms.destroy()
 
         if _return_futures:
-            ret = nn_fit, out_i_futures if not return_distance else \
-                (nn_fit, out_d_futures, out_i_futures)
+            ret = nn_fit, out_i_futures if not return_distance else (
+                nn_fit,
+                out_d_futures,
+                out_i_futures,
+            )
         else:
-            ret = to_output(out_i_futures, self.datatype) \
-                if not return_distance else (to_output(out_d_futures,
-                                             self.datatype), to_output(
-                                                 out_i_futures,
-                                                 self.datatype))
+            ret = (
+                to_output(out_i_futures, self.datatype)
+                if not return_distance
+                else (
+                    to_output(out_d_futures, self.datatype),
+                    to_output(out_i_futures, self.datatype),
+                )
+            )
 
         return ret

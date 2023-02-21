@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,14 +32,15 @@ import inspect
 from textwrap import dedent, indent
 
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
-pd = cpu_only_import('pandas')
 
-cuda = gpu_only_import_from('numba', 'cuda')
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
+pd = cpu_only_import("pandas")
+
+cuda = gpu_only_import_from("numba", "cuda")
 
 
-cudf = gpu_only_import('cudf')
+cudf = gpu_only_import("cudf")
 
 
 def array_difference(a, b, with_sign=True):
@@ -97,15 +98,17 @@ class array_equal:
     def _repr(self, threshold=None):
         name = self.__class__.__name__
 
-        return [f"<{name}: "] \
-            + f"{np.array2string(self.a, threshold=threshold)} ".splitlines()\
-            + f"{np.array2string(self.b, threshold=threshold)} ".splitlines()\
+        return (
+            [f"<{name}: "]
+            + f"{np.array2string(self.a, threshold=threshold)} ".splitlines()
+            + f"{np.array2string(self.b, threshold=threshold)} ".splitlines()
             + [
                 f"unit_tol={self.unit_tol} ",
                 f"total_tol={self.total_tol} ",
                 f"with_sign={self.with_sign}",
-                ">"
-        ]
+                ">",
+            ]
+        )
 
     def __repr__(self):
         return "".join(self._repr(threshold=5))
@@ -130,7 +133,8 @@ def assert_array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
     """
     # Determine array equality.
     equal = array_equal(
-        a, b, unit_tol=unit_tol, total_tol=total_tol, with_sign=with_sign)
+        a, b, unit_tol=unit_tol, total_tol=total_tol, with_sign=with_sign
+    )
     if not equal:
         # Generate indented array string representation ...
         str_a = indent(np.array2string(a), "   ").splitlines()
@@ -140,14 +144,19 @@ def assert_array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
         str_b[0] = f"b: {str_b[0][3:]}"
 
         # Create assertion error message and raise exception.
-        assertion_error_msg = dedent(f"""
+        assertion_error_msg = (
+            dedent(
+                f"""
         Arrays are not equal
 
         unit_tol:  {unit_tol}
         total_tol: {total_tol}
         with_sign: {with_sign}
 
-        """) + "\n".join(str_a + str_b)
+        """
+            )
+            + "\n".join(str_a + str_b)
+        )
         raise AssertionError(assertion_error_msg)
 
 
@@ -155,38 +164,43 @@ def get_pattern(name, n_samples):
     np.random.seed(0)
     random_state = 170
 
-    if name == 'noisy_circles':
-        data = datasets.make_circles(n_samples=n_samples, factor=.5, noise=.05)
+    if name == "noisy_circles":
+        data = datasets.make_circles(
+            n_samples=n_samples, factor=0.5, noise=0.05
+        )
         params = {
-            'damping': .77,
-            'preference': -240,
-            'quantile': .2,
-            'n_clusters': 2
+            "damping": 0.77,
+            "preference": -240,
+            "quantile": 0.2,
+            "n_clusters": 2,
         }
 
-    elif name == 'noisy_moons':
-        data = datasets.make_moons(n_samples=n_samples, noise=.05)
-        params = {'damping': .75, 'preference': -220, 'n_clusters': 2}
+    elif name == "noisy_moons":
+        data = datasets.make_moons(n_samples=n_samples, noise=0.05)
+        params = {"damping": 0.75, "preference": -220, "n_clusters": 2}
 
-    elif name == 'varied':
-        data = datasets.make_blobs(n_samples=n_samples,
-                                   cluster_std=[1.0, 2.5, 0.5],
-                                   random_state=random_state)
-        params = {'eps': .18, 'n_neighbors': 2}
+    elif name == "varied":
+        data = datasets.make_blobs(
+            n_samples=n_samples,
+            cluster_std=[1.0, 2.5, 0.5],
+            random_state=random_state,
+        )
+        params = {"eps": 0.18, "n_neighbors": 2}
 
-    elif name == 'blobs':
+    elif name == "blobs":
         data = datasets.make_blobs(n_samples=n_samples, random_state=8)
         params = {}
 
-    elif name == 'aniso':
-        X, y = datasets.make_blobs(n_samples=n_samples,
-                                   random_state=random_state)
+    elif name == "aniso":
+        X, y = datasets.make_blobs(
+            n_samples=n_samples, random_state=random_state
+        )
         transformation = [[0.6, -0.6], [-0.4, 0.8]]
         X_aniso = np.dot(X, transformation)
         data = (X_aniso, y)
-        params = {'eps': .15, 'n_neighbors': 2}
+        params = {"eps": 0.15, "n_neighbors": 2}
 
-    elif name == 'no_structure':
+    elif name == "no_structure":
         data = np.random.rand(n_samples, 2), None
         params = {}
 
@@ -200,7 +214,7 @@ def normalize_clusters(a0, b0, n_clusters):
     c = deepcopy(b)
 
     for i in range(n_clusters):
-        idx, = np.where(a == i)
+        (idx,) = np.where(a == i)
         a_to_b = c[idx[0]]
         b[c == a_to_b] = i
 
@@ -219,14 +233,16 @@ def as_type(type, *args):
             result.append(arg)
         else:
             # make sure X with a single feature remains 2 dimensional
-            if type in ('cudf', 'pandas', 'df_obj') and len(arg.shape) > 1:
-                if type == 'pandas':
+            if type in ("cudf", "pandas", "df_obj") and len(arg.shape) > 1:
+                if type == "pandas":
                     mem_type = MemoryType.host
                 else:
                     mem_type = None
-                result.append(input_to_cuml_array(
-                    arg).array.to_output(output_type='dataframe',
-                                         output_mem_type=mem_type))
+                result.append(
+                    input_to_cuml_array(arg).array.to_output(
+                        output_type="dataframe", output_mem_type=mem_type
+                    )
+                )
             else:
                 result.append(input_to_cuml_array(arg).array.to_output(type))
     if len(result) == 1:
@@ -273,8 +289,11 @@ def assert_dbscan_equal(ref, actual, X, core_indices, eps):
         la, lb = ref[i], actual[i]
 
         if i in core_set:  # core point
-            assert la == lb, ("Core point mismatch at #{}: "
-                              "{} (expected {})".format(i, lb, la))
+            assert (
+                la == lb
+            ), "Core point mismatch at #{}: " "{} (expected {})".format(
+                i, lb, la
+            )
         elif la == -1:  # noise point
             assert lb == -1, "Noise mislabelled at #{}: {}".format(i, lb)
         else:  # border point
@@ -286,8 +305,10 @@ def assert_dbscan_equal(ref, actual, X, core_indices, eps):
                     if sqnorm(X[i] - X[j]) <= eps2:
                         found = True
                         break
-            assert found, ("Border point not connected to cluster at #{}: "
-                           "{} (reference: {})".format(i, lb, la))
+            assert found, (
+                "Border point not connected to cluster at #{}: "
+                "{} (reference: {})".format(i, lb, la)
+            )
 
     # Note: we can also do it in a rand score fashion by checking that pairs
     # correspond in both label arrays for core points, if we need to drop the
@@ -303,24 +324,31 @@ def get_handle(use_handle, n_streams=0):
 
 
 def small_regression_dataset(datatype):
-    X, y = make_regression(n_samples=1000, n_features=20,
-                           n_informative=10, random_state=10)
+    X, y = make_regression(
+        n_samples=1000, n_features=20, n_informative=10, random_state=10
+    )
     X = X.astype(datatype)
     y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=0.8, random_state=0
+    )
 
     return X_train, X_test, y_train, y_test
 
 
 def small_classification_dataset(datatype):
-    X, y = make_classification(n_samples=500, n_features=20,
-                               n_informative=10, n_classes=2,
-                               random_state=10)
+    X, y = make_classification(
+        n_samples=500,
+        n_features=20,
+        n_informative=10,
+        n_classes=2,
+        random_state=10,
+    )
     X = X.astype(datatype)
     y = y.astype(np.int32)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=0.8, random_state=0
+    )
 
     return X_train, X_test, y_train, y_test
 
@@ -355,11 +383,13 @@ class ClassEnumerator:
         otherwise only classes in the specified model will be enumerated
     """
 
-    def __init__(self,
-                 module,
-                 exclude_classes=None,
-                 custom_constructors=None,
-                 recursive=False):
+    def __init__(
+        self,
+        module,
+        exclude_classes=None,
+        custom_constructors=None,
+        recursive=False,
+    ):
         self.module = module
         self.exclude_classes = exclude_classes or []
         self.custom_constructors = custom_constructors or []
@@ -371,28 +401,33 @@ class ClassEnumerator:
 
             modules = []
 
-            if (self.recursive):
+            if self.recursive:
                 modules = inspect.getmembers(module, inspect.ismodule)
 
             # Enumerate child modules only if they are a submodule of the
             # current one. i.e. `{parent_module}.{submodule}`
             for _, m in modules:
-                if (module.__name__ + "." in m.__name__):
+                if module.__name__ + "." in m.__name__:
                     classes.update(recurse_module(m))
 
             # Ensure we only get classes that are part of this module
-            classes.update({
-                (".".join((klass.__module__, klass.__qualname__))): klass
-                for name,
-                klass in inspect.getmembers(module, inspect.isclass)
-                if module.__name__ + "." in ".".join((klass.__module__,
-                                                      klass.__qualname__))
-            })
+            classes.update(
+                {
+                    (".".join((klass.__module__, klass.__qualname__))): klass
+                    for name, klass in inspect.getmembers(
+                        module, inspect.isclass
+                    )
+                    if module.__name__ + "."
+                    in ".".join((klass.__module__, klass.__qualname__))
+                }
+            )
 
             return classes
 
-        return [(val.__name__, val) for key,
-                val in recurse_module(self.module).items()]
+        return [
+            (val.__name__, val)
+            for key, val in recurse_module(self.module).items()
+        ]
 
     def get_models(self):
         """Picks up every models classes from self.module.
@@ -408,10 +443,8 @@ class ClassEnumerator:
         classes = self._get_classes()
         models = {
             name: cls
-            for name,
-            cls in classes
-            if cls not in self.exclude_classes and
-            issubclass(cls, Base)
+            for name, cls in classes
+            if cls not in self.exclude_classes and issubclass(cls, Base)
         }
         models.update(self.custom_constructors)
         return models
@@ -434,7 +467,7 @@ def get_classes_from_package(package, import_sub_packages=False):
     ClassEnumerator Class enumerator for the specified package
     """
 
-    if (import_sub_packages):
+    if import_sub_packages:
         import os
         import importlib
 
@@ -449,7 +482,8 @@ def get_classes_from_package(package, import_sub_packages=False):
             if "__init__.py" in files:
 
                 module_name = os.path.relpath(root, root_relative).replace(
-                    os.sep, ".")
+                    os.sep, "."
+                )
 
                 importlib.import_module(module_name)
 
@@ -494,11 +528,9 @@ def generate_random_labels(random_generation_lambda, seed=1234, as_cupy=False):
         return cuda.to_device(a), cuda.to_device(b), a, b
 
 
-def score_labeling_with_handle(func,
-                               ground_truth,
-                               predictions,
-                               use_handle,
-                               dtype=np.int32):
+def score_labeling_with_handle(
+    func, ground_truth, predictions, use_handle, dtype=np.int32
+):
     """Test helper to standardize inputs between sklearn and our prims metrics.
 
     Using this function we can pass python lists as input of a test just like
@@ -524,41 +556,44 @@ def get_number_positional_args(func, default=2):
     return default
 
 
-def get_shap_values(model,
-                    explainer,
-                    background_dataset,
-                    explained_dataset,
-                    api_type='shap_values'):
+def get_shap_values(
+    model,
+    explainer,
+    background_dataset,
+    explained_dataset,
+    api_type="shap_values",
+):
     # function to get shap values from an explainer using SHAP style API.
     # This function allows isolating all calls in test suite for the case of
     # API changes.
-    explainer = explainer(
-        model=model,
-        data=background_dataset
-    )
-    if api_type == 'shap_values':
+    explainer = explainer(model=model, data=background_dataset)
+    if api_type == "shap_values":
         shap_values = explainer.shap_values(explained_dataset)
-    elif api_type == '__call__':
+    elif api_type == "__call__":
         shap_values = explainer(explained_dataset)
 
     return explainer, shap_values
 
 
-def generate_inputs_from_categories(categories=None,
-                                    n_samples=10,
-                                    seed=5060,
-                                    as_array=False):
+def generate_inputs_from_categories(
+    categories=None, n_samples=10, seed=5060, as_array=False
+):
     if categories is None:
         if as_array:
-            categories = {'strings': list(range(1000, 4000, 3)),
-                          'integers': list(range(1000))}
+            categories = {
+                "strings": list(range(1000, 4000, 3)),
+                "integers": list(range(1000)),
+            }
         else:
-            categories = {'strings': ['Foo', 'Bar', 'Baz'],
-                          'integers': list(range(1000))}
+            categories = {
+                "strings": ["Foo", "Bar", "Baz"],
+                "integers": list(range(1000)),
+            }
 
     rd = np.random.RandomState(seed)
-    pandas_df = pd.DataFrame({name: rd.choice(cat, n_samples)
-                              for name, cat in categories.items()})
+    pandas_df = pd.DataFrame(
+        {name: rd.choice(cat, n_samples) for name, cat in categories.items()}
+    )
     ary = from_df_to_numpy(pandas_df)
     if as_array:
         inp_ary = cp.array(ary)
@@ -582,9 +617,17 @@ def from_df_to_numpy(df):
         return list(zip(*[df[feature].values_host for feature in df.columns]))
 
 
-def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
-                report_summary=False, cmp_decision_func=False):
-    """ Compares two svm classifiers
+def compare_svm(
+    svm1,
+    svm2,
+    X,
+    y,
+    b_tol=None,
+    coef_tol=None,
+    report_summary=False,
+    cmp_decision_func=False,
+):
+    """Compares two svm classifiers
     Parameters:
     -----------
     svm1 : svm classifier to be tested
@@ -666,32 +709,38 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
     # different sign convention for intercept in that case.
     if (not is_array_like(svm2.intercept_)) or svm2.intercept_.shape[0] == 1:
         if abs(svm2.intercept_) > 1e-6:
-            assert abs((svm1.intercept_ - svm2.intercept_) / svm2.intercept_) \
+            assert (
+                abs((svm1.intercept_ - svm2.intercept_) / svm2.intercept_)
                 <= b_tol
+            )
         else:
             assert abs((svm1.intercept_ - svm2.intercept_)) <= b_tol
 
     # For linear kernels we can compare the normal vector of the separating
     # hyperplane w, which is stored in the coef_ attribute.
-    if svm1.kernel == 'linear':
+    if svm1.kernel == "linear":
         if coef_tol is None:
             coef_tol = 1e-5
-        cs = np.dot(svm1.coef_, svm2.coef_.T) / \
-            (np.linalg.norm(svm1.coef_) * np.linalg.norm(svm2.coef_))
+        cs = np.dot(svm1.coef_, svm2.coef_.T) / (
+            np.linalg.norm(svm1.coef_) * np.linalg.norm(svm2.coef_)
+        )
         assert cs > 1 - coef_tol
 
     if cmp_decision_func:
-        if accuracy2 > 0.9 and svm1.kernel != 'sigmoid':
+        if accuracy2 > 0.9 and svm1.kernel != "sigmoid":
             df1 = svm1.decision_function(X)
             df2 = svm2.decision_function(X)
             # For classification, the class is determined by
             # sign(decision function). We should not expect tight match for
             # the actual value of the function, therfore we set large tolerance
-            assert(svm_array_equal(df1, df2, tol=1e-1, relative_diff=True,
-                   report_summary=True))
+            assert svm_array_equal(
+                df1, df2, tol=1e-1, relative_diff=True, report_summary=True
+            )
         else:
-            print("Skipping decision function test due to low  accuracy",
-                  accuracy2)
+            print(
+                "Skipping decision function test due to low  accuracy",
+                accuracy2,
+            )
 
     # Compare support_ (dataset indicies of points that form the support
     # vectors) and ensure that some overlap (~1/8) between two exists
@@ -702,42 +751,41 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
     assert intersection_len > average_len / 8
 
 
-def compare_probabilistic_svm(svc1, svc2, X_test, y_test, tol=1e-3,
-                              brier_tol=1e-3):
-    """ Compare the probability output from two support vector classifiers.
-    """
+def compare_probabilistic_svm(
+    svc1, svc2, X_test, y_test, tol=1e-3, brier_tol=1e-3
+):
+    """Compare the probability output from two support vector classifiers."""
 
     prob1 = svc1.predict_proba(X_test)
     prob2 = svc2.predict_proba(X_test)
     assert mean_squared_error(prob1, prob2) <= tol
 
-    if (svc1.n_classes_ == 2):
+    if svc1.n_classes_ == 2:
         brier1 = brier_score_loss(y_test, prob1[:, 1])
         brier2 = brier_score_loss(y_test, prob2[:, 1])
         # Brier score - smaller is better
         assert brier1 - brier2 <= brier_tol
 
 
-def create_synthetic_dataset(generator=skl_make_reg,
-                             n_samples=100,
-                             n_features=10,
-                             test_size=0.25,
-                             random_state_generator=None,
-                             random_state_train_test_split=None,
-                             dtype=np.float32,
-                             **kwargs):
+def create_synthetic_dataset(
+    generator=skl_make_reg,
+    n_samples=100,
+    n_features=10,
+    test_size=0.25,
+    random_state_generator=None,
+    random_state_train_test_split=None,
+    dtype=np.float32,
+    **kwargs,
+):
     X, y = generator(
         n_samples=n_samples,
         n_features=n_features,
         random_state=random_state_generator,
-        **kwargs
+        **kwargs,
     )
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=test_size,
-        random_state=random_state_train_test_split
+        X, y, test_size=test_size, random_state=random_state_train_test_split
     )
 
     X_train = X_train.astype(dtype)
@@ -761,16 +809,22 @@ def svm_array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
         b = b.ravel()
         diff = diff.ravel()
         for i in idx[-5:]:
-            if (diff[i] > tol):
+            if diff[i] > tol:
                 print(diff[i], "at", i, "values", a[i], b[i])
-        print('Avgdiff:', np.mean(diff), 'stddiyy:', np.std(diff), 'avgval:',
-              np.mean(b))
+        print(
+            "Avgdiff:",
+            np.mean(diff),
+            "stddiyy:",
+            np.std(diff),
+            "avgval:",
+            np.mean(b),
+        )
     return equal
 
 
 def normalized_shape(shape):
     """Normalize shape to tuple."""
-    return (shape, ) if isinstance(shape, int) else shape
+    return (shape,) if isinstance(shape, int) else shape
 
 
 def squeezed_shape(shape):

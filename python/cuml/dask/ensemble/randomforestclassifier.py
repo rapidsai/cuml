@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,21 +16,27 @@
 
 import dask
 from dask.distributed import default_client
-from cuml.dask.ensemble.base import \
-    BaseRandomForestModel
-from cuml.dask.common.base import DelayedPredictionMixin, \
-    DelayedPredictionProbaMixin
+from cuml.dask.ensemble.base import BaseRandomForestModel
+from cuml.dask.common.base import (
+    DelayedPredictionMixin,
+    DelayedPredictionProbaMixin,
+)
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.ensemble import RandomForestClassifier as cuRFC
 from cuml.dask.common.base import BaseEstimator
 from cuml.internals.safe_imports import gpu_only_import
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
+
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
 
 
-class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
-                             DelayedPredictionProbaMixin, BaseEstimator):
+class RandomForestClassifier(
+    BaseRandomForestModel,
+    DelayedPredictionMixin,
+    DelayedPredictionProbaMixin,
+    BaseEstimator,
+):
 
     """
     Experimental API implementing a multi-GPU Random Forest classifier
@@ -161,12 +167,10 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         n_estimators=100,
         random_state=None,
         ignore_empty_partitions=False,
-        **kwargs
+        **kwargs,
     ):
 
-        super().__init__(client=client,
-                         verbose=verbose,
-                         **kwargs)
+        super().__init__(client=client, verbose=verbose, **kwargs)
         self._create_model(
             model_func=RandomForestClassifier._construct_rf,
             client=client,
@@ -174,18 +178,13 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             n_estimators=n_estimators,
             base_seed=random_state,
             ignore_empty_partitions=ignore_empty_partitions,
-            **kwargs)
+            **kwargs,
+        )
 
     @staticmethod
-    def _construct_rf(
-        n_estimators,
-        random_state,
-        **kwargs
-    ):
+    def _construct_rf(n_estimators, random_state, **kwargs):
         return cuRFC(
-            n_estimators=n_estimators,
-            random_state=random_state,
-            **kwargs
+            n_estimators=n_estimators, random_state=random_state, **kwargs
         )
 
     @staticmethod
@@ -264,15 +263,25 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         self.unique_classes = cp.asarray(y.unique().compute())
         self.num_classes = len(self.unique_classes)
         self._set_internal_model(None)
-        self._fit(model=self.rfs,
-                  dataset=(X, y),
-                  convert_dtype=convert_dtype,
-                  broadcast_data=broadcast_data)
+        self._fit(
+            model=self.rfs,
+            dataset=(X, y),
+            convert_dtype=convert_dtype,
+            broadcast_data=broadcast_data,
+        )
         return self
 
-    def predict(self, X, algo='auto', threshold=0.5,
-                convert_dtype=True, predict_model="GPU",
-                fil_sparse_format='auto', delayed=True, broadcast_data=False):
+    def predict(
+        self,
+        X,
+        algo="auto",
+        threshold=0.5,
+        convert_dtype=True,
+        predict_model="GPU",
+        fil_sparse_format="auto",
+        delayed=True,
+        broadcast_data=False,
+    ):
         """
         Predicts the labels for X.
 
@@ -357,47 +366,44 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
         """
         if predict_model == "CPU":
-            preds = self.predict_model_on_cpu(X=X,
-                                              convert_dtype=convert_dtype)
+            preds = self.predict_model_on_cpu(X=X, convert_dtype=convert_dtype)
         else:
             if broadcast_data:
-                preds = \
-                    self.partial_inference(
-                        X,
-                        algo=algo,
-                        convert_dtype=convert_dtype,
-                        fil_sparse_format=fil_sparse_format,
-                        delayed=delayed
-                    )
+                preds = self.partial_inference(
+                    X,
+                    algo=algo,
+                    convert_dtype=convert_dtype,
+                    fil_sparse_format=fil_sparse_format,
+                    delayed=delayed,
+                )
             else:
-                preds = \
-                    self._predict_using_fil(
-                        X,
-                        algo=algo,
-                        threshold=threshold,
-                        convert_dtype=convert_dtype,
-                        fil_sparse_format=fil_sparse_format,
-                        delayed=delayed
-                    )
+                preds = self._predict_using_fil(
+                    X,
+                    algo=algo,
+                    threshold=threshold,
+                    convert_dtype=convert_dtype,
+                    fil_sparse_format=fil_sparse_format,
+                    delayed=delayed,
+                )
         return preds
 
     def partial_inference(self, X, delayed, **kwargs):
-        partial_infs = \
-            self._partial_inference(X=X,
-                                    op_type='classification',
-                                    delayed=delayed,
-                                    **kwargs)
+        partial_infs = self._partial_inference(
+            X=X, op_type="classification", delayed=delayed, **kwargs
+        )
 
         def reduce(partial_infs, workers_weights, unique_classes):
-            votes = dask.array.average(partial_infs, axis=1,
-                                       weights=workers_weights)
+            votes = dask.array.average(
+                partial_infs, axis=1, weights=workers_weights
+            )
             merged_votes = votes.compute()
             pred_class_indices = merged_votes.argmax(axis=1)
             pred_class = unique_classes[pred_class_indices]
             return pred_class
 
-        datatype = 'daskArray' if isinstance(X, dask.array.Array) \
-            else 'daskDataframe'
+        datatype = (
+            "daskArray" if isinstance(X, dask.array.Array) else "daskDataframe"
+        )
 
         return self.apply_reduction(reduce, partial_infs, datatype, delayed)
 
@@ -405,9 +411,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         if self._get_internal_model() is None:
             self._set_internal_model(self._concat_treelite_models())
 
-        return self._predict_using_fil(X=X,
-                                       delayed=delayed,
-                                       **kwargs)
+        return self._predict_using_fil(X=X, delayed=delayed, **kwargs)
 
     """
     TODO : Update function names used for CPU predict.
@@ -475,8 +479,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             pred.append(max_class)
         return pred
 
-    def predict_proba(self, X,
-                      delayed=True, **kwargs):
+    def predict_proba(self, X, delayed=True, **kwargs):
         """
         Predicts the probability of each class for X.
 
@@ -530,9 +533,9 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         if self._get_internal_model() is None:
             self._set_internal_model(self._concat_treelite_models())
         data = DistributedDataHandler.create(X, client=self.client)
-        return self._predict_proba(X, delayed,
-                                   output_collection_type=data.datatype,
-                                   **kwargs)
+        return self._predict_proba(
+            X, delayed, output_collection_type=data.datatype, **kwargs
+        )
 
     def get_params(self, deep=True):
         """

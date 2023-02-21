@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,8 @@
 import json
 from cuml.benchmark import algorithms, datagen, runners
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+
+np = cpu_only_import("numpy")
 
 
 PrecisionMap = {
@@ -59,13 +60,13 @@ def extract_param_overrides(params_to_sweep):
     return dict_list
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
     import sys
 
     parser = argparse.ArgumentParser(
-        prog='run_benchmarks',
-        description=r'''
+        prog="run_benchmarks",
+        description=r"""
         Command-line benchmark runner, logging results to
         stdout and/or CSV.
 
@@ -93,117 +94,114 @@ if __name__ == '__main__':
           python run_benchmarks.py --dataset higgs --default-size \
                 RandomForestClassifier LogisticRegression
 
-        ''',
+        """,
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
-        '--max-rows',
+        "--max-rows",
         type=int,
         default=100000,
-        help='Evaluate at most max_row samples',
+        help="Evaluate at most max_row samples",
     )
     parser.add_argument(
-        '--min-rows',
+        "--min-rows",
         type=int,
         default=10000,
-        help='Evaluate at least min_rows samples',
+        help="Evaluate at least min_rows samples",
     )
     parser.add_argument(
-        '--num-sizes',
+        "--num-sizes",
         type=int,
         default=2,
-        help='Number of different sizes to test',
+        help="Number of different sizes to test",
     )
     parser.add_argument(
-        '--num-rows',
+        "--num-rows",
         type=int,
         default=None,
-        metavar='N',
-        help='Shortcut for --min-rows N --max-rows N --num-sizes 1'
+        metavar="N",
+        help="Shortcut for --min-rows N --max-rows N --num-sizes 1",
     )
-    parser.add_argument('--num-features', type=int, default=-1)
+    parser.add_argument("--num-features", type=int, default=-1)
     parser.add_argument(
-        '--quiet', '-q', action='store_false', dest='verbose', default=True
+        "--quiet", "-q", action="store_false", dest="verbose", default=True
     )
-    parser.add_argument('--csv', nargs='?')
-    parser.add_argument('--dataset', default='blobs')
-    parser.add_argument('--skip-cpu', action='store_true')
-    parser.add_argument('--input-type', default='numpy')
+    parser.add_argument("--csv", nargs="?")
+    parser.add_argument("--dataset", default="blobs")
+    parser.add_argument("--skip-cpu", action="store_true")
+    parser.add_argument("--input-type", default="numpy")
     parser.add_argument(
-        '--test-split',
+        "--test-split",
         default=0.1,
         type=float,
-        help='Fraction of input data used for testing (between 0.0 and 1.0)',
+        help="Fraction of input data used for testing (between 0.0 and 1.0)",
     )
     parser.add_argument(
-        '--input-dimensions',
+        "--input-dimensions",
         default=[64, 256, 512],
-        nargs='+',
+        nargs="+",
         type=int,
-        help='Data dimension sizes (may provide multiple sizes)',
+        help="Data dimension sizes (may provide multiple sizes)",
     )
     parser.add_argument(
-        '--param-sweep',
-        nargs='*',
+        "--param-sweep",
+        nargs="*",
         type=str,
-        help='''Parameter values to vary, in the form:
-                key=val_list, where val_list may be a comma-separated list''',
+        help="""Parameter values to vary, in the form:
+                key=val_list, where val_list may be a comma-separated list""",
     )
     parser.add_argument(
-        '--cuml-param-sweep',
-        nargs='*',
+        "--cuml-param-sweep",
+        nargs="*",
         type=str,
-        help='''Parameter values to vary for cuML only, in the form:
-                key=val_list, where val_list may be a comma-separated list''',
+        help="""Parameter values to vary for cuML only, in the form:
+                key=val_list, where val_list may be a comma-separated list""",
     )
     parser.add_argument(
-        '--cpu-param-sweep',
-        nargs='*',
+        "--cpu-param-sweep",
+        nargs="*",
         type=str,
-        help='''Parameter values to vary for CPU only, in the form:
-                key=val_list, where val_list may be a comma-separated list''',
+        help="""Parameter values to vary for CPU only, in the form:
+                key=val_list, where val_list may be a comma-separated list""",
     )
     parser.add_argument(
-        '--dataset-param-sweep',
-        nargs='*',
+        "--dataset-param-sweep",
+        nargs="*",
         type=str,
-        help='''Parameter values to vary for dataset generator, in the form
-                key=val_list, where val_list may be a comma-separated list'''
+        help="""Parameter values to vary for dataset generator, in the form
+                key=val_list, where val_list may be a comma-separated list""",
     )
     parser.add_argument(
-        '--default-size',
-        action='store_true',
-        help='Only run datasets at default size',
+        "--default-size",
+        action="store_true",
+        help="Only run datasets at default size",
     )
     parser.add_argument(
-        '--raise-on-error',
-        action='store_true',
-        help='Throw exception on a failed benchmark',
+        "--raise-on-error",
+        action="store_true",
+        help="Throw exception on a failed benchmark",
     )
     parser.add_argument(
-        '--print-algorithms',
-        action='store_true',
-        help='Print the list of all available algorithms and exit',
+        "--print-algorithms",
+        action="store_true",
+        help="Print the list of all available algorithms and exit",
     )
     parser.add_argument(
-        '--print-datasets',
-        action='store_true',
-        help='Print the list of all available datasets and exit',
+        "--print-datasets",
+        action="store_true",
+        help="Print the list of all available datasets and exit",
     )
     parser.add_argument(
-        'algorithms',
-        nargs='*',
-        help='List of algorithms to run, or omit to run all',
+        "algorithms",
+        nargs="*",
+        help="List of algorithms to run, or omit to run all",
     )
+    parser.add_argument("--n-reps", type=int, default=1)
     parser.add_argument(
-        '--n-reps',
-        type=int,
-        default=1)
-    parser.add_argument(
-        '--dtype',
-        choices=['fp32', 'fp64'],
-        default='fp32',
-        help='Precision of the dataset to benchmark with',
+        "--dtype",
+        choices=["fp32", "fp64"],
+        default="fp32",
+        help="Precision of the dataset to benchmark with",
     )
     args = parser.parse_args()
 
@@ -221,8 +219,9 @@ if __name__ == '__main__':
 
     if not 0.0 <= args.test_split <= 1.0:
         raise ValueError(
-            "test_split: got %f, want a value between 0.0 and 1.0" %
-            args.test_split)
+            "test_split: got %f, want a value between 0.0 and 1.0"
+            % args.test_split
+        )
 
     bench_rows = np.logspace(
         np.log10(args.min_rows),
@@ -246,7 +245,8 @@ if __name__ == '__main__':
     cuml_param_override_list = extract_param_overrides(args.cuml_param_sweep)
     cpu_param_override_list = extract_param_overrides(args.cpu_param_sweep)
     dataset_param_override_list = extract_param_overrides(
-        args.dataset_param_sweep)
+        args.dataset_param_sweep
+    )
 
     if args.algorithms:
         algos_to_run = []
@@ -273,7 +273,7 @@ if __name__ == '__main__':
         dtype=args.dtype,
         run_cpu=(not args.skip_cpu),
         raise_on_error=args.raise_on_error,
-        n_reps=args.n_reps
+        n_reps=args.n_reps,
     )
 
     if args.csv:

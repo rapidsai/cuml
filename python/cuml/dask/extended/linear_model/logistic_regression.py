@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +20,10 @@ from cuml.common import with_cupy_rmm
 from cuml.internals.import_utils import has_daskglm
 
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
-cudf = gpu_only_import('cudf')
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
+cudf = gpu_only_import("cudf")
 
 
 class LogisticRegression(BaseEstimator):
@@ -75,7 +76,7 @@ class LogisticRegression(BaseEstimator):
         C=1.0,
         max_iter=100,
         verbose=False,
-        **kwargs
+        **kwargs,
     ):
         super(LogisticRegression, self).__init__(
             client=client, verbose=verbose, **kwargs
@@ -87,8 +88,9 @@ class LogisticRegression(BaseEstimator):
                 " to use multi-GPU logistic regression."
             )
 
-        from dask_glm.estimators import LogisticRegression \
-            as LogisticRegressionGLM
+        from dask_glm.estimators import (
+            LogisticRegression as LogisticRegressionGLM,
+        )
 
         self.fit_intercept = fit_intercept
         self.solver = solver
@@ -206,8 +208,9 @@ class LogisticRegression(BaseEstimator):
                     " arr.map_blocks(cp.asarray)."
                 )
         else:
-            raise TypeError("Please pass a GPU backed Dask DataFrame"
-                            " or Dask Array.")
+            raise TypeError(
+                "Please pass a GPU backed Dask DataFrame" " or Dask Array."
+            )
 
         X.compute_chunk_sizes()
         return X

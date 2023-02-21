@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,10 +61,9 @@ def to_dask_df(dask_cudf, client=None):
     delayed_ddf = dask_cudf.to_delayed()
     gpu_futures = c.compute(delayed_ddf)
 
-    dfs = [c.submit(
-        to_pandas,
-        f,
-        pure=False) for idx, f in enumerate(gpu_futures)]
+    dfs = [
+        c.submit(to_pandas, f, pure=False) for idx, f in enumerate(gpu_futures)
+    ]
 
     meta = c.submit(get_meta, dfs[0])
 

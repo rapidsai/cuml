@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,9 +24,10 @@ from cuml.internals.safe_imports import cpu_only_import
 import numbers
 
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
-scipy = cpu_only_import('scipy')
+
+cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
+scipy = cpu_only_import("scipy")
 
 
 class IncrementalPCA(PCA):
@@ -194,15 +195,26 @@ class IncrementalPCA(PCA):
         0.0037122774558343763
     """
 
-    def __init__(self, *, handle=None, n_components=None, whiten=False,
-                 copy=True, batch_size=None, verbose=False,
-                 output_type=None):
+    def __init__(
+        self,
+        *,
+        handle=None,
+        n_components=None,
+        whiten=False,
+        copy=True,
+        batch_size=None,
+        verbose=False,
+        output_type=None,
+    ):
 
-        super().__init__(handle=handle,
-                         n_components=n_components,
-                         whiten=whiten, copy=copy,
-                         verbose=verbose,
-                         output_type=output_type)
+        super().__init__(
+            handle=handle,
+            n_components=n_components,
+            whiten=whiten,
+            copy=copy,
+            verbose=verbose,
+            output_type=output_type,
+        )
         self.batch_size = batch_size
         self._hyperparams = ["n_components", "whiten", "copy", "batch_size"]
         self._sparse_model = True
@@ -226,8 +238,8 @@ class IncrementalPCA(PCA):
 
         """
         self.n_samples_seen_ = 0
-        self.mean_ = .0
-        self.var_ = .0
+        self.mean_ = 0.0
+        self.var_ = 0.0
 
         if scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X):
             X = _validate_sparse_input(X)
@@ -237,9 +249,9 @@ class IncrementalPCA(PCA):
             # is done by PCA, which IncrementalPCA inherits from. PCA's
             # transform and inverse transform convert the output to the
             # required type.
-            X, n_samples, n_features, self.dtype = \
-                input_to_cupy_array(X, order='K',
-                                    check_dtype=[cp.float32, cp.float64])
+            X, n_samples, n_features, self.dtype = input_to_cupy_array(
+                X, order="K", check_dtype=[cp.float32, cp.float64]
+            )
 
         n_samples, n_features = X.shape
 
@@ -248,8 +260,9 @@ class IncrementalPCA(PCA):
         else:
             self.batch_size_ = self.batch_size
 
-        for batch in _gen_batches(n_samples, self.batch_size_,
-                                  min_batch_size=self.n_components or 0):
+        for batch in _gen_batches(
+            n_samples, self.batch_size_, min_batch_size=self.n_components or 0
+        ):
             X_batch = X[batch]
             if cupyx.scipy.sparse.issparse(X_batch):
                 X_batch = X_batch.toarray()
@@ -285,17 +298,18 @@ class IncrementalPCA(PCA):
                 raise TypeError(
                     "IncrementalPCA.partial_fit does not support "
                     "sparse input. Either convert data to dense "
-                    "or use IncrementalPCA.fit to do so in batches.")
+                    "or use IncrementalPCA.fit to do so in batches."
+                )
 
             self._set_output_type(X)
 
-            X, n_samples, n_features, self.dtype = \
-                input_to_cupy_array(X, order='K',
-                                    check_dtype=[cp.float32, cp.float64])
+            X, n_samples, n_features, self.dtype = input_to_cupy_array(
+                X, order="K", check_dtype=[cp.float32, cp.float64]
+            )
         else:
             n_samples, n_features = X.shape
 
-        if not hasattr(self, 'components_'):
+        if not hasattr(self, "components_"):
             self.components_ = None
 
         if self.n_components is None:
@@ -304,34 +318,44 @@ class IncrementalPCA(PCA):
             else:
                 self.n_components_ = self.components_.shape[0]
         elif not 1 <= self.n_components <= n_features:
-            raise ValueError("n_components=%r invalid for n_features=%d, need "
-                             "more rows than columns for IncrementalPCA "
-                             "processing" % (self.n_components, n_features))
+            raise ValueError(
+                "n_components=%r invalid for n_features=%d, need "
+                "more rows than columns for IncrementalPCA "
+                "processing" % (self.n_components, n_features)
+            )
         elif not self.n_components <= n_samples:
-            raise ValueError("n_components=%r must be less or equal to "
-                             "the batch number of samples "
-                             "%d." % (self.n_components, n_samples))
+            raise ValueError(
+                "n_components=%r must be less or equal to "
+                "the batch number of samples "
+                "%d." % (self.n_components, n_samples)
+            )
         else:
             self.n_components_ = self.n_components
 
-        if (self.components_ is not None) and (self.components_.shape[0] !=
-                                               self.n_components_):
-            raise ValueError("Number of input features has changed from %i "
-                             "to %i between calls to partial_fit! Try "
-                             "setting n_components to a fixed value." %
-                             (self.components_.shape[0], self.n_components_))
+        if (self.components_ is not None) and (
+            self.components_.shape[0] != self.n_components_
+        ):
+            raise ValueError(
+                "Number of input features has changed from %i "
+                "to %i between calls to partial_fit! Try "
+                "setting n_components to a fixed value."
+                % (self.components_.shape[0], self.n_components_)
+            )
         # This is the first partial_fit
-        if not hasattr(self, 'n_samples_seen_'):
+        if not hasattr(self, "n_samples_seen_"):
             self.n_samples_seen_ = 0
-            self.mean_ = .0
-            self.var_ = .0
+            self.mean_ = 0.0
+            self.var_ = 0.0
 
         # Update stats - they are 0 if this is the first step
-        col_mean, col_var, n_total_samples = \
-            _incremental_mean_and_var(
-                X, last_mean=self.mean_, last_variance=self.var_,
-                last_sample_count=cp.repeat(cp.asarray([self.n_samples_seen_]),
-                                            X.shape[1]))
+        col_mean, col_var, n_total_samples = _incremental_mean_and_var(
+            X,
+            last_mean=self.mean_,
+            last_variance=self.var_,
+            last_sample_count=cp.repeat(
+                cp.asarray([self.n_samples_seen_]), X.shape[1]
+            ),
+        )
         n_total_samples = n_total_samples[0]
 
         # Whitening
@@ -342,31 +366,38 @@ class IncrementalPCA(PCA):
             col_batch_mean = cp.mean(X, axis=0)
             X = X - col_batch_mean
             # Build matrix of combined previous basis and new data
-            mean_correction = \
-                cp.sqrt((self.n_samples_seen_ * n_samples) /
-                        n_total_samples) * (self.mean_ - col_batch_mean)
-            X = cp.vstack((self.singular_values_.reshape((-1, 1)) *
-                           self.components_, X, mean_correction))
+            mean_correction = cp.sqrt(
+                (self.n_samples_seen_ * n_samples) / n_total_samples
+            ) * (self.mean_ - col_batch_mean)
+            X = cp.vstack(
+                (
+                    self.singular_values_.reshape((-1, 1)) * self.components_,
+                    X,
+                    mean_correction,
+                )
+            )
 
         U, S, V = cp.linalg.svd(X, full_matrices=False)
         U, V = _svd_flip(U, V, u_based_decision=False)
-        explained_variance = S ** 2 / (n_total_samples - 1)
-        explained_variance_ratio = S ** 2 / cp.sum(col_var * n_total_samples)
+        explained_variance = S**2 / (n_total_samples - 1)
+        explained_variance_ratio = S**2 / cp.sum(col_var * n_total_samples)
 
         self.n_samples_ = n_total_samples
         self.n_samples_seen_ = n_total_samples
-        self.components_ = V[:self.n_components_]
-        self.singular_values_ = S[:self.n_components_]
+        self.components_ = V[: self.n_components_]
+        self.singular_values_ = S[: self.n_components_]
         self.mean_ = col_mean
         self.var_ = col_var
-        self.explained_variance_ = explained_variance[:self.n_components_]
-        self.explained_variance_ratio_ = \
-            explained_variance_ratio[:self.n_components_]
+        self.explained_variance_ = explained_variance[: self.n_components_]
+        self.explained_variance_ratio_ = explained_variance_ratio[
+            : self.n_components_
+        ]
         if self.n_components_ < n_features:
-            self.noise_variance_ = \
-                explained_variance[self.n_components_:].mean()
+            self.noise_variance_ = explained_variance[
+                self.n_components_ :
+            ].mean()
         else:
-            self.noise_variance_ = 0.
+            self.noise_variance_ = 0.0
 
         return self
 
@@ -403,11 +434,13 @@ class IncrementalPCA(PCA):
 
             n_samples = X.shape[0]
             output = []
-            for batch in _gen_batches(n_samples, self.batch_size_,
-                                      min_batch_size=self.n_components or 0):
+            for batch in _gen_batches(
+                n_samples,
+                self.batch_size_,
+                min_batch_size=self.n_components or 0,
+            ):
                 output.append(super().transform(X[batch]))
-            output, _, _, _ = \
-                input_to_cuml_array(cp.vstack(output), order='K')
+            output, _, _, _ = input_to_cuml_array(cp.vstack(output), order="K")
 
             return output
         else:
@@ -438,24 +471,26 @@ def _validate_sparse_input(X):
 
     """
 
-    acceptable_dtypes = ('float32', 'float64')
+    acceptable_dtypes = ("float32", "float64")
 
     # NOTE: We can include cupyx.scipy.sparse.csc.csc_matrix
     # once it supports indexing in cupy 8.0.0b5
-    acceptable_cupy_sparse_formats = \
-        (cupyx.scipy.sparse.csr_matrix)
+    acceptable_cupy_sparse_formats = cupyx.scipy.sparse.csr_matrix
 
     if X.dtype not in acceptable_dtypes:
-        raise TypeError("Expected input to be of type float32 or float64."
-                        " Received %s" % X.dtype)
+        raise TypeError(
+            "Expected input to be of type float32 or float64."
+            " Received %s" % X.dtype
+        )
     if scipy.sparse.issparse(X):
         return cupyx.scipy.sparse.csr_matrix(X)
     elif cupyx.scipy.sparse.issparse(X):
         if not isinstance(X, acceptable_cupy_sparse_formats):
-            raise TypeError("Expected input to be of type"
-                            " cupyx.scipy.sparse.csr_matrix or"
-                            " cupyx.scipy.sparse.csc_matrix. Received %s"
-                            % type(X))
+            raise TypeError(
+                "Expected input to be of type"
+                " cupyx.scipy.sparse.csr_matrix or"
+                " cupyx.scipy.sparse.csc_matrix. Received %s" % type(X)
+            )
         else:
             return X
 
@@ -483,11 +518,13 @@ def _gen_batches(n, batch_size, min_batch_size=0):
     """
 
     if not isinstance(batch_size, numbers.Integral):
-        raise TypeError("gen_batches got batch_size=%s, must be an"
-                        " integer" % batch_size)
+        raise TypeError(
+            "gen_batches got batch_size=%s, must be an" " integer" % batch_size
+        )
     if batch_size <= 0:
-        raise ValueError("gen_batches got batch_size=%s, must be"
-                         " positive" % batch_size)
+        raise ValueError(
+            "gen_batches got batch_size=%s, must be" " positive" % batch_size
+        )
     start = 0
     for _ in range(int(n // batch_size)):
         end = start + batch_size
@@ -587,7 +624,8 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
         updated_variance = None
     else:
         new_unnormalized_variance = (
-            _safe_accumulator_op(cp.nanvar, X, axis=0) * new_sample_count)
+            _safe_accumulator_op(cp.nanvar, X, axis=0) * new_sample_count
+        )
         last_unnormalized_variance = last_variance * last_sample_count
 
         # NOTE: The scikit-learn implementation has a np.errstate check
@@ -595,9 +633,12 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
         # cupy as of 7.6.0
         last_over_new_count = last_sample_count / new_sample_count
         updated_unnormalized_variance = (
-            last_unnormalized_variance + new_unnormalized_variance +
-            last_over_new_count / updated_sample_count *
-            (last_sum / last_over_new_count - new_sum) ** 2)
+            last_unnormalized_variance
+            + new_unnormalized_variance
+            + last_over_new_count
+            / updated_sample_count
+            * (last_sum / last_over_new_count - new_sum) ** 2
+        )
 
         zeros = last_sample_count == 0
         updated_unnormalized_variance[zeros] = new_unnormalized_variance[zeros]

@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,19 +19,19 @@ from cuml.testing.utils import array_equal
 
 import dask
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
+
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
 
 
 @pytest.mark.parametrize(
-    "labels", [([1, 4, 5, 2, 0, 1, 6, 2, 3, 4],
-                [4, 2, 6, 3, 2, 0, 1]),
-               ([9, 8, 2, 1, 3, 4],
-                [8, 2, 1, 2, 2])]
+    "labels",
+    [
+        ([1, 4, 5, 2, 0, 1, 6, 2, 3, 4], [4, 2, 6, 3, 2, 0, 1]),
+        ([9, 8, 2, 1, 3, 4], [8, 2, 1, 2, 2]),
+    ],
 )
-@pytest.mark.parametrize(
-    "multipart", [True, False]
-)
+@pytest.mark.parametrize("multipart", [True, False])
 def test_basic_functions(labels, multipart, client):
 
     fit_labels, xform_labels = labels
@@ -49,8 +49,9 @@ def test_basic_functions(labels, multipart, client):
     binarizer = LabelBinarizer(client=client, sparse_output=False)
     binarizer.fit(df)
 
-    assert array_equal(cp.asnumpy(binarizer.classes_),
-                       np.unique(cp.asnumpy(s)))
+    assert array_equal(
+        cp.asnumpy(binarizer.classes_), np.unique(cp.asnumpy(s))
+    )
 
     xformed = binarizer.transform(df2)
 
@@ -66,14 +67,18 @@ def test_basic_functions(labels, multipart, client):
 
 
 @pytest.mark.parametrize(
-    "labels", [([1, 4, 5, 2, 0, 1, 6, 2, 3, 4],
-                [4, 2, 6, 3, 2, 0, 1]),
-               ([9, 8, 2, 1, 3, 4],
-                [8, 2, 1, 2, 2])]
+    "labels",
+    [
+        ([1, 4, 5, 2, 0, 1, 6, 2, 3, 4], [4, 2, 6, 3, 2, 0, 1]),
+        ([9, 8, 2, 1, 3, 4], [8, 2, 1, 2, 2]),
+    ],
 )
-@pytest.mark.xfail(raises=ValueError, reason="Sparse output disabled until "
-                                             "Dask supports sparse CuPy "
-                                             "arrays")
+@pytest.mark.xfail(
+    raises=ValueError,
+    reason="Sparse output disabled until "
+    "Dask supports sparse CuPy "
+    "arrays",
+)
 def test_sparse_output_fails(labels, client):
 
     LabelBinarizer(client=client, sparse_output=True)

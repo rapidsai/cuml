@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,11 +20,12 @@ from sklearn.metrics import accuracy_score
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
 from cuml.internals.safe_imports import cpu_only_import
-pd = cpu_only_import('pandas')
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
-dask_cudf = gpu_only_import('dask_cudf')
-cudf = gpu_only_import('cudf')
+
+pd = cpu_only_import("pandas")
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
+dask_cudf = gpu_only_import("dask_cudf")
+cudf = gpu_only_import("cudf")
 
 pytestmark = pytest.mark.mg
 
@@ -57,12 +58,12 @@ def make_classification_dataset(datatype, nrows, ncols, n_info):
 
 
 def select_sk_solver(cuml_solver):
-    if cuml_solver == 'newton':
-        return 'newton-cg'
-    elif cuml_solver in ['admm', 'lbfgs']:
-        return 'lbfgs'
+    if cuml_solver == "newton":
+        return "newton-cg"
+    elif cuml_solver in ["admm", "lbfgs"]:
+        return "lbfgs"
     else:
-        pytest.xfail('No matched sklearn solver')
+        pytest.xfail("No matched sklearn solver")
 
 
 @pytest.mark.mg
@@ -72,11 +73,18 @@ def select_sk_solver(cuml_solver):
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("gpu_array_input", [False, True])
-@pytest.mark.parametrize("solver", ['admm', 'gradient_descent', 'newton',
-                                    'lbfgs', 'proximal_grad'])
+@pytest.mark.parametrize(
+    "solver", ["admm", "gradient_descent", "newton", "lbfgs", "proximal_grad"]
+)
 def test_lr_fit_predict_score(
-    nrows, ncols, n_parts, fit_intercept, datatype, gpu_array_input, solver,
-    client
+    nrows,
+    ncols,
+    n_parts,
+    fit_intercept,
+    datatype,
+    gpu_array_input,
+    solver,
+    client,
 ):
     sk_solver = select_sk_solver(cuml_solver=solver)
 
@@ -85,8 +93,9 @@ def test_lr_fit_predict_score(
 
     client.run(imp)
 
-    from cuml.dask.extended.linear_model import LogisticRegression \
-        as cumlLR_dask
+    from cuml.dask.extended.linear_model import (
+        LogisticRegression as cumlLR_dask,
+    )
 
     n_info = 5
     nrows = np.int(nrows)
@@ -101,9 +110,9 @@ def test_lr_fit_predict_score(
         gy = gy.values
         gy._meta = cp.asarray(gy._meta)
 
-    cuml_model = cumlLR_dask(fit_intercept=fit_intercept,
-                             solver=solver,
-                             max_iter=10)
+    cuml_model = cumlLR_dask(
+        fit_intercept=fit_intercept, solver=solver, max_iter=10
+    )
 
     # test fit and predict
     cuml_model.fit(gX, gy)
@@ -115,15 +124,17 @@ def test_lr_fit_predict_score(
     sk_preds = sk_model.predict(X)
     accuracy_sk = accuracy_score(y, sk_preds)
 
-    assert (accuracy_cuml >= accuracy_sk) | \
-        (np.abs(accuracy_cuml - accuracy_sk) < 1e-3)
+    assert (accuracy_cuml >= accuracy_sk) | (
+        np.abs(accuracy_cuml - accuracy_sk) < 1e-3
+    )
 
     # score
     accuracy_cuml = cuml_model.score(gX, gy).compute().item()
     accuracy_sk = sk_model.score(X, y)
 
-    assert (accuracy_cuml >= accuracy_sk) | \
-        (np.abs(accuracy_cuml - accuracy_sk) < 1e-3)
+    assert (accuracy_cuml >= accuracy_sk) | (
+        np.abs(accuracy_cuml - accuracy_sk) < 1e-3
+    )
 
     # predicted probabilities should differ by <= 5%
     # even with different solvers (arbitrary)

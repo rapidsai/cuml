@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,5 +17,7 @@
 
 from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor
-from cuml.ensemble.randomforest_common import _check_fil_parameter_validity, \
-    _obtain_fil_model
+from cuml.ensemble.randomforest_common import (
+    _check_fil_parameter_validity,
+    _obtain_fil_model,
+)

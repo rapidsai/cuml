@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,29 +20,26 @@ import cuml
 import pytest
 
 from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
-pd = cpu_only_import('pandas')
+
+cudf = gpu_only_import("cudf")
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
+pd = cpu_only_import("pandas")
 
 
 ###############################################################################
 #                                    Parameters                               #
 ###############################################################################
 
-global_input_configs = [
-    'numpy', 'numba', 'cupy', 'cudf'
-]
+global_input_configs = ["numpy", "numba", "cupy", "cudf"]
 
-global_input_types = [
-    'numpy', 'numba', 'cupy', 'cudf', 'pandas'
-]
+global_input_types = ["numpy", "numba", "cupy", "cudf", "pandas"]
 
 test_output_types = {
-    'numpy': np.ndarray,
-    'cupy': cp.ndarray,
-    'cudf': cudf.Series,
-    'pandas': pd.Series
+    "numpy": np.ndarray,
+    "cupy": cp.ndarray,
+    "cudf": cudf.Series,
+    "pandas": pd.Series,
 }
 
 
@@ -56,13 +53,14 @@ def global_output_type(request):
     # Ensure we reset the type at the end of the test
     cuml.set_global_output_type(None)
 
+
 ###############################################################################
 #                                    Tests                                    #
 ###############################################################################
 
 
-@pytest.mark.parametrize('input_type', global_input_types)
-@pytest.mark.filterwarnings('ignore::UserWarning')
+@pytest.mark.parametrize("input_type", global_input_types)
+@pytest.mark.filterwarnings("ignore::UserWarning")
 def test_default_global_output_type(input_type):
     dataset = get_small_dataset(input_type)
 
@@ -71,13 +69,13 @@ def test_default_global_output_type(input_type):
 
     res = dbscan_float.labels_
 
-    if input_type == 'numba':
+    if input_type == "numba":
         assert is_cuda_array(res)
     else:
         assert isinstance(res, test_output_types[input_type])
 
 
-@pytest.mark.parametrize('input_type', global_input_types)
+@pytest.mark.parametrize("input_type", global_input_types)
 def test_global_output_type(global_output_type, input_type):
     dataset = get_small_dataset(input_type)
 
@@ -88,17 +86,17 @@ def test_global_output_type(global_output_type, input_type):
 
     res = dbscan_float.labels_
 
-    if global_output_type == 'numba':
+    if global_output_type == "numba":
         assert is_cuda_array(res)
     else:
         assert isinstance(res, test_output_types[global_output_type])
 
 
-@pytest.mark.parametrize('context_type', global_input_configs)
+@pytest.mark.parametrize("context_type", global_input_configs)
 def test_output_type_context_mgr(global_output_type, context_type):
-    dataset = get_small_dataset('numba')
+    dataset = get_small_dataset("numba")
 
-    test_type = 'cupy' if global_output_type != 'cupy' else 'numpy'
+    test_type = "cupy" if global_output_type != "cupy" else "numpy"
     cuml.set_global_output_type(test_type)
 
     # use cuml context manager
@@ -108,7 +106,7 @@ def test_output_type_context_mgr(global_output_type, context_type):
 
         res = dbscan_float.labels_
 
-        if context_type == 'numba':
+        if context_type == "numba":
             assert is_cuda_array(res)
         else:
             assert isinstance(res, test_output_types[context_type])
@@ -131,16 +129,16 @@ def get_small_dataset(output_type):
     ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
     ary = cp.asarray(ary)
 
-    if output_type == 'numba':
+    if output_type == "numba":
         return as_cuda_array(ary)
 
-    elif output_type == 'cupy':
+    elif output_type == "cupy":
         return ary
 
-    elif output_type == 'numpy':
+    elif output_type == "numpy":
         return cp.asnumpy(ary)
 
-    elif output_type == 'pandas':
+    elif output_type == "pandas":
         return cudf.DataFrame(ary).to_pandas()
 
     else:

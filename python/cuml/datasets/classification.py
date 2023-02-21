@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,41 +20,61 @@ from cuml.internals.import_utils import has_sklearn
 from cuml.datasets.utils import _create_rs_generator
 
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 def _generate_hypercube(samples, dimensions, rng):
-    """Returns distinct binary samples of length dimensions
-    """
+    """Returns distinct binary samples of length dimensions"""
     if not has_sklearn():
-        raise RuntimeError("Scikit-learn is needed to run \
-                           make_classification.")
+        raise RuntimeError(
+            "Scikit-learn is needed to run \
+                           make_classification."
+        )
 
     from sklearn.utils.random import sample_without_replacement
+
     if dimensions > 30:
-        return np.hstack([np.random.randint(2, size=(samples,
-                                                     dimensions - 30)),
-                          _generate_hypercube(samples, 30, rng)])
+        return np.hstack(
+            [
+                np.random.randint(2, size=(samples, dimensions - 30)),
+                _generate_hypercube(samples, 30, rng),
+            ]
+        )
     random_state = int(rng.randint(dimensions))
-    out = sample_without_replacement(2 ** dimensions, samples,
-                                     random_state=random_state).astype(
-                                         dtype='>u4', copy=False)
-    out = np.unpackbits(out.view('>u1')).reshape((-1, 32))[:, -dimensions:]
+    out = sample_without_replacement(
+        2**dimensions, samples, random_state=random_state
+    ).astype(dtype=">u4", copy=False)
+    out = np.unpackbits(out.view(">u1")).reshape((-1, 32))[:, -dimensions:]
     return out
 
 
 @nvtx.annotate(message="datasets.make_classification", domain="cuml_python")
 @cuml.internals.api_return_generic()
-def make_classification(n_samples=100, n_features=20, n_informative=2,
-                        n_redundant=2, n_repeated=0, n_classes=2,
-                        n_clusters_per_class=2, weights=None, flip_y=0.01,
-                        class_sep=1.0, hypercube=True, shift=0.0, scale=1.0,
-                        shuffle=True, random_state=None, order='F',
-                        dtype='float32', _centroids=None,
-                        _informative_covariance=None,
-                        _redundant_covariance=None,
-                        _repeated_indices=None):
+def make_classification(
+    n_samples=100,
+    n_features=20,
+    n_informative=2,
+    n_redundant=2,
+    n_repeated=0,
+    n_classes=2,
+    n_clusters_per_class=2,
+    weights=None,
+    flip_y=0.01,
+    class_sep=1.0,
+    hypercube=True,
+    shift=0.0,
+    scale=1.0,
+    shuffle=True,
+    random_state=None,
+    order="F",
+    dtype="float32",
+    _centroids=None,
+    _informative_covariance=None,
+    _redundant_covariance=None,
+    _repeated_indices=None,
+):
     """
     Generate a random n-class classification problem.
     This initially creates clusters of points normally distributed (std=1)
@@ -208,20 +228,29 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
 
     # Count features, clusters and samples
     if n_informative + n_redundant + n_repeated > n_features:
-        raise ValueError("Number of informative, redundant and repeated "
-                         "features must sum to less than the number of total"
-                         " features")
+        raise ValueError(
+            "Number of informative, redundant and repeated "
+            "features must sum to less than the number of total"
+            " features"
+        )
     # Use log2 to avoid overflow errors
     if n_informative < np.log2(n_classes * n_clusters_per_class):
         msg = "n_classes({}) * n_clusters_per_class({}) must be"
         msg += " smaller or equal 2**n_informative({})={}"
-        raise ValueError(msg.format(n_classes, n_clusters_per_class,
-                                    n_informative, 2**n_informative))
+        raise ValueError(
+            msg.format(
+                n_classes,
+                n_clusters_per_class,
+                n_informative,
+                2**n_informative,
+            )
+        )
 
     if weights is not None:
         if len(weights) not in [n_classes, n_classes - 1]:
-            raise ValueError("Weights specified but incompatible with number "
-                             "of classes.")
+            raise ValueError(
+                "Weights specified but incompatible with number " "of classes."
+            )
         if len(weights) == n_classes - 1:
             if isinstance(weights, list):
                 weights = weights + [1.0 - sum(weights)]
@@ -236,7 +265,8 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     # Distribute samples among clusters by weight
     n_samples_per_cluster = [
         int(n_samples * weights[k % n_classes] / n_clusters_per_class)
-        for k in range(n_clusters)]
+        for k in range(n_clusters)
+    ]
 
     for i in range(n_samples - sum(n_samples_per_cluster)):
         n_samples_per_cluster[i % n_clusters] += 1
@@ -248,8 +278,9 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
 
     # Build the polytope whose vertices become cluster centroids
     if _centroids is None:
-        centroids = cp.array(_generate_hypercube(n_clusters, n_informative,
-                             generator)).astype(dtype, copy=False)
+        centroids = cp.array(
+            _generate_hypercube(n_clusters, n_informative, generator)
+        ).astype(dtype, copy=False)
     else:
         centroids = _centroids
     centroids *= 2 * class_sep
@@ -268,13 +299,16 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     # Create each cluster; a variant of make_blobs
     if shuffle:
         proba_samples_per_cluster = np.array(n_samples_per_cluster) / np.sum(
-            n_samples_per_cluster)
-        shuffled_sample_indices = cp.array(np.random.choice(
-            n_clusters,
-            n_samples,
-            replace=True,
-            p=proba_samples_per_cluster
-        ))
+            n_samples_per_cluster
+        )
+        shuffled_sample_indices = cp.array(
+            np.random.choice(
+                n_clusters,
+                n_samples,
+                replace=True,
+                p=proba_samples_per_cluster,
+            )
+        )
         for k, centroid in enumerate(centroids):
             centroid_indices = cp.where(shuffled_sample_indices == k)
             y[centroid_indices[0]] = k % n_classes
@@ -282,8 +316,11 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
             X_k = X[centroid_indices[0], :n_informative]
 
             if _informative_covariance is None:
-                A = 2 * generator.rand(n_informative, n_informative,
-                                       dtype=dtype) - 1
+                A = (
+                    2
+                    * generator.rand(n_informative, n_informative, dtype=dtype)
+                    - 1
+                )
             else:
                 A = _informative_covariance[k]
             X_k = cp.dot(X_k, A)
@@ -292,8 +329,10 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
             # cupy bug does not allow that
             # https://github.com/cupy/cupy/issues/3284
             if n_redundant > 0:
-                X[centroid_indices[0], n_informative:n_informative
-                    + n_redundant] = cp.dot(X_k, B)
+                X[
+                    centroid_indices[0],
+                    n_informative : n_informative + n_redundant,
+                ] = cp.dot(X_k, B)
 
             X_k += centroid  # shift the cluster to a vertex
             X[centroid_indices[0], :n_informative] = X_k
@@ -305,15 +344,19 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
             X_k = X[start:stop, :n_informative]  # slice a view of the cluster
 
             if _informative_covariance is None:
-                A = 2 * generator.rand(n_informative, n_informative,
-                                       dtype=dtype) - 1
+                A = (
+                    2
+                    * generator.rand(n_informative, n_informative, dtype=dtype)
+                    - 1
+                )
             else:
                 A = _informative_covariance[k]
             X_k = cp.dot(X_k, A)  # introduce random covariance
 
             if n_redundant > 0:
-                X[start:stop, n_informative:n_informative + n_redundant] = \
-                    cp.dot(X_k, B)
+                X[
+                    start:stop, n_informative : n_informative + n_redundant
+                ] = cp.dot(X_k, B)
 
             X_k += centroid  # shift the cluster to a vertex
             X[start:stop, :n_informative] = X_k
@@ -322,12 +365,12 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     if n_repeated > 0:
         n = n_informative + n_redundant
         if _repeated_indices is None:
-            indices = ((n - 1) * generator.rand(n_repeated,
-                                                dtype=dtype)
-                       + 0.5).astype(np.intp)
+            indices = (
+                (n - 1) * generator.rand(n_repeated, dtype=dtype) + 0.5
+            ).astype(np.intp)
         else:
             indices = _repeated_indices
-        X[:, n:n + n_repeated] = X[:, indices]
+        X[:, n : n + n_repeated] = X[:, indices]
 
     # Randomly replace labels
     if flip_y >= 0.0:

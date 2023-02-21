@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,35 +26,36 @@ from cuml.dask.naive_bayes.naive_bayes import MultinomialNB
 from cuml.dask.cluster import KMeans
 from dask_ml.wrappers import ParallelPostFit
 from cuml.internals.safe_imports import gpu_only_import
-cupy = gpu_only_import('cupy')
+
+cupy = gpu_only_import("cupy")
 
 
-np = cpu_only_import('numpy')
+np = cpu_only_import("numpy")
 
-assert_equal = cpu_only_import_from('numpy.testing', 'assert_equal')
+assert_equal = cpu_only_import_from("numpy.testing", "assert_equal")
 
 
 def make_dataset(datatype, nrows, ncols, n_info):
-    X, y = make_regression(n_samples=nrows, n_features=ncols,
-                           n_informative=n_info, random_state=0)
+    X, y = make_regression(
+        n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0
+    )
     X = X.astype(datatype)
     y = y.astype(datatype)
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
     return X_train, y_train, X_test
 
 
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('keys', [cuml.dask.linear_model.LinearRegression])
-@pytest.mark.parametrize('data_size', [[500, 20, 10]])
-@pytest.mark.parametrize('fit_intercept', [True, False])
-def test_get_combined_model(datatype, keys, data_size, fit_intercept,
-                            client):
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("keys", [cuml.dask.linear_model.LinearRegression])
+@pytest.mark.parametrize("data_size", [[500, 20, 10]])
+@pytest.mark.parametrize("fit_intercept", [True, False])
+def test_get_combined_model(datatype, keys, data_size, fit_intercept, client):
 
     nrows, ncols, n_info = data_size
-    X_train, y_train, X_test = make_dataset(datatype, nrows,
-                                            ncols, n_info)
-    model = LinearRegression(fit_intercept=fit_intercept,
-                             client=client, verbose=True)
+    X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
+    model = LinearRegression(
+        fit_intercept=fit_intercept, client=client, verbose=True
+    )
     model.fit(X_train, y_train)
     print("Fit done")
 
@@ -64,8 +65,9 @@ def test_get_combined_model(datatype, keys, data_size, fit_intercept,
 
     y_hat = combined_model.predict(X_train.compute())
 
-    np.testing.assert_allclose(y_hat.get(), y_train.compute().get(),
-                               atol=1e-3, rtol=1e-3)
+    np.testing.assert_allclose(
+        y_hat.get(), y_train.compute().get(), atol=1e-3, rtol=1e-3
+    )
 
 
 def test_check_internal_model_failures(client):
@@ -88,12 +90,13 @@ def test_check_internal_model_failures(client):
         model._set_internal_model(1)
 
 
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('keys', [cuml.dask.linear_model.LinearRegression])
-@pytest.mark.parametrize('data_size', [[500, 20, 10]])
-@pytest.mark.parametrize('fit_intercept', [True, False])
-def test_regressor_mg_train_sg_predict(datatype, keys, data_size,
-                                       fit_intercept, client):
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("keys", [cuml.dask.linear_model.LinearRegression])
+@pytest.mark.parametrize("data_size", [[500, 20, 10]])
+@pytest.mark.parametrize("fit_intercept", [True, False])
+def test_regressor_mg_train_sg_predict(
+    datatype, keys, data_size, fit_intercept, client
+):
 
     nrows, ncols, n_info = data_size
     X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
@@ -111,12 +114,13 @@ def test_regressor_mg_train_sg_predict(datatype, keys, data_size,
     assert_equal(expected.get(), actual.get())
 
 
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('keys', [cuml.linear_model.LinearRegression])
-@pytest.mark.parametrize('data_size', [[500, 20, 10]])
-@pytest.mark.parametrize('fit_intercept', [True, False])
-def test_regressor_sg_train_mg_predict(datatype, keys, data_size,
-                                       fit_intercept, client):
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("keys", [cuml.linear_model.LinearRegression])
+@pytest.mark.parametrize("data_size", [[500, 20, 10]])
+@pytest.mark.parametrize("fit_intercept", [True, False])
+def test_regressor_sg_train_mg_predict(
+    datatype, keys, data_size, fit_intercept, client
+):
 
     # Just testing for basic compatibility w/ dask-ml's ParallelPostFit.
     # Refer to test_pickle.py for more extensive testing of single-GPU
@@ -129,7 +133,8 @@ def test_regressor_sg_train_mg_predict(datatype, keys, data_size,
     y_train_local = y_train.compute()
 
     local_model = cuml.linear_model.LinearRegression(
-        fit_intercept=fit_intercept)
+        fit_intercept=fit_intercept
+    )
     local_model.fit(X_train_local, y_train_local)
 
     dist_model = ParallelPostFit(estimator=local_model)
@@ -140,8 +145,9 @@ def test_regressor_sg_train_mg_predict(datatype, keys, data_size,
 
     # Dataset should be fairly linear already so the predictions should
     # be very close to the training data.
-    np.testing.assert_allclose(predictions.get(), y_train.compute().get(),
-                               atol=1e-3, rtol=1e-3)
+    np.testing.assert_allclose(
+        predictions.get(), y_train.compute().get(), atol=1e-3, rtol=1e-3
+    )
 
 
 def test_getattr(client):
@@ -157,12 +163,14 @@ def test_getattr(client):
 
     # Test getattr on local_model param with a non-distributed model
 
-    X, y = make_blobs(n_samples=5,
-                      n_features=5,
-                      centers=2,
-                      n_parts=2,
-                      cluster_std=0.01,
-                      random_state=10)
+    X, y = make_blobs(
+        n_samples=5,
+        n_features=5,
+        centers=2,
+        n_parts=2,
+        cluster_std=0.01,
+        random_state=10,
+    )
 
     kmeans_model.fit(X)
 

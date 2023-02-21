@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ def test_tree_reduce_delayed(n_parts, client):
     b = tree_reduce(a, func=func)
     c = client.compute(b, sync=True)
 
-    assert(sum(range(n_parts)) == c)
+    assert sum(range(n_parts)) == c
 
 
 # Using custom remote task for storing data on workers.
@@ -47,12 +47,11 @@ def test_tree_reduce_futures(n_parts, client):
     b = tree_reduce(a)
     c = client.compute(b, sync=True)
 
-    assert(sum(range(n_parts)) == c)
+    assert sum(range(n_parts)) == c
 
 
 @pytest.mark.parametrize("n_parts", [1, 2, 10, 15])
 def test_reduce_futures(n_parts, client):
-
     def s(x):
         return x
 
@@ -61,4 +60,4 @@ def test_reduce_futures(n_parts, client):
     c = client.compute(b, sync=True)
 
     # Testing this gets the correct result for now.
-    assert(sum(range(n_parts)) == c)
+    assert sum(range(n_parts)) == c

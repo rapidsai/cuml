@@ -1,0 +1,58 @@
+---
+# Copyright (c) 2023, NVIDIA CORPORATION.
+
+repos:
+    - repo: https://github.com/psf/black
+      rev: 22.10.0
+      hooks:
+          - id: black
+            files: python/.*
+            args: [--config, python/pyproject.toml]
+    - repo: https://github.com/PyCQA/flake8
+      rev: 5.0.4
+      hooks:
+          - id: flake8
+            args: [--config=python/setup.cfg]
+            files: python/.*$
+            types: [file]
+            types_or: [python, cython]
+            exclude: thirdparty
+            additional_dependencies: [flake8-force]
+    - repo: local
+      hooks:
+          - id: no-deprecationwarning
+            name: no-deprecationwarning
+            description: 'Enforce that DeprecationWarning is not introduced (use FutureWarning instead)'
+            entry: '(category=|\s)DeprecationWarning[,)]'
+            language: pygrep
+            types_or: [python, cython]
+          - id: clang-format
+            name: clang-format
+            entry: python ./cpp/scripts/run-clang-format.py
+            language: python
+            additional_dependencies: [clang-format==11.1.0]
+          - id: copyright-check
+            name: copyright-check
+            entry: python ./ci/checks/copyright.py --fix-in-place
+            language: python
+            pass_filenames: true
+            additional_dependencies: [gitpython]
+          - id: include-check
+            name: include-check
+            entry: python cpp/scripts/include_checker.py
+            args:
+                - cpp/bench
+                - cpp/comms/mpi/include
+                - cpp/comms/mpi/src
+                - cpp/comms/std/include
+                - cpp/comms/std/src
+                - cpp/include
+                - cpp/examples
+                - cpp/src
+                - cpp/src_prims
+                - cpp/test
+            pass_filenames: false
+            language: python
+
+default_language_version:
+    python: python3

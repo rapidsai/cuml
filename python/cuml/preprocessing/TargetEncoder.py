@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,11 @@ import warnings
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
-pandas = cpu_only_import('pandas')
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+
+cudf = gpu_only_import("cudf")
+pandas = cpu_only_import("pandas")
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 def get_stat_func(stat):
@@ -30,7 +31,8 @@ def get_stat_func(stat):
             return getattr(ds, stat)()
         else:
             # implement stat
-            raise ValueError(f'{stat} function is not implemented.')
+            raise ValueError(f"{stat} function is not implemented.")
+
     return func
 
 
@@ -91,45 +93,59 @@ class TargetEncoder:
     [1.   0.75 0.5  1.  ]
     """
 
-    def __init__(self, n_folds=4, smooth=0, seed=42,
-                 split_method='interleaved', output_type='auto',
-                 stat='mean'):
+    def __init__(
+        self,
+        n_folds=4,
+        smooth=0,
+        seed=42,
+        split_method="interleaved",
+        output_type="auto",
+        stat="mean",
+    ):
         if smooth < 0:
-            raise ValueError(f'smooth {smooth} is not zero or positive')
+            raise ValueError(f"smooth {smooth} is not zero or positive")
         if n_folds < 0 or not isinstance(n_folds, int):
             raise ValueError(
-                'n_folds {} is not a postive integer'.format(n_folds))
-        if output_type not in {'cupy', 'numpy', 'auto'}:
-            msg = ("output_type should be either 'cupy'"
-                   " or 'numpy' or 'auto', "
-                   "got {0}.".format(output_type))
+                "n_folds {} is not a postive integer".format(n_folds)
+            )
+        if output_type not in {"cupy", "numpy", "auto"}:
+            msg = (
+                "output_type should be either 'cupy'"
+                " or 'numpy' or 'auto', "
+                "got {0}.".format(output_type)
+            )
             raise ValueError(msg)
-        if stat not in {'mean', 'var', 'median'}:
-            msg = ("stat should be 'mean', 'var' or 'median'."
-                   f"got {stat}.")
+        if stat not in {"mean", "var", "median"}:
+            msg = "stat should be 'mean', 'var' or 'median'." f"got {stat}."
             raise ValueError(msg)
 
         if not isinstance(seed, int):
-            raise ValueError('seed {} is not an integer'.format(seed))
+            raise ValueError("seed {} is not an integer".format(seed))
 
-        if split_method not in {'random', 'continuous', 'interleaved',
-                                'customize'}:
-            msg = ("split_method should be either 'random'"
-                   " or 'continuous' or 'interleaved', or 'customize'"
-                   "got {0}.".format(split_method))
+        if split_method not in {
+            "random",
+            "continuous",
+            "interleaved",
+            "customize",
+        }:
+            msg = (
+                "split_method should be either 'random'"
+                " or 'continuous' or 'interleaved', or 'customize'"
+                "got {0}.".format(split_method)
+            )
             raise ValueError(msg)
 
         self.n_folds = n_folds
         self.seed = seed
         self.smooth = smooth
         self.split_method = split_method
-        self.y_col = '__TARGET__'
-        self.y_col2 = '__TARGET__SQUARE__'
-        self.x_col = '__FEA__'
-        self.out_col = '__TARGET_ENCODE__'
-        self.out_col2 = '__TARGET_ENCODE__SQUARE__'
-        self.fold_col = '__FOLD__'
-        self.id_col = '__INDEX__'
+        self.y_col = "__TARGET__"
+        self.y_col2 = "__TARGET__SQUARE__"
+        self.x_col = "__FEA__"
+        self.out_col = "__TARGET_ENCODE__"
+        self.out_col2 = "__TARGET_ENCODE__SQUARE__"
+        self.fold_col = "__FOLD__"
+        self.id_col = "__INDEX__"
         self.train = None
         self.output_type = output_type
         self.stat = stat
@@ -156,18 +172,24 @@ class TargetEncoder:
         self : TargetEncoder
             A fitted instance of itself to allow method chaining
         """
-        if self.split_method == 'customize' and fold_ids is None:
-            raise ValueError("`fold_ids` is required "
-                             "since split_method is set to"
-                             "'customize'.")
-        if fold_ids is not None and self.split_method != 'customize':
-            self.split_method == 'customize'
-            warnings.warn("split_method is set to 'customize'"
-                          "since `fold_ids` are provided.")
+        if self.split_method == "customize" and fold_ids is None:
+            raise ValueError(
+                "`fold_ids` is required "
+                "since split_method is set to"
+                "'customize'."
+            )
+        if fold_ids is not None and self.split_method != "customize":
+            self.split_method == "customize"
+            warnings.warn(
+                "split_method is set to 'customize'"
+                "since `fold_ids` are provided."
+            )
         if fold_ids is not None and len(fold_ids) != len(x):
-            raise ValueError(f"`fold_ids` length {len(fold_ids)}"
-                             "is different from input data length"
-                             f"{len(x)}")
+            raise ValueError(
+                f"`fold_ids` length {len(fold_ids)}"
+                "is different from input data length"
+                f"{len(x)}"
+            )
 
         res, train = self._fit_transform(x, y, fold_ids=fold_ids)
         self.train_encode = res
@@ -228,7 +250,7 @@ class TargetEncoder:
         if self._is_train_df(test):
             return self.train_encode
         x_cols = [i for i in test.columns.tolist() if i != self.id_col]
-        test = test.merge(self.encode_all, on=x_cols, how='left')
+        test = test.merge(self.encode_all, on=x_cols, how="left")
         return self._impute_and_sort(test)
 
     def _fit_transform(self, x, y, fold_ids):
@@ -245,52 +267,49 @@ class TargetEncoder:
         train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
 
         self.y_stat_val = get_stat_func(self.stat)(train[self.y_col])
-        if self.stat in ['median']:
+        if self.stat in ["median"]:
             return self._fit_transform_for_loop(train, x_cols)
 
         self.mean = train[self.y_col].mean()
-        if self.stat == 'var':
+        if self.stat == "var":
             y_cols = [self.y_col, self.y_col2]
-            train[self.y_col2] = self._make_y_column(y*y)
+            train[self.y_col2] = self._make_y_column(y * y)
             self.mean2 = train[self.y_col2].mean()
         else:
             y_cols = [self.y_col]
 
-        y_count_each_fold, y_count_all = self._groupby_agg(train,
-                                                           x_cols,
-                                                           op='count',
-                                                           y_cols=y_cols)
+        y_count_each_fold, y_count_all = self._groupby_agg(
+            train, x_cols, op="count", y_cols=y_cols
+        )
 
-        y_sum_each_fold, y_sum_all = self._groupby_agg(train,
-                                                       x_cols,
-                                                       op='sum',
-                                                       y_cols=y_cols)
+        y_sum_each_fold, y_sum_all = self._groupby_agg(
+            train, x_cols, op="sum", y_cols=y_cols
+        )
 
         """
         Note:
             encode_each_fold is used to encode train data.
             encode_all is used to encode test data.
         """
-        cols = [self.fold_col]+x_cols
-        encode_each_fold = self._compute_output(y_sum_each_fold,
-                                                y_count_each_fold,
-                                                cols,
-                                                f'{self.y_col}_x',
-                                                f'{self.y_col2}_x')
-        encode_all = self._compute_output(y_sum_all,
-                                          y_count_all,
-                                          x_cols,
-                                          self.y_col,
-                                          self.y_col2)
+        cols = [self.fold_col] + x_cols
+        encode_each_fold = self._compute_output(
+            y_sum_each_fold,
+            y_count_each_fold,
+            cols,
+            f"{self.y_col}_x",
+            f"{self.y_col2}_x",
+        )
+        encode_all = self._compute_output(
+            y_sum_all, y_count_all, x_cols, self.y_col, self.y_col2
+        )
 
         self.encode_all = encode_all
 
-        train = train.merge(encode_each_fold, on=cols, how='left')
+        train = train.merge(encode_each_fold, on=cols, how="left")
         del encode_each_fold
         return self._impute_and_sort(train), train
 
     def _fit_transform_for_loop(self, train, x_cols):
-
         def _rename_col(df, col):
             df.columns = [col]
             return df.reset_index()
@@ -300,7 +319,7 @@ class TargetEncoder:
             mask = train[self.fold_col] == f
             dg = train.loc[~mask].groupby(x_cols).agg({self.y_col: self.stat})
             dg = _rename_col(dg, self.out_col)
-            res.append(train.loc[mask].merge(dg, on=x_cols, how='left'))
+            res.append(train.loc[mask].merge(dg, on=x_cols, how="left"))
         res = cudf.concat(res, axis=0)
         self.encode_all = train.groupby(x_cols).agg({self.y_col: self.stat})
         self.encode_all = _rename_col(self.encode_all, self.out_col)
@@ -318,59 +337,67 @@ class TargetEncoder:
             elif y.shape[1] == 1:
                 return y[:, 0]
             else:
-                raise ValueError(f"Input of shape {y.shape} "
-                                 "is not a 1-D array.")
+                raise ValueError(
+                    f"Input of shape {y.shape} " "is not a 1-D array."
+                )
         else:
             raise TypeError(
                 f"Input of type {type(y)} is not cudf.Series, "
                 "or pandas.Series"
                 "or numpy.ndarray"
-                "or cupy.ndarray")
+                "or cupy.ndarray"
+            )
 
     def _make_fold_column(self, len_train, fold_ids):
         """
         Create a fold id column for each split
         """
 
-        if self.split_method == 'random':
+        if self.split_method == "random":
             return cp.random.randint(0, self.n_folds, len_train)
-        elif self.split_method == 'continuous':
-            return (cp.arange(len_train) /
-                    (len_train/self.n_folds)) % self.n_folds
-        elif self.split_method == 'interleaved':
+        elif self.split_method == "continuous":
+            return (
+                cp.arange(len_train) / (len_train / self.n_folds)
+            ) % self.n_folds
+        elif self.split_method == "interleaved":
             return cp.arange(len_train) % self.n_folds
-        elif self.split_method == 'customize':
+        elif self.split_method == "customize":
             if fold_ids is None:
-                raise ValueError("fold_ids can't be None"
-                                 "since split_method is set to"
-                                 "'customize'.")
+                raise ValueError(
+                    "fold_ids can't be None"
+                    "since split_method is set to"
+                    "'customize'."
+                )
             return fold_ids
         else:
-            msg = ("split_method should be either 'random'"
-                   " or 'continuous' or 'interleaved', "
-                   "got {0}.".format(self.split_method))
+            msg = (
+                "split_method should be either 'random'"
+                " or 'continuous' or 'interleaved', "
+                "got {0}.".format(self.split_method)
+            )
             raise ValueError(msg)
 
     def _compute_output(self, df_sum, df_count, cols, y_col, y_col2=None):
         """
         Compute the output encoding based on aggregated sum and count
         """
-        df_sum = df_sum.merge(df_count, on=cols, how='left')
+        df_sum = df_sum.merge(df_count, on=cols, how="left")
         smooth = self.smooth
-        df_sum[self.out_col] = (df_sum[f'{y_col}_x'] +
-                                smooth*self.mean) / \
-                               (df_sum[f'{y_col}_y'] +
-                                smooth)
-        if self.stat == 'var':
-            df_sum[self.out_col2] = (df_sum[f'{y_col2}_x'] +
-                                     smooth*self.mean2) / \
-                                    (df_sum[f'{y_col2}_y'] +
-                                     smooth)
-            df_sum[self.out_col] = df_sum[self.out_col2] - \
-                df_sum[self.out_col]**2
-            df_sum[self.out_col] = df_sum[self.out_col] * \
-                df_sum[f'{y_col2}_y'] / \
-                (df_sum[f'{y_col2}_y'] - 1)
+        df_sum[self.out_col] = (df_sum[f"{y_col}_x"] + smooth * self.mean) / (
+            df_sum[f"{y_col}_y"] + smooth
+        )
+        if self.stat == "var":
+            df_sum[self.out_col2] = (
+                df_sum[f"{y_col2}_x"] + smooth * self.mean2
+            ) / (df_sum[f"{y_col2}_y"] + smooth)
+            df_sum[self.out_col] = (
+                df_sum[self.out_col2] - df_sum[self.out_col] ** 2
+            )
+            df_sum[self.out_col] = (
+                df_sum[self.out_col]
+                * df_sum[f"{y_col2}_y"]
+                / (df_sum[f"{y_col2}_y"] - 1)
+            )
         return df_sum
 
     def _groupby_agg(self, train, x_cols, op, y_cols):
@@ -378,22 +405,27 @@ class TargetEncoder:
         Compute aggregated value of each fold and overall dataframe
         grouped by `x_cols` and agg by `op`
         """
-        cols = [self.fold_col]+x_cols
-        df_each_fold = train.groupby(cols, as_index=False)\
-            .agg({y_col: op for y_col in y_cols})
-        df_all = df_each_fold.groupby(x_cols, as_index=False)\
-            .agg({y_col: 'sum' for y_col in y_cols})
+        cols = [self.fold_col] + x_cols
+        df_each_fold = train.groupby(cols, as_index=False).agg(
+            {y_col: op for y_col in y_cols}
+        )
+        df_all = df_each_fold.groupby(x_cols, as_index=False).agg(
+            {y_col: "sum" for y_col in y_cols}
+        )
 
-        df_each_fold = df_each_fold.merge(df_all, on=x_cols, how='left')
+        df_each_fold = df_each_fold.merge(df_all, on=x_cols, how="left")
         for y_col in y_cols:
-            df_each_fold[f'{y_col}_x'] = df_each_fold[f'{y_col}_y'] -\
-                df_each_fold[f'{y_col}_x']
+            df_each_fold[f"{y_col}_x"] = (
+                df_each_fold[f"{y_col}_y"] - df_each_fold[f"{y_col}_x"]
+            )
         return df_each_fold, df_all
 
     def _check_is_fitted(self):
         if not self._fitted or self.train is None:
-            msg = ("This LabelEncoder instance is not fitted yet. Call 'fit' "
-                   "with appropriate arguments before using this estimator.")
+            msg = (
+                "This LabelEncoder instance is not fitted yet. Call 'fit' "
+                "with appropriate arguments before using this estimator."
+            )
             raise NotFittedError(msg)
 
     def _is_train_df(self, df):
@@ -406,8 +438,9 @@ class TargetEncoder:
         self.train = self.train.sort_values(self.id_col).reset_index(drop=True)
         for col in df.columns:
             if col not in self.train.columns:
-                raise ValueError(f"Input column {col} "
-                                 "is not in train data.")
+                raise ValueError(
+                    f"Input column {col} " "is not in train data."
+                )
             if not (df[col] == self.train[col]).all():
                 return False
         return True
@@ -420,7 +453,7 @@ class TargetEncoder:
         df[self.out_col] = df[self.out_col].fillna(self.y_stat_val)
         df = df.sort_values(self.id_col)
         res = df[self.out_col].values.copy()
-        if self.output_type == 'numpy':
+        if self.output_type == "numpy":
             return cp.asnumpy(res)
         return res
 
@@ -442,9 +475,9 @@ class TargetEncoder:
             if len(x.shape) == 1:
                 df[self.x_col] = x
             else:
-                df = cudf.DataFrame(x,
-                                    columns=[f'{self.x_col}_{i}'
-                                             for i in range(x.shape[1])])
+                df = cudf.DataFrame(
+                    x, columns=[f"{self.x_col}_{i}" for i in range(x.shape[1])]
+                )
         elif isinstance(x, pandas.DataFrame):
             df = cudf.from_pandas(x)
         elif isinstance(x, pandas.Series):
@@ -453,7 +486,8 @@ class TargetEncoder:
             raise TypeError(
                 f"Input of type {type(x)} is not cudf.Series, cudf.DataFrame "
                 "or pandas.Series or pandas.DataFrame"
-                "or cupy.ndarray or numpy.ndarray")
+                "or cupy.ndarray or numpy.ndarray"
+            )
         df[self.id_col] = cp.arange(len(x))
         return df.reset_index(drop=True)
 
@@ -461,17 +495,22 @@ class TargetEncoder:
         """
         Infer output type if 'auto'
         """
-        if self.output_type != 'auto':
+        if self.output_type != "auto":
             return self.output_type
-        if isinstance(x, np.ndarray) \
-            or isinstance(x, pandas.DataFrame) \
-                or isinstance(x, pandas.Series):
-            return 'numpy'
-        return 'cupy'
+        if (
+            isinstance(x, np.ndarray)
+            or isinstance(x, pandas.DataFrame)
+            or isinstance(x, pandas.Series)
+        ):
+            return "numpy"
+        return "cupy"
 
     def get_param_names(self):
         return [
-            "n_folds", "smooth", "seed", "split_method",
+            "n_folds",
+            "smooth",
+            "seed",
+            "split_method",
         ]
 
     def get_params(self, deep=False):

@@ -1,5 +1,4 @@
-
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +16,7 @@
 from cuml.internals.safe_imports import gpu_only_import
 from cuml.internals.safe_imports import cpu_only_import
 import pytest
-from cuml.testing.utils import unit_param, \
-    quality_param, \
-    stress_param
+from cuml.testing.utils import unit_param, quality_param, stress_param
 
 from cuml.neighbors import KNeighborsClassifier as lKNNClf
 from cuml.dask.neighbors import KNeighborsClassifier as dKNNClf
@@ -32,9 +29,10 @@ import dask.array as da
 import dask.dataframe as dd
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
 from cuml.internals.safe_imports import gpu_only_import_from
-DataFrame = gpu_only_import_from('cudf', 'DataFrame')
-np = cpu_only_import('numpy')
-cudf = gpu_only_import('cudf')
+
+DataFrame = gpu_only_import_from("cudf", "DataFrame")
+np = cpu_only_import("numpy")
+cudf = gpu_only_import("cudf")
 
 
 def generate_dask_array(np_array, n_parts):
@@ -49,33 +47,53 @@ def generate_dask_array(np_array, n_parts):
 @pytest.fixture(
     scope="module",
     params=[
-        unit_param({'n_samples': 3000, 'n_features': 30,
-                    'n_classes': 5, 'n_targets': 2}),
-        quality_param({'n_samples': 8000, 'n_features': 35,
-                       'n_classes': 12, 'n_targets': 3}),
-        stress_param({'n_samples': 20000, 'n_features': 40,
-                      'n_classes': 12, 'n_targets': 4})
-    ])
+        unit_param(
+            {
+                "n_samples": 3000,
+                "n_features": 30,
+                "n_classes": 5,
+                "n_targets": 2,
+            }
+        ),
+        quality_param(
+            {
+                "n_samples": 8000,
+                "n_features": 35,
+                "n_classes": 12,
+                "n_targets": 3,
+            }
+        ),
+        stress_param(
+            {
+                "n_samples": 20000,
+                "n_features": 40,
+                "n_classes": 12,
+                "n_targets": 4,
+            }
+        ),
+    ],
+)
 def dataset(request):
     X, y = make_multilabel_classification(
-        n_samples=int(request.param['n_samples'] * 1.2),
-        n_features=request.param['n_features'],
-        n_classes=request.param['n_classes'],
-        n_labels=request.param['n_classes'],
-        length=request.param['n_targets'])
+        n_samples=int(request.param["n_samples"] * 1.2),
+        n_features=request.param["n_features"],
+        n_classes=request.param["n_classes"],
+        n_labels=request.param["n_classes"],
+        length=request.param["n_targets"],
+    )
     new_x = []
     new_y = []
     for i in range(y.shape[0]):
         a = np.argwhere(y[i] == 1)[:, 0]
-        if len(a) >= request.param['n_targets']:
+        if len(a) >= request.param["n_targets"]:
             new_x.append(i)
             np.random.shuffle(a)
-            a = a[:request.param['n_targets']]
+            a = a[: request.param["n_targets"]]
             new_y.append(a)
-        if len(new_x) >= request.param['n_samples']:
+        if len(new_x) >= request.param["n_samples"]:
             break
     X = X[new_x]
-    noise = np.random.normal(0, 5., X.shape)
+    noise = np.random.normal(0, 5.0, X.shape)
     X += noise
     y = np.array(new_y)
 
@@ -98,10 +116,8 @@ def check_probabilities(l_probas, d_probas):
         assert np.mean(l_probas[i] == d_probas[i]) > 0.95
 
 
-@pytest.mark.parametrize("datatype", ['dask_array', 'dask_cudf'])
-@pytest.mark.parametrize("parameters", [(1, 3, 256),
-                                        (8, 8, 256),
-                                        (9, 3, 128)])
+@pytest.mark.parametrize("datatype", ["dask_array", "dask_cudf"])
+@pytest.mark.parametrize("parameters", [(1, 3, 256), (8, 8, 256), (9, 3, 128)])
 def test_predict_and_score(dataset, datatype, parameters, client):
     n_neighbors, n_parts, batch_size = parameters
     X_train, X_test, y_train, y_test = dataset
@@ -117,21 +133,22 @@ def test_predict_and_score(dataset, datatype, parameters, client):
     y_train = generate_dask_array(y_train, n_parts)
     y_test = generate_dask_array(y_test, n_parts)
 
-    if datatype == 'dask_cudf':
+    if datatype == "dask_cudf":
         X_train = to_dask_cudf(X_train, client)
         X_test = to_dask_cudf(X_test, client)
         y_train = to_dask_cudf(y_train, client)
         y_test = to_dask_cudf(y_test, client)
 
-    d_model = dKNNClf(client=client, n_neighbors=n_neighbors,
-                      batch_size=batch_size)
+    d_model = dKNNClf(
+        client=client, n_neighbors=n_neighbors, batch_size=batch_size
+    )
     d_model.fit(X_train, y_train)
     d_outputs = d_model.predict(X_test, convert_dtype=True)
     d_outputs = d_outputs.compute()
 
-    d_outputs = d_outputs.to_numpy() \
-        if isinstance(d_outputs, DataFrame) \
-        else d_outputs
+    d_outputs = (
+        d_outputs.to_numpy() if isinstance(d_outputs, DataFrame) else d_outputs
+    )
 
     exact_match(l_outputs, d_outputs)
 
@@ -140,10 +157,8 @@ def test_predict_and_score(dataset, datatype, parameters, client):
     assert distributed_score == pytest.approx(handmade_local_score, abs=1e-2)
 
 
-@pytest.mark.parametrize("datatype", ['dask_array', 'dask_cudf'])
-@pytest.mark.parametrize("parameters", [(1, 3, 256),
-                                        (8, 8, 256),
-                                        (9, 3, 128)])
+@pytest.mark.parametrize("datatype", ["dask_array", "dask_cudf"])
+@pytest.mark.parametrize("parameters", [(1, 3, 256), (8, 8, 256), (9, 3, 128)])
 def test_predict_proba(dataset, datatype, parameters, client):
     n_neighbors, n_parts, batch_size = parameters
     X_train, X_test, y_train, y_test = dataset
@@ -156,7 +171,7 @@ def test_predict_proba(dataset, datatype, parameters, client):
     X_test = generate_dask_array(X_test, n_parts)
     y_train = generate_dask_array(y_train, n_parts)
 
-    if datatype == 'dask_cudf':
+    if datatype == "dask_cudf":
         X_train = to_dask_cudf(X_train, client)
         X_test = to_dask_cudf(X_test, client)
         y_train = to_dask_cudf(y_train, client)
@@ -166,24 +181,28 @@ def test_predict_proba(dataset, datatype, parameters, client):
     d_probas = d_model.predict_proba(X_test, convert_dtype=True)
     d_probas = da.compute(d_probas)[0]
 
-    if datatype == 'dask_cudf':
-        d_probas = list(map(lambda o: o.to_numpy()
-                            if isinstance(o, DataFrame)
-                            else o.to_numpy()[..., np.newaxis],
-                            d_probas))
+    if datatype == "dask_cudf":
+        d_probas = list(
+            map(
+                lambda o: o.to_numpy()
+                if isinstance(o, DataFrame)
+                else o.to_numpy()[..., np.newaxis],
+                d_probas,
+            )
+        )
 
     check_probabilities(l_probas, d_probas)
 
 
-@pytest.mark.parametrize('input_type', ['array', 'dataframe'])
+@pytest.mark.parametrize("input_type", ["array", "dataframe"])
 def test_predict_1D_labels(input_type, client):
     # Testing that nothing crashes with 1D labels
 
     X, y = make_classification(n_samples=10000)
-    if input_type == 'array':
+    if input_type == "array":
         dX = da.from_array(X)
         dy = da.from_array(y)
-    elif input_type == 'dataframe':
+    elif input_type == "dataframe":
         X = cudf.DataFrame(X)
         y = cudf.Series(y)
         dX = dd.from_pandas(X, npartitions=1)

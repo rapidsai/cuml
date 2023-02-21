@@ -376,7 +376,10 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(all_algo OR kmeans_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
-        src/kmeans/kmeans.cu)
+            src/kmeans/kmeans_transform.cu
+            src/kmeans/kmeans_fit_predict.cu
+            src/kmeans/kmeans_predict.cu
+            )
   endif()
 
   if(all_algo OR knn_algo)

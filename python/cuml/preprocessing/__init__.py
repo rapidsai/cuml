@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,49 +20,68 @@ from cuml.preprocessing.encoders import OneHotEncoder
 from cuml.preprocessing.TargetEncoder import TargetEncoder
 from cuml.preprocessing import text
 
-from cuml._thirdparty.sklearn.preprocessing import Binarizer, \
-    FunctionTransformer, KBinsDiscretizer, KernelCenterer, MaxAbsScaler, \
-    MinMaxScaler, MissingIndicator, Normalizer, PolynomialFeatures, \
-    PowerTransformer, QuantileTransformer, RobustScaler, SimpleImputer, \
-    StandardScaler
+from cuml._thirdparty.sklearn.preprocessing import (
+    Binarizer,
+    FunctionTransformer,
+    KBinsDiscretizer,
+    KernelCenterer,
+    MaxAbsScaler,
+    MinMaxScaler,
+    MissingIndicator,
+    Normalizer,
+    PolynomialFeatures,
+    PowerTransformer,
+    QuantileTransformer,
+    RobustScaler,
+    SimpleImputer,
+    StandardScaler,
+)
 
-from cuml._thirdparty.sklearn.preprocessing import add_dummy_feature, \
-    binarize, maxabs_scale, minmax_scale, normalize, power_transform, \
-    quantile_transform, robust_scale, scale
+from cuml._thirdparty.sklearn.preprocessing import (
+    add_dummy_feature,
+    binarize,
+    maxabs_scale,
+    minmax_scale,
+    normalize,
+    power_transform,
+    quantile_transform,
+    robust_scale,
+    scale,
+)
 
 
 __all__ = [
     # Classes
-    'Binarizer',
-    'FunctionTransformer',
-    'KBinsDiscretizer',
-    'KernelCenterer',
-    'LabelBinarizer',
-    'LabelEncoder',
-    'MaxAbsScaler',
-    'MinMaxScaler',
-    'MissingIndicator',
-    'Normalizer',
-    'OneHotEncoder',
-    'PolynomialFeatures',
-    'PowerTransformer',
-    'QuantileTransformer',
-    'RobustScaler',
-    'SimpleImputer',
-    'StandardScaler',
-    'TargetEncoder',
+    "Binarizer",
+    "FunctionTransformer",
+    "KBinsDiscretizer",
+    "KernelCenterer",
+    "LabelBinarizer",
+    "LabelEncoder",
+    "MaxAbsScaler",
+    "MinMaxScaler",
+    "MissingIndicator",
+    "Normalizer",
+    "OneHotEncoder",
+    "PolynomialFeatures",
+    "PowerTransformer",
+    "QuantileTransformer",
+    "RobustScaler",
+    "SimpleImputer",
+    "StandardScaler",
+    "TargetEncoder",
     # Functions
-    'add_dummy_feature',
-    'binarize',
-    'label_binarize',
-    'maxabs_scale',
-    'minmax_scale',
-    'normalize',
-    'power_transform',
-    'quantile_transform',
-    'robust_scale',
-    'scale',
-    'train_test_split',
+    "add_dummy_feature",
+    "binarize",
+    "label_binarize",
+    "maxabs_scale",
+    "minmax_scale",
+    "normalize",
+    "power_transform",
+    "quantile_transform",
+    "robust_scale",
+    "scale",
+    "train_test_split",
     # Modules
-    'text'
+    "text",
 ]

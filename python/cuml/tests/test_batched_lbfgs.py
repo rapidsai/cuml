@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,45 +16,50 @@
 
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+
+np = cpu_only_import("numpy")
 
 
 def rosenbrock(x, a=1, b=100):
     """Famous Rosenbrock example"""
 
-    return (a-x[0])**2 + b*(x[1] - x[0]**2)**2
+    return (a - x[0]) ** 2 + b * (x[1] - x[0] ** 2) ** 2
 
 
 def g_rosenbrock(x, a=1, b=100):
     """Gradietn of rosenbrock example"""
 
-    g = np.array([-2*a - 4*b*x[0]*(-x[0]**2 + x[1]) + 2*x[0],
-                  b*(-2*x[0]**2 + 2*x[1])])
+    g = np.array(
+        [
+            -2 * a - 4 * b * x[0] * (-x[0] ** 2 + x[1]) + 2 * x[0],
+            b * (-2 * x[0] ** 2 + 2 * x[1]),
+        ]
+    )
 
     return g
 
 
-def batched_rosenbrock(x: np.ndarray,
-                       num_batches: int,
-                       a: np.ndarray,
-                       b: np.ndarray) -> np.ndarray:
+def batched_rosenbrock(
+    x: np.ndarray, num_batches: int, a: np.ndarray, b: np.ndarray
+) -> np.ndarray:
     """A batched version of the rosenbrock example"""
 
     fall = np.zeros(num_batches)
     for i in range(num_batches):
-        fall[i] = rosenbrock(x[i*2:(i+1)*2], a[i], b[i])
+        fall[i] = rosenbrock(x[i * 2 : (i + 1) * 2], a[i], b[i])
 
     return fall
 
 
-def g_batched_rosenbrock(x: np.ndarray,
-                         num_batches: int,
-                         a: np.ndarray,
-                         b: np.ndarray) -> np.ndarray:
-    """Gradient of the batched rosenbrock example. """
-    gall = np.zeros(2*num_batches)
+def g_batched_rosenbrock(
+    x: np.ndarray, num_batches: int, a: np.ndarray, b: np.ndarray
+) -> np.ndarray:
+    """Gradient of the batched rosenbrock example."""
+    gall = np.zeros(2 * num_batches)
     for i in range(num_batches):
-        gall[i*2:(i+1)*2] = g_rosenbrock(x[i*2:(i+1)*2], a[i], b[i])
+        gall[i * 2 : (i + 1) * 2] = g_rosenbrock(
+            x[i * 2 : (i + 1) * 2], a[i], b[i]
+        )
 
     return gall
 
@@ -89,18 +94,19 @@ def test_batched_lbfgs_rosenbrock():
         g = g_batched_rosenbrock(x, num_batches, a, b)
         return g
 
-    x0 = np.zeros(2*num_batches)
+    x0 = np.zeros(2 * num_batches)
     x0[0] = 0.0
     x0[1] = 0.0
 
     # analytical minimum
-    res_true = np.zeros(num_batches*2)
+    res_true = np.zeros(num_batches * 2)
     for i in range(num_batches):
-        res_true[i*2:(i+1)*2] = np.array([a[i], a[i]**2])
+        res_true[i * 2 : (i + 1) * 2] = np.array([a[i], a[i] ** 2])
 
     # our new batch-aware l-bfgs optimizer
-    res_xk, _, _ = batched_fmin_lbfgs_b(f, x0, num_batches, gf,
-                                        iprint=-1, factr=100)
+    res_xk, _, _ = batched_fmin_lbfgs_b(
+        f, x0, num_batches, gf, iprint=-1, factr=100
+    )
 
     np.testing.assert_allclose(res_xk, res_true, rtol=1e-5)
 

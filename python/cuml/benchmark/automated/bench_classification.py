@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,45 +24,46 @@ from .. import datagen
 #
 
 
-@pytest.fixture(**fixture_generation_helper({
-                    'n_samples': [1000, 10000],
-                    'n_features': [5, 500]
-                }))
+@pytest.fixture(
+    **fixture_generation_helper(
+        {"n_samples": [1000, 10000], "n_features": [5, 500]}
+    )
+)
 def classification(request):
     data = datagen.gen_data(
-        'classification',
-        'cupy',
-        n_samples=request.param['n_samples'],
-        n_features=request.param['n_features']
+        "classification",
+        "cupy",
+        n_samples=request.param["n_samples"],
+        n_features=request.param["n_features"],
     )
-    return data, {
-                    'dataset_type': 'classification',
-                    **request.param
-                 }
+    return data, {"dataset_type": "classification", **request.param}
 
 
-def bench_logistic_regression(gpubenchmark, bench_step,  # noqa: F811
-                              classification):
-    _benchmark_algo(gpubenchmark, 'LogisticRegression',
-                    bench_step, classification)
+def bench_logistic_regression(
+    gpubenchmark, bench_step, classification  # noqa: F811
+):
+    _benchmark_algo(
+        gpubenchmark, "LogisticRegression", bench_step, classification
+    )
 
 
 def bench_mbsgcclf(gpubenchmark, bench_step, classification):  # noqa: F811
-    _benchmark_algo(gpubenchmark, 'MBSGDClassifier',
-                    bench_step, classification)
+    _benchmark_algo(
+        gpubenchmark, "MBSGDClassifier", bench_step, classification
+    )
 
 
-def bench_knnclassifier(gpubenchmark, bench_step,  # noqa: F811
-                        classification):
-    _benchmark_algo(gpubenchmark, 'KNeighborsClassifier',
-                    bench_step, classification)
+def bench_knnclassifier(
+    gpubenchmark, bench_step, classification  # noqa: F811
+):
+    _benchmark_algo(
+        gpubenchmark, "KNeighborsClassifier", bench_step, classification
+    )
 
 
 def bench_svc_linear(gpubenchmark, bench_step, classification):  # noqa: F811
-    _benchmark_algo(gpubenchmark, 'SVC-Linear',
-                    bench_step, classification)
+    _benchmark_algo(gpubenchmark, "SVC-Linear", bench_step, classification)
 
 
 def bench_svc_rbf(gpubenchmark, bench_step, classification):  # noqa: F811
-    _benchmark_algo(gpubenchmark, 'SVC-RBF',
-                    bench_step, classification)
+    _benchmark_algo(gpubenchmark, "SVC-RBF", bench_step, classification)

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,18 +14,15 @@
 # limitations under the License.
 #
 VALID_OUTPUT_TYPES = (
-    'array',
-    'numba',
-    'dataframe',
-    'series',
-    'df_obj',
-    'cupy',
-    'numpy',
-    'cudf',
-    'pandas'
+    "array",
+    "numba",
+    "dataframe",
+    "series",
+    "df_obj",
+    "cupy",
+    "numpy",
+    "cudf",
+    "pandas",
 )
 
-INTERNAL_VALID_OUTPUT_TYPES = (
-    'input',
-    *VALID_OUTPUT_TYPES
-)
+INTERNAL_VALID_OUTPUT_TYPES = ("input", *VALID_OUTPUT_TYPES)

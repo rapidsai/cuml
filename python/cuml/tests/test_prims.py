@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,8 +23,9 @@ from cuml.testing.utils import array_equal
 import pytest
 
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 @pytest.mark.parametrize("arr_type", ["np", "cp"])
@@ -70,9 +71,11 @@ def test_monotonic_validate_invert_labels(arr_type, dtype, copy):
     if arr_type == "cp":
         monotonic_copy = monotonic.copy()
 
-    inverted = invert_labels(monotonic,
-                             classes=cp.asarray([0, 10, 15, 20, 50],
-                                                dtype=dtype), copy=copy)
+    inverted = invert_labels(
+        monotonic,
+        classes=cp.asarray([0, 10, 15, 20, 50], dtype=dtype),
+        copy=copy,
+    )
 
     cp.cuda.Stream.null.synchronize()
 

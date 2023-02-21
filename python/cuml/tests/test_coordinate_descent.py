@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,31 +22,43 @@ from cuml.linear_model import ElasticNet as cuElasticNet
 from cuml import Lasso as cuLasso
 import pytest
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+
+np = cpu_only_import("numpy")
 
 
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('X_type', ['ndarray'])
-@pytest.mark.parametrize('alpha', [0.1, 0.001])
-@pytest.mark.parametrize('algorithm', ['cyclic', 'random'])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([100, 50]),
-                         stress_param([1000, 500])])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("X_type", ["ndarray"])
+@pytest.mark.parametrize("alpha", [0.1, 0.001])
+@pytest.mark.parametrize("algorithm", ["cyclic", "random"])
+@pytest.mark.parametrize(
+    "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
+)
+@pytest.mark.parametrize(
+    "column_info",
+    [
+        unit_param([20, 10]),
+        quality_param([100, 50]),
+        stress_param([1000, 500]),
+    ],
+)
 @pytest.mark.filterwarnings("ignore:Objective did not converge::sklearn[.*]")
-def test_lasso(datatype, X_type, alpha, algorithm,
-               nrows, column_info):
+def test_lasso(datatype, X_type, alpha, algorithm, nrows, column_info):
     ncols, n_info = column_info
-    X, y = make_regression(n_samples=nrows, n_features=ncols,
-                           n_informative=n_info, random_state=0)
+    X, y = make_regression(
+        n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0
+    )
     X = X.astype(datatype)
     y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
-    cu_lasso = cuLasso(alpha=np.array([alpha]), fit_intercept=True,
-                       max_iter=1000,
-                       selection=algorithm, tol=1e-10)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=0.8, random_state=0
+    )
+    cu_lasso = cuLasso(
+        alpha=np.array([alpha]),
+        fit_intercept=True,
+        max_iter=1000,
+        selection=algorithm,
+        tol=1e-10,
+    )
 
     cu_lasso.fit(X_train, y_train)
     assert cu_lasso.coef_ is not None
@@ -55,30 +67,42 @@ def test_lasso(datatype, X_type, alpha, algorithm,
     cu_r2 = r2_score(y_test, cu_predict)
 
     if nrows < 500000:
-        sk_lasso = Lasso(alpha=alpha, fit_intercept=True,
-                         max_iter=1000,
-                         selection=algorithm, tol=1e-10)
+        sk_lasso = Lasso(
+            alpha=alpha,
+            fit_intercept=True,
+            max_iter=1000,
+            selection=algorithm,
+            tol=1e-10,
+        )
         sk_lasso.fit(X_train, y_train)
         sk_predict = sk_lasso.predict(X_test)
         sk_r2 = r2_score(y_test, sk_predict)
         assert cu_r2 >= sk_r2 - 0.07
 
 
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([100, 50]),
-                         stress_param([1000, 500])])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize(
+    "column_info",
+    [
+        unit_param([20, 10]),
+        quality_param([100, 50]),
+        stress_param([1000, 500]),
+    ],
+)
+@pytest.mark.parametrize(
+    "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
+)
 def test_lasso_default(datatype, nrows, column_info):
 
     ncols, n_info = column_info
-    X, y = make_regression(n_samples=nrows, n_features=ncols,
-                           n_informative=n_info, random_state=0)
+    X, y = make_regression(
+        n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0
+    )
     X = X.astype(datatype)
     y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=0.8, random_state=0
+    )
 
     cu_lasso = cuLasso()
 
@@ -97,20 +121,20 @@ def test_lasso_default(datatype, nrows, column_info):
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("model", ["lasso", "elastic-net"])
 @pytest.mark.parametrize("fit_intercept", [True, False])
-@pytest.mark.parametrize("distribution", ["lognormal", "exponential",
-                                          "uniform"])
+@pytest.mark.parametrize(
+    "distribution", ["lognormal", "exponential", "uniform"]
+)
 @pytest.mark.filterwarnings("ignore:Objective did not converge::sklearn[.*]")
 def test_weighted_cd(datatype, model, fit_intercept, distribution):
     nrows, ncols, n_info = 1000, 20, 10
     max_weight = 10
     noise = 20
-    X, y = make_regression(
-        nrows, ncols, n_informative=n_info, noise=noise
-    )
+    X, y = make_regression(nrows, ncols, n_informative=n_info, noise=noise)
     X = X.astype(datatype)
     y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=0.8, random_state=0
+    )
 
     # set weight per sample to be from 1 to max_weight
     if distribution == "uniform":
@@ -120,12 +144,11 @@ def test_weighted_cd(datatype, model, fit_intercept, distribution):
     else:
         wt = np.random.lognormal(size=len(X_train))
 
-    cuModel = cuLasso if model == 'lasso' else cuElasticNet
-    skModel = Lasso if model == 'lasso' else ElasticNet
+    cuModel = cuLasso if model == "lasso" else cuElasticNet
+    skModel = Lasso if model == "lasso" else ElasticNet
 
     # Initialization of cuML's linear regression model
-    cumodel = cuModel(fit_intercept=fit_intercept, tol=1e-10,
-                      max_iter=1000)
+    cumodel = cuModel(fit_intercept=fit_intercept, tol=1e-10, max_iter=1000)
 
     # fit and predict cuml linear regression model
     cumodel.fit(X_train, y_train, sample_weight=wt)
@@ -141,29 +164,40 @@ def test_weighted_cd(datatype, model, fit_intercept, distribution):
     assert cu_r2 >= sk_r2 - 0.07
 
 
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('X_type', ['ndarray'])
-@pytest.mark.parametrize('alpha', [0.2, 0.7])
-@pytest.mark.parametrize('algorithm', ['cyclic', 'random'])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([100, 50]),
-                         stress_param([1000, 500])])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("X_type", ["ndarray"])
+@pytest.mark.parametrize("alpha", [0.2, 0.7])
+@pytest.mark.parametrize("algorithm", ["cyclic", "random"])
+@pytest.mark.parametrize(
+    "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
+)
+@pytest.mark.parametrize(
+    "column_info",
+    [
+        unit_param([20, 10]),
+        quality_param([100, 50]),
+        stress_param([1000, 500]),
+    ],
+)
 @pytest.mark.filterwarnings("ignore:Objective did not converge::sklearn[.*]")
-def test_elastic_net(datatype, X_type, alpha, algorithm,
-                     nrows, column_info):
+def test_elastic_net(datatype, X_type, alpha, algorithm, nrows, column_info):
     ncols, n_info = column_info
-    X, y = make_regression(n_samples=nrows, n_features=ncols,
-                           n_informative=n_info, random_state=0)
+    X, y = make_regression(
+        n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0
+    )
     X = X.astype(datatype)
     y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=0.8, random_state=0
+    )
 
-    elastic_cu = cuElasticNet(alpha=np.array([alpha]), fit_intercept=True,
-                              max_iter=1000,
-                              selection=algorithm, tol=1e-10)
+    elastic_cu = cuElasticNet(
+        alpha=np.array([alpha]),
+        fit_intercept=True,
+        max_iter=1000,
+        selection=algorithm,
+        tol=1e-10,
+    )
 
     elastic_cu.fit(X_train, y_train)
     cu_predict = elastic_cu.predict(X_test)
@@ -171,9 +205,13 @@ def test_elastic_net(datatype, X_type, alpha, algorithm,
     cu_r2 = r2_score(y_test, cu_predict)
 
     if nrows < 500000:
-        elastic_sk = ElasticNet(alpha=alpha, fit_intercept=True,
-                                max_iter=1000,
-                                selection=algorithm, tol=1e-10)
+        elastic_sk = ElasticNet(
+            alpha=alpha,
+            fit_intercept=True,
+            max_iter=1000,
+            selection=algorithm,
+            tol=1e-10,
+        )
         elastic_sk.fit(X_train, y_train)
         sk_predict = elastic_sk.predict(X_test)
         sk_r2 = r2_score(y_test, sk_predict)
@@ -181,21 +219,29 @@ def test_elastic_net(datatype, X_type, alpha, algorithm,
         assert cu_r2 >= sk_r2 - 0.07
 
 
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('column_info', [unit_param([20, 10]),
-                         quality_param([100, 50]),
-                         stress_param([1000, 500])])
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize(
+    "column_info",
+    [
+        unit_param([20, 10]),
+        quality_param([100, 50]),
+        stress_param([1000, 500]),
+    ],
+)
+@pytest.mark.parametrize(
+    "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
+)
 def test_elastic_net_default(datatype, nrows, column_info):
 
     ncols, n_info = column_info
-    X, y = make_regression(n_samples=nrows, n_features=ncols,
-                           n_informative=n_info, random_state=0)
+    X, y = make_regression(
+        n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0
+    )
     X = X.astype(datatype)
     y = y.astype(datatype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=0.8, random_state=0
+    )
 
     elastic_cu = cuElasticNet()
     elastic_cu.fit(X_train, y_train)
@@ -209,37 +255,41 @@ def test_elastic_net_default(datatype, nrows, column_info):
     assert cu_r2 >= sk_r2 - 0.07
 
 
-@pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
-@pytest.mark.parametrize('test_dtype', [np.float64, np.float32])
+@pytest.mark.parametrize("train_dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("test_dtype", [np.float64, np.float32])
 def test_elastic_net_predict_convert_dtype(train_dtype, test_dtype):
-    X, y = make_regression(n_samples=50, n_features=10,
-                           n_informative=5, random_state=0)
+    X, y = make_regression(
+        n_samples=50, n_features=10, n_informative=5, random_state=0
+    )
     X = X.astype(train_dtype)
     y = y.astype(train_dtype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=0.8, random_state=0
+    )
 
     clf = cuElasticNet()
     clf.fit(X_train, y_train)
     clf.predict(X_test.astype(test_dtype))
 
 
-@pytest.mark.parametrize('train_dtype', [np.float32, np.float64])
-@pytest.mark.parametrize('test_dtype', [np.float64, np.float32])
+@pytest.mark.parametrize("train_dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("test_dtype", [np.float64, np.float32])
 def test_lasso_predict_convert_dtype(train_dtype, test_dtype):
-    X, y = make_regression(n_samples=50, n_features=10,
-                           n_informative=5, random_state=0)
+    X, y = make_regression(
+        n_samples=50, n_features=10, n_informative=5, random_state=0
+    )
     X = X.astype(train_dtype)
     y = y.astype(train_dtype)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8,
-                                                        random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=0.8, random_state=0
+    )
 
     clf = cuLasso()
     clf.fit(X_train, y_train)
     clf.predict(X_test.astype(test_dtype))
 
 
-@pytest.mark.parametrize('algo', [cuElasticNet, cuLasso])
+@pytest.mark.parametrize("algo", [cuElasticNet, cuLasso])
 def test_set_params(algo):
     x = np.linspace(0, 1, 50)
     y = 2 * x
@@ -253,7 +303,7 @@ def test_set_params(algo):
     coef_after = model.coef_
 
     model = algo(alpha=0.01)
-    model.set_params(**{'selection': "random", 'alpha': 0.1})
+    model.set_params(**{"selection": "random", "alpha": 0.1})
     model.fit(x, y)
     coef_test = model.coef_
 

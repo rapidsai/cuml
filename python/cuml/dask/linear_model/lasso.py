@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,13 +71,13 @@ class Lasso(BaseEstimator):
     def __init__(self, *, client=None, **kwargs):
         super().__init__(client=client, **kwargs)
 
-        kwargs['shuffle'] = False
+        kwargs["shuffle"] = False
 
-        if 'selection' in kwargs:
-            if kwargs['selection'] == 'random':
-                kwargs['shuffle'] = True
+        if "selection" in kwargs:
+            if kwargs["selection"] == "random":
+                kwargs["shuffle"] = True
 
-            del kwargs['selection']
+            del kwargs["selection"]
 
         self.solver = CD(client=client, **kwargs)
 
