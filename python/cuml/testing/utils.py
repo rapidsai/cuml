@@ -11,36 +11,37 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import pytest
-from cuml.internals.mem_type import MemoryType
-from cuml.internals.input_utils import input_to_cuml_array, is_array_like
-from cuml.internals.base import Base
-import cuml
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, brier_score_loss
-from sklearn.datasets import make_classification, make_regression
-from sklearn import datasets
-from pylibraft.common.cuda import Stream
-from sklearn.datasets import make_regression as skl_make_reg
-from numba.cuda.cudadrv.devicearray import DeviceNDArray
-from numbers import Number
-from cuml.internals.safe_imports import gpu_only_import_from
-from itertools import dropwhile
-from copy import deepcopy
-from cuml.internals.safe_imports import cpu_only_import
 import inspect
+from copy import deepcopy
+from itertools import dropwhile
+from numbers import Number
 from textwrap import dedent, indent
 
-from cuml.internals.safe_imports import gpu_only_import
+import pytest
+from numba.cuda.cudadrv.devicearray import DeviceNDArray
+from pylibraft.common.cuda import Stream
+from sklearn import datasets
+from sklearn.datasets import make_classification
+from sklearn.datasets import make_regression
+from sklearn.datasets import make_regression as skl_make_reg
+from sklearn.metrics import brier_score_loss, mean_squared_error
+from sklearn.model_selection import train_test_split
 
+import cuml
+from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cuml_array, is_array_like
+from cuml.internals.mem_type import MemoryType
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+)
+
+cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
 pd = cpu_only_import("pandas")
-
 cuda = gpu_only_import_from("numba", "cuda")
-
-
-cudf = gpu_only_import("cudf")
 
 
 def array_difference(a, b, with_sign=True):
@@ -468,8 +469,8 @@ def get_classes_from_package(package, import_sub_packages=False):
     """
 
     if import_sub_packages:
-        import os
         import importlib
+        import os
 
         # First, find all __init__.py files in subdirectories of this package
         root_dir = os.path.dirname(package.__file__)

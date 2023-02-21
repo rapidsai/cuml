@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.preprocessing.text.stem.porter_stemmer import PorterStemmer
 import cuml.preprocessing.text.stem.porter_stemmer_utils
+from cuml.preprocessing.text.stem.porter_stemmer import PorterStemmer
 
 __all__ = ["PorterStemmer"]

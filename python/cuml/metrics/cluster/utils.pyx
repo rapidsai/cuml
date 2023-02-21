@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import gpu_only_import
-
 import cuml.internals
+from cuml.common import input_to_cuml_array
+from cuml.internals.safe_imports import gpu_only_import
 from cuml.metrics.utils import sorted_unique_labels
 from cuml.prims.label import make_monotonic
-from cuml.common import input_to_cuml_array
+
 cp = gpu_only_import('cupy')
 
 

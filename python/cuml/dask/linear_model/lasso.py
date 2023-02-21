@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 
-from cuml.dask.solvers import CD
 from cuml.dask.common.base import BaseEstimator
+from cuml.dask.solvers import CD
 
 
 class Lasso(BaseEstimator):

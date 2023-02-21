@@ -15,35 +15,36 @@
 
 # distutils: language = c++
 
+from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
-from cython.operator cimport dereference as deref
-
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 
+from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.common.doc_utils import generate_docstring
+
 from pylibraft.common.handle cimport handle_t
 
 from pylibraft.common.handle import Handle
-from cuml.common import (
-    input_to_cuml_array,
-    input_to_host_array
-)
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.available_devices import is_cuda_available
-from cuml.internals.device_type import DeviceType
-from cuml.internals.mixins import ClusterMixin
-from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.internals import logger
-from cuml.internals.import_utils import has_hdbscan_plots
-from cuml.internals.import_utils import has_hdbscan_prediction
 
 import cuml
+from cuml.common import input_to_cuml_array, input_to_host_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals import logger
+from cuml.internals.available_devices import is_cuda_available
+from cuml.internals.device_type import DeviceType
+from cuml.internals.import_utils import (
+    has_hdbscan_plots,
+    has_hdbscan_prediction,
+)
+from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
+
 from cuml.metrics.distance_type cimport DistanceType
 
 
@@ -145,8 +146,9 @@ def all_points_membership_vectors(clusterer):
     # cpu infer, cpu/gpu train
     if device_type == DeviceType.host:
         assert has_hdbscan_prediction()
-        from hdbscan.prediction import all_points_membership_vectors \
-            as cpu_all_points_membership_vectors
+        from hdbscan.prediction import (
+            all_points_membership_vectors as cpu_all_points_membership_vectors,
+        )
 
         # trained on gpu
         if not hasattr(clusterer, "_cpu_model"):
@@ -248,8 +250,9 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
     # cpu infer, cpu/gpu train
     if device_type == DeviceType.host:
         assert has_hdbscan_prediction()
-        from hdbscan.prediction import approximate_predict \
-            as cpu_approximate_predict
+        from hdbscan.prediction import (
+            approximate_predict as cpu_approximate_predict,
+        )
 
         # trained on gpu
         if not hasattr(clusterer, "_cpu_model"):

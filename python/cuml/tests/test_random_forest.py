@@ -13,46 +13,48 @@
 # limitations under the License.
 #
 
+import json
+import os
+import random
+import warnings
+
+import pytest
 import treelite
-from sklearn.model_selection import train_test_split
 from sklearn.datasets import (
     fetch_california_housing,
+    load_breast_cancer,
+    load_iris,
     make_classification,
     make_regression,
-    load_iris,
-    load_breast_cancer,
 )
+from sklearn.ensemble import RandomForestClassifier as skrfc
+from sklearn.ensemble import RandomForestRegressor as skrfr
 from sklearn.metrics import (
     accuracy_score,
     mean_squared_error,
     mean_tweedie_deviance,
 )
-from sklearn.ensemble import RandomForestRegressor as skrfr
-from sklearn.ensemble import RandomForestClassifier as skrfc
+from sklearn.model_selection import train_test_split
+
+import cuml
 import cuml.internals.logger as logger
-from cuml.testing.utils import (
-    get_handle,
-    unit_param,
-    quality_param,
-    stress_param,
+from cuml.ensemble import RandomForestClassifier as curfc
+from cuml.ensemble import RandomForestRegressor as curfr
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
 )
 from cuml.metrics import r2_score
-from cuml.ensemble import RandomForestRegressor as curfr
-from cuml.ensemble import RandomForestClassifier as curfc
-import cuml
-from cuml.internals.safe_imports import gpu_only_import_from
-import os
-import json
-import random
-from cuml.internals.safe_imports import cpu_only_import
-import pytest
-
-import warnings
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.testing.utils import (
+    get_handle,
+    quality_param,
+    stress_param,
+    unit_param,
+)
 
 cudf = gpu_only_import("cudf")
 np = cpu_only_import("numpy")
-
 cuda = gpu_only_import_from("numba", "cuda")
 
 

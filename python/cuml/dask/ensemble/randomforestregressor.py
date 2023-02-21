@@ -13,12 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.ensemble import RandomForestRegressor as cuRFR
-from cuml.dask.ensemble.base import BaseRandomForestModel
-from cuml.dask.common.base import BaseEstimator
-
 import dask
+
+from cuml.dask.common.base import BaseEstimator, DelayedPredictionMixin
+from cuml.dask.ensemble.base import BaseRandomForestModel
+from cuml.ensemble import RandomForestRegressor as cuRFR
 
 
 class RandomForestRegressor(

@@ -13,16 +13,17 @@
 # limitations under the License.
 #
 
-from cuml.internals.memory_utils import with_cupy_rmm
+from raft_dask.common.comms import Comms, get_raft_comm_state
+
+from cuml.dask.common.base import (
+    BaseEstimator,
+    DelayedPredictionMixin,
+    DelayedTransformMixin,
+    mnmg_import,
+)
+from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
 from cuml.dask.common.utils import wait_and_raise_from_futures
-from raft_dask.common.comms import get_raft_comm_state
-from raft_dask.common.comms import Comms
-from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.dask.common.input_utils import concatenate
-from cuml.dask.common.base import mnmg_import
-from cuml.dask.common.base import DelayedTransformMixin
-from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.dask.common.base import BaseEstimator
+from cuml.internals.memory_utils import with_cupy_rmm
 from cuml.internals.safe_imports import gpu_only_import
 
 cp = gpu_only_import("cupy")

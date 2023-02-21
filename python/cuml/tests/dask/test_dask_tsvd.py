@@ -13,15 +13,14 @@
 # limitations under the License.
 #
 
-from cuml.dask.common.dask_arr_utils import to_dask_cudf
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.testing.utils import array_equal, unit_param, stress_param
 import pytest
 
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.dask.common.dask_arr_utils import to_dask_cudf
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.testing.utils import array_equal, stress_param, unit_param
 
-np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 @pytest.mark.mg
@@ -43,10 +42,10 @@ def test_pca_fit(data_info, input_type, client):
                 "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'"
             )
 
-    from cuml.dask.decomposition import TruncatedSVD as daskTPCA
     from sklearn.decomposition import TruncatedSVD
 
     from cuml.dask.datasets import make_blobs
+    from cuml.dask.decomposition import TruncatedSVD as daskTPCA
 
     X, _ = make_blobs(
         n_samples=nrows,
@@ -98,8 +97,8 @@ def test_pca_fit(data_info, input_type, client):
 def test_pca_fit_transform_fp32(data_info, client):
 
     nrows, ncols, n_parts = data_info
-    from cuml.dask.decomposition import TruncatedSVD as daskTPCA
     from cuml.dask.datasets import make_blobs
+    from cuml.dask.decomposition import TruncatedSVD as daskTPCA
 
     X_cudf, _ = make_blobs(
         n_samples=nrows,
@@ -124,8 +123,8 @@ def test_pca_fit_transform_fp64(data_info, client):
 
     nrows, ncols, n_parts = data_info
 
-    from cuml.dask.decomposition import TruncatedSVD as daskTPCA
     from cuml.dask.datasets import make_blobs
+    from cuml.dask.decomposition import TruncatedSVD as daskTPCA
 
     X_cudf, _ = make_blobs(
         n_samples=nrows,

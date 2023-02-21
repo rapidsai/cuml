@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,22 +16,23 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
 import pprint
 
 import cuml.internals
-from cuml.solvers import QN
+import cuml.internals.logger as logger
+from cuml.common import input_to_cuml_array, using_output_type
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
+from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.array import CumlArray
-from cuml.common.doc_utils import generate_docstring
-import cuml.internals.logger as logger
-from cuml.common import input_to_cuml_array
-from cuml.common import using_output_type
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.solvers import QN
+
 cp = gpu_only_import('cupy')
 np = cpu_only_import('numpy')
 

@@ -15,14 +15,14 @@
 #
 
 import warnings
+
 from cuml.common.exceptions import NotFittedError
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
 cudf = gpu_only_import("cudf")
-pandas = cpu_only_import("pandas")
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
+pandas = cpu_only_import("pandas")
 
 
 def get_stat_func(stat):

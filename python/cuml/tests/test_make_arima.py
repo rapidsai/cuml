@@ -13,9 +13,9 @@
 # limitations under the License.
 #
 
-import cuml
 import pytest
 
+import cuml
 
 # Note: this test is not really strict, it only checks that the function
 # supports the given parameters and returns an output in the correct form.

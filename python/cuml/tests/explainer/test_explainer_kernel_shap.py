@@ -14,23 +14,22 @@
 # limitations under the License.
 #
 
+import math
+
+import pytest
+import sklearn.neighbors
 from sklearn.model_selection import train_test_split
+
+import cuml
+from cuml import KernelExplainer, Lasso
+from cuml.datasets import make_regression
+from cuml.internals.import_utils import has_scipy, has_shap
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import (
-    create_synthetic_dataset,
     ClassEnumerator,
+    create_synthetic_dataset,
     get_shap_values,
 )
-from cuml.datasets import make_regression
-from cuml.internals.import_utils import has_shap
-from cuml.internals.import_utils import has_scipy
-from cuml import KernelExplainer
-from cuml import Lasso
-import sklearn.neighbors
-import pytest
-import math
-from cuml.internals.safe_imports import cpu_only_import
-import cuml
-from cuml.internals.safe_imports import gpu_only_import
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")

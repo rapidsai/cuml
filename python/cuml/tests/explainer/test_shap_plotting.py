@@ -19,7 +19,6 @@ import pytest
 from cuml import KernelExplainer as cuKE
 from cuml import LinearRegression
 
-
 # set this variable to True if you want to see the charts
 show_plots = False
 

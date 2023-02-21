@@ -13,9 +13,10 @@
 # limitations under the License.
 
 import pytest
-from cuml.manifold import UMAP
-from cuml.internals import GraphBasedDimRedCallback
 from sklearn.datasets import load_digits
+
+from cuml.internals import GraphBasedDimRedCallback
+from cuml.manifold import UMAP
 
 digits = load_digits()
 data, target = digits.data, digits.target

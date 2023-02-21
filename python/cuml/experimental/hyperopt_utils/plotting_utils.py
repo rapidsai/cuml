@@ -14,8 +14,9 @@
 # limitations under the License.
 #
 
-import seaborn as sns
 import matplotlib.pyplot as plt
+import seaborn as sns
+
 from cuml.internals.safe_imports import cpu_only_import
 
 np = cpu_only_import("numpy")

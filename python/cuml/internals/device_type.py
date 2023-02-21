@@ -16,6 +16,7 @@
 
 
 from enum import Enum, auto
+
 from cuml.internals.mem_type import MemoryType
 
 

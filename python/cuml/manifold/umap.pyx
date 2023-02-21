@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,9 +16,11 @@
 
 # distutils: language = c++
 
-import typing
 import ctypes
+import typing
+
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
 import warnings
@@ -26,16 +28,18 @@ import warnings
 import joblib
 
 from cuml.internals.safe_imports import gpu_only_import
+
 cupy = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
 
 cuda = gpu_only_import('numba.cuda')
 
 from cuml.manifold.umap_utils cimport *
-from cuml.manifold.umap_utils import GraphHolder, find_ab_params
 
 from cuml.common.sparsefuncs import extract_knn_infos
 from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.manifold.umap_utils import GraphHolder, find_ab_params
+
 cp_csr_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csr_matrix')
 cp_coo_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'coo_matrix')
 cp_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')
@@ -43,33 +47,39 @@ cp_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')
 import cuml.internals
 from cuml.common import using_output_type
 from cuml.internals.base import UniversalBase
+
 from pylibraft.common.handle cimport handle_t
+
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.sparse_utils import is_sparse
 from cuml.internals import logger
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.memory_utils import using_output_type
-from cuml.internals.import_utils import has_scipy
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.import_utils import has_scipy
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.memory_utils import using_output_type
 from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.common.sparse_utils import is_sparse
+
 from cuml.metrics.distance_type cimport DistanceType
 
-from cuml.manifold.simpl_set import fuzzy_simplicial_set, \
-    simplicial_set_embedding
+from cuml.manifold.simpl_set import (
+    fuzzy_simplicial_set,
+    simplicial_set_embedding,
+)
 
 if has_scipy(True):
     import scipy.sparse
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
 
 rmm = gpu_only_import('rmm')
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free
-
 from libcpp.memory cimport shared_ptr
 
 cimport cuml.common.cuda

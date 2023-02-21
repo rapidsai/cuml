@@ -14,13 +14,14 @@
 # limitations under the License.
 #
 
-from sklearn.metrics import accuracy_score
-from cuml.testing.dask.utils import load_text_corpus
-from cuml.naive_bayes.naive_bayes import MultinomialNB as SGNB
-from cuml.dask.naive_bayes import MultinomialNB
-import pytest
 import dask.array
+import pytest
+from sklearn.metrics import accuracy_score
+
+from cuml.dask.naive_bayes import MultinomialNB
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.naive_bayes.naive_bayes import MultinomialNB as SGNB
+from cuml.testing.dask.utils import load_text_corpus
 
 cp = gpu_only_import("cupy")
 

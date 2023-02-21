@@ -15,25 +15,28 @@
 #
 
 from cupyx.scipy import sparse as gpu_sparse
+from cupyx.scipy.sparse import csc_matrix as gpu_coo_matrix
 from scipy import sparse as cpu_sparse
 from scipy.sparse import csc_matrix as cpu_coo_matrix
 from scipy.sparse import csc_matrix as cpu_csc_matrix
-from cuml.internals.safe_imports import cpu_only_import_from
-from cupyx.scipy.sparse import csc_matrix as gpu_coo_matrix
-from cuml.internals.safe_imports import gpu_only_import_from
+
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import input_to_cupy_array, input_to_host_array
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    cpu_only_import_from,
+    gpu_only_import,
+    gpu_only_import_from,
+)
 
-np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
-gpu_csr_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csr_matrix")
+np = cpu_only_import("numpy")
+cuDataFrame = gpu_only_import_from("cudf", "DataFrame")
 gpu_csc_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csc_matrix")
+gpu_csr_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csr_matrix")
+pdDataFrame = cpu_only_import_from("pandas", "DataFrame")
 cpu_csr_matrix = cpu_only_import_from("scipy.sparse", "csr_matrix")
 
-pdDataFrame = cpu_only_import_from("pandas", "DataFrame")
-cuDataFrame = gpu_only_import_from("cudf", "DataFrame")
 
 numeric_types = [
     np.int8,

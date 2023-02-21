@@ -15,16 +15,15 @@
 #
 """Wrappers to run ML benchmarks"""
 
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.benchmark import datagen
-import warnings
-import time
 import itertools
-from cuml.internals.safe_imports import cpu_only_import
+import time
+import warnings
+
+from cuml.benchmark import datagen
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import_from
 
 np = cpu_only_import("numpy")
 pd = cpu_only_import("pandas")
-
 Series = gpu_only_import_from("cudf", "Series")
 
 

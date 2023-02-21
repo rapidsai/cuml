@@ -12,15 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.preprocessing import SimpleImputer
+import cuml
+from cuml import KMeans
 from cuml.internals.input_utils import (
     determine_array_type,
     get_supported_input_type,
 )
-from cuml import KMeans
-import cuml
-from cuml.internals.safe_imports import cpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import_from, gpu_only_import
+from cuml.preprocessing import SimpleImputer
 
 cp = gpu_only_import("cupy")
 issparse = cpu_only_import_from("scipy.sparse", "issparse")

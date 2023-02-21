@@ -13,23 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.common.kernel_utils import cuda_kernel_factory
-from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
-from cuml.prims.array import binarize
-from cuml.prims.label import invert_labels
-from cuml.prims.label import check_labels
-from cuml.prims.label import make_monotonic
-from cuml.internals.import_utils import has_scipy
-from cuml.common.doc_utils import generate_docstring
-from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.base import Base
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common import CumlArray
 import math
 import warnings
+
 import nvtx
 
+from cuml.common import CumlArray
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.kernel_utils import cuda_kernel_factory
+from cuml.internals.base import Base
+from cuml.internals.import_utils import has_scipy
+from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
+from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.prims.array import binarize
+from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")

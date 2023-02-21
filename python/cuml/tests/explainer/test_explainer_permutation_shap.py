@@ -15,17 +15,17 @@
 #
 
 
+import pytest
+import sklearn.neighbors
+
+import cuml
+from cuml import PermutationExplainer
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import (
     ClassEnumerator,
-    get_shap_values,
     create_synthetic_dataset,
+    get_shap_values,
 )
-from cuml import PermutationExplainer
-import sklearn.neighbors
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
-import cuml
-from cuml.internals.safe_imports import gpu_only_import
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")

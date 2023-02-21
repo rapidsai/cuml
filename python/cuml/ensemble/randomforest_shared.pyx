@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,13 +16,17 @@
 
 # distutils: language = c++
 
-from libcpp.vector cimport vector
-from cython.operator cimport dereference as deref, preincrement as inc
 from cpython.object cimport PyObject
+from cython.operator cimport dereference as deref
+from cython.operator cimport preincrement as inc
 from libc.stdint cimport uintptr_t
 from libcpp.memory cimport unique_ptr
-from typing import Tuple, Dict, List, Union
+from libcpp.vector cimport vector
+
+from typing import Dict, List, Tuple, Union
+
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 
 cdef extern from "treelite/tree.h" namespace "treelite":

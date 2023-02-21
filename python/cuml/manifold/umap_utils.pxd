@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 
 # distutils: language = c++
 
-from rmm._lib.memory_resource cimport DeviceMemoryResource
-from rmm._lib.cuda_stream_view cimport cuda_stream_view
-from libcpp.memory cimport unique_ptr
-
-from libc.stdint cimport uint64_t, uintptr_t, int64_t
+from libc.stdint cimport int64_t, uint64_t, uintptr_t
 from libcpp cimport bool
-from libcpp.memory cimport shared_ptr
+from libcpp.memory cimport shared_ptr, unique_ptr
+from rmm._lib.cuda_stream_view cimport cuda_stream_view
+from rmm._lib.memory_resource cimport DeviceMemoryResource
+
 from cuml.metrics.distance_type cimport DistanceType
+
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":
 

@@ -13,27 +13,26 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals.safe_imports import cpu_only_import
-import pytest
-from cuml.testing.utils import unit_param, quality_param, stress_param
-
-from cuml.neighbors import KNeighborsRegressor as lKNNReg
-from cuml.dask.neighbors import KNeighborsRegressor as dKNNReg
-
-from sklearn.datasets import make_multilabel_classification
-from sklearn.datasets import make_regression
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import r2_score
-
 import dask.array as da
 import dask.dataframe as dd
-from cuml.dask.common.dask_arr_utils import to_dask_cudf
-from cuml.internals.safe_imports import gpu_only_import_from
+import pytest
+from sklearn.datasets import make_multilabel_classification, make_regression
+from sklearn.metrics import r2_score
+from sklearn.model_selection import train_test_split
 
-DataFrame = gpu_only_import_from("cudf.core.dataframe", "DataFrame")
-np = cpu_only_import("numpy")
+from cuml.dask.common.dask_arr_utils import to_dask_cudf
+from cuml.dask.neighbors import KNeighborsRegressor as dKNNReg
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+)
+from cuml.neighbors import KNeighborsRegressor as lKNNReg
+from cuml.testing.utils import quality_param, stress_param, unit_param
+
 cudf = gpu_only_import("cudf")
+np = cpu_only_import("numpy")
+DataFrame = gpu_only_import_from("cudf.core.dataframe", "DataFrame")
 
 
 def generate_dask_array(np_array, n_parts):

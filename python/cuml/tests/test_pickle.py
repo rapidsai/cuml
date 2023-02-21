@@ -13,24 +13,26 @@
 # limitations under the License.
 #
 
-from sklearn.model_selection import train_test_split
-from sklearn.manifold import trustworthiness
-from sklearn.datasets import load_iris, make_classification, make_regression
-from sklearn.base import clone
-from cuml.testing.utils import (
-    array_equal,
-    unit_param,
-    stress_param,
-    ClassEnumerator,
-    get_classes_from_package,
-    compare_svm,
-    compare_probabilistic_svm,
-)
-from cuml.tsa.arima import ARIMA
-import pytest
 import pickle
+
+import pytest
+from sklearn.base import clone
+from sklearn.datasets import load_iris, make_classification, make_regression
+from sklearn.manifold import trustworthiness
+from sklearn.model_selection import train_test_split
+
 import cuml
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.testing.utils import (
+    ClassEnumerator,
+    array_equal,
+    compare_probabilistic_svm,
+    compare_svm,
+    get_classes_from_package,
+    stress_param,
+    unit_param,
+)
+from cuml.tsa.arima import ARIMA
 
 np = cpu_only_import("numpy")
 
@@ -611,8 +613,10 @@ def test_agglomerative_pickle(tmpdir, datatype, keys, data_size):
 @pytest.mark.parametrize("prediction_data", [True, False])
 def test_hdbscan_pickle(tmpdir, datatype, keys, data_size, prediction_data):
     result = {}
-    from cuml.cluster.hdbscan.prediction import all_points_membership_vectors
-    from cuml.cluster.hdbscan.prediction import approximate_predict
+    from cuml.cluster.hdbscan.prediction import (
+        all_points_membership_vectors,
+        approximate_predict,
+    )
 
     def create_mod():
         nrows, ncols, n_info = data_size

@@ -13,13 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.model_selection import train_test_split
-from cuml.preprocessing.LabelEncoder import LabelEncoder
-from cuml.preprocessing.label import LabelBinarizer, label_binarize
-from cuml.preprocessing.encoders import OneHotEncoder
-from cuml.preprocessing.TargetEncoder import TargetEncoder
-from cuml.preprocessing import text
-
 from cuml._thirdparty.sklearn.preprocessing import (
     Binarizer,
     FunctionTransformer,
@@ -35,9 +28,6 @@ from cuml._thirdparty.sklearn.preprocessing import (
     RobustScaler,
     SimpleImputer,
     StandardScaler,
-)
-
-from cuml._thirdparty.sklearn.preprocessing import (
     add_dummy_feature,
     binarize,
     maxabs_scale,
@@ -49,6 +39,12 @@ from cuml._thirdparty.sklearn.preprocessing import (
     scale,
 )
 
+from cuml.model_selection import train_test_split
+from cuml.preprocessing import text
+from cuml.preprocessing.encoders import OneHotEncoder
+from cuml.preprocessing.label import LabelBinarizer, label_binarize
+from cuml.preprocessing.LabelEncoder import LabelEncoder
+from cuml.preprocessing.TargetEncoder import TargetEncoder
 
 __all__ = [
     # Classes

@@ -14,19 +14,17 @@
 # limitations under the License.
 #
 
-from cuml.prims.label import make_monotonic
-from cuml.metrics.utils import sorted_unique_labels
-from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals.array import CumlArray
-from cuml.common import using_output_type
-from cuml.common import input_to_cuml_array
 import cuml.internals
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.common import input_to_cuml_array, using_output_type
+from cuml.internals.array import CumlArray
+from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.metrics.utils import sorted_unique_labels
+from cuml.prims.label import make_monotonic
 
-np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
+np = cpu_only_import("numpy")
 
 
 @cuml.internals.api_return_any()

@@ -15,12 +15,13 @@
 
 # TODO: update!
 
-from cuml.tsa import stationarity
-from statsmodels.tsa import stattools
 import warnings
+
 import pytest
+from statsmodels.tsa import stattools
 
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.tsa import stationarity
 
 np = cpu_only_import("numpy")
 

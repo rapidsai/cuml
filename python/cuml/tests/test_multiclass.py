@@ -12,18 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import sys
+
+import pytest
+
 from cuml import LogisticRegression as cuLog
 from cuml import multiclass as cu_multiclass
-import sys
-import pytest
 from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
-
 
 # As tests directory is not a module, we need to add it to the path
 sys.path.insert(0, ".")
 from test_linear_model import make_classification_dataset  # noqa: E402
+
+np = cpu_only_import("numpy")
 
 
 @pytest.mark.parametrize("strategy", ["ovr", "ovo"])

@@ -17,9 +17,9 @@
 # and cover all the parameters.
 # See the C++ test for an actual correction test
 
-import cuml
 import pytest
 
+import cuml
 
 # Testing parameters
 

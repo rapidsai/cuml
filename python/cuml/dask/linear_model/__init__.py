@@ -14,14 +14,15 @@
 # limitations under the License.
 #
 
-from cuml.internals.import_utils import has_dask
 import warnings
 
+from cuml.internals.import_utils import has_dask
+
 if has_dask():
+    from cuml.dask.linear_model.elastic_net import ElasticNet
+    from cuml.dask.linear_model.lasso import Lasso
     from cuml.dask.linear_model.linear_regression import LinearRegression
     from cuml.dask.linear_model.ridge import Ridge
-    from cuml.dask.linear_model.lasso import Lasso
-    from cuml.dask.linear_model.elastic_net import ElasticNet
 else:
     warnings.warn(
         "Dask not found. All Dask-based multi-GPU operation is disabed."

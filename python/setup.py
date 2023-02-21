@@ -20,9 +20,8 @@ import shutil
 import sys
 from pathlib import Path
 
-from setuptools import find_packages
-
 import versioneer
+from setuptools import find_packages
 from skbuild import setup
 
 

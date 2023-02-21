@@ -13,19 +13,22 @@
 # limitations under the License.
 #
 import warnings
-import cuml.internals.logger as logger
-from cuml.internals.safe_imports import gpu_only_import_from
+
 from cudf import DataFrame, Series
-from cuml.preprocessing import LabelEncoder
+
+import cuml.internals.logger as logger
 from cuml import Base
 from cuml.common.exceptions import NotFittedError
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+)
+from cuml.preprocessing import LabelEncoder
 
-np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
-
+np = cpu_only_import("numpy")
 GenericIndex = gpu_only_import_from("cudf", "GenericIndex")
 
 

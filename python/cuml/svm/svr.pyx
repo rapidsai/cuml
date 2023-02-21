@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,26 +16,35 @@
 # distutils: language = c++
 
 import ctypes
+
 from cuml.internals.safe_imports import gpu_only_import
+
 cupy = gpu_only_import('cupy')
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 
 from cuml.internals.safe_imports import gpu_only_import_from
+
 cuda = gpu_only_import_from('numba', 'cuda')
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
+from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import RegressorMixin
-from cuml.common.doc_utils import generate_docstring
 from cuml.metrics import r2_score
+
 from pylibraft.common.handle cimport handle_t
+
 from cuml.common import input_to_cuml_array
+
 from libcpp cimport bool, nullptr
+
 from cuml.svm.svm_base import SVMBase
+
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:

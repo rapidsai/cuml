@@ -14,16 +14,16 @@
 # limitations under the License.
 #
 
+import pytest
+
+import cuml
 from cuml.datasets import (
     make_arima,
     make_blobs,
     make_classification,
     make_regression,
 )
-import cuml
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
 cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")

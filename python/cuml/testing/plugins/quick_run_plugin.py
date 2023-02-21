@@ -16,8 +16,8 @@
 
 import typing
 
-import pytest
 import _pytest.python
+import pytest
 
 
 def pytest_addoption(parser):

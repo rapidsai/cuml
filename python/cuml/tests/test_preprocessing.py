@@ -13,87 +13,74 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import
 import pytest
 import sklearn
+from sklearn.impute import MissingIndicator as skMissingIndicator
+from sklearn.impute import SimpleImputer as skSimpleImputer
+from sklearn.preprocessing import Binarizer as skBinarizer
+from sklearn.preprocessing import FunctionTransformer as skFunctionTransformer
+from sklearn.preprocessing import KBinsDiscretizer as skKBinsDiscretizer
+from sklearn.preprocessing import KernelCenterer as skKernelCenterer
+from sklearn.preprocessing import MaxAbsScaler as skMaxAbsScaler
+from sklearn.preprocessing import MinMaxScaler as skMinMaxScaler
+from sklearn.preprocessing import Normalizer as skNormalizer
+from sklearn.preprocessing import PolynomialFeatures as skPolynomialFeatures
+from sklearn.preprocessing import PowerTransformer as skPowerTransformer
+from sklearn.preprocessing import QuantileTransformer as skQuantileTransformer
+from sklearn.preprocessing import RobustScaler as skRobustScaler
+from sklearn.preprocessing import StandardScaler as skStandardScaler
+from sklearn.preprocessing import add_dummy_feature as sk_add_dummy_feature
+from sklearn.preprocessing import binarize as sk_binarize
+from sklearn.preprocessing import maxabs_scale as sk_maxabs_scale
+from sklearn.preprocessing import minmax_scale as sk_minmax_scale
+from sklearn.preprocessing import normalize as sk_normalize
+from sklearn.preprocessing import power_transform as sk_power_transform
+from sklearn.preprocessing import quantile_transform as sk_quantile_transform
+from sklearn.preprocessing import robust_scale as sk_robust_scale
+from sklearn.preprocessing import scale as sk_scale
 
-from cuml.preprocessing import (
-    Binarizer as cuBinarizer,
-    FunctionTransformer as cuFunctionTransformer,
-    KBinsDiscretizer as cuKBinsDiscretizer,
-    KernelCenterer as cuKernelCenterer,
-    MaxAbsScaler as cuMaxAbsScaler,
-    MinMaxScaler as cuMinMaxScaler,
-    MissingIndicator as cuMissingIndicator,
-    Normalizer as cuNormalizer,
-    PolynomialFeatures as cuPolynomialFeatures,
-    PowerTransformer as cuPowerTransformer,
-    QuantileTransformer as cuQuantileTransformer,
-    RobustScaler as cuRobustScaler,
-    SimpleImputer as cuSimpleImputer,
-    StandardScaler as cuStandardScaler,
-)
-from cuml.preprocessing import (
-    add_dummy_feature as cu_add_dummy_feature,
-    binarize as cu_binarize,
-    maxabs_scale as cu_maxabs_scale,
-    minmax_scale as cu_minmax_scale,
-    normalize as cu_normalize,
-    power_transform as cu_power_transform,
-    quantile_transform as cu_quantile_transform,
-    robust_scale as cu_robust_scale,
-    scale as cu_scale,
-)
-from sklearn.preprocessing import (
-    Binarizer as skBinarizer,
-    FunctionTransformer as skFunctionTransformer,
-    KBinsDiscretizer as skKBinsDiscretizer,
-    KernelCenterer as skKernelCenterer,
-    MaxAbsScaler as skMaxAbsScaler,
-    MinMaxScaler as skMinMaxScaler,
-    Normalizer as skNormalizer,
-    PolynomialFeatures as skPolynomialFeatures,
-    PowerTransformer as skPowerTransformer,
-    QuantileTransformer as skQuantileTransformer,
-    RobustScaler as skRobustScaler,
-    StandardScaler as skStandardScaler,
-)
-from sklearn.preprocessing import (
-    add_dummy_feature as sk_add_dummy_feature,
-    binarize as sk_binarize,
-    maxabs_scale as sk_maxabs_scale,
-    minmax_scale as sk_minmax_scale,
-    normalize as sk_normalize,
-    power_transform as sk_power_transform,
-    quantile_transform as sk_quantile_transform,
-    robust_scale as sk_robust_scale,
-    scale as sk_scale,
-)
-from sklearn.impute import (
-    MissingIndicator as skMissingIndicator,
-    SimpleImputer as skSimpleImputer,
-)
-
-from cuml.testing.test_preproc_utils import (
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.metrics import pairwise_kernels
+from cuml.preprocessing import Binarizer as cuBinarizer
+from cuml.preprocessing import FunctionTransformer as cuFunctionTransformer
+from cuml.preprocessing import KBinsDiscretizer as cuKBinsDiscretizer
+from cuml.preprocessing import KernelCenterer as cuKernelCenterer
+from cuml.preprocessing import MaxAbsScaler as cuMaxAbsScaler
+from cuml.preprocessing import MinMaxScaler as cuMinMaxScaler
+from cuml.preprocessing import MissingIndicator as cuMissingIndicator
+from cuml.preprocessing import Normalizer as cuNormalizer
+from cuml.preprocessing import PolynomialFeatures as cuPolynomialFeatures
+from cuml.preprocessing import PowerTransformer as cuPowerTransformer
+from cuml.preprocessing import QuantileTransformer as cuQuantileTransformer
+from cuml.preprocessing import RobustScaler as cuRobustScaler
+from cuml.preprocessing import SimpleImputer as cuSimpleImputer
+from cuml.preprocessing import StandardScaler as cuStandardScaler
+from cuml.preprocessing import add_dummy_feature as cu_add_dummy_feature
+from cuml.preprocessing import binarize as cu_binarize
+from cuml.preprocessing import maxabs_scale as cu_maxabs_scale
+from cuml.preprocessing import minmax_scale as cu_minmax_scale
+from cuml.preprocessing import normalize as cu_normalize
+from cuml.preprocessing import power_transform as cu_power_transform
+from cuml.preprocessing import quantile_transform as cu_quantile_transform
+from cuml.preprocessing import robust_scale as cu_robust_scale
+from cuml.preprocessing import scale as cu_scale
+from cuml.testing.test_preproc_utils import (  # noqa: F401
+    assert_allclose,
+    blobs_dataset,
     clf_dataset,
     int_dataset,
-    blobs_dataset,
     nan_filled_positive,
-    sparse_nan_filled_positive,
-    sparse_clf_dataset,
     sparse_blobs_dataset,
-    sparse_int_dataset,
-    sparse_imputer_dataset,
+    sparse_clf_dataset,
     sparse_dataset_with_coo,
-)  # noqa: F401
-from cuml.testing.test_preproc_utils import assert_allclose
-from cuml.metrics import pairwise_kernels
+    sparse_imputer_dataset,
+    sparse_int_dataset,
+    sparse_nan_filled_positive,
+)
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
 cpx = gpu_only_import("cupyx")
+np = cpu_only_import("numpy")
 scipy = cpu_only_import("scipy")
 
 

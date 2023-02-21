@@ -14,16 +14,18 @@
 # limitations under the License.
 #
 
-from cuml.testing.utils import as_type
-from sklearn.model_selection import GridSearchCV
 import pytest
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
-from hypothesis import given, settings, assume, strategies as st
-from cuml.neighbors import KernelDensity, VALID_KERNELS, logsumexp_kernel
-from cuml.common.exceptions import NotFittedError
 from sklearn.metrics import pairwise_distances as skl_pairwise_distances
+from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors._ball_tree import kernel_norm
+
+from cuml.common.exceptions import NotFittedError
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.neighbors import VALID_KERNELS, KernelDensity, logsumexp_kernel
+from cuml.testing.utils import as_type
 
 np = cpu_only_import("numpy")
 

@@ -15,16 +15,14 @@
 #
 
 import dask
-from toolz import first
 import dask.array
+from toolz import first
 
 from cuml.common import with_cupy_rmm
-from cuml.dask.common.base import BaseEstimator
-from cuml.dask.common.base import DelayedTransformMixin
-from cuml.dask.common.utils import wait_and_raise_from_futures
+from cuml.dask.common.base import BaseEstimator, DelayedTransformMixin
 from cuml.dask.common.func import reduce
 from cuml.dask.common.input_utils import DistributedDataHandler
-
+from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.feature_extraction.text import TfidfTransformer as s_TfidfTransformer
 
 

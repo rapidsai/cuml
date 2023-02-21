@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,28 +18,35 @@
 
 import warnings
 
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t
+from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
+
 from pylibraft.common.handle import Handle
+
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
 cudf = gpu_only_import('cudf')
 scipy = cpu_only_import('scipy')
 cupyx = gpu_only_import('cupyx')
 import cuml.internals
-from cuml.internals.base import _determine_stateless_output_type
-from cuml.common import (input_to_cuml_array, CumlArray)
-from cuml.internals import logger
-from cuml.internals.input_utils import sparse_scipy_to_cp
+from cuml.common import CumlArray, input_to_cuml_array
 from cuml.common.sparse_utils import is_sparse
+from cuml.internals import logger
 from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.base import _determine_stateless_output_type
+from cuml.internals.input_utils import sparse_scipy_to_cp
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
+
 from cuml.metrics.distance_type cimport DistanceType
+
 from cuml.thirdparty_adapters import _get_mask
+
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
     void pairwise_distance(const handle_t &handle, const double *x,

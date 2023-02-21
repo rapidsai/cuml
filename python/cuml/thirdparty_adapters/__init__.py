@@ -14,9 +14,9 @@
 #
 
 from .adapters import (
-    check_array,
     _get_mask,
-    _masked_column_median,
     _masked_column_mean,
+    _masked_column_median,
     _masked_column_mode,
+    check_array,
 )

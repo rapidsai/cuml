@@ -13,32 +13,35 @@
 # limitations under the License.
 #
 
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, mean_squared_error
+import os
+from math import ceil
+
+import pytest
+from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import (
+    ExtraTreesClassifier,
+    ExtraTreesRegressor,
     GradientBoostingClassifier,
     GradientBoostingRegressor,
     RandomForestClassifier,
     RandomForestRegressor,
-    ExtraTreesClassifier,
-    ExtraTreesRegressor,
 )
-from sklearn.datasets import make_classification, make_regression
+from sklearn.metrics import accuracy_score, mean_squared_error
+from sklearn.model_selection import train_test_split
+
+from cuml import ForestInference
 from cuml.internals.import_utils import has_xgboost
+from cuml.internals.safe_imports import cpu_only_import
 from cuml.testing.utils import (
     array_equal,
-    unit_param,
     quality_param,
     stress_param,
+    unit_param,
 )
-from cuml import ForestInference
-from math import ceil
-import os
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
 
 np = cpu_only_import("numpy")
 pd = cpu_only_import("pandas")
+
 
 # from cuml.internals.import_utils import has_lightgbm
 

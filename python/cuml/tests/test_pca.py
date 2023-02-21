@@ -13,26 +13,25 @@
 # limitations under the License.
 #
 
-from cuml.common.exceptions import NotFittedError
-from sklearn.datasets import make_blobs
-from sklearn.decomposition import PCA as skPCA
-from sklearn.datasets import make_multilabel_classification
+import pytest
 from sklearn import datasets
+from sklearn.datasets import make_blobs, make_multilabel_classification
+from sklearn.decomposition import PCA as skPCA
+
+from cuml import PCA as cuPCA
+from cuml.common.exceptions import NotFittedError
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import (
-    get_handle,
     array_equal,
-    unit_param,
+    get_handle,
     quality_param,
     stress_param,
+    unit_param,
 )
-from cuml import PCA as cuPCA
-import pytest
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals.safe_imports import cpu_only_import
 
-np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
+np = cpu_only_import("numpy")
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])

@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 
+from cuml.internals.safe_imports import gpu_only_import
 from cuml.preprocessing.text.stem.porter_stemmer_utils.suffix_utils import (
     get_stem_series,
     replace_suffix,
 )
-from cuml.internals.safe_imports import gpu_only_import
 
 cudf = gpu_only_import("cudf")
 

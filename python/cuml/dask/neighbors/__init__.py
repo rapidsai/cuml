@@ -13,13 +13,14 @@
 # limitations under the License.
 #
 
-from cuml.internals.import_utils import has_dask
 import warnings
 
+from cuml.internals.import_utils import has_dask
+
 if has_dask():
-    from cuml.dask.neighbors.nearest_neighbors import NearestNeighbors
     from cuml.dask.neighbors.kneighbors_classifier import KNeighborsClassifier
     from cuml.dask.neighbors.kneighbors_regressor import KNeighborsRegressor
+    from cuml.dask.neighbors.nearest_neighbors import NearestNeighbors
 else:
     warnings.warn(
         "Dask not found. All Dask-based multi-GPU operation is disabed."

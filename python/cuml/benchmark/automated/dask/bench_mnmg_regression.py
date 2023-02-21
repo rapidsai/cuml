@@ -15,9 +15,10 @@
 #
 
 import pytest
-from ..utils.utils import _benchmark_algo, fixture_generation_helper
-from ..utils.utils import bench_step  # noqa: F401
+
 from ... import datagen
+from ..utils.utils import bench_step  # noqa: F401
+from ..utils.utils import _benchmark_algo, fixture_generation_helper
 
 #
 # Core tests

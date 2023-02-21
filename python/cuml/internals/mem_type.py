@@ -16,6 +16,7 @@
 
 
 from enum import Enum, auto
+
 from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 

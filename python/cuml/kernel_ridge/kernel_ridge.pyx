@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,17 +16,20 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
 import warnings
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import
-from cupyx import lapack, geterr, seterr
+
+from cupyx import geterr, lapack, seterr
+
+from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
 from cuml.internals.mixins import RegressorMixin
-from cuml.common.doc_utils import generate_docstring
-from cuml.common import input_to_cuml_array
-
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+)
 from cuml.metrics import pairwise_kernels
 
 cp = gpu_only_import('cupy')

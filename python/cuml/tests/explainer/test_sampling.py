@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.explainer.sampling import kmeans_sampling
-from cuml.internals.safe_imports import gpu_only_import_from
 import pytest
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
+
+from cuml.explainer.sampling import kmeans_sampling
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+)
 
 cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")

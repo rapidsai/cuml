@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,37 +16,32 @@
 
 # distutils: language = c++
 
-from cuml.neighbors.nearest_neighbors import NearestNeighbors
-
 import cuml.internals
-from cuml.internals.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.mixins import FMajorInputTagMixin
-
+from cuml.internals.array import CumlArray
+from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.neighbors.nearest_neighbors import NearestNeighbors
+
 np = cpu_only_import('numpy')
 
 
 from cython.operator cimport dereference as deref
-
-from libcpp.vector cimport vector
-
-from pylibraft.common.handle cimport handle_t
-
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
+from libcpp.vector cimport vector
+from pylibraft.common.handle cimport handle_t
 
 from cuml.internals.safe_imports import gpu_only_import
-rmm = gpu_only_import('rmm')
-from libc.stdlib cimport malloc, free
 
-from libc.stdint cimport uintptr_t, int64_t
-from libc.stdlib cimport calloc, malloc, free
+rmm = gpu_only_import('rmm')
+from libc.stdint cimport int64_t, uintptr_t
+from libc.stdlib cimport calloc, free, malloc
 
 from cuml.internals.safe_imports import gpu_only_import_from
+
 cuda = gpu_only_import_from('numba', 'cuda')
 import rmm
 

@@ -14,9 +14,10 @@
 # limitations under the License.
 #
 
+from pylibraft.common.handle import Handle
+
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cupy_array
-from pylibraft.common.handle import Handle
 from cuml.internals.safe_imports import gpu_only_import
 
 cp = gpu_only_import("cupy")

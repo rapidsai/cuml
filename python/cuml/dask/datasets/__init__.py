@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
 #
 
 from cuml.dask.datasets.blobs import make_blobs
-from cuml.dask.datasets.regression import make_regression
 from cuml.dask.datasets.classification import make_classification
+from cuml.dask.datasets.regression import make_regression
 
 __all__ = [
     "make_blobs",

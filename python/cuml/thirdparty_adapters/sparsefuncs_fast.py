@@ -16,8 +16,8 @@
 
 
 from math import ceil
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import
+
+from cuml.internals.safe_imports import gpu_only_import, gpu_only_import_from
 
 cp = gpu_only_import("cupy")
 cpx = gpu_only_import("cupyx")

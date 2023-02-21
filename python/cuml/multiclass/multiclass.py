@@ -14,14 +14,13 @@
 #
 
 import cuml.internals
-
+from cuml.common import input_to_host_array
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals import _deprecate_pos_args
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.import_utils import has_sklearn
 from cuml.internals.mixins import ClassifierMixin
-from cuml.common.doc_utils import generate_docstring
-from cuml.common import input_to_host_array
-from cuml.internals import _deprecate_pos_args
 
 
 class MulticlassClassifier(Base, ClassifierMixin):

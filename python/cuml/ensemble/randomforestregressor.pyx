@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,44 +17,47 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 import nvtx
+
 from cuml.internals.safe_imports import gpu_only_import
+
 rmm = gpu_only_import('rmm')
 import warnings
 
-import cuml.internals.logger as logger
-
-from cuml import ForestInference
-from cuml.internals.array import CumlArray
-import cuml.internals
-
-from cuml.internals.mixins import RegressorMixin
-from cuml.common.doc_utils import generate_docstring
-from cuml.common.doc_utils import insert_into_docstring
 from pylibraft.common.handle import Handle
-from cuml.common import input_to_cuml_array
 
-from cuml.ensemble.randomforest_common import BaseRandomForestModel
-from cuml.ensemble.randomforest_common import _obtain_fil_model
+import cuml.internals
+import cuml.internals.logger as logger
+from cuml import ForestInference
+from cuml.common import input_to_cuml_array
+from cuml.common.doc_utils import generate_docstring, insert_into_docstring
+from cuml.ensemble.randomforest_common import (
+    BaseRandomForestModel,
+    _obtain_fil_model,
+)
+from cuml.internals.array import CumlArray
+from cuml.internals.mixins import RegressorMixin
+
 from cuml.ensemble.randomforest_shared cimport *
 
 from cuml.fil.fil import TreeliteModel
 
 from cython.operator cimport dereference as deref
-
+from libc.stdint cimport uint64_t, uintptr_t
+from libc.stdlib cimport calloc, free, malloc
 from libcpp cimport bool
 from libcpp.vector cimport vector
-from libc.stdint cimport uintptr_t, uint64_t
-from libc.stdlib cimport calloc, malloc, free
 
 from cuml.internals.safe_imports import gpu_only_import_from
+
 cuda = gpu_only_import_from('numba', 'cuda')
 
-from pylibraft.common.handle cimport handle_t
-cimport cuml.common.cuda
-
 cimport cython
+from pylibraft.common.handle cimport handle_t
+
+cimport cuml.common.cuda
 
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":

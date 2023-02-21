@@ -16,7 +16,8 @@
 
 import argparse
 import json
-from cuml.benchmark import datagen, algorithms
+
+from cuml.benchmark import algorithms, datagen
 from cuml.benchmark.automated.utils.utils import setup_bench
 
 parser = argparse.ArgumentParser(

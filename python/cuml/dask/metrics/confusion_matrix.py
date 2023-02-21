@@ -14,17 +14,16 @@
 # limitations under the License.
 #
 
-from cuml.prims.label import make_monotonic
+from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common.utils import get_client
 from cuml.dask.metrics.utils import sorted_unique_labels
 from cuml.internals.memory_utils import with_cupy_rmm
-from cuml.dask.common.utils import get_client
-from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.prims.label import make_monotonic
 
-np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
+np = cpu_only_import("numpy")
 
 
 @with_cupy_rmm

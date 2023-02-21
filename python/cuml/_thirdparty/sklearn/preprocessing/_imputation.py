@@ -10,27 +10,35 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
-from ....internals import _deprecate_pos_args
-from ....common.array_descriptor import CumlArrayDescriptor
-from ....internals.array_sparse import SparseCumlArray
-from ..utils.validation import FLOAT_DTYPES
-from ..utils.validation import check_is_fitted
-from cuml.internals.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
-    StringInputTagMixin
-from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
-from ....thirdparty_adapters import (_get_mask,
-                                     _masked_column_median,
-                                     _masked_column_mean,
-                                     _masked_column_mode)
-from cuml.internals.safe_imports import gpu_only_import_from
-import cuml
-from cuml.internals.safe_imports import gpu_only_import
 import numbers
 import warnings
 
-from cuml.internals.safe_imports import cpu_only_import
-numpy = cpu_only_import('numpy')
+import cuml
+from cuml.internals.mixins import (
+    AllowNaNTagMixin,
+    SparseInputTagMixin,
+    StringInputTagMixin,
+)
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+)
+
+from ....common.array_descriptor import CumlArrayDescriptor
+from ....internals import _deprecate_pos_args
+from ....internals.array_sparse import SparseCumlArray
+from ....thirdparty_adapters import (
+    _get_mask,
+    _masked_column_mean,
+    _masked_column_median,
+    _masked_column_mode,
+)
+from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
+from ..utils.validation import FLOAT_DTYPES, check_is_fitted
+
 np = gpu_only_import('cupy')
+numpy = cpu_only_import('numpy')
 sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
 
 

@@ -13,14 +13,32 @@
 # limitations under the License.
 #
 
-from cuml.testing.test_preproc_utils import to_output_type
-from cuml.testing.utils import array_equal
+import inspect
+import itertools as it
+import pickle
+from importlib import import_module
 
+import pytest
+from hdbscan import HDBSCAN as refHDBSCAN
+from pytest_cases import fixture_union, pytest_fixture_plus
+from sklearn.datasets import make_blobs, make_regression
+from sklearn.decomposition import PCA as skPCA
+from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
+from sklearn.linear_model import ElasticNet as skElasticNet
+from sklearn.linear_model import Lasso as skLasso
+from sklearn.linear_model import LinearRegression as skLinearRegression
+from sklearn.linear_model import LogisticRegression as skLogisticRegression
+from sklearn.linear_model import Ridge as skRidge
+from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
+from umap import UMAP as refUMAP
+
+import cuml
 from cuml.cluster.hdbscan import HDBSCAN
-from cuml.neighbors import NearestNeighbors
-from cuml.metrics import trustworthiness
-from cuml.metrics import adjusted_rand_score
-from cuml.manifold import UMAP
+from cuml.common.device_selection import DeviceType, using_device_type
+from cuml.decomposition import PCA, TruncatedSVD
+from cuml.internals.mem_type import MemoryType
+from cuml.internals.memory_utils import using_memory_type
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.linear_model import (
     ElasticNet,
     Lasso,
@@ -28,34 +46,15 @@ from cuml.linear_model import (
     LogisticRegression,
     Ridge,
 )
-from cuml.internals.memory_utils import using_memory_type
-from cuml.internals.mem_type import MemoryType
-from cuml.decomposition import PCA, TruncatedSVD
-from cuml.common.device_selection import DeviceType, using_device_type
-from hdbscan import HDBSCAN as refHDBSCAN
-from umap import UMAP as refUMAP
-from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
-from sklearn.linear_model import Ridge as skRidge
-from sklearn.linear_model import ElasticNet as skElasticNet
-from sklearn.linear_model import Lasso as skLasso
-from sklearn.linear_model import LogisticRegression as skLogisticRegression
-from sklearn.linear_model import LinearRegression as skLinearRegression
-from sklearn.decomposition import PCA as skPCA
-from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
-from sklearn.datasets import make_regression, make_blobs
-from pytest_cases import fixture_union, pytest_fixture_plus
-from importlib import import_module
-import inspect
-import pickle
-from cuml.internals.safe_imports import gpu_only_import
-import itertools as it
-import pytest
-import cuml
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.manifold import UMAP
+from cuml.metrics import adjusted_rand_score, trustworthiness
+from cuml.neighbors import NearestNeighbors
+from cuml.testing.test_preproc_utils import to_output_type
+from cuml.testing.utils import array_equal
 
+cudf = gpu_only_import("cudf")
 np = cpu_only_import("numpy")
 pd = cpu_only_import("pandas")
-cudf = gpu_only_import("cudf")
 
 
 def assert_membership_vectors(cu_vecs, sk_vecs):
@@ -891,6 +890,8 @@ def test_hdbscan_methods(train_device, infer_device):
 
     from hdbscan.prediction import (
         all_points_membership_vectors as cpu_all_points_membership_vectors,
+    )
+    from hdbscan.prediction import (
         approximate_predict as cpu_approximate_predict,
     )
 

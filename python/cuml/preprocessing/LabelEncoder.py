@@ -14,11 +14,13 @@
 # limitations under the License.
 #
 
-from cuml.common.exceptions import NotFittedError
-from cuml.internals.safe_imports import cpu_only_import_from
 from cuml import Base
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.common.exceptions import NotFittedError
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    cpu_only_import_from,
+    gpu_only_import,
+)
 
 cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")

@@ -14,19 +14,17 @@
 # limitations under the License.
 #
 
-from cuml.naive_bayes import MultinomialNB as MNB
-from cuml.common import rmm_cupy_ary
-from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.dask.common.func import tree_reduce
-from cuml.dask.common.func import reduce
-from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.dask.common.base import BaseEstimator
-from cuml.common import with_cupy_rmm
+import dask
 import dask.array
 from toolz import first
-import dask
+
+from cuml.common import rmm_cupy_ary, with_cupy_rmm
+from cuml.dask.common.base import BaseEstimator, DelayedPredictionMixin
+from cuml.dask.common.func import reduce, tree_reduce
+from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.naive_bayes import MultinomialNB as MNB
 
 cp = gpu_only_import("cupy")
 

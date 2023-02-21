@@ -14,15 +14,16 @@
 # limitations under the License.
 #
 
-from sklearn.datasets import make_classification
-from cuml.testing.utils import ClassEnumerator
-from cuml.internals.base import Base
-from cuml.internals.safe_imports import cpu_only_import
 import inspect
+
 import pytest
+from sklearn.datasets import make_classification
+
 import cuml
 import cuml.internals.mixins as cumix
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.base import Base
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.testing.utils import ClassEnumerator
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")

@@ -12,17 +12,24 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    cpu_only_import_from,
+    gpu_only_import,
+    gpu_only_import_from,
+)
+
+from ....thirdparty_adapters.sparsefuncs_fast import (
+    csc_mean_variance_axis0 as _csc_mean_var_axis0,
+)
 from ....thirdparty_adapters.sparsefuncs_fast import (
     csr_mean_variance_axis0 as _csr_mean_var_axis0,
-    csc_mean_variance_axis0 as _csc_mean_var_axis0)
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import cpu_only_import_from
-cpu_sp = cpu_only_import_from('scipy', 'sparse')
-gpu_sp = gpu_only_import_from('cupyx.scipy', 'sparse')
+)
+
 np = gpu_only_import('cupy')
 cpu_np = cpu_only_import('numpy')
+gpu_sp = gpu_only_import_from('cupyx.scipy', 'sparse')
+cpu_sp = cpu_only_import_from('scipy', 'sparse')
 
 
 def iscsr(X):

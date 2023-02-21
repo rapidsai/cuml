@@ -13,18 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import dask.array as da
-from cuml.dask.metrics import confusion_matrix
-from cuml.testing.utils import stress_param, generate_random_labels
-from sklearn.metrics import confusion_matrix as sk_confusion_matrix
-import pytest
-from cuml.internals.safe_imports import gpu_only_import
 from itertools import chain, permutations
 
-from cuml.internals.safe_imports import cpu_only_import
+import dask.array as da
+import pytest
+from sklearn.metrics import confusion_matrix as sk_confusion_matrix
 
-np = cpu_only_import("numpy")
+from cuml.dask.metrics import confusion_matrix
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.testing.utils import generate_random_labels, stress_param
+
 cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 @pytest.mark.mg

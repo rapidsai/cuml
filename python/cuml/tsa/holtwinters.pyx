@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,21 +16,26 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import gpu_only_import
+
 cudf = gpu_only_import('cudf')
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals import _deprecate_pos_args
 from cuml.common import using_output_type
-from cuml.internals.base import Base
-from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals import _deprecate_pos_args
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cupy_array
+
 from pylibraft.common.handle cimport handle_t
+
 
 cdef extern from "cuml/tsa/holtwinters_params.h" namespace "ML":
     enum SeasonalType:

@@ -14,16 +14,18 @@
 # limitations under the License.
 #
 
-from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.dask.common.input_utils import to_output
-from cuml.dask.common import parts_to_ranks
-from cuml.dask.common import flatten_grouped_results
-from cuml.dask.common.utils import raise_mg_import_exception
-from cuml.dask.common.utils import wait_and_raise_from_futures
-from raft_dask.common.comms import get_raft_comm_state
-from cuml.dask.neighbors import NearestNeighbors
-import dask.array as da
 from uuid import uuid1
+
+import dask.array as da
+from raft_dask.common.comms import get_raft_comm_state
+
+from cuml.dask.common import flatten_grouped_results, parts_to_ranks
+from cuml.dask.common.input_utils import DistributedDataHandler, to_output
+from cuml.dask.common.utils import (
+    raise_mg_import_exception,
+    wait_and_raise_from_futures,
+)
+from cuml.dask.neighbors import NearestNeighbors
 
 
 class KNeighborsRegressor(NearestNeighbors):

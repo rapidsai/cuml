@@ -15,29 +15,32 @@
 #
 
 import platform
+
+import pytest
 from sklearn.preprocessing import normalize as sk_normalize
+from sklearn.utils._mask import _get_mask as sk_get_mask
+
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    cpu_only_import_from,
+    gpu_only_import,
+    gpu_only_import_from,
+)
 from cuml.testing.test_preproc_utils import assert_allclose
+from cuml.thirdparty_adapters.adapters import _get_mask as cu_get_mask
+from cuml.thirdparty_adapters.adapters import (
+    _masked_column_mean,
+    _masked_column_median,
+    _masked_column_mode,
+    check_array,
+)
 from cuml.thirdparty_adapters.sparsefuncs_fast import (
-    csr_mean_variance_axis0,
-    csc_mean_variance_axis0,
     _csc_mean_variance_axis0,
+    csc_mean_variance_axis0,
+    csr_mean_variance_axis0,
     inplace_csr_row_normalize_l1,
     inplace_csr_row_normalize_l2,
 )
-from sklearn.utils._mask import _get_mask as sk_get_mask
-from cuml.thirdparty_adapters.adapters import (
-    check_array,
-    _get_mask as cu_get_mask,
-    _masked_column_median,
-    _masked_column_mean,
-    _masked_column_mode,
-)
-from cuml.internals.safe_imports import cpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import cpu_only_import
-import pytest
-
-from cuml.internals.safe_imports import gpu_only_import
 
 cp = gpu_only_import("cupy")
 cpx = gpu_only_import("cupyx")

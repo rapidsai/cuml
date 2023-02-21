@@ -14,9 +14,10 @@
 # limitations under the License.
 #
 
-from cuml.common import has_scipy
 import nvtx
+
 import cuml.internals.logger as logger
+from cuml.common import has_scipy
 from cuml.internals.safe_imports import cpu_only_import
 
 np = cpu_only_import("numpy")

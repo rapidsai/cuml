@@ -19,26 +19,26 @@ import operator
 import re
 from functools import wraps
 
-from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.device_support import GPU_ENABLED
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.output_type import (
     INTERNAL_VALID_OUTPUT_TYPES,
     VALID_OUTPUT_TYPES,
 )
 from cuml.internals.safe_imports import (
+    UnavailableNullContext,
     cpu_only_import_from,
     gpu_only_import_from,
-    UnavailableNullContext,
 )
 
-CudfSeries = gpu_only_import_from("cudf", "Series")
 CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
+CudfSeries = gpu_only_import_from("cudf", "Series")
 cupy_using_allocator = gpu_only_import_from(
     "cupy.cuda", "using_allocator", alt=UnavailableNullContext
 )
-PandasSeries = cpu_only_import_from("pandas", "Series")
 PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
+PandasSeries = cpu_only_import_from("pandas", "Series")
 rmm_cupy_allocator = gpu_only_import_from("rmm", "rmm_cupy_allocator")
 
 

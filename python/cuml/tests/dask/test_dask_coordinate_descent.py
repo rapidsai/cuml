@@ -16,12 +16,10 @@
 import pytest
 
 from cuml.dask.datasets import make_regression
-from cuml.dask.linear_model import ElasticNet
-from cuml.dask.linear_model import Lasso
-from cuml.metrics import r2_score
-from cuml.testing.utils import unit_param, quality_param, stress_param
-
+from cuml.dask.linear_model import ElasticNet, Lasso
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.metrics import r2_score
+from cuml.testing.utils import quality_param, stress_param, unit_param
 
 np = cpu_only_import("numpy")
 

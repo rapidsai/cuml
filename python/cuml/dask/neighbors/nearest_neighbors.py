@@ -13,18 +13,18 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import parts_to_ranks
-from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.dask.common import flatten_grouped_results
-from cuml.dask.common import raise_mg_import_exception
-from cuml.dask.common.base import BaseEstimator
-
-from raft_dask.common.comms import get_raft_comm_state
-from raft_dask.common.comms import Comms
-from cuml.dask.common.input_utils import to_output
-from cuml.dask.common.input_utils import DistributedDataHandler
-
 from uuid import uuid1
+
+from raft_dask.common.comms import Comms, get_raft_comm_state
+
+from cuml.dask.common import (
+    flatten_grouped_results,
+    parts_to_ranks,
+    raise_mg_import_exception,
+)
+from cuml.dask.common.base import BaseEstimator
+from cuml.dask.common.input_utils import DistributedDataHandler, to_output
+from cuml.dask.common.utils import wait_and_raise_from_futures
 
 
 class NearestNeighbors(BaseEstimator):

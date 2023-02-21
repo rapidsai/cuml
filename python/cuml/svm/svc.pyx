@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,42 +15,52 @@
 
 # distutils: language = c++
 
+import ctypes
 import typing
 
-import ctypes
 from cuml.internals.safe_imports import gpu_only_import
+
 cudf = gpu_only_import('cudf')
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 
 from cuml.internals.safe_imports import gpu_only_import_from
+
 cuda = gpu_only_import_from('numba', 'cuda')
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.mixins import ClassifierMixin
-from cuml.common.doc_utils import generate_docstring
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.logger import warn
+from cuml.internals.mixins import ClassifierMixin
+
 from pylibraft.common.handle cimport handle_t
+
 from pylibraft.common.interruptible import cuda_interruptible
+
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.preprocessing import LabelEncoder
+
 from libcpp cimport bool, nullptr
-from cuml.svm.svm_base import SVMBase
+
 from cuml.internals.import_utils import has_sklearn
 from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.svm.svm_base import SVMBase
 
 if has_sklearn():
-    from cuml.multiclass import MulticlassClassifier
     from sklearn.calibration import CalibratedClassifierCV
+
+    from cuml.multiclass import MulticlassClassifier
 
 cdef extern from "raft/distance/distance_types.hpp" \
         namespace "raft::distance::kernels":

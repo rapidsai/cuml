@@ -14,17 +14,17 @@
 # limitations under the License.
 #
 
-from cuml.svm import SVC
-from cuml.preprocessing import StandardScaler
-from sklearn.datasets import load_iris
-from cuml.model_selection import train_test_split
-from cuml.datasets import make_regression, make_classification
-from cuml.testing.utils import ClassEnumerator
-from cuml.model_selection import GridSearchCV
-from cuml.pipeline import Pipeline, make_pipeline
 import pytest
+from sklearn.datasets import load_iris
+
 import cuml
+from cuml.datasets import make_classification, make_regression
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.model_selection import GridSearchCV, train_test_split
+from cuml.pipeline import Pipeline, make_pipeline
+from cuml.preprocessing import StandardScaler
+from cuml.svm import SVC
+from cuml.testing.utils import ClassEnumerator
 
 cupy = gpu_only_import("cupy")
 

@@ -13,16 +13,15 @@
 # limitations under the License.
 #
 
-from sklearn.model_selection import train_test_split
-from sklearn.datasets import make_blobs
-from cuml.solvers import SGD as cumlSGD
-from cuml.internals.safe_imports import gpu_only_import
 import pytest
-from cuml.internals.safe_imports import cpu_only_import
+from sklearn.datasets import make_blobs
+from sklearn.model_selection import train_test_split
 
-np = cpu_only_import("numpy")
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.solvers import SGD as cumlSGD
 
 cudf = gpu_only_import("cudf")
+np = cpu_only_import("numpy")
 
 
 @pytest.mark.parametrize("lrate", ["constant", "invscaling", "adaptive"])

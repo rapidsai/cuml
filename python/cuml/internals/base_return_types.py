@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-import cuml.internals
 import typing
 
+import cuml.internals
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 

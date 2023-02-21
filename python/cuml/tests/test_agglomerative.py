@@ -14,15 +14,12 @@
 #
 
 import pytest
+from sklearn import cluster
 
 from cuml.cluster import AgglomerativeClustering
 from cuml.datasets import make_blobs
-
-from cuml.metrics import adjusted_rand_score
-
-from sklearn import cluster
-
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.metrics import adjusted_rand_score
 
 cp = gpu_only_import("cupy")
 

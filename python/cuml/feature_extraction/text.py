@@ -18,19 +18,16 @@
 The following imports are needed so that we can import those classes
 from cuml.feature_extraction.text just like scikit-learn. Do not remove.
 """
-from cuml.feature_extraction._tfidf import (
+from cuml.feature_extraction._tfidf import (  # noqa # pylint: disable=unused-import
     TfidfTransformer,
-)  # noqa # pylint: disable=unused-import
-from cuml.feature_extraction._tfidf_vectorizer import (
+)
+from cuml.feature_extraction._tfidf_vectorizer import (  # noqa # pylint: disable=unused-import
     TfidfVectorizer,
-)  # noqa # pylint: disable=unused-import
-from cuml.feature_extraction._vectorizers import (
+)
+from cuml.feature_extraction._vectorizers import (  # noqa # pylint: disable=unused-import
     CountVectorizer,
-)  # noqa # pylint: disable=unused-import
-from cuml.feature_extraction._vectorizers import (
     HashingVectorizer,
-)  # noqa # pylint: disable=unused-import
-
+)
 
 __all__ = [
     "CountVectorizer",

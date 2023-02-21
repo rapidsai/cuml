@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,35 +16,39 @@
 
 # distutils: language = c++
 
-import typing
-
 import ctypes
 import itertools
+import typing
+
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
+
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 
 import cuml.internals
-from cuml.internals import logger
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals import _deprecate_pos_args, logger
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals import _deprecate_pos_args
+
 from pylibraft.common.handle cimport handle_t
+
+import warnings
+
 from pylibraft.common.handle import Handle
-from cuml.common import input_to_cuml_array
-from cuml.common import using_output_type
+
+from cuml.common import input_to_cuml_array, using_output_type
 from cuml.internals.input_utils import determine_array_dtype
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
-import warnings
-
 
 # TODO:
 # - Box-Cox transformations? (parameter lambda)

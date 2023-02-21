@@ -14,16 +14,16 @@
 # limitations under the License.
 #
 
-from inspect import Parameter, signature
 import typing
+from inspect import Parameter, signature
 
 from cuml.internals.api_decorators import (
-    api_base_return_generic,
-    api_base_return_array,
-    api_base_return_sparse_array,
-    api_base_return_any,
-    api_return_any,
     _deprecate_pos_args,
+    api_base_return_any,
+    api_base_return_array,
+    api_base_return_generic,
+    api_base_return_sparse_array,
+    api_return_any,
 )
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray

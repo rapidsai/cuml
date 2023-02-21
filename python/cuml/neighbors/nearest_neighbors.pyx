@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,50 +19,51 @@
 import typing
 
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
 import ctypes
-import warnings
 import math
+import warnings
 
 import cuml.internals
-from cuml.internals.base import UniversalBase
+from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring, insert_into_docstring
+from cuml.common.sparse_utils import is_dense, is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.common.doc_utils import generate_docstring
-from cuml.common.doc_utils import insert_into_docstring
+from cuml.internals.base import UniversalBase
 from cuml.internals.import_utils import has_scipy
-from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.input_utils import input_to_cupy_array
-from cuml.common import input_to_cuml_array
-from cuml.common.sparse_utils import is_sparse
-from cuml.common.sparse_utils import is_dense
-from cuml.metrics.distance_type cimport DistanceType
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.mixins import CMajorInputTagMixin
 
-from cuml.neighbors.ann cimport *
-from pylibraft.common.handle cimport handle_t
+from cuml.metrics.distance_type cimport DistanceType
+
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
 
 from cython.operator cimport dereference as deref
-
+from libc.stdint cimport int64_t, uint32_t, uintptr_t
+from libc.stdlib cimport calloc, free, malloc
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
-
-from libc.stdint cimport uintptr_t, int64_t, uint32_t
-from libc.stdlib cimport calloc, malloc, free
-
 from libcpp.vector cimport vector
+from pylibraft.common.handle cimport handle_t
+
+from cuml.neighbors.ann cimport *
 
 from cuml.internals.safe_imports import gpu_only_import_from
+
 cuda = gpu_only_import_from('numba', 'cuda')
 rmm = gpu_only_import('rmm')
 
 cimport cuml.common.cuda
-
 
 if has_scipy():
     import scipy.sparse
