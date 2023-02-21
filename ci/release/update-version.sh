@@ -32,9 +32,19 @@ function sed_runner() {
 }
 
 
-# __init__.py and setup.py
+# __init__.py and setup.py versions
 sed_runner "s/__version__ = .*/__version__ = \"${NEXT_FULL_TAG}\"/g" python/cuml/__init__.py
 sed_runner "s/version=.*,/version=\"${NEXT_FULL_TAG}\",/g" python/setup.py
+
+# Dependency versions in pyproject.toml
+sed_runner "s/rmm==.*\",/rmm==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pyproject.toml
+sed_runner "s/pylibraft==.*\",/pylibraft==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pyproject.toml
+
+# Dependency versions in setup.py
+sed_runner "s/cudf==.*\",/cudf==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/setup.py
+sed_runner "s/pylibraft==.*\",/pylibraft==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/setup.py
+sed_runner "s/raft-dask==.*\",/raft-dask==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/setup.py
+
 
 # CMakeLists
 sed_runner 's/'"CUML VERSION .* LANGUAGES"'/'"CUML VERSION ${NEXT_FULL_TAG} LANGUAGES"'/g' cpp/CMakeLists.txt
@@ -80,10 +90,6 @@ done
 
 # Need to distutils-normalize the original version
 NEXT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_SHORT_TAG}'))")
-
-# Wheel builds install intra-RAPIDS dependencies from same release
-sed_runner "s/{cuda_suffix}==.*\",/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/setup.py
-sed_runner "s/{cuda_suffix}==.*\",/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/_custom_build/backend.py
 
 for FILE in .github/workflows/*.yaml; do
   sed_runner "/shared-action-workflows/ s/@.*/@branch-${NEXT_SHORT_TAG}/g" "${FILE}"
