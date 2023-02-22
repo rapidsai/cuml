@@ -127,6 +127,29 @@ __global__ void prob_in_some_cluster_kernel(value_t* heights,
   }
 }
 
+template <typename value_idx, typename value_t>
+__global__ void prob_in_some_cluster_kernel(value_t* heights,
+                                            value_t* height_argmax,
+                                            value_t* deaths,
+                                            value_idx* index_into_children,
+                                            value_idx* min_mr_indices,
+                                            value_idx* selected_clusters,
+                                            value_t* lambdas,
+                                            value_t* prob_in_some_cluster,
+                                            value_idx n_selected_clusters,
+                                            value_idx n_leaves,
+                                            size_t n_prediction_points)
+{
+  value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
+  if (idx < (value_idx)n_prediction_points) {
+    value_t max_lambda = max(lambdas[index_into_children[min_mr_indices[idx]]],
+                             deaths[selected_clusters[(int)height_argmax[idx]] - n_leaves]);
+    prob_in_some_cluster[idx] =
+      heights[idx * n_selected_clusters + (int)height_argmax[idx]] / max_lambda;
+    return;
+  }
+}
+
 };  // namespace Predict
 };  // namespace detail
 };  // namespace HDBSCAN
