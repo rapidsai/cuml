@@ -22,7 +22,6 @@ from pathlib import Path
 
 from setuptools import find_packages
 
-import versioneer
 from skbuild import setup
 
 
@@ -107,26 +106,9 @@ if clean_artifacts:
 ##############################################################################
 # - Python package generation ------------------------------------------------
 
-# Make versioneer produce PyPI-compatible nightly versions for wheels.
-if "RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE" in os.environ:
-    orig_get_versions = versioneer.get_versions
-
-    version_override = os.environ["RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE"]
-
-    def get_versions():
-        data = orig_get_versions()
-        data["version"] = version_override
-        return data
-
-    versioneer.get_versions = get_versions
-
-
-cuda_suffix = os.getenv("RAPIDS_PY_WHEEL_CUDA_SUFFIX", default="")
 setup(
-    name=f"cuml{cuda_suffix}",
-    version=os.getenv(
-        "RAPIDS_PY_WHEEL_VERSIONEER_OVERRIDE", default=versioneer.get_version()
-    ),
+    name="cuml",
+    version="23.04.00",
     description="cuML - RAPIDS ML Algorithms",
     url="https://github.com/rapidsai/cuml",
     author="NVIDIA Corporation",
@@ -138,7 +120,6 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
     ],
-    cmdclass=versioneer.get_cmdclass(),
     include_package_data=True,
     packages=find_packages(include=["cuml", "cuml.*"]),
     package_data={
@@ -150,10 +131,10 @@ setup(
         "seaborn",
         "treelite==3.1.0",
         "treelite_runtime==3.1.0",
-        f"cudf{cuda_suffix}==23.4.*",
-        f"dask-cudf{cuda_suffix}==23.4.*",
-        f"pylibraft{cuda_suffix}==23.4.*",
-        f"raft-dask{cuda_suffix}==23.4.*",
+        "cudf==23.4.*",
+        "dask-cudf==23.4.*",
+        "pylibraft==23.4.*",
+        "raft-dask==23.4.*",
     ],
     extras_require={
         "test": [
