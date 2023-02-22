@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,7 +116,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     auto stream = handle.get_stream();
     TSNEResults results;
 
-    auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtExpanded;
+    auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtUnexpanded;
     float minkowski_p            = 2.0;
 
     // Setup parameters
@@ -125,6 +125,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     model_params.n_neighbors   = 90;
     model_params.min_grad_norm = 1e-12;
     model_params.verbosity     = CUML_LEVEL_DEBUG;
+    model_params.metric = DEFAULT_DISTANCE_METRIC;
 
     // Allocate memory
     rmm::device_uvector<float> X_d(n * p, stream);
