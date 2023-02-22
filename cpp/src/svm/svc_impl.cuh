@@ -118,22 +118,6 @@ void svcFit(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void matrixRowNorm(const Matrix<math_t>& matrix,
-                   math_t* target,
-                   raft::linalg::NormType norm,
-                   cudaStream_t stream)
-{
-  if (matrix.isDense()) {
-    raft::linalg::rowNorm(
-      target, matrix.asDense()->data, matrix.n_cols, matrix.n_rows, norm, false, stream);
-  } else {
-    auto csr_matrix = matrix.asCsr();
-    raft::sparse::linalg::rowNormCsr(
-      target, csr_matrix->indptr, csr_matrix->data, csr_matrix->nnz, matrix.n_rows, norm, stream);
-  }
-}
-
-template <typename math_t>
 void svcPredictX(const raft::handle_t& handle,
                  const Matrix<math_t>& matrix,
                  raft::distance::kernels::KernelParams& kernel_params,
@@ -195,9 +179,9 @@ void svcPredictX(const raft::handle_t& handle,
   if (model.n_support > 0 && kernel_params.kernel == raft::distance::kernels::RBF) {
     dot_input.reserve(n_rows, stream);
     dot_support.reserve(model.n_support, stream);
-    matrixRowNorm(matrix, dot_input.data(), raft::linalg::NormType::L2Norm, stream);
+    ML::SVM::matrixRowNorm(matrix, dot_input.data(), raft::linalg::NormType::L2Norm, stream);
     if (model.n_support > 0)
-      matrixRowNorm(
+      ML::SVM::matrixRowNorm(
         *model.support_matrix, dot_support.data(), raft::linalg::NormType::L2Norm, stream);
   }
 

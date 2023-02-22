@@ -276,24 +276,7 @@ class SmoSolver {
     if (kernel_type == raft::distance::kernels::KernelType::RBF) {
       matrix_dot.reserve(n_rows, stream);
       matrix_dot_ws.reserve(n_ws, stream);
-      if (matrix.isDense()) {
-        raft::linalg::rowNorm(matrix_dot.data(),
-                              matrix.asDense()->data,
-                              n_cols,
-                              n_rows,
-                              raft::linalg::NormType::L2Norm,
-                              false,
-                              stream);
-      } else {
-        auto csr_matrix = matrix.asCsr();
-        raft::sparse::linalg::rowNormCsr(matrix_dot.data(),
-                                         csr_matrix->indptr,
-                                         csr_matrix->data,
-                                         csr_matrix->nnz,
-                                         n_rows,
-                                         raft::linalg::NormType::L2Norm,
-                                         stream);
-      }
+      ML::SVM::matrixRowNorm(matrix, matrix_dot.data(), raft::linalg::NormType::L2Norm, stream);
     }
 
     // additional row pointer information needed for batched CSR access

@@ -115,6 +115,29 @@ static __global__ void extractCSRRowsFromCSR(int* indptr_out,  // already holds 
 }
 
 template <typename math_t>
+void matrixRowNorm(const Matrix<math_t>& matrix,
+                   math_t* target,
+                   raft::linalg::NormType norm,
+                   cudaStream_t stream)
+{
+  if (matrix.isDense()) {
+    int minor = matrix.asDense()->is_row_major ? matrix.n_cols : matrix.n_rows;
+    ASSERT(matrix.asDense()->ld == minor, "Dense matrix rowNorm only support contiguous data");
+    raft::linalg::rowNorm(target,
+                          matrix.asDense()->data,
+                          matrix.n_cols,
+                          matrix.n_rows,
+                          norm,
+                          matrix.asDense()->is_row_major,
+                          stream);
+  } else {
+    auto csr_matrix = matrix.asCsr();
+    raft::sparse::linalg::rowNormCsr(
+      target, csr_matrix->indptr, csr_matrix->data, csr_matrix->nnz, matrix.n_rows, norm, stream);
+  }
+}
+
+template <typename math_t>
 static void copySparseRowsToDense(const int* indptr,
                                   const int* indices,
                                   const math_t* data,
