@@ -22,14 +22,24 @@
  */
 
 #pragma once
-#include <raft/distance/distance.cuh>
-#include <raft/util/pow2_utils.cuh>
-#include <raft/spatial/knn/detail/faiss_select/DistanceUtils.h>
-#include <raft/spatial/knn/detail/faiss_select/Select.cuh>
-#include <raft/spatial/knn/detail/selection_faiss.cuh>
-#include <thrust/iterator/transform_iterator.h>
+
+#include <faiss/gpu/GpuResources.h>
+
+#include <faiss/impl/AuxIndexStructures.h>
+#include <faiss/impl/FaissException.h>
+
+#include <faiss/gpu/impl/Distance.cuh>
+#include <faiss/gpu/impl/DistanceUtils.cuh>
+#include <faiss/gpu/impl/L2Norm.cuh>
+#include <faiss/gpu/impl/L2Select.cuh>
+
+#include <faiss/gpu/utils/CopyUtils.cuh>
+#include <faiss/gpu/utils/DeviceDefs.cuh>
+#include <faiss/gpu/utils/Limits.cuh>
+#include <faiss/gpu/utils/MatrixMult.cuh>
 
 #include <raft/core/handle.hpp>
+#include <raft/spatial/knn/faiss_mr.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
@@ -42,12 +52,11 @@ namespace detail {
 namespace Reachability {
 
 template <typename value_t, int NumWarpQ, int NumThreadQ, int ThreadsPerBlock>
-__global__ void l2SelectMinK(const value_t* pairwise_distances,
-                             const value_t* core_dists,
-                             value_t* out_dists,
-                             int* out_inds,
-                             int n_rows,
-                             int n_cols,
+__global__ void l2SelectMinK(faiss::gpu::Tensor<value_t, 2, true> inner_products,
+                             faiss::gpu::Tensor<value_t, 1, true> sq_norms,
+                             faiss::gpu::Tensor<value_t, 1, true> core_dists,
+                             faiss::gpu::Tensor<value_t, 2, true> out_dists,
+                             faiss::gpu::Tensor<int, 2, true> out_inds,
                              int batch_offset_i,
                              int batch_offset_j,
                              int k,
@@ -60,34 +69,43 @@ __global__ void l2SelectMinK(const value_t* pairwise_distances,
   __shared__ value_t smemK[kNumWarps * NumWarpQ];
   __shared__ int smemV[kNumWarps * NumWarpQ];
 
-  using namespace raft::spatial::knn::detail::faiss_select;
+  faiss::gpu::BlockSelect<value_t,
+                          int,
+                          false,
+                          faiss::gpu::Comparator<value_t>,
+                          NumWarpQ,
+                          NumThreadQ,
+                          ThreadsPerBlock>
+    heap(initK, -1, smemK, smemV, k);
 
-  BlockSelect<value_t, int, false, Comparator<key_t>, NumWarpQ, NumThreadQ, ThreadsPerBlock> heap(
-    initK, -1, smemK, smemV, k);
-
-  // Grid is exactly sized to rows available
   int row = blockIdx.x;
 
   // Whole warps must participate in the selection
-  int limit = raft::Pow2<raft::WarpSize>::roundDown(n_cols);
+  int limit = faiss::gpu::utils::roundDown(inner_products.getSize(1), 32);
   int i     = threadIdx.x;
 
   for (; i < limit; i += blockDim.x) {
-    value_t v = pairwise_distances[row * n_cols + i];
+    value_t v = sqrt(faiss::gpu::Math<value_t>::add(
+      sq_norms[row + batch_offset_i],
+      faiss::gpu::Math<value_t>::add(sq_norms[i + batch_offset_j], inner_products[row][i])));
+
     v = max(core_dists[i + batch_offset_j], max(core_dists[row + batch_offset_i], alpha * v));
     heap.add(v, i);
   }
 
-  if (i < n_cols) {
-    value_t v = pairwise_distances[row * n_cols + i];
+  if (i < inner_products.getSize(1)) {
+    value_t v = sqrt(faiss::gpu::Math<value_t>::add(
+      sq_norms[row + batch_offset_i],
+      faiss::gpu::Math<value_t>::add(sq_norms[i + batch_offset_j], inner_products[row][i])));
+
     v = max(core_dists[i + batch_offset_j], max(core_dists[row + batch_offset_i], alpha * v));
     heap.addThreadQ(v, i);
   }
 
   heap.reduce();
   for (int i = threadIdx.x; i < k; i += blockDim.x) {
-    out_dists[row * k + i] = smemK[i];
-    out_inds[row * k + i]  = smemV[i];
+    out_dists[row][i] = smemK[i];
+    out_inds[row][i]  = smemV[i];
   }
 }
 
@@ -105,34 +123,39 @@ __global__ void l2SelectMinK(const value_t* pairwise_distances,
  * @param[in] stream cuda stream for ordering gpu computations
  */
 template <typename value_t>
-void runL2SelectMin(const value_t* pairwise_distances,
-                    const value_t* core_dists,
-                    value_t* out_dists,
-                    int* out_inds,
-                    int n_rows,
-                    int n_cols,
+void runL2SelectMin(faiss::gpu::Tensor<value_t, 2, true>& productDistances,
+                    faiss::gpu::Tensor<value_t, 1, true>& centroidDistances,
+                    faiss::gpu::Tensor<value_t, 1, true>& coreDistances,
+                    faiss::gpu::Tensor<value_t, 2, true>& outDistances,
+                    faiss::gpu::Tensor<int, 2, true>& outIndices,
                     int batch_offset_i,
                     int batch_offset_j,
                     int k,
                     value_t alpha,
                     cudaStream_t stream)
 {
-  auto grid = dim3(n_rows);
+  FAISS_ASSERT(productDistances.getSize(0) == outDistances.getSize(0));
+  FAISS_ASSERT(productDistances.getSize(0) == outIndices.getSize(0));
+  //  FAISS_ASSERT(centroidDistances.getSize(0) == productDistances.getSize(1));
+  FAISS_ASSERT(outDistances.getSize(1) == k);
+  FAISS_ASSERT(outIndices.getSize(1) == k);
+  FAISS_ASSERT(k <= GPU_MAX_SELECTION_K);
 
-#define RUN_L2_SELECT(BLOCK, NUM_WARP_Q, NUM_THREAD_Q)                           \
-  do {                                                                           \
-    l2SelectMinK<value_t, NUM_WARP_Q, NUM_THREAD_Q, BLOCK>                       \
-      <<<grid, BLOCK, 0, stream>>>(pairwise_distances,                           \
-                                   core_dists,                                   \
-                                   out_dists,                                    \
-                                   out_inds,                                     \
-                                   n_rows,                                       \
-                                   n_cols,                                       \
-                                   batch_offset_i,                               \
-                                   batch_offset_j,                               \
-                                   k,                                            \
-                                   std::numeric_limits<value_t>::max(),          \
-                                   alpha);                                       \
+  auto grid = dim3(outDistances.getSize(0));
+
+#define RUN_L2_SELECT(BLOCK, NUM_WARP_Q, NUM_THREAD_Q)                    \
+  do {                                                                    \
+    l2SelectMinK<value_t, NUM_WARP_Q, NUM_THREAD_Q, BLOCK>                \
+      <<<grid, BLOCK, 0, stream>>>(productDistances,                      \
+                                   centroidDistances,                     \
+                                   coreDistances,                         \
+                                   outDistances,                          \
+                                   outIndices,                            \
+                                   batch_offset_i,                        \
+                                   batch_offset_j,                        \
+                                   k,                                     \
+                                   faiss::gpu::Limits<value_t>::getMax(), \
+                                   alpha);                                \
   } while (0)
 
   // block size 128 for everything <= 1024
@@ -148,11 +171,15 @@ void runL2SelectMin(const value_t* pairwise_distances,
     RUN_L2_SELECT(128, 512, 8);
   } else if (k <= 1024) {
     RUN_L2_SELECT(128, 1024, 8);
+
+#if GPU_MAX_SELECTION_K >= 2048
   } else if (k <= 2048) {
     // smaller block for less shared memory
     RUN_L2_SELECT(64, 2048, 8);
+#endif
+
   } else {
-    ASSERT(false, "K of %d is unsupported", k);
+    FAISS_ASSERT(false);
   }
 }
 
@@ -181,105 +208,207 @@ void mutual_reachability_knn_l2(const raft::handle_t& handle,
                                 value_t* core_dists,
                                 value_t alpha)
 {
-  // Figure out the number of rows/cols to tile for
-  size_t tile_rows   = 0;
-  size_t tile_cols   = 0;
-  auto stream        = handle.get_stream();
-  auto device_memory = handle.get_workspace_resource();
-  auto total_mem     = device_memory->get_mem_info(stream).second;
-  raft::spatial::knn::detail::faiss_select::chooseTileSize(
-    m, n, n, sizeof(value_t), total_mem, tile_rows, tile_cols);
+  auto device = faiss::gpu::getCurrentDevice();
+  auto stream = handle.get_stream();
 
-  // tile_cols must be at least k items
-  tile_cols = std::max(tile_cols, static_cast<size_t>(k));
+  faiss::gpu::DeviceScope ds(device);
+  raft::spatial::knn::RmmGpuResources res;
 
-  // stores pairwise distances for the current tile
-  rmm::device_uvector<value_t> temp_distances(tile_rows * tile_cols, stream);
+  res.noTempMemory();
+  res.setDefaultStream(device, stream);
 
-  // if we're tiling over columns, we need additional buffers for temporary output
-  // distances/indices
-  size_t num_col_tiles = raft::ceildiv(n, tile_cols);
-  size_t temp_out_cols = k * num_col_tiles;
+  auto resImpl = res.getResources();
+  auto gpu_res = resImpl.get();
 
-  // the final column tile could have less than 'k' items in it
-  // in which case the number of columns here is too high in the temp output.
-  // adjust if necessary
-  auto last_col_tile_size = n % tile_cols;
-  if (last_col_tile_size && (last_col_tile_size < static_cast<size_t>(k))) {
-    temp_out_cols -= k - last_col_tile_size;
-  }
-  rmm::device_uvector<value_t> temp_out_distances(tile_rows * temp_out_cols, stream);
-  rmm::device_uvector<value_idx> temp_out_indices(tile_rows * temp_out_cols, stream);
+  gpu_res->initializeForDevice(device);
+  gpu_res->setDefaultStream(device, stream);
 
-  for (size_t i = 0; i < m; i += tile_rows) {
-    size_t current_query_size = std::min(tile_rows, m - i);
+  device = faiss::gpu::getCurrentDevice();
 
-    for (size_t j = 0; j < n; j += tile_cols) {
-      size_t current_centroid_size = std::min(tile_cols, n - j);
-      size_t current_k             = std::min(current_centroid_size, static_cast<size_t>(k));
+  auto tmp_mem_cur_device = gpu_res->getTempMemoryAvailableCurrentDevice();
 
-      raft::distance::pairwise_distance<value_t, int>(handle,
-                                                    X + i * n,
-                                                    X + j * n,
-                                                    temp_distances.data(),
-                                                    current_query_size,
-                                                    current_centroid_size,
-                                                    n,
-                                                    raft::distance::DistanceType::L2Expanded);
+  /**
+   * Compute L2 norm
+   */
+  rmm::device_uvector<value_t> norms(m, stream);
 
-      runL2SelectMin(temp_distances.data(),
-                     core_dists,
-                     out_dists + i * k,
-                     out_inds + i * k,
-                     (int) current_query_size,
-                     (int) current_centroid_size,
-                     i,
-                     j,
-                     current_k,
-                     alpha,
-                     stream);
+  auto core_dists_tensor = faiss::gpu::toDeviceTemporary<value_t, 1>(
+    gpu_res,
+    device,
+    const_cast<value_t*>(reinterpret_cast<const value_t*>(core_dists)),
+    stream,
+    {(int)m});
 
-      // if we're tiling over columns, we need to do a couple things to fix up
-      // the output of select_k
-      // 1. The column id's in the output are relative to the tile, so we need
-      // to adjust the column ids by adding the column the tile starts at (j)
-      // 2. select_k writes out output in a row-major format, which means we
-      // can't just concat the output of all the tiles and do a select_k on the
-      // concatenation.
-      // Fix both of these problems in a single pass here
-      if (tile_cols != n) {
-        const value_t* in_distances = out_dists + i * k;
-        const value_idx* in_indices     = out_inds + i * k;
-        value_t* out_distances      = temp_out_distances.data();
-        value_idx* out_indices          = temp_out_indices.data();
+  auto x_tensor = faiss::gpu::toDeviceTemporary<value_t, 2>(
+    gpu_res,
+    device,
+    const_cast<value_t*>(reinterpret_cast<const value_t*>(X)),
+    stream,
+    {(int)m, (int)n});
 
-        auto count = thrust::make_counting_iterator<value_idx>(0);
-        thrust::for_each(handle.get_thrust_policy(),
-                         count,
-                         count + current_query_size * current_k,
-                         [=] __device__(value_idx i) {
-                           value_idx row = i / current_k, col = i % current_k;
-                           value_idx out_index = row * temp_out_cols + j * k / tile_cols + col;
+  auto out_dists_tensor = faiss::gpu::toDeviceTemporary<value_t, 2>(
+    gpu_res,
+    device,
+    const_cast<value_t*>(reinterpret_cast<const value_t*>(out_dists)),
+    stream,
+    {(int)m, k});
 
-                           out_distances[out_index] = in_distances[i];
-                           out_indices[out_index]   = in_indices[i] + j;
-                         });
+  auto out_inds_tensor = faiss::gpu::toDeviceTemporary<value_idx, 2>(
+    gpu_res,
+    device,
+    const_cast<value_idx*>(reinterpret_cast<const value_idx*>(out_inds)),
+    stream,
+    {(int)m, k});
+
+  auto norms_tensor = faiss::gpu::toDeviceTemporary<value_t, 1>(
+    gpu_res,
+    device,
+    const_cast<value_t*>(reinterpret_cast<const value_t*>(norms.data())),
+    stream,
+    {(int)m});
+
+  runL2Norm(x_tensor, true, norms_tensor, true, stream);
+
+  /**
+   * Tile over PW dists, accumulating k-select
+   */
+
+  int tileRows = 0;
+  int tileCols = 0;
+  faiss::gpu::chooseTileSize(m, m, n, sizeof(value_t), tmp_mem_cur_device, tileRows, tileCols);
+
+  int numColTiles = raft::ceildiv(m, (size_t)tileCols);
+
+  faiss::gpu::DeviceTensor<value_t, 2, true> distanceBuf1(
+    gpu_res, faiss::gpu::makeTempAlloc(faiss::gpu::AllocType::Other, stream), {tileRows, tileCols});
+  faiss::gpu::DeviceTensor<value_t, 2, true> distanceBuf2(
+    gpu_res, faiss::gpu::makeTempAlloc(faiss::gpu::AllocType::Other, stream), {tileRows, tileCols});
+
+  faiss::gpu::DeviceTensor<value_t, 2, true>* distanceBufs[2] = {&distanceBuf1, &distanceBuf2};
+
+  faiss::gpu::DeviceTensor<value_t, 2, true> outDistanceBuf1(
+    gpu_res,
+    faiss::gpu::makeTempAlloc(faiss::gpu::AllocType::Other, stream),
+    {tileRows, numColTiles * k});
+  faiss::gpu::DeviceTensor<value_t, 2, true> outDistanceBuf2(
+    gpu_res,
+    faiss::gpu::makeTempAlloc(faiss::gpu::AllocType::Other, stream),
+    {tileRows, numColTiles * k});
+  faiss::gpu::DeviceTensor<value_t, 2, true>* outDistanceBufs[2] = {&outDistanceBuf1,
+                                                                    &outDistanceBuf2};
+
+  faiss::gpu::DeviceTensor<value_idx, 2, true> outIndexBuf1(
+    gpu_res,
+    faiss::gpu::makeTempAlloc(faiss::gpu::AllocType::Other, stream),
+    {tileRows, numColTiles * k});
+  faiss::gpu::DeviceTensor<value_idx, 2, true> outIndexBuf2(
+    gpu_res,
+    faiss::gpu::makeTempAlloc(faiss::gpu::AllocType::Other, stream),
+    {tileRows, numColTiles * k});
+  faiss::gpu::DeviceTensor<value_idx, 2, true>* outIndexBufs[2] = {&outIndexBuf1, &outIndexBuf2};
+
+  auto streams = gpu_res->getAlternateStreamsCurrentDevice();
+  faiss::gpu::streamWait(streams, {stream});
+
+  int curStream  = 0;
+  bool interrupt = false;
+
+  // Tile over the input queries
+  for (std::size_t i = 0; i < m; i += tileRows) {
+    if (interrupt || faiss::InterruptCallback::is_interrupted()) {
+      interrupt = true;
+      break;
+    }
+
+    int curQuerySize = std::min(static_cast<std::size_t>(tileRows), m - i);
+
+    auto outDistanceView = out_dists_tensor.narrow(0, i, curQuerySize);
+    auto outIndexView    = out_inds_tensor.narrow(0, i, curQuerySize);
+
+    auto queryView = x_tensor.narrow(0, i, curQuerySize);
+
+    auto outDistanceBufRowView = outDistanceBufs[curStream]->narrow(0, 0, curQuerySize);
+    auto outIndexBufRowView    = outIndexBufs[curStream]->narrow(0, 0, curQuerySize);
+
+    // Tile over the centroids
+    for (std::size_t j = 0; j < m; j += tileCols) {
+      if (faiss::InterruptCallback::is_interrupted()) {
+        interrupt = true;
+        break;
+      }
+
+      int curCentroidSize = std::min(static_cast<std::size_t>(tileCols), m - j);
+      int curColTile      = j / tileCols;
+
+      auto centroidsView = sliceCentroids(x_tensor, true, j, curCentroidSize);
+
+      auto distanceBufView =
+        distanceBufs[curStream]->narrow(0, 0, curQuerySize).narrow(1, 0, curCentroidSize);
+
+      auto outDistanceBufColView = outDistanceBufRowView.narrow(1, k * curColTile, k);
+      auto outIndexBufColView    = outIndexBufRowView.narrow(1, k * curColTile, k);
+
+      runMatrixMult(distanceBufView,
+                    false,  // not transposed
+                    queryView,
+                    false,  // transposed MM if col major
+                    centroidsView,
+                    true,  // transposed MM if row major
+                    -2.0f,
+                    0.0f,
+                    gpu_res->getBlasHandleCurrentDevice(),
+                    streams[curStream]);
+
+      if (static_cast<std::size_t>(tileCols) == m) {
+        // Write into the final output
+        runL2SelectMin<value_t>(distanceBufView,
+                                norms_tensor,
+                                core_dists_tensor,
+                                outDistanceView,
+                                outIndexView,
+                                i,
+                                j,
+                                k,
+                                alpha,
+                                streams[curStream]);
+      } else {
+        // Write into our intermediate output
+        runL2SelectMin<value_t>(distanceBufView,
+                                norms_tensor,
+                                core_dists_tensor,
+                                outDistanceBufColView,
+                                outIndexBufColView,
+                                i,
+                                j,
+                                k,
+                                alpha,
+                                streams[curStream]);
       }
     }
 
-    if (tile_cols != n) {
-      // select the actual top-k items here from the temporary output
-      raft::spatial::knn::detail::select_k<value_idx, value_t>(temp_out_distances.data(),
-                                                                   temp_out_indices.data(),
-                                                                   current_query_size,
-                                                                   temp_out_cols,
-                                                                   out_dists + i * k,
-                                                                   out_inds + i * k,
-                                                                   true,
-                                                                   k,
-                                                                   stream);
+    // As we're finished with processing a full set of centroids, perform
+    // the final k-selection
+    if (static_cast<std::size_t>(tileCols) != m) {
+      // The indices are tile-relative; for each tile of k, we need to add
+      // tileCols to the index
+      faiss::gpu::runIncrementIndex(outIndexBufRowView, k, tileCols, streams[curStream]);
+
+      faiss::gpu::runBlockSelectPair(outDistanceBufRowView,
+                                     outIndexBufRowView,
+                                     outDistanceView,
+                                     outIndexView,
+                                     false,
+                                     k,
+                                     streams[curStream]);
     }
+
+    curStream = (curStream + 1) % 2;
   }
+
+  // Have the desired ordering stream wait on the multi-stream
+  faiss::gpu::streamWait({stream}, streams);
+
+  if (interrupt) { FAISS_THROW_MSG("interrupted"); }
 }
 
 };  // end namespace Reachability
