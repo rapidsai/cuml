@@ -48,7 +48,7 @@ from cuml.svm.svm_base import SVMBase
 from cuml.internals.import_utils import has_sklearn
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
-from cuml.common.array_sparse import SparseCumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
