@@ -154,6 +154,8 @@ void dist_membership_vector(const raft::handle_t& handle,
                       });
   }
 
+  raft::print_device_vector("points_to_predict[0]", in, 20, std::cout);
+
   // Normalize the obtained result to sum to 1.0
   Utils::normalize(dist_membership_vec, n_selected_clusters, m, stream);
 };
@@ -527,11 +529,10 @@ void membership_vector(const raft::handle_t& handle,
                          prediction_data.get_exemplar_idx(),
                          prediction_data.get_exemplar_label_offsets(),
                          dist_membership_vec.data(),
-                         raft::distance::DistanceType::L2SqrtExpanded,
-                         false);
+                         raft::distance::DistanceType::L2SqrtExpanded);
   
   
-  // raft::print_device_vector("dist_membership_vec", dist_membership_vec.data(), 20, stream);
+  raft::print_device_vector("dist_membership_vec", dist_membership_vec.data(), 100, std::cout);
   // raft::print_device_vector("dist_memnb", f_idx_sorted.data(), n_train, ss);
 
    rmm::device_uvector<value_t> prediction_lambdas(n_prediction_points, stream);
