@@ -120,6 +120,11 @@ void generate_prediction_data(const raft::handle_t& handle,
   auto n_leaves   = condensed_tree.get_n_leaves();
   auto sizes      = condensed_tree.get_sizes();
 
+  raft::print_device_vector("all_parents", parents, n_edges, stream);
+  raft::print_device_vector("all_children", children, n_edges, stream);
+  raft::print_device_vector("all_lambdas", lambdas, n_edges, stream);
+  raft::print_device_vector("all_sizes", sizes, n_edges, stream);
+
   // first compute the death of each cluster in the condensed hierarchy
   rmm::device_uvector<int> sorted_parents(n_edges, stream);
   raft::copy_async(sorted_parents.data(), parents, n_edges, stream);

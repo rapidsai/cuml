@@ -518,7 +518,8 @@ void membership_vector(const raft::handle_t& handle,
   auto counting = thrust::make_counting_iterator<value_idx>(0);
   rmm::device_uvector<value_t> dist_membership_vec(n_prediction_points * n_selected_clusters, stream);
 
-  dist_membership_vector(points_to_predict,
+  dist_membership_vector(handle,
+  points_to_predict,
                          n_prediction_points,
                          n,
                          n_exemplars,
@@ -528,6 +529,10 @@ void membership_vector(const raft::handle_t& handle,
                          dist_membership_vec.data(),
                          raft::distance::DistanceType::L2SqrtExpanded,
                          false);
+  
+  
+  // raft::print_device_vector("dist_membership_vec", dist_membership_vec.data(), 20, stream);
+  // raft::print_device_vector("dist_memnb", f_idx_sorted.data(), n_train, ss);
 
    rmm::device_uvector<value_t> prediction_lambdas(n_prediction_points, stream);
   rmm::device_uvector<value_idx> min_mr_inds(n_prediction_points, stream);
@@ -535,8 +540,7 @@ void membership_vector(const raft::handle_t& handle,
   _compute_knn_and_nearest_neighbor(handle,
                                        prediction_data,
                                        X,
-                                       m,
-                                       n,
+                                       points_to_predict,
                                        min_samples,
                                        n_prediction_points,
                                        min_mr_inds.data(),
@@ -569,7 +573,7 @@ void membership_vector(const raft::handle_t& handle,
   // Normalize to obtain probabilities conditioned on points belonging to some cluster
     Utils::normalize(membership_vec, n_selected_clusters, n_prediction_points, stream);
 
-    rmm::device_uvector<value_t> prob_in_some_cluster(n_prediction_points, stream);
+    rmm::device_uvector<value_t> prob_in_some_cluster_(n_prediction_points, stream);
 
   prob_in_some_cluster(handle,
                        condensed_tree,
@@ -578,15 +582,16 @@ void membership_vector(const raft::handle_t& handle,
                        index_into_children,
                        n_prediction_points,
                        n_selected_clusters,
+                       min_mr_inds.data(),
                        merge_heights.data(),
-                       prob_in_some_cluster.data());
+                       prob_in_some_cluster_.data());
 
     
     // Multiply with probabilities of points belonging to some cluster to obtain joint distribution
     raft::linalg::matrixVectorOp(
       membership_vec,
       membership_vec,
-      prob_in_some_cluster.data(),
+      prob_in_some_cluster_.data(),
       n_selected_clusters,
       (value_idx)n_prediction_points,
       true,

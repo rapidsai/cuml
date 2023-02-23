@@ -96,6 +96,17 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
         float* X,
         DistanceType metric,
         float* membership_vec)
+    
+    void compute_membership_vector(
+        const handle_t& handle,
+        CondensedHierarchy[int, float] &condensed_tree,
+        PredictionData[int, float] &prediction_data,
+        float* X,
+        float* points_to_predict,
+        size_t n_prediction_points,
+        int min_samples,
+        DistanceType metric,
+        float* membership_vec);
 
     void out_of_sample_predict(const handle_t &handle,
                                CondensedHierarchy[int, float] &condensed_tree,
@@ -207,6 +218,121 @@ def all_points_membership_vectors(clusterer):
     return membership_vec.to_output(
         output_type="numpy",
         output_dtype="float32").reshape((clusterer.n_rows,
+                                         clusterer.n_clusters_))
+
+
+def membership_vector(clusterer, points_to_predict, convert_dtype=True):
+    """Predict the cluster label of new points. The returned labels
+    will be those of the original clustering found by ``clusterer``,
+    and therefore are not (necessarily) the cluster labels that would
+    be found by clustering the original data combined with
+    ``points_to_predict``, hence the 'approximate' label.
+
+    If you simply wish to assign new points to an existing clustering
+    in the 'best' way possible, this is the function to use. If you
+    want to predict how ``points_to_predict`` would cluster with
+    the original data under HDBSCAN the most efficient existing approach
+    is to simply recluster with the new point(s) added to the original dataset.
+
+    Parameters
+    ----------
+    clusterer : HDBSCAN
+        A clustering object that has been fit to the data and
+        had ``prediction_data=True`` set.
+
+    points_to_predict : array, or array-like (n_samples, n_features)
+        The new data points to predict cluster labels for. They should
+        have the same dimensionality as the original dataset over which
+        clusterer was fit.
+
+    Returns
+    -------
+    labels : array (n_samples,)
+        The predicted labels of the ``points_to_predict``
+
+    probabilities : array (n_samples,)
+        The soft cluster scores for each of the ``points_to_predict``
+    """
+
+    device_type = cuml.global_settings.device_type
+
+    # cpu infer, cpu/gpu train
+    #if device_type == DeviceType.host:
+    #    assert has_hdbscan_prediction()
+    #    from hdbscan.prediction import approximate_predict \
+    #        as cpu_approximate_predict
+
+    #    # trained on gpu
+    #    if not hasattr(clusterer, "_cpu_model"):
+    #        # the reference HDBSCAN implementations uses @property
+    #        # for attributes without setters available for them,
+    #        # so they can't be transferred from the GPU model
+    #        # to the CPU model
+    #        raise ValueError("Inferring on CPU is not supported yet when the "
+    #                         "model has been trained on GPU")
+
+    #    host_points_to_predict = input_to_host_array(points_to_predict).array
+    #    return cpu_approximate_predict(clusterer._cpu_model,
+    #                                   host_points_to_predict)
+
+    #elif device_type == DeviceType.device:
+    #    # trained on cpu
+    #    if hasattr(clusterer, "_cpu_model"):
+    #        clusterer._prep_cpu_to_gpu_prediction()
+
+    if not clusterer.fit_called_:
+        raise ValueError("The clusterer is not fit on data. "
+                         "Please call clusterer.fit first")
+
+    if not clusterer.prediction_data:
+        raise ValueError("PredictionData not generated. "
+                         "Please call clusterer.fit again with "
+                         "prediction_data=True")
+
+    if clusterer.n_clusters_ == 0:
+        return np.zeros(clusterer.n_rows, dtype=np.float32)
+
+    points_to_predict_m, n_prediction_points, n_cols, _ = \
+        input_to_cuml_array(points_to_predict, order='C',
+                            check_dtype=[np.float32],
+                            convert_to_dtype=(np.float32
+                                              if convert_dtype
+                                              else None))
+
+    if n_cols != clusterer.n_cols:
+        raise ValueError('New points dimension does not match fit data!')
+
+    cdef uintptr_t prediction_ptr = points_to_predict_m.ptr
+    cdef uintptr_t input_ptr = clusterer.X_m.ptr
+    
+    membership_vec = CumlArray.empty(
+        (n_prediction_points * clusterer.n_clusters_,),
+        dtype="float32")
+
+    cdef uintptr_t membership_vec_ptr = membership_vec.ptr
+
+    cdef CondensedHierarchy[int, float] *condensed_tree = \
+        <CondensedHierarchy[int, float]*><size_t> clusterer.condensed_tree_ptr
+
+    cdef PredictionData *prediction_data_ = \
+        <PredictionData*><size_t>clusterer.prediction_data_ptr
+
+    cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
+
+    compute_membership_vector(handle_[0],
+                              deref(condensed_tree),
+                              deref(prediction_data_),
+                              <float*> input_ptr,
+                              <float*> prediction_ptr,
+                              n_prediction_points,
+                              clusterer.min_samples,
+                              _metrics_mapping[clusterer.metric],
+                              <float*> membership_vec_ptr)
+
+    clusterer.handle.sync()
+    return membership_vec.to_output(
+        output_type="numpy",
+        output_dtype="float32").reshape((n_prediction_points,
                                          clusterer.n_clusters_))
 
 
