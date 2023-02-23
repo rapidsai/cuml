@@ -106,13 +106,8 @@ from cuml.internals.memory_utils import (
 
 from cuml.linear_model.linear_regression import LinearRegression
 
-# Import verion. Remove at end of file
-from ._version import get_versions
-
-
 # Version configuration
-__version__ = get_versions()["version"]
-del get_versions
+__version__ = "23.04.00"
 
 
 def __getattr__(name):
