@@ -91,7 +91,7 @@ void compute_all_points_membership_vectors(
   HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
   HDBSCAN::Common::PredictionData<int, float>& prediction_data,
   const float* X,
-  raft::distance::DistanceType metric,
+raft::distance::DistanceType metric,
   float* membership_vec)
 {
   HDBSCAN::detail::Predict::all_points_membership_vectors(
@@ -110,7 +110,7 @@ void compute_membership_vector(
   float* membership_vec)
 {
   HDBSCAN::detail::Predict::membership_vector(
-    handle, condensed_tree, prediction_data, X, points_to_predict, n_prediction_points, metric, min_samples, membership_vec);
+    handle, condensed_tree, prediction_data, X, points_to_predict, n_prediction_points, metric, min_samples + 1, membership_vec);
 }
 
 void out_of_sample_predict(const raft::handle_t& handle,

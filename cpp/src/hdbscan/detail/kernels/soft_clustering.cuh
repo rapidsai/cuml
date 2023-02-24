@@ -54,6 +54,7 @@ __global__ void merge_height_kernel(value_t* heights,
 
     if (took_left_parent && took_right_parent) {
       heights[idx] = lambdas[index_into_children[last_cluster]];
+      // printf("%d %d %d %f\n", row, col, last_cluster, heights[idx]);
     }
 
     else {

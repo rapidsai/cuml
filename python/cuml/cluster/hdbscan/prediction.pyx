@@ -299,6 +299,10 @@ def membership_vector(clusterer, points_to_predict, convert_dtype=True):
                                               if convert_dtype
                                               else None))
 
+    print(n_prediction_points, n_cols)
+    print(clusterer.min_samples)
+    print(clusterer.n_clusters_)
+
     if n_cols != clusterer.n_cols:
         raise ValueError('New points dimension does not match fit data!')
 
