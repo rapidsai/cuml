@@ -53,6 +53,11 @@ repos:
                 - cpp/test
             pass_filenames: false
             language: python
+    - repo: https://github.com/rapidsai/dependency-file-generator
+      rev: v1.4.0
+      hooks:
+          - id: rapids-dependency-file-generator
+            args: ["--clean"]
 
 default_language_version:
     python: python3
