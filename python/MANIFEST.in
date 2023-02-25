@@ -1,0 +1,8 @@
+# Cython files
+recursive-include cuml *.pxd
+recursive-include cuml *.pyx
+
+# Build files. Don't use a recursive include on '.' in case the repo is dirty
+include . CMakeLists.txt
+recursive-include cudf CMakeLists.txt
+recursive-include cmake *
