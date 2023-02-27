@@ -52,6 +52,7 @@ checkCuda(cudaStreamCreate(&stream));
 
 auto fil_model = import_from_treelite_model(
   *tl_model,  // The Treelite model
+  tree_layout::depth_first, // layout
   128u,  // align_bytes
   false,  // use_double_precision
   raft_proto::device_type::gpu,  // mem_type
@@ -59,6 +60,11 @@ auto fil_model = import_from_treelite_model(
   stream  // CUDA stream
 );
 ```
+
+**layout:** The in-memory layout of nodes in the model. Depending on the model,
+either `depth_first` or `breadth_first` may offer better performance.
+In general, shallow trees benefit from a `breadth_first` layout, and deep trees
+benefit from a `depth_first` layout, but this pattern is not absolute.
 
 **align_bytes:** If given a non-zero value, each tree will be padded to a size
 that is a multiple of this value by appending additional empty nodes. This
@@ -114,7 +120,6 @@ fil_model.predict(
   num_rows,
   raft_proto::device_type::gpu,  // out_mem_type
   raft_proto::device_type::gpu,  // in_mem_type
-  out_mem_type,
   4  // chunk_size
 );
 ```

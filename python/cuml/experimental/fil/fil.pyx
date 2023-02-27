@@ -71,8 +71,8 @@ cdef class TreeliteModel():
     handle : ModelHandle
         Opaque pointer to Treelite model
     """
-    cpdef ModelHandle handle
-    cpdef bool owns_handle
+    cdef ModelHandle handle
+    cdef bool owns_handle
 
     def __cinit__(self, owns_handle=True):
         """If owns_handle is True, free the handle's model in destructor.
@@ -401,6 +401,121 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
     """
     ForestInference provides accelerated inference for forest models on both
     CPU and GPU.
+
+    This experimental implementation
+    (`cuml.experimental.ForestInference`) of ForestInference is similar to the
+    original (`cuml.ForestInference`) FIL, but it also offers CPU
+    execution and in some cases superior performance for GPU execution.
+
+    Note: This is an experimental feature. Although it has been
+    extensively reviewed and tested, it has not been as thoroughly evaluated
+    as the original FIL. For maximum stability, we recommend using the
+    original FIL until this implementation moves out of experimental.
+
+    In general, the experimental implementation tends to underperform
+    the existing implementation on shallow trees but otherwise tends to offer
+    comparable or superior performance. Which implementation offers the best
+    performance depends on a range of factors including hardware and details of
+    the individual model, so for now it is recommended that users test both
+    implementations in cases where CPU execution is unnecessary and performance
+    is critical.
+
+    **Performance Tuning**
+    To obtain optimal performance with this implementation of FIL, the single
+    most important value is the `chunk_size` parameter passed to the predict
+    method. Essentially, `chunk_size` determines how many rows to evaluate
+    together at once from a single batch. Larger values reduce global memory
+    accesses on GPU and cache misses on CPU, but smaller values allow for
+    finer-grained parallelism, improving usage of available processing power.
+    The optimal value for this parameter is hard to predict a priori, but in
+    general larger batch sizes benefit from larger chunk sizes and smaller
+    batch sizes benefit from smaller chunk sizes. Having a chunk size larger
+    than the batch size is never optimal.
+
+    To determine the optimal chunk size on GPU, test powers of 2 from 1 to
+    32. Values above 32 and values which are not powers of 2 are not supported.
+
+    To determine the optimal chunk size on CPU, test powers of 2 from 1 to
+    512. Values above 512 are supported, but RAPIDS developers have not yet
+    seen a case where they yield improved performance.
+
+    After chunk size, the most important performance parameter is `layout`,
+    also described below. Testing both breadth-first and depth-first is
+    recommended to optimize performance, but the impact is likely to be
+    substantially less than optimizing `chunk_size`. Particularly for large
+    models, the default value (depth-first) is likely to improve cache
+    hits and thereby increase performance, but this is not universally true.
+
+    `align_bytes` is the final performance parameter, but it has minimal
+    impact on both CPU and GPU and may be removed in a later version.
+    If set, this value causes trees to be padded with empty nodes until
+    their total in-memory size is a multiple of the given value.
+    Theoretically, this can improve performance by ensuring that reads of
+    tree data begin at a cache line boundary, but experimental evidence
+    offers limited support for this. It is recommended that a value of 128 be
+    used for GPU execution and a value of either None or 64 be used for CPU
+    execution.
+
+    Parameters
+    ----------
+    treelite_model : treelite.Model
+        The model to be used for inference. This can be trained with XGBoost,
+        LightGBM, cuML, Scikit-Learn, or any other forest model framework
+        so long as it can be loaded into a treelite.Model object (See
+        https://treelite.readthedocs.io/en/latest/treelite-api.html).
+    handle : pylibraft.common.handle or None
+        For GPU execution, the RAFT handle containing the stream or stream
+        pool to use during loading and inference. If input is provide to
+        this model in the wrong memory location (e.g. host memory input but
+        GPU execution), the input will be copied to the correct location
+        using as many streams as are available in the handle. It is therefore
+        recommended that a handle with a stream pool be used for models where
+        it is expected that large input arrays will be coming from the host but
+        evaluated on device.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_class : boolean
+        True for classifier models, false for regressors.
+    layout : {'breadth_first', 'depth_first'}, default='depth_first'
+        The in-memory layout to be used during inference for nodes of the
+        forest model. This parameter is available purely for runtime
+        optimization. For performance-critical applications, it is
+        recommended that both layouts be tested with realistic batch sizes to
+        determine the optimal value.
+    align_bytes : int or None, default=None
+        If set, each tree will be padded with empty nodes until its in-memory
+        size is a multiple of the given value. It is recommended that a
+        value of 128 be used for GPU and either None or 64 be used for CPU.
+    precision : {'single', 'double', None}, default='single'
+        Use the given floating point precision for evaluating the model. If
+        None, use the native precision of the model. Note that
+        single-precision execution is substantially faster than
+        double-precision execution, so double-precision is recommended
+        only for models trained and double precision and when exact
+        conformance between results from FIL and the original training
+        framework is of paramount importance.
+    mem_type : {'device', 'host', None}, default='single'
+        The memory type to use for initially loading the model. If None, the
+        current global memory type setting will be used. If the model is
+        loaded with one memory type and inference is later requested with an
+        incompatible device (e.g. device memory and CPU
+        execution), the model will be lazily loaded to the correct location
+        at that time. In general, it should not be necessary to set this
+        parameter directly (rely instead on the `using_device_type` context
+        manager), but it can be a useful convenience for some
+        hyperoptimization pipelines.
+
+    device_id : int, default=0
+        For GPU execution, the device on which to load and execute this
+        model. For CPU execution, this value is currently ignored.
+
     """
 
     def __init__(
@@ -411,7 +526,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             output_type=None,
             verbose=False,
             output_class=False,
-            layout='breadth_first',
+            layout='depth_first',
             align_bytes=None,
             precision='single',
             mem_type=None,
@@ -466,6 +581,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
     @property
     def gpu_forest(self):
+        """The underlying FIL forest model loaded in GPU-accessible memory"""
         try:
             return self._gpu_forest
         except AttributeError:
@@ -474,6 +590,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
     @property
     def cpu_forest(self):
+        """The underlying FIL forest model loaded in CPU-accessible memory"""
         try:
             return self._cpu_forest
         except AttributeError:
@@ -482,6 +599,8 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
     @property
     def forest(self):
+        """The underlying FIL forest model loaded in memory compatible with the
+        current global device_type setting"""
         if GlobalSettings().device_type == DeviceType.device:
             return self.gpu_forest
         else:
@@ -505,10 +624,93 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             output_type=None,
             verbose=False,
             align_bytes=None,
-            layout='breadth_first',
+            layout='depth_first',
             mem_type=None,
             device_id=0,
             handle=None):
+        """Load a model into FIL from a serialized model file.
+
+        Parameters
+        ----------
+        path : str
+            The path to the serialized model file. This can be an XGBoost
+            binary or JSON file, a LightGBM text file, or a Treelite checkpoint
+            file. If the model_type parameter is not passed, an attempt will be
+            made to load the file based on its extension.
+        output_class : boolean, default=False
+            True for classification models, False for regressors
+        threshold : float
+            For binary classifiers, outputs above this value will be considered
+            a positive detection.
+        algo
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL. Please see `layout` for a
+            parameter that fulfills a similar purpose.
+        storage_type
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL.
+        blocks_per_sm
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL.
+        threads_per_tree : int
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL. Please see the `chunk_size`
+            parameter of the predict method for equivalent functionality.
+        n_items
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL.
+        compute_shape_str
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL.
+        precision : {'single', 'double', None}, default='single'
+            Use the given floating point precision for evaluating the model. If
+            None, use the native precision of the model. Note that
+            single-precision execution is substantially faster than
+            double-precision execution, so double-precision is recommended
+            only for models trained and double precision and when exact
+            conformance between results from FIL and the original training
+            framework is of paramount importance.
+        model_type : {'xgboost', 'xgboost_json', 'lightgbm',
+            'treelite_checkpoint', None }, default=None
+            The serialization format for the model file. If None, a best-effort
+            guess will be made based on the file extension.
+        output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+            'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+            Return results and set estimator attributes to the indicated output
+            type. If None, the output type set at the module level
+            (`cuml.global_settings.output_type`) will be used. See
+            :ref:`output-data-type-configuration` for more info.
+        verbose : int or boolean, default=False
+            Sets logging level. It must be one of `cuml.common.logger.level_*`.
+            See :ref:`verbosity-levels` for more info.
+        align_bytes : int or None, default=None
+            If set, each tree will be padded with empty nodes until its
+            in-memory size is a multiple of the given value. It is recommended
+            that a value of 128 be used for GPU and either None or 64 be used
+            for CPU.
+        layout : {'breadth_first', 'depth_first'}, default='depth_first'
+            The in-memory layout to be used during inference for nodes of the
+            forest model. This parameter is available purely for runtime
+            optimization. For performance-critical applications, it is
+            recommended that both layouts be tested with realistic batch sizes
+            to determine the optimal value.
+        mem_type : {'device', 'host', None}, default='single'
+            The memory type to use for initially loading the model. If None,
+            the current global memory type setting will be used. If the model
+            is loaded with one memory type and inference is later requested
+            with an incompatible device (e.g. device memory and CPU execution),
+            the model will be lazily loaded to the correct location at that
+            time. In general, it should not be necessary to set this parameter
+            directly (rely instead on the `using_device_type` context manager),
+            but it can be a useful convenience for some hyperoptimization
+            pipelines.
+        device_id : int, default=0
+            For GPU execution, the device on which to load and execute this
+            model. For CPU execution, this value is currently ignored.
+        handle : pylibraft.common.handle or None
+            For GPU execution, the RAFT handle containing the stream or stream
+            pool to use during loading and inference.
+        """
         _handle_legacy_args(
             threshold=threshold,
             algo=algo,
@@ -564,6 +766,87 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             mem_type=None,
             device_id=0,
             handle=None):
+        """Load a Scikit-Learn forest model to FIL
+
+        Parameters
+        ----------
+        skl_model
+            The Scikit-Learn forest model to load.
+        output_class : boolean, default=False
+            True for classification models, False for regressors
+        threshold : float
+            For binary classifiers, outputs above this value will be considered
+            a positive detection.
+        algo
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL. Please see `layout` for a
+            parameter that fulfills a similar purpose.
+        storage_type
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL.
+        blocks_per_sm
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL.
+        threads_per_tree : int
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL. Please see `chunk_size` for a
+            parameter that fulfills an equivalent purpose. If a value is passed
+            for this parameter, it will be used as the `chunk_size` for now.
+        n_items
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL.
+        compute_shape_str
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL.
+        precision : {'single', 'double', None}, default='single'
+            Use the given floating point precision for evaluating the model. If
+            None, use the native precision of the model. Note that
+            single-precision execution is substantially faster than
+            double-precision execution, so double-precision is recommended
+            only for models trained and double precision and when exact
+            conformance between results from FIL and the original training
+            framework is of paramount importance.
+        model_type : {'xgboost', 'xgboost_json', 'lightgbm',
+            'treelite_checkpoint', None }, default=None
+            The serialization format for the model file. If None, a best-effort
+            guess will be made based on the file extension.
+        output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+            'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+            Return results and set estimator attributes to the indicated output
+            type. If None, the output type set at the module level
+            (`cuml.global_settings.output_type`) will be used. See
+            :ref:`output-data-type-configuration` for more info.
+        verbose : int or boolean, default=False
+            Sets logging level. It must be one of `cuml.common.logger.level_*`.
+            See :ref:`verbosity-levels` for more info.
+        align_bytes : int or None, default=None
+            If set, each tree will be padded with empty nodes until its
+            in-memory size is a multiple of the given value. It is recommended
+            that a
+            value of 128 be used for GPU and either None or 64 be used for CPU.
+        layout : {'breadth_first', 'depth_first'}, default='depth_first'
+            The in-memory layout to be used during inference for nodes of the
+            forest model. This parameter is available purely for runtime
+            optimization. For performance-critical applications, it is
+            recommended that both layouts be tested with realistic batch sizes
+            to determine the optimal value.
+        mem_type : {'device', 'host', None}, default='single'
+            The memory type to use for initially loading the model. If None,
+            the current global memory type setting will be used. If the model
+            is loaded with one memory type and inference is later requested
+            with an incompatible device (e.g. device memory and CPU execution),
+            the model will be lazily loaded to the correct location at that
+            time. In general, it should not be necessary to set this parameter
+            directly (rely instead on the `using_device_type` context manager),
+            but it can be a useful convenience for some hyperoptimization
+            pipelines.
+        device_id : int, default=0
+            For GPU execution, the device on which to load and execute this
+            model. For CPU execution, this value is currently ignored.
+        handle : pylibraft.common.handle or None
+            For GPU execution, the RAFT handle containing the stream or stream
+            pool to use during loading and inference.
+        """
         _handle_legacy_args(
             threshold=threshold,
             algo=algo,
@@ -614,6 +897,87 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             mem_type=None,
             device_id=0,
             handle=None):
+        """Load a Treelite model to FIL
+
+        Parameters
+        ----------
+        tl_model : treelite.model
+            The Treelite model to load.
+        output_class : boolean, default=False
+            True for classification models, False for regressors
+        threshold : float
+            For binary classifiers, outputs above this value will be considered
+            a positive detection.
+        algo
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL. Please see `layout` for a
+            parameter that fulfills a similar purpose.
+        storage_type
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL.
+        blocks_per_sm
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL.
+        threads_per_tree : int
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL. Please see `chunk_size` for a
+            parameter that fulfills an equivalent purpose. If a value is passed
+            for this parameter, it will be used as the `chunk_size` for now.
+        n_items
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL.
+        compute_shape_str
+            This parameter is deprecated. It is currently retained for
+            compatibility with existing FIL.
+        precision : {'single', 'double', None}, default='single'
+            Use the given floating point precision for evaluating the model. If
+            None, use the native precision of the model. Note that
+            single-precision execution is substantially faster than
+            double-precision execution, so double-precision is recommended
+            only for models trained and double precision and when exact
+            conformance between results from FIL and the original training
+            framework is of paramount importance.
+        model_type : {'xgboost', 'xgboost_json', 'lightgbm',
+            'treelite_checkpoint', None }, default=None
+            The serialization format for the model file. If None, a best-effort
+            guess will be made based on the file extension.
+        output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+            'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+            Return results and set estimator attributes to the indicated output
+            type. If None, the output type set at the module level
+            (`cuml.global_settings.output_type`) will be used. See
+            :ref:`output-data-type-configuration` for more info.
+        verbose : int or boolean, default=False
+            Sets logging level. It must be one of `cuml.common.logger.level_*`.
+            See :ref:`verbosity-levels` for more info.
+        align_bytes : int or None, default=None
+            If set, each tree will be padded with empty nodes until its
+            in-memory size is a multiple of the given value. It is recommended
+            that a value of 128 be used for GPU and either None or 64 be used
+            for CPU.
+        layout : {'breadth_first', 'depth_first'}, default='depth_first'
+            The in-memory layout to be used during inference for nodes of the
+            forest model. This parameter is available purely for runtime
+            optimization. For performance-critical applications, it is
+            recommended that both layouts be tested with realistic batch sizes
+            to determine the optimal value.
+        mem_type : {'device', 'host', None}, default='single'
+            The memory type to use for initially loading the model. If None,
+            the current global memory type setting will be used. If the model
+            is loaded with one memory type and inference is later requested
+            with an incompatible device (e.g. device memory and CPU execution),
+            the model will be lazily loaded to the correct location at that
+            time. In general, it should not be necessary to set this parameter
+            directly (rely instead on the `using_device_type` context
+            manager), but it can be a useful convenience for some
+            hyperoptimization pipelines.
+        device_id : int, default=0
+            For GPU execution, the device on which to load and execute this
+            model. For CPU execution, this value is currently ignored.
+        handle : pylibraft.common.handle or None
+            For GPU execution, the RAFT handle containing the stream or stream
+            pool to use during loading and inference.
+        """
         _handle_legacy_args(
             threshold=threshold,
             algo=algo,
@@ -641,6 +1005,42 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         domain='cuml_python'
     )
     def predict_proba(self, X, *, preds=None, chunk_size=None) -> CumlArray:
+        """
+        Predict the class probabilities for each row in X.
+
+        Parameters
+        ----------
+        X
+            The input data of shape Rows X Features. This can be a numpy
+            array, cupy array, Pandas/cuDF Dataframe or any other array type
+            accepted by cuML. FIL is optimized for C-major arrays (e.g.
+            numpy/cupy arrays). Inputs whose datatype does not match the
+            precision of the loaded model (float/double) will be converted
+            to the correct datatype before inference. If this input is in a
+            memory location that is inaccessible to the current device type
+            (as set with e.g. the `using_device_type` context manager),
+            it will be copied to the correct location. This copy will be
+            distributed across as many CUDA streams as are available
+            in the stream pool of the model's RAFT handle.
+        preds
+            If non-None, outputs will be written in-place to this array.
+            Therefore, if given, this should be a C-major array of shape Rows x
+            Classes with a datatype (float/double) corresponding to the
+            precision of the model. If None, an output array of the correct
+            shape and type will be allocated and returned.
+        chunk_size : int
+            The number of rows to simultaneously process in one iteration
+            of the inference algorithm. Batches are further broken down into
+            "chunks" of this size when assigning available threads to tasks.
+            The choice of chunk size can have a substantial impact on
+            performance, but the optimal choice depends on model and
+            hardware and is difficult to predict a priori. In general,
+            larger batch sizes benefit from larger chunk sizes, and smaller
+            batch sizes benefit from small chunk sizes. On GPU, valid
+            values are powers of 2 from 1 to 32. On CPU, valid values are
+            any power of 2, but little benefit is expected above a chunk size
+            of 512.
+        """
         if not self.is_classifier:
             raise RuntimeError(
                 "predict_proba is not available for regression models. Load"
@@ -659,17 +1059,70 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             preds=None,
             chunk_size=None,
             threshold=None) -> CumlArray:
-        proba = self.forest.predict(X, preds=preds, chunk_size=chunk_size)
+        """
+        For classification models, predict the class for each row. For
+        regression models, predict the output for each row.
+
+        Parameters
+        ----------
+        X
+            The input data of shape Rows X Features. This can be a numpy
+            array, cupy array, Pandas/cuDF Dataframe or any other array type
+            accepted by cuML. FIL is optimized for C-major arrays (e.g.
+            numpy/cupy arrays). Inputs whose datatype does not match the
+            precision of the loaded model (float/double) will be converted
+            to the correct datatype before inference. If this input is in a
+            memory location that is inaccessible to the current device type
+            (as set with e.g. the `using_device_type` context manager),
+            it will be copied to the correct location. This copy will be
+            distributed across as many CUDA streams as are available
+            in the stream pool of the model's RAFT handle.
+        preds
+            If non-None, outputs will be written in-place to this array.
+            Therefore, if given, this should be a C-major array of shape Rows x
+            1 with a datatype (float/double) corresponding to the precision of
+            the model. If None, an output array of the correct shape and
+            type will be allocated and returned. For classifiers, in-place
+            prediction offers no performance or memory benefit. For regressors,
+            in-place prediction offers both a performance and memory
+            benefit.
+        chunk_size : int
+            The number of rows to simultaneously process in one iteration
+            of the inference algorithm. Batches are further broken down into
+            "chunks" of this size when assigning available threads to tasks.
+            The choice of chunk size can have a substantial impact on
+            performance, but the optimal choice depends on model and
+            hardware and is difficult to predict a priori. In general,
+            larger batch sizes benefit from larger chunk sizes, and smaller
+            batch sizes benefit from small chunk sizes. On GPU, valid
+            values are powers of 2 from 1 to 32. On CPU, valid values are
+            any power of 2, but little benefit is expected above a chunk size
+            of 512.
+        threshold : float
+            For binary classifiers, output probabilities above this threshold
+            will be considered positive detections. If None, a threshold
+            of 0.5 will be used for binary classifiers. For multiclass
+            classifiers, the highest probability class is chosen regardless
+            of threshold.
+        """
         if self.is_classifier:
+            proba = self.forest.predict(X, chunk_size=chunk_size)
             if len(proba.shape) < 2 or proba.shape[1] == 1:
                 if threshold is None:
                     threshold = 0.5
-                return (
+                result = (
                     proba.to_output(output_type='array') > threshold
                 ).astype('int')
             else:
-                return GlobalSettings().xpy.argmax(
+                result = GlobalSettings().xpy.argmax(
                     proba.to_output(output_type='array'), axis=1
                 )
+            if preds is None:
+                return result
+            else:
+                preds[:] = result
+                return preds
         else:
-            return proba
+            return self.forest.predict(
+                X, preds=preds, chunk_size=chunk_size
+            )
