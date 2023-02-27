@@ -43,7 +43,11 @@ except UnavailableError:
     pass
 sparse_matrix_classes = tuple(sparse_matrix_classes)
 
-SparseCumlArrayInput = namedtuple('SparseCumlArrayInput', ['indptr', 'indices', 'data', 'nnz', 'dtype', 'shape'])
+SparseCumlArrayInput = namedtuple(
+    "SparseCumlArrayInput",
+    ["indptr", "indices", "data", "nnz", "dtype", "shape"],
+)
+
 
 @class_with_cupy_rmm()
 class SparseCumlArray:
@@ -134,7 +138,9 @@ class SparseCumlArray:
                     data = data.tocsr()  # currently only CSR is supported
                 else:
                     raise ValueError(
-                        "Expected CSR matrix but received {}".format(type(data))
+                        "Expected CSR matrix but received {}".format(
+                            type(data)
+                        )
                     )
 
         if not convert_to_dtype:

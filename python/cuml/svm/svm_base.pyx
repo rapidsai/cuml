@@ -34,7 +34,7 @@ from cuml.internals.base import Base
 from cuml.common.exceptions import NotFittedError
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
-from cuml.common.input_utils import determine_array_type_full
+from cuml.internals.input_utils import determine_array_type_full
 from cuml.common import using_output_type
 from cuml.internals.logger import warn
 from cuml.internals.mixins import FMajorInputTagMixin
@@ -79,8 +79,8 @@ cdef extern from "raft/distance/detail/matrix/matrix.hpp" namespace "raft::dista
         int n_rows
         int n_cols
         bool isDense()
-        DenseMatrix[math_t]* asDense() except +
-        CsrMatrix[math_t]* asCsr() except +
+        DenseMatrix[math_t]* asDense()
+        CsrMatrix[math_t]* asCsr()
 
     cdef cppclass CsrMatrix[math_t](Matrix[math_t]):
         int nnz;

@@ -84,41 +84,7 @@ class Results {
       idx_selected(n_train, stream),
       val_selected(n_train, stream),
       val_tmp(n_train, stream),
-      flag(n_train, stream),
-      tmp_matrix(nullptr)
-  {
-    InitCubBuffers();
-    raft::linalg::range(f_idx.data(), n_train, stream);
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
-  }
-
-  // legacy ctor
-  Results(const raft::handle_t& handle,
-          math_t* x,
-          const math_t* y,
-          int n_rows,
-          int n_cols,
-          const math_t* C,
-          SvmType svmType)
-    : rmm_alloc(rmm::mr::get_current_device_resource()),
-      stream(handle.get_stream()),
-      handle(handle),
-      n_rows(n_rows),
-      n_cols(n_cols),
-      y(y),
-      C(C),
-      svmType(svmType),
-      n_train(svmType == EPSILON_SVR ? n_rows * 2 : n_rows),
-      cub_storage(0, stream),
-      d_num_selected(stream),
-      d_val_reduced(stream),
-      f_idx(n_train, stream),
-      idx_selected(n_train, stream),
-      val_selected(n_train, stream),
-      val_tmp(n_train, stream),
-      flag(n_train, stream),
-      tmp_matrix(new DenseMatrix<math_t>(x, n_rows, n_cols)),
-      matrix(*tmp_matrix)
+      flag(n_train, stream)
   {
     InitCubBuffers();
     raft::linalg::range(f_idx.data(), n_train, stream);
@@ -140,32 +106,9 @@ class Results {
    * @param [out] dual_coefs size [n_support]
    * @param [out] n_support number of support vectors
    * @param [out] idx the original training set indices of the support vectors, size [n_support]
-   * @param [out] x_support support vectors in column major format, size [n_support, n_cols]
+   * @param [out] x_support support vector matrix, size [n_support, n_cols]
    * @param [out] b scalar constant in the decision function
    */
-  void Get(const math_t* alpha,
-           const math_t* f,
-           math_t** dual_coefs,
-           int* n_support,
-           int** idx,
-           math_t** x_support,
-           math_t* b)
-  {
-    CombineCoefs(alpha, val_tmp.data());
-    GetDualCoefs(val_tmp.data(), dual_coefs, n_support);
-    *b = CalcB(alpha, f, *n_support);
-    if (*n_support > 0) {
-      *idx       = GetSupportVectorIndices(val_tmp.data(), *n_support);
-      *x_support = CollectSupportVectors(*idx, *n_support);
-    } else {
-      *dual_coefs = nullptr;
-      *idx        = nullptr;
-      *x_support  = nullptr;
-    }
-    // Make sure that all pending GPU calculations finished before we return
-    handle.sync_stream(stream);
-  }
-
   void Get(const math_t* alpha,
            const math_t* f,
            math_t** dual_coefs,
@@ -190,22 +133,13 @@ class Results {
   }
 
   /**
-   * Collect support vectors into a contiguous buffer
+   * Collect support vectors into a matrix storage
    *
    * @param [in] idx indices of support vectors, size [n_support]
    * @param [in] n_support number of support vectors
    * @return pointer to a newly allocated device buffer that stores the support
    *   vectors, size [n_suppor*n_cols]
    */
-  math_t* CollectSupportVectors(const int* idx, int n_support)
-  {
-    math_t* x_support = (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
-    DenseMatrix<math_t> support_matrix(x_support, n_support, n_cols);
-    // Collect support vectors into a contiguous block
-    ML::SVM::extractRows<math_t>(matrix, support_matrix, idx, n_support, stream);
-    return x_support;
-  }
-
   Matrix<math_t>* CollectSupportVectorMatrix(const int* idx, int n_support)
   {
     Matrix<math_t>* support_matrix;
@@ -353,11 +287,6 @@ class Results {
 
   rmm::mr::device_memory_resource* rmm_alloc;
 
-  ~Results()
-  {
-    if (tmp_matrix != nullptr) delete tmp_matrix;
-  }
-
  private:
   const raft::handle_t& handle;
   cudaStream_t stream;
@@ -365,7 +294,6 @@ class Results {
   int n_rows;                    //!< number of rows in the training vector matrix
   int n_cols;                    //!< number of features
   const Matrix<math_t>& matrix;  //!< training vector matrix
-  Matrix<math_t>* tmp_matrix;    //!< training vector matrix
   const math_t* y;               //!< labels
   const math_t* C;               //!< penalty parameter
   SvmType svmType;               //!< SVM problem type: SVC or SVR

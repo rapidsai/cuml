@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -314,7 +314,16 @@ void svmFreeBuffers(const raft::handle_t& handle, SvmModel<math_t>& m)
   rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
   if (m.dual_coefs) rmm_alloc->deallocate(m.dual_coefs, m.n_support * sizeof(math_t), stream);
   if (m.support_idx) rmm_alloc->deallocate(m.support_idx, m.n_support * sizeof(int), stream);
-  if (m.support_matrix) delete m.support_matrix;
+  if (m.support_matrix) {
+    // matrix is either DenseMatrix or ResizableCsr
+    // dense is only a wrapper and needs manual free
+    if (m.support_matrix->isDense()) {
+      rmm_alloc->deallocate(m.support_matrix->asDense()->data, 
+                            m.support_matrix->n_rows * m.support_matrix->n_cols * sizeof(math_t), 
+                            stream);
+    }
+    delete m.support_matrix;
+  }
   if (m.unique_labels) rmm_alloc->deallocate(m.unique_labels, m.n_classes * sizeof(math_t), stream);
   m.dual_coefs     = nullptr;
   m.support_idx    = nullptr;
