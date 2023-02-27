@@ -23,10 +23,10 @@ requires = [
     "ninja",
     "treelite==3.1.0",
     "treelite_runtime==3.1.0",
-    "versioneer",
+    "rmm==23.4.*",
+    "pylibraft==23.4.*"
 ]
-build-backend = "backend"
-backend-path = ["_custom_build"]
+build-backend = "setuptools.build_meta"
 
 [tool.black]
 line-length = 79
