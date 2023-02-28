@@ -131,6 +131,7 @@ __global__ void prob_in_some_cluster_kernel(value_t* heights,
 template <typename value_idx, typename value_t>
 __global__ void prob_in_some_cluster_kernel(value_t* heights,
                                             value_t* height_argmax,
+                                            value_t* prediction_lambdas,
                                             value_t* deaths,
                                             value_idx* index_into_children,
                                             value_idx* min_mr_indices,
@@ -143,8 +144,8 @@ __global__ void prob_in_some_cluster_kernel(value_t* heights,
 {
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < (value_idx)n_prediction_points) {
-    value_t max_lambda = max(lambdas[index_into_children[min_mr_indices[idx]]],
-                             deaths[selected_clusters[(int)height_argmax[idx]] - n_leaves]);
+    value_t max_lambda = max(prediction_lambdas[idx], 
+                             deaths[selected_clusters[(int)height_argmax[idx]] - n_leaves]) + 1e-8;
     prob_in_some_cluster[idx] =
       heights[idx * n_selected_clusters + (int)height_argmax[idx]] / max_lambda;
     return;

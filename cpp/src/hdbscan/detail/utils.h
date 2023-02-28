@@ -28,6 +28,7 @@
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/matrix/math.cuh>
 
 #include <algorithm>
 
@@ -210,6 +211,42 @@ void normalize(value_t* data, value_idx n, size_t m, cudaStream_t stream)
     false,
     [] __device__(value_t mat_in, value_t vec_in) { return mat_in / vec_in; },
     stream);
+}
+
+/**
+ * Computes softmax (unnormalized) of membership vector.
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle for resource reuse
+ * @param[inout] condensed_tree cluster tree (condensed hierarchy with all nodes of size > 1)
+ * @param[in] sorted_parents parents array sorted
+ * @param[out] indptr CSR indptr of parents array after sort
+ */
+template <typename value_idx, typename value_t>
+void softmax(const raft::handle_t& handle, value_t* data, value_idx n, size_t m)
+{
+  // Create a copy of the data
+  auto stream = handle.get_stream();
+  auto thrust_policy = handle.get_thrust_policy();
+
+  auto counting = thrust::make_counting_iterator<value_idx>(0);
+  
+  rmm::device_uvector<value_t> data_copy(m * n, stream);
+  thrust::copy(thrust_policy, data, data + m * n, data_copy.data());
+
+  rmm::device_uvector<value_idx> membership_argmax(m, stream);
+    
+    raft::matrix::argmax(
+      data, n, (value_idx)m, membership_argmax.data(), stream);
+
+    auto softmax_op = [data,
+                       data_copy = data_copy.data(),
+                       membership_argmax = membership_argmax.data(),
+                       n] __device__(auto idx) {
+                        data[idx] = exp(data_copy[idx] - data_copy[n*(idx / n) + membership_argmax[idx / n]]);
+                       };
+    
+    thrust::for_each(thrust_policy, counting, counting + m * n, softmax_op);
 }
 
 };  // namespace Utils

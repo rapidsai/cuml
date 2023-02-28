@@ -228,6 +228,7 @@ void all_points_outlier_membership_vector(
     stream);
 
   if (softmax) {
+    // we do not need to scale for numerical stability
     thrust::transform(exec_policy,
                       outlier_membership_vec,
                       outlier_membership_vec + m * n_selected_clusters,
@@ -423,10 +424,7 @@ void outlier_membership_vector(
   // raft::print_device_vector("lambdas", prediction_lambdas, 100, std::cout);
   // raft::print_device_vector("merge_heights", merge_heights, 20, std::cout);
 
-  thrust::for_each(exec_policy, counting, counting + n_prediction_points, [lambdas, index_into_children, parents, min_mr_inds, prediction_lambdas]__device__ (auto idx) {
-    value_t nearest_cluster_birth_lambda = lambdas[index_into_children[parents[index_into_children[min_mr_inds[idx]]]]];
-    if (nearest_cluster_birth_lambda <= prediction_lambdas[idx]) prediction_lambdas[idx] = nearest_cluster_birth_lambda;
-  });
+  
 
   // fetch the max lambda of the cluster to which the nearest MR neighbor belongs in the condensed hierarchy
   rmm::device_uvector<value_t> nearest_cluster_max_lambda(n_prediction_points, stream);
@@ -438,7 +436,7 @@ void outlier_membership_vector(
                     parents,
                     index_into_children,
                     min_mr_inds,
-                    nearest_cluster_max_lambdas = nearest_cluster_max_lambda.data(),
+                    nearest_cluster_max_lambda = nearest_cluster_max_lambda.data(),
                     n_leaves] __device__(auto idx) {
                      nearest_cluster_max_lambda[idx] = deaths[parents[index_into_children[min_mr_inds[idx]]] - n_leaves];
                    });
@@ -455,21 +453,26 @@ void outlier_membership_vector(
     [] __device__(value_t mat_in, value_t vec_in) {
       value_t denominator = vec_in - mat_in;
       if (denominator <= 0) {
+        printf("%f yoyo %f\n", vec_in, mat_in);
         denominator = 1e-8;
       }
       return vec_in / denominator;
     },  //+ 1e-8 to avoid zero lambda
     stream);
+    raft::print_device_vector("outlier_membership_vec_pre_exp", outlier_membership_vec, 300, std::cout);
 
   if (softmax) {
-    thrust::transform(exec_policy,
-                      outlier_membership_vec,
-                      outlier_membership_vec + n_prediction_points * n_selected_clusters,
-                      outlier_membership_vec,
-                      [=] __device__(value_t val) { return exp(val); });
+    Utils::softmax(handle, outlier_membership_vec, n_selected_clusters, n_prediction_points);
+    // thrust::transform(exec_policy,
+    //                   outlier_membership_vec,
+    //                   outlier_membership_vec + n_prediction_points * n_selected_clusters,
+    //                   outlier_membership_vec,
+    //                   [=] __device__(value_t val) { return exp(val); });
   }
-
+  raft::print_device_vector("outlier_membership_vec_unnorm", outlier_membership_vec, 300, std::cout);
+  // raft::print_device_vector("outlier_membership_vec_unnorm", outlier_membership_vec, 100, std::cout);
   Utils::normalize(outlier_membership_vec, n_selected_clusters, n_prediction_points, stream);
+  raft::print_device_vector("outlier_membership_vec_norm", outlier_membership_vec, 300, std::cout);
 }
 
 
@@ -483,6 +486,7 @@ void prob_in_some_cluster(const raft::handle_t& handle,
                                      value_idx n_selected_clusters,
                                      value_idx* min_mr_indices,
                                      value_t* merge_heights,
+                                     value_t* prediction_lambdas,
                                      value_t* prob_in_some_cluster)
 {
   auto stream      = handle.get_stream();
@@ -497,11 +501,14 @@ void prob_in_some_cluster(const raft::handle_t& handle,
 
   raft::matrix::argmax(
     merge_heights, n_selected_clusters, static_cast<int>(n_prediction_points), height_argmax.data(), stream);
+  
+  // raft::print_device_vector("height_argmax", height_argmax.data(), 100, std::cout);
 
   int n_blocks = raft::ceildiv((int)n_prediction_points, tpb);
   
   prob_in_some_cluster_kernel<<<n_blocks, tpb, 0, stream>>>(merge_heights,
                                             height_argmax.data(),
+                                            prediction_lambdas,
                                             deaths,
                                             index_into_children,
                                             min_mr_indices,
@@ -532,12 +539,12 @@ void membership_vector(const raft::handle_t& handle,
 
   size_t m                      = prediction_data.n_rows;
   size_t n                  = prediction_data.n_cols;
-  value_t* input_core_dists = prediction_data.get_core_dists();
   value_idx n_selected_clusters  = prediction_data.get_n_selected_clusters();
   value_t* deaths                = prediction_data.get_deaths();
   value_idx* selected_clusters   = prediction_data.get_selected_clusters();
   value_idx* index_into_children = prediction_data.get_index_into_children();
   value_idx n_exemplars          = prediction_data.get_n_exemplars();
+  value_t* lambdas = condensed_tree.get_lambdas();
 
   auto counting = thrust::make_counting_iterator<value_idx>(0);
   rmm::device_uvector<value_t> dist_membership_vec(n_prediction_points * n_selected_clusters, stream);
@@ -571,6 +578,11 @@ void membership_vector(const raft::handle_t& handle,
                                        prediction_lambdas.data(),
                                        metric);
   
+  thrust::for_each(exec_policy, counting, counting + n_prediction_points, [lambdas, index_into_children, min_mr_inds = min_mr_inds.data(), prediction_lambdas = prediction_lambdas.data()]__device__ (auto idx) {
+    value_t neighbor_lambda = lambdas[index_into_children[min_mr_inds[idx]]];
+    if (neighbor_lambda < prediction_lambdas[idx]) prediction_lambdas[idx] = neighbor_lambda;
+  });
+  
   rmm::device_uvector<value_t> merge_heights(n_prediction_points * n_selected_clusters, stream);
 
   outlier_membership_vector(handle,
@@ -587,7 +599,7 @@ void membership_vector(const raft::handle_t& handle,
     true);
   
   handle.sync_stream(stream);
-  raft::print_device_vector("outlier_mem", membership_vec, 100, std::cout);
+  // raft::print_device_vector("outlier_mem", membership_vec, 100, std::cout);
 
   auto combine_op = [membership_vec,
                        dist_membership_vec = dist_membership_vec.data()] __device__(auto idx) {
@@ -601,6 +613,8 @@ void membership_vector(const raft::handle_t& handle,
     Utils::normalize(membership_vec, n_selected_clusters, n_prediction_points, stream);
 
     rmm::device_uvector<value_t> prob_in_some_cluster_(n_prediction_points, stream);
+  
+  raft::print_device_vector("mergeHeights", merge_heights.data(), 100, std::cout);
 
   prob_in_some_cluster(handle,
                        condensed_tree,
@@ -611,6 +625,7 @@ void membership_vector(const raft::handle_t& handle,
                        n_selected_clusters,
                        min_mr_inds.data(),
                        merge_heights.data(),
+                       prediction_lambdas.data(),
                        prob_in_some_cluster_.data());
 
     
