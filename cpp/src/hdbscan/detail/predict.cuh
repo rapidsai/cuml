@@ -149,9 +149,8 @@ void _find_cluster_and_probability(const raft::handle_t& handle,
                                                            out_probabilities);
 }
 
-
-
-// Build the mutual reachability graph and obtain the nearest neighbors for the prediction points. The KNN and core distances of prediction points are computed here.
+// Build the mutual reachability graph and obtain the nearest neighbors for the prediction points.
+// The KNN and core distances of prediction points are computed here.
 template <typename value_idx, typename value_t, int tpb = 256>
 void _compute_knn_and_nearest_neighbor(const raft::handle_t& handle,
                                        Common::PredictionData<value_idx, value_t>& prediction_data,
@@ -163,11 +162,11 @@ void _compute_knn_and_nearest_neighbor(const raft::handle_t& handle,
                                        value_t* prediction_lambdas,
                                        raft::distance::DistanceType metric)
 {
-  auto stream = handle.get_stream();
+  auto stream               = handle.get_stream();
   size_t m                  = prediction_data.n_rows;
   size_t n                  = prediction_data.n_cols;
   value_t* input_core_dists = prediction_data.get_core_dists();
-  int neighborhood = (min_samples - 1) * 2;
+  int neighborhood          = (min_samples - 1) * 2;
 
   rmm::device_uvector<value_idx> inds(neighborhood * n_prediction_points, stream);
   rmm::device_uvector<value_t> dists(neighborhood * n_prediction_points, stream);
@@ -204,7 +203,6 @@ void _compute_knn_and_nearest_neighbor(const raft::handle_t& handle,
                             min_mr_inds,
                             prediction_lambdas);
 }
-
 
 /**
  * Predict the cluster label and the probability of the label for new points.

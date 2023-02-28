@@ -372,7 +372,8 @@ void transformLabels(const raft::handle_t& handle, IdxT* labels, IdxT* label_map
 // edit the selected clusters array. Do the same in the all_points_membership_vectors function and
 // the approximate_predict functions.
 template <typename T, typename IdxT>
-class AllPointsMembershipVectorsTest : public ::testing::TestWithParam<AllPointsMembershipVectorsInputs<T, IdxT>> {
+class AllPointsMembershipVectorsTest
+  : public ::testing::TestWithParam<AllPointsMembershipVectorsInputs<T, IdxT>> {
  protected:
   void basicTest()
   {
@@ -637,9 +638,6 @@ INSTANTIATE_TEST_CASE_P(ApproximatePredictTest,
                         ApproximatePredictTestF_Int,
                         ::testing::ValuesIn(approximate_predict_inputs));
 
-
-
-
 template <typename T, typename IdxT>
 class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInputs<T, IdxT>> {
  protected:
@@ -716,7 +714,8 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
                                                      0,
                                                      params.cluster_selection_epsilon);
 
-    rmm::device_uvector<T> membership_vec(params.n_points_to_predict * n_selected_clusters, handle.get_stream());
+    rmm::device_uvector<T> membership_vec(params.n_points_to_predict * n_selected_clusters,
+                                          handle.get_stream());
 
     rmm::device_uvector<T> core_dists{static_cast<size_t>(params.n_row), handle.get_stream()};
     ML::HDBSCAN::Common::PredictionData<IdxT, T> prediction_data_(
@@ -747,16 +746,15 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
                                                   n_selected_clusters,
                                                   prediction_data_);
 
-    ML::compute_membership_vector(
-  handle,
-  condensed_tree,
-  prediction_data_,
-  data.data(),
-  points_to_predict.data(),
-  params.n_points_to_predict,
-  params.min_samples,
-  raft::distance::DistanceType::L2SqrtExpanded,
-  membership_vec.data());
+    ML::compute_membership_vector(handle,
+                                  condensed_tree,
+                                  prediction_data_,
+                                  data.data(),
+                                  points_to_predict.data(),
+                                  params.n_points_to_predict,
+                                  params.min_samples,
+                                  raft::distance::DistanceType::L2SqrtExpanded,
+                                  membership_vec.data());
 
     ASSERT_TRUE(MLCommon::devArrMatch(membership_vec.data(),
                                       params.expected_probabilities.data(),
@@ -780,11 +778,6 @@ TEST_P(MembershipVectorTestF_Int, Result) { EXPECT_TRUE(true); }
 INSTANTIATE_TEST_CASE_P(MembershipVectorTest,
                         MembershipVectorTestF_Int,
                         ::testing::ValuesIn(membership_vector_inputs));
-
-
-
-
-
 
 }  // namespace HDBSCAN
 }  // end namespace ML

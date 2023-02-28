@@ -144,9 +144,9 @@ __global__ void prob_in_some_cluster_kernel(value_t* heights,
 {
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < (value_idx)n_prediction_points) {
-    value_t max_lambda = max(prediction_lambdas[idx], 
-                             deaths[selected_clusters[(int)height_argmax[idx]] - n_leaves]) + 1e-8;
-    printf("%d %f\n", idx, max_lambda);
+    value_t max_lambda =
+      max(prediction_lambdas[idx], deaths[selected_clusters[(int)height_argmax[idx]] - n_leaves]) +
+      1e-8;
     prob_in_some_cluster[idx] =
       heights[idx * n_selected_clusters + (int)height_argmax[idx]] / max_lambda;
     return;

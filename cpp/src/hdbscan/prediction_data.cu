@@ -120,11 +120,6 @@ void generate_prediction_data(const raft::handle_t& handle,
   auto n_leaves   = condensed_tree.get_n_leaves();
   auto sizes      = condensed_tree.get_sizes();
 
-  // raft::print_device_vector("all_parents", parents, n_edges, std::cout);
-  // raft::print_device_vector("all_children", children, n_edges, std::cout);
-  // raft::print_device_vector("all_lambdas", lambdas, n_edges, std::cout);
-  // raft::print_device_vector("all_sizes", sizes, n_edges, std::cout);
-
   // first compute the death of each cluster in the condensed hierarchy
   rmm::device_uvector<int> sorted_parents(n_edges, stream);
   raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
@@ -233,10 +228,6 @@ void generate_prediction_data(const raft::handle_t& handle,
                         return exemplar_labels[idx] + n_leaves;
                       });
 
-    handle.sync_stream(stream);
-    // raft::print_device_vector("exemplars_dense_1", prediction_data.get_exemplar_idx(), 20, std::cout);
-
-    // raft::print_device_vector("selected_clusters", prediction_data.get_selected_clusters(), n_selected_clusters, std::cout);
     // build the index into the children array for constant time lookups
     build_index_into_children(handle, children, n_edges, prediction_data.get_index_into_children());
   }

@@ -91,26 +91,32 @@ void compute_all_points_membership_vectors(
   HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
   HDBSCAN::Common::PredictionData<int, float>& prediction_data,
   const float* X,
-raft::distance::DistanceType metric,
+  raft::distance::DistanceType metric,
   float* membership_vec)
 {
   HDBSCAN::detail::Predict::all_points_membership_vectors(
     handle, condensed_tree, prediction_data, X, metric, membership_vec);
 }
 
-void compute_membership_vector(
-  const raft::handle_t& handle,
-  HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
-  HDBSCAN::Common::PredictionData<int, float>& prediction_data,
-  const float* X,
-  const float* points_to_predict,
-  size_t n_prediction_points,
-  int min_samples,
-  raft::distance::DistanceType metric,
-  float* membership_vec)
+void compute_membership_vector(const raft::handle_t& handle,
+                               HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                               HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+                               const float* X,
+                               const float* points_to_predict,
+                               size_t n_prediction_points,
+                               int min_samples,
+                               raft::distance::DistanceType metric,
+                               float* membership_vec)
 {
-  HDBSCAN::detail::Predict::membership_vector(
-    handle, condensed_tree, prediction_data, X, points_to_predict, n_prediction_points, metric, min_samples + 1, membership_vec);
+  HDBSCAN::detail::Predict::membership_vector(handle,
+                                              condensed_tree,
+                                              prediction_data,
+                                              X,
+                                              points_to_predict,
+                                              n_prediction_points,
+                                              metric,
+                                              min_samples + 1,
+                                              membership_vec);
 }
 
 void out_of_sample_predict(const raft::handle_t& handle,

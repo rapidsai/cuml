@@ -63,17 +63,17 @@ namespace Predict {
 // This function is used for both -- all_points_membership_vectors and membership_vector
 template <typename value_idx, typename value_t>
 void dist_membership_vector(const raft::handle_t& handle,
-                                       const value_t* X,
-                                       const value_t* query,
-                                       size_t n_queries,
-                                       size_t n,
-                                       size_t n_exemplars,
-                                       value_idx n_selected_clusters,
-                                       value_idx* exemplar_idx,
-                                       value_idx* exemplar_label_offsets,
-                                       value_t* dist_membership_vec,
-                                       raft::distance::DistanceType metric,
-                                       bool softmax = false)
+                            const value_t* X,
+                            const value_t* query,
+                            size_t n_queries,
+                            size_t n,
+                            size_t n_exemplars,
+                            value_idx n_selected_clusters,
+                            value_idx* exemplar_idx,
+                            value_idx* exemplar_label_offsets,
+                            value_t* dist_membership_vec,
+                            raft::distance::DistanceType metric,
+                            bool softmax = false)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -87,7 +87,6 @@ void dist_membership_vector(const raft::handle_t& handle,
     X, n_exemplars, n, exemplars_dense.data(), exemplar_idx, n_exemplars, stream, true);
 
   handle.sync_stream(stream);
-  // raft::print_device_vector("exemplars_dense", exemplars_dense.data(), 64, std::cout);
 
   // compute the distances using raft API
   rmm::device_uvector<value_t> dist(n_queries * n_exemplars, stream);
@@ -158,8 +157,6 @@ void dist_membership_vector(const raft::handle_t& handle,
                       });
   }
 
-  // raft::print_device_vector("points_to_predict[0]", query, 20, std::cout);
-
   // Normalize the obtained result to sum to 1.0
   Utils::normalize(dist_membership_vec, n_selected_clusters, n_queries, stream);
 };
@@ -197,9 +194,6 @@ void all_points_outlier_membership_vector(
                                                     m,
                                                     n_selected_clusters,
                                                     selected_clusters);
-  
-  handle.sync_stream(stream);
-  // raft::print_device_vector("merge_heights_outlier", merge_heights, 100, std::cout);
 
   rmm::device_uvector<value_t> leaf_max_lambdas(n_leaves, stream);
 
@@ -227,15 +221,7 @@ void all_points_outlier_membership_vector(
     },  //+ 1e-8 to avoid zero lambda
     stream);
 
-  if (softmax) {
-    // we do not need to scale for numerical stability
-    // thrust::transform(exec_policy,
-    //                   outlier_membership_vec,
-    //                   outlier_membership_vec + m * n_selected_clusters,
-    //                   outlier_membership_vec,
-    //                   [=] __device__(value_t val) { return exp(val); });
-    Utils::softmax(handle, outlier_membership_vec, n_selected_clusters, m);
-  }
+  if (softmax) { Utils::softmax(handle, outlier_membership_vec, n_selected_clusters, m); }
 
   Utils::normalize(outlier_membership_vec, n_selected_clusters, m, stream);
 }
@@ -275,6 +261,127 @@ void all_points_prob_in_some_cluster(const raft::handle_t& handle,
                                                             n_selected_clusters,
                                                             n_leaves,
                                                             m);
+}
+
+template <typename value_idx, typename value_t, int tpb = 256>
+void outlier_membership_vector(const raft::handle_t& handle,
+                               Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
+                               value_t* deaths,
+                               value_idx* min_mr_inds,
+                               value_t* prediction_lambdas,
+                               value_idx* selected_clusters,
+                               value_idx* index_into_children,
+                               size_t n_prediction_points,
+                               int n_selected_clusters,
+                               value_t* merge_heights,
+                               value_t* outlier_membership_vec,
+                               bool softmax)
+{
+  auto stream      = handle.get_stream();
+  auto exec_policy = handle.get_thrust_policy();
+
+  auto parents      = condensed_tree.get_parents();
+  auto children     = condensed_tree.get_children();
+  value_t* lambdas  = condensed_tree.get_lambdas();
+  value_idx n_edges = condensed_tree.get_n_edges();
+  auto n_clusters   = condensed_tree.get_n_clusters();
+  auto n_leaves     = condensed_tree.get_n_leaves();
+
+  auto counting = thrust::make_counting_iterator<value_idx>(0);
+
+  // Using the nearest neighbor indices, compute outlier membership
+  int n_blocks = raft::ceildiv(int(n_prediction_points * n_selected_clusters), tpb);
+  merge_height_kernel<<<n_blocks, tpb, 0, stream>>>(merge_heights,
+                                                    lambdas,
+                                                    prediction_lambdas,
+                                                    min_mr_inds,
+                                                    index_into_children,
+                                                    parents,
+                                                    n_prediction_points,
+                                                    n_selected_clusters,
+                                                    selected_clusters);
+
+  // fetch the max lambda of the cluster to which the nearest MR neighbor belongs in the condensed
+  // hierarchy
+  rmm::device_uvector<value_t> nearest_cluster_max_lambda(n_prediction_points, stream);
+
+  thrust::for_each(exec_policy,
+                   counting,
+                   counting + n_prediction_points,
+                   [deaths,
+                    parents,
+                    index_into_children,
+                    min_mr_inds,
+                    nearest_cluster_max_lambda = nearest_cluster_max_lambda.data(),
+                    n_leaves] __device__(auto idx) {
+                     nearest_cluster_max_lambda[idx] =
+                       deaths[parents[index_into_children[min_mr_inds[idx]]] - n_leaves];
+                   });
+
+  raft::linalg::matrixVectorOp(
+    outlier_membership_vec,
+    merge_heights,
+    nearest_cluster_max_lambda.data(),
+    n_selected_clusters,
+    (value_idx)n_prediction_points,
+    true,
+    false,
+    [] __device__(value_t mat_in, value_t vec_in) {
+      value_t denominator = vec_in - mat_in;
+      if (denominator <= 0) { denominator = 1e-8; }
+      return vec_in / denominator;
+    },
+    stream);
+
+  if (softmax) {
+    Utils::softmax(handle, outlier_membership_vec, n_selected_clusters, n_prediction_points);
+  }
+  Utils::normalize(outlier_membership_vec, n_selected_clusters, n_prediction_points, stream);
+}
+
+template <typename value_idx, typename value_t, int tpb = 256>
+void prob_in_some_cluster(const raft::handle_t& handle,
+                          Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
+                          value_t* deaths,
+                          value_idx* selected_clusters,
+                          value_idx* index_into_children,
+                          size_t n_prediction_points,
+                          value_idx n_selected_clusters,
+                          value_idx* min_mr_indices,
+                          value_t* merge_heights,
+                          value_t* prediction_lambdas,
+                          value_t* prob_in_some_cluster)
+{
+  auto stream      = handle.get_stream();
+  auto exec_policy = handle.get_thrust_policy();
+
+  value_t* lambdas = condensed_tree.get_lambdas();
+  auto n_leaves    = condensed_tree.get_n_leaves();
+  auto n_edges     = condensed_tree.get_n_edges();
+  auto children    = condensed_tree.get_children();
+
+  rmm::device_uvector<value_t> height_argmax(n_prediction_points, stream);
+
+  raft::matrix::argmax(merge_heights,
+                       n_selected_clusters,
+                       static_cast<int>(n_prediction_points),
+                       height_argmax.data(),
+                       stream);
+
+  int n_blocks = raft::ceildiv((int)n_prediction_points, tpb);
+
+  prob_in_some_cluster_kernel<<<n_blocks, tpb, 0, stream>>>(merge_heights,
+                                                            height_argmax.data(),
+                                                            prediction_lambdas,
+                                                            deaths,
+                                                            index_into_children,
+                                                            min_mr_indices,
+                                                            selected_clusters,
+                                                            lambdas,
+                                                            prob_in_some_cluster,
+                                                            n_selected_clusters,
+                                                            n_leaves,
+                                                            n_prediction_points);
 }
 
 /**
@@ -323,16 +430,16 @@ void all_points_membership_vectors(const raft::handle_t& handle,
     rmm::device_uvector<value_t> dist_membership_vec(m * n_selected_clusters, stream);
 
     dist_membership_vector(handle,
-                                      X,
-                                      X,
-                                      m,
-                                      n,
-                                      n_exemplars,
-                                      n_selected_clusters,
-                                      prediction_data.get_exemplar_idx(),
-                                      prediction_data.get_exemplar_label_offsets(),
-                                      dist_membership_vec.data(),
-                                      metric);
+                           X,
+                           X,
+                           m,
+                           n,
+                           n_exemplars,
+                           n_selected_clusters,
+                           prediction_data.get_exemplar_idx(),
+                           prediction_data.get_exemplar_label_offsets(),
+                           dist_membership_vec.data(),
+                           metric);
 
     rmm::device_uvector<value_t> merge_heights(m * n_selected_clusters, stream);
 
@@ -383,155 +490,15 @@ void all_points_membership_vectors(const raft::handle_t& handle,
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>
-void outlier_membership_vector(
-  const raft::handle_t& handle,
-  Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
-  value_t* deaths,
-  value_idx* min_mr_inds,
-  value_t* prediction_lambdas,
-  value_idx* selected_clusters,
-  value_idx* index_into_children,
-  size_t n_prediction_points,
-  int n_selected_clusters,
-  value_t* merge_heights,
-  value_t* outlier_membership_vec,
-  bool softmax)
-{
-  auto stream      = handle.get_stream();
-  auto exec_policy = handle.get_thrust_policy();
-
-  auto parents      = condensed_tree.get_parents();
-  auto children     = condensed_tree.get_children();
-  value_t* lambdas  = condensed_tree.get_lambdas();
-  value_idx n_edges = condensed_tree.get_n_edges();
-  auto n_clusters   = condensed_tree.get_n_clusters();
-  auto n_leaves     = condensed_tree.get_n_leaves();
-
-  auto counting = thrust::make_counting_iterator<value_idx>(0);
-
-  // Using the nearest neighbor indices, compute outlier membership
-  int n_blocks = raft::ceildiv(int(n_prediction_points * n_selected_clusters), tpb);
-  merge_height_kernel<<<n_blocks, tpb, 0, stream>>>(merge_heights,
-                                                    lambdas,
-                                                    prediction_lambdas,
-                                                    min_mr_inds,
-                                                    index_into_children,
-                                                    parents,
-                                                    n_prediction_points,
-                                                    n_selected_clusters,
-                                                    selected_clusters);
-  
-  // raft::print_device_vector("min_mr_inds", min_mr_inds, 100, std::cout);
-  // raft::print_device_vector("lambdas", prediction_lambdas, 100, std::cout);
-  // raft::print_device_vector("merge_heights", merge_heights, 20, std::cout);
-
-  
-
-  // fetch the max lambda of the cluster to which the nearest MR neighbor belongs in the condensed hierarchy
-  rmm::device_uvector<value_t> nearest_cluster_max_lambda(n_prediction_points, stream);
-
-  thrust::for_each(exec_policy,
-                   counting,
-                   counting + n_prediction_points,
-                   [deaths,
-                    parents,
-                    index_into_children,
-                    min_mr_inds,
-                    nearest_cluster_max_lambda = nearest_cluster_max_lambda.data(),
-                    n_leaves] __device__(auto idx) {
-                     nearest_cluster_max_lambda[idx] = deaths[parents[index_into_children[min_mr_inds[idx]]] - n_leaves];
-                   });
-
-  // raft::print_device_vector("nearest_cluster_max_lambdas", nearest_cluster_max_lambdas.data(), 100, std::cout);
-  raft::linalg::matrixVectorOp(
-    outlier_membership_vec,
-    merge_heights,
-    nearest_cluster_max_lambda.data(),
-    n_selected_clusters,
-    (value_idx)n_prediction_points,
-    true,
-    false,
-    [] __device__(value_t mat_in, value_t vec_in) {
-      value_t denominator = vec_in - mat_in;
-      if (denominator <= 0) {
-        printf("%f yoyo %f\n", vec_in, mat_in);
-        denominator = 1e-8;
-      }
-      return vec_in / denominator;
-    },  //+ 1e-8 to avoid zero lambda
-    stream);
-    // raft::print_device_vector("outlier_membership_vec_pre_exp", outlier_membership_vec, 300, std::cout);
-
-  if (softmax) {
-    Utils::softmax(handle, outlier_membership_vec, n_selected_clusters, n_prediction_points);
-    // thrust::transform(exec_policy,
-    //                   outlier_membership_vec,
-    //                   outlier_membership_vec + n_prediction_points * n_selected_clusters,
-    //                   outlier_membership_vec,
-    //                   [=] __device__(value_t val) { return exp(val); });
-  }
-  // raft::print_device_vector("outlier_membership_vec_unnorm", outlier_membership_vec, 300, std::cout);
-  // raft::print_device_vector("outlier_membership_vec_unnorm", outlier_membership_vec, 100, std::cout);
-  Utils::normalize(outlier_membership_vec, n_selected_clusters, n_prediction_points, stream);
-  // raft::print_device_vector("outlier_membership_vec_norm", outlier_membership_vec, 300, std::cout);
-}
-
-
-template <typename value_idx, typename value_t, int tpb = 256>
-void prob_in_some_cluster(const raft::handle_t& handle,
-                                     Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
-                                     value_t* deaths,
-                                     value_idx* selected_clusters,
-                                     value_idx* index_into_children,
-                                     size_t n_prediction_points,
-                                     value_idx n_selected_clusters,
-                                     value_idx* min_mr_indices,
-                                     value_t* merge_heights,
-                                     value_t* prediction_lambdas,
-                                     value_t* prob_in_some_cluster)
-{
-  auto stream      = handle.get_stream();
-  auto exec_policy = handle.get_thrust_policy();
-
-  value_t* lambdas = condensed_tree.get_lambdas();
-  auto n_leaves    = condensed_tree.get_n_leaves();
-  auto n_edges     = condensed_tree.get_n_edges();
-  auto children    = condensed_tree.get_children();
-
-  rmm::device_uvector<value_t> height_argmax(n_prediction_points, stream);
-
-  raft::matrix::argmax(
-    merge_heights, n_selected_clusters, static_cast<int>(n_prediction_points), height_argmax.data(), stream);
-  
-  // raft::print_device_vector("height_argmax", height_argmax.data(), 100, std::cout);
-
-  int n_blocks = raft::ceildiv((int)n_prediction_points, tpb);
-  
-  prob_in_some_cluster_kernel<<<n_blocks, tpb, 0, stream>>>(merge_heights,
-                                            height_argmax.data(),
-                                            prediction_lambdas,
-                                            deaths,
-                                            index_into_children,
-                                            min_mr_indices,
-                                            selected_clusters,
-                                            lambdas,
-                                            prob_in_some_cluster,
-                                            n_selected_clusters,
-                                            n_leaves,
-                                            n_prediction_points);
-  // raft::print_device_vector("prob_in_some_cluster", prob_in_some_cluster, 300, std::cout);
-}
-
-template <typename value_idx, typename value_t, int tpb = 256>
 void membership_vector(const raft::handle_t& handle,
-                         Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
-                         Common::PredictionData<value_idx, value_t>& prediction_data,
-                         const value_t* X,
-                         const value_t* points_to_predict,
-                         size_t n_prediction_points,
-                         raft::distance::DistanceType metric,
-                         int min_samples,
-                         value_t* membership_vec)
+                       Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
+                       Common::PredictionData<value_idx, value_t>& prediction_data,
+                       const value_t* X,
+                       const value_t* points_to_predict,
+                       size_t n_prediction_points,
+                       raft::distance::DistanceType metric,
+                       int min_samples,
+                       value_t* membership_vec)
 {
   RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
@@ -539,21 +506,22 @@ void membership_vector(const raft::handle_t& handle,
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
 
-  size_t m                      = prediction_data.n_rows;
-  size_t n                  = prediction_data.n_cols;
+  size_t m                       = prediction_data.n_rows;
+  size_t n                       = prediction_data.n_cols;
   value_idx n_selected_clusters  = prediction_data.get_n_selected_clusters();
   value_t* deaths                = prediction_data.get_deaths();
   value_idx* selected_clusters   = prediction_data.get_selected_clusters();
   value_idx* index_into_children = prediction_data.get_index_into_children();
   value_idx n_exemplars          = prediction_data.get_n_exemplars();
-  value_t* lambdas = condensed_tree.get_lambdas();
+  value_t* lambdas               = condensed_tree.get_lambdas();
 
   auto counting = thrust::make_counting_iterator<value_idx>(0);
-  rmm::device_uvector<value_t> dist_membership_vec(n_prediction_points * n_selected_clusters, stream);
+  rmm::device_uvector<value_t> dist_membership_vec(n_prediction_points * n_selected_clusters,
+                                                   stream);
 
   dist_membership_vector(handle,
-  X,
-  points_to_predict,
+                         X,
+                         points_to_predict,
                          n_prediction_points,
                          n,
                          n_exemplars,
@@ -562,61 +530,60 @@ void membership_vector(const raft::handle_t& handle,
                          prediction_data.get_exemplar_label_offsets(),
                          dist_membership_vec.data(),
                          raft::distance::DistanceType::L2SqrtExpanded);
-  
-  
-  // raft::print_device_vector("dist_membership_vec", dist_membership_vec.data(), 100, std::cout);
-  // raft::print_device_vector("dist_memnb", f_idx_sorted.data(), n_train, ss);
 
-   rmm::device_uvector<value_t> prediction_lambdas(n_prediction_points, stream);
+  rmm::device_uvector<value_t> prediction_lambdas(n_prediction_points, stream);
   rmm::device_uvector<value_idx> min_mr_inds(n_prediction_points, stream);
 
   _compute_knn_and_nearest_neighbor(handle,
-                                       prediction_data,
-                                       X,
-                                       points_to_predict,
-                                       min_samples,
-                                       n_prediction_points,
-                                       min_mr_inds.data(),
-                                       prediction_lambdas.data(),
-                                       metric);
-  
-  thrust::for_each(exec_policy, counting, counting + n_prediction_points, [lambdas, index_into_children, min_mr_inds = min_mr_inds.data(), prediction_lambdas = prediction_lambdas.data()]__device__ (auto idx) {
-    value_t neighbor_lambda = lambdas[index_into_children[min_mr_inds[idx]]];
-    if (neighbor_lambda < prediction_lambdas[idx]) prediction_lambdas[idx] = neighbor_lambda;
-  });
-  
+                                    prediction_data,
+                                    X,
+                                    points_to_predict,
+                                    min_samples,
+                                    n_prediction_points,
+                                    min_mr_inds.data(),
+                                    prediction_lambdas.data(),
+                                    metric);
+
+  thrust::for_each(exec_policy,
+                   counting,
+                   counting + n_prediction_points,
+                   [lambdas,
+                    index_into_children,
+                    min_mr_inds        = min_mr_inds.data(),
+                    prediction_lambdas = prediction_lambdas.data()] __device__(auto idx) {
+                     value_t neighbor_lambda = lambdas[index_into_children[min_mr_inds[idx]]];
+                     if (neighbor_lambda < prediction_lambdas[idx])
+                       prediction_lambdas[idx] = neighbor_lambda;
+                   });
+
   rmm::device_uvector<value_t> merge_heights(n_prediction_points * n_selected_clusters, stream);
 
   outlier_membership_vector(handle,
-    condensed_tree,
-    deaths,
-    min_mr_inds.data(),
-    prediction_lambdas.data(),
-    selected_clusters,
-    index_into_children,
-    n_prediction_points,
-    n_selected_clusters,
-    merge_heights.data(),
-    membership_vec,
-    true);
-  
-  handle.sync_stream(stream);
-  // raft::print_device_vector("outlier_mem", membership_vec, 100, std::cout);
+                            condensed_tree,
+                            deaths,
+                            min_mr_inds.data(),
+                            prediction_lambdas.data(),
+                            selected_clusters,
+                            index_into_children,
+                            n_prediction_points,
+                            n_selected_clusters,
+                            merge_heights.data(),
+                            membership_vec,
+                            true);
 
   auto combine_op = [membership_vec,
-                       dist_membership_vec = dist_membership_vec.data()] __device__(auto idx) {
+                     dist_membership_vec = dist_membership_vec.data()] __device__(auto idx) {
     membership_vec[idx] = pow(membership_vec[idx], 2) * pow(dist_membership_vec[idx], 0.5);
     return;
   };
 
-  thrust::for_each(exec_policy, counting, counting + n_prediction_points * n_selected_clusters, combine_op);
+  thrust::for_each(
+    exec_policy, counting, counting + n_prediction_points * n_selected_clusters, combine_op);
 
   // Normalize to obtain probabilities conditioned on points belonging to some cluster
-    Utils::normalize(membership_vec, n_selected_clusters, n_prediction_points, stream);
+  Utils::normalize(membership_vec, n_selected_clusters, n_prediction_points, stream);
 
-    rmm::device_uvector<value_t> prob_in_some_cluster_(n_prediction_points, stream);
-  
-  // raft::print_device_vector("mergeHeights", merge_heights.data(), 100, std::cout);
+  rmm::device_uvector<value_t> prob_in_some_cluster_(n_prediction_points, stream);
 
   prob_in_some_cluster(handle,
                        condensed_tree,
@@ -630,18 +597,18 @@ void membership_vector(const raft::handle_t& handle,
                        prediction_lambdas.data(),
                        prob_in_some_cluster_.data());
 
-    
-    // Multiply with probabilities of points belonging to some cluster to obtain joint distribution
-    raft::linalg::matrixVectorOp(
-      membership_vec,
-      membership_vec,
-      prob_in_some_cluster_.data(),
-      n_selected_clusters,
-      (value_idx)n_prediction_points,
-      true,
-      false,
-      [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
-      stream);
+  // Multiply conditional probabilities with probability of point belonging to some cluster. This
+  // gives the joint distribution.
+  raft::linalg::matrixVectorOp(
+    membership_vec,
+    membership_vec,
+    prob_in_some_cluster_.data(),
+    n_selected_clusters,
+    (value_idx)n_prediction_points,
+    true,
+    false,
+    [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
+    stream);
 }
 
 };  // namespace Predict
