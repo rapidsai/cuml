@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,10 +25,11 @@ from cuml import KernelRidge as cuKernelRidge
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-linalg = gpu_only_import_from('cupy', 'linalg')
-np = cpu_only_import('numpy')
-cuda = gpu_only_import_from('numba', 'cuda')
+
+cp = gpu_only_import("cupy")
+linalg = gpu_only_import_from("cupy", "linalg")
+np = cpu_only_import("numpy")
+cuda = gpu_only_import_from("numba", "cuda")
 
 
 def gradient_norm(model, X, y, K, sw=None):
@@ -40,13 +41,15 @@ def gradient_norm(model, X, y, K, sw=None):
     X = cp.array(X, dtype=np.float64)
     y = cp.array(y, dtype=np.float64)
     K = cp.array(K, dtype=np.float64)
-    betas = cp.array(as_type('cupy', model.dual_coef_),
-                     dtype=np.float64).reshape(y.shape)
+    betas = cp.array(
+        as_type("cupy", model.dual_coef_), dtype=np.float64
+    ).reshape(y.shape)
 
     # initialise to NaN in case below loop has 0 iterations
     grads = cp.full_like(y, np.NAN)
-    for i, (beta, target, current_alpha) in (
-            enumerate(zip(betas.T, y.T, model.alpha))):
+    for i, (beta, target, current_alpha) in enumerate(
+        zip(betas.T, y.T, model.alpha)
+    ):
         grads[:, i] = 0.0
         grads[:, i] = -cp.dot(K * sw, target)
         grads[:, i] += cp.dot(cp.dot(K * sw, K), beta)
@@ -67,8 +70,9 @@ def test_pairwise_kernels_basic():
     ):
         pairwise_kernels(X, metric="linear", wrong_parameter_name=1.0)
     # standard kernel with filtered kwd argument
-    pairwise_kernels(X, metric="rbf", filter_params=True,
-                     wrong_parameter_name=1.0)
+    pairwise_kernels(
+        X, metric="rbf", filter_params=True, wrong_parameter_name=1.0
+    )
 
     # incorrect function type
     def non_numba_kernel(x, y):
@@ -81,8 +85,7 @@ def test_pairwise_kernels_basic():
 
     # correct function type
     @cuda.jit(device=True)
-    def numba_kernel(x, y,
-                     special_argument=3.0):
+    def numba_kernel(x, y, special_argument=3.0):
         return 1 + 2
 
     pairwise_kernels(X, metric=numba_kernel)
@@ -104,8 +107,9 @@ def test_pairwise_kernels_basic():
         return 1 + 2
 
     with pytest.raises(
-        ValueError, match="Extra kernel parameters "
-        "must be passed as keyword arguments."
+        ValueError,
+        match="Extra kernel parameters "
+        "must be passed as keyword arguments.",
     ):
         pairwise_kernels(X, metric=bad_numba_kernel2)
 
@@ -121,24 +125,22 @@ def custom_kernel(x, y, custom_arg=5.0):
     return math.exp(-custom_arg * sum) + 0.1
 
 
-test_kernels = sorted(
-    PAIRWISE_KERNEL_FUNCTIONS.keys()) + [custom_kernel]
+test_kernels = sorted(PAIRWISE_KERNEL_FUNCTIONS.keys()) + [custom_kernel]
 
 
 @st.composite
 def kernel_arg_strategy(draw):
     kernel = draw(st.sampled_from(test_kernels))
     kernel_func = (
-        PAIRWISE_KERNEL_FUNCTIONS[kernel] if isinstance(
-            kernel, str) else kernel
+        PAIRWISE_KERNEL_FUNCTIONS[kernel]
+        if isinstance(kernel, str)
+        else kernel
     )
     # Inspect the function and generate some arguments
-    py_func = kernel_func.py_func if hasattr(
-        kernel_func, 'py_func') else kernel_func
-    all_func_kwargs = list(
-        inspect.signature(py_func).parameters.values())[
-        2:
-    ]
+    py_func = (
+        kernel_func.py_func if hasattr(kernel_func, "py_func") else kernel_func
+    )
+    all_func_kwargs = list(inspect.signature(py_func).parameters.values())[2:]
     param = {}
     for arg in all_func_kwargs:
         # 50% chance we generate this parameter or leave it as default
@@ -157,19 +159,27 @@ def array_strategy(draw):
     X_m = draw(st.integers(1, 20))
     X_n = draw(st.integers(1, 10))
     dtype = draw(st.sampled_from([np.float64, np.float32]))
-    X = draw(arrays(dtype=dtype, shape=(X_m, X_n),
-             elements=st.floats(0, 5, width=32),))
+    X = draw(
+        arrays(
+            dtype=dtype,
+            shape=(X_m, X_n),
+            elements=st.floats(0, 5, width=32),
+        )
+    )
     if draw(st.booleans()):
         Y_m = draw(st.integers(1, 20))
         Y = draw(
-            arrays(dtype=dtype, shape=(Y_m, X_n),
-                   elements=st.floats(0, 5, width=32),)
+            arrays(
+                dtype=dtype,
+                shape=(Y_m, X_n),
+                elements=st.floats(0, 5, width=32),
+            )
         )
     else:
         Y = None
-    type = draw(st.sampled_from(['numpy', 'cupy', 'cudf', 'pandas']))
+    type = draw(st.sampled_from(["numpy", "cupy", "cudf", "pandas"]))
 
-    if type == 'cudf':
+    if type == "cudf":
         assume(X_m > 1)
         if Y is not None:
             assume(Y_m > 1)
@@ -178,22 +188,23 @@ def array_strategy(draw):
 
 @given(kernel_arg_strategy(), array_strategy())
 @settings(deadline=None)
-@pytest.mark.skip('https://github.com/rapidsai/cuml/issues/5177')
+@pytest.mark.skip("https://github.com/rapidsai/cuml/issues/5177")
 def test_pairwise_kernels(kernel_arg, XY):
     X, Y = XY
     kernel, args = kernel_arg
 
-    if kernel == 'cosine':
+    if kernel == "cosine":
         # this kernel is very unstable for both sklearn/cuml
-        assume(as_type('numpy', X).min() > 0.1)
+        assume(as_type("numpy", X).min() > 0.1)
         if Y is not None:
-            assume(as_type('numpy', Y).min() > 0.1)
+            assume(as_type("numpy", Y).min() > 0.1)
 
     K = pairwise_kernels(X, Y, metric=kernel, **args)
     skl_kernel = kernel.py_func if hasattr(kernel, "py_func") else kernel
     K_sklearn = skl_pairwise_kernels(
-        *as_type('numpy', X, Y), metric=skl_kernel, **args)
-    assert np.allclose(as_type('numpy', K), K_sklearn, atol=0.01, rtol=0.01)
+        *as_type("numpy", X, Y), metric=skl_kernel, **args
+    )
+    assert np.allclose(as_type("numpy", K), K_sklearn, atol=0.01, rtol=0.01)
 
 
 @st.composite
@@ -207,14 +218,20 @@ def estimator_array_strategy(draw):
 
     n_targets = draw(st.integers(1, 3))
     a = draw(
-        arrays(dtype=dtype, shape=(X_n, n_targets),
-               elements=st.floats(0, 5, width=32),)
+        arrays(
+            dtype=dtype,
+            shape=(X_n, n_targets),
+            elements=st.floats(0, 5, width=32),
+        )
     )
     y = X.dot(a)
 
     alpha = draw(
-        arrays(dtype=dtype, shape=(n_targets),
-               elements=st.floats(0.0010000000474974513, 5, width=32))
+        arrays(
+            dtype=dtype,
+            shape=(n_targets),
+            elements=st.floats(0.0010000000474974513, 5, width=32),
+        )
     )
 
     sample_weight = draw(
@@ -222,12 +239,13 @@ def estimator_array_strategy(draw):
             [
                 st.just(None),
                 st.floats(0.1, 1.5),
-                arrays(dtype=np.float64, shape=X_m,
-                       elements=st.floats(0.1, 5)),
+                arrays(
+                    dtype=np.float64, shape=X_m, elements=st.floats(0.1, 5)
+                ),
             ]
         )
     )
-    type = draw(st.sampled_from(['numpy', 'cupy', 'cudf', 'pandas']))
+    type = draw(st.sampled_from(["numpy", "cupy", "cudf", "pandas"]))
     return (*as_type(type, X, y, X_test, alpha, sample_weight), dtype)
 
 
@@ -253,7 +271,7 @@ def test_estimator(kernel_arg, arrays, gamma, degree, coef0):
     skl_kernel = kernel.py_func if hasattr(kernel, "py_func") else kernel
     skl_model = sklKernelRidge(
         kernel=skl_kernel,
-        alpha=as_type('numpy', alpha),
+        alpha=as_type("numpy", alpha),
         gamma=gamma,
         degree=degree,
         coef0=coef0,
@@ -261,7 +279,7 @@ def test_estimator(kernel_arg, arrays, gamma, degree, coef0):
     )
     if kernel == "chi2" or kernel == "additive_chi2":
         # X must be positive
-        X = (X - as_type('numpy', X).min()) + 1.0
+        X = (X - as_type("numpy", X).min()) + 1.0
 
     model.fit(X, y, sample_weight)
     pred = model.predict(X_test).get()
@@ -270,18 +288,20 @@ def test_estimator(kernel_arg, arrays, gamma, degree, coef0):
         # If the solution has converged correctly
         K = model._get_kernel(X)
         grad_norm = gradient_norm(
-            model, *as_type('cupy', X, y, K, sample_weight))
+            model, *as_type("cupy", X, y, K, sample_weight)
+        )
         assert grad_norm < 0.1
         try:
-            skl_model.fit(*as_type('numpy', X, y, sample_weight))
+            skl_model.fit(*as_type("numpy", X, y, sample_weight))
         except np.linalg.LinAlgError:
             # sklearn can fail to fit multiclass models
             # with singular kernel matrices
             assume(False)
 
-        skl_pred = skl_model.predict(as_type('numpy', X_test))
-        assert np.allclose(as_type('numpy', pred),
-                           skl_pred, atol=1e-2, rtol=1e-2)
+        skl_pred = skl_model.predict(as_type("numpy", X_test))
+        assert np.allclose(
+            as_type("numpy", pred), skl_pred, atol=1e-2, rtol=1e-2
+        )
 
 
 def test_precomputed():

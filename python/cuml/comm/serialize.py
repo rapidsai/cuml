@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,23 +55,17 @@ try:
     def rfc_deserialize(header, frames):
         return pickle_loads(header, frames)
 
-    register_generic(SparseCumlArray, 'cuda',
-                     cuda_serialize, cuda_deserialize)
+    register_generic(SparseCumlArray, "cuda", cuda_serialize, cuda_deserialize)
 
-    register_generic(SparseCumlArray, 'dask',
-                     dask_serialize, dask_deserialize)
+    register_generic(SparseCumlArray, "dask", dask_serialize, dask_deserialize)
 
-    register_generic(cuml.Base, 'cuda',
-                     cuda_serialize, cuda_deserialize)
+    register_generic(cuml.Base, "cuda", cuda_serialize, cuda_deserialize)
 
-    register_generic(cuml.Base, 'dask',
-                     dask_serialize, dask_deserialize)
+    register_generic(cuml.Base, "dask", dask_serialize, dask_deserialize)
 
-    register_generic(MultinomialNB, 'cuda',
-                     cuda_serialize, cuda_deserialize)
+    register_generic(MultinomialNB, "cuda", cuda_serialize, cuda_deserialize)
 
-    register_generic(MultinomialNB, 'dask',
-                     dask_serialize, dask_deserialize)
+    register_generic(MultinomialNB, "dask", dask_serialize, dask_deserialize)
 
 except ImportError:
     # distributed is probably not installed on the system

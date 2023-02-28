@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,9 +29,9 @@ class CustomCallback(GraphBasedDimRedCallback):
             super().__init__()
 
     def check(self):
-        assert(self.preprocess_event)
-        assert(self.epoch_event > 10)
-        assert(self.train_event)
+        assert self.preprocess_event
+        assert self.epoch_event > 10
+        assert self.train_event
 
     def on_preprocess_end(self, embeddings):
         self.preprocess_event = True
@@ -43,7 +43,7 @@ class CustomCallback(GraphBasedDimRedCallback):
         self.train_event = True
 
 
-@pytest.mark.parametrize('n_components', [2, 4, 8])
+@pytest.mark.parametrize("n_components", [2, 4, 8])
 def test_internals_api(n_components):
     callback = CustomCallback()
     reducer = UMAP(n_components=n_components, callback=callback)

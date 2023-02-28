@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,17 +18,16 @@ from cuml.internals.input_utils import input_to_cupy_array
 import cuml.internals
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 @cuml.internals.api_return_any()
-def log_loss(y_true,
-             y_pred,
-             eps=1e-15,
-             normalize=True,
-             sample_weight=None) -> float:
-    """ Log loss, aka logistic loss or cross-entropy loss.
+def log_loss(
+    y_true, y_pred, eps=1e-15, normalize=True, sample_weight=None
+) -> float:
+    """Log loss, aka logistic loss or cross-entropy loss.
     This is the loss function used in (multinomial) logistic regression
     and extensions of it such as neural networks, defined as the negative
     log-likelihood of a logistic model that returns ``y_pred`` probabilities
@@ -73,27 +72,30 @@ def log_loss(y_true,
     The logarithm used is the natural logarithm (base-e).
 
     """
-    y_true, n_rows, n_cols, ytype = \
-        input_to_cupy_array(y_true, check_dtype=[np.int32, np.int64,
-                                                 np.float32, np.float64])
+    y_true, n_rows, n_cols, ytype = input_to_cupy_array(
+        y_true, check_dtype=[np.int32, np.int64, np.float32, np.float64]
+    )
 
-    if y_true.dtype.kind == 'f' and np.any(y_true != y_true.astype(int)):
+    if y_true.dtype.kind == "f" and np.any(y_true != y_true.astype(int)):
         raise ValueError("'y_true' can only have integer values")
     if y_true.min() < 0:
         raise ValueError("'y_true' cannot have negative values")
 
-    y_pred, _, _, _ = \
-        input_to_cupy_array(y_pred, check_dtype=[np.int32, np.int64,
-                                                 np.float32, np.float64],
-                            check_rows=n_rows)
+    y_pred, _, _, _ = input_to_cupy_array(
+        y_pred,
+        check_dtype=[np.int32, np.int64, np.float32, np.float64],
+        check_rows=n_rows,
+    )
 
     y_true_max = y_true.max()
-    if (y_pred.ndim == 1 and y_true_max > 1) \
-       or (y_pred.ndim > 1 and y_pred.shape[1] <= y_true_max):
-        raise ValueError("The shape of y_pred doesn't "
-                         "match the number of classes")
+    if (y_pred.ndim == 1 and y_true_max > 1) or (
+        y_pred.ndim > 1 and y_pred.shape[1] <= y_true_max
+    ):
+        raise ValueError(
+            "The shape of y_pred doesn't " "match the number of classes"
+        )
 
-    y_true = y_true.astype('int32')
+    y_true = y_true.astype("int32")
     y_pred = cp.clip(y_pred, eps, 1 - eps)
     if y_pred.ndim == 1:
         y_pred = cp.expand_dims(y_pred, axis=1)

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,15 +15,27 @@
 
 import treelite
 from sklearn.model_selection import train_test_split
-from sklearn.datasets import fetch_california_housing, \
-    make_classification, make_regression, load_iris, load_breast_cancer
-from sklearn.metrics import accuracy_score, mean_squared_error, \
-    mean_tweedie_deviance
+from sklearn.datasets import (
+    fetch_california_housing,
+    make_classification,
+    make_regression,
+    load_iris,
+    load_breast_cancer,
+)
+from sklearn.metrics import (
+    accuracy_score,
+    mean_squared_error,
+    mean_tweedie_deviance,
+)
 from sklearn.ensemble import RandomForestRegressor as skrfr
 from sklearn.ensemble import RandomForestClassifier as skrfc
 import cuml.internals.logger as logger
-from cuml.testing.utils import get_handle, unit_param, quality_param, \
-    stress_param
+from cuml.testing.utils import (
+    get_handle,
+    unit_param,
+    quality_param,
+    stress_param,
+)
 from cuml.metrics import r2_score
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble import RandomForestClassifier as curfc
@@ -37,14 +49,16 @@ import pytest
 
 import warnings
 from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
-np = cpu_only_import('numpy')
 
-cuda = gpu_only_import_from('numba', 'cuda')
+cudf = gpu_only_import("cudf")
+np = cpu_only_import("numpy")
+
+cuda = gpu_only_import_from("numba", "cuda")
 
 
-pytestmark = pytest.mark.filterwarnings("ignore: For reproducible results(.*)"
-                                        "::cuml[.*]")
+pytestmark = pytest.mark.filterwarnings(
+    "ignore: For reproducible results(.*)" "::cuml[.*]"
+)
 
 
 @pytest.fixture(
@@ -194,8 +208,9 @@ def special_reg(request):
 
 
 @pytest.mark.parametrize("max_depth", [2, 4])
-@pytest.mark.parametrize("split_criterion",
-                         ["poisson", "gamma", "inverse_gaussian"])
+@pytest.mark.parametrize(
+    "split_criterion", ["poisson", "gamma", "inverse_gaussian"]
+)
 def test_tweedie_convergence(max_depth, split_criterion):
     np.random.seed(33)
     bootstrap = None
@@ -204,46 +219,52 @@ def test_tweedie_convergence(max_depth, split_criterion):
     min_impurity_decrease = 1e-5
     n_datapoints = 1000
     tweedie = {
-        "poisson":
-            {"power": 1,
-             "gen": np.random.poisson, "args": [0.01]},
-        "gamma":
-            {"power": 2,
-             "gen": np.random.gamma, "args": [2.0]},
-        "inverse_gaussian":
-            {"power": 3,
-             "gen": np.random.wald, "args": [0.1, 2.0]}
+        "poisson": {"power": 1, "gen": np.random.poisson, "args": [0.01]},
+        "gamma": {"power": 2, "gen": np.random.gamma, "args": [2.0]},
+        "inverse_gaussian": {
+            "power": 3,
+            "gen": np.random.wald,
+            "args": [0.1, 2.0],
+        },
     }
     # generating random dataset with tweedie distribution
     X = np.random.random((n_datapoints, 4)).astype(np.float32)
-    y = tweedie[split_criterion]["gen"](*tweedie[split_criterion]["args"],
-                                        size=n_datapoints).astype(np.float32)
+    y = tweedie[split_criterion]["gen"](
+        *tweedie[split_criterion]["args"], size=n_datapoints
+    ).astype(np.float32)
 
-    tweedie_preds = curfr(
-        split_criterion=split_criterion,
-        max_depth=max_depth,
-        n_estimators=n_estimators,
-        bootstrap=bootstrap,
-        max_features=max_features,
-        min_impurity_decrease=min_impurity_decrease).fit(X, y).predict(X)
-    mse_preds = curfr(
-        split_criterion=2,
-        max_depth=max_depth,
-        n_estimators=n_estimators,
-        bootstrap=bootstrap,
-        max_features=max_features,
-        min_impurity_decrease=min_impurity_decrease).fit(X, y).predict(X)
+    tweedie_preds = (
+        curfr(
+            split_criterion=split_criterion,
+            max_depth=max_depth,
+            n_estimators=n_estimators,
+            bootstrap=bootstrap,
+            max_features=max_features,
+            min_impurity_decrease=min_impurity_decrease,
+        )
+        .fit(X, y)
+        .predict(X)
+    )
+    mse_preds = (
+        curfr(
+            split_criterion=2,
+            max_depth=max_depth,
+            n_estimators=n_estimators,
+            bootstrap=bootstrap,
+            max_features=max_features,
+            min_impurity_decrease=min_impurity_decrease,
+        )
+        .fit(X, y)
+        .predict(X)
+    )
     # y should not be non-positive for mean_poisson_deviance
     mask = mse_preds > 0
-    mse_tweedie_deviance = mean_tweedie_deviance(y[mask],
-                                                 mse_preds[mask],
-                                                 power=tweedie
-                                                 [split_criterion]["power"])
-    tweedie_tweedie_deviance = mean_tweedie_deviance(y[mask],
-                                                     tweedie_preds[mask],
-                                                     power=tweedie
-                                                     [split_criterion]["power"]
-                                                     )
+    mse_tweedie_deviance = mean_tweedie_deviance(
+        y[mask], mse_preds[mask], power=tweedie[split_criterion]["power"]
+    )
+    tweedie_tweedie_deviance = mean_tweedie_deviance(
+        y[mask], tweedie_preds[mask], power=tweedie[split_criterion]["power"]
+    )
 
     # model trained on tweedie data with
     # tweedie criterion must perform better on tweedie loss
@@ -303,7 +324,9 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
         sk_preds = sk_model.predict(X_test)
         sk_acc = accuracy_score(y_test, sk_preds)
         assert fil_acc >= (sk_acc - 0.07)
-    assert fil_acc >= (cuml_acc - 0.07)  # to be changed to 0.02. see issue #3910: https://github.com/rapidsai/cuml/issues/3910 # noqa
+    assert fil_acc >= (
+        cuml_acc - 0.07
+    )  # to be changed to 0.02. see issue #3910: https://github.com/rapidsai/cuml/issues/3910 # noqa
 
 
 @pytest.mark.parametrize(
@@ -311,14 +334,15 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
 )
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 def test_rf_classification_unorder(
-        small_clf, datatype, max_samples, max_features=1, a=2, b=5):
+    small_clf, datatype, max_samples, max_features=1, a=2, b=5
+):
     use_handle = True
 
     X, y = small_clf
     X = X.astype(datatype)
     y = y.astype(np.int32)
     # affine transformation
-    y = a*y+b
+    y = a * y + b
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, train_size=0.8, random_state=0
     )
@@ -361,7 +385,9 @@ def test_rf_classification_unorder(
         sk_preds = sk_model.predict(X_test)
         sk_acc = accuracy_score(y_test, sk_preds)
         assert fil_acc >= (sk_acc - 0.07)
-    assert fil_acc >= (cuml_acc - 0.07)  # to be changed to 0.02. see issue #3910: https://github.com/rapidsai/cuml/issues/3910 # noqa
+    assert fil_acc >= (
+        cuml_acc - 0.07
+    )  # to be changed to 0.02. see issue #3910: https://github.com/rapidsai/cuml/issues/3910 # noqa
 
 
 @pytest.mark.parametrize(
@@ -518,7 +544,9 @@ def test_rf_classification_float64(small_clf, datatype, convert_dtype):
     fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
 
     fil_acc = accuracy_score(y_test, fil_preds)
-    assert fil_acc >= (cu_acc - 0.07)  # to be changed to 0.02. see issue #3910: https://github.com/rapidsai/cuml/issues/3910 # noqa
+    assert fil_acc >= (
+        cu_acc - 0.07
+    )  # to be changed to 0.02. see issue #3910: https://github.com/rapidsai/cuml/issues/3910 # noqa
 
 
 @pytest.mark.parametrize(
@@ -1248,10 +1276,12 @@ def test_rf_nbins_small(small_clf):
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         cuml_model.fit(X_train[0:3, :], y_train[0:3])
-        assert("The number of bins, `n_bins` is greater than "
-               "the number of samples used for training. "
-               "Changing `n_bins` to number of training samples."
-               in str(w[-1].message))
+        assert (
+            "The number of bins, `n_bins` is greater than "
+            "the number of samples used for training. "
+            "Changing `n_bins` to number of training samples."
+            in str(w[-1].message)
+        )
 
 
 @pytest.mark.parametrize("split_criterion", [2], ids=["mse"])
@@ -1288,7 +1318,7 @@ def test_rf_regressor_gtil_integration(tmpdir):
     clf.fit(X, y)
     expected_pred = clf.predict(X)
 
-    checkpoint_path = os.path.join(tmpdir, 'checkpoint.tl')
+    checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
     clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
@@ -1303,7 +1333,7 @@ def test_rf_binary_classifier_gtil_integration(tmpdir):
     clf.fit(X, y)
     expected_pred = clf.predict(X)
 
-    checkpoint_path = os.path.join(tmpdir, 'checkpoint.tl')
+    checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
     clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
@@ -1318,7 +1348,7 @@ def test_rf_multiclass_classifier_gtil_integration(tmpdir):
     clf.fit(X, y)
     expected_prob = clf.predict_proba(X)
 
-    checkpoint_path = os.path.join(tmpdir, 'checkpoint.tl')
+    checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
     clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
@@ -1326,10 +1356,13 @@ def test_rf_multiclass_classifier_gtil_integration(tmpdir):
     np.testing.assert_almost_equal(out_prob, expected_prob, decimal=5)
 
 
-@pytest.mark.parametrize("estimator, make_data", [
-    (curfc, make_classification),
-    (curfr, make_regression),
-])
+@pytest.mark.parametrize(
+    "estimator, make_data",
+    [
+        (curfc, make_classification),
+        (curfr, make_regression),
+    ],
+)
 def test_rf_min_samples_split_with_small_float(estimator, make_data):
     # Check that min_samples leaf is works with a small float
     # Non-regression test for gh-4613

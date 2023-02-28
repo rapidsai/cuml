@@ -24,6 +24,9 @@ NEXT_MINOR=$(echo $NEXT_FULL_TAG | awk '{split($0, a, "."); print a[2]}')
 NEXT_SHORT_TAG=${NEXT_MAJOR}.${NEXT_MINOR}
 NEXT_UCX_PY_VERSION="$(curl -sL https://version.gpuci.io/rapids/${NEXT_SHORT_TAG}).*"
 
+# Need to distutils-normalize the original version
+NEXT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_SHORT_TAG}'))")
+
 echo "Preparing release $CURRENT_TAG => $NEXT_FULL_TAG"
 
 # Inplace sed replace; workaround for Linux and Mac
@@ -31,8 +34,25 @@ function sed_runner() {
     sed -i.bak ''"$1"'' $2 && rm -f ${2}.bak
 }
 
+
+# __init__.py and setup.py versions
+sed_runner "s/__version__ = .*/__version__ = \"${NEXT_FULL_TAG}\"/g" python/cuml/__init__.py
+sed_runner "s/version=.*,/version=\"${NEXT_FULL_TAG}\",/g" python/setup.py
+
+# Dependency versions in pyproject.toml
+sed_runner "s/rmm==.*\",/rmm==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pyproject.toml
+sed_runner "s/pylibraft==.*\",/pylibraft==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pyproject.toml
+
+# Dependency versions in setup.py
+sed_runner "s/cudf==.*\",/cudf==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/setup.py
+sed_runner "s/pylibraft==.*\",/pylibraft==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/setup.py
+sed_runner "s/raft-dask==.*\",/raft-dask==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/setup.py
+
+
+# CMakeLists
 sed_runner 's/'"CUML VERSION .* LANGUAGES"'/'"CUML VERSION ${NEXT_FULL_TAG} LANGUAGES"'/g' cpp/CMakeLists.txt
 sed_runner 's/'"set(CUML_VERSION .*)"'/'"set(CUML_VERSION ${NEXT_FULL_TAG})"'/g' python/CMakeLists.txt
+
 # rapids-cmake version
 sed_runner 's/'"branch-.*\/RAPIDS.cmake"'/'"branch-${NEXT_SHORT_TAG}\/RAPIDS.cmake"'/g' fetch_rapids.cmake
 
@@ -70,13 +90,6 @@ sed_runner "s/extra-repo-sha: branch-.*/extra-repo-sha: branch-${NEXT_SHORT_TAG}
 for FILE in .github/workflows/*.yaml; do
   sed_runner "s/dask-cuda.git@branch-[^\"\s]\+/dask-cuda.git@branch-${NEXT_SHORT_TAG}/g" ${FILE};
 done
-
-# Need to distutils-normalize the original version
-NEXT_SHORT_TAG_PEP440=$(python -c "from setuptools.extern import packaging; print(packaging.version.Version('${NEXT_SHORT_TAG}'))")
-
-# Wheel builds install intra-RAPIDS dependencies from same release
-sed_runner "s/{cuda_suffix}==.*\",/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/setup.py
-sed_runner "s/{cuda_suffix}==.*\",/{cuda_suffix}==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/_custom_build/backend.py
 
 for FILE in .github/workflows/*.yaml; do
   sed_runner "/shared-action-workflows/ s/@.*/@branch-${NEXT_SHORT_TAG}/g" "${FILE}"

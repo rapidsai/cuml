@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +15,11 @@
 #
 
 from sklearn.model_selection import train_test_split
-from cuml.testing.utils import create_synthetic_dataset, ClassEnumerator, \
-    get_shap_values
+from cuml.testing.utils import (
+    create_synthetic_dataset,
+    ClassEnumerator,
+    get_shap_values,
+)
 from cuml.datasets import make_regression
 from cuml.internals.import_utils import has_shap
 from cuml.internals.import_utils import has_scipy
@@ -28,25 +31,25 @@ import math
 from cuml.internals.safe_imports import cpu_only_import
 import cuml
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()
 
 
-def assert_and_log(cu_shap_values,
-                   golden_result_values,
-                   fx,
-                   expected,
-                   tolerance=1e-02):
-    close_values = \
-        np.allclose(cu_shap_values, golden_result_values,
-                    rtol=tolerance, atol=tolerance)
+def assert_and_log(
+    cu_shap_values, golden_result_values, fx, expected, tolerance=1e-02
+):
+    close_values = np.allclose(
+        cu_shap_values, golden_result_values, rtol=tolerance, atol=tolerance
+    )
 
-    expected_sum = np.allclose(1.00, np.sum(cp.asnumpy(
-        cu_shap_values)) / (fx - expected), rtol=1e-01)
+    expected_sum = np.allclose(
+        1.00, np.sum(cp.asnumpy(cu_shap_values)) / (fx - expected), rtol=1e-01
+    )
 
     if not close_values:
         print("cu_shap_values: ")
@@ -66,9 +69,9 @@ def assert_and_log(cu_shap_values,
 ###############################################################################
 
 
-@pytest.mark.parametrize("model", [cuml.LinearRegression,
-                                   cuml.KNeighborsRegressor,
-                                   cuml.SVR])
+@pytest.mark.parametrize(
+    "model", [cuml.LinearRegression, cuml.KNeighborsRegressor, cuml.SVR]
+)
 def test_exact_regression_datasets(exact_shap_regression_dataset, model):
     X_train, X_test, y_train, y_test = exact_shap_regression_dataset
 
@@ -81,7 +84,7 @@ def test_exact_regression_datasets(exact_shap_regression_dataset, model):
             model=mod.predict,
             background_dataset=X_train,
             explained_dataset=X_test,
-            explainer=KernelExplainer
+            explainer=KernelExplainer,
         )
         for i in range(3):
             print(i)
@@ -89,7 +92,7 @@ def test_exact_regression_datasets(exact_shap_regression_dataset, model):
                 shap_values[i],
                 golden_regression_results[model][i],
                 mod.predict(X_test[i].reshape(1, X_test.shape[1])),
-                explainer.expected_value
+                explainer.expected_value,
             )
 
 
@@ -105,7 +108,7 @@ def test_exact_classification_datasets(exact_shap_classification_dataset):
             model=mod.predict_proba,
             background_dataset=X_train,
             explained_dataset=X_test,
-            explainer=KernelExplainer
+            explainer=KernelExplainer,
         )
 
         # Some values are very small, which mean our tolerance here needs to be
@@ -118,22 +121,21 @@ def test_exact_classification_datasets(exact_shap_classification_dataset):
                 golden_classification_result[idx],
                 float(mod.predict_proba(X_test)[0][idx]),
                 explainer.expected_value[idx],
-                tolerance=1e-01
+                tolerance=1e-01,
             )
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("n_features", [10, 30])
 @pytest.mark.parametrize("n_background", [10, 30])
-@pytest.mark.parametrize("model", [cuml.TruncatedSVD,
-                                   cuml.PCA])
+@pytest.mark.parametrize("model", [cuml.TruncatedSVD, cuml.PCA])
 def test_kernel_shap_standalone(dtype, n_features, n_background, model):
     X_train, X_test, y_train, y_test = create_synthetic_dataset(
         n_samples=n_background + 3,
         n_features=n_features,
         test_size=3,
         noise=0.1,
-        dtype=dtype
+        dtype=dtype,
     )
 
     mod = model(n_components=3).fit(X_train, y_train)
@@ -141,7 +143,7 @@ def test_kernel_shap_standalone(dtype, n_features, n_background, model):
         model=mod.transform,
         background_dataset=X_train,
         explained_dataset=X_test,
-        explainer=KernelExplainer
+        explainer=KernelExplainer,
     )
 
     exp_v = explainer.expected_value
@@ -157,10 +159,10 @@ def test_kernel_shap_standalone(dtype, n_features, n_background, model):
         fx = mod.transform(X_test[sv_idx].reshape(1, n_features))[0]
 
         for comp_idx in range(3):
-            assert(
-                np.sum(
-                    shap_values[comp_idx][sv_idx]) - abs(
-                        fx[comp_idx] - exp_v[comp_idx])) <= 1e-5
+            assert (
+                np.sum(shap_values[comp_idx][sv_idx])
+                - abs(fx[comp_idx] - exp_v[comp_idx])
+            ) <= 1e-5
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -173,7 +175,7 @@ def test_kernel_gpu_cpu_shap(dtype, n_features, n_background, model):
         n_features=n_features,
         test_size=3,
         noise=0.1,
-        dtype=dtype
+        dtype=dtype,
     )
 
     mod = model().fit(X_train, y_train)
@@ -181,23 +183,26 @@ def test_kernel_gpu_cpu_shap(dtype, n_features, n_background, model):
         model=mod.predict,
         background_dataset=X_train,
         explained_dataset=X_test,
-        explainer=KernelExplainer
+        explainer=KernelExplainer,
     )
 
     exp_v = explainer.expected_value
 
     fx = mod.predict(X_test)
     for test_idx in range(3):
-        assert(np.sum(
-            shap_values[test_idx]) - abs(fx[test_idx] - exp_v)) <= 1e-5
+        assert (
+            np.sum(shap_values[test_idx]) - abs(fx[test_idx] - exp_v)
+        ) <= 1e-5
 
     if has_shap():
         import shap
+
         explainer = shap.KernelExplainer(mod.predict, cp.asnumpy(X_train))
         cpu_shap_values = explainer.shap_values(cp.asnumpy(X_test))
 
-        assert np.allclose(shap_values, cpu_shap_values, rtol=1e-01,
-                           atol=1e-01)
+        assert np.allclose(
+            shap_values, cpu_shap_values, rtol=1e-01, atol=1e-01
+        )
 
 
 def test_kernel_housing_dataset(housing_dataset):
@@ -216,14 +221,15 @@ def test_kernel_housing_dataset(housing_dataset):
     cumodel = cuml.RandomForestRegressor().fit(X_train, y_train)
 
     explainer = KernelExplainer(
-        model=cumodel.predict,
-        data=X_train[:100],
-        output_type='numpy')
+        model=cumodel.predict, data=X_train[:100], output_type="numpy"
+    )
 
     cu_shap_values = explainer.shap_values(X_test[:2])
 
-    assert np.allclose(cu_shap_values, housing_regression_result,
-                       rtol=1e-01, atol=1e-01)
+    assert np.allclose(
+        cu_shap_values, housing_regression_result, rtol=1e-01, atol=1e-01
+    )
+
 
 ###############################################################################
 #                        Single function unit tests                           #
@@ -235,6 +241,7 @@ def test_binom_coef():
         val = cuml.explainer.kernel_shap._binomCoef(100, i)
         if has_scipy():
             from scipy.special import binom
+
             assert math.isclose(val, binom(100, i), rel_tol=1e-15)
 
 
@@ -246,7 +253,8 @@ def test_shapley_kernel():
 
 def test_full_powerset():
     ps, w = cuml.explainer.kernel_shap._powerset(
-        5, 2, 2**5 - 2, full_powerset=True)
+        5, 2, 2**5 - 2, full_powerset=True
+    )
 
     for i in range(len(ps)):
         assert np.all(ps[i] == full_powerset_result[i])
@@ -265,16 +273,24 @@ def test_partial_powerset():
 def test_get_number_of_exact_random_samples(full_powerset):
 
     if full_powerset:
-        nsamples_exact, nsamples_random, ind = \
-            (cuml.explainer.kernel_shap.
-             _get_number_of_exact_random_samples(10, 2**10 + 1))
+        (
+            nsamples_exact,
+            nsamples_random,
+            ind,
+        ) = cuml.explainer.kernel_shap._get_number_of_exact_random_samples(
+            10, 2**10 + 1
+        )
         assert nsamples_exact == 1022
         assert nsamples_random == 0
         assert ind == 5
     else:
-        nsamples_exact, nsamples_random, ind = \
-            (cuml.explainer.kernel_shap.
-             _get_number_of_exact_random_samples(10, 100))
+        (
+            nsamples_exact,
+            nsamples_random,
+            ind,
+        ) = cuml.explainer.kernel_shap._get_number_of_exact_random_samples(
+            10, 100
+        )
 
         assert nsamples_exact == 20
         assert nsamples_random == 80
@@ -282,45 +298,47 @@ def test_get_number_of_exact_random_samples(full_powerset):
 
 
 def test_generate_nsamples_weights():
-    samples, w = \
-        cuml.explainer.kernel_shap._generate_nsamples_weights(
-            ncols=20,
-            nsamples=30,
-            nsamples_exact=10,
-            nsamples_random=20,
-            randind=5,
-            dtype=np.float32
-        )
+    samples, w = cuml.explainer.kernel_shap._generate_nsamples_weights(
+        ncols=20,
+        nsamples=30,
+        nsamples_exact=10,
+        nsamples_random=20,
+        randind=5,
+        dtype=np.float32,
+    )
     # check that all our samples are between 5 and 6, and the weights in pairs
     # are generated correctly
     for i, s in enumerate(samples):
         assert s in [5, 6]
-        assert w[i * 2] == \
-            cuml.explainer.kernel_shap._shapley_kernel(20, int(s))
-        assert w[i * 2 + 1] == \
-            cuml.explainer.kernel_shap._shapley_kernel(20, int(s))
+        assert w[i * 2] == cuml.explainer.kernel_shap._shapley_kernel(
+            20, int(s)
+        )
+        assert w[i * 2 + 1] == cuml.explainer.kernel_shap._shapley_kernel(
+            20, int(s)
+        )
 
 
-@pytest.mark.parametrize("l1_type", ['auto', 'aic', 'bic', 'num_features(3)',
-                                     0.2])
+@pytest.mark.parametrize(
+    "l1_type", ["auto", "aic", "bic", "num_features(3)", 0.2]
+)
 def test_l1_regularization(exact_shap_regression_dataset, l1_type):
     # currently this is a code test, not mathematical results test.
     # Hard to test without falling into testing the underlying algorithms
     # which are out of this unit test scope.
     X, w = cuml.explainer.kernel_shap._powerset(
-        5, 2, 2**5 - 2, full_powerset=True)
+        5, 2, 2**5 - 2, full_powerset=True
+    )
 
     y = cp.random.rand(X.shape[0])
-    nz = \
-        cuml.explainer.kernel_shap._l1_regularization(
-            X=cp.asarray(X).astype(np.float32),
-            y=cp.asarray(y).astype(np.float32),
-            weights=cp.asarray(w),
-            expected_value=0.0,
-            fx=0.0,
-            link_fn=cuml.explainer.common.identity,
-            l1_reg=l1_type
-        )
+    nz = cuml.explainer.kernel_shap._l1_regularization(
+        X=cp.asarray(X).astype(np.float32),
+        y=cp.asarray(y).astype(np.float32),
+        weights=cp.asarray(w),
+        expected_value=0.0,
+        fx=0.0,
+        link_fn=cuml.explainer.common.identity,
+        l1_reg=l1_type,
+    )
     assert isinstance(nz, cp.ndarray)
 
 
@@ -346,47 +364,158 @@ def test_typeerror_input():
 # and confirmed with SHAP package.
 golden_regression_results = {
     cuml.LinearRegression: [
-        [-1.3628216e+00, -1.0234555e+02, 1.3433075e-01, -6.1763966e+01,
-         2.6035309e-04, -3.4455872e+00, -1.0159061e+02, 3.4058199e+00,
-         4.1598396e+01, 7.2152481e+01, -2.1964417e+00],
-        [-8.6558792e+01, 8.9456577e+00, -3.6405910e+01, 1.0574381e+01,
-         -4.1580200e-04, -5.8939896e+01, 4.8407948e+01, 1.4475842e+00,
-         -2.0742226e+01, 6.6378265e+01, -3.5134201e+01],
-        [-1.3722158e+01, -2.9430325e+01, -8.0079269e+01, 1.2096907e+02,
-         1.0681152e-03, -5.4266449e+01, -3.1012087e+01, -7.9640961e-01,
-         7.7072838e+01, 1.5370981e+01, -2.4032040e+01]
+        [
+            -1.3628216e00,
+            -1.0234555e02,
+            1.3433075e-01,
+            -6.1763966e01,
+            2.6035309e-04,
+            -3.4455872e00,
+            -1.0159061e02,
+            3.4058199e00,
+            4.1598396e01,
+            7.2152481e01,
+            -2.1964417e00,
+        ],
+        [
+            -8.6558792e01,
+            8.9456577e00,
+            -3.6405910e01,
+            1.0574381e01,
+            -4.1580200e-04,
+            -5.8939896e01,
+            4.8407948e01,
+            1.4475842e00,
+            -2.0742226e01,
+            6.6378265e01,
+            -3.5134201e01,
+        ],
+        [
+            -1.3722158e01,
+            -2.9430325e01,
+            -8.0079269e01,
+            1.2096907e02,
+            1.0681152e-03,
+            -5.4266449e01,
+            -3.1012087e01,
+            -7.9640961e-01,
+            7.7072838e01,
+            1.5370981e01,
+            -2.4032040e01,
+        ],
     ],
     cuml.KNeighborsRegressor: [
-        [4.3210926, -47.497078, -4.523407, -35.49657, -5.5174675, -14.158726,
-         -51.303787, -2.6457424, 12.230529, 52.345207, 6.3014755],
-        [-52.036957, 2.4158602, -20.302296, 15.428952, 5.9823637,
-         -20.046719, 22.46046, -4.762917, -6.20145, 37.457417,
-         5.3511925],
-        [-8.803419, -7.4095736, -48.113777, 57.21296, 1.0490589,
-         -37.94751, -20.748789, -0.22258139, 28.204493, 4.5492225,
-         0.5797138]
+        [
+            4.3210926,
+            -47.497078,
+            -4.523407,
+            -35.49657,
+            -5.5174675,
+            -14.158726,
+            -51.303787,
+            -2.6457424,
+            12.230529,
+            52.345207,
+            6.3014755,
+        ],
+        [
+            -52.036957,
+            2.4158602,
+            -20.302296,
+            15.428952,
+            5.9823637,
+            -20.046719,
+            22.46046,
+            -4.762917,
+            -6.20145,
+            37.457417,
+            5.3511925,
+        ],
+        [
+            -8.803419,
+            -7.4095736,
+            -48.113777,
+            57.21296,
+            1.0490589,
+            -37.94751,
+            -20.748789,
+            -0.22258139,
+            28.204493,
+            4.5492225,
+            0.5797138,
+        ],
     ],
     cuml.SVR: [
-        [3.53810340e-02, -8.11021507e-01, 3.34369540e-02, -8.68727207e-01,
-         1.06804073e-03, -1.14741415e-01, -1.35545099e+00, 3.87545109e-01,
-         4.43311602e-01, 1.08623052e+00, 2.65314579e-02],
-        [-1.39247358e+00, 5.91157824e-02, -4.33764964e-01, 1.04503572e-01,
-         -4.41753864e-03, -1.09017754e+00, 5.90143979e-01, 1.08445108e-01,
-         -2.26831138e-01, 9.69056726e-01, -1.18437767e-01],
-        [-1.28573015e-01, -2.33658075e-01, -1.02735841e+00, 1.47447693e+00,
-         -1.99043751e-03, -1.11328888e+00, -4.66209412e-01, -1.02243885e-01,
-         8.18460345e-01, 2.20144764e-01, -9.62769389e-02]
-    ]
+        [
+            3.53810340e-02,
+            -8.11021507e-01,
+            3.34369540e-02,
+            -8.68727207e-01,
+            1.06804073e-03,
+            -1.14741415e-01,
+            -1.35545099e00,
+            3.87545109e-01,
+            4.43311602e-01,
+            1.08623052e00,
+            2.65314579e-02,
+        ],
+        [
+            -1.39247358e00,
+            5.91157824e-02,
+            -4.33764964e-01,
+            1.04503572e-01,
+            -4.41753864e-03,
+            -1.09017754e00,
+            5.90143979e-01,
+            1.08445108e-01,
+            -2.26831138e-01,
+            9.69056726e-01,
+            -1.18437767e-01,
+        ],
+        [
+            -1.28573015e-01,
+            -2.33658075e-01,
+            -1.02735841e00,
+            1.47447693e00,
+            -1.99043751e-03,
+            -1.11328888e00,
+            -4.66209412e-01,
+            -1.02243885e-01,
+            8.18460345e-01,
+            2.20144764e-01,
+            -9.62769389e-02,
+        ],
+    ],
 }
 
 # For testing predict proba, we get one array of shap values per class
 golden_classification_result = [
-    [0.00152159, 0.00247397, 0.00250474, 0.00155965, 0.0113184,
-     -0.01153999, 0.19297145, 0.17027254, 0.00850102, -0.01293354,
-     -0.00088981],
-    [-0.00152159, -0.00247397, -0.00250474, -0.00155965, -0.0113184,
-     0.01153999, -0.19297145, -0.17027254, -0.00850102, 0.01293354,
-     0.00088981]
+    [
+        0.00152159,
+        0.00247397,
+        0.00250474,
+        0.00155965,
+        0.0113184,
+        -0.01153999,
+        0.19297145,
+        0.17027254,
+        0.00850102,
+        -0.01293354,
+        -0.00088981,
+    ],
+    [
+        -0.00152159,
+        -0.00247397,
+        -0.00250474,
+        -0.00155965,
+        -0.0113184,
+        0.01153999,
+        -0.19297145,
+        -0.17027254,
+        -0.00850102,
+        0.01293354,
+        0.00088981,
+    ],
 ]
 
 housing_regression_result = np.array(
@@ -418,108 +547,184 @@ housing_regression_result = np.array(
 cuml_skl_class_dict = {
     cuml.LinearRegression: sklearn.linear_model.LinearRegression,
     cuml.KNeighborsRegressor: sklearn.neighbors.KNeighborsRegressor,
-    cuml.SVR: sklearn.svm.SVR
+    cuml.SVR: sklearn.svm.SVR,
 }
 
 
 # results for individual function unit tests
-shapley_kernel_results = [10000, 0.1, 0.0125, 0.0035714285714285713,
-                          0.0017857142857142857, 0.0014285714285714286,
-                          0.0017857142857142857, 0.0035714285714285713,
-                          0.0125, 0.1, 10000]
+shapley_kernel_results = [
+    10000,
+    0.1,
+    0.0125,
+    0.0035714285714285713,
+    0.0017857142857142857,
+    0.0014285714285714286,
+    0.0017857142857142857,
+    0.0035714285714285713,
+    0.0125,
+    0.1,
+    10000,
+]
 
-full_powerset_result = [[1., 0., 0., 0., 0.],
-                        [0., 1., 0., 0., 0.],
-                        [0., 0., 1., 0., 0.],
-                        [0., 0., 0., 1., 0.],
-                        [0., 0., 0., 0., 1.],
-                        [1., 1., 0., 0., 0.],
-                        [1., 0., 1., 0., 0.],
-                        [1., 0., 0., 1., 0.],
-                        [1., 0., 0., 0., 1.],
-                        [0., 1., 1., 0., 0.],
-                        [0., 1., 0., 1., 0.],
-                        [0., 1., 0., 0., 1.],
-                        [0., 0., 1., 1., 0.],
-                        [0., 0., 1., 0., 1.],
-                        [0., 0., 0., 1., 1.],
-                        [1., 1., 1., 0., 0.],
-                        [1., 1., 0., 1., 0.],
-                        [1., 1., 0., 0., 1.],
-                        [1., 0., 1., 1., 0.],
-                        [1., 0., 1., 0., 1.],
-                        [1., 0., 0., 1., 1.],
-                        [0., 1., 1., 1., 0.],
-                        [0., 1., 1., 0., 1.],
-                        [0., 1., 0., 1., 1.],
-                        [0., 0., 1., 1., 1.],
-                        [1., 1., 1., 1., 0.],
-                        [1., 1., 1., 0., 1.],
-                        [1., 1., 0., 1., 1.],
-                        [1., 0., 1., 1., 1.],
-                        [0., 1., 1., 1., 1.]]
+full_powerset_result = [
+    [1.0, 0.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 0.0, 1.0, 0.0],
+    [0.0, 0.0, 0.0, 0.0, 1.0],
+    [1.0, 1.0, 0.0, 0.0, 0.0],
+    [1.0, 0.0, 1.0, 0.0, 0.0],
+    [1.0, 0.0, 0.0, 1.0, 0.0],
+    [1.0, 0.0, 0.0, 0.0, 1.0],
+    [0.0, 1.0, 1.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 1.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0, 1.0],
+    [0.0, 0.0, 1.0, 1.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0, 1.0],
+    [0.0, 0.0, 0.0, 1.0, 1.0],
+    [1.0, 1.0, 1.0, 0.0, 0.0],
+    [1.0, 1.0, 0.0, 1.0, 0.0],
+    [1.0, 1.0, 0.0, 0.0, 1.0],
+    [1.0, 0.0, 1.0, 1.0, 0.0],
+    [1.0, 0.0, 1.0, 0.0, 1.0],
+    [1.0, 0.0, 0.0, 1.0, 1.0],
+    [0.0, 1.0, 1.0, 1.0, 0.0],
+    [0.0, 1.0, 1.0, 0.0, 1.0],
+    [0.0, 1.0, 0.0, 1.0, 1.0],
+    [0.0, 0.0, 1.0, 1.0, 1.0],
+    [1.0, 1.0, 1.0, 1.0, 0.0],
+    [1.0, 1.0, 1.0, 0.0, 1.0],
+    [1.0, 1.0, 0.0, 1.0, 1.0],
+    [1.0, 0.0, 1.0, 1.0, 1.0],
+    [0.0, 1.0, 1.0, 1.0, 1.0],
+]
 
 
 full_powerset_weight_result = np.array(
-    [0.2, 0.2, 0.2, 0.2, 0.2, 0.06666667, 0.06666667, 0.06666667, 0.06666667,
-     0.06666667, 0.06666667, 0.06666667, 0.06666667, 0.06666667, 0.06666667,
-     0.06666667, 0.06666667, 0.06666667, 0.06666667, 0.06666667, 0.06666667,
-     0.06666667, 0.06666667, 0.06666667, 0.06666667, 0.2, 0.2, 0.2, 0.2, 0.2],
-    dtype=np.float32
+    [
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.06666667,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+        0.2,
+    ],
+    dtype=np.float32,
 )
 
-partial_powerset_result = [[1., 0., 0., 0., 0., 0.],
-                           [0., 1., 1., 1., 1., 1.],
-                           [0., 1., 0., 0., 0., 0.],
-                           [1., 0., 1., 1., 1., 1.],
-                           [0., 0., 1., 0., 0., 0.],
-                           [1., 1., 0., 1., 1., 1.],
-                           [0., 0., 0., 1., 0., 0.],
-                           [1., 1., 1., 0., 1., 1.],
-                           [0., 0., 0., 0., 1., 0.],
-                           [1., 1., 1., 1., 0., 1.],
-                           [0., 0., 0., 0., 0., 1.],
-                           [1., 1., 1., 1., 1., 0.],
-                           [1., 1., 0., 0., 0., 0.],
-                           [0., 0., 1., 1., 1., 1.],
-                           [1., 0., 1., 0., 0., 0.],
-                           [0., 1., 0., 1., 1., 1.],
-                           [1., 0., 0., 1., 0., 0.],
-                           [0., 1., 1., 0., 1., 1.],
-                           [1., 0., 0., 0., 1., 0.],
-                           [0., 1., 1., 1., 0., 1.],
-                           [1., 0., 0., 0., 0., 1.],
-                           [0., 1., 1., 1., 1., 0.],
-                           [0., 1., 1., 0., 0., 0.],
-                           [1., 0., 0., 1., 1., 1.],
-                           [0., 1., 0., 1., 0., 0.],
-                           [1., 0., 1., 0., 1., 1.],
-                           [0., 1., 0., 0., 1., 0.],
-                           [1., 0., 1., 1., 0., 1.],
-                           [0., 1., 0., 0., 0., 1.],
-                           [1., 0., 1., 1., 1., 0.],
-                           [0., 0., 1., 1., 0., 0.],
-                           [1., 1., 0., 0., 1., 1.],
-                           [0., 0., 1., 0., 1., 0.],
-                           [1., 1., 0., 1., 0., 1.],
-                           [0., 0., 1., 0., 0., 1.],
-                           [1., 1., 0., 1., 1., 0.],
-                           [0., 0., 0., 1., 1., 0.],
-                           [1., 1., 1., 0., 0., 1.],
-                           [0., 0., 0., 1., 0., 1.],
-                           [1., 1., 1., 0., 1., 0.],
-                           [0., 0., 0., 0., 1., 1.],
-                           [1., 1., 1., 1., 0., 0.]]
+partial_powerset_result = [
+    [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+    [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+    [1.0, 0.0, 1.0, 1.0, 1.0, 1.0],
+    [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+    [1.0, 1.0, 0.0, 1.0, 1.0, 1.0],
+    [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+    [1.0, 1.0, 1.0, 0.0, 1.0, 1.0],
+    [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+    [1.0, 1.0, 1.0, 1.0, 0.0, 1.0],
+    [0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+    [1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+    [1.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 1.0, 1.0, 1.0],
+    [1.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 1.0, 1.0, 1.0],
+    [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+    [0.0, 1.0, 1.0, 0.0, 1.0, 1.0],
+    [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+    [0.0, 1.0, 1.0, 1.0, 0.0, 1.0],
+    [1.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+    [0.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+    [0.0, 1.0, 1.0, 0.0, 0.0, 0.0],
+    [1.0, 0.0, 0.0, 1.0, 1.0, 1.0],
+    [0.0, 1.0, 0.0, 1.0, 0.0, 0.0],
+    [1.0, 0.0, 1.0, 0.0, 1.0, 1.0],
+    [0.0, 1.0, 0.0, 0.0, 1.0, 0.0],
+    [1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
+    [0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+    [1.0, 0.0, 1.0, 1.0, 1.0, 0.0],
+    [0.0, 0.0, 1.0, 1.0, 0.0, 0.0],
+    [1.0, 1.0, 0.0, 0.0, 1.0, 1.0],
+    [0.0, 0.0, 1.0, 0.0, 1.0, 0.0],
+    [1.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+    [0.0, 0.0, 1.0, 0.0, 0.0, 1.0],
+    [1.0, 1.0, 0.0, 1.0, 1.0, 0.0],
+    [0.0, 0.0, 0.0, 1.0, 1.0, 0.0],
+    [1.0, 1.0, 1.0, 0.0, 0.0, 1.0],
+    [0.0, 0.0, 0.0, 1.0, 0.0, 1.0],
+    [1.0, 1.0, 1.0, 0.0, 1.0, 0.0],
+    [0.0, 0.0, 0.0, 0.0, 1.0, 1.0],
+    [1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
+]
 
 partial_powerset_weight_result = np.array(
-    [0.16666667, 0.16666667, 0.16666667, 0.16666667,
-     0.16666667, 0.16666667, 0.16666667, 0.16666667,
-     0.16666667, 0.16666667, 0.16666667, 0.16666667,
-     0.041666668, 0.041666668, 0.041666668, 0.041666668,
-     0.041666668, 0.041666668, 0.041666668, 0.041666668,
-     0.041666668, 0.041666668, 0.041666668, 0.041666668,
-     0.041666668, 0.041666668, 0.041666668, 0.041666668,
-     0.041666668, 0.041666668, 0.041666668, 0.041666668,
-     0.041666668, 0.041666668, 0.041666668, 0.041666668,
-     0.041666668, 0.041666668, 0.041666668, 0.041666668,
-     0.041666668, 0.041666668], dtype=np.float32)
+    [
+        0.16666667,
+        0.16666667,
+        0.16666667,
+        0.16666667,
+        0.16666667,
+        0.16666667,
+        0.16666667,
+        0.16666667,
+        0.16666667,
+        0.16666667,
+        0.16666667,
+        0.16666667,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+        0.041666668,
+    ],
+    dtype=np.float32,
+)

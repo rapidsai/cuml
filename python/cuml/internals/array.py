@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,10 +22,7 @@ import pickle
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
-from cuml.internals.memory_utils import (
-    class_with_cupy_rmm,
-    with_cupy_rmm
-)
+from cuml.internals.memory_utils import class_with_cupy_rmm, with_cupy_rmm
 from cuml.internals.safe_imports import (
     cpu_only_import,
     cpu_only_import_from,
@@ -34,77 +31,73 @@ from cuml.internals.safe_imports import (
     null_decorator,
     return_false,
     safe_import,
-    safe_import_from
+    safe_import_from,
 )
 from typing import Tuple
 
-cudf = gpu_only_import('cudf')
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
-rmm = gpu_only_import('rmm')
-host_xpy = safe_import('numpy', alt=cp)
+cudf = gpu_only_import("cudf")
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
+rmm = gpu_only_import("rmm")
+host_xpy = safe_import("numpy", alt=cp)
 
-cuda = gpu_only_import_from('numba', 'cuda')
+cuda = gpu_only_import_from("numba", "cuda")
 cached_property = safe_import_from(
-    'functools', 'cached_property', alt=null_decorator
+    "functools", "cached_property", alt=null_decorator
 )
-CudfBuffer = gpu_only_import_from('cudf.core.buffer', 'Buffer')
-CudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
-CudfIndex = gpu_only_import_from('cudf', 'Index')
-CudfSeries = gpu_only_import_from('cudf', 'Series')
-DaskCudfDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
-DaskCudfSeries = gpu_only_import_from('dask_cudf.core', 'Series')
-DaskDataFrame = gpu_only_import_from('dask.dataframe', 'DataFrame')
-DaskSeries = gpu_only_import_from('dask.dataframe', 'Series')
-DeviceBuffer = gpu_only_import_from('rmm', 'DeviceBuffer')
-nvtx_annotate = gpu_only_import_from(
-    'nvtx',
-    'annotate',
-    alt=null_decorator
-)
-PandasDataFrame = cpu_only_import_from('pandas', 'DataFrame')
-PandasIndex = cpu_only_import_from('pandas', 'Index')
-PandasSeries = cpu_only_import_from('pandas', 'Series')
+CudfBuffer = gpu_only_import_from("cudf.core.buffer", "Buffer")
+CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
+CudfIndex = gpu_only_import_from("cudf", "Index")
+CudfSeries = gpu_only_import_from("cudf", "Series")
+DaskCudfDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
+DaskCudfSeries = gpu_only_import_from("dask_cudf.core", "Series")
+DaskDataFrame = gpu_only_import_from("dask.dataframe", "DataFrame")
+DaskSeries = gpu_only_import_from("dask.dataframe", "Series")
+DeviceBuffer = gpu_only_import_from("rmm", "DeviceBuffer")
+nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
+PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
+PandasIndex = cpu_only_import_from("pandas", "Index")
+PandasSeries = cpu_only_import_from("pandas", "Series")
 is_numba_array = gpu_only_import_from(
-    'numba.cuda', 'is_cuda_array', alt=return_false
+    "numba.cuda", "is_cuda_array", alt=return_false
 )
 
 
 def _order_to_strides(order, shape, dtype):
-    '''
+    """
     Given memory order, shape and dtype, return expected strides
-    '''
+    """
     dtype = host_xpy.dtype(dtype)
-    if order == 'C':
-        strides = host_xpy.append(
-            host_xpy.cumprod(
-                host_xpy.array(shape[:0:-1])
-            )[::-1],
-            1
-        ) * dtype.itemsize
-    elif order == 'F':
-        strides = (host_xpy.cumprod(
-            host_xpy.array([1, *shape[:-1]])
-        ) * dtype.itemsize)
+    if order == "C":
+        strides = (
+            host_xpy.append(
+                host_xpy.cumprod(host_xpy.array(shape[:0:-1]))[::-1], 1
+            )
+            * dtype.itemsize
+        )
+    elif order == "F":
+        strides = (
+            host_xpy.cumprod(host_xpy.array([1, *shape[:-1]])) * dtype.itemsize
+        )
     else:
         raise ValueError(
-            'Must specify strides or order, and order must'
+            "Must specify strides or order, and order must"
             ' be one of "C" or "F"'
         )
     return strides
 
 
-def _determine_memory_order(shape, strides, dtype, default='C'):
-    '''
+def _determine_memory_order(shape, strides, dtype, default="C"):
+    """
     Given strides, shape and dtype for an array, return memory order
 
     If order is neither C nor F contiguous, return None. If array is both C and
     F contiguous, return default if given or 'C' otherwise.
-    '''
+    """
     if strides is None:
-        return 'C'
+        return "C"
     if len(shape) < 2:
-        return 'C' if default in (None, 'K') else default
+        return "C" if default in (None, "K") else default
     shape = host_xpy.array(shape)
     strides = host_xpy.array(strides)
     itemsize = host_xpy.dtype(dtype).itemsize
@@ -117,16 +110,16 @@ def _determine_memory_order(shape, strides, dtype, default='C'):
         if host_xpy.all(strides[1:] == shape[:-1] * strides[:-1]):
             f_contiguous = True
     if c_contiguous and f_contiguous:
-        return 'C' if default in (None, 'K') else default
+        return "C" if default in (None, "K") else default
     elif c_contiguous:
-        return 'C'
+        return "C"
     elif f_contiguous:
-        return 'F'
+        return "F"
     return None
 
 
 @class_with_cupy_rmm(ignore_pattern=["serialize"])
-class CumlArray():
+class CumlArray:
 
     """
     Array represents an abstracted array allocation. It can be instantiated by
@@ -200,18 +193,23 @@ class CumlArray():
 
     """
 
-    @nvtx_annotate(message="internals.CumlArray.__init__", category="utils",
-                   domain="cuml_python")
-    def __init__(self,
-                 data=None,
-                 index=None,
-                 owner=None,
-                 dtype=None,
-                 shape=None,
-                 order=None,
-                 strides=None,
-                 mem_type=None,
-                 validate=None):
+    @nvtx_annotate(
+        message="internals.CumlArray.__init__",
+        category="utils",
+        domain="cuml_python",
+    )
+    def __init__(
+        self,
+        data=None,
+        index=None,
+        owner=None,
+        dtype=None,
+        shape=None,
+        order=None,
+        strides=None,
+        mem_type=None,
+        validate=None,
+    ):
 
         if dtype is not None:
             dtype = GlobalSettings().xpy.dtype(dtype)
@@ -239,18 +237,19 @@ class CumlArray():
                         dtype = data.dtype
                     except AttributeError:
                         raise ValueError(
-                            'Must specify dtype when data is passed as a'
-                            ' {}'.format(type(data))
+                            "Must specify dtype when data is passed as a"
+                            " {}".format(type(data))
                         )
                 if isinstance(data, (CudfBuffer, DeviceBuffer)):
                     self._mem_type = MemoryType.device
                 elif mem_type is None:
                     if GlobalSettings().memory_type in (
-                        None, MemoryType.mirror
+                        None,
+                        MemoryType.mirror,
                     ):
                         raise ValueError(
-                            'Must specify mem_type when data is passed as a'
-                            ' {}'.format(type(data))
+                            "Must specify mem_type when data is passed as a"
+                            " {}".format(type(data))
                         )
                     self._mem_type = GlobalSettings().memory_type
 
@@ -276,7 +275,7 @@ class CumlArray():
                     except TypeError:
                         new_data = cur_xpy.asarray(data, dtype=dtype)
                     if shape is not None:
-                        new_order = order if order is not None else 'C'
+                        new_order = order if order is not None else "C"
                         new_data = cur_xpy.reshape(
                             new_data, shape, order=new_order
                         )
@@ -292,13 +291,13 @@ class CumlArray():
                         dtype=dtype,
                         shape=shape,
                         order=order,
-                        mem_type=mem_type
+                        mem_type=mem_type,
                     )
 
                 if shape is None:
                     raise ValueError(
-                        'shape must be specified when data is passed as a'
-                        ' pointer'
+                        "shape must be specified when data is passed as a"
+                        " pointer"
                     )
                 if strides is None:
                     try:
@@ -312,80 +311,75 @@ class CumlArray():
                     strides = _order_to_strides(order, shape, dtype)
 
                 self._array_interface = {
-                    'shape': shape,
-                    'strides': strides,
-                    'typestr': dtype.str,
-                    'data': (data, False),
-                    'version': 3
+                    "shape": shape,
+                    "strides": strides,
+                    "typestr": dtype.str,
+                    "data": (data, False),
+                    "version": 3,
                 }
         # Derive any information required for attributes that has not
         # already been derived
         if mem_type in (None, MemoryType.mirror):
             if self._mem_type in (None, MemoryType.mirror):
                 raise ValueError(
-                    'Could not infer memory type from input data. Pass'
-                    ' mem_type explicitly.'
+                    "Could not infer memory type from input data. Pass"
+                    " mem_type explicitly."
                 )
             mem_type = self._mem_type
 
-        if self._array_interface['strides'] is None:
+        if self._array_interface["strides"] is None:
             try:
-                self._array_interface['strides'] = data.strides
+                self._array_interface["strides"] = data.strides
             except AttributeError:
-                self._array_interface['strides'] = strides
+                self._array_interface["strides"] = strides
 
         if (
-            (isinstance(data, CumlArray) or not (
-                hasattr(data, '__array_interface__')
-                or hasattr(data, '__cuda_array_interface__')
-            )) and (
-                dtype is not None and shape is not None and order is not None
+            isinstance(data, CumlArray)
+            or not (
+                hasattr(data, "__array_interface__")
+                or hasattr(data, "__cuda_array_interface__")
             )
-        ):
-            self._array_interface['shape'] = shape
-            self._array_interface['strides'] = strides
+        ) and (dtype is not None and shape is not None and order is not None):
+            self._array_interface["shape"] = shape
+            self._array_interface["strides"] = strides
         else:
             if validate is None:
                 validate = True
 
-        array_strides = self._array_interface['strides']
+        array_strides = self._array_interface["strides"]
         if array_strides is not None:
             array_strides = host_xpy.array(array_strides)
 
         if (
-            (
-                array_strides is None
-                or len(array_strides) == 1
-                or host_xpy.all(
-                    array_strides[1:] == array_strides[:-1]
-                )
-            ) and order not in ('K', None)
-        ):
+            array_strides is None
+            or len(array_strides) == 1
+            or host_xpy.all(array_strides[1:] == array_strides[:-1])
+        ) and order not in ("K", None):
             self._order = order
         else:
             self._order = _determine_memory_order(
-                self._array_interface['shape'],
-                self._array_interface['strides'],
-                self._array_interface['typestr'],
-                default=order
+                self._array_interface["shape"],
+                self._array_interface["strides"],
+                self._array_interface["typestr"],
+                default=order,
             )
 
         # Validate final data against input arguments
         if validate:
             if mem_type != self._mem_type:
                 raise MemoryTypeError(
-                    'Requested mem_type inconsistent with input data object'
+                    "Requested mem_type inconsistent with input data object"
                 )
             if (
-                dtype is not None and dtype.str !=
-                self._array_interface['typestr']
+                dtype is not None
+                and dtype.str != self._array_interface["typestr"]
             ):
                 raise ValueError(
-                    'Requested dtype inconsistent with input data object'
+                    "Requested dtype inconsistent with input data object"
                 )
             if owner is not None and self._owner is not owner:
                 raise ValueError(
-                    'Specified owner object does not seem to match data'
+                    "Specified owner object does not seem to match data"
                 )
             if shape is not None:
                 shape_arr = host_xpy.array(shape)
@@ -393,35 +387,34 @@ class CumlArray():
                     shape_arr = host_xpy.reshape(shape_arr, (1,))
 
                 if not host_xpy.array_equal(
-                    host_xpy.array(self._array_interface['shape']),
-                    shape_arr
+                    host_xpy.array(self._array_interface["shape"]), shape_arr
                 ):
                     raise ValueError(
-                        'Specified shape inconsistent with input data object'
+                        "Specified shape inconsistent with input data object"
                     )
             if (
-                strides is not None and
-                self._array_interface['strides'] is not None
+                strides is not None
+                and self._array_interface["strides"] is not None
                 and not host_xpy.array_equal(
-                    host_xpy.array(self._array_interface['strides']),
-                    host_xpy.array(strides)
+                    host_xpy.array(self._array_interface["strides"]),
+                    host_xpy.array(strides),
                 )
             ):
                 raise ValueError(
-                    'Specified strides inconsistent with input data object'
+                    "Specified strides inconsistent with input data object"
                 )
-            if order is not None and order != 'K' and self._order != order:
+            if order is not None and order != "K" and self._order != order:
                 raise ValueError(
-                    'Specified order inconsistent with array stride'
+                    "Specified order inconsistent with array stride"
                 )
 
     @property
     def ptr(self):
-        return self._array_interface['data'][0]
+        return self._array_interface["data"][0]
 
     @cached_property
     def dtype(self):
-        return self._mem_type.xpy.dtype(self._array_interface['typestr'])
+        return self._mem_type.xpy.dtype(self._array_interface["typestr"])
 
     @property
     def mem_type(self):
@@ -437,9 +430,10 @@ class CumlArray():
 
     @cached_property
     def size(self):
-        return host_xpy.product(
-            self._array_interface['shape']
-        ) * host_xpy.dtype(self._array_interface['typestr']).itemsize
+        return (
+            host_xpy.product(self._array_interface["shape"])
+            * host_xpy.dtype(self._array_interface["typestr"]).itemsize
+        )
 
     @property
     def order(self):
@@ -447,19 +441,19 @@ class CumlArray():
 
     @property
     def strides(self):
-        return self._array_interface['strides']
+        return self._array_interface["strides"]
 
     @property
     def shape(self):
-        return self._array_interface['shape']
+        return self._array_interface["shape"]
 
     @property
     def ndim(self):
-        return len(self._array_interface['shape'])
+        return len(self._array_interface["shape"])
 
     @cached_property
     def is_contiguous(self):
-        return self.order in ('C', 'F')
+        return self.order in ("C", "F")
 
     # We use the index as a property to allow for validation/processing
     # in the future if needed
@@ -475,7 +469,7 @@ class CumlArray():
     def __cuda_array_interface__(self):
         if not self._mem_type.is_device_accessible:
             raise AttributeError(
-                'Host-only array does not have __cuda_array_interface__'
+                "Host-only array does not have __cuda_array_interface__"
             )
         return self._array_interface
 
@@ -483,7 +477,7 @@ class CumlArray():
     def __array_interface__(self):
         if not self._mem_type.is_host_accessible:
             raise AttributeError(
-                'Device-only array does not have __array_interface__'
+                "Device-only array does not have __array_interface__"
             )
         return self._array_interface
 
@@ -508,7 +502,7 @@ class CumlArray():
             return 0
 
     def _operator_overload(self, other, fn):
-        return CumlArray(fn(self.to_output('array'), other))
+        return CumlArray(fn(self.to_output("array"), other))
 
     def __add__(self, other):
         return self._operator_overload(other, operator.add)
@@ -538,21 +532,22 @@ class CumlArray():
         return self._operator_overload(other, operator.or_)
 
     def any(self):
-        return self.to_output('array').any()
+        return self.to_output("array").any()
 
     def all(self):
-        return self.to_output('array').all()
+        return self.to_output("array").all()
 
     def item(self):
         return self._mem_type.xpy.asarray(self).item()
 
-    @nvtx_annotate(message="common.CumlArray.to_output", category="utils",
-                   domain="cuml_python")
+    @nvtx_annotate(
+        message="common.CumlArray.to_output",
+        category="utils",
+        domain="cuml_python",
+    )
     def to_output(
-            self,
-            output_type='array',
-            output_dtype=None,
-            output_mem_type=None):
+        self, output_type="array", output_dtype=None, output_mem_type=None
+    ):
         """
         Convert array to output format
 
@@ -583,17 +578,17 @@ class CumlArray():
             a copy if necessary.
 
         """
-        if output_type == 'cupy':
-            output_type = 'array'
+        if output_type == "cupy":
+            output_type = "array"
             output_mem_type = MemoryType.device
-        elif output_type == 'numpy':
-            output_type = 'array'
+        elif output_type == "numpy":
+            output_type = "array"
             output_mem_type = MemoryType.host
-        elif output_type == 'cudf':
-            output_type = 'df_obj'
+        elif output_type == "cudf":
+            output_type = "df_obj"
             output_mem_type = MemoryType.device
-        elif output_type == 'pandas':
-            output_type = 'df_obj'
+        elif output_type == "pandas":
+            output_type = "df_obj"
             output_mem_type = MemoryType.host
 
         if output_dtype is None:
@@ -606,18 +601,18 @@ class CumlArray():
             if output_mem_type == MemoryType.mirror:
                 output_mem_type = self._mem_type
 
-        if output_type == 'df_obj':
+        if output_type == "df_obj":
             if len(self.shape) == 1:
-                output_type = 'series'
+                output_type = "series"
             elif len(self.shape) == 2 and self.shape[1] == 1:
                 # It is convenient to coerce 2D arrays with second
                 # dimension 1 to series, but we will not extend this to higher
                 # dimensions
-                output_type = 'series'
+                output_type = "series"
             else:
-                output_type = 'dataframe'
+                output_type = "dataframe"
 
-        if output_type == 'array':
+        if output_type == "array":
             if output_mem_type == MemoryType.host:
                 if self._mem_type == MemoryType.host:
                     return np.asarray(
@@ -625,23 +620,23 @@ class CumlArray():
                     )
                 return cp.asnumpy(
                     cp.asarray(self, dtype=output_dtype, order=self.order),
-                    order=self.order
+                    order=self.order,
                 )
             return output_mem_type.xpy.asarray(
                 self, dtype=output_dtype, order=self.order
             )
 
-        elif output_type == 'numba':
-            return cuda.as_cuda_array(cp.asarray(
-                self, dtype=output_dtype, order=self.order)
+        elif output_type == "numba":
+            return cuda.as_cuda_array(
+                cp.asarray(self, dtype=output_dtype, order=self.order)
             )
-        elif output_type == 'series':
+        elif output_type == "series":
             if len(self.shape) == 2 and self.shape[1] == 1:
                 arr = CumlArray(
                     self,
                     dtype=self.dtype,
                     order=self.order,
-                    shape=(self.shape[0],)
+                    shape=(self.shape[0],),
                 )
             else:
                 arr = self
@@ -653,104 +648,109 @@ class CumlArray():
                         and arr._mem_type != MemoryType.host
                     ):
                         return cudf.Series(
-                            arr,
-                            dtype=output_dtype,
-                            index=self.index
+                            arr, dtype=output_dtype, index=self.index
                         ).to_pandas()
                     else:
                         return output_mem_type.xdf.Series(
-                            arr,
-                            dtype=output_dtype,
-                            index=self.index
+                            arr, dtype=output_dtype, index=self.index
                         )
                 except TypeError:
-                    raise ValueError('Unsupported dtype for Series')
+                    raise ValueError("Unsupported dtype for Series")
             else:
                 raise ValueError(
-                    'Only single dimensional arrays can be transformed to'
-                    ' Series.'
+                    "Only single dimensional arrays can be transformed to"
+                    " Series."
                 )
-        elif output_type == 'dataframe':
+        elif output_type == "dataframe":
             arr = self.to_output(
-                output_type='array',
+                output_type="array",
                 output_dtype=output_dtype,
-                output_mem_type=output_mem_type
+                output_mem_type=output_mem_type,
             )
             if len(arr.shape) == 1:
                 arr = arr.reshape(arr.shape[0], 1)
             if self.index is None:
                 out_index = None
             elif (
-                output_mem_type.is_device_accessible and not
-                self.mem_type.is_device_accessible
+                output_mem_type.is_device_accessible
+                and not self.mem_type.is_device_accessible
             ):
                 out_index = cudf.Index.from_pandas(self.index)
             elif (
-                output_mem_type.is_host_accessible and not
-                self.mem_type.is_host_accessible
+                output_mem_type.is_host_accessible
+                and not self.mem_type.is_host_accessible
             ):
                 out_index = self.index.to_pandas()
             else:
                 out_index = self.index
             try:
-                result = output_mem_type.xdf.DataFrame(
-                    arr, index=out_index
-                )
+                result = output_mem_type.xdf.DataFrame(arr, index=out_index)
                 return result
             except TypeError:
-                raise ValueError('Unsupported dtype for DataFrame')
+                raise ValueError("Unsupported dtype for DataFrame")
 
         return self
 
-    @nvtx_annotate(message="common.CumlArray.host_serialize", category="utils",
-                   domain="cuml_python")
+    @nvtx_annotate(
+        message="common.CumlArray.host_serialize",
+        category="utils",
+        domain="cuml_python",
+    )
     def host_serialize(self):
         mem_type = (
-            self.mem_type if self.mem_type.is_host_accessible else
-            MemoryType.host
+            self.mem_type
+            if self.mem_type.is_host_accessible
+            else MemoryType.host
         )
         return self.serialize(mem_type=mem_type)
 
     @classmethod
     def host_deserialize(cls, header, frames):
         typ = pickle.loads(header["type-serialized"])
-        assert all(not is_cuda for is_cuda in header['is-cuda'])
+        assert all(not is_cuda for is_cuda in header["is-cuda"])
         obj = typ.deserialize(header, frames)
         return obj
 
-    @nvtx_annotate(message="common.CumlArray.device_serialize",
-                   category="utils", domain="cuml_python")
+    @nvtx_annotate(
+        message="common.CumlArray.device_serialize",
+        category="utils",
+        domain="cuml_python",
+    )
     def device_serialize(self):
         mem_type = (
-            self.mem_type if self.mem_type.is_device_accessible else
-            MemoryType.device
+            self.mem_type
+            if self.mem_type.is_device_accessible
+            else MemoryType.device
         )
         return self.serialize(mem_type=mem_type)
 
     @classmethod
     def device_deserialize(cls, header, frames):
         typ = pickle.loads(header["type-serialized"])
-        assert all(is_cuda for is_cuda in header['is-cuda'])
+        assert all(is_cuda for is_cuda in header["is-cuda"])
         obj = typ.deserialize(header, frames)
         return obj
 
-    @nvtx_annotate(message="common.CumlArray.serialize", category="utils",
-                   domain="cuml_python")
+    @nvtx_annotate(
+        message="common.CumlArray.serialize",
+        category="utils",
+        domain="cuml_python",
+    )
     def serialize(self, mem_type=None) -> Tuple[dict, list]:
         mem_type = self.mem_type if mem_type is None else mem_type
         header = {
-            'type-serialized': pickle.dumps(type(self)),
-            'constructor-kwargs': {
-                'dtype': self.dtype.str,
-                'shape': self.shape,
-                'mem_type': mem_type.name
+            "type-serialized": pickle.dumps(type(self)),
+            "constructor-kwargs": {
+                "dtype": self.dtype.str,
+                "shape": self.shape,
+                "mem_type": mem_type.name,
             },
-            'desc': self._array_interface,
-            'frame_count': 1,
-            'is-cuda': [mem_type.is_device_accessible],
-            'lengths': [self.size]
+            "desc": self._array_interface,
+            "frame_count": 1,
+            "is-cuda": [mem_type.is_device_accessible],
+            "lengths": [self.size],
         }
-        frames = [self.to_output('array', output_mem_type=mem_type)]
+        frames = [self.to_output("array", output_mem_type=mem_type)]
         return header, frames
 
     @classmethod
@@ -773,36 +773,43 @@ class CumlArray():
         header, frames = self.host_serialize()
         return self.host_deserialize, (header, frames)
 
-    @nvtx_annotate(message="common.CumlArray.to_host_array", category="utils",
-                   domain="cuml_python")
+    @nvtx_annotate(
+        message="common.CumlArray.to_host_array",
+        category="utils",
+        domain="cuml_python",
+    )
     def to_mem_type(self, mem_type):
         return self.__class__(
-            data=self.to_output('array', output_mem_type=mem_type),
+            data=self.to_output("array", output_mem_type=mem_type),
             index=self.index,
             order=self.order,
             mem_type=MemoryType.from_str(mem_type),
-            validate=False
+            validate=False,
         )
 
-    @nvtx_annotate(message="common.CumlArray.to_host_array", category="utils",
-                   domain="cuml_python")
+    @nvtx_annotate(
+        message="common.CumlArray.to_host_array",
+        category="utils",
+        domain="cuml_python",
+    )
     def to_host_array(self):
-        return self.to_output('numpy')
+        return self.to_output("numpy")
 
-    @nvtx_annotate(message="common.CumlArray.to_host_array", category="utils",
-                   domain="cuml_python")
+    @nvtx_annotate(
+        message="common.CumlArray.to_host_array",
+        category="utils",
+        domain="cuml_python",
+    )
     def to_device_array(self):
-        return self.to_output('cupy')
+        return self.to_output("cupy")
 
     @classmethod
-    @nvtx_annotate(message="common.CumlArray.empty", category="utils",
-                   domain="cuml_python")
-    def empty(cls,
-              shape,
-              dtype,
-              order='F',
-              index=None,
-              mem_type=None):
+    @nvtx_annotate(
+        message="common.CumlArray.empty",
+        category="utils",
+        domain="cuml_python",
+    )
+    def empty(cls, shape, dtype, order="F", index=None, mem_type=None):
         """
         Create an empty Array with an allocated but uninitialized DeviceBuffer
 
@@ -818,20 +825,13 @@ class CumlArray():
         if mem_type is None:
             mem_type = GlobalSettings().memory_type
 
-        return CumlArray(
-            mem_type.xpy.empty(shape, dtype, order), index=index
-        )
+        return CumlArray(mem_type.xpy.empty(shape, dtype, order), index=index)
 
     @classmethod
-    @nvtx_annotate(message="common.CumlArray.full", category="utils",
-                   domain="cuml_python")
-    def full(cls,
-             shape,
-             value,
-             dtype,
-             order='F',
-             index=None,
-             mem_type=None):
+    @nvtx_annotate(
+        message="common.CumlArray.full", category="utils", domain="cuml_python"
+    )
+    def full(cls, shape, value, dtype, order="F", index=None, mem_type=None):
         """
         Create an Array with an allocated DeviceBuffer initialized to value.
 
@@ -852,14 +852,14 @@ class CumlArray():
         )
 
     @classmethod
-    @nvtx_annotate(message="common.CumlArray.zeros", category="utils",
-                   domain="cuml_python")
-    def zeros(cls,
-              shape,
-              dtype='float32',
-              order='F',
-              index=None,
-              mem_type=None):
+    @nvtx_annotate(
+        message="common.CumlArray.zeros",
+        category="utils",
+        domain="cuml_python",
+    )
+    def zeros(
+        cls, shape, dtype="float32", order="F", index=None, mem_type=None
+    ):
         """
         Create an Array with an allocated DeviceBuffer initialized to zeros.
 
@@ -872,18 +872,22 @@ class CumlArray():
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-        return CumlArray.full(value=0, shape=shape, dtype=dtype, order=order,
-                              index=index, mem_type=mem_type)
+        return CumlArray.full(
+            value=0,
+            shape=shape,
+            dtype=dtype,
+            order=order,
+            index=index,
+            mem_type=mem_type,
+        )
 
     @classmethod
-    @nvtx_annotate(message="common.CumlArray.ones", category="utils",
-                   domain="cuml_python")
-    def ones(cls,
-             shape,
-             dtype='float32',
-             order='F',
-             index=None,
-             mem_type=None):
+    @nvtx_annotate(
+        message="common.CumlArray.ones", category="utils", domain="cuml_python"
+    )
+    def ones(
+        cls, shape, dtype="float32", order="F", index=None, mem_type=None
+    ):
         """
         Create an Array with an allocated DeviceBuffer initialized to zeros.
 
@@ -896,16 +900,25 @@ class CumlArray():
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-        return CumlArray.full(value=1, shape=shape, dtype=dtype, order=order,
-                              index=index, mem_type=mem_type)
+        return CumlArray.full(
+            value=1,
+            shape=shape,
+            dtype=dtype,
+            order=order,
+            index=index,
+            mem_type=mem_type,
+        )
 
     @classmethod
-    @nvtx_annotate(message="common.CumlArray.from_input", category="utils",
-                   domain="cuml_python")
+    @nvtx_annotate(
+        message="common.CumlArray.from_input",
+        category="utils",
+        domain="cuml_python",
+    )
     def from_input(
         cls,
         X,
-        order='F',
+        order="F",
         deepcopy=False,
         check_dtype=False,
         convert_to_dtype=False,
@@ -915,7 +928,7 @@ class CumlArray():
         check_cols=False,
         check_rows=False,
         fail_on_order=False,
-        force_contiguous=True
+        force_contiguous=True,
     ):
         """
         Convert input X to CumlArray.
@@ -1001,9 +1014,11 @@ class CumlArray():
         if convert_to_mem_type is None:
             convert_to_mem_type = GlobalSettings().memory_type
         else:
-            convert_to_mem_type = MemoryType.from_str(
-                convert_to_mem_type
-            ) if convert_to_mem_type else convert_to_mem_type
+            convert_to_mem_type = (
+                MemoryType.from_str(convert_to_mem_type)
+                if convert_to_mem_type
+                else convert_to_mem_type
+            )
         if convert_to_dtype:
             convert_to_dtype = host_xpy.dtype(convert_to_dtype)
         # Provide fast-path for CumlArray input
@@ -1013,16 +1028,11 @@ class CumlArray():
                 not convert_to_mem_type
                 or convert_to_mem_type == MemoryType.mirror
                 or convert_to_mem_type == X.mem_type
-            ) and (
-                not convert_to_dtype
-                or convert_to_dtype == X.dtype
-            ) and (
-                not force_contiguous
-                or X.is_contiguous
-            ) and (
-                order in ('K', None)
-                or X.order == order
-            ) and not check_dtype
+            )
+            and (not convert_to_dtype or convert_to_dtype == X.dtype)
+            and (not force_contiguous or X.is_contiguous)
+            and (order in ("K", None) or X.order == order)
+            and not check_dtype
             and not check_mem_type
             and not check_cols
             and not check_rows
@@ -1033,33 +1043,28 @@ class CumlArray():
                 return X
 
         if isinstance(
-            X,
-            (DaskCudfSeries, DaskCudfDataFrame, DaskSeries, DaskDataFrame)
+            X, (DaskCudfSeries, DaskCudfDataFrame, DaskSeries, DaskDataFrame)
         ):
             # TODO: Warn, but not when using dask_sql
             X = X.compute()
 
-        index = getattr(X, 'index', None)
+        index = getattr(X, "index", None)
         if index is not None:
-            if (
-                convert_to_mem_type is MemoryType.host and isinstance(
-                    index,
-                    CudfIndex
-                )
+            if convert_to_mem_type is MemoryType.host and isinstance(
+                index, CudfIndex
             ):
                 index = index.to_pandas()
-            elif (
-                convert_to_mem_type is MemoryType.device and isinstance(
-                    index,
-                    PandasIndex
-                )
+            elif convert_to_mem_type is MemoryType.device and isinstance(
+                index, PandasIndex
             ):
                 index = CudfIndex.from_pandas(index)
 
-        if (isinstance(X, CudfSeries)):
+        if isinstance(X, CudfSeries):
             if X.null_count != 0:
-                raise ValueError("Error: cuDF Series has missing/null values, "
-                                 "which are not supported by cuML.")
+                raise ValueError(
+                    "Error: cuDF Series has missing/null values, "
+                    "which are not supported by cuML."
+                )
 
         if isinstance(X, (PandasDataFrame, PandasSeries)):
             X = X.to_numpy(copy=False)
@@ -1067,9 +1072,7 @@ class CumlArray():
             X = X.to_cupy(copy=False)
 
         requested_order = (order, None)[fail_on_order]
-        arr = cls(
-            X, index=index, order=requested_order, validate=False
-        )
+        arr = cls(X, index=index, order=requested_order, validate=False)
         if deepcopy:
             arr = copy.deepcopy(arr)
 
@@ -1079,12 +1082,8 @@ class CumlArray():
             convert_to_dtype = arr.mem_type.xpy.dtype(convert_to_dtype)
 
         conversion_required = (
-            (convert_to_dtype and (convert_to_dtype != arr.dtype))
-            or (
-                convert_to_mem_type
-                and (convert_to_mem_type != arr.mem_type)
-            )
-        )
+            convert_to_dtype and (convert_to_dtype != arr.dtype)
+        ) or (convert_to_mem_type and (convert_to_mem_type != arr.mem_type))
 
         make_copy = False
         if conversion_required:
@@ -1094,7 +1093,7 @@ class CumlArray():
                 safe_dtype_conversion
                 and convert_to_dtype is not None
                 and not arr.mem_type.xpy.can_cast(
-                    arr.dtype, convert_to_dtype, casting='safe'
+                    arr.dtype, convert_to_dtype, casting="safe"
                 )
             ):
                 try:
@@ -1108,33 +1107,33 @@ class CumlArray():
                 if is_numba_array(X):
                     X = cp.asarray(X)
                 if (
-                    (X < target_dtype_range.min) |
-                    (X > target_dtype_range.max)
+                    (X < target_dtype_range.min) | (X > target_dtype_range.max)
                 ).any():
                     raise TypeError(
-                        'Data type conversion on values outside'
-                        ' representable range of target dtype'
+                        "Data type conversion on values outside"
+                        " representable range of target dtype"
                     )
             arr = cls(
                 arr.to_output(
                     output_dtype=convert_to_dtype,
-                    output_mem_type=convert_to_mem_type
+                    output_mem_type=convert_to_mem_type,
                 ),
                 order=requested_order,
                 index=index,
-                validate=False
+                validate=False,
             )
 
         make_copy = force_contiguous and not arr.is_contiguous
 
         if (
-            not fail_on_order and order != arr.order and order != 'K'
+            not fail_on_order and order != arr.order and order != "K"
         ) or make_copy:
-            arr = cls(arr.mem_type.xpy.array(
-                arr.to_output('array'),
-                order=order,
-                copy=make_copy
-            ), index=index)
+            arr = cls(
+                arr.mem_type.xpy.array(
+                    arr.to_output("array"), order=order, copy=make_copy
+                ),
+                index=index,
+            )
 
         n_rows = arr.shape[0]
 
@@ -1144,12 +1143,12 @@ class CumlArray():
             n_cols = 1
 
         if (n_cols == 1 or n_rows == 1) and len(arr.shape) == 2:
-            order = 'K'
+            order = "K"
 
-        if order != 'K' and arr.order != order:
-            if order == 'F':
+        if order != "K" and arr.order != order:
+            if order == "F":
                 order_str = "column ('F')"
-            elif order == 'C':
+            elif order == "C":
                 order_str = "row ('C')"
             else:
                 order_str = f"UNKNOWN ('{order}')"
@@ -1181,21 +1180,20 @@ class CumlArray():
         if check_cols:
             if n_cols != check_cols:
                 raise ValueError(
-                    f'Expected {check_cols} columns but got {n_cols}'
-                    ' columns.'
+                    f"Expected {check_cols} columns but got {n_cols}"
+                    " columns."
                 )
 
         if check_rows:
             if n_rows != check_rows:
                 raise ValueError(
-                    f'Expected {check_rows} rows but got {n_rows}'
-                    ' rows.'
+                    f"Expected {check_rows} rows but got {n_rows}" " rows."
                 )
         return arr
 
 
-def array_to_memory_order(arr, default='C'):
-    '''
+def array_to_memory_order(arr, default="C"):
+    """
     Given an array-like object, determine its memory order
 
     If arr is C-contiguous, the string 'C' will be returned; if
@@ -1203,7 +1201,7 @@ def array_to_memory_order(arr, default='C'):
     returned. If an arr is both C and F contiguous, the indicated default
     will be returned. If a default of None or 'K' is given and the arr is both
     C and F contiguous, 'C' will be returned.
-    '''
+    """
     try:
         return arr.order
     except AttributeError:
@@ -1214,43 +1212,43 @@ def array_to_memory_order(arr, default='C'):
         try:
             array_interface = arr.__array_interface__
         except AttributeError:
-            return array_to_memory_order(CumlArray.from_input(arr, order='K'))
-    strides = array_interface.get('strides', None)
+            return array_to_memory_order(CumlArray.from_input(arr, order="K"))
+    strides = array_interface.get("strides", None)
     if strides is None:
         try:
             strides = arr.strides
         except AttributeError:
             pass
     return _determine_memory_order(
-        array_interface['shape'],
+        array_interface["shape"],
         strides,
-        array_interface['typestr'],
-        default=default
+        array_interface["typestr"],
+        default=default,
     )
 
 
 def is_array_contiguous(arr):
-    '''Return true if array is C or F contiguous'''
+    """Return true if array is C or F contiguous"""
     try:  # Fast path for CumlArray
         return arr.is_contiguous
     except AttributeError:
         pass
     try:  # Fast path for cupy/numpy arrays
-        return arr.flags['C_CONTIGUOUS'] or arr.flags['F_CONTIGUOUS']
+        return arr.flags["C_CONTIGUOUS"] or arr.flags["F_CONTIGUOUS"]
     except (AttributeError, KeyError):
         return array_to_memory_order(arr) is not None
 
 
 def elements_in_representable_range(arr, dtype):
-    '''Return true if all elements of the array can be represented in the
-    available range of the given dtype'''
+    """Return true if all elements of the array can be represented in the
+    available range of the given dtype"""
     arr = CumlArray.from_input(arr)
     dtype = arr.mem_type.xpy.dtype(dtype)
     try:
         dtype_range = arr.mem_type.xpy.iinfo(dtype)
     except ValueError:
         dtype_range = arr.mem_type.xpy.finfo(dtype)
-    arr_xpy = arr.to_output('array')
-    return not ((
-        (arr_xpy < dtype_range.min) | (arr_xpy > dtype_range.max)
-    ).any())
+    arr_xpy = arr.to_output("array")
+    return not (
+        ((arr_xpy < dtype_range.min) | (arr_xpy > dtype_range.max)).any()
+    )

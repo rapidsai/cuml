@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,10 +26,11 @@ from tornado import gen
 from functools import reduce
 from collections import OrderedDict
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+
+np = cpu_only_import("numpy")
 
 
-dcDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
+dcDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
 
 
 def hosts_to_parts(futures):
@@ -79,12 +80,13 @@ def parts_to_ranks(client, worker_info, part_futures):
     :param part_futures: list of (worker, future) tuples
     :return: [(part, size)] in the same order of part_futures
     """
-    futures = [(worker_info[wf[0]]["rank"],
-                client.submit(_func_get_rows,
-                              wf[1],
-                              workers=[wf[0]],
-                              pure=False))
-               for idx, wf in enumerate(part_futures)]
+    futures = [
+        (
+            worker_info[wf[0]]["rank"],
+            client.submit(_func_get_rows, wf[1], workers=[wf[0]], pure=False),
+        )
+        for idx, wf in enumerate(part_futures)
+    ]
 
     sizes = client.compute(list(map(lambda x: x[1], futures)), sync=True)
     total = reduce(lambda a, b: a + b, sizes)
@@ -92,12 +94,13 @@ def parts_to_ranks(client, worker_info, part_futures):
     return [(futures[idx][0], size) for idx, size in enumerate(sizes)], total
 
 
-def _default_part_getter(f, idx): return f[idx]
+def _default_part_getter(f, idx):
+    return f[idx]
 
 
-def flatten_grouped_results(client, gpu_futures,
-                            worker_results_map,
-                            getter_func=_default_part_getter):
+def flatten_grouped_results(
+    client, gpu_futures, worker_results_map, getter_func=_default_part_getter
+):
     """
     This function is useful when a series of partitions have been grouped by
     the worker responsible for the data and the resulting partitions are
@@ -122,8 +125,7 @@ def flatten_grouped_results(client, gpu_futures,
 
         f = worker_results_map[rank]
 
-        futures.append(client.submit(
-            getter_func, f, completed_part_map[rank]))
+        futures.append(client.submit(getter_func, f, completed_part_map[rank]))
 
         completed_part_map[rank] += 1
 
@@ -136,8 +138,9 @@ def _extract_partitions(dask_obj, client=None):
     client = default_client() if client is None else client
 
     # dask.dataframe or dask.array
-    if isinstance(dask_obj, (daskArray, daskSeries, daskDataFrame,
-                             dcSeries, dcDataFrame)):
+    if isinstance(
+        dask_obj, (daskArray, daskSeries, daskDataFrame, dcSeries, dcDataFrame)
+    ):
         persisted = client.persist(dask_obj)
         parts = futures_of(persisted)
 
@@ -160,5 +163,6 @@ def _extract_partitions(dask_obj, client=None):
     key_to_part = [(str(part.key), part) for part in parts]
     who_has = yield client.who_has(parts)
 
-    raise gen.Return([(first(who_has[key]), part)
-                      for key, part in key_to_part])
+    raise gen.Return(
+        [(first(who_has[key]), part) for key, part in key_to_part]
+    )

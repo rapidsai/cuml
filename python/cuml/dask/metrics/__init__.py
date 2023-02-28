@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,4 +21,5 @@ if has_dask():
     from cuml.dask.metrics.confusion_matrix import confusion_matrix
 else:
     warnings.warn(
-        "Dask not found. All Dask-based multi-GPU operation is disabed.")
+        "Dask not found. All Dask-based multi-GPU operation is disabed."
+    )

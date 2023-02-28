@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +15,7 @@
 
 from cuml.fil.fil import TreeliteModel
 from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
-from cuml.dask.common.input_utils import DistributedDataHandler, \
-    concatenate
+from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
 from dask.distributed import Future
 from collections.abc import Iterable
 from cuml import using_output_type
@@ -26,8 +25,9 @@ import dask
 import json
 import math
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
+
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
 
 
 class BaseRandomForestModel(object):
@@ -39,31 +39,35 @@ class BaseRandomForestModel(object):
     as a part of the public API.
     """
 
-    def _create_model(self, model_func,
-                      client,
-                      workers,
-                      n_estimators,
-                      base_seed,
-                      ignore_empty_partitions,
-                      **kwargs):
+    def _create_model(
+        self,
+        model_func,
+        client,
+        workers,
+        n_estimators,
+        base_seed,
+        ignore_empty_partitions,
+        **kwargs,
+    ):
 
         self.client = get_client(client)
         if workers is None:
             # Default to all workers
-            workers = list(self.client.scheduler_info()['workers'].keys())
+            workers = list(self.client.scheduler_info()["workers"].keys())
         self.workers = workers
         self._set_internal_model(None)
         self.active_workers = list()
         self.ignore_empty_partitions = ignore_empty_partitions
         self.n_estimators = n_estimators
 
-        self.n_estimators_per_worker = \
-            self._estimators_per_worker(n_estimators)
+        self.n_estimators_per_worker = self._estimators_per_worker(
+            n_estimators
+        )
         if base_seed is None:
             base_seed = 0
         seeds = [base_seed]
         for i in range(1, len(self.n_estimators_per_worker)):
-            sd = self.n_estimators_per_worker[i-1] + seeds[i-1]
+            sd = self.n_estimators_per_worker[i - 1] + seeds[i - 1]
             seeds.append(sd)
 
         self.rfs = {
@@ -88,39 +92,39 @@ class BaseRandomForestModel(object):
             )
 
         n_est_per_worker = math.floor(n_estimators / n_workers)
-        n_estimators_per_worker = \
-            [n_est_per_worker for i in range(n_workers)]
+        n_estimators_per_worker = [n_est_per_worker for i in range(n_workers)]
         remaining_est = n_estimators - (n_est_per_worker * n_workers)
         for i in range(remaining_est):
-            n_estimators_per_worker[i] = (
-                n_estimators_per_worker[i] + 1
-            )
+            n_estimators_per_worker[i] = n_estimators_per_worker[i] + 1
         return n_estimators_per_worker
 
     def _fit(self, model, dataset, convert_dtype, broadcast_data):
         data = DistributedDataHandler.create(dataset, client=self.client)
         self.active_workers = data.workers
         self.datatype = data.datatype
-        if self.datatype == 'cudf':
+        if self.datatype == "cudf":
             has_float64 = (dataset[0].dtypes == np.float64).any()
         else:
-            has_float64 = (dataset[0].dtype == np.float64)
+            has_float64 = dataset[0].dtype == np.float64
         if has_float64:
             raise TypeError("To use Dask RF data should have dtype float32.")
 
         labels = self.client.persist(dataset[1])
-        if self.datatype == 'cudf':
+        if self.datatype == "cudf":
             self.num_classes = len(labels.unique())
         else:
-            self.num_classes = \
-                len(dask.array.unique(labels).compute())
+            self.num_classes = len(dask.array.unique(labels).compute())
 
-        combined_data = list(map(lambda x: x[1], data.gpu_futures)) \
-            if broadcast_data else None
+        combined_data = (
+            list(map(lambda x: x[1], data.gpu_futures))
+            if broadcast_data
+            else None
+        )
 
         futures = list()
-        for idx, (worker, worker_data) in \
-                enumerate(data.worker_to_parts.items()):
+        for idx, (worker, worker_data) in enumerate(
+            data.worker_to_parts.items()
+        ):
             futures.append(
                 self.client.submit(
                     _func_fit,
@@ -128,7 +132,8 @@ class BaseRandomForestModel(object):
                     combined_data if broadcast_data else worker_data,
                     convert_dtype,
                     workers=[worker],
-                    pure=False)
+                    pure=False,
+                )
             )
 
         self.n_active_estimators_per_worker = []
@@ -139,9 +144,11 @@ class BaseRandomForestModel(object):
 
         if len(self.workers) > len(self.active_workers):
             if self.ignore_empty_partitions:
-                curent_estimators = self.n_estimators / \
-                    len(self.workers) * \
-                    len(self.active_workers)
+                curent_estimators = (
+                    self.n_estimators
+                    / len(self.workers)
+                    * len(self.active_workers)
+                )
                 warn_text = (
                     f"Data was not split among all workers "
                     f"using only {self.active_workers} workers to fit."
@@ -151,10 +158,12 @@ class BaseRandomForestModel(object):
                 )
                 warnings.warn(warn_text)
             else:
-                raise ValueError("Data was not split among all workers. "
-                                 "Re-run the code or "
-                                 "use ignore_empty_partitions=True"
-                                 " while creating model")
+                raise ValueError(
+                    "Data was not split among all workers. "
+                    "Re-run the code or "
+                    "use ignore_empty_partitions=True"
+                    " while creating model"
+                )
         wait_and_raise_from_futures(futures)
         return self
 
@@ -168,8 +177,8 @@ class BaseRandomForestModel(object):
         model_serialized_futures = list()
         for w in self.active_workers:
             model_serialized_futures.append(
-                dask.delayed(_get_serialized_model)
-                (self.rfs[w]))
+                dask.delayed(_get_serialized_model)(self.rfs[w])
+            )
         mod_bytes = self.client.compute(model_serialized_futures, sync=True)
         last_worker = w
         model = self.rfs[last_worker].result()
@@ -187,8 +196,11 @@ class BaseRandomForestModel(object):
         data = DistributedDataHandler.create(X, client=self.client)
         combined_data = list(map(lambda x: x[1], data.gpu_futures))
 
-        func = _func_predict_partial if op_type == 'regression' \
+        func = (
+            _func_predict_partial
+            if op_type == "regression"
             else _func_predict_proba_partial
+        )
 
         partial_infs = list()
         for worker in self.active_workers:
@@ -199,10 +211,12 @@ class BaseRandomForestModel(object):
                     combined_data,
                     **kwargs,
                     workers=[worker],
-                    pure=False)
+                    pure=False,
+                )
             )
         partial_infs = dask.delayed(dask.array.concatenate)(
-            partial_infs, axis=1, allow_unknown_chunksizes=True)
+            partial_infs, axis=1, allow_unknown_chunksizes=True
+        )
         return partial_infs
 
     def _predict_using_fil(self, X, delayed, **kwargs):
@@ -211,19 +225,16 @@ class BaseRandomForestModel(object):
         data = DistributedDataHandler.create(X, client=self.client)
         if self._get_internal_model() is None:
             self._set_internal_model(self._concat_treelite_models())
-        return self._predict(X, delayed=delayed,
-                             output_collection_type=data.datatype,
-                             **kwargs)
+        return self._predict(
+            X, delayed=delayed, output_collection_type=data.datatype, **kwargs
+        )
 
     def _get_params(self, deep):
         model_params = list()
         for idx, worker in enumerate(self.workers):
             model_params.append(
                 self.client.submit(
-                    _func_get_params,
-                    self.rfs[worker],
-                    deep,
-                    workers=[worker]
+                    _func_get_params, self.rfs[worker], deep, workers=[worker]
                 )
             )
         params_of_each_model = self.client.gather(model_params, errors="raise")
@@ -237,7 +248,7 @@ class BaseRandomForestModel(object):
                     _func_set_params,
                     self.rfs[worker],
                     **params,
-                    workers=[worker]
+                    workers=[worker],
                 )
             )
         wait_and_raise_from_futures(model_params)
@@ -256,8 +267,8 @@ class BaseRandomForestModel(object):
                     workers=[w],
                 )
             )
-        all_dump = self.client.gather(futures, errors='raise')
-        return '\n'.join(all_dump)
+        all_dump = self.client.gather(futures, errors="raise")
+        return "\n".join(all_dump)
 
     def _get_detailed_text(self):
         """
@@ -272,8 +283,8 @@ class BaseRandomForestModel(object):
                     workers=[w],
                 )
             )
-        all_dump = self.client.gather(futures, errors='raise')
-        return '\n'.join(all_dump)
+        all_dump = self.client.gather(futures, errors="raise")
+        return "\n".join(all_dump)
 
     def _get_json(self):
         """
@@ -288,7 +299,7 @@ class BaseRandomForestModel(object):
                     workers=[w],
                 )
             )
-        all_dump = self.client.gather(dump, errors='raise')
+        all_dump = self.client.gather(dump, errors="raise")
         combined_dump = []
         for e in all_dump:
             obj = json.loads(e)
@@ -315,8 +326,10 @@ class BaseRandomForestModel(object):
         if isinstance(self.internal_model, Iterable):
             # This function needs to return a single instance of cuml.Base,
             # even if the class is just a composite.
-            raise ValueError("Expected a single instance of cuml.Base "
-                             "but got %s instead." % type(self.internal_model))
+            raise ValueError(
+                "Expected a single instance of cuml.Base "
+                "but got %s instead." % type(self.internal_model)
+            )
 
         elif isinstance(self.internal_model, Future):
             internal_model = self.internal_model.result()
@@ -334,14 +347,17 @@ class BaseRandomForestModel(object):
         workers_weights = workers_weights[workers_weights != 0]
         workers_weights = workers_weights / workers_weights.sum()
         workers_weights = cp.array(workers_weights)
-        unique_classes = None if not hasattr(self, 'unique_classes') \
+        unique_classes = (
+            None
+            if not hasattr(self, "unique_classes")
             else self.unique_classes
-        delayed_local_array = dask.delayed(reduce)(partial_infs,
-                                                   workers_weights,
-                                                   unique_classes)
-        delayed_res = dask.array.from_delayed(delayed_local_array,
-                                              shape=(np.nan, np.nan),
-                                              dtype=np.float32)
+        )
+        delayed_local_array = dask.delayed(reduce)(
+            partial_infs, workers_weights, unique_classes
+        )
+        delayed_res = dask.array.from_delayed(
+            delayed_local_array, shape=(np.nan, np.nan), dtype=np.float32
+        )
         if delayed:
             return delayed_res
         else:
@@ -361,7 +377,7 @@ def _func_predict_partial(model, input_data, **kwargs):
     than dataset.
     """
     X = concatenate(input_data)
-    with using_output_type('cupy'):
+    with using_output_type("cupy"):
         prediction = model.predict(X, **kwargs)
         return cp.expand_dims(prediction, axis=1)
 
@@ -373,7 +389,7 @@ def _func_predict_proba_partial(model, input_data, **kwargs):
     than dataset.
     """
     X = concatenate(input_data)
-    with using_output_type('cupy'):
+    with using_output_type("cupy"):
         prediction = model.predict_proba(X, **kwargs)
         return cp.expand_dims(prediction, axis=1)
 

@@ -34,7 +34,7 @@ void pairwise_distance_kl_divergence(const raft::handle_t& handle,
                                      double metric_arg)
 {
   raft::distance::distance<raft::distance::DistanceType::KLDivergence, double, double, double, int>(
-    x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+    handle, x, y, dist, m, n, k, isRowMajor);
 }
 
 void pairwise_distance_kl_divergence(const raft::handle_t& handle,
@@ -48,7 +48,7 @@ void pairwise_distance_kl_divergence(const raft::handle_t& handle,
                                      float metric_arg)
 {
   raft::distance::distance<raft::distance::DistanceType::KLDivergence, float, float, float, int>(
-    x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+    handle, x, y, dist, m, n, k, isRowMajor);
 }
 
 }  // namespace Metrics

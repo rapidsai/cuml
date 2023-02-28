@@ -34,7 +34,7 @@ void pairwise_distance_chebyshev(const raft::handle_t& handle,
 {
   // Call the distance function
   raft::distance::distance<raft::distance::DistanceType::Linf, double, double, double, int>(
-    x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+    handle, x, y, dist, m, n, k, isRowMajor);
 }
 
 void pairwise_distance_chebyshev(const raft::handle_t& handle,
@@ -49,7 +49,7 @@ void pairwise_distance_chebyshev(const raft::handle_t& handle,
 {
   // Call the distance function
   raft::distance::distance<raft::distance::DistanceType::Linf, float, float, float, int>(
-    x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+    handle, x, y, dist, m, n, k, isRowMajor);
 }
 
 }  // namespace Metrics

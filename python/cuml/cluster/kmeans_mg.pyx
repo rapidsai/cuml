@@ -26,7 +26,7 @@ rmm = gpu_only_import('rmm')
 
 from cython.operator cimport dereference as deref
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.internals.array import CumlArray
@@ -61,6 +61,25 @@ cdef extern from "cuml/cluster/kmeans_mg.hpp" \
                   double &inertia,
                   int &n_iter) except +
 
+    cdef void fit(handle_t& handle,
+                  KMeansParams& params,
+                  const float *X,
+                  int64_t n_samples,
+                  int64_t n_features,
+                  const float *sample_weight,
+                  float *centroids,
+                  float &inertia,
+                  int64_t &n_iter) except +
+
+    cdef void fit(handle_t& handle,
+                  KMeansParams& params,
+                  const double *X,
+                  int64_t n_samples,
+                  int64_t n_features,
+                  const double *sample_weight,
+                  double *centroids,
+                  double &inertia,
+                  int64_t &n_iter) except +                  
 
 class KMeansMG(KMeans):
 
@@ -99,8 +118,8 @@ class KMeansMG(KMeans):
             input_to_cuml_array(X, order='C')
 
         cdef uintptr_t input_ptr = X_m.ptr
-        cdef size_t n_rows = self.n_rows
-        cdef size_t n_cols = self.n_cols
+        cdef int n_rows = self.n_rows
+        cdef int n_cols = self.n_cols
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
@@ -122,49 +141,92 @@ class KMeansMG(KMeans):
 
         cdef uintptr_t cluster_centers_ptr = self.cluster_centers_.ptr
 
+
+        int_dtype = np.int32 if np.int64(n_rows) * np.int64(n_cols) < 2**31-1 else np.int64
+
+        print(str(n_rows * n_cols))
+
+        labels_ = CumlArray.zeros(shape=n_rows, dtype=int_dtype,
+                                  index=X_m.index)
+
+        cdef uintptr_t labels_ptr = labels_.ptr
+
         cdef float inertiaf = 0
         cdef double inertiad = 0
 
         cdef KMeansParams* params = \
             <KMeansParams*><size_t>self._get_kmeans_params()
         cdef int n_iter = 0
+        cdef int64_t n_iter64 = 0
 
         if self.dtype == np.float32:
-            with nogil:
-                fit(
-                    handle_[0],
-                    <KMeansParams> deref(params),
-                    <const float*> input_ptr,
-                    <size_t> n_rows,
-                    <size_t> n_cols,
-                    <const float *>sample_weight_ptr,
-                    <float*> cluster_centers_ptr,
-                    inertiaf,
-                    n_iter)
+            if int_dtype == np.int32:
+                with nogil:
+                    fit(
+                        handle_[0],
+                        <KMeansParams> deref(params),
+                        <const float*> input_ptr,
+                        <int> n_rows,
+                        <int> n_cols,
+                        <const float *>sample_weight_ptr,
+                        <float*> cluster_centers_ptr,
+                        inertiaf,
+                        n_iter)
+                self.n_iter_ = n_iter
+            else:
+                with nogil:
+                    fit(
+                        handle_[0],
+                        <KMeansParams> deref(params),
+                        <const float*> input_ptr,
+                        <int64_t> n_rows,
+                        <int64_t> n_cols,
+                        <const float *>sample_weight_ptr,
+                        <float*> cluster_centers_ptr,
+                        inertiaf,
+                        n_iter64)
+                self.n_iter_ = n_iter64
             self.handle.sync()
             self.inertia_ = inertiaf
-            self.n_iter_ = n_iter
         elif self.dtype == np.float64:
-            with nogil:
-                fit(
-                    handle_[0],
-                    <KMeansParams> deref(params),
-                    <const double*> input_ptr,
-                    <size_t> n_rows,
-                    <size_t> n_cols,
-                    <const double *>sample_weight_ptr,
-                    <double*> cluster_centers_ptr,
-                    inertiad,
-                    n_iter)
+            if int_dtype == np.int32:
+                with nogil:
+                    fit(
+                        handle_[0],
+                        <KMeansParams> deref(params),
+                        <const double*> input_ptr,
+                        <int> n_rows,
+                        <int> n_cols,
+                        <const double *>sample_weight_ptr,
+                        <double*> cluster_centers_ptr,
+                        inertiad,
+                        n_iter)
+                self.n_iter_ = n_iter
+            else:
+                with nogil:
+                    fit(
+                        handle_[0],
+                        <KMeansParams> deref(params),
+                        <const double*> input_ptr,
+                        <int64_t> n_rows,
+                        <int64_t> n_cols,
+                        <const double *>sample_weight_ptr,
+                        <double*> cluster_centers_ptr,
+                        inertiad,
+                        n_iter64)
+                self.n_iter_ = n_iter64
             self.handle.sync()
             self.inertia_ = inertiad
-            self.n_iter_ = n_iter
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'
                             'but input type ' + str(self.dtype) +
                             ' passed.')
 
         self.handle.sync()
+
+        self.labels_, _, _, _ =  input_to_cuml_array(self.predict(X,
+                                                     sample_weight=sample_weight), order='C',
+                                                     convert_to_dtype=self.dtype)
 
         del(X_m)
         free(params)

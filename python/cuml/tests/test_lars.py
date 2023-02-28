@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,19 +21,20 @@ from cuml.testing.utils import (
     array_equal,
     unit_param,
     quality_param,
-    stress_param
+    stress_param,
 )
 from cuml.experimental.linear_model import Lars as cuLars
 import sys
 import pytest
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 # As tests directory is not a module, we need to add it to the path
-sys.path.insert(0, '.')
+sys.path.insert(0, ".")
 from test_linear_model import make_regression_dataset  # noqa: E402
 
 
@@ -57,29 +58,30 @@ def normalize_data(X, y):
         unit_param([1, 1]),
         unit_param([20, 10]),
         quality_param([100, 50]),
-        stress_param([1000, 500])
+        stress_param([1000, 500]),
     ],
 )
 @pytest.mark.parametrize("normalize", [True, False])
-@pytest.mark.parametrize("precompute", [True, False, 'precompute'])
+@pytest.mark.parametrize("precompute", [True, False, "precompute"])
 def test_lars_model(datatype, nrows, column_info, precompute, normalize):
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(
         datatype, nrows, ncols, n_info
     )
 
-    if precompute == 'precompute' or not normalize:
+    if precompute == "precompute" or not normalize:
         # Apply normalization manually, because the solver expects normalized
         # input data
-        X_train, y_train, x_mean, x_scale, y_mean = \
-            normalize_data(X_train, y_train)
+        X_train, y_train, x_mean, x_scale, y_mean = normalize_data(
+            X_train, y_train
+        )
         y_test = y_test - y_mean
         X_test = (X_test - x_mean) / x_scale
 
-    if precompute == 'precompute':
+    if precompute == "precompute":
         precompute = np.dot(X_train.T, X_train)
 
-    params = {'precompute': precompute, 'normalize': normalize}
+    params = {"precompute": precompute, "normalize": normalize}
 
     # Initialization of cuML's LARS
     culars = cuLars(**params)
@@ -97,7 +99,7 @@ def test_lars_model(datatype, nrows, column_info, precompute, normalize):
         # Set tolerance to include the 95% confidence interval around
         # scikit-learn accuracy.
         accuracy_target = sklars.score(X_test, y_test)
-        tol = 1.96 * np.sqrt(accuracy_target * (1.0-accuracy_target)/100.0)
+        tol = 1.96 * np.sqrt(accuracy_target * (1.0 - accuracy_target) / 100.0)
         if tol < 0.001:
             tol = 0.001  # We allow at least 0.1% tolerance
         print(cu_score_train, cu_score_test, accuracy_target, tol)
@@ -116,7 +118,7 @@ def test_lars_model(datatype, nrows, column_info, precompute, normalize):
     [
         unit_param([20, 10]),
         quality_param([100, 50]),
-        stress_param([1000, 500])
+        stress_param([1000, 500]),
     ],
 )
 @pytest.mark.parametrize("precompute", [True, False])
@@ -126,8 +128,10 @@ def test_lars_collinear(datatype, nrows, column_info, precompute):
         if pytest.adapt_stress_test:
             nrows = nrows * pytest.max_gpu_memory // 32
         else:
-            pytest.skip("Insufficient GPU memory for this test."
-                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
+            pytest.skip(
+                "Insufficient GPU memory for this test."
+                "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'"
+            )
 
     X_train, X_test, y_train, y_test = make_regression_dataset(
         datatype, nrows, ncols, n_info
@@ -144,15 +148,21 @@ def test_lars_collinear(datatype, nrows, column_info, precompute):
     assert culars.score(X_test, y_test) > 0.85
 
 
-@pytest.mark.skipif(sklearn.__version__ >= "1.0",
-                    reason="discrepancies on coefficients with sklearn 1.2")
+@pytest.mark.skipif(
+    sklearn.__version__ >= "1.0",
+    reason="discrepancies on coefficients with sklearn 1.2",
+)
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("params", [{"precompute": True},
-                                    {"precompute": False},
-                                    {"n_nonzero_coefs": 5},
-                                    {"n_nonzero_coefs": 2},
-                                    {"n_nonzero_coefs": 2,
-                                     "fit_intercept": False}])
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"precompute": True},
+        {"precompute": False},
+        {"n_nonzero_coefs": 5},
+        {"n_nonzero_coefs": 2},
+        {"n_nonzero_coefs": 2, "fit_intercept": False},
+    ],
+)
 def test_lars_attributes(datatype, params):
     X, y = fetch_california_housing(return_X_y=True)
     X = X.astype(datatype)
@@ -176,17 +186,20 @@ def test_lars_attributes(datatype, params):
 
     tol = 1e-4 if params.pop("fit_intercept", True) else 1e-1
     n = min(culars.n_iter_, sklars.n_iter_)
-    assert array_equal(culars.alphas_[:n], sklars.alphas_[:n], unit_tol=tol,
-                       total_tol=1e-4)
+    assert array_equal(
+        culars.alphas_[:n], sklars.alphas_[:n], unit_tol=tol, total_tol=1e-4
+    )
     assert array_equal(culars.active_[:n], sklars.active_[:n])
 
     if limit_max_iter:
         assert array_equal(culars.coef_, sklars.coef_)
 
-        if hasattr(sklars, 'coef_path_'):
-            assert array_equal(culars.coef_path_,
-                               sklars.coef_path_[sklars.active_],
-                               unit_tol=1e-3)
+        if hasattr(sklars, "coef_path_"):
+            assert array_equal(
+                culars.coef_path_,
+                sklars.coef_path_[sklars.active_],
+                unit_tol=1e-3,
+            )
 
         intercept_diff = abs(culars.intercept_ - sklars.intercept_)
         if abs(sklars.intercept_) > 1e-6:
@@ -197,8 +210,8 @@ def test_lars_attributes(datatype, params):
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 def test_lars_copy_X(datatype):
     X, y = fetch_california_housing(return_X_y=True)
-    X = cp.asarray(X, dtype=datatype, order='F')
-    y = cp.asarray(y, dtype=datatype, order='F')
+    X = cp.asarray(X, dtype=datatype, order="F")
+    y = cp.asarray(y, dtype=datatype, order="F")
 
     X0 = cp.copy(X)
     culars1 = cuLars(precompute=False, copy_X=True)

@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,8 +22,9 @@ from cuml.internals.safe_imports import cpu_only_import
 import pytest
 
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 def _load_dataset(dataset, n_rows):
@@ -37,43 +38,35 @@ def _load_dataset(dataset, n_rows):
     local_X = cp.asarray(local_X)
     local_y = cp.asarray(local_y)
 
-    local_X = local_X.repeat(
-        math.ceil(n_rows / len(local_X)), axis=0)
-    local_y = local_y.repeat(
-        math.ceil(n_rows / len(local_y)), axis=0)
+    local_X = local_X.repeat(math.ceil(n_rows / len(local_X)), axis=0)
+    local_y = local_y.repeat(math.ceil(n_rows / len(local_y)), axis=0)
 
     # Add some gaussian noise
-    local_X += cp.random.standard_normal(local_X.shape,
-                                         dtype=cp.float32)
+    local_X += cp.random.standard_normal(local_X.shape, dtype=cp.float32)
 
     return local_X, local_y
 
 
-def _local_umap_trustworthiness(local_X, local_y,
-                                n_neighbors,
-                                supervised):
+def _local_umap_trustworthiness(local_X, local_y, n_neighbors, supervised):
     """
     Train model on all data, report trustworthiness
     """
     from cuml.manifold import UMAP
 
-    local_model = UMAP(n_neighbors=n_neighbors,
-                       random_state=42, init="random")
+    local_model = UMAP(n_neighbors=n_neighbors, random_state=42, init="random")
     y_train = None
     if supervised:
         y_train = local_y
     local_model.fit(local_X, y=y_train)
     embedding = local_model.transform(local_X)
-    return trustworthiness(local_X, embedding,
-                           n_neighbors=n_neighbors,
-                           batch_size=5000)
+    return trustworthiness(
+        local_X, embedding, n_neighbors=n_neighbors, batch_size=5000
+    )
 
 
-def _umap_mnmg_trustworthiness(local_X, local_y,
-                               n_neighbors,
-                               supervised,
-                               n_parts,
-                               sampling_ratio):
+def _umap_mnmg_trustworthiness(
+    local_X, local_y, n_neighbors, supervised, n_parts, sampling_ratio
+):
     """
     Train model on random sample of data, transform in
     parallel, report trustworthiness
@@ -83,19 +76,20 @@ def _umap_mnmg_trustworthiness(local_X, local_y,
 
     from cuml.manifold import UMAP
 
-    local_model = UMAP(n_neighbors=n_neighbors,
-                       random_state=42, init="random")
+    local_model = UMAP(n_neighbors=n_neighbors, random_state=42, init="random")
 
     n_samples = local_X.shape[0]
     n_samples_per_part = math.ceil(n_samples / n_parts)
 
     selection = np.random.RandomState(42).choice(
-        [True, False], n_samples, replace=True,
-        p=[sampling_ratio, 1.0 - sampling_ratio])
+        [True, False],
+        n_samples,
+        replace=True,
+        p=[sampling_ratio, 1.0 - sampling_ratio],
+    )
     X_train = local_X[selection]
     X_transform = local_X
-    X_transform_d = da.from_array(X_transform,
-                                  chunks=(n_samples_per_part, -1))
+    X_transform_d = da.from_array(X_transform, chunks=(n_samples_per_part, -1))
 
     y_train = None
     if supervised:
@@ -107,26 +101,28 @@ def _umap_mnmg_trustworthiness(local_X, local_y,
     embedding = distributed_model.transform(X_transform_d)
 
     embedding = embedding.compute()
-    return trustworthiness(X_transform, embedding,
-                           n_neighbors=n_neighbors,
-                           batch_size=5000)
+    return trustworthiness(
+        X_transform, embedding, n_neighbors=n_neighbors, batch_size=5000
+    )
 
 
-def _run_mnmg_test(n_parts, n_rows, sampling_ratio, supervised,
-                   dataset, n_neighbors, client):
+def _run_mnmg_test(
+    n_parts, n_rows, sampling_ratio, supervised, dataset, n_neighbors, client
+):
     local_X, local_y = _load_dataset(dataset, n_rows)
 
-    dist_umap = _umap_mnmg_trustworthiness(local_X, local_y,
-                                           n_neighbors, supervised,
-                                           n_parts, sampling_ratio)
+    dist_umap = _umap_mnmg_trustworthiness(
+        local_X, local_y, n_neighbors, supervised, n_parts, sampling_ratio
+    )
 
-    loc_umap = _local_umap_trustworthiness(local_X, local_y,
-                                           n_neighbors, supervised)
+    loc_umap = _local_umap_trustworthiness(
+        local_X, local_y, n_neighbors, supervised
+    )
 
-    logger.debug("\nLocal UMAP trustworthiness score : {:.2f}"
-                 .format(loc_umap))
-    logger.debug("UMAP MNMG trustworthiness score : {:.2f}"
-                 .format(dist_umap))
+    logger.debug(
+        "\nLocal UMAP trustworthiness score : {:.2f}".format(loc_umap)
+    )
+    logger.debug("UMAP MNMG trustworthiness score : {:.2f}".format(dist_umap))
 
     trust_diff = loc_umap - dist_umap
 
@@ -140,13 +136,28 @@ def _run_mnmg_test(n_parts, n_rows, sampling_ratio, supervised,
 @pytest.mark.parametrize("supervised", [True, False])
 @pytest.mark.parametrize("dataset", ["digits", "iris"])
 @pytest.mark.parametrize("n_neighbors", [10])
-def test_umap_mnmg(n_parts, n_rows, sampling_ratio, supervised,
-                   dataset, n_neighbors, client):
-    result = _run_mnmg_test(n_parts, n_rows, sampling_ratio, supervised,
-                            dataset, n_neighbors, client)
+def test_umap_mnmg(
+    n_parts, n_rows, sampling_ratio, supervised, dataset, n_neighbors, client
+):
+    result = _run_mnmg_test(
+        n_parts,
+        n_rows,
+        sampling_ratio,
+        supervised,
+        dataset,
+        n_neighbors,
+        client,
+    )
 
     if not result:
-        result = _run_mnmg_test(n_parts, n_rows, sampling_ratio, supervised,
-                                dataset, n_neighbors, client)
+        result = _run_mnmg_test(
+            n_parts,
+            n_rows,
+            sampling_ratio,
+            supervised,
+            dataset,
+            n_neighbors,
+            client,
+        )
 
     assert result

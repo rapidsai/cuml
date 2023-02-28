@@ -68,7 +68,7 @@ if has_scipy():
     import scipy.sparse
 
 
-cdef extern from "raft/spatial/knn/ball_cover_common.h" \
+cdef extern from "raft/spatial/knn/ball_cover_types.hpp" \
         namespace "raft::spatial::knn":
     cdef cppclass BallCoverIndex[int64_t, float, uint32_t]:
         BallCoverIndex(const handle_t &handle,
@@ -160,6 +160,10 @@ class NearestNeighbors(UniversalBase,
     NearestNeighbors is an queries neighborhoods from a given set of
     datapoints. Currently, cuML supports k-NN queries, which define
     the neighborhood as the closest `k` neighbors to each query point.
+
+    This estimator supports cuML's experimental device selection capabilities.
+    It can be configured to run on either the CPU or the GPU.
+    To learn more, please see :ref:`device-selection`.
 
     Parameters
     ----------

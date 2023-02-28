@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,27 +17,32 @@ from cuml import multiclass as cu_multiclass
 import sys
 import pytest
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+
+np = cpu_only_import("numpy")
 
 
 # As tests directory is not a module, we need to add it to the path
-sys.path.insert(0, '.')
+sys.path.insert(0, ".")
 from test_linear_model import make_classification_dataset  # noqa: E402
 
 
-@pytest.mark.parametrize("strategy", ['ovr', 'ovo'])
+@pytest.mark.parametrize("strategy", ["ovr", "ovo"])
 @pytest.mark.parametrize("use_wrapper", [True, False])
 @pytest.mark.parametrize("nrows", [1000])
 @pytest.mark.parametrize("num_classes", [3])
 @pytest.mark.parametrize("column_info", [[10, 4]])
-def test_logistic_regression(strategy, use_wrapper, nrows, num_classes,
-                             column_info, dtype=np.float32):
+def test_logistic_regression(
+    strategy, use_wrapper, nrows, num_classes, column_info, dtype=np.float32
+):
 
     ncols, n_info = column_info
 
     X_train, X_test, y_train, y_test = make_classification_dataset(
-        datatype=dtype, nrows=nrows, ncols=ncols,
-        n_info=n_info, num_classes=num_classes
+        datatype=dtype,
+        nrows=nrows,
+        ncols=ncols,
+        n_info=n_info,
+        num_classes=num_classes,
     )
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
@@ -46,7 +51,7 @@ def test_logistic_regression(strategy, use_wrapper, nrows, num_classes,
     if use_wrapper:
         cls = cu_multiclass.MulticlassClassifier(culog, strategy=strategy)
     else:
-        if (strategy == 'ovo'):
+        if strategy == "ovo":
             cls = cu_multiclass.OneVsOneClassifier(culog)
         else:
             cls = cu_multiclass.OneVsRestClassifier(culog)
