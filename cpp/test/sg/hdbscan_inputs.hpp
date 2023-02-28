@@ -67,7 +67,7 @@ struct ClusterSelectionInputs {
 };
 
 template <typename T, typename IdxT>
-struct SoftClusteringInputs {
+struct AllPointsMembershipVectorsInputs {
   IdxT n_row;
   IdxT n_col;
   int min_samples;
@@ -2301,7 +2301,7 @@ const std::vector<ClusterSelectionInputs<float, int>> cluster_selection_inputs =
     -1, -1, -1, -1, 11, 13, -1, 15, 13, -1, -1, -1, -1, -1, 13, -1, 1,  16, 11, -1, -1, 18, 13, -1,
     -1, -1, -1, -1, 3,  -1, 3,  3,  -1, -1, -1, -1, -1, -1, -1, -1, 15, 1,  -1, -1, -1}}};
 
-const std::vector<SoftClusteringInputs<float, int>> soft_clustering_inputs = {
+const std::vector<AllPointsMembershipVectorsInputs<float, int>> all_points_membership_vectors_inputs = {
   {MLCommon::Datasets::Digits::n_samples,
    MLCommon::Datasets::Digits::n_features,
    5,

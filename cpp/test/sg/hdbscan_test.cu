@@ -372,13 +372,13 @@ void transformLabels(const raft::handle_t& handle, IdxT* labels, IdxT* label_map
 // edit the selected clusters array. Do the same in the all_points_membership_vectors function and
 // the approximate_predict functions.
 template <typename T, typename IdxT>
-class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<T, IdxT>> {
+class AllPointsMembershipVectorsTest : public ::testing::TestWithParam<AllPointsMembershipVectorsInputs<T, IdxT>> {
  protected:
   void basicTest()
   {
     raft::handle_t handle;
 
-    params = ::testing::TestWithParam<SoftClusteringInputs<T, IdxT>>::GetParam();
+    params = ::testing::TestWithParam<AllPointsMembershipVectorsInputs<T, IdxT>>::GetParam();
 
     rmm::device_uvector<IdxT> condensed_parents(params.condensed_parents.size(),
                                                 handle.get_stream());
@@ -477,12 +477,12 @@ class SoftClusteringTest : public ::testing::TestWithParam<SoftClusteringInputs<
   // T score;
 };
 
-typedef SoftClusteringTest<float, int> SoftClusteringTestF_Int;
-TEST_P(SoftClusteringTestF_Int, Result) { EXPECT_TRUE(true); }
+typedef AllPointsMembershipVectorsTest<float, int> AllPointsMembershipVectorsTestF_Int;
+TEST_P(AllPointsMembershipVectorsTestF_Int, Result) { EXPECT_TRUE(true); }
 
-INSTANTIATE_TEST_CASE_P(SoftClusteringTest,
-                        SoftClusteringTestF_Int,
-                        ::testing::ValuesIn(soft_clustering_inputs));
+INSTANTIATE_TEST_CASE_P(AllPointsMembershipVectorsTest,
+                        AllPointsMembershipVectorsTestF_Int,
+                        ::testing::ValuesIn(all_points_membership_vectors_inputs));
 
 template <typename T, typename IdxT>
 class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredictInputs<T, IdxT>> {
@@ -679,6 +679,13 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
     rmm::device_uvector<T> data(params.n_row * params.n_col, handle.get_stream());
     raft::copy(data.data(), params.data.data(), data.size(), handle.get_stream());
 
+    rmm::device_uvector<T> points_to_predict(params.n_points_to_predict * params.n_col,
+                                             handle.get_stream());
+    raft::copy(points_to_predict.data(),
+               params.points_to_predict.data(),
+               points_to_predict.size(),
+               handle.get_stream());
+
     ML::HDBSCAN::Common::CondensedHierarchy<IdxT, T> condensed_tree(handle,
                                                                     params.n_row,
                                                                     params.condensed_parents.size(),
@@ -709,10 +716,27 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
                                                      0,
                                                      params.cluster_selection_epsilon);
 
-    rmm::device_uvector<T> membership_vec(params.n_row * n_selected_clusters, handle.get_stream());
+    rmm::device_uvector<T> membership_vec(params.n_points_to_predict * n_selected_clusters, handle.get_stream());
 
+    rmm::device_uvector<T> core_dists{static_cast<size_t>(params.n_row), handle.get_stream()};
     ML::HDBSCAN::Common::PredictionData<IdxT, T> prediction_data_(
-      handle, params.n_row, params.n_col, nullptr);
+      handle, params.n_row, params.n_col, core_dists.data());
+
+    auto stream = handle.get_stream();
+    rmm::device_uvector<IdxT> mutual_reachability_indptr(params.n_row + 1, stream);
+    raft::sparse::COO<T, IdxT> mutual_reachability_coo(stream,
+                                                       (params.min_samples + 1) * params.n_row * 2);
+    ML::HDBSCAN::detail::Reachability::mutual_reachability_graph(
+      handle,
+      data.data(),
+      (size_t)params.n_row,
+      (size_t)params.n_col,
+      raft::distance::DistanceType::L2SqrtExpanded,
+      params.min_samples + 1,
+      (float)1.0,
+      mutual_reachability_indptr.data(),
+      prediction_data_.get_core_dists(),
+      mutual_reachability_coo);
 
     transformLabels(handle, labels.data(), label_map.data(), params.n_row);
 
@@ -723,27 +747,20 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
                                                   n_selected_clusters,
                                                   prediction_data_);
 
-    ML::compute_membership_vector(handle,
-                                              condensed_tree,
-                                              prediction_data_,
-                                              data.data(),
-                                              raft::distance::DistanceType::L2SqrtExpanded,
-                                              membership_vec.data());
-    
-    void compute_membership_vector(
+    ML::compute_membership_vector(
   handle,
   condensed_tree,
   prediction_data_,
   data.data(),
-  points_to_predict,
-  size_t n_points_to_predict,
-  int min_samples,
+  points_to_predict.data(),
+  params.n_points_to_predict,
+  params.min_samples,
   raft::distance::DistanceType::L2SqrtExpanded,
   membership_vec.data());
 
     ASSERT_TRUE(MLCommon::devArrMatch(membership_vec.data(),
                                       params.expected_probabilities.data(),
-                                      params.n_row * n_selected_clusters,
+                                      params.n_points_to_predict * n_selected_clusters,
                                       MLCommon::CompareApprox<float>(1e-5),
                                       handle.get_stream()));
   }
@@ -757,12 +774,12 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
   // T score;
 };
 
-typedef SoftClusteringTest<float, int> SoftClusteringTestF_Int;
-TEST_P(SoftClusteringTestF_Int, Result) { EXPECT_TRUE(true); }
+typedef MembershipVectorTest<float, int> MembershipVectorTestF_Int;
+TEST_P(MembershipVectorTestF_Int, Result) { EXPECT_TRUE(true); }
 
-INSTANTIATE_TEST_CASE_P(SoftClusteringTest,
-                        SoftClusteringTestF_Int,
-                        ::testing::ValuesIn(soft_clustering_inputs));
+INSTANTIATE_TEST_CASE_P(MembershipVectorTest,
+                        MembershipVectorTestF_Int,
+                        ::testing::ValuesIn(membership_vector_inputs));
 
 
 
