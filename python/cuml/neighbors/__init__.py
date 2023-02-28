@@ -35,7 +35,6 @@ VALID_METRICS = {
             "cityblock",
             "manhattan",
             "taxicab",
-            "braycurtis",
             "canberra",
             "minkowski",
             "lp",
