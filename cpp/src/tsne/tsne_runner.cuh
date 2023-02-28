@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -121,6 +121,13 @@ class TSNE_runner {
       k_graph.knn_indices = indices.data();
       k_graph.knn_dists   = distances.data();
 
+      auto metric = params.metric;
+      if (metric == raft::distance::DistanceType::L2SqrtExpanded) {
+        // seeing a bunch of test failures here using the expanded version
+        //  use the unexpanded version instead
+        // https://github.com/rapidsai/raft/issues/731
+        metric = raft::distance::DistanceType::L2SqrtUnexpanded;
+      }
       TSNE::get_distances(handle, input, k_graph, stream, params.metric, params.p);
     }
 

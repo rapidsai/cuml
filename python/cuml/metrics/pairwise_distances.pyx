@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ PAIRWISE_DISTANCE_METRICS = {
     "l1": DistanceType.L1,
     "l2": DistanceType.L2SqrtUnexpanded,
     "manhattan": DistanceType.L1,
-    "sqeuclidean": DistanceType.L2Expanded,
+    "sqeuclidean": DistanceType.L2Unexpanded,
     "canberra": DistanceType.Canberra,
     "chebyshev": DistanceType.Linf,
     "minkowski": DistanceType.LpUnexpanded,
