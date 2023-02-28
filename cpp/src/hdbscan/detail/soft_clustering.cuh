@@ -229,11 +229,12 @@ void all_points_outlier_membership_vector(
 
   if (softmax) {
     // we do not need to scale for numerical stability
-    thrust::transform(exec_policy,
-                      outlier_membership_vec,
-                      outlier_membership_vec + m * n_selected_clusters,
-                      outlier_membership_vec,
-                      [=] __device__(value_t val) { return exp(val); });
+    // thrust::transform(exec_policy,
+    //                   outlier_membership_vec,
+    //                   outlier_membership_vec + m * n_selected_clusters,
+    //                   outlier_membership_vec,
+    //                   [=] __device__(value_t val) { return exp(val); });
+    Utils::softmax(handle, outlier_membership_vec, n_selected_clusters, m);
   }
 
   Utils::normalize(outlier_membership_vec, n_selected_clusters, m, stream);
@@ -459,7 +460,7 @@ void outlier_membership_vector(
       return vec_in / denominator;
     },  //+ 1e-8 to avoid zero lambda
     stream);
-    raft::print_device_vector("outlier_membership_vec_pre_exp", outlier_membership_vec, 300, std::cout);
+    // raft::print_device_vector("outlier_membership_vec_pre_exp", outlier_membership_vec, 300, std::cout);
 
   if (softmax) {
     Utils::softmax(handle, outlier_membership_vec, n_selected_clusters, n_prediction_points);
@@ -469,10 +470,10 @@ void outlier_membership_vector(
     //                   outlier_membership_vec,
     //                   [=] __device__(value_t val) { return exp(val); });
   }
-  raft::print_device_vector("outlier_membership_vec_unnorm", outlier_membership_vec, 300, std::cout);
+  // raft::print_device_vector("outlier_membership_vec_unnorm", outlier_membership_vec, 300, std::cout);
   // raft::print_device_vector("outlier_membership_vec_unnorm", outlier_membership_vec, 100, std::cout);
   Utils::normalize(outlier_membership_vec, n_selected_clusters, n_prediction_points, stream);
-  raft::print_device_vector("outlier_membership_vec_norm", outlier_membership_vec, 300, std::cout);
+  // raft::print_device_vector("outlier_membership_vec_norm", outlier_membership_vec, 300, std::cout);
 }
 
 
@@ -518,6 +519,7 @@ void prob_in_some_cluster(const raft::handle_t& handle,
                                             n_selected_clusters,
                                             n_leaves,
                                             n_prediction_points);
+  // raft::print_device_vector("prob_in_some_cluster", prob_in_some_cluster, 300, std::cout);
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>
@@ -614,7 +616,7 @@ void membership_vector(const raft::handle_t& handle,
 
     rmm::device_uvector<value_t> prob_in_some_cluster_(n_prediction_points, stream);
   
-  raft::print_device_vector("mergeHeights", merge_heights.data(), 100, std::cout);
+  // raft::print_device_vector("mergeHeights", merge_heights.data(), 100, std::cout);
 
   prob_in_some_cluster(handle,
                        condensed_tree,

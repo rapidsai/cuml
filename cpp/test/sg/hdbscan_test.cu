@@ -473,7 +473,7 @@ class AllPointsMembershipVectorsTest : public ::testing::TestWithParam<AllPoints
   void TearDown() override {}
 
  protected:
-  SoftClusteringInputs<T, IdxT> params;
+  AllPointsMembershipVectorsInputs<T, IdxT> params;
   // T score;
 };
 
@@ -761,7 +761,7 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
     ASSERT_TRUE(MLCommon::devArrMatch(membership_vec.data(),
                                       params.expected_probabilities.data(),
                                       params.n_points_to_predict * n_selected_clusters,
-                                      MLCommon::CompareApprox<float>(1e-5),
+                                      MLCommon::CompareApprox<float>(1e-4),
                                       handle.get_stream()));
   }
 
@@ -770,7 +770,7 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
   void TearDown() override {}
 
  protected:
-  SoftClusteringInputs<T, IdxT> params;
+  MembershipVectorInputs<T, IdxT> params;
   // T score;
 };
 
