@@ -249,28 +249,28 @@ def membership_vector(clusterer, points_to_predict, convert_dtype=True):
     device_type = cuml.global_settings.device_type
 
     # cpu infer, cpu/gpu train
-    #if device_type == DeviceType.host:
-    #    assert has_hdbscan_prediction()
-    #    from hdbscan.prediction import approximate_predict \
-    #        as cpu_approximate_predict
+    if device_type == DeviceType.host:
+        assert has_hdbscan_prediction()
+        from hdbscan.prediction import membership_vector \
+            as cpu_membership_vector
 
-    #    # trained on gpu
-    #    if not hasattr(clusterer, "_cpu_model"):
-    #        # the reference HDBSCAN implementations uses @property
-    #        # for attributes without setters available for them,
-    #        # so they can't be transferred from the GPU model
-    #        # to the CPU model
-    #        raise ValueError("Inferring on CPU is not supported yet when the "
-    #                         "model has been trained on GPU")
+        # trained on gpu
+        if not hasattr(clusterer, "_cpu_model"):
+            # the reference HDBSCAN implementations uses @property
+            # for attributes without setters available for them,
+            # so they can't be transferred from the GPU model
+            # to the CPU model
+            raise ValueError("Inferring on CPU is not supported yet when the "
+                             "model has been trained on GPU")
 
-    #    host_points_to_predict = input_to_host_array(points_to_predict).array
-    #    return cpu_approximate_predict(clusterer._cpu_model,
-    #                                   host_points_to_predict)
+        host_points_to_predict = input_to_host_array(points_to_predict).array
+        return cpu_membership_vector(clusterer._cpu_model,
+                                     host_points_to_predict)
 
-    #elif device_type == DeviceType.device:
-    #    # trained on cpu
-    #    if hasattr(clusterer, "_cpu_model"):
-    #        clusterer._prep_cpu_to_gpu_prediction()
+    elif device_type == DeviceType.device:
+        # trained on cpu
+        if hasattr(clusterer, "_cpu_model"):
+            clusterer._prep_cpu_to_gpu_prediction()
 
     if not clusterer.fit_called_:
         raise ValueError("The clusterer is not fit on data. "
@@ -281,19 +281,15 @@ def membership_vector(clusterer, points_to_predict, convert_dtype=True):
                          "Please call clusterer.fit again with "
                          "prediction_data=True")
 
-    if clusterer.n_clusters_ == 0:
-        return np.zeros(clusterer.n_rows, dtype=np.float32)
-
     points_to_predict_m, n_prediction_points, n_cols, _ = \
         input_to_cuml_array(points_to_predict, order='C',
                             check_dtype=[np.float32],
                             convert_to_dtype=(np.float32
                                               if convert_dtype
                                               else None))
-
-    print(n_prediction_points, n_cols)
-    print(clusterer.min_samples)
-    print(clusterer.n_clusters_)
+    
+    if clusterer.n_clusters_ == 0:
+        return np.zeros(n_prediction_points, dtype=np.float32)
 
     if n_cols != clusterer.n_cols:
         raise ValueError('New points dimension does not match fit data!')
