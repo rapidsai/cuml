@@ -222,23 +222,17 @@ def all_points_membership_vectors(clusterer):
 
 
 def membership_vector(clusterer, points_to_predict, convert_dtype=True):
-    """Predict the cluster label of new points. The returned labels
-    will be those of the original clustering found by ``clusterer``,
-    and therefore are not (necessarily) the cluster labels that would
-    be found by clustering the original data combined with
-    ``points_to_predict``, hence the 'approximate' label.
-
-    If you simply wish to assign new points to an existing clustering
-    in the 'best' way possible, this is the function to use. If you
-    want to predict how ``points_to_predict`` would cluster with
-    the original data under HDBSCAN the most efficient existing approach
-    is to simply recluster with the new point(s) added to the original dataset.
+    """Predict soft cluster membership. The result produces a vector
+    for each point in ``points_to_predict`` that gives a probability that
+    the given point is a member of a cluster for each of the selected clusters
+    of the ``clusterer``.
 
     Parameters
     ----------
     clusterer : HDBSCAN
         A clustering object that has been fit to the data and
-        had ``prediction_data=True`` set.
+        either had ``prediction_data=True`` set, or called the
+        ``generate_prediction_data`` method after the fact.
 
     points_to_predict : array, or array-like (n_samples, n_features)
         The new data points to predict cluster labels for. They should
@@ -247,11 +241,9 @@ def membership_vector(clusterer, points_to_predict, convert_dtype=True):
 
     Returns
     -------
-    labels : array (n_samples,)
-        The predicted labels of the ``points_to_predict``
-
-    probabilities : array (n_samples,)
-        The soft cluster scores for each of the ``points_to_predict``
+    membership_vectors : array (n_samples, n_clusters)
+        The probability that point ``i`` is a member of cluster ``j`` is
+        in ``membership_vectors[i, j]``.
     """
 
     device_type = cuml.global_settings.device_type

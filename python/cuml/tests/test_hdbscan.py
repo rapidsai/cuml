@@ -1031,7 +1031,8 @@ def test_membership_vector_blobs(
     cu_membership_vectors = membership_vector(cuml_agg, points_to_predict)
     cu_membership_vectors.sort(axis=1)
     sk_membership_vectors = hdbscan.membership_vector(
-        sk_agg, points_to_predict,
+        sk_agg,
+        points_to_predict,
     ).astype("float32")
     sk_membership_vectors.sort(axis=1)
     assert_membership_vectors(cu_membership_vectors, sk_membership_vectors)
@@ -1092,9 +1093,9 @@ def test_membership_vector_moons(
     sk_agg.fit(X_train)
 
     cu_membership_vectors = membership_vector(cuml_agg, X_test)
-    sk_membership_vectors = hdbscan.membership_vector(
-        sk_agg, X_test
-    ).astype("float32")
+    sk_membership_vectors = hdbscan.membership_vector(sk_agg, X_test).astype(
+        "float32"
+    )
 
     assert_membership_vectors(cu_membership_vectors, sk_membership_vectors)
 
@@ -1156,6 +1157,8 @@ def test_membership_vector_circles(
     sk_agg.fit(X_train)
 
     cu_membership_vectors = membership_vector(cuml_agg, X_test)
-    sk_membership_vectors = hdbscan.membership_vector(sk_agg, X_test).astype("float32")
+    sk_membership_vectors = hdbscan.membership_vector(sk_agg, X_test).astype(
+        "float32"
+    )
 
     assert_membership_vectors(cu_membership_vectors, sk_membership_vectors)

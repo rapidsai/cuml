@@ -25,14 +25,17 @@
 
 #include <cuml/cluster/hdbscan.hpp>
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/matrix/math.cuh>
+#include <raft/matrix/argmax.cuh>
 
 #include <algorithm>
 
 #include "../condensed_hierarchy.cu"
+#include <common/fast_int_div.cuh>
 
 #include <thrust/copy.h>
 #include <thrust/execution_policy.h>
@@ -214,13 +217,13 @@ void normalize(value_t* data, value_idx n, size_t m, cudaStream_t stream)
 }
 
 /**
- * Computes softmax (unnormalized) of membership vector.
+ * Computes softmax (unnormalized). The input is modified in-place. For numerical stability, the maximum value of a row is subtracted from the exponent.
  * @tparam value_idx
  * @tparam value_t
  * @param[in] handle raft handle for resource reuse
- * @param[inout] condensed_tree cluster tree (condensed hierarchy with all nodes of size > 1)
- * @param[in] sorted_parents parents array sorted
- * @param[out] indptr CSR indptr of parents array after sort
+ * @param[in] data input matrix (size m * n)
+ * @param[in] n number of columns
+ * @param[out] m number of rows
  */
 template <typename value_idx, typename value_t>
 void softmax(const raft::handle_t& handle, value_t* data, value_idx n, size_t m)
@@ -234,16 +237,21 @@ void softmax(const raft::handle_t& handle, value_t* data, value_idx n, size_t m)
   rmm::device_uvector<value_t> data_copy(m * n, stream);
   thrust::copy(thrust_policy, data, data + m * n, data_copy.data());
 
-  rmm::device_uvector<value_idx> membership_argmax(m, stream);
+  rmm::device_uvector<value_idx> argmax(m, stream);
 
-  raft::matrix::argmax(data, n, (value_idx)m, membership_argmax.data(), stream);
+  auto data_const_view = raft::make_device_matrix_view<const value_t, value_idx, raft::row_major>(data, (int)m, n);
+  auto argmax_view = raft::make_device_vector_view<value_idx, value_idx>(argmax.data(), (int)m);
+
+  raft::matrix::argmax(
+    handle, data_const_view, argmax_view);
 
   auto softmax_op = [data,
                      data_copy         = data_copy.data(),
-                     membership_argmax = membership_argmax.data(),
+                     argmax = argmax.data(),
+                     divisor = MLCommon::FastIntDiv(n),
                      n] __device__(auto idx) {
-    value_idx row = idx / n;
-    data[idx]     = exp(data_copy[idx] - data_copy[n * row + membership_argmax[row]]);
+    value_idx row = idx / divisor;
+    data[idx]     = exp(data_copy[idx] - data_copy[n * row + argmax[row]]);
   };
 
   thrust::for_each(thrust_policy, counting, counting + m * n, softmax_op);

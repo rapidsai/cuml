@@ -21,6 +21,7 @@
 #include "utils.h"
 
 #include <cub/cub.cuh>
+#include <common/fast_int_div.cuh>
 
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -30,12 +31,13 @@
 
 #include <cuml/cluster/hdbscan.hpp>
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/matrix/math.cuh>
+#include <raft/matrix/argmax.cuh>
 
 #include <algorithm>
 #include <cmath>
@@ -114,12 +116,13 @@ void dist_membership_vector(const raft::handle_t& handle,
   thrust::fill(exec_policy, min_dist.begin(), min_dist.end(), std::numeric_limits<value_t>::max());
 
   auto reduction_op = [dist = dist.data(),
+                       divisor = MLCommon::FastIntDiv(n_selected_clusters),
                        n_selected_clusters,
                        n_exemplars,
                        exemplar_label_offsets,
                        min_dist = min_dist.data()] __device__(auto idx) {
-    auto col   = idx % n_selected_clusters;
-    auto row   = idx / n_selected_clusters;
+    auto col   = idx % divisor;
+    auto row   = idx / divisor;
     auto start = exemplar_label_offsets[col];
     auto end   = exemplar_label_offsets[col + 1];
 
@@ -193,6 +196,7 @@ void all_points_outlier_membership_vector(
                                                     parents,
                                                     m,
                                                     n_selected_clusters,
+                                                    MLCommon::FastIntDiv(n_selected_clusters),
                                                     selected_clusters);
 
   rmm::device_uvector<value_t> leaf_max_lambdas(n_leaves, stream);
@@ -245,10 +249,13 @@ void all_points_prob_in_some_cluster(const raft::handle_t& handle,
   auto n_edges     = condensed_tree.get_n_edges();
   auto children    = condensed_tree.get_children();
 
-  rmm::device_uvector<value_t> height_argmax(m, stream);
+  rmm::device_uvector<value_idx> height_argmax(m, stream);
+
+  auto merge_heights_view = raft::make_device_matrix_view<const value_t, value_idx, raft::row_major>(merge_heights, (int)m, n_selected_clusters);
+  auto height_argmax_view = raft::make_device_vector_view<value_idx, value_idx>(height_argmax.data(), (int)m);
 
   raft::matrix::argmax(
-    merge_heights, n_selected_clusters, static_cast<int>(m), height_argmax.data(), stream);
+    handle, merge_heights_view, height_argmax_view);
 
   int n_blocks = raft::ceildiv((int)m, tpb);
   prob_in_some_cluster_kernel<<<n_blocks, tpb, 0, stream>>>(merge_heights,
@@ -299,6 +306,7 @@ void outlier_membership_vector(const raft::handle_t& handle,
                                                     parents,
                                                     n_prediction_points,
                                                     n_selected_clusters,
+                                                    MLCommon::FastIntDiv(n_selected_clusters),
                                                     selected_clusters);
 
   // fetch the max lambda of the cluster to which the nearest MR neighbor belongs in the condensed
@@ -360,13 +368,12 @@ void prob_in_some_cluster(const raft::handle_t& handle,
   auto n_edges     = condensed_tree.get_n_edges();
   auto children    = condensed_tree.get_children();
 
-  rmm::device_uvector<value_t> height_argmax(n_prediction_points, stream);
+  rmm::device_uvector<value_idx> height_argmax(n_prediction_points, stream);
 
-  raft::matrix::argmax(merge_heights,
-                       n_selected_clusters,
-                       static_cast<int>(n_prediction_points),
-                       height_argmax.data(),
-                       stream);
+  auto merge_heights_view = raft::make_device_matrix_view<const value_t, value_idx, raft::row_major>(merge_heights, (int)n_prediction_points, n_selected_clusters);
+  auto height_argmax_view = raft::make_device_vector_view<value_idx, value_idx>(height_argmax.data(), (int)n_prediction_points);
+  raft::matrix::argmax(
+    handle, merge_heights_view, height_argmax_view);
 
   int n_blocks = raft::ceildiv((int)n_prediction_points, tpb);
 
@@ -394,7 +401,7 @@ void prob_in_some_cluster(const raft::handle_t& handle,
  * @param[in] condensed_tree a condensed hierarchy
  * @param[in] prediction_data PredictionData object
  * @param[in] X all points (size m * n)
- * @param[in] metric distance metric to use
+ * @param[in] metric distance metric
  * @param[out] membership_vec output membership vectors (size m * n_selected_clusters)
  */
 template <typename value_idx, typename value_t>
@@ -489,6 +496,21 @@ void all_points_membership_vectors(const raft::handle_t& handle,
   }
 }
 
+/**
+ * Predict soft cluster membership vectors for new points (not in the training data). 
+ *
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] condensed_tree a condensed hierarchy
+ * @param[in] prediction_data PredictionData object
+ * @param[in] X all points (size m * n)
+ * @param[in] points_to_predict input prediction points (size n_prediction_points * n)
+ * @param[in] n_prediction_points number of prediction points
+ * @param[in] metric distance metric
+ * @param[in] min_samples neighborhood size during training (includes self-loop)
+ * @param[out] membership_vec output membership vectors (size n_prediction_points * n_selected_clusters)
+ */
 template <typename value_idx, typename value_t, int tpb = 256>
 void membership_vector(const raft::handle_t& handle,
                        Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,

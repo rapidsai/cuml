@@ -28,6 +28,7 @@ __global__ void merge_height_kernel(value_t* heights,
                                     value_idx* parents,
                                     size_t m,
                                     value_idx n_selected_clusters,
+                                    MLCommon::FastIntDiv n,
                                     value_idx* selected_clusters)
 {
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -72,12 +73,13 @@ __global__ void merge_height_kernel(value_t* heights,
                                     value_idx* parents,
                                     size_t n_prediction_points,
                                     value_idx n_selected_clusters,
+                                    MLCommon::FastIntDiv n,
                                     value_idx* selected_clusters)
 {
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < value_idx(n_prediction_points * n_selected_clusters)) {
-    value_idx row           = idx / n_selected_clusters;
-    value_idx col           = idx % n_selected_clusters;
+    value_idx row           = idx / n;
+    value_idx col           = idx % n;
     value_idx right_cluster = selected_clusters[col];
     value_idx left_cluster  = parents[index_into_children[min_mr_indices[row]]];
     bool took_right_parent  = false;
@@ -108,7 +110,7 @@ __global__ void merge_height_kernel(value_t* heights,
 
 template <typename value_idx, typename value_t>
 __global__ void prob_in_some_cluster_kernel(value_t* heights,
-                                            value_t* height_argmax,
+                                            value_idx* height_argmax,
                                             value_t* deaths,
                                             value_idx* index_into_children,
                                             value_idx* selected_clusters,
@@ -121,16 +123,16 @@ __global__ void prob_in_some_cluster_kernel(value_t* heights,
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < (value_idx)m) {
     value_t max_lambda = max(lambdas[index_into_children[idx]],
-                             deaths[selected_clusters[(int)height_argmax[idx]] - n_leaves]);
+                             deaths[selected_clusters[height_argmax[idx]] - n_leaves]);
     prob_in_some_cluster[idx] =
-      heights[idx * n_selected_clusters + (int)height_argmax[idx]] / max_lambda;
+      heights[idx * n_selected_clusters + height_argmax[idx]] / max_lambda;
     return;
   }
 }
 
 template <typename value_idx, typename value_t>
 __global__ void prob_in_some_cluster_kernel(value_t* heights,
-                                            value_t* height_argmax,
+                                            value_idx* height_argmax,
                                             value_t* prediction_lambdas,
                                             value_t* deaths,
                                             value_idx* index_into_children,
@@ -145,10 +147,10 @@ __global__ void prob_in_some_cluster_kernel(value_t* heights,
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < (value_idx)n_prediction_points) {
     value_t max_lambda =
-      max(prediction_lambdas[idx], deaths[selected_clusters[(int)height_argmax[idx]] - n_leaves]) +
+      max(prediction_lambdas[idx], deaths[selected_clusters[height_argmax[idx]] - n_leaves]) +
       1e-8;
     prob_in_some_cluster[idx] =
-      heights[idx * n_selected_clusters + (int)height_argmax[idx]] / max_lambda;
+      heights[idx * n_selected_clusters + height_argmax[idx]] / max_lambda;
     return;
   }
 }

@@ -108,6 +108,8 @@ void compute_membership_vector(const raft::handle_t& handle,
                                raft::distance::DistanceType metric,
                                float* membership_vec)
 {
+  // Note that (min_samples+1) is parsed to the approximate_predict function. This was done for the
+  // core distance computation to consistent with Scikit learn Contrib.
   HDBSCAN::detail::Predict::membership_vector(handle,
                                               condensed_tree,
                                               prediction_data,

@@ -220,7 +220,7 @@ void _compute_knn_and_nearest_neighbor(const raft::handle_t& handle,
  * @param[in] labels converted monotonic labels of the input data points
  * @param[in] points_to_predict input prediction points (size n_prediction_points * n)
  * @param[in] n_prediction_points number of prediction points
- * @param[in] metric distance metric to use
+ * @param[in] metric distance metric
  * @param[in] min_samples neighborhood size during training (includes self-loop)
  * @param[out] out_labels output cluster labels
  * @param[out] out_probabilities output probabilities
