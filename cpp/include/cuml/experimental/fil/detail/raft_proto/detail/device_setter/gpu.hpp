@@ -19,6 +19,7 @@
 #include <cuml/experimental/fil/detail/raft_proto/detail/device_setter/base.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 namespace raft_proto {
 namespace detail {
@@ -26,12 +27,16 @@ namespace detail {
 /** Struct for setting current device within a code block */
 template <>
 struct device_setter<device_type::gpu> {
-  device_setter(raft_proto::device_id<device_type::gpu> device) noexcept(false) : prev_device_{} {
+  device_setter(raft_proto::device_id<device_type::gpu> device) noexcept(false) : prev_device_{[]() {
+    auto result = int{};
+    raft_proto::cuda_check(cudaGetDevice(&result));
+    return result;
+  }()} {
     raft_proto::cuda_check(cudaSetDevice(device.value()));
   }
 
   ~device_setter() {
-    cudaSetDevice(prev_device_.value());
+    RAFT_CUDA_TRY_NO_THROW(cudaSetDevice(prev_device_.value()));
   }
  private:
   device_id<device_type::gpu> prev_device_;
