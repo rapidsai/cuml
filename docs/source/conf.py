@@ -1,7 +1,5 @@
-# Copyright (c) 2018-2023, NVIDIA CORPORATION.
-#
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 #
 # This file is execfile()d with the current directory set to its
 # containing dir.
