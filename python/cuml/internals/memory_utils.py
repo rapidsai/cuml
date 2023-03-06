@@ -39,7 +39,9 @@ cupy_using_allocator = gpu_only_import_from(
 )
 PandasSeries = cpu_only_import_from("pandas", "Series")
 PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
-rmm_cupy_allocator = gpu_only_import_from("rmm", "rmm_cupy_allocator")
+rmm_cupy_allocator = gpu_only_import_from(
+    "rmm.allocators.cupy", "rmm_cupy_allocator"
+)
 
 
 def set_global_memory_type(memory_type):
