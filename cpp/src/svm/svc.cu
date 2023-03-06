@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,6 +73,26 @@ template void svcFitX<double>(const raft::handle_t& handle,
                               KernelParams& kernel_params,
                               SvmModel<double>& model,
                               const double* sample_weight);
+
+template void svcPredict<float>(const raft::handle_t& handle,
+                                float* input,
+                                int n_rows,
+                                int n_cols,
+                                KernelParams& kernel_params,
+                                const SvmModel<float>& model,
+                                float* preds,
+                                float buffer_size,
+                                bool predict_class);
+
+template void svcPredict<double>(const raft::handle_t& handle,
+                                 double* input,
+                                 int n_rows,
+                                 int n_cols,
+                                 KernelParams& kernel_params,
+                                 const SvmModel<double>& model,
+                                 double* preds,
+                                 double buffer_size,
+                                 bool predict_class);
 
 template void svcPredictX<float>(const raft::handle_t& handle,
                                  const Matrix<float>& matrix,

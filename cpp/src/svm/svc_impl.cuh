@@ -164,7 +164,7 @@ void svcPredictX(const raft::handle_t& handle,
       * row ptr copy/shift for input csr, expanded L2 norm for RBF
     Dense input, sparse support
       * transpose kernel compute, expanded L2 norm for RBF
-    Sparse intput, sparse support
+    Sparse input, sparse support
       * row ptr copy/shift for input csr
 
     Note: RBF with expanded euclidean only possible with single norm vector for both matrices
@@ -174,7 +174,7 @@ void svcPredictX(const raft::handle_t& handle,
   rmm::device_uvector<math_t> dot_input(0, stream);
   rmm::device_uvector<math_t> dot_support(0, stream);
   bool is_csr_input     = !matrix.isDense();
-  bool is_csr_support   = !model.support_matrix->isDense();
+  bool is_csr_support   = model.support_matrix && !model.support_matrix->isDense();
   bool transpose_kernel = is_csr_support && !is_csr_input;
   if (model.n_support > 0 && kernel_params.kernel == raft::distance::kernels::RBF) {
     dot_input.reserve(n_rows, stream);

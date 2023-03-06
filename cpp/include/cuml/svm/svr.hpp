@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,6 +51,15 @@ void svrFit(const raft::handle_t& handle,
             math_t* X,
             int n_rows,
             int n_cols,
+            math_t* y,
+            const SvmParameter& param,
+            MLCommon::Matrix::KernelParams& kernel_params,
+            SvmModel<math_t>& model,
+            const math_t* sample_weight = nullptr);
+
+template <typename math_t>
+void svrFitX(const raft::handle_t& handle,
+            const raft::distance::matrix::detail::Matrix<math_t>& matrix,
             math_t* y,
             const SvmParameter& param,
             MLCommon::Matrix::KernelParams& kernel_params,

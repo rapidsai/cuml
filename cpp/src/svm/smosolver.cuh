@@ -156,6 +156,13 @@ class SmoSolver {
                       select_at_index(source));
   }
 
+  void ModululoWsIndex(int* target, const int* source, int size, int modulo) {
+    thrust::device_ptr<int> source_ptr(const_cast<int *>(source));
+    thrust::device_ptr<int> target_ptr(target);
+    thrust::transform(thrust::cuda::par.on(stream), source_ptr, source_ptr + size, thrust::make_constant_iterator(modulo), target_ptr, thrust::modulus<int>());
+  }
+
+
 #define SMO_WS_SIZE 1024
   /**
    * @brief Solve the quadratic optimization problem.
@@ -260,6 +267,8 @@ class SmoSolver {
     rmm::device_uvector<math_t> nz_da(n_ws, stream);
     rmm::device_uvector<int> nz_da_idx(n_ws, stream);
 
+    rmm::device_uvector<int> ws_idx_mod(svmType == EPSILON_SVR ? n_ws : 0, stream);
+
     // tmp storage for row extractions
     ResizableCsrMatrix<math_t> x_ws_csr(0, 0, 0, stream);
     rmm::device_uvector<math_t> x_ws_data(sparse_extract ? 0 : n_ws * n_cols, stream);
@@ -298,11 +307,16 @@ class SmoSolver {
       raft::common::nvtx::push_range("SmoSolver::Kernel");
 
       // extract x_ws_matrix
-      ML::SVM::extractRows<math_t>(matrix, *x_ws_matrix, ws.GetIndices(), n_ws, stream);
+      int* ws_indices_k = ws.GetIndices();
+      if (svmType == EPSILON_SVR) {
+        ModululoWsIndex(ws_idx_mod.data(), ws.GetIndices(), n_ws, n_rows);
+        ws_indices_k = ws_idx_mod.data();
+      }
+      ML::SVM::extractRows<math_t>(matrix, *x_ws_matrix, ws_indices_k, n_ws, stream);
 
       // extract dot array for RBF
       if (kernel_type == raft::distance::kernels::KernelType::RBF) {
-        selectValueSubset(matrix_dot_ws.data(), matrix_dot.data(), ws.GetIndices(), n_ws);
+        selectValueSubset(matrix_dot_ws.data(), matrix_dot.data(), ws_indices_k, n_ws);
       }
 
       // compute kernel
@@ -330,8 +344,7 @@ class SmoSolver {
                                                                  tol,
                                                                  return_buff.data(),
                                                                  max_inner_iter,
-                                                                 svmType,
-                                                                 nullptr);
+                                                                 svmType);
 
       RAFT_CUDA_TRY(cudaPeekAtLastError());
 
@@ -341,7 +354,7 @@ class SmoSolver {
       raft::common::nvtx::push_range("SmoSolver::UpdateF");
       int nnz_da;
       GetNonzeroDeltaAlpha(
-        delta_alpha.data(), n_ws, ws.GetIndices(), nz_da.data(), &nnz_da, nz_da_idx.data(), stream);
+        delta_alpha.data(), n_ws, ws_indices_k, nz_da.data(), &nnz_da, nz_da_idx.data(), stream);
       RAFT_CUDA_TRY(cudaPeekAtLastError());
       // The following should be performed only for elements with nonzero delta_alpha
       if (nnz_da > 0) {

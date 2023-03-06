@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,16 +41,17 @@ namespace ML {
 namespace SVM {
 
 template <typename math_t>
-void svrFit(const raft::handle_t& handle,
-            math_t* X,
-            int n_rows,
-            int n_cols,
+void svrFitX(const raft::handle_t& handle,
+            const Matrix<math_t>& matrix,
             math_t* y,
             const SvmParameter& param,
             raft::distance::kernels::KernelParams& kernel_params,
             SvmModel<math_t>& model,
             const math_t* sample_weight)
 {
+  int n_cols = matrix.n_cols;
+  int n_rows = matrix.n_rows;
+
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");
 
@@ -64,8 +65,7 @@ void svrFit(const raft::handle_t& handle,
     raft::distance::kernels::KernelFactory<math_t>::create(kernel_params, handle_impl);
 
   SmoSolver<math_t> smo(handle_impl, param, kernel_params.kernel, kernel);
-  raft::distance::matrix::detail::DenseMatrix matrix_wrapper(X, n_rows, n_cols);
-  smo.Solve(matrix_wrapper,
+  smo.Solve(matrix,
             n_rows,
             n_cols,
             y,
@@ -78,6 +78,21 @@ void svrFit(const raft::handle_t& handle,
             param.max_iter);
   model.n_cols = n_cols;
   delete kernel;
+}
+
+template <typename math_t>
+void svrFit(const raft::handle_t& handle,
+            math_t* X,
+            int n_rows,
+            int n_cols,
+            math_t* y,
+            const SvmParameter& param,
+            raft::distance::kernels::KernelParams& kernel_params,
+            SvmModel<math_t>& model,
+            const math_t* sample_weight)
+{
+  DenseMatrix<math_t> dense_matrix(X, n_rows, n_cols);
+  svrFitX(handle, dense_matrix, y, param, kernel_params, model, sample_weight);
 }
 
 };  // end namespace SVM

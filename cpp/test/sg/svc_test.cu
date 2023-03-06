@@ -54,6 +54,7 @@
 namespace ML {
 namespace SVM {
 using namespace raft::distance::kernels;
+using namespace raft::distance::matrix::detail;
 
 // Initialize device vector C_vec with scalar C
 template <typename math_t>
@@ -342,8 +343,9 @@ class GetResultsTest : public ::testing::Test {
     raft::update_device(alpha_dev.data(), alpha_host, n_rows, stream);
     rmm::device_uvector<math_t> C_dev(n_rows, stream);
     init_C(C, C_dev.data(), n_rows, stream);
-    Results<math_t> res(handle, x_dev.data(), y_dev.data(), n_rows, n_cols, C_dev.data(), C_SVC);
-    res.Get(alpha_dev.data(), f_dev.data(), &dual_coefs, &n_coefs, &idx, &x_support, &b);
+    DenseMatrix matrix_wrapper(x_dev.data(), n_rows, n_cols);
+    Results<math_t> res(handle, matrix_wrapper, y_dev.data(), C_dev.data(), C_SVC);
+    res.Get(alpha_dev.data(), f_dev.data(), &dual_coefs, &n_coefs, &idx, &support_matrix, &b);
 
     ASSERT_EQ(n_coefs, 7);
 
@@ -354,16 +356,20 @@ class GetResultsTest : public ::testing::Test {
     int idx_exp[] = {2, 3, 4, 6, 7, 8, 9};
     EXPECT_TRUE(devArrMatchHost(idx_exp, idx, n_coefs, MLCommon::Compare<int>(), stream));
 
+    EXPECT_TRUE(support_matrix->isDense());
+
     math_t x_support_exp[] = {3, 4, 5, 7, 8, 9, 10, 13, 14, 15, 17, 18, 19, 20};
     EXPECT_TRUE(devArrMatchHost(
-      x_support_exp, x_support, n_coefs * n_cols, MLCommon::CompareApprox<math_t>(1e-6f), stream));
+      x_support_exp, support_matrix->asDense()->data, n_coefs * n_cols, MLCommon::CompareApprox<math_t>(1e-6f), stream));
 
     EXPECT_FLOAT_EQ(b, -6.25f);
 
     // Modify the test by setting all SVs bound, then b is calculated differently
     math_t alpha_host2[10] = {0, 0, 1.5, 1.5, 1.5, 0, 1.5, 1.5, 1.5, 1.5};
     raft::update_device(alpha_dev.data(), alpha_host2, n_rows, stream);
-    res.Get(alpha_dev.data(), f_dev.data(), &dual_coefs, &n_coefs, &idx, &x_support, &b);
+    delete support_matrix;
+    res.Get(alpha_dev.data(), f_dev.data(), &dual_coefs, &n_coefs, &idx, &support_matrix, &b);
+    delete support_matrix;
     EXPECT_FLOAT_EQ(b, -5.5f);
   }
 
@@ -382,7 +388,7 @@ class GetResultsTest : public ::testing::Test {
   math_t* dual_coefs;
   int n_coefs;
   int* idx;
-  math_t* x_support;
+  Matrix<math_t>* support_matrix;
   math_t b;
 };
 
@@ -631,6 +637,7 @@ void checkResults(SvmModel<math_t> model,
   EXPECT_LT(raft::abs(ay), ay_tol);
 
   if (x_support_exp) {
+    EXPECT_TRUE(model.support_matrix && model.support_matrix->isDense());
     EXPECT_TRUE(devArrMatchHost(x_support_exp,
                                 model.support_matrix->asDense()->data,
                                 model.n_support * model.n_cols,
@@ -644,8 +651,11 @@ void checkResults(SvmModel<math_t> model,
   }
 
   math_t* x_support_host = new math_t[model.n_support * model.n_cols];
-  raft::update_host(
-    x_support_host, model.support_matrix->asDense()->data, model.n_support * model.n_cols, stream);
+  if (model.n_support * model.n_cols > 0) {
+    EXPECT_TRUE(model.support_matrix && model.support_matrix->isDense());
+    raft::update_host(
+      x_support_host, model.support_matrix->asDense()->data, model.n_support * model.n_cols, stream);
+  }
   raft::interruptible::synchronize(stream);
 
   if (w_exp) {
@@ -679,6 +689,9 @@ class SmoSolverTest : public ::testing::Test {
   SmoSolverTest()
     : stream(handle.get_stream()),
       x_dev(n_rows * n_cols, stream),
+      x_dev_indptr(n_rows + 1, stream),
+      x_dev_indices(n_nnz, stream),
+      x_dev_data(n_nnz, stream),
       ws_idx_dev(n_ws, stream),
       y_dev(n_rows, stream),
       C_dev(n_rows, stream),
@@ -701,6 +714,9 @@ class SmoSolverTest : public ::testing::Test {
     raft::linalg::range(sample_weights_dev.data(), 1, n_rows + 1, stream);
 
     raft::update_device(x_dev.data(), x_host, n_rows * n_cols, stream);
+    raft::update_device(x_dev_indptr.data(), x_host_indptr, n_rows + 1, stream);
+    raft::update_device(x_dev_indices.data(), x_host_indices, n_nnz, stream);
+    raft::update_device(x_dev_data.data(), x_host_data, n_nnz, stream);
     raft::update_device(ws_idx_dev.data(), ws_idx_host, n_ws, stream);
     raft::update_device(y_dev.data(), y_host, n_rows, stream);
     init_C(C, C_dev.data(), n_rows, stream);
@@ -800,8 +816,7 @@ class SmoSolverTest : public ::testing::Test {
                                                         1e-3,
                                                         return_buff_dev.data(),
                                                         10,
-                                                        EPSILON_SVR,
-                                                        kColIdx_dev.data());
+                                                        EPSILON_SVR);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
 
     math_t return_buff[2];
@@ -825,9 +840,13 @@ class SmoSolverTest : public ::testing::Test {
   std::unique_ptr<GramMatrixBase<math_t>> kernel;
   int n_rows       = 6;
   const int n_cols = 2;
+  int n_nnz        = 12;
   int n_ws         = 6;
 
   rmm::device_uvector<math_t> x_dev;
+  rmm::device_uvector<int> x_dev_indptr;
+  rmm::device_uvector<int> x_dev_indices;
+  rmm::device_uvector<math_t> x_dev_data;
   rmm::device_uvector<int> ws_idx_dev;
   rmm::device_uvector<math_t> y_dev;
   rmm::device_uvector<math_t> C_dev;
@@ -840,6 +859,12 @@ class SmoSolverTest : public ::testing::Test {
   rmm::device_uvector<math_t> sample_weights_dev;
 
   math_t x_host[12]  = {1, 2, 1, 2, 1, 2, 1, 1, 2, 2, 3, 3};
+
+  // csr representation
+  int x_host_indptr[7]  = {0, 2, 4, 6, 8, 10, 12};
+  int x_host_indices[12]  = {0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1};
+  math_t x_host_data[12]  = {1, 1, 2, 1, 1, 2, 2, 2, 1, 3, 2, 3};
+
   int ws_idx_host[6] = {0, 1, 2, 3, 4, 5};
   math_t y_host[6]   = {-1, -1, 1, -1, 1, 1};
   math_t C           = 1;
@@ -898,23 +923,46 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
     GramMatrixBase<TypeParam>* kernel =
       KernelFactory<TypeParam>::create(p.kernel_params, this->handle);
     SmoSolver<TypeParam> smo(this->handle, param, p.kernel_params.kernel, kernel);
-    SvmModel<TypeParam> model{0, this->n_cols, 0, nullptr, nullptr, nullptr, 0, nullptr};
-    raft::distance::matrix::detail::DenseMatrix matrix_wrapper(
-      this->x_dev.data(), this->n_rows, this->n_cols);
-    smo.Solve(matrix_wrapper,
-              this->n_rows,
-              this->n_cols,
-              this->y_dev.data(),
-              nullptr,
-              &model.dual_coefs,
-              &model.n_support,
-              &model.support_matrix,
-              &model.support_idx,
-              &model.b,
-              p.max_iter,
-              p.max_inner_iter);
-    checkResults(model, exp, stream);
-    svmFreeBuffers(this->handle, model);
+    {
+      SvmModel<TypeParam> model1{0, this->n_cols, 0, nullptr, nullptr, nullptr, 0, nullptr};
+      DenseMatrix dense_matrix(
+        this->x_dev.data(), this->n_rows, this->n_cols);
+      smo.Solve(dense_matrix,
+                this->n_rows,
+                this->n_cols,
+                this->y_dev.data(),
+                nullptr,
+                &model1.dual_coefs,
+                &model1.n_support,
+                &model1.support_matrix,
+                &model1.support_idx,
+                &model1.b,
+                p.max_iter,
+                p.max_inner_iter);
+      checkResults(model1, exp, stream);
+      svmFreeBuffers(this->handle, model1);
+    }
+
+    // also check sparse input
+    {
+      SvmModel<TypeParam> model2{0, this->n_cols, 0, nullptr, nullptr, nullptr, 0, nullptr};
+      CsrMatrix csr_matrix(
+        this->x_dev_indptr.data(), this->x_dev_indices.data(), this->x_dev_data.data(), this->n_nnz, this->n_rows, this->n_cols);
+      smo.Solve(csr_matrix,
+                this->n_rows,
+                this->n_cols,
+                this->y_dev.data(),
+                nullptr,
+                &model2.dual_coefs,
+                &model2.n_support,
+                &model2.support_matrix,
+                &model2.support_idx,
+                &model2.b,
+                p.max_iter,
+                p.max_inner_iter);
+      checkResults(model2, exp, stream);
+      svmFreeBuffers(this->handle, model2);
+    }    
   }
 }
 
@@ -1067,36 +1115,42 @@ void make_blobs(const raft::handle_t& handle,
                 int n_cluster,
                 float* centers = nullptr)
 {
-  auto stream = handle.get_stream();
-  rmm::device_uvector<float> x_float(n_rows * n_cols, stream);
-  rmm::device_uvector<int> y_int(n_rows, stream);
+  size_t free1, total;
+  RAFT_CUDA_TRY(cudaMemGetInfo(&free1, &total));
+  {
+    auto stream = handle.get_stream();
+    rmm::device_uvector<float> x_float(n_rows * n_cols, stream);
+    rmm::device_uvector<int> y_int(n_rows, stream);
 
-  Datasets::make_blobs(handle,
-                       x_float.data(),
-                       y_int.data(),
-                       n_rows,
-                       n_cols,
-                       n_cluster,
-                       true,
-                       centers,
-                       (float*)nullptr,
-                       1.0f,
-                       true,
-                       -2.0f,
-                       2.0f,
-                       0);
-  int TPB = 256;
-  if (std::is_same<float, math_t>::value) {
-    raft::linalg::transpose(handle, x_float.data(), (float*)x, n_cols, n_rows, stream);
-  } else {
-    rmm::device_uvector<math_t> x2(n_rows * n_cols, stream);
-    cast<<<raft::ceildiv(n_rows * n_cols, TPB), TPB, 0, stream>>>(
-      x2.data(), n_rows * n_cols, x_float.data());
-    raft::linalg::transpose(handle, x2.data(), x, n_cols, n_rows, stream);
+    Datasets::make_blobs(handle,
+                        x_float.data(),
+                        y_int.data(),
+                        n_rows,
+                        n_cols,
+                        n_cluster,
+                        true,
+                        centers,
+                        (float*)nullptr,
+                        1.0f,
+                        true,
+                        -2.0f,
+                        2.0f,
+                        0);
+    int TPB = 256;
+    if (std::is_same<float, math_t>::value) {
+      raft::linalg::transpose(handle, x_float.data(), (float*)x, n_cols, n_rows, stream);
+    } else {
+      rmm::device_uvector<math_t> x2(n_rows * n_cols, stream);
+      cast<<<raft::ceildiv(n_rows * n_cols, TPB), TPB, 0, stream>>>(
+        x2.data(), n_rows * n_cols, x_float.data());
+      {
+        raft::linalg::transpose(handle, x2.data(), x, n_cols, n_rows, stream);
+      }
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
+    }
+    cast<<<raft::ceildiv(n_rows, TPB), TPB, 0, stream>>>(y, n_rows, y_int.data());
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
-  cast<<<raft::ceildiv(n_rows, TPB), TPB, 0, stream>>>(y, n_rows, y_int.data());
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 struct is_same_functor {
@@ -1160,6 +1214,7 @@ TYPED_TEST(SmoSolverTest, BlobPredict)
   }
 }
 
+
 TYPED_TEST(SmoSolverTest, MemoryLeak)
 {
   auto stream = this->handle.get_stream();
@@ -1175,35 +1230,43 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
   // function values would be 1e400 or larger, which does not fit fp64.
   // This will lead to NaN diff in SmoSolver, which will throw an exception
   // to stop fitting.
+
+  {
+    // the first time transpose is called it leaks 8MB -- probably for cuBlas init
+    rmm::device_uvector<TypeParam> in(100, stream);
+    rmm::device_uvector<TypeParam> out(100, stream);
+    raft::linalg::transpose(this->handle, in.data(), out.data(), 10, 10, stream);
+  }
+
   size_t free1, total, free2;
   RAFT_CUDA_TRY(cudaMemGetInfo(&free1, &total));
+
   for (auto d : data) {
     auto p = d.first;
     SCOPED_TRACE(p);
 
-    rmm::device_uvector<TypeParam> x(p.n_rows * p.n_cols, stream);
-    rmm::device_uvector<TypeParam> y(p.n_rows, stream);
-    make_blobs(this->handle, x.data(), y.data(), p.n_rows, p.n_cols, 2);
-
-    SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
-
-    if (d.second == ThrowException::Yes) {
-      // We want to check whether we leak any memory while we unwind the stack
-      EXPECT_THROW(svc.fit(x.data(), p.n_rows, p.n_cols, y.data()), raft::exception);
-    } else {
-      svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
-      rmm::device_uvector<TypeParam> y_pred(p.n_rows, stream);
-      raft::interruptible::synchronize(stream);
-      RAFT_CUDA_TRY(cudaMemGetInfo(&free2, &total));
-      float delta = (free1 - free2);
-      // Just to make sure that we measure any mem consumption at all:
-      // we check if we see the memory consumption of x[n_rows*n_cols].
-      // If this error is triggered, increasing the test size might help to fix
-      // it (one could additionally control the exec time by the max_iter arg to
-      // SVC).
-      EXPECT_GT(delta, p.n_rows * p.n_cols * 4);
-      raft::interruptible::synchronize(stream);
-      svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
+    {
+      rmm::device_uvector<TypeParam> x(p.n_rows * p.n_cols, stream);
+      rmm::device_uvector<TypeParam> y(p.n_rows, stream);
+      make_blobs(this->handle, x.data(), y.data(), p.n_rows, p.n_cols, 2);
+      SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
+      if (d.second == ThrowException::Yes) {
+        // We want to check whether we leak any memory while we unwind the stack
+        EXPECT_THROW(svc.fit(x.data(), p.n_rows, p.n_cols, y.data()), raft::exception);
+      } else {
+        svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
+        rmm::device_uvector<TypeParam> y_pred(p.n_rows, stream);
+        raft::interruptible::synchronize(stream);
+        RAFT_CUDA_TRY(cudaMemGetInfo(&free2, &total));
+        float delta = (free1 - free2);
+        // Just to make sure that we measure any mem consumption at all:
+        // we check if we see the memory consumption of x[n_rows*n_cols].
+        // If this error is triggered, increasing the test size might help to fix
+        // it (one could additionally control the exec time by the max_iter arg to
+        // SVC).
+        EXPECT_GT(delta, p.n_rows * p.n_cols * 4);
+        svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
+      }
     }
   }
   RAFT_CUDA_TRY(cudaMemGetInfo(&free2, &total));
@@ -1346,7 +1409,8 @@ class SvrTest : public ::testing::Test {
   {
     raft::update_device(yc.data(), yc_exp, n_train, stream);
     init_C((math_t)0.001, C_dev.data(), n_rows * 2, stream);
-    Results<math_t> res(handle, x_dev.data(), yc.data(), n_rows, n_cols, C_dev.data(), EPSILON_SVR);
+    DenseMatrix matrix_wrapper(x_dev.data(), n_rows, n_cols);
+    Results<math_t> res(handle, matrix_wrapper, yc.data(), C_dev.data(), EPSILON_SVR);
     model.n_cols = n_cols;
     raft::update_device(alpha.data(), alpha_host, n_train, stream);
     raft::update_device(f.data(), f_exp, n_train, stream);
@@ -1362,6 +1426,8 @@ class SvrTest : public ::testing::Test {
     math_t dc_exp[] = {0.1, 0.3, -0.4, 0.9, -0.9};
     EXPECT_TRUE(devArrMatchHost(
       dc_exp, model.dual_coefs, model.n_support, MLCommon::CompareApprox<math_t>(1.0e-6), stream));
+
+    EXPECT_TRUE(model.support_matrix->isDense());
 
     math_t x_exp[] = {1, 2, 3, 5, 6};
     EXPECT_TRUE(devArrMatchHost(x_exp,
@@ -1461,10 +1527,9 @@ class SvrTest : public ::testing::Test {
         sample_weights = sample_weights_dev.data();
         raft::update_device(sample_weights_dev.data(), p.sample_weighs.data(), p.n_rows, stream);
       }
-      svrFit(handle,
-             x_dev.data(),
-             p.n_rows,
-             p.n_cols,
+      DenseMatrix matrix_wrapper(x_dev.data(), p.n_rows, p.n_cols);
+      svrFitX(handle,
+             matrix_wrapper,
              y_dev.data(),
              p.param,
              p.kernel,
@@ -1472,15 +1537,13 @@ class SvrTest : public ::testing::Test {
              sample_weights);
       checkResults(model, toSmoOutput(exp), stream);
       rmm::device_uvector<math_t> preds(p.n_rows, stream);
-      svcPredict(handle,
-                 x_dev.data(),
-                 p.n_rows,
-                 p.n_cols,
-                 p.kernel,
-                 model,
-                 preds.data(),
-                 (math_t)200.0,
-                 false);
+      svcPredictX(handle,
+                  matrix_wrapper,
+                  p.kernel,
+                  model,
+                  preds.data(),
+                  (math_t)200.0,
+                  false);
       if (!exp.decision_function.empty()) {
         EXPECT_TRUE(devArrMatchHost(exp.decision_function.data(),
                                     preds.data(),
@@ -1520,6 +1583,6 @@ TYPED_TEST_CASE(SvrTest, FloatTypes);
 TYPED_TEST(SvrTest, Init) { this->TestSvrInit(); }
 TYPED_TEST(SvrTest, WorkingSet) { this->TestSvrWorkingSet(); }
 TYPED_TEST(SvrTest, Results) { this->TestSvrResults(); }
-// TYPED_TEST(SvrTest, FitPredict) { this->TestSvrFitPredict(); }
+TYPED_TEST(SvrTest, FitPredict) { this->TestSvrFitPredict(); }
 };  // namespace SVM
 };  // namespace ML
