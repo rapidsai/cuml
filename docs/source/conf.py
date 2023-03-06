@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-#
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 #
 # This file is execfile()d with the current directory set to its
 # containing dir.
@@ -115,6 +113,8 @@ html_theme = 'pydata_sphinx_theme'
 #
 html_theme_options = {
     "external_links": [],
+    # https://github.com/pydata/pydata-sphinx-theme/issues/1220
+    "icon_links": [],
     "github_url": "https://github.com/rapidsai/cuml",
     "twitter_url": "https://twitter.com/rapidsai",
     "show_toc_level": 1,

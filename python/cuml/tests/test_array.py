@@ -586,13 +586,6 @@ def test_serialize(inp, to_serialize_mem_type, from_serialize_mem_type):
 @settings(deadline=None)
 def test_pickle(protocol, inp, to_serialize_mem_type, from_serialize_mem_type):
     with using_memory_type(to_serialize_mem_type):
-        if protocol > pickle.HIGHEST_PROTOCOL:
-            pytest.skip(
-                f"Trying to test with pickle protocol {protocol},"
-                " but highest supported protocol is"
-                f" {pickle.HIGHEST_PROTOCOL}."
-            )
-
         # Generate CumlArray
         ary = CumlArray(data=inp)
 
