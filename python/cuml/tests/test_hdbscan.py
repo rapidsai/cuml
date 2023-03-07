@@ -1102,8 +1102,8 @@ def test_membership_vector_moons(
 
 @pytest.mark.parametrize("nrows", [1000])
 @pytest.mark.parametrize("n_points_to_predict", [50])
-@pytest.mark.parametrize("min_samples", [5, 15])
-@pytest.mark.parametrize("min_cluster_size", [50, 100])
+@pytest.mark.parametrize("min_samples", [20, 30])
+@pytest.mark.parametrize("min_cluster_size", [100, 150])
 @pytest.mark.parametrize("cluster_selection_epsilon", [0.0, 0.5])
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("max_cluster_size", [0])
