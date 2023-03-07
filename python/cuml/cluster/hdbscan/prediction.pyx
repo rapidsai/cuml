@@ -249,7 +249,7 @@ def membership_vector(clusterer, points_to_predict, convert_dtype=True):
 
     # cpu infer, cpu/gpu train
     if device_type == DeviceType.host:
-        assert has_hdbscan_prediction()
+        assert has_hdbscan(raise_if_unavailable=True)
         from hdbscan.prediction import membership_vector \
             as cpu_membership_vector
 
