@@ -120,14 +120,6 @@ class TSNE_runner {
 
       k_graph.knn_indices = indices.data();
       k_graph.knn_dists   = distances.data();
-
-      auto metric = params.metric;
-      if (metric == raft::distance::DistanceType::L2SqrtExpanded) {
-        // seeing a bunch of test failures here using the expanded version
-        //  use the unexpanded version instead
-        // https://github.com/rapidsai/raft/issues/731
-        metric = raft::distance::DistanceType::L2SqrtUnexpanded;
-      }
       TSNE::get_distances(handle, input, k_graph, stream, params.metric, params.p);
     }
 

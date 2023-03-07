@@ -116,7 +116,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     auto stream = handle.get_stream();
     TSNEResults results;
 
-    auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtUnexpanded;
+    auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtExpanded;
     float minkowski_p            = 2.0;
 
     // Setup parameters
