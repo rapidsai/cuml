@@ -40,8 +40,7 @@ from cuml.internals.device_type import DeviceType
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals import logger
-from cuml.internals.import_utils import has_hdbscan_plots
-from cuml.internals.import_utils import has_hdbscan_prediction
+from cuml.internals.import_utils import has_hdbscan
 
 import cuml
 from cuml.metrics.distance_type cimport DistanceType
@@ -155,7 +154,7 @@ def all_points_membership_vectors(clusterer):
 
     # cpu infer, cpu/gpu train
     if device_type == DeviceType.host:
-        assert has_hdbscan_prediction()
+        assert has_hdbscan(raise_if_unavailable=True)
         from hdbscan.prediction import all_points_membership_vectors \
             as cpu_all_points_membership_vectors
 
@@ -365,7 +364,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
 
     # cpu infer, cpu/gpu train
     if device_type == DeviceType.host:
-        assert has_hdbscan_prediction()
+        assert has_hdbscan(raise_if_unavailable=True)
         from hdbscan.prediction import approximate_predict \
             as cpu_approximate_predict
 

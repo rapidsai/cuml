@@ -162,30 +162,18 @@ def has_sklearn():
         return False
 
 
-def has_hdbscan_plots(raise_if_unavailable=True):
+def has_hdbscan(raise_if_unavailable=False):
     try:
-        from hdbscan.plots import SingleLinkageTree  # NOQA
+        import hdbscan  # NOQA
 
         return True
     except ImportError:
-        if raise_if_unavailable:
-            raise ImportError("hdbscan must be installed to use plots.")
-        else:
+        if not raise_if_unavailable:
             return False
-
-
-def has_hdbscan_prediction(raise_if_unavailable=True):
-    try:
-        from hdbscan.prediction import PredictionData  # NOQA
-
-        return True
-    except ImportError:
-        if raise_if_unavailable:
+        else:
             raise ImportError(
-                "hdbscan.prediction must be installed " "to use prediction."
+                "hdbscan is not available. Please install hdbscan."
             )
-        else:
-            return False
 
 
 def has_shap(min_version="0.37"):
