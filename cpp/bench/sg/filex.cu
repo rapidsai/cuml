@@ -17,7 +17,7 @@
 #include <cuml/fil/fil.h>
 #include <cuml/experimental/fil/treelite_importer.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/tree_layout.hpp>
+#include <cuml/experimental/fil/tree_layout.hpp>
 
 #include "benchmark.cuh"
 #include <chrono>
