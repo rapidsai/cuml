@@ -237,8 +237,8 @@ def test_step4():
         "depend",
         "adopt",
         "homolog",
-        "common",
-        "active",
+        "commun",
+        "activ",
         "angular",
         "homolog",
         "effect",
@@ -274,7 +274,7 @@ def test_step5a():
 
 
 def test_step5b():
-    word_str_ser_ls = ["control", "roll"]
+    word_str_ser_ls = ["controll", "roll"]
     word_str_ser = cudf.Series(word_str_ser_ls)
     expect = ["control", "roll"]
 
@@ -283,7 +283,7 @@ def test_step5b():
     assert list(got.to_pandas().values) == expect
 
     # mask test
-    expect = ["control", "roll"]
+    expect = ["controll", "roll"]
     mask = cudf.Series([False, True])
     got = st._step5b(word_str_ser, mask)
     assert list(got.to_pandas().values) == expect
