@@ -164,7 +164,7 @@ void optimize_params(T* input,
 
     num_iters += 1;
 
-    delete grads_h;
+    free(grads_h);
 
   } while (tol_grads < 2 && num_iters < max_epochs);
 }

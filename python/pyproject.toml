@@ -13,7 +13,6 @@
 # limitations under the License.
 
 [build-system]
-
 requires = [
     "wheel",
     "setuptools",
@@ -27,6 +26,78 @@ requires = [
     "pylibraft==23.4.*"
 ]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+markers = [
+  "unit: Quickest tests focused on accuracy and correctness",
+  "quality: More intense tests than unit with increased runtimes",
+  "stress: Longest running tests focused on stressing hardware compute resources",
+  "mg: Multi-GPU tests",
+  "memleak: Test that checks for memory leaks",
+  "no_bad_cuml_array_check: Test that should not check for bad CumlArray uses",
+]
+
+testpaths = "cuml/tests"
+
+filterwarnings = [
+  "error::FutureWarning:cuml[.*]", # Catch uses of deprecated positional args in testing
+  "ignore:[^.]*ABCs[^.]*:DeprecationWarning:patsy[.*]",
+  "ignore:(.*)alias(.*):DeprecationWarning:hdbscan[.*]",
+]
+
+[project]
+name = "cuml"
+version = "23.04.00"
+description = "cuML - RAPIDS ML Algorithms"
+readme = { file = "README.md", content-type = "text/markdown" }
+authors = [
+    { name = "NVIDIA Corporation" },
+]
+license = { text = "Apache 2.0" }
+requires-python = ">=3.8"
+dependencies = [
+    "numba",
+    "scipy",
+    "seaborn",
+    "treelite==3.1.0",
+    "treelite_runtime==3.1.0",
+    "cudf==23.4.*",
+    "dask-cudf==23.4.*",
+    "pylibraft==23.4.*",
+    "raft-dask==23.4.*",
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "hypothesis",
+    "pytest-xdist",
+    "pytest-benchmark",
+    "pytest-cases",
+    "nltk",
+    "dask-ml",
+    "numpydoc",
+    "umap-learn",
+    "statsmodels",
+    "scikit-learn==1.2",
+    "hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master",  # noqa:E501
+    "dask-glm @ git+https://github.com/dask/dask-glm@main",
+    "dask-cuda",
+]
+
+[project.urls]
+Homepage = "https://github.com/rapidsai/cuml"
+Documentation = "https://docs.rapids.ai/api/cuml/stable/"
+
+[tool.setuptools]
+license-files = ["LICENSE"]
 
 [tool.black]
 line-length = 79
