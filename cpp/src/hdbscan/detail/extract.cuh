@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -251,7 +251,7 @@ void _compute_inverse_label_map(const raft::handle_t& handle,
  * @param[out] inverse_label_map array mapping final label ids to condensed label ids, used for
  * prediction APIs (size n_clusters)
  * @param[in] allow_single_cluster allows a single cluster to be returned (rather than just noise)
- * @param[in] max_cluster_size maximium number of points that can be considered in a cluster before
+ * @param[in] max_cluster_size maximum number of points that can be considered in a cluster before
  * it is split into multiple sub-clusters.
  * @param[in] cluster_selection_epsilon a distance threshold. clusters below this value will be
  * merged.

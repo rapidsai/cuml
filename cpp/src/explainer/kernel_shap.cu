@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -125,7 +125,7 @@ __global__ void sampled_rows_kernel(IdxT* nsamples,
     int rand_idx = (int)(curand_uniform(&state) * ncols);
 
     // Since X is initialized to 0, we quickly check for collisions (if k_blk << ncols the
-    // likelyhood of collisions is low)
+    // likelihood of collisions is low)
     while (atomicExch(&(X[2 * blockIdx.x * ncols + rand_idx]), 1) == 1) {
       rand_idx = (int)(curand_uniform(&state) * ncols);
     }

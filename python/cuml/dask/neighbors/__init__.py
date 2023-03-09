@@ -22,5 +22,5 @@ if has_dask():
     from cuml.dask.neighbors.kneighbors_regressor import KNeighborsRegressor
 else:
     warnings.warn(
-        "Dask not found. All Dask-based multi-GPU operation is disabed."
+        "Dask not found. All Dask-based multi-GPU operation is disabled."
     )

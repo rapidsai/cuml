@@ -166,7 +166,7 @@ def test_dynamic_tags_and_composition():
     dynamic_tags = dummy_class_with_tags()._get_tags()
     print(dummy_class_with_tags.__mro__)
 
-    # In python, the MRO is so that the uppermost inheritted class
+    # In python, the MRO is so that the uppermost inherited class
     # being closest to the final class, so in our dummy_class_with_tags
     # the F Major input mixin should the C mixin
     assert static_tags["preferred_input_order"] == "F"

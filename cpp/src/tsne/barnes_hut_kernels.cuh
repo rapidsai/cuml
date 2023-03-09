@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ namespace TSNE {
 namespace BH {
 
 /**
- * Intializes the states of objects. This speeds the overall kernel up.
+ * Initializes the states of objects. This speeds the overall kernel up.
  */
 template <typename value_idx, typename value_t>
 __global__ void InitializationKernel(/*int *restrict errd, */
@@ -85,7 +85,7 @@ __global__ void Find_Normalization(value_t* restrict Z_norm, const value_idx N)
  * Figures the bounding boxes for every point in the embedding.
  */
 template <typename value_idx, typename value_t>
-__global__ __launch_bounds__(THREADS1) void BoundingBoxKernel(value_idx* restrict startd,
+__global__ __launch_bounds__(THREADS1) void BoundingBoxKernel(value_idx* restrict started,
                                                               value_idx* restrict childd,
                                                               value_t* restrict massd,
                                                               value_t* restrict posxd,
@@ -163,7 +163,7 @@ __global__ __launch_bounds__(THREADS1) void BoundingBoxKernel(value_idx* restric
     atomicExch(radiusd, fmaxf(maxx - minx, maxy - miny) * 0.5f + 1e-5f);
 
     massd[NNODES]  = -1.0f;
-    startd[NNODES] = 0;
+    started[NNODES] = 0;
     posxd[NNODES]  = (minx + maxx) * 0.5f;
     posyd[NNODES]  = (miny + maxy) * 0.5f;
 
@@ -333,7 +333,7 @@ __global__ __launch_bounds__(THREADS2) void TreeBuildingKernel(/* int *restrict 
  * Clean more state vectors.
  */
 template <typename value_idx, typename value_t>
-__global__ __launch_bounds__(1024, 1) void ClearKernel2(value_idx* restrict startd,
+__global__ __launch_bounds__(1024, 1) void ClearKernel2(value_idx* restrict started,
                                                         value_t* restrict massd,
                                                         const value_idx NNODES,
                                                         const value_idx* restrict bottomd)
@@ -347,7 +347,7 @@ __global__ __launch_bounds__(1024, 1) void ClearKernel2(value_idx* restrict star
 #pragma unroll
   for (; k < NNODES; k += inc) {
     massd[k]  = -1.0f;
-    startd[k] = -1;
+    started[k] = -1;
   }
 }
 
@@ -493,7 +493,7 @@ __global__ __launch_bounds__(THREADS3,
 template <typename value_idx>
 __global__ __launch_bounds__(THREADS4, FACTOR4) void SortKernel(value_idx* restrict sortd,
                                                                 const value_idx* restrict countd,
-                                                                volatile value_idx* restrict startd,
+                                                                volatile value_idx* restrict started,
                                                                 value_idx* restrict childd,
                                                                 const value_idx NNODES,
                                                                 const value_idx N,
@@ -511,7 +511,7 @@ __global__ __launch_bounds__(THREADS4, FACTOR4) void SortKernel(value_idx* restr
     if (++limiter > NNODES) break;
 
     // Not a child so skip
-    if ((start = startd[k]) < 0) continue;
+    if ((start = started[k]) < 0) continue;
 
     int j = 0;
     for (int i = 0; i < 4; i++) {
@@ -524,7 +524,7 @@ __global__ __launch_bounds__(THREADS4, FACTOR4) void SortKernel(value_idx* restr
         }
         if (ch >= N) {
           // child is a cell
-          startd[ch] = start;
+          started[ch] = start;
           start += countd[ch];  // add #bodies in subtree
         } else if (start <= NNODES and start >= 0) {
           // child is a body

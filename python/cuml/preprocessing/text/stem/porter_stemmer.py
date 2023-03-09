@@ -150,7 +150,7 @@ class PorterStemmer:
             SSES -> SS                         caresses  ->  caress
             IES  -> I                          ponies    ->  poni
                                                ties      ->  ti
-                                               (### this is for orignal impl)
+                                               (### this is for original impl)
             SS   -> SS                         caress    ->  caress
             S    ->                            cats      ->  cat
         """
@@ -500,7 +500,7 @@ class PorterStemmer:
         Step 3
 
             (m>0) ICATE ->  IC              triplicate     ->  triplic
-            (m>0) ATIVE ->                  formative      ->  form
+            (m>0) ACTIVE ->                  formative      ->  form
             (m>0) ALIZE ->  AL              formalize      ->  formal
             (m>0) ICITI ->  IC              electriciti    ->  electric
             (m>0) ICAL  ->  IC              electrical     ->  electric
@@ -515,7 +515,7 @@ class PorterStemmer:
             word_str_ser,
             [
                 ("icate", "ic", has_positive_measure),
-                ("ative", "", has_positive_measure),
+                ("active", "", has_positive_measure),
                 ("alize", "al", has_positive_measure),
                 ("iciti", "ic", has_positive_measure),
                 ("ical", "ic", has_positive_measure),
@@ -543,8 +543,8 @@ class PorterStemmer:
             (m>1) ENT   ->                  dependent      ->  depend
             (m>1 and (*S or *T)) ION ->     adoption       ->  adopt
             (m>1) OU    ->                  homologou      ->  homolog
-            (m>1) ISM   ->                  communism      ->  commun
-            (m>1) ATE   ->                  activate       ->  activ
+            (m>1) ISM   ->                  communism      ->  common
+            (m>1) ATE   ->                  activate       ->  active
             (m>1) ITI   ->                  angulariti     ->  angular
             (m>1) OUS   ->                  homologous     ->  homolog
             (m>1) IVE   ->                  effective      ->  effect
@@ -665,7 +665,7 @@ class PorterStemmer:
         Step 5b
 
             (m > 1 and *d and *L) -> single letter
-                                    controll       ->  control
+                                    control       ->  control
                                     roll           ->  roll
         """
 
@@ -799,7 +799,7 @@ def apply_rule_list(word_str_ser, rules, condition_flag):
 
 def build_can_replace_mask(len_mask, mask):
     """
-    Creates a cudf series represeting can_replace_mask of length=len_mask
+    Creates a cudf series representing can_replace_mask of length=len_mask
     if mask is None else returns mask
     """
     if mask is None:

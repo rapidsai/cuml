@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1180,7 +1180,7 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
     {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 400, 5, 10}, 1000, 1000}, ThrowException::Yes}};
   // For the second set of input parameters  training will fail, some kernel
   // function values would be 1e400 or larger, which does not fit fp64.
-  // This will lead to NaN diff in SmoSolver, which whill throw an exception
+  // This will lead to NaN diff in SmoSolver, which will throw an exception
   // to stop fitting.
   size_t free1, total, free2;
   RAFT_CUDA_TRY(cudaMemGetInfo(&free1, &total));
@@ -1222,10 +1222,10 @@ TYPED_TEST(SmoSolverTest, DISABLED_MillionRows)
 {
   auto stream = this->handle.get_stream();
   if (sizeof(TypeParam) == 8) {
-    GTEST_SKIP();  // Skip the test for double imput
+    GTEST_SKIP();  // Skip the test for double input
   } else {
     // Stress test the kernel matrix calculation by calculating a kernel tile
-    // with more the 2.8B elemnts. This would fail with int32 adressing. The test
+    // with more the 2.8B elements. This would fail with int32 addressing. The test
     // is currently disabled because the memory usage might be prohibitive on CI
     // The test will be enabled once https://github.com/rapidsai/cuml/pull/2449
     // is merged, that PR would reduce the kernel tile memory size.

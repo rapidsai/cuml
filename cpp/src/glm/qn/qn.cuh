@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ int qn_fit(const raft::handle_t& handle,
   LBFGSParam<T> opt_param(pams);
   SimpleVec<T> w0(w0_data, loss.n_param);
 
-  // Scale the regularization strenght with the number of samples.
+  // Scale the regularization strength with the number of samples.
   T l1 = pams.penalty_l1;
   T l2 = pams.penalty_l2;
   if (pams.penalty_normalized) {

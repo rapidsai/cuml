@@ -21,5 +21,5 @@ if has_dask():
     from cuml.dask.metrics.confusion_matrix import confusion_matrix
 else:
     warnings.warn(
-        "Dask not found. All Dask-based multi-GPU operation is disabed."
+        "Dask not found. All Dask-based multi-GPU operation is disabled."
     )

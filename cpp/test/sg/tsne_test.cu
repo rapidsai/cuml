@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -162,7 +162,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
                       false);
     handle.sync_stream(stream);
 
-    // Compute theorical KL div
+    // Compute theoretical KL div
     results.kl_div_ref =
       get_kl_div(model_params, runner.COO_Matrix, pw_emb_dists.data(), n, stream);
 

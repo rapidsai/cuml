@@ -39,7 +39,7 @@ def get_stat_func(stat):
 class TargetEncoder:
     """
     A cudf based implementation of target encoding [1]_, which converts
-    one or mulitple categorical variables, 'Xs', with the average of
+    one or multiple categorical variables, 'Xs', with the average of
     corresponding values of the target variable, 'Y'. The input data is
     grouped by the columns `Xs` and the aggregated mean value of `Y` of
     each group is calculated to replace each value of `Xs`. Several
@@ -106,7 +106,7 @@ class TargetEncoder:
             raise ValueError(f"smooth {smooth} is not zero or positive")
         if n_folds < 0 or not isinstance(n_folds, int):
             raise ValueError(
-                "n_folds {} is not a postive integer".format(n_folds)
+                "n_folds {} is not a positive integer".format(n_folds)
             )
         if output_type not in {"cupy", "numpy", "auto"}:
             msg = (

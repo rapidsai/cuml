@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -50,7 +50,7 @@ message(VERBOSE "CUML_PY: Searching for existing CUML C++ installations before d
 message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 
 set(CUML_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Can specify individual algorithms or groups in a semicolon-separated list.")
-message(VERBOSE "CUML_PY: Building cuML with algoriths: '${CUML_ALGORITHMS}'.")
+message(VERBOSE "CUML_PY: Building cuML with algorithms: '${CUML_ALGORITHMS}'.")
 
 set(CUML_CPP_TARGET "cuml++")
 set(CUML_CPP_SRC "../cpp")

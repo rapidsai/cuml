@@ -29,9 +29,9 @@ into three categories:
 2. Find an issue to work on. The best way is to look for the [good first issue](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
     or [help wanted](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) labels
 3. Comment on the issue saying you are going to work on it.
-4. Get familar with the developer guide relevant for you:
+4. Get familiar with the developer guide relevant for you:
     * For C++ developers it is available here [DEVELOPER_GUIDE.md](wiki/cpp/DEVELOPER_GUIDE.md)
-    * For Python developers, a [Python DEVELOPER_GUIDE.md](wiki/python/DEVELOPER_GUIDE.md) is availabe as well.
+    * For Python developers, a [Python DEVELOPER_GUIDE.md](wiki/python/DEVELOPER_GUIDE.md) is available as well.
 5. Code! Make sure to update unit tests!
 6. When done, [create your pull request](https://github.com/rapidsai/cuml/compare).
 7. Verify that CI passes all [status checks](https://help.github.com/articles/about-status-checks/), or fix if needed.
