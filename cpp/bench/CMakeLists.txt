@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,9 @@ if(BUILD_CUML_BENCH)
     sg/fil.cu
     sg/filex.cu
   )
+  if (CUML_ENABLE_GPU)
+    target_compile_definitions(${CUML_CPP_BENCH_TARGET} PUBLIC CUML_ENABLE_GPU)
+  endif()
 
   target_compile_options(${CUML_CPP_BENCH_TARGET}
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
