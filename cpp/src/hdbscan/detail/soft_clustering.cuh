@@ -88,8 +88,6 @@ void dist_membership_vector(const raft::handle_t& handle,
   raft::matrix::copyRows<value_t, value_idx, size_t>(
     X, n_exemplars, n, exemplars_dense.data(), exemplar_idx, n_exemplars, stream, true);
 
-  handle.sync_stream(stream);
-
   // compute the distances using raft API
   rmm::device_uvector<value_t> dist(n_queries * n_exemplars, stream);
 
