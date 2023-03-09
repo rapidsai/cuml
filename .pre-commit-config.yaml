@@ -24,7 +24,7 @@ repos:
           - id: codespell
             additional_dependencies: [tomli]
             args: ["--toml", "pyproject.toml"]
-            exclude: (?x)^(^CHANGELOG.md$)
+            exclude: (?x)^(.*stemmer.*|^CHANGELOG.md$)
     - repo: local
       hooks:
           - id: no-deprecationwarning
