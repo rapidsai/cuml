@@ -207,7 +207,6 @@ class _VectorizerMixin:
             Int series containing documents ids
         """
 
-
         if self.analyzer == "word":
             token_count_sr = str_series.str.token_count(self.delimiter)
             ngram_sr = str_series.str.ngrams_tokenize(
