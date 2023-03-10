@@ -237,6 +237,7 @@ class _VectorizerMixin:
 
         doc_id = cp.arange(start=0, stop=len(docs), dtype=cp.int32)
         doc_id = Series(doc_id)
+        doc_id.reset_index(drop=True)
 
         tokenized_df_ls = [
             self.get_ngrams(docs, n, doc_id) for n in range(min_n, max_n + 1)
