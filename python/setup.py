@@ -107,52 +107,7 @@ if clean_artifacts:
 # - Python package generation ------------------------------------------------
 
 setup(
-    name="cuml",
-    version="23.04.00",
-    description="cuML - RAPIDS ML Algorithms",
-    url="https://github.com/rapidsai/cuml",
-    author="NVIDIA Corporation",
-    license="Apache 2.0",
-    classifiers=[
-        "Intended Audience :: Developers",
-        "Programming Language :: Python",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-    ],
     include_package_data=True,
     packages=find_packages(include=["cuml", "cuml.*"]),
-    package_data={
-        key: ["*.pxd"] for key in find_packages(include=["cuml", "cuml.*"])
-    },
-    install_requires=[
-        "numba",
-        "scipy",
-        "seaborn",
-        "treelite==3.1.0",
-        "treelite_runtime==3.1.0",
-        "cudf==23.4.*",
-        "dask-cudf==23.4.*",
-        "pylibraft==23.4.*",
-        "raft-dask==23.4.*",
-    ],
-    extras_require={
-        "test": [
-            "pytest",
-            "hypothesis",
-            "pytest-xdist",
-            "pytest-benchmark",
-            "pytest-cases",
-            "nltk",
-            "dask-ml",
-            "numpydoc",
-            "umap-learn",
-            "statsmodels",
-            "scikit-learn==1.2",
-            "hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master",  # noqa:E501
-            "dask-glm @ git+https://github.com/dask/dask-glm@main",
-            "dask-cuda",
-        ]
-    },
     zip_safe=False,
 )
