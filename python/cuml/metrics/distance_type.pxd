@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-cdef extern from "raft/distance/distance_type.hpp" namespace "raft::distance":
+cdef extern from "raft/distance/distance_types.hpp" namespace "raft::distance":
 
     ctypedef enum DistanceType:
         L2Expanded "raft::distance::DistanceType::L2Expanded"
