@@ -40,19 +40,3 @@ per-file-ignores =
     # Cython Exclusions
     *.pyx: E999, E225, E226, E227, W503, W504
     *.pxd: E999, E225, E226, E227, W503, W504
-
-[pytest]
-markers =
-  unit: Quickest tests focused on accuracy and correctness
-  quality: More intense tests than unit with increased runtimes
-  stress: Longest running tests focused on stressing hardware compute resources
-  mg: Multi-GPU tests
-  memleak: Test that checks for memory leaks
-  no_bad_cuml_array_check: Test that should not check for bad CumlArray uses
-
-testpaths = cuml/tests
-
-filterwarnings =
-  error::FutureWarning:cuml[.*] # Catch uses of deprecated positional args in testing
-  ignore:[^.]*ABCs[^.]*:DeprecationWarning:patsy[.*]
-  ignore:(.*)alias(.*):DeprecationWarning:hdbscan[.*]

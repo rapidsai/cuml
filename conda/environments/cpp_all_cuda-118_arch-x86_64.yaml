@@ -12,7 +12,7 @@ dependencies:
 - cudatoolkit=11.8
 - cxx-compiler
 - faiss-proc=*=cuda
-- gcc_linux-64=9.*
+- gcc_linux-64=11.*
 - libcublas-dev=11.11.3.6
 - libcublas=11.11.3.6
 - libcufft-dev=10.9.0.58

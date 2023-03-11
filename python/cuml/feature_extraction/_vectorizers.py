@@ -206,6 +206,7 @@ class _VectorizerMixin:
         doc_id_sr : cudf.Series
             Int series containing documents ids
         """
+
         if self.analyzer == "word":
             token_count_sr = str_series.str.token_count(self.delimiter)
             ngram_sr = str_series.str.ngrams_tokenize(
@@ -225,6 +226,8 @@ class _VectorizerMixin:
         doc_id_sr = doc_id_sr.repeat(ngram_count).reset_index(drop=True)
         tokenized_df = cudf.DataFrame()
         tokenized_df["doc_id"] = doc_id_sr
+
+        ngram_sr = ngram_sr.reset_index(drop=True)
         tokenized_df["token"] = ngram_sr
         return tokenized_df
 
