@@ -22,17 +22,19 @@ realistic batch sizes on your target hardware to determine which is optimal
 for your specific model. Generally, however performance should be quite
 comparable for both implementations.
 
-**NOTE:** Because this implementation is still so young, it is
-recommended that for use cases where stability is paramount, the existing
-FIL implementation be used.
+**NOTE:** Because this implementation is relatively recent, it is recommended
+that for use cases where stability is paramount, the existing FIL
+implementation be used.
 
 ## Usage
-With one exception, experimental FIL should be fully compatible with the existing FIL API. Experimental FIL no longer allows a `threshold` to be specified at the time a model is loaded for binary classifiers. Instead, the threshold must be passed as a keyword argument to the `predict` method.
+With one exception, experimental FIL should be fully compatible with the
+existing FIL API. Experimental FIL no longer allows a `threshold` to be
+specified at the time a model is loaded for binary classifiers. Instead, the
+threshold must be passed as a keyword argument to the `predict` method.
 
-Besides this, all existing FIL calls should be compatible with
-experimental FIL.
-There are, however, several performance parameters which have been deprecated
-(will now emit a warning) and a few new ones which have been added.
+Besides this, all existing FIL calls should be compatible with experimental
+FIL. There are, however, several performance parameters which have been
+deprecated (will now emit a warning) and a few new ones which have been added.
 
 The most basic usage remains the same:
 ```python

@@ -34,6 +34,7 @@ namespace fil {
    * field.
    */
   auto constexpr static const reserved_node_metadata_bits = 3;
+
 }
 }
 }

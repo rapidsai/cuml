@@ -33,7 +33,7 @@ from cuml.experimental.fil.detail.raft_proto.handle cimport handle_t as raft_pro
 from cuml.experimental.fil.detail.raft_proto.optional cimport optional, nullopt
 from cuml.internals import set_api_output_dtype
 from cuml.internals.base import UniversalBase
-from cuml.internals.device_type import DeviceType
+from cuml.internals.device_type import DeviceType, DeviceTypeError
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from pylibraft.common.handle cimport handle_t as raft_handle_t
@@ -354,7 +354,7 @@ def _handle_legacy_args(
         n_items=None,
         compute_shape_str=None):
     if threshold is not None:
-        raise DeprecationWarning(
+        raise FutureWarning(
             'Parameter "threshold" has been deprecated.'
             ' To use a threshold for binary classification, pass'
             ' the "threshold" keyword directly to the predict method.'
@@ -363,37 +363,37 @@ def _handle_legacy_args(
         warnings.warn(
             'Parameter "algo" has been deprecated. Its use is no longer'
             ' necessary to achieve optimal performance with FIL.',
-            DeprecationWarning
+            FutureWarning
         )
     if storage_type is not None:
         warnings.warn(
             'Parameter "storage_type" has been deprecated. The correct'
             ' storage type will be used automatically.',
-            DeprecationWarning
+            FutureWarning
         )
     if blocks_per_sm is not None:
         warnings.warn(
             'Parameter "blocks_per_sm" has been deprecated. Its use is no'
             ' longer necessary to achieve optimal performance with FIL.',
-            DeprecationWarning
+            FutureWarning
         )
     if threads_per_tree is not None:
         warnings.warn(
             'Parameter "threads_per_tree" has been deprecated. Pass'
             ' the "chunk_size" keyword argument to the predict method for'
             ' equivalent functionality.',
-            DeprecationWarning
+            FutureWarning
         )
     if n_items is not None:
         warnings.warn(
             'Parameter "n_items" has been deprecated. Its use is no'
             ' longer necessary to achieve optimal performance with FIL.',
-            DeprecationWarning
+            FutureWarning
         )
     if compute_shape_str is not None:
         warnings.warn(
             'Parameter "compute_shape_str" has been deprecated.',
-            DeprecationWarning
+            FutureWarning
         )
 
 
@@ -603,8 +603,10 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         current global device_type setting"""
         if GlobalSettings().device_type == DeviceType.device:
             return self.gpu_forest
-        else:
+        elif GlobalSettings().device_type == DeviceType.host:
             return self.cpu_forest
+        else:
+            raise DeviceTypeError("Unsupported device type for FIL")
 
     @classmethod
     def load(

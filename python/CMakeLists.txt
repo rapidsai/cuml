@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023 NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -111,13 +111,6 @@ if(NOT cuml_FOUND)
 
   set(cython_lib_dir cuml)
   install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
-endif()
-
-if(CUML_CPU)
-  set(CUML_UNIVERSAL OFF)
-  set(SINGLEGPU ON)
-
-  set(CUML_ALGORITHMS "linearregression")
 endif()
 
 if(CUML_CPU)

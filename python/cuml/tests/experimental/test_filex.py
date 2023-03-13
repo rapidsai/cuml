@@ -26,10 +26,8 @@ from cuml.testing.utils import (
     quality_param,
     stress_param,
 )
-from cuml.internals.import_utils import has_xgboost
+from cuml.internals.import_utils import has_lightgbm, has_xgboost
 from cuml.common.device_selection import using_device_type
-
-# from cuml.common.import_utils import has_lightgbm
 
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import (
@@ -135,7 +133,7 @@ def _build_and_save_xgboost(
     [unit_param(1), unit_param(5), quality_param(50), stress_param(90)],
 )
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
-@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+@pytest.mark.skipif(has_xgboost(), reason="need to install xgboost")
 def test_fil_classification(
     train_device,
     infer_device,
@@ -159,10 +157,9 @@ def test_fil_classification(
         )
         # identify shape and indices
         n_rows, n_columns = X.shape
-        train_size = 0.80
 
         X_train, X_validation, y_train, y_validation = train_test_split(
-            X, y, train_size=train_size, random_state=0
+            X, y, train_size=0.8, random_state=0
         )
 
         model_path = os.path.join(tmp_path, "xgb_class.model")
@@ -234,8 +231,6 @@ def test_fil_regression(
     with using_device_type(train_device):
         # settings
         classification = False  # change this to false to use regression
-        n_rows = n_rows  # we'll use 1 millions rows
-        n_columns = n_columns
         random_state = np.random.RandomState(43210)
 
         X, y = simulate_data(
@@ -611,9 +606,7 @@ def to_categorical(features, n_categorical, invalid_frac, random_state):
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("num_classes", [2, 5])
 @pytest.mark.parametrize("n_categorical", [0, 5])
-@pytest.mark.skip(reason="Causing CI to hang.")
-# @pytest.mark.skipif(has_lightgbm() is False,
-#                     reason="need to install lightgbm")
+@pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
 def test_lightgbm(
     train_device, infer_device, tmp_path, num_classes, n_categorical
 ):

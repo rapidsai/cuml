@@ -64,7 +64,7 @@ detail/
 For brevity, we introduce the concepts of "consumable" and "implementation"
 headers. Consumable headers can be included in any other header and are
 guaranteed not to themselves include any header with CUDA symbols
-`CUML_ENABLE_GPU` is not defined.
+if `CUML_ENABLE_GPU` is not defined.
 Implementation headers can *only* be included by their associated consumable
 header or directly in a source file. They should *never* be directly included
 by any other consumable header except their own.
@@ -88,10 +88,11 @@ between GPU and CPU.
 Where we _need_ to provide distinct logic between GPU and CPU
 implementations, we do so in implementation headers. In `infer/cpu.hpp`, we
 have a fully-defined template for CPU specializations of
-`detail::inference::infer`. If `raft_proto::GPU_ENABLED` is `true`, we also include the
-failure case for the GPU specialization. In `infer/gpu.hpp` we *declare* but do
-not *define* the GPU specializations. In `infer/gpu.cuh` we provide the
-definition for the GPU specializations.
+`detail::inference::infer`. If `raft_proto::GPU_ENABLED` is `false`, we also
+include the GPU specializations, which will simply throw an exception if
+invoked. In `infer/gpu.hpp` we *declare* but do not *define* the GPU
+specializations. In `infer/gpu.cuh` we provide the full working definition for
+the GPU specializations.
 
 `infer.hpp` includes `infer/cpu.hpp` and `infer/gpu.hpp`, but *not*
 `infer/gpu.cuh`. Instead, `infer/gpu.cuh` is included directly in the CUDA
