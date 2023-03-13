@@ -209,7 +209,7 @@ class RandomForestClassifier(BaseRandomForestModel,
            number of samples for each split.
     min_impurity_decrease : float (default = 0.0)
         Minimum decrease in impurity required for
-        node to be spilt.
+        node to be split.
     max_batch_size : int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)

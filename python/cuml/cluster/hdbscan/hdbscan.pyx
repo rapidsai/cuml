@@ -457,8 +457,8 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         A score of how persistent each cluster is. A score of 1.0 represents
         a perfectly stable cluster that persists over all distance scales,
         while a score of 0.0 represents a perfectly ephemeral cluster. These
-        scores can be gauge the relative coherence of the clusters output
-        by the algorithm.
+        scores can be used to gauge the relative coherence of the 
+        clusters output by the algorithm.
 
     condensed_tree_ : CondensedTree object
         The condensed tree produced by HDBSCAN. The object has methods

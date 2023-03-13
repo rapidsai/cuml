@@ -404,7 +404,7 @@ class KernelExplainer(SHAPBase):
                 axis=1
             )
 
-            # we needed to do l1 regularization if user left it as auto and we
+            # we need to do l1 regularization if user left it as auto and we
             # evaluated less than 20% of the space, or if the user set it
             # and we did not evaluate all the space (i.e. nsamples_random == 0)
             nonzero_inds = None
