@@ -93,6 +93,11 @@ mistakes, and this check is run as part of the pre-commit hook. To apply the sug
 fixes, you can run  `codespell -i 3 -w .` from the command-line in the cuML root directory.
 This will bring up an interactive prompt to select which spelling fixes to apply.
 
+If you want to ignore errors highlighted by codespell you can:
+ * Add the word to the ignore-words-list in pyproject.toml, to exclude for all of cuML
+ * Exclude the entire file from spellchecking, by adding to the `exclude` regex in .pre-commit-config.yaml
+ * Ignore only specific lines as shown in https://github.com/codespell-project/codespell/issues/1212#issuecomment-654191881
+
 ### Summary of pre-commit hooks
 
 The pre-commit hooks configured for this repository consist of a number of
