@@ -40,9 +40,9 @@ struct forest_model {
   ) : decision_forest_{forest} {}
 
   /** The number of features per row expected by the model */
-  auto num_feature() {
+  auto num_features() {
     return std::visit([](auto&& concrete_forest) {
-      return concrete_forest.num_feature();
+      return concrete_forest.num_features();
     }, decision_forest_);
   }
 
@@ -153,7 +153,7 @@ struct forest_model {
           auto constexpr static const MIN_CHUNKS_PER_PARTITION = std::size_t{64};
           auto constexpr static const MAX_CHUNK_SIZE = std::size_t{64};
 
-          auto row_count = input.size() / num_feature();
+          auto row_count = input.size() / num_features();
           auto partition_size = std::max(
             raft_proto::ceildiv(row_count, handle.get_usable_stream_count()),
             specified_chunk_size.value_or(MAX_CHUNK_SIZE) * MIN_CHUNKS_PER_PARTITION
@@ -165,21 +165,21 @@ struct forest_model {
             auto partition_in = raft_proto::buffer<io_t>{};
             if (input.memory_type() != memory_type()) {
               partition_in = raft_proto::buffer<io_t>{
-                rows_in_this_partition * num_feature(),
+                rows_in_this_partition * num_features(),
                 memory_type()
               };
               raft_proto::copy<raft_proto::DEBUG_ENABLED>(
                 partition_in,
                 input,
                 0,
-                i * partition_size * num_feature(),
+                i * partition_size * num_features(),
                 partition_in.size(),
                 stream
               );
             } else {
               partition_in = raft_proto::buffer<io_t>{
-                input.data() + i * partition_size * num_feature(),
-                rows_in_this_partition * num_feature(),
+                input.data() + i * partition_size * num_features(),
+                rows_in_this_partition * num_features(),
                 memory_type()
               };
             }
@@ -259,7 +259,7 @@ struct forest_model {
     };
     auto in_buffer = raft_proto::buffer{
       input,
-      num_rows * num_feature(),
+      num_rows * num_features(),
       in_mem_type
     };
     predict(handle, out_buffer, in_buffer, specified_chunk_size);
