@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 import cupy as cp
+import functools
 import numpy as np
 import nvtx
 import pathlib
@@ -345,56 +346,53 @@ cdef class ForestInference_impl():
 
         return preds
 
-def _handle_legacy_args(
-        threshold=None,
-        algo=None,
-        storage_type=None,
-        blocks_per_sm=None,
-        threads_per_tree=None,
-        n_items=None,
-        compute_shape_str=None):
-    if threshold is not None:
-        raise FutureWarning(
-            'Parameter "threshold" has been deprecated.'
-            ' To use a threshold for binary classification, pass'
-            ' the "threshold" keyword directly to the predict method.'
-        )
-    if algo is not None:
-        warnings.warn(
-            'Parameter "algo" has been deprecated. Its use is no longer'
-            ' necessary to achieve optimal performance with FIL.',
-            FutureWarning
-        )
-    if storage_type is not None:
-        warnings.warn(
-            'Parameter "storage_type" has been deprecated. The correct'
-            ' storage type will be used automatically.',
-            FutureWarning
-        )
-    if blocks_per_sm is not None:
-        warnings.warn(
-            'Parameter "blocks_per_sm" has been deprecated. Its use is no'
-            ' longer necessary to achieve optimal performance with FIL.',
-            FutureWarning
-        )
-    if threads_per_tree is not None:
-        warnings.warn(
-            'Parameter "threads_per_tree" has been deprecated. Pass'
-            ' the "chunk_size" keyword argument to the predict method for'
-            ' equivalent functionality.',
-            FutureWarning
-        )
-    if n_items is not None:
-        warnings.warn(
-            'Parameter "n_items" has been deprecated. Its use is no'
-            ' longer necessary to achieve optimal performance with FIL.',
-            FutureWarning
-        )
-    if compute_shape_str is not None:
-        warnings.warn(
-            'Parameter "compute_shape_str" has been deprecated.',
-            FutureWarning
-        )
+def _handle_legacy_fil_args(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if kwargs['threshold'] is not None:
+            raise FutureWarning(
+                'Parameter "threshold" has been deprecated.'
+                ' To use a threshold for binary classification, pass'
+                ' the "threshold" keyword directly to the predict method.'
+            )
+        if kwargs['algo'] is not None:
+            warnings.warn(
+                'Parameter "algo" has been deprecated. Its use is no longer'
+                ' necessary to achieve optimal performance with FIL.',
+                FutureWarning
+            )
+        if kwargs['storage_type'] is not None:
+            warnings.warn(
+                'Parameter "storage_type" has been deprecated. The correct'
+                ' storage type will be used automatically.',
+                FutureWarning
+            )
+        if kwargs['blocks_per_sm'] is not None:
+            warnings.warn(
+                'Parameter "blocks_per_sm" has been deprecated. Its use is no'
+                ' longer necessary to achieve optimal performance with FIL.',
+                FutureWarning
+            )
+        if kwargs['threads_per_tree'] is not None:
+            warnings.warn(
+                'Parameter "threads_per_tree" has been deprecated. Pass'
+                ' the "chunk_size" keyword argument to the predict method for'
+                ' equivalent functionality.',
+                FutureWarning
+            )
+        if kwargs['n_items'] is not None:
+            warnings.warn(
+                'Parameter "n_items" has been deprecated. Its use is no'
+                ' longer necessary to achieve optimal performance with FIL.',
+                FutureWarning
+            )
+        if kwargs['compute_shape_str'] is not None:
+            warnings.warn(
+                'Parameter "compute_shape_str" has been deprecated.',
+                FutureWarning
+            )
+        return func(*args, **kwargs)
+    return wrapper
 
 
 class ForestInference(UniversalBase, CMajorInputTagMixin):
@@ -609,6 +607,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             raise DeviceTypeError("Unsupported device type for FIL")
 
     @classmethod
+    @_handle_legacy_fil_args
     def load(
             cls,
             path,
@@ -713,15 +712,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
-        _handle_legacy_args(
-            threshold=threshold,
-            algo=algo,
-            storage_type=storage_type,
-            blocks_per_sm=blocks_per_sm,
-            threads_per_tree=threads_per_tree,
-            n_items=n_items,
-            compute_shape_str=compute_shape_str
-        )
         if model_type is None:
             extension = pathlib.Path(path).suffix
             if extension == '.json':
@@ -747,6 +737,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         )
 
     @classmethod
+    @_handle_legacy_fil_args
     def load_from_sklearn(
             cls,
             skl_model,
@@ -849,15 +840,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
-        _handle_legacy_args(
-            threshold=threshold,
-            algo=algo,
-            storage_type=storage_type,
-            blocks_per_sm=blocks_per_sm,
-            threads_per_tree=threads_per_tree,
-            n_items=n_items,
-            compute_shape_str=compute_shape_str
-        )
         tl_frontend_model = treelite.sklearn.import_model(skl_model)
         tl_model = TreeliteModel.from_treelite_model_handle(
             tl_frontend_model.handle.value
@@ -980,15 +962,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
-        _handle_legacy_args(
-            threshold=threshold,
-            algo=algo,
-            storage_type=storage_type,
-            blocks_per_sm=blocks_per_sm,
-            threads_per_tree=threads_per_tree,
-            n_items=n_items,
-            compute_shape_str=compute_shape_str
-        )
         return cls(
             treelite_model=tl_model,
             handle=handle,
