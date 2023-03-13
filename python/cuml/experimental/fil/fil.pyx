@@ -349,44 +349,44 @@ cdef class ForestInference_impl():
 def _handle_legacy_fil_args(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        if kwargs['threshold'] is not None:
+        if kwargs.get('threshold', None) is not None:
             raise FutureWarning(
                 'Parameter "threshold" has been deprecated.'
                 ' To use a threshold for binary classification, pass'
                 ' the "threshold" keyword directly to the predict method.'
             )
-        if kwargs['algo'] is not None:
+        if kwargs.get('algo', None) is not None:
             warnings.warn(
                 'Parameter "algo" has been deprecated. Its use is no longer'
                 ' necessary to achieve optimal performance with FIL.',
                 FutureWarning
             )
-        if kwargs['storage_type'] is not None:
+        if kwargs.get('storage_type', None) is not None:
             warnings.warn(
                 'Parameter "storage_type" has been deprecated. The correct'
                 ' storage type will be used automatically.',
                 FutureWarning
             )
-        if kwargs['blocks_per_sm'] is not None:
+        if kwargs.get('blocks_per_sm', None) is not None:
             warnings.warn(
                 'Parameter "blocks_per_sm" has been deprecated. Its use is no'
                 ' longer necessary to achieve optimal performance with FIL.',
                 FutureWarning
             )
-        if kwargs['threads_per_tree'] is not None:
+        if kwargs.get('threads_per_tree', None) is not None:
             warnings.warn(
                 'Parameter "threads_per_tree" has been deprecated. Pass'
                 ' the "chunk_size" keyword argument to the predict method for'
                 ' equivalent functionality.',
                 FutureWarning
             )
-        if kwargs['n_items'] is not None:
+        if kwargs.get('n_items', None) is not None:
             warnings.warn(
                 'Parameter "n_items" has been deprecated. Its use is no'
                 ' longer necessary to achieve optimal performance with FIL.',
                 FutureWarning
             )
-        if kwargs['compute_shape_str'] is not None:
+        if kwargs.get('compute_shape_str', None) is not None:
             warnings.warn(
                 'Parameter "compute_shape_str" has been deprecated.',
                 FutureWarning
