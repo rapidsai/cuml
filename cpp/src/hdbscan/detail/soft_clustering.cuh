@@ -76,7 +76,8 @@ void dist_membership_vector(const raft::handle_t& handle,
                             value_idx* exemplar_label_offsets,
                             value_t* dist_membership_vec,
                             raft::distance::DistanceType metric,
-                            bool softmax = false)
+                            bool softmax = false,
+                            int batch_size = 32)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -85,43 +86,50 @@ void dist_membership_vector(const raft::handle_t& handle,
 
   size_t free_memory, total_memory;
 
-  rmm::device_uvector<value_t> exemplars_dense(n_exemplars * 1000, stream);
+  rmm::device_uvector<value_t> exemplars_dense(n_exemplars * n, stream);
 
   handle.sync_stream(stream);
   RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
   CUML_LOG_INFO("After dense exemplars matrix (n_exemplars * n_features) was declared . Free memory: %zu; Total memory: %zu", free_memory, total_memory);
+  CUML_LOG_INFO("n_exemplars %d", n_exemplars);
 
   // use the exemplar point indices to obtain the exemplar points as a dense array
   raft::matrix::copyRows<value_t, value_idx, size_t>(
     X, n_exemplars, n, exemplars_dense.data(), exemplar_idx, n_exemplars, stream, true);
 
   // compute the distances using raft API
-  rmm::device_uvector<value_t> dist(n_queries * n_exemplars, stream);
+  value_idx n_batches = raft::ceildiv((int)n_queries, (int)batch_size);
+  CUML_LOG_INFO("n_batches %d", n_batches);
+  for(value_idx bid = 0; bid < n_batches; bid++) {
+    value_idx samples_per_batch = min(batch_size, (int)n_queries - bid*batch_size);
+    value_idx batch_offset = bid * batch_size;
+    CUML_LOG_INFO("bid %d, size %d", bid, samples_per_batch);
+    rmm::device_uvector<value_t> dist(samples_per_batch * n_exemplars, stream);
 
-  handle.sync_stream(stream);
-  RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-  CUML_LOG_INFO("After distance matrix (n_samples * n_exemplars) was generated . Free memory: %zu; Total memory: %zu", free_memory, total_memory);
+    handle.sync_stream(stream);
+    RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
+    CUML_LOG_INFO("After distance matrix (n_samples * n_exemplars) was generated . Free memory: %zu; Total memory: %zu", free_memory, total_memory);
 
-  switch (metric) {
-    case raft::distance::DistanceType::L2SqrtExpanded:
-      raft::distance::
-        distance<raft::distance::DistanceType::L2SqrtExpanded, value_t, value_t, value_t, int>(
-          handle, query, exemplars_dense.data(), dist.data(), n_queries, n_exemplars, n, true);
+    switch (metric) {
+      case raft::distance::DistanceType::L2SqrtExpanded:
+        raft::distance::
+          distance<raft::distance::DistanceType::L2SqrtExpanded, value_t, value_t, value_t, int>(
+          handle, query + batch_offset * n, exemplars_dense.data(), dist.data(), samples_per_batch, n_exemplars, n, true);
       break;
     case raft::distance::DistanceType::L1:
       raft::distance::distance<raft::distance::DistanceType::L1, value_t, value_t, value_t, int>(
-        handle, query, exemplars_dense.data(), dist.data(), n_queries, n_exemplars, n, true);
+        handle, query + batch_offset * n, exemplars_dense.data(), dist.data(), samples_per_batch, n_exemplars, n, true);
       break;
     case raft::distance::DistanceType::CosineExpanded:
       raft::distance::
         distance<raft::distance::DistanceType::CosineExpanded, value_t, value_t, value_t, int>(
-          handle, query, exemplars_dense.data(), dist.data(), n_queries, n_exemplars, n, true);
+          handle, query + batch_offset * n, exemplars_dense.data(), dist.data(), samples_per_batch, n_exemplars, n, true);
       break;
     default: ASSERT(false, "Incorrect metric passed!");
   }
 
   // compute the minimum distances to exemplars of each cluster
-  rmm::device_uvector<value_t> min_dist(n_queries * n_selected_clusters, stream);
+  rmm::device_uvector<value_t> min_dist(samples_per_batch * n_selected_clusters, stream);
 
   thrust::fill(exec_policy, min_dist.begin(), min_dist.end(), std::numeric_limits<value_t>::max());
 
@@ -144,14 +152,14 @@ void dist_membership_vector(const raft::handle_t& handle,
     return;
   };
 
-  thrust::for_each(exec_policy, counting, counting + n_queries * n_selected_clusters, reduction_op);
+  thrust::for_each(exec_policy, counting, counting + samples_per_batch * n_selected_clusters, reduction_op);
 
   // Softmax computation is ignored in distance membership
   if (softmax) {
     thrust::transform(exec_policy,
-                      min_dist.data(),
-                      min_dist.data() + n_queries * n_selected_clusters,
-                      dist_membership_vec,
+                      min_dist.begin(),
+                      min_dist.end(),
+                      dist_membership_vec + batch_offset * n_selected_clusters,
                       [=] __device__(value_t val) {
                         if (val != 0) { return value_t(exp(1.0 / val)); }
                         return std::numeric_limits<value_t>::max();
@@ -161,13 +169,14 @@ void dist_membership_vector(const raft::handle_t& handle,
   // Transform the distances to obtain membership based on proximity to exemplars
   else {
     thrust::transform(exec_policy,
-                      min_dist.data(),
-                      min_dist.data() + n_queries * n_selected_clusters,
-                      dist_membership_vec,
+                      min_dist.begin(),
+                      min_dist.end(),
+                      dist_membership_vec + batch_offset * n_selected_clusters,
                       [=] __device__(value_t val) {
                         if (val > 0) { return value_t(1.0 / val); }
                         return std::numeric_limits<value_t>::max() / n_selected_clusters;
                       });
+  }
   }
 
   handle.sync_stream(stream);
