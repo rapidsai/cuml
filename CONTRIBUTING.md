@@ -88,6 +88,11 @@ To skip the checks temporarily, use `git commit --no-verify` or its short form
 _Note_: If the auto-formatters' changes affect each other, you may need to go
 through multiple iterations of `git commit` and `git add -u`.
 
+cuML also uses [codespell](https://github.com/codespell-project/codespell) to find spelling
+mistakes, and this check is run as part of the pre-commit hook. To apply the suggested spelling
+fixes, you can run  `codespell -i 3 -w .` from the command-line in the cuML root directory.
+This will bring up an interactive prompt to select which spelling fixes to apply.
+
 ### Summary of pre-commit hooks
 
 The pre-commit hooks configured for this repository consist of a number of
@@ -102,6 +107,7 @@ please see the `.pre-commit-config.yaml` file.
 - _`#include` syntax checker_: Ensures consistent syntax for C++ `#include` statements.
 - _Copyright header checker and auto-formatter_: Ensures the copyright headers
   of files are up-to-date and in the correct format.
+- `codespell`: Checks for spelling mistakes
 
 ### Managing PR labels
 
