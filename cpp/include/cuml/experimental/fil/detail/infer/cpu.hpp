@@ -76,7 +76,7 @@ template<
   typename vector_output_t=std::nullptr_t,
   typename categorical_data_t=std::nullptr_t
 >
-std::enable_if_t<D==raft_proto::device_type::cpu || !raft_proto::GPU_ENABLED, void> infer(
+std::enable_if_t<D==raft_proto::device_type::cpu, void> infer(
   forest_t const& forest,
   postprocessor<typename forest_t::io_type> const& postproc,
   typename forest_t::io_type* output,
@@ -108,6 +108,39 @@ std::enable_if_t<D==raft_proto::device_type::cpu || !raft_proto::GPU_ENABLED, vo
     );
   }
 }
+
+/* Note(wphicks): In the above template, it should be possible to add
+ * `|| ! raft_proto::GPU_ENABLED` to the enable_if clause. This works in gcc 9
+ * but not gcc 11. As a workaround, we use the following ifdef. If this is
+ * corrected in a later gcc version, we can remove the following and just use
+ * the above template. Alternatively, if we see some way in which the above is
+ * actually an abuse of SFINAE that was accidentally permitted by gcc 9, the
+ * root cause should be corrected. */
+#ifndef CUML_CUDA_ENABLED
+template<
+  raft_proto::device_type D,
+  bool has_categorical_nodes,
+  typename forest_t,
+  typename vector_output_t=std::nullptr_t,
+  typename categorical_data_t=std::nullptr_t
+>
+std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
+  forest_t const& forest,
+  postprocessor<typename forest_t::io_type> const& postproc,
+  typename forest_t::io_type* output,
+  typename forest_t::io_type* input,
+  index_type row_count,
+  index_type col_count,
+  index_type output_count,
+  vector_output_t vector_output=nullptr,
+  categorical_data_t categorical_data=nullptr,
+  std::optional<index_type> specified_chunk_size=std::nullopt,
+  raft_proto::device_id<D> device=raft_proto::device_id<D>{},
+  raft_proto::cuda_stream=raft_proto::cuda_stream{}
+) {
+  throw raft_proto::gpu_unsupported("Tried to use GPU inference in CPU-only build");
+}
+#endif
 
 /* This macro is invoked here to declare all standard specializations of this
  * template as extern. This ensures that this (relatively complex) code is
