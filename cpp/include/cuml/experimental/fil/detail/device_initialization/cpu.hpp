@@ -30,7 +30,19 @@ namespace device_initialization {
  * (as a GPU no-op).
  */
 template<typename forest_t, raft_proto::device_type D>
-std::enable_if_t<!raft_proto::GPU_ENABLED || D == raft_proto::device_type::cpu, void> initialize_device(raft_proto::device_id<D> device) {}
+std::enable_if_t<D == raft_proto::device_type::cpu, void> initialize_device(raft_proto::device_id<D> device) {}
+
+/* Note(wphicks): In the above template, it should be possible to add
+ * `|| ! raft_proto::GPU_ENABLED` to the enable_if clause. This works in gcc 9
+ * but not gcc 11. As a workaround, we use the following ifdef. If this is
+ * corrected in a later gcc version, we can remove the following and just use
+ * the above template. Alternatively, if we see some way in which the above is
+ * actually an abuse of SFINAE that was accidentally permitted by gcc 9, the
+ * root cause should be corrected. */
+#ifndef CUML_ENABLE_GPU
+template<typename forest_t, raft_proto::device_type D>
+std::enable_if_t<D == raft_proto::device_type::gpu, void> initialize_device(raft_proto::device_id<D> device) {}
+#endif
 
 }
 }

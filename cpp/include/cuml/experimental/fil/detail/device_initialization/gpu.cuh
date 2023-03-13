@@ -31,6 +31,7 @@ namespace fil {
 namespace detail {
 namespace device_initialization {
 
+#ifdef CUML_ENABLE_GPU
 /* The implementation of the template used to initialize GPU device options
  *
  * On GPU-enabled builds, the GPU specialization of this template ensures that
@@ -38,7 +39,7 @@ namespace device_initialization {
  * memory.
  */
 template<typename forest_t, raft_proto::device_type D>
-std::enable_if_t<raft_proto::GPU_ENABLED && D==raft_proto::device_type::gpu, void> initialize_device(raft_proto::device_id<D> device) {
+std::enable_if_t<D==raft_proto::device_type::gpu, void> initialize_device(raft_proto::device_id<D> device) {
   auto device_context = raft_proto::device_setter(device);
   auto max_shared_mem_per_block = get_max_shared_mem_per_block(device);
   // Run solely for side-effect of caching SM count
@@ -347,6 +348,7 @@ CUML_FIL_INITIALIZE_DEVICE(extern template, 4)
 CUML_FIL_INITIALIZE_DEVICE(extern template, 5)
 CUML_FIL_INITIALIZE_DEVICE(extern template, 6)
 CUML_FIL_INITIALIZE_DEVICE(extern template, 7)
+#endif
 
 }
 }
