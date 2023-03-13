@@ -4,6 +4,6 @@
 skip = "./.git,./.github,./cpp/build,.*egg-info.*,./.mypy_cache,.*_skbuild,CHANGELOG.md,_stop_words.py,,*stemmer.*"
 # ignore short words, and typename parameters like OffsetT
 ignore-regex = "\\b(.{1,4}|[A-Z]\\w*T)\\b"
-ignore-words-list = "inout,numer,startd,couldn"
+ignore-words-list = "inout,numer,startd,couldn,referr"
 builtin = "clear"
 quiet-level = 3

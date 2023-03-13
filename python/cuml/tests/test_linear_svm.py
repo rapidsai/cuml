@@ -41,15 +41,15 @@ SKLEARN_TIMEOUT_FACTOR = 10
 
 def good_enough(myscore: float, refscore: float, training_size: int):
     myerr = 1.0 - myscore
-    refer = 1.0 - refscore
+    referr = 1.0 - refscore
     # Extra discount for uncertainty based on the training data.
     # Totally empirical; for <10 samples, the error is allowed
     # to be ~50%, which is a total randomness. But this is ok,
     # since we don't expect the model to be trained from this few
     # samples.
     c = (10000 + training_size) / (100 + 5 * training_size)
-    thresh_rel = refer * (1 + ERROR_TOLERANCE_REL * c)
-    thresh_abs = refer + ERROR_TOLERANCE_ABS * c
+    thresh_rel = referr * (1 + ERROR_TOLERANCE_REL * c)
+    thresh_abs = referr + ERROR_TOLERANCE_ABS * c
     good_rel = myerr <= thresh_rel
     good_abs = myerr <= thresh_abs
     assert good_rel or good_abs, (
