@@ -12,7 +12,7 @@ repos:
       rev: 5.0.4
       hooks:
           - id: flake8
-            args: [--config=python/setup.cfg]
+            args: [--config=python/.flake8]
             files: python/.*$
             types: [file]
             types_or: [python, cython]
@@ -53,6 +53,11 @@ repos:
                 - cpp/test
             pass_filenames: false
             language: python
+    - repo: https://github.com/rapidsai/dependency-file-generator
+      rev: v1.4.0
+      hooks:
+          - id: rapids-dependency-file-generator
+            args: ["--clean"]
 
 default_language_version:
     python: python3

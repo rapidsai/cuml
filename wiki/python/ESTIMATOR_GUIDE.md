@@ -706,7 +706,9 @@ Functionally, you can think of these decorators equivalent to the following pseu
 ```python
 def my_func(self, X):
    with cuml.using_ouput_type("mirror"):
-      with cupy.cuda.cupy_using_allocator(rmm.rmm_cupy_allocator):
+      with cupy.cuda.cupy_using_allocator(
+          rmm.allocators.cupy.rmm_cupy_allocator
+      ):
          # Set the input properties
          self._set_base_attributes(output_type=X, n_features=X)
 

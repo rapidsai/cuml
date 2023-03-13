@@ -59,7 +59,7 @@ from cuml.dask import (
     decomposition,
     linear_model,
 )  # noqa: F401
-from cuml.internals.import_utils import has_umap
+from cuml.internals.import_utils import has_hdbscan, has_umap
 from cuml.internals.safe_imports import cpu_only_import
 
 np = cpu_only_import("numpy")
@@ -67,6 +67,10 @@ np = cpu_only_import("numpy")
 
 if has_umap():
     import umap
+
+
+if has_hdbscan():
+    import hdbscan
 
 
 class AlgorithmPair:
@@ -273,6 +277,14 @@ def all_algorithms():
             accepts_labels=False,
         ),
         AlgorithmPair(
+            hdbscan.HDBSCAN if has_hdbscan() else None,
+            cuml.cluster.HDBSCAN,
+            shared_args={},
+            cpu_args={},
+            name="HDBSCAN",
+            accepts_labels=False,
+        ),
+        AlgorithmPair(
             sklearn.linear_model.LinearRegression,
             cuml.linear_model.LinearRegression,
             shared_args={},
@@ -315,7 +327,8 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.ensemble.RandomForestClassifier,
             cuml.ensemble.RandomForestClassifier,
-            shared_args={"max_features": 1.0, "n_estimators": 10},
+            shared_args={"max_features": "sqrt", "n_estimators": 50},
+            cpu_args={"n_jobs": -1},
             name="RandomForestClassifier",
             accepts_labels=True,
             cpu_data_prep_hook=_labels_to_int_hook,
@@ -325,7 +338,8 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.ensemble.RandomForestRegressor,
             cuml.ensemble.RandomForestRegressor,
-            shared_args={"max_features": 1.0, "n_estimators": 10},
+            shared_args={"max_features": 1.0, "n_estimators": 50},
+            cpu_args={"n_jobs": -1},
             name="RandomForestRegressor",
             accepts_labels=True,
             accuracy_function=metrics.r2_score,
@@ -381,6 +395,24 @@ def all_algorithms():
             name="SVR-Linear",
             accepts_labels=True,
             accuracy_function=cuml.metrics.r2_score,
+        ),
+        AlgorithmPair(
+            sklearn.svm.LinearSVC,
+            cuml.svm.LinearSVC,
+            shared_args={},
+            cuml_args={},
+            name="LinearSVC",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score,
+        ),
+        AlgorithmPair(
+            sklearn.svm.LinearSVR,
+            cuml.svm.LinearSVR,
+            shared_args={},
+            cuml_args={},
+            name="LinearSVR",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score,
         ),
         AlgorithmPair(
             sklearn.neighbors.KNeighborsClassifier,
