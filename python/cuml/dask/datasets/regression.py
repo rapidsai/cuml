@@ -230,7 +230,7 @@ def _dask_make_low_rank_covariance(
     eigen-vector and the squared, low-rank singular values.
     With a memory usage of only O(n_features ^ 2) in this case, we pass
     this covariance matrix to workers to generate each part of X
-    embarassingly parallel from a multi-variate normal with mean 0
+    embarrassingly parallel from a multi-variate normal with mean 0
     and generated covariance.
     """
     local_rs = cp.random.RandomState(seed=seed)
@@ -441,8 +441,8 @@ def make_regression(
         transpose is performed on each part. This may cause memory to spike \
         (other parameters make order `F` by construction)
      2. When `n_targets > 1` and `order = 'F'` as above, we have to \
-        explicity transpose the `y` array. If `coef = True`, then we also \
-        explicity transpose the `ground_truth` array
+        explicitly transpose the `y` array. If `coef = True`, then we also \
+        explicitly transpose the `ground_truth` array
      3. When `shuffle = True` and `order = F`, there are memory spikes to \
         shuffle the `F` order arrays
 

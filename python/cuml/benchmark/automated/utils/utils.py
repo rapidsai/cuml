@@ -22,7 +22,7 @@ except ImportError:
         "falling back to pytest_benchmark fixtures.\n"
     )
 
-    # if rapids_pytest_benchmark is not available, just perfrom time-only
+    # if rapids_pytest_benchmark is not available, just perform time-only
     # benchmarking and replace the util functions with nops
     import pytest_benchmark
 
@@ -266,8 +266,8 @@ def _benchmark_algo(
         Either 'training' or 'inference', describe the algorithm/model
         step to be benchmarked
     dataset :
-        Tuple with the data and a dictionnary that describes how it was built.
-        The dictionnary can be later used during the NVTX benchmark.
+        Tuple with the data and a dictionary that describes how it was built.
+        The dictionary can be later used during the NVTX benchmark.
     setup_kwargs :
         Algorithm/model setup kwargs
     training_kwargs :

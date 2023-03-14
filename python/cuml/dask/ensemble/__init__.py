@@ -23,5 +23,5 @@ if has_dask():
     from cuml.dask.ensemble.randomforestregressor import RandomForestRegressor
 else:
     warnings.warn(
-        "Dask not found. All Dask-based multi-GPU operation is disabed."
+        "Dask not found. All Dask-based multi-GPU operation is disabled."
     )

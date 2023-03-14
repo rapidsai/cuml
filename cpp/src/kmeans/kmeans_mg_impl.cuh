@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -702,7 +702,7 @@ void fit(const raft::handle_t& handle,
              "An error occurred in the distributed operation. This can result "
              "from a failed rank");
       ASSERT(curClusteringCost != (DataT)0.0,
-             "Too few points and centriods being found is getting 0 cost from "
+             "Too few points and centroids being found is getting 0 cost from "
              "centers\n");
 
       if (n_iter[0] > 0) {
@@ -755,7 +755,7 @@ void fit(const raft::handle_t& handle,
   // underlying expandable storage that holds centroids data
   auto centroidsRawData = raft::make_device_matrix<DataT, IndexT>(handle, n_clusters, n_features);
 
-  // Device-accessible allocation of expandable storage used as temorary buffers
+  // Device-accessible allocation of expandable storage used as temporary buffers
   rmm::device_uvector<char> workspace(0, stream);
 
   // check if weights sum up to n_samples
@@ -774,7 +774,7 @@ void fit(const raft::handle_t& handle,
   } else if (params.init == raft::cluster::kmeans::KMeansParams::InitMethod::Array) {
     CUML_LOG_KMEANS(handle,
                     "KMeans.fit: initialize cluster centers from the ndarray array input "
-                    "passed to init arguement.\n");
+                    "passed to init argument.\n");
 
     ASSERT(centroids != nullptr,
            "centroids array is null (require a valid array of centroids for "

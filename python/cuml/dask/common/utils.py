@@ -178,7 +178,7 @@ class MultiHolderLock:
     A per-process synchronization lock allowing multiple concurrent holders
     at any one time. This is used in situations where resources might be
     limited and it's important that the number of concurrent users of
-    the resources are constained.
+    the resources are constrained.
 
     This lock is serializable, but relies on a Python threading.Lock
     underneath to properly synchronize internal state across threads.

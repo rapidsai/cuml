@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ struct program {
    * Now take the resulting 1D array and reverse it.
    *
    * @note The pointed memory buffer is NOT owned by this class and further it
-   *       is assumed to be a zero-copy (aka pinned memory) buffer, atleast in
+   *       is assumed to be a zero-copy (aka pinned memory) buffer, at least in
    *       this initial version
    */
 
