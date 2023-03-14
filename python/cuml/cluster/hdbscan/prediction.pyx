@@ -94,7 +94,8 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
         PredictionData[int, float] &prediction_data_,
         float* X,
         DistanceType metric,
-        float* membership_vec)
+        float* membership_vec,
+        int batch_size)
     
     void compute_membership_vector(
         const handle_t& handle,
@@ -212,7 +213,8 @@ def all_points_membership_vectors(clusterer):
                                           deref(prediction_data_),
                                           <float*> input_ptr,
                                           _metrics_mapping[clusterer.metric],
-                                          <float*> membership_vec_ptr)
+                                          <float*> membership_vec_ptr,
+                                          0)
 
     clusterer.handle.sync()
     return membership_vec.to_output(

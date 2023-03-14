@@ -93,7 +93,7 @@ void compute_all_points_membership_vectors(
   const float* X,
   raft::distance::DistanceType metric,
   float* membership_vec,
-  int batch_size)
+  int batch_size = 0)
 {
   HDBSCAN::detail::Predict::all_points_membership_vectors(
     handle, condensed_tree, prediction_data, X, metric, membership_vec, batch_size);

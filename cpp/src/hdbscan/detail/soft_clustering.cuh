@@ -84,14 +84,7 @@ void dist_membership_vector(const raft::handle_t& handle,
 
   auto counting = thrust::make_counting_iterator<value_idx>(0);
 
-  size_t free_memory, total_memory;
-
   rmm::device_uvector<value_t> exemplars_dense(n_exemplars * n, stream);
-
-  handle.sync_stream(stream);
-  RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-  CUML_LOG_INFO("After dense exemplars matrix (n_exemplars * n_features) was declared . Free memory: %zu; Total memory: %zu", free_memory, total_memory);
-  CUML_LOG_INFO("n_exemplars %d", n_exemplars);
 
   // use the exemplar point indices to obtain the exemplar points as a dense array
   raft::matrix::copyRows<value_t, value_idx, size_t>(
@@ -107,16 +100,10 @@ void dist_membership_vector(const raft::handle_t& handle,
   else {
     n_batches = raft::ceildiv((int)n_queries, (int)batch_size);
   }
-  CUML_LOG_INFO("n_batches %d", n_batches);
   for(value_idx bid = 0; bid < n_batches; bid++) {
     value_idx samples_per_batch = min(batch_size, (int)n_queries - bid*batch_size);
     value_idx batch_offset = bid * batch_size;
-    CUML_LOG_INFO("bid %d, size %d", bid, samples_per_batch);
     rmm::device_uvector<value_t> dist(samples_per_batch * n_exemplars, stream);
-
-    handle.sync_stream(stream);
-    RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-    CUML_LOG_INFO("After distance matrix (n_samples * n_exemplars) was generated . Free memory: %zu; Total memory: %zu", free_memory, total_memory);
 
     switch (metric) {
       case raft::distance::DistanceType::L2SqrtExpanded:
@@ -187,10 +174,6 @@ void dist_membership_vector(const raft::handle_t& handle,
   }
   }
 
-  handle.sync_stream(stream);
-    RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-    CUML_LOG_INFO("Total memory usage during dist_membership_vec computation . Free memory: %zu; Total memory: %zu", free_memory, total_memory);
-
   // Normalize the obtained result to sum to 1.0
   Utils::normalize(dist_membership_vec, n_selected_clusters, n_queries, stream);
 };
@@ -230,16 +213,7 @@ void all_points_outlier_membership_vector(
                                                     MLCommon::FastIntDiv(n_selected_clusters),
                                                     selected_clusters);
 
-  size_t free_memory, total_memory;
-  handle.sync_stream(stream);
-  RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-  CUML_LOG_INFO("Before leaf_max_lambdas was declared (size n_leaves). Free memory: %zu; Total memory: %zu", free_memory, total_memory);
-
   rmm::device_uvector<value_t> leaf_max_lambdas(n_leaves, stream);
-
-  handle.sync_stream(stream);
-  RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-  CUML_LOG_INFO("After leaf_max_lambdas was declared (size n_leaves). Free memory: %zu; Total memory: %zu", free_memory, total_memory);
 
   thrust::for_each(exec_policy,
                    counting,
@@ -264,10 +238,6 @@ void all_points_outlier_membership_vector(
       return exp(-(vec_in + 1e-8) / mat_in);
     },  //+ 1e-8 to avoid zero lambda
     stream);
-
-  handle.sync_stream(stream);
-  RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-  CUML_LOG_INFO("Total memory usage during outlier membership computation (before normalizing and softmax). Free memory: %zu; Total memory: %zu", free_memory, total_memory);
 
   if (softmax) { Utils::softmax(handle, outlier_membership_vec, n_selected_clusters, m); }
 
@@ -312,10 +282,6 @@ void all_points_prob_in_some_cluster(const raft::handle_t& handle,
                                                             n_selected_clusters,
                                                             n_leaves,
                                                             m);
-  size_t free_memory, total_memory;
-  handle.sync_stream(stream);
-  RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-  CUML_LOG_INFO("Total memory during prob_in_some_cluster computation (just before returning from the function). Free memory: %zu; Total memory: %zu", free_memory, total_memory);
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>
@@ -486,18 +452,8 @@ void all_points_membership_vectors(const raft::handle_t& handle,
   // avoid CUDA run-time errors in raft primitives for pairwise distances and other kernel
   // invocations.
   if (n_selected_clusters > 0) {
-    size_t free_memory, total_memory;
-
-    handle.sync_stream(stream);
-    RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-    CUML_LOG_INFO("Before dist_membership_vec was declared . Free memory: %zu; Total memory: %zu", free_memory, total_memory);
-
     rmm::device_uvector<value_t> dist_membership_vec(m * n_selected_clusters, stream);
 
-    handle.sync_stream(stream);
-    RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-    CUML_LOG_INFO("after dist_membership_vec was declared . Free memory: %zu; Total memory: %zu", free_memory, total_memory);
-                            
     dist_membership_vector(handle,
                            X,
                            X,
@@ -511,16 +467,9 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                            metric,
                            batch_size);
 
-    handle.sync_stream(stream);
-  RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-  CUML_LOG_INFO("before merge heights matrix was generated . Free memory: %zu; Total memory: %zu", free_memory, total_memory);
-
     rmm::device_uvector<value_t> merge_heights(m * n_selected_clusters, stream);
 
 
-  handle.sync_stream(stream);
-  RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-  CUML_LOG_INFO("after merge heights matrix was generated . Free memory: %zu; Total memory: %zu", free_memory, total_memory);
     all_points_outlier_membership_vector(handle,
                                          condensed_tree,
                                          deaths,
@@ -532,9 +481,6 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                                          membership_vec,
                                          true);
 
-    handle.sync_stream(stream);
-  RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-  CUML_LOG_INFO("before probability in some cluster vector (size m) was generated . Free memory: %zu; Total memory: %zu", free_memory, total_memory);
     rmm::device_uvector<value_t> prob_in_some_cluster(m, stream);
     all_points_prob_in_some_cluster(handle,
                                     condensed_tree,
@@ -546,9 +492,6 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                                     merge_heights.data(),
                                     prob_in_some_cluster.data());
 
-     handle.sync_stream(stream);
-  RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-  CUML_LOG_INFO("after probability in some cluster vector (size m) was generated . Free memory: %zu; Total memory: %zu", free_memory, total_memory);
     thrust::transform(exec_policy,
                       dist_membership_vec.begin(),
                       dist_membership_vec.end(),
@@ -556,9 +499,6 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                       membership_vec,
                       thrust::multiplies<value_t>());
 
-     handle.sync_stream(stream);
-  RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-  CUML_LOG_INFO("before normalizing final membership vector . Free memory: %zu; Total memory: %zu", free_memory, total_memory);
     // Normalize to obtain probabilities conditioned on points belonging to some cluster
     Utils::normalize(membership_vec, n_selected_clusters, m, stream);
 

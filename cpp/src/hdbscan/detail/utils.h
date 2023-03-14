@@ -213,12 +213,6 @@ void normalize(value_t* data, value_idx n, size_t m, cudaStream_t stream)
     false,
     [] __device__(value_t mat_in, value_t vec_in) { return mat_in / vec_in; },
     stream);
-
-  size_t free_memory, total_memory;
-    // handle.sync_stream(stream);
-  RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-  CUML_LOG_INFO("normalization memory usage. Free memory: %zu; Total memory: %zu", free_memory, total_memory);
-
 }
 
 /**
@@ -245,10 +239,6 @@ void softmax(const raft::handle_t& handle, value_t* data, value_idx n, size_t m)
   raft::linalg::matrix_vector_op(handle, data_const_view, linf_norm_const_view, data_view, raft::linalg::Apply::ALONG_COLUMNS, [] __device__(value_t mat_in, value_t vec_in) {
       return exp(mat_in - vec_in);
     });
-  size_t free_memory, total_memory;
-  handle.sync_stream(handle.get_stream());
-  RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-  CUML_LOG_INFO("softmax. Free memory: %zu; Total memory: %zu", free_memory, total_memory);
 }
 
 };  // namespace Utils
