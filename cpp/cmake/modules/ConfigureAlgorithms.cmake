@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,7 @@
 
 
 if(CUML_ALGORITHMS STREQUAL "ALL")
-    set(CUML_USE_RAFT_NN ON)
-    set(CUML_USE_RAFT_DIST ON)
+    set(CUML_RAFT_COMPILED ON)
     set(LINK_TREELITE ON)
     set(LINK_CUFFT ON)
     set(all_algo ON)
@@ -31,8 +30,7 @@ else()
     set(BUILD_CUML_C_LIBRARY OFF)
     set(BUILD_CUML_BENCH OFF)
     set(BUILD_CUML_EXAMPLES OFF)
-    set(CUML_USE_RAFT_NN OFF)
-    set(CUML_USE_RAFT_DIST OFF)
+    set(CUML_RAFT_COMPILED OFF)
 
     foreach(algo ${CUML_ALGORITHMS})
       string(TOLOWER ${algo} lower_algo)
@@ -106,7 +104,7 @@ else()
     endif()
 
     if(knn_algo)
-        set(CUML_USE_RAFT_NN ON)
+        set(CUML_RAFT_COMPILED ON)
     endif()
 
     if(randomforest_algo)
@@ -119,7 +117,7 @@ else()
     endif()
 
     if(metrics_algo)
-      set(CUML_USE_RAFT_DIST ON)
+        set(CUML_RAFT_COMPILED ON)
     endif()
 endif()
 
