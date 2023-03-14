@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -179,14 +179,14 @@ void swapFeatures(cublasHandle_t handle,
  * We have an active set with n_active elements, and an inactive set with
  * n_valid_cols - n_active elements. The matrix X [n_samples, n_features] is
  * partitioned in a way that the first n_active columns store the active set.
- * Similarily the vectors correlation and indices are partitioned in a way
+ * Similarly the vectors correlation and indices are partitioned in a way
  * that the first n_active elements belong to the active set:
  * - active set:  X[:,:n_active], correlation[:n_active], indices[:n_active]
  * - inactive set: X[:,n_active:], correlation[n_active:], indices[n_active:].
  *
  * This function moves the feature column X[:,idx] into the active set by
  * replacing the first inactive element with idx. The indices and correlation
- * vectors are modified accordinly. The sign array is updated with the sign
+ * vectors are modified accordingly. The sign array is updated with the sign
  * of correlation[n_active].
  *
  * @param handle cuBLAS handle
@@ -196,7 +196,7 @@ void swapFeatures(cublasHandle_t handle,
  * @param X device array of feature vectors in column major format, size
  *     [n_cols * ld_X]
  * @param n_rows number of training vectors
- * @param n_cols number of valid features colums (ignoring those features which
+ * @param n_cols number of valid features columns (ignoring those features which
  *    are detected to be collinear with the active set)
  * @param ld_X leading dimension of X
  * @param cor device array of correlations, size [n_cols]
@@ -573,7 +573,7 @@ LarsFitStatus calcEquiangularVec(const raft::handle_t& handle,
  *    size [n_active * ld_G]
  * @param ld_G leading dimension of G (ld_G >= n_cols)
  * @param X device array of training vectors in column major format,
- *     size [n_rows * n_cols]. Only used if the gram matrix is not avaiable.
+ *     size [n_rows * n_cols]. Only used if the gram matrix is not available.
  * @param ld_X leading dimension of X (ld_X >= n_rows)
  * @param u device pointer to equiangular vector size [n_rows]. Only used if the
  *     Gram matrix G is not available.
@@ -771,7 +771,7 @@ void larsInit(const raft::handle_t& handle,
  * @param ws device pointer to the ws vector, size [n_cols]
  * @param cor device pointer to the correlations, size [n_cols]
  * @param a_vec device pointer to a = X.T[:,n_A:] * u, size [n_cols]
- * @param beta pointer to regression coefficents, size [max_iter]
+ * @param beta pointer to regression coefficients, size [max_iter]
  * @param coef_path device pointer to all the coefficients along the
  *    regularization path, size [(max_iter + 1) * max_iter]
  * @param stream CUDA stream

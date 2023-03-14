@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -140,7 +140,7 @@ class LarsTest : public ::testing::Test {
     // reference solution.
     raft::copy(GU, G, n_cols * n_cols, stream);
     if (!copy_G) {
-      // zero the new colum of G
+      // zero the new column of G
       RAFT_CUDA_TRY(
         cudaMemsetAsync(GU + (n_active - 1) * n_cols, 0, n_cols * sizeof(math_t), stream));
     }

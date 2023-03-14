@@ -55,7 +55,7 @@ def _get_base_return_type(class_name, attr):
         if attr.__annotations__["return"] == class_name:
             return "base"
     except Exception:
-        assert False, "Shouldnt get here"
+        assert False, "Shouldn't get here"
         return None
 
     return None

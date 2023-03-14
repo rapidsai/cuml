@@ -86,7 +86,7 @@ class DistributedDataHandler:
     def get_client(cls, client=None):
         return default_client() if client is None else client
 
-    """ Class methods for initalization """
+    """ Class methods for initialization """
 
     @classmethod
     def create(cls, data, client=None):

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -155,7 +155,7 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
                                    unsigned int num_class)
 {
   // First index refers to the cuml node id
-  // Seccond refers to the tl node id
+  // Second refers to the tl node id
   using kv = std::pair<std::size_t, std::size_t>;
   std::vector<kv> cur_level_queue;
   std::vector<kv> next_level_queue;

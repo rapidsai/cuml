@@ -1,6 +1,6 @@
 
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -208,8 +208,8 @@ class RandomForestClassifier(BaseRandomForestModel,
            and ``max(2, ceil(min_samples_split * n_rows))`` is the minimum
            number of samples for each split.
     min_impurity_decrease : float (default = 0.0)
-        Minimum decrease in impurity requried for
-        node to be spilt.
+        Minimum decrease in impurity required for
+        node to be split.
     max_batch_size : int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
@@ -629,7 +629,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                       convert_dtype=True,
                       fil_sparse_format='auto') -> CumlArray:
         """
-        Predicts class probabilites for X. This function uses the GPU
+        Predicts class probabilities for X. This function uses the GPU
         implementation of predict.
 
         Parameters

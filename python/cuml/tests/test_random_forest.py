@@ -1191,7 +1191,7 @@ def test_rf_host_memory_leak(large_clf, estimator_type):
         gc.collect()
         final_mem = process.memory_info().rss
 
-    # Some tiny allocations may occur, but we shuld not leak
+    # Some tiny allocations may occur, but we should not leak
     # without bounds, which previously happened
     assert (final_mem - initial_baseline_mem) < 2e6
 

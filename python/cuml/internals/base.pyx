@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -421,7 +421,7 @@ class Base(TagsMixin,
             self.n_features_in_ = X.shape[1]
 
     def _more_tags(self):
-        # 'preserves_dtype' tag's Scikit definition currently only appies to
+        # 'preserves_dtype' tag's Scikit definition currently only applies to
         # transformers and whether the transform method conserves the dtype
         # (in that case returns an empty list, otherwise the dtype it
         # casts to).

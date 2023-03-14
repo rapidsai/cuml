@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -173,7 +173,7 @@ T create_gradient_rounding_factor(
   const int* head, int nnz, int n_samples, T alpha, rmm::cuda_stream_view stream)
 {
   rmm::device_uvector<T> buffer(n_samples, stream);
-  // calcuate the maximum number of edges conected to 1 vertex.
+  // calculate the maximum number of edges connected to 1 vertex.
   thrust::reduce_by_key(rmm::exec_policy(stream),
                         head,
                         head + nnz,

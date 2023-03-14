@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -230,7 +230,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         # limit number of CUDA blocks launched per GPU SM (or unlimited if 0)
         int blocks_per_sm
         # multiple (neighboring) threads infer on the same tree within a block
-        # this improves memory bandwith near tree root (but uses more shared
+        # this improves memory bandwidth near tree root (but uses more shared
         # memory)
         int threads_per_tree
         # n_items is how many input samples (items) any thread processes.
@@ -605,12 +605,12 @@ class ForestInference(Base,
            algo='AUTO'
 
     blocks_per_sm : integer (default=0)
-        (experimental) Indicates how the number of thread blocks to lauch
+        (experimental) Indicates how the number of thread blocks to launch
         for the inference kernel is determined.
 
         - ``0`` (default): Launches the number of blocks proportional to
           the number of data rows
-        - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
+        - ``>= 1``: Attempts to launch blocks_per_sm blocks per SM. This
           will fail if blocks_per_sm blocks result in more threads than the
           maximum supported number of threads per GPU. Even if successful,
           it is not guaranteed that blocks_per_sm blocks will run on an SM
@@ -793,12 +793,12 @@ class ForestInference(Base,
                algo='AUTO'
 
         blocks_per_sm : integer (default=0)
-            (experimental) Indicates how the number of thread blocks to lauch
+            (experimental) Indicates how the number of thread blocks to launch
             for the inference kernel is determined.
 
             - ``0`` (default): Launches the number of blocks proportional to
               the number of data rows
-            - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
+            - ``>= 1``: Attempts to launch blocks_per_sm blocks per SM. This
               will fail if blocks_per_sm blocks result in more threads than the
               maximum supported number of threads per GPU. Even if successful,
               it is not guaranteed that blocks_per_sm blocks will run on an SM
@@ -896,12 +896,12 @@ class ForestInference(Base,
                algo='AUTO'
 
         blocks_per_sm : integer (default=0)
-            (experimental) Indicates how the number of thread blocks to lauch
+            (experimental) Indicates how the number of thread blocks to launch
             for the inference kernel is determined.
 
             - ``0`` (default): Launches the number of blocks proportional to
               the number of data rows
-            - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
+            - ``>= 1``: Attempts to launch blocks_per_sm blocks per SM. This
               will fail if blocks_per_sm blocks result in more threads than the
               maximum supported number of threads per GPU. Even if successful,
               it is not guaranteed that blocks_per_sm blocks will run on an SM
