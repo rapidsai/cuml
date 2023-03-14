@@ -44,13 +44,14 @@ dependencies:
 - libraft-distance=23.04.*
 - libraft-headers=23.04.*
 - libraft-nn=23.04.*
+- librmm==23.04.*
 - nbsphinx
 - ninja
 - nltk
 - numpydoc
 - pip
 - pydata-sphinx-theme
-- pylibraft=23.04.*
+- pylibraft==23.4.*
 - pytest
 - pytest-cases
 - pytest-cov
@@ -58,7 +59,7 @@ dependencies:
 - python>=3.8,<3.11
 - raft-dask=23.04.*
 - recommonmark
-- rmm=23.04.*
+- rmm==23.4.*
 - scikit-build>=0.13.1
 - scikit-learn=1.2
 - seaborn
