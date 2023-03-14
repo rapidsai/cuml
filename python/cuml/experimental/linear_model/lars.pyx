@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -222,7 +222,7 @@ class Lars(Base, RegressorMixin):
                 Gram = cp.dot(X.T, X)
             except MemoryError as err:
                 if self.precompute:
-                    logger.debug("Not enought memory to store the Gram matrix."
+                    logger.debug("Not enough memory to store the Gram matrix."
                                  " Proceeding without it.")
         return Gram
 

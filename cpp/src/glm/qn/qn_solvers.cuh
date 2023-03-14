@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@
 namespace ML {
 namespace GLM {
 
-// TODO better way to deal with alignment? Smaller aligne possible?
+// TODO better way to deal with alignment? Smaller align possible?
 constexpr size_t qn_align = 256;
 
 template <typename T>
@@ -126,7 +126,7 @@ inline bool update_and_check(const char* solver,
     stop    = true;
   }
 
-  // if lineseach wasn't successful, undo the update.
+  // if linesearch wasn't successful, undo the update.
   if (!isLsSuccess || !isLsValid) {
     fx = fxp;
     x.copy_async(xp, stream);
@@ -203,7 +203,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T>& param,
   OPT_RETCODE retcode;
   LINE_SEARCH_RETCODE lsret;
   for (; *k <= param.max_iterations; (*k)++) {
-    // Save the curent x and gradient
+    // Save the current x and gradient
     xp.copy_async(x, stream);
     gradp.copy_async(grad, stream);
     fxp = fx;
@@ -354,7 +354,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T>& param,
   OPT_RETCODE retcode;
   LINE_SEARCH_RETCODE lsret;
   for ((*k) = 1; (*k) <= param.max_iterations; (*k)++) {
-    // Save the curent x and gradient
+    // Save the current x and gradient
     xp.copy_async(x, stream);
     gradp.copy_async(grad, stream);
     fxp = fx;
@@ -437,9 +437,9 @@ inline int qn_minimize(const raft::handle_t& handle,
   } else {
     // There might not be a better way to deal with dispatching
     // for the l1 case:
-    // The algorithm explicitely expects a differentiable
+    // The algorithm explicitly expects a differentiable
     // function f(x). It takes care of adding and
-    // handling the term l1norm(x) * l1_pen explicitely, i.e.
+    // handling the term l1norm(x) * l1_pen explicitly, i.e.
     // it needs to evaluate f(x) and its gradient separately
 
     rmm::device_uvector<T> tmp(owlqn_workspace_size(opt_param, x.len), stream);

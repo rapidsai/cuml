@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ void symRegPredict(const raft::handle_t& handle,
  * @param handle      cuML handle
  * @param input       device pointer to feature matrix
  * @param n_rows      number of rows of the feature matrix
- * @param params      host struct containg training hyperparameters
+ * @param params      host struct containing training hyperparameters
  * @param best_prog   The best program obtained during training. Inferences are made using this
  * @param output      device pointer to output probability(in col major format)
  */
@@ -104,7 +104,7 @@ void symClfPredictProbs(const raft::handle_t& handle,
  * @param handle      cuML handle
  * @param input       device pointer to feature matrix
  * @param n_rows      number of rows of the feature matrix
- * @param params      host struct containg training hyperparameters
+ * @param params      host struct containing training hyperparameters
  * @param best_prog   Best program obtained after training
  * @param output      Device pointer to output predictions
  */

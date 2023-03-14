@@ -365,7 +365,7 @@ def _masked_column_median(arr, masked_value):
     n_elems = arr.shape[0] - count_missing_values
 
     # If no elements remain after removing missing value, median for
-    # that colum is nan
+    # that column is nan
     nan_cols = cp.logical_or(nan_cols, n_elems <= 0)
 
     col_index = cp.arange(arr_sorted.shape[1])

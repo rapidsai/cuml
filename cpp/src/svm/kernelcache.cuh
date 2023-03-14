@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -206,7 +206,7 @@ class KernelCache {
       int n_cached;
       cache.GetCacheIdxPartitioned(
         unique_idx.data(), n_unique, ws_cache_idx.data(), &n_cached, stream);
-      // collect allready cached values
+      // collect already cached values
       cache.GetVecs(ws_cache_idx.data(), n_cached, tile.data(), stream);
       int non_cached = n_unique - n_cached;
       if (non_cached > 0) {

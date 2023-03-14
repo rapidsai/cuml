@@ -42,7 +42,7 @@ def plot_heatmap(df, col1, col2):
 
 def plot_search_results(res):
     """
-    Plots by fixing all paramters except one parameter to its best value using
+    Plots by fixing all parameters except one parameter to its best value using
     matplotlib.
 
     Accepts results from grid or random search from dask-ml.
@@ -64,7 +64,7 @@ def plot_search_results(res):
     try:
         # Grid Search
         params = res.param_grid
-        # Ploting results
+        # Plotting results
         fig, ax = plt.subplots(
             1, len(params), sharex="none", sharey="all", figsize=(20, 5)
         )
@@ -84,11 +84,11 @@ def plot_search_results(res):
             )
             ax[i].set_xlabel(p.upper())
     except Exception as e:
-        # Randomized Seach
+        # Randomized Search
         print("Cannot generate plots because of ", type(e), "trying again...")
         try:
             params = res.param_distributions
-            # Ploting results
+            # Plotting results
             fig, ax = plt.subplots(
                 1, len(params), sharex="none", sharey="all", figsize=(20, 5)
             )

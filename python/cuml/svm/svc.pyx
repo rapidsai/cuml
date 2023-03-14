@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         NU_SVR
 
     cdef struct SvmParameter:
-        # parameters for trainig
+        # parameters for training
         double C
         double cache_size
         int max_iter
@@ -157,7 +157,7 @@ class SVC(SVMBase,
         - 'scale': gamma will be se to ``1 / (n_features * X.var())``
 
     coef0 : float (default = 0.0)
-        Independent term in kernel function, only signifficant for poly and
+        Independent term in kernel function, only significant for poly and
         sigmoid
     tol : float (default = 1e-3)
         Tolerance for stopping criterion.
@@ -166,7 +166,7 @@ class SVC(SVMBase,
         the training time, at the cost of higher memory footprint. After
         training the kernel cache is deallocated.
         During prediction, we also need a temporary space to store kernel
-        matrix elements (this can be signifficant if n_support is large).
+        matrix elements (this can be significant if n_support is large).
         The cache_size variable sets an upper limit to the prediction
         buffer as well.
     class_weight : dict or string (default=None)
@@ -195,7 +195,7 @@ class SVC(SVMBase,
         Enable or disable probability estimates.
     random_state: int (default = None)
         Seed for random number generator (used only when probability = True).
-        Currently this argument is not used and a waring will be printed if the
+        Currently this argument is not used and a warning will be printed if the
         user provides it.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.

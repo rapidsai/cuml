@@ -22,7 +22,7 @@ if has_dask():
     from cuml.dask.manifold.umap import UMAP
 else:
     warnings.warn(
-        "Dask not found. All Dask-based multi-GPU operation is disabed."
+        "Dask not found. All Dask-based multi-GPU operation is disabled."
     )
 
 __all__ = ["UMAP"]
