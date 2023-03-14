@@ -681,7 +681,7 @@ def compare_svm(
     assert accuracy1 >= accuracy2 - accuracy_tol
 
     if b_tol is None:
-        b_tol = 100 * svm1.tol  # Using deafult tol=1e-3 leads to b_tol=0.1
+        b_tol = 100 * svm1.tol  # Using default tol=1e-3 leads to b_tol=0.1
 
     if accuracy2 < 0.5:
         # Increase error margin for classifiers that are not accurate.
@@ -732,7 +732,7 @@ def compare_svm(
             df2 = svm2.decision_function(X)
             # For classification, the class is determined by
             # sign(decision function). We should not expect tight match for
-            # the actual value of the function, therfore we set large tolerance
+            # the actual value of the function, therefore we set large tolerance
             assert svm_array_equal(
                 df1, df2, tol=1e-1, relative_diff=True, report_summary=True
             )
@@ -742,7 +742,7 @@ def compare_svm(
                 accuracy2,
             )
 
-    # Compare support_ (dataset indicies of points that form the support
+    # Compare support_ (dataset indices of points that form the support
     # vectors) and ensure that some overlap (~1/8) between two exists
     support1 = set(svm1.support_)
     support2 = set(svm2.support_)

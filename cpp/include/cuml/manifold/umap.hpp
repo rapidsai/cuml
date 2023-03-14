@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -143,9 +143,9 @@ void fit_sparse(const raft::handle_t& handle,
  * Dense transform
  *
  * @param[in] handle: raft::handle_t
- * @param[in] X: pointer to input array to be infered
- * @param[in] n: n_samples of input array to be infered
- * @param[in] d: n_features of input array to be infered
+ * @param[in] X: pointer to input array to be inferred
+ * @param[in] n: n_samples of input array to be inferred
+ * @param[in] d: n_features of input array to be inferred
  * @param[in] orig_X: pointer to original training array
  * @param[in] orig_n: number of rows in original training array
  * @param[in] embedding: pointer to embedding created during training
@@ -168,10 +168,10 @@ void transform(const raft::handle_t& handle,
  * Sparse transform
  *
  * @param[in] handle: raft::handle_t
- * @param[in] indptr: pointer to index pointer array of input array to be infered
- * @param[in] indices: pointer to index array of input array to be infered
- * @param[in] data: pointer to data array of input array to be infered
- * @param[in] nnz: number of stored values of input array to be infered
+ * @param[in] indptr: pointer to index pointer array of input array to be inferred
+ * @param[in] indices: pointer to index array of input array to be inferred
+ * @param[in] data: pointer to data array of input array to be inferred
+ * @param[in] nnz: number of stored values of input array to be inferred
  * @param[in] n: n_samples of input array
  * @param[in] d: n_features of input array
  * @param[in] orig_x_indptr: pointer to index pointer array of original training array

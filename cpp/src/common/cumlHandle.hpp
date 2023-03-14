@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ class HandleMap {
    *
    * @return std::pair with handle and error code. If error code is not CUML_SUCCESS
    *                   the handle is INVALID_HANDLE. Error code CUML_INAVLID_HANDLE
-   *                   is returned if the provided `handle` is invald.
+   *                   is returned if the provided `handle` is invalid.
    */
   std::pair<raft::handle_t*, cumlError_t> lookupHandlePointer(cumlHandle_t handle) const;
 
@@ -51,7 +51,7 @@ class HandleMap {
    *
    * @return cumlError_t CUML_SUCCESS or CUML_INVALID_HANDLE.
    *                   Error code CUML_INAVLID_HANDLE is returned if the provided
-   *                   `handle` is invald.
+   *                   `handle` is invalid.
    */
   cumlError_t removeAndDestroyHandle(cumlHandle_t handle);
 

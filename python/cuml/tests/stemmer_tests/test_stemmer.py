@@ -33,7 +33,7 @@ def get_words():
     word_ls = []
     for item in treebank.fileids():
         for (word, tag) in treebank.tagged_words(item):
-            # assuming the words are allready lowered
+            # assuming the words are already lowered
             word = word.lower()
             word_ls.append(word)
 

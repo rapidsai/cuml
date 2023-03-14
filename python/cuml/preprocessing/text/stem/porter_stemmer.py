@@ -150,7 +150,7 @@ class PorterStemmer:
             SSES -> SS                         caresses  ->  caress
             IES  -> I                          ponies    ->  poni
                                                ties      ->  ti
-                                               (### this is for orignal impl)
+                                               (### this is for original impl)
             SS   -> SS                         caress    ->  caress
             S    ->                            cats      ->  cat
         """
@@ -799,7 +799,7 @@ def apply_rule_list(word_str_ser, rules, condition_flag):
 
 def build_can_replace_mask(len_mask, mask):
     """
-    Creates a cudf series represeting can_replace_mask of length=len_mask
+    Creates a cudf series representing can_replace_mask of length=len_mask
     if mask is None else returns mask
     """
     if mask is None:
