@@ -23,5 +23,5 @@ if has_daskglm():
     )
 else:
     warnings.warn(
-        "Dask-glm not found. Multi-GPU logistic regression is disabed."
+        "Dask-glm not found. Multi-GPU logistic regression is disabled."
     )

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ namespace TSNE {
 namespace BH {
 
 /**
- * Intializes the states of objects. This speeds the overall kernel up.
+ * Initializes the states of objects. This speeds the overall kernel up.
  */
 template <typename value_idx, typename value_t>
 __global__ void InitializationKernel(/*int *restrict errd, */

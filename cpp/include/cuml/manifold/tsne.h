@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -121,8 +121,8 @@ struct TSNEParams {
  * @param[out] Y                   The column-major final embedding in device memory
  * @param[in]  n                   Number of rows in data X.
  * @param[in]  p                   Number of columns in data X.
- * @param[in]  knn_indices         Array containing nearest neighors indices.
- * @param[in]  knn_dists           Array containing nearest neighors distances.
+ * @param[in]  knn_indices         Array containing nearest neighbors indices.
+ * @param[in]  knn_dists           Array containing nearest neighbors distances.
  * @param[in]  params              Parameters for TSNE model
  * @param[out] kl_div              (optional) KL divergence output
  *
@@ -155,8 +155,8 @@ void TSNE_fit(const raft::handle_t& handle,
  * @param[in]  nnz                 The number of non-zero entries in the CSR.
  * @param[in]  n                   Number of rows in data X.
  * @param[in]  p                   Number of columns in data X.
- * @param[in]  knn_indices         Array containing nearest neighors indices.
- * @param[in]  knn_dists           Array containing nearest neighors distances.
+ * @param[in]  knn_indices         Array containing nearest neighbors indices.
+ * @param[in]  knn_dists           Array containing nearest neighbors distances.
  * @param[in]  params              Parameters for TSNE model
  * @param[out] kl_div              (optional) KL divergence output
  *

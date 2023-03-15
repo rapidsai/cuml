@@ -188,7 +188,7 @@ def batched_fmin_lbfgs_b(
                 task_str = task[ib].tobytes()
                 task_str_strip = task[ib].tobytes().strip(b"\x00").strip()
                 if task_str.startswith(b"FG"):
-                    # needs function evalation
+                    # needs function evaluation
                     f[ib] = fk[ib]
                     g[ib] = gk[ib * n : (ib + 1) * n]
                 elif task_str.startswith(b"NEW_X"):

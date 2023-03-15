@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ static const float MIN_K_DIST_SCALE   = 1e-3;
  *
  * @param local_connectivity: The local connectivity required -- i.e. the number of nearest
  *                            neighbors that should be assumed to be connected at a local
- *                            level. The higher this value the more connecte the manifold
+ *                            level. The higher this value the more connected the manifold
  *                            becomes locally. In practice, this should not be more than the
  *                            local intrinsic dimension of the manifold.
  *

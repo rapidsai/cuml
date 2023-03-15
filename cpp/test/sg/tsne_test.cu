@@ -163,7 +163,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
                       false);
     handle.sync_stream(stream);
 
-    // Compute theorical KL div
+    // Compute theoretical KL div
     results.kl_div_ref =
       get_kl_div(model_params, runner.COO_Matrix, pw_emb_dists.data(), n, stream);
 

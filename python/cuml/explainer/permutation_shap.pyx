@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -153,7 +153,7 @@ class PermutationExplainer(SHAPBase):
     dtype : np.float32 or np.float64 (default = None)
         Parameter to specify the precision of data to generate to call the
         model. If not specified, the explainer will try to get the dtype
-        of the model, if it cannot be queried, then it will defaul to
+        of the model, if it cannot be queried, then it will default to
         np.float32.
     output_type : 'cupy' or 'numpy' (default = 'numpy')
         Parameter to specify the type of data to output.

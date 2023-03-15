@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -204,7 +204,7 @@ void adjust_threshold_to_treelite(
 {
   // in treelite (take left node if val [op] threshold),
   // the meaning of the condition is reversed compared to FIL;
-  // thus, "<" in treelite corresonds to comparison ">=" used by FIL
+  // thus, "<" in treelite corresponds to comparison ">=" used by FIL
   // https://github.com/dmlc/treelite/blob/master/include/treelite/tree.h#L243
   // TODO(levsnv): remove workaround once confirmed to work with empty category lists in Treelite
   if (isnan(*pthreshold)) {

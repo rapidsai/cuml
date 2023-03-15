@@ -70,7 +70,7 @@ def pytest_collection_modifyitems(config, items):
             for n in node_list:
                 name = getattr(n, "originalname", n.name)
 
-                # Add the interior node if it doesnt exist. Must be a function
+                # Add the interior node if it doesn't exist. Must be a function
                 # to be a leaf
                 if name not in curr_node:
                     if isinstance(n, _pytest.python.Function):

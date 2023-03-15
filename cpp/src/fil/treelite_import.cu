@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -229,7 +229,7 @@ void adjust_threshold(real_t* pthreshold, bool* swap_child_nodes, tl::Operator c
 {
   // in treelite (take left node if val [op] threshold),
   // the meaning of the condition is reversed compared to FIL;
-  // thus, "<" in treelite corresonds to comparison ">=" used by FIL
+  // thus, "<" in treelite corresponds to comparison ">=" used by FIL
   // https://github.com/dmlc/treelite/blob/master/include/treelite/tree.h#L243
   if (isnan(*pthreshold)) {
     *swap_child_nodes = !*swap_child_nodes;
@@ -482,7 +482,7 @@ void tl2fil_common(forest_params_t* params,
                    const tl::ModelImpl<T, L>& model,
                    const treelite_params_t* tl_params)
 {
-  // fill in forest-indendent params
+  // fill in forest-independent params
   params->algo      = tl_params->algo;
   params->threshold = tl_params->threshold;
 

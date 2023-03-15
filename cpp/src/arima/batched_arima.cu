@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -469,7 +469,7 @@ void batched_loglike(raft::handle_t& handle,
   }
 
   if (host_loglike) {
-    /* Tranfer log-likelihood device -> host */
+    /* Transfer log-likelihood device -> host */
     raft::update_host(loglike, d_loglike, batch_size, stream);
   }
 }
@@ -931,7 +931,7 @@ void _start_params(raft::handle_t& handle,
                         order.k,
                         params.mu);
 
-  // Estimate a seasonal ARMA fit independantly
+  // Estimate a seasonal ARMA fit independently
   if (order.P + order.Q)
     _arma_least_squares(handle,
                         params.sar,

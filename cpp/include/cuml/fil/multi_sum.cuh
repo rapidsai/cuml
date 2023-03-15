@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
  template parameters: data [T]ype, reduction [R]adix
  function parameters:
  @data[] holds one value per thread in shared memory
- @n_groups is the number of indendent reductions
+ @n_groups is the number of independent reductions
  @n_values is the size of each individual reduction,
    that is the number of values to be reduced to a single value
  function returns: one sum per thread, for @n_groups first threads.
