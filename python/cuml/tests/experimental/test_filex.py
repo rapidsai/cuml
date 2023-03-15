@@ -133,7 +133,7 @@ def _build_and_save_xgboost(
     [unit_param(1), unit_param(5), quality_param(50), stress_param(90)],
 )
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
-@pytest.mark.skipif(has_xgboost(), reason="need to install xgboost")
+@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 def test_fil_classification(
     train_device,
     infer_device,
@@ -218,7 +218,7 @@ def test_fil_classification(
 @pytest.mark.parametrize(
     "max_depth", [unit_param(3), unit_param(7), stress_param(11)]
 )
-@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 def test_fil_regression(
     train_device,
     infer_device,
@@ -483,7 +483,7 @@ def small_classifier_and_preds(tmpdir_factory, request):
 
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
-@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 @pytest.mark.parametrize("precision", ["native", "float32", "float64"])
 def test_precision_xgboost(
     train_device, infer_device, precision, small_classifier_and_preds
@@ -536,7 +536,7 @@ def test_threads_per_tree(
 
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
-@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 def test_output_args(train_device, infer_device, small_classifier_and_preds):
     with using_device_type(train_device):
         model_path, model_type, X, xgb_preds = small_classifier_and_preds
@@ -606,7 +606,7 @@ def to_categorical(features, n_categorical, invalid_frac, random_state):
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("num_classes", [2, 5])
 @pytest.mark.parametrize("n_categorical", [0, 5])
-@pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
+@pytest.mark.skipif(not has_lightgbm(), reason="need to install lightgbm")
 def test_lightgbm(
     train_device, infer_device, tmp_path, num_classes, n_categorical
 ):
@@ -658,9 +658,9 @@ def test_lightgbm(
         # binary classification
         gbm_proba = bst.predict(X_predict)
         with using_device_type(infer_device):
-            fil_proba = fm.predict_proba(X_predict)[:, 1]
+            fil_proba = fm.predict_proba(X_predict)[:, 0]
             gbm_preds = (gbm_proba > 0.5).astype(float)
-            fil_preds = fm.predict(X_predict)
+            fil_preds = fm.predict(X_predict)[:, 0]
         assert array_equal(gbm_preds, fil_preds)
         np.testing.assert_allclose(
             gbm_proba, fil_proba, atol=proba_atol[num_classes > 2]

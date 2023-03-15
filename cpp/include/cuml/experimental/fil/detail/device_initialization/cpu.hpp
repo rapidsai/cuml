@@ -30,7 +30,7 @@ namespace device_initialization {
  * (as a GPU no-op).
  */
 template<typename forest_t, raft_proto::device_type D>
-std::enable_if_t<!raft_proto::GPU_ENABLED || D == raft_proto::device_type::cpu, void> initialize_device(raft_proto::device_id<D> device) {}
+std::enable_if_t<std::disjunction_v<std::bool_constant<!raft_proto::GPU_ENABLED>, std::bool_constant<D == raft_proto::device_type::cpu>>, void> initialize_device(raft_proto::device_id<D> device) {}
 
 }
 }

@@ -38,7 +38,7 @@ namespace device_initialization {
  * memory.
  */
 template<typename forest_t, raft_proto::device_type D>
-std::enable_if_t<raft_proto::GPU_ENABLED && D==raft_proto::device_type::gpu, void> initialize_device(raft_proto::device_id<D> device) {
+std::enable_if_t<std::conjunction_v<std::bool_constant<raft_proto::GPU_ENABLED>, std::bool_constant<D==raft_proto::device_type::gpu>>, void> initialize_device(raft_proto::device_id<D> device) {
   auto device_context = raft_proto::device_setter(device);
   auto max_shared_mem_per_block = get_max_shared_mem_per_block(device);
   // Run solely for side-effect of caching SM count
