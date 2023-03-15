@@ -111,6 +111,7 @@ class KernelCache {
               float cache_size = 200,
               SvmType svmType  = C_SVC)
     : cache(handle.get_stream(), n_rows, cache_size),
+      handle(handle),
       kernel(kernel),
       x(x),
       n_rows(n_rows),
@@ -230,7 +231,7 @@ class KernelCache {
           x_ws.data(), non_cached, n_cols);
         raft::distance::matrix::detail::DenseMatrix<math_t> kernel_mat(
           tile_new, n_rows, non_cached);
-        (*kernel)(x_mat, x_ws_mat, kernel_mat, stream);
+        (*kernel)(x_mat, x_ws_mat, kernel_mat, handle);
         // We need AssignCacheIdx to be finished before calling StoreCols
         cache.StoreVecs(tile_new, n_rows, non_cached, ws_cache_idx.data() + n_cached, stream);
       }
@@ -245,7 +246,7 @@ class KernelCache {
         raft::distance::matrix::detail::DenseMatrix<math_t> x_ws_mat(x_ws.data(), n_unique, n_cols);
         raft::distance::matrix::detail::DenseMatrix<math_t> kernel_mat(
           tile.data(), n_rows, n_unique);
-        (*kernel)(x_mat, x_ws_mat, kernel_mat, stream);
+        (*kernel)(x_mat, x_ws_mat, kernel_mat, handle);
       }
     }
     return tile.data();

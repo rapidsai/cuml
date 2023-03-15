@@ -62,7 +62,7 @@ void svrFitX(const raft::handle_t& handle,
 
   cudaStream_t stream = handle_impl.get_stream();
   raft::distance::kernels::GramMatrixBase<math_t>* kernel =
-    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params, handle_impl);
+    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params);
 
   SmoSolver<math_t> smo(handle_impl, param, kernel_params.kernel, kernel);
   smo.Solve(matrix,

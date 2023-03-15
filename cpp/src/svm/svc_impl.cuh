@@ -84,7 +84,7 @@ void svcFitX(const raft::handle_t& handle,
     labels, n_rows, model.unique_labels, model.n_classes, y.data(), 1, stream);
 
   raft::distance::kernels::GramMatrixBase<math_t>* kernel =
-    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params, handle_impl);
+    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params);
   SmoSolver<math_t> smo(handle_impl, param, kernel_params.kernel, kernel);
   smo.Solve(matrix,
             n_rows,
@@ -153,7 +153,7 @@ void svcPredictX(const raft::handle_t& handle,
   }
 
   raft::distance::kernels::GramMatrixBase<math_t>* kernel =
-    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params, handle_impl);
+    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params);
 
   /*
     // kernel computation:
@@ -245,7 +245,7 @@ void svcPredictX(const raft::handle_t& handle,
     (*kernel)(transpose_kernel ? *kernel_input2 : *kernel_input1,
               transpose_kernel ? *kernel_input1 : *kernel_input2,
               kernel_out,
-              stream,
+              handle_impl,
               transpose_kernel ? dot_input2 : dot_input1,
               transpose_kernel ? dot_input1 : dot_input2);
 

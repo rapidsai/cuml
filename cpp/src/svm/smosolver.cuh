@@ -325,7 +325,7 @@ class SmoSolver {
         (*kernel)(*x_ws_matrix,
                   *x_ws_matrix,
                   kernel_matrix,
-                  stream,
+                  handle,
                   matrix_dot_ws.data(),
                   matrix_dot_ws.data());
       }
@@ -409,7 +409,7 @@ class SmoSolver {
             (*kernel)(*batch_matrix,
                       *x_ws_matrix,
                       kernel_matrix,
-                      stream,
+                      handle,
                       matrix_dot.data() + offset,
                       matrix_dot_ws.data());
 
@@ -431,7 +431,7 @@ class SmoSolver {
           // compute kernel
           DenseMatrix<math_t> kernel_matrix(kernel_tile_big.data(), n_rows, nnz_da);
           (*kernel)(
-            matrix, *x_ws_matrix, kernel_matrix, stream, matrix_dot.data(), matrix_dot_ws.data());
+            matrix, *x_ws_matrix, kernel_matrix, handle, matrix_dot.data(), matrix_dot_ws.data());
 
           RAFT_CUDA_TRY(cudaPeekAtLastError());
           raft::common::nvtx::pop_range();

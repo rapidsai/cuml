@@ -251,7 +251,7 @@ TYPED_TEST_P(KernelCacheTest, EvalTest)
   float cache_size = 0;
 
   for (auto params : param_vec) {
-    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(params, this->handle);
+    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(params);
     KernelCache<TypeParam> cache(this->handle,
                                  this->x_dev.data(),
                                  this->n_rows,
@@ -277,7 +277,7 @@ TYPED_TEST_P(KernelCacheTest, CacheEvalTest)
   KernelParams param{LINEAR, 3, 1, 0};
   float cache_size = sizeof(TypeParam) * this->n_rows * 32 / (1024.0 * 1024);
 
-  GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param, this->handle);
+  GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param);
   KernelCache<TypeParam> cache(this->handle,
                                this->x_dev.data(),
                                this->n_rows,
@@ -303,7 +303,7 @@ TYPED_TEST_P(KernelCacheTest, SvrEvalTest)
   int ws_idx_svr[6] = {0, 5, 1, 4, 3, 7};
   raft::update_device(this->ws_idx_dev.data(), ws_idx_svr, 6, this->stream);
 
-  GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param, this->handle);
+  GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param);
   KernelCache<TypeParam> cache(this->handle,
                                this->x_dev.data(),
                                this->n_rows,
@@ -724,7 +724,7 @@ class SmoSolverTest : public ::testing::Test {
     raft::update_device(kernel_dev.data(), kernel_host, n_ws * n_rows, stream);
     RAFT_CUDA_TRY(cudaMemsetAsync(delta_alpha_dev.data(), 0, n_ws * sizeof(math_t), stream));
 
-    kernel = std::make_unique<GramMatrixBase<math_t>>(handle);
+    kernel = std::make_unique<GramMatrixBase<math_t>>();
   }
 
  public:
@@ -921,7 +921,7 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
     param.tol          = p.tol;
     // param.max_iter = p.max_iter;
     GramMatrixBase<TypeParam>* kernel =
-      KernelFactory<TypeParam>::create(p.kernel_params, this->handle);
+      KernelFactory<TypeParam>::create(p.kernel_params);
     SmoSolver<TypeParam> smo(this->handle, param, p.kernel_params.kernel, kernel);
     {
       SvmModel<TypeParam> model1{0, this->n_cols, 0, nullptr, nullptr, nullptr, 0, nullptr};
