@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         NU_SVR
 
     cdef struct SvmParameter:
-        # parameters for trainig
+        # parameters for training
         double C
         double cache_size
         int max_iter
@@ -130,7 +130,7 @@ class SVMBase(Base,
         - 'scale': gamma will be se to ``1 / (n_features * X.var())``
 
     coef0 : float (default = 0.0)
-        Independent term in kernel function, only signifficant for poly and
+        Independent term in kernel function, only significant for poly and
         sigmoid
     tol : float (default = 1e-3)
         Tolerance for stopping criterion.
@@ -139,7 +139,7 @@ class SVMBase(Base,
         the training time, at the cost of higher memory footprint. After
         training the kernel cache is deallocated.
         During prediction, we also need a temporary space to store kernel
-        matrix elements (this can be signifficant if n_support is large).
+        matrix elements (this can be significant if n_support is large).
         The cache_size variable sets an upper limit to the prediction
         buffer as well.
     max_iter : int (default = 100*n_samples)
@@ -169,7 +169,7 @@ class SVMBase(Base,
         future to represent number support vectors for each class (like
         in Sklearn, see Issue #956)
     support_ : int, shape = [n_support]
-        Device array of suppurt vector indices
+        Device array of support vector indices
     support_vectors_ : float, shape [n_support, n_cols]
         Device array of support vectors
     dual_coef_ : float, shape = [1, n_support]
@@ -285,7 +285,7 @@ class SVMBase(Base,
         """
         Get KernelType from the kernel string.
 
-        Paramaters
+        Parameters
         ----------
         kernel: string, ('linear', 'poly', 'rbf', or 'sigmoid')
         """
@@ -536,7 +536,7 @@ class SVMBase(Base,
             ndarray, cuda array interface compliant array like CuPy
 
         predict_class : boolean
-            Switch whether to retun class label (true), or decision function
+            Switch whether to return class label (true), or decision function
             value (false).
 
         Returns

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -209,7 +209,7 @@ inline void divide_by_min_build_index(const DataT* d_matrix,
   auto counting = thrust::make_counting_iterator(0);
 
   // In the first pass, compute d_batch and initialize the matrix that will
-  // be used to compute d_size and d_index (1 for the first occurence of the
+  // be used to compute d_size and d_index (1 for the first occurrence of the
   // minimum of each row, else 0)
   rmm::device_uvector<int> cumul(batch_size * n_sub, stream);
   int* d_cumul = cumul.data();

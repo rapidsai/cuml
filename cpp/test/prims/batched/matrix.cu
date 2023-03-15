@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ enum MatrixOperation {
   AZT_op,         // Matrix-vector product (with GEMM)
   ZA_op,          // Vector-matrix product (with GEMM)
   ApB_op,         // Addition
-  AmB_op,         // Substraction
+  AmB_op,         // Subtraction
   AkB_op,         // Kronecker product
   AsolveZ_op,     // Linear equation solver Ax=b
   LaggedZ_op,     // Lag matrix

@@ -20,5 +20,5 @@ if has_dask():
     from cuml.dask.solvers.cd import CD  # NOQA
 else:
     warnings.warn(
-        "Dask not found. All Dask-based multi-GPU operation is disabed."
+        "Dask not found. All Dask-based multi-GPU operation is disabled."
     )
