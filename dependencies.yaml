@@ -58,6 +58,12 @@ files:
     includes:
       - common_build
       - py_build
+  py_run:
+    output: pyproject
+    extras:
+      table: project
+    includes:
+      - py_run
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -115,18 +121,23 @@ dependencies:
           - treelite_runtime=3.1.0
   py_run:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         packages:
+          - cudf=23.4.*
+          - cupy>=9.5.0,<12.0.0a0
           - dask>=2023.1.1
+          - dask-cuda=23.4.*
+          - dask-cudf=23.4.*
           - distributed>=2023.1.1
           - joblib>=0.11
-      - output_types: conda
+          - numba
+          - seaborn
+          - scipy
+          - raft-dask=23.4.*
+          - treelite=3.1.0
+      - output_types: pyproject
         packages:
-          - cudf=23.04.*
-          - raft-dask=23.04.*
-          - cupy>=7.8.0,<12.0.0a0
-          - dask-cuda=23.04.*
-          - dask-cudf=23.04.*
+          - treelite_runtime=3.1.0
     specific:
       - output_types: requirements
         matrices:
