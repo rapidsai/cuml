@@ -63,7 +63,7 @@ dependencies:
 - recommonmark
 - rmm==23.4.*
 - scikit-build>=0.13.1
-- scikit-learn=1.2
+- scikit-learn==1.2
 - scipy
 - seaborn
 - sphinx-copybutton

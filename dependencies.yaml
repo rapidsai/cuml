@@ -238,7 +238,7 @@ dependencies:
           - numpydoc
           - pydata-sphinx-theme
           - recommonmark
-          - &scikit_learn scikit-learn=1.2
+          - &scikit_learn scikit-learn==1.2
           - sphinx<6
           - sphinx-copybutton
           - sphinx-markdown-tables
