@@ -11,12 +11,12 @@ dependencies:
 - cmake>=3.23.1,!=3.25.0
 - cuda-python>=11.7.1,<12.0
 - cudatoolkit=11.8
-- cudf=23.4.*
+- cudf==23.4.*
 - cupy>=9.5.0,<12.0.0a0
 - cxx-compiler
 - cython>=0.29,<0.30
-- dask-cuda=23.4.*
-- dask-cudf=23.4.*
+- dask-cuda==23.4.*
+- dask-cudf==23.4.*
 - dask-ml
 - dask>=2023.1.1
 - distributed>=2023.1.1
@@ -59,7 +59,7 @@ dependencies:
 - pytest-cov
 - pytest-xdist
 - python>=3.8,<3.11
-- raft-dask=23.4.*
+- raft-dask==23.4.*
 - recommonmark
 - rmm==23.4.*
 - scikit-build>=0.13.1
@@ -71,7 +71,6 @@ dependencies:
 - sphinx<6
 - statsmodels
 - sysroot_linux-64==2.17
-- treelite=3.1.0
 - treelite==3.1.0
 - umap-learn
 - pip:
