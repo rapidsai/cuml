@@ -54,6 +54,7 @@ dependencies:
 - pydata-sphinx-theme
 - pylibraft==23.4.*
 - pytest
+- pytest-benchmark
 - pytest-cases
 - pytest-cov
 - pytest-xdist
@@ -65,7 +66,6 @@ dependencies:
 - scikit-learn=1.2
 - scipy
 - seaborn
-- sparse
 - sphinx-copybutton
 - sphinx-markdown-tables
 - sphinx<6

@@ -64,6 +64,13 @@ files:
       table: project
     includes:
       - py_run
+  py_test:
+    output: pyproject
+    extras:
+      table: project.optional-dependencies
+      key: test
+    includes:
+      - test_python
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -256,21 +263,18 @@ dependencies:
               - python>=3.8,<3.11
   test_python:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         packages:
-          - cython>=0.29,<0.30
           - dask-ml
-          - hdbscan
           - hypothesis>=6.0,<7
           - nltk
           - numpydoc
           - pytest
+          - pytest-benchmark
           - pytest-cases
           - pytest-cov
           - pytest-xdist
           - *scikit_learn
-          - seaborn
-          - sparse
           - statsmodels
           - umap-learn
       - output_types: conda
@@ -280,6 +284,15 @@ dependencies:
               # TODO: Figure out what to do with this dependency
               # since the repo is now archived.
               - git+https://github.com/dask/dask-glm@main
+          # TODO: The conda-forge package is being generated from Leland's fork
+          # (https://github.com/lmcinnes/hdbscan) which is far behind now. Do
+          # we need to have that updated?
+          - hdbscan
+      - output_types: pyproject
+        packages:
+          - dask-glm @ git+https://github.com/dask/dask-glm@main
+            # TODO: Can we stop pulling from the master branch now that there was a release in October?
+          - hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master
   test_notebooks:
     common:
       - output_types: [conda, requirements]
