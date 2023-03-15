@@ -138,6 +138,9 @@ dependencies:
           - distributed>=2023.1.1
           - joblib>=0.11
           - numba
+            # TODO: Are seaborn and scipy really hard dependencies, or should
+            # we make them optional (i.e. an extra for pip
+            # installation/run_constrained for conda)?
           - seaborn
           - scipy
           - raft-dask=23.4.*
