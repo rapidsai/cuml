@@ -18,14 +18,17 @@ from cuml.benchmark import datagen
 from cuml.common.device_selection import using_device_type
 from cuml.internals.device_type import DeviceType
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+    safe_import,
+)
 import sklearn.ensemble as skl_ensemble
 import pickle as pickle
 import os
 import cuml
 from cuml.internals import input_utils
-from cuml.internals.safe_imports import cpu_only_import
 from time import perf_counter
 
 np = cpu_only_import("numpy")
@@ -33,6 +36,7 @@ pd = cpu_only_import("pandas")
 cudf = gpu_only_import("cudf")
 cuda = gpu_only_import_from("numba", "cuda")
 cp = gpu_only_import("cupy")
+xgb = safe_import("xgboost")
 
 
 def call(m, func_name, X, y=None):
@@ -122,11 +126,6 @@ def _build_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking"""
     from cuml.internals.import_utils import has_xgboost
 
-    if has_xgboost():
-        import xgboost as xgb
-    else:
-        raise ImportError("No XGBoost package found")
-
     train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
     dtrain = xgb.DMatrix(train_data, label=train_label)
@@ -181,11 +180,6 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
     parameters"""
     with using_device_type("gpu"):
         from cuml.internals.import_utils import has_xgboost
-
-        if has_xgboost():
-            import xgboost as xgb
-        else:
-            raise ImportError("No XGBoost package found")
 
         train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
@@ -355,11 +349,6 @@ def _build_treelite_classifier(m, data, args, tmpdir):
     from cuml.internals.import_utils import has_xgboost
     import treelite
     import treelite_runtime
-
-    if has_xgboost():
-        import xgboost as xgb
-    else:
-        raise ImportError("No XGBoost package found")
 
     max_depth = args["max_depth"]
     num_rounds = args["num_rounds"]
