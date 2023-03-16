@@ -186,10 +186,7 @@ def test_fil_classification(
         fm = ForestInference.load(model_path, output_class=True)
     with using_device_type(infer_device):
         fil_preds = np.reshape(
-            np.asarray(
-                fm.predict(X_validation, threshold=0.50),
-                dtype=xgb_preds_int.dtype,
-            ),
+            np.asarray(fm.predict(X_validation, threshold=0.50)),
             xgb_preds_int.shape,
         )
         fil_proba = np.reshape(
