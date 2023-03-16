@@ -96,14 +96,15 @@ struct forest_model {
    */
   template <typename io_t>
   void predict(
+    predict_t predict_type,
     raft_proto::buffer<io_t>& output,
     raft_proto::buffer<io_t> const& input,
     raft_proto::cuda_stream stream = raft_proto::cuda_stream{},
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
-    std::visit([this, &output, &input, &stream, &specified_chunk_size](auto&& concrete_forest) {
+    std::visit([this, predict_type, &output, &input, &stream, &specified_chunk_size](auto&& concrete_forest) {
       if constexpr(std::is_same_v<typename std::remove_reference_t<decltype(concrete_forest)>::io_type, io_t>) {
-        concrete_forest.predict(output, input, stream, specified_chunk_size);
+        concrete_forest.predict(predict_type, output, input, stream, specified_chunk_size);
       } else {
         throw type_error("Input type does not match model_type");
       }
@@ -135,15 +136,17 @@ struct forest_model {
   template <typename io_t>
   void predict(
     raft_proto::handle_t const& handle,
+    predict_t predict_type,
     raft_proto::buffer<io_t>& output,
     raft_proto::buffer<io_t> const& input,
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
-    std::visit([this, &handle, &output, &input, &specified_chunk_size](auto&& concrete_forest) {
+    std::visit([this, predict_type, &handle, &output, &input, &specified_chunk_size](auto&& concrete_forest) {
       using model_io_t = typename std::remove_reference_t<decltype(concrete_forest)>::io_type;
       if constexpr(std::is_same_v<model_io_t, io_t>) {
         if (output.memory_type() == memory_type() && input.memory_type() == memory_type()) {
           concrete_forest.predict(
+            predict_type,
             output,
             input,
             handle.get_next_usable_stream(),
@@ -197,6 +200,7 @@ struct forest_model {
               };
             }
             concrete_forest.predict(
+              predict_type,
               partition_out,
               partition_in,
               stream,
@@ -244,6 +248,7 @@ struct forest_model {
   template <typename io_t>
   void predict(
     raft_proto::handle_t const& handle,
+    predict_t predict_type,
     io_t* output,
     io_t* input,
     std::size_t num_rows,
@@ -262,7 +267,7 @@ struct forest_model {
       num_rows * num_features(),
       in_mem_type
     };
-    predict(handle, out_buffer, in_buffer, specified_chunk_size);
+    predict(handle, predict_type, out_buffer, in_buffer, specified_chunk_size);
   }
 
  private:

@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <optional>
 #include <cuml/experimental/fil/constants.hpp>
+#include <cuml/experimental/fil/predict_type.hpp>
 #include <cuml/experimental/fil/detail/cpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -78,6 +79,7 @@ template<
 >
 std::enable_if_t<std::disjunction_v<std::bool_constant<D==raft_proto::device_type::cpu>, std::bool_constant<!raft_proto::GPU_ENABLED>>, void> infer(
   forest_t const& forest,
+  predict_t pred_type,
   postprocessor<typename forest_t::io_type> const& postproc,
   typename forest_t::io_type* output,
   typename forest_t::io_type* input,

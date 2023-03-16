@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <optional>
 #include <cuml/experimental/fil/constants.hpp>
+#include <cuml/experimental/fil/predict_type.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/gpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/infer_kernel/gpu.cuh>
@@ -89,6 +90,7 @@ template<
 >
 std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   forest_t const& forest,
+  predict_t pred_type,
   postprocessor<typename forest_t::io_type> const& postproc,
   typename forest_t::io_type* output,
   typename forest_t::io_type* input,
