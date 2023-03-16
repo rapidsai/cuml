@@ -18,6 +18,7 @@
 #include <iostream>
 #include <optional>
 #include <type_traits>
+#include <cuml/experimental/fil/output_kind.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/infer/cpu.hpp>
 #ifdef CUML_ENABLE_GPU
@@ -52,6 +53,7 @@ namespace detail {
  * outputs of leaves (nullptr for no vector output)
  * @param categorical_data Pointer to external categorical data storage if
  * required
+ * @param output_type Output type
  * @param specified_chunk_size If non-nullopt, the size of "mini-batches"
  * used for distributing work across threads
  * @param device The device on which to execute evaluation
@@ -69,6 +71,7 @@ void infer(
   bool has_categorical_nodes,
   typename forest_t::io_type* vector_output=nullptr,
   typename forest_t::node_type::index_type* categorical_data=nullptr,
+  output_kind output_type=output_kind::default_kind,
   std::optional<index_type> specified_chunk_size=std::nullopt,
   raft_proto::device_id<D> device=raft_proto::device_id<D>{},
   raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
@@ -86,6 +89,7 @@ void infer(
           output_count,
           nullptr,
           nullptr,
+          output_type,
           specified_chunk_size,
           device,
           stream
@@ -101,6 +105,7 @@ void infer(
           output_count,
           nullptr,
           nullptr,
+          output_type,
           specified_chunk_size,
           device,
           stream
@@ -117,6 +122,7 @@ void infer(
         output_count,
         nullptr,
         categorical_data,
+        output_type,
         specified_chunk_size,
         device,
         stream
@@ -135,6 +141,7 @@ void infer(
           output_count,
           vector_output,
           nullptr,
+          output_type,
           specified_chunk_size,
           device,
           stream
@@ -150,6 +157,7 @@ void infer(
           output_count,
           vector_output,
           nullptr,
+          output_type,
           specified_chunk_size,
           device,
           stream
@@ -166,6 +174,7 @@ void infer(
         output_count,
         vector_output,
         categorical_data,
+        output_type,
         specified_chunk_size,
         device,
         stream

@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <optional>
 #include <cuml/experimental/fil/constants.hpp>
+#include <cuml/experimental/fil/output_kind.hpp>
 #include <cuml/experimental/fil/detail/cpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -27,6 +28,9 @@
 #include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
+
+#include <raft/core/error.hpp>
+
 namespace ML {
 namespace experimental {
 namespace fil {
@@ -57,6 +61,7 @@ namespace inference {
  * outputs
  * @param categorical_data If non-nullptr, a pointer to non-local storage for
  * data on categorical splits.
+ * @param output_type Output type
  * @param specified_chunk_size If non-nullopt, the mini-batch size used for
  * processing rows in a batch. For CPU inference, this essentially determines
  * the granularity of parallelism. A larger chunk size means that a single
@@ -86,6 +91,7 @@ std::enable_if_t<std::disjunction_v<std::bool_constant<D==raft_proto::device_typ
   index_type output_count,
   vector_output_t vector_output=nullptr,
   categorical_data_t categorical_data=nullptr,
+  output_kind output_type=output_kind::default_kind,
   std::optional<index_type> specified_chunk_size=std::nullopt,
   raft_proto::device_id<D> device=raft_proto::device_id<D>{},
   raft_proto::cuda_stream=raft_proto::cuda_stream{}
@@ -93,6 +99,9 @@ std::enable_if_t<std::disjunction_v<std::bool_constant<D==raft_proto::device_typ
   if constexpr(D==raft_proto::device_type::gpu) {
     throw raft_proto::gpu_unsupported("Tried to use GPU inference in CPU-only build");
   } else {
+    // TODO(hcho3): REMOVE XXX
+    ASSERT(output_type != output_kind::leaf_id, "Predict_leaf not yet implemented");
+
     infer_kernel_cpu<has_categorical_nodes>(
       forest,
       postproc,
@@ -104,7 +113,8 @@ std::enable_if_t<std::disjunction_v<std::bool_constant<D==raft_proto::device_typ
       specified_chunk_size.value_or(hardware_constructive_interference_size),
       hardware_constructive_interference_size,
       vector_output,
-      categorical_data
+      categorical_data,
+      output_type
     );
   }
 }
