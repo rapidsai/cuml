@@ -59,7 +59,7 @@ struct decision_forest_builder {
 
   /* Add a root node, indicating the beginning of a new tree */
   void start_new_tree() {
-    if (root_node_indexes_.size() == index_type{}) {
+    if (root_node_indexes_.empty()) {
       root_node_indexes_.emplace_back();
     } else {
       max_tree_size_ = std::max(cur_tree_size_, max_tree_size_);
@@ -119,25 +119,6 @@ struct decision_forest_builder {
     );
   }
 
-  /* Add a leaf node with vector output */
-  template<typename iter_t>
-  void add_leaf_vector_node(
-    iter_t vec_begin,
-    iter_t vec_end
-  ) {
-    auto leaf_index = typename node_type::index_type(vector_output_.size() / output_size_);
-    std::copy(vec_begin, vec_end, std::back_inserter(vector_output_));
-    nodes_.emplace_back(
-      leaf_index,
-      true,
-      false,
-      false,
-      typename node_type::metadata_storage_type{},
-      typename node_type::offset_type{}
-    );
-    ++cur_tree_size_;
-  }
-
   /* Add a node to the model */
   template<typename value_t>
   void add_node(
@@ -149,9 +130,24 @@ struct decision_forest_builder {
     typename node_type::offset_type offset = typename node_type::offset_type{},
     bool is_inclusive=false
   ) {
+    if (is_inclusive) {
+      val = std::nextafter(val, std::numeric_limits<value_t>::infinity());
+    }
     nodes_.emplace_back(
       val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset
     );
+    ++cur_tree_size_;
+  }
+
+  /* Add a leaf node with vector output */
+  template<typename iter_t>
+  void add_leaf_vector_node(
+    iter_t vec_begin,
+    iter_t vec_end
+  ) {
+    auto leaf_index = typename node_type::index_type(vector_output_.size() / output_size_);
+    std::copy(vec_begin, vec_end, std::back_inserter(vector_output_));
+    add_node(leaf_index, true, false, false);
     ++cur_tree_size_;
   }
 
@@ -223,7 +219,7 @@ struct decision_forest_builder {
       num_feature,
       num_class,
       max_num_categories_ != 0,
-      vector_output_.size() == 0 ?
+      vector_output_.empty() ?
         std::nullopt :
         std::make_optional<raft_proto::buffer<typename node_type::threshold_type>>(
           raft_proto::buffer{vector_output_.data(), vector_output_.size()},
@@ -231,7 +227,7 @@ struct decision_forest_builder {
           device,
           stream
         ),
-      categorical_storage_.size() == 0 ?
+      categorical_storage_.empty() ?
         std::nullopt :
         std::make_optional<raft_proto::buffer<typename node_type::index_type>>(
           raft_proto::buffer{categorical_storage_.data(), categorical_storage_.size()},

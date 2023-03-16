@@ -293,7 +293,8 @@ struct decision_forest {
   raft_proto::buffer<index_type> root_node_indexes_;
   /** Buffer of outputs for all leaves in vector-leaf models */
   std::optional<raft_proto::buffer<io_type>> vector_output_;
-  /** Buffer of outputs for all leaves in vector-leaf models */
+  /** Buffer of elements used as backing data for bitsets which specify
+   * categories for all categorical nodes in the model. */
   std::optional<raft_proto::buffer<categorical_storage_type>> categorical_storage_;
 
   // Metadata
@@ -408,6 +409,8 @@ using decision_forest_variant = std::variant<
  *
  * @param use_double_thresholds Whether single or double-precision floating
  * point values should be used for quantitative splits
+ * @param max_node_offset The largest offset between a parent node and either
+ * of its children
  * @param num_features The number of input features per row
  * @param num_categorical_nodes The total number of categorical nodes in the
  * forest

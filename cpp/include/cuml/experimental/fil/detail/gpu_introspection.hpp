@@ -27,7 +27,7 @@ namespace fil {
 namespace detail {
 
 inline auto get_max_shared_mem_per_block(raft_proto::device_id<raft_proto::device_type::gpu> device_id) {
-  auto static cache = std::vector<int>{};
+  auto thread_local cache = std::vector<int>{};
   if (cache.size() == 0) {
     auto device_count = int{};
     raft_proto::cuda_check(cudaGetDeviceCount(&device_count));
@@ -46,7 +46,7 @@ inline auto get_max_shared_mem_per_block(raft_proto::device_id<raft_proto::devic
 }
 
 inline auto get_sm_count(raft_proto::device_id<raft_proto::device_type::gpu> device_id) {
-  auto static cache = std::vector<int>{};
+  auto thread_local cache = std::vector<int>{};
   if (cache.size() == 0) {
     auto device_count = int{};
     raft_proto::cuda_check(cudaGetDeviceCount(&device_count));
@@ -89,7 +89,7 @@ inline auto get_max_threads_per_sm(raft_proto::device_id<raft_proto::device_type
 }
 
 inline auto get_max_shared_mem_per_sm(raft_proto::device_id<raft_proto::device_type::gpu> device_id) {
-  auto static cache = std::vector<int>{};
+  auto thread_local cache = std::vector<int>{};
   if (cache.size() == 0) {
     auto device_count = int{};
     raft_proto::cuda_check(cudaGetDeviceCount(&device_count));
