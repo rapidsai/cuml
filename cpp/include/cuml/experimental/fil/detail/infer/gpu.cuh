@@ -32,6 +32,9 @@
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/padding.hpp>
 
+// TODO(hcho3): REMOVE XXX
+#include <raft/core/error.hpp>
+
 namespace ML {
 namespace experimental {
 namespace fil {
@@ -103,6 +106,9 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   raft_proto::device_id<D> device=raft_proto::device_id<D>{},
   raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
 ) {
+  // TODO(hcho3): REMOVE XXX
+  ASSERT(pred_type == predict_t::predict, "Predict type %d not yet implemented",
+         static_cast<int>(pred_type));
 
   auto sm_count = get_sm_count(device);
   auto max_shared_mem_per_block = get_max_shared_mem_per_block(device);

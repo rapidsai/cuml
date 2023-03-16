@@ -688,3 +688,29 @@ def test_lightgbm(
                 fm.predict_proba(X_predict),
                 atol=proba_atol[num_classes > 2],
             )
+
+
+def test_predict_per_tree(tmp_path):
+    n_rows = 100
+    n_columns = 10
+    n_classes = 2
+    X, y = simulate_data(
+        n_rows,
+        n_columns,
+        n_classes,
+        random_state=0,
+        classification=True,
+    )
+
+    model_path = os.path.join(tmp_path, "xgb_class.model")
+
+    bst = _build_and_save_xgboost(
+        model_path,
+        X,
+        y,
+        num_rounds=10,
+        classification=True,
+        n_classes=n_classes,
+    )
+    fm = ForestInference.load(model_path, output_class=True)
+    fm.predict_per_tree(X)

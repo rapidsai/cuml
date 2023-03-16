@@ -356,6 +356,71 @@ cdef class ForestInference_impl():
 
         return preds
 
+    def predict_per_tree(
+            self,
+            X,
+            *,
+            chunk_size=None,
+            output_dtype=None):
+        set_api_output_dtype(output_dtype)
+        model_dtype = self.get_dtype()
+
+        cdef uintptr_t in_ptr
+        in_arr, n_rows, n_cols, dtype = input_to_cuml_array(
+            X,
+            order='C',
+            convert_to_dtype=model_dtype,
+            check_dtype=model_dtype
+        )
+        cdef raft_proto_device_t in_dev
+        in_dev = get_device_type(in_arr)
+        in_ptr = in_arr.ptr
+
+        cdef uintptr_t out_ptr
+        print(f"n_trees = {self.model.num_trees()}")
+        preds = CumlArray.empty(
+            (n_rows, self.model.num_trees(), self.model.num_outputs()),
+            model_dtype,
+            order='C',
+            index=in_arr.index
+        )
+        cdef raft_proto_device_t out_dev
+        out_dev = get_device_type(preds)
+        out_ptr = preds.ptr
+
+        cdef optional[uint32_t] chunk_specification
+        if chunk_size is None:
+            chunk_specification = nullopt
+        else:
+            chunk_specification = <uint32_t> chunk_size
+
+        if model_dtype == np.float32:
+            self.model.predict[float](
+                self.raft_proto_handle,
+                predict_t.predict_leaf,
+                <float*> out_ptr,
+                <float*> in_ptr,
+                n_rows,
+                out_dev,
+                in_dev,
+                chunk_specification
+            )
+        else:
+            self.model.predict[double](
+                self.raft_proto_handle,
+                predict_t.predict_leaf,
+                <double*> out_ptr,
+                <double*> in_ptr,
+                n_rows,
+                in_dev,
+                out_dev,
+                chunk_specification
+            )
+
+        self.raft_proto_handle.synchronize()
+
+        return preds
+
 def _handle_legacy_fil_args(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -1238,3 +1303,47 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             return self.forest.predict(
                 X, preds=preds, chunk_size=chunk_size
             )
+
+    @nvtx.annotate(
+        message='ForestInference.predict_per_tree',
+        domain='cuml_python'
+    )
+    def predict_per_tree(
+            self,
+            X,
+            *,
+            chunk_size=None) -> CumlArray:
+        """
+        Output prediction of each tree.
+        This function computes one or more margin scores per tree.
+
+        Parameters
+        ----------
+        X
+            The input data of shape Rows X Features. This can be a numpy
+            array, cupy array, Pandas/cuDF Dataframe or any other array type
+            accepted by cuML. FIL is optimized for C-major arrays (e.g.
+            numpy/cupy arrays). Inputs whose datatype does not match the
+            precision of the loaded model (float/double) will be converted
+            to the correct datatype before inference. If this input is in a
+            memory location that is inaccessible to the current device type
+            (as set with e.g. the `using_device_type` context manager),
+            it will be copied to the correct location. This copy will be
+            distributed across as many CUDA streams as are available
+            in the stream pool of the model's RAFT handle.
+        chunk_size : int
+            The number of rows to simultaneously process in one iteration
+            of the inference algorithm. Batches are further broken down into
+            "chunks" of this size when assigning available threads to tasks.
+            The choice of chunk size can have a substantial impact on
+            performance, but the optimal choice depends on model and
+            hardware and is difficult to predict a priori. In general,
+            larger batch sizes benefit from larger chunk sizes, and smaller
+            batch sizes benefit from small chunk sizes. On GPU, valid
+            values are powers of 2 from 1 to 32. On CPU, valid values are
+            any power of 2, but little benefit is expected above a chunk size
+            of 512.
+        """
+        return self.forest.predict_per_tree(
+            X, chunk_size=chunk_size
+        )

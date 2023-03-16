@@ -28,6 +28,10 @@
 #include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
+
+// TODO(hcho3): REMOVE XXX
+#include <raft/core/error.hpp>
+
 namespace ML {
 namespace experimental {
 namespace fil {
@@ -97,6 +101,10 @@ std::enable_if_t<std::disjunction_v<std::bool_constant<D==raft_proto::device_typ
   if constexpr(D==raft_proto::device_type::gpu) {
     throw raft_proto::gpu_unsupported("Tried to use GPU inference in CPU-only build");
   } else {
+    // TODO(hcho3): REMOVE XXX
+    ASSERT(pred_type == predict_t::predict, "Predict type %d not yet implemented",
+           static_cast<int>(pred_type));
+
     infer_kernel_cpu<has_categorical_nodes>(
       forest,
       postproc,
