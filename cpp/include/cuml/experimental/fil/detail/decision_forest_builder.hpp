@@ -119,6 +119,25 @@ struct decision_forest_builder {
     );
   }
 
+  /* Add a leaf node with vector output */
+  template<typename iter_t>
+  void add_leaf_vector_node(
+    iter_t vec_begin,
+    iter_t vec_end
+  ) {
+    auto leaf_index = typename node_type::index_type(vector_output_.size() / output_size_);
+    std::copy(vec_begin, vec_end, std::back_inserter(vector_output_));
+    nodes_.emplace_back(
+      leaf_index,
+      true,
+      false,
+      false,
+      typename node_type::metadata_storage_type{},
+      typename node_type::offset_type{}
+    );
+    ++cur_tree_size_;
+  }
+
   /* Add a node to the model */
   template<typename value_t>
   void add_node(
@@ -136,18 +155,6 @@ struct decision_forest_builder {
     nodes_.emplace_back(
       val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset
     );
-    ++cur_tree_size_;
-  }
-
-  /* Add a leaf node with vector output */
-  template<typename iter_t>
-  void add_leaf_vector_node(
-    iter_t vec_begin,
-    iter_t vec_end
-  ) {
-    auto leaf_index = typename node_type::index_type(vector_output_.size() / output_size_);
-    std::copy(vec_begin, vec_end, std::back_inserter(vector_output_));
-    add_node(leaf_index, true, false, false);
     ++cur_tree_size_;
   }
 
