@@ -58,6 +58,19 @@ cdef extern from "treelite/c_api.h":
                                       ModelHandle handle) except +
     cdef const char* TreeliteGetLastError()
 
+cdef raft_proto_device_t get_device_type(arr):
+    cdef raft_proto_device_t dev
+    if arr.is_device_accessible:
+        if (
+            GlobalSettings().device_type == DeviceType.host
+            and arr.is_host_accessible
+        ):
+            dev = raft_proto_device_t.cpu
+        else:
+            dev = raft_proto_device_t.gpu
+    else:
+        dev = raft_proto_device_t.cpu
+    return dev
 
 cdef class TreeliteModel():
     """
@@ -292,17 +305,7 @@ cdef class ForestInference_impl():
             check_dtype=model_dtype
         )
         cdef raft_proto_device_t in_dev
-        if in_arr.is_device_accessible:
-            if (
-                GlobalSettings().device_type == DeviceType.host
-                and in_arr.is_host_accessible
-            ):
-                in_dev = raft_proto_device_t.cpu
-            else:
-                in_dev = raft_proto_device_t.gpu
-        else:
-            in_dev = raft_proto_device_t.cpu
-
+        in_dev = get_device_type(in_arr)
         in_ptr = in_arr.ptr
 
         cdef uintptr_t out_ptr
@@ -317,17 +320,7 @@ cdef class ForestInference_impl():
             # TODO(wphicks): Handle incorrect dtype/device/layout in C++
             preds.index = in_arr.index
         cdef raft_proto_device_t out_dev
-        if preds.is_device_accessible:
-            if (
-                GlobalSettings().device_type == DeviceType.host
-                and preds.is_host_accessible
-            ):
-                out_dev = raft_proto_device_t.cpu
-            else:
-                out_dev = raft_proto_device_t.gpu
-        else:
-            out_dev = raft_proto_device_t.cpu
-
+        out_dev = get_device_type(preds)
         out_ptr = preds.ptr
 
         cdef optional[uint32_t] chunk_specification
