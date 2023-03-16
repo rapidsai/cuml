@@ -53,6 +53,13 @@ struct forest_model {
     }, decision_forest_);
   }
 
+  /** The number of trees in the model */
+  auto num_trees() {
+    return std::visit([](auto&& concrete_forest) {
+      return concrete_forest.num_trees();
+    }, decision_forest_);
+  }
+
   /** The type of memory (device/host) where the model is stored */
   auto memory_type() {
     return std::visit([](auto&& concrete_forest) {

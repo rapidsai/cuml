@@ -192,6 +192,7 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
 
         bool is_double_precision() except +
         size_t num_outputs() except +
+        size_t num_trees() except +
 
 cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil":
     forest_model import_from_treelite_handle(
