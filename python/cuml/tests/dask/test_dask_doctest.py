@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,9 +23,10 @@ import io
 import cuml
 import cuml.dask
 from cuml.internals.safe_imports import gpu_only_import
-dask_cudf = gpu_only_import('dask_cudf')
-np = cpu_only_import('numpy')
-cudf = gpu_only_import('cudf')
+
+dask_cudf = gpu_only_import("dask_cudf")
+np = cpu_only_import("numpy")
+cudf = gpu_only_import("cudf")
 
 
 def _name_in_all(parent, name):
@@ -80,9 +81,7 @@ def _find_doctests_in_obj(obj, finder=None, criteria=None):
                 member, finder, criteria=_is_public_name
             )
         if inspect.isfunction(member):
-            yield from _find_doctests_in_obj(
-                member, finder
-            )
+            yield from _find_doctests_in_obj(member, finder)
 
 
 @pytest.mark.parametrize(

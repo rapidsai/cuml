@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,8 @@ from cuml.feature_extraction._vectorizers import CountVectorizer
 from cuml.feature_extraction._tfidf import TfidfTransformer
 
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
+
+cp = gpu_only_import("cupy")
 
 
 class TfidfVectorizer(CountVectorizer):
@@ -134,26 +135,59 @@ class TfidfVectorizer(CountVectorizer):
     which is provided under the BSD-3 license.
     """
 
-    def __init__(self, input=None, encoding=None, decode_error=None,
-                 strip_accents=None, lowercase=True, preprocessor=None,
-                 tokenizer=None, stop_words=None, token_pattern=None,
-                 ngram_range=(1, 1), analyzer='word', max_df=1.0, min_df=1,
-                 max_features=None, vocabulary=None, binary=False,
-                 dtype=cp.float32, delimiter=' ',
-                 norm='l2', use_idf=True, smooth_idf=True, sublinear_tf=False):
+    def __init__(
+        self,
+        input=None,
+        encoding=None,
+        decode_error=None,
+        strip_accents=None,
+        lowercase=True,
+        preprocessor=None,
+        tokenizer=None,
+        stop_words=None,
+        token_pattern=None,
+        ngram_range=(1, 1),
+        analyzer="word",
+        max_df=1.0,
+        min_df=1,
+        max_features=None,
+        vocabulary=None,
+        binary=False,
+        dtype=cp.float32,
+        delimiter=" ",
+        norm="l2",
+        use_idf=True,
+        smooth_idf=True,
+        sublinear_tf=False,
+    ):
 
         super().__init__(
-            input=input, encoding=encoding, decode_error=decode_error,
-            strip_accents=strip_accents, lowercase=lowercase,
-            preprocessor=preprocessor, tokenizer=tokenizer, analyzer=analyzer,
-            stop_words=stop_words, token_pattern=token_pattern,
-            ngram_range=ngram_range, max_df=max_df, min_df=min_df,
-            max_features=max_features, vocabulary=vocabulary, binary=binary,
-            dtype=dtype, delimiter=delimiter)
+            input=input,
+            encoding=encoding,
+            decode_error=decode_error,
+            strip_accents=strip_accents,
+            lowercase=lowercase,
+            preprocessor=preprocessor,
+            tokenizer=tokenizer,
+            analyzer=analyzer,
+            stop_words=stop_words,
+            token_pattern=token_pattern,
+            ngram_range=ngram_range,
+            max_df=max_df,
+            min_df=min_df,
+            max_features=max_features,
+            vocabulary=vocabulary,
+            binary=binary,
+            dtype=dtype,
+            delimiter=delimiter,
+        )
 
-        self._tfidf = TfidfTransformer(norm=norm, use_idf=use_idf,
-                                       smooth_idf=smooth_idf,
-                                       sublinear_tf=sublinear_tf)
+        self._tfidf = TfidfTransformer(
+            norm=norm,
+            use_idf=use_idf,
+            smooth_idf=smooth_idf,
+            sublinear_tf=sublinear_tf,
+        )
 
     # Broadcast the TF-IDF parameters to the underlying transformer instance
     # for easy grid search and repr
@@ -196,11 +230,13 @@ class TfidfVectorizer(CountVectorizer):
 
     @idf_.setter
     def idf_(self, value):
-        if hasattr(self, 'vocabulary_'):
+        if hasattr(self, "vocabulary_"):
             if len(self.vocabulary_) != len(value):
-                raise ValueError("idf length = %d must be equal "
-                                 "to vocabulary size = %d" %
-                                 (len(value), len(self.vocabulary)))
+                raise ValueError(
+                    "idf length = %d must be equal "
+                    "to vocabulary size = %d"
+                    % (len(value), len(self.vocabulary))
+                )
         self._tfidf.idf_ = value
 
     def fit(self, raw_documents):

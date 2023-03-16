@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,13 +21,15 @@ import cuml.internals
 from cuml.internals.safe_imports import cpu_only_import
 import typing
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 @cuml.internals.api_return_generic(get_output_type=True)
 def precision_recall_curve(
-        y_true, probs_pred) -> typing.Tuple[CumlArray, CumlArray, CumlArray]:
+    y_true, probs_pred
+) -> typing.Tuple[CumlArray, CumlArray, CumlArray]:
     """
     Compute precision-recall pairs for different probability thresholds
 
@@ -86,28 +88,31 @@ def precision_recall_curve(
         [0.35 0.4 0.8 ]
 
     """
-    y_true, n_rows, n_cols, ytype = \
-        input_to_cupy_array(y_true, check_dtype=[np.int32, np.int64,
-                                                 np.float32, np.float64])
+    y_true, n_rows, n_cols, ytype = input_to_cupy_array(
+        y_true, check_dtype=[np.int32, np.int64, np.float32, np.float64]
+    )
 
-    y_score, _, _, _ = \
-        input_to_cupy_array(probs_pred, check_dtype=[np.int32, np.int64,
-                            np.float32, np.float64],
-                            check_rows=n_rows, check_cols=n_cols)
+    y_score, _, _, _ = input_to_cupy_array(
+        probs_pred,
+        check_dtype=[np.int32, np.int64, np.float32, np.float64],
+        check_rows=n_rows,
+        check_cols=n_cols,
+    )
 
     if cp.any(y_true) == 0:
-        raise ValueError("precision_recall_curve cannot be used when "
-                         "y_true is all zero.")
+        raise ValueError(
+            "precision_recall_curve cannot be used when " "y_true is all zero."
+        )
 
     fps, tps, thresholds = _binary_clf_curve(y_true, y_score)
-    precision = cp.flip(tps/(tps+fps), axis=0)
-    recall = cp.flip(tps/tps[-1], axis=0)
+    precision = cp.flip(tps / (tps + fps), axis=0)
+    recall = cp.flip(tps / tps[-1], axis=0)
     n = (recall == 1).sum()
 
     if n > 1:
-        precision = precision[n-1:]
-        recall = recall[n-1:]
-        thresholds = thresholds[n-1:]
+        precision = precision[n - 1 :]
+        recall = recall[n - 1 :]
+        thresholds = thresholds[n - 1 :]
     precision = cp.concatenate([precision, cp.ones(1)])
     recall = cp.concatenate([recall, cp.zeros(1)])
 
@@ -148,35 +153,36 @@ def roc_auc_score(y_true, y_score):
     0.75
 
     """
-    y_true, n_rows, n_cols, ytype = \
-        input_to_cupy_array(y_true, check_dtype=[np.int32, np.int64,
-                                                 np.float32, np.float64])
+    y_true, n_rows, n_cols, ytype = input_to_cupy_array(
+        y_true, check_dtype=[np.int32, np.int64, np.float32, np.float64]
+    )
 
-    y_score, _, _, _ = \
-        input_to_cupy_array(y_score, check_dtype=[np.int32, np.int64,
-                                                  np.float32, np.float64],
-                            check_rows=n_rows, check_cols=n_cols)
+    y_score, _, _, _ = input_to_cupy_array(
+        y_score,
+        check_dtype=[np.int32, np.int64, np.float32, np.float64],
+        check_rows=n_rows,
+        check_cols=n_cols,
+    )
     return _binary_roc_auc_score(y_true, y_score)
 
 
 def _binary_clf_curve(y_true, y_score):
 
-    if y_true.dtype.kind == 'f' and np.any(y_true != y_true.astype(int)):
-        raise ValueError("Continuous format of y_true  "
-                         "is not supported.")
+    if y_true.dtype.kind == "f" and np.any(y_true != y_true.astype(int)):
+        raise ValueError("Continuous format of y_true  " "is not supported.")
 
     ids = cp.argsort(-y_score)
     sorted_score = y_score[ids]
 
-    ones = y_true[ids].astype('float32')  # for calculating true positives
+    ones = y_true[ids].astype("float32")  # for calculating true positives
     zeros = 1 - ones  # for calculating predicted positives
 
     # calculate groups
     group = _group_same_scores(sorted_score)
     num = int(group[-1])
 
-    tps = cp.zeros(num, dtype='float32')
-    fps = cp.zeros(num, dtype='float32')
+    tps = cp.zeros(num, dtype="float32")
+    fps = cp.zeros(num, dtype="float32")
 
     tps = _addup_x_in_group(group, ones, tps)
     fps = _addup_x_in_group(group, zeros, fps)
@@ -191,22 +197,25 @@ def _binary_roc_auc_score(y_true, y_score):
     """Compute binary roc_auc_score using cupy"""
 
     if cp.unique(y_true).shape[0] == 1:
-        raise ValueError("roc_auc_score cannot be used when "
-                         "only one class present in y_true. ROC AUC score "
-                         "is not defined in that case.")
+        raise ValueError(
+            "roc_auc_score cannot be used when "
+            "only one class present in y_true. ROC AUC score "
+            "is not defined in that case."
+        )
 
     if cp.unique(y_score).shape[0] == 1:
         return 0.5
 
     fps, tps, thresholds = _binary_clf_curve(y_true, y_score)
-    tpr = tps/tps[-1]
-    fpr = fps/fps[-1]
+    tpr = tps / tps[-1]
+    fpr = fps / fps[-1]
 
     return _calculate_area_under_curve(fpr, tpr).item()
 
 
 def _addup_x_in_group(group, x, result):
-    addup_x_in_group_kernel = cp.RawKernel(r'''
+    addup_x_in_group_kernel = cp.RawKernel(
+        r"""
         extern "C" __global__
         void addup_x_in_group(const int* group, const float* x,
             float* result, int N)
@@ -216,11 +225,13 @@ def _addup_x_in_group(group, x, result):
                 atomicAdd(result + group[tid] - 1, x[tid]);
             }
         }
-    ''', 'addup_x_in_group')
+    """,
+        "addup_x_in_group",
+    )
 
     N = x.shape[0]
     tpb = 256
-    bpg = math.ceil(N/tpb)
+    bpg = math.ceil(N / tpb)
     addup_x_in_group_kernel((bpg,), (tpb,), (group, x, result, N))
     return result
 
@@ -235,4 +246,7 @@ def _group_same_scores(sorted_score):
 
 def _calculate_area_under_curve(fpr, tpr):
     """helper function to calculate area under curve given fpr & tpr arrays"""
-    return cp.sum((fpr[1:]-fpr[:-1])*(tpr[1:]+tpr[:-1]))/2 + tpr[0]*fpr[0]/2
+    return (
+        cp.sum((fpr[1:] - fpr[:-1]) * (tpr[1:] + tpr[:-1])) / 2
+        + tpr[0] * fpr[0] / 2
+    )

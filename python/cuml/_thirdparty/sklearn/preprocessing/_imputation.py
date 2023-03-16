@@ -582,7 +582,7 @@ class MissingIndicator(TransformerMixin,
             imputer_mask = sparse_constructor(
                 (mask, X.indices.copy(), X.indptr.copy()),
                 shape=X.shape, dtype=np.float32)
-            # temporarly switch to using float32 as
+            # temporarily switch to using float32 as
             # cupy cannot operate with bool as of now
 
             if self.features == 'missing-only':

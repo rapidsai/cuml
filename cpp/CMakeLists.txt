@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ message(VERBOSE "CUML_CPP: Build and statically link FAISS library: ${CUML_USE_F
 message(VERBOSE "CUML_CPP: Build and statically link Treelite library: ${CUML_USE_TREELITE_STATIC}")
 
 set(CUML_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Can specify individual algorithms or groups in a semicolon-separated list.")
-message(VERBOSE "CUML_CPP: Building libcuml++ with algoriths: '${CUML_ALGORITHMS}'.")
+message(VERBOSE "CUML_CPP: Building libcuml++ with algorithms: '${CUML_ALGORITHMS}'.")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")

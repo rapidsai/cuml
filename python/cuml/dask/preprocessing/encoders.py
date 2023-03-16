@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,11 +23,13 @@ from toolz import first
 
 from collections.abc import Sequence
 from cuml.internals.safe_imports import gpu_only_import_from
-dcDataFrame = gpu_only_import_from('dask_cudf.core', 'DataFrame')
+
+dcDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
 
 
-class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
-                    DelayedInverseTransformMixin):
+class OneHotEncoder(
+    BaseEstimator, DelayedTransformMixin, DelayedInverseTransformMixin
+):
     """
     Encode categorical features as a one-hot numeric array.
     The input to this transformer should be a dask_cuDF.DataFrame or cupy
@@ -82,9 +84,7 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
     """
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
-        super().__init__(client=client,
-                         verbose=verbose,
-                         **kwargs)
+        super().__init__(client=client, verbose=verbose, **kwargs)
 
     @with_cupy_rmm
     def fit(self, X):
@@ -103,8 +103,9 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
         from cuml.preprocessing.onehotencoder_mg import OneHotEncoderMG
 
         el = first(X) if isinstance(X, Sequence) else X
-        self.datatype = ('cudf' if isinstance(el, (dcDataFrame, daskSeries))
-                         else 'cupy')
+        self.datatype = (
+            "cudf" if isinstance(el, (dcDataFrame, daskSeries)) else "cupy"
+        )
 
         self._set_internal_model(OneHotEncoderMG(**self.kwargs).fit(X))
 
@@ -146,9 +147,13 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
         out : Dask cuDF DataFrame or CuPy backed Dask Array
             Distributed object containing the transformed input.
         """
-        return self._transform(X, n_dims=2, delayed=delayed,
-                               output_dtype=self._get_internal_model().dtype,
-                               output_collection_type='cupy')
+        return self._transform(
+            X,
+            n_dims=2,
+            delayed=delayed,
+            output_dtype=self._get_internal_model().dtype,
+            output_collection_type="cupy",
+        )
 
     @with_cupy_rmm
     def inverse_transform(self, X, delayed=True):
@@ -170,6 +175,10 @@ class OneHotEncoder(BaseEstimator, DelayedTransformMixin,
             Distributed object containing the inverse transformed array.
         """
         dtype = self._get_internal_model().dtype
-        return self._inverse_transform(X, n_dims=2, delayed=delayed,
-                                       output_dtype=dtype,
-                                       output_collection_type=self.datatype)
+        return self._inverse_transform(
+            X,
+            n_dims=2,
+            delayed=delayed,
+            output_dtype=dtype,
+            output_collection_type=self.datatype,
+        )

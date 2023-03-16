@@ -29,9 +29,9 @@ into three categories:
 2. Find an issue to work on. The best way is to look for the [good first issue](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
     or [help wanted](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) labels
 3. Comment on the issue saying you are going to work on it.
-4. Get familar with the developer guide relevant for you:
+4. Get familiar with the developer guide relevant for you:
     * For C++ developers it is available here [DEVELOPER_GUIDE.md](wiki/cpp/DEVELOPER_GUIDE.md)
-    * For Python developers, a [Python DEVELOPER_GUIDE.md](wiki/python/DEVELOPER_GUIDE.md) is availabe as well.
+    * For Python developers, a [Python DEVELOPER_GUIDE.md](wiki/python/DEVELOPER_GUIDE.md) is available as well.
 5. Code! Make sure to update unit tests!
 6. When done, [create your pull request](https://github.com/rapidsai/cuml/compare).
 7. Verify that CI passes all [status checks](https://help.github.com/articles/about-status-checks/), or fix if needed.
@@ -39,6 +39,80 @@ into three categories:
 9. Once reviewed and approved, a RAPIDS developer will merge your pull request.
 
 Remember, if you are unsure about anything, don't hesitate to comment on issues and ask for clarifications!
+
+
+## Code Formatting
+
+Consistent code formatting is important in the cuML project to ensure
+readability, maintainability, and thus simplifies collaboration.
+
+### Using pre-commit hooks
+
+cuML uses [pre-commit](https://pre-commit.com) to execute code linters and
+formatters that check the code for common issues, such as syntax errors, code
+style violations, and help to detect bugs. Using pre-commit ensures that linter
+versions and options are aligned for all developers. The same hooks are executed
+as part of the CI checks. This means running pre-commit checks locally avoids
+unnecessary CI iterations.
+
+To use `pre-commit`, install the tool via `conda` or `pip` into your development
+environment:
+
+```console
+conda install -c conda-forge pre-commit
+```
+Alternatively:
+```console
+pip install pre-commit
+```
+
+After installing pre-commit, it is recommended to install pre-commit hooks to
+run automatically before creating a git commit. In this way, it is less likely
+that style checks will fail as part of CI checks. To install pre-commit hooks,
+simply run the following command within the repository root directory:
+
+```console
+pre-commit install
+```
+
+By default, pre-commit runs on staged files only, meaning only on changes that
+are about to be committed. To run pre-commit checks on all files, execute:
+
+```bash
+pre-commit run --all-files
+```
+
+To skip the checks temporarily, use `git commit --no-verify` or its short form
+`-n`.
+
+_Note_: If the auto-formatters' changes affect each other, you may need to go
+through multiple iterations of `git commit` and `git add -u`.
+
+cuML also uses [codespell](https://github.com/codespell-project/codespell) to find spelling
+mistakes, and this check is run as part of the pre-commit hook. To apply the suggested spelling
+fixes, you can run  `codespell -i 3 -w .` from the command-line in the cuML root directory.
+This will bring up an interactive prompt to select which spelling fixes to apply.
+
+If you want to ignore errors highlighted by codespell you can:
+ * Add the word to the ignore-words-list in pyproject.toml, to exclude for all of cuML
+ * Exclude the entire file from spellchecking, by adding to the `exclude` regex in .pre-commit-config.yaml
+ * Ignore only specific lines as shown in https://github.com/codespell-project/codespell/issues/1212#issuecomment-654191881
+
+### Summary of pre-commit hooks
+
+The pre-commit hooks configured for this repository consist of a number of
+linters and auto-formatters that we summarize here. For a full and current list,
+please see the `.pre-commit-config.yaml` file.
+
+- `clang-format`: Formats C++ and CUDA code for consistency and readability.
+- `black`: Auto-formats Python code to conform to the PEP 8 style guide.
+- `flake8`: Lints Python code for syntax errors and common code style issues.
+- _`DeprecationWarning` checker_: Checks for new `DeprecationWarning` being
+  introduced in Python code, and instead `FutureWarning` should be used.
+- _`#include` syntax checker_: Ensures consistent syntax for C++ `#include` statements.
+- _Copyright header checker and auto-formatter_: Ensures the copyright headers
+  of files are up-to-date and in the correct format.
+- `codespell`: Checks for spelling mistakes
 
 ### Managing PR labels
 

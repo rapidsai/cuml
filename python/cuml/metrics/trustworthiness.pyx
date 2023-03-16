@@ -29,7 +29,7 @@ from cuml.internals.input_utils import input_to_cuml_array
 from pylibraft.common.handle import Handle
 from pylibraft.common.handle cimport handle_t
 
-cdef extern from "raft/distance/distance_type.hpp" namespace "raft::distance":
+cdef extern from "raft/distance/distance_types.hpp" namespace "raft::distance":
 
     ctypedef int DistanceType
     ctypedef DistanceType euclidean "(raft::distance::DistanceType)5"

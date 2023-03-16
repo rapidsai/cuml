@@ -131,6 +131,10 @@ class PCA(UniversalBase,
     as it iteratively tries to correct the top K eigenvectors, but might be
     less accurate.
 
+    This estimator supports cuML's experimental device selection capabilities.
+    It can be configured to run on either the CPU or the GPU.
+    To learn more, please see :ref:`device-selection`.
+
     Examples
     --------
 
@@ -417,7 +421,7 @@ class PCA(UniversalBase,
         if self.n_components is None:
             logger.warn(
                 'Warning(`fit`): As of v0.16, PCA invoked without an'
-                ' n_components argument defauts to using'
+                ' n_components argument defaults to using'
                 ' min(n_samples, n_features) rather than 1'
             )
             n_rows = X.shape[0]

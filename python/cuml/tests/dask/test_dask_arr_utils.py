@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,20 +21,25 @@ import pytest
 from cuml.testing.utils import array_equal
 
 from cuml.internals.safe_imports import gpu_only_import
-dask_cudf = gpu_only_import('dask_cudf')
-cudf = gpu_only_import('cudf')
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
+
+dask_cudf = gpu_only_import("dask_cudf")
+cudf = gpu_only_import("cudf")
+cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
 
 
-@pytest.mark.parametrize("input_type", ["dask_array",
-                                        "dask_dataframe",
-                                        "dataframe",
-                                        "scipysparse",
-                                        "cupysparse",
-                                        "numpy",
-                                        "cupy"
-                                        ])
+@pytest.mark.parametrize(
+    "input_type",
+    [
+        "dask_array",
+        "dask_dataframe",
+        "dataframe",
+        "scipysparse",
+        "cupysparse",
+        "numpy",
+        "cupy",
+    ],
+)
 @pytest.mark.parametrize("nrows", [1000])
 @pytest.mark.parametrize("ncols", [10])
 def test_to_sparse_dask_array(input_type, nrows, ncols, client):
@@ -43,7 +48,7 @@ def test_to_sparse_dask_array(input_type, nrows, ncols, client):
 
     c = client
 
-    a = cupyx.scipy.sparse.random(nrows, ncols, format='csr', dtype=cp.float32)
+    a = cupyx.scipy.sparse.random(nrows, ncols, format="csr", dtype=cp.float32)
     if input_type == "dask_dataframe":
         df = cudf.DataFrame(a.todense())
         inp = dask_cudf.from_cudf(df, npartitions=2)
@@ -69,8 +74,9 @@ def test_to_sparse_dask_array(input_type, nrows, ncols, client):
     # multiple partitions yet so we will manually concat any
     # potential pieces.
     parts = c.sync(_extract_partitions, arr)
-    local_parts = cp.vstack([part[1].result().todense()
-                             for part in parts]).get()
+    local_parts = cp.vstack(
+        [part[1].result().todense() for part in parts]
+    ).get()
 
     assert array_equal(a.todense().get(), local_parts)
 
@@ -81,8 +87,9 @@ def test_to_sparse_dask_array(input_type, nrows, ncols, client):
 @pytest.mark.parametrize("n_parts", [2, 12])
 @pytest.mark.parametrize("col_chunking", [True, False])
 @pytest.mark.parametrize("n_col_chunks", [2, 4])
-def test_validate_dask_array(nrows, ncols, n_parts, col_chunking,
-                             n_col_chunks, client):
+def test_validate_dask_array(
+    nrows, ncols, n_parts, col_chunking, n_col_chunks, client
+):
     if ncols > 1:
         X = cp.random.standard_normal((nrows, ncols))
         X = dask.array.from_array(X, chunks=(nrows / n_parts, -1))

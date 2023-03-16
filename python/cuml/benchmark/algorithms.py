@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,12 +27,17 @@ from cuml.benchmark.bench_helper_funcs import (
     _build_fil_classifier,
     _build_treelite_classifier,
     _treelite_fil_accuracy_score,
-    _build_mnmg_umap
+    _build_mnmg_umap,
 )
-from cuml.preprocessing import StandardScaler, MinMaxScaler, \
-    MaxAbsScaler, Normalizer, \
-    SimpleImputer, RobustScaler, \
-    PolynomialFeatures
+from cuml.preprocessing import (
+    StandardScaler,
+    MinMaxScaler,
+    MaxAbsScaler,
+    Normalizer,
+    SimpleImputer,
+    RobustScaler,
+    PolynomialFeatures,
+)
 import tempfile
 import cuml
 
@@ -47,15 +52,25 @@ from sklearn.impute import SimpleImputer as skSimpleImputer
 import cuml.metrics
 import cuml.decomposition
 import cuml.naive_bayes
-from cuml.dask import neighbors, cluster, manifold, \
-    decomposition, linear_model  # noqa: F401
-from cuml.internals.import_utils import has_umap
+from cuml.dask import (
+    neighbors,
+    cluster,
+    manifold,
+    decomposition,
+    linear_model,
+)  # noqa: F401
+from cuml.internals.import_utils import has_hdbscan, has_umap
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
+
+np = cpu_only_import("numpy")
 
 
 if has_umap():
     import umap
+
+
+if has_hdbscan():
+    import hdbscan
 
 
 class AlgorithmPair:
@@ -207,8 +222,9 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.cluster.KMeans,
             cuml.cluster.KMeans,
-            shared_args=dict(init="k-means++", n_clusters=8,
-                             max_iter=300, n_init=1),
+            shared_args=dict(
+                init="k-means++", n_clusters=8, max_iter=300, n_init=1
+            ),
             cuml_args=dict(oversampling_factor=0),
             name="KMeans",
             accepts_labels=False,
@@ -261,6 +277,14 @@ def all_algorithms():
             accepts_labels=False,
         ),
         AlgorithmPair(
+            hdbscan.HDBSCAN if has_hdbscan() else None,
+            cuml.cluster.HDBSCAN,
+            shared_args={},
+            cpu_args={},
+            name="HDBSCAN",
+            accepts_labels=False,
+        ),
+        AlgorithmPair(
             sklearn.linear_model.LinearRegression,
             cuml.linear_model.LinearRegression,
             shared_args={},
@@ -303,7 +327,8 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.ensemble.RandomForestClassifier,
             cuml.ensemble.RandomForestClassifier,
-            shared_args={"max_features": 1.0, "n_estimators": 10},
+            shared_args={"max_features": "sqrt", "n_estimators": 50},
+            cpu_args={"n_jobs": -1},
             name="RandomForestClassifier",
             accepts_labels=True,
             cpu_data_prep_hook=_labels_to_int_hook,
@@ -313,7 +338,8 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.ensemble.RandomForestRegressor,
             cuml.ensemble.RandomForestRegressor,
-            shared_args={"max_features": 1.0, "n_estimators": 10},
+            shared_args={"max_features": 1.0, "n_estimators": 50},
+            cpu_args={"n_jobs": -1},
             name="RandomForestRegressor",
             accepts_labels=True,
             accuracy_function=metrics.r2_score,
@@ -371,13 +397,31 @@ def all_algorithms():
             accuracy_function=cuml.metrics.r2_score,
         ),
         AlgorithmPair(
+            sklearn.svm.LinearSVC,
+            cuml.svm.LinearSVC,
+            shared_args={},
+            cuml_args={},
+            name="LinearSVC",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score,
+        ),
+        AlgorithmPair(
+            sklearn.svm.LinearSVR,
+            cuml.svm.LinearSVR,
+            shared_args={},
+            cuml_args={},
+            name="LinearSVR",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score,
+        ),
+        AlgorithmPair(
             sklearn.neighbors.KNeighborsClassifier,
             cuml.neighbors.KNeighborsClassifier,
             shared_args={},
             cuml_args={},
             name="KNeighborsClassifier",
             accepts_labels=True,
-            accuracy_function=cuml.metrics.accuracy_score
+            accuracy_function=cuml.metrics.accuracy_score,
         ),
         AlgorithmPair(
             sklearn.neighbors.KNeighborsRegressor,
@@ -386,7 +430,7 @@ def all_algorithms():
             cuml_args={},
             name="KNeighborsRegressor",
             accepts_labels=True,
-            accuracy_function=cuml.metrics.r2_score
+            accuracy_function=cuml.metrics.r2_score,
         ),
         AlgorithmPair(
             sklearn.naive_bayes.MultinomialNB,
@@ -395,7 +439,7 @@ def all_algorithms():
             cuml_args={},
             name="MultinomialNB",
             accepts_labels=True,
-            accuracy_function=cuml.metrics.accuracy_score
+            accuracy_function=cuml.metrics.accuracy_score,
         ),
         AlgorithmPair(
             treelite,
@@ -454,7 +498,7 @@ def all_algorithms():
             shared_args=dict(),
             name="StandardScaler",
             accepts_labels=False,
-            bench_func=fit_transform
+            bench_func=fit_transform,
         ),
         AlgorithmPair(
             sklearn.preprocessing.MinMaxScaler,
@@ -462,7 +506,7 @@ def all_algorithms():
             shared_args=dict(),
             name="MinMaxScaler",
             accepts_labels=False,
-            bench_func=fit_transform
+            bench_func=fit_transform,
         ),
         AlgorithmPair(
             sklearn.preprocessing.MaxAbsScaler,
@@ -470,7 +514,7 @@ def all_algorithms():
             shared_args=dict(),
             name="MaxAbsScaler",
             accepts_labels=False,
-            bench_func=fit_transform
+            bench_func=fit_transform,
         ),
         AlgorithmPair(
             sklearn.preprocessing.Normalizer,
@@ -478,7 +522,7 @@ def all_algorithms():
             shared_args=dict(),
             name="Normalizer",
             accepts_labels=False,
-            bench_func=fit_transform
+            bench_func=fit_transform,
         ),
         AlgorithmPair(
             skSimpleImputer,
@@ -486,7 +530,7 @@ def all_algorithms():
             shared_args=dict(),
             name="SimpleImputer",
             accepts_labels=False,
-            bench_func=fit_transform
+            bench_func=fit_transform,
         ),
         AlgorithmPair(
             sklearn.preprocessing.RobustScaler,
@@ -494,7 +538,7 @@ def all_algorithms():
             shared_args=dict(),
             name="RobustScaler",
             accepts_labels=False,
-            bench_func=fit_transform
+            bench_func=fit_transform,
         ),
         AlgorithmPair(
             sklearn.preprocessing.PolynomialFeatures,
@@ -502,7 +546,7 @@ def all_algorithms():
             shared_args=dict(),
             name="PolynomialFeatures",
             accepts_labels=False,
-            bench_func=fit_transform
+            bench_func=fit_transform,
         ),
         AlgorithmPair(
             sklearn.preprocessing.StandardScaler,
@@ -510,7 +554,7 @@ def all_algorithms():
             shared_args=dict(),
             name="SparseCSRStandardScaler",
             accepts_labels=False,
-            bench_func=fit_transform
+            bench_func=fit_transform,
         ),
         AlgorithmPair(
             sklearn.preprocessing.MinMaxScaler,
@@ -518,7 +562,7 @@ def all_algorithms():
             shared_args=dict(),
             name="SparseCSRMinMaxScaler",
             accepts_labels=False,
-            bench_func=fit_transform
+            bench_func=fit_transform,
         ),
         AlgorithmPair(
             sklearn.preprocessing.MaxAbsScaler,
@@ -526,7 +570,7 @@ def all_algorithms():
             shared_args=dict(),
             name="SparseCSRMaxAbsScaler",
             accepts_labels=False,
-            bench_func=fit_transform
+            bench_func=fit_transform,
         ),
         AlgorithmPair(
             sklearn.preprocessing.Normalizer,
@@ -534,7 +578,7 @@ def all_algorithms():
             shared_args=dict(),
             name="SparseCSRNormalizer",
             accepts_labels=False,
-            bench_func=fit_transform
+            bench_func=fit_transform,
         ),
         AlgorithmPair(
             sklearn.preprocessing.RobustScaler,
@@ -542,7 +586,7 @@ def all_algorithms():
             shared_args=dict(),
             name="SparseCSCRobustScaler",
             accepts_labels=False,
-            bench_func=fit_transform
+            bench_func=fit_transform,
         ),
         AlgorithmPair(
             skSimpleImputer,
@@ -550,7 +594,7 @@ def all_algorithms():
             shared_args=dict(),
             name="SparseCSCSimpleImputer",
             accepts_labels=False,
-            bench_func=fit_transform
+            bench_func=fit_transform,
         ),
         AlgorithmPair(
             sklearn.preprocessing.PolynomialFeatures,
@@ -558,9 +602,8 @@ def all_algorithms():
             shared_args=dict(),
             name="SparseCSRPolynomialFeatures",
             accepts_labels=False,
-            bench_func=fit_transform
+            bench_func=fit_transform,
         ),
-
         AlgorithmPair(
             None,
             cuml.dask.neighbors.KNeighborsClassifier,
@@ -569,9 +612,8 @@ def all_algorithms():
             name="MNMG.KNeighborsClassifier",
             bench_func=fit_predict,
             accepts_labels=True,
-            accuracy_function=cuml.metrics.accuracy_score
+            accuracy_function=cuml.metrics.accuracy_score,
         ),
-
         AlgorithmPair(
             None,
             cuml.dask.cluster.KMeans,
@@ -583,7 +625,6 @@ def all_algorithms():
             accepts_labels=False,
             accuracy_function=metrics.homogeneity_score,
         ),
-
         AlgorithmPair(
             None,
             cuml.dask.cluster.DBSCAN,
@@ -593,7 +634,6 @@ def all_algorithms():
             bench_func=fit_predict,
             accepts_labels=False,
         ),
-
         AlgorithmPair(
             None,
             cuml.dask.manifold.UMAP,
@@ -604,7 +644,6 @@ def all_algorithms():
             accepts_labels=False,
             accuracy_function=cuml.metrics.trustworthiness,
         ),
-
         AlgorithmPair(
             None,
             cuml.dask.manifold.UMAP,
@@ -615,7 +654,6 @@ def all_algorithms():
             accepts_labels=True,
             accuracy_function=cuml.metrics.trustworthiness,
         ),
-
         AlgorithmPair(
             None,
             cuml.dask.neighbors.NearestNeighbors,
@@ -626,7 +664,6 @@ def all_algorithms():
             accepts_labels=False,
             bench_func=fit_kneighbors,
         ),
-
         AlgorithmPair(
             None,
             cuml.dask.decomposition.TruncatedSVD,
@@ -634,7 +671,6 @@ def all_algorithms():
             name="MNMG.tSVD",
             accepts_labels=False,
         ),
-
         AlgorithmPair(
             None,
             cuml.dask.decomposition.PCA,
@@ -642,7 +678,6 @@ def all_algorithms():
             name="MNMG.PCA",
             accepts_labels=False,
         ),
-
         AlgorithmPair(
             None,
             cuml.dask.linear_model.LinearRegression,
@@ -652,7 +687,6 @@ def all_algorithms():
             accepts_labels=True,
             accuracy_function=metrics.r2_score,
         ),
-
         AlgorithmPair(
             None,
             cuml.dask.linear_model.Lasso,
@@ -662,7 +696,6 @@ def all_algorithms():
             accepts_labels=True,
             accuracy_function=metrics.r2_score,
         ),
-
         AlgorithmPair(
             None,
             cuml.dask.linear_model.ElasticNet,
@@ -672,7 +705,6 @@ def all_algorithms():
             accepts_labels=True,
             accuracy_function=metrics.r2_score,
         ),
-
         AlgorithmPair(
             None,
             cuml.dask.linear_model.Ridge,
@@ -682,7 +714,6 @@ def all_algorithms():
             accepts_labels=True,
             accuracy_function=metrics.r2_score,
         ),
-
         AlgorithmPair(
             None,
             cuml.dask.neighbors.KNeighborsRegressor,
@@ -691,8 +722,8 @@ def all_algorithms():
             name="MNMG.KNeighborsRegressor",
             bench_func=fit_predict,
             accepts_labels=True,
-            accuracy_function=cuml.metrics.r2_score
-        )
+            accuracy_function=cuml.metrics.r2_score,
+        ),
     ]
 
     return algorithms

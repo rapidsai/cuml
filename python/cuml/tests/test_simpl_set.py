@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +13,11 @@
 # limitations under the License.
 #
 
-from cuml.manifold.umap import simplicial_set_embedding \
-    as cu_simplicial_set_embedding
+from cuml.manifold.umap import (
+    simplicial_set_embedding as cu_simplicial_set_embedding,
+)
 from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
-from cuml.manifold.umap import fuzzy_simplicial_set \
-    as cu_fuzzy_simplicial_set
+from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
 from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
 from cuml.neighbors import NearestNeighbors
 from cuml.manifold.umap import UMAP
@@ -26,8 +26,9 @@ from cuml.internals.safe_imports import gpu_only_import
 import pytest
 from cuml.datasets import make_blobs
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
+
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
 
 
 def correctness_dense(a, b, rtol=0.1, threshold=0.95):
@@ -45,35 +46,38 @@ def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
     return correctness >= threshold
 
 
-@pytest.mark.parametrize('n_rows', [800, 5000])
-@pytest.mark.parametrize('n_features', [8, 32])
-@pytest.mark.parametrize('n_neighbors', [8, 16])
-@pytest.mark.parametrize('precomputed_nearest_neighbors', [False, True])
-def test_fuzzy_simplicial_set(n_rows,
-                              n_features,
-                              n_neighbors,
-                              precomputed_nearest_neighbors):
+@pytest.mark.parametrize("n_rows", [800, 5000])
+@pytest.mark.parametrize("n_features", [8, 32])
+@pytest.mark.parametrize("n_neighbors", [8, 16])
+@pytest.mark.parametrize("precomputed_nearest_neighbors", [False, True])
+def test_fuzzy_simplicial_set(
+    n_rows, n_features, n_neighbors, precomputed_nearest_neighbors
+):
     n_clusters = 30
     random_state = 42
-    metric = 'euclidean'
+    metric = "euclidean"
 
-    X, _ = make_blobs(n_samples=n_rows, centers=n_clusters,
-                      n_features=n_features, random_state=random_state)
+    X, _ = make_blobs(
+        n_samples=n_rows,
+        centers=n_clusters,
+        n_features=n_features,
+        random_state=random_state,
+    )
 
     if precomputed_nearest_neighbors:
-        nn = NearestNeighbors(n_neighbors=n_neighbors,
-                              metric=metric)
+        nn = NearestNeighbors(n_neighbors=n_neighbors, metric=metric)
         nn.fit(X)
-        knn_dists, knn_indices = nn.kneighbors(X,
-                                               n_neighbors,
-                                               return_distance=True)
+        knn_dists, knn_indices = nn.kneighbors(
+            X, n_neighbors, return_distance=True
+        )
         cu_fss_graph = cu_fuzzy_simplicial_set(
             X,
             n_neighbors,
             random_state,
             metric,
             knn_indices=knn_indices,
-            knn_dists=knn_dists)
+            knn_dists=knn_dists,
+        )
 
         knn_indices = knn_indices.get()
         knn_dists = knn_dists.get()
@@ -83,63 +87,60 @@ def test_fuzzy_simplicial_set(n_rows,
             random_state,
             metric,
             knn_indices=knn_indices,
-            knn_dists=knn_dists)[0].tocoo()
+            knn_dists=knn_dists,
+        )[0].tocoo()
     else:
         cu_fss_graph = cu_fuzzy_simplicial_set(
-            X,
-            n_neighbors,
-            random_state,
-            metric)
+            X, n_neighbors, random_state, metric
+        )
 
         X = X.get()
         ref_fss_graph = ref_fuzzy_simplicial_set(
-            X,
-            n_neighbors,
-            random_state,
-            metric)[0].tocoo()
+            X, n_neighbors, random_state, metric
+        )[0].tocoo()
 
     cu_fss_graph = cu_fss_graph.todense()
     ref_fss_graph = cp.sparse.coo_matrix(ref_fss_graph).todense()
-    assert correctness_sparse(ref_fss_graph,
-                              cu_fss_graph,
-                              atol=0.1,
-                              rtol=0.2,
-                              threshold=0.95)
+    assert correctness_sparse(
+        ref_fss_graph, cu_fss_graph, atol=0.1, rtol=0.2, threshold=0.95
+    )
 
 
-@pytest.mark.parametrize('n_rows', [800, 5000])
-@pytest.mark.parametrize('n_features', [8, 32])
-@pytest.mark.parametrize('n_neighbors', [8, 16])
-@pytest.mark.parametrize('n_components', [2, 5])
-def test_simplicial_set_embedding(n_rows,
-                                  n_features,
-                                  n_neighbors,
-                                  n_components):
+@pytest.mark.parametrize("n_rows", [800, 5000])
+@pytest.mark.parametrize("n_features", [8, 32])
+@pytest.mark.parametrize("n_neighbors", [8, 16])
+@pytest.mark.parametrize("n_components", [2, 5])
+def test_simplicial_set_embedding(
+    n_rows, n_features, n_neighbors, n_components
+):
     n_clusters = 30
     random_state = 42
-    metric = 'euclidean'
+    metric = "euclidean"
     initial_alpha = 1.0
     a, b = UMAP.find_ab_params(1.0, 0.1)
     gamma = 0
     negative_sample_rate = 5
     n_epochs = 500
-    init = 'random'
-    metric = 'euclidean'
+    init = "random"
+    metric = "euclidean"
     metric_kwds = {}
     densmap = False
     densmap_kwds = {}
     output_dens = False
-    output_metric = 'euclidean'
+    output_metric = "euclidean"
     output_metric_kwds = {}
 
-    X, _ = make_blobs(n_samples=n_rows, centers=n_clusters,
-                      n_features=n_features, random_state=random_state)
+    X, _ = make_blobs(
+        n_samples=n_rows,
+        centers=n_clusters,
+        n_features=n_features,
+        random_state=random_state,
+    )
     X = X.get()
 
-    ref_fss_graph = ref_fuzzy_simplicial_set(X,
-                                             n_neighbors,
-                                             random_state,
-                                             metric)[0]
+    ref_fss_graph = ref_fuzzy_simplicial_set(
+        X, n_neighbors, random_state, metric
+    )[0]
     ref_embedding = ref_simplicial_set_embedding(
         X,
         ref_fss_graph,
@@ -158,12 +159,12 @@ def test_simplicial_set_embedding(n_rows,
         densmap_kwds,
         output_dens,
         output_metric=output_metric,
-        output_metric_kwds=output_metric_kwds)[0]
+        output_metric_kwds=output_metric_kwds,
+    )[0]
 
-    cu_fss_graph = cu_fuzzy_simplicial_set(X,
-                                           n_neighbors,
-                                           random_state,
-                                           metric)
+    cu_fss_graph = cu_fuzzy_simplicial_set(
+        X, n_neighbors, random_state, metric
+    )
 
     cu_embedding = cu_simplicial_set_embedding(
         X,
@@ -180,10 +181,10 @@ def test_simplicial_set_embedding(n_rows,
         metric,
         metric_kwds,
         output_metric=output_metric,
-        output_metric_kwds=output_metric_kwds)
+        output_metric_kwds=output_metric_kwds,
+    )
 
     ref_embedding = cp.array(ref_embedding)
-    assert correctness_dense(ref_embedding,
-                             cu_embedding,
-                             rtol=0.1,
-                             threshold=0.95)
+    assert correctness_dense(
+        ref_embedding, cu_embedding, rtol=0.1, threshold=0.95
+    )

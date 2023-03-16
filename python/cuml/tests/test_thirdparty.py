@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,30 +14,37 @@
 #
 
 from cuml.testing.test_preproc_utils import assert_allclose
-from sklearn.utils.sparsefuncs import \
-    inplace_csr_column_scale as sk_inplace_csr_column_scale, \
-    inplace_csr_row_scale as sk_inplace_csr_row_scale, \
-    inplace_column_scale as sk_inplace_column_scale, \
-    mean_variance_axis as sk_mean_variance_axis, \
-    min_max_axis as sk_min_max_axis
-from cuml._thirdparty.sklearn.utils.sparsefuncs import \
-    inplace_csr_column_scale as cu_inplace_csr_column_scale, \
-    inplace_csr_row_scale as cu_inplace_csr_row_scale, \
-    inplace_column_scale as cu_inplace_column_scale, \
-    mean_variance_axis as cu_mean_variance_axis, \
-    min_max_axis as cu_min_max_axis
-from sklearn.utils.extmath import row_norms as sk_row_norms, \
-    _incremental_mean_and_var as sk_incremental_mean_and_var
-from cuml._thirdparty.sklearn.utils.extmath import row_norms as cu_row_norms, \
-    _incremental_mean_and_var as cu_incremental_mean_and_var
+from sklearn.utils.sparsefuncs import (
+    inplace_csr_column_scale as sk_inplace_csr_column_scale,
+    inplace_csr_row_scale as sk_inplace_csr_row_scale,
+    inplace_column_scale as sk_inplace_column_scale,
+    mean_variance_axis as sk_mean_variance_axis,
+    min_max_axis as sk_min_max_axis,
+)
+from cuml._thirdparty.sklearn.utils.sparsefuncs import (
+    inplace_csr_column_scale as cu_inplace_csr_column_scale,
+    inplace_csr_row_scale as cu_inplace_csr_row_scale,
+    inplace_column_scale as cu_inplace_column_scale,
+    mean_variance_axis as cu_mean_variance_axis,
+    min_max_axis as cu_min_max_axis,
+)
+from sklearn.utils.extmath import (
+    row_norms as sk_row_norms,
+    _incremental_mean_and_var as sk_incremental_mean_and_var,
+)
+from cuml._thirdparty.sklearn.utils.extmath import (
+    row_norms as cu_row_norms,
+    _incremental_mean_and_var as cu_incremental_mean_and_var,
+)
 from cuml._thirdparty.sklearn.utils.validation import check_X_y
 from cuml.internals.safe_imports import gpu_only_import
 import pytest
 
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
-cpx = gpu_only_import('cupyx')
+
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
+cpx = gpu_only_import("cupyx")
 
 
 @pytest.fixture(scope="session")
@@ -47,16 +54,15 @@ def random_dataset(request, random_seed):
     return X.get(), X
 
 
-@pytest.fixture(scope="session",
-                params=["cupy-csr", "cupy-csc"])
+@pytest.fixture(scope="session", params=["cupy-csr", "cupy-csc"])
 def sparse_random_dataset(request, random_seed):
     cp.random.seed(random_seed)
     X = cp.random.rand(100, 10)
     random_loc = cp.random.choice(X.size, int(X.size * 0.3), replace=False)
     X.ravel()[random_loc] = 0
-    if request.param == 'cupy-csr':
+    if request.param == "cupy-csr":
         X_sparse = cpx.scipy.sparse.csr_matrix(X)
-    elif request.param == 'cupy-csc':
+    elif request.param == "cupy-csc":
         X_sparse = cpx.scipy.sparse.csc_matrix(X)
     return X.get(), X, X_sparse.get(), X_sparse
 
@@ -98,22 +104,22 @@ def test_incremental_mean_and_var(failure_logger, random_seed, random_dataset):
     last_variance = cp.random.rand(10)
     last_sample_count = cp.random.rand(10)
 
-    cu_mean, cu_variance, cu_sample_count = \
-        cu_incremental_mean_and_var(X, last_mean, last_variance,
-                                    last_sample_count)
-    sk_mean, sk_variance, sk_sample_count = \
-        sk_incremental_mean_and_var(X_np, last_mean.get(),
-                                    last_variance.get(),
-                                    last_sample_count.get())
+    cu_mean, cu_variance, cu_sample_count = cu_incremental_mean_and_var(
+        X, last_mean, last_variance, last_sample_count
+    )
+    sk_mean, sk_variance, sk_sample_count = sk_incremental_mean_and_var(
+        X_np, last_mean.get(), last_variance.get(), last_sample_count.get()
+    )
     assert_allclose(cu_mean, sk_mean)
     assert_allclose(cu_variance, sk_variance)
     assert_allclose(cu_sample_count, sk_sample_count)
 
 
-def test_inplace_csr_column_scale(failure_logger, random_seed,
-                                  sparse_random_dataset):
+def test_inplace_csr_column_scale(
+    failure_logger, random_seed, sparse_random_dataset
+):
     _, _, X_sparse_np, X_sparse = sparse_random_dataset
-    if X_sparse.format != 'csr':
+    if X_sparse.format != "csr":
         pytest.skip()
     cp.random.seed(random_seed)
     scale = cp.random.rand(10)
@@ -122,10 +128,11 @@ def test_inplace_csr_column_scale(failure_logger, random_seed,
     assert_allclose(X_sparse, X_sparse_np)
 
 
-def test_inplace_csr_row_scale(failure_logger, random_seed,
-                               sparse_random_dataset):
+def test_inplace_csr_row_scale(
+    failure_logger, random_seed, sparse_random_dataset
+):
     _, _, X_sparse_np, X_sparse = sparse_random_dataset
-    if X_sparse.format != 'csr':
+    if X_sparse.format != "csr":
         pytest.skip()
     cp.random.seed(random_seed)
     scale = cp.random.rand(100)
@@ -134,8 +141,9 @@ def test_inplace_csr_row_scale(failure_logger, random_seed,
     assert_allclose(X_sparse, X_sparse_np)
 
 
-def test_inplace_column_scale(failure_logger, random_seed,
-                              sparse_random_dataset):
+def test_inplace_column_scale(
+    failure_logger, random_seed, sparse_random_dataset
+):
     _, X, X_sparse_np, X_sparse = sparse_random_dataset
     cp.random.seed(random_seed)
     scale = cp.random.rand(10)
@@ -163,10 +171,12 @@ def test_min_max_axis(failure_logger, sparse_random_dataset, axis, ignore_nan):
     _, X, X_sparse_np, X_sparse = sparse_random_dataset
     X_sparse[0, 0] = np.nan
     X_sparse_np[0, 0] = np.nan
-    cu_min, cu_max = cu_min_max_axis(X_sparse, axis=axis,
-                                     ignore_nan=ignore_nan)
-    sk_min, sk_max = sk_min_max_axis(X_sparse_np, axis=axis,
-                                     ignore_nan=ignore_nan)
+    cu_min, cu_max = cu_min_max_axis(
+        X_sparse, axis=axis, ignore_nan=ignore_nan
+    )
+    sk_min, sk_max = sk_min_max_axis(
+        X_sparse_np, axis=axis, ignore_nan=ignore_nan
+    )
 
     if axis is not None:
         assert_allclose(cu_min, sk_min)
@@ -179,22 +189,24 @@ def test_min_max_axis(failure_logger, sparse_random_dataset, axis, ignore_nan):
         cu_min_max_axis(X, axis=axis, ignore_nan=ignore_nan)
 
 
-@pytest.fixture(scope="session",
-                params=["cupy-csr", "cupy-csc"])
+@pytest.fixture(scope="session", params=["cupy-csr", "cupy-csc"])
 def sparse_extremes(request, random_seed):
-    X = cp.array([
-        [-0.9933658, 0.871748, 0.44418066],
-        [0.87808335, cp.nan, 0.18183318],
-        [cp.nan, 0.25030251, -0.7269053],
-        [cp.nan, 0.17725405, cp.nan],
-        [cp.nan, cp.nan, cp.nan],
-        [0.0, 0.0, 0.44418066],
-        [0.0, 0.0, 0.0],
-        [0.0, 0.0, cp.nan],
-        [0.0, cp.nan, cp.nan]])
-    if request.param == 'cupy-csr':
+    X = cp.array(
+        [
+            [-0.9933658, 0.871748, 0.44418066],
+            [0.87808335, cp.nan, 0.18183318],
+            [cp.nan, 0.25030251, -0.7269053],
+            [cp.nan, 0.17725405, cp.nan],
+            [cp.nan, cp.nan, cp.nan],
+            [0.0, 0.0, 0.44418066],
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, cp.nan],
+            [0.0, cp.nan, cp.nan],
+        ]
+    )
+    if request.param == "cupy-csr":
         X_sparse = cpx.scipy.sparse.csr_matrix(X)
-    elif request.param == 'cupy-csc':
+    elif request.param == "cupy-csc":
         X_sparse = cpx.scipy.sparse.csc_matrix(X)
     return X_sparse.get(), X_sparse
 
@@ -208,10 +220,12 @@ def sparse_extremes(request, random_seed):
 def test_min_max_axis_extremes(sparse_extremes, axis, ignore_nan):
     X_sparse_np, X_sparse = sparse_extremes
 
-    cu_min, cu_max = cu_min_max_axis(X_sparse, axis=axis,
-                                     ignore_nan=ignore_nan)
-    sk_min, sk_max = sk_min_max_axis(X_sparse_np, axis=axis,
-                                     ignore_nan=ignore_nan)
+    cu_min, cu_max = cu_min_max_axis(
+        X_sparse, axis=axis, ignore_nan=ignore_nan
+    )
+    sk_min, sk_max = sk_min_max_axis(
+        X_sparse_np, axis=axis, ignore_nan=ignore_nan
+    )
 
     if axis is not None:
         assert_allclose(cu_min, sk_min)

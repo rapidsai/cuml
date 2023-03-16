@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 from cuml.internals.mixins import RegressorMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
 
-__all__ = ['LinearSVR']
+__all__ = ["LinearSVR"]
 
 
 class LinearSVR(LinearSVM, RegressorMixin):
-    '''
+    """
     LinearSVR (Support Vector Regression with the linear kernel)
 
     Construct a linear SVM regressor for training and predictions.
@@ -122,19 +122,19 @@ class LinearSVR(LinearSVM, RegressorMixin):
 
     For additional docs, see `scikitlearn's LinearSVR
     <https://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVR.html>`_.
-    '''
+    """
 
-    REGISTERED_LOSSES = set([
-        'epsilon_insensitive',
-        'squared_epsilon_insensitive'])
+    REGISTERED_LOSSES = set(
+        ["epsilon_insensitive", "squared_epsilon_insensitive"]
+    )
 
     def __init__(self, **kwargs):
         # NB: the keyword arguments are filtered in python/cuml/svm/linear.pyx
         #     the default parameter values are reexported from
         #                                      cpp/include/cuml/svm/linear.hpp
         # set regression-specific defaults
-        if 'loss' not in kwargs:
-            kwargs['loss'] = 'epsilon_insensitive'
+        if "loss" not in kwargs:
+            kwargs["loss"] = "epsilon_insensitive"
 
         super().__init__(**kwargs)
 
@@ -148,22 +148,25 @@ class LinearSVR(LinearSVM, RegressorMixin):
             raise ValueError(
                 f"Regression loss type "
                 f"must be one of {self.REGISTERED_LOSSES}, "
-                f"but given '{loss}'.")
+                f"but given '{loss}'."
+            )
         self.__loss = loss
 
     def get_param_names(self):
-        return list({
-            "handle",
-            "verbose",
-            'penalty',
-            'loss',
-            'fit_intercept',
-            'penalized_intercept',
-            'max_iter',
-            'linesearch_max_iter',
-            'lbfgs_memory',
-            'C',
-            'grad_tol',
-            'change_tol',
-            'epsilon'
-        }.union(super().get_param_names()))
+        return list(
+            {
+                "handle",
+                "verbose",
+                "penalty",
+                "loss",
+                "fit_intercept",
+                "penalized_intercept",
+                "max_iter",
+                "linesearch_max_iter",
+                "lbfgs_memory",
+                "C",
+                "grad_tol",
+                "change_tol",
+                "epsilon",
+            }.union(super().get_param_names())
+        )

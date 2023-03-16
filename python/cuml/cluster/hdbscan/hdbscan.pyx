@@ -41,8 +41,7 @@ from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals import logger
-from cuml.internals.import_utils import has_hdbscan_plots
-from cuml.internals.import_utils import has_hdbscan_prediction
+from cuml.internals.import_utils import has_hdbscan
 
 import cuml
 from cuml.metrics.distance_type cimport DistanceType
@@ -210,7 +209,7 @@ def _build_condensed_tree_plot_host(
     raw_tree['lambda_val'] = lambdas
     raw_tree['child_size'] = sizes
 
-    if has_hdbscan_plots():
+    if has_hdbscan(raise_if_unavailable=True):
         from hdbscan.plots import CondensedTree
         return CondensedTree(raw_tree,
                              cluster_selection_method,
@@ -341,6 +340,10 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
     (and often will) lead to some points being assigned different
     cluster labels between the two implementations.
 
+    This estimator supports cuML's experimental device selection capabilities.
+    It can be configured to run on either the CPU or the GPU.
+    To learn more, please see :ref:`device-selection`.
+
     Parameters
     ----------
     handle : cuml.Handle
@@ -420,7 +423,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         utilizing plotting tools. This requires the `hdbscan` CPU
         Python package to be installed.
 
-    gen_single_linkage_tree_ : bool, optinal (default=False)
+    gen_single_linkage_tree_ : bool, optional (default=False)
         Whether to populate the `single_linkage_tree_` member for
         utilizing plotting tools. This requires the `hdbscan` CPU
         Python package t be installed.
@@ -432,7 +435,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
 
-    prediction_data : bool, optinal (default=False)
+    prediction_data : bool, optional (default=False)
         Whether to generate extra cached data for predicting labels or
         membership vectors few new unseen points later. If you wish to
         persist the clustering object for later re-use you probably want
@@ -454,8 +457,8 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         A score of how persistent each cluster is. A score of 1.0 represents
         a perfectly stable cluster that persists over all distance scales,
         while a score of 0.0 represents a perfectly ephemeral cluster. These
-        scores can be guage the relative coherence of the clusters output
-        by the algorithm.
+        scores can be used to gauge the relative coherence of the 
+        clusters output by the algorithm.
 
     condensed_tree_ : CondensedTree object
         The condensed tree produced by HDBSCAN. The object has methods
@@ -582,7 +585,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
             raw_tree = raw_tree.astype(np.float64)
 
-            if has_hdbscan_plots():
+            if has_hdbscan(raise_if_unavailable=True):
                 from hdbscan.plots import SingleLinkageTree
                 self.single_linkage_tree_obj = SingleLinkageTree(raw_tree)
 
@@ -601,7 +604,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                'model.generate_prediction_data()')
 
         if self.prediction_data_obj is None:
-            if has_hdbscan_prediction():
+            if has_hdbscan(raise_if_unavailable=True):
                 from sklearn.neighbors import KDTree, BallTree
                 from hdbscan.prediction import PredictionData
 
@@ -642,7 +645,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
             raw_tree = raw_tree.astype(np.float64)
 
-            if has_hdbscan_plots():
+            if has_hdbscan(raise_if_unavailable=True):
                 from hdbscan.plots import MinimumSpanningTree
                 self.minimum_spanning_tree_ = \
                     MinimumSpanningTree(raw_tree, X.to_output("numpy"))

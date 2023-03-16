@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -469,8 +469,8 @@ struct TestRegTargets {
     mp.loss          = std::get<0>(ps);
     mp.penalty       = std::get<1>(ps);
     mp.fit_intercept = std::get<2>(ps);
-    // The regularization parameter strongly affects the model perfomance in some cases,
-    // a larger-than-default value of C seems to always yeild better scores on this generated
+    // The regularization parameter strongly affects the model performance in some cases,
+    // a larger-than-default value of C seems to always yield better scores on this generated
     // dataset.
     mp.C       = 100.0;
     mp.epsilon = std::get<5>(ps);

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +20,7 @@ from cuml.dask.common.base import SyncFitMixinLinearModel
 from raft_dask.common.comms import get_raft_comm_state
 
 
-class Ridge(BaseEstimator,
-            SyncFitMixinLinearModel,
-            DelayedPredictionMixin):
+class Ridge(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
 
     """
     Ridge extends LinearRegression by providing L2 regularization on the
@@ -70,9 +68,7 @@ class Ridge(BaseEstimator,
     """
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
-        super().__init__(client=client,
-                         verbose=verbose,
-                         **kwargs)
+        super().__init__(client=client, verbose=verbose, **kwargs)
 
         self.coef_ = None
         self.intercept_ = None
@@ -124,5 +120,6 @@ class Ridge(BaseEstimator,
     @mnmg_import
     def _create_model(sessionId, datatype, **kwargs):
         from cuml.linear_model.ridge_mg import RidgeMG
+
         handle = get_raft_comm_state(sessionId)["handle"]
         return RidgeMG(handle=handle, output_type=datatype, **kwargs)

@@ -61,7 +61,7 @@ $ ./build.sh cuml --singlegpu          # build the cuML python package without M
 $ ./build.sh --ccache                  # use ccache to cache compilations, speeding up subsequent builds
 ```
 
-By default, Ninja is used as the cmake generator. To override this and use (e.g.) `make`, define the `CMAKE_GENERATOR` environment variable accodingly:
+By default, Ninja is used as the cmake generator. To override this and use (e.g.) `make`, define the `CMAKE_GENERATOR` environment variable accordingly:
 ```bash
 CMAKE_GENERATOR='Unix Makefiles' ./build.sh
 ```
@@ -123,7 +123,7 @@ If using a conda environment (recommended), then cmake can be configured appropr
 $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
 ```
 
-Note: The following warning message is dependent upon the version of cmake and the `CMAKE_INSTALL_PREFIX` used. If this warning is displayed, the build should still run succesfully. We are currently working to resolve this open issue. You can silence this warning by adding `-DCMAKE_IGNORE_PATH=$CONDA_PREFIX/lib` to your `cmake` command.
+Note: The following warning message is dependent upon the version of cmake and the `CMAKE_INSTALL_PREFIX` used. If this warning is displayed, the build should still run successfully. We are currently working to resolve this open issue. You can silence this warning by adding `-DCMAKE_IGNORE_PATH=$CONDA_PREFIX/lib` to your `cmake` command.
 ```
 Cannot generate a safe runtime search path for target ml_test because files
 in some directories may conflict with libraries in implicit directories:

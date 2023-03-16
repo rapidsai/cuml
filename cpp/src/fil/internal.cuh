@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -423,7 +423,7 @@ struct categorical_sets {
   }
 };
 
-// lets any tree determine a child index for a node in a generic fasion
+// lets any tree determine a child index for a node in a generic fashion
 // used in fil_test.cu fot its child_index() in CPU predicting
 struct tree_base {
   categorical_sets cat_sets;
@@ -554,7 +554,7 @@ struct cat_sets_device_owner {
  *    must be sparse_node16, sparse_node8 or dense_node
  *  @param h cuML handle used by this function
  *  @param pf pointer to where to store the newly created forest
- *  @param trees for sparse forests, indices of tree roots in the nodes arrray, of length
+ *  @param trees for sparse forests, indices of tree roots in the nodes array, of length
  params->ntrees; ignored for dense forests
  *  @param nodes nodes for the forest, of length params->num_nodes for sparse
       or (2**(params->depth + 1) - 1) * params->ntrees for dense forests

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ value_t Barnes_Hut(value_t* VAL,
 
   value_t kl_div = 0;
 
-  // Get device properites
+  // Get device properties
   //---------------------------------------------------
   const int blocks = raft::getMultiProcessorCount();
 

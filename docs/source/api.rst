@@ -18,6 +18,62 @@ Output Data Type Configuration
  .. autofunction:: cuml.internals.memory_utils.set_global_output_type
  .. autofunction:: cuml.internals.memory_utils.using_output_type
 
+.. _device-selection:
+
+CPU / GPU Device Selection (Experimental)
+-----------------------------------------
+cuML provides experimental support for running selected estimators and operators on either the GPU or CPU. This document covers the set of operators for which CPU/GPU device selection capabilities are supported as of the current nightly packages. If an operator isn't listed here, it can only be run on the GPU. Prior versions of cuML may have reduced support compared to the following table.
+
+.. list-table:: Operators Supporting CPU/GPU Device Selection and Execution
+   :header-rows: 1
+   :align: center
+   :widths: auto
+
+   * - Category
+     - Operator
+   * - Clustering
+     - HDBSCAN
+   * - Dimensionality Reduction and Manifold Learning
+     - PCA
+   * - Dimensionality Reduction and Manifold Learning
+     - TruncatedSVD
+   * - Dimensionality Reduction and Manifold Learning
+     - UMAP
+   * - Neighbors
+     - NearestNeighbors
+   * - Regression and Classification
+     - ElasticNet
+   * - Regression and Classification
+     - Lasso
+   * - Regression and Classification
+     - LinearRegression
+   * - Regression and Classification
+     - LogisticRegression
+   * - Regression and Classification
+     - Ridge
+
+If a CUDA-enabled GPU is available on the system, cuML will default to using it. Users can configure CPU or GPU execution for supported operators via context managers or global configuration. 
+
+.. code-block:: python
+
+   from cuml.linear_model import Lasso
+   from cuml.common.device_selection import using_device_type, set_global_device_type
+
+   with using_device_type("CPU"): # Alternatively, using_device_type("GPU")
+       model = Lasso()
+       model.fit(X_train, y_train)
+       predictions = model.predict(X_test)
+
+   # All operators supporting CPU execution will run on the CPU after this configuration
+   set_global_device_type("CPU")
+
+   model = Lasso()
+   model.fit(X_train, y_train)
+   predictions = model.predict(X_test)
+
+For more detailed examples, please see the `Execution Device Interoperability Notebook
+<execution_device_interoperability.ipynb>`_ in the User Guide.
+
 .. _verbosity-levels:
 
 Verbosity Levels

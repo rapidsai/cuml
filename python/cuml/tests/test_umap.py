@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,47 +29,57 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn import datasets
 from cuml.internals import logger
 from cuml.metrics import pairwise_distances
-from cuml.testing.utils import array_equal, unit_param, \
-    quality_param, stress_param
+from cuml.testing.utils import (
+    array_equal,
+    unit_param,
+    quality_param,
+    stress_param,
+)
 from cuml.manifold.umap import UMAP as cuUMAP
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
-scipy_sparse = cpu_only_import('scipy.sparse')
+
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
+scipy_sparse = cpu_only_import("scipy.sparse")
 
 
-dataset_names = ['iris', 'digits', 'wine', 'blobs']
+dataset_names = ["iris", "digits", "wine", "blobs"]
 
 
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('n_feats', [unit_param(20), quality_param(100),
-                         stress_param(1000)])
+@pytest.mark.parametrize(
+    "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
+)
+@pytest.mark.parametrize(
+    "n_feats", [unit_param(20), quality_param(100), stress_param(1000)]
+)
 def test_blobs_cluster(nrows, n_feats):
 
     data, labels = datasets.make_blobs(
-        n_samples=nrows, n_features=n_feats, centers=5, random_state=0)
+        n_samples=nrows, n_features=n_feats, centers=5, random_state=0
+    )
     embedding = cuUMAP().fit_transform(data, convert_dtype=True)
 
     if nrows < 500000:
-        score = adjusted_rand_score(labels,
-                                    KMeans(5).fit_predict(embedding))
+        score = adjusted_rand_score(labels, KMeans(5).fit_predict(embedding))
         assert score == 1.0
 
 
-@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('n_feats', [unit_param(10), quality_param(100),
-                         stress_param(1000)])
+@pytest.mark.parametrize(
+    "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
+)
+@pytest.mark.parametrize(
+    "n_feats", [unit_param(10), quality_param(100), stress_param(1000)]
+)
 def test_umap_fit_transform_score(nrows, n_feats):
 
     n_samples = nrows
     n_features = n_feats
 
-    data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
-                              centers=10, random_state=42)
+    data, labels = make_blobs(
+        n_samples=n_samples, n_features=n_features, centers=10, random_state=42
+    )
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.1)
     cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01)
@@ -81,11 +91,10 @@ def test_umap_fit_transform_score(nrows, n_feats):
     assert not np.isnan(cuml_embedding).any()
 
     if nrows < 500000:
-        cuml_score = adjusted_rand_score(labels,
-                                         KMeans(10).fit_predict(
-                                             cuml_embedding))
-        score = adjusted_rand_score(labels,
-                                    KMeans(10).fit_predict(embedding))
+        cuml_score = adjusted_rand_score(
+            labels, KMeans(10).fit_predict(cuml_embedding)
+        )
+        score = adjusted_rand_score(labels, KMeans(10).fit_predict(embedding))
 
         assert array_equal(score, cuml_score, 1e-2, with_sign=True)
 
@@ -93,9 +102,9 @@ def test_umap_fit_transform_score(nrows, n_feats):
 def test_supervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
-    embedding = cuUMAP(n_neighbors=10, random_state=0,
-                       min_dist=0.01).fit_transform(
-        data, iris.target, convert_dtype=True)
+    embedding = cuUMAP(
+        n_neighbors=10, random_state=0, min_dist=0.01
+    ).fit_transform(data, iris.target, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
@@ -105,9 +114,9 @@ def test_semisupervised_umap_trustworthiness_on_iris():
     data = iris.data
     target = iris.target.copy()
     target[25:75] = -1
-    embedding = cuUMAP(n_neighbors=10, random_state=0,
-                       min_dist=0.01).fit_transform(
-        data, target, convert_dtype=True)
+    embedding = cuUMAP(
+        n_neighbors=10, random_state=0, min_dist=0.01
+    ).fit_transform(data, target, convert_dtype=True)
 
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
@@ -116,24 +125,31 @@ def test_semisupervised_umap_trustworthiness_on_iris():
 def test_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
-    embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
-                       random_state=0).fit_transform(
-        data, convert_dtype=True)
+    embedding = cuUMAP(
+        n_neighbors=10, min_dist=0.01, random_state=0
+    ).fit_transform(data, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
 
-@pytest.mark.parametrize('target_metric', ["categorical", "euclidean"])
+@pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
 def test_umap_transform_on_iris(target_metric):
 
     iris = datasets.load_iris()
 
     iris_selection = np.random.RandomState(42).choice(
-        [True, False], 150, replace=True, p=[0.75, 0.25])
+        [True, False], 150, replace=True, p=[0.75, 0.25]
+    )
     data = iris.data[iris_selection]
 
-    fitter = cuUMAP(n_neighbors=10, init="random", n_epochs=800, min_dist=0.01,
-                    random_state=42, target_metric=target_metric)
+    fitter = cuUMAP(
+        n_neighbors=10,
+        init="random",
+        n_epochs=800,
+        min_dist=0.01,
+        random_state=42,
+        target_metric=target_metric,
+    )
     fitter.fit(data, convert_dtype=True)
     new_data = iris.data[~iris_selection]
     embedding = fitter.transform(new_data, convert_dtype=True)
@@ -144,102 +160,116 @@ def test_umap_transform_on_iris(target_metric):
     assert trust >= 0.85
 
 
-@pytest.mark.parametrize('input_type', ['cupy', 'scipy'])
-@pytest.mark.parametrize('xform_method', ['fit', 'fit_transform'])
-@pytest.mark.parametrize('target_metric', ["categorical", "euclidean"])
-def test_umap_transform_on_digits_sparse(target_metric, input_type,
-                                         xform_method):
+@pytest.mark.parametrize("input_type", ["cupy", "scipy"])
+@pytest.mark.parametrize("xform_method", ["fit", "fit_transform"])
+@pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
+def test_umap_transform_on_digits_sparse(
+    target_metric, input_type, xform_method
+):
 
     digits = datasets.load_digits()
 
     digits_selection = np.random.RandomState(42).choice(
-        [True, False], 1797, replace=True, p=[0.75, 0.25])
+        [True, False], 1797, replace=True, p=[0.75, 0.25]
+    )
 
-    if input_type == 'cupy':
+    if input_type == "cupy":
         sp_prefix = cupyx.scipy.sparse
     else:
         sp_prefix = scipy_sparse
 
     data = sp_prefix.csr_matrix(
-        scipy_sparse.csr_matrix(digits.data[digits_selection]))
+        scipy_sparse.csr_matrix(digits.data[digits_selection])
+    )
 
-    fitter = cuUMAP(n_neighbors=15,
-                    verbose=logger.level_info,
-                    init="random",
-                    n_epochs=0,
-                    min_dist=0.01,
-                    random_state=42,
-                    target_metric=target_metric)
+    fitter = cuUMAP(
+        n_neighbors=15,
+        verbose=logger.level_info,
+        init="random",
+        n_epochs=0,
+        min_dist=0.01,
+        random_state=42,
+        target_metric=target_metric,
+    )
 
     new_data = sp_prefix.csr_matrix(
-        scipy_sparse.csr_matrix(digits.data[~digits_selection]))
+        scipy_sparse.csr_matrix(digits.data[~digits_selection])
+    )
 
-    if xform_method == 'fit':
+    if xform_method == "fit":
         fitter.fit(data, convert_dtype=True)
         embedding = fitter.transform(new_data, convert_dtype=True)
     else:
         embedding = fitter.fit_transform(new_data, convert_dtype=True)
 
-    if input_type == 'cupy':
+    if input_type == "cupy":
         embedding = embedding.get()
 
-    trust = trustworthiness(digits.data[~digits_selection], embedding,
-                            n_neighbors=15)
+    trust = trustworthiness(
+        digits.data[~digits_selection], embedding, n_neighbors=15
+    )
     assert trust >= 0.96
 
 
-@pytest.mark.parametrize('target_metric', ["categorical", "euclidean"])
+@pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
 def test_umap_transform_on_digits(target_metric):
 
     digits = datasets.load_digits()
 
     digits_selection = np.random.RandomState(42).choice(
-        [True, False], 1797, replace=True, p=[0.75, 0.25])
+        [True, False], 1797, replace=True, p=[0.75, 0.25]
+    )
     data = digits.data[digits_selection]
 
-    fitter = cuUMAP(n_neighbors=15,
-                    verbose=logger.level_debug,
-                    init="random",
-                    n_epochs=0,
-                    min_dist=0.01,
-                    random_state=42,
-                    target_metric=target_metric)
+    fitter = cuUMAP(
+        n_neighbors=15,
+        verbose=logger.level_debug,
+        init="random",
+        n_epochs=0,
+        min_dist=0.01,
+        random_state=42,
+        target_metric=target_metric,
+    )
     fitter.fit(data, convert_dtype=True)
 
     new_data = digits.data[~digits_selection]
 
     embedding = fitter.transform(new_data, convert_dtype=True)
-    trust = trustworthiness(digits.data[~digits_selection], embedding,
-                            n_neighbors=15)
+    trust = trustworthiness(
+        digits.data[~digits_selection], embedding, n_neighbors=15
+    )
     assert trust >= 0.96
 
 
-@pytest.mark.parametrize('target_metric', ["categorical", "euclidean"])
-@pytest.mark.parametrize('name', dataset_names)
+@pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
+@pytest.mark.parametrize("name", dataset_names)
 def test_umap_fit_transform_trust(name, target_metric):
 
-    if name == 'iris':
+    if name == "iris":
         iris = datasets.load_iris()
         data = iris.data
         labels = iris.target
 
-    elif name == 'digits':
+    elif name == "digits":
         digits = datasets.load_digits(n_class=5)
         data = digits.data
         labels = digits.target
 
-    elif name == 'wine':
+    elif name == "wine":
         wine = datasets.load_wine()
         data = wine.data
         labels = wine.target
     else:
-        data, labels = make_blobs(n_samples=500, n_features=10,
-                                  centers=10, random_state=42)
+        data, labels = make_blobs(
+            n_samples=500, n_features=10, centers=10, random_state=42
+        )
 
-    model = umap.UMAP(n_neighbors=10, min_dist=0.01,
-                      target_metric=target_metric)
-    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01,
-                        target_metric=target_metric)
+    model = umap.UMAP(
+        n_neighbors=10, min_dist=0.01, target_metric=target_metric
+    )
+    cuml_model = cuUMAP(
+        n_neighbors=10, min_dist=0.01, target_metric=target_metric
+    )
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
 
@@ -249,29 +279,29 @@ def test_umap_fit_transform_trust(name, target_metric):
     assert array_equal(trust, cuml_trust, 1e-1, with_sign=True)
 
 
-@pytest.mark.parametrize('target_metric', ["categorical", "euclidean"])
-@pytest.mark.parametrize('name', [unit_param('digits')])
-@pytest.mark.parametrize('nrows', [quality_param(5000),
-                         stress_param(500000)])
-@pytest.mark.parametrize('n_feats', [quality_param(100),
-                         stress_param(1000)])
-@pytest.mark.parametrize('should_downcast', [True])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_umap_data_formats(input_type, should_downcast,
-                           nrows, n_feats, name, target_metric):
+@pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
+@pytest.mark.parametrize("name", [unit_param("digits")])
+@pytest.mark.parametrize("nrows", [quality_param(5000), stress_param(500000)])
+@pytest.mark.parametrize("n_feats", [quality_param(100), stress_param(1000)])
+@pytest.mark.parametrize("should_downcast", [True])
+@pytest.mark.parametrize("input_type", ["dataframe", "ndarray"])
+def test_umap_data_formats(
+    input_type, should_downcast, nrows, n_feats, name, target_metric
+):
 
     dtype = np.float32 if not should_downcast else np.float64
     n_samples = nrows
     n_feats = n_feats
 
-    if name == 'digits':
+    if name == "digits":
         # use the digits dataset for unit test
         digits = datasets.load_digits(n_class=9)
         X = digits["data"].astype(dtype)
 
     else:
-        X, y = datasets.make_blobs(n_samples=n_samples,
-                                   n_features=n_feats, random_state=0)
+        X, y = datasets.make_blobs(
+            n_samples=n_samples, n_features=n_feats, random_state=0
+        )
 
     umap = cuUMAP(n_neighbors=3, n_components=2, target_metric=target_metric)
 
@@ -279,15 +309,16 @@ def test_umap_data_formats(input_type, should_downcast,
     assert type(embeds) == np.ndarray
 
 
-@pytest.mark.parametrize('target_metric', ["categorical", "euclidean"])
+@pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
 @pytest.mark.filterwarnings("ignore:(.*)connected(.*):UserWarning:sklearn[.*]")
 def test_umap_fit_transform_score_default(target_metric):
 
     n_samples = 500
     n_features = 20
 
-    data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
-                              centers=10, random_state=42)
+    data, labels = make_blobs(
+        n_samples=n_samples, n_features=n_features, centers=10, random_state=42
+    )
 
     model = umap.UMAP(target_metric=target_metric)
     cuml_model = cuUMAP(target_metric=target_metric)
@@ -295,11 +326,10 @@ def test_umap_fit_transform_score_default(target_metric):
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
 
-    cuml_score = adjusted_rand_score(labels,
-                                     KMeans(10).fit_predict(
-                                         cuml_embedding))
-    score = adjusted_rand_score(labels,
-                                KMeans(10).fit_predict(embedding))
+    cuml_score = adjusted_rand_score(
+        labels, KMeans(10).fit_predict(cuml_embedding)
+    )
+    score = adjusted_rand_score(labels, KMeans(10).fit_predict(embedding))
 
     assert array_equal(score, cuml_score, 1e-2, with_sign=True)
 
@@ -309,8 +339,9 @@ def test_umap_fit_transform_against_fit_and_transform():
     n_samples = 500
     n_features = 20
 
-    data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
-                              centers=10, random_state=42)
+    data, labels = make_blobs(
+        n_samples=n_samples, n_features=n_features, centers=10, random_state=42
+    )
 
     """
     First test the default option does not hash the input
@@ -334,20 +365,25 @@ def test_umap_fit_transform_against_fit_and_transform():
 
     assert joblib.hash(ft_embedding) == joblib.hash(fit_embedding_same_input)
 
-    fit_embedding_diff_input = cuml_model.transform(data[1:],
-                                                    convert_dtype=True)
+    fit_embedding_diff_input = cuml_model.transform(
+        data[1:], convert_dtype=True
+    )
     assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_diff_input)
 
 
-@pytest.mark.parametrize('n_components,random_state',
-                         [unit_param(2, None),
-                          unit_param(2, 8),
-                          unit_param(2, np.random.RandomState(42)),
-                          unit_param(21, None),
-                          unit_param(21, np.random.RandomState(42)),
-                          unit_param(25, 8),
-                          unit_param(50, None),
-                          stress_param(50, 8)])
+@pytest.mark.parametrize(
+    "n_components,random_state",
+    [
+        unit_param(2, None),
+        unit_param(2, 8),
+        unit_param(2, np.random.RandomState(42)),
+        unit_param(21, None),
+        unit_param(21, np.random.RandomState(42)),
+        unit_param(25, 8),
+        unit_param(50, None),
+        stress_param(50, 8),
+    ],
+)
 def test_umap_fit_transform_reproducibility(n_components, random_state):
 
     n_samples = 8000
@@ -356,13 +392,14 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
     if random_state is None:
         n_components *= 2
 
-    data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
-                              centers=10, random_state=42)
+    data, labels = make_blobs(
+        n_samples=n_samples, n_features=n_features, centers=10, random_state=42
+    )
 
     def get_embedding(n_components, random_state):
-        reducer = cuUMAP(init="random",
-                         n_components=n_components,
-                         random_state=random_state)
+        reducer = cuUMAP(
+            init="random", n_components=n_components, random_state=random_state
+        )
         return reducer.fit_transform(data, convert_dtype=True)
 
     state = copy.copy(random_state)
@@ -382,15 +419,19 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
         assert mean_diff > 0.5
 
 
-@pytest.mark.parametrize('n_components,random_state',
-                         [unit_param(2, None),
-                          unit_param(2, 8),
-                          unit_param(2, np.random.RandomState(42)),
-                          unit_param(21, None),
-                          unit_param(25, 8),
-                          unit_param(25, np.random.RandomState(42)),
-                          unit_param(50, None),
-                          stress_param(50, 8)])
+@pytest.mark.parametrize(
+    "n_components,random_state",
+    [
+        unit_param(2, None),
+        unit_param(2, 8),
+        unit_param(2, np.random.RandomState(42)),
+        unit_param(21, None),
+        unit_param(25, 8),
+        unit_param(25, np.random.RandomState(42)),
+        unit_param(50, None),
+        stress_param(50, 8),
+    ],
+)
 def test_umap_transform_reproducibility(n_components, random_state):
 
     n_samples = 5000
@@ -399,18 +440,20 @@ def test_umap_transform_reproducibility(n_components, random_state):
     if random_state is None:
         n_components *= 2
 
-    data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
-                              centers=10, random_state=42)
+    data, labels = make_blobs(
+        n_samples=n_samples, n_features=n_features, centers=10, random_state=42
+    )
 
     selection = np.random.RandomState(42).choice(
-        [True, False], n_samples, replace=True, p=[0.5, 0.5])
+        [True, False], n_samples, replace=True, p=[0.5, 0.5]
+    )
     fit_data = data[selection]
     transform_data = data[~selection]
 
     def get_embedding(n_components, random_state):
-        reducer = cuUMAP(init="random",
-                         n_components=n_components,
-                         random_state=random_state)
+        reducer = cuUMAP(
+            init="random", n_components=n_components, random_state=random_state
+        )
         reducer.fit(fit_data, convert_dtype=True)
         return reducer.transform(transform_data, convert_dtype=True)
 
@@ -434,8 +477,9 @@ def test_umap_transform_reproducibility(n_components, random_state):
 def test_umap_fit_transform_trustworthiness_with_consistency_enabled():
     iris = datasets.load_iris()
     data = iris.data
-    algo = cuUMAP(n_neighbors=10, min_dist=0.01, init="random",
-                  random_state=42)
+    algo = cuUMAP(
+        n_neighbors=10, min_dist=0.01, init="random", random_state=42
+    )
     embedding = algo.fit_transform(data, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
@@ -445,11 +489,13 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
     iris = datasets.load_iris()
     data = iris.data
     selection = np.random.RandomState(42).choice(
-        [True, False], data.shape[0], replace=True, p=[0.5, 0.5])
+        [True, False], data.shape[0], replace=True, p=[0.5, 0.5]
+    )
     fit_data = data[selection]
     transform_data = data[~selection]
-    model = cuUMAP(n_neighbors=10, min_dist=0.01, init="random",
-                   random_state=42)
+    model = cuUMAP(
+        n_neighbors=10, min_dist=0.01, init="random", random_state=42
+    )
     model.fit(fit_data, convert_dtype=True)
     embedding = model.transform(transform_data, convert_dtype=True)
     trust = trustworthiness(transform_data, embedding, n_neighbors=10)
@@ -461,7 +507,7 @@ def test_exp_decay_params():
     def compare_exp_decay_params(a=None, b=None, min_dist=0.1, spread=1.0):
         cuml_model = cuUMAP(a=a, b=b, min_dist=min_dist, spread=spread)
         state = cuml_model.__getstate__()
-        cuml_a, cuml_b = state['a'], state['b']
+        cuml_a, cuml_b = state["a"], state["b"]
         skl_model = umap.UMAP(a=a, b=b, min_dist=min_dist, spread=spread)
         skl_model.fit(np.zeros((1, 1)))
         sklearn_a, sklearn_b = skl_model._a, skl_model._b
@@ -476,23 +522,21 @@ def test_exp_decay_params():
     compare_exp_decay_params(min_dist=0.1, spread=10.0)
 
 
-@pytest.mark.parametrize('n_neighbors', [5, 15])
+@pytest.mark.parametrize("n_neighbors", [5, 15])
 def test_umap_knn_graph(n_neighbors):
     data, labels = datasets.make_blobs(
-        n_samples=2000, n_features=10, centers=5, random_state=0)
+        n_samples=2000, n_features=10, centers=5, random_state=0
+    )
     data = data.astype(np.float32)
 
     def fit_transform_embed(knn_graph=None):
-        model = cuUMAP(random_state=42,
-                       init='random',
-                       n_neighbors=n_neighbors)
-        return model.fit_transform(data, knn_graph=knn_graph,
-                                   convert_dtype=True)
+        model = cuUMAP(random_state=42, init="random", n_neighbors=n_neighbors)
+        return model.fit_transform(
+            data, knn_graph=knn_graph, convert_dtype=True
+        )
 
     def transform_embed(knn_graph=None):
-        model = cuUMAP(random_state=42,
-                       init='random',
-                       n_neighbors=n_neighbors)
+        model = cuUMAP(random_state=42, init="random", n_neighbors=n_neighbors)
         model.fit(data, knn_graph=knn_graph, convert_dtype=True)
         return model.transform(data, convert_dtype=True)
 
@@ -531,33 +575,35 @@ def test_umap_knn_graph(n_neighbors):
     test_equality(embedding6, embedding7)
 
 
-@pytest.mark.parametrize('precomputed_type', ['knn_graph', 'tuple',
-                                              'pairwise'])
-@pytest.mark.parametrize('sparse_input', [False, True])
+@pytest.mark.parametrize(
+    "precomputed_type", ["knn_graph", "tuple", "pairwise"]
+)
+@pytest.mark.parametrize("sparse_input", [False, True])
 def test_umap_precomputed_knn(precomputed_type, sparse_input):
-    data, labels = make_blobs(n_samples=2000, n_features=10,
-                              centers=5, random_state=0)
+    data, labels = make_blobs(
+        n_samples=2000, n_features=10, centers=5, random_state=0
+    )
     data = data.astype(np.float32)
 
     if sparse_input:
-        sparsification = np.random.choice([0., 1.],
-                                          p=[0.1, 0.9],
-                                          size=data.shape)
+        sparsification = np.random.choice(
+            [0.0, 1.0], p=[0.1, 0.9], size=data.shape
+        )
         data = np.multiply(data, sparsification)
         data = scipy_sparse.csr_matrix(data)
 
     n_neighbors = 8
 
-    if precomputed_type == 'knn_graph':
+    if precomputed_type == "knn_graph":
         nn = NearestNeighbors(n_neighbors=n_neighbors)
         nn.fit(data)
         precomputed_knn = nn.kneighbors_graph(data, mode="distance")
-    elif precomputed_type == 'tuple':
+    elif precomputed_type == "tuple":
         nn = NearestNeighbors(n_neighbors=n_neighbors)
         nn.fit(data)
         precomputed_knn = nn.kneighbors(data, return_distance=True)
         precomputed_knn = (precomputed_knn[1], precomputed_knn[0])
-    elif precomputed_type == 'pairwise':
+    elif precomputed_type == "pairwise":
         precomputed_knn = pairwise_distances(data)
 
     model = cuUMAP(n_neighbors=n_neighbors, precomputed_knn=precomputed_knn)
@@ -574,17 +620,19 @@ def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
     return correctness >= threshold
 
 
-@pytest.mark.parametrize('n_rows', [200, 800])
-@pytest.mark.parametrize('n_features', [8, 32])
-@pytest.mark.parametrize('n_neighbors', [8, 16])
-def test_fuzzy_simplicial_set(n_rows,
-                              n_features,
-                              n_neighbors):
+@pytest.mark.parametrize("n_rows", [200, 800])
+@pytest.mark.parametrize("n_features", [8, 32])
+@pytest.mark.parametrize("n_neighbors", [8, 16])
+def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
     n_clusters = 30
     random_state = 42
 
-    X, _ = make_blobs(n_samples=n_rows, centers=n_clusters,
-                      n_features=n_features, random_state=random_state)
+    X, _ = make_blobs(
+        n_samples=n_rows,
+        centers=n_clusters,
+        n_features=n_features,
+        random_state=random_state,
+    )
 
     model = cuUMAP(n_neighbors=n_neighbors)
     model.fit(X)
@@ -596,65 +644,98 @@ def test_fuzzy_simplicial_set(n_rows,
 
     cu_fss_graph = cu_fss_graph.todense()
     ref_fss_graph = cp.sparse.coo_matrix(ref_fss_graph).todense()
-    assert correctness_sparse(ref_fss_graph,
-                              cu_fss_graph,
-                              atol=0.1,
-                              rtol=0.2,
-                              threshold=0.95)
+    assert correctness_sparse(
+        ref_fss_graph, cu_fss_graph, atol=0.1, rtol=0.2, threshold=0.95
+    )
 
 
-@pytest.mark.parametrize('metric', ['l2', 'euclidean', 'sqeuclidean', 'l1',
-                                    'manhattan', 'minkowski', 'chebyshev',
-                                    'cosine', 'correlation', 'jaccard',
-                                    'hamming', 'canberra'])
+@pytest.mark.parametrize(
+    "metric",
+    [
+        "l2",
+        "euclidean",
+        "sqeuclidean",
+        "l1",
+        "manhattan",
+        "minkowski",
+        "chebyshev",
+        "cosine",
+        "correlation",
+        "jaccard",
+        "hamming",
+        "canberra",
+    ],
+)
 def test_umap_distance_metrics_fit_transform_trust(metric):
-    data, labels = make_blobs(n_samples=1000, n_features=64,
-                              centers=5, random_state=42)
+    data, labels = make_blobs(
+        n_samples=1000, n_features=64, centers=5, random_state=42
+    )
 
-    if metric == 'jaccard':
+    if metric == "jaccard":
         data = data >= 0
 
-    umap_model = umap.UMAP(n_neighbors=10, min_dist=0.01,
-                           metric=metric, init='random')
-    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01,
-                        metric=metric, init='random')
+    umap_model = umap.UMAP(
+        n_neighbors=10, min_dist=0.01, metric=metric, init="random"
+    )
+    cuml_model = cuUMAP(
+        n_neighbors=10, min_dist=0.01, metric=metric, init="random"
+    )
     umap_embedding = umap_model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data)
 
-    umap_trust = trustworthiness(data, umap_embedding,
-                                 n_neighbors=10, metric=metric)
-    cuml_trust = trustworthiness(data, cuml_embedding,
-                                 n_neighbors=10, metric=metric)
+    umap_trust = trustworthiness(
+        data, umap_embedding, n_neighbors=10, metric=metric
+    )
+    cuml_trust = trustworthiness(
+        data, cuml_embedding, n_neighbors=10, metric=metric
+    )
 
     assert array_equal(umap_trust, cuml_trust, 0.05, with_sign=True)
 
 
-@pytest.mark.parametrize('metric', ['euclidean', 'l1', 'manhattan',
-                                    'minkowski', 'chebyshev',
-                                    'cosine', 'correlation', 'jaccard',
-                                    'hamming', 'canberra'])
+@pytest.mark.parametrize(
+    "metric",
+    [
+        "euclidean",
+        "l1",
+        "manhattan",
+        "minkowski",
+        "chebyshev",
+        "cosine",
+        "correlation",
+        "jaccard",
+        "hamming",
+        "canberra",
+    ],
+)
 def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(metric):
-    data, labels = make_blobs(n_samples=1000, n_features=64,
-                              centers=5, random_state=42)
+    data, labels = make_blobs(
+        n_samples=1000, n_features=64, centers=5, random_state=42
+    )
 
     data_selection = np.random.RandomState(42).choice(
-        [True, False], 1000, replace=True, p=[0.75, 0.25])
+        [True, False], 1000, replace=True, p=[0.75, 0.25]
+    )
 
-    if metric == 'jaccard':
+    if metric == "jaccard":
         data = data >= 0
 
     new_data = scipy_sparse.csr_matrix(data[~data_selection])
 
-    umap_model = umap.UMAP(n_neighbors=10, min_dist=0.01,
-                           metric=metric, init='random')
-    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01,
-                        metric=metric, init='random')
+    umap_model = umap.UMAP(
+        n_neighbors=10, min_dist=0.01, metric=metric, init="random"
+    )
+    cuml_model = cuUMAP(
+        n_neighbors=10, min_dist=0.01, metric=metric, init="random"
+    )
     umap_embedding = umap_model.fit_transform(new_data)
     cuml_embedding = cuml_model.fit_transform(new_data)
 
-    umap_trust = trustworthiness(data[~data_selection], umap_embedding,
-                                 n_neighbors=10, metric=metric)
-    cuml_trust = trustworthiness(data[~data_selection], cuml_embedding,
-                                 n_neighbors=10, metric=metric)
+    umap_trust = trustworthiness(
+        data[~data_selection], umap_embedding, n_neighbors=10, metric=metric
+    )
+    cuml_trust = trustworthiness(
+        data[~data_selection], cuml_embedding, n_neighbors=10, metric=metric
+    )
 
     assert array_equal(umap_trust, cuml_trust, 0.05, with_sign=True)
