@@ -211,6 +211,8 @@ infer_kernel(
           row_index * num_outputs * num_grove + class_index * num_grove
         );
         auto class_sum = output_t{};
+        /* Perform a warp-level parallel reduction leaving the first thread in
+         * each warp with the entire sum */
         for (
           auto grove_index = threadIdx.x % WARP_SIZE;
           grove_index < padded_num_groves;

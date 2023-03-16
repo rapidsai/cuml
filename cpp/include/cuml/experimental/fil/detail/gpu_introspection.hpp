@@ -64,18 +64,6 @@ inline auto get_sm_count(raft_proto::device_id<raft_proto::device_type::gpu> dev
   return index_type(cache.at(device_id.value()));
 }
 
-inline auto get_max_threads_per_block(raft_proto::device_id<raft_proto::device_type::gpu> device_id) {
-  auto result = int{};
-  raft_proto::cuda_check(
-    cudaDeviceGetAttribute(
-      &result,
-      cudaDevAttrMaxThreadsPerBlock,
-      device_id.value()
-    )
-  );
-  return index_type(result);
-}
-
 inline auto get_max_threads_per_sm(raft_proto::device_id<raft_proto::device_type::gpu> device_id) {
   auto result = int{};
   raft_proto::cuda_check(
@@ -126,19 +114,6 @@ inline auto get_core_clock_rate(raft_proto::device_id<raft_proto::device_type::g
       &result,
       cudaDevAttrClockRate,
       device_id.value()
-    )
-  );
-  return index_type(result);
-}
-
-template <typename T>
-auto get_max_active_blocks_per_sm(
-  T kernel, index_type block_size, index_type dynamic_smem_size=index_type{}
-) {
-  auto result = int{};
-  raft_proto::cuda_check(
-    cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-      &result, kernel, block_size, dynamic_smem_size
     )
   );
   return index_type(result);
