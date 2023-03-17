@@ -59,6 +59,8 @@ requirements:
     - libraft-headers ={{ minor_version }}
     - libraft-nn ={{ minor_version }}
     - treelite {{ treelite_version }}
+    - libfaiss>=1.7.1
+    - faiss-proc=*=cuda
 
 outputs:
   - name: libcuml
