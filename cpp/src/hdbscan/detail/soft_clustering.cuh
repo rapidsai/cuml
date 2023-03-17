@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "cuml/common/logger.hpp"
+#include <cuml/common/logger.hpp>
 #include "kernels/soft_clustering.cuh"
 #include "select.cuh"
 #include "utils.h"
