@@ -375,7 +375,7 @@ class GaussianNB(_BaseNB):
             n_features is the number of features.
         y : array-like shape (n_samples) Target values.
         sample_weight : array-like of shape (n_samples)
-            Weights applied to individial samples (1. for unweighted).
+            Weights applied to individual samples (1. for unweighted).
             Currently sample weight is ignored.
         """
         return self._partial_fit(
@@ -895,7 +895,7 @@ class _BaseDiscreteNB(_BaseNB):
             n_features is the number of features.
         y : array-like shape (n_samples) Target values.
         sample_weight : array-like of shape (n_samples)
-            Weights applied to individial samples (1. for unweighted).
+            Weights applied to individual samples (1. for unweighted).
             Currently sample weight is ignored.
         """
         self.fit_called_ = False
@@ -1932,7 +1932,7 @@ class CategoricalNB(_BaseDiscreteNB):
             col_indices = X.col
 
             # Adjust with the non-zeros data by adding jll_data (non-zeros)
-            # and substracting jll_zeros which are the zeros
+            # and subtracting jll_zeros which are the zeros
             # that were first computed
             for i in range(self.n_classes_):
                 jll_data = self.smoothed_cat_count[

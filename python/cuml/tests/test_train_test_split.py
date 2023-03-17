@@ -413,7 +413,7 @@ def test_stratified_binary_classification():
         ]
     )
 
-    # Needs to fail when we have just 1 occurence of a label
+    # Needs to fail when we have just 1 occurrence of a label
     y = cp.array([0, 0, 0, 0, 1])
     with pytest.raises(ValueError):
         train_test_split(X, y, train_size=0.75, stratify=y, shuffle=True)

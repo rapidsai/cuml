@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -497,7 +497,7 @@ void compute_core_dists(const raft::handle_t& handle,
  * @brief Compute the map from final, normalize labels to the labels in the CondensedHierarchy
  *
  * @param[in] handle raft handle for resource reuse
- * @param[in] condensed_tree the Condensed Hiearchy object
+ * @param[in] condensed_tree the Condensed Hierarchy object
  * @param[in] n_leaves number of leaves in the input data
  * @param[in] cluster_selection_method cluster selection method
  * @param[out] inverse_label_map rmm::device_uvector of size 0. It will be resized during the

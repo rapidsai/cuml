@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ static constexpr int TPB_DEFAULT = 128;
  * @return the position of the left child node in the nodes list. However, this
  *         value is valid only for threadIdx.x == 0.
  * @note this should be called by only one block from all participating blocks
- *       'smem' should be atleast of size `sizeof(IdxT) * TPB * 2`
+ *       'smem' should be at least of size `sizeof(IdxT) * TPB * 2`
  */
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 DI void partitionSamples(const Dataset<DataT, LabelT, IdxT>& dataset,

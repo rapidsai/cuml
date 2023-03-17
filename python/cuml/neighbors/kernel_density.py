@@ -324,7 +324,7 @@ class KernelDensity(Base):
         # Note that sklearns user guide is wrong
         # It says the (unnormalised) probability output for
         #  the kernel density is sum(K(x,h)).
-        # In fact what they implment is (1/n)*sum(K(x,h))
+        # In fact what they implement is (1/n)*sum(K(x,h))
         # Here we divide by n in normal probability space
         # Which becomes -log(n) in log probability space
         sum_weights = (
@@ -419,7 +419,7 @@ class KernelDensity(Base):
             X = rng.normal(size=(n_samples, dim))
             s_sq = cp.einsum("ij,ij->i", X, X).get()
 
-            # do this on the CPU becaause we don't have
+            # do this on the CPU because we don't have
             # a gammainc function  readily available
             correction = cp.array(
                 gammainc(0.5 * dim, 0.5 * s_sq) ** (1.0 / dim)

@@ -35,6 +35,7 @@ VALID_METRICS = {
             "cityblock",
             "manhattan",
             "taxicab",
+            # TODO: add "braycurtis" after https://github.com/rapidsai/raft/issues/1285
             "canberra",
             "minkowski",
             "lp",

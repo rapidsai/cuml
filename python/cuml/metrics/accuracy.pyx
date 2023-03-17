@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 @cuml.internals.api_return_any()
 def accuracy_score(ground_truth, predictions, handle=None, convert_dtype=True):
     """
-    Calcuates the accuracy score of a classification model.
+    Calculates the accuracy score of a classification model.
 
         Parameters
         ----------
