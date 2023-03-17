@@ -232,9 +232,12 @@ cdef class ForestInference_impl():
             use_double_precision_c = use_double_precision_bool
 
         try:
-            model_handle = tl_model.handle
+            model_handle = tl_model.handle.value
         except AttributeError:
-            model_handle = tl_model
+            try:
+                model_handle = tl_model.value
+            except AttributeError:
+                model_handle = tl_model
 
         cdef raft_proto_device_t dev_type
         if mem_type.is_device_accessible:
