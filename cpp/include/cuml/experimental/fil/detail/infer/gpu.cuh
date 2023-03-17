@@ -198,8 +198,9 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
     if (shared_mem_per_block > max_shared_mem_per_sm) {
       rows_per_block_iteration >>= index_type{1};
     }
-  } while (shared_mem_per_block > max_shared_mem_per_sm);
+  } while (shared_mem_per_block > max_shared_mem_per_sm && rows_per_block_iteration > 1);
 
+  shared_mem_per_block = std::min(shared_mem_per_block, max_shared_mem_per_sm);
 
   // Divide shared mem evenly
   shared_mem_per_block = max_shared_mem_per_sm / (
