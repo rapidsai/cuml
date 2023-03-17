@@ -99,7 +99,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   typename forest_t::io_type* input,
   index_type row_count,
   index_type col_count,
-  index_type class_count,
+  index_type output_count,
   vector_output_t vector_output=nullptr,
   categorical_data_t categorical_data=nullptr,
   std::optional<index_type> specified_chunk_size=std::nullopt,
@@ -117,7 +117,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   auto row_size_bytes = index_type(
     index_type(sizeof(typename forest_t::io_type) * col_count)
   );
-  auto row_output_size = class_count;
+  auto row_output_size = output_count;
   auto row_output_size_bytes = index_type(sizeof(
     typename forest_t::io_type
   ) * row_output_size);
@@ -232,7 +232,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       input,
       row_count,
       col_count,
-      class_count,
+      output_count,
       shared_mem_per_block,
       output_workspace_size,
       vector_output,
@@ -251,7 +251,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       input,
       row_count,
       col_count,
-      class_count,
+      output_count,
       shared_mem_per_block,
       output_workspace_size,
       vector_output,
@@ -270,7 +270,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       input,
       row_count,
       col_count,
-      class_count,
+      output_count,
       shared_mem_per_block,
       output_workspace_size,
       vector_output,
@@ -289,7 +289,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       input,
       row_count,
       col_count,
-      class_count,
+      output_count,
       shared_mem_per_block,
       output_workspace_size,
       vector_output,
@@ -308,7 +308,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       input,
       row_count,
       col_count,
-      class_count,
+      output_count,
       shared_mem_per_block,
       output_workspace_size,
       vector_output,
@@ -327,7 +327,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       input,
       row_count,
       col_count,
-      class_count,
+      output_count,
       shared_mem_per_block,
       output_workspace_size,
       vector_output,
