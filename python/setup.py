@@ -106,8 +106,9 @@ if clean_artifacts:
 ##############################################################################
 # - Python package generation ------------------------------------------------
 
+packages = find_packages(include=["cuml*"])
 setup(
-    include_package_data=True,
-    packages=find_packages(include=["cuml", "cuml.*"]),
+    packages=packages,
+    package_data={key: ["*.pxd"] for key in packages},
     zip_safe=False,
 )
