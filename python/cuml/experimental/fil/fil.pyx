@@ -23,6 +23,7 @@ import warnings
 from libcpp cimport bool
 from libc.stdint cimport uint32_t, uintptr_t
 
+from cuml.common.device_selection import using_device_type
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import CMajorInputTagMixin
@@ -499,22 +500,166 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         only for models trained and double precision and when exact
         conformance between results from FIL and the original training
         framework is of paramount importance.
-    mem_type : {'device', 'host', None}, default='single'
-        The memory type to use for initially loading the model. If None, the
-        current global memory type setting will be used. If the model is
-        loaded with one memory type and inference is later requested with an
-        incompatible device (e.g. device memory and CPU
-        execution), the model will be lazily loaded to the correct location
-        at that time. In general, it should not be necessary to set this
-        parameter directly (rely instead on the `using_device_type` context
-        manager), but it can be a useful convenience for some
-        hyperoptimization pipelines.
-
     device_id : int, default=0
         For GPU execution, the device on which to load and execute this
         model. For CPU execution, this value is currently ignored.
 
     """
+
+    def _reload_model(self):
+        """Reload model on any device (CPU/GPU) where model has already been
+        loaded"""
+        if hasattr(self, '_gpu_forest'):
+            with using_device_type('gpu'):
+                self._load_to_fil(device_id=self.device_id)
+        if hasattr(self, '_cpu_forest'):
+            with using_device_type('cpu'):
+                self._load_to_fil(device_id=self.device_id)
+
+    @property
+    def align_bytes(self):
+        try:
+            return self._align_bytes_
+        except AttributeError:
+            self._align_bytes_ = 0
+            return self._align_bytes_
+
+    @align_bytes.setter
+    def align_bytes(self, value):
+        try:
+            old_value = self._align_bytes_
+        except AttributeError:
+            old_value = value
+        if value is None:
+            self._align_bytes_ = 0
+        else:
+            self._align_bytes_ = value
+        if self.align_bytes != old_value:
+            self._reload_model()
+
+    @property
+    def precision(self):
+        try:
+            use_double_precision = \
+                self._use_double_precision_
+        except AttributeError:
+            self._use_double_precision_ = False
+            use_double_precision = \
+                self._use_double_precision_
+        if use_double_precision is None:
+            return 'native'
+        elif use_double_precision:
+            return 'double'
+        else:
+            return 'single'
+
+    @precision.setter
+    def precision(self, value):
+        try:
+            old_value = self._use_double_precision_
+        except AttributeError:
+            self._use_double_precision_ = False
+            old_value = self._use_double_precision_
+        if value in ('native', None):
+            self._use_double_precision_ = None
+        elif value in ('double', 'float64'):
+            self._use_double_precision_ = True
+        else:
+            self._use_double_precision_ = False
+        if old_value != self._use_double_precision_:
+            self._reload_model()
+
+    @property
+    def output_class(self):
+        warnings.warn(
+            '"output_class" has been renamed "is_classifier".'
+            ' Support for the old parameter name will be removed in an'
+            ' upcoming version.',
+            FutureWarning
+        )
+        return self.is_classifier
+
+    @output_class.setter
+    def output_class(self, value):
+        if value is not None:
+            warnings.warn(
+                '"output_class" has been renamed "is_classifier".'
+                ' Support for the old parameter name will be removed in an'
+                ' upcoming version.',
+                FutureWarning
+            )
+        self.is_classifier = value
+
+    @property
+    def is_classifier(self):
+        try:
+            return self._is_classifier_
+        except AttributeError:
+            self._is_classifier_ = False
+            return self._is_classifier_
+
+    @is_classifier.setter
+    def is_classifier(self, value):
+        if not hasattr(self, '_is_classifier_'):
+            self._is_classifier_ = value
+        elif value is not None:
+            self._is_classifier_ = value
+
+    @property
+    def device_id(self):
+        try:
+            return self._device_id_
+        except AttributeError:
+            self._device_id_ = 0
+            return self._device_id_
+
+    @device_id.setter
+    def device_id(self, value):
+        try:
+            old_value = self.device_id
+        except AttributeError:
+            old_value = None
+        if value is not None:
+            self._device_id_ = value
+            if (
+                self.treelite_model is not None
+                and self.device_id != old_value
+                and hasattr(self, '_gpu_forest')
+            ):
+                self._load_to_fil(device_id=self.device_id)
+
+    @property
+    def treelite_model(self):
+        try:
+            return self._treelite_model_
+        except AttributeError:
+            return None
+
+    @treelite_model.setter
+    def treelite_model(self, value):
+        if value is not None:
+            self._treelite_model_ = value
+            self._reload_model()
+
+    @property
+    def layout(self):
+        try:
+            return self._layout_
+        except AttributeError:
+            self._layout_ = 'depth_first'
+        return self._layout_
+
+    @layout.setter
+    def layout(self, value):
+        try:
+            old_value = self._layout_
+        except AttributeError:
+            old_value = None
+        if value is not None:
+            self._layout_ = value
+        if old_value != value:
+            self._reload_model()
+
 
     def __init__(
             self,
@@ -523,37 +668,24 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             handle=None,
             output_type=None,
             verbose=False,
-            output_class=False,
+            is_classifier=False,
+            output_class=None,
             layout='depth_first',
             align_bytes=None,
             precision='single',
-            mem_type=None,
             device_id=0):
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
         )
-        if mem_type is None:
-            mem_type = GlobalSettings().memory_type
-        else:
-            mem_type = MemoryType.from_str(mem_type)
 
-        if align_bytes is None:
-            self.align_bytes = 0
-        else:
-            self.align_bytes = align_bytes
+        self.align_bytes = align_bytes
         self.layout = layout
-        if precision in ('native', None):
-            self.use_double_precision = None
-        else:
-            self.use_double_precision = (precision in ('double', 'float64'))
-
+        self.precision = precision
+        self.is_classifier = is_classifier
         self.is_classifier = output_class
-
-        if treelite_model is not None:
-            self.treelite_model = treelite_model
-            self._load_to_fil(mem_type=mem_type, device_id=device_id)
-        else:
-            self.treelite_model = None
+        self.device_id = device_id
+        self.treelite_model = treelite_model
+        self._load_to_fil(device_id=self.device_id)
 
     def _load_to_fil(self, mem_type=None, device_id=0):
         if mem_type is None:
@@ -561,21 +693,25 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         else:
             mem_type = MemoryType.from_str(mem_type)
 
-        impl = ForestInference_impl(
-            self.handle,
-            self.treelite_model,
-            layout=self.layout,
-            align_bytes=self.align_bytes,
-            use_double_precision=self.use_double_precision,
-            mem_type=mem_type,
-            device_id=device_id
-        )
-
         if mem_type.is_device_accessible:
-            self._gpu_forest = impl
+            self.device_id = device_id
 
-        if mem_type.is_host_accessible:
-            self._cpu_forest = impl
+        if self.treelite_model is not None:
+            impl = ForestInference_impl(
+                self.handle,
+                self.treelite_model,
+                layout=self.layout,
+                align_bytes=self.align_bytes,
+                use_double_precision=self._use_double_precision_,
+                mem_type=mem_type,
+                device_id=self.device_id
+            )
+
+            if mem_type.is_device_accessible:
+                self._gpu_forest = impl
+
+            if mem_type.is_host_accessible:
+                self._cpu_forest = impl
 
     @property
     def gpu_forest(self):
@@ -626,7 +762,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             verbose=False,
             align_bytes=None,
             layout='depth_first',
-            mem_type=None,
             device_id=0,
             handle=None):
         """Load a model into FIL from a serialized model file.
@@ -732,7 +867,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             align_bytes=align_bytes,
             layout=layout,
             precision=precision,
-            mem_type=mem_type,
             device_id=device_id
         )
 
@@ -756,7 +890,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             verbose=False,
             align_bytes=None,
             layout='breadth_first',
-            mem_type=None,
             device_id=0,
             handle=None):
         """Load a Scikit-Learn forest model to FIL
@@ -853,7 +986,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             align_bytes=align_bytes,
             layout=layout,
             precision=precision,
-            mem_type=mem_type,
             device_id=device_id
         )
         result._tl_frontend_model = tl_frontend_model
@@ -878,7 +1010,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             verbose=False,
             align_bytes=None,
             layout='breadth_first',
-            mem_type=None,
             device_id=0,
             handle=None):
         """Load a Treelite model to FIL
@@ -971,7 +1102,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             align_bytes=align_bytes,
             layout=layout,
             precision=precision,
-            mem_type=mem_type,
             device_id=device_id
         )
 
@@ -1019,7 +1149,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         if not self.is_classifier:
             raise RuntimeError(
                 "predict_proba is not available for regression models. Load"
-                " with output_class=True if this is a classifier."
+                " with is_classifer=True if this is a classifier."
             )
         return self.forest.predict(X, preds=preds, chunk_size=chunk_size)
 
