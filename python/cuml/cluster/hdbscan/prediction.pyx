@@ -193,7 +193,6 @@ def all_points_membership_vectors(clusterer):
 
     cdef uintptr_t input_ptr = clusterer.X_m.ptr
 
-    print(clusterer.n_rows, clusterer.n_clusters_)
     membership_vec = CumlArray.empty(
         (clusterer.n_rows * clusterer.n_clusters_,),
         dtype="float32")
