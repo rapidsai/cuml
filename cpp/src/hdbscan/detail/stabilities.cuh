@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -108,7 +108,7 @@ void compute_stabilities(const raft::handle_t& handle,
     stream,
     cub::DeviceSegmentedReduce::Min<const value_t*, value_t*, const value_idx*, const value_idx*>);
   // finally, we find minimum between initialized births where parent=child
-  // and births of parents for their childrens
+  // and births of parents for their children
   auto births_zip =
     thrust::make_zip_iterator(thrust::make_tuple(births.data(), births_parent_min.data()));
   auto min_op = [] __device__(const thrust::tuple<value_t, value_t>& birth_pair) {

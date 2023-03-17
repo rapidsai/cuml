@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -141,7 +141,7 @@ struct GLMBase : GLMDims {
   {
     // Base impl assumes simple case C = 1
     // TODO would be nice to have a kernel that fuses these two steps
-    // This would be easy, if mapThenSumReduce allowed outputing the result of
+    // This would be easy, if mapThenSumReduce allowed outputting the result of
     // map (supporting inplace)
     auto lz_copy  = static_cast<Loss*>(this)->lz;
     auto dlz_copy = static_cast<Loss*>(this)->dlz;

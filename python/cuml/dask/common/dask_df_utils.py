@@ -67,7 +67,7 @@ def to_dask_df(dask_cudf, client=None):
 
     meta = c.submit(get_meta, dfs[0])
 
-    # Using new variabe for local result to stop race-condition in scheduler
+    # Using new variable for local result to stop race-condition in scheduler
     # Ref: https://github.com/dask/dask/issues/6027
     meta_local = meta.result()
 

@@ -421,7 +421,7 @@ class PCA(UniversalBase,
         if self.n_components is None:
             logger.warn(
                 'Warning(`fit`): As of v0.16, PCA invoked without an'
-                ' n_components argument defauts to using'
+                ' n_components argument defaults to using'
                 ' min(n_samples, n_features) rather than 1'
             )
             n_rows = X.shape[0]

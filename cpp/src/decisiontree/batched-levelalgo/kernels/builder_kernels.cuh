@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -139,7 +139,7 @@ struct CustomDifference {
  * (=blockIdx.x), threadIdx.x). Method used is a random, parallel, sampling with replacement of
  * excess of 'k' samples (hence the name) and then eliminating the dupicates by ordering them. The
  * excess number of samples (=`n_parallel_samples`) is calculated such that after ordering there is
- * atleast 'k' uniques.
+ * at least 'k' uniques.
  */
 template <typename IdxT, int MAX_SAMPLES_PER_THREAD, int BLOCK_THREADS = 128>
 __global__ void excess_sample_with_replacement_kernel(
@@ -185,7 +185,7 @@ __global__ void excess_sample_with_replacement_kernel(
       // mask of the previous iteration, if exists, is re-used here
       // so previously generated unique random numbers are used.
       // newly generated random numbers may or may not duplicate the previously generated ones
-      // but this ensures some forward progress in order to generate atleast 'k' unique random
+      // but this ensures some forward progress in order to generate at least 'k' unique random
       // samples.
       if (mask[thread_local_sample_idx] == 0 and cta_sample_idx < n_parallel_samples)
         raft::random::custom_next(
@@ -194,7 +194,7 @@ __global__ void excess_sample_with_replacement_kernel(
                0)  // indices that exceed `n_parallel_samples` will not generate
         items[thread_local_sample_idx] = n - 1;
       else
-        continue;  // this case is for samples whose mask == 1 (saving previous iteraion's random
+        continue;  // this case is for samples whose mask == 1 (saving previous iteration's random
                    // number generated)
     }
 

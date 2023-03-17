@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ __global__ void _fused_tile_scatter_pe(DataT* dataset,
       start = ((tid % ncols) + 1) * nrows_background;
 
       // each entry of the dataset will be input the same number of times
-      // to the matrix, controled by the sc_size parameter
+      // to the matrix, controlled by the sc_size parameter
       end = start + sc_size * nrows_background;
 
       // now we just need to check if this thread is between start and end

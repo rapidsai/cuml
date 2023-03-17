@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -231,7 +231,7 @@ class SmoSolver {
                                                      1,
                                                      stream));
     if (svmType == EPSILON_SVR) {
-      // SVR has doubled the number of trainig vectors and we need to update
+      // SVR has doubled the number of training vectors and we need to update
       // alpha for both batches individually
       // #TODO: Call from public API when ready
       RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(handle.get_cublas_handle(),
