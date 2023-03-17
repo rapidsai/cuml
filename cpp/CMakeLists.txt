@@ -563,10 +563,6 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(CUML_USE_RAFT_STATIC AND (TARGET raft::raft))
     copy_interface_excludes(INCLUDED_TARGET raft::raft TARGET ${CUML_CPP_TARGET})
 
-    if(CUML_USE_RAFT_NN AND (TARGET faiss::faiss))
-      copy_interface_excludes(INCLUDED_TARGET faiss::faiss TARGET ${CUML_CPP_TARGET})
-    endif()
-
     if(CUML_USE_RAFT_DIST AND (TARGET cuco::cuco))
       list(APPEND _cuml_cpp_private_libs cuco::cuco)
     endif()
@@ -609,6 +605,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   # INTERFACE target.
   list(APPEND ${_cuml_cpp_libs_var_name}
     raft::raft
+          $<$<BOOL:${CUML_USE_RAFT_NN}>:faiss>
     $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
     $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
     $<TARGET_NAME_IF_EXISTS:cumlprims_mg::cumlprims_mg>
