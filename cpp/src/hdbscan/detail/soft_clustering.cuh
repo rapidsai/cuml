@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "cuml/common/logger.hpp"
+#include <cuml/common/logger.hpp>
 #include "kernels/soft_clustering.cuh"
 #include "select.cuh"
 #include "utils.h"
@@ -63,7 +63,7 @@ namespace HDBSCAN {
 namespace detail {
 namespace Predict {
 
-// This function is used for both -- all_points_membership_vectors and membership_vector
+// Computing distance based membership for points in the original clustering on which the clusterer was trained and new points outside of the training data.
 template <typename value_idx, typename value_t>
 void dist_membership_vector(const raft::handle_t& handle,
                             const value_t* X,
@@ -90,7 +90,7 @@ void dist_membership_vector(const raft::handle_t& handle,
   raft::matrix::copyRows<value_t, value_idx, size_t>(
     X, n_exemplars, n, exemplars_dense.data(), exemplar_idx, n_exemplars, stream, true);
 
-  // compute the distances using raft API
+  // compute the number of batches based on the batch size
   value_idx n_batches;
 
   if (batch_size == 0) {
@@ -105,6 +105,7 @@ void dist_membership_vector(const raft::handle_t& handle,
     value_idx batch_offset = bid * batch_size;
     rmm::device_uvector<value_t> dist(samples_per_batch * n_exemplars, stream);
 
+     // compute the distances using raft API
     switch (metric) {
       case raft::distance::DistanceType::L2SqrtExpanded:
         raft::distance::
@@ -149,6 +150,7 @@ void dist_membership_vector(const raft::handle_t& handle,
 
   thrust::for_each(exec_policy, counting, counting + samples_per_batch * n_selected_clusters, reduction_op);
 
+  dist.release();
   // Softmax computation is ignored in distance membership
   if (softmax) {
     thrust::transform(exec_policy,
@@ -172,6 +174,7 @@ void dist_membership_vector(const raft::handle_t& handle,
                         return std::numeric_limits<value_t>::max() / n_selected_clusters;
                       });
   }
+  min_dist.release();
   }
 
   // Normalize the obtained result to sum to 1.0
@@ -417,7 +420,7 @@ void prob_in_some_cluster(const raft::handle_t& handle,
  * @param[in] X all points (size m * n)
  * @param[in] metric distance metric
  * @param[out] membership_vec output membership vectors (size m * n_selected_clusters)
- * @param[in] batch_size batch size to be used while computing distance membership vector
+ * @param[in] batch_size batch size to be used while computing distance based memberships
  */
 template <typename value_idx, typename value_t>
 void all_points_membership_vectors(const raft::handle_t& handle,
@@ -426,14 +429,14 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                                    const value_t* X,
                                    raft::distance::DistanceType metric,
                                    value_t* membership_vec,
-                                   value_idx batch_size = 0)
+                                   value_idx batch_size)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
 
   size_t m = prediction_data.n_rows;
   size_t n = prediction_data.n_cols;
-  ASSERT(0 <= batch_size && batch_size <= m, "Invalid batch_size. batch_size should be >= 0 and <= the number of samples in the training data");
+  RAFT_EXPECTS(0 <= batch_size && batch_size <= m, "Invalid batch_size. batch_size should be >= 0 and <= the number of samples in the training data");
 
   auto parents    = condensed_tree.get_parents();
   auto children   = condensed_tree.get_children();
@@ -530,6 +533,7 @@ void all_points_membership_vectors(const raft::handle_t& handle,
  * @param[in] metric distance metric
  * @param[in] min_samples neighborhood size during training (includes self-loop)
  * @param[out] membership_vec output membership vectors (size n_prediction_points * n_selected_clusters)
+  * @param[in] batch_size batch size to be used while computing distance based memberships
  */
 template <typename value_idx, typename value_t, int tpb = 256>
 void membership_vector(const raft::handle_t& handle,
@@ -540,10 +544,12 @@ void membership_vector(const raft::handle_t& handle,
                        size_t n_prediction_points,
                        raft::distance::DistanceType metric,
                        int min_samples,
-                       value_t* membership_vec)
+                       value_t* membership_vec,
+                       value_idx batch_size)
 {
   RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
+  RAFT_EXPECTS(0 <= batch_size && batch_size <= n_prediction_points, "Invalid batch_size. batch_size should be >= 0 and <= the number of points to predict");
 
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -572,7 +578,7 @@ void membership_vector(const raft::handle_t& handle,
                          prediction_data.get_exemplar_label_offsets(),
                          dist_membership_vec.data(),
                          raft::distance::DistanceType::L2SqrtExpanded,
-                         0);
+                         batch_size);
 
   rmm::device_uvector<value_t> prediction_lambdas(n_prediction_points, stream);
   rmm::device_uvector<value_idx> min_mr_inds(n_prediction_points, stream);
