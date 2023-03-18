@@ -27,6 +27,12 @@
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/spatial/knn/knn.cuh>
+#ifdef RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.cuh>
+#endif
+#ifdef RAFT_DISTANCE_COMPILED
+#include <raft/distance/specializations.cuh>
+#endif
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
