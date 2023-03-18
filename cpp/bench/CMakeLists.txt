@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,6 +47,7 @@ if(BUILD_CUML_BENCH)
       ${TREELITE_LIBS}
       raft::raft
       raft::nn
+      faiss::faiss
       raft::distance
   )
 
