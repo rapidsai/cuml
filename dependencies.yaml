@@ -7,6 +7,7 @@ files:
       arch: [x86_64]
     includes:
       - common_build
+      - cpp_run
       - cudatoolkit
       - docs
       - py_build
@@ -20,6 +21,7 @@ files:
       arch: [x86_64]
     includes:
       - common_build
+      - cpp_run
       - cudatoolkit
   checks:
     output: none
@@ -124,6 +126,12 @@ dependencies:
               arch: aarch64
             packages:
               - cupy-cuda11x -f https://pip.cupy.dev/aarch64 # TODO: Verify that this works.
+  cpp_run:
+    common:
+      - output_types: conda
+        packages:
+          - libfaiss>=1.7.1
+          - faiss-proc=*=cuda
   cudatoolkit:
     specific:
       - output_types: conda
