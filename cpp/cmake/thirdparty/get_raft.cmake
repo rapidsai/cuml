@@ -23,18 +23,19 @@ function(find_and_configure_raft)
             "${multiValueArgs}" ${ARGN} )
 
     if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${CUML_BRANCH_VERSION_raft}")
-      message(STATUS "CUML: RAFT pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
-      set(CPM_DOWNLOAD_raft ON)
+        message(STATUS "CUML: RAFT pinned tag found: ${PKG_PINNED_TAG}. Cloning raft locally.")
+        set(CPM_DOWNLOAD_raft ON)
     elseif(PKG_USE_RAFT_STATIC AND (NOT CPM_raft_SOURCE))
-      message(STATUS "CUML: Cloning raft locally to build static libraries.")
-      set(CPM_DOWNLOAD_raft ON)
+        message(STATUS "CUML: Cloning raft locally to build static libraries.")
+        set(CPM_DOWNLOAD_raft ON)
     endif()
 
 
     # We need RAFT::distributed for MG tests
     if(BUILD_CUML_MG_TESTS)
-      string(APPEND RAFT_COMPONENTS " distributed")
+        string(APPEND RAFT_COMPONENTS " distributed")
     endif()
+
 
     if(PKG_COMPILE_LIBRARY AND NOT PKG_USE_RAFT_STATIC)
       string(APPEND RAFT_COMPONENTS " compiled")
@@ -78,14 +79,14 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
-                        FORK             cjnolet
-                        PINNED_TAG       fea-2304-remove-nn-lib
-                        EXCLUDE_FROM_ALL ${CUML_EXCLUDE_RAFT_FROM_ALL}
-                        # When PINNED_TAG above doesn't match cuml,
-                        # force local raft clone in build directory
-                        # even if it's already installed.
-                        CLONE_ON_PIN     ${CUML_RAFT_CLONE_ON_PIN}
+      FORK             rapidsai
+      PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
+      EXCLUDE_FROM_ALL ${CUML_EXCLUDE_RAFT_FROM_ALL}
+      # When PINNED_TAG above doesn't match cuml,
+      # force local raft clone in build directory
+      # even if it's already installed.
+      CLONE_ON_PIN     ${CUML_RAFT_CLONE_ON_PIN}
 			COMPILE_LIBRARY  ON
-                        USE_RAFT_STATIC  ${CUML_USE_RAFT_STATIC}
-                        NVTX             ${NVTX}
-                        )
+      USE_RAFT_STATIC  ${CUML_USE_RAFT_STATIC}
+      NVTX             ${NVTX}
+      )
