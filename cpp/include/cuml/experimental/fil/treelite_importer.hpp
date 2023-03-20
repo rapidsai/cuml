@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <cmath>
 #include <cstddef>
 #include <queue>
 #include <stack>
@@ -406,7 +407,7 @@ struct treelite_importer {
       } else if (tl_pred_transform == std::string{"exponential"}) {
         result.element = element_op::exponential;
       } else if (tl_pred_transform == std::string{"exponential_standard_ratio"}) {
-        result.constant = -concrete_tl_model.param.ratio_c;
+        result.constant = -concrete_tl_model.param.ratio_c / std::log(2);
         result.element = element_op::exponential;
       } else if (tl_pred_transform == std::string{"logarithm_one_plus_exp"}) {
         result.element = element_op::logarithm_one_plus_exp;

@@ -836,16 +836,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             optimization. For performance-critical applications, it is
             recommended that both layouts be tested with realistic batch sizes
             to determine the optimal value.
-        mem_type : {'device', 'host', None}, default='single'
-            The memory type to use for initially loading the model. If None,
-            the current global memory type setting will be used. If the model
-            is loaded with one memory type and inference is later requested
-            with an incompatible device (e.g. device memory and CPU execution),
-            the model will be lazily loaded to the correct location at that
-            time. In general, it should not be necessary to set this parameter
-            directly (rely instead on the `using_device_type` context manager),
-            but it can be a useful convenience for some hyperoptimization
-            pipelines.
         device_id : int, default=0
             For GPU execution, the device on which to load and execute this
             model. For CPU execution, this value is currently ignored.
