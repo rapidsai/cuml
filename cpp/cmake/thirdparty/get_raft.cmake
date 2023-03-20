@@ -62,8 +62,8 @@ function(find_and_configure_raft)
         EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
         OPTIONS
           "BUILD_TESTS OFF"
+          "BUILD_BENCH OFF"
           "RAFT_COMPILE_LIBRARY ${RAFT_COMPILE_LIBRARIES}"
-          "RAFT_USE_FAISS_STATIC ${PKG_USE_FAISS_STATIC}"
     )
 
     if(raft_ADDED)
@@ -86,7 +86,7 @@ find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
       # force local raft clone in build directory
       # even if it's already installed.
       CLONE_ON_PIN     ${CUML_RAFT_CLONE_ON_PIN}
-			COMPILE_LIBRARY  ON
+      COMPILE_LIBRARY  ON
       USE_RAFT_STATIC  ${CUML_USE_RAFT_STATIC}
       NVTX             ${NVTX}
       )
