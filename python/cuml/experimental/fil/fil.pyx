@@ -263,6 +263,9 @@ cdef class ForestInference_impl():
     def get_dtype(self):
         return [np.float32, np.float64][self.model.is_double_precision()]
 
+    def num_outputs(self):
+        return self.model.num_outputs()
+
     def predict(
             self,
             X,
@@ -1213,7 +1216,15 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             classifiers, the highest probability class is chosen regardless
             of threshold.
         """
-        if self.is_classifier:
+        if self.treelite_model.pred_transform == 'max_index':
+            raw_out = self.forest.predict(X, chunk_size=chunk_size)
+            result = raw_out[:, 0]
+            if preds is None:
+                return result
+            else:
+                preds[:] = result
+                return preds
+        elif self.is_classifier:
             proba = self.forest.predict(X, chunk_size=chunk_size)
             if len(proba.shape) < 2 or proba.shape[1] == 1:
                 if threshold is None:
