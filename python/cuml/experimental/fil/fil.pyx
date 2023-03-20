@@ -195,7 +195,7 @@ cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::ex
         raft_proto_device_t,
         int,
         raft_proto_stream_t
-    )
+    ) except +
 
 cdef class ForestInference_impl():
     cdef forest_model model

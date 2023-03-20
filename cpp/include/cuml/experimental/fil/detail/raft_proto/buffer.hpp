@@ -181,6 +181,17 @@ struct buffer {
    * The memory type of this new buffer will be the same as the original
    */
   buffer(buffer<T> const& other) : buffer(other, other.memory_type(), other.device_index()) {}
+  friend void swap(buffer<T>& first, buffer<T>& second) {
+    using std::swap;
+    swap(first.device_, second.device_);
+    swap(first.data_, second.data_);
+    swap(first.size_, second.size_);
+    swap(first.cached_ptr, second.cached_ptr);
+  }
+  buffer<T>& operator=(buffer<T> other) {
+    swap(*this, other);
+    return *this;
+  }
 
   /**
    * @brief Create owning copy of existing buffer with given stream
@@ -246,8 +257,9 @@ struct buffer {
   {
   }
 
-  buffer(buffer<T>&& other) = default;
-  buffer<T>& operator=(buffer<T>&& other) = default;
+  buffer(buffer<T>&& other) : buffer<T>{} {
+    swap(*this, other);
+  }
 
   template <
     typename iter_t,
@@ -300,6 +312,7 @@ struct buffer {
     }
     return result;
   }
+  ~buffer() = default;
 
  private:
   device_id_variant device_;
