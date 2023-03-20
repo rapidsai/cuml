@@ -1057,7 +1057,7 @@ def test_membership_vector_blobs(
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
 @pytest.mark.parametrize("connectivity", ["knn"])
-@pytest.mark.parametrize("batch_size", [0, 128])
+@pytest.mark.parametrize("batch_size", [0, 16])
 def test_membership_vector_moons(
     nrows,
     n_points_to_predict,
@@ -1121,7 +1121,7 @@ def test_membership_vector_moons(
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
 @pytest.mark.parametrize("connectivity", ["knn"])
-@pytest.mark.parametrize("batch_size", [0, 128])
+@pytest.mark.parametrize("batch_size", [0, 16])
 def test_membership_vector_circles(
     nrows,
     n_points_to_predict,
