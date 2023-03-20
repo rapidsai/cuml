@@ -742,7 +742,9 @@ def test_predict_per_tree(train_device, infer_device, n_classes, tmp_path):
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("n_classes", [5, 25])
-def test_predict_per_tree_with_vector_leaf(train_device, infer_device, n_classes, tmp_path):
+def test_predict_per_tree_with_vector_leaf(
+    train_device, infer_device, n_classes, tmp_path
+):
     n_rows = 1000
     n_columns = 30
     n_estimators = 10
@@ -757,9 +759,7 @@ def test_predict_per_tree_with_vector_leaf(train_device, infer_device, n_classes
         )
 
         skl_model = RandomForestClassifier(
-            max_depth=3,
-            random_state=0,
-            n_estimators=n_estimators
+            max_depth=3, random_state=0, n_estimators=n_estimators
         )
         skl_model.fit(X, y)
         fm = ForestInference.load_from_sklearn(
