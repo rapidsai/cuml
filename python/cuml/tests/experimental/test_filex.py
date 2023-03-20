@@ -398,6 +398,7 @@ def test_fil_skl_classification(
 )
 @pytest.mark.parametrize("max_depth", [2, 10, 20])
 @pytest.mark.parametrize("storage_type", [False, True])
+@pytest.mark.skip("https://github.com/rapidsai/cuml/issues/5138")
 def test_fil_skl_regression(
     train_device,
     infer_device,

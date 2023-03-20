@@ -181,10 +181,10 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
             raft_proto_device_t,
             raft_proto_device_t,
             optional[uint32_t]
-        )
+        ) except +
 
-        bool is_double_precision()
-        size_t num_outputs()
+        bool is_double_precision() except +
+        size_t num_outputs() except +
 
 cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil":
     forest_model import_from_treelite_handle(
