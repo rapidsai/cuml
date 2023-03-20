@@ -585,6 +585,8 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # These are always private:
   list(APPEND _cuml_cpp_private_libs
+    raft::raft
+    $<$<BOOL:${CUML_USE_RAFT_NN}>:faiss>
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix}>
     ${TREELITE_LIBS}
@@ -604,8 +606,6 @@ if(BUILD_CUML_CPP_LIBRARY)
   # because cumlprims_mg and cuML inherit their CUDA libs from the raft::raft
   # INTERFACE target.
   list(APPEND ${_cuml_cpp_libs_var_name}
-    raft::raft
-          $<$<BOOL:${CUML_USE_RAFT_NN}>:faiss>
     $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
     $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
     $<TARGET_NAME_IF_EXISTS:cumlprims_mg::cumlprims_mg>
