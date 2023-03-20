@@ -67,10 +67,13 @@ option(CUML_USE_FAISS_STATIC "Build and statically link the FAISS library for ne
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
 option(CUML_EXPORT_TREELITE_LINKAGE "Whether to publicly or privately link treelite to libcuml++" OFF)
 option(CUML_USE_CUMLPRIMS_MG_STATIC "Build and statically link the cumlprims_mg library" OFF)
+option(CUML_ENABLE_NN_DEPENDENCIES "Whether to enable FAISS dependency" ON)
+
 # The options below allow incorporating libcuml into another build process
 # without installing all its components. This is useful if total file size is
 # at a premium and we do not expect other consumers to use any APIs of the
 # dependency except those that are directly linked to by the dependent library.
+option(CUML_EXCLUDE_FAISS_FROM_ALL "Exclude FAISS targets from RAFT's 'all' target" ON)
 option(CUML_EXCLUDE_RAFT_FROM_ALL "Exclude RAFT targets from cuML's 'all' target" OFF)
 option(CUML_EXCLUDE_TREELITE_FROM_ALL "Exclude Treelite targets from cuML's 'all' target" OFF)
 option(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL "Exclude cumlprims_mg targets from cuML's 'all' target" OFF)
@@ -219,6 +222,10 @@ if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
 endif()
 
 include(cmake/thirdparty/get_raft.cmake)
+
+if(CUML_USE_RAFT_NN)
+  include(cmake/thirdparty/get_faiss.cmake)
+endif()
 
 if(LINK_TREELITE)
   include(cmake/thirdparty/get_treelite.cmake)
@@ -556,10 +563,6 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(CUML_USE_RAFT_STATIC AND (TARGET raft::raft))
     copy_interface_excludes(INCLUDED_TARGET raft::raft TARGET ${CUML_CPP_TARGET})
 
-    if(CUML_USE_RAFT_NN AND (TARGET faiss::faiss))
-      copy_interface_excludes(INCLUDED_TARGET faiss::faiss TARGET ${CUML_CPP_TARGET})
-    endif()
-
     if(CUML_USE_RAFT_DIST AND (TARGET cuco::cuco))
       list(APPEND _cuml_cpp_private_libs cuco::cuco)
     endif()
@@ -602,6 +605,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   # INTERFACE target.
   list(APPEND ${_cuml_cpp_libs_var_name}
     raft::raft
+          $<$<BOOL:${CUML_USE_RAFT_NN}>:faiss>
     $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
     $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
     $<TARGET_NAME_IF_EXISTS:cumlprims_mg::cumlprims_mg>
