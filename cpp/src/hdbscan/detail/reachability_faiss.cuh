@@ -6,7 +6,7 @@
  */
 
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,12 +39,13 @@
 #include <faiss/gpu/utils/MatrixMult.cuh>
 
 #include <raft/core/handle.hpp>
-#include <raft/spatial/knn/faiss_mr.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
 
 #include <cstddef>
+
+#include "faiss_mr.hpp"
 
 namespace ML {
 namespace HDBSCAN {
@@ -212,7 +213,7 @@ void mutual_reachability_knn_l2(const raft::handle_t& handle,
   auto stream = handle.get_stream();
 
   faiss::gpu::DeviceScope ds(device);
-  raft::spatial::knn::RmmGpuResources res;
+  RmmGpuResources res;
 
   res.noTempMemory();
   res.setDefaultStream(device, stream);

@@ -51,6 +51,7 @@ if(BUILD_CUML_BENCH)
       ${TREELITE_LIBS}
       raft::raft
       raft::nn
+      faiss::faiss
       raft::distance
   )
 
