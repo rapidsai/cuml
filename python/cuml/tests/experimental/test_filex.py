@@ -737,3 +737,38 @@ def test_predict_per_tree(train_device, infer_device, n_classes, tmp_path):
                 )
             )
         np.testing.assert_almost_equal(sum_by_class, margin_pred, decimal=3)
+
+
+@pytest.mark.parametrize("train_device", ("cpu", "gpu"))
+@pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
+@pytest.mark.parametrize("n_classes", [5, 25])
+def test_predict_per_tree_with_vector_leaf(train_device, infer_device, n_classes, tmp_path):
+    n_rows = 1000
+    n_columns = 30
+    n_estimators = 10
+
+    with using_device_type(train_device):
+        X, y = simulate_data(
+            n_rows,
+            n_columns,
+            n_classes,
+            random_state=0,
+            classification=True,
+        )
+
+        skl_model = RandomForestClassifier(
+            max_depth=3,
+            random_state=0,
+            n_estimators=n_estimators
+        )
+        skl_model.fit(X, y)
+        fm = ForestInference.load_from_sklearn(
+            skl_model, precision="native", output_class=True
+        )
+
+    with using_device_type(infer_device):
+        pred_per_tree = fm.predict_per_tree(X)
+        margin_pred = skl_model.predict_proba(X)
+        assert pred_per_tree.shape == (n_rows, n_estimators, n_classes)
+        avg_by_class = np.sum(pred_per_tree, axis=1) / n_estimators
+        np.testing.assert_almost_equal(avg_by_class, margin_pred, decimal=3)
