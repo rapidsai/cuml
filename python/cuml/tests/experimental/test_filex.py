@@ -40,6 +40,7 @@ from sklearn.ensemble import (
 )
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
+import treelite
 
 
 if has_xgboost():
@@ -690,27 +691,37 @@ def test_lightgbm(
             )
 
 
-def test_predict_per_tree(tmp_path):
+@pytest.mark.parametrize("train_device", ("cpu", "gpu"))
+@pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
+def test_predict_per_tree(train_device, infer_device, tmp_path):
     n_rows = 100
     n_columns = 10
     n_classes = 2
-    X, y = simulate_data(
-        n_rows,
-        n_columns,
-        n_classes,
-        random_state=0,
-        classification=True,
-    )
+    num_boost_round = 10
 
-    model_path = os.path.join(tmp_path, "xgb_class.model")
+    with using_device_type(train_device):
+        X, y = simulate_data(
+            n_rows,
+            n_columns,
+            n_classes,
+            random_state=0,
+            classification=True,
+        )
 
-    bst = _build_and_save_xgboost(
-        model_path,
-        X,
-        y,
-        num_rounds=10,
-        classification=True,
-        n_classes=n_classes,
-    )
-    fm = ForestInference.load(model_path, output_class=True)
-    fm.predict_per_tree(X)
+        model_path = os.path.join(tmp_path, "xgb_class.model")
+
+        bst = _build_and_save_xgboost(
+            model_path,
+            X,
+            y,
+            num_rounds=num_boost_round,
+            classification=True,
+            n_classes=n_classes,
+        )
+        fm = ForestInference.load(model_path, output_class=True)
+
+    with using_device_type(infer_device):
+        pred_per_tree = fm.predict_per_tree(X)
+        assert pred_per_tree.shape == (n_rows, num_boost_round)
+        margin_pred = bst.predict(xgb.DMatrix(X), output_margin=True)
+        np.testing.assert_almost_equal(np.sum(pred_per_tree, axis=1), margin_pred, decimal=3)

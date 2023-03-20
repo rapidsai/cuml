@@ -380,9 +380,13 @@ cdef class ForestInference_impl():
         in_ptr = in_arr.ptr
 
         cdef uintptr_t out_ptr
-        print(f"n_trees = {self.model.num_trees()}")
+        num_outputs = self.model.num_outputs()
+        if num_outputs == 1:
+            output_shape = (n_rows, self.model.num_trees())
+        else:
+            output_shape = (n_rows, self.model.num_trees(), self.model.num_outputs())
         preds = CumlArray.empty(
-            (n_rows, self.model.num_trees(), self.model.num_outputs()),
+            output_shape,
             model_dtype,
             order='C',
             index=in_arr.index
@@ -400,7 +404,7 @@ cdef class ForestInference_impl():
         if model_dtype == np.float32:
             self.model.predict[float](
                 self.raft_proto_handle,
-                predict_t.predict_leaf,
+                predict_t.predict_per_tree,
                 <float*> out_ptr,
                 <float*> in_ptr,
                 n_rows,
@@ -411,7 +415,7 @@ cdef class ForestInference_impl():
         else:
             self.model.predict[double](
                 self.raft_proto_handle,
-                predict_t.predict_leaf,
+                predict_t.predict_per_tree,
                 <double*> out_ptr,
                 <double*> in_ptr,
                 n_rows,

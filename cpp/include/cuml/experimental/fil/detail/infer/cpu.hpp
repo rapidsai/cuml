@@ -29,7 +29,6 @@
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 
-// TODO(hcho3): REMOVE XXX
 #include <raft/core/error.hpp>
 
 namespace ML {
@@ -53,6 +52,7 @@ namespace inference {
  * categorical data storage
  *
  * @param forest The forest to be used for inference.
+ * @param predict_type Prediction type.
  * @param postproc The postprocessor object to be used for postprocessing raw
  * output from the forest.
  * @param row_count The number of rows in the input
@@ -83,7 +83,7 @@ template<
 >
 std::enable_if_t<std::disjunction_v<std::bool_constant<D==raft_proto::device_type::cpu>, std::bool_constant<!raft_proto::GPU_ENABLED>>, void> infer(
   forest_t const& forest,
-  predict_t pred_type,
+  predict_t predict_type,
   postprocessor<typename forest_t::io_type> const& postproc,
   typename forest_t::io_type* output,
   typename forest_t::io_type* input,
@@ -102,11 +102,11 @@ std::enable_if_t<std::disjunction_v<std::bool_constant<D==raft_proto::device_typ
     throw raft_proto::gpu_unsupported("Tried to use GPU inference in CPU-only build");
   } else {
     // TODO(hcho3): REMOVE XXX
-    ASSERT(pred_type == predict_t::predict, "Predict type %d not yet implemented",
-           static_cast<int>(pred_type));
+    ASSERT(predict_type != predict_t::predict_leaf, "Predict_leaf not yet implemented");
 
     infer_kernel_cpu<has_categorical_nodes>(
       forest,
+      predict_type,
       postproc,
       output,
       input,

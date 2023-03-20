@@ -16,6 +16,7 @@
 #pragma once
 #include <cstddef>
 #include <stddef.h>
+#include <cuml/experimental/fil/predict_type.hpp>
 #include <cuml/experimental/fil/detail/evaluate_tree.hpp>
 #include <cuml/experimental/fil/detail/gpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -48,6 +49,7 @@ namespace detail {
  * @tparam categorical_data_t If non-nullptr_t, this indicates the type we
  * expect for non-local categorical data storage.
  * @param forest The forest used to perform inference
+ * @param predict_type Prediction type.
  * @param postproc The postprocessor object used to store all necessary
  * data for postprocessing
  * @param output Pointer to the device-accessible buffer where output
@@ -61,6 +63,8 @@ namespace detail {
  * to this kernel.
  * @param output_workspace_size The total number of temporary elements required
  * to be stored as an intermediate output during inference
+ * @param workspace_global_mem Workspace allocated in global memory. Only used when
+ * predict_type is either predict_per_tree or predict_leaf.
  * @param vector_output_p If non-nullptr, a pointer to the stored leaf
  * vector outputs for all leaf nodes
  * @param categorical_data If non-nullptr, a pointer to where non-local
@@ -76,6 +80,7 @@ template<
 __global__ void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_SM)
 infer_kernel(
     forest_t forest,
+    predict_t predict_type,
     postprocessor<typename forest_t::io_type> postproc,
     typename forest_t::io_type* output,
     typename forest_t::io_type const* input,
@@ -104,25 +109,29 @@ infer_kernel(
   using io_t = typename forest_t::io_type;
 
   for (
-    auto i=blockIdx.x * chunk_size;
-    i < row_count;
-    i += chunk_size * gridDim.x
+    auto row_offset = blockIdx.x * chunk_size;
+    row_offset < row_count;
+    row_offset += chunk_size * gridDim.x
   ) {
+    // row_offset: the ID of the first row in the current chunk
 
     shared_mem.clear();
+    // Only used if predict_type == predict_t::predict
+    // Assume: output_workspace_size == 0 if predict_type is predict_per_tree or predict_leaf
     auto* output_workspace = shared_mem.fill<output_t>(output_workspace_size);
 
     // Handle as many rows as requested per loop or as many rows as are left to
     // process
-    auto rows_in_this_iteration = min(chunk_size, row_count - i);
+    auto rows_in_this_iteration = min(chunk_size, row_count - row_offset);
 
     auto* input_data = shared_mem.copy(
-      input + i * col_count,
+        input + row_offset * col_count,
       rows_in_this_iteration,
       col_count
     );
 
-    auto task_count = chunk_size * forest.tree_count();
+    auto tree_count = forest.tree_count();
+    auto task_count = chunk_size * tree_count;
 
     auto num_grove = raft_proto::ceildiv(
       min(index_type(blockDim.x), task_count),
@@ -167,87 +176,117 @@ infer_kernel(
         );
       }
 
-      if constexpr (has_vector_leaves) {
-        for (
-          auto class_index=index_type{};
-          class_index < num_outputs;
-          ++class_index
-        ) {
+      if (predict_type == predict_t::predict) {
+        if constexpr (has_vector_leaves) {
+          for (
+              auto output_index = index_type{};
+              output_index < num_outputs;
+              ++output_index
+              ) {
+            if (real_task) {
+              output_workspace[
+                  row_index * num_outputs * num_grove
+                  + output_index * num_grove
+                  + grove_index
+              ] += vector_output_p[
+                  tree_output * num_outputs + output_index
+              ];
+            }
+          }
+        } else {
           if (real_task) {
             output_workspace[
-              row_index * num_outputs * num_grove
-              + class_index * num_grove
-              + grove_index
-            ] += vector_output_p[
-              tree_output * num_outputs + class_index
-            ];
+                row_index * num_outputs * num_grove
+                + (tree_index % num_outputs) * num_grove
+                + grove_index
+            ] += tree_output;
           }
         }
-      } else {
-        if (real_task) {
-          output_workspace[
-            row_index * num_outputs * num_grove
-            + (tree_index % num_outputs) * num_grove
-            + grove_index
-          ] += tree_output;
+      } else if (predict_type == predict_t::predict_per_tree) {
+        if constexpr (has_vector_leaves) {
+          for (
+              auto output_index = index_type{};
+              output_index < num_outputs;
+              ++output_index
+              ) {
+            if (real_task) {
+              output[
+                  (row_offset + row_index) * tree_count * num_outputs
+                  + tree_index * num_outputs
+                  + output_index
+              ] = vector_output_p[
+                  tree_output * num_outputs + output_index
+              ];
+            }
+          }
+        } else {
+          if (real_task) {
+            output[
+                (row_offset + row_index) * tree_count * num_outputs
+                + tree_index * num_outputs
+                + (tree_index % num_outputs)
+            ] = tree_output;
+          }
         }
       }
 
       __syncthreads();
     }
 
-    auto padded_num_groves = raft_proto::padded_size(num_grove, WARP_SIZE);
-    for (
-      auto row_index = threadIdx.x / WARP_SIZE;
-      row_index < rows_in_this_iteration;
-      row_index += blockDim.x / WARP_SIZE
-    ) {
+    if (predict_type == predict_t::predict) {
+      auto padded_num_groves = raft_proto::padded_size(num_grove, WARP_SIZE);
       for (
-        auto class_index = index_type{};
-        class_index < num_outputs;
-        ++class_index
-      ) {
-        auto grove_offset = (
-          row_index * num_outputs * num_grove + class_index * num_grove
-        );
-        auto class_sum = output_t{};
-        /* Perform a warp-level parallel reduction leaving the first thread in
-         * each warp with the entire sum */
-        for (
-          auto grove_index = threadIdx.x % WARP_SIZE;
-          grove_index < padded_num_groves;
-          grove_index += WARP_SIZE
-        ) {
-          auto real_thread = grove_index < num_grove;
-          auto out_index = grove_offset + grove_index * real_thread;
-          class_sum *= (threadIdx.x % WARP_SIZE == 0);
-          class_sum += output_workspace[out_index] * real_thread;
-          for (
-            auto thread_offset = (WARP_SIZE >> 1); 
-            thread_offset > 0;
-            thread_offset >>= 1
+          auto row_index = threadIdx.x / WARP_SIZE;
+          row_index < rows_in_this_iteration;
+          row_index += blockDim.x / WARP_SIZE
           ) {
-            class_sum += __shfl_down_sync(
-              0xFFFFFFFF,
-              class_sum,
-              thread_offset
-            );
+        for (
+            auto output_index = index_type{};
+            output_index < num_outputs;
+            ++output_index
+            ) {
+          auto grove_offset = (
+              row_index * num_outputs * num_grove + output_index * num_grove
+          );
+          auto class_sum = output_t{};
+          /* Perform a warp-level parallel reduction leaving the first thread in
+           * each warp with the entire sum */
+          for (
+              auto grove_index = threadIdx.x % WARP_SIZE;
+              grove_index < padded_num_groves;
+              grove_index += WARP_SIZE
+              ) {
+            auto real_thread = grove_index < num_grove;
+            auto out_index = grove_offset + grove_index * real_thread;
+            class_sum *= (threadIdx.x % WARP_SIZE == 0);
+            class_sum += output_workspace[out_index] * real_thread;
+            for (
+                auto thread_offset = (WARP_SIZE >> 1);
+                thread_offset > 0;
+                thread_offset >>= 1
+                ) {
+              class_sum += __shfl_down_sync(
+                  0xFFFFFFFF,
+                  class_sum,
+                  thread_offset
+              );
+            }
+          }
+          if (threadIdx.x % WARP_SIZE == 0) {
+            output_workspace[grove_offset] = class_sum;
           }
         }
         if (threadIdx.x % WARP_SIZE == 0) {
-          output_workspace[grove_offset] = class_sum;
+          postproc(
+              output_workspace + row_index * num_outputs * num_grove,
+              num_outputs,
+              output + ((row_offset + row_index) * num_outputs),
+              num_grove
+          );
         }
       }
-      if (threadIdx.x % WARP_SIZE == 0) {
-        postproc(
-          output_workspace + row_index * num_outputs * num_grove,
-          num_outputs, 
-          output + ((i + row_index) * num_outputs),
-          num_grove
-        );
-      }
+      __syncthreads();
     }
-    __syncthreads();
   }
 }
 

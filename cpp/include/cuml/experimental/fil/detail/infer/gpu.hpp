@@ -39,7 +39,7 @@ template<
 >
 std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   forest_t const& forest,
-  predict_t pred_type,
+  predict_t predict_type,
   postprocessor<typename forest_t::io_type> const& postproc,
   typename forest_t::io_type* output,
   typename forest_t::io_type* input,
