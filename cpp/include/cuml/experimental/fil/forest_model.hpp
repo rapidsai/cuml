@@ -60,6 +60,12 @@ struct forest_model {
     }, decision_forest_);
   }
 
+  auto has_vector_leaves() {
+    return std::visit([](auto&& concrete_forest) {
+      return concrete_forest.has_vector_leaves();
+    }, decision_forest_);
+  }
+
   /** The type of memory (device/host) where the model is stored */
   auto memory_type() {
     return std::visit([](auto&& concrete_forest) {

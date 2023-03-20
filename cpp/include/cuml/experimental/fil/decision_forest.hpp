@@ -202,6 +202,7 @@ struct decision_forest {
   auto num_outputs() const { return num_outputs_; }
   /** The number of trees in the model */
   auto num_trees() const { return root_node_indexes_.size(); }
+  auto has_vector_leaves() const { return vector_output_.has_value(); }
 
   /** The type of memory (device/host) where the model is stored */
   auto memory_type() {

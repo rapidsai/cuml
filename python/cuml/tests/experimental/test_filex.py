@@ -693,10 +693,10 @@ def test_lightgbm(
 
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
-def test_predict_per_tree(train_device, infer_device, tmp_path):
-    n_rows = 100
-    n_columns = 10
-    n_classes = 2
+@pytest.mark.parametrize("n_classes", [2, 5, 25])
+def test_predict_per_tree(train_device, infer_device, n_classes, tmp_path):
+    n_rows = 1000
+    n_columns = 30
     num_boost_round = 10
 
     with using_device_type(train_device):
@@ -710,6 +710,7 @@ def test_predict_per_tree(train_device, infer_device, tmp_path):
 
         model_path = os.path.join(tmp_path, "xgb_class.model")
 
+        xgboost_params = {"base_score": (0.5 if n_classes == 2 else 0.0)}
         bst = _build_and_save_xgboost(
             model_path,
             X,
@@ -717,11 +718,22 @@ def test_predict_per_tree(train_device, infer_device, tmp_path):
             num_rounds=num_boost_round,
             classification=True,
             n_classes=n_classes,
+            xgboost_params=xgboost_params,
         )
         fm = ForestInference.load(model_path, output_class=True)
 
     with using_device_type(infer_device):
         pred_per_tree = fm.predict_per_tree(X)
-        assert pred_per_tree.shape == (n_rows, num_boost_round)
         margin_pred = bst.predict(xgb.DMatrix(X), output_margin=True)
-        np.testing.assert_almost_equal(np.sum(pred_per_tree, axis=1), margin_pred, decimal=3)
+        if n_classes == 2:
+            assert pred_per_tree.shape == (n_rows, num_boost_round)
+            sum_by_class = np.sum(pred_per_tree, axis=1)
+        else:
+            assert pred_per_tree.shape == (n_rows, num_boost_round * n_classes)
+            sum_by_class = np.column_stack(
+                tuple(
+                    np.sum(pred_per_tree[:, class_id::n_classes], axis=1)
+                    for class_id in range(n_classes)
+                )
+            )
+        np.testing.assert_almost_equal(sum_by_class, margin_pred, decimal=3)

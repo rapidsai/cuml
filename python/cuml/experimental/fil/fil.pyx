@@ -206,6 +206,7 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
         bool is_double_precision() except +
         size_t num_outputs() except +
         size_t num_trees() except +
+        bool has_vector_leaves() except +
 
 cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil":
     forest_model import_from_treelite_handle(
@@ -380,11 +381,10 @@ cdef class ForestInference_impl():
         in_ptr = in_arr.ptr
 
         cdef uintptr_t out_ptr
-        num_outputs = self.model.num_outputs()
-        if num_outputs == 1:
-            output_shape = (n_rows, self.model.num_trees())
-        else:
+        if self.model.has_vector_leaves():
             output_shape = (n_rows, self.model.num_trees(), self.model.num_outputs())
+        else:
+            output_shape = (n_rows, self.model.num_trees())
         preds = CumlArray.empty(
             output_shape,
             model_dtype,

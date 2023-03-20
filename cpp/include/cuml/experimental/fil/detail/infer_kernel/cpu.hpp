@@ -171,9 +171,8 @@ void infer_kernel_cpu(
             }
           } else {
             output[
-                row_index * num_tree * num_outputs
-                + tree_index * num_outputs
-                + (tree_index % num_outputs)
+                row_index * num_tree
+                + tree_index
             ] = tree_output;
           }
         }  // Predict type

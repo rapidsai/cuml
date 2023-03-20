@@ -222,9 +222,8 @@ infer_kernel(
         } else {
           if (real_task) {
             output[
-                (row_offset + row_index) * tree_count * num_outputs
-                + tree_index * num_outputs
-                + (tree_index % num_outputs)
+                (row_offset + row_index) * tree_count
+                + tree_index
             ] = tree_output;
           }
         }
