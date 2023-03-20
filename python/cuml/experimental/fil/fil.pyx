@@ -256,9 +256,12 @@ cdef class ForestInference_impl():
             model_handle = tl_model.handle.value
         except AttributeError:
             try:
-                model_handle = tl_model.value
+                model_handle = tl_model.handle
             except AttributeError:
-                model_handle = tl_model
+                try:
+                    model_handle = tl_model.value
+                except AttributeError:
+                    model_handle = tl_model
 
         cdef raft_proto_device_t dev_type
         if mem_type.is_device_accessible:
