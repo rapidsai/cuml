@@ -171,6 +171,7 @@ include(cmake/modules/ConfigureCUDA.cmake)
 
 ##############################################################################
 # - Set options based on user defined one  -----------------------------------
+set(CUML_USE_RAFT_NN OFF)
 set(CUML_RAFT_COMPILED OFF)
 set(LINK_TREELITE OFF)
 set(LINK_CUFFT OFF)
