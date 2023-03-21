@@ -256,7 +256,7 @@ dependencies:
           - pip:
               # TODO: Figure out what to do with this dependency
               # since the repo is now archived.
-              - git+https://github.com/dask/dask-glm@main
+              - git+https://github.com/dask/dask-glm@1b9255396d6c85041e35e9498b4ac9dc1a658219
   test_notebooks:
     common:
       - output_types: [conda, requirements]

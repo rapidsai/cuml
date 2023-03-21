@@ -70,5 +70,5 @@ dependencies:
 - treelite=3.1.0
 - umap-learn
 - pip:
-  - git+https://github.com/dask/dask-glm@main
+  - git+https://github.com/dask/dask-glm@1b9255396d6c85041e35e9498b4ac9dc1a658219
 name: all_cuda-118_arch-x86_64
