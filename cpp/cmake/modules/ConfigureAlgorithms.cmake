@@ -16,6 +16,7 @@
 
 
 if(CUML_ALGORITHMS STREQUAL "ALL")
+    set(CUML_USE_RAFT_NN ON)
     set(CUML_RAFT_COMPILED ON)
     set(LINK_TREELITE ON)
     set(LINK_CUFFT ON)
@@ -30,6 +31,7 @@ else()
     set(BUILD_CUML_C_LIBRARY OFF)
     set(BUILD_CUML_BENCH OFF)
     set(BUILD_CUML_EXAMPLES OFF)
+    set(CUML_USE_RAFT_NN OFF)
     set(CUML_RAFT_COMPILED OFF)
 
     foreach(algo ${CUML_ALGORITHMS})
@@ -104,6 +106,7 @@ else()
     endif()
 
     if(knn_algo)
+        set(CUML_USE_RAFT_NN ON)
         set(CUML_RAFT_COMPILED ON)
     endif()
 
