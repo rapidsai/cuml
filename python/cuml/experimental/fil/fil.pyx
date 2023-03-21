@@ -759,13 +759,11 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             else:
                 model_type = 'treelite_checkpoint'
         if model_type == 'treelite_checkpoint':
-            tl_model = treelite.frontend.Model.deserialize(
+            tl_model = treelite.frontend.Model.deserialize(path)
+        else:
+            tl_model = treelite.frontend.Model.load(
                 path, model_type
             )
-
-        tl_model = treelite.frontend.Model.load(
-            path, model_type
-        )
         return cls(
             treelite_model=tl_model,
             handle=handle,
