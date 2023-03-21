@@ -44,6 +44,11 @@ function(find_and_configure_raft)
       set(RAFT_COMPILE_LIBRARY OFF)
     endif()
 
+    set(RAFT_BUILD_SHARED_LIBS ON)
+    if(${PKG_USE_RAFT_STATIC})
+        set(RAFT_BUILD_SHARED_LIBS OFF)
+    endif()
+
     # We need to set this each time so that on subsequent calls to cmake
     # the raft-config.cmake re-evaluates the RAFT_NVTX value
     set(RAFT_NVTX ${PKG_NVTX})
@@ -63,6 +68,7 @@ function(find_and_configure_raft)
         OPTIONS
           "BUILD_TESTS OFF"
           "BUILD_BENCH OFF"
+          "BUILD_SHARED_LIBS ${RAFT_BUILD_SHARED_LIBS}"
           "RAFT_COMPILE_LIBRARY ${PKG_COMPILE_LIBRARY}"
     )
 
