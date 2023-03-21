@@ -37,7 +37,7 @@ function(find_and_configure_raft)
     endif()
 
 
-    if(PKG_COMPILE_LIBRARY AND NOT PKG_USE_RAFT_STATIC)
+    if(PKG_COMPILE_LIBRARY)
       string(APPEND RAFT_COMPONENTS " compiled")
       set(RAFT_COMPILE_LIBRARY ON)
     else()
