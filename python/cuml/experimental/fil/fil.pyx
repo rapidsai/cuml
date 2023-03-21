@@ -27,6 +27,9 @@ from cuml.common.device_selection import using_device_type
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.experimental.fil.postprocessing cimport element_op, row_op
+# from cuml.experimental.fil.elem_op cimport element_op
+# from cuml.experimental.fil.row_op cimport row_op
 from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
 from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport cuda_stream as raft_proto_stream_t
 from cuml.experimental.fil.detail.raft_proto.device_type cimport device_type as raft_proto_device_t
@@ -42,133 +45,6 @@ from pylibraft.common.handle cimport handle_t as raft_handle_t
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
-    cdef int TreeliteLoadXGBoostModel(const char* filename,
-                                      ModelHandle* out) except +
-    cdef int TreeliteLoadXGBoostJSON(const char* filename,
-                                     ModelHandle* out) except +
-    cdef int TreeliteFreeModel(ModelHandle handle) except +
-    cdef int TreeliteQueryNumTree(ModelHandle handle, size_t* out) except +
-    cdef int TreeliteQueryNumFeature(ModelHandle handle, size_t* out) except +
-    cdef int TreeliteQueryNumClass(ModelHandle handle, size_t* out) except +
-    cdef int TreeliteLoadLightGBMModel(const char* filename,
-                                       ModelHandle* out) except +
-    cdef int TreeliteSerializeModel(const char* filename,
-                                    ModelHandle handle) except +
-    cdef int TreeliteDeserializeModel(const char* filename,
-                                      ModelHandle handle) except +
-    cdef const char* TreeliteGetLastError()
-
-
-cdef class TreeliteModel():
-    """
-    Wrapper for Treelite-loaded forest
-
-    .. note:: This is only used for loading saved models into ForestInference,
-    it does not actually perform inference. Users typically do
-    not need to access TreeliteModel instances directly.
-
-    Attributes
-    ----------
-
-    handle : ModelHandle
-        Opaque pointer to Treelite model
-    """
-    cdef ModelHandle handle
-    cdef bool owns_handle
-
-    def __cinit__(self, owns_handle=True):
-        """If owns_handle is True, free the handle's model in destructor.
-        Set this to False if another owner will free the model."""
-        self.handle = <ModelHandle>NULL
-        self.owns_handle = owns_handle
-
-    cdef set_handle(self, ModelHandle new_handle):
-        self.handle = new_handle
-
-    cdef ModelHandle get_handle(self):
-        return self.handle
-
-    @property
-    def handle(self):
-        return <uintptr_t>(self.handle)
-
-    def __dealloc__(self):
-        if self.handle != NULL and self.owns_handle:
-            TreeliteFreeModel(self.handle)
-
-    @property
-    def num_trees(self):
-        assert self.handle != NULL
-        cdef size_t out
-        TreeliteQueryNumTree(self.handle, &out)
-        return out
-
-    @property
-    def num_features(self):
-        assert self.handle != NULL
-        cdef size_t out
-        TreeliteQueryNumFeature(self.handle, &out)
-        return out
-
-    @staticmethod
-    def free_treelite_model(model_handle):
-        cdef uintptr_t model_ptr = <uintptr_t>model_handle
-        TreeliteFreeModel(<ModelHandle> model_ptr)
-
-    @staticmethod
-    def from_filename(filename, model_type="xgboost"):
-        """
-        Returns a TreeliteModel object loaded from `filename`
-
-        Parameters
-        ----------
-        filename : string
-            Path to treelite model file to load
-
-        model_type : string
-            Type of model: 'xgboost', 'xgboost_json', or 'lightgbm'
-        """
-        filename_bytes = filename.encode("UTF-8")
-        cdef ModelHandle handle
-
-        if model_type == "xgboost":
-            res = TreeliteLoadXGBoostModel(filename_bytes, &handle)
-        elif model_type == "xgboost_json":
-            res = TreeliteLoadXGBoostJSON(filename_bytes, &handle)
-        elif model_type == "lightgbm":
-            res = TreeliteLoadLightGBMModel(filename_bytes, &handle)
-        elif model_type == "treelite_checkpoint":
-            res = TreeliteDeserializeModel(filename_bytes, &handle)
-        else:
-            raise ValueError("Unknown model type %s" % model_type)
-
-        if res < 0:
-            err = TreeliteGetLastError()
-            raise RuntimeError("Failed to load %s (%s)" % (filename, err))
-        model = TreeliteModel()
-        model.set_handle(handle)
-        return model
-
-    def to_treelite_checkpoint(self, filename):
-        """
-        Serialize to a Treelite binary checkpoint
-
-        Parameters
-        ----------
-        filename : string
-            Path to Treelite binary checkpoint
-        """
-        assert self.handle != NULL
-        filename_bytes = filename.encode("UTF-8")
-        TreeliteSerializeModel(filename_bytes, self.handle)
-
-    @staticmethod
-    def from_treelite_model_handle(treelite_handle,
-                                   take_handle_ownership=False):
-        cdef ModelHandle handle = <ModelHandle> <size_t> treelite_handle
-        model = TreeliteModel(owns_handle=take_handle_ownership)
-        model.set_handle(handle)
-        return model
 
 
 cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experimental::fil":
@@ -185,6 +61,8 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
 
         bool is_double_precision() except +
         size_t num_outputs() except +
+        row_op row_postprocessing() except +
+        element_op elem_postprocessing() except +
 
 cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil":
     forest_model import_from_treelite_handle(
@@ -235,9 +113,12 @@ cdef class ForestInference_impl():
             model_handle = tl_model.handle.value
         except AttributeError:
             try:
-                model_handle = tl_model.value
+                model_handle = tl_model.handle
             except AttributeError:
-                model_handle = tl_model
+                try:
+                    model_handle = tl_model.value
+                except AttributeError:
+                    model_handle = tl_model
 
         cdef raft_proto_device_t dev_type
         if mem_type.is_device_accessible:
@@ -265,6 +146,30 @@ cdef class ForestInference_impl():
 
     def num_outputs(self):
         return self.model.num_outputs()
+
+    def row_postprocessing(self):
+        enum_val = self.model.row_postprocessing()
+        if enum_val == row_op.row_disable:
+            return "disable"
+        elif enum_val == row_op.softmax:
+            return "softmax"
+        elif enum_val == row_op.max_index:
+            return "max_index"
+
+    def elem_postprocessing(self):
+        enum_val = self.model.elem_postprocessing()
+        if enum_val == element_op.elem_disable:
+            return "disable"
+        elif enum_val == element_op.signed_square:
+            return "signed_square"
+        elif enum_val == element_op.hinge:
+            return "hinge"
+        elif enum_val == element_op.sigmoid:
+            return "sigmoid"
+        elif enum_val == element_op.exponential:
+            return "exponential"
+        elif enum_val == element_op.logarithm_one_plus_exp:
+            return "logarithm_one_plus_exp"
 
     def predict(
             self,
@@ -853,7 +758,14 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                 model_type = 'lightgbm'
             else:
                 model_type = 'treelite_checkpoint'
-        tl_model = TreeliteModel.from_filename(path, model_type)
+        if model_type == 'treelite_checkpoint':
+            tl_model = treelite.frontend.Model.deserialize(
+                path, model_type
+            )
+
+        tl_model = treelite.frontend.Model.load(
+            path, model_type
+        )
         return cls(
             treelite_model=tl_model,
             handle=handle,
@@ -969,10 +881,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
-        tl_frontend_model = treelite.sklearn.import_model(skl_model)
-        tl_model = TreeliteModel.from_treelite_model_handle(
-            tl_frontend_model.handle.value
-        )
+        tl_model = treelite.sklearn.import_model(skl_model)
         result = cls(
             treelite_model=tl_model,
             handle=handle,
@@ -984,7 +893,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             precision=precision,
             device_id=device_id
         )
-        result._tl_frontend_model = tl_frontend_model
         return result
 
     @classmethod
@@ -1206,7 +1114,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             classifiers, the highest probability class is chosen regardless
             of threshold.
         """
-        if self.treelite_model.pred_transform == 'max_index':
+        if self.forest.row_postprocessing() == 'max_index':
             raw_out = self.forest.predict(X, chunk_size=chunk_size)
             result = raw_out[:, 0]
             if preds is None:
