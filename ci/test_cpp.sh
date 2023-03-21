@@ -19,8 +19,6 @@ conda activate test
 set -u
 
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
-LIBRAFT_CHANNEL=$(rapids-get-artifact ci/raft/pull-request/1333/c60c0cb/raft_conda_cpp_cuda11_$(arch).tar.gz)
-
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}/
 mkdir -p "${RAPIDS_TESTS_DIR}"
 
@@ -28,7 +26,6 @@ rapids-print-env
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
-  --channel "${LIBRAFT_CHANNEL}" \
   libcuml libcuml-tests
 
 rapids-logger "Check GPU usage"

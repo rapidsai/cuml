@@ -20,10 +20,6 @@ set -u
 
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
-PY_VER=${RAPIDS_PY_VERSION//./}
-LIBRAFT_CHANNEL=$(rapids-get-artifact ci/raft/pull-request/1333/c60c0cb/raft_conda_cpp_cuda11_$(arch).tar.gz)
-RAFT_CHANNEL=$(rapids-get-artifact ci/raft/pull-request/1333/c60c0cb/raft_conda_python_cuda11_${PY_VER}_$(arch).tar.gz)
-
 PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
 
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
@@ -35,8 +31,6 @@ rapids-print-env
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   --channel "${PYTHON_CHANNEL}" \
-  --channel "${LIBRAFT_CHANNEL}" \
-  --channel "${RAFT_CHANNEL}" \
   libcuml cuml
 
 rapids-logger "Check GPU usage"

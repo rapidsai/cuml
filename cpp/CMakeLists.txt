@@ -605,8 +605,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   # because cumlprims_mg and cuML inherit their CUDA libs from the raft::raft
   # INTERFACE target.
   list(APPEND ${_cuml_cpp_libs_var_name}
-    $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
-    $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
+    $<$<BOOL:${CUML_RAFT_COMPILED}>:raft::compiled>
     $<TARGET_NAME_IF_EXISTS:cumlprims_mg::cumlprims_mg>
   )
 
