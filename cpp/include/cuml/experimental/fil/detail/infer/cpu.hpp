@@ -96,8 +96,6 @@ std::enable_if_t<std::disjunction_v<std::bool_constant<D==raft_proto::device_typ
   raft_proto::device_id<D> device=raft_proto::device_id<D>{},
   raft_proto::cuda_stream=raft_proto::cuda_stream{}
 ) {
-  auto constexpr device_type_cpu_or_gpu_disabled = D==raft_proto::device_type::cpu || !raft_proto::GPU_ENABLED;
-  static_assert(device_type_cpu_or_gpu_disabled, "OH NO!!!");
   if constexpr(D==raft_proto::device_type::gpu) {
     throw raft_proto::gpu_unsupported("Tried to use GPU inference in CPU-only build");
   } else {

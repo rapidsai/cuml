@@ -204,6 +204,12 @@ struct decision_forest {
   auto num_trees() const { return root_node_indexes_.size(); }
   auto has_vector_leaves() const { return vector_output_.has_value(); }
 
+  /** The operation used for postprocessing all outputs for a single row */
+  auto row_postprocessing() const { return row_postproc_; }
+  /** The operation used for postprocessing each element of the output for a
+   * single row */
+  auto elem_postprocessing() const { return elem_postproc_; }
+
   /** The type of memory (device/host) where the model is stored */
   auto memory_type() {
     return nodes_.memory_type();

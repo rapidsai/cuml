@@ -60,9 +60,25 @@ struct forest_model {
     }, decision_forest_);
   }
 
+  /** Whether the model has vector leaves */
   auto has_vector_leaves() {
     return std::visit([](auto&& concrete_forest) {
       return concrete_forest.has_vector_leaves();
+    }, decision_forest_);
+  }
+
+  /** The operation used for postprocessing all outputs for a single row */
+  auto row_postprocessing() {
+    return std::visit([](auto&& concrete_forest) {
+      return concrete_forest.row_postprocessing();
+    }, decision_forest_);
+  }
+
+  /** The operation used for postprocessing each element of the output for a
+   * single row */
+  auto elem_postprocessing() {
+    return std::visit([](auto&& concrete_forest) {
+      return concrete_forest.elem_postprocessing();
     }, decision_forest_);
   }
 
