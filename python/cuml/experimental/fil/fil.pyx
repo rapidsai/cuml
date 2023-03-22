@@ -1202,6 +1202,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             self,
             X,
             *,
+            preds=None,
             chunk_size=None) -> CumlArray:
         """
         Output prediction of each tree.
@@ -1221,6 +1222,14 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             it will be copied to the correct location. This copy will be
             distributed across as many CUDA streams as are available
             in the stream pool of the model's RAFT handle.
+        preds
+            If non-None, outputs will be written in-place to this array.
+            Therefore, if given, this should be a C-major array of shape
+            n_rows * n_trees * n_outputs (if vector leaf is used) or
+            shape n_rows * n_trees (if scalar leaf is used).
+            Classes with a datatype (float/double) corresponding to the
+            precision of the model. If None, an output array of the correct
+            shape and type will be allocated and returned.
         chunk_size : int
             The number of rows to simultaneously process in one iteration
             of the inference algorithm. Batches are further broken down into
@@ -1235,5 +1244,5 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             of 512.
         """
         return self.forest.predict_per_tree(
-            X, chunk_size=chunk_size
+            X, preds=preds, chunk_size=chunk_size
         )
