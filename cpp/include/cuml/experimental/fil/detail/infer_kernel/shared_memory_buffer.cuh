@@ -91,13 +91,12 @@ struct shared_memory_buffer {
    * the start of the desired data if the fill was possible or else nullptr. */
   template <typename T>
   __device__ auto* fill(index_type element_count, T value=T{}) {
-    if (element_count == 0) {
-      return static_cast<T*>(nullptr);
-    }
-
     auto* dest = reinterpret_cast<std::remove_const_t<T>*>(remaining_data);
 
-    auto copy_data = (element_count * index_type(sizeof(T)) <= remaining_size);
+    auto copy_data = (
+        element_count * index_type(sizeof(T)) <= remaining_size
+        && element_count > 0
+    );
 
     element_count *= copy_data;
     for (auto i = threadIdx.x; i < element_count; i += blockDim.x) {
