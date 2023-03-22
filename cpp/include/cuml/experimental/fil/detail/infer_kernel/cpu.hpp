@@ -99,7 +99,7 @@ void infer_kernel_cpu(
   index_type output_workspace_size{};
   if (output_type == output_kind::default_kind) {
     output_workspace_size = row_count * num_outputs * num_grove;
-  } else if (output_type == output_kind::per_tree) {
+  } else if (output_type == output_kind::per_tree || output_type == output_kind::leaf_id) {
     output_workspace_size = index_type{};
   }
   auto output_workspace = std::vector<output_t>(output_workspace_size, output_t{});
@@ -120,17 +120,33 @@ void infer_kernel_cpu(
         auto tree_output = std::conditional_t<
           has_vector_leaves, typename node_t::index_type, typename node_t::threshold_type
         >{};
-        if constexpr (has_nonlocal_categories) {
-          tree_output = evaluate_tree<has_vector_leaves>(
-            forest.get_tree_root(tree_index),
-            input + row_index * col_count,
-            categorical_data
-          );
+        auto leaf_node = static_cast<node_t const*>(nullptr);
+        if (output_type == output_kind::leaf_id) {
+          if constexpr (has_nonlocal_categories) {
+            leaf_node = evaluate_tree<has_vector_leaves, true>(
+                forest.get_tree_root(tree_index),
+                input + row_index * col_count,
+                categorical_data
+            );
+          } else {
+            leaf_node = evaluate_tree<has_vector_leaves, has_categorical_nodes, true>(
+                forest.get_tree_root(tree_index),
+                input + row_index * col_count
+            );
+          }
         } else {
-          tree_output = evaluate_tree<has_vector_leaves, has_categorical_nodes>(
-            forest.get_tree_root(tree_index),
-            input + row_index * col_count
-          );
+          if constexpr (has_nonlocal_categories) {
+            tree_output = evaluate_tree<has_vector_leaves, false>(
+                forest.get_tree_root(tree_index),
+                input + row_index * col_count,
+                categorical_data
+            );
+          } else {
+            tree_output = evaluate_tree<has_vector_leaves, has_categorical_nodes, false>(
+                forest.get_tree_root(tree_index),
+                input + row_index * col_count
+            );
+          }
         }
         if (output_type == output_kind::default_kind) {
           if constexpr (has_vector_leaves) {
@@ -175,6 +191,11 @@ void infer_kernel_cpu(
                 + tree_index
             ] = tree_output;
           }
+        } else if (output_type == output_kind::leaf_id) {
+          output[
+              row_index * num_tree
+              + tree_index
+          ] = static_cast<typename forest_t::io_type>(forest.get_node_id(leaf_node));
         }  // Predict type
       }  // Trees
     }  // Rows

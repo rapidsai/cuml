@@ -170,17 +170,33 @@ infer_kernel(
       auto tree_output = std::conditional_t<
         has_vector_leaves, typename node_t::index_type, typename node_t::threshold_type
       >{};
-      if constexpr (has_nonlocal_categories) {
-        tree_output = evaluate_tree<has_vector_leaves>(
-          forest.get_tree_root(tree_index),
-          input_data + row_index * col_count,
-          categorical_data
-        );
+      auto leaf_node = static_cast<node_t const*>(nullptr);
+      if (output_type == output_kind::leaf_id) {
+        if constexpr (has_nonlocal_categories) {
+          leaf_node = evaluate_tree<has_vector_leaves, true>(
+              forest.get_tree_root(tree_index),
+              input_data + row_index * col_count,
+              categorical_data
+          );
+        } else {
+          leaf_node = evaluate_tree<has_vector_leaves, has_categorical_nodes, true>(
+              forest.get_tree_root(tree_index),
+              input_data + row_index * col_count
+          );
+        }
       } else {
-        tree_output = evaluate_tree<has_vector_leaves, has_categorical_nodes>(
-          forest.get_tree_root(tree_index),
-          input_data + row_index * col_count
-        );
+        if constexpr (has_nonlocal_categories) {
+          tree_output = evaluate_tree<has_vector_leaves, false>(
+              forest.get_tree_root(tree_index),
+              input_data + row_index * col_count,
+              categorical_data
+          );
+        } else {
+          tree_output = evaluate_tree<has_vector_leaves, has_categorical_nodes, false>(
+              forest.get_tree_root(tree_index),
+              input_data + row_index * col_count
+          );
+        }
       }
 
       if (output_type == output_kind::default_kind) {
@@ -233,6 +249,13 @@ infer_kernel(
                 + tree_index
             ] = tree_output;
           }
+        }
+      } else if (output_type == output_kind::leaf_id) {
+        if (real_task) {
+          output_workspace[
+              row_index * tree_count
+              + tree_index
+          ] = static_cast<typename forest_t::io_type>(forest.get_node_id(leaf_node));
         }
       }
 
@@ -330,6 +353,27 @@ infer_kernel(
                 + tree_index
             ];
           }
+        }
+      }
+    } else if (output_type == output_kind::leaf_id) {
+      for (
+        auto task_index = threadIdx.x;
+        task_index < task_count_rounded_up;
+        task_index += blockDim.x
+      ) {
+        auto row_index = task_index % chunk_size;
+        auto real_task = task_index < task_count && row_index < rows_in_this_iteration;
+        row_index *= real_task;
+        auto tree_index = task_index * real_task / chunk_size;
+
+        if (real_task) {
+          output[
+              (row_offset + row_index) * tree_count
+              + tree_index
+          ] = output_workspace[
+              row_index * tree_count
+              + tree_index
+          ];
         }
       }
     }

@@ -31,6 +31,7 @@ namespace detail {
  * @tparam has_vector_leaves Whether or not this tree has vector leaves
  * @tparam has_categorical nodes Whether or not this tree has any nodes with
  * categorical splits
+ * @tparam evaluate_leaf whether to return the leaf node's address instead of the node's output
  * @tparam node_t The type of nodes in this tree
  * @tparam io_t The type used for input to and output from this tree (typically
  * either floats or doubles)
@@ -40,6 +41,7 @@ namespace detail {
 template<
   bool has_vector_leaves,
   bool has_categorical_nodes,
+  bool evaluate_leaf = false,
   typename node_t,
   typename io_t
 >
@@ -71,7 +73,11 @@ HOST DEVICE auto evaluate_tree(
     node += cur_node.child_offset(condition);
     cur_node = *node;
   } while (!cur_node.is_leaf());
-  return cur_node.template output<has_vector_leaves>();
+  if constexpr (evaluate_leaf) {
+    return static_cast<node_t const*>(node);
+  } else {
+    return cur_node.template output<has_vector_leaves>();
+  }
 }
 
 /*
@@ -87,6 +93,7 @@ HOST DEVICE auto evaluate_tree(
  * the positive and negative categories for each categorical node.
  *
  * @tparam has_vector_leaves Whether or not this tree has vector leaves
+ * @tparam evaluate_leaf whether to return the leaf node's address instead of the node's output
  * @tparam node_t The type of nodes in this tree
  * @tparam io_t The type used for input to and output from this tree (typically
  * either floats or doubles)
@@ -99,6 +106,7 @@ HOST DEVICE auto evaluate_tree(
  */
 template<
   bool has_vector_leaves,
+  bool evaluate_leaf = false,
   typename node_t,
   typename io_t,
   typename categorical_storage_t
@@ -127,7 +135,11 @@ HOST DEVICE auto evaluate_tree(
     node += cur_node.child_offset(condition);
     cur_node = *node;
   } while (!cur_node.is_leaf());
-  return cur_node.template output<has_vector_leaves>();
+  if constexpr (evaluate_leaf) {
+    return static_cast<node_t const*>(node);
+  } else {
+    return cur_node.template output<has_vector_leaves>();
+  }
 }
 
 }

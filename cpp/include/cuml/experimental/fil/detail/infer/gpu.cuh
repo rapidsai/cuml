@@ -34,8 +34,6 @@
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/padding.hpp>
 
-#include <raft/core/error.hpp>
-
 namespace ML {
 namespace experimental {
 namespace fil {
@@ -63,6 +61,8 @@ inline auto compute_output_workspace_size(
     } else {
       output_workspace_size = threads_per_block_padded * tree_count;
     }
+  } else if (output_type == output_kind::leaf_id) {
+    output_workspace_size = threads_per_block_padded * tree_count;
   }
   return output_workspace_size;
 }
@@ -122,9 +122,6 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   raft_proto::device_id<D> device=raft_proto::device_id<D>{},
   raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
 ) {
-  // TODO(hcho3): REMOVE XXX
-  ASSERT(output_type != output_kind::leaf_id, "Predict_leaf not yet implemented");
-
   auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
 
   auto sm_count = get_sm_count(device);

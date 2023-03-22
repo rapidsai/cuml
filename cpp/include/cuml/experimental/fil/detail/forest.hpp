@@ -30,12 +30,23 @@ struct forest {
   using node_type = node<layout_v, threshold_t, index_t, metadata_storage_t, offset_t>;
   using io_type = threshold_t;
 
-  HOST DEVICE forest(node_type* forest_nodes, index_type* forest_root_indexes, index_type num_trees) :
-    nodes_{forest_nodes}, root_node_indexes_{forest_root_indexes}, num_trees_{num_trees} {}
+  HOST DEVICE forest(
+      node_type* forest_nodes,
+      index_type* forest_root_indexes,
+      index_type* node_id_mapping,
+      index_type num_trees) :
+    nodes_{forest_nodes},
+    root_node_indexes_{forest_root_indexes},
+    node_id_mapping_{node_id_mapping},
+    num_trees_{num_trees} {}
 
   /* Return pointer to the root node of the indicated tree */
   HOST DEVICE auto* get_tree_root(index_type tree_index) const {
     return nodes_ + root_node_indexes_[tree_index];
+  }
+
+  HOST DEVICE auto get_node_id(const node_type* node) const {
+    return node_id_mapping_[node - nodes_];
   }
 
   /* Return the number of trees in this forest */
@@ -45,6 +56,7 @@ struct forest {
  private:
   node_type* nodes_;
   index_type* root_node_indexes_;
+  index_type* node_id_mapping_;
   index_type num_trees_;
 };
 
