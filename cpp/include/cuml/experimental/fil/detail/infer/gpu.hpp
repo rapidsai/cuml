@@ -39,7 +39,6 @@ template<
 >
 std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   forest_t const& forest,
-  output_kind output_type,
   postprocessor<typename forest_t::io_type> const& postproc,
   typename forest_t::io_type* output,
   typename forest_t::io_type* input,
@@ -48,6 +47,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   index_type class_count,
   vector_output_t vector_output=nullptr,
   categorical_data_t categorical_data=nullptr,
+  output_kind output_type = output_kind::default_kind,
   std::optional<index_type> specified_chunk_size=std::nullopt,
   raft_proto::device_id<D> device=raft_proto::device_id<D>{},
   raft_proto::cuda_stream stream=raft_proto::cuda_stream{}

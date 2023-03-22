@@ -109,13 +109,13 @@ struct forest_model {
   /**
    * Perform inference on given input
    *
-   * @param[in] predict_type Prediction type
    * @param[out] output The buffer where model output should be stored.
    * This must be of size at least ROWS x num_outputs().
    * @param[in] input The buffer containing input data.
    * @param[in] stream A raft_proto::cuda_stream, which (on GPU-enabled builds) is
    * a transparent wrapper for the cudaStream_t or (on CPU-only builds) a
    * CUDA-free placeholder object.
+   * @param[in] predict_type Prediction type
    * @param[in] specified_chunk_size: Specifies the mini-batch size for
    * processing. This has different meanings on CPU and GPU, but on GPU it
    * corresponds to the number of rows evaluated per inference iteration
@@ -127,15 +127,15 @@ struct forest_model {
    */
   template <typename io_t>
   void predict(
-    output_kind predict_type,
     raft_proto::buffer<io_t>& output,
     raft_proto::buffer<io_t> const& input,
     raft_proto::cuda_stream stream = raft_proto::cuda_stream{},
+    output_kind predict_type=output_kind::default_kind,
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
     std::visit([this, predict_type, &output, &input, &stream, &specified_chunk_size](auto&& concrete_forest) {
       if constexpr(std::is_same_v<typename std::remove_reference_t<decltype(concrete_forest)>::io_type, io_t>) {
-        concrete_forest.predict(predict_type, output, input, stream, specified_chunk_size);
+        concrete_forest.predict(output, input, stream, predict_type, specified_chunk_size);
       } else {
         throw type_error("Input type does not match model_type");
       }
@@ -147,7 +147,6 @@ struct forest_model {
    *
    * @param[in] handle The raft_proto::handle_t (wrapper for raft::handle_t
    * on GPU) which will be used to provide streams for evaluation.
-   * @param[in] predict_type Prediction type
    * @param[out] output The buffer where model output should be stored. If
    * this buffer is on host while the model is on device or vice versa,
    * work will be distributed across available streams to copy the data back
@@ -156,6 +155,7 @@ struct forest_model {
    * this buffer is on host while the model is on device or vice versa,
    * work will be distributed across available streams to copy the input data
    * to the appropriate location and perform inference.
+   * @param[in] predict_type Prediction type
    * @param[in] specified_chunk_size: Specifies the mini-batch size for
    * processing. This has different meanings on CPU and GPU, but on GPU it
    * corresponds to the number of rows evaluated per inference iteration
@@ -168,9 +168,9 @@ struct forest_model {
   template <typename io_t>
   void predict(
     raft_proto::handle_t const& handle,
-    output_kind predict_type,
     raft_proto::buffer<io_t>& output,
     raft_proto::buffer<io_t> const& input,
+    output_kind predict_type=output_kind::default_kind,
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
     std::visit([this, predict_type, &handle, &output, &input, &specified_chunk_size](auto&& concrete_forest) {
@@ -178,10 +178,10 @@ struct forest_model {
       if constexpr(std::is_same_v<model_io_t, io_t>) {
         if (output.memory_type() == memory_type() && input.memory_type() == memory_type()) {
           concrete_forest.predict(
-            predict_type,
             output,
             input,
             handle.get_next_usable_stream(),
+            predict_type,
             specified_chunk_size
           );
         } else {
@@ -232,10 +232,10 @@ struct forest_model {
               };
             }
             concrete_forest.predict(
-              predict_type,
               partition_out,
               partition_in,
               stream,
+              predict_type,
               specified_chunk_size
             );
             if (output.memory_type() != memory_type()) {
@@ -261,7 +261,6 @@ struct forest_model {
    *
    * @param[in] handle The raft_proto::handle_t (wrapper for raft::handle_t
    * on GPU) which will be used to provide streams for evaluation.
-   * @param[in] predict_type Prediction type
    * @param[out] output Pointer to the memory location where output should end
    * up
    * @param[in] input Pointer to the input data
@@ -269,6 +268,7 @@ struct forest_model {
    * @param[in] out_mem_type The memory type (device/host) of the output
    * buffer
    * @param[in] in_mem_type The memory type (device/host) of the input buffer
+   * @param[in] predict_type Prediction type
    * @param[in] specified_chunk_size: Specifies the mini-batch size for
    * processing. This has different meanings on CPU and GPU, but on GPU it
    * corresponds to the number of rows evaluated per inference iteration
@@ -281,12 +281,12 @@ struct forest_model {
   template <typename io_t>
   void predict(
     raft_proto::handle_t const& handle,
-    output_kind predict_type,
     io_t* output,
     io_t* input,
     std::size_t num_rows,
     raft_proto::device_type out_mem_type,
     raft_proto::device_type in_mem_type,
+    output_kind predict_type=output_kind::default_kind,
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
     // TODO(wphicks): Make sure buffer lands on same device as model
@@ -300,7 +300,7 @@ struct forest_model {
       num_rows * num_features(),
       in_mem_type
     };
-    predict(handle, predict_type, out_buffer, in_buffer, specified_chunk_size);
+    predict(handle, out_buffer, in_buffer, predict_type, specified_chunk_size);
   }
 
  private:

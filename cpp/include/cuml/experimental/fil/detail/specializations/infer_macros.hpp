@@ -31,7 +31,6 @@
  * model without vector leaves or non-local categorical data.*/
 #define CUML_FIL_SCALAR_LOCAL_ARGS(dev, variant_index)(\
   CUML_FIL_FOREST(variant_index) const&,\
-  output_kind,\
   postprocessor<CUML_FIL_SPEC(variant_index)::threshold_type> const&,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
@@ -40,6 +39,7 @@
   index_type,\
   std::nullptr_t,\
   std::nullptr_t,\
+  output_kind,\
   std::optional<index_type>,\
   raft_proto::device_id<dev>,\
   raft_proto::cuda_stream stream\
@@ -49,7 +49,6 @@
  * model with vector leaves but without non-local categorical data.*/
 #define CUML_FIL_VECTOR_LOCAL_ARGS(dev, variant_index)(\
   CUML_FIL_FOREST(variant_index) const&,\
-  output_kind,\
   postprocessor<CUML_FIL_SPEC(variant_index)::threshold_type> const&,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
@@ -58,6 +57,7 @@
   index_type,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
   std::nullptr_t,\
+  output_kind,\
   std::optional<index_type>,\
   raft_proto::device_id<dev>,\
   raft_proto::cuda_stream stream\
@@ -67,7 +67,6 @@
  * model without vector leaves but with non-local categorical data.*/
 #define CUML_FIL_SCALAR_NONLOCAL_ARGS(dev, variant_index)(\
   CUML_FIL_FOREST(variant_index) const&,\
-  output_kind,\
   postprocessor<CUML_FIL_SPEC(variant_index)::threshold_type> const&,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
@@ -76,6 +75,7 @@
   index_type,\
   std::nullptr_t,\
   CUML_FIL_SPEC(variant_index)::index_type*,\
+  output_kind,\
   std::optional<index_type>,\
   raft_proto::device_id<dev>,\
   raft_proto::cuda_stream stream\
@@ -85,7 +85,6 @@
  * model with vector leaves and with non-local categorical data.*/
 #define CUML_FIL_VECTOR_NONLOCAL_ARGS(dev, variant_index)(\
   CUML_FIL_FOREST(variant_index) const&,\
-  output_kind,\
   postprocessor<CUML_FIL_SPEC(variant_index)::threshold_type> const&,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
@@ -94,6 +93,7 @@
   index_type,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
   CUML_FIL_SPEC(variant_index)::index_type*,\
+  output_kind,\
   std::optional<index_type>,\
   raft_proto::device_id<dev>,\
   raft_proto::cuda_stream stream\

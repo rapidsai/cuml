@@ -40,7 +40,6 @@ namespace detail {
  * @tparam D The device type (CPU/GPU) used to perform inference
  * @tparam forest_t The type of the forest
  * @param forest The forest to be evaluated
- * @param output_type Output type
  * @param postproc The postprocessor object used to execute
  * postprocessing
  * @param output Pointer to where the output should be written
@@ -54,6 +53,7 @@ namespace detail {
  * outputs of leaves (nullptr for no vector output)
  * @param categorical_data Pointer to external categorical data storage if
  * required
+ * @param output_type Output type
  * @param specified_chunk_size If non-nullopt, the size of "mini-batches"
  * used for distributing work across threads
  * @param device The device on which to execute evaluation
@@ -62,7 +62,6 @@ namespace detail {
 template<raft_proto::device_type D, typename forest_t>
 void infer(
   forest_t const& forest,
-  output_kind output_type,
   postprocessor<typename forest_t::io_type> const& postproc,
   typename forest_t::io_type* output,
   typename forest_t::io_type* input,
@@ -72,6 +71,7 @@ void infer(
   bool has_categorical_nodes,
   typename forest_t::io_type* vector_output=nullptr,
   typename forest_t::node_type::index_type* categorical_data=nullptr,
+  output_kind output_type=output_kind::default_kind,
   std::optional<index_type> specified_chunk_size=std::nullopt,
   raft_proto::device_id<D> device=raft_proto::device_id<D>{},
   raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
@@ -81,7 +81,6 @@ void infer(
       if (!has_categorical_nodes) {
         inference::infer<D, false, forest_t, std::nullptr_t, std::nullptr_t> (
           forest,
-          output_type,
           postproc,
           output,
           input,
@@ -90,6 +89,7 @@ void infer(
           output_count,
           nullptr,
           nullptr,
+          output_type,
           specified_chunk_size,
           device,
           stream
@@ -97,7 +97,6 @@ void infer(
       } else {
         inference::infer<D, true, forest_t, std::nullptr_t, std::nullptr_t> (
           forest,
-          output_type,
           postproc,
           output,
           input,
@@ -106,6 +105,7 @@ void infer(
           output_count,
           nullptr,
           nullptr,
+          output_type,
           specified_chunk_size,
           device,
           stream
@@ -114,7 +114,6 @@ void infer(
     } else {
       inference::infer<D, true, forest_t> (
         forest,
-        output_type,
         postproc,
         output,
         input,
@@ -123,6 +122,7 @@ void infer(
         output_count,
         nullptr,
         categorical_data,
+        output_type,
         specified_chunk_size,
         device,
         stream
@@ -133,7 +133,6 @@ void infer(
       if (!has_categorical_nodes) {
         inference::infer<D, false, forest_t> (
           forest,
-          output_type,
           postproc,
           output,
           input,
@@ -142,6 +141,7 @@ void infer(
           output_count,
           vector_output,
           nullptr,
+          output_type,
           specified_chunk_size,
           device,
           stream
@@ -149,7 +149,6 @@ void infer(
       } else {
         inference::infer<D, true, forest_t> (
           forest,
-          output_type,
           postproc,
           output,
           input,
@@ -158,6 +157,7 @@ void infer(
           output_count,
           vector_output,
           nullptr,
+          output_type,
           specified_chunk_size,
           device,
           stream
@@ -166,7 +166,6 @@ void infer(
     } else {
       inference::infer<D, true, forest_t> (
         forest,
-        output_type,
         postproc,
         output,
         input,
@@ -175,6 +174,7 @@ void infer(
         output_count,
         vector_output,
         categorical_data,
+        output_type,
         specified_chunk_size,
         device,
         stream

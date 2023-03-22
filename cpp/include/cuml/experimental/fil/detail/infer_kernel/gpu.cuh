@@ -49,7 +49,6 @@ namespace detail {
  * @tparam categorical_data_t If non-nullptr_t, this indicates the type we
  * expect for non-local categorical data storage.
  * @param forest The forest used to perform inference
- * @param output_type Output type.
  * @param postproc The postprocessor object used to store all necessary
  * data for postprocessing
  * @param output Pointer to the device-accessible buffer where output
@@ -67,6 +66,7 @@ namespace detail {
  * vector outputs for all leaf nodes
  * @param categorical_data If non-nullptr, a pointer to where non-local
  * data on categorical splits are stored.
+ * @param output_type Output type
  */
 template<
   bool has_categorical_nodes,
@@ -78,7 +78,6 @@ template<
 __global__ void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_SM)
 infer_kernel(
     forest_t forest,
-    output_kind output_type,
     postprocessor<typename forest_t::io_type> postproc,
     typename forest_t::io_type* output,
     typename forest_t::io_type const* input,
@@ -88,7 +87,8 @@ infer_kernel(
     index_type shared_mem_byte_size,
     index_type output_workspace_size,
     vector_output_t vector_output_p=nullptr,
-    categorical_data_t categorical_data=nullptr
+    categorical_data_t categorical_data=nullptr,
+    output_kind output_type=output_kind::default_kind
 ) {
   auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
   auto constexpr has_nonlocal_categories = !std::is_same_v<categorical_data_t, std::nullptr_t>;

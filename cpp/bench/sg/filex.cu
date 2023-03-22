@@ -141,12 +141,12 @@ class FILEX : public RegressionFixture<float> {
               if (p_rest.use_experimental) {
                 filex_model.predict(
                   *handle,
-                  ML::experimental::fil::output_kind::default_kind,
                   data.y.data(),
                   data.X.data(),
                   params.nrows,
                   raft_proto::device_type::gpu,
                   raft_proto::device_type::gpu,
+                  ML::experimental::fil::output_kind::default_kind,
                   chunk_size
                 );
               } else {
@@ -215,12 +215,12 @@ class FILEX : public RegressionFixture<float> {
         if (p_rest.use_experimental) {
           filex_model.predict(
             *handle,
-            ML::experimental::fil::output_kind::default_kind,
             this->data.y.data(),
             this->data.X.data(),
             this->params.nrows,
             raft_proto::device_type::gpu,
             raft_proto::device_type::gpu,
+            ML::experimental::fil::output_kind::default_kind,
             optimal_chunk_size
           );
           handle->sync_stream();

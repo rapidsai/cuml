@@ -73,12 +73,12 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
     cdef cppclass forest_model:
         void predict[io_t](
             const raft_proto_handle_t&,
-            output_kind,
             io_t*,
             io_t*,
             size_t,
             raft_proto_device_t,
             raft_proto_device_t,
+            output_kind,
             optional[uint32_t]
         ) except +
 
@@ -256,23 +256,23 @@ cdef class ForestInference_impl():
         if model_dtype == np.float32:
             self.model.predict[float](
                 self.raft_proto_handle,
-                output_type_enum,
                 <float*> out_ptr,
                 <float*> in_ptr,
                 n_rows,
                 out_dev,
                 in_dev,
+                output_type_enum,
                 chunk_specification
             )
         else:
             self.model.predict[double](
                 self.raft_proto_handle,
-                output_type_enum,
                 <double*> out_ptr,
                 <double*> in_ptr,
                 n_rows,
                 in_dev,
                 out_dev,
+                output_type_enum,
                 chunk_specification
             )
 

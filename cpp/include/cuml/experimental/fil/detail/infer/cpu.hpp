@@ -52,7 +52,6 @@ namespace inference {
  * categorical data storage
  *
  * @param forest The forest to be used for inference.
- * @param output_type Output type.
  * @param postproc The postprocessor object to be used for postprocessing raw
  * output from the forest.
  * @param row_count The number of rows in the input
@@ -62,6 +61,7 @@ namespace inference {
  * outputs
  * @param categorical_data If non-nullptr, a pointer to non-local storage for
  * data on categorical splits.
+ * @param output_type Output type
  * @param specified_chunk_size If non-nullopt, the mini-batch size used for
  * processing rows in a batch. For CPU inference, this essentially determines
  * the granularity of parallelism. A larger chunk size means that a single
@@ -83,7 +83,6 @@ template<
 >
 std::enable_if_t<std::disjunction_v<std::bool_constant<D==raft_proto::device_type::cpu>, std::bool_constant<!raft_proto::GPU_ENABLED>>, void> infer(
   forest_t const& forest,
-  output_kind output_type,
   postprocessor<typename forest_t::io_type> const& postproc,
   typename forest_t::io_type* output,
   typename forest_t::io_type* input,
@@ -92,6 +91,7 @@ std::enable_if_t<std::disjunction_v<std::bool_constant<D==raft_proto::device_typ
   index_type output_count,
   vector_output_t vector_output=nullptr,
   categorical_data_t categorical_data=nullptr,
+  output_kind output_type=output_kind::default_kind,
   std::optional<index_type> specified_chunk_size=std::nullopt,
   raft_proto::device_id<D> device=raft_proto::device_id<D>{},
   raft_proto::cuda_stream=raft_proto::cuda_stream{}
@@ -104,7 +104,6 @@ std::enable_if_t<std::disjunction_v<std::bool_constant<D==raft_proto::device_typ
 
     infer_kernel_cpu<has_categorical_nodes>(
       forest,
-      output_type,
       postproc,
       output,
       input,
@@ -114,7 +113,8 @@ std::enable_if_t<std::disjunction_v<std::bool_constant<D==raft_proto::device_typ
       specified_chunk_size.value_or(hardware_constructive_interference_size),
       hardware_constructive_interference_size,
       vector_output,
-      categorical_data
+      categorical_data,
+      output_type
     );
   }
 }

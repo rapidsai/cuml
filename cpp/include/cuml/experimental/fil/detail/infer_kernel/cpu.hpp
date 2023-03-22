@@ -45,7 +45,6 @@ namespace detail {
  * @param forest The forest used to perform inference
  * @param postproc The postprocessor object used to store all necessary
  * data for postprocessing
- * @param output_type Output type
  * @param output Pointer to the host-accessible buffer where output
  * should be written
  * @param input Pointer to the host-accessible buffer where input should be
@@ -61,6 +60,7 @@ namespace detail {
  * vector outputs for all leaf nodes
  * @param categorical_data If non-nullptr, a pointer to where non-local
  * data on categorical splits are stored.
+ * @param output_type Output type
  */
 template<
   bool has_categorical_nodes,
@@ -70,7 +70,6 @@ template<
 >
 void infer_kernel_cpu(
     forest_t const& forest,
-    output_kind output_type,
     postprocessor<typename forest_t::io_type> const& postproc,
     typename forest_t::io_type* output,
     typename forest_t::io_type const* input,
@@ -80,7 +79,8 @@ void infer_kernel_cpu(
     index_type chunk_size=hardware_constructive_interference_size,
     index_type grove_size=hardware_constructive_interference_size,
     vector_output_t vector_output_p=nullptr,
-    categorical_data_t categorical_data=nullptr
+    categorical_data_t categorical_data=nullptr,
+    output_kind output_type=output_kind::default_kind
 ) {
   auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
   auto constexpr has_nonlocal_categories = !std::is_same_v<categorical_data_t, std::nullptr_t>;

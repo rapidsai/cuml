@@ -66,7 +66,6 @@ inline auto compute_output_size(
  * categorical data storage
  *
  * @param forest The forest to be used for inference.
- * @param output_type Output type.
  * @param postproc The postprocessor object to be used for postprocessing raw
  * output from the forest.
  * @param row_count The number of rows in the input
@@ -76,6 +75,7 @@ inline auto compute_output_size(
  * outputs
  * @param categorical_data If non-nullptr, a pointer to non-local storage for
  * data on categorical splits.
+ * @param output_type Output type
  * @param specified_chunk_size If non-nullopt, the mini-batch size used for
  * processing rows in a batch. For GPU inference, this determines the number of
  * rows that are processed per iteration of inference in a single block. It
@@ -93,7 +93,6 @@ template<
 >
 std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   forest_t const& forest,
-  output_kind output_type,
   postprocessor<typename forest_t::io_type> const& postproc,
   typename forest_t::io_type* output,
   typename forest_t::io_type* input,
@@ -102,6 +101,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   index_type output_count,
   vector_output_t vector_output=nullptr,
   categorical_data_t categorical_data=nullptr,
+  output_kind output_type=output_kind::default_kind,
   std::optional<index_type> specified_chunk_size=std::nullopt,
   raft_proto::device_id<D> device=raft_proto::device_id<D>{},
   raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
@@ -259,7 +259,6 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       stream
     >>>(
       forest,
-      output_type,
       postproc,
       output,
       input,
@@ -269,7 +268,8 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       shared_mem_per_block,
       output_workspace_size,
       vector_output,
-      categorical_data
+      categorical_data,
+      output_type
     );
   } else if (rows_per_block_iteration <= 2) {
     infer_kernel<has_categorical_nodes, 2><<<
@@ -279,7 +279,6 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       stream
     >>>(
       forest,
-      output_type,
       postproc,
       output,
       input,
@@ -289,7 +288,8 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       shared_mem_per_block,
       output_workspace_size,
       vector_output,
-      categorical_data
+      categorical_data,
+      output_type
     );
   } else if (rows_per_block_iteration <= 4) {
     infer_kernel<has_categorical_nodes, 4><<<
@@ -299,7 +299,6 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       stream
     >>>(
       forest,
-      output_type,
       postproc,
       output,
       input,
@@ -309,7 +308,8 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       shared_mem_per_block,
       output_workspace_size,
       vector_output,
-      categorical_data
+      categorical_data,
+      output_type
     );
   } else if (rows_per_block_iteration <= 8) {
     infer_kernel<has_categorical_nodes, 8><<<
@@ -319,7 +319,6 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       stream
     >>>(
       forest,
-      output_type,
       postproc,
       output,
       input,
@@ -329,7 +328,8 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       shared_mem_per_block,
       output_workspace_size,
       vector_output,
-      categorical_data
+      categorical_data,
+      output_type
     );
   } else if (rows_per_block_iteration <= 16) {
     infer_kernel<has_categorical_nodes, 16><<<
@@ -339,7 +339,6 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       stream
     >>>(
       forest,
-      output_type,
       postproc,
       output,
       input,
@@ -349,7 +348,8 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       shared_mem_per_block,
       output_workspace_size,
       vector_output,
-      categorical_data
+      categorical_data,
+      output_type
     );
   } else {
     infer_kernel<has_categorical_nodes, 32><<<
@@ -359,7 +359,6 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       stream
     >>>(
       forest,
-      output_type,
       postproc,
       output,
       input,
@@ -369,7 +368,8 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       shared_mem_per_block,
       output_workspace_size,
       vector_output,
-      categorical_data
+      categorical_data,
+      output_type
     );
   }
   raft_proto::cuda_check(cudaGetLastError());

@@ -222,12 +222,12 @@ struct decision_forest {
   /**
    * Perform inference with this model
    *
-   * @param[in] predict_type Prediction type
    * @param[out] output The buffer where the model output should be stored.
    * This must be of size ROWS x num_outputs().
    * @param[in] input The buffer containing the input data
    * @param[in] stream For GPU execution, the CUDA stream. For CPU execution,
    * this optional parameter can be safely omitted.
+   * @param[in] predict_type Prediction type
    * @param[in] specified_rows_per_block_iter If non-nullopt, this value is
    * used to determine how many rows are evaluated for each inference
    * iteration within a CUDA block. Runtime performance is quite sensitive
@@ -238,10 +238,10 @@ struct decision_forest {
    * larger values.
    */
   void predict(
-    output_kind predict_type,
     raft_proto::buffer<typename forest_type::io_type>& output,
     raft_proto::buffer<typename forest_type::io_type> const& input,
     raft_proto::cuda_stream stream = raft_proto::cuda_stream{},
+    output_kind predict_type=output_kind::default_kind,
     std::optional<index_type> specified_rows_per_block_iter=std::nullopt
   ) {
     if (output.memory_type() != memory_type() || input.memory_type() != memory_type()) {
@@ -264,7 +264,6 @@ struct decision_forest {
       case 0:
         fil::detail::infer(
           obj(),
-          predict_type,
           get_postprocessor(),
           output.data(),
           input.data(),
@@ -274,6 +273,7 @@ struct decision_forest {
           has_categorical_nodes_,
           vector_output_data,
           categorical_storage_data,
+          predict_type,
           specified_rows_per_block_iter,
           std::get<0>(nodes_.device()),
           stream
@@ -282,7 +282,6 @@ struct decision_forest {
       case 1:
         fil::detail::infer(
           obj(),
-          predict_type,
           get_postprocessor(),
           output.data(),
           input.data(),
@@ -292,6 +291,7 @@ struct decision_forest {
           has_categorical_nodes_,
           vector_output_data,
           categorical_storage_data,
+          predict_type,
           specified_rows_per_block_iter,
           std::get<1>(nodes_.device()),
           stream
