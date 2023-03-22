@@ -196,10 +196,11 @@ cdef class ForestInference_impl():
         elif enum_val == element_op.logarithm_one_plus_exp:
             return "logarithm_one_plus_exp"
 
-    def predict(
+    def _predict(
             self,
             X,
             *,
+            output_type="default",
             preds=None,
             chunk_size=None,
             output_dtype=None):
@@ -218,15 +219,29 @@ cdef class ForestInference_impl():
         in_ptr = in_arr.ptr
 
         cdef uintptr_t out_ptr
+        cdef output_kind output_type_enum
+        if output_type == "default":
+            output_type_enum = output_kind.default_kind
+            output_shape = (n_rows, self.model.num_outputs())
+        elif output_type == "per_tree":
+            output_type_enum = output_kind.per_tree
+            if self.model.has_vector_leaves():
+                output_shape = (n_rows, self.model.num_trees(), self.model.num_outputs())
+            else:
+                output_shape = (n_rows, self.model.num_trees())
+        else:
+            raise ValueError(f"Unrecognized output_type: {output_type}")
         if preds is None:
             preds = CumlArray.empty(
-                (n_rows, self.model.num_outputs()),
+                output_shape,
                 model_dtype,
                 order='C',
                 index=in_arr.index
             )
         else:
             # TODO(wphicks): Handle incorrect dtype/device/layout in C++
+            if preds.shape != output_shape:
+                raise ValueError(f"If supplied, preds argument must have shape {output_shape}")
             preds.index = in_arr.index
         cdef raft_proto_device_t out_dev
         out_dev = get_device_type(preds)
@@ -241,7 +256,7 @@ cdef class ForestInference_impl():
         if model_dtype == np.float32:
             self.model.predict[float](
                 self.raft_proto_handle,
-                output_kind.default_kind,
+                output_type_enum,
                 <float*> out_ptr,
                 <float*> in_ptr,
                 n_rows,
@@ -252,7 +267,7 @@ cdef class ForestInference_impl():
         else:
             self.model.predict[double](
                 self.raft_proto_handle,
-                output_kind.default_kind,
+                output_type_enum,
                 <double*> out_ptr,
                 <double*> in_ptr,
                 n_rows,
@@ -264,74 +279,36 @@ cdef class ForestInference_impl():
         self.raft_proto_handle.synchronize()
 
         return preds
+
+    def predict(
+            self,
+            X,
+            *,
+            preds=None,
+            chunk_size=None,
+            output_dtype=None):
+        return self._predict(
+            X,
+            output_type="default",
+            preds=preds,
+            chunk_size=chunk_size,
+            output_dtype=output_dtype
+        )
 
     def predict_per_tree(
             self,
             X,
             *,
+            preds=None,
             chunk_size=None,
             output_dtype=None):
-        set_api_output_dtype(output_dtype)
-        model_dtype = self.get_dtype()
-
-        cdef uintptr_t in_ptr
-        in_arr, n_rows, n_cols, dtype = input_to_cuml_array(
+        return self._predict(
             X,
-            order='C',
-            convert_to_dtype=model_dtype,
-            check_dtype=model_dtype
+            output_type="per_tree",
+            preds=preds,
+            chunk_size=chunk_size,
+            output_dtype=output_dtype
         )
-        cdef raft_proto_device_t in_dev
-        in_dev = get_device_type(in_arr)
-        in_ptr = in_arr.ptr
-
-        cdef uintptr_t out_ptr
-        if self.model.has_vector_leaves():
-            output_shape = (n_rows, self.model.num_trees(), self.model.num_outputs())
-        else:
-            output_shape = (n_rows, self.model.num_trees())
-        preds = CumlArray.empty(
-            output_shape,
-            model_dtype,
-            order='C',
-            index=in_arr.index
-        )
-        cdef raft_proto_device_t out_dev
-        out_dev = get_device_type(preds)
-        out_ptr = preds.ptr
-
-        cdef optional[uint32_t] chunk_specification
-        if chunk_size is None:
-            chunk_specification = nullopt
-        else:
-            chunk_specification = <uint32_t> chunk_size
-
-        if model_dtype == np.float32:
-            self.model.predict[float](
-                self.raft_proto_handle,
-                output_kind.per_tree,
-                <float*> out_ptr,
-                <float*> in_ptr,
-                n_rows,
-                out_dev,
-                in_dev,
-                chunk_specification
-            )
-        else:
-            self.model.predict[double](
-                self.raft_proto_handle,
-                output_kind.per_tree,
-                <double*> out_ptr,
-                <double*> in_ptr,
-                n_rows,
-                in_dev,
-                out_dev,
-                chunk_specification
-            )
-
-        self.raft_proto_handle.synchronize()
-
-        return preds
 
 def _handle_legacy_fil_args(func):
     @functools.wraps(func)
