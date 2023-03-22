@@ -67,6 +67,8 @@ namespace detail {
  * @param categorical_data If non-nullptr, a pointer to where non-local
  * data on categorical splits are stored.
  * @param output_type Output type
+ * @param global_mem_fallback_buffer Buffer to use as a fallback, when there isn't enough shared
+ * memory. Set it to nullptr to disable
  */
 template<
   bool has_categorical_nodes,
@@ -88,7 +90,8 @@ infer_kernel(
     index_type output_workspace_size,
     vector_output_t vector_output_p=nullptr,
     categorical_data_t categorical_data=nullptr,
-    output_kind output_type=output_kind::default_kind
+    output_kind output_type=output_kind::default_kind,
+    std::byte* global_mem_fallback_buffer=nullptr
 ) {
   auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
   auto constexpr has_nonlocal_categories = !std::is_same_v<categorical_data_t, std::nullptr_t>;
@@ -114,9 +117,6 @@ infer_kernel(
     // row_offset: the ID of the first row in the current chunk
 
     shared_mem.clear();
-    // Only used if output_type == output_kind::default_kind
-    // Assume: output_workspace_size == 0 if output_type is predict_per_tree or predict_leaf
-    auto* output_workspace = shared_mem.fill<output_t>(output_workspace_size);
 
     // Handle as many rows as requested per loop or as many rows as are left to
     // process
@@ -135,6 +135,15 @@ infer_kernel(
       min(index_type(blockDim.x), task_count),
       chunk_size
     );
+
+    auto* output_workspace = shared_mem.fill<output_t>(output_workspace_size);
+    auto use_global_mem_fallback = !output_workspace && global_mem_fallback_buffer;
+    if (use_global_mem_fallback) {
+      // Use global fallback if there isn't enough shared mem to hold workspace
+      output_workspace =
+          reinterpret_cast<output_t*>(global_mem_fallback_buffer)
+          + output_workspace_size * blockIdx.x;
+    }
 
     // Note that this sync is safe because every thread in the block will agree
     // on whether or not a sync is required
@@ -177,10 +186,10 @@ infer_kernel(
       if (output_type == output_kind::default_kind) {
         if constexpr (has_vector_leaves) {
           for (
-              auto output_index = index_type{};
-              output_index < num_outputs;
-              ++output_index
-              ) {
+            auto output_index = index_type{};
+            output_index < num_outputs;
+            ++output_index
+          ) {
             if (real_task) {
               output_workspace[
                   row_index * num_outputs * num_grove
@@ -203,13 +212,13 @@ infer_kernel(
       } else if (output_type == output_kind::per_tree) {
         if constexpr (has_vector_leaves) {
           for (
-              auto output_index = index_type{};
-              output_index < num_outputs;
-              ++output_index
-              ) {
+            auto output_index = index_type{};
+            output_index < num_outputs;
+            ++output_index
+          ) {
             if (real_task) {
-              output[
-                  (row_offset + row_index) * tree_count * num_outputs
+              output_workspace[
+                  row_index * tree_count * num_outputs
                   + tree_index * num_outputs
                   + output_index
               ] = vector_output_p[
@@ -219,8 +228,8 @@ infer_kernel(
           }
         } else {
           if (real_task) {
-            output[
-                (row_offset + row_index) * tree_count
+            output_workspace[
+                row_index * tree_count
                 + tree_index
             ] = tree_output;
           }
@@ -233,15 +242,15 @@ infer_kernel(
     if (output_type == output_kind::default_kind) {
       auto padded_num_groves = raft_proto::padded_size(num_grove, WARP_SIZE);
       for (
-          auto row_index = threadIdx.x / WARP_SIZE;
-          row_index < rows_in_this_iteration;
-          row_index += blockDim.x / WARP_SIZE
-          ) {
+        auto row_index = threadIdx.x / WARP_SIZE;
+        row_index < rows_in_this_iteration;
+        row_index += blockDim.x / WARP_SIZE
+      ) {
         for (
-            auto output_index = index_type{};
-            output_index < num_outputs;
-            ++output_index
-            ) {
+          auto output_index = index_type{};
+          output_index < num_outputs;
+          ++output_index
+        ) {
           auto grove_offset = (
               row_index * num_outputs * num_grove + output_index * num_grove
           );
@@ -282,8 +291,49 @@ infer_kernel(
           );
         }
       }
-      __syncthreads();
+    } else if (output_type == output_kind::per_tree) {
+      for (
+        auto task_index = threadIdx.x;
+        task_index < task_count_rounded_up;
+        task_index += blockDim.x
+      ) {
+        auto row_index = task_index % chunk_size;
+        auto real_task = task_index < task_count && row_index < rows_in_this_iteration;
+        row_index *= real_task;
+        auto tree_index = task_index * real_task / chunk_size;
+
+        if constexpr (has_vector_leaves) {
+          for (
+            auto output_index = index_type{};
+            output_index < num_outputs;
+            ++output_index
+          ) {
+            if (real_task) {
+              output[
+                  (row_offset + row_index) * tree_count * num_outputs
+                  + tree_index * num_outputs
+                  + output_index
+              ] = output_workspace[
+                  row_index * tree_count * num_outputs
+                  + tree_index * num_outputs
+                  + output_index
+              ];
+            }
+          }
+        } else {
+          if (real_task) {
+            output[
+                (row_offset + row_index) * tree_count
+                + tree_index
+            ] = output_workspace[
+                row_index * tree_count
+                + tree_index
+            ];
+          }
+        }
+      }
     }
+    __syncthreads();
   }
 }
 
