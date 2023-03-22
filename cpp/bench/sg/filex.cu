@@ -15,7 +15,7 @@
  */
 
 #include <cuml/fil/fil.h>
-#include <cuml/experimental/fil/predict_type.hpp>
+#include <cuml/experimental/fil/output_kind.hpp>
 #include <cuml/experimental/fil/treelite_importer.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/tree_layout.hpp>
@@ -141,7 +141,7 @@ class FILEX : public RegressionFixture<float> {
               if (p_rest.use_experimental) {
                 filex_model.predict(
                   *handle,
-                  ML::experimental::fil::predict_t::predict,
+                  ML::experimental::fil::output_kind::default_kind,
                   data.y.data(),
                   data.X.data(),
                   params.nrows,
@@ -215,7 +215,7 @@ class FILEX : public RegressionFixture<float> {
         if (p_rest.use_experimental) {
           filex_model.predict(
             *handle,
-            ML::experimental::fil::predict_t::predict,
+            ML::experimental::fil::output_kind::default_kind,
             this->data.y.data(),
             this->data.X.data(),
             this->params.nrows,

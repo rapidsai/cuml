@@ -17,7 +17,7 @@
 #include <cstddef>
 #include <optional>
 #include <cuml/experimental/fil/constants.hpp>
-#include <cuml/experimental/fil/predict_type.hpp>
+#include <cuml/experimental/fil/output_kind.hpp>
 #include <cuml/experimental/fil/detail/cpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -52,7 +52,7 @@ namespace inference {
  * categorical data storage
  *
  * @param forest The forest to be used for inference.
- * @param predict_type Prediction type.
+ * @param output_type Output type.
  * @param postproc The postprocessor object to be used for postprocessing raw
  * output from the forest.
  * @param row_count The number of rows in the input
@@ -83,7 +83,7 @@ template<
 >
 std::enable_if_t<std::disjunction_v<std::bool_constant<D==raft_proto::device_type::cpu>, std::bool_constant<!raft_proto::GPU_ENABLED>>, void> infer(
   forest_t const& forest,
-  predict_t predict_type,
+  output_kind output_type,
   postprocessor<typename forest_t::io_type> const& postproc,
   typename forest_t::io_type* output,
   typename forest_t::io_type* input,
@@ -100,11 +100,11 @@ std::enable_if_t<std::disjunction_v<std::bool_constant<D==raft_proto::device_typ
     throw raft_proto::gpu_unsupported("Tried to use GPU inference in CPU-only build");
   } else {
     // TODO(hcho3): REMOVE XXX
-    ASSERT(predict_type != predict_t::predict_leaf, "Predict_leaf not yet implemented");
+    ASSERT(output_type != output_kind::leaf_id, "Predict_leaf not yet implemented");
 
     infer_kernel_cpu<has_categorical_nodes>(
       forest,
-      predict_type,
+      output_type,
       postproc,
       output,
       input,

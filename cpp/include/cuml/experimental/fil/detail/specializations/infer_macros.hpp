@@ -17,7 +17,7 @@
 #include <cstddef>
 #include <variant>
 #include <cuml/experimental/fil/constants.hpp>
-#include <cuml/experimental/fil/predict_type.hpp>
+#include <cuml/experimental/fil/output_kind.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
@@ -31,7 +31,7 @@
  * model without vector leaves or non-local categorical data.*/
 #define CUML_FIL_SCALAR_LOCAL_ARGS(dev, variant_index)(\
   CUML_FIL_FOREST(variant_index) const&,\
-  predict_t,\
+  output_kind,\
   postprocessor<CUML_FIL_SPEC(variant_index)::threshold_type> const&,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
@@ -49,7 +49,7 @@
  * model with vector leaves but without non-local categorical data.*/
 #define CUML_FIL_VECTOR_LOCAL_ARGS(dev, variant_index)(\
   CUML_FIL_FOREST(variant_index) const&,\
-  predict_t,\
+  output_kind,\
   postprocessor<CUML_FIL_SPEC(variant_index)::threshold_type> const&,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
@@ -67,7 +67,7 @@
  * model without vector leaves but with non-local categorical data.*/
 #define CUML_FIL_SCALAR_NONLOCAL_ARGS(dev, variant_index)(\
   CUML_FIL_FOREST(variant_index) const&,\
-  predict_t,\
+  output_kind,\
   postprocessor<CUML_FIL_SPEC(variant_index)::threshold_type> const&,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
@@ -85,7 +85,7 @@
  * model with vector leaves and with non-local categorical data.*/
 #define CUML_FIL_VECTOR_NONLOCAL_ARGS(dev, variant_index)(\
   CUML_FIL_FOREST(variant_index) const&,\
-  predict_t,\
+  output_kind,\
   postprocessor<CUML_FIL_SPEC(variant_index)::threshold_type> const&,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\

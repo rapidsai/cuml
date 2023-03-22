@@ -20,7 +20,7 @@
 #include <cstddef>
 #include <cuml/experimental/fil/constants.hpp>
 #include <cuml/experimental/fil/postproc_ops.hpp>
-#include <cuml/experimental/fil/predict_type.hpp>
+#include <cuml/experimental/fil/output_kind.hpp>
 #include <cuml/experimental/fil/detail/device_initialization.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/infer.hpp>
@@ -222,6 +222,7 @@ struct decision_forest {
   /**
    * Perform inference with this model
    *
+   * @param[in] predict_type Prediction type
    * @param[out] output The buffer where the model output should be stored.
    * This must be of size ROWS x num_outputs().
    * @param[in] input The buffer containing the input data
@@ -237,7 +238,7 @@ struct decision_forest {
    * larger values.
    */
   void predict(
-    predict_t predict_type,
+    output_kind predict_type,
     raft_proto::buffer<typename forest_type::io_type>& output,
     raft_proto::buffer<typename forest_type::io_type> const& input,
     raft_proto::cuda_stream stream = raft_proto::cuda_stream{},

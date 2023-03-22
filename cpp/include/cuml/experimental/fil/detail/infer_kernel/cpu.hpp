@@ -19,7 +19,7 @@
 #include <new>
 #include <numeric>
 #include <vector>
-#include <cuml/experimental/fil/predict_type.hpp>
+#include <cuml/experimental/fil/output_kind.hpp>
 #include <cuml/experimental/fil/detail/cpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/evaluate_tree.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -45,7 +45,7 @@ namespace detail {
  * @param forest The forest used to perform inference
  * @param postproc The postprocessor object used to store all necessary
  * data for postprocessing
- * @param predict_type Prediction type
+ * @param output_type Output type
  * @param output Pointer to the host-accessible buffer where output
  * should be written
  * @param input Pointer to the host-accessible buffer where input should be
@@ -70,7 +70,7 @@ template<
 >
 void infer_kernel_cpu(
     forest_t const& forest,
-    predict_t predict_type,
+    output_kind output_type,
     postprocessor<typename forest_t::io_type> const& postproc,
     typename forest_t::io_type* output,
     typename forest_t::io_type const* input,
@@ -97,9 +97,9 @@ void infer_kernel_cpu(
   auto const num_grove = raft_proto::ceildiv(num_tree, grove_size);
   auto const num_chunk = raft_proto::ceildiv(row_count, chunk_size);
   index_type output_workspace_size{};
-  if (predict_type == predict_t::predict) {
+  if (output_type == output_kind::default_kind) {
     output_workspace_size = row_count * num_outputs * num_grove;
-  } else if (predict_type == predict_t::predict_per_tree) {
+  } else if (output_type == output_kind::per_tree) {
     output_workspace_size = index_type{};
   }
   auto output_workspace = std::vector<output_t>(output_workspace_size, output_t{});
@@ -132,7 +132,7 @@ void infer_kernel_cpu(
             input + row_index * col_count
           );
         }
-        if (predict_type == predict_t::predict) {
+        if (output_type == output_kind::default_kind) {
           if constexpr (has_vector_leaves) {
             for (
                 auto output_index = index_type{};
@@ -154,7 +154,7 @@ void infer_kernel_cpu(
                 + grove_index
             ] += tree_output;
           }
-        } else if (predict_type == predict_t::predict_per_tree) {
+        } else if (output_type == output_kind::per_tree) {
           if constexpr (has_vector_leaves) {
             for (
                 auto output_index = index_type{};
@@ -181,7 +181,7 @@ void infer_kernel_cpu(
   }  // Tasks
 
   // Sum over grove and postprocess
-  if (predict_type == predict_t::predict) {
+  if (output_type == output_kind::default_kind) {
 #pragma omp parallel for
     for (auto row_index = index_type{}; row_index < row_count; ++row_index) {
       for (

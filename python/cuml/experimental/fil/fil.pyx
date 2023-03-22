@@ -62,18 +62,18 @@ cdef raft_proto_device_t get_device_type(arr):
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
 
-cdef extern from "cuml/experimental/fil/predict_type.hpp" namespace "ML::experimental::fil":
+cdef extern from "cuml/experimental/fil/output_kind.hpp" namespace "ML::experimental::fil":
     # TODO(hcho3): Switch to new syntax for scoped enum when we adopt Cython 3.0
-    ctypedef enum predict_t:
-        predict "ML::experimental::fil::predict_t::predict"
-        predict_per_tree "ML::experimental::fil::predict_t::predict_per_tree"
-        predict_leaf "ML::experimental::fil::predict_t::predict_leaf"
+    ctypedef enum output_kind:
+        default_kind "ML::experimental::fil::output_kind::default_kind"
+        per_tree "ML::experimental::fil::output_kind::per_tree"
+        leaf_id "ML::experimental::fil::output_kind::leaf_id"
 
 cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experimental::fil":
     cdef cppclass forest_model:
         void predict[io_t](
             const raft_proto_handle_t&,
-            predict_t,
+            output_kind,
             io_t*,
             io_t*,
             size_t,
@@ -241,7 +241,7 @@ cdef class ForestInference_impl():
         if model_dtype == np.float32:
             self.model.predict[float](
                 self.raft_proto_handle,
-                predict_t.predict,
+                output_kind.default_kind,
                 <float*> out_ptr,
                 <float*> in_ptr,
                 n_rows,
@@ -252,7 +252,7 @@ cdef class ForestInference_impl():
         else:
             self.model.predict[double](
                 self.raft_proto_handle,
-                predict_t.predict,
+                output_kind.default_kind,
                 <double*> out_ptr,
                 <double*> in_ptr,
                 n_rows,
@@ -309,7 +309,7 @@ cdef class ForestInference_impl():
         if model_dtype == np.float32:
             self.model.predict[float](
                 self.raft_proto_handle,
-                predict_t.predict_per_tree,
+                output_kind.per_tree,
                 <float*> out_ptr,
                 <float*> in_ptr,
                 n_rows,
@@ -320,7 +320,7 @@ cdef class ForestInference_impl():
         else:
             self.model.predict[double](
                 self.raft_proto_handle,
-                predict_t.predict_per_tree,
+                output_kind.per_tree,
                 <double*> out_ptr,
                 <double*> in_ptr,
                 n_rows,

@@ -17,10 +17,10 @@
 namespace ML {
 namespace experimental {
 namespace fil {
-enum class predict_t : unsigned char {
-  predict=0,
-  predict_per_tree=1,
-  predict_leaf=2
+enum class output_kind : unsigned char {
+  default_kind = 0,
+  per_tree = 1,
+  leaf_id = 2
 };
 }
 }

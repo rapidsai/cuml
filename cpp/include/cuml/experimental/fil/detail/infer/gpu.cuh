@@ -17,7 +17,7 @@
 #include <cstddef>
 #include <optional>
 #include <cuml/experimental/fil/constants.hpp>
-#include <cuml/experimental/fil/predict_type.hpp>
+#include <cuml/experimental/fil/output_kind.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/gpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/infer_kernel/gpu.cuh>
@@ -66,7 +66,7 @@ inline auto compute_output_size(
  * categorical data storage
  *
  * @param forest The forest to be used for inference.
- * @param predict_type Prediction type.
+ * @param output_type Output type.
  * @param postproc The postprocessor object to be used for postprocessing raw
  * output from the forest.
  * @param row_count The number of rows in the input
@@ -93,7 +93,7 @@ template<
 >
 std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   forest_t const& forest,
-  predict_t predict_type,
+  output_kind output_type,
   postprocessor<typename forest_t::io_type> const& postproc,
   typename forest_t::io_type* output,
   typename forest_t::io_type* input,
@@ -107,7 +107,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
 ) {
   // TODO(hcho3): REMOVE XXX
-  ASSERT(predict_type != predict_t::predict_leaf, "Predict_leaf not yet implemented");
+  ASSERT(output_type != output_kind::leaf_id, "Predict_leaf not yet implemented");
 
   auto sm_count = get_sm_count(device);
   auto max_shared_mem_per_block = get_max_shared_mem_per_block(device);
@@ -161,7 +161,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   index_type rows_per_block_iteration{};
   index_type output_workspace_size{};
   auto constexpr const output_item_bytes = index_type(sizeof(typename forest_t::io_type));
-  if (predict_type == predict_t::predict) {
+  if (output_type == output_kind::default_kind) {
     // Compute shared memory usage based on minimum or specified rows_per_block_iteration
     rows_per_block_iteration = specified_chunk_size.value_or(
         index_type{1}
@@ -207,7 +207,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
         rows_per_block_iteration >>= index_type{1};
       }
     } while (shared_mem_per_block > max_shared_mem_per_sm && rows_per_block_iteration > 1);
-  } else if (predict_type == predict_t::predict_per_tree) {
+  } else if (output_type == output_kind::per_tree) {
     // For predict_per_tree, we'll use shared mem only to store the input features.
     // The outputs will be directly stored to global mem
     output_workspace_size = 0;
@@ -259,7 +259,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       stream
     >>>(
       forest,
-      predict_type,
+      output_type,
       postproc,
       output,
       input,
@@ -279,7 +279,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       stream
     >>>(
       forest,
-      predict_type,
+      output_type,
       postproc,
       output,
       input,
@@ -299,7 +299,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       stream
     >>>(
       forest,
-      predict_type,
+      output_type,
       postproc,
       output,
       input,
@@ -319,7 +319,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       stream
     >>>(
       forest,
-      predict_type,
+      output_type,
       postproc,
       output,
       input,
@@ -339,7 +339,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       stream
     >>>(
       forest,
-      predict_type,
+      output_type,
       postproc,
       output,
       input,
@@ -359,7 +359,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       stream
     >>>(
       forest,
-      predict_type,
+      output_type,
       postproc,
       output,
       input,

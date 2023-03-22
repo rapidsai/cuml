@@ -16,7 +16,7 @@
 #pragma once
 #include <cstddef>
 #include <stddef.h>
-#include <cuml/experimental/fil/predict_type.hpp>
+#include <cuml/experimental/fil/output_kind.hpp>
 #include <cuml/experimental/fil/detail/evaluate_tree.hpp>
 #include <cuml/experimental/fil/detail/gpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -49,7 +49,7 @@ namespace detail {
  * @tparam categorical_data_t If non-nullptr_t, this indicates the type we
  * expect for non-local categorical data storage.
  * @param forest The forest used to perform inference
- * @param predict_type Prediction type.
+ * @param output_type Output type.
  * @param postproc The postprocessor object used to store all necessary
  * data for postprocessing
  * @param output Pointer to the device-accessible buffer where output
@@ -63,8 +63,6 @@ namespace detail {
  * to this kernel.
  * @param output_workspace_size The total number of temporary elements required
  * to be stored as an intermediate output during inference
- * @param workspace_global_mem Workspace allocated in global memory. Only used when
- * predict_type is either predict_per_tree or predict_leaf.
  * @param vector_output_p If non-nullptr, a pointer to the stored leaf
  * vector outputs for all leaf nodes
  * @param categorical_data If non-nullptr, a pointer to where non-local
@@ -80,7 +78,7 @@ template<
 __global__ void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_SM)
 infer_kernel(
     forest_t forest,
-    predict_t predict_type,
+    output_kind output_type,
     postprocessor<typename forest_t::io_type> postproc,
     typename forest_t::io_type* output,
     typename forest_t::io_type const* input,
@@ -116,8 +114,8 @@ infer_kernel(
     // row_offset: the ID of the first row in the current chunk
 
     shared_mem.clear();
-    // Only used if predict_type == predict_t::predict
-    // Assume: output_workspace_size == 0 if predict_type is predict_per_tree or predict_leaf
+    // Only used if output_type == output_kind::default_kind
+    // Assume: output_workspace_size == 0 if output_type is predict_per_tree or predict_leaf
     auto* output_workspace = shared_mem.fill<output_t>(output_workspace_size);
 
     // Handle as many rows as requested per loop or as many rows as are left to
@@ -176,7 +174,7 @@ infer_kernel(
         );
       }
 
-      if (predict_type == predict_t::predict) {
+      if (output_type == output_kind::default_kind) {
         if constexpr (has_vector_leaves) {
           for (
               auto output_index = index_type{};
@@ -202,7 +200,7 @@ infer_kernel(
             ] += tree_output;
           }
         }
-      } else if (predict_type == predict_t::predict_per_tree) {
+      } else if (output_type == output_kind::per_tree) {
         if constexpr (has_vector_leaves) {
           for (
               auto output_index = index_type{};
@@ -232,7 +230,7 @@ infer_kernel(
       __syncthreads();
     }
 
-    if (predict_type == predict_t::predict) {
+    if (output_type == output_kind::default_kind) {
       auto padded_num_groves = raft_proto::padded_size(num_grove, WARP_SIZE);
       for (
           auto row_index = threadIdx.x / WARP_SIZE;

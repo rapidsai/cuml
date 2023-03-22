@@ -18,6 +18,7 @@
 #include <type_traits>
 #include <variant>
 #include <cuml/experimental/fil/decision_forest.hpp>
+#include <cuml/experimental/fil/output_kind.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
@@ -108,6 +109,7 @@ struct forest_model {
   /**
    * Perform inference on given input
    *
+   * @param[in] predict_type Prediction type
    * @param[out] output The buffer where model output should be stored.
    * This must be of size at least ROWS x num_outputs().
    * @param[in] input The buffer containing input data.
@@ -125,7 +127,7 @@ struct forest_model {
    */
   template <typename io_t>
   void predict(
-    predict_t predict_type,
+    output_kind predict_type,
     raft_proto::buffer<io_t>& output,
     raft_proto::buffer<io_t> const& input,
     raft_proto::cuda_stream stream = raft_proto::cuda_stream{},
@@ -145,6 +147,7 @@ struct forest_model {
    *
    * @param[in] handle The raft_proto::handle_t (wrapper for raft::handle_t
    * on GPU) which will be used to provide streams for evaluation.
+   * @param[in] predict_type Prediction type
    * @param[out] output The buffer where model output should be stored. If
    * this buffer is on host while the model is on device or vice versa,
    * work will be distributed across available streams to copy the data back
@@ -165,7 +168,7 @@ struct forest_model {
   template <typename io_t>
   void predict(
     raft_proto::handle_t const& handle,
-    predict_t predict_type,
+    output_kind predict_type,
     raft_proto::buffer<io_t>& output,
     raft_proto::buffer<io_t> const& input,
     std::optional<index_type> specified_chunk_size=std::nullopt
@@ -258,6 +261,7 @@ struct forest_model {
    *
    * @param[in] handle The raft_proto::handle_t (wrapper for raft::handle_t
    * on GPU) which will be used to provide streams for evaluation.
+   * @param[in] predict_type Prediction type
    * @param[out] output Pointer to the memory location where output should end
    * up
    * @param[in] input Pointer to the input data
@@ -277,7 +281,7 @@ struct forest_model {
   template <typename io_t>
   void predict(
     raft_proto::handle_t const& handle,
-    predict_t predict_type,
+    output_kind predict_type,
     io_t* output,
     io_t* input,
     std::size_t num_rows,

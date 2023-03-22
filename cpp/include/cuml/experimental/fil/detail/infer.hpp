@@ -18,7 +18,7 @@
 #include <iostream>
 #include <optional>
 #include <type_traits>
-#include <cuml/experimental/fil/predict_type.hpp>
+#include <cuml/experimental/fil/output_kind.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/infer/cpu.hpp>
 #ifdef CUML_ENABLE_GPU
@@ -40,6 +40,7 @@ namespace detail {
  * @tparam D The device type (CPU/GPU) used to perform inference
  * @tparam forest_t The type of the forest
  * @param forest The forest to be evaluated
+ * @param output_type Output type
  * @param postproc The postprocessor object used to execute
  * postprocessing
  * @param output Pointer to where the output should be written
@@ -61,7 +62,7 @@ namespace detail {
 template<raft_proto::device_type D, typename forest_t>
 void infer(
   forest_t const& forest,
-  predict_t predict_type,
+  output_kind output_type,
   postprocessor<typename forest_t::io_type> const& postproc,
   typename forest_t::io_type* output,
   typename forest_t::io_type* input,
@@ -80,7 +81,7 @@ void infer(
       if (!has_categorical_nodes) {
         inference::infer<D, false, forest_t, std::nullptr_t, std::nullptr_t> (
           forest,
-          predict_type,
+          output_type,
           postproc,
           output,
           input,
@@ -96,7 +97,7 @@ void infer(
       } else {
         inference::infer<D, true, forest_t, std::nullptr_t, std::nullptr_t> (
           forest,
-          predict_type,
+          output_type,
           postproc,
           output,
           input,
@@ -113,7 +114,7 @@ void infer(
     } else {
       inference::infer<D, true, forest_t> (
         forest,
-        predict_type,
+        output_type,
         postproc,
         output,
         input,
@@ -132,7 +133,7 @@ void infer(
       if (!has_categorical_nodes) {
         inference::infer<D, false, forest_t> (
           forest,
-          predict_type,
+          output_type,
           postproc,
           output,
           input,
@@ -148,7 +149,7 @@ void infer(
       } else {
         inference::infer<D, true, forest_t> (
           forest,
-          predict_type,
+          output_type,
           postproc,
           output,
           input,
@@ -165,7 +166,7 @@ void infer(
     } else {
       inference::infer<D, true, forest_t> (
         forest,
-        predict_type,
+        output_type,
         postproc,
         output,
         input,
