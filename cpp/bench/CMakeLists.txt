@@ -46,9 +46,7 @@ if(BUILD_CUML_BENCH)
       benchmark::benchmark
       ${TREELITE_LIBS}
       raft::raft
-      raft::nn
-      faiss::faiss
-      raft::distance
+      raft::compiled
   )
 
   target_include_directories(${CUML_CPP_BENCH_TARGET}

@@ -18,6 +18,7 @@ from cuml.dask.common.utils import wait_and_raise_from_futures
 from raft_dask.common.comms import get_raft_comm_state
 from raft_dask.common.comms import Comms
 from cuml.dask.common.base import mnmg_import
+from dask.distributed import get_worker
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import BaseEstimator
@@ -81,7 +82,7 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         def _func(sessionId, data, **kwargs):
             from cuml.cluster.dbscan_mg import DBSCANMG as cumlDBSCAN
 
-            handle = get_raft_comm_state(sessionId)["handle"]
+            handle = get_raft_comm_state(sessionId, get_worker())["handle"]
 
             return cumlDBSCAN(handle=handle, **kwargs).fit(
                 data, out_dtype=out_dtype
