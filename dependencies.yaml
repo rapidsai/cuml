@@ -93,10 +93,10 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - libcumlprims=23.04.*
-          - libraft=23.04.*
-          - libraft-headers=23.04.*
-          - librmm==23.04.*
+          - libcumlprims==23.4.*
+          - libraft==23.4.*
+          - libraft-headers==23.4.*
+          - librmm==23.4.*
     specific:
       - output_types: conda
         matrices:
