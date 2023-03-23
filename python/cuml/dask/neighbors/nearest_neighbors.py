@@ -18,7 +18,7 @@ from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common import raise_mg_import_exception
 from cuml.dask.common.base import BaseEstimator
-
+from dask.distributed import get_worker
 from raft_dask.common.comms import get_raft_comm_state
 from raft_dask.common.comms import Comms
 from cuml.dask.common.input_utils import to_output
@@ -93,7 +93,7 @@ class NearestNeighbors(BaseEstimator):
         except ImportError:
             raise_mg_import_exception()
 
-        handle = get_raft_comm_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId, get_worker())["handle"]
         return cumlNN(handle=handle, **kwargs)
 
     @staticmethod
