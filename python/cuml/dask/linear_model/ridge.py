@@ -18,6 +18,7 @@ from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import SyncFitMixinLinearModel
 from raft_dask.common.comms import get_raft_comm_state
+from dask.distributed import get_worker
 
 
 class Ridge(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
@@ -121,5 +122,5 @@ class Ridge(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
     def _create_model(sessionId, datatype, **kwargs):
         from cuml.linear_model.ridge_mg import RidgeMG
 
-        handle = get_raft_comm_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId, get_worker())["handle"]
         return RidgeMG(handle=handle, output_type=datatype, **kwargs)

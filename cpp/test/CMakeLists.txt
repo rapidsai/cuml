@@ -235,7 +235,6 @@ if(BUILD_PRIMS_TESTS)
   ConfigureTest(PREFIX PRIMS NAME LOGISTICREG_TEST PATH prims/logisticReg.cu)
   ConfigureTest(PREFIX PRIMS NAME MAKE_ARIMA_TEST PATH prims/make_arima.cu)
   ConfigureTest(PREFIX PRIMS NAME PENALTY_TEST PATH prims/penalty.cu)
-  ConfigureTest(PREFIX PRIMS NAME REVERSE_TEST PATH prims/reverse.cu)
   ConfigureTest(PREFIX PRIMS NAME SIGMOID_TEST PATH prims/sigmoid.cu)
 
 endif()
