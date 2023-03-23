@@ -75,8 +75,7 @@ dependencies:
           - cxx-compiler
           - libcumlprims=23.04.*
           - libraft-headers=23.04.*
-          - libraft-distance=23.04.*
-          - libraft-nn=23.04.*
+          - libraft=23.04.*
           - rmm=23.04.*
     specific:
       - output_types: conda

@@ -44,9 +44,8 @@ function(ConfigureTest)
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
     rmm::rmm
     raft::raft
-    $<$<BOOL:${CUML_USE_RAFT_NN}>:faiss::faiss>
-    $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
-    $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
+    $<$<BOOL:${CUML_RAFT_COMPILED}>:raft::compiled>
+    $<$<BOOL:${CUML_USE_RAFT_NN}>:faiss>
     GTest::gtest
     GTest::gtest_main
     ${OpenMP_CXX_LIB_NAMES}
@@ -236,7 +235,6 @@ if(BUILD_PRIMS_TESTS)
   ConfigureTest(PREFIX PRIMS NAME LOGISTICREG_TEST PATH prims/logisticReg.cu)
   ConfigureTest(PREFIX PRIMS NAME MAKE_ARIMA_TEST PATH prims/make_arima.cu)
   ConfigureTest(PREFIX PRIMS NAME PENALTY_TEST PATH prims/penalty.cu)
-  ConfigureTest(PREFIX PRIMS NAME REVERSE_TEST PATH prims/reverse.cu)
   ConfigureTest(PREFIX PRIMS NAME SIGMOID_TEST PATH prims/sigmoid.cu)
 
 endif()
