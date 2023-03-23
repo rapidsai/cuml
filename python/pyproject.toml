@@ -22,7 +22,7 @@ requires = [
     "ninja",
     "treelite==3.1.0",
     "treelite_runtime==3.1.0",
-    "rmm==23.4.*",
+    "rmm==23.6.*",
     "pylibraft==23.4.*"
 ]
 build-backend = "setuptools.build_meta"
@@ -47,7 +47,7 @@ filterwarnings = [
 
 [project]
 name = "cuml"
-version = "23.04.00"
+version = "23.06.00"
 description = "cuML - RAPIDS ML Algorithms"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
@@ -61,10 +61,10 @@ dependencies = [
     "seaborn",
     "treelite==3.1.0",
     "treelite_runtime==3.1.0",
-    "cudf==23.4.*",
-    "dask-cudf==23.4.*",
-    "pylibraft==23.4.*",
-    "raft-dask==23.4.*",
+    "cudf==23.6.*",
+    "dask-cudf==23.6.*",
+    "pylibraft==23.6.*",
+    "raft-dask==23.6.*",
 ]
 classifiers = [
     "Intended Audience :: Developers",

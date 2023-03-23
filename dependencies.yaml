@@ -73,11 +73,11 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - libcumlprims=23.04.*
-          - libraft-headers=23.04.*
-          - libraft-distance=23.04.*
-          - libraft-nn=23.04.*
-          - rmm=23.04.*
+          - libcumlprims=23.06.*
+          - libraft-headers=23.06.*
+          - libraft-distance=23.06.*
+          - libraft-nn=23.06.*
+          - rmm=23.06.*
     specific:
       - output_types: conda
         matrices:
@@ -101,9 +101,9 @@ dependencies:
           - treelite=3.1.0
       - output_types: conda
         packages:
-          - cudf=23.04.*
-          - raft-dask=23.04.*
-          - pylibraft=23.04.*
+          - cudf=23.06.*
+          - raft-dask=23.06.*
+          - pylibraft=23.06.*
   py_run:
     common:
       - output_types: [conda, requirements]
@@ -114,8 +114,8 @@ dependencies:
       - output_types: conda
         packages:
           - cupy>=7.8.0,<12.0.0a0
-          - dask-cuda=23.04.*
-          - dask-cudf=23.04.*
+          - dask-cuda=23.06.*
+          - dask-cudf=23.06.*
     specific:
       - output_types: requirements
         matrices:
