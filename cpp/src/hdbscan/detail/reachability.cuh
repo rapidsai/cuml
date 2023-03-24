@@ -21,7 +21,7 @@
 
 #include <raft/linalg/unary_op.cuh>
 
-#include <raft/neighbors/detail/knn_brute_force.cuh>
+#include <raft/neighbors/brute_force.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/linalg/symmetrize.cuh>
 
@@ -164,26 +164,15 @@ void _compute_core_dists(const raft::handle_t& handle,
 }
 
 //  Functor to post-process distances into reachability space
-template <typename T>
+template <typename value_idx, typename value_t>
 struct ReachabilityPostProcess {
-  void operator()(T* input, size_t batch_i, size_t batch_j, size_t rows, size_t cols) const
+  DI value_t operator()(value_t value, value_idx row, value_idx col) const
   {
-    // Trying to access member variables directly from the device lambda causes
-    // an invalid memory access for me, copy to a temporary to work
-    // around
-    const T* core_dists_ = core_dists;
-    const T alpha_       = alpha;
-
-    raft::linalg::map_offset(
-      handle, raft::make_device_vector_view(input, rows * cols), [=] __device__(size_t i) {
-        size_t row = i / cols, col = i % cols;
-        return max(core_dists_[col + batch_j], max(core_dists_[row + batch_i], alpha_ * input[i]));
-      });
+    return max(core_dists[col], max(core_dists[row], alpha * value));
   }
 
-  const raft::handle_t& handle;
-  const T* core_dists;
-  T alpha;
+  const value_t* core_dists;
+  value_t alpha;
 };
 
 /**
@@ -216,22 +205,22 @@ void mutual_reachability_knn_l2(const raft::handle_t& handle,
   // `A type local to a function cannot be used in the template argument of the
   // enclosing parent function (and any parent classes) of an extended __device__
   // or __host__ __device__ lambda`
-  auto post_process = ReachabilityPostProcess<value_t>{handle, core_dists, alpha};
+  auto epilogue = ReachabilityPostProcess<value_idx, value_t>{core_dists, alpha};
 
-  raft::neighbors::detail::tiled_brute_force_knn(handle,
-                                                 X,
-                                                 X,
-                                                 m,
-                                                 m,
-                                                 n,
-                                                 k,
-                                                 out_dists,
-                                                 out_inds,
-                                                 raft::distance::DistanceType::L2SqrtExpanded,
-                                                 0,
-                                                 0,
-                                                 0,
-                                                 post_process);
+  auto X_view = raft::make_device_matrix_view(X, m, n);
+  std::vector<raft::device_matrix_view<const value_t, size_t>> index = {X_view};
+
+  raft::neighbors::brute_force::knn<value_idx, value_t>(
+    handle,
+    index,
+    X_view,
+    raft::make_device_matrix_view(out_inds, m, static_cast<size_t>(k)),
+    raft::make_device_matrix_view(out_dists, m, static_cast<size_t>(k)),
+    k,
+    raft::distance::DistanceType::L2SqrtExpanded,
+    std::make_optional<float>(2.0f),
+    std::nullopt,
+    epilogue);
 }
 
 /**
