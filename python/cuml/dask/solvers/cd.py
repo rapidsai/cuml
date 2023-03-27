@@ -18,6 +18,7 @@ from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import SyncFitMixinLinearModel
 from raft_dask.common.comms import get_raft_comm_state
+from dask.distributed import get_worker
 
 
 class CD(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
@@ -77,5 +78,5 @@ class CD(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
     def _create_model(sessionId, datatype, **kwargs):
         from cuml.solvers.cd_mg import CDMG
 
-        handle = get_raft_comm_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId, get_worker())["handle"]
         return CDMG(handle=handle, output_type=datatype, **kwargs)

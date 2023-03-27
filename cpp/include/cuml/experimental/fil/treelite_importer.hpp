@@ -585,7 +585,11 @@ struct treelite_importer {
    * place within a single cache line. On GPU, a value of 128 can be used for
    * this purpose. On CPU, a value of either 0 or 64 typically produces
    * optimal performance.
+   * @param use_double_precision Whether or not to use 64 bit floats for model
+   * evaluation and 64 bit ints for applicable indexing
    * @param dev_type Which device type to use for inference (CPU or GPU)
+   * @param device For GPU execution, the device id for the device on which this
+   * model is to be loaded
    * @param stream The CUDA stream to use for loading this model (can be
    * omitted for CPU).
    */
@@ -648,24 +652,29 @@ struct treelite_importer {
   }
 };
 
-  /**
-   * Import a treelite model to FIL
-   *
-   * Load a model from Treelite to a FIL forest_model. The model will be
-   * inspected to determine the correct underlying decision_forest variant to
-   * use within the forest_model object.
-   *
-   * @param tl_model The Treelite Model to load
-   * @param align_bytes If non-zero, ensure that each tree is stored in a
-   * multiple of this value of bytes by padding with empty nodes. This can
-   * be useful for increasing the likelihood that successive reads will take
-   * place within a single cache line. On GPU, a value of 128 can be used for
-   * this purpose. On CPU, a value of either 0 or 64 typically produces
-   * optimal performance.
-   * @param dev_type Which device type to use for inference (CPU or GPU)
-   * @param stream The CUDA stream to use for loading this model (can be
-   * omitted for CPU).
-   */
+/**
+ * Import a treelite model to FIL
+ *
+ * Load a model from Treelite to a FIL forest_model. The model will be
+ * inspected to determine the correct underlying decision_forest variant to
+ * use within the forest_model object.
+ *
+ * @param tl_model The Treelite Model to load
+ * @param layout The in-memory layout of nodes in the loaded forest
+ * @param align_bytes If non-zero, ensure that each tree is stored in a
+ * multiple of this value of bytes by padding with empty nodes. This can
+ * be useful for increasing the likelihood that successive reads will take
+ * place within a single cache line. On GPU, a value of 128 can be used for
+ * this purpose. On CPU, a value of either 0 or 64 typically produces
+ * optimal performance.
+ * @param use_double_precision Whether or not to use 64 bit floats for model
+ * evaluation and 64 bit ints for applicable indexing
+ * @param dev_type Which device type to use for inference (CPU or GPU)
+ * @param device For GPU execution, the device id for the device on which this
+ * model is to be loaded
+ * @param stream The CUDA stream to use for loading this model (can be
+ * omitted for CPU).
+ */
 auto import_from_treelite_model(
   treelite::Model const& tl_model,
   tree_layout layout=preferred_tree_layout,
@@ -710,13 +719,18 @@ auto import_from_treelite_model(
  * object.
  *
  * @param tl_handle The Treelite ModelHandle to load
+ * @param layout The in-memory layout of nodes in the loaded forest
  * @param align_bytes If non-zero, ensure that each tree is stored in a
  * multiple of this value of bytes by padding with empty nodes. This can
  * be useful for increasing the likelihood that successive reads will take
  * place within a single cache line. On GPU, a value of 128 can be used for
  * this purpose. On CPU, a value of either 0 or 64 typically produces
  * optimal performance.
+ * @param use_double_precision Whether or not to use 64 bit floats for model
+ * evaluation and 64 bit ints for applicable indexing
  * @param dev_type Which device type to use for inference (CPU or GPU)
+ * @param device For GPU execution, the device id for the device on which this
+ * model is to be loaded
  * @param stream The CUDA stream to use for loading this model (can be
  * omitted for CPU).
  */

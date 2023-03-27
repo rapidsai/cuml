@@ -245,6 +245,19 @@ cdef class ForestInference_impl():
             preds.index = in_arr.index
         cdef raft_proto_device_t out_dev
         out_dev = get_device_type(preds)
+            preds.index = in_arr.index
+        cdef raft_proto_device_t out_dev
+        if preds.is_device_accessible:
+            if (
+                GlobalSettings().device_type == DeviceType.host
+                and preds.is_host_accessible
+            ):
+                out_dev = raft_proto_device_t.cpu
+            else:
+                out_dev = raft_proto_device_t.gpu
+        else:
+            out_dev = raft_proto_device_t.cpu
+
         out_ptr = preds.ptr
 
         cdef optional[uint32_t] chunk_specification

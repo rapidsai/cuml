@@ -60,3 +60,7 @@ docs/source/*.tl
 
 ## doxygen build check inside ci/checks/style.sh
 doxygen_check/
+
+## Doxygen
+cpp/html
+cpp/Doxyfile

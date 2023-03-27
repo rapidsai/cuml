@@ -433,6 +433,7 @@ using decision_forest_variant = std::variant<
  * @param num_vector_leaves The total number of leaf nodes which produce vector
  * outputs. For non-vector-leaf models, this should be 0. For vector-leaf
  * models, this should be the total number of leaf nodes.
+ * @param layout The in-memory layout to be used for nodes in the forest
  */
 inline auto get_forest_variant_index(
   bool use_double_thresholds,
