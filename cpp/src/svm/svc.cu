@@ -16,7 +16,7 @@
 
 #include <iostream>
 
-#if defined RAFT_DISTANCE_COMPILED
+#if defined RAFT_COMPILED
 #include <raft/distance/specializations.cuh>
 #endif
 
