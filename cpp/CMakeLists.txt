@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2023, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023 NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
+option(CUML_ENABLE_GPU "Enable building GPU-accelerated algorithms" ON)
 option(BUILD_SHARED_LIBS "Build cuML shared libraries" ON)
 option(BUILD_CUML_C_LIBRARY "Build libcuml_c shared library. Contains the cuML C API" ON)
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml shared library" ON)
@@ -152,6 +153,7 @@ if (NOT DISABLE_OPENMP)
   find_package(OpenMP)
   if(OpenMP_FOUND)
     message(STATUS "CUML_CPP: OpenMP found in ${OPENMP_INCLUDE_DIRS}")
+    list(APPEND CUML_CXX_FLAGS ${OpenMP_CXX_FLAGS})
   endif()
 endif()
 
@@ -288,6 +290,9 @@ if(BUILD_CUML_CPP_LIBRARY)
   # common components
   add_library(${CUML_CPP_TARGET}
               src/common/logger.cpp)
+  if (CUML_ENABLE_GPU)
+    target_compile_definitions(${CUML_CPP_TARGET} PUBLIC CUML_ENABLE_GPU)
+  endif()
 
   if(all_algo OR arima_algo)
     target_sources(${CUML_CPP_TARGET}
@@ -349,6 +354,24 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/fil/fil.cu
         src/fil/infer.cu
         src/fil/treelite_import.cu)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/experimental/fil/infer0.cpp
+        src/experimental/fil/infer0.cu
+        src/experimental/fil/infer1.cpp
+        src/experimental/fil/infer1.cu
+        src/experimental/fil/infer2.cpp
+        src/experimental/fil/infer2.cu
+        src/experimental/fil/infer3.cpp
+        src/experimental/fil/infer3.cu
+        src/experimental/fil/infer4.cpp
+        src/experimental/fil/infer4.cu
+        src/experimental/fil/infer5.cpp
+        src/experimental/fil/infer5.cu
+        src/experimental/fil/infer6.cpp
+        src/experimental/fil/infer6.cu
+        src/experimental/fil/infer7.cpp
+        src/experimental/fil/infer7.cu)
   endif()
 
   # todo: organize linear models better
