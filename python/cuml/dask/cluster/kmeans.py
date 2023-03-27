@@ -20,6 +20,7 @@ from raft_dask.common.comms import Comms
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.input_utils import concatenate
 from cuml.dask.common.base import mnmg_import
+from dask.distributed import get_worker
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import BaseEstimator
@@ -100,7 +101,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     def _func_fit(sessionId, objs, datatype, has_weights, **kwargs):
         from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
 
-        handle = get_raft_comm_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId, get_worker())["handle"]
 
         if not has_weights:
             inp_data = concatenate(objs)
