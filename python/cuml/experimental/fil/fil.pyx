@@ -170,6 +170,9 @@ cdef class ForestInference_impl():
     def num_outputs(self):
         return self.model.num_outputs()
 
+    def num_trees(self):
+        return self.model.num_trees()
+
     def row_postprocessing(self):
         enum_val = self.model.row_postprocessing()
         if enum_val == row_op.row_disable:
@@ -702,6 +705,12 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             return self.cpu_forest
         else:
             raise DeviceTypeError("Unsupported device type for FIL")
+
+    def num_outputs(self):
+        return self.forest.num_outputs()
+
+    def num_trees(self):
+        return self.forest.num_trees()
 
     @classmethod
     @_handle_legacy_fil_args
