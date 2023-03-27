@@ -33,7 +33,11 @@ if(BUILD_CUML_BENCH)
     sg/svr.cu
     sg/umap.cu
     sg/fil.cu
+    sg/filex.cu
   )
+  if (CUML_ENABLE_GPU)
+    target_compile_definitions(${CUML_CPP_BENCH_TARGET} PUBLIC CUML_ENABLE_GPU)
+  endif()
 
   target_compile_options(${CUML_CPP_BENCH_TARGET}
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
