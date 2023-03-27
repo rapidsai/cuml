@@ -187,7 +187,9 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       forest.tree_count()
   );
   auto output_workspace_size_bytes = output_item_bytes * output_workspace_size;
-  auto use_global_mem_fallback = output_workspace_size_bytes > max_shared_mem_per_block;
+  auto use_global_mem_fallback = (
+      rows_per_block_iteration * row_size_bytes + output_workspace_size_bytes
+      ) > max_shared_mem_per_block;
 
   auto shared_mem_per_block = min(
       rows_per_block_iteration * row_size_bytes
