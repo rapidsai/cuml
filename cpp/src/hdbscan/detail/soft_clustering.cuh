@@ -243,15 +243,14 @@ void all_points_prob_in_some_cluster(const raft::handle_t& handle,
   auto n_edges     = condensed_tree.get_n_edges();
   auto children    = condensed_tree.get_children();
 
-  rmm::device_uvector<value_idx> height_argmax(m, stream);
+  auto height_argmax = raft::make_device_vector<value_idx, value_idx>(handle, m);
 
   auto merge_heights_view = raft::make_device_matrix_view<const value_t, value_idx, raft::row_major>(merge_heights, (int)m, n_selected_clusters);
-  auto height_argmax_view = raft::make_device_vector_view<value_idx, value_idx>(height_argmax.data(), (int)m);
 
   raft::matrix::argmax(
-    handle, merge_heights_view, height_argmax_view);
+    handle, merge_heights_view, height_argmax.view());
 
-  auto prob_in_some_cluster_op = [deaths, lambdas, index_into_children, selected_clusters, n_leaves, merge_heights, height_argmax = height_argmax.data(), n_selected_clusters]__device__(auto idx) {
+  auto prob_in_some_cluster_op = [deaths, lambdas, index_into_children, selected_clusters, n_leaves, merge_heights, height_argmax = height_argmax.data_handle(), n_selected_clusters]__device__(auto idx) {
       value_idx nearest_cluster = height_argmax[idx];
     value_t max_lambda = max(lambdas[index_into_children[idx]],
                              deaths[selected_clusters[nearest_cluster] - n_leaves]);
@@ -352,16 +351,14 @@ void prob_in_some_cluster(const raft::handle_t& handle,
   auto n_edges     = condensed_tree.get_n_edges();
   auto children    = condensed_tree.get_children();
 
-  rmm::device_uvector<value_idx> height_argmax(n_prediction_points, stream);
+  auto height_argmax = raft::make_device_vector<value_idx, value_idx> (handle, n_prediction_points);
 
   auto merge_heights_view = raft::make_device_matrix_view<const value_t, value_idx, raft::row_major>(merge_heights, (int)n_prediction_points, n_selected_clusters);
-  auto height_argmax_view = raft::make_device_vector_view<value_idx, value_idx>(height_argmax.data(), (int)n_prediction_points);
-  raft::matrix::argmax(
-    handle, merge_heights_view, height_argmax_view);
 
-  int n_blocks = raft::ceildiv((int)n_prediction_points, tpb);
+  raft::matrix::argmax(
+    handle, merge_heights_view, height_argmax.view());
   
-    auto prob_in_some_cluster_op = [prediction_lambdas, deaths, selected_clusters, n_leaves, merge_heights, height_argmax = height_argmax.data(), n_selected_clusters]__device__(auto idx) {
+    auto prob_in_some_cluster_op = [prediction_lambdas, deaths, selected_clusters, n_leaves, merge_heights, height_argmax = height_argmax.data_handle(), n_selected_clusters]__device__(auto idx) {
       value_idx nearest_cluster = height_argmax[idx];
       value_t max_lambda = max(prediction_lambdas[idx], deaths[selected_clusters[nearest_cluster] - n_leaves]) + 1e-8;
     return merge_heights[idx * n_selected_clusters + nearest_cluster] / max_lambda;
