@@ -51,6 +51,26 @@ files:
       - py_run
       - py_version
       - test_notebooks
+  py_build:
+    output: pyproject
+    extras:
+      table: build-system
+    includes:
+      - common_build
+      - py_build
+  py_run:
+    output: pyproject
+    extras:
+      table: project
+    includes:
+      - py_run
+  py_test:
+    output: pyproject
+    extras:
+      table: project.optional-dependencies
+      key: test
+    includes:
+      - test_python
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -65,7 +85,7 @@ dependencies:
           - pre-commit
   common_build:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         packages:
           - cmake>=3.23.1,!=3.25.0
           - ninja
@@ -73,10 +93,10 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - libcumlprims=23.04.*
-          - libraft-headers=23.04.*
-          - libraft=23.04.*
-          - rmm=23.04.*
+          - libcumlprims==23.4.*
+          - libraft==23.4.*
+          - libraft-headers==23.4.*
+          - librmm==23.4.*
     specific:
       - output_types: conda
         matrices:
@@ -92,29 +112,41 @@ dependencies:
               - sysroot_linux-aarch64==2.17
   py_build:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         packages:
           - cuda-python>=11.7.1,<12.0
           - scikit-build>=0.13.1
           - cython>=0.29,<0.30
-          - treelite=3.1.0
-      - output_types: conda
+          - &treelite treelite==3.1.0
+          - pylibraft==23.4.*
+          - rmm==23.4.*
+      - output_types: pyproject
         packages:
-          - cudf=23.04.*
-          - raft-dask=23.04.*
-          - pylibraft=23.04.*
+          - wheel
+          - setuptools
+          - &treelite_runtime treelite_runtime==3.1.0
   py_run:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         packages:
+          - cudf==23.4.*
+          - cupy>=9.5.0,<12.0.0a0
           - dask>=2023.1.1
+          - dask-cuda==23.4.*
+          - dask-cudf==23.4.*
           - distributed>=2023.1.1
           - joblib>=0.11
-      - output_types: conda
+          - numba
+            # TODO: Are seaborn and scipy really hard dependencies, or should
+            # we make them optional (i.e. an extra for pip
+            # installation/run_constrained for conda)?
+          - seaborn
+          - scipy
+          - raft-dask==23.4.*
+          - *treelite
+      - output_types: pyproject
         packages:
-          - cupy>=7.8.0,<12.0.0a0
-          - dask-cuda=23.04.*
-          - dask-cudf=23.04.*
+          - *treelite_runtime
     specific:
       - output_types: requirements
         matrices:
@@ -205,7 +237,7 @@ dependencies:
           - numpydoc
           - pydata-sphinx-theme
           - recommonmark
-          - &scikit_learn scikit-learn=1.2
+          - &scikit_learn scikit-learn==1.2
           - sphinx<6
           - sphinx-copybutton
           - sphinx-markdown-tables
@@ -233,21 +265,18 @@ dependencies:
               - python>=3.8,<3.11
   test_python:
     common:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         packages:
-          - cython>=0.29,<0.30
           - dask-ml
-          - hdbscan
           - hypothesis>=6.0,<7
           - nltk
           - numpydoc
           - pytest
+          - pytest-benchmark
           - pytest-cases
           - pytest-cov
           - pytest-xdist
           - *scikit_learn
-          - seaborn
-          - sparse
           - statsmodels
           - umap-learn
       - output_types: conda
@@ -257,6 +286,15 @@ dependencies:
               # TODO: Figure out what to do with this dependency
               # since the repo is now archived.
               - git+https://github.com/dask/dask-glm@main
+          # TODO: The conda-forge package is being generated from Leland's fork
+          # (https://github.com/lmcinnes/hdbscan) which is far behind now. Do
+          # we need to have that updated?
+          - hdbscan
+      - output_types: pyproject
+        packages:
+          - dask-glm @ git+https://github.com/dask/dask-glm@main
+            # TODO: Can we stop pulling from the master branch now that there was a release in October?
+          - hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master
   test_notebooks:
     common:
       - output_types: [conda, requirements]
