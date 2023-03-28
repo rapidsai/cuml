@@ -117,7 +117,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     int informative_len  = params.n_row2 * informative_cols;
 
     r.uniform(data2.data(), informative_len, T(-1.0), T(1.0), stream);
-    RAFT_CUDA_TRY(cudaMemcpyAsync(data4.data() + informative_len,
+    RAFT_CUDA_TRY(cudaMemcpyAsync(data2.data() + informative_len,
                                   data2.data(),
                                   redundant_len * sizeof(T),
                                   cudaMemcpyDeviceToDevice,
