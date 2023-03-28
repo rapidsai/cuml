@@ -36,7 +36,6 @@ FILES_TO_INCLUDE = [
 ]
 FILES_TO_EXCLUDE = [
     re.compile(r"cpp/src/tsne/cannylab/bh\.cu"),
-    re.compile(r"cpp/src/hdbscan/detail/faiss_mr\.hpp"),
 ]
 
 # this will break starting at year 10000, which is probably OK :)
