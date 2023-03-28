@@ -216,7 +216,6 @@ void mutual_reachability_knn_l2(const raft::handle_t& handle,
     X_view,
     raft::make_device_matrix_view(out_inds, m, static_cast<size_t>(k)),
     raft::make_device_matrix_view(out_dists, m, static_cast<size_t>(k)),
-    k,
     // TODO: expand distance metrics to support more than just L2 distance
     // https://github.com/rapidsai/cuml/issues/5301
     raft::distance::DistanceType::L2SqrtExpanded,
