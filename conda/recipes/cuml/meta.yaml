@@ -79,6 +79,7 @@ requirements:
     - python x.x
     - raft-dask ={{ minor_version }}
     - treelite {{ treelite_version }}
+    - seaborn
 
 tests:
   requirements:
