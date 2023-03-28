@@ -62,6 +62,8 @@ cdef extern from "treelite/c_api.h":
                                        ModelHandle* out) except +
     cdef int TreeliteSerializeModel(const char* filename,
                                     ModelHandle handle) except +
+    cdef int TreeliteDeserializeModel(const char* filename,
+                                      ModelHandle handle) except +
     cdef const char* TreeliteGetLastError()
 
 

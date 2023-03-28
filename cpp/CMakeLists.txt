@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2023, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023 NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
+option(CUML_ENABLE_GPU "Enable building GPU-accelerated algorithms" ON)
 option(BUILD_SHARED_LIBS "Build cuML shared libraries" ON)
 option(BUILD_CUML_C_LIBRARY "Build libcuml_c shared library. Contains the cuML C API" ON)
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml shared library" ON)
@@ -62,15 +63,19 @@ option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA toolkit runtime and libraries" OFF)
-option(CUML_USE_RAFT_STATIC "Build and statically link the RAFT libraries" OFF)
 option(CUML_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" OFF)
+option(CUML_USE_RAFT_STATIC "Build and statically link the RAFT libraries" OFF)
+option(CUML_RAFT_COMPILED "Use libraft shared library" ON)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
 option(CUML_EXPORT_TREELITE_LINKAGE "Whether to publicly or privately link treelite to libcuml++" OFF)
 option(CUML_USE_CUMLPRIMS_MG_STATIC "Build and statically link the cumlprims_mg library" OFF)
+option(CUML_ENABLE_NN_DEPENDENCIES "Whether to enable FAISS dependency" ON)
+
 # The options below allow incorporating libcuml into another build process
 # without installing all its components. This is useful if total file size is
 # at a premium and we do not expect other consumers to use any APIs of the
 # dependency except those that are directly linked to by the dependent library.
+option(CUML_EXCLUDE_FAISS_FROM_ALL "Exclude FAISS targets from RAFT's 'all' target" ON)
 option(CUML_EXCLUDE_RAFT_FROM_ALL "Exclude RAFT targets from cuML's 'all' target" OFF)
 option(CUML_EXCLUDE_TREELITE_FROM_ALL "Exclude Treelite targets from cuML's 'all' target" OFF)
 option(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL "Exclude cumlprims_mg targets from cuML's 'all' target" OFF)
@@ -148,6 +153,7 @@ if (NOT DISABLE_OPENMP)
   find_package(OpenMP)
   if(OpenMP_FOUND)
     message(STATUS "CUML_CPP: OpenMP found in ${OPENMP_INCLUDE_DIRS}")
+    list(APPEND CUML_CXX_FLAGS ${OpenMP_CXX_FLAGS})
   endif()
 endif()
 
@@ -168,7 +174,7 @@ include(cmake/modules/ConfigureCUDA.cmake)
 ##############################################################################
 # - Set options based on user defined one  -----------------------------------
 set(CUML_USE_RAFT_NN OFF)
-set(CUML_USE_RAFT_DIST OFF)
+set(CUML_RAFT_COMPILED OFF)
 set(LINK_TREELITE OFF)
 set(LINK_CUFFT OFF)
 include(cmake/modules/ConfigureAlgorithms.cmake)
@@ -219,6 +225,10 @@ if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
 endif()
 
 include(cmake/thirdparty/get_raft.cmake)
+
+if(CUML_USE_RAFT_NN)
+  include(cmake/thirdparty/get_faiss.cmake)
+endif()
 
 if(LINK_TREELITE)
   include(cmake/thirdparty/get_treelite.cmake)
@@ -280,6 +290,9 @@ if(BUILD_CUML_CPP_LIBRARY)
   # common components
   add_library(${CUML_CPP_TARGET}
               src/common/logger.cpp)
+  if (CUML_ENABLE_GPU)
+    target_compile_definitions(${CUML_CPP_TARGET} PUBLIC CUML_ENABLE_GPU)
+  endif()
 
   if(all_algo OR arima_algo)
     target_sources(${CUML_CPP_TARGET}
@@ -341,6 +354,24 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/fil/fil.cu
         src/fil/infer.cu
         src/fil/treelite_import.cu)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/experimental/fil/infer0.cpp
+        src/experimental/fil/infer0.cu
+        src/experimental/fil/infer1.cpp
+        src/experimental/fil/infer1.cu
+        src/experimental/fil/infer2.cpp
+        src/experimental/fil/infer2.cu
+        src/experimental/fil/infer3.cpp
+        src/experimental/fil/infer3.cu
+        src/experimental/fil/infer4.cpp
+        src/experimental/fil/infer4.cu
+        src/experimental/fil/infer5.cpp
+        src/experimental/fil/infer5.cu
+        src/experimental/fil/infer6.cpp
+        src/experimental/fil/infer6.cu
+        src/experimental/fil/infer7.cpp
+        src/experimental/fil/infer7.cu)
   endif()
 
   # todo: organize linear models better
@@ -556,10 +587,6 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(CUML_USE_RAFT_STATIC AND (TARGET raft::raft))
     copy_interface_excludes(INCLUDED_TARGET raft::raft TARGET ${CUML_CPP_TARGET})
 
-    if(CUML_USE_RAFT_NN AND (TARGET faiss::faiss))
-      copy_interface_excludes(INCLUDED_TARGET faiss::faiss TARGET ${CUML_CPP_TARGET})
-    endif()
-
     if(CUML_USE_RAFT_DIST AND (TARGET cuco::cuco))
       list(APPEND _cuml_cpp_private_libs cuco::cuco)
     endif()
@@ -582,6 +609,8 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # These are always private:
   list(APPEND _cuml_cpp_private_libs
+    raft::raft
+    $<$<BOOL:${CUML_USE_RAFT_NN}>:faiss>
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix}>
     ${TREELITE_LIBS}
@@ -601,9 +630,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   # because cumlprims_mg and cuML inherit their CUDA libs from the raft::raft
   # INTERFACE target.
   list(APPEND ${_cuml_cpp_libs_var_name}
-    raft::raft
-    $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
-    $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
+    $<$<BOOL:${CUML_RAFT_COMPILED}>:raft::compiled>
     $<TARGET_NAME_IF_EXISTS:cumlprims_mg::cumlprims_mg>
   )
 
@@ -763,5 +790,5 @@ endif()
 
 include(cmake/doxygen.cmake)
 add_doxygen_target(IN_DOXYFILE Doxyfile.in
-  OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
-  CWD ${CMAKE_CURRENT_BINARY_DIR})
+  OUT_DOXYFILE ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile
+  CWD ${CMAKE_CURRENT_SOURCE_DIR})
