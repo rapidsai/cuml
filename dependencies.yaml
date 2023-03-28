@@ -124,7 +124,7 @@ dependencies:
         packages:
           - wheel
           - setuptools
-          - &treelite_runtime treelite_runtime==3.1.0
+          - &treelite_runtime treelite_runtime==3.2.0
   py_run:
     common:
       - output_types: [conda, requirements, pyproject]
