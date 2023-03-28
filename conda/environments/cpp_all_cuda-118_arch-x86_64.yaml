@@ -17,7 +17,7 @@ dependencies:
 - libcublas=11.11.3.6
 - libcufft-dev=10.9.0.58
 - libcufft=10.9.0.58
-- libcumlprims=23.04.*
+- libcumlprims==23.4.*
 - libcurand-dev=10.3.0.86
 - libcurand=10.3.0.86
 - libcusolver-dev=11.4.1.48
@@ -25,9 +25,9 @@ dependencies:
 - libcusparse-dev=11.7.5.86
 - libcusparse=11.7.5.86
 - libfaiss>=1.7.1
-- libraft-headers=23.04.*
-- libraft=23.04.*
+- libraft-headers==23.4.*
+- libraft==23.4.*
+- librmm==23.4.*
 - ninja
-- rmm=23.04.*
 - sysroot_linux-64==2.17
 name: cpp_all_cuda-118_arch-x86_64

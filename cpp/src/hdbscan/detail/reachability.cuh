@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,12 @@
 
 #pragma once
 
-#include "reachability_faiss.cuh"
-
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <raft/linalg/unary_op.cuh>
 
+#include <raft/neighbors/brute_force.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/linalg/symmetrize.cuh>
 
@@ -31,6 +30,10 @@
 
 #include <cuml/neighbors/knn.hpp>
 #include <raft/distance/distance.cuh>
+
+#if defined RAFT_COMPILED
+#include <raft/neighbors/specializations.cuh>
+#endif
 
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
@@ -61,8 +64,6 @@ void core_distances(
 {
   ASSERT(n_neighbors >= min_samples,
          "the size of the neighborhood should be greater than or equal to min_samples");
-
-  int blocks = raft::ceildiv(n, (size_t)tpb);
 
   auto exec_policy = rmm::exec_policy(stream);
 
@@ -160,6 +161,67 @@ void _compute_core_dists(const raft::handle_t& handle,
 
   // Slice core distances (distances to kth nearest neighbor)
   core_distances<value_idx>(dists.data(), min_samples, min_samples, m, core_dists, stream);
+}
+
+//  Functor to post-process distances into reachability space
+template <typename value_idx, typename value_t>
+struct ReachabilityPostProcess {
+  DI value_t operator()(value_t value, value_idx row, value_idx col) const
+  {
+    return max(core_dists[col], max(core_dists[row], alpha * value));
+  }
+
+  const value_t* core_dists;
+  value_t alpha;
+};
+
+/**
+ * Given core distances, Fuses computations of L2 distances between all
+ * points, projection into mutual reachability space, and k-selection.
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle for resource reuse
+ * @param[out] out_inds  output indices array (size m * k)
+ * @param[out] out_dists output distances array (size m * k)
+ * @param[in] X input data points (size m * n)
+ * @param[in] m number of rows in X
+ * @param[in] n number of columns in X
+ * @param[in] k neighborhood size (includes self-loop)
+ * @param[in] core_dists array of core distances (size m)
+ */
+template <typename value_idx, typename value_t>
+void mutual_reachability_knn_l2(const raft::handle_t& handle,
+                                value_idx* out_inds,
+                                value_t* out_dists,
+                                const value_t* X,
+                                size_t m,
+                                size_t n,
+                                int k,
+                                value_t* core_dists,
+                                value_t alpha)
+{
+  // Create a functor to postprocess distances into mutual reachability space
+  // Note that we can't use a lambda for this here, since we get errors like:
+  // `A type local to a function cannot be used in the template argument of the
+  // enclosing parent function (and any parent classes) of an extended __device__
+  // or __host__ __device__ lambda`
+  auto epilogue = ReachabilityPostProcess<value_idx, value_t>{core_dists, alpha};
+
+  auto X_view = raft::make_device_matrix_view(X, m, n);
+  std::vector<raft::device_matrix_view<const value_t, size_t>> index = {X_view};
+
+  raft::neighbors::brute_force::knn<value_idx, value_t>(
+    handle,
+    index,
+    X_view,
+    raft::make_device_matrix_view(out_inds, m, static_cast<size_t>(k)),
+    raft::make_device_matrix_view(out_dists, m, static_cast<size_t>(k)),
+    // TODO: expand distance metrics to support more than just L2 distance
+    // https://github.com/rapidsai/cuml/issues/5301
+    raft::distance::DistanceType::L2SqrtExpanded,
+    std::make_optional<float>(2.0f),
+    std::nullopt,
+    epilogue);
 }
 
 /**
