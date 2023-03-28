@@ -41,9 +41,8 @@ dependencies:
 - libcusparse-dev=11.7.5.86
 - libcusparse=11.7.5.86
 - libfaiss>=1.7.1
-- libraft-distance=23.04.*
 - libraft-headers=23.04.*
-- libraft-nn=23.04.*
+- libraft=23.04.*
 - nbsphinx
 - ninja
 - nltk
