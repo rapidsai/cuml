@@ -50,18 +50,18 @@ inline auto compute_output_workspace_size(
   index_type rows_per_block_iteration,
   index_type tree_count
 ) {
-  auto threads_per_block_padded = raft_proto::ceildiv(
+  auto simultaneous_trees_per_block = raft_proto::ceildiv(
       threads_per_block,
       rows_per_block_iteration
   ) * rows_per_block_iteration;
   auto output_workspace_size = index_type{};
   if (output_type == output_kind::default_kind) {
-    output_workspace_size = row_output_size * threads_per_block_padded;
+    output_workspace_size = row_output_size * simultaneous_trees_per_block;
   } else if (output_type == output_kind::per_tree) {
     if (has_vector_leaves) {
-      output_workspace_size = row_output_size * threads_per_block_padded * tree_count;
+      output_workspace_size = row_output_size * rows_per_block_iteration * tree_count;
     } else {
-      output_workspace_size = threads_per_block_padded * tree_count;
+      output_workspace_size = rows_per_block_iteration * tree_count;
     }
   }
   return output_workspace_size;
@@ -177,7 +177,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
 
   // Compute shared memory usage based on minimum or specified rows_per_block_iteration
   auto rows_per_block_iteration = specified_chunk_size.value_or(
-      index_type{1}
+    index_type{1}
   );
   auto constexpr const output_item_bytes = index_type(sizeof(
       typename forest_t::io_type
