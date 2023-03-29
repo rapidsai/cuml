@@ -60,12 +60,12 @@ cdef raft_proto_device_t get_device_type(arr):
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
 
-cdef extern from "cuml/experimental/fil/output_kind.hpp" namespace "ML::experimental::fil":
+cdef extern from "cuml/experimental/fil/infer_kind.hpp" namespace "ML::experimental::fil":
     # TODO(hcho3): Switch to new syntax for scoped enum when we adopt Cython 3.0
-    ctypedef enum output_kind:
-        default_kind "ML::experimental::fil::output_kind::default_kind"
-        per_tree "ML::experimental::fil::output_kind::per_tree"
-        leaf_id "ML::experimental::fil::output_kind::leaf_id"
+    cdef enum infer_kind:
+        default_kind "ML::experimental::fil::infer_kind::default_kind"
+        per_tree "ML::experimental::fil::infer_kind::per_tree"
+        leaf_id "ML::experimental::fil::infer_kind::leaf_id"
 
 cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experimental::fil":
     cdef cppclass forest_model:
@@ -76,7 +76,7 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
             size_t,
             raft_proto_device_t,
             raft_proto_device_t,
-            output_kind,
+            infer_kind,
             optional[uint32_t]
         ) except +
 
@@ -201,7 +201,7 @@ cdef class ForestInference_impl():
             self,
             X,
             *,
-            output_type="default",
+            predict_type="default",
             preds=None,
             chunk_size=None,
             output_dtype=None):
@@ -220,18 +220,18 @@ cdef class ForestInference_impl():
         in_ptr = in_arr.ptr
 
         cdef uintptr_t out_ptr
-        cdef output_kind output_type_enum
-        if output_type == "default":
-            output_type_enum = output_kind.default_kind
+        cdef infer_kind infer_type_enum
+        if predict_type == "default":
+            infer_type_enum = infer_kind.default_kind
             output_shape = (n_rows, self.model.num_outputs())
-        elif output_type == "per_tree":
-            output_type_enum = output_kind.per_tree
+        elif predict_type == "per_tree":
+            infer_type_enum = infer_kind.per_tree
             if self.model.has_vector_leaves():
                 output_shape = (n_rows, self.model.num_trees(), self.model.num_outputs())
             else:
                 output_shape = (n_rows, self.model.num_trees())
         else:
-            raise ValueError(f"Unrecognized output_type: {output_type}")
+            raise ValueError(f"Unrecognized predict_type: {predict_type}")
         if preds is None:
             preds = CumlArray.empty(
                 output_shape,
@@ -262,7 +262,7 @@ cdef class ForestInference_impl():
                 n_rows,
                 out_dev,
                 in_dev,
-                output_type_enum,
+                infer_type_enum,
                 chunk_specification
             )
         else:
@@ -273,7 +273,7 @@ cdef class ForestInference_impl():
                 n_rows,
                 in_dev,
                 out_dev,
-                output_type_enum,
+                infer_type_enum,
                 chunk_specification
             )
 
@@ -290,7 +290,7 @@ cdef class ForestInference_impl():
             output_dtype=None):
         return self._predict(
             X,
-            output_type="default",
+            predict_type="default",
             preds=preds,
             chunk_size=chunk_size,
             output_dtype=output_dtype
@@ -305,7 +305,7 @@ cdef class ForestInference_impl():
             output_dtype=None):
         return self._predict(
             X,
-            output_type="per_tree",
+            predict_type="per_tree",
             preds=preds,
             chunk_size=chunk_size,
             output_dtype=output_dtype
