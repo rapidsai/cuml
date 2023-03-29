@@ -240,16 +240,12 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   );
 
   // Handle global memory fallback
-  auto global_mem_fallback_buffer = (
-      use_global_mem_fallback ?
-      (raft_proto::buffer<std::byte>{
-        output_workspace_size_bytes * num_blocks,
-        raft_proto::device_type::gpu,
-        device.value(),
-        stream
-      }) :
-      (raft_proto::buffer<std::byte>{})
-  );
+  auto global_mem_fallback_buffer = raft_proto::buffer<std::byte>{
+      use_global_mem_fallback * output_workspace_size_bytes * num_blocks,
+      raft_proto::device_type::gpu,
+      device.value(),
+      stream
+  };
 
   if (rows_per_block_iteration <= 1) {
     infer_kernel<has_categorical_nodes, 1><<<
