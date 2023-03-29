@@ -89,11 +89,7 @@ void infer_kernel_cpu(
   
   using node_t = typename forest_t::node_type;
 
-  using output_t = std::conditional_t<
-    has_vector_leaves,
-    std::remove_pointer_t<vector_output_t>,
-    typename node_t::threshold_type
-  >;
+  using output_t = typename forest_t::template raw_output_type<vector_output_t>;
 
   auto const num_tree = forest.tree_count();
   auto const num_grove = raft_proto::ceildiv(num_tree, grove_size);
