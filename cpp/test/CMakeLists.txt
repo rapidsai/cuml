@@ -45,7 +45,6 @@ function(ConfigureTest)
     rmm::rmm
     raft::raft
     $<$<BOOL:${CUML_RAFT_COMPILED}>:raft::compiled>
-    $<$<BOOL:${CUML_USE_RAFT_NN}>:faiss>
     GTest::gtest
     GTest::gtest_main
     ${OpenMP_CXX_LIB_NAMES}

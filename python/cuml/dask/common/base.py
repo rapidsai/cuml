@@ -168,6 +168,9 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
     def _get_model_attr(model, name):
         if hasattr(model, name):
             return getattr(model, name)
+        # skip raising an error for ipython/jupyter related attributes
+        elif any([x in name for x in ("_ipython", "_repr")]):
+            pass
         else:
             raise AttributeError(
                 "Attribute %s does not exist on model %s" % (name, type(model))
