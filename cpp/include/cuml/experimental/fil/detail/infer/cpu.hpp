@@ -61,7 +61,9 @@ namespace inference {
  * outputs
  * @param categorical_data If non-nullptr, a pointer to non-local storage for
  * data on categorical splits.
- * @param infer_type Output type
+ * @param infer_type Type of inference to perform. Defaults to summing the outputs of all trees
+ * and produce an output per row. If set to "per_tree", we will instead output all outputs of
+ * individual trees.
  * @param specified_chunk_size If non-nullopt, the mini-batch size used for
  * processing rows in a batch. For CPU inference, this essentially determines
  * the granularity of parallelism. A larger chunk size means that a single

@@ -53,7 +53,9 @@ namespace detail {
  * outputs of leaves (nullptr for no vector output)
  * @param categorical_data Pointer to external categorical data storage if
  * required
- * @param infer_type Output type
+ * @param infer_type Type of inference to perform. Defaults to summing the outputs of all trees
+ * and produce an output per row. If set to "per_tree", we will instead output all outputs of
+ * individual trees.
  * @param specified_chunk_size If non-nullopt, the size of "mini-batches"
  * used for distributing work across threads
  * @param device The device on which to execute evaluation

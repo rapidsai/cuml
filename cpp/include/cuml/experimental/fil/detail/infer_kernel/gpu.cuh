@@ -67,7 +67,9 @@ namespace detail {
  * vector outputs for all leaf nodes
  * @param categorical_data If non-nullptr, a pointer to where non-local
  * data on categorical splits are stored.
- * @param infer_type Output type
+ * @param infer_type Type of inference to perform. Defaults to summing the outputs of all trees
+ * and produce an output per row. If set to "per_tree", we will instead output all outputs of
+ * individual trees.
  * @param global_mem_fallback_buffer Buffer to use as a fallback, when there isn't enough shared
  * memory. Set it to nullptr to disable
  */

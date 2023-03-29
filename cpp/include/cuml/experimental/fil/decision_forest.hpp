@@ -227,7 +227,9 @@ struct decision_forest {
    * @param[in] input The buffer containing the input data
    * @param[in] stream For GPU execution, the CUDA stream. For CPU execution,
    * this optional parameter can be safely omitted.
-   * @param[in] predict_type Prediction type
+   * @param[in] predict_type Type of inference to perform. Defaults to summing
+   * the outputs of all trees and produce an output per row. If set to
+   * "per_tree", we will instead output all outputs of individual trees.
    * @param[in] specified_rows_per_block_iter If non-nullopt, this value is
    * used to determine how many rows are evaluated for each inference
    * iteration within a CUDA block. Runtime performance is quite sensitive
