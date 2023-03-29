@@ -19,7 +19,6 @@
 #include <type_traits>
 #include <cuml/experimental/fil/constants.hpp>
 #include <cuml/experimental/fil/infer_kind.hpp>
-#include <cuml/experimental/fil/detail/output_type.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/gpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/infer_kernel/gpu.cuh>
@@ -129,6 +128,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   ASSERT(infer_type != infer_kind::leaf_id, "Predict_leaf not yet implemented");
 
   auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
+  using output_t = typename forest_t::template raw_output_type<vector_output_t>;
 
   auto sm_count = get_sm_count(device);
   auto max_shared_mem_per_block = get_max_shared_mem_per_block(device);
@@ -182,9 +182,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   auto rows_per_block_iteration = specified_chunk_size.value_or(
     index_type{1}
   );
-  auto constexpr const output_item_bytes = index_type(sizeof(
-      output_t<forest_t, vector_output_t>
-  ));
+  auto constexpr const output_item_bytes = index_type(sizeof(output_t));
   auto output_workspace_size = compute_output_workspace_size(
       has_vector_leaves, infer_type, row_output_size, threads_per_block, rows_per_block_iteration,
       forest.tree_count()
@@ -243,7 +241,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   );
 
   // Handle global memory fallback
-  auto global_mem_fallback_buffer = raft_proto::buffer<output_t<forest_t, vector_output_t>>{
+  auto global_mem_fallback_buffer = raft_proto::buffer<output_t>{
       use_global_mem_fallback * output_workspace_size * num_blocks,
       raft_proto::device_type::gpu,
       device.value(),
