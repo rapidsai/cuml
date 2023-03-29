@@ -126,6 +126,7 @@ void dist_membership_vector(const raft::handle_t& handle,
   auto min_dist = raft::make_device_vector<value_t, value_idx>(handle, n_elements);
 
   auto reduction_op = [dist = dist.data(),
+                       batch_offset,
                        divisor = raft::util::FastIntDiv(n_selected_clusters),
                        n_selected_clusters,
                        n_exemplars,
@@ -172,7 +173,8 @@ void dist_membership_vector(const raft::handle_t& handle,
 
   // Normalize the obtained result to sum to 1.0
   Utils::normalize(dist_membership_vec, n_selected_clusters, n_queries, stream);
-};
+}
+}
 
 template <typename value_idx, typename value_t, int tpb = 256>
 void all_points_outlier_membership_vector(
@@ -442,10 +444,6 @@ void all_points_membership_vectors(const raft::handle_t& handle,
 
     rmm::device_uvector<value_t> merge_heights(m * n_selected_clusters, stream);
 
-
-  handle.sync_stream(stream);
-  RAFT_CUDA_TRY(cudaMemGetInfo(&free_memory, &total_memory));
-  CUML_LOG_INFO("after merge heights matrix was generated . Free memory: %zu; Total memory: %zu", free_memory, total_memory);
     all_points_outlier_membership_vector(handle,
                                          condensed_tree,
                                          deaths,
