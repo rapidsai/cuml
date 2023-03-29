@@ -25,6 +25,7 @@
 
 namespace ML {
 namespace GLM {
+namespace detail {
 
 template <typename T>
 struct Tikhonov {
@@ -91,5 +92,6 @@ struct RegularizedGLM : GLMDims {
     return loss->gradNorm(grad, dev_scalar, stream);
   }
 };
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML

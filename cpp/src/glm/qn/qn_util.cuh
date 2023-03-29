@@ -24,6 +24,7 @@
 
 namespace ML {
 namespace GLM {
+namespace detail {
 
 enum LINE_SEARCH_ALGORITHM {
   LBFGS_LS_BT_ARMIJO       = 1,
@@ -268,6 +269,6 @@ struct op_pseudo_grad {
 
   HDI T operator()(const T x, const T dlossx) const { return get_pseudo_grad(x, dlossx, l1); }
 };
-
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML
