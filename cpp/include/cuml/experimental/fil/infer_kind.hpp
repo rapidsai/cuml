@@ -17,7 +17,7 @@
 namespace ML {
 namespace experimental {
 namespace fil {
-enum class output_kind : unsigned char {
+enum class infer_kind : unsigned char {
   default_kind = 0,
   per_tree = 1,
   leaf_id = 2

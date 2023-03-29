@@ -19,7 +19,7 @@
 #include <new>
 #include <numeric>
 #include <vector>
-#include <cuml/experimental/fil/output_kind.hpp>
+#include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/detail/cpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/evaluate_tree.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -60,7 +60,7 @@ namespace detail {
  * vector outputs for all leaf nodes
  * @param categorical_data If non-nullptr, a pointer to where non-local
  * data on categorical splits are stored.
- * @param output_type Output type
+ * @param infer_type Output type
  */
 template<
   bool has_categorical_nodes,
@@ -80,7 +80,7 @@ void infer_kernel_cpu(
     index_type grove_size=hardware_constructive_interference_size,
     vector_output_t vector_output_p=nullptr,
     categorical_data_t categorical_data=nullptr,
-    output_kind output_type=output_kind::default_kind
+    infer_kind infer_type=infer_kind::default_kind
 ) {
   auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
   auto constexpr has_nonlocal_categories = !std::is_same_v<categorical_data_t, std::nullptr_t>;
@@ -97,9 +97,9 @@ void infer_kernel_cpu(
   auto const num_grove = raft_proto::ceildiv(num_tree, grove_size);
   auto const num_chunk = raft_proto::ceildiv(row_count, chunk_size);
   index_type output_workspace_size{};
-  if (output_type == output_kind::default_kind) {
+  if (infer_type == infer_kind::default_kind) {
     output_workspace_size = row_count * num_outputs * num_grove;
-  } else if (output_type == output_kind::per_tree) {
+  } else if (infer_type == infer_kind::per_tree) {
     output_workspace_size = index_type{};
   }
   auto output_workspace = std::vector<output_t>(output_workspace_size, output_t{});
@@ -132,7 +132,7 @@ void infer_kernel_cpu(
             input + row_index * col_count
           );
         }
-        if (output_type == output_kind::default_kind) {
+        if (infer_type == infer_kind::default_kind) {
           if constexpr (has_vector_leaves) {
             for (
                 auto output_index = index_type{};
@@ -154,7 +154,7 @@ void infer_kernel_cpu(
                 + grove_index
             ] += tree_output;
           }
-        } else if (output_type == output_kind::per_tree) {
+        } else if (infer_type == infer_kind::per_tree) {
           if constexpr (has_vector_leaves) {
             for (
                 auto output_index = index_type{};
@@ -181,7 +181,7 @@ void infer_kernel_cpu(
   }  // Tasks
 
   // Sum over grove and postprocess
-  if (output_type == output_kind::default_kind) {
+  if (infer_type == infer_kind::default_kind) {
 #pragma omp parallel for
     for (auto row_index = index_type{}; row_index < row_count; ++row_index) {
       for (

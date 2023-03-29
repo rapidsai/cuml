@@ -18,7 +18,7 @@
 #include <type_traits>
 #include <variant>
 #include <cuml/experimental/fil/decision_forest.hpp>
-#include <cuml/experimental/fil/output_kind.hpp>
+#include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
@@ -129,7 +129,7 @@ struct forest_model {
     raft_proto::buffer<io_t>& output,
     raft_proto::buffer<io_t> const& input,
     raft_proto::cuda_stream stream = raft_proto::cuda_stream{},
-    output_kind predict_type=output_kind::default_kind,
+    infer_kind predict_type=infer_kind::default_kind,
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
     std::visit([this, predict_type, &output, &input, &stream, &specified_chunk_size](auto&& concrete_forest) {
@@ -169,7 +169,7 @@ struct forest_model {
     raft_proto::handle_t const& handle,
     raft_proto::buffer<io_t>& output,
     raft_proto::buffer<io_t> const& input,
-    output_kind predict_type=output_kind::default_kind,
+    infer_kind predict_type=infer_kind::default_kind,
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
     std::visit([this, predict_type, &handle, &output, &input, &specified_chunk_size](auto&& concrete_forest) {
@@ -285,7 +285,7 @@ struct forest_model {
     std::size_t num_rows,
     raft_proto::device_type out_mem_type,
     raft_proto::device_type in_mem_type,
-    output_kind predict_type=output_kind::default_kind,
+    infer_kind predict_type=infer_kind::default_kind,
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
     // TODO(wphicks): Make sure buffer lands on same device as model

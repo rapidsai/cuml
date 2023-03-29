@@ -16,7 +16,7 @@
 #pragma once
 #include <cstddef>
 #include <stddef.h>
-#include <cuml/experimental/fil/output_kind.hpp>
+#include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/detail/evaluate_tree.hpp>
 #include <cuml/experimental/fil/detail/gpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -66,7 +66,7 @@ namespace detail {
  * vector outputs for all leaf nodes
  * @param categorical_data If non-nullptr, a pointer to where non-local
  * data on categorical splits are stored.
- * @param output_type Output type
+ * @param infer_type Output type
  * @param global_mem_fallback_buffer Buffer to use as a fallback, when there isn't enough shared
  * memory. Set it to nullptr to disable
  */
@@ -90,7 +90,7 @@ infer_kernel(
     index_type output_workspace_size,
     vector_output_t vector_output_p=nullptr,
     categorical_data_t categorical_data=nullptr,
-    output_kind output_type=output_kind::default_kind,
+    infer_kind infer_type=infer_kind::default_kind,
     std::byte* global_mem_fallback_buffer=nullptr
 ) {
   auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
@@ -183,7 +183,7 @@ infer_kernel(
         );
       }
 
-      if (output_type == output_kind::default_kind) {
+      if (infer_type == infer_kind::default_kind) {
         if constexpr (has_vector_leaves) {
           for (
             auto output_index = index_type{};
@@ -209,7 +209,7 @@ infer_kernel(
             ] += tree_output;
           }
         }
-      } else if (output_type == output_kind::per_tree) {
+      } else if (infer_type == infer_kind::per_tree) {
         if constexpr (has_vector_leaves) {
           for (
             auto output_index = index_type{};
@@ -239,7 +239,7 @@ infer_kernel(
       __syncthreads();
     }
 
-    if (output_type == output_kind::default_kind) {
+    if (infer_type == infer_kind::default_kind) {
       auto padded_num_groves = raft_proto::padded_size(num_grove, WARP_SIZE);
       for (
         auto row_index = threadIdx.x / WARP_SIZE;
@@ -291,7 +291,7 @@ infer_kernel(
           );
         }
       }
-    } else if (output_type == output_kind::per_tree) {
+    } else if (infer_type == infer_kind::per_tree) {
       for (
         auto task_index = threadIdx.x;
         task_index < task_count_rounded_up;

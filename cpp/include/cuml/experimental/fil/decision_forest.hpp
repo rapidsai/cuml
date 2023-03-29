@@ -20,7 +20,7 @@
 #include <cstddef>
 #include <cuml/experimental/fil/constants.hpp>
 #include <cuml/experimental/fil/postproc_ops.hpp>
-#include <cuml/experimental/fil/output_kind.hpp>
+#include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/detail/device_initialization.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/infer.hpp>
@@ -241,7 +241,7 @@ struct decision_forest {
     raft_proto::buffer<typename forest_type::io_type>& output,
     raft_proto::buffer<typename forest_type::io_type> const& input,
     raft_proto::cuda_stream stream = raft_proto::cuda_stream{},
-    output_kind predict_type=output_kind::default_kind,
+    infer_kind predict_type=infer_kind::default_kind,
     std::optional<index_type> specified_rows_per_block_iter=std::nullopt
   ) {
     if (output.memory_type() != memory_type() || input.memory_type() != memory_type()) {
