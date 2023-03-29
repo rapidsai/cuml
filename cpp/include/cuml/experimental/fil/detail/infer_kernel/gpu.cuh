@@ -101,6 +101,10 @@ infer_kernel(
   extern __shared__ std::byte shared_mem_raw[];
 
   auto shared_mem = shared_memory_buffer(shared_mem_raw, shared_mem_byte_size);
+  if (global_mem_fallback_buffer) {
+    // If fallback buffer is given, take the current block's share
+    global_mem_fallback_buffer += output_workspace_size * blockIdx.x;
+  }
 
   using node_t = typename forest_t::node_type;
 
@@ -134,12 +138,7 @@ infer_kernel(
     );
 
     auto* output_workspace = shared_mem.fill<output_t<forest_t, vector_output_t>>(
-        output_workspace_size);
-    auto use_global_mem_fallback = !output_workspace && global_mem_fallback_buffer;
-    if (use_global_mem_fallback) {
-      // Use global fallback if there isn't enough shared mem to hold workspace
-      output_workspace = global_mem_fallback_buffer + output_workspace_size * blockIdx.x;
-    }
+        output_workspace_size, global_mem_fallback_buffer);
 
     // Note that this sync is safe because every thread in the block will agree
     // on whether or not a sync is required

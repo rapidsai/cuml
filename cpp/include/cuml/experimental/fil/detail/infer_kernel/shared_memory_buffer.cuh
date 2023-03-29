@@ -90,7 +90,7 @@ struct shared_memory_buffer {
    * there is not enough room, the fill is not performed. Return a pointer to
    * the start of the desired data if the fill was possible or else nullptr. */
   template <typename T>
-  __device__ auto* fill(index_type element_count, T value=T{}) {
+  __device__ auto* fill(index_type element_count, T value=T{}, T* fallback_buffer=nullptr) {
     auto* dest = reinterpret_cast<std::remove_const_t<T>*>(remaining_data);
 
     auto copy_data = (
@@ -103,7 +103,7 @@ struct shared_memory_buffer {
       dest[i] = value;
     }
 
-    auto* result = copy_data ? static_cast<T*>(dest) : static_cast<T*>(nullptr);
+    auto* result = copy_data ? static_cast<T*>(dest) : static_cast<T*>(fallback_buffer);
     requires_sync = requires_sync || copy_data;
 
     auto offset = element_count * index_type(sizeof(T));
