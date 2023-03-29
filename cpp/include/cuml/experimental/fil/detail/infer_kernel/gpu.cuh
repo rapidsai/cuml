@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <stddef.h>
 #include <cuml/experimental/fil/infer_kind.hpp>
+#include <cuml/experimental/fil/detail/output_type.hpp>
 #include <cuml/experimental/fil/detail/evaluate_tree.hpp>
 #include <cuml/experimental/fil/detail/gpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -91,7 +92,7 @@ infer_kernel(
     vector_output_t vector_output_p=nullptr,
     categorical_data_t categorical_data=nullptr,
     infer_kind infer_type=infer_kind::default_kind,
-    std::byte* global_mem_fallback_buffer=nullptr
+    output_t<forest_t, vector_output_t>* global_mem_fallback_buffer=nullptr
 ) {
   auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
   auto constexpr has_nonlocal_categories = !std::is_same_v<categorical_data_t, std::nullptr_t>;
@@ -100,12 +101,6 @@ infer_kernel(
   auto shared_mem = shared_memory_buffer(shared_mem_raw, shared_mem_byte_size);
 
   using node_t = typename forest_t::node_type;
-
-  using output_t = std::conditional_t<
-    has_vector_leaves,
-    std::remove_pointer_t<vector_output_t>,
-    typename node_t::threshold_type
-  >;
 
   using io_t = typename forest_t::io_type;
 
@@ -136,13 +131,12 @@ infer_kernel(
       chunk_size
     );
 
-    auto* output_workspace = shared_mem.fill<output_t>(output_workspace_size);
+    auto* output_workspace = shared_mem.fill<output_t<forest_t, vector_output_t>>(
+        output_workspace_size);
     auto use_global_mem_fallback = !output_workspace && global_mem_fallback_buffer;
     if (use_global_mem_fallback) {
       // Use global fallback if there isn't enough shared mem to hold workspace
-      output_workspace =
-          reinterpret_cast<output_t*>(global_mem_fallback_buffer)
-          + output_workspace_size * blockIdx.x;
+      output_workspace = global_mem_fallback_buffer + output_workspace_size * blockIdx.x;
     }
 
     // Note that this sync is safe because every thread in the block will agree
@@ -254,7 +248,7 @@ infer_kernel(
           auto grove_offset = (
               row_index * num_outputs * num_grove + output_index * num_grove
           );
-          auto class_sum = output_t{};
+          auto class_sum = output_t<forest_t, vector_output_t>{};
           /* Perform a warp-level parallel reduction leaving the first thread in
            * each warp with the entire sum */
           for (

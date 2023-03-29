@@ -19,6 +19,7 @@
 #include <type_traits>
 #include <cuml/experimental/fil/constants.hpp>
 #include <cuml/experimental/fil/infer_kind.hpp>
+#include <cuml/experimental/fil/detail/output_type.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/gpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/infer_kernel/gpu.cuh>
@@ -180,7 +181,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
     index_type{1}
   );
   auto constexpr const output_item_bytes = index_type(sizeof(
-      typename forest_t::io_type
+      output_t<forest_t, vector_output_t>
   ));
   auto output_workspace_size = compute_output_workspace_size(
       has_vector_leaves, infer_type, row_output_size, threads_per_block, rows_per_block_iteration,
@@ -240,8 +241,8 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   );
 
   // Handle global memory fallback
-  auto global_mem_fallback_buffer = raft_proto::buffer<std::byte>{
-      use_global_mem_fallback * output_workspace_size_bytes * num_blocks,
+  auto global_mem_fallback_buffer = raft_proto::buffer<output_t<forest_t, vector_output_t>>{
+      use_global_mem_fallback * output_workspace_size * num_blocks,
       raft_proto::device_type::gpu,
       device.value(),
       stream
