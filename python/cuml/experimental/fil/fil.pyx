@@ -34,7 +34,6 @@ from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
 from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport cuda_stream as raft_proto_stream_t
 from cuml.experimental.fil.detail.raft_proto.device_type cimport device_type as raft_proto_device_t
 from cuml.experimental.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
-from cuml.experimental.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
 from cuml.experimental.fil.detail.raft_proto.optional cimport optional, nullopt
 from cuml.internals import set_api_output_dtype
 from cuml.internals.base import UniversalBase
@@ -56,16 +55,6 @@ cdef raft_proto_device_t get_device_type(arr):
     else:
         dev = raft_proto_device_t.cpu
     return dev
-
-cdef extern from "treelite/c_api.h":
-    ctypedef void* ModelHandle
-
-cdef extern from "cuml/experimental/fil/infer_kind.hpp" namespace "ML::experimental::fil":
-    # TODO(hcho3): Switch to new syntax for scoped enum when we adopt Cython 3.0
-    cdef enum infer_kind:
-        default_kind "ML::experimental::fil::infer_kind::default_kind"
-        per_tree "ML::experimental::fil::infer_kind::per_tree"
-        leaf_id "ML::experimental::fil::infer_kind::leaf_id"
 
 cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experimental::fil":
     cdef cppclass forest_model:
