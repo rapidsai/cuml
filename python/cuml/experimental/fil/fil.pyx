@@ -285,27 +285,13 @@ cdef class ForestInference_impl():
             self,
             X,
             *,
-            preds=None,
-            chunk_size=None,
-            output_dtype=None):
-        return self._predict(
-            X,
             predict_type="default",
-            preds=preds,
-            chunk_size=chunk_size,
-            output_dtype=output_dtype
-        )
-
-    def predict_per_tree(
-            self,
-            X,
-            *,
             preds=None,
             chunk_size=None,
             output_dtype=None):
         return self._predict(
             X,
-            predict_type="per_tree",
+            predict_type=predict_type,
             preds=preds,
             chunk_size=chunk_size,
             output_dtype=output_dtype
@@ -1198,7 +1184,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                 return preds
         else:
             return self.forest.predict(
-                X, preds=preds, chunk_size=chunk_size
+                X, predict_type="default", preds=preds, chunk_size=chunk_size
             )
 
     @nvtx.annotate(
@@ -1250,6 +1236,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             any power of 2, but little benefit is expected above a chunk size
             of 512.
         """
-        return self.forest.predict_per_tree(
-            X, preds=preds, chunk_size=chunk_size
+        return self.forest.predict(
+            X, predict_type="per_tree", preds=preds, chunk_size=chunk_size
         )
