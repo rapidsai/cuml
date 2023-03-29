@@ -110,9 +110,9 @@ infer_kernel(
   using io_t = typename forest_t::io_type;
 
   for (
-    auto row_offset = blockIdx.x * chunk_size;
-    row_offset < row_count;
-    row_offset += chunk_size * gridDim.x
+    auto base_rowid = blockIdx.x * chunk_size;
+    base_rowid < row_count;
+    base_rowid += chunk_size * gridDim.x
   ) {
     // row_offset: the ID of the first row in the current chunk
 
@@ -120,10 +120,10 @@ infer_kernel(
 
     // Handle as many rows as requested per loop or as many rows as are left to
     // process
-    auto rows_in_this_iteration = min(chunk_size, row_count - row_offset);
+    auto rows_in_this_iteration = min(chunk_size, row_count - base_rowid);
 
     auto* input_data = shared_mem.copy(
-        input + row_offset * col_count,
+        input + base_rowid * col_count,
       rows_in_this_iteration,
       col_count
     );
@@ -286,7 +286,7 @@ infer_kernel(
           postproc(
               output_workspace + row_index * num_outputs * num_grove,
               num_outputs,
-              output + ((row_offset + row_index) * num_outputs),
+              output + ((base_rowid + row_index) * num_outputs),
               num_grove
           );
         }
@@ -310,7 +310,7 @@ infer_kernel(
           ) {
             if (real_task) {
               output[
-                  (row_offset + row_index) * tree_count * num_outputs
+                  (base_rowid + row_index) * tree_count * num_outputs
                   + tree_index * num_outputs
                   + output_index
               ] = output_workspace[
@@ -323,7 +323,7 @@ infer_kernel(
         } else {
           if (real_task) {
             output[
-                (row_offset + row_index) * tree_count
+                (base_rowid + row_index) * tree_count
                 + tree_index
             ] = output_workspace[
                 row_index * tree_count
