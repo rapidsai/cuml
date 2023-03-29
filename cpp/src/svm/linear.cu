@@ -23,6 +23,7 @@
 
 #include <common/nvtx.hpp>
 #include <cublas_v2.h>
+#include <cuml/linear_model/glm.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <omp.h>
@@ -45,9 +46,6 @@
 #include <thrust/fill.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/tuple.h>
-
-#include <glm/ols.cuh>
-#include <glm/qn/qn.cuh>
 
 #include <cuml/svm/linear.hpp>
 
@@ -478,7 +476,6 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
                   wi,
                   &target,
                   &num_iters,
-                  worker.stream,
                   (T*)sampleWeight,
                   T(params.epsilon));
 
@@ -500,7 +497,6 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
                   psi,
                   &target,
                   &num_iters,
-                  worker.stream,
                   (T*)sampleWeight);
   }
   if (parallel) handle.sync_stream_pool();

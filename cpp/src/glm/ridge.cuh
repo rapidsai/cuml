@@ -35,6 +35,7 @@
 
 namespace ML {
 namespace GLM {
+namespace detail {
 
 template <typename math_t>
 void ridgeSolve(const raft::handle_t& handle,
@@ -162,10 +163,10 @@ void ridgeFit(const raft::handle_t& handle,
               math_t* intercept,
               bool fit_intercept,
               bool normalize,
-              cudaStream_t stream,
               int algo              = 0,
               math_t* sample_weight = nullptr)
 {
+  cudaStream_t stream  = handle.get_stream();
   auto cublas_handle   = handle.get_cublas_handle();
   auto cusolver_handle = handle.get_cusolver_dn_handle();
 
@@ -246,6 +247,6 @@ void ridgeFit(const raft::handle_t& handle,
     *intercept = math_t(0);
   }
 }
-
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML
