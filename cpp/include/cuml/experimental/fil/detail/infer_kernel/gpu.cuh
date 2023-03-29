@@ -138,7 +138,7 @@ infer_kernel(
     );
 
     auto* output_workspace = shared_mem.fill<output_t<forest_t, vector_output_t>>(
-        output_workspace_size, global_mem_fallback_buffer);
+        output_workspace_size, {}, global_mem_fallback_buffer);
 
     // Note that this sync is safe because every thread in the block will agree
     // on whether or not a sync is required
