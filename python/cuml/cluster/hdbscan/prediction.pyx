@@ -146,7 +146,10 @@ def all_points_membership_vectors(clusterer, batch_size=0):
         had ``prediction_data=True`` set.
 
     batch_size : int, optional, default=0
-        Distance based membership is computed in batches to fit on the device. If not specified, or set to 0, distance based membership is computed at once for all points in the training data.
+        Lowers memory requirement by computing distance-based membership in
+        smaller batches of points in the training data. Batch size of 0 uses
+        all of the training points, batch size of 1000 computes distances for
+        1000 points at a time.
 
     Returns
     -------
@@ -245,7 +248,10 @@ def membership_vector(clusterer, points_to_predict, batch_size=0, convert_dtype=
         clusterer was fit.
     
     batch_size : int, optional, default=0
-        Distance based membership is computed in batches to fit on the device. If not specified, or set to 0, distance based membership is computed at once for all prediction points.
+        Lowers memory requirement by computing distance-based membership in
+        smaller batches of points in the training data. Batch size of 0 uses
+        all of the training points, batch size of 1000 computes distances for
+        1000 points at a time.
 
     Returns
     -------
@@ -298,6 +304,9 @@ def membership_vector(clusterer, points_to_predict, batch_size=0, convert_dtype=
     
     if clusterer.n_clusters_ == 0:
         return np.zeros(n_prediction_points, dtype=np.float32)
+
+    if batch_size < 0 or batch_size > n_prediction_points:
+        raise ValueError("batch_size should be in integer that is >= 0 and <= the number of prediction points")
 
     if n_cols != clusterer.n_cols:
         raise ValueError('New points dimension does not match fit data!')

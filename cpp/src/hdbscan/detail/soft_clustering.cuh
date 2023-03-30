@@ -36,7 +36,6 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/linalg/norm.cuh>
 #include <raft/matrix/argmax.cuh>
 #include <raft/util/fast_int_div.cuh>
 
@@ -44,15 +43,8 @@
 #include <cmath>
 #include <limits>
 
-#include <thrust/copy.h>
 #include <thrust/execution_policy.h>
-#include <thrust/fill.h>
-#include <thrust/iterator/discard_iterator.h>
-#include <thrust/reduce.h>
-#include <thrust/sequence.h>
-#include <thrust/sort.h>
 #include <thrust/transform.h>
-#include <thrust/unique.h>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -98,8 +90,8 @@ void dist_membership_vector(const raft::handle_t& handle,
     n_batches = raft::ceildiv((int)n_queries, (int)batch_size);
   }
   for(value_idx bid = 0; bid < n_batches; bid++) {
-    value_idx samples_per_batch = min(batch_size, (int)n_queries - bid*batch_size);
     value_idx batch_offset = bid * batch_size;
+    value_idx samples_per_batch = min(batch_size, (int)n_queries - batch_offset);
     rmm::device_uvector<value_t> dist(samples_per_batch * n_exemplars, stream);
 
      // compute the distances using raft API
@@ -138,8 +130,8 @@ void dist_membership_vector(const raft::handle_t& handle,
 
     value_t min_val = std::numeric_limits<value_t>::max();
     for (value_idx i = start; i < end; i++) {
-      if (dist[batch_offset * n_selected_clusters + row * n_exemplars + i] < min_val) {
-        min_val = dist[batch_offset * n_selected_clusters + row * n_exemplars + i];
+      if (dist[row * n_exemplars + i] < min_val) {
+        min_val = dist[row * n_exemplars + i];
       }
     }
     return min_val;
@@ -170,10 +162,9 @@ void dist_membership_vector(const raft::handle_t& handle,
                         return std::numeric_limits<value_t>::max() / n_selected_clusters;
                       });
   }
-
+  }
   // Normalize the obtained result to sum to 1.0
   Utils::normalize(dist_membership_vec, n_selected_clusters, n_queries, stream);
-}
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>
