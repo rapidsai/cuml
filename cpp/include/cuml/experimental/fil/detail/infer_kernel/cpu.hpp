@@ -19,7 +19,7 @@
 #include <new>
 #include <numeric>
 #include <vector>
-#include <cuml/experimental/fil/output_kind.hpp>
+#include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/detail/cpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/evaluate_tree.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -60,7 +60,10 @@ namespace detail {
  * vector outputs for all leaf nodes
  * @param categorical_data If non-nullptr, a pointer to where non-local
  * data on categorical splits are stored.
- * @param output_type Output type
+ * @param infer_type Type of inference to perform. Defaults to summing the outputs of all trees
+ * and produce an output per row. If set to "per_tree", we will instead output all outputs of
+ * individual trees. If set to "leaf_id", we will instead output the integer ID of the leaf node
+ * for each tree.
  */
 template<
   bool has_categorical_nodes,
@@ -80,26 +83,22 @@ void infer_kernel_cpu(
     index_type grove_size=hardware_constructive_interference_size,
     vector_output_t vector_output_p=nullptr,
     categorical_data_t categorical_data=nullptr,
-    output_kind output_type=output_kind::default_kind
+    infer_kind infer_type=infer_kind::default_kind
 ) {
   auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
   auto constexpr has_nonlocal_categories = !std::is_same_v<categorical_data_t, std::nullptr_t>;
   
   using node_t = typename forest_t::node_type;
 
-  using output_t = std::conditional_t<
-    has_vector_leaves,
-    std::remove_pointer_t<vector_output_t>,
-    typename node_t::threshold_type
-  >;
+  using output_t = typename forest_t::template raw_output_type<vector_output_t>;
 
   auto const num_tree = forest.tree_count();
   auto const num_grove = raft_proto::ceildiv(num_tree, grove_size);
   auto const num_chunk = raft_proto::ceildiv(row_count, chunk_size);
   index_type output_workspace_size{};
-  if (output_type == output_kind::default_kind) {
+  if (infer_type == infer_kind::default_kind) {
     output_workspace_size = row_count * num_outputs * num_grove;
-  } else if (output_type == output_kind::per_tree || output_type == output_kind::leaf_id) {
+  } else if (infer_type == infer_kind::per_tree || infer_type == infer_kind::leaf_id) {
     output_workspace_size = index_type{};
   }
   auto output_workspace = std::vector<output_t>(output_workspace_size, output_t{});
@@ -121,7 +120,7 @@ void infer_kernel_cpu(
           has_vector_leaves, typename node_t::index_type, typename node_t::threshold_type
         >{};
         auto leaf_node = static_cast<node_t const*>(nullptr);
-        if (output_type == output_kind::leaf_id) {
+        if (infer_type == infer_kind::leaf_id) {
           if constexpr (has_nonlocal_categories) {
             leaf_node = evaluate_tree<has_vector_leaves, true>(
                 forest.get_tree_root(tree_index),
@@ -148,7 +147,7 @@ void infer_kernel_cpu(
             );
           }
         }
-        if (output_type == output_kind::default_kind) {
+        if (infer_type == infer_kind::default_kind) {
           if constexpr (has_vector_leaves) {
             for (
                 auto output_index = index_type{};
@@ -170,7 +169,7 @@ void infer_kernel_cpu(
                 + grove_index
             ] += tree_output;
           }
-        } else if (output_type == output_kind::per_tree) {
+        } else if (infer_type == infer_kind::per_tree) {
           if constexpr (has_vector_leaves) {
             for (
                 auto output_index = index_type{};
@@ -191,7 +190,7 @@ void infer_kernel_cpu(
                 + tree_index
             ] = tree_output;
           }
-        } else if (output_type == output_kind::leaf_id) {
+        } else if (infer_type == infer_kind::leaf_id) {
           output[
               row_index * num_tree
               + tree_index
@@ -202,7 +201,7 @@ void infer_kernel_cpu(
   }  // Tasks
 
   // Sum over grove and postprocess
-  if (output_type == output_kind::default_kind) {
+  if (infer_type == infer_kind::default_kind) {
 #pragma omp parallel for
     for (auto row_index = index_type{}; row_index < row_count; ++row_index) {
       for (

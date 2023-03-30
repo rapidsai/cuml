@@ -21,7 +21,6 @@ import pathlib
 import treelite.sklearn
 import warnings
 from libcpp cimport bool
-from libcpp.vector cimport vector
 from libc.stdint cimport uint32_t, uintptr_t
 
 from cuml.common.device_selection import using_device_type
@@ -34,7 +33,6 @@ from cuml.experimental.fil.postprocessing cimport element_op, row_op
 from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
 from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport cuda_stream as raft_proto_stream_t
 from cuml.experimental.fil.detail.raft_proto.device_type cimport device_type as raft_proto_device_t
-from cuml.experimental.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
 from cuml.experimental.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
 from cuml.experimental.fil.detail.raft_proto.optional cimport optional, nullopt
 from cuml.internals import set_api_output_dtype
@@ -58,16 +56,6 @@ cdef raft_proto_device_t get_device_type(arr):
         dev = raft_proto_device_t.cpu
     return dev
 
-cdef extern from "treelite/c_api.h":
-    ctypedef void* ModelHandle
-
-cdef extern from "cuml/experimental/fil/output_kind.hpp" namespace "ML::experimental::fil":
-    # TODO(hcho3): Switch to new syntax for scoped enum when we adopt Cython 3.0
-    ctypedef enum output_kind:
-        default_kind "ML::experimental::fil::output_kind::default_kind"
-        per_tree "ML::experimental::fil::output_kind::per_tree"
-        leaf_id "ML::experimental::fil::output_kind::leaf_id"
-
 cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experimental::fil":
     cdef cppclass forest_model:
         void predict[io_t](
@@ -77,7 +65,7 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
             size_t,
             raft_proto_device_t,
             raft_proto_device_t,
-            output_kind,
+            infer_kind,
             optional[uint32_t]
         ) except +
 
@@ -202,7 +190,7 @@ cdef class ForestInference_impl():
             self,
             X,
             *,
-            output_type="default",
+            predict_type="default",
             preds=None,
             chunk_size=None,
             output_dtype=None):
@@ -221,21 +209,21 @@ cdef class ForestInference_impl():
         in_ptr = in_arr.ptr
 
         cdef uintptr_t out_ptr
-        cdef output_kind output_type_enum
-        if output_type == "default":
-            output_type_enum = output_kind.default_kind
+        cdef infer_kind infer_type_enum
+        if predict_type == "default":
+            infer_type_enum = infer_kind.default_kind
             output_shape = (n_rows, self.model.num_outputs())
-        elif output_type == "per_tree":
-            output_type_enum = output_kind.per_tree
+        elif predict_type == "per_tree":
+            infer_type_enum = infer_kind.per_tree
             if self.model.has_vector_leaves():
                 output_shape = (n_rows, self.model.num_trees(), self.model.num_outputs())
             else:
                 output_shape = (n_rows, self.model.num_trees())
-        elif output_type == "leaf_id":
-            output_type_enum = output_kind.leaf_id
+        elif predict_type == "leaf_id":
+            output_type_enum = infer_kind.leaf_id
             output_shape = (n_rows, self.model.num_trees())
         else:
-            raise ValueError(f"Unrecognized output_type: {output_type}")
+            raise ValueError(f"Unrecognized predict_type: {predict_type}")
         if preds is None:
             preds = CumlArray.empty(
                 output_shape,
@@ -266,7 +254,7 @@ cdef class ForestInference_impl():
                 n_rows,
                 out_dev,
                 in_dev,
-                output_type_enum,
+                infer_type_enum,
                 chunk_specification
             )
         else:
@@ -277,7 +265,7 @@ cdef class ForestInference_impl():
                 n_rows,
                 in_dev,
                 out_dev,
-                output_type_enum,
+                infer_type_enum,
                 chunk_specification
             )
 
@@ -289,47 +277,17 @@ cdef class ForestInference_impl():
             self,
             X,
             *,
+            predict_type="default",
             preds=None,
             chunk_size=None,
             output_dtype=None):
         return self._predict(
             X,
-            output_type="default",
+            predict_type=predict_type,
             preds=preds,
             chunk_size=chunk_size,
             output_dtype=output_dtype
         )
-
-    def predict_per_tree(
-            self,
-            X,
-            *,
-            preds=None,
-            chunk_size=None,
-            output_dtype=None):
-        return self._predict(
-            X,
-            output_type="per_tree",
-            preds=preds,
-            chunk_size=chunk_size,
-            output_dtype=output_dtype
-        )
-
-    def predict_leaf(
-            self,
-            X,
-            *,
-            preds=None,
-            chunk_size=None,
-            output_dtype=None):
-        return self._predict(
-            X,
-            output_type="leaf_id",
-            preds=preds,
-            chunk_size=chunk_size,
-            output_dtype=output_dtype
-        )
- 
 
 def _handle_legacy_fil_args(func):
     @functools.wraps(func)
@@ -1218,7 +1176,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                 return preds
         else:
             return self.forest.predict(
-                X, preds=preds, chunk_size=chunk_size
+                X, predict_type="default", preds=preds, chunk_size=chunk_size
             )
 
     @nvtx.annotate(
@@ -1270,8 +1228,8 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             any power of 2, but little benefit is expected above a chunk size
             of 512.
         """
-        return self.forest.predict_per_tree(
-            X, preds=preds, chunk_size=chunk_size
+        return self.forest.predict(
+            X, predict_type="per_tree", preds=preds, chunk_size=chunk_size
         )
 
     @nvtx.annotate(
@@ -1321,6 +1279,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             any power of 2, but little benefit is expected above a chunk size
             of 512.
         """
-        return self.forest.predict_leaf(
-            X, preds=preds, chunk_size=chunk_size
+        return self.forest.predict(
+            X, predict_type="leaf_id", preds=preds, chunk_size=chunk_size
         )

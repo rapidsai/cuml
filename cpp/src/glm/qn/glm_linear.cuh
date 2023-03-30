@@ -23,6 +23,7 @@
 
 namespace ML {
 namespace GLM {
+namespace detail {
 
 template <typename T>
 struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
@@ -76,6 +77,6 @@ struct AbsLoss : GLMBase<T, AbsLoss<T>> {
     return nrm1(grad, dev_scalar, stream);
   }
 };
-
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML

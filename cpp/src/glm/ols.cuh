@@ -36,6 +36,7 @@
 
 namespace ML {
 namespace GLM {
+namespace detail {
 
 /**
  * @brief fit an ordinary least squares model
@@ -48,7 +49,6 @@ namespace GLM {
  * @param intercept     host pointer to hold the solution for bias term of size 1
  * @param fit_intercept if true, fit intercept
  * @param normalize     if true, normalize data to zero mean, unit variance
- * @param stream        cuda stream
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2:
  * QR-decomposition)
  * @param sample_weight device pointer to sample weight vector of length n_rows (nullptr for uniform
@@ -64,10 +64,10 @@ void olsFit(const raft::handle_t& handle,
             math_t* intercept,
             bool fit_intercept,
             bool normalize,
-            cudaStream_t stream,
             int algo              = 0,
             math_t* sample_weight = nullptr)
 {
+  cudaStream_t stream  = handle.get_stream();
   auto cublas_handle   = handle.get_cublas_handle();
   auto cusolver_handle = handle.get_cusolver_dn_handle();
 
@@ -166,7 +166,6 @@ void olsFit(const raft::handle_t& handle,
  * @param coef          coefficients of the model
  * @param intercept     bias term of the model
  * @param preds         device pointer to store predictions of size n_rows
- * @param stream        cuda stream
  */
 template <typename math_t>
 void gemmPredict(const raft::handle_t& handle,
@@ -175,14 +174,14 @@ void gemmPredict(const raft::handle_t& handle,
                  size_t n_cols,
                  const math_t* coef,
                  math_t intercept,
-                 math_t* preds,
-                 cudaStream_t stream)
+                 math_t* preds)
 {
   ASSERT(n_cols > 0, "gemmPredict: number of columns cannot be less than one");
   ASSERT(n_rows > 0, "gemmPredict: number of rows cannot be less than one");
 
-  math_t alpha = math_t(1);
-  math_t beta  = math_t(0);
+  cudaStream_t stream = handle.get_stream();
+  math_t alpha        = math_t(1);
+  math_t beta         = math_t(0);
   raft::linalg::gemm(handle,
                      input,
                      n_rows,
@@ -199,7 +198,6 @@ void gemmPredict(const raft::handle_t& handle,
 
   if (intercept != math_t(0)) raft::linalg::addScalar(preds, preds, intercept, n_rows, stream);
 }
-
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML
-// end namespace ML

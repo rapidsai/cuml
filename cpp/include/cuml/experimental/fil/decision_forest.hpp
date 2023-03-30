@@ -20,7 +20,7 @@
 #include <cstddef>
 #include <cuml/experimental/fil/constants.hpp>
 #include <cuml/experimental/fil/postproc_ops.hpp>
-#include <cuml/experimental/fil/output_kind.hpp>
+#include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/detail/device_initialization.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/infer.hpp>
@@ -127,6 +127,8 @@ struct decision_forest {
    * @param nodes A buffer containing all nodes within the forest
    * @param root_node_indexes A buffer containing the index of the root node
    * of every tree in the forest
+   * @param node_id_mapping Mapping to use to convert FIL's internal node ID into Treelite's node
+   * ID. Only relevant when predict_type == infer_kind::leaf_if
    * @param num_features The number of features per input sample for this model
    * @param num_outputs The number of outputs per row from this model
    * @param has_categorical_nodes Whether this forest contains any
@@ -230,7 +232,11 @@ struct decision_forest {
    * @param[in] input The buffer containing the input data
    * @param[in] stream For GPU execution, the CUDA stream. For CPU execution,
    * this optional parameter can be safely omitted.
-   * @param[in] predict_type Prediction type
+   * @param[in] predict_type Type of inference to perform. Defaults to summing
+   * the outputs of all trees and produce an output per row. If set to
+   * "per_tree", we will instead output all outputs of individual trees. If
+   * set to "leaf_id", we will instead output the integer ID of the leaf node
+   * for each tree.
    * @param[in] specified_rows_per_block_iter If non-nullopt, this value is
    * used to determine how many rows are evaluated for each inference
    * iteration within a CUDA block. Runtime performance is quite sensitive
@@ -244,7 +250,7 @@ struct decision_forest {
     raft_proto::buffer<typename forest_type::io_type>& output,
     raft_proto::buffer<typename forest_type::io_type> const& input,
     raft_proto::cuda_stream stream = raft_proto::cuda_stream{},
-    output_kind predict_type=output_kind::default_kind,
+    infer_kind predict_type=infer_kind::default_kind,
     std::optional<index_type> specified_rows_per_block_iter=std::nullopt
   ) {
     if (output.memory_type() != memory_type() || input.memory_type() != memory_type()) {
@@ -308,7 +314,7 @@ struct decision_forest {
   raft_proto::buffer<node_type> nodes_;
   /** The index of the root node for each tree in the forest */
   raft_proto::buffer<index_type> root_node_indexes_;
-  /** Mapping to apply to node IDs. Only relevant when predict_type == output_kind::leaf_id */
+  /** Mapping to apply to node IDs. Only relevant when predict_type == infer_kind::leaf_id */
   raft_proto::buffer<index_type> node_id_mapping_;
   /** Buffer of outputs for all leaves in vector-leaf models */
   std::optional<raft_proto::buffer<io_type>> vector_output_;

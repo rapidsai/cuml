@@ -29,6 +29,10 @@
 namespace ML {
 namespace GLM {
 
+using detail::GLMDims;
+using detail::LogisticLoss;
+using detail::Softmax;
+using detail::SquaredLoss;
 struct QuasiNewtonTest : ::testing::Test {
   static constexpr int N = 10;
   static constexpr int D = 2;
@@ -121,7 +125,7 @@ T run(const raft::handle_t& handle,
 
   T fx;
 
-  qn_fit<T, LossFunction>(handle, pams, loss, X, y, z, w, &fx, &num_iters, stream);
+  detail::qn_fit<T, LossFunction>(handle, pams, loss, X, y, z, w, &fx, &num_iters);
 
   return fx;
 }
@@ -555,7 +559,7 @@ TEST_F(QuasiNewtonTest, predict)
   pams.loss          = QN_LOSS_LOGISTIC;
   pams.fit_intercept = false;
 
-  qnPredict(handle, pams, Xdev->data, false, N, D, 2, w.data, preds.data, stream);
+  qnPredict(handle, pams, Xdev->data, false, N, D, 2, w.data, preds.data);
   raft::update_host(&preds_host[0], preds.data, preds.len, stream);
   handle.sync_stream(stream);
 
@@ -565,7 +569,7 @@ TEST_F(QuasiNewtonTest, predict)
 
   pams.loss          = QN_LOSS_SQUARED;
   pams.fit_intercept = false;
-  qnPredict(handle, pams, Xdev->data, false, N, D, 1, w.data, preds.data, stream);
+  qnPredict(handle, pams, Xdev->data, false, N, D, 1, w.data, preds.data);
   raft::update_host(&preds_host[0], preds.data, preds.len, stream);
   handle.sync_stream(stream);
 
@@ -591,7 +595,7 @@ TEST_F(QuasiNewtonTest, predict_softmax)
   qn_params pams;
   pams.loss          = QN_LOSS_SOFTMAX;
   pams.fit_intercept = false;
-  qnPredict(handle, pams, Xdev->data, false, N, D, C, w.data, preds.data, stream);
+  qnPredict(handle, pams, Xdev->data, false, N, D, C, w.data, preds.data);
   raft::update_host(&preds_host[0], preds.data, preds.len, stream);
   handle.sync_stream(stream);
 
@@ -664,16 +668,8 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse_logistic)
     f_sparse = run(handle, loss, X_sparse, *ydev, l1, l2, w0_sparse.data, z_sparse, 0, stream);
     ASSERT_TRUE(compApprox(f_dense, f_sparse));
 
-    qnPredict(handle,
-              pams,
-              Xdev->data,
-              Xdev->ord == COL_MAJOR,
-              N,
-              D,
-              C,
-              w0_dense.data,
-              preds_dense.data,
-              stream);
+    qnPredict(
+      handle, pams, Xdev->data, Xdev->ord == COL_MAJOR, N, D, C, w0_dense.data, preds_dense.data);
     qnPredictSparse(handle,
                     pams,
                     X_sparse.values,
@@ -684,8 +680,7 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse_logistic)
                     D,
                     C,
                     w0_sparse.data,
-                    preds_sparse.data,
-                    stream);
+                    preds_sparse.data);
 
     raft::update_host(&preds_dense_host[0], preds_dense.data, preds_dense.len, stream);
     raft::update_host(&preds_sparse_host[0], preds_sparse.data, preds_sparse.len, stream);
