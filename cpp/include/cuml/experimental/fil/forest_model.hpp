@@ -18,6 +18,7 @@
 #include <type_traits>
 #include <variant>
 #include <cuml/experimental/fil/decision_forest.hpp>
+#include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
@@ -50,6 +51,19 @@ struct forest_model {
   auto num_outputs() {
     return std::visit([](auto&& concrete_forest) {
       return concrete_forest.num_outputs();
+    }, decision_forest_);
+  }
+
+  /** The number of trees in the model */
+  auto num_trees() {
+    return std::visit([](auto&& concrete_forest) {
+      return concrete_forest.num_trees();
+    }, decision_forest_);
+  }
+
+  auto has_vector_leaves() {
+    return std::visit([](auto&& concrete_forest) {
+      return concrete_forest.has_vector_leaves();
     }, decision_forest_);
   }
 
@@ -100,6 +114,9 @@ struct forest_model {
    * @param[in] stream A raft_proto::cuda_stream, which (on GPU-enabled builds) is
    * a transparent wrapper for the cudaStream_t or (on CPU-only builds) a
    * CUDA-free placeholder object.
+   * @param[in] predict_type Type of inference to perform. Defaults to summing
+   * the outputs of all trees and produce an output per row. If set to
+   * "per_tree", we will instead output all outputs of individual trees.
    * @param[in] specified_chunk_size: Specifies the mini-batch size for
    * processing. This has different meanings on CPU and GPU, but on GPU it
    * corresponds to the number of rows evaluated per inference iteration
@@ -114,11 +131,12 @@ struct forest_model {
     raft_proto::buffer<io_t>& output,
     raft_proto::buffer<io_t> const& input,
     raft_proto::cuda_stream stream = raft_proto::cuda_stream{},
+    infer_kind predict_type=infer_kind::default_kind,
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
-    std::visit([this, &output, &input, &stream, &specified_chunk_size](auto&& concrete_forest) {
+    std::visit([this, predict_type, &output, &input, &stream, &specified_chunk_size](auto&& concrete_forest) {
       if constexpr(std::is_same_v<typename std::remove_reference_t<decltype(concrete_forest)>::io_type, io_t>) {
-        concrete_forest.predict(output, input, stream, specified_chunk_size);
+        concrete_forest.predict(output, input, stream, predict_type, specified_chunk_size);
       } else {
         throw type_error("Input type does not match model_type");
       }
@@ -138,6 +156,9 @@ struct forest_model {
    * this buffer is on host while the model is on device or vice versa,
    * work will be distributed across available streams to copy the input data
    * to the appropriate location and perform inference.
+   * @param[in] predict_type Type of inference to perform. Defaults to summing
+   * the outputs of all trees and produce an output per row. If set to
+   * "per_tree", we will instead output all outputs of individual trees.
    * @param[in] specified_chunk_size: Specifies the mini-batch size for
    * processing. This has different meanings on CPU and GPU, but on GPU it
    * corresponds to the number of rows evaluated per inference iteration
@@ -152,9 +173,10 @@ struct forest_model {
     raft_proto::handle_t const& handle,
     raft_proto::buffer<io_t>& output,
     raft_proto::buffer<io_t> const& input,
+    infer_kind predict_type=infer_kind::default_kind,
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
-    std::visit([this, &handle, &output, &input, &specified_chunk_size](auto&& concrete_forest) {
+    std::visit([this, predict_type, &handle, &output, &input, &specified_chunk_size](auto&& concrete_forest) {
       using model_io_t = typename std::remove_reference_t<decltype(concrete_forest)>::io_type;
       if constexpr(std::is_same_v<model_io_t, io_t>) {
         if (output.memory_type() == memory_type() && input.memory_type() == memory_type()) {
@@ -162,6 +184,7 @@ struct forest_model {
             output,
             input,
             handle.get_next_usable_stream(),
+            predict_type,
             specified_chunk_size
           );
         } else {
@@ -215,6 +238,7 @@ struct forest_model {
               partition_out,
               partition_in,
               stream,
+              predict_type,
               specified_chunk_size
             );
             if (output.memory_type() != memory_type()) {
@@ -247,6 +271,9 @@ struct forest_model {
    * @param[in] out_mem_type The memory type (device/host) of the output
    * buffer
    * @param[in] in_mem_type The memory type (device/host) of the input buffer
+   * @param[in] predict_type Type of inference to perform. Defaults to summing
+   * the outputs of all trees and produce an output per row. If set to
+   * "per_tree", we will instead output all outputs of individual trees.
    * @param[in] specified_chunk_size: Specifies the mini-batch size for
    * processing. This has different meanings on CPU and GPU, but on GPU it
    * corresponds to the number of rows evaluated per inference iteration
@@ -264,6 +291,7 @@ struct forest_model {
     std::size_t num_rows,
     raft_proto::device_type out_mem_type,
     raft_proto::device_type in_mem_type,
+    infer_kind predict_type=infer_kind::default_kind,
     std::optional<index_type> specified_chunk_size=std::nullopt
   ) {
     // TODO(wphicks): Make sure buffer lands on same device as model
@@ -277,7 +305,7 @@ struct forest_model {
       num_rows * num_features(),
       in_mem_type
     };
-    predict(handle, out_buffer, in_buffer, specified_chunk_size);
+    predict(handle, out_buffer, in_buffer, predict_type, specified_chunk_size);
   }
 
  private:

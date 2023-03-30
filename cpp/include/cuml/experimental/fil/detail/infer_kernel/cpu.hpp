@@ -19,6 +19,7 @@
 #include <new>
 #include <numeric>
 #include <vector>
+#include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/detail/cpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/evaluate_tree.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -59,6 +60,9 @@ namespace detail {
  * vector outputs for all leaf nodes
  * @param categorical_data If non-nullptr, a pointer to where non-local
  * data on categorical splits are stored.
+ * @param infer_type Type of inference to perform. Defaults to summing the outputs of all trees
+ * and produce an output per row. If set to "per_tree", we will instead output all outputs of
+ * individual trees.
  */
 template<
   bool has_categorical_nodes,
@@ -77,27 +81,26 @@ void infer_kernel_cpu(
     index_type chunk_size=hardware_constructive_interference_size,
     index_type grove_size=hardware_constructive_interference_size,
     vector_output_t vector_output_p=nullptr,
-    categorical_data_t categorical_data=nullptr
+    categorical_data_t categorical_data=nullptr,
+    infer_kind infer_type=infer_kind::default_kind
 ) {
   auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
   auto constexpr has_nonlocal_categories = !std::is_same_v<categorical_data_t, std::nullptr_t>;
   
   using node_t = typename forest_t::node_type;
 
-  using output_t = std::conditional_t<
-    has_vector_leaves,
-    std::remove_pointer_t<vector_output_t>,
-    typename node_t::threshold_type
-  >;
+  using output_t = typename forest_t::template raw_output_type<vector_output_t>;
 
   auto const num_tree = forest.tree_count();
   auto const num_grove = raft_proto::ceildiv(num_tree, grove_size);
   auto const num_chunk = raft_proto::ceildiv(row_count, chunk_size);
-
-  auto output_workspace = std::vector<output_t>(
-    row_count * num_outputs * num_grove,
-    output_t{}
-  );
+  index_type output_workspace_size{};
+  if (infer_type == infer_kind::default_kind) {
+    output_workspace_size = row_count * num_outputs * num_grove;
+  } else if (infer_type == infer_kind::per_tree) {
+    output_workspace_size = index_type{};
+  }
+  auto output_workspace = std::vector<output_t>(output_workspace_size, output_t{});
   auto const task_count = num_grove * num_chunk;
 
   // Infer on each grove and chunk
@@ -110,7 +113,7 @@ void infer_kernel_cpu(
     auto const start_tree = grove_index * grove_size;
     auto const end_tree = std::min(start_tree + grove_size, num_tree);
 
-    for (auto row_index = start_row; row_index < end_row; ++row_index){
+    for (auto row_index = start_row; row_index < end_row; ++row_index) {
       for (auto tree_index = start_tree; tree_index < end_tree; ++tree_index) {
         auto tree_output = std::conditional_t<
           has_vector_leaves, typename node_t::index_type, typename node_t::threshold_type
@@ -127,55 +130,80 @@ void infer_kernel_cpu(
             input + row_index * col_count
           );
         }
-        if constexpr (has_vector_leaves) {
-          for (
-            auto class_index=index_type{};
-            class_index < num_outputs;
-            ++class_index
-          ) {
+        if (infer_type == infer_kind::default_kind) {
+          if constexpr (has_vector_leaves) {
+            for (
+                auto output_index = index_type{};
+                output_index < num_outputs;
+                ++output_index
+                ) {
+              output_workspace[
+                  row_index * num_outputs * num_grove
+                  + output_index * num_grove
+                  + grove_index
+              ] += vector_output_p[
+                  tree_output * num_outputs + output_index
+              ];
+            }
+          } else {
             output_workspace[
-              row_index * num_outputs * num_grove
-              + class_index * num_grove
-              + grove_index
-            ] += vector_output_p[
-              tree_output * num_outputs + class_index
-            ];
+                row_index * num_outputs * num_grove
+                + (tree_index % num_outputs) * num_grove
+                + grove_index
+            ] += tree_output;
           }
-        } else {
-          output_workspace[
-            row_index * num_outputs * num_grove
-            + (tree_index % num_outputs) * num_grove
-            + grove_index
-          ] += tree_output;
-        }
+        } else if (infer_type == infer_kind::per_tree) {
+          if constexpr (has_vector_leaves) {
+            for (
+                auto output_index = index_type{};
+                output_index < num_outputs;
+                ++output_index
+                ) {
+              output[
+                  row_index * num_tree * num_outputs
+                  + tree_index * num_outputs
+                  + output_index
+              ] = vector_output_p[
+                  tree_output * num_outputs + output_index
+              ];
+            }
+          } else {
+            output[
+                row_index * num_tree
+                + tree_index
+            ] = tree_output;
+          }
+        }  // Predict type
       }  // Trees
     }  // Rows
   }  // Tasks
 
   // Sum over grove and postprocess
+  if (infer_type == infer_kind::default_kind) {
 #pragma omp parallel for
-  for (auto row_index=index_type{}; row_index < row_count; ++row_index) {
-    for (
-      auto class_index = index_type{};
-      class_index < num_outputs;
-      ++class_index
-    ) {
-      auto grove_offset = (
-        row_index * num_outputs * num_grove + class_index * num_grove
-      );
+    for (auto row_index = index_type{}; row_index < row_count; ++row_index) {
+      for (
+          auto class_index = index_type{};
+          class_index < num_outputs;
+          ++class_index
+          ) {
+        auto grove_offset = (
+            row_index * num_outputs * num_grove + class_index * num_grove
+        );
 
-      output_workspace[grove_offset] = std::accumulate(
-        std::begin(output_workspace) + grove_offset,
-        std::begin(output_workspace) + grove_offset + num_grove,
-        output_t{}
+        output_workspace[grove_offset] = std::accumulate(
+            std::begin(output_workspace) + grove_offset,
+            std::begin(output_workspace) + grove_offset + num_grove,
+            output_t{}
+        );
+      }
+      postproc(
+          output_workspace.data() + row_index * num_outputs * num_grove,
+          num_outputs,
+          output + row_index * num_outputs,
+          num_grove
       );
     }
-    postproc(
-      output_workspace.data() + row_index * num_outputs * num_grove,
-      num_outputs,
-      output + row_index * num_outputs,
-      num_grove
-    );
   }
 }
 
