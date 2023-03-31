@@ -220,7 +220,7 @@ cdef class ForestInference_impl():
             else:
                 output_shape = (n_rows, self.model.num_trees())
         elif predict_type == "leaf_id":
-            output_type_enum = infer_kind.leaf_id
+            infer_type_enum = infer_kind.leaf_id
             output_shape = (n_rows, self.model.num_trees())
         else:
             raise ValueError(f"Unrecognized predict_type: {predict_type}")
