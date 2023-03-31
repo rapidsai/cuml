@@ -36,7 +36,6 @@ namespace Predict {
 Find the nearest mutual reachability neighbor of a point, and  compute
 the associated lambda value for the point, given the mutual reachability
 distance to a nearest neighbor.
- *
  * @tparam value_idx
  * @tparam value_t
  * @tparam tpb
@@ -149,52 +148,25 @@ void _find_cluster_and_probability(const raft::handle_t& handle,
                                                            out_labels,
                                                            out_probabilities);
 }
-/**
- * Predict the cluster label and the probability of the label for new points.
- * The returned labels are those of the original clustering,
- * and therefore are not (necessarily) the cluster labels that would
- * be found by clustering the original data combined with
- * the prediction points, hence the 'approximate' label.
- *
- * @tparam value_idx
- * @tparam value_t
- * @param[in] handle raft handle for resource reuse
- * @param[in] condensed_tree a condensed hierarchy
- * @param[in] prediction_data PredictionData object
- * @param[in] X input data points (size m * n)
- * @param[in] labels converted monotonic labels of the input data points
- * @param[in] points_to_predict input prediction points (size n_prediction_points * n)
- * @param[in] n_prediction_points number of prediction points
- * @param[in] metric distance metric to use
- * @param[in] min_samples neighborhood size during training (includes self-loop)
- * @param[out] out_labels output cluster labels
- * @param[out] out_probabilities output probabilities
- */
+
+// Build the mutual reachability graph and obtain the nearest neighbors for the prediction points.
+// The KNN and core distances of prediction points are computed here.
 template <typename value_idx, typename value_t, int tpb = 256>
-void approximate_predict(const raft::handle_t& handle,
-                         Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
-                         Common::PredictionData<value_idx, value_t>& prediction_data,
-                         const value_t* X,
-                         value_idx* labels,
-                         const value_t* points_to_predict,
-                         size_t n_prediction_points,
-                         raft::distance::DistanceType metric,
-                         int min_samples,
-                         value_idx* out_labels,
-                         value_t* out_probabilities)
+void _compute_knn_and_nearest_neighbor(const raft::handle_t& handle,
+                                       Common::PredictionData<value_idx, value_t>& prediction_data,
+                                       const value_t* X,
+                                       const value_t* points_to_predict,
+                                       int min_samples,
+                                       size_t n_prediction_points,
+                                       value_idx* min_mr_inds,
+                                       value_t* prediction_lambdas,
+                                       raft::distance::DistanceType metric)
 {
-  RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
-               "Currently only L2 expanded distance is supported");
-
-  auto stream      = handle.get_stream();
-  auto exec_policy = handle.get_thrust_policy();
-
+  auto stream               = handle.get_stream();
   size_t m                  = prediction_data.n_rows;
   size_t n                  = prediction_data.n_cols;
   value_t* input_core_dists = prediction_data.get_core_dists();
-
-  // this is the neighborhood of prediction points for which MR distances are computed
-  int neighborhood = (min_samples - 1) * 2;
+  int neighborhood          = (min_samples - 1) * 2;
 
   rmm::device_uvector<value_idx> inds(neighborhood * n_prediction_points, stream);
   rmm::device_uvector<value_t> dists(neighborhood * n_prediction_points, stream);
@@ -221,9 +193,6 @@ void approximate_predict(const raft::handle_t& handle,
                                           prediction_core_dists.data(),
                                           stream);
 
-  // Obtain lambdas for each prediction point using the closest point in mutual reachability space
-  rmm::device_uvector<value_t> prediction_lambdas(n_prediction_points, stream);
-  rmm::device_uvector<value_idx> min_mr_inds(n_prediction_points, stream);
   _find_neighbor_and_lambda(handle,
                             input_core_dists,
                             prediction_core_dists.data(),
@@ -231,8 +200,62 @@ void approximate_predict(const raft::handle_t& handle,
                             inds.data(),
                             n_prediction_points,
                             neighborhood,
-                            min_mr_inds.data(),
-                            prediction_lambdas.data());
+                            min_mr_inds,
+                            prediction_lambdas);
+}
+
+/**
+ * Predict the cluster label and the probability of the label for new points.
+ * The returned labels are those of the original clustering,
+ * and therefore are not (necessarily) the cluster labels that would
+ * be found by clustering the original data combined with
+ * the prediction points, hence the 'approximate' label.
+ *
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] condensed_tree a condensed hierarchy
+ * @param[in] prediction_data PredictionData object
+ * @param[in] X input data points (size m * n)
+ * @param[in] labels converted monotonic labels of the input data points
+ * @param[in] points_to_predict input prediction points (size n_prediction_points * n)
+ * @param[in] n_prediction_points number of prediction points
+ * @param[in] metric distance metric
+ * @param[in] min_samples neighborhood size during training (includes self-loop)
+ * @param[out] out_labels output cluster labels
+ * @param[out] out_probabilities output probabilities
+ */
+template <typename value_idx, typename value_t, int tpb = 256>
+void approximate_predict(const raft::handle_t& handle,
+                         Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
+                         Common::PredictionData<value_idx, value_t>& prediction_data,
+                         const value_t* X,
+                         value_idx* labels,
+                         const value_t* points_to_predict,
+                         size_t n_prediction_points,
+                         raft::distance::DistanceType metric,
+                         int min_samples,
+                         value_idx* out_labels,
+                         value_t* out_probabilities)
+{
+  RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
+               "Currently only L2 expanded distance is supported");
+
+  auto stream      = handle.get_stream();
+  auto exec_policy = handle.get_thrust_policy();
+
+  // Obtain lambdas for each prediction point using the closest point in mutual reachability space
+  rmm::device_uvector<value_t> prediction_lambdas(n_prediction_points, stream);
+  rmm::device_uvector<value_idx> min_mr_inds(n_prediction_points, stream);
+  _compute_knn_and_nearest_neighbor(handle,
+                                    prediction_data,
+                                    X,
+                                    points_to_predict,
+                                    min_samples,
+                                    n_prediction_points,
+                                    min_mr_inds.data(),
+                                    prediction_lambdas.data(),
+                                    metric);
 
   // Using the nearest neighbor indices, find the assigned cluster label and probability
   _find_cluster_and_probability(handle,
