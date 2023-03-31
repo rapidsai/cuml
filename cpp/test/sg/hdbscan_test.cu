@@ -460,7 +460,8 @@ class AllPointsMembershipVectorsTest
                                               prediction_data_,
                                               data.data(),
                                               raft::distance::DistanceType::L2SqrtExpanded,
-                                              membership_vec.data());
+                                              membership_vec.data(),
+                                              0);
 
     ASSERT_TRUE(MLCommon::devArrMatch(membership_vec.data(),
                                       params.expected_probabilities.data(),
@@ -754,7 +755,8 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
                                   params.n_points_to_predict,
                                   params.min_samples,
                                   raft::distance::DistanceType::L2SqrtExpanded,
-                                  membership_vec.data());
+                                  membership_vec.data(),
+                                  0);
 
     ASSERT_TRUE(MLCommon::devArrMatch(membership_vec.data(),
                                       params.expected_probabilities.data(),
