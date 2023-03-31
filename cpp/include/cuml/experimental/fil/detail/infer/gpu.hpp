@@ -15,6 +15,7 @@
  */
 #include <cstddef>
 #include <optional>
+#include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
@@ -46,6 +47,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   index_type class_count,
   vector_output_t vector_output=nullptr,
   categorical_data_t categorical_data=nullptr,
+  infer_kind infer_type = infer_kind::default_kind,
   std::optional<index_type> specified_chunk_size=std::nullopt,
   raft_proto::device_id<D> device=raft_proto::device_id<D>{},
   raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
