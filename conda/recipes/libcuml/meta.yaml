@@ -34,7 +34,14 @@ requirements:
   build:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
+    {% if cuda_major == "11" %}
+    - {{ compiler('cuda11') }} {{ cuda_version }}
+    {% else %}
     - {{ compiler('cuda') }} {{ cuda_version }}
+    - cuda-cudart {{ cuda_version }}
+    - cuda-cudart-dev {{ cuda_version }}
+    - cuda-cudart-static {{ cuda_version }}
+    {% endif %}
     - cmake {{ cmake_version }}
     - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
