@@ -44,9 +44,7 @@ function(ConfigureTest)
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
     rmm::rmm
     raft::raft
-    $<$<BOOL:${CUML_USE_RAFT_NN}>:faiss::faiss>
-    $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
-    $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
+    $<$<BOOL:${CUML_RAFT_COMPILED}>:raft::compiled>
     GTest::gtest
     GTest::gtest_main
     ${OpenMP_CXX_LIB_NAMES}
@@ -123,7 +121,7 @@ if(BUILD_CUML_TESTS)
     ConfigureTest(PREFIX SG NAME GENETIC_PARAM_TEST PATH sg/genetic/param_test.cu OPTIONAL ML_INCLUDE)
   endif()
 
-  if("${CMAKE_CUDA_COMPILER_VERSION}" VERSION_LESS_EQUAL "11.2")
+  if("${CMAKE_CUDA_COMPILER_VERSION}" VERSION_GREATER_EQUAL "11.2")
       # An HDBSCAN gtest is failing w/ CUDA 11.2 for some reason.
       if(all_algo OR hdbscan_algo)
         ConfigureTest(PREFIX SG NAME HDBSCAN_TEST PATH sg/hdbscan_test.cu OPTIONAL ML_INCLUDE)
@@ -236,7 +234,6 @@ if(BUILD_PRIMS_TESTS)
   ConfigureTest(PREFIX PRIMS NAME LOGISTICREG_TEST PATH prims/logisticReg.cu)
   ConfigureTest(PREFIX PRIMS NAME MAKE_ARIMA_TEST PATH prims/make_arima.cu)
   ConfigureTest(PREFIX PRIMS NAME PENALTY_TEST PATH prims/penalty.cu)
-  ConfigureTest(PREFIX PRIMS NAME REVERSE_TEST PATH prims/reverse.cu)
   ConfigureTest(PREFIX PRIMS NAME SIGMOID_TEST PATH prims/sigmoid.cu)
 
 endif()

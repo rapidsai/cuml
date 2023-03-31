@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023 NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -42,6 +42,7 @@ option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulti
 option(CUML_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 set(CUML_RAFT_CLONE_ON_PIN OFF)
+
 
 
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
@@ -142,6 +143,7 @@ add_subdirectory(cuml/datasets)
 add_subdirectory(cuml/decomposition)
 add_subdirectory(cuml/ensemble)
 add_subdirectory(cuml/explainer)
+add_subdirectory(cuml/experimental/fil)
 add_subdirectory(cuml/fil)
 add_subdirectory(cuml/kernel_ridge)
 add_subdirectory(cuml/linear_model)
