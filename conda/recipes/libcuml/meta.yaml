@@ -46,22 +46,38 @@ requirements:
     - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
-    - cudatoolkit ={{ cuda_version }}
     - cudf ={{ minor_version }}
     - gmock
     - gtest {{ gtest_version }}
     - lapack
+    {% if cuda_major == "11" %}
+    - cudatoolkit ={{ cuda_version }}
+    - libcublas {{ cuda11_libcublas_host_version }}
+    - libcublas-dev {{ cuda11_libcublas_host_version }}
+    - libcufft {{ cuda11_libcufft_host_version }}
+    - libcufft-dev {{ cuda11_libcufft_host_version }}
+    - libcurand {{ cuda11_libcurand_host_version }}
+    - libcurand-dev {{ cuda11_libcurand_host_version }}
+    - libcusolver {{ cuda11_libcusolver_host_version }}
+    - libcusolver-dev {{ cuda11_libcusolver_host_version }}
+    - libcusparse {{ cuda11_libcusparse_host_version }}
+    - libcusparse-dev {{ cuda11_libcusparse_host_version }}
+    {% else %}
+    - cuda-cudart {{ cuda_version }}
+    - cuda-cudart-dev {{ cuda_version }}
+    - cuda-cudart-static {{ cuda_version }}
     - libcublas {{ libcublas_host_version }}
     - libcublas-dev {{ libcublas_host_version }}
     - libcufft {{ libcufft_host_version }}
     - libcufft-dev {{ libcufft_host_version }}
-    - libcumlprims ={{ minor_version }}
     - libcurand {{ libcurand_host_version }}
     - libcurand-dev {{ libcurand_host_version }}
     - libcusolver {{ libcusolver_host_version }}
     - libcusolver-dev {{ libcusolver_host_version }}
     - libcusparse {{ libcusparse_host_version }}
     - libcusparse-dev {{ libcusparse_host_version }}
+    {% endif %}
+    - libcumlprims ={{ minor_version }}
     - libraft ={{ minor_version }}
     - libraft-headers ={{ minor_version }}
     - treelite {{ treelite_version }}
@@ -81,15 +97,27 @@ outputs:
       build:
         - cmake {{ cmake_version }}
       run:
-        - cudatoolkit {{ cuda_spec }}
         - cudf ={{ minor_version }}
+        {% if cuda_major == "11" %}
+        - cudatoolkit {{ cuda_spec }}
+        - libcublas {{ cuda11_libcublas_run_version }}
+        - libcublas-dev {{ cuda11_libcublas_run_version }}
+        - libcufft {{ cuda11_libcufft_run_version }}
+        - libcurand {{ cuda11_libcurand_run_version }}
+        - libcusparse {{ cuda11_libcusparse_run_version }}
+        - libcusparse-dev {{ cuda11_libcusparse_run_version }}
+        {% else %}
+        - cuda-cudart {{ cuda_spec }}
+        - cuda-cudart-dev {{ cuda_spec }}
+        - cuda-cudart-static {{ cuda_spec }}
         - libcublas {{ libcublas_run_version }}
         - libcublas-dev {{ libcublas_run_version }}
         - libcufft {{ libcufft_run_version }}
-        - libcumlprims ={{ minor_version }}
         - libcurand {{ libcurand_run_version }}
         - libcusparse {{ libcusparse_run_version }}
         - libcusparse-dev {{ libcusparse_run_version }}
+        {% endif %}
+        - libcumlprims ={{ minor_version }}
         - libraft ={{ minor_version }}
         - libraft-headers ={{ minor_version }}
         - treelite {{ treelite_version }}
@@ -111,7 +139,13 @@ outputs:
       build:
         - cmake {{ cmake_version }}
       run:
+        {% if cuda_major == "11" %}
         - cudatoolkit {{ cuda_spec }}
+        {% else %}
+        - cuda-cudart {{ cuda_spec }}
+        - cuda-cudart-dev {{ cuda_spec }}
+        - cuda-cudart-static {{ cuda_spec }}
+        {% endif %}
         - {{ pin_subpackage('libcuml', exact=True) }}
         - gtest {{ gtest_version }}
         - gmock {{ gtest_version }}
