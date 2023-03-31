@@ -1233,10 +1233,10 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         )
 
     @nvtx.annotate(
-        message='ForestInference.predict_per_tree',
+        message='ForestInference.apply',
         domain='cuml_python'
     )
-    def predict_leaf(
+    def apply(
             self,
             X,
             *,

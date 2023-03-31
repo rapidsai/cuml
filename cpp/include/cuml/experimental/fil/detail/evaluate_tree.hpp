@@ -19,6 +19,7 @@
 #include <math.h>
 #endif
 #include <cuml/experimental/fil/detail/bitset.hpp>
+#include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 namespace ML {
 namespace experimental {
@@ -37,6 +38,10 @@ namespace detail {
  * either floats or doubles)
  * @param node Pointer to the root node of this tree
  * @param row Pointer to the input data for this row
+ * @param first_root_node Pointer to the root node of the first tree. Only used when
+ * evaluate_leaf=true.
+ * @param node_id_mapping Array representing the mapping from internal node IDs to
+ * final leaf ID outputs. Only used when evaluate_leaf=true.
  */
 template<
   bool has_vector_leaves,
@@ -47,7 +52,9 @@ template<
 >
 HOST DEVICE auto evaluate_tree(
     node_t const* __restrict__ node,
-    io_t const* __restrict__ row
+    io_t const* __restrict__ row,
+    node_t const* __restrict__ first_root_node=nullptr,
+    index_type const* __restrict__ node_id_mapping=nullptr
 ) {
   using categorical_set_type = bitset<uint32_t, typename node_t::index_type const>;
   auto cur_node = *node;
@@ -74,7 +81,7 @@ HOST DEVICE auto evaluate_tree(
     cur_node = *node;
   } while (!cur_node.is_leaf());
   if constexpr (evaluate_leaf) {
-    return static_cast<node_t const*>(node);
+    return node_id_mapping[node - first_root_node];
   } else {
     return cur_node.template output<has_vector_leaves>();
   }
@@ -103,6 +110,10 @@ HOST DEVICE auto evaluate_tree(
  * @param row Pointer to the input data for this row
  * @param categorical_storage Pointer to where categorical split data is
  * stored.
+ * @param first_root_node Pointer to the root node of the first tree. Only used when
+ * evaluate_leaf=true.
+ * @param node_id_mapping Array representing the mapping from internal node IDs to
+ * final leaf ID outputs. Only used when evaluate_leaf=true.
  */
 template<
   bool has_vector_leaves,
@@ -114,7 +125,9 @@ template<
 HOST DEVICE auto evaluate_tree(
     node_t const* __restrict__ node,
     io_t const* __restrict__ row,
-    categorical_storage_t const* __restrict__ categorical_storage
+    categorical_storage_t const* __restrict__ categorical_storage,
+    node_t const* __restrict__ first_root_node=nullptr,
+    index_type const* __restrict__ node_id_mapping=nullptr
 ) {
   using categorical_set_type = bitset<uint32_t, categorical_storage_t const>;
   auto cur_node = *node;
@@ -136,7 +149,7 @@ HOST DEVICE auto evaluate_tree(
     cur_node = *node;
   } while (!cur_node.is_leaf());
   if constexpr (evaluate_leaf) {
-    return static_cast<node_t const*>(node);
+    return node_id_mapping[node - first_root_node];
   } else {
     return cur_node.template output<has_vector_leaves>();
   }

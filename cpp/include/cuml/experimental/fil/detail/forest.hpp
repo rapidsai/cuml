@@ -52,8 +52,10 @@ struct forest {
     return nodes_ + root_node_indexes_[tree_index];
   }
 
-  HOST DEVICE auto get_node_id(const node_type* node) const {
-    return node_id_mapping_[node - nodes_];
+  /* Return pointer to the mapping from internal node IDs to final node ID outputs.
+   * Only used when infer_type == infer_kind::leaf_id */
+  HOST DEVICE const auto* get_node_id_mapping() const {
+    return node_id_mapping_;
   }
 
   /* Return the number of trees in this forest */

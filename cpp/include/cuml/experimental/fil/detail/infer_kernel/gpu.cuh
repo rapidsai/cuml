@@ -166,18 +166,22 @@ infer_kernel(
       auto tree_output = std::conditional_t<
         has_vector_leaves, typename node_t::index_type, typename node_t::threshold_type
       >{};
-      auto leaf_node = static_cast<node_t const*>(nullptr);
+      auto leaf_node_id = index_type{};
       if (infer_type == infer_kind::leaf_id) {
         if constexpr (has_nonlocal_categories) {
-          leaf_node = evaluate_tree<has_vector_leaves, true>(
+          leaf_node_id = evaluate_tree<has_vector_leaves, true>(
               forest.get_tree_root(tree_index),
               input_data + row_index * col_count,
-              categorical_data
+              categorical_data,
+              forest.get_tree_root(0),
+              forest.get_node_id_mapping()
           );
         } else {
-          leaf_node = evaluate_tree<has_vector_leaves, has_categorical_nodes, true>(
+          leaf_node_id = evaluate_tree<has_vector_leaves, has_categorical_nodes, true>(
               forest.get_tree_root(tree_index),
-              input_data + row_index * col_count
+              input_data + row_index * col_count,
+              forest.get_tree_root(0),
+              forest.get_node_id_mapping()
           );
         }
       } else {
@@ -251,7 +255,7 @@ infer_kernel(
           output_workspace[
               row_index * tree_count
               + tree_index
-          ] = static_cast<typename forest_t::io_type>(forest.get_node_id(leaf_node));
+          ] = static_cast<typename forest_t::io_type>(leaf_node_id);
         }
       }
 

@@ -21,6 +21,7 @@
 #include <numeric>
 #include <optional>
 #include <vector>
+#include <optional>
 #include <cuml/experimental/fil/postproc_ops.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -67,7 +68,7 @@ struct decision_forest_builder {
         if (cur_tree_size_ % alignment_ != index_type{}) {
           auto padding = (alignment_ - cur_tree_size_ % alignment_);
           for (auto i = index_type{}; i < padding; ++i) {
-            add_node(typename node_type::threshold_type{}, -1);
+            add_node(typename node_type::threshold_type{}, std::nullopt);
           }
         }
       }
@@ -146,7 +147,7 @@ struct decision_forest_builder {
   template<typename value_t>
   void add_node(
     value_t val,
-    int tl_node_id,
+    std::optional<int> tl_node_id,
     bool is_leaf_node=true,
     bool default_to_distant_child=false,
     bool is_categorical_node=false,
@@ -160,7 +161,8 @@ struct decision_forest_builder {
     nodes_.emplace_back(
       val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset
     );
-    node_id_mapping_.push_back(tl_node_id);
+    // -1 indicates the lack of ID mapping for a particular node
+    node_id_mapping_.push_back(static_cast<index_type>(tl_node_id.value_or(-1)));
     ++cur_tree_size_;
   }
 

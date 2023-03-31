@@ -811,7 +811,7 @@ def test_predict_leaf(train_device, infer_device, n_classes, tmp_path):
         )
 
     with using_device_type(infer_device):
-        pred_leaf = fm.predict_leaf(X).astype(np.int32)
+        pred_leaf = fm.apply(X).astype(np.int32)
         expected_pred_leaf = bst.predict(xgb.DMatrix(X), pred_leaf=True)
         if n_classes == 2:
             expected_shape = (n_rows, num_boost_round)

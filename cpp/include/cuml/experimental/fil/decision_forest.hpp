@@ -128,7 +128,7 @@ struct decision_forest {
    * @param root_node_indexes A buffer containing the index of the root node
    * of every tree in the forest
    * @param node_id_mapping Mapping to use to convert FIL's internal node ID into Treelite's node
-   * ID. Only relevant when predict_type == infer_kind::leaf_if
+   * ID. Only relevant when predict_type == infer_kind::leaf_id
    * @param num_features The number of features per input sample for this model
    * @param num_outputs The number of outputs per row from this model
    * @param has_categorical_nodes Whether this forest contains any
