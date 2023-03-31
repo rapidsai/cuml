@@ -169,7 +169,7 @@ infer_kernel(
       auto leaf_node_id = index_type{};
       if (infer_type == infer_kind::leaf_id) {
         if constexpr (has_nonlocal_categories) {
-          leaf_node_id = evaluate_tree<has_vector_leaves, true>(
+          leaf_node_id = evaluate_tree<has_vector_leaves>(
               forest.get_tree_root(tree_index),
               input_data + row_index * col_count,
               categorical_data,
@@ -177,7 +177,7 @@ infer_kernel(
               forest.get_node_id_mapping()
           );
         } else {
-          leaf_node_id = evaluate_tree<has_vector_leaves, has_categorical_nodes, true>(
+          leaf_node_id = evaluate_tree<has_vector_leaves, has_categorical_nodes>(
               forest.get_tree_root(tree_index),
               input_data + row_index * col_count,
               forest.get_tree_root(0),
@@ -186,13 +186,13 @@ infer_kernel(
         }
       } else {
         if constexpr (has_nonlocal_categories) {
-          tree_output = evaluate_tree<has_vector_leaves, false>(
+          tree_output = evaluate_tree<has_vector_leaves>(
               forest.get_tree_root(tree_index),
               input_data + row_index * col_count,
               categorical_data
           );
         } else {
-          tree_output = evaluate_tree<has_vector_leaves, has_categorical_nodes, false>(
+          tree_output = evaluate_tree<has_vector_leaves, has_categorical_nodes>(
               forest.get_tree_root(tree_index),
               input_data + row_index * col_count
           );
