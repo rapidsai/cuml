@@ -554,6 +554,8 @@ fixture_union(
 
 def test_train_cpu_infer_cpu(test_data):
     cuEstimator = test_data["cuEstimator"]
+    if cuEstimator is Lasso:
+        pytest.skip("https://github.com/rapidsai/cuml/issues/5298")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("cpu"):
         if "y_train" in test_data:

@@ -460,6 +460,16 @@ void compute_all_points_membership_vectors(
   raft::distance::DistanceType metric,
   float* membership_vec);
 
+void compute_membership_vector(const raft::handle_t& handle,
+                               HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                               HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+                               const float* X,
+                               const float* points_to_predict,
+                               size_t n_prediction_points,
+                               int min_samples,
+                               raft::distance::DistanceType metric,
+                               float* membership_vec);
+
 void out_of_sample_predict(const raft::handle_t& handle,
                            HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
                            HDBSCAN::Common::PredictionData<int, float>& prediction_data,

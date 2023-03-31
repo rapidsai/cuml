@@ -28,7 +28,7 @@
 #include <iostream>
 #include <raft/core/handle.hpp>
 
-#if defined RAFT_DISTANCE_COMPILED
+#if defined RAFT_COMPILED
 #include <raft/spatial/knn/specializations.cuh>
 #endif
 
