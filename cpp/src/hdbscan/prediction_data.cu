@@ -153,7 +153,6 @@ void generate_prediction_data(const raft::handle_t& handle,
   rmm::device_uvector<int> is_exemplar(n_leaves, stream);
   rmm::device_uvector<int> exemplar_idx(n_leaves, stream);
   rmm::device_uvector<int> exemplar_label_offsets(n_selected_clusters + 1, stream);
-  rmm::device_uvector<int> selected_clusters(n_selected_clusters, stream);
 
   // classify whether or not a point is an exemplar point using the death values
   auto exemplar_op = [is_exemplar = is_exemplar.data(),
