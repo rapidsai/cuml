@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,6 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/linalg/norm.cuh>
 #include <raft/matrix/argmax.cuh>
 #include <raft/util/fast_int_div.cuh>
 
@@ -44,15 +43,8 @@
 #include <cmath>
 #include <limits>
 
-#include <thrust/copy.h>
 #include <thrust/execution_policy.h>
-#include <thrust/fill.h>
-#include <thrust/iterator/discard_iterator.h>
-#include <thrust/reduce.h>
-#include <thrust/sequence.h>
-#include <thrust/sort.h>
 #include <thrust/transform.h>
-#include <thrust/unique.h>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -62,7 +54,7 @@ namespace HDBSCAN {
 namespace detail {
 namespace Predict {
 
-// This function is used for both -- all_points_membership_vectors and membership_vector
+// Computing distance based membership for points in the original clustering on which the clusterer was trained and new points outside of the training data.
 template <typename value_idx, typename value_t>
 void dist_membership_vector(const raft::handle_t& handle,
                             const value_t* X,
@@ -75,6 +67,7 @@ void dist_membership_vector(const raft::handle_t& handle,
                             value_idx* exemplar_label_offsets,
                             value_t* dist_membership_vec,
                             raft::distance::DistanceType metric,
+                            int batch_size,
                             bool softmax = false)
 {
   auto stream      = handle.get_stream();
@@ -86,34 +79,46 @@ void dist_membership_vector(const raft::handle_t& handle,
   raft::matrix::copyRows<value_t, value_idx, size_t>(
     X, n_exemplars, n, exemplars_dense.data(), exemplar_idx, n_exemplars, stream, true);
 
-  // compute the distances using raft API
-  rmm::device_uvector<value_t> dist(n_queries * n_exemplars, stream);
+  // compute the number of batches based on the batch size
+  value_idx n_batches;
 
-  switch (metric) {
-    case raft::distance::DistanceType::L2SqrtExpanded:
-      raft::distance::
-        distance<raft::distance::DistanceType::L2SqrtExpanded, value_t, value_t, value_t, int>(
-          handle, query, exemplars_dense.data(), dist.data(), n_queries, n_exemplars, n, true);
+  if (batch_size == 0) {
+    n_batches = 1;
+    batch_size = n_queries;
+  }
+  else {
+    n_batches = raft::ceildiv((int)n_queries, (int)batch_size);
+  }
+  for(value_idx bid = 0; bid < n_batches; bid++) {
+    value_idx batch_offset = bid * batch_size;
+    value_idx samples_per_batch = min(batch_size, (int)n_queries - batch_offset);
+    rmm::device_uvector<value_t> dist(samples_per_batch * n_exemplars, stream);
+
+     // compute the distances using raft API
+    switch (metric) {
+      case raft::distance::DistanceType::L2SqrtExpanded:
+        raft::distance::
+          distance<raft::distance::DistanceType::L2SqrtExpanded, value_t, value_t, value_t, int>(
+          handle, query + batch_offset * n, exemplars_dense.data(), dist.data(), samples_per_batch, n_exemplars, n, true);
       break;
     case raft::distance::DistanceType::L1:
       raft::distance::distance<raft::distance::DistanceType::L1, value_t, value_t, value_t, int>(
-        handle, query, exemplars_dense.data(), dist.data(), n_queries, n_exemplars, n, true);
+        handle, query + batch_offset * n, exemplars_dense.data(), dist.data(), samples_per_batch, n_exemplars, n, true);
       break;
     case raft::distance::DistanceType::CosineExpanded:
       raft::distance::
         distance<raft::distance::DistanceType::CosineExpanded, value_t, value_t, value_t, int>(
-          handle, query, exemplars_dense.data(), dist.data(), n_queries, n_exemplars, n, true);
+          handle, query + batch_offset * n, exemplars_dense.data(), dist.data(), samples_per_batch, n_exemplars, n, true);
       break;
     default: ASSERT(false, "Incorrect metric passed!");
   }
 
   // compute the minimum distances to exemplars of each cluster
-  value_idx n_elements = n_queries * n_selected_clusters;
+  value_idx n_elements = samples_per_batch * n_selected_clusters;
   auto min_dist = raft::make_device_vector<value_t, value_idx>(handle, n_elements);
 
-  // thrust::fill(exec_policy, min_dist.data_handle(), min_dist.data_handle + n_elements, );
-
   auto reduction_op = [dist = dist.data(),
+                       batch_offset,
                        divisor = raft::util::FastIntDiv(n_selected_clusters),
                        n_selected_clusters,
                        n_exemplars,
@@ -138,8 +143,8 @@ void dist_membership_vector(const raft::handle_t& handle,
   if (softmax) {
     thrust::transform(exec_policy,
                       min_dist.data_handle(),
-                      min_dist.data_handle() + n_queries * n_selected_clusters,
-                      dist_membership_vec,
+                      min_dist.data_handle() + samples_per_batch * n_selected_clusters,
+                      dist_membership_vec + batch_offset * n_selected_clusters,
                       [=] __device__(value_t val) {
                         if (val != 0) { return value_t(exp(1.0 / val)); }
                         return std::numeric_limits<value_t>::max();
@@ -150,17 +155,17 @@ void dist_membership_vector(const raft::handle_t& handle,
   else {
     thrust::transform(exec_policy,
                       min_dist.data_handle(),
-                      min_dist.data_handle() + n_queries * n_selected_clusters,
-                      dist_membership_vec,
+                      min_dist.data_handle() + samples_per_batch * n_selected_clusters,
+                      dist_membership_vec + batch_offset * n_selected_clusters,
                       [=] __device__(value_t val) {
                         if (val > 0) { return value_t(1.0 / val); }
                         return std::numeric_limits<value_t>::max() / n_selected_clusters;
                       });
   }
-
+  }
   // Normalize the obtained result to sum to 1.0
   Utils::normalize(dist_membership_vec, n_selected_clusters, n_queries, stream);
-};
+}
 
 template <typename value_idx, typename value_t, int tpb = 256>
 void all_points_outlier_membership_vector(
@@ -378,6 +383,7 @@ void prob_in_some_cluster(const raft::handle_t& handle,
  * @param[in] X all points (size m * n)
  * @param[in] metric distance metric
  * @param[out] membership_vec output membership vectors (size m * n_selected_clusters)
+ * @param[in] batch_size batch size to be used while computing distance based memberships
  */
 template <typename value_idx, typename value_t>
 void all_points_membership_vectors(const raft::handle_t& handle,
@@ -385,10 +391,15 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                                    Common::PredictionData<value_idx, value_t>& prediction_data,
                                    const value_t* X,
                                    raft::distance::DistanceType metric,
-                                   value_t* membership_vec)
+                                   value_t* membership_vec,
+                                   value_idx batch_size)
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
+
+  size_t m = prediction_data.n_rows;
+  size_t n = prediction_data.n_cols;
+  RAFT_EXPECTS(0 <= batch_size && batch_size <= m, "Invalid batch_size. batch_size should be >= 0 and <= the number of samples in the training data");
 
   auto parents    = condensed_tree.get_parents();
   auto children   = condensed_tree.get_children();
@@ -397,8 +408,6 @@ void all_points_membership_vectors(const raft::handle_t& handle,
   auto n_clusters = condensed_tree.get_n_clusters();
   auto n_leaves   = condensed_tree.get_n_leaves();
 
-  size_t m                       = prediction_data.n_rows;
-  size_t n                       = prediction_data.n_cols;
   value_idx n_selected_clusters  = prediction_data.get_n_selected_clusters();
   value_t* deaths                = prediction_data.get_deaths();
   value_idx* selected_clusters   = prediction_data.get_selected_clusters();
@@ -421,7 +430,8 @@ void all_points_membership_vectors(const raft::handle_t& handle,
                            prediction_data.get_exemplar_idx(),
                            prediction_data.get_exemplar_label_offsets(),
                            dist_membership_vec.data(),
-                           metric);
+                           metric,
+                           batch_size);
 
     rmm::device_uvector<value_t> merge_heights(m * n_selected_clusters, stream);
 
@@ -485,6 +495,7 @@ void all_points_membership_vectors(const raft::handle_t& handle,
  * @param[in] metric distance metric
  * @param[in] min_samples neighborhood size during training (includes self-loop)
  * @param[out] membership_vec output membership vectors (size n_prediction_points * n_selected_clusters)
+  * @param[in] batch_size batch size to be used while computing distance based memberships
  */
 template <typename value_idx, typename value_t, int tpb = 256>
 void membership_vector(const raft::handle_t& handle,
@@ -495,10 +506,12 @@ void membership_vector(const raft::handle_t& handle,
                        size_t n_prediction_points,
                        raft::distance::DistanceType metric,
                        int min_samples,
-                       value_t* membership_vec)
+                       value_t* membership_vec,
+                       value_idx batch_size)
 {
   RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
+  RAFT_EXPECTS(0 <= batch_size && batch_size <= n_prediction_points, "Invalid batch_size. batch_size should be >= 0 and <= the number of points to predict");
 
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
@@ -525,7 +538,8 @@ void membership_vector(const raft::handle_t& handle,
                          prediction_data.get_exemplar_idx(),
                          prediction_data.get_exemplar_label_offsets(),
                          dist_membership_vec.data(),
-                         raft::distance::DistanceType::L2SqrtExpanded);
+                         raft::distance::DistanceType::L2SqrtExpanded,
+                         batch_size);
 
   auto prediction_lambdas = raft::make_device_vector<value_t, value_idx>(handle, n_prediction_points);
   rmm::device_uvector<value_idx> min_mr_inds(n_prediction_points, stream);

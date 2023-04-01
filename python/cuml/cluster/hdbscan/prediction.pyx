@@ -94,7 +94,8 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
         PredictionData[int, float] &prediction_data_,
         float* X,
         DistanceType metric,
-        float* membership_vec)
+        float* membership_vec,
+        int batch_size)
     
     void compute_membership_vector(
         const handle_t& handle,
@@ -105,7 +106,8 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
         size_t n_prediction_points,
         int min_samples,
         DistanceType metric,
-        float* membership_vec);
+        float* membership_vec,
+        int batch_size);
 
     void out_of_sample_predict(const handle_t &handle,
                                CondensedHierarchy[int, float] &condensed_tree,
@@ -129,7 +131,7 @@ _metrics_mapping = {
 }
 
 
-def all_points_membership_vectors(clusterer):
+def all_points_membership_vectors(clusterer, batch_size=0):
 
     """
     Predict soft cluster membership vectors for all points in the
@@ -140,8 +142,14 @@ def all_points_membership_vectors(clusterer):
     Parameters
     ----------
     clusterer : HDBSCAN
-         A clustering object that has been fit to the data and
+        A clustering object that has been fit to the data and
         had ``prediction_data=True`` set.
+
+    batch_size : int, optional, default=0
+        Lowers memory requirement by computing distance-based membership in
+        smaller batches of points in the training data. Batch size of 0 uses
+        all of the training points, batch size of 1000 computes distances for
+        1000 points at a time.
 
     Returns
     -------
@@ -211,7 +219,8 @@ def all_points_membership_vectors(clusterer):
                                           deref(prediction_data_),
                                           <float*> input_ptr,
                                           _metrics_mapping[clusterer.metric],
-                                          <float*> membership_vec_ptr)
+                                          <float*> membership_vec_ptr,
+                                          batch_size)
 
     clusterer.handle.sync()
     return membership_vec.to_output(
@@ -220,7 +229,7 @@ def all_points_membership_vectors(clusterer):
                                          clusterer.n_clusters_))
 
 
-def membership_vector(clusterer, points_to_predict, convert_dtype=True):
+def membership_vector(clusterer, points_to_predict, batch_size=0, convert_dtype=True):
     """Predict soft cluster membership. The result produces a vector
     for each point in ``points_to_predict`` that gives a probability that
     the given point is a member of a cluster for each of the selected clusters
@@ -237,6 +246,12 @@ def membership_vector(clusterer, points_to_predict, convert_dtype=True):
         The new data points to predict cluster labels for. They should
         have the same dimensionality as the original dataset over which
         clusterer was fit.
+    
+    batch_size : int, optional, default=0
+        Lowers memory requirement by computing distance-based membership in
+        smaller batches of points in the training data. Batch size of 0 uses
+        all of the training points, batch size of 1000 computes distances for
+        1000 points at a time.
 
     Returns
     -------
@@ -290,6 +305,9 @@ def membership_vector(clusterer, points_to_predict, convert_dtype=True):
     if clusterer.n_clusters_ == 0:
         return np.zeros(n_prediction_points, dtype=np.float32)
 
+    if batch_size < 0 or batch_size > n_prediction_points:
+        raise ValueError("batch_size should be in integer that is >= 0 and <= the number of prediction points")
+
     if n_cols != clusterer.n_cols:
         raise ValueError('New points dimension does not match fit data!')
 
@@ -318,7 +336,8 @@ def membership_vector(clusterer, points_to_predict, convert_dtype=True):
                               n_prediction_points,
                               clusterer.min_samples,
                               _metrics_mapping[clusterer.metric],
-                              <float*> membership_vec_ptr)
+                              <float*> membership_vec_ptr,
+                              batch_size)
 
     clusterer.handle.sync()
     return membership_vec.to_output(

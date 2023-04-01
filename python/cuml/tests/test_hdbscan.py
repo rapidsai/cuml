@@ -531,6 +531,7 @@ def test_hdbscan_plots():
 @pytest.mark.parametrize("cluster_selection_epsilon", [0.0, 0.5])
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
+@pytest.mark.parametrize("batch_size", [0, 128])
 def test_all_points_membership_vectors_blobs(
     nrows,
     ncols,
@@ -540,6 +541,7 @@ def test_all_points_membership_vectors_blobs(
     min_cluster_size,
     allow_single_cluster,
     max_cluster_size,
+    batch_size,
 ):
     X, y = make_blobs(
         n_samples=nrows,
@@ -574,7 +576,7 @@ def test_all_points_membership_vectors_blobs(
 
     sk_agg.fit(cp.asnumpy(X))
 
-    cu_membership_vectors = all_points_membership_vectors(cuml_agg)
+    cu_membership_vectors = all_points_membership_vectors(cuml_agg, batch_size)
     cu_membership_vectors.sort(axis=1)
     sk_membership_vectors = hdbscan.all_points_membership_vectors(
         sk_agg
@@ -591,6 +593,7 @@ def test_all_points_membership_vectors_blobs(
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
 @pytest.mark.parametrize("connectivity", ["knn"])
+@pytest.mark.parametrize("batch_size", [0, 128])
 def test_all_points_membership_vectors_moons(
     nrows,
     min_samples,
@@ -600,6 +603,7 @@ def test_all_points_membership_vectors_moons(
     allow_single_cluster,
     max_cluster_size,
     connectivity,
+    batch_size,
 ):
 
     X, y = datasets.make_moons(n_samples=nrows, noise=0.05, random_state=42)
@@ -630,7 +634,7 @@ def test_all_points_membership_vectors_moons(
 
     sk_agg.fit(X)
 
-    cu_membership_vectors = all_points_membership_vectors(cuml_agg)
+    cu_membership_vectors = all_points_membership_vectors(cuml_agg, batch_size)
     sk_membership_vectors = hdbscan.all_points_membership_vectors(
         sk_agg
     ).astype("float32")
@@ -646,6 +650,7 @@ def test_all_points_membership_vectors_moons(
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
 @pytest.mark.parametrize("connectivity", ["knn"])
+@pytest.mark.parametrize("batch_size", [0, 128])
 def test_all_points_membership_vectors_circles(
     nrows,
     min_samples,
@@ -655,6 +660,7 @@ def test_all_points_membership_vectors_circles(
     allow_single_cluster,
     max_cluster_size,
     connectivity,
+    batch_size,
 ):
     X, y = datasets.make_circles(
         n_samples=nrows, factor=0.5, noise=0.05, random_state=42
@@ -686,7 +692,7 @@ def test_all_points_membership_vectors_circles(
 
     sk_agg.fit(X)
 
-    cu_membership_vectors = all_points_membership_vectors(cuml_agg)
+    cu_membership_vectors = all_points_membership_vectors(cuml_agg, batch_size)
     sk_membership_vectors = hdbscan.all_points_membership_vectors(
         sk_agg
     ).astype("float32")
@@ -975,6 +981,7 @@ def test_approximate_predict_digits(
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
+@pytest.mark.parametrize("batch_size", [0, 128])
 def test_membership_vector_blobs(
     nrows,
     n_points_to_predict,
@@ -985,6 +992,7 @@ def test_membership_vector_blobs(
     min_cluster_size,
     allow_single_cluster,
     max_cluster_size,
+    batch_size,
 ):
     X, y = make_blobs(
         n_samples=nrows,
@@ -1028,7 +1036,9 @@ def test_membership_vector_blobs(
 
     sk_agg.fit(cp.asnumpy(X))
 
-    cu_membership_vectors = membership_vector(cuml_agg, points_to_predict)
+    cu_membership_vectors = membership_vector(
+        cuml_agg, points_to_predict, batch_size
+    )
     cu_membership_vectors.sort(axis=1)
     sk_membership_vectors = hdbscan.membership_vector(
         sk_agg,
@@ -1047,6 +1057,7 @@ def test_membership_vector_blobs(
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
 @pytest.mark.parametrize("connectivity", ["knn"])
+@pytest.mark.parametrize("batch_size", [0, 16])
 def test_membership_vector_moons(
     nrows,
     n_points_to_predict,
@@ -1057,6 +1068,7 @@ def test_membership_vector_moons(
     allow_single_cluster,
     max_cluster_size,
     connectivity,
+    batch_size,
 ):
 
     X, y = datasets.make_moons(
@@ -1092,7 +1104,7 @@ def test_membership_vector_moons(
 
     sk_agg.fit(X_train)
 
-    cu_membership_vectors = membership_vector(cuml_agg, X_test)
+    cu_membership_vectors = membership_vector(cuml_agg, X_test, batch_size)
     sk_membership_vectors = hdbscan.membership_vector(sk_agg, X_test).astype(
         "float32"
     )
@@ -1109,6 +1121,7 @@ def test_membership_vector_moons(
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
 @pytest.mark.parametrize("connectivity", ["knn"])
+@pytest.mark.parametrize("batch_size", [0, 16])
 def test_membership_vector_circles(
     nrows,
     n_points_to_predict,
@@ -1119,6 +1132,7 @@ def test_membership_vector_circles(
     allow_single_cluster,
     max_cluster_size,
     connectivity,
+    batch_size,
 ):
     X, y = datasets.make_circles(
         n_samples=nrows + n_points_to_predict,
@@ -1156,7 +1170,7 @@ def test_membership_vector_circles(
 
     sk_agg.fit(X_train)
 
-    cu_membership_vectors = membership_vector(cuml_agg, X_test)
+    cu_membership_vectors = membership_vector(cuml_agg, X_test, batch_size)
     sk_membership_vectors = hdbscan.membership_vector(sk_agg, X_test).astype(
         "float32"
     )
