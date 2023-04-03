@@ -1321,6 +1321,247 @@ TYPED_TEST(SmoSolverTest, DISABLED_MillionRows)
 }
 
 template <typename math_t>
+void initializeTestMatrix(const raft::handle_t& handle,
+                          MLCommon::Matrix::Matrix<math_t>& matrix,
+                          int n_rows,
+                          int n_cols,
+                          math_t* y)
+{
+  auto stream     = handle.get_stream();
+  int nnz_per_row = std::max(n_cols / n_rows, 1);
+
+  assert(n_cols % n_rows * n_rows % n_cols == 0);
+
+  /*
+  1 0 0 1 0 0
+  0 1 0 0 1 0
+  0 0 1 0 0 1
+
+  1 0 0
+  0 1 0
+  0 0 1
+  1 0 0
+  0 1 0
+  0 0 1
+
+  */
+  matrix.initialize_dimensions(handle, n_rows, n_cols);
+  if (matrix.is_dense()) {
+    auto dense_matrix = matrix.as_dense();
+    // fill col-major
+    thrust::device_ptr<math_t> data_ptr(dense_matrix->get_data());
+    auto one_or_zero = [n_rows, n_cols] __device__(const int& a) {
+      int cycle  = min(n_rows, n_cols);
+      int row_id = a % n_rows;
+      int col_id = a / n_rows;
+      return (row_id % cycle == col_id % cycle) ? (math_t)1 : (math_t)0;
+    };
+    thrust::transform(thrust::cuda::par.on(stream),
+                      thrust::make_counting_iterator<int>(0),
+                      thrust::make_counting_iterator<int>(n_rows * n_cols),
+                      data_ptr,
+                      one_or_zero);
+  } else {
+    auto csr_matrix = matrix.as_csr();
+    int nnz         = n_rows * nnz_per_row;
+    csr_matrix->initialize_sparsity(handle, nnz);
+
+    {
+      // init indptr with nnz_per_row
+      thrust::device_ptr<int> indptr_ptr(csr_matrix->get_indptr());
+      auto mul_x = [] __device__(const int& a, const int& b) { return a * b; };
+      thrust::transform(thrust::cuda::par.on(stream),
+                        thrust::make_counting_iterator<int>(0),
+                        thrust::make_counting_iterator<int>(n_rows + 1),
+                        thrust::make_constant_iterator<int>(nnz_per_row),
+                        indptr_ptr,
+                        mul_x);
+    }
+
+    // init indices/ data round-robin
+    {
+      thrust::device_ptr<int> indices_ptr(csr_matrix->get_indices());
+      auto one_or_zero = [n_rows, n_cols, nnz_per_row] __device__(const int& a) {
+        int cycle  = min(n_rows, n_cols);
+        int row_id = a / nnz_per_row;
+        int ith1   = a % nnz_per_row;
+        int col_id = ith1 * cycle + row_id % cycle;
+        return col_id;
+      };
+      thrust::transform(thrust::cuda::par.on(stream),
+                        thrust::make_counting_iterator<int>(0),
+                        thrust::make_counting_iterator<int>(nnz),
+                        indices_ptr,
+                        one_or_zero);
+    }
+
+    // init data to 1
+    {
+      thrust::device_ptr<math_t> data_ptr(csr_matrix->get_data());
+      thrust::fill(thrust::cuda::par.on(stream), data_ptr, data_ptr + nnz, (math_t)1);
+    }
+  }
+
+  // init y label to 1 for all that contain the first half of the features
+  {
+    thrust::device_ptr<math_t> label_ptr(y);
+    auto lable_hit = [n_rows, n_cols] __device__(const int& row) {
+      int cycle     = min(n_rows, n_cols);
+      int first_col = row % cycle;
+      return (first_col < cycle / 2) ? (math_t)1 : (math_t)0;
+    };
+    thrust::transform(thrust::cuda::par.on(stream),
+                      thrust::make_counting_iterator<int>(0),
+                      thrust::make_counting_iterator<int>(n_rows),
+                      label_ptr,
+                      lable_hit);
+  }
+
+  handle.sync_stream(stream);
+}
+
+TYPED_TEST(SmoSolverTest, DenseBatching)
+{
+  auto stream = this->handle.get_stream();
+  if (sizeof(TypeParam) == 8) {
+    GTEST_SKIP();  // Skip the test for double input
+  } else {
+    std::vector<blobInput> data{
+      {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 1000000, 4}},
+      {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 1000000, 4}},
+      {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 1000000, 4}},
+      {blobInput{1, 0.001, KernelParams{TANH, 3, 1, 0}, 1000000, 4}}};
+
+    for (auto input : data) {
+      SCOPED_TRACE(input);
+      // this will result in a big kernel tile of ~4GB which will result in batching
+      MLCommon::Matrix::DenseMatrix<TypeParam> dense_input(this->handle, 0, 0, 0);
+      rmm::device_uvector<TypeParam> y(input.n_rows, stream);
+      initializeTestMatrix(this->handle, dense_input, input.n_rows, input.n_cols, y.data());
+
+      SvmParameter param = getDefaultSvmParameter();
+      param.max_iter     = 2;
+
+      SvmModel<TypeParam> model;
+      TypeParam* sample_weights = nullptr;
+      svcFitX(
+        this->handle, dense_input, y.data(), param, input.kernel_params, model, sample_weights);
+
+      // TODO predict with subset csr & dense
+      rmm::device_uvector<TypeParam> y_pred(input.n_rows, stream);
+      svcPredictX(this->handle,
+                  dense_input,
+                  input.kernel_params,
+                  model,
+                  y_pred.data(),
+                  (TypeParam)200.0,
+                  false);
+
+      svmFreeBuffers(this->handle, model);
+    }
+  }
+}
+
+TYPED_TEST(SmoSolverTest, SparseBatching)
+{
+  auto stream = this->handle.get_stream();
+  if (sizeof(TypeParam) == 8) {
+    GTEST_SKIP();  // Skip the test for double input
+  } else {
+    std::vector<blobInput> data{
+      // sparse input with batching
+      {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 1000000, 4}},
+      {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 1000000, 4}},
+      {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 1000000, 4}},
+      {blobInput{1, 0.001, KernelParams{TANH, 3, 1, 0}, 1000000, 4}},
+      // sparse input with sparse row extraction (also sparse support)
+      {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 1000, 300000}},
+      {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 1000, 300000}},
+      {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 1000, 300000}},
+      {blobInput{1, 0.001, KernelParams{TANH, 3, 1, 0}, 1000, 300000}},
+      // sparse input with batching AND sparse row extraction (also sparse support)
+      {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 290000, 290000}},
+      {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 290000, 290000}},
+      {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 290000, 290000}},
+      {blobInput{1, 0.001, KernelParams{TANH, 3, 1, 0}, 290000, 290000}},
+      // sparse input with sparse support
+      {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 100000, 10000}},
+      {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100000, 10000}},
+      {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 100000, 10000}},
+      {blobInput{1, 0.001, KernelParams{TANH, 3, 1, 0}, 100000, 10000}}};
+
+    for (auto input : data) {
+      SCOPED_TRACE(input);
+
+      // this will result in a big kernel tile of ~4GB which will result in batching
+      MLCommon::Matrix::CsrMatrix<TypeParam> csr_input(this->handle, 0, 0, 0);
+      rmm::device_uvector<TypeParam> y(input.n_rows, stream);
+      initializeTestMatrix(this->handle, csr_input, input.n_rows, input.n_cols, y.data());
+
+      SvmParameter param = getDefaultSvmParameter();
+      param.max_iter     = 2;
+
+      SvmModel<TypeParam> model;
+      TypeParam* sample_weights = nullptr;
+      svcFitX(this->handle, csr_input, y.data(), param, input.kernel_params, model, sample_weights);
+
+      // predict with full input
+      rmm::device_uvector<TypeParam> y_pred(input.n_rows, stream);
+      svcPredictX(this->handle,
+                  csr_input,
+                  input.kernel_params,
+                  model,
+                  y_pred.data(),
+                  (TypeParam)200.0,
+                  false);
+      MLCommon::devArrMatch(
+        y.data(), y_pred.data(), input.n_rows, MLCommon::CompareApprox<TypeParam>(1e-6), stream);
+
+      // predict with subset csr & dense for all edge cases
+      if (!model.support_matrix->is_dense()) {
+        int n_extract = 100;
+        rmm::device_uvector<int> sequence(n_extract, stream);
+        MLCommon::Matrix::CsrMatrix<TypeParam> csr_subset(this->handle, 0, 0, 0);
+        MLCommon::Matrix::DenseMatrix<TypeParam> dense_subset(this->handle, 0, 0);
+        {
+          thrust::device_ptr<int> sequence_ptr(sequence.data());
+          thrust::sequence(
+            thrust::cuda::par.on(stream), sequence_ptr, sequence_ptr + n_extract, (int)0);
+          ML::SVM::extractRows<TypeParam>(
+            csr_input, csr_subset, sequence.data(), n_extract, this->handle);
+          ML::SVM::extractRows<TypeParam>(
+            csr_input, dense_subset, sequence.data(), n_extract, this->handle);
+        }
+        rmm::device_uvector<TypeParam> y_pred_csr(n_extract, stream);
+        rmm::device_uvector<TypeParam> y_pred_dense(n_extract, stream);
+        // also reduce buffer memory to ensure batching
+        svcPredictX(this->handle,
+                    csr_subset,
+                    input.kernel_params,
+                    model,
+                    y_pred_csr.data(),
+                    (TypeParam)50.0,
+                    false);
+        svcPredictX(this->handle,
+                    dense_subset,
+                    input.kernel_params,
+                    model,
+                    y_pred_dense.data(),
+                    (TypeParam)50.0,
+                    false);
+        MLCommon::devArrMatch(y_pred_csr.data(),
+                              y_pred_dense.data(),
+                              n_extract,
+                              MLCommon::CompareApprox<TypeParam>(1e-6),
+                              stream);
+      }
+
+      svmFreeBuffers(this->handle, model);
+    }
+  }
+}
+
+template <typename math_t>
 struct SvrInput {
   SvmParameter param;
   KernelParams kernel;
