@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 #pragma once
-#include <stddef.h>
+#include <cstddef>
+#include <type_traits>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/node.hpp>
@@ -29,6 +30,12 @@ template <tree_layout layout_v, typename threshold_t, typename index_t, typename
 struct forest {
   using node_type = node<layout_v, threshold_t, index_t, metadata_storage_t, offset_t>;
   using io_type = threshold_t;
+  template <typename vector_output_t>
+  using raw_output_type = std::conditional_t<
+      !std::is_same_v<vector_output_t, std::nullptr_t>,
+      std::remove_pointer_t<vector_output_t>,
+      typename node_type::threshold_type
+  >;
 
   HOST DEVICE forest(node_type* forest_nodes, index_type* forest_root_indexes, index_type num_trees) :
     nodes_{forest_nodes}, root_node_indexes_{forest_root_indexes}, num_trees_{num_trees} {}

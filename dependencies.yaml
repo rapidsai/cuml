@@ -130,7 +130,6 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cudf==23.4.*
-          - cupy>=9.5.0,<12.0.0a0
           - dask>=2023.1.1
           - dask-cuda==23.4.*
           - dask-cudf==23.4.*
@@ -144,8 +143,12 @@ dependencies:
           - scipy
           - raft-dask==23.4.*
           - *treelite
+      - output_types: [conda, requirements]
+        packages:
+          - cupy>=9.5.0,<12.0.0a0
       - output_types: pyproject
         packages:
+          - &cupy_pip cupy-cuda11x>=9.5.0,<12.0.0a0
           - *treelite_runtime
     specific:
       - output_types: requirements

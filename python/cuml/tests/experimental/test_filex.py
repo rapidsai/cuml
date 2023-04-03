@@ -40,6 +40,7 @@ from sklearn.ensemble import (
 )
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
+import treelite
 
 
 if has_xgboost():
@@ -688,3 +689,88 @@ def test_lightgbm(
                 fm.predict_proba(X_predict),
                 atol=proba_atol[num_classes > 2],
             )
+
+
+@pytest.mark.parametrize("train_device", ("cpu", "gpu"))
+@pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
+@pytest.mark.parametrize("n_classes", [2, 5, 25])
+@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
+def test_predict_per_tree(train_device, infer_device, n_classes, tmp_path):
+    n_rows = 1000
+    n_columns = 30
+    num_boost_round = 10
+
+    with using_device_type(train_device):
+        X, y = simulate_data(
+            n_rows,
+            n_columns,
+            n_classes,
+            random_state=0,
+            classification=True,
+        )
+
+        model_path = os.path.join(tmp_path, "xgb_class.model")
+
+        xgboost_params = {"base_score": (0.5 if n_classes == 2 else 0.0)}
+        bst = _build_and_save_xgboost(
+            model_path,
+            X,
+            y,
+            num_rounds=num_boost_round,
+            classification=True,
+            n_classes=n_classes,
+            xgboost_params=xgboost_params,
+        )
+        fm = ForestInference.load(model_path, output_class=True)
+
+    with using_device_type(infer_device):
+        pred_per_tree = fm.predict_per_tree(X)
+        margin_pred = bst.predict(xgb.DMatrix(X), output_margin=True)
+        if n_classes == 2:
+            assert pred_per_tree.shape == (n_rows, num_boost_round)
+            sum_by_class = np.sum(pred_per_tree, axis=1)
+        else:
+            assert pred_per_tree.shape == (n_rows, num_boost_round * n_classes)
+            sum_by_class = np.column_stack(
+                tuple(
+                    np.sum(pred_per_tree[:, class_id::n_classes], axis=1)
+                    for class_id in range(n_classes)
+                )
+            )
+        np.testing.assert_almost_equal(sum_by_class, margin_pred, decimal=3)
+
+
+@pytest.mark.parametrize("train_device", ("cpu", "gpu"))
+@pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
+@pytest.mark.parametrize("n_classes", [5, 25])
+@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
+def test_predict_per_tree_with_vector_leaf(
+    train_device, infer_device, n_classes, tmp_path
+):
+    n_rows = 1000
+    n_columns = 30
+    n_estimators = 10
+
+    with using_device_type(train_device):
+        X, y = simulate_data(
+            n_rows,
+            n_columns,
+            n_classes,
+            random_state=0,
+            classification=True,
+        )
+
+        skl_model = RandomForestClassifier(
+            max_depth=3, random_state=0, n_estimators=n_estimators
+        )
+        skl_model.fit(X, y)
+        fm = ForestInference.load_from_sklearn(
+            skl_model, precision="native", output_class=True
+        )
+
+    with using_device_type(infer_device):
+        pred_per_tree = fm.predict_per_tree(X)
+        margin_pred = skl_model.predict_proba(X)
+        assert pred_per_tree.shape == (n_rows, n_estimators, n_classes)
+        avg_by_class = np.sum(pred_per_tree, axis=1) / n_estimators
+        np.testing.assert_almost_equal(avg_by_class, margin_pred, decimal=3)

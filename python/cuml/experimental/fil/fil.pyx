@@ -34,7 +34,6 @@ from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
 from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport cuda_stream as raft_proto_stream_t
 from cuml.experimental.fil.detail.raft_proto.device_type cimport device_type as raft_proto_device_t
 from cuml.experimental.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
-from cuml.experimental.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
 from cuml.experimental.fil.detail.raft_proto.optional cimport optional, nullopt
 from cuml.internals import set_api_output_dtype
 from cuml.internals.base import UniversalBase
@@ -43,9 +42,19 @@ from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from pylibraft.common.handle cimport handle_t as raft_handle_t
 
-cdef extern from "treelite/c_api.h":
-    ctypedef void* ModelHandle
-
+cdef raft_proto_device_t get_device_type(arr):
+    cdef raft_proto_device_t dev
+    if arr.is_device_accessible:
+        if (
+            GlobalSettings().device_type == DeviceType.host
+            and arr.is_host_accessible
+        ):
+            dev = raft_proto_device_t.cpu
+        else:
+            dev = raft_proto_device_t.gpu
+    else:
+        dev = raft_proto_device_t.cpu
+    return dev
 
 cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experimental::fil":
     cdef cppclass forest_model:
@@ -56,11 +65,14 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
             size_t,
             raft_proto_device_t,
             raft_proto_device_t,
+            infer_kind,
             optional[uint32_t]
         ) except +
 
         bool is_double_precision() except +
         size_t num_outputs() except +
+        size_t num_trees() except +
+        bool has_vector_leaves() except +
         row_op row_postprocessing() except +
         element_op elem_postprocessing() except +
 
@@ -147,6 +159,9 @@ cdef class ForestInference_impl():
     def num_outputs(self):
         return self.model.num_outputs()
 
+    def num_trees(self):
+        return self.model.num_trees()
+
     def row_postprocessing(self):
         enum_val = self.model.row_postprocessing()
         if enum_val == row_op.row_disable:
@@ -171,10 +186,11 @@ cdef class ForestInference_impl():
         elif enum_val == element_op.logarithm_one_plus_exp:
             return "logarithm_one_plus_exp"
 
-    def predict(
+    def _predict(
             self,
             X,
             *,
+            predict_type="default",
             preds=None,
             chunk_size=None,
             output_dtype=None):
@@ -189,42 +205,36 @@ cdef class ForestInference_impl():
             check_dtype=model_dtype
         )
         cdef raft_proto_device_t in_dev
-        if in_arr.is_device_accessible:
-            if (
-                GlobalSettings().device_type == DeviceType.host
-                and in_arr.is_host_accessible
-            ):
-                in_dev = raft_proto_device_t.cpu
-            else:
-                in_dev = raft_proto_device_t.gpu
-        else:
-            in_dev = raft_proto_device_t.cpu
-
+        in_dev = get_device_type(in_arr)
         in_ptr = in_arr.ptr
 
         cdef uintptr_t out_ptr
+        cdef infer_kind infer_type_enum
+        if predict_type == "default":
+            infer_type_enum = infer_kind.default_kind
+            output_shape = (n_rows, self.model.num_outputs())
+        elif predict_type == "per_tree":
+            infer_type_enum = infer_kind.per_tree
+            if self.model.has_vector_leaves():
+                output_shape = (n_rows, self.model.num_trees(), self.model.num_outputs())
+            else:
+                output_shape = (n_rows, self.model.num_trees())
+        else:
+            raise ValueError(f"Unrecognized predict_type: {predict_type}")
         if preds is None:
             preds = CumlArray.empty(
-                (n_rows, self.model.num_outputs()),
+                output_shape,
                 model_dtype,
                 order='C',
                 index=in_arr.index
             )
         else:
             # TODO(wphicks): Handle incorrect dtype/device/layout in C++
+            if preds.shape != output_shape:
+                raise ValueError(f"If supplied, preds argument must have shape {output_shape}")
             preds.index = in_arr.index
         cdef raft_proto_device_t out_dev
-        if preds.is_device_accessible:
-            if (
-                GlobalSettings().device_type == DeviceType.host
-                and preds.is_host_accessible
-            ):
-                out_dev = raft_proto_device_t.cpu
-            else:
-                out_dev = raft_proto_device_t.gpu
-        else:
-            out_dev = raft_proto_device_t.cpu
-
+        out_dev = get_device_type(preds)
         out_ptr = preds.ptr
 
         cdef optional[uint32_t] chunk_specification
@@ -241,6 +251,7 @@ cdef class ForestInference_impl():
                 n_rows,
                 out_dev,
                 in_dev,
+                infer_type_enum,
                 chunk_specification
             )
         else:
@@ -251,12 +262,29 @@ cdef class ForestInference_impl():
                 n_rows,
                 in_dev,
                 out_dev,
+                infer_type_enum,
                 chunk_specification
             )
 
         self.raft_proto_handle.synchronize()
 
         return preds
+
+    def predict(
+            self,
+            X,
+            *,
+            predict_type="default",
+            preds=None,
+            chunk_size=None,
+            output_dtype=None):
+        return self._predict(
+            X,
+            predict_type=predict_type,
+            preds=preds,
+            chunk_size=chunk_size,
+            output_dtype=output_dtype
+        )
 
 def _handle_legacy_fil_args(func):
     @functools.wraps(func)
@@ -652,6 +680,12 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             return self.cpu_forest
         else:
             raise DeviceTypeError("Unsupported device type for FIL")
+
+    def num_outputs(self):
+        return self.forest.num_outputs()
+
+    def num_trees(self):
+        return self.forest.num_trees()
 
     @classmethod
     @_handle_legacy_fil_args
@@ -1139,5 +1173,58 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                 return preds
         else:
             return self.forest.predict(
-                X, preds=preds, chunk_size=chunk_size
+                X, predict_type="default", preds=preds, chunk_size=chunk_size
             )
+
+    @nvtx.annotate(
+        message='ForestInference.predict_per_tree',
+        domain='cuml_python'
+    )
+    def predict_per_tree(
+            self,
+            X,
+            *,
+            preds=None,
+            chunk_size=None) -> CumlArray:
+        """
+        Output prediction of each tree.
+        This function computes one or more margin scores per tree.
+
+        Parameters
+        ----------
+        X
+            The input data of shape Rows X Features. This can be a numpy
+            array, cupy array, Pandas/cuDF Dataframe or any other array type
+            accepted by cuML. FIL is optimized for C-major arrays (e.g.
+            numpy/cupy arrays). Inputs whose datatype does not match the
+            precision of the loaded model (float/double) will be converted
+            to the correct datatype before inference. If this input is in a
+            memory location that is inaccessible to the current device type
+            (as set with e.g. the `using_device_type` context manager),
+            it will be copied to the correct location. This copy will be
+            distributed across as many CUDA streams as are available
+            in the stream pool of the model's RAFT handle.
+        preds
+            If non-None, outputs will be written in-place to this array.
+            Therefore, if given, this should be a C-major array of shape
+            n_rows * n_trees * n_outputs (if vector leaf is used) or
+            shape n_rows * n_trees (if scalar leaf is used).
+            Classes with a datatype (float/double) corresponding to the
+            precision of the model. If None, an output array of the correct
+            shape and type will be allocated and returned.
+        chunk_size : int
+            The number of rows to simultaneously process in one iteration
+            of the inference algorithm. Batches are further broken down into
+            "chunks" of this size when assigning available threads to tasks.
+            The choice of chunk size can have a substantial impact on
+            performance, but the optimal choice depends on model and
+            hardware and is difficult to predict a priori. In general,
+            larger batch sizes benefit from larger chunk sizes, and smaller
+            batch sizes benefit from small chunk sizes. On GPU, valid
+            values are powers of 2 from 1 to 32. On CPU, valid values are
+            any power of 2, but little benefit is expected above a chunk size
+            of 512.
+        """
+        return self.forest.predict(
+            X, predict_type="per_tree", preds=preds, chunk_size=chunk_size
+        )
