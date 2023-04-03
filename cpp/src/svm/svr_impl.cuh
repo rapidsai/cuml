@@ -29,7 +29,6 @@
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <raft/core/handle.hpp>
-#include <raft/distance/detail/matrix/matrix.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
@@ -42,15 +41,15 @@ namespace SVM {
 
 template <typename math_t>
 void svrFitX(const raft::handle_t& handle,
-            const Matrix<math_t>& matrix,
-            math_t* y,
-            const SvmParameter& param,
-            raft::distance::kernels::KernelParams& kernel_params,
-            SvmModel<math_t>& model,
-            const math_t* sample_weight)
+             const MLCommon::Matrix::Matrix<math_t>& matrix,
+             math_t* y,
+             const SvmParameter& param,
+             raft::distance::kernels::KernelParams& kernel_params,
+             SvmModel<math_t>& model,
+             const math_t* sample_weight)
 {
-  int n_cols = matrix.n_cols;
-  int n_rows = matrix.n_rows;
+  int n_cols = matrix.get_n_cols();
+  int n_rows = matrix.get_n_rows();
 
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");
@@ -91,7 +90,7 @@ void svrFit(const raft::handle_t& handle,
             SvmModel<math_t>& model,
             const math_t* sample_weight)
 {
-  DenseMatrix<math_t> dense_matrix(X, n_rows, n_cols);
+  MLCommon::Matrix::DenseMatrix<math_t> dense_matrix(X, n_rows, n_cols);
   svrFitX(handle, dense_matrix, y, param, kernel_params, model, sample_weight);
 }
 

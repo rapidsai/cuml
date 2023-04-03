@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cuml/common/logger.hpp>
-#include <raft/distance/detail/matrix/matrix.hpp>
 
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
@@ -71,8 +70,6 @@ struct select_at_index : public thrust::unary_function<int, math_t> {
   __device__ math_t operator()(const int& i) const { return dot_[i]; }
 };
 }  // namespace
-
-using namespace raft::distance::matrix::detail;
 
 /**
  * @brief Solve the quadratic optimization problem using two level decomposition
@@ -156,12 +153,17 @@ class SmoSolver {
                       select_at_index(source));
   }
 
-  void ModululoWsIndex(int* target, const int* source, int size, int modulo) {
-    thrust::device_ptr<int> source_ptr(const_cast<int *>(source));
+  void ModululoWsIndex(int* target, const int* source, int size, int modulo)
+  {
+    thrust::device_ptr<int> source_ptr(const_cast<int*>(source));
     thrust::device_ptr<int> target_ptr(target);
-    thrust::transform(thrust::cuda::par.on(stream), source_ptr, source_ptr + size, thrust::make_constant_iterator(modulo), target_ptr, thrust::modulus<int>());
+    thrust::transform(thrust::cuda::par.on(stream),
+                      source_ptr,
+                      source_ptr + size,
+                      thrust::make_constant_iterator(modulo),
+                      target_ptr,
+                      thrust::modulus<int>());
   }
-
 
 #define SMO_WS_SIZE 1024
   /**
@@ -170,7 +172,7 @@ class SmoSolver {
    * The output arrays (dual_coefs, support_matrix, idx) will be allocated on the
    * device, they should be unallocated on entry.
    *
-   * @param [in] matrix training vectors in matrix format(raft::distance::matrix::detail::Matrix),
+   * @param [in] matrix training vectors in matrix format(MLCommon::Matrix::Matrix),
    * size [n_rows x * n_cols]
    * @param [in] n_rows number of rows (training vectors)
    * @param [in] n_cols number of columns (features)
@@ -185,14 +187,14 @@ class SmoSolver {
    * @param [in] max_outer_iter maximum number of outer iteration (default 100 * n_rows)
    * @param [in] max_inner_iter maximum number of inner iterations (default 10000)
    */
-  void Solve(const Matrix<math_t>& matrix,
+  void Solve(const MLCommon::Matrix::Matrix<math_t>& matrix,
              int n_rows,
              int n_cols,
              math_t* y,
              const math_t* sample_weight,
              math_t** dual_coefs,
              int* n_support,
-             Matrix<math_t>** support_matrix,
+             MLCommon::Matrix::Matrix<math_t>** support_matrix,
              int** idx,
              math_t* b,
              int max_outer_iter = -1,
@@ -214,9 +216,10 @@ class SmoSolver {
     bool keep_going       = true;
 
     // dense input matrices should be col-major with default ld
-    if (matrix.isDense()) {
-      ASSERT(!matrix.asDense()->is_row_major, "Input matrix should be column major");
-      ASSERT(matrix.asDense()->ld == matrix.n_rows, "Input matrix ld should be default n_rows");
+    if (matrix.is_dense()) {
+      ASSERT(!matrix.as_dense()->is_row_major(), "Input matrix should be column major");
+      ASSERT(matrix.as_dense()->get_ld() == matrix.get_n_rows(),
+             "Input matrix ld should be default n_rows");
     }
 
     // 1. SOLVE:
@@ -242,7 +245,7 @@ class SmoSolver {
 
     // TODO/FIXME choose something based on user input/device information?
     bool batching_enabled = false;
-    bool is_csr           = !matrix.isDense();
+    bool is_csr           = !matrix.is_dense();
     bool sparse_extract   = false;
     int batch_size_base   = n_rows;
 
@@ -270,22 +273,21 @@ class SmoSolver {
     rmm::device_uvector<int> ws_idx_mod(svmType == EPSILON_SVR ? n_ws : 0, stream);
 
     // tmp storage for row extractions
-    ResizableCsrMatrix<math_t> x_ws_csr(0, 0, 0, stream);
-    rmm::device_uvector<math_t> x_ws_data(sparse_extract ? 0 : n_ws * n_cols, stream);
-    DenseMatrix<math_t> x_ws_dense(x_ws_data.data(), 0, 0);
-    Matrix<math_t>* x_ws_matrix = nullptr;
+    MLCommon::Matrix::CsrMatrix<math_t> x_ws_csr(handle, 0, 0, 0);
+    MLCommon::Matrix::DenseMatrix<math_t> x_ws_dense(handle, 0, 0);
+    MLCommon::Matrix::Matrix<math_t>* x_ws_matrix = nullptr;
     if (sparse_extract)
       x_ws_matrix = &x_ws_csr;
     else
       x_ws_matrix = &x_ws_dense;
 
-    // store matrix dot product for RBF kernels
-    rmm::device_uvector<math_t> matrix_dot(0, stream);
-    rmm::device_uvector<math_t> matrix_dot_ws(0, stream);
+    // store matrix l2 norm for RBF kernels
+    rmm::device_uvector<math_t> matrix_l2(0, stream);
+    rmm::device_uvector<math_t> matrix_l2_ws(0, stream);
     if (kernel_type == raft::distance::kernels::KernelType::RBF) {
-      matrix_dot.reserve(n_rows, stream);
-      matrix_dot_ws.reserve(n_ws, stream);
-      ML::SVM::matrixRowNorm(matrix, matrix_dot.data(), raft::linalg::NormType::L2Norm, stream);
+      matrix_l2.reserve(n_rows, stream);
+      matrix_l2_ws.reserve(n_ws, stream);
+      ML::SVM::matrixRowNorm(handle, matrix, matrix_l2.data(), raft::linalg::NormType::L2Norm);
     }
 
     // additional row pointer information needed for batched CSR access
@@ -295,7 +297,7 @@ class SmoSolver {
     if (is_csr && batching_enabled) {
       host_indptr.reserve(n_rows + 1);
       indptr_batched.reserve(batch_size_base + 1, stream);
-      raft::update_host(host_indptr.data(), matrix.asCsr()->indptr, n_rows + 1, stream);
+      raft::update_host(host_indptr.data(), matrix.as_csr()->get_indptr(), n_rows + 1, stream);
     }
 
     while (n_iter < max_outer_iter && keep_going) {
@@ -312,22 +314,23 @@ class SmoSolver {
         ModululoWsIndex(ws_idx_mod.data(), ws.GetIndices(), n_ws, n_rows);
         ws_indices_k = ws_idx_mod.data();
       }
-      ML::SVM::extractRows<math_t>(matrix, *x_ws_matrix, ws_indices_k, n_ws, stream);
+      ML::SVM::extractRows<math_t>(matrix, *x_ws_matrix, ws_indices_k, n_ws, handle);
 
       // extract dot array for RBF
       if (kernel_type == raft::distance::kernels::KernelType::RBF) {
-        selectValueSubset(matrix_dot_ws.data(), matrix_dot.data(), ws_indices_k, n_ws);
+        selectValueSubset(matrix_l2_ws.data(), matrix_l2.data(), ws_indices_k, n_ws);
       }
 
       // compute kernel
       {
-        DenseMatrix<math_t> kernel_matrix(kernel_tile.data(), n_ws, n_ws);
-        (*kernel)(*x_ws_matrix,
-                  *x_ws_matrix,
-                  kernel_matrix,
-                  handle,
-                  matrix_dot_ws.data(),
-                  matrix_dot_ws.data());
+        MLCommon::Matrix::DenseMatrix<math_t> kernel_matrix(kernel_tile.data(), n_ws, n_ws);
+        KernelOp(kernel,
+                 *x_ws_matrix,
+                 *x_ws_matrix,
+                 kernel_matrix,
+                 handle,
+                 matrix_l2_ws.data(),
+                 matrix_l2_ws.data());
       }
 
       raft::common::nvtx::pop_range();
@@ -350,7 +353,6 @@ class SmoSolver {
 
       raft::update_host(host_return_buff, return_buff.data(), 2, stream);
       raft::common::nvtx::pop_range();
-
       raft::common::nvtx::push_range("SmoSolver::UpdateF");
       int nnz_da;
       GetNonzeroDeltaAlpha(
@@ -359,10 +361,10 @@ class SmoSolver {
       // The following should be performed only for elements with nonzero delta_alpha
       if (nnz_da > 0) {
         raft::common::nvtx::push_range("SmoSolver::UpdateF::getNnzDaRows");
-        ML::SVM::extractRows<math_t>(matrix, *x_ws_matrix, nz_da_idx.data(), nnz_da, stream);
+        ML::SVM::extractRows<math_t>(matrix, *x_ws_matrix, nz_da_idx.data(), nnz_da, handle);
         // extract dot array for RBF
         if (kernel_type == raft::distance::kernels::KernelType::RBF) {
-          selectValueSubset(matrix_dot_ws.data(), matrix_dot.data(), nz_da_idx.data(), nnz_da);
+          selectValueSubset(matrix_l2_ws.data(), matrix_l2.data(), nz_da_idx.data(), nnz_da);
         }
 
         raft::common::nvtx::pop_range();
@@ -376,18 +378,18 @@ class SmoSolver {
             // compute batch kernel
             // (batch_size x n_cols) x (n_cols x nnz_da) --> (batch_size x nnz_da)
 
-            Matrix<math_t>* batch_matrix = nullptr;
-            if (matrix.isDense()) {
-              auto dense_matrix = matrix.asDense();
-              batch_matrix =
-                new DenseMatrix(dense_matrix->data + offset, batch_size, n_cols, false, n_rows);
+            MLCommon::Matrix::Matrix<math_t>* batch_matrix = nullptr;
+            if (matrix.is_dense()) {
+              auto dense_matrix = matrix.as_dense();
+              batch_matrix      = new MLCommon::Matrix::DenseMatrix(
+                dense_matrix->get_data() + offset, batch_size, n_cols, false, n_rows);
             } else {
               // create indptr array for batch interval
               // indptr_batched = indices[offset, offset+batch_size+1] - indices[offset]
-              auto csr_matrix = matrix.asCsr();
+              auto csr_matrix = matrix.as_csr();
               int batch_nnz   = host_indptr[offset + batch_size] - host_indptr[offset];
               {
-                thrust::device_ptr<int> inptr_src(csr_matrix->indptr + offset);
+                thrust::device_ptr<int> inptr_src(csr_matrix->get_indptr() + offset);
                 thrust::device_ptr<int> inptr_tgt(indptr_batched.data());
                 thrust::transform(thrust::cuda::par.on(stream),
                                   inptr_src,
@@ -396,22 +398,25 @@ class SmoSolver {
                                   inptr_tgt,
                                   thrust::minus<int>());
               }
-              batch_matrix = new CsrMatrix(indptr_batched.data(),
-                                           csr_matrix->indices + host_indptr[offset],
-                                           csr_matrix->data + host_indptr[offset],
-                                           batch_nnz,
-                                           batch_size,
-                                           n_cols);
+              batch_matrix =
+                new MLCommon::Matrix::CsrMatrix(indptr_batched.data(),
+                                                csr_matrix->get_indices() + host_indptr[offset],
+                                                csr_matrix->get_data() + host_indptr[offset],
+                                                batch_nnz,
+                                                batch_size,
+                                                n_cols);
             }
 
             // compute kernel
-            DenseMatrix<math_t> kernel_matrix(kernel_tile_big.data(), batch_size, nnz_da);
-            (*kernel)(*batch_matrix,
-                      *x_ws_matrix,
-                      kernel_matrix,
-                      handle,
-                      matrix_dot.data() + offset,
-                      matrix_dot_ws.data());
+            MLCommon::Matrix::DenseMatrix<math_t> kernel_matrix(
+              kernel_tile_big.data(), batch_size, nnz_da);
+            KernelOp(kernel,
+                     *batch_matrix,
+                     *x_ws_matrix,
+                     kernel_matrix,
+                     handle,
+                     matrix_l2.data() + offset,
+                     matrix_l2_ws.data());
 
             RAFT_CUDA_TRY(cudaPeekAtLastError());
 
@@ -429,13 +434,18 @@ class SmoSolver {
           // no batching
           raft::common::nvtx::push_range("SmoSolver::UpdateF::generateKernel");
           // compute kernel
-          DenseMatrix<math_t> kernel_matrix(kernel_tile_big.data(), n_rows, nnz_da);
-          (*kernel)(
-            matrix, *x_ws_matrix, kernel_matrix, handle, matrix_dot.data(), matrix_dot_ws.data());
+          MLCommon::Matrix::DenseMatrix<math_t> kernel_matrix(
+            kernel_tile_big.data(), n_rows, nnz_da);
+          KernelOp(kernel,
+                   matrix,
+                   *x_ws_matrix,
+                   kernel_matrix,
+                   handle,
+                   matrix_l2.data(),
+                   matrix_l2_ws.data());
 
           RAFT_CUDA_TRY(cudaPeekAtLastError());
           raft::common::nvtx::pop_range();
-
           raft::common::nvtx::push_range("SmoSolver::UpdateF::updateAllRows");
           UpdateF(f.data(), n_rows, nz_da.data(), nnz_da, kernel_tile_big.data());
           RAFT_CUDA_TRY(cudaPeekAtLastError());
@@ -480,8 +490,8 @@ class SmoSolver {
              int max_outer_iter = -1,
              int max_inner_iter = 10000)
   {
-    DenseMatrix<math_t> dense_matrix(x, n_rows, n_cols);
-    DenseMatrix<math_t>* support_matrix_ptr;
+    MLCommon::Matrix::DenseMatrix<math_t> dense_matrix(x, n_rows, n_cols);
+    MLCommon::Matrix::Matrix<math_t>* support_matrix_ptr;
     Solve(dense_matrix,
           n_rows,
           n_cols,
@@ -489,12 +499,12 @@ class SmoSolver {
           sample_weight,
           dual_coefs,
           n_support,
-          (Matrix<math_t>**)&support_matrix_ptr,
+          &support_matrix_ptr,
           idx,
           b,
           max_outer_iter,
           max_inner_iter);
-    *x_support = support_matrix_ptr->data;
+    *x_support = support_matrix_ptr->as_dense()->get_data();
     delete support_matrix_ptr;
   }
 

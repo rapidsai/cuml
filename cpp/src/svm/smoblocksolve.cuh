@@ -154,8 +154,8 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
                                                        const math_t* C_vec,
                                                        math_t eps,
                                                        math_t* return_buff,
-                                                       int max_iter       = 10000,
-                                                       SvmType svmType    = C_SVC)
+                                                       int max_iter    = 10000,
+                                                       SvmType svmType = C_SVC)
 {
   typedef MLCommon::Selection::KVPair<math_t, int> Pair;
   typedef cub::BlockReduce<Pair, WSIZE> BlockReduce;
@@ -178,7 +178,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
 
   __shared__ math_t tmp_u, tmp_l;
   __shared__ math_t Kd[WSIZE];  // diagonal elements of the kernel matrix
-  
+
   int tid = threadIdx.x;
   int idx = ws_idx[tid];
 
@@ -201,8 +201,8 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
     Pair pair{f_tmp, tid};
     Pair res = BlockReduce(temp_storage.pair).Reduce(pair, cub::Min(), n_ws);
     if (tid == 0) {
-      f_u         = res.val;
-      u           = res.key;
+      f_u = res.val;
+      u   = res.key;
     }
     // select f_max to check stopping condition
     f_tmp = in_lower(a, y, C) ? f : -INFINITY;
@@ -230,9 +230,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
     }
     pair = Pair{f_tmp, tid};
     res  = BlockReduce(temp_storage.pair).Reduce(pair, cub::Max(), n_ws);
-    if (tid == 0) {
-      l           = res.key;
-    }
+    if (tid == 0) { l = res.key; }
     __syncthreads();
     math_t Kli = kernel[l * n_ws + tid];
 
@@ -271,10 +269,10 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
   // save results to global memory before exit
   alpha[idx] = a;
   // it is actually y * \Delta \alpha
-  
+
   // This is equivalent with: delta_alpha[tid] = (a - a_save) * y;
   delta_alpha[tid] = (a - a_save) * y;
-  
+
   // f is recalculated in f_update, therefore we do not need to save that
   return_buff[1] = n_iter;
 }

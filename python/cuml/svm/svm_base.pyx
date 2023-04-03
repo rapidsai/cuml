@@ -74,24 +74,22 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         double epsilon
         SvmType svmType
 
-cdef extern from "raft/distance/detail/matrix/matrix.hpp" namespace "raft::distance::matrix::detail":
+cdef extern from "cuml/matrix/matrix.h" namespace "MLCommon::Matrix":
     cdef cppclass Matrix[math_t]:
-        int n_rows
-        int n_cols
-        bool isDense()
-        DenseMatrix[math_t]* asDense()
-        CsrMatrix[math_t]* asCsr()
+        bool is_dense()
+        DenseMatrix[math_t]* as_dense()
+        CsrMatrix[math_t]* as_csr()
 
     cdef cppclass CsrMatrix[math_t](Matrix[math_t]):
-        int nnz;
-        int* indptr;
-        int* indices;
-        math_t* data;
+        int get_nnz();
+        int* get_indptr();
+        int* get_indices();
+        math_t* get_data();
         CsrMatrix(int* indptr, int* indices, math_t* data, int nnz, int rows, int cols) except +
 
     cdef cppclass DenseMatrix[math_t](Matrix[math_t]):
-        math_t* data;
-        bool is_row_major;
+        math_t* get_data();
+        bool is_row_major();
         DenseMatrix(math_t* data, int rows, int cols) except +
   
 
@@ -494,28 +492,28 @@ class SVMBase(Base,
                     order='F')
 
                 matrix_f = model_f.support_matrix
-                if matrix_f.isDense():
-                    dense_matrix_f=matrix_f.asDense()
+                if matrix_f.is_dense():
+                    dense_matrix_f=matrix_f.as_dense()
                     self.support_vectors_ = CumlArray(
-                        data=<uintptr_t>dense_matrix_f.data,
+                        data=<uintptr_t>dense_matrix_f.get_data(),
                         shape=(self.n_support_, self.n_cols),
                         dtype=self.dtype,
-                        order='C' if dense_matrix_f.is_row_major else 'F')
+                        order='C' if dense_matrix_f.is_row_major() else 'F')
                 else:
-                    csr_matrix_f=matrix_f.asCsr()
-                    indptr = CumlArray(data=<uintptr_t>csr_matrix_f.indptr,
+                    csr_matrix_f=matrix_f.as_csr()
+                    indptr = CumlArray(data=<uintptr_t>csr_matrix_f.get_indptr(),
                                        shape=(self.n_support_ + 1,),
                                        dtype=np.int32,
                                        order='F')
-                    indices = CumlArray(data=<uintptr_t>csr_matrix_f.indices,
-                                        shape=(csr_matrix_f.nnz,),
+                    indices = CumlArray(data=<uintptr_t>csr_matrix_f.get_indices(),
+                                        shape=(csr_matrix_f.get_nnz(),),
                                         dtype=np.int32,
                                         order='F')
-                    data = CumlArray(data=<uintptr_t>csr_matrix_f.data,
-                                     shape=(csr_matrix_f.nnz,),
+                    data = CumlArray(data=<uintptr_t>csr_matrix_f.get_data(),
+                                     shape=(csr_matrix_f.get_nnz(),),
                                      dtype=self.dtype,
                                      order='F')
-                    sparse_input = SparseCumlArrayInput(dtype=self.dtype, indptr=indptr, indices=indices, data=data, nnz=csr_matrix_f.nnz, shape=(self.n_support_, self.n_cols))
+                    sparse_input = SparseCumlArrayInput(dtype=self.dtype, indptr=indptr, indices=indices, data=data, nnz=csr_matrix_f.get_nnz(), shape=(self.n_support_, self.n_cols))
                     self.support_vectors_ = SparseCumlArray(data=sparse_input)
 
 
@@ -547,28 +545,28 @@ class SVMBase(Base,
                     order='F')
 
                 matrix_d = model_d.support_matrix
-                if matrix_d.isDense():
-                    dense_matrix_d=matrix_d.asDense()
+                if matrix_d.is_dense():
+                    dense_matrix_d=matrix_d.as_dense()
                     self.support_vectors_ = CumlArray(
-                        data=<uintptr_t>dense_matrix_d.data,
+                        data=<uintptr_t>dense_matrix_d.get_data(),
                         shape=(self.n_support_, self.n_cols),
                         dtype=self.dtype,
-                        order='C' if dense_matrix_d.is_row_major else 'F')
+                        order='C' if dense_matrix_d.is_row_major() else 'F')
                 else:
-                    csr_matrix_d=matrix_d.asCsr()
-                    indptr = CumlArray(data=<uintptr_t>csr_matrix_d.indptr,
+                    csr_matrix_d=matrix_d.as_csr()
+                    indptr = CumlArray(data=<uintptr_t>csr_matrix_d.get_indptr(),
                                        shape=(self.n_support_ + 1,),
                                        dtype=np.int32,
                                        order='F')
-                    indices = CumlArray(data=<uintptr_t>csr_matrix_d.indices,
-                                        shape=(csr_matrix_d.nnz,),
+                    indices = CumlArray(data=<uintptr_t>csr_matrix_d.get_indices(),
+                                        shape=(csr_matrix_d.get_nnz(),),
                                         dtype=np.int32,
                                         order='F')
-                    data = CumlArray(data=<uintptr_t>csr_matrix_d.data,
-                                     shape=(csr_matrix_d.nnz,),
+                    data = CumlArray(data=<uintptr_t>csr_matrix_d.get_data(),
+                                     shape=(csr_matrix_d.get_nnz(),),
                                      dtype=self.dtype,
                                      order='F')
-                    sparse_input = SparseCumlArrayInput(dtype=self.dtype, indptr=indptr, indices=indices, data=data, nnz=csr_matrix_d.nnz, shape=(self.n_support_, self.n_cols))
+                    sparse_input = SparseCumlArrayInput(dtype=self.dtype, indptr=indptr, indices=indices, data=data, nnz=csr_matrix_d.get_nnz(), shape=(self.n_support_, self.n_cols))
                     self.support_vectors_ = SparseCumlArray(data=sparse_input)
 
             self.n_classes_ = model_d.n_classes

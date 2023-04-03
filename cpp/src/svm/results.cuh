@@ -25,12 +25,10 @@
 #include "ws_util.cuh"
 #include <cub/device/device_select.cuh>
 #include <raft/core/handle.hpp>
-#include <raft/distance/detail/matrix/matrix.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
@@ -38,8 +36,6 @@
 
 namespace ML {
 namespace SVM {
-
-using namespace raft::distance::matrix::detail;
 
 template <typename math_t, typename Lambda>
 __global__ void set_flag(bool* flag, const math_t* alpha, int n, Lambda op)
@@ -56,22 +52,22 @@ class Results {
    * fitted using SMO.
    *
    * @param handle cuML handle implementation
-   * @param matrix training vectors in matrix format (raft::distance::matrix::detail::Matrix)
+   * @param matrix training vectors in matrix format (MLCommon::Matrix::Matrix)
    * @param y target labels (values +/-1), size [n_train]
    * @param n_rows number of training vectors
    * @param n_cols number of features
    * @param C penalty parameter
    */
   Results(const raft::handle_t& handle,
-          const Matrix<math_t>& matrix,
+          const MLCommon::Matrix::Matrix<math_t>& matrix,
           const math_t* y,
           const math_t* C,
           SvmType svmType)
     : rmm_alloc(rmm::mr::get_current_device_resource()),
       stream(handle.get_stream()),
       handle(handle),
-      n_rows(matrix.n_rows),
-      n_cols(matrix.n_cols),
+      n_rows(matrix.get_n_rows()),
+      n_cols(matrix.get_n_cols()),
       matrix(matrix),
       y(y),
       C(C),
@@ -114,7 +110,7 @@ class Results {
            math_t** dual_coefs,
            int* n_support,
            int** idx,
-           Matrix<math_t>** support_matrix,
+           MLCommon::Matrix::Matrix<math_t>** support_matrix,
            math_t* b)
   {
     CombineCoefs(alpha, val_tmp.data());
@@ -140,17 +136,16 @@ class Results {
    * @return pointer to a newly allocated device buffer that stores the support
    *   vectors, size [n_suppor*n_cols]
    */
-  Matrix<math_t>* CollectSupportVectorMatrix(const int* idx, int n_support)
+  MLCommon::Matrix::Matrix<math_t>* CollectSupportVectorMatrix(const int* idx, int n_support)
   {
-    Matrix<math_t>* support_matrix;
+    MLCommon::Matrix::Matrix<math_t>* support_matrix;
     // allow ~1GB dense support matrix
-    if (matrix.isDense() || (n_support * n_cols * sizeof(math_t) < (1 << 30))) {
-      math_t* x_support = (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
-      support_matrix    = new DenseMatrix<math_t>(x_support, n_support, n_cols);
+    if (matrix.is_dense() || (n_support * n_cols * sizeof(math_t) < (1 << 30))) {
+      support_matrix = new MLCommon::Matrix::DenseMatrix<math_t>(handle, 0, 0);
     } else {
-      support_matrix = new ResizableCsrMatrix<math_t>(0, 0, 0, stream);
+      support_matrix = new MLCommon::Matrix::CsrMatrix<math_t>(handle, 0, 0, 0);
     }
-    ML::SVM::extractRows<math_t>(matrix, *support_matrix, idx, n_support, stream);
+    ML::SVM::extractRows<math_t>(matrix, *support_matrix, idx, n_support, handle);
 
     return support_matrix;
   }
@@ -291,14 +286,14 @@ class Results {
   const raft::handle_t& handle;
   cudaStream_t stream;
 
-  int n_rows;                    //!< number of rows in the training vector matrix
-  int n_cols;                    //!< number of features
-  const Matrix<math_t>& matrix;  //!< training vector matrix
-  const math_t* y;               //!< labels
-  const math_t* C;               //!< penalty parameter
-  SvmType svmType;               //!< SVM problem type: SVC or SVR
-  int n_train;                   //!< number of training vectors (including duplicates for SVR)
-  const int TPB = 256;           // threads per block
+  int n_rows;                                      //!< number of rows in the training vector matrix
+  int n_cols;                                      //!< number of features
+  const MLCommon::Matrix::Matrix<math_t>& matrix;  //!< training vector matrix
+  const math_t* y;                                 //!< labels
+  const math_t* C;                                 //!< penalty parameter
+  SvmType svmType;                                 //!< SVM problem type: SVC or SVR
+  int n_train;          //!< number of training vectors (including duplicates for SVR)
+  const int TPB = 256;  // threads per block
   // Temporary variables used by cub in GetResults
   rmm::device_scalar<int> d_num_selected;
   rmm::device_scalar<math_t> d_val_reduced;

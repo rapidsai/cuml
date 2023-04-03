@@ -20,7 +20,6 @@
 #include "svm_parameter.h"
 #include <cuml/common/logger.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/distance/detail/matrix/matrix.hpp>
 #include <raft/distance/distance_types.hpp>
 
 // namespace raft {
@@ -64,7 +63,7 @@ void svcFit(const raft::handle_t& handle,
 
 template <typename math_t>
 void svcFitX(const raft::handle_t& handle,
-             const raft::distance::matrix::detail::Matrix<math_t>& matrix,
+             const MLCommon::Matrix::Matrix<math_t>& matrix,
              math_t* labels,
              const SvmParameter& param,
              raft::distance::kernels::KernelParams& kernel_params,
@@ -113,7 +112,7 @@ void svcPredict(const raft::handle_t& handle,
 
 template <typename math_t>
 void svcPredictX(const raft::handle_t& handle,
-                 const raft::distance::matrix::detail::Matrix<math_t>& matrix,
+                 const MLCommon::Matrix::Matrix<math_t>& matrix,
                  raft::distance::kernels::KernelParams& kernel_params,
                  const SvmModel<math_t>& model,
                  math_t* preds,

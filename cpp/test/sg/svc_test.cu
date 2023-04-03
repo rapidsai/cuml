@@ -54,7 +54,6 @@
 namespace ML {
 namespace SVM {
 using namespace raft::distance::kernels;
-using namespace raft::distance::matrix::detail;
 
 // Initialize device vector C_vec with scalar C
 template <typename math_t>
@@ -343,7 +342,7 @@ class GetResultsTest : public ::testing::Test {
     raft::update_device(alpha_dev.data(), alpha_host, n_rows, stream);
     rmm::device_uvector<math_t> C_dev(n_rows, stream);
     init_C(C, C_dev.data(), n_rows, stream);
-    DenseMatrix matrix_wrapper(x_dev.data(), n_rows, n_cols);
+    MLCommon::Matrix::DenseMatrix matrix_wrapper(x_dev.data(), n_rows, n_cols);
     Results<math_t> res(handle, matrix_wrapper, y_dev.data(), C_dev.data(), C_SVC);
     res.Get(alpha_dev.data(), f_dev.data(), &dual_coefs, &n_coefs, &idx, &support_matrix, &b);
 
@@ -356,11 +355,14 @@ class GetResultsTest : public ::testing::Test {
     int idx_exp[] = {2, 3, 4, 6, 7, 8, 9};
     EXPECT_TRUE(devArrMatchHost(idx_exp, idx, n_coefs, MLCommon::Compare<int>(), stream));
 
-    EXPECT_TRUE(support_matrix->isDense());
+    EXPECT_TRUE(support_matrix->is_dense());
 
     math_t x_support_exp[] = {3, 4, 5, 7, 8, 9, 10, 13, 14, 15, 17, 18, 19, 20};
-    EXPECT_TRUE(devArrMatchHost(
-      x_support_exp, support_matrix->asDense()->data, n_coefs * n_cols, MLCommon::CompareApprox<math_t>(1e-6f), stream));
+    EXPECT_TRUE(devArrMatchHost(x_support_exp,
+                                support_matrix->as_dense()->get_data(),
+                                n_coefs * n_cols,
+                                MLCommon::CompareApprox<math_t>(1e-6f),
+                                stream));
 
     EXPECT_FLOAT_EQ(b, -6.25f);
 
@@ -388,7 +390,7 @@ class GetResultsTest : public ::testing::Test {
   math_t* dual_coefs;
   int n_coefs;
   int* idx;
-  Matrix<math_t>* support_matrix;
+  MLCommon::Matrix::Matrix<math_t>* support_matrix;
   math_t b;
 };
 
@@ -637,9 +639,9 @@ void checkResults(SvmModel<math_t> model,
   EXPECT_LT(raft::abs(ay), ay_tol);
 
   if (x_support_exp) {
-    EXPECT_TRUE(model.support_matrix && model.support_matrix->isDense());
+    EXPECT_TRUE(model.support_matrix && model.support_matrix->is_dense());
     EXPECT_TRUE(devArrMatchHost(x_support_exp,
-                                model.support_matrix->asDense()->data,
+                                model.support_matrix->as_dense()->get_data(),
                                 model.n_support * model.n_cols,
                                 MLCommon::CompareApprox<math_t>(1e-6f),
                                 stream));
@@ -652,9 +654,11 @@ void checkResults(SvmModel<math_t> model,
 
   math_t* x_support_host = new math_t[model.n_support * model.n_cols];
   if (model.n_support * model.n_cols > 0) {
-    EXPECT_TRUE(model.support_matrix && model.support_matrix->isDense());
-    raft::update_host(
-      x_support_host, model.support_matrix->asDense()->data, model.n_support * model.n_cols, stream);
+    EXPECT_TRUE(model.support_matrix && model.support_matrix->is_dense());
+    raft::update_host(x_support_host,
+                      model.support_matrix->as_dense()->get_data(),
+                      model.n_support * model.n_cols,
+                      stream);
   }
   raft::interruptible::synchronize(stream);
 
@@ -858,12 +862,12 @@ class SmoSolverTest : public ::testing::Test {
   rmm::device_uvector<math_t> return_buff_dev;
   rmm::device_uvector<math_t> sample_weights_dev;
 
-  math_t x_host[12]  = {1, 2, 1, 2, 1, 2, 1, 1, 2, 2, 3, 3};
+  math_t x_host[12] = {1, 2, 1, 2, 1, 2, 1, 1, 2, 2, 3, 3};
 
   // csr representation
-  int x_host_indptr[7]  = {0, 2, 4, 6, 8, 10, 12};
-  int x_host_indices[12]  = {0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1};
-  math_t x_host_data[12]  = {1, 1, 2, 1, 1, 2, 2, 2, 1, 3, 2, 3};
+  int x_host_indptr[7]   = {0, 2, 4, 6, 8, 10, 12};
+  int x_host_indices[12] = {0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1};
+  math_t x_host_data[12] = {1, 1, 2, 1, 1, 2, 2, 2, 1, 3, 2, 3};
 
   int ws_idx_host[6] = {0, 1, 2, 3, 4, 5};
   math_t y_host[6]   = {-1, -1, 1, -1, 1, 1};
@@ -920,13 +924,11 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
     param.C            = p.C;
     param.tol          = p.tol;
     // param.max_iter = p.max_iter;
-    GramMatrixBase<TypeParam>* kernel =
-      KernelFactory<TypeParam>::create(p.kernel_params);
+    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(p.kernel_params);
     SmoSolver<TypeParam> smo(this->handle, param, p.kernel_params.kernel, kernel);
     {
       SvmModel<TypeParam> model1{0, this->n_cols, 0, nullptr, nullptr, nullptr, 0, nullptr};
-      DenseMatrix dense_matrix(
-        this->x_dev.data(), this->n_rows, this->n_cols);
+      MLCommon::Matrix::DenseMatrix dense_matrix(this->x_dev.data(), this->n_rows, this->n_cols);
       smo.Solve(dense_matrix,
                 this->n_rows,
                 this->n_cols,
@@ -946,8 +948,12 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
     // also check sparse input
     {
       SvmModel<TypeParam> model2{0, this->n_cols, 0, nullptr, nullptr, nullptr, 0, nullptr};
-      CsrMatrix csr_matrix(
-        this->x_dev_indptr.data(), this->x_dev_indices.data(), this->x_dev_data.data(), this->n_nnz, this->n_rows, this->n_cols);
+      MLCommon::Matrix::CsrMatrix csr_matrix(this->x_dev_indptr.data(),
+                                             this->x_dev_indices.data(),
+                                             this->x_dev_data.data(),
+                                             this->n_nnz,
+                                             this->n_rows,
+                                             this->n_cols);
       smo.Solve(csr_matrix,
                 this->n_rows,
                 this->n_cols,
@@ -962,7 +968,7 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
                 p.max_inner_iter);
       checkResults(model2, exp, stream);
       svmFreeBuffers(this->handle, model2);
-    }    
+    }
   }
 }
 
@@ -1123,19 +1129,19 @@ void make_blobs(const raft::handle_t& handle,
     rmm::device_uvector<int> y_int(n_rows, stream);
 
     Datasets::make_blobs(handle,
-                        x_float.data(),
-                        y_int.data(),
-                        n_rows,
-                        n_cols,
-                        n_cluster,
-                        true,
-                        centers,
-                        (float*)nullptr,
-                        1.0f,
-                        true,
-                        -2.0f,
-                        2.0f,
-                        0);
+                         x_float.data(),
+                         y_int.data(),
+                         n_rows,
+                         n_cols,
+                         n_cluster,
+                         true,
+                         centers,
+                         (float*)nullptr,
+                         1.0f,
+                         true,
+                         -2.0f,
+                         2.0f,
+                         0);
     int TPB = 256;
     if (std::is_same<float, math_t>::value) {
       raft::linalg::transpose(handle, x_float.data(), (float*)x, n_cols, n_rows, stream);
@@ -1213,7 +1219,6 @@ TYPED_TEST(SmoSolverTest, BlobPredict)
     EXPECT_GE(accuracy, accuracy_exp);
   }
 }
-
 
 TYPED_TEST(SmoSolverTest, MemoryLeak)
 {
@@ -1409,7 +1414,7 @@ class SvrTest : public ::testing::Test {
   {
     raft::update_device(yc.data(), yc_exp, n_train, stream);
     init_C((math_t)0.001, C_dev.data(), n_rows * 2, stream);
-    DenseMatrix matrix_wrapper(x_dev.data(), n_rows, n_cols);
+    MLCommon::Matrix::DenseMatrix matrix_wrapper(x_dev.data(), n_rows, n_cols);
     Results<math_t> res(handle, matrix_wrapper, yc.data(), C_dev.data(), EPSILON_SVR);
     model.n_cols = n_cols;
     raft::update_device(alpha.data(), alpha_host, n_train, stream);
@@ -1427,11 +1432,11 @@ class SvrTest : public ::testing::Test {
     EXPECT_TRUE(devArrMatchHost(
       dc_exp, model.dual_coefs, model.n_support, MLCommon::CompareApprox<math_t>(1.0e-6), stream));
 
-    EXPECT_TRUE(model.support_matrix->isDense());
+    EXPECT_TRUE(model.support_matrix->is_dense());
 
     math_t x_exp[] = {1, 2, 3, 5, 6};
     EXPECT_TRUE(devArrMatchHost(x_exp,
-                                model.support_matrix->asDense()->data,
+                                model.support_matrix->as_dense()->get_data(),
                                 model.n_support * n_cols,
                                 MLCommon::CompareApprox<math_t>(1.0e-6),
                                 stream));
@@ -1527,23 +1532,11 @@ class SvrTest : public ::testing::Test {
         sample_weights = sample_weights_dev.data();
         raft::update_device(sample_weights_dev.data(), p.sample_weighs.data(), p.n_rows, stream);
       }
-      DenseMatrix matrix_wrapper(x_dev.data(), p.n_rows, p.n_cols);
-      svrFitX(handle,
-             matrix_wrapper,
-             y_dev.data(),
-             p.param,
-             p.kernel,
-             model,
-             sample_weights);
+      MLCommon::Matrix::DenseMatrix matrix_wrapper(x_dev.data(), p.n_rows, p.n_cols);
+      svrFitX(handle, matrix_wrapper, y_dev.data(), p.param, p.kernel, model, sample_weights);
       checkResults(model, toSmoOutput(exp), stream);
       rmm::device_uvector<math_t> preds(p.n_rows, stream);
-      svcPredictX(handle,
-                  matrix_wrapper,
-                  p.kernel,
-                  model,
-                  preds.data(),
-                  (math_t)200.0,
-                  false);
+      svcPredictX(handle, matrix_wrapper, p.kernel, model, preds.data(), (math_t)200.0, false);
       if (!exp.decision_function.empty()) {
         EXPECT_TRUE(devArrMatchHost(exp.decision_function.data(),
                                     preds.data(),

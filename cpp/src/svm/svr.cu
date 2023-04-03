@@ -57,20 +57,20 @@ template void svrFit<double>(const raft::handle_t& handle,
                              const double* sample_weight);
 
 template void svrFitX<float>(const raft::handle_t& handle,
-                            const Matrix<float>& matrix,
-                            float* y,
-                            const SvmParameter& param,
-                            KernelParams& kernel_params,
-                            SvmModel<float>& model,
-                            const float* sample_weight);
-
-template void svrFitX<double>(const raft::handle_t& handle,
-                             const Matrix<double>& matrix,
-                             double* y,
+                             const MLCommon::Matrix::Matrix<float>& matrix,
+                             float* y,
                              const SvmParameter& param,
                              KernelParams& kernel_params,
-                             SvmModel<double>& model,
-                             const double* sample_weight);
+                             SvmModel<float>& model,
+                             const float* sample_weight);
+
+template void svrFitX<double>(const raft::handle_t& handle,
+                              const MLCommon::Matrix::Matrix<double>& matrix,
+                              double* y,
+                              const SvmParameter& param,
+                              KernelParams& kernel_params,
+                              SvmModel<double>& model,
+                              const double* sample_weight);
 
 };  // namespace SVM
 };  // end namespace ML

@@ -86,20 +86,22 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         double epsilon
         SvmType svmType
 
-cdef extern from "raft/distance/detail/matrix/matrix.hpp" namespace "raft::distance::matrix::detail":
+cdef extern from "cuml/matrix/matrix.h" namespace "MLCommon::Matrix":
     cdef cppclass Matrix[math_t]:
-        int n_rows
-        int n_cols
+        bool is_dense()
+        DenseMatrix[math_t]* as_dense()
+        CsrMatrix[math_t]* as_csr()
 
     cdef cppclass CsrMatrix[math_t](Matrix[math_t]):
-        int nnz;
-        int* indptr;
-        int* indices;
-        math_t* data;
+        int get_nnz();
+        int* get_indptr();
+        int* get_indices();
+        math_t* get_data();
         CsrMatrix(int* indptr, int* indices, math_t* data, int nnz, int rows, int cols) except +
 
     cdef cppclass DenseMatrix[math_t](Matrix[math_t]):
-        math_t* data;
+        math_t* get_data();
+        bool is_row_major();
         DenseMatrix(math_t* data, int rows, int cols) except +
   
 cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
