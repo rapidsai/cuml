@@ -23,6 +23,7 @@
 
 namespace ML {
 namespace GLM {
+namespace detail {
 using raft::ceildiv;
 using raft::myExp;
 using raft::myLog;
@@ -194,6 +195,6 @@ struct Softmax : GLMBase<T, Softmax<T>> {
     return nrmMax(grad, dev_scalar, stream);
   }
 };
-
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML

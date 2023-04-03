@@ -15,19 +15,28 @@
 #
 from cuml.manifold import UMAP
 from cuml.benchmark import datagen
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.common.device_selection import using_device_type
+from cuml.internals.device_type import DeviceType
+from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+    safe_import,
+)
 import sklearn.ensemble as skl_ensemble
 import pickle as pickle
 import os
 import cuml
 from cuml.internals import input_utils
-from cuml.internals.safe_imports import cpu_only_import
+from time import perf_counter
 
 np = cpu_only_import("numpy")
 pd = cpu_only_import("pandas")
 cudf = gpu_only_import("cudf")
 cuda = gpu_only_import_from("numba", "cuda")
+cp = gpu_only_import("cupy")
+xgb = safe_import("xgboost")
 
 
 def call(m, func_name, X, y=None):
@@ -96,6 +105,9 @@ def _training_data_to_numpy(X, y):
     if isinstance(X, np.ndarray):
         X_np = X
         y_np = y
+    elif isinstance(X, cp.ndarray):
+        X_np = cp.asnumpy(X)
+        y_np = cp.asnumpy(y)
     elif isinstance(X, cudf.DataFrame):
         X_np = X.to_numpy()
         y_np = y.to_numpy()
@@ -113,11 +125,6 @@ def _training_data_to_numpy(X, y):
 def _build_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking"""
     from cuml.internals.import_utils import has_xgboost
-
-    if has_xgboost():
-        import xgboost as xgb
-    else:
-        raise ImportError("No XGBoost package found")
 
     train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
@@ -139,13 +146,133 @@ def _build_fil_classifier(m, data, args, tmpdir):
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
 
-    return m.load(
-        model_path,
-        algo=args["fil_algo"],
-        output_class=args["output_class"],
-        threshold=args["threshold"],
-        storage_type=args["storage_type"],
-    )
+    fil_kwargs = {
+        param: args[input_name]
+        for param, input_name in (
+            ("algo", "fil_algo"),
+            ("output_class", "output_class"),
+            ("threshold", "threshold"),
+            ("storage_type", "storage_type"),
+            ("precision", "precision"),
+        )
+        if input_name in args
+    }
+
+    return m.load(model_path, **fil_kwargs)
+
+
+class OptimizedFilWrapper:
+    """Helper class to make use of optimized parameters in both FIL and
+    experimental FIL through a uniform interface"""
+
+    def __init__(self, fil_model, optimal_chunk_size, experimental):
+        self.fil_model = fil_model
+        self.predict_kwargs = {}
+        if experimental:
+            self.predict_kwargs["chunk_size"] = optimal_chunk_size
+
+    def predict(self, X):
+        return self.fil_model.predict(X, **self.predict_kwargs)
+
+
+def _build_optimized_fil_classifier(m, data, args, tmpdir):
+    """Setup function for FIL classification benchmarking with optimal
+    parameters"""
+    with using_device_type("gpu"):
+        from cuml.internals.import_utils import has_xgboost
+
+        train_data, train_label = _training_data_to_numpy(data[0], data[1])
+
+        dtrain = xgb.DMatrix(train_data, label=train_label)
+
+        params = {
+            "silent": 1,
+            "eval_metric": "error",
+            "objective": "binary:logistic",
+            "tree_method": "gpu_hist",
+        }
+        params.update(args)
+        max_depth = args["max_depth"]
+        num_rounds = args["num_rounds"]
+        n_feature = data[0].shape[1]
+        train_size = data[0].shape[0]
+        model_name = (
+            f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
+        )
+        model_path = os.path.join(tmpdir, model_name)
+        bst = xgb.train(params, dtrain, num_rounds)
+        bst.save_model(model_path)
+
+    allowed_chunk_sizes = [1, 2, 4, 8, 16, 32]
+    if GlobalSettings().device_type is DeviceType.host:
+        allowed_chunk_sizes.extend((64, 128, 256))
+
+    fil_kwargs = {
+        param: args[input_name]
+        for param, input_name in (
+            ("algo", "fil_algo"),
+            ("output_class", "output_class"),
+            ("threshold", "threshold"),
+            ("storage_type", "storage_type"),
+            ("precision", "precision"),
+        )
+        if input_name in args
+    }
+    experimental = m is cuml.experimental.ForestInference
+    if experimental:
+        allowed_storage_types = ["sparse"]
+    else:
+        allowed_storage_types = ["sparse", "sparse8"]
+        if args["storage_type"] == "dense":
+            allowed_storage_types.append("dense")
+
+    optimal_storage_type = "sparse"
+    optimal_algo = "NAIVE"
+    optimal_layout = "breadth_first"
+    optimal_chunk_size = 1
+    best_time = None
+    optimization_cycles = 5
+    for storage_type in allowed_storage_types:
+        fil_kwargs["storage_type"] = storage_type
+        allowed_algo_types = ["NAIVE"]
+        if not experimental and storage_type == "dense":
+            allowed_algo_types.extend(("TREE_REORG", "BATCH_TREE_REORG"))
+        allowed_layout_types = ["breadth_first"]
+        if experimental:
+            allowed_layout_types.append("depth_first")
+        for algo in allowed_algo_types:
+            fil_kwargs["algo"] = algo
+            for layout in allowed_layout_types:
+                if experimental:
+                    fil_kwargs["layout"] = layout
+                for chunk_size in allowed_chunk_sizes:
+                    fil_kwargs["threads_per_tree"] = chunk_size
+                    call_args = {}
+                    if experimental:
+                        call_args = {"chunk_size": chunk_size}
+                    fil_model = m.load(model_path, **fil_kwargs)
+                    fil_model.predict(train_data, **call_args)
+                    begin = perf_counter()
+                    for _ in range(optimization_cycles):
+                        fil_model.predict(train_data, **call_args)
+                    end = perf_counter()
+                    elapsed = end - begin
+                    if best_time is None or elapsed < best_time:
+                        best_time = elapsed
+                        optimal_storage_type = storage_type
+                        optimal_algo = algo
+                        optimal_chunk_size = chunk_size
+                        optimal_layout = layout
+
+        fil_kwargs["storage_type"] = optimal_storage_type
+        fil_kwargs["algo"] = optimal_algo
+        fil_kwargs["threads_per_tree"] = optimal_chunk_size
+        if experimental:
+            fil_kwargs["layout"] = optimal_layout
+
+        return OptimizedFilWrapper(
+            m.load(model_path, **fil_kwargs), optimal_chunk_size, experimental
+        )
 
 
 def _build_fil_skl_classifier(m, data, args, tmpdir):
@@ -168,6 +295,7 @@ def _build_fil_skl_classifier(m, data, args, tmpdir):
         "output_class",
         "threshold",
         "storage_type",
+        "precision",
     ]:
         params.pop(param_name, None)
 
@@ -184,13 +312,19 @@ def _build_fil_skl_classifier(m, data, args, tmpdir):
     skl_model.fit(train_data, train_label)
     pickle.dump(skl_model, open(model_path, "wb"))
 
-    return m.load_from_sklearn(
-        skl_model,
-        algo=args["fil_algo"],
-        output_class=args["output_class"],
-        threshold=args["threshold"],
-        storage_type=args["storage_type"],
-    )
+    fil_kwargs = {
+        param: args[input_name]
+        for param, input_name in (
+            ("algo", "fil_algo"),
+            ("output_class", "output_class"),
+            ("threshold", "threshold"),
+            ("storage_type", "storage_type"),
+            ("precision", "precision"),
+        )
+        if input_name in args
+    }
+
+    return m.load_from_sklearn(skl_model, **fil_kwargs)
 
 
 def _build_cpu_skl_classifier(m, data, args, tmpdir):
@@ -215,11 +349,6 @@ def _build_treelite_classifier(m, data, args, tmpdir):
     from cuml.internals.import_utils import has_xgboost
     import treelite
     import treelite_runtime
-
-    if has_xgboost():
-        import xgboost as xgb
-    else:
-        raise ImportError("No XGBoost package found")
 
     max_depth = args["max_depth"]
     num_rounds = args["num_rounds"]
