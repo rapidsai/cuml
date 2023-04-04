@@ -19,6 +19,7 @@
 #include <new>
 #include <numeric>
 #include <vector>
+#include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/detail/cpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/evaluate_tree.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -59,6 +60,9 @@ namespace detail {
  * vector outputs for all leaf nodes
  * @param categorical_data If non-nullptr, a pointer to where non-local
  * data on categorical splits are stored.
+ * @param infer_type Type of inference to perform. Defaults to summing the outputs of all trees
+ * and produce an output per row. If set to "per_tree", we will instead output all outputs of
+ * individual trees.
  */
 template<
   bool has_categorical_nodes,
@@ -77,18 +81,15 @@ void infer_kernel_cpu(
     index_type chunk_size=hardware_constructive_interference_size,
     index_type grove_size=hardware_constructive_interference_size,
     vector_output_t vector_output_p=nullptr,
-    categorical_data_t categorical_data=nullptr
+    categorical_data_t categorical_data=nullptr,
+    infer_kind infer_type=infer_kind::default_kind
 ) {
   auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
   auto constexpr has_nonlocal_categories = !std::is_same_v<categorical_data_t, std::nullptr_t>;
   
   using node_t = typename forest_t::node_type;
 
-  using output_t = std::conditional_t<
-    has_vector_leaves,
-    std::remove_pointer_t<vector_output_t>,
-    typename node_t::threshold_type
-  >;
+  using output_t = typename forest_t::template raw_output_type<vector_output_t>;
 
   auto const num_tree = forest.tree_count();
   auto const num_grove = raft_proto::ceildiv(num_tree, grove_size);

@@ -16,6 +16,7 @@
 #pragma once
 #include <cstddef>
 #include <stddef.h>
+#include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/detail/evaluate_tree.hpp>
 #include <cuml/experimental/fil/detail/gpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -65,6 +66,11 @@ namespace detail {
  * vector outputs for all leaf nodes
  * @param categorical_data If non-nullptr, a pointer to where non-local
  * data on categorical splits are stored.
+ * @param infer_type Type of inference to perform. Defaults to summing the outputs of all trees
+ * and produce an output per row. If set to "per_tree", we will instead output all outputs of
+ * individual trees.
+ * @param global_mem_fallback_buffer Buffer to use as a fallback, when there isn't enough shared
+ * memory. Set it to nullptr to disable
  */
 template<
   bool has_categorical_nodes,
@@ -85,21 +91,17 @@ infer_kernel(
     index_type shared_mem_byte_size,
     index_type output_workspace_size,
     vector_output_t vector_output_p=nullptr,
-    categorical_data_t categorical_data=nullptr
+    categorical_data_t categorical_data=nullptr,
+    infer_kind infer_type=infer_kind::default_kind
 ) {
   auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
   auto constexpr has_nonlocal_categories = !std::is_same_v<categorical_data_t, std::nullptr_t>;
+  using output_t = typename forest_t::template raw_output_type<vector_output_t>;
   extern __shared__ std::byte shared_mem_raw[];
 
   auto shared_mem = shared_memory_buffer(shared_mem_raw, shared_mem_byte_size);
 
   using node_t = typename forest_t::node_type;
-
-  using output_t = std::conditional_t<
-    has_vector_leaves,
-    std::remove_pointer_t<vector_output_t>,
-    typename node_t::threshold_type
-  >;
 
   using io_t = typename forest_t::io_type;
 
@@ -110,7 +112,6 @@ infer_kernel(
   ) {
 
     shared_mem.clear();
-    auto* output_workspace = shared_mem.fill<output_t>(output_workspace_size);
 
     // Handle as many rows as requested per loop or as many rows as are left to
     // process
