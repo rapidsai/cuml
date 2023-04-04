@@ -18,6 +18,7 @@
 
 import os
 import inspect
+import numbers
 from importlib import import_module
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
@@ -36,7 +37,8 @@ from cuml.internals.device_type import DeviceType
 from cuml.internals.input_utils import (
     determine_array_type,
     input_to_cuml_array,
-    input_to_host_array
+    input_to_host_array,
+    is_array_like
 )
 from cuml.internals.memory_utils import determine_array_memtype
 from cuml.internals.mem_type import MemoryType
@@ -626,7 +628,14 @@ class UniversalBase(Base):
         # put all the kwargs on host
         new_kwargs = dict()
         for kw, arg in kwargs.items():
-            new_kwargs[kw] = input_to_host_array(arg)[0]
+            # if array-like, ensure array-like is on the host
+            if is_array_like(arg):
+                new_kwargs[kw] = input_to_host_array(arg)[0]
+            # if Real or string, pass as is
+            elif isinstance(arg, (numbers.Real, str)):
+                new_kwargs[kw] = arg
+            else:
+                raise ValueError(f"Unable to process argument {kw}")
         return new_args, new_kwargs
 
     def dispatch_func(self, func_name, gpu_func, *args, **kwargs):

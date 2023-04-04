@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,10 +92,11 @@ void compute_all_points_membership_vectors(
   HDBSCAN::Common::PredictionData<int, float>& prediction_data,
   const float* X,
   raft::distance::DistanceType metric,
-  float* membership_vec)
+  float* membership_vec,
+  int batch_size)
 {
   HDBSCAN::detail::Predict::all_points_membership_vectors(
-    handle, condensed_tree, prediction_data, X, metric, membership_vec);
+    handle, condensed_tree, prediction_data, X, metric, membership_vec, batch_size);
 }
 
 void compute_membership_vector(const raft::handle_t& handle,
@@ -106,7 +107,8 @@ void compute_membership_vector(const raft::handle_t& handle,
                                size_t n_prediction_points,
                                int min_samples,
                                raft::distance::DistanceType metric,
-                               float* membership_vec)
+                               float* membership_vec,
+                               int batch_size)
 {
   // Note that (min_samples+1) is parsed to the approximate_predict function. This was done for the
   // core distance computation to consistent with Scikit learn Contrib.
@@ -118,7 +120,8 @@ void compute_membership_vector(const raft::handle_t& handle,
                                               n_prediction_points,
                                               metric,
                                               min_samples + 1,
-                                              membership_vec);
+                                              membership_vec,
+                                              batch_size);
 }
 
 void out_of_sample_predict(const raft::handle_t& handle,
