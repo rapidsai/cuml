@@ -84,6 +84,7 @@ void infer_kernel_cpu(
     categorical_data_t categorical_data=nullptr,
     infer_kind infer_type=infer_kind::default_kind
 ) {
+  auto const default_num_outputs = forest.num_outputs();
   auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
   auto constexpr has_nonlocal_categories = !std::is_same_v<categorical_data_t, std::nullptr_t>;
   
@@ -131,7 +132,7 @@ void infer_kernel_cpu(
         if constexpr (has_vector_leaves) {
           for (
             auto class_index=index_type{};
-            class_index < num_outputs;
+            class_index < default_num_outputs;
             ++class_index
           ) {
             output_workspace[
@@ -139,13 +140,14 @@ void infer_kernel_cpu(
               + class_index * num_grove
               + grove_index
             ] += vector_output_p[
-              tree_output * num_outputs + class_index
+              tree_output * default_num_outputs
+              + class_index
             ];
           }
         } else {
           output_workspace[
             row_index * num_outputs * num_grove
-            + (tree_index % num_outputs) * num_grove
+            + (tree_index % default_num_outputs) * num_grove
             + grove_index
           ] += tree_output;
         }

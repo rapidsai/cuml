@@ -94,6 +94,7 @@ infer_kernel(
     categorical_data_t categorical_data=nullptr,
     infer_kind infer_type=infer_kind::default_kind
 ) {
+  auto const default_num_outputs = forest.num_outputs();
   auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
   auto constexpr has_nonlocal_categories = !std::is_same_v<categorical_data_t, std::nullptr_t>;
   using output_t = typename forest_t::template raw_output_type<vector_output_t>;
@@ -171,17 +172,18 @@ infer_kernel(
 
       if constexpr (has_vector_leaves) {
         for (
-          auto class_index=index_type{};
-          class_index < num_outputs;
-          ++class_index
+          auto output_index=index_type{};
+          output_index < default_num_outputs;
+          ++output_index
         ) {
           if (real_task) {
             output_workspace[
               row_index * num_outputs * num_grove
-              + class_index * num_grove
+              + output_index * num_grove
               + grove_index
             ] += vector_output_p[
-              tree_output * num_outputs + class_index
+              tree_output * default_num_outputs
+              + output_index
             ];
           }
         }
@@ -189,7 +191,7 @@ infer_kernel(
         if (real_task) {
           output_workspace[
             row_index * num_outputs * num_grove
-            + (tree_index % num_outputs) * num_grove
+            + (tree_index % default_num_outputs) * num_grove
             + grove_index
           ] += tree_output;
         }
@@ -213,8 +215,6 @@ infer_kernel(
           row_index * num_outputs * num_grove + class_index * num_grove
         );
         auto class_sum = output_t{};
-        /* Perform a warp-level parallel reduction leaving the first thread in
-         * each warp with the entire sum */
         for (
           auto grove_index = threadIdx.x % WARP_SIZE;
           grove_index < padded_num_groves;
