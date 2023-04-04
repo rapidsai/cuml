@@ -112,6 +112,7 @@ infer_kernel(
   ) {
 
     shared_mem.clear();
+    auto* output_workspace = shared_mem.fill<output_t>(output_workspace_size);
 
     // Handle as many rows as requested per loop or as many rows as are left to
     // process
