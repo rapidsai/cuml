@@ -117,14 +117,14 @@ dependencies:
           - cuda-python>=11.7.1,<12.0
           - scikit-build>=0.13.1
           - cython>=0.29,<0.30
-          - &treelite treelite==3.1.0
+          - &treelite treelite==3.2.0
           - pylibraft==23.6.*
           - rmm==23.6.*
       - output_types: pyproject
         packages:
           - wheel
           - setuptools
-          - &treelite_runtime treelite_runtime==3.1.0
+          - &treelite_runtime treelite_runtime==3.2.0
   py_run:
     common:
       - output_types: [conda, requirements, pyproject]
