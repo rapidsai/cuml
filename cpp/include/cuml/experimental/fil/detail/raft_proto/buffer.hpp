@@ -44,7 +44,7 @@ struct buffer {
     non_owning_buffer<device_type::cpu, T>, non_owning_buffer<device_type::gpu, T>, owning_buffer<device_type::cpu, T>, owning_buffer<device_type::gpu, T>
   >;
 
-  buffer() : device_{}, data_{}, size_{} {}
+  buffer() : device_{}, data_{}, size_{}, cached_ptr{nullptr} {}
 
   /** Construct non-initialized owning buffer */
   buffer(index_type size,

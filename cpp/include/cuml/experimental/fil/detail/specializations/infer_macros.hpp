@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <variant>
 #include <cuml/experimental/fil/constants.hpp>
+#include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
@@ -38,6 +39,7 @@
   index_type,\
   std::nullptr_t,\
   std::nullptr_t,\
+  infer_kind,\
   std::optional<index_type>,\
   raft_proto::device_id<dev>,\
   raft_proto::cuda_stream stream\
@@ -55,6 +57,7 @@
   index_type,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
   std::nullptr_t,\
+  infer_kind,\
   std::optional<index_type>,\
   raft_proto::device_id<dev>,\
   raft_proto::cuda_stream stream\
@@ -72,6 +75,7 @@
   index_type,\
   std::nullptr_t,\
   CUML_FIL_SPEC(variant_index)::index_type*,\
+  infer_kind,\
   std::optional<index_type>,\
   raft_proto::device_id<dev>,\
   raft_proto::cuda_stream stream\
@@ -89,6 +93,7 @@
   index_type,\
   CUML_FIL_SPEC(variant_index)::threshold_type*,\
   CUML_FIL_SPEC(variant_index)::index_type*,\
+  infer_kind,\
   std::optional<index_type>,\
   raft_proto::device_id<dev>,\
   raft_proto::cuda_stream stream\
