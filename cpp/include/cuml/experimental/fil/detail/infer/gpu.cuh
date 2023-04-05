@@ -43,12 +43,17 @@ namespace inference {
 inline auto compute_output_size(
   index_type row_output_size,
   index_type threads_per_block,
-  index_type rows_per_block_iteration
+  index_type rows_per_block_iteration,
+  infer_kind infer_type=infer_kind::default_kind
 ) {
-  return row_output_size * raft_proto::ceildiv(
-    threads_per_block,
-    rows_per_block_iteration
-  ) * rows_per_block_iteration;
+  auto result = row_output_size * rows_per_block_iteration;
+  if (infer_type == infer_kind::default_kind) {
+    result *= raft_proto::ceildiv(
+      threads_per_block,
+      rows_per_block_iteration
+    );
+  }
+  return result;
 }
 
 /* A wrapper around the underlying inference kernels to support dispatching to
@@ -169,7 +174,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   );
   auto constexpr const output_item_bytes = index_type(sizeof(output_t));
   auto output_workspace_size = compute_output_size(
-    row_output_size, threads_per_block, rows_per_block_iteration
+    row_output_size, threads_per_block, rows_per_block_iteration, infer_type
   );
   auto output_workspace_size_bytes = output_item_bytes * output_workspace_size;
   if (output_workspace_size_bytes > max_shared_mem_per_block) {
@@ -198,7 +203,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
 
   do {
     output_workspace_size = compute_output_size(
-      row_output_size, threads_per_block, rows_per_block_iteration
+      row_output_size, threads_per_block, rows_per_block_iteration, infer_type
     );
     output_workspace_size_bytes = output_item_bytes * output_workspace_size;
 
