@@ -130,6 +130,8 @@ infer_kernel(
     auto num_grove = raft_proto::ceildiv(
       min(index_type(blockDim.x), task_count),
       chunk_size
+    ) * (infer_type == infer_kind::default_kind) + (
+      infer_type != infer_kind::default_kind
     );
 
     // Note that this sync is safe because every thread in the block will agree
@@ -152,7 +154,9 @@ infer_kernel(
       auto real_task = task_index < task_count && row_index < rows_in_this_iteration;
       row_index *= real_task;
       auto tree_index = task_index * real_task / chunk_size;
-      auto grove_index = threadIdx.x / chunk_size;
+      auto grove_index = (threadIdx.x / chunk_size)  * (
+        infer_type == infer_kind::default_kind
+      );
 
       auto tree_output = std::conditional_t<
         has_vector_leaves, typename node_t::index_type, typename node_t::threshold_type
