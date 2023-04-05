@@ -171,6 +171,12 @@ infer_kernel(
       }
 
       if constexpr (has_vector_leaves) {
+        auto output_offset = (
+          row_index * num_outputs * num_grove
+          + tree_index * default_num_outputs * num_grove * (
+            infer_type == infer_kind::per_tree
+          ) + grove_index
+        );
         for (
           auto output_index=index_type{};
           output_index < default_num_outputs;
@@ -178,9 +184,7 @@ infer_kernel(
         ) {
           if (real_task) {
             output_workspace[
-              row_index * num_outputs * num_grove
-              + output_index * num_grove
-              + grove_index
+              output_offset + output_index * num_grove
             ] += vector_output_p[
               tree_output * default_num_outputs
               + output_index
@@ -188,11 +192,17 @@ infer_kernel(
           }
         }
       } else {
+        auto output_offset = (
+          row_index * num_outputs * num_grove
+          + (tree_index % default_num_outputs) * num_grove * (
+            infer_type == infer_kind::default_kind
+          ) + tree_index * num_grove * (
+            infer_type == infer_kind::per_tree
+          ) + grove_index
+        );
         if (real_task) {
           output_workspace[
-            row_index * num_outputs * num_grove
-            + (tree_index % default_num_outputs) * num_grove
-            + grove_index
+            output_offset
           ] += tree_output;
         }
       }

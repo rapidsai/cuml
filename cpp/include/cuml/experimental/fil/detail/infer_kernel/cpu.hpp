@@ -130,25 +130,34 @@ void infer_kernel_cpu(
           );
         }
         if constexpr (has_vector_leaves) {
+          auto output_offset = (
+            row_index * num_outputs * num_grove
+            + tree_index * default_num_outputs * num_grove * (
+              infer_type == infer_kind::per_tree
+            ) + grove_index
+          );
           for (
-            auto class_index=index_type{};
-            class_index < default_num_outputs;
-            ++class_index
+            auto output_index=index_type{};
+            output_index < default_num_outputs;
+            ++output_index
           ) {
             output_workspace[
-              row_index * num_outputs * num_grove
-              + class_index * num_grove
-              + grove_index
+              output_offset + output_index * num_grove
             ] += vector_output_p[
-              tree_output * default_num_outputs
-              + class_index
+              tree_output * default_num_outputs + output_index
             ];
           }
         } else {
-          output_workspace[
+          auto output_offset = (
             row_index * num_outputs * num_grove
-            + (tree_index % default_num_outputs) * num_grove
-            + grove_index
+            + (tree_index % default_num_outputs) * num_grove * (
+              infer_type == infer_kind::default_kind
+            ) + tree_index * num_grove * (
+              infer_type == infer_kind::per_tree
+            ) + grove_index
+          );
+          output_workspace[
+            output_offset
           ] += tree_output;
         }
       }  // Trees
@@ -159,12 +168,12 @@ void infer_kernel_cpu(
 #pragma omp parallel for
   for (auto row_index=index_type{}; row_index < row_count; ++row_index) {
     for (
-      auto class_index = index_type{};
-      class_index < num_outputs;
-      ++class_index
+      auto output_index = index_type{};
+      output_index < num_outputs;
+      ++output_index
     ) {
       auto grove_offset = (
-        row_index * num_outputs * num_grove + class_index * num_grove
+        row_index * num_outputs * num_grove + output_index * num_grove
       );
 
       output_workspace[grove_offset] = std::accumulate(

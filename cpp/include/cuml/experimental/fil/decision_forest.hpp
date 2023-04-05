@@ -210,7 +210,10 @@ struct decision_forest {
   ) const {
     auto result = num_outputs_;
     if (inference_kind == infer_kind::per_tree) {
-      result = num_outputs_ * num_trees();
+      result = num_trees();
+      if (has_vector_leaves()) {
+        result *= num_outputs_;
+      }
     }
     return result;
   }
