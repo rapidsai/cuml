@@ -147,6 +147,9 @@ dependencies:
         packages:
           - cupy>=9.5.0,<12.0.0a0
           - dask-core==2023.3.2
+      - output_types: conda
+        packages:
+          - dask-core==2023.3.2
       - output_types: pyproject
         packages:
           - &cupy_pip cupy-cuda11x>=9.5.0,<12.0.0a0
