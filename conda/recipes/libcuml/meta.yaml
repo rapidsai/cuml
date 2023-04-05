@@ -17,16 +17,18 @@ build:
   script_env:
     - AWS_ACCESS_KEY_ID
     - AWS_SECRET_ACCESS_KEY
-    - PARALLEL_LEVEL
-    - CMAKE_GENERATOR
+    - AWS_SESSION_TOKEN
     - CMAKE_C_COMPILER_LAUNCHER
-    - CMAKE_CXX_COMPILER_LAUNCHER
     - CMAKE_CUDA_COMPILER_LAUNCHER
+    - CMAKE_CXX_COMPILER_LAUNCHER
+    - CMAKE_GENERATOR
+    - PARALLEL_LEVEL
+    - SCCACHE_BUCKET
+    - SCCACHE_IDLE_TIMEOUT
+    - SCCACHE_REGION
     - SCCACHE_S3_KEY_PREFIX=libcuml-aarch64 # [aarch64]
     - SCCACHE_S3_KEY_PREFIX=libcuml-linux64 # [linux64]
-    - SCCACHE_BUCKET
-    - SCCACHE_REGION
-    - SCCACHE_IDLE_TIMEOUT
+    - SCCACHE_S3_USE_SSL
 
 requirements:
   build:
@@ -53,10 +55,11 @@ requirements:
     - libcusolver-dev {{ libcusolver_host_version }}
     - libcusparse {{ libcusparse_host_version }}
     - libcusparse-dev {{ libcusparse_host_version }}
-    - libraft-distance ={{ minor_version }}
+    - libraft ={{ minor_version }}
     - libraft-headers ={{ minor_version }}
-    - libraft-nn ={{ minor_version }}
     - treelite {{ treelite_version }}
+    - libfaiss>=1.7.1
+    - faiss-proc=*=cuda
 
 outputs:
   - name: libcuml
@@ -80,10 +83,11 @@ outputs:
         - libcurand {{ libcurand_run_version }}
         - libcusparse {{ libcusparse_run_version }}
         - libcusparse-dev {{ libcusparse_run_version }}
-        - libraft-distance ={{ minor_version }}
+        - libraft ={{ minor_version }}
         - libraft-headers ={{ minor_version }}
-        - libraft-nn ={{ minor_version }}
         - treelite {{ treelite_version }}
+        - libfaiss>=1.7.1
+        - faiss-proc=*=cuda
     about:
       home: https://rapids.ai/
       license: Apache-2.0

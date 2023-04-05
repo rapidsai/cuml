@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -571,7 +571,7 @@ template <int NITEMS, typename real_t>
 struct tree_aggregator_t<NITEMS, real_t, VECTOR_LEAF> {
   // per_class_margin is a row-major matrix
   // of size num_threads_per_class * num_classes
-  // used to acccumulate class values
+  // used to accumulate class values
   vec<NITEMS, real_t>* per_class_margin;
   vec<NITEMS, int>* vector_leaf_indices;
   int* thread_num_rows;

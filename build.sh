@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 
 # cuml build script
 
@@ -47,7 +47,6 @@ HELP="$0 [<target> ...] [<flag> ...]
                        and profiling enabled (WARNING: Impacts performance)
    --ccache          - Use ccache to cache previous compilations
    --nocloneraft     - CMake will clone RAFT even if it is in the environment, use this flag to disable that behavior
-   --static-faiss    - Force CMake to use the FAISS static libs, cloning and building them if necessary
    --static-treelite - Force CMake to use the Treelite static libs, cloning and building them if necessary
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
@@ -78,7 +77,6 @@ BUILD_DISABLE_DEPRECATION_WARNINGS=ON
 BUILD_CUML_STD_COMMS=ON
 BUILD_CUML_TESTS=ON
 BUILD_CUML_MG_TESTS=OFF
-BUILD_STATIC_FAISS=OFF
 BUILD_STATIC_TREELITE=OFF
 CMAKE_LOG_LEVEL=WARNING
 
@@ -199,9 +197,6 @@ while true; do
         --nocloneraft )
             DISABLE_FORCE_CLONE_RAFT=ON
             ;;
-        --static-faiss )
-            BUILD_STATIC_FAISS=ON
-            ;;
         --static-treelite )
             BUILD_STATIC_TREELITE=ON
             ;;
@@ -256,7 +251,6 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DBUILD_CUML_TESTS=${BUILD_CUML_TESTS} \
           -DBUILD_CUML_MPI_COMMS=${BUILD_CUML_MG_TESTS} \
           -DBUILD_CUML_MG_TESTS=${BUILD_CUML_MG_TESTS} \
-          -DCUML_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DCUML_USE_TREELITE_STATIC=${BUILD_STATIC_TREELITE} \
           -DNVTX=${NVTX} \
           -DUSE_CCACHE=${CCACHE} \

@@ -18,6 +18,7 @@ from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import SyncFitMixinLinearModel
 from raft_dask.common.comms import get_raft_comm_state
+from dask.distributed import get_worker
 
 
 class LinearRegression(
@@ -47,7 +48,7 @@ class LinearRegression(
         SVD is slower, but guaranteed to be stable.
     fit_intercept : boolean (default = True)
         LinearRegression adds an additional term c to correct for the global
-        mean of y, modeling the reponse as "x * beta + c".
+        mean of y, modeling the response as "x * beta + c".
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
         If True, the predictors in X will be normalized by dividing by its
@@ -113,7 +114,7 @@ class LinearRegression(
     def _create_model(sessionId, datatype, **kwargs):
         from cuml.linear_model.linear_regression_mg import LinearRegressionMG
 
-        handle = get_raft_comm_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId, get_worker())["handle"]
         return LinearRegressionMG(
             handle=handle, output_type=datatype, **kwargs
         )

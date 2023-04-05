@@ -22,7 +22,7 @@ from cuml.dask.common import parts_to_ranks
 
 from cuml.dask.common.part_utils import flatten_grouped_results
 
-from dask.distributed import wait
+from dask.distributed import wait, get_worker
 
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.input_utils import DistributedDataHandler
@@ -129,5 +129,6 @@ class DecompositionSyncFitMixin(object):
 
     @staticmethod
     def _create_model(sessionId, model_func, datatype, **kwargs):
-        handle = get_raft_comm_state(sessionId)["handle"]
+        dask_worker = get_worker()
+        handle = get_raft_comm_state(sessionId, dask_worker)["handle"]
         return model_func(handle, datatype, **kwargs)

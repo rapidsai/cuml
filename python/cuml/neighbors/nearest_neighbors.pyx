@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -226,7 +226,7 @@ class NearestNeighbors(UniversalBase,
             - nprobe: (int) at query time, number of cells used for search
             - M: (int) number of subquantizers
             - n_bits: (int) bits allocated per subquantizer
-            - usePrecomputedTables : (bool) wether to use precomputed tables
+            - usePrecomputedTables : (bool) whether to use precomputed tables
 
     metric_expanded : bool
         Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
@@ -396,7 +396,7 @@ class NearestNeighbors(UniversalBase,
                           "(see cuML issue #4020)")
 
             if not is_dense(X):
-                raise ValueError("Approximate Nearest Neigbors methods "
+                raise ValueError("Approximate Nearest Neighbors methods "
                                  "require dense data")
 
             additional_info = {'n_samples': self.n_samples_fit_,

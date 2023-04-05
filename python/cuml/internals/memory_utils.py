@@ -39,7 +39,9 @@ cupy_using_allocator = gpu_only_import_from(
 )
 PandasSeries = cpu_only_import_from("pandas", "Series")
 PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
-rmm_cupy_allocator = gpu_only_import_from("rmm", "rmm_cupy_allocator")
+rmm_cupy_allocator = gpu_only_import_from(
+    "rmm.allocators.cupy", "rmm_cupy_allocator"
+)
 
 
 def set_global_memory_type(memory_type):
@@ -221,8 +223,8 @@ def _get_size_from_shape(shape, dtype):
 def set_global_output_type(output_type):
     """
     Method to set cuML's single GPU estimators global output type.
-    It will be used by all estimators unless overriden in their initialization
-    with their own output_type parameter. Can also be overriden by the context
+    It will be used by all estimators unless overridden in their initialization
+    with their own output_type parameter. Can also be overridden by the context
     manager method :func:`using_output_type`.
 
     Parameters

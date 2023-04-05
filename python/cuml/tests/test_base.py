@@ -137,7 +137,7 @@ def test_base_subclass_init_matches_docs(child_class: str):
         # Ensure the default values are the same
         assert param.default == klass_param.default
 
-        # Make sure we arent accidentally a *args or **kwargs
+        # Make sure we aren't accidentally a *args or **kwargs
         assert (
             klass_param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
             or klass_param.kind == inspect.Parameter.KEYWORD_ONLY

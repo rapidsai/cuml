@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -296,7 +296,7 @@ struct Builder {
    * @brief assign workspace to the current state
    *
    * @param[in] d_wspace device buffer allocated by the user for the workspace.
-   *                     Its size should be atleast workspaceSize()
+   *                     Its size should be at least workspaceSize()
    * @param[in] h_wspace pinned host buffer needed to store the learned nodes
    */
   void assignWorkspace(char* d_wspace, char* h_wspace)

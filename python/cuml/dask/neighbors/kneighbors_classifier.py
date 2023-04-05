@@ -24,6 +24,7 @@ from cuml.dask.common.utils import wait_and_raise_from_futures
 from raft_dask.common.comms import get_raft_comm_state
 from cuml.dask.neighbors import NearestNeighbors
 from dask.dataframe import Series as DaskSeries
+from dask.distributed import get_worker
 import dask.array as da
 from uuid import uuid1
 from cuml.internals.safe_imports import cpu_only_import
@@ -133,7 +134,7 @@ class KNeighborsClassifier(NearestNeighbors):
         except ImportError:
             raise_mg_import_exception()
 
-        handle = get_raft_comm_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId, get_worker())["handle"]
         return cumlKNN(handle=handle, **kwargs)
 
     @staticmethod

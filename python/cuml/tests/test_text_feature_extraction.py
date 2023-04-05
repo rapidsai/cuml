@@ -483,7 +483,7 @@ def test_vectorizer_empty_token_case():
     """
     We ignore empty tokens right now but sklearn treats them as a character
     we might want to look into this more but
-    this should not be a concern for most piplines
+    this should not be a concern for most pipelines
     """
     corpus = [
         "a b ",

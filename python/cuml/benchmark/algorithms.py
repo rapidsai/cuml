@@ -25,8 +25,10 @@ from cuml.benchmark.bench_helper_funcs import (
     _build_cpu_skl_classifier,
     _build_fil_skl_classifier,
     _build_fil_classifier,
+    _build_optimized_fil_classifier,
     _build_treelite_classifier,
     _treelite_fil_accuracy_score,
+    _training_data_to_numpy,
     _build_mnmg_umap,
 )
 from cuml.preprocessing import (
@@ -51,6 +53,7 @@ from sklearn import metrics
 from sklearn.impute import SimpleImputer as skSimpleImputer
 import cuml.metrics
 import cuml.decomposition
+import cuml.experimental
 import cuml.naive_bayes
 from cuml.dask import (
     neighbors,
@@ -59,7 +62,7 @@ from cuml.dask import (
     decomposition,
     linear_model,
 )  # noqa: F401
-from cuml.internals.import_utils import has_umap
+from cuml.internals.import_utils import has_hdbscan, has_umap
 from cuml.internals.safe_imports import cpu_only_import
 
 np = cpu_only_import("numpy")
@@ -67,6 +70,10 @@ np = cpu_only_import("numpy")
 
 if has_umap():
     import umap
+
+
+if has_hdbscan():
+    import hdbscan
 
 
 class AlgorithmPair:
@@ -209,6 +216,7 @@ def _labels_to_int_hook(data):
 
 def _treelite_format_hook(data):
     """Helper function converting data into treelite format"""
+    data = _training_data_to_numpy(data[0], data[1])
     return treelite_runtime.DMatrix(data[0]), data[1]
 
 
@@ -273,6 +281,14 @@ def all_algorithms():
             accepts_labels=False,
         ),
         AlgorithmPair(
+            hdbscan.HDBSCAN if has_hdbscan() else None,
+            cuml.cluster.HDBSCAN,
+            shared_args={},
+            cpu_args={},
+            name="HDBSCAN",
+            accepts_labels=False,
+        ),
+        AlgorithmPair(
             sklearn.linear_model.LinearRegression,
             cuml.linear_model.LinearRegression,
             shared_args={},
@@ -315,7 +331,8 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.ensemble.RandomForestClassifier,
             cuml.ensemble.RandomForestClassifier,
-            shared_args={"max_features": 1.0, "n_estimators": 10},
+            shared_args={"max_features": "sqrt", "n_estimators": 50},
+            cpu_args={"n_jobs": -1},
             name="RandomForestClassifier",
             accepts_labels=True,
             cpu_data_prep_hook=_labels_to_int_hook,
@@ -325,7 +342,8 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.ensemble.RandomForestRegressor,
             cuml.ensemble.RandomForestRegressor,
-            shared_args={"max_features": 1.0, "n_estimators": 10},
+            shared_args={"max_features": 1.0, "n_estimators": 50},
+            cpu_args={"n_jobs": -1},
             name="RandomForestRegressor",
             accepts_labels=True,
             accuracy_function=metrics.r2_score,
@@ -383,6 +401,24 @@ def all_algorithms():
             accuracy_function=cuml.metrics.r2_score,
         ),
         AlgorithmPair(
+            sklearn.svm.LinearSVC,
+            cuml.svm.LinearSVC,
+            shared_args={},
+            cuml_args={},
+            name="LinearSVC",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score,
+        ),
+        AlgorithmPair(
+            sklearn.svm.LinearSVR,
+            cuml.svm.LinearSVR,
+            shared_args={},
+            cuml_args={},
+            name="LinearSVR",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score,
+        ),
+        AlgorithmPair(
             sklearn.neighbors.KNeighborsClassifier,
             cuml.neighbors.KNeighborsClassifier,
             shared_args={},
@@ -418,6 +454,7 @@ def all_algorithms():
                 output_class=False,
                 threshold=0.5,
                 storage_type="auto",
+                precision="float32",
             ),
             name="FIL",
             accepts_labels=False,
@@ -435,9 +472,72 @@ def all_algorithms():
                 fil_algo="AUTO",
                 output_class=False,
                 threshold=0.5,
-                storage_type="SPARSE",
+                storage_type=True,
+                precision="float32",
             ),
             name="Sparse-FIL-SKL",
+            accepts_labels=False,
+            setup_cpu_func=_build_cpu_skl_classifier,
+            setup_cuml_func=_build_fil_skl_classifier,
+            accuracy_function=_treelite_fil_accuracy_score,
+            bench_func=predict,
+        ),
+        AlgorithmPair(
+            treelite,
+            cuml.experimental.ForestInference,
+            shared_args=dict(num_rounds=100, max_depth=10),
+            cuml_args=dict(output_class=False),
+            name="FILEX",
+            accepts_labels=False,
+            setup_cpu_func=_build_treelite_classifier,
+            setup_cuml_func=_build_fil_classifier,
+            cpu_data_prep_hook=_treelite_format_hook,
+            accuracy_function=_treelite_fil_accuracy_score,
+            bench_func=predict,
+        ),
+        AlgorithmPair(
+            treelite,
+            cuml.experimental.ForestInference,
+            shared_args=dict(num_rounds=100, max_depth=10),
+            cuml_args=dict(
+                fil_algo="NAIVE",
+                storage_type="DENSE",
+                output_class=False,
+                precision="float32",
+            ),
+            name="FILEX-Optimized",
+            accepts_labels=False,
+            setup_cpu_func=_build_treelite_classifier,
+            setup_cuml_func=_build_optimized_fil_classifier,
+            cpu_data_prep_hook=_treelite_format_hook,
+            accuracy_function=_treelite_fil_accuracy_score,
+            bench_func=predict,
+        ),
+        AlgorithmPair(
+            treelite,
+            cuml.ForestInference,
+            shared_args=dict(num_rounds=100, max_depth=10),
+            cuml_args=dict(
+                fil_algo="NAIVE",
+                storage_type="DENSE",
+                output_class=False,
+                threshold=0.5,
+                precision="float32",
+            ),
+            name="FIL-Optimized",
+            accepts_labels=False,
+            setup_cpu_func=_build_treelite_classifier,
+            setup_cuml_func=_build_optimized_fil_classifier,
+            cpu_data_prep_hook=_treelite_format_hook,
+            accuracy_function=_treelite_fil_accuracy_score,
+            bench_func=predict,
+        ),
+        AlgorithmPair(
+            treelite,
+            cuml.experimental.ForestInference,
+            shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
+            cuml_args=dict(output_class=False),
+            name="Sparse-FILEX-SKL",
             accepts_labels=False,
             setup_cpu_func=_build_cpu_skl_classifier,
             setup_cuml_func=_build_fil_skl_classifier,

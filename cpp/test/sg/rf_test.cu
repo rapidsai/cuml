@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -692,7 +692,7 @@ class RFQuantileVariableBinsTest : public ::testing::TestWithParam<QuantileTestP
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
     thrust::device_vector<T> data(params.n_rows);
 
-    // n_uniques gauranteed to be non-zero and smaller than `max_n_bins`
+    // n_uniques guaranteed to be non-zero and smaller than `max_n_bins`
     int n_uniques;
     while ((n_uniques = rand() % params.max_n_bins) == 0) {}
 
