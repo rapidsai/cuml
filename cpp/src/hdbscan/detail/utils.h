@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -213,7 +213,6 @@ void normalize(value_t* data, value_idx n, size_t m, cudaStream_t stream)
     false,
     [] __device__(value_t mat_in, value_t vec_in) { return mat_in / vec_in; },
     stream);
-
 }
 
 /**
