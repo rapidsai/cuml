@@ -131,8 +131,11 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   using output_t = typename forest_t::template raw_output_type<vector_output_t>;
 
   auto sm_count = get_sm_count(device);
-  auto max_shared_mem_per_block = get_max_shared_mem_per_block(device);
-  auto max_shared_mem_per_sm = get_max_shared_mem_per_sm(device);
+  auto const max_shared_mem_per_block = get_max_shared_mem_per_block(device);
+  auto const max_shared_mem_per_sm = get_max_shared_mem_per_sm(device);
+  auto const max_overall_shared_mem = std::min(
+    max_shared_mem_per_block, max_shared_mem_per_sm
+  );
 
   auto row_size_bytes = index_type(
     index_type(sizeof(typename forest_t::io_type) * col_count)
@@ -223,17 +226,20 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
         rows_per_block_iteration * row_size_bytes
             + (!use_global_mem_fallback) * output_workspace_size_bytes
     );
-    if (shared_mem_per_block > max_shared_mem_per_sm) {
+    if (shared_mem_per_block > max_overall_shared_mem) {
       rows_per_block_iteration >>= index_type{1};
     }
-  } while (shared_mem_per_block > max_shared_mem_per_sm && rows_per_block_iteration > 1);
+  } while (
+    shared_mem_per_block > max_overall_shared_mem
+    && rows_per_block_iteration > 1
+  );
 
-  shared_mem_per_block = std::min(shared_mem_per_block, max_shared_mem_per_sm);
+  shared_mem_per_block = std::min(shared_mem_per_block, max_overall_shared_mem);
 
   // Divide shared mem evenly
-  shared_mem_per_block = max_shared_mem_per_sm / (
+  shared_mem_per_block = std::min(max_overall_shared_mem, max_shared_mem_per_sm / (
     max_shared_mem_per_sm / shared_mem_per_block
-  );
+  ));
 
   auto num_blocks = std::min(
       raft_proto::ceildiv(row_count, rows_per_block_iteration),
