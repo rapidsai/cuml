@@ -145,7 +145,7 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
         A clustering object that has been fit to the data and
         had ``prediction_data=True`` set.
 
-    batch_size : int, optional, default=0
+    batch_size : int, optional, default=min(4096, n_rows)
         Lowers memory requirement by computing distance-based membership in
         smaller batches of points in the training data. Batch size of 0 uses
         all of the training points, batch size of 1000 computes distances for
@@ -250,7 +250,7 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
         have the same dimensionality as the original dataset over which
         clusterer was fit.
     
-    batch_size : int, optional, default=0
+    batch_size : int, optional, default=min(4096, n_points_to_predict)
         Lowers memory requirement by computing distance-based membership in
         smaller batches of points in the training data. Batch size of 0 uses
         all of the training points, batch size of 1000 computes distances for
