@@ -59,7 +59,6 @@ requires-python = ">=3.8"
 dependencies = [
     "cudf==23.4.*",
     "cupy-cuda11x>=9.5.0,<12.0.0a0",
-    "dask-core==2023.3.2",
     "dask-cuda==23.4.*",
     "dask-cudf==23.4.*",
     "dask==2023.3.2",
