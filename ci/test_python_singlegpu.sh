@@ -31,7 +31,7 @@ pytest \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml" \
   --cov-config=../../.coveragerc \
   --cov=cuml \
-  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml" \
+  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-memleak-coverage.xml" \
   --cov-report=term \
   -m "memleak" \
   .
