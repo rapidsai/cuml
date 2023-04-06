@@ -167,9 +167,8 @@ class OptimizedFilWrapper:
     experimental FIL through a uniform interface"""
 
     def __init__(
-            self, fil_model, optimal_chunk_size, experimental,
-            infer_type='default'
-        ):
+        self, fil_model, optimal_chunk_size, experimental, infer_type="default"
+    ):
         self.fil_model = fil_model
         self.predict_kwargs = {}
         if experimental:
@@ -177,7 +176,7 @@ class OptimizedFilWrapper:
         self.infer_type = infer_type
 
     def predict(self, X):
-        if self.infer_type == 'per_tree':
+        if self.infer_type == "per_tree":
             return self.fil_model.predict_per_tree(X, **self.predict_kwargs)
         return self.fil_model.predict(X, **self.predict_kwargs)
 
@@ -232,7 +231,7 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
         allowed_storage_types = ["sparse", "sparse8"]
         if args["storage_type"] == "dense":
             allowed_storage_types.append("dense")
-    infer_type = args.get('infer_type', 'default')
+    infer_type = args.get("infer_type", "default")
 
     optimal_storage_type = "sparse"
     optimal_algo = "NAIVE"
@@ -259,15 +258,13 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
                     if experimental:
                         call_args = {"chunk_size": chunk_size}
                     fil_model = m.load(model_path, **fil_kwargs)
-                    if infer_type == 'per_tree':
-                        fil_model.predict_per_tree(
-                            train_data, **call_args
-                        )
+                    if infer_type == "per_tree":
+                        fil_model.predict_per_tree(train_data, **call_args)
                     else:
                         fil_model.predict(train_data, **call_args)
                     begin = perf_counter()
-                    if infer_type == 'per_tree':
-                            fil_model.predict_per_tree(train_data, **call_args)
+                    if infer_type == "per_tree":
+                        fil_model.predict_per_tree(train_data, **call_args)
                     else:
                         for _ in range(optimization_cycles):
                             fil_model.predict(train_data, **call_args)
@@ -290,7 +287,7 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
             m.load(model_path, **fil_kwargs),
             optimal_chunk_size,
             experimental,
-            infer_type=infer_type
+            infer_type=infer_type,
         )
 
 
@@ -367,12 +364,12 @@ class GtilWrapper:
     """Helper class to provide interface to GTIL compatible with
     benchmarking functions"""
 
-    def __init__(self, tl_model, infer_type='default'):
+    def __init__(self, tl_model, infer_type="default"):
         self.tl_model = tl_model
         self.infer_type = infer_type
 
     def predict(self, X):
-        if self.infer_type == 'per_tree':
+        if self.infer_type == "per_tree":
             return treelite.gtil.predict_per_tree(self.tl_model, X)
         return treelite.gtil.predict(self.tl_model, X)
 
@@ -383,7 +380,7 @@ def _build_gtil_classifier(m, data, args, tmpdir):
 
     max_depth = args["max_depth"]
     num_rounds = args["num_rounds"]
-    infer_type = args.get('infer_type', 'default')
+    infer_type = args.get("infer_type", "default")
     n_feature = data[0].shape[1]
     train_size = data[0].shape[0]
     model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"

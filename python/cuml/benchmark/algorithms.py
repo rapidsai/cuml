@@ -510,7 +510,7 @@ def all_algorithms():
                 storage_type="DENSE",
                 output_class=False,
                 precision="float32",
-                infer_type="default"
+                infer_type="default",
             ),
             name="FILEX-Optimized",
             accepts_labels=False,
@@ -555,9 +555,7 @@ def all_algorithms():
             treelite,
             cuml.experimental.ForestInference,
             shared_args=dict(
-                num_rounds=100,
-                max_depth=10,
-                infer_type="per_tree"
+                num_rounds=100, max_depth=10, infer_type="per_tree"
             ),
             cuml_args=dict(
                 fil_algo="NAIVE",
