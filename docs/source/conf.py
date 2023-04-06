@@ -69,8 +69,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'cuml'
-copyright = '2020, nvidia'
-author = 'nvidia'
+copyright = '2020-2023, NVIDIA Corporation'
+author = 'NVIDIA Corporation'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -157,7 +157,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'cuml.tex', 'cuml Documentation', 'nvidia', 'manual'),
+    (master_doc, 'cuml.tex', 'cuml Documentation', 'NVIDIA Corporation', 'manual'),
 ]
 
 # -- Options for manual page output ---------------------------------------
