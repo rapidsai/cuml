@@ -175,6 +175,21 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
+              cuda: "12.0"
+            packages:
+              - cuda-cudart=12.0
+              - cuda-cudart-dev=12.0
+              - cuda-cudart-static=12.0
+              - cuda-profiler-api=12.0.76
+              - libcublas-dev=12.0.1.189
+              - libcublas=12.0.1.189
+              - libcurand-dev=10.3.1.50
+              - libcurand=10.3.1.50
+              - libcusolver-dev=11.4.2.57
+              - libcusolver=11.4.2.57
+              - libcusparse-dev=12.0.0.76
+              - libcusparse=12.0.0.76
+          - matrix:
               cuda: "11.8"
             packages:
               - cudatoolkit=11.8
