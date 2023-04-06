@@ -698,7 +698,7 @@ def test_lightgbm(
 def test_predict_per_tree(train_device, infer_device, n_classes, tmp_path):
     n_rows = 1000
     n_columns = 30
-    num_boost_round = 10
+    num_boost_round = 100
 
     with using_device_type(train_device):
         X, y = simulate_data(
@@ -731,16 +731,17 @@ def test_predict_per_tree(train_device, infer_device, n_classes, tmp_path):
         pred_per_tree = fm.predict_per_tree(X)
         margin_pred = bst.predict(xgb.DMatrix(X), output_margin=True)
         if n_classes == 2:
-            assert pred_per_tree.shape == (n_rows, num_boost_round)
+            expected_shape = (n_rows, num_boost_round)
             sum_by_class = np.sum(pred_per_tree, axis=1)
         else:
-            assert pred_per_tree.shape == (n_rows, num_boost_round * n_classes)
+            expected_shape = (n_rows, num_boost_round * n_classes)
             sum_by_class = np.column_stack(
                 tuple(
                     np.sum(pred_per_tree[:, class_id::n_classes], axis=1)
                     for class_id in range(n_classes)
                 )
             )
+        assert pred_per_tree.shape == expected_shape
         np.testing.assert_almost_equal(sum_by_class, margin_pred, decimal=3)
         np.testing.assert_almost_equal(pred_per_tree, pred_per_tree_tl, decimal=3)
 
