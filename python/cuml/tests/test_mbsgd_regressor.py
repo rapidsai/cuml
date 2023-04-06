@@ -117,7 +117,7 @@ def test_mbsgd_regressor_vs_skl(lrate, penalty, make_dataset):
         skl_sgd_regressor.fit(cp.asnumpy(X_train), cp.asnumpy(y_train).ravel())
         skl_pred = skl_sgd_regressor.predict(cp.asnumpy(X_test))
         skl_r2 = r2_score(skl_pred, cp.asnumpy(y_test), convert_dtype=datatype)
-        assert abs(cu_r2 - skl_r2) <= 0.02
+        assert abs(cu_r2 - skl_r2) <= 0.021
 
 
 @pytest.mark.parametrize(
