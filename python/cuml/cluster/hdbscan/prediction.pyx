@@ -95,7 +95,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
         float* X,
         DistanceType metric,
         float* membership_vec,
-        int batch_size)
+        size_t batch_size)
     
     void compute_membership_vector(
         const handle_t& handle,
@@ -107,7 +107,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
         int min_samples,
         DistanceType metric,
         float* membership_vec,
-        int batch_size);
+        size_t batch_size);
 
     void out_of_sample_predict(const handle_t &handle,
                                CondensedHierarchy[int, float] &condensed_tree,
@@ -131,7 +131,7 @@ _metrics_mapping = {
 }
 
 
-def all_points_membership_vectors(clusterer, batch_size=0):
+def all_points_membership_vectors(clusterer, batch_size=4096):
 
     """
     Predict soft cluster membership vectors for all points in the
@@ -145,11 +145,13 @@ def all_points_membership_vectors(clusterer, batch_size=0):
         A clustering object that has been fit to the data and
         had ``prediction_data=True`` set.
 
-    batch_size : int, optional, default=0
+    batch_size : int, optional, default=min(4096, n_rows)
         Lowers memory requirement by computing distance-based membership in
         smaller batches of points in the training data. Batch size of 0 uses
         all of the training points, batch size of 1000 computes distances for
-        1000 points at a time.
+        1000 points at a time. The default batch_size is 4096. If the number
+        of rows in the original dataset is less than 4096, this defaults to
+        the number of rows.
 
     Returns
     -------
@@ -214,6 +216,7 @@ def all_points_membership_vectors(clusterer, batch_size=0):
         <CondensedHierarchy[int, float]*><size_t> clusterer.condensed_tree_ptr
 
     cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
+
     compute_all_points_membership_vectors(handle_[0],
                                           deref(condensed_tree),
                                           deref(prediction_data_),
@@ -229,7 +232,7 @@ def all_points_membership_vectors(clusterer, batch_size=0):
                                          clusterer.n_clusters_))
 
 
-def membership_vector(clusterer, points_to_predict, batch_size=0, convert_dtype=True):
+def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dtype=True):
     """Predict soft cluster membership. The result produces a vector
     for each point in ``points_to_predict`` that gives a probability that
     the given point is a member of a cluster for each of the selected clusters
@@ -247,11 +250,13 @@ def membership_vector(clusterer, points_to_predict, batch_size=0, convert_dtype=
         have the same dimensionality as the original dataset over which
         clusterer was fit.
     
-    batch_size : int, optional, default=0
+    batch_size : int, optional, default=min(4096, n_points_to_predict)
         Lowers memory requirement by computing distance-based membership in
         smaller batches of points in the training data. Batch size of 0 uses
         all of the training points, batch size of 1000 computes distances for
-        1000 points at a time.
+        1000 points at a time. The default batch_size is 4096. If the number
+        of rows in the original dataset is less than 4096, this defaults to
+        the number of rows.
 
     Returns
     -------
