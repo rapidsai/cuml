@@ -20,8 +20,8 @@ set -u
 
 RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
 LIBRMM_CHANNEL=$(rapids-get-artifact ci/rmm/pull-request/1223/72e0c74/rmm_conda_cpp_cuda${RAPIDS_CUDA_MAJOR}_$(arch).tar.gz)
-LIBRAFT_CHANNEL=$(rapids-get-artifact ci/raft/pull-request/1388/f1f61a8/raft_conda_cpp_cuda${RAPIDS_CUDA_MAJOR}_$(arch).tar.gz)
-LIBCUMLPRIMS_CHANNEL=$(rapids-get-artifact ci/cumlprims_mg/pull-request/129/93c1ffe/cumlprims_mg_conda_cpp_cuda${RAPIDS_CUDA_MAJOR}_$(arch).tar.gz)
+LIBRAFT_CHANNEL=$(rapids-get-artifact ci/raft/pull-request/1388/7bddaee/raft_conda_cpp_cuda${RAPIDS_CUDA_MAJOR}_$(arch).tar.gz)
+LIBCUMLPRIMS_CHANNEL=$(rapids-get-artifact ci/cumlprims_mg/pull-request/129/85effb7/cumlprims_mg_conda_cpp_cuda${RAPIDS_CUDA_MAJOR}_$(arch).tar.gz)
 
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}/
