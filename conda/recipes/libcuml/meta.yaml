@@ -62,6 +62,9 @@ requirements:
     - libcusolver-dev {{ cuda11_libcusolver_host_version }}
     - libcusparse {{ cuda11_libcusparse_host_version }}
     - libcusparse-dev {{ cuda11_libcusparse_host_version }}
+      # Ignore faiss in CUDA 12 for now
+    - libfaiss>=1.7.1
+    - faiss-proc=*=cuda
     {% else %}
     - cuda-cudart {{ cuda_version }}
     - cuda-cudart-dev {{ cuda_version }}
@@ -81,8 +84,6 @@ requirements:
     - libraft ={{ minor_version }}
     - libraft-headers ={{ minor_version }}
     - treelite {{ treelite_version }}
-    - libfaiss>=1.7.1
-    - faiss-proc=*=cuda
 
 outputs:
   - name: libcuml
@@ -106,6 +107,9 @@ outputs:
         - libcurand {{ cuda11_libcurand_run_version }}
         - libcusparse {{ cuda11_libcusparse_run_version }}
         - libcusparse-dev {{ cuda11_libcusparse_run_version }}
+        # Ignore faiss in CUDA 12 for now
+        - libfaiss>=1.7.1
+        - faiss-proc=*=cuda
         {% else %}
         - cuda-cudart {{ cuda_spec }}
         - cuda-cudart-dev {{ cuda_spec }}
@@ -121,8 +125,6 @@ outputs:
         - libraft ={{ minor_version }}
         - libraft-headers ={{ minor_version }}
         - treelite {{ treelite_version }}
-        - libfaiss>=1.7.1
-        - faiss-proc=*=cuda
     about:
       home: https://rapids.ai/
       license: Apache-2.0
