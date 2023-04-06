@@ -93,7 +93,7 @@ void compute_all_points_membership_vectors(
   const float* X,
   raft::distance::DistanceType metric,
   float* membership_vec,
-  int batch_size)
+  size_t batch_size)
 {
   HDBSCAN::detail::Predict::all_points_membership_vectors(
     handle, condensed_tree, prediction_data, X, metric, membership_vec, batch_size);
@@ -108,7 +108,7 @@ void compute_membership_vector(const raft::handle_t& handle,
                                int min_samples,
                                raft::distance::DistanceType metric,
                                float* membership_vec,
-                               int batch_size)
+                               size_t batch_size)
 {
   // Note that (min_samples+1) is parsed to the approximate_predict function. This was done for the
   // core distance computation to consistent with Scikit learn Contrib.
