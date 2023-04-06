@@ -12,6 +12,25 @@ LIBRMM_CHANNEL=$(rapids-get-artifact ci/rmm/pull-request/1223/72e0c74/rmm_conda_
 LIBRAFT_CHANNEL=$(rapids-get-artifact ci/raft/pull-request/1388/f1f61a8/raft_conda_cpp_cuda${RAPIDS_CUDA_MAJOR}_$(arch).tar.gz)
 LIBCUMLPRIMS_CHANNEL=$(rapids-get-artifact ci/cumlprims_mg/pull-request/129/93c1ffe/cumlprims_mg_conda_cpp_cuda${RAPIDS_CUDA_MAJOR}_$(arch).tar.gz)
 
+if [ "${RAPIDS_CUDA_MAJOR}" == 12 ]; then
+cat << EOF > /opt/conda/.condarc
+auto_update_conda: False
+channels:
+  - rapidsai
+  - rapidsai-nightly
+  - dask/label/dev
+  - pytorch
+  - nvidia
+  - conda-forge
+always_yes: true
+number_channel_notices: 0
+conda_build:
+  set_build_id: false
+  root_dir: /tmp/conda-bld-workspace
+  output_folder: /tmp/conda-bld-output
+EOF
+fi
+
 rapids-print-env
 
 rapids-logger "Begin cpp build"

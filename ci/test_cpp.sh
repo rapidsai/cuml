@@ -27,6 +27,25 @@ CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}/
 mkdir -p "${RAPIDS_TESTS_DIR}"
 
+if [ "${RAPIDS_CUDA_MAJOR}" == 12 ]; then
+cat << EOF > /opt/conda/.condarc
+auto_update_conda: False
+channels:
+  - rapidsai
+  - rapidsai-nightly
+  - dask/label/dev
+  - pytorch
+  - nvidia
+  - conda-forge
+always_yes: true
+number_channel_notices: 0
+conda_build:
+  set_build_id: false
+  root_dir: /tmp/conda-bld-workspace
+  output_folder: /tmp/conda-bld-output
+EOF
+fi
+
 rapids-print-env
 
 rapids-mamba-retry install \
