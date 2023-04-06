@@ -15,7 +15,6 @@
  */
 
 #include <cuml/fil/fil.h>
-#include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/treelite_importer.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/tree_layout.hpp>
@@ -146,7 +145,6 @@ class FILEX : public RegressionFixture<float> {
                   params.nrows,
                   raft_proto::device_type::gpu,
                   raft_proto::device_type::gpu,
-                  ML::experimental::fil::infer_kind::default_kind,
                   chunk_size
                 );
               } else {
@@ -220,7 +218,6 @@ class FILEX : public RegressionFixture<float> {
             this->params.nrows,
             raft_proto::device_type::gpu,
             raft_proto::device_type::gpu,
-            ML::experimental::fil::infer_kind::default_kind,
             optimal_chunk_size
           );
           handle->sync_stream();
