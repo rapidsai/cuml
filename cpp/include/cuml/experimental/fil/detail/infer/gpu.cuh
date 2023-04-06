@@ -113,7 +113,6 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   raft_proto::device_id<D> device=raft_proto::device_id<D>{},
   raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
 ) {
-  // auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
   using output_t = typename forest_t::template raw_output_type<vector_output_t>;
 
   auto sm_count = get_sm_count(device);
