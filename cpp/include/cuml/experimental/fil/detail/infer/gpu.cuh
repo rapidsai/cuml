@@ -34,37 +34,26 @@
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/padding.hpp>
 
-#include <raft/core/error.hpp>
-
 namespace ML {
 namespace experimental {
 namespace fil {
 namespace detail {
 namespace inference {
 
-inline auto compute_output_workspace_size(
-  bool has_vector_leaves,
-  infer_kind infer_type,
+inline auto compute_output_size(
   index_type row_output_size,
   index_type threads_per_block,
   index_type rows_per_block_iteration,
-  index_type tree_count
+  infer_kind infer_type=infer_kind::default_kind
 ) {
-  auto simultaneous_trees_per_block = raft_proto::ceildiv(
+  auto result = row_output_size * rows_per_block_iteration;
+  if (infer_type == infer_kind::default_kind) {
+    result *= raft_proto::ceildiv(
       threads_per_block,
       rows_per_block_iteration
-  ) * rows_per_block_iteration;
-  auto output_workspace_size = index_type{};
-  if (infer_type == infer_kind::default_kind) {
-    output_workspace_size = row_output_size * simultaneous_trees_per_block;
-  } else if (infer_type == infer_kind::per_tree) {
-    if (has_vector_leaves) {
-      output_workspace_size = row_output_size * rows_per_block_iteration * tree_count;
-    } else {
-      output_workspace_size = rows_per_block_iteration * tree_count;
-    }
+    );
   }
-  return output_workspace_size;
+  return result;
 }
 
 /* A wrapper around the underlying inference kernels to support dispatching to
@@ -124,10 +113,6 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   raft_proto::device_id<D> device=raft_proto::device_id<D>{},
   raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
 ) {
-  // TODO(hcho3): REMOVE XXX
-  ASSERT(infer_type != infer_kind::leaf_id, "Predict_leaf not yet implemented");
-
-  auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
   using output_t = typename forest_t::template raw_output_type<vector_output_t>;
 
   auto sm_count = get_sm_count(device);
@@ -160,7 +145,6 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   // If we cannot do at least a warp per block when storing input rows in
   // shared mem, recalculate our threads per block without input storage
   if (threads_per_block < WARP_SIZE) {
-    row_size_bytes = index_type{};  // Do not store input rows in shared mem
     threads_per_block = min(
       MAX_THREADS_PER_BLOCK,
       raft_proto::downpadded_size(
@@ -168,63 +152,76 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
         WARP_SIZE
       )
     );
+    if (threads_per_block >= WARP_SIZE) {
+        row_size_bytes = index_type{};  // Do not store input rows in shared mem
+    }
   }
 
-  // If we still cannot use at least a warp per block, give up
+  // If we cannot do at least a warp per block when storing output in
+  // shared mem, recalculate our threads per block with ONLY input storage
   if (threads_per_block < WARP_SIZE) {
-    throw unusable_model_exception(
-      "Model output size exceeds available shared memory"
+    threads_per_block = min(
+      MAX_THREADS_PER_BLOCK,
+      raft_proto::downpadded_size(
+        max_shared_mem_per_block / row_size_bytes,
+        WARP_SIZE
+      )
     );
+  }
+
+  // If we still cannot use at least a warp per block, give up on using
+  // shared memory and just maximize occupancy
+  if (threads_per_block < WARP_SIZE) {
+    threads_per_block = MAX_THREADS_PER_BLOCK;
   }
 
   auto const max_resident_blocks = sm_count * (
     get_max_threads_per_sm(device) / threads_per_block
   );
 
-  // Compute shared memory usage based on minimum or specified rows_per_block_iteration
+  // Compute shared memory usage based on minimum or specified
+  // rows_per_block_iteration
   auto rows_per_block_iteration = specified_chunk_size.value_or(
     index_type{1}
   );
   auto constexpr const output_item_bytes = index_type(sizeof(output_t));
-  auto output_workspace_size = compute_output_workspace_size(
-      has_vector_leaves, infer_type, row_output_size, threads_per_block, rows_per_block_iteration,
-      forest.tree_count()
+  auto output_workspace_size = compute_output_size(
+    row_output_size, threads_per_block, rows_per_block_iteration, infer_type
   );
   auto output_workspace_size_bytes = output_item_bytes * output_workspace_size;
-  auto use_global_mem_fallback = (
-      rows_per_block_iteration * row_size_bytes + output_workspace_size_bytes
-      ) > max_shared_mem_per_block;
+  auto global_workspace = raft_proto::buffer<output_t>{};
 
+  if (output_workspace_size_bytes > max_shared_mem_per_block) {
+    output_workspace_size_bytes = 0;
+    row_output_size = 0;
+  }
   auto shared_mem_per_block = min(
-      rows_per_block_iteration * row_size_bytes
-          + (!use_global_mem_fallback) * output_workspace_size_bytes,
-      max_shared_mem_per_block
+    rows_per_block_iteration * row_size_bytes + output_workspace_size_bytes,
+    max_overall_shared_mem
   );
 
   auto resident_blocks_per_sm = min(
-      raft_proto::ceildiv(max_shared_mem_per_sm, shared_mem_per_block),
-      max_resident_blocks
+    raft_proto::ceildiv(max_shared_mem_per_sm, shared_mem_per_block),
+    max_resident_blocks
   );
 
   // If caller has not specified the number of rows per block iteration, apply
   // the following heuristic to identify an approximately optimal value
   if (
-      !specified_chunk_size.has_value()
-      && resident_blocks_per_sm >= MIN_BLOCKS_PER_SM
-      ) {
+    !specified_chunk_size.has_value()
+    && resident_blocks_per_sm >= MIN_BLOCKS_PER_SM
+  ) {
     rows_per_block_iteration = index_type{32};
   }
 
   do {
-    output_workspace_size = compute_output_workspace_size(
-        has_vector_leaves, infer_type, row_output_size, threads_per_block,
-        rows_per_block_iteration, forest.tree_count()
+    output_workspace_size = compute_output_size(
+      row_output_size, threads_per_block, rows_per_block_iteration, infer_type
     );
     output_workspace_size_bytes = output_item_bytes * output_workspace_size;
 
     shared_mem_per_block = (
-        rows_per_block_iteration * row_size_bytes
-            + (!use_global_mem_fallback) * output_workspace_size_bytes
+      rows_per_block_iteration * row_size_bytes + output_workspace_size_bytes
     );
     if (shared_mem_per_block > max_overall_shared_mem) {
       rows_per_block_iteration >>= index_type{1};
@@ -242,18 +239,17 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
   ));
 
   auto num_blocks = std::min(
-      raft_proto::ceildiv(row_count, rows_per_block_iteration),
-      MAX_BLOCKS
+    raft_proto::ceildiv(row_count, rows_per_block_iteration),
+    MAX_BLOCKS
   );
-
-  // Handle global memory fallback
-  auto global_mem_fallback_buffer = raft_proto::buffer<output_t>{
-      use_global_mem_fallback * output_workspace_size * num_blocks,
+  if (row_output_size == 0) {
+    global_workspace = raft_proto::buffer<output_t>{
+      output_workspace_size * num_blocks,
       raft_proto::device_type::gpu,
       device.value(),
       stream
-  };
-
+    };
+  }
   if (rows_per_block_iteration <= 1) {
     infer_kernel<has_categorical_nodes, 1><<<
       num_blocks,
@@ -273,7 +269,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       vector_output,
       categorical_data,
       infer_type,
-      global_mem_fallback_buffer.data()
+      global_workspace.data()
     );
   } else if (rows_per_block_iteration <= 2) {
     infer_kernel<has_categorical_nodes, 2><<<
@@ -294,7 +290,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       vector_output,
       categorical_data,
       infer_type,
-      global_mem_fallback_buffer.data()
+      global_workspace.data()
     );
   } else if (rows_per_block_iteration <= 4) {
     infer_kernel<has_categorical_nodes, 4><<<
@@ -315,7 +311,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       vector_output,
       categorical_data,
       infer_type,
-      global_mem_fallback_buffer.data()
+      global_workspace.data()
     );
   } else if (rows_per_block_iteration <= 8) {
     infer_kernel<has_categorical_nodes, 8><<<
@@ -336,7 +332,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       vector_output,
       categorical_data,
       infer_type,
-      global_mem_fallback_buffer.data()
+      global_workspace.data()
     );
   } else if (rows_per_block_iteration <= 16) {
     infer_kernel<has_categorical_nodes, 16><<<
@@ -357,7 +353,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       vector_output,
       categorical_data,
       infer_type,
-      global_mem_fallback_buffer.data()
+      global_workspace.data()
     );
   } else {
     infer_kernel<has_categorical_nodes, 32><<<
@@ -378,7 +374,7 @@ std::enable_if_t<D==raft_proto::device_type::gpu, void> infer(
       vector_output,
       categorical_data,
       infer_type,
-      global_mem_fallback_buffer.data()
+      global_workspace.data()
     );
   }
   raft_proto::cuda_check(cudaGetLastError());

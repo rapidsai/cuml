@@ -694,11 +694,13 @@ def test_lightgbm(
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
+@pytest.mark.parametrize("num_boost_round", [10, 100])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
-def test_predict_per_tree(train_device, infer_device, n_classes, tmp_path):
+def test_predict_per_tree(
+    train_device, infer_device, n_classes, num_boost_round, tmp_path
+):
     n_rows = 1000
     n_columns = 30
-    num_boost_round = 10
 
     with using_device_type(train_device):
         X, y = simulate_data(
@@ -722,22 +724,28 @@ def test_predict_per_tree(train_device, infer_device, n_classes, tmp_path):
             xgboost_params=xgboost_params,
         )
         fm = ForestInference.load(model_path, output_class=True)
+        tl_model = treelite.Model.from_xgboost(bst)
+        pred_per_tree_tl = treelite.gtil.predict_per_tree(tl_model, X)
 
     with using_device_type(infer_device):
         pred_per_tree = fm.predict_per_tree(X)
         margin_pred = bst.predict(xgb.DMatrix(X), output_margin=True)
         if n_classes == 2:
-            assert pred_per_tree.shape == (n_rows, num_boost_round)
+            expected_shape = (n_rows, num_boost_round)
             sum_by_class = np.sum(pred_per_tree, axis=1)
         else:
-            assert pred_per_tree.shape == (n_rows, num_boost_round * n_classes)
+            expected_shape = (n_rows, num_boost_round * n_classes)
             sum_by_class = np.column_stack(
                 tuple(
                     np.sum(pred_per_tree[:, class_id::n_classes], axis=1)
                     for class_id in range(n_classes)
                 )
             )
+        assert pred_per_tree.shape == expected_shape
         np.testing.assert_almost_equal(sum_by_class, margin_pred, decimal=3)
+        np.testing.assert_almost_equal(
+            pred_per_tree, pred_per_tree_tl, decimal=3
+        )
 
 
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
@@ -764,6 +772,8 @@ def test_predict_per_tree_with_vector_leaf(
             max_depth=3, random_state=0, n_estimators=n_estimators
         )
         skl_model.fit(X, y)
+        tl_model = treelite.sklearn.import_model(skl_model)
+        pred_per_tree_tl = treelite.gtil.predict_per_tree(tl_model, X)
         fm = ForestInference.load_from_sklearn(
             skl_model, precision="native", output_class=True
         )
@@ -774,3 +784,6 @@ def test_predict_per_tree_with_vector_leaf(
         assert pred_per_tree.shape == (n_rows, n_estimators, n_classes)
         avg_by_class = np.sum(pred_per_tree, axis=1) / n_estimators
         np.testing.assert_almost_equal(avg_by_class, margin_pred, decimal=3)
+        np.testing.assert_almost_equal(
+            pred_per_tree, pred_per_tree_tl, decimal=3
+        )
