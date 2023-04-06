@@ -694,11 +694,13 @@ def test_lightgbm(
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
+@pytest.mark.parametrize("num_boost_round", [10, 100])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
-def test_predict_per_tree(train_device, infer_device, n_classes, tmp_path):
+def test_predict_per_tree(
+        train_device, infer_device, n_classes, num_boost_round, tmp_path
+    ):
     n_rows = 1000
     n_columns = 30
-    num_boost_round = 100
 
     with using_device_type(train_device):
         X, y = simulate_data(

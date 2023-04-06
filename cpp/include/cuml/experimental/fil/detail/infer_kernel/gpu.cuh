@@ -92,7 +92,8 @@ infer_kernel(
     index_type output_workspace_size,
     vector_output_t vector_output_p=nullptr,
     categorical_data_t categorical_data=nullptr,
-    infer_kind infer_type=infer_kind::default_kind
+    infer_kind infer_type=infer_kind::default_kind,
+    typename forest_t::template raw_output_type<vector_output_t>* workspace_fallback=nullptr
 ) {
   auto const default_num_outputs = forest.num_outputs();
   auto constexpr has_vector_leaves = !std::is_same_v<vector_output_t, std::nullptr_t>;
@@ -113,7 +114,12 @@ infer_kernel(
   ) {
 
     shared_mem.clear();
-    auto* output_workspace = shared_mem.fill<output_t>(output_workspace_size);
+    auto* output_workspace = shared_mem.fill<output_t>(
+      output_workspace_size, output_t{}, (
+        workspace_fallback +
+        blockIdx.x * output_workspace_size
+      )
+    );
 
     // Handle as many rows as requested per loop or as many rows as are left to
     // process
