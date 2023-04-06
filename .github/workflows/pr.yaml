@@ -102,10 +102,10 @@ jobs:
       build_type: pull-request
       package-name: cuml
       # Always want to test against latest dask/distributed.
-      test-before-amd64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.06"
+      test-before-amd64: "pip install git+https://github.com/dask/dask.git@2023.3.2 git+https://github.com/dask/distributed.git@2023.3.2.1 git+https://github.com/rapidsai/dask-cuda.git@branch-23.06"
       # On arm also need to install cupy from the specific webpage and CMake
       # because treelite needs to be compiled (no wheels available for arm).
-      test-before-arm64: "pip install 'cupy-cuda11x<12.0.0' -f https://pip.cupy.dev/aarch64 && pip install cmake && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.06"
+      test-before-arm64: "pip install 'cupy-cuda11x<12.0.0' -f https://pip.cupy.dev/aarch64 && pip install cmake && pip install git+https://github.com/dask/dask.git@2023.3.2 git+https://github.com/dask/distributed.git@2023.3.2.1 git+https://github.com/rapidsai/dask-cuda.git@branch-23.06"
       # skipped test context: https://github.com/rapidsai/cuml/issues/5025
       # parallelization is based on current test memory usage
       test-unittest: "pytest -v ./python/cuml/tests -k 'not test_silhouette_score_batched and not test_sparse_pca_inputs' -n 8 --ignore=python/cuml/tests/dask && pytest -v ./python/cuml/tests -k 'test_sparse_pca_inputs' && pytest -v ./python/cuml/tests/dask"

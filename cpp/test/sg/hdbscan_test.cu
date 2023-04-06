@@ -25,10 +25,7 @@
 #include <cuml/cluster/hdbscan.hpp>
 #include <hdbscan/detail/condense.cuh>
 #include <hdbscan/detail/extract.cuh>
-#include <hdbscan/detail/predict.cuh>
 #include <hdbscan/detail/reachability.cuh>
-#include <hdbscan/detail/soft_clustering.cuh>
-#include <hdbscan/detail/utils.h>
 
 #include <raft/spatial/knn/specializations.cuh>
 #include <raft/stats/adjusted_rand_index.cuh>
@@ -460,8 +457,7 @@ class AllPointsMembershipVectorsTest
                                               prediction_data_,
                                               data.data(),
                                               raft::distance::DistanceType::L2SqrtExpanded,
-                                              membership_vec.data(),
-                                              0);
+                                              membership_vec.data());
 
     ASSERT_TRUE(MLCommon::devArrMatch(membership_vec.data(),
                                       params.expected_probabilities.data(),
@@ -755,8 +751,7 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
                                   params.n_points_to_predict,
                                   params.min_samples,
                                   raft::distance::DistanceType::L2SqrtExpanded,
-                                  membership_vec.data(),
-                                  0);
+                                  membership_vec.data());
 
     ASSERT_TRUE(MLCommon::devArrMatch(membership_vec.data(),
                                       params.expected_probabilities.data(),
