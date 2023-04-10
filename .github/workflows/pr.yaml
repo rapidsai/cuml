@@ -93,7 +93,6 @@ jobs:
       extra-repo-sha: branch-23.02
       extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
       skbuild-configure-options: "-DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_DEPRECATION_WARNINGS=ON -DCPM_cumlprims_mg_SOURCE=/project/cumlprims_mg/"
-      uses-setup-env-vars: false
   wheel-tests-cuml:
     needs: wheel-build-cuml
     secrets: inherit
