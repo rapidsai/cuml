@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include <cstddef>
+#include <stddef.h>
 #include <type_traits>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -37,8 +37,8 @@ struct forest {
       typename node_type::threshold_type
   >;
 
-  HOST DEVICE forest(node_type* forest_nodes, index_type* forest_root_indexes, index_type num_trees) :
-    nodes_{forest_nodes}, root_node_indexes_{forest_root_indexes}, num_trees_{num_trees} {}
+  HOST DEVICE forest(node_type* forest_nodes, index_type* forest_root_indexes, index_type num_trees, index_type num_outputs) :
+    nodes_{forest_nodes}, root_node_indexes_{forest_root_indexes}, num_trees_{num_trees}, num_outputs_{num_outputs} {}
 
   /* Return pointer to the root node of the indicated tree */
   HOST DEVICE auto* get_tree_root(index_type tree_index) const {
@@ -49,10 +49,18 @@ struct forest {
   HOST DEVICE auto tree_count() const {
     return num_trees_;
   }
+
+  /* Return the number of outputs per row for default evaluation of this
+   * forest */
+  HOST DEVICE auto num_outputs() const {
+    return num_outputs_;
+  }
+
  private:
   node_type* nodes_;
   index_type* root_node_indexes_;
   index_type num_trees_;
+  index_type num_outputs_;
 };
 
 }
