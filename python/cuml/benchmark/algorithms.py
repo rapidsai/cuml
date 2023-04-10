@@ -25,6 +25,7 @@ from cuml.benchmark.bench_helper_funcs import (
     _build_cpu_skl_classifier,
     _build_fil_skl_classifier,
     _build_fil_classifier,
+    _build_gtil_classifier,
     _build_optimized_fil_classifier,
     _build_treelite_classifier,
     _treelite_fil_accuracy_score,
@@ -218,6 +219,11 @@ def _treelite_format_hook(data):
     """Helper function converting data into treelite format"""
     data = _training_data_to_numpy(data[0], data[1])
     return treelite_runtime.DMatrix(data[0]), data[1]
+
+
+def _numpy_format_hook(data):
+    """Helper function converting data into numpy array"""
+    return _training_data_to_numpy(data[0], data[1])
 
 
 def all_algorithms():
@@ -504,6 +510,7 @@ def all_algorithms():
                 storage_type="DENSE",
                 output_class=False,
                 precision="float32",
+                infer_type="default",
             ),
             name="FILEX-Optimized",
             accepts_labels=False,
@@ -541,6 +548,26 @@ def all_algorithms():
             accepts_labels=False,
             setup_cpu_func=_build_cpu_skl_classifier,
             setup_cuml_func=_build_fil_skl_classifier,
+            accuracy_function=_treelite_fil_accuracy_score,
+            bench_func=predict,
+        ),
+        AlgorithmPair(
+            treelite,
+            cuml.experimental.ForestInference,
+            shared_args=dict(
+                num_rounds=100, max_depth=10, infer_type="per_tree"
+            ),
+            cuml_args=dict(
+                fil_algo="NAIVE",
+                storage_type="DENSE",
+                output_class=False,
+                precision="float32",
+            ),
+            name="FILEX-PerTree",
+            accepts_labels=False,
+            setup_cpu_func=_build_gtil_classifier,
+            setup_cuml_func=_build_optimized_fil_classifier,
+            cpu_data_prep_hook=_numpy_format_hook,
             accuracy_function=_treelite_fil_accuracy_score,
             bench_func=predict,
         ),
