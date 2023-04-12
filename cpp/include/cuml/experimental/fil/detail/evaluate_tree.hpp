@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 #pragma once
-#include <stdint.h>
+#include <cstdint>
+#include <cstddef>
+#include <type_traits>
 #ifndef __CUDACC__
 #include <math.h>
 #endif
 #include <cuml/experimental/fil/detail/bitset.hpp>
+#include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 namespace ML {
 namespace experimental {
@@ -26,7 +29,9 @@ namespace fil {
 namespace detail {
 
 /*
- * Evaluate a single tree on a single row
+ * Evaluate a single tree on a single row.
+ * If node_id_mapping is not-nullptr, this kernel outputs leaf node's ID
+ * instead of the leaf value.
  *
  * @tparam has_vector_leaves Whether or not this tree has vector leaves
  * @tparam has_categorical nodes Whether or not this tree has any nodes with
@@ -34,18 +39,26 @@ namespace detail {
  * @tparam node_t The type of nodes in this tree
  * @tparam io_t The type used for input to and output from this tree (typically
  * either floats or doubles)
+ * @tparam node_id_mapping_t If non-nullptr_t, this indicates the type we expect for
+ * node_id_mapping.
  * @param node Pointer to the root node of this tree
  * @param row Pointer to the input data for this row
+ * @param first_root_node Pointer to the root node of the first tree.
+ * @param node_id_mapping Array representing the mapping from internal node IDs to
+ * final leaf ID outputs
  */
 template<
   bool has_vector_leaves,
   bool has_categorical_nodes,
   typename node_t,
-  typename io_t
+  typename io_t,
+  typename node_id_mapping_t=std::nullptr_t
 >
 HOST DEVICE auto evaluate_tree(
     node_t const* __restrict__ node,
-    io_t const* __restrict__ row
+    io_t const* __restrict__ row,
+    node_t const* __restrict__ first_root_node=nullptr,
+    node_id_mapping_t node_id_mapping=nullptr
 ) {
   using categorical_set_type = bitset<uint32_t, typename node_t::index_type const>;
   auto cur_node = *node;
@@ -71,12 +84,18 @@ HOST DEVICE auto evaluate_tree(
     node += cur_node.child_offset(condition);
     cur_node = *node;
   } while (!cur_node.is_leaf());
-  return cur_node.template output<has_vector_leaves>();
+  if constexpr (!std::is_same_v<node_id_mapping_t, std::nullptr_t>) {
+    return node_id_mapping[node - first_root_node];
+  } else {
+    return cur_node.template output<has_vector_leaves>();
+  }
 }
 
 /*
  * Evaluate a single tree which requires external categorical storage on a
- * single node
+ * single node.
+ * If node_id_mapping is not-nullptr, this kernel outputs leaf node's ID
+ * instead of the leaf value.
  *
  * For non-categorical models and models with a relatively small number of
  * categories for any feature, all information necessary for model evaluation
@@ -92,6 +111,8 @@ HOST DEVICE auto evaluate_tree(
  * either floats or doubles)
  * @tparam categorical_storage_t The underlying type used for storing
  * categorical data (typically char)
+ * @tparam node_id_mapping_t If non-nullptr_t, this indicates the type we expect for
+ * node_id_mapping.
  * @param node Pointer to the root node of this tree
  * @param row Pointer to the input data for this row
  * @param categorical_storage Pointer to where categorical split data is
@@ -101,12 +122,15 @@ template<
   bool has_vector_leaves,
   typename node_t,
   typename io_t,
-  typename categorical_storage_t
+  typename categorical_storage_t,
+  typename node_id_mapping_t=std::nullptr_t
 >
 HOST DEVICE auto evaluate_tree(
     node_t const* __restrict__ node,
     io_t const* __restrict__ row,
-    categorical_storage_t const* __restrict__ categorical_storage
+    categorical_storage_t const* __restrict__ categorical_storage,
+    node_t const* __restrict__ first_root_node=nullptr,
+    node_id_mapping_t node_id_mapping=nullptr
 ) {
   using categorical_set_type = bitset<uint32_t, categorical_storage_t const>;
   auto cur_node = *node;
@@ -127,7 +151,11 @@ HOST DEVICE auto evaluate_tree(
     node += cur_node.child_offset(condition);
     cur_node = *node;
   } while (!cur_node.is_leaf());
-  return cur_node.template output<has_vector_leaves>();
+  if constexpr (!std::is_same_v<node_id_mapping_t, std::nullptr_t>) {
+    return node_id_mapping[node - first_root_node];
+  } else {
+    return cur_node.template output<has_vector_leaves>();
+  }
 }
 
 }

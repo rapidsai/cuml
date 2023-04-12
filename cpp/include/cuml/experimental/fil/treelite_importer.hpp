@@ -186,7 +186,7 @@ struct treelite_importer {
       auto tl_node = treelite_node<tl_threshold_t, tl_output_t>{
         tl_tree, node_id, parent_indices.next(), cur_index
       };
-      lambda(tl_node);
+      lambda(tl_node, node_id);
 
       if (!tl_tree.IsLeaf(node_id)) {
         auto tl_left_id = tl_tree.LeftChild(node_id);
@@ -217,7 +217,7 @@ struct treelite_importer {
   void node_transform(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree, iter_t output_iter, lambda_t&& lambda) {
     node_for_each(
       tl_tree,
-      [&output_iter, &lambda](auto&& tl_node) {
+      [&output_iter, &lambda](auto&& tl_node, int tl_node_id) {
         *output_iter = lambda(tl_node);
         ++output_iter;
       }
@@ -229,7 +229,7 @@ struct treelite_importer {
     auto result = init;
     node_for_each(
       tl_tree,
-      [&result, &lambda](auto&& tl_node) {
+      [&result, &lambda](auto&& tl_node, int tl_node_id) {
         result = lambda(result, tl_node);
       }
     );
@@ -503,18 +503,20 @@ struct treelite_importer {
         tree_for_each(tl_model, [this, &builder, &tree_index, &offsets](auto&& tree) {
           builder.start_new_tree();
           auto node_index = index_type{};
-          node_for_each(tree, [&builder, &tree_index, &node_index, &offsets](auto&& node) {
+          node_for_each(tree, [&builder, &tree_index, &node_index, &offsets](auto&& node, int tl_node_id) {
             if (node.is_leaf()) {
               auto output = node.get_output();
               builder.set_output_size(output.size());
               if (output.size() > index_type{1}) {
                 builder.add_leaf_vector_node(
                   std::begin(output),
-                  std::end(output)
+                  std::end(output),
+                  tl_node_id
                 );
               } else {
                 builder.add_node(
                   typename forest_model_t::io_type(output[0]),
+                  tl_node_id,
                   true
                 );
               }
@@ -531,6 +533,7 @@ struct treelite_importer {
               } else {
                 builder.add_node(
                   typename forest_model_t::threshold_type(node.threshold()),
+                  tl_node_id,
                   false,
                   node.default_distant(),
                   false,

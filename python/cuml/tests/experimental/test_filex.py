@@ -787,3 +787,49 @@ def test_predict_per_tree_with_vector_leaf(
         np.testing.assert_almost_equal(
             pred_per_tree, pred_per_tree_tl, decimal=3
         )
+
+
+@pytest.mark.parametrize("train_device", ("cpu", "gpu"))
+@pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
+@pytest.mark.parametrize("n_classes", [2, 5, 25])
+@pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
+def test_apply(train_device, infer_device, n_classes, tmp_path):
+    n_rows = 1000
+    n_columns = 30
+    num_boost_round = 10
+
+    with using_device_type(train_device):
+        X, y = simulate_data(
+            n_rows,
+            n_columns,
+            n_classes,
+            random_state=0,
+            classification=True,
+        )
+
+        model_path = os.path.join(tmp_path, "xgb_class.model")
+
+        xgboost_params = {"base_score": (0.5 if n_classes == 2 else 0.0)}
+        bst = _build_and_save_xgboost(
+            model_path,
+            X,
+            y,
+            num_rounds=num_boost_round,
+            classification=True,
+            n_classes=n_classes,
+            xgboost_params=xgboost_params,
+        )
+
+        fm = ForestInference.load(
+            model_path, output_class=True, model_type="xgboost"
+        )
+
+    with using_device_type(infer_device):
+        pred_leaf = fm.apply(X).astype(np.int32)
+        expected_pred_leaf = bst.predict(xgb.DMatrix(X), pred_leaf=True)
+        if n_classes == 2:
+            expected_shape = (n_rows, num_boost_round)
+        else:
+            expected_shape = (n_rows, num_boost_round * n_classes)
+        assert pred_leaf.shape == expected_shape
+        np.testing.assert_equal(pred_leaf, expected_pred_leaf)
