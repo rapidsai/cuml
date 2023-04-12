@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ class MakeKSHAPDatasetTest : public ::testing::TestWithParam<MakeKSHAPDatasetInp
 
     // Initialize arrays:
 
-    // Aassign a sentinel value to the observation to check easily later
+    // Assign a sentinel value to the observation to check easily later
     T sent_value = nrows_X * params.nrows_background * params.ncols * 100;
     for (i = 0; i < params.ncols; i++) {
       o_ptr[i] = sent_value;

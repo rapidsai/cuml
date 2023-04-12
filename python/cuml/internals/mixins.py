@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,28 +33,27 @@ from cuml.internals.api_decorators import enable_device_interop
 # https://scikit-learn.org/stable/developers/develop.html#estimator-tags
 _default_tags = {
     # cuML specific tags
-    'preferred_input_order': None,
-    'X_types_gpu': ['2darray'],
-
+    "preferred_input_order": None,
+    "X_types_gpu": ["2darray"],
     # Scikit-learn API standard tags
-    'allow_nan': False,
-    'binary_only': False,
-    'multilabel': False,
-    'multioutput': False,
-    'multioutput_only': False,
-    'no_validation': False,
-    'non_deterministic': False,
-    'pairwise': False,
-    'poor_score': False,
-    'preserves_dtype': [],
-    'requires_fit': True,
-    'requires_positive_X': False,
-    'requires_positive_y': False,
-    'requires_y': False,
-    'stateless': False,
-    'X_types': ['2darray'],
-    '_skip_test': False,
-    '_xfail_checks': False,
+    "allow_nan": False,
+    "binary_only": False,
+    "multilabel": False,
+    "multioutput": False,
+    "multioutput_only": False,
+    "no_validation": False,
+    "non_deterministic": False,
+    "pairwise": False,
+    "poor_score": False,
+    "preserves_dtype": [],
+    "requires_fit": True,
+    "requires_positive_X": False,
+    "requires_positive_y": False,
+    "requires_y": False,
+    "stateless": False,
+    "X_types": ["2darray"],
+    "_skip_test": False,
+    "_xfail_checks": False,
 }
 
 
@@ -118,12 +117,12 @@ class TagsMixin:
         'pairwise': False}
 
         """
-        if hasattr(cls, '_default_tags'):
+        if hasattr(cls, "_default_tags"):
             tags = cls._default_tags()
         else:
             tags = deepcopy(_default_tags)
         for cl in reversed(inspect.getmro(cls)):
-            if hasattr(cl, '_more_static_tags'):
+            if hasattr(cl, "_more_static_tags"):
                 more_tags = cl._more_static_tags()
                 tags.update(more_tags)
 
@@ -162,16 +161,16 @@ class TagsMixin:
         'pairwise': False}
 
         """
-        if hasattr(self, '_default_tags'):
+        if hasattr(self, "_default_tags"):
             tags = self._default_tags()
         else:
             tags = deepcopy(_default_tags)
         dynamic_tags = {}
         for cl in reversed(inspect.getmro(self.__class__)):
-            if hasattr(cl, '_more_static_tags'):
+            if hasattr(cl, "_more_static_tags"):
                 more_tags = cl._more_static_tags()
                 tags.update(more_tags)
-            if hasattr(cl, '_more_tags'):
+            if hasattr(cl, "_more_tags"):
                 more_tags = cl._more_tags(self)
                 dynamic_tags.update(more_tags)
         tags.update(dynamic_tags)
@@ -184,6 +183,7 @@ class TagsMixin:
 #                 Estimators should only use one of these.                    #
 ###############################################################################
 
+
 class RegressorMixin:
     """
     Mixin class for regression estimators in cuML
@@ -193,11 +193,11 @@ class RegressorMixin:
 
     @generate_docstring(
         return_values={
-            'name': 'score',
-            'type': 'float',
-            'description': 'R^2 of self.predict(X) '
-                           'wrt. y.'
-        })
+            "name": "score",
+            "type": "float",
+            "description": "R^2 of self.predict(X) " "wrt. y.",
+        }
+    )
     @api_base_return_any_skipall
     @enable_device_interop
     def score(self, X, y, **kwargs):
@@ -209,7 +209,7 @@ class RegressorMixin:
         """
         from cuml.metrics.regression import r2_score
 
-        if hasattr(self, 'handle'):
+        if hasattr(self, "handle"):
             handle = self.handle
         else:
             handle = None
@@ -219,9 +219,7 @@ class RegressorMixin:
 
     @staticmethod
     def _more_static_tags():
-        return {
-            'requires_y': True
-        }
+        return {"requires_y": True}
 
 
 class ClassifierMixin:
@@ -233,13 +231,14 @@ class ClassifierMixin:
 
     @generate_docstring(
         return_values={
-            'name':
-                'score',
-            'type':
-                'float',
-            'description': ('Accuracy of self.predict(X) wrt. y '
-                            '(fraction where y == pred_y)')
-        })
+            "name": "score",
+            "type": "float",
+            "description": (
+                "Accuracy of self.predict(X) wrt. y "
+                "(fraction where y == pred_y)"
+            ),
+        }
+    )
     @api_base_return_any_skipall
     @enable_device_interop
     def score(self, X, y, **kwargs):
@@ -249,7 +248,7 @@ class ClassifierMixin:
         """
         from cuml.metrics.accuracy import accuracy_score
 
-        if hasattr(self, 'handle'):
+        if hasattr(self, "handle"):
             handle = self.handle
         else:
             handle = None
@@ -259,9 +258,7 @@ class ClassifierMixin:
 
     @staticmethod
     def _more_static_tags():
-        return {
-            'requires_y': True
-        }
+        return {"requires_y": True}
 
 
 class ClusterMixin:
@@ -273,15 +270,14 @@ class ClusterMixin:
 
     @staticmethod
     def _more_static_tags():
-        return {
-            'requires_y': False
-        }
+        return {"requires_y": False}
 
 
 ###############################################################################
 #                              Input Mixins                                   #
 #               Estimators can use as many of these as needed.                #
 ###############################################################################
+
 
 class FMajorInputTagMixin:
     """
@@ -290,9 +286,7 @@ class FMajorInputTagMixin:
 
     @staticmethod
     def _more_static_tags():
-        return {
-            'preferred_input_order': 'F'
-        }
+        return {"preferred_input_order": "F"}
 
 
 class CMajorInputTagMixin:
@@ -302,9 +296,7 @@ class CMajorInputTagMixin:
 
     @staticmethod
     def _more_static_tags():
-        return {
-            'preferred_input_order': 'C'
-        }
+        return {"preferred_input_order": "C"}
 
 
 class SparseInputTagMixin:
@@ -315,8 +307,8 @@ class SparseInputTagMixin:
     @staticmethod
     def _more_static_tags():
         return {
-            'X_types_gpu': ['2darray', 'sparse'],
-            'X_types': ['2darray', 'sparse']
+            "X_types_gpu": ["2darray", "sparse"],
+            "X_types": ["2darray", "sparse"],
         }
 
 
@@ -328,8 +320,8 @@ class StringInputTagMixin:
     @staticmethod
     def _more_static_tags():
         return {
-            'X_types_gpu': ['2darray', 'string'],
-            'X_types': ['2darray', 'string']
+            "X_types_gpu": ["2darray", "string"],
+            "X_types": ["2darray", "string"],
         }
 
 
@@ -340,9 +332,8 @@ class AllowNaNTagMixin:
 
     @staticmethod
     def _more_static_tags():
-        return {
-            'allow_nan': True
-        }
+        return {"allow_nan": True}
+
 
 ###############################################################################
 #                              Other Mixins                                   #
@@ -356,6 +347,4 @@ class StatelessTagMixin:
 
     @staticmethod
     def _more_static_tags():
-        return {
-            'stateless': True
-        }
+        return {"stateless": True}

@@ -57,6 +57,37 @@ void fit(const raft::handle_t& handle,
   impl::fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia, n_iter);
 }
 
+void fit(const raft::handle_t& handle,
+         const raft::cluster::KMeansParams& params,
+         const float* X,
+         int64_t n_samples,
+         int64_t n_features,
+         const float* sample_weight,
+         float* centroids,
+         float& inertia,
+         int64_t& n_iter)
+{
+  const raft::handle_t& h = handle;
+
+  raft::stream_syncer _(h);
+  impl::fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia, n_iter);
+}
+
+void fit(const raft::handle_t& handle,
+         const raft::cluster::KMeansParams& params,
+         const double* X,
+         int64_t n_samples,
+         int64_t n_features,
+         const double* sample_weight,
+         double* centroids,
+         double& inertia,
+         int64_t& n_iter)
+{
+  const raft::handle_t& h = handle;
+  raft::stream_syncer _(h);
+  impl::fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia, n_iter);
+}
+
 };  // end namespace opg
 };  // end namespace kmeans
 };  // end namespace ML

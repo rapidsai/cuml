@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,18 +50,23 @@ cimport cuml.common.cuda
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
-    cdef int TreeliteLoadXGBoostModel(const char* filename,
-                                      ModelHandle* out) except +
-    cdef int TreeliteLoadXGBoostJSON(const char* filename,
-                                     ModelHandle* out) except +
+    cdef int TreeliteLoadXGBoostModelEx(const char* filename,
+                                        const char* config_json,
+                                        ModelHandle* out) except +
+    cdef int TreeliteLoadXGBoostJSONEx(const char* filename,
+                                       const char* config_json,
+                                       ModelHandle* out) except +
     cdef int TreeliteFreeModel(ModelHandle handle) except +
     cdef int TreeliteQueryNumTree(ModelHandle handle, size_t* out) except +
     cdef int TreeliteQueryNumFeature(ModelHandle handle, size_t* out) except +
     cdef int TreeliteQueryNumClass(ModelHandle handle, size_t* out) except +
-    cdef int TreeliteLoadLightGBMModel(const char* filename,
-                                       ModelHandle* out) except +
+    cdef int TreeliteLoadLightGBMModelEx(const char* filename,
+                                         const char* config_json,
+                                         ModelHandle* out) except +
     cdef int TreeliteSerializeModel(const char* filename,
                                     ModelHandle handle) except +
+    cdef int TreeliteDeserializeModel(const char* filename,
+                                      ModelHandle handle) except +
     cdef const char* TreeliteGetLastError()
 
 
@@ -135,14 +140,15 @@ cdef class TreeliteModel():
             Type of model: 'xgboost', 'xgboost_json', or 'lightgbm'
         """
         filename_bytes = filename.encode("UTF-8")
+        config_bytes = "{}".encode("UTF-8")
         cdef ModelHandle handle
         if model_type == "xgboost":
-            res = TreeliteLoadXGBoostModel(filename_bytes, &handle)
+            res = TreeliteLoadXGBoostModelEx(filename_bytes, config_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "xgboost_json":
-            res = TreeliteLoadXGBoostJSON(filename_bytes, &handle)
+            res = TreeliteLoadXGBoostJSONEx(filename_bytes, config_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
@@ -150,7 +156,7 @@ cdef class TreeliteModel():
             logger.warn("Treelite currently does not support float64 model"
                         " parameters. Accuracy may degrade slightly relative"
                         " to native LightGBM invocation.")
-            res = TreeliteLoadLightGBMModel(filename_bytes, &handle)
+            res = TreeliteLoadLightGBMModelEx(filename_bytes, config_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
@@ -230,7 +236,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         # limit number of CUDA blocks launched per GPU SM (or unlimited if 0)
         int blocks_per_sm
         # multiple (neighboring) threads infer on the same tree within a block
-        # this improves memory bandwith near tree root (but uses more shared
+        # this improves memory bandwidth near tree root (but uses more shared
         # memory)
         int threads_per_tree
         # n_items is how many input samples (items) any thread processes.
@@ -605,12 +611,12 @@ class ForestInference(Base,
            algo='AUTO'
 
     blocks_per_sm : integer (default=0)
-        (experimental) Indicates how the number of thread blocks to lauch
+        (experimental) Indicates how the number of thread blocks to launch
         for the inference kernel is determined.
 
         - ``0`` (default): Launches the number of blocks proportional to
           the number of data rows
-        - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
+        - ``>= 1``: Attempts to launch blocks_per_sm blocks per SM. This
           will fail if blocks_per_sm blocks result in more threads than the
           maximum supported number of threads per GPU. Even if successful,
           it is not guaranteed that blocks_per_sm blocks will run on an SM
@@ -793,12 +799,12 @@ class ForestInference(Base,
                algo='AUTO'
 
         blocks_per_sm : integer (default=0)
-            (experimental) Indicates how the number of thread blocks to lauch
+            (experimental) Indicates how the number of thread blocks to launch
             for the inference kernel is determined.
 
             - ``0`` (default): Launches the number of blocks proportional to
               the number of data rows
-            - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
+            - ``>= 1``: Attempts to launch blocks_per_sm blocks per SM. This
               will fail if blocks_per_sm blocks result in more threads than the
               maximum supported number of threads per GPU. Even if successful,
               it is not guaranteed that blocks_per_sm blocks will run on an SM
@@ -896,12 +902,12 @@ class ForestInference(Base,
                algo='AUTO'
 
         blocks_per_sm : integer (default=0)
-            (experimental) Indicates how the number of thread blocks to lauch
+            (experimental) Indicates how the number of thread blocks to launch
             for the inference kernel is determined.
 
             - ``0`` (default): Launches the number of blocks proportional to
               the number of data rows
-            - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
+            - ``>= 1``: Attempts to launch blocks_per_sm blocks per SM. This
               will fail if blocks_per_sm blocks result in more threads than the
               maximum supported number of threads per GPU. Even if successful,
               it is not guaranteed that blocks_per_sm blocks will run on an SM

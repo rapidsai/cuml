@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,9 @@ from cuml.dask.common.dask_arr_utils import to_dask_cudf
 from cuml.internals.safe_imports import gpu_only_import
 import pytest
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
+
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
 
 
 @pytest.mark.mg
@@ -33,12 +34,15 @@ def test_pca_fit(nrows, ncols, n_parts, input_type, client):
 
     from cuml.dask.datasets import make_blobs
 
-    X, _ = make_blobs(n_samples=nrows,
-                      n_features=ncols,
-                      centers=1,
-                      n_parts=n_parts,
-                      cluster_std=0.5,
-                      random_state=10, dtype=np.float32)
+    X, _ = make_blobs(
+        n_samples=nrows,
+        n_features=ncols,
+        centers=1,
+        n_parts=n_parts,
+        cluster_std=0.5,
+        random_state=10,
+        dtype=np.float32,
+    )
 
     if input_type == "dataframe":
         X_train = to_dask_cudf(X)
@@ -59,12 +63,16 @@ def test_pca_fit(nrows, ncols, n_parts, input_type, client):
 
     from cuml.testing.utils import array_equal
 
-    all_attr = ['singular_values_', 'components_',
-                'explained_variance_', 'explained_variance_ratio_']
+    all_attr = [
+        "singular_values_",
+        "components_",
+        "explained_variance_",
+        "explained_variance_ratio_",
+    ]
 
     for attr in all_attr:
-        with_sign = False if attr in ['components_'] else True
-        cuml_res = (getattr(cupca, attr))
+        with_sign = False if attr in ["components_"] else True
+        cuml_res = getattr(cupca, attr)
         if type(cuml_res) == np.ndarray:
             cuml_res = cuml_res.to_numpy()
         skl_res = getattr(skpca, attr)
@@ -80,12 +88,15 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client):
     from cuml.dask.decomposition import PCA as daskPCA
     from cuml.dask.datasets import make_blobs
 
-    X_cudf, _ = make_blobs(n_samples=nrows,
-                           n_features=ncols,
-                           centers=1,
-                           n_parts=n_parts,
-                           cluster_std=1.5,
-                           random_state=10, dtype=np.float32)
+    X_cudf, _ = make_blobs(
+        n_samples=nrows,
+        n_features=ncols,
+        centers=1,
+        n_parts=n_parts,
+        cluster_std=1.5,
+        random_state=10,
+        dtype=np.float32,
+    )
 
     cupca = daskPCA(n_components=20, whiten=True)
     res = cupca.fit_transform(X_cudf)
@@ -102,12 +113,15 @@ def test_pca_fit_transform_fp64(nrows, ncols, n_parts, client):
     from cuml.dask.decomposition import PCA as daskPCA
     from cuml.dask.datasets import make_blobs
 
-    X_cudf, _ = make_blobs(n_samples=nrows,
-                           n_features=ncols,
-                           centers=1,
-                           n_parts=n_parts,
-                           cluster_std=1.5,
-                           random_state=10, dtype=np.float64)
+    X_cudf, _ = make_blobs(
+        n_samples=nrows,
+        n_features=ncols,
+        centers=1,
+        n_parts=n_parts,
+        cluster_std=1.5,
+        random_state=10,
+        dtype=np.float64,
+    )
 
     cupca = daskPCA(n_components=30, whiten=False)
     res = cupca.fit_transform(X_cudf)
@@ -124,12 +138,15 @@ def test_pca_fit_transform_fp32_noncomponents(nrows, ncols, n_parts, client):
     from cuml.dask.decomposition import PCA as daskPCA
     from cuml.dask.datasets import make_blobs
 
-    X_cudf, _ = make_blobs(n_samples=nrows,
-                           n_features=ncols,
-                           centers=1,
-                           n_parts=n_parts,
-                           cluster_std=1.5,
-                           random_state=10, dtype=np.float32)
+    X_cudf, _ = make_blobs(
+        n_samples=nrows,
+        n_features=ncols,
+        centers=1,
+        n_parts=n_parts,
+        cluster_std=1.5,
+        random_state=10,
+        dtype=np.float32,
+    )
 
     cupca = daskPCA(whiten=False)
     res = cupca.fit_transform(X_cudf)

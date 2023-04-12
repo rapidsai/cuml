@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,24 +22,23 @@ from cuml.internals.safe_imports import gpu_only_import
 from itertools import chain, permutations
 
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
+
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize('chunks', ['auto', 2, 1])
+@pytest.mark.parametrize("chunks", ["auto", 2, 1])
 def test_confusion_matrix(client, chunks):
     y_true = da.from_array(cp.array([2, 0, 2, 2, 0, 1]), chunks=chunks)
     y_pred = da.from_array(cp.array([0, 0, 2, 2, 0, 2]), chunks=chunks)
     cm = confusion_matrix(y_true, y_pred)
-    ref = cp.array([[2, 0, 0],
-                    [0, 0, 1],
-                    [1, 0, 2]])
+    ref = cp.array([[2, 0, 0], [0, 0, 1], [1, 0, 2]])
     cp.testing.assert_array_equal(cm, ref)
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize('chunks', ['auto', 2, 1])
+@pytest.mark.parametrize("chunks", ["auto", 2, 1])
 def test_confusion_matrix_binary(client, chunks):
     y_true = da.from_array(cp.array([0, 1, 0, 1]), chunks=chunks)
     y_pred = da.from_array(cp.array([1, 1, 1, 0]), chunks=chunks)
@@ -49,15 +48,15 @@ def test_confusion_matrix_binary(client, chunks):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize('n_samples', [50, 3000, stress_param(500000)])
-@pytest.mark.parametrize('dtype', [np.int32, np.int64])
-@pytest.mark.parametrize('problem_type', ['binary', 'multiclass'])
+@pytest.mark.parametrize("n_samples", [50, 3000, stress_param(500000)])
+@pytest.mark.parametrize("dtype", [np.int32, np.int64])
+@pytest.mark.parametrize("problem_type", ["binary", "multiclass"])
 def test_confusion_matrix_random(n_samples, dtype, problem_type, client):
-    upper_range = 2 if problem_type == 'binary' else 1000
+    upper_range = 2 if problem_type == "binary" else 1000
 
     y_true, y_pred, np_y_true, np_y_pred = generate_random_labels(
         lambda rng: rng.randint(0, upper_range, n_samples).astype(dtype),
-        as_cupy=True
+        as_cupy=True,
     )
     y_true, y_pred = da.from_array(y_true), da.from_array(y_pred)
 
@@ -69,10 +68,12 @@ def test_confusion_matrix_random(n_samples, dtype, problem_type, client):
 @pytest.mark.mg
 @pytest.mark.parametrize(
     "normalize, expected_results",
-    [('true', 0.333333333),
-     ('pred', 0.333333333),
-     ('all', 0.1111111111),
-     (None, 2)]
+    [
+        ("true", 0.333333333),
+        ("pred", 0.333333333),
+        ("all", 0.1111111111),
+        (None, 2),
+    ],
 )
 def test_confusion_matrix_normalize(normalize, expected_results, client):
     y_test = da.from_array(cp.array([0, 1, 2] * 6))
@@ -82,13 +83,11 @@ def test_confusion_matrix_normalize(normalize, expected_results, client):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize('labels', [(0, 1),
-                                    (2, 1),
-                                    (2, 1, 4, 7),
-                                    (2, 20)])
+@pytest.mark.parametrize("labels", [(0, 1), (2, 1), (2, 1, 4, 7), (2, 20)])
 def test_confusion_matrix_multiclass_subset_labels(labels, client):
     y_true, y_pred, np_y_true, np_y_pred = generate_random_labels(
-        lambda rng: rng.randint(0, 3, 10).astype(np.int32), as_cupy=True)
+        lambda rng: rng.randint(0, 3, 10).astype(np.int32), as_cupy=True
+    )
     y_true, y_pred = da.from_array(y_true), da.from_array(y_pred)
 
     ref = sk_confusion_matrix(np_y_true, np_y_pred, labels=labels)
@@ -98,22 +97,25 @@ def test_confusion_matrix_multiclass_subset_labels(labels, client):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize('n_samples', [50, 3000, stress_param(500000)])
-@pytest.mark.parametrize('dtype', [np.int32, np.int64])
-@pytest.mark.parametrize('weights_dtype', ['int', 'float'])
-def test_confusion_matrix_random_weights(n_samples, dtype, weights_dtype,
-                                         client):
+@pytest.mark.parametrize("n_samples", [50, 3000, stress_param(500000)])
+@pytest.mark.parametrize("dtype", [np.int32, np.int64])
+@pytest.mark.parametrize("weights_dtype", ["int", "float"])
+def test_confusion_matrix_random_weights(
+    n_samples, dtype, weights_dtype, client
+):
     y_true, y_pred, np_y_true, np_y_pred = generate_random_labels(
-        lambda rng: rng.randint(0, 10, n_samples).astype(dtype), as_cupy=True)
+        lambda rng: rng.randint(0, 10, n_samples).astype(dtype), as_cupy=True
+    )
     y_true, y_pred = da.from_array(y_true), da.from_array(y_pred)
 
-    if weights_dtype == 'int':
+    if weights_dtype == "int":
         sample_weight = np.random.RandomState(0).randint(0, 10, n_samples)
     else:
         sample_weight = np.random.RandomState(0).rand(n_samples)
 
-    ref = sk_confusion_matrix(np_y_true, np_y_pred,
-                              sample_weight=sample_weight)
+    ref = sk_confusion_matrix(
+        np_y_true, np_y_pred, sample_weight=sample_weight
+    )
 
     sample_weight = cp.array(sample_weight)
     sample_weight = da.from_array(sample_weight)

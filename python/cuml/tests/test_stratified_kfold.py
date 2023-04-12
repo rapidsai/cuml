@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,9 @@
 from cuml.model_selection import StratifiedKFold
 import pytest
 from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
-cp = gpu_only_import('cupy')
+
+cudf = gpu_only_import("cudf")
+cp = gpu_only_import("cupy")
 
 
 def get_x_y(n_samples, n_classes):
@@ -37,8 +38,8 @@ def test_split_dataframe(n_samples, n_classes, n_splits, shuffle):
 
     kf = StratifiedKFold(n_splits=n_splits, shuffle=shuffle)
     for train_index, test_index in kf.split(X, y):
-        assert len(train_index)+len(test_index) == n_samples
-        assert len(train_index) == len(test_index)*(n_splits-1)
+        assert len(train_index) + len(test_index) == n_samples
+        assert len(train_index) == len(test_index) * (n_splits - 1)
         for i in range(n_classes):
             ratio_tr = (y[train_index] == i).sum() / len(train_index)
             ratio_te = (y[test_index] == i).sum() / len(test_index)
@@ -58,7 +59,7 @@ def test_num_classes_check():
 def test_invalid_folds(n_splits):
     X, y = get_x_y(n_samples=1000, n_classes=2)
 
-    err_msg = f'n_splits {n_splits} is not a integer at least 2'
+    err_msg = f"n_splits {n_splits} is not a integer at least 2"
     with pytest.raises(ValueError, match=err_msg):
         kf = StratifiedKFold(n_splits=n_splits)
         for train_index, test_index in kf.split(X, y):

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,32 +24,29 @@ from .. import datagen
 #
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def regression(request):
     dataset_kwargs = {
-        'dataset_type': 'regression',
-        'n_samples': 10000,
-        'n_features': 100
+        "dataset_type": "regression",
+        "n_samples": 10000,
+        "n_features": 100,
     }
     dataset = datagen.gen_data(
-        dataset_kwargs['dataset_type'],
-        'cupy',
-        n_samples=dataset_kwargs['n_samples'],
-        n_features=dataset_kwargs['n_features']
+        dataset_kwargs["dataset_type"],
+        "cupy",
+        n_samples=dataset_kwargs["n_samples"],
+        n_features=dataset_kwargs["n_features"],
     )
     return dataset, dataset_kwargs
 
 
 def bench_standardscaler(gpubenchmark, bench_step, regression):  # noqa: F811
-    _benchmark_algo(gpubenchmark, 'StandardScaler',
-                    bench_step, regression)
+    _benchmark_algo(gpubenchmark, "StandardScaler", bench_step, regression)
 
 
 def bench_maxabsscaler(gpubenchmark, bench_step, regression):  # noqa: F811
-    _benchmark_algo(gpubenchmark, 'MaxAbsScaler',
-                    bench_step, regression)
+    _benchmark_algo(gpubenchmark, "MaxAbsScaler", bench_step, regression)
 
 
 def bench_normalizer(gpubenchmark, bench_step, regression):  # noqa: F811
-    _benchmark_algo(gpubenchmark, 'Normalizer',
-                    bench_step, regression)
+    _benchmark_algo(gpubenchmark, "Normalizer", bench_step, regression)

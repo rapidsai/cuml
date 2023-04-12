@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ namespace Batched {
  * @tparam VecLen number of elements
  * @param x x vector
  * @param y y vector
- * @param smem dynamic shared memory needed for reduction. It must be atleast of
+ * @param smem dynamic shared memory needed for reduction. It must be at least of
  *             size: `sizeof(DataT) * nWarps`.
  * @param broadcast only thread 0 will contain the final dot product if false,
  *                  else every thread will contain this value

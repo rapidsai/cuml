@@ -1,5 +1,4 @@
-
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,20 +22,24 @@ import cuml
 import pytest
 
 from cuml.internals.safe_imports import gpu_only_import
-cudf = gpu_only_import('cudf')
+
+cudf = gpu_only_import("cudf")
 
 
-np = cpu_only_import('numpy')
+np = cpu_only_import("numpy")
 
-pd = cpu_only_import('pandas')
-cp = gpu_only_import('cupy')
+pd = cpu_only_import("pandas")
+cp = gpu_only_import("cupy")
 
 
 def _build_train_test_data(X, y, datatype, train_ratio=0.9):
 
     train_selection = np.random.RandomState(42).choice(
-        [True, False], X.shape[0], replace=True,
-        p=[train_ratio, 1.0-train_ratio])
+        [True, False],
+        X.shape[0],
+        replace=True,
+        p=[train_ratio, 1.0 - train_ratio],
+    )
 
     X_train = X[train_selection]
     y_train = y[train_selection]
@@ -57,14 +60,17 @@ def _build_train_test_data(X, y, datatype, train_ratio=0.9):
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])
-def test_neighborhood_predictions(nrows, ncols, n_neighbors,
-                                  n_clusters, datatype):
+def test_neighborhood_predictions(
+    nrows, ncols, n_neighbors, n_clusters, datatype
+):
 
-    X, y = make_blobs(n_samples=nrows,
-                      centers=n_clusters,
-                      n_features=ncols,
-                      cluster_std=0.01,
-                      random_state=0)
+    X, y = make_blobs(
+        n_samples=nrows,
+        centers=n_clusters,
+        n_features=ncols,
+        cluster_std=0.01,
+        random_state=0,
+    )
 
     X = X.astype(np.float32)
 
@@ -77,13 +83,15 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors,
 
     if datatype == "dataframe":
         assert isinstance(predictions, cudf.Series)
-        assert array_equal(predictions.to_frame().astype(np.int32),
-                           y_test.astype(np.int32))
+        assert array_equal(
+            predictions.to_frame().astype(np.int32), y_test.astype(np.int32)
+        )
     else:
         assert isinstance(predictions, np.ndarray)
 
-        assert array_equal(predictions.astype(np.int32),
-                           y_test.astype(np.int32))
+        assert array_equal(
+            predictions.astype(np.int32), y_test.astype(np.int32)
+        )
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
@@ -93,9 +101,13 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors,
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])
 def test_score(nrows, ncols, n_neighbors, n_clusters, datatype):
 
-    X, y = make_blobs(n_samples=nrows, centers=n_clusters,
-                      n_features=ncols, random_state=0,
-                      cluster_std=0.01)
+    X, y = make_blobs(
+        n_samples=nrows,
+        centers=n_clusters,
+        n_features=ncols,
+        random_state=0,
+        cluster_std=0.01,
+    )
 
     X = X.astype(np.float32)
     X_train, X_test, y_train, y_test = _build_train_test_data(X, y, datatype)
@@ -113,11 +125,13 @@ def test_score(nrows, ncols, n_neighbors, n_clusters, datatype):
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])
 def test_predict_proba(nrows, ncols, n_neighbors, n_clusters, datatype):
 
-    X, y = make_blobs(n_samples=nrows,
-                      centers=n_clusters,
-                      n_features=ncols,
-                      cluster_std=0.01,
-                      random_state=0)
+    X, y = make_blobs(
+        n_samples=nrows,
+        centers=n_clusters,
+        n_features=ncols,
+        cluster_std=0.01,
+        random_state=0,
+    )
 
     X = X.astype(np.float32)
 
@@ -149,11 +163,13 @@ def test_predict_proba_large_n_classes(datatype):
     n_neighbors = 10
     n_clusters = 10000
 
-    X, y = make_blobs(n_samples=nrows,
-                      centers=n_clusters,
-                      n_features=ncols,
-                      cluster_std=0.01,
-                      random_state=0)
+    X, y = make_blobs(
+        n_samples=nrows,
+        centers=n_clusters,
+        n_features=ncols,
+        cluster_std=0.01,
+        random_state=0,
+    )
 
     X = X.astype(np.float32)
 
@@ -178,11 +194,13 @@ def test_predict_large_n_classes(datatype):
     n_neighbors = 2
     n_clusters = 1000
 
-    X, y = make_blobs(n_samples=nrows,
-                      centers=n_clusters,
-                      n_features=ncols,
-                      cluster_std=0.01,
-                      random_state=0)
+    X, y = make_blobs(
+        n_samples=nrows,
+        centers=n_clusters,
+        n_features=ncols,
+        cluster_std=0.01,
+        random_state=0,
+    )
 
     X = X.astype(np.float32)
 
@@ -208,11 +226,11 @@ def test_predict_non_gaussian(n_samples, n_features, n_neighbors, n_query):
 
     np.random.seed(123)
 
-    X_host_train = pd.DataFrame(np.random.uniform(0, 1,
-                                                  (n_samples, n_features)))
+    X_host_train = pd.DataFrame(
+        np.random.uniform(0, 1, (n_samples, n_features))
+    )
     y_host_train = pd.DataFrame(np.random.randint(0, 5, (n_samples, 1)))
-    X_host_test = pd.DataFrame(np.random.uniform(0, 1,
-                                                 (n_query, n_features)))
+    X_host_test = pd.DataFrame(np.random.uniform(0, 1, (n_query, n_features)))
 
     X_device_train = cudf.DataFrame.from_pandas(X_host_train)
     y_device_train = cudf.DataFrame.from_pandas(y_host_train)
@@ -238,19 +256,20 @@ def test_predict_non_gaussian(n_samples, n_features, n_neighbors, n_query):
 @pytest.mark.parametrize("n_cols", [25, 50])
 @pytest.mark.parametrize("n_neighbors", [3, 5])
 @pytest.mark.parametrize("datatype", ["numpy", "dataframe"])
-def test_nonmonotonic_labels(n_classes, n_rows, n_cols,
-                             datatype, n_neighbors):
+def test_nonmonotonic_labels(n_classes, n_rows, n_cols, datatype, n_neighbors):
 
-    X, y = make_blobs(n_samples=n_rows,
-                      centers=n_classes,
-                      n_features=n_cols,
-                      cluster_std=0.01,
-                      random_state=0)
+    X, y = make_blobs(
+        n_samples=n_rows,
+        centers=n_classes,
+        n_features=n_cols,
+        cluster_std=0.01,
+        random_state=0,
+    )
 
     X = X.astype(np.float32)
 
     # Draw labels from non-monotonically increasing set
-    classes = np.arange(0, n_classes*5, 5)
+    classes = np.arange(0, n_classes * 5, 5)
     for i in range(n_classes):
         y[y == i] = classes[i]
 
@@ -312,8 +331,10 @@ def test_predict_proba_multioutput(input_type, output_type):
         X = cp.asarray(X)
         y = cp.asarray(y)
 
-    expected = (np.array([[0., 1.], [1., 0.]]).astype(np.float32),
-                np.array([[1., 0.], [0., 1.]]).astype(np.float32))
+    expected = (
+        np.array([[0.0, 1.0], [1.0, 0.0]]).astype(np.float32),
+        np.array([[1.0, 0.0], [0.0, 1.0]]).astype(np.float32),
+    )
 
     knn_cu = cuKNN(n_neighbors=1, output_type=output_type)
     knn_cu.fit(X, y)

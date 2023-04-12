@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +20,10 @@ from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
 import inspect
 from cuml.internals.safe_imports import gpu_only_import_from
-cuda = gpu_only_import_from('numba', 'cuda')
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+
+cuda = gpu_only_import_from("numba", "cuda")
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 def linear_kernel(X, Y):
@@ -54,7 +55,7 @@ def rbf_kernel(X, Y, gamma=None):
     if gamma is None:
         gamma = 1.0 / X.shape[1]
 
-    K = cp.asarray(pairwise_distances(X, Y, metric='sqeuclidean'))
+    K = cp.asarray(pairwise_distances(X, Y, metric="sqeuclidean"))
     K *= -gamma
     cp.exp(K, K)
     return K
@@ -64,13 +65,13 @@ def laplacian_kernel(X, Y, gamma=None):
     if gamma is None:
         gamma = 1.0 / X.shape[1]
 
-    K = -gamma * cp.asarray(pairwise_distances(X, Y, metric='manhattan'))
+    K = -gamma * cp.asarray(pairwise_distances(X, Y, metric="manhattan"))
     cp.exp(K, K)
     return K
 
 
 def cosine_similarity(X, Y):
-    K = 1.0 - cp.asarray(pairwise_distances(X, Y, metric='cosine'))
+    K = 1.0 - cp.asarray(pairwise_distances(X, Y, metric="cosine"))
     return cp.nan_to_num(K, copy=False)
 
 
@@ -110,18 +111,17 @@ PAIRWISE_KERNEL_FUNCTIONS = {
 
 def _filter_params(func, filter_params, **kwds):
     # get all the possible extra function arguments, excluding x, y
-    py_func = func.py_func if hasattr(func, 'py_func') else func
-    all_func_kwargs = list(inspect.signature(
-        py_func).parameters.values())
+    py_func = func.py_func if hasattr(func, "py_func") else func
+    all_func_kwargs = list(inspect.signature(py_func).parameters.values())
     if len(all_func_kwargs) < 2:
-        raise ValueError(
-            "Expected at least two arguments to kernel function.")
+        raise ValueError("Expected at least two arguments to kernel function.")
 
     extra_arg_names = set(arg.name for arg in all_func_kwargs[2:])
     if not filter_params:
         if not set(kwds.keys()) <= extra_arg_names:
             raise ValueError(
-                "kwds contains arguments not used by kernel function")
+                "kwds contains arguments not used by kernel function"
+            )
     return {k: v for k, v in kwds.items() if k in extra_arg_names}
 
 
@@ -132,16 +132,15 @@ def _kwds_to_tuple_args(func, **kwds):
         raise TypeError("Kernel function should be a numba device function.")
 
     # get all the possible extra function arguments, excluding x, y
-    all_func_kwargs = list(inspect.signature(
-        func.py_func).parameters.values())
+    all_func_kwargs = list(inspect.signature(func.py_func).parameters.values())
     if len(all_func_kwargs) < 2:
-        raise ValueError(
-            "Expected at least two arguments to kernel function.")
+        raise ValueError("Expected at least two arguments to kernel function.")
 
     all_func_kwargs = all_func_kwargs[2:]
     if any(p.default is inspect.Parameter.empty for p in all_func_kwargs):
         raise ValueError(
-            "Extra kernel parameters must be passed as keyword arguments.")
+            "Extra kernel parameters must be passed as keyword arguments."
+        )
     all_func_kwargs = [(k.name, k.default) for k in all_func_kwargs]
 
     kwds_tuple = tuple(
@@ -154,8 +153,7 @@ _kernel_cache = {}
 
 
 def custom_kernel(X, Y, func, **kwds):
-    kwds_tuple = _kwds_to_tuple_args(
-        func, **kwds)
+    kwds_tuple = _kwds_to_tuple_args(func, **kwds)
 
     def evaluate_pairwise_kernels(X, Y, K):
         idx = cuda.threadIdx.x + cuda.blockIdx.x * cuda.blockDim.x
@@ -193,8 +191,15 @@ def custom_kernel(X, Y, func, **kwds):
 
 
 @cuml.internals.api_return_array(get_output_type=True)
-def pairwise_kernels(X, Y=None, metric="linear", *,
-                     filter_params=False, convert_dtype=True, **kwds):
+def pairwise_kernels(
+    X,
+    Y=None,
+    metric="linear",
+    *,
+    filter_params=False,
+    convert_dtype=True,
+    **kwds,
+):
     """
     Compute the kernel between arrays X and optional array Y.
     This method takes either a vector array or a kernel matrix, and returns
@@ -296,12 +301,12 @@ def pairwise_kernels(X, Y=None, metric="linear", *,
 
     if metric in PAIRWISE_KERNEL_FUNCTIONS:
         kwds = _filter_params(
-            PAIRWISE_KERNEL_FUNCTIONS[metric], filter_params, **kwds)
+            PAIRWISE_KERNEL_FUNCTIONS[metric], filter_params, **kwds
+        )
         return PAIRWISE_KERNEL_FUNCTIONS[metric](X, Y, **kwds)
     elif isinstance(metric, str):
         raise ValueError("Unknown kernel %r" % metric)
     else:
-        kwds = _filter_params(
-            metric, filter_params, **kwds)
+        kwds = _filter_params(metric, filter_params, **kwds)
 
         return custom_kernel(X, Y, metric, **kwds)

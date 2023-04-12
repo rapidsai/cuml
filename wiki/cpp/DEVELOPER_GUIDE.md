@@ -161,7 +161,7 @@ The reasons behind these deviations from the Google style guide are given in com
 All formatting checks are done by this python script: [run-clang-format.py](../../cpp/scripts/run-clang-format.py) which is effectively a wrapper over `clang-format`. An error is raised if the code diverges from the format suggested by clang-format. It is expected that the developers run this script to detect and fix formatting violations before creating PR.
 
 #### As part of CI
-[run-clang-format.py](../../cpp/scripts/run-clang-format.py) is executed as part of our `gpuCI/cuml/style-check` CI test. If there are any formatting violations, PR author is expected to fix those to get CI passing. Steps needed to fix the formatting violations are described in the subsequent sub-section.
+[run-clang-format.py](../../cpp/scripts/run-clang-format.py) is executed as part of our CI tests. If there are any formatting violations, PR author is expected to fix those to get CI passing. Steps needed to fix the formatting violations are described in the subsequent sub-section.
 
 #### Manually
 Developers can also manually (or setup this command as part of git pre-commit hook) run this check by executing:
@@ -318,7 +318,7 @@ void foo(const raft::handle_t& h, ..., cudaStream_t stream )
     ...
 }
 ```
-If thrust 1.9.4 or later is avaiable for use in cuML a similar allocator can be provided for `thrust::device_vector`.
+If thrust 1.9.4 or later is available for use in cuML a similar allocator can be provided for `thrust::device_vector`.
 
 ### <a name="allocationsthrust"></a>Using Thrust
 To ensure that thrust algorithms allocate temporary memory via the provided device memory allocator, use the `ML::thrustAllocatorAdapter` available in `src/common/allocatorAdapter.hpp` with the `thrust::cuda::par` execution policy:

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,8 +22,9 @@ import nvtx
 import numbers
 from collections.abc import Iterable
 from cuml.internals.safe_imports import gpu_only_import
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
 
 def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
@@ -34,45 +35,68 @@ def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
 
         if isinstance(centers, numbers.Integral):
             n_centers = centers
-            centers = rs.uniform(center_box[0], center_box[1],
-                                 size=(n_centers, n_features),
-                                 dtype=dtype)
+            centers = rs.uniform(
+                center_box[0],
+                center_box[1],
+                size=(n_centers, n_features),
+                dtype=dtype,
+            )
 
         else:
             if n_features != centers.shape[1]:
-                raise ValueError("Expected `n_features` to be equal to"
-                                 " the length of axis 1 of centers array")
+                raise ValueError(
+                    "Expected `n_features` to be equal to"
+                    " the length of axis 1 of centers array"
+                )
             n_centers = centers.shape[0]
 
     else:
         # Set n_centers by looking at [n_samples] arg
         n_centers = len(n_samples)
         if centers is None:
-            centers = rs.uniform(center_box[0], center_box[1],
-                                 size=(n_centers, n_features),
-                                 dtype=dtype)
+            centers = rs.uniform(
+                center_box[0],
+                center_box[1],
+                size=(n_centers, n_features),
+                dtype=dtype,
+            )
         try:
             assert len(centers) == n_centers
         except TypeError:
-            raise ValueError("Parameter `centers` must be array-like. "
-                             "Got {!r} instead".format(centers))
+            raise ValueError(
+                "Parameter `centers` must be array-like. "
+                "Got {!r} instead".format(centers)
+            )
         except AssertionError:
-            raise ValueError("Length of `n_samples` not consistent"
-                             " with number of centers. Got n_samples = {} "
-                             "and centers = {}".format(n_samples, centers))
+            raise ValueError(
+                "Length of `n_samples` not consistent"
+                " with number of centers. Got n_samples = {} "
+                "and centers = {}".format(n_samples, centers)
+            )
         else:
             if n_features != centers.shape[1]:
-                raise ValueError("Expected `n_features` to be equal to"
-                                 " the length of axis 1 of centers array")
+                raise ValueError(
+                    "Expected `n_features` to be equal to"
+                    " the length of axis 1 of centers array"
+                )
 
     return centers, n_centers
 
 
 @nvtx.annotate(message="datasets.make_blobs", domain="cuml_python")
 @cuml.internals.api_return_generic()
-def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
-               center_box=(-10.0, 10.0), shuffle=True, random_state=None,
-               return_centers=False, order='F', dtype='float32'):
+def make_blobs(
+    n_samples=100,
+    n_features=2,
+    centers=None,
+    cluster_std=1.0,
+    center_box=(-10.0, 10.0),
+    shuffle=True,
+    random_state=None,
+    return_centers=False,
+    order="F",
+    dtype="float32",
+):
     """Generate isotropic Gaussian blobs for clustering.
 
     Parameters
@@ -148,16 +172,18 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
     generator = _create_rs_generator(random_state=random_state)
 
-    centers, n_centers = _get_centers(generator, centers, center_box,
-                                      n_samples, n_features,
-                                      dtype)
+    centers, n_centers = _get_centers(
+        generator, centers, center_box, n_samples, n_features, dtype
+    )
 
     # stds: if cluster_std is given as list, it must be consistent
     # with the n_centers
-    if (hasattr(cluster_std, "__len__") and len(cluster_std) != n_centers):
-        raise ValueError("Length of `clusters_std` not consistent with "
-                         "number of centers. Got centers = {} "
-                         "and cluster_std = {}".format(centers, cluster_std))
+    if hasattr(cluster_std, "__len__") and len(cluster_std) != n_centers:
+        raise ValueError(
+            "Length of `clusters_std` not consistent with "
+            "number of centers. Got centers = {} "
+            "and cluster_std = {}".format(centers, cluster_std)
+        )
 
     if isinstance(cluster_std, numbers.Real):
         cluster_std = cp.full(len(centers), cluster_std)
@@ -176,23 +202,25 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
     if shuffle:
         proba_samples_per_center = np.array(n_samples_per_center) / np.sum(
-            n_samples_per_center)
+            n_samples_per_center
+        )
         np_seed = int(generator.randint(n_samples, size=1))
         np.random.seed(np_seed)
-        shuffled_sample_indices = cp.array(np.random.choice(
-            n_centers,
-            n_samples,
-            replace=True,
-            p=proba_samples_per_center
-        ))
+        shuffled_sample_indices = cp.array(
+            np.random.choice(
+                n_centers, n_samples, replace=True, p=proba_samples_per_center
+            )
+        )
         for i, (n, std) in enumerate(zip(n_samples_per_center, cluster_std)):
             center_indices = cp.where(shuffled_sample_indices == i)
 
             y[center_indices[0]] = i
 
-            X_k = generator.normal(scale=std,
-                                   size=(len(center_indices[0]), n_features),
-                                   dtype=dtype)
+            X_k = generator.normal(
+                scale=std,
+                size=(len(center_indices[0]), n_features),
+                dtype=dtype,
+            )
 
             # NOTE: Adding the loc explicitly as cupy has a bug
             # when calling generator.normal with an array for loc.
@@ -207,9 +235,9 @@ def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
 
             y[start:stop] = i
 
-            X_k = generator.normal(scale=std,
-                                   size=(n, n_features),
-                                   dtype=dtype)
+            X_k = generator.normal(
+                scale=std, size=(n, n_features), dtype=dtype
+            )
 
             cp.add(X_k, centers[i], out=X_k)
             X[start:stop, :] = X_k

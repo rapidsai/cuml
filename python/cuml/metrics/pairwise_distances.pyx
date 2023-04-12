@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -219,7 +219,7 @@ def nan_euclidean_distances(
     X_m[missing_X] = 0
     Y_m[missing_Y] = 0
 
-    # Adjust distances for sqaured
+    # Adjust distances for squared
     if X_m.shape == Y_m.shape:
         if (X_m == Y_m).all():
             distances = cp.asarray(pairwise_distances(
@@ -490,7 +490,7 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         will increase memory used for the method.
 
     metric_arg : float, optional (default = 2)
-        Additionnal metric-specific argument.
+        Additional metric-specific argument.
         For Minkowski it's the p-norm to apply.
 
     Returns

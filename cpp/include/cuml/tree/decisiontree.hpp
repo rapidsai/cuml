@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ struct DecisionTreeParams {
    */
   CRITERION split_criterion;
   /**
-   * Minimum impurity decrease required for spliting a node. If the impurity decrease is below this
+   * Minimum impurity decrease required for splitting a node. If the impurity decrease is below this
    * value, node is leafed out. Default is 0.0
    */
   float min_impurity_decrease = 0.0f;

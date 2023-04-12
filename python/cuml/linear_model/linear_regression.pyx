@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -104,7 +104,7 @@ def fit_multi_target(X, y, fit_intercept=True, sample_weight=None):
     y_arr = y.to_output('array')
 
     if fit_intercept:
-        # Add column containg ones to fit intercept.
+        # Add column containing ones to fit intercept.
         nrow, ncol = X.shape
         X_wide = X.mem_type.xpy.empty_like(
             X_arr, shape=(nrow, ncol + 1)
@@ -142,6 +142,10 @@ class LinearRegression(LinearPredictMixin,
     cuML's LinearRegression expects either a cuDF DataFrame or a NumPy matrix
     and provides 2 algorithms SVD and Eig to fit a linear model. SVD is more
     stable, but Eig (default) is much faster.
+
+    This estimator supports cuML's experimental device selection capabilities.
+    It can be configured to run on either the CPU or the GPU.
+    To learn more, please see :ref:`device-selection`.
 
     Examples
     --------

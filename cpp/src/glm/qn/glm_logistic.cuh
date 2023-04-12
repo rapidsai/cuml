@@ -23,6 +23,7 @@
 
 namespace ML {
 namespace GLM {
+namespace detail {
 
 template <typename T>
 struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
@@ -63,5 +64,6 @@ struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
     return nrmMax(grad, dev_scalar, stream);
   }
 };
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML

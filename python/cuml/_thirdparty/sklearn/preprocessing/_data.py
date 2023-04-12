@@ -302,7 +302,7 @@ class MinMaxScaler(TransformerMixin,
         __init__ parameters are not touched.
         """
 
-        # Checking one attribute is enough, becase they are all set together
+        # Checking one attribute is enough, because they are all set together
         # in partial_fit
         if hasattr(self, 'scale_'):
             del self.scale_
@@ -629,7 +629,7 @@ class StandardScaler(TransformerMixin,
         __init__ parameters are not touched.
         """
 
-        # Checking one attribute is enough, becase they are all set together
+        # Checking one attribute is enough, because they are all set together
         # in partial_fit
         if hasattr(self, 'scale_'):
             del self.scale_
@@ -934,7 +934,7 @@ class MaxAbsScaler(TransformerMixin,
         __init__ parameters are not touched.
         """
 
-        # Checking one attribute is enough, becase they are all set together
+        # Checking one attribute is enough, because they are all set together
         # in partial_fit
         if hasattr(self, 'scale_'):
             del self.scale_

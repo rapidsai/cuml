@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ if has_scipy():
     import scipy.sparse
 
 
-cdef extern from "raft/spatial/knn/ball_cover_common.h" \
+cdef extern from "raft/spatial/knn/ball_cover_types.hpp" \
         namespace "raft::spatial::knn":
     cdef cppclass BallCoverIndex[int64_t, float, uint32_t]:
         BallCoverIndex(const handle_t &handle,
@@ -161,6 +161,10 @@ class NearestNeighbors(UniversalBase,
     datapoints. Currently, cuML supports k-NN queries, which define
     the neighborhood as the closest `k` neighbors to each query point.
 
+    This estimator supports cuML's experimental device selection capabilities.
+    It can be configured to run on either the CPU or the GPU.
+    To learn more, please see :ref:`device-selection`.
+
     Parameters
     ----------
     n_neighbors : int (default=5)
@@ -222,7 +226,7 @@ class NearestNeighbors(UniversalBase,
             - nprobe: (int) at query time, number of cells used for search
             - M: (int) number of subquantizers
             - n_bits: (int) bits allocated per subquantizer
-            - usePrecomputedTables : (bool) wether to use precomputed tables
+            - usePrecomputedTables : (bool) whether to use precomputed tables
 
     metric_expanded : bool
         Can increase performance in Minkowski-based (Lp) metrics (for p > 1)
@@ -392,7 +396,7 @@ class NearestNeighbors(UniversalBase,
                           "(see cuML issue #4020)")
 
             if not is_dense(X):
-                raise ValueError("Approximate Nearest Neigbors methods "
+                raise ValueError("Approximate Nearest Neighbors methods "
                                  "require dense data")
 
             additional_info = {'n_samples': self.n_samples_fit_,

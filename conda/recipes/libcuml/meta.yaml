@@ -1,12 +1,11 @@
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 
-# Usage:
-#   conda build . -c conda-forge -c nvidia -c rapidsai -c pytorch
-{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
 {% set cuda_major = cuda_version.split('.')[0] %}
 {% set cuda_spec = ">=" + cuda_major ~ ",<" + (cuda_major | int + 1) ~ ".0a0" %} # i.e. >=11,<12.0a0
+{% set date_string = environ['RAPIDS_DATE_STRING'] %}
 
 package:
   name: libcuml-split
@@ -18,16 +17,18 @@ build:
   script_env:
     - AWS_ACCESS_KEY_ID
     - AWS_SECRET_ACCESS_KEY
-    - PARALLEL_LEVEL
-    - CMAKE_GENERATOR
+    - AWS_SESSION_TOKEN
     - CMAKE_C_COMPILER_LAUNCHER
-    - CMAKE_CXX_COMPILER_LAUNCHER
     - CMAKE_CUDA_COMPILER_LAUNCHER
+    - CMAKE_CXX_COMPILER_LAUNCHER
+    - CMAKE_GENERATOR
+    - PARALLEL_LEVEL
+    - SCCACHE_BUCKET
+    - SCCACHE_IDLE_TIMEOUT
+    - SCCACHE_REGION
     - SCCACHE_S3_KEY_PREFIX=libcuml-aarch64 # [aarch64]
     - SCCACHE_S3_KEY_PREFIX=libcuml-linux64 # [linux64]
-    - SCCACHE_BUCKET
-    - SCCACHE_REGION
-    - SCCACHE_IDLE_TIMEOUT
+    - SCCACHE_S3_USE_SSL
 
 requirements:
   build:
@@ -54,10 +55,11 @@ requirements:
     - libcusolver-dev {{ libcusolver_host_version }}
     - libcusparse {{ libcusparse_host_version }}
     - libcusparse-dev {{ libcusparse_host_version }}
-    - libraft-distance ={{ minor_version }}
+    - libraft ={{ minor_version }}
     - libraft-headers ={{ minor_version }}
-    - libraft-nn ={{ minor_version }}
     - treelite {{ treelite_version }}
+    - libfaiss>=1.7.1
+    - faiss-proc=*=cuda
 
 outputs:
   - name: libcuml
@@ -65,7 +67,7 @@ outputs:
     script: install_libcuml.sh
     build:
       number: {{ GIT_DESCRIBE_NUMBER }}
-      string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
         - {{ compiler('cuda') }}
     requirements:
@@ -81,10 +83,11 @@ outputs:
         - libcurand {{ libcurand_run_version }}
         - libcusparse {{ libcusparse_run_version }}
         - libcusparse-dev {{ libcusparse_run_version }}
-        - libraft-distance ={{ minor_version }}
+        - libraft ={{ minor_version }}
         - libraft-headers ={{ minor_version }}
-        - libraft-nn ={{ minor_version }}
         - treelite {{ treelite_version }}
+        - libfaiss>=1.7.1
+        - faiss-proc=*=cuda
     about:
       home: https://rapids.ai/
       license: Apache-2.0
@@ -94,7 +97,7 @@ outputs:
     script: install_libcuml_tests.sh
     build:
       number: {{ GIT_DESCRIBE_NUMBER }}
-      string: cuda{{ cuda_major }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+      string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
         - {{ compiler('cuda') }}
     requirements:

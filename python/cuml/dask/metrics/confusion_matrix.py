@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,9 +21,10 @@ from cuml.dask.common.utils import get_client
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.internals.safe_imports import gpu_only_import
 from cuml.internals.safe_imports import cpu_only_import
-np = cpu_only_import('numpy')
-cp = gpu_only_import('cupy')
-cupyx = gpu_only_import('cupyx')
+
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
 
 
 @with_cupy_rmm
@@ -44,18 +45,23 @@ def _local_cm(inputs, labels, use_sample_weight):
     y_pred = y_pred[ind]
     y_true = y_true[ind]
     sample_weight = sample_weight[ind]
-    cm = cupyx.scipy.sparse.coo_matrix((sample_weight, (y_true, y_pred)),
-                                       shape=(n_labels, n_labels),
-                                       dtype=cp.float64).toarray()
+    cm = cupyx.scipy.sparse.coo_matrix(
+        (sample_weight, (y_true, y_pred)),
+        shape=(n_labels, n_labels),
+        dtype=cp.float64,
+    ).toarray()
     return cp.nan_to_num(cm)
 
 
 @with_cupy_rmm
-def confusion_matrix(y_true, y_pred,
-                     labels=None,
-                     normalize=None,
-                     sample_weight=None,
-                     client=None):
+def confusion_matrix(
+    y_true,
+    y_pred,
+    labels=None,
+    normalize=None,
+    sample_weight=None,
+    client=None,
+):
     """Compute confusion matrix to evaluate the accuracy of a classification.
 
     Parameters
@@ -89,29 +95,38 @@ def confusion_matrix(y_true, y_pred,
     if labels is None:
         labels = sorted_unique_labels(y_true, y_pred)
 
-    if normalize not in ['true', 'pred', 'all', None]:
-        msg = "normalize must be one of " \
+    if normalize not in ["true", "pred", "all", None]:
+        msg = (
+            "normalize must be one of "
             f"{{'true', 'pred', 'all', None}}, got {normalize}."
+        )
         raise ValueError(msg)
 
     use_sample_weight = bool(sample_weight is not None)
-    dask_arrays = [y_true, y_pred, sample_weight] if use_sample_weight else \
-        [y_true, y_pred]
+    dask_arrays = (
+        [y_true, y_pred, sample_weight]
+        if use_sample_weight
+        else [y_true, y_pred]
+    )
 
     # run cm computation on each partition.
     data = DistributedDataHandler.create(dask_arrays, client=client)
-    cms = [client.submit(_local_cm, p, labels, use_sample_weight,
-                         workers=[w]).result() for w, p in data.gpu_futures]
+    cms = [
+        client.submit(
+            _local_cm, p, labels, use_sample_weight, workers=[w]
+        ).result()
+        for w, p in data.gpu_futures
+    ]
 
     # reduce each partition's result into one cupy matrix
     cm = sum(cms)
 
-    with np.errstate(all='ignore'):
-        if normalize == 'true':
+    with np.errstate(all="ignore"):
+        if normalize == "true":
             cm = cm / cm.sum(axis=1, keepdims=True)
-        elif normalize == 'pred':
+        elif normalize == "pred":
             cm = cm / cm.sum(axis=0, keepdims=True)
-        elif normalize == 'all':
+        elif normalize == "all":
             cm = cm / cm.sum()
         cm = np.nan_to_num(cm)
 

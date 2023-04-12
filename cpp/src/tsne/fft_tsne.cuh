@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -169,7 +169,7 @@ value_t FFT_TSNE(value_t* VAL,
   auto stream        = handle.get_stream();
   auto thrust_policy = handle.get_thrust_policy();
 
-  // Get device properites
+  // Get device properties
   //---------------------------------------------------
   const int mp_count          = raft::getMultiProcessorCount();
   const int dev_major_version = MLCommon::getDeviceCapability().first;
@@ -580,7 +580,7 @@ value_t FFT_TSNE(value_t* VAL,
                         attractive_forces_device.size();
 
     if (grad_norm <= params.min_grad_norm) {
-      CUML_LOG_DEBUG("Breaking early as `min_grad_norm` was satisifed, after %d iterations", iter);
+      CUML_LOG_DEBUG("Breaking early as `min_grad_norm` was satisfied, after %d iterations", iter);
       break;
     }
   }
