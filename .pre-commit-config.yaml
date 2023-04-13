@@ -37,7 +37,7 @@ repos:
             name: clang-format
             entry: python ./cpp/scripts/run-clang-format.py
             language: python
-            additional_dependencies: [clang-format==11.1.0]
+            additional_dependencies: [clang-format==16.0.1]
           - id: copyright-check
             name: copyright-check
             entry: python ./ci/checks/copyright.py --fix-in-place
