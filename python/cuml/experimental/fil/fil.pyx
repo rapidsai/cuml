@@ -1316,9 +1316,8 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         """
         if data is None:
             xpy = GlobalSettings().xpy
-            rng = xpy.random.default_rng(seed)
             dtype = self.forest.get_dtype()
-            data = rng.uniform(
+            data = xpy.random.uniform(
                 xpy.finfo(dtype).min,
                 xpy.finfo(dtype).max,
                 (iterations, batch_size, self.forest.num_features())
@@ -1334,10 +1333,10 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             batch_size, features = data.shape
             data = [data for _ in range(iterations)]
 
+        if max_chunk_size is None:
+            max_chunk_size = 512
         if GlobalSettings().device_type == DeviceType.device:
             max_chunk_size = min(max_chunk_size, 32)
-        elif max_chunk_size is None:
-            max_chunk_size = 512
 
         infer = getattr(self, predict_method)
 
