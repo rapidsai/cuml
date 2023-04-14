@@ -41,7 +41,6 @@ jobs:
     uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@cuda-120
     with:
       build_type: pull-request
-<<<<<<< HEAD
   #conda-python-build:
   #  needs: conda-cpp-build
   #  secrets: inherit
