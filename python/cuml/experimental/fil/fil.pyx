@@ -1322,11 +1322,11 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                 xpy.finfo(dtype).max,
                 (iterations, batch_size, self.forest.num_features())
             )
-        data = CumlArray.from_input(
-            data,
-            order='K',
-            convert_to_mem_type=False
-        )
+        else:
+            data = CumlArray.from_input(
+                data,
+                order='K',
+            ).to_output('array')
         try:
             iterations, batch_size, features = data.shape
         except ValueError:
