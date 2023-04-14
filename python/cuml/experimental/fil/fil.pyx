@@ -28,8 +28,7 @@ from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.experimental.fil.postprocessing cimport element_op, row_op
-# from cuml.experimental.fil.elem_op cimport element_op
-# from cuml.experimental.fil.row_op cimport row_op
+from cuml.experimental.fil.infer_kind cimport infer_kind
 from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
 from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport cuda_stream as raft_proto_stream_t
 from cuml.experimental.fil.detail.raft_proto.device_type cimport device_type as raft_proto_device_t
@@ -41,6 +40,10 @@ from cuml.internals.device_type import DeviceType, DeviceTypeError
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from pylibraft.common.handle cimport handle_t as raft_handle_t
+
+cdef extern from "treelite/c_api.h":
+    ctypedef void* ModelHandle
+
 
 cdef raft_proto_device_t get_device_type(arr):
     cdef raft_proto_device_t dev

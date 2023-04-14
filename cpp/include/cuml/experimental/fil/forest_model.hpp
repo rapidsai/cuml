@@ -61,6 +61,7 @@ struct forest_model {
     }, decision_forest_);
   }
 
+  /** Whether or not leaf nodes use vector outputs */
   auto has_vector_leaves() {
     return std::visit([](auto&& concrete_forest) {
       return concrete_forest.has_vector_leaves();
