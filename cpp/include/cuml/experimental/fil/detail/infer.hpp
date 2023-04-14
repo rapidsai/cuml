@@ -15,20 +15,20 @@
  */
 #pragma once
 #include <cstddef>
+#include <cuml/experimental/fil/detail/index_type.hpp>
+#include <cuml/experimental/fil/detail/infer/cpu.hpp>
+#include <cuml/experimental/fil/infer_kind.hpp>
 #include <iostream>
 #include <optional>
 #include <type_traits>
-#include <cuml/experimental/fil/infer_kind.hpp>
-#include <cuml/experimental/fil/detail/index_type.hpp>
-#include <cuml/experimental/fil/detail/infer/cpu.hpp>
 #ifdef CUML_ENABLE_GPU
 #include <cuml/experimental/fil/detail/infer/gpu.hpp>
 #endif
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
-#include <cuml/experimental/fil/exceptions.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/experimental/fil/exceptions.hpp>
 namespace ML {
 namespace experimental {
 namespace fil {
@@ -61,131 +61,118 @@ namespace detail {
  * @param device The device on which to execute evaluation
  * @param stream Optionally, the CUDA stream to use
  */
-template<raft_proto::device_type D, typename forest_t>
-void infer(
-  forest_t const& forest,
-  postprocessor<typename forest_t::io_type> const& postproc,
-  typename forest_t::io_type* output,
-  typename forest_t::io_type* input,
-  index_type row_count,
-  index_type col_count,
-  index_type output_count,
-  bool has_categorical_nodes,
-  typename forest_t::io_type* vector_output=nullptr,
-  typename forest_t::node_type::index_type* categorical_data=nullptr,
-  infer_kind infer_type=infer_kind::default_kind,
-  std::optional<index_type> specified_chunk_size=std::nullopt,
-  raft_proto::device_id<D> device=raft_proto::device_id<D>{},
-  raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
-) {
+template <raft_proto::device_type D, typename forest_t>
+void infer(forest_t const& forest,
+           postprocessor<typename forest_t::io_type> const& postproc,
+           typename forest_t::io_type* output,
+           typename forest_t::io_type* input,
+           index_type row_count,
+           index_type col_count,
+           index_type output_count,
+           bool has_categorical_nodes,
+           typename forest_t::io_type* vector_output                  = nullptr,
+           typename forest_t::node_type::index_type* categorical_data = nullptr,
+           infer_kind infer_type                                      = infer_kind::default_kind,
+           std::optional<index_type> specified_chunk_size             = std::nullopt,
+           raft_proto::device_id<D> device                            = raft_proto::device_id<D>{},
+           raft_proto::cuda_stream stream                             = raft_proto::cuda_stream{})
+{
   if (vector_output == nullptr) {
     if (categorical_data == nullptr) {
       if (!has_categorical_nodes) {
-        inference::infer<D, false, forest_t, std::nullptr_t, std::nullptr_t> (
-          forest,
-          postproc,
-          output,
-          input,
-          row_count,
-          col_count,
-          output_count,
-          nullptr,
-          nullptr,
-          infer_type,
-          specified_chunk_size,
-          device,
-          stream
-        );
+        inference::infer<D, false, forest_t, std::nullptr_t, std::nullptr_t>(forest,
+                                                                             postproc,
+                                                                             output,
+                                                                             input,
+                                                                             row_count,
+                                                                             col_count,
+                                                                             output_count,
+                                                                             nullptr,
+                                                                             nullptr,
+                                                                             infer_type,
+                                                                             specified_chunk_size,
+                                                                             device,
+                                                                             stream);
       } else {
-        inference::infer<D, true, forest_t, std::nullptr_t, std::nullptr_t> (
-          forest,
-          postproc,
-          output,
-          input,
-          row_count,
-          col_count,
-          output_count,
-          nullptr,
-          nullptr,
-          infer_type,
-          specified_chunk_size,
-          device,
-          stream
-        );
+        inference::infer<D, true, forest_t, std::nullptr_t, std::nullptr_t>(forest,
+                                                                            postproc,
+                                                                            output,
+                                                                            input,
+                                                                            row_count,
+                                                                            col_count,
+                                                                            output_count,
+                                                                            nullptr,
+                                                                            nullptr,
+                                                                            infer_type,
+                                                                            specified_chunk_size,
+                                                                            device,
+                                                                            stream);
       }
     } else {
-      inference::infer<D, true, forest_t> (
-        forest,
-        postproc,
-        output,
-        input,
-        row_count,
-        col_count,
-        output_count,
-        nullptr,
-        categorical_data,
-        infer_type,
-        specified_chunk_size,
-        device,
-        stream
-      );
+      inference::infer<D, true, forest_t>(forest,
+                                          postproc,
+                                          output,
+                                          input,
+                                          row_count,
+                                          col_count,
+                                          output_count,
+                                          nullptr,
+                                          categorical_data,
+                                          infer_type,
+                                          specified_chunk_size,
+                                          device,
+                                          stream);
     }
   } else {
     if (categorical_data == nullptr) {
       if (!has_categorical_nodes) {
-        inference::infer<D, false, forest_t> (
-          forest,
-          postproc,
-          output,
-          input,
-          row_count,
-          col_count,
-          output_count,
-          vector_output,
-          nullptr,
-          infer_type,
-          specified_chunk_size,
-          device,
-          stream
-        );
+        inference::infer<D, false, forest_t>(forest,
+                                             postproc,
+                                             output,
+                                             input,
+                                             row_count,
+                                             col_count,
+                                             output_count,
+                                             vector_output,
+                                             nullptr,
+                                             infer_type,
+                                             specified_chunk_size,
+                                             device,
+                                             stream);
       } else {
-        inference::infer<D, true, forest_t> (
-          forest,
-          postproc,
-          output,
-          input,
-          row_count,
-          col_count,
-          output_count,
-          vector_output,
-          nullptr,
-          infer_type,
-          specified_chunk_size,
-          device,
-          stream
-        );
+        inference::infer<D, true, forest_t>(forest,
+                                            postproc,
+                                            output,
+                                            input,
+                                            row_count,
+                                            col_count,
+                                            output_count,
+                                            vector_output,
+                                            nullptr,
+                                            infer_type,
+                                            specified_chunk_size,
+                                            device,
+                                            stream);
       }
     } else {
-      inference::infer<D, true, forest_t> (
-        forest,
-        postproc,
-        output,
-        input,
-        row_count,
-        col_count,
-        output_count,
-        vector_output,
-        categorical_data,
-        infer_type,
-        specified_chunk_size,
-        device,
-        stream
-      );
+      inference::infer<D, true, forest_t>(forest,
+                                          postproc,
+                                          output,
+                                          input,
+                                          row_count,
+                                          col_count,
+                                          output_count,
+                                          vector_output,
+                                          categorical_data,
+                                          infer_type,
+                                          specified_chunk_size,
+                                          device,
+                                          stream);
     }
   }
 }
 
-}
-}
-}
-}
+}  // namespace detail
+}  // namespace fil
+}  // namespace experimental
+}  // namespace ML

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,18 +63,18 @@ void weightedPearson(const raft::handle_t& h,
   rmm::device_uvector<math_t> y_tmp(n_samples, stream);
   rmm::device_uvector<math_t> x_tmp(n_samples * n_progs, stream);
 
-  rmm::device_scalar<math_t> y_mu(stream);            // output mean
-  rmm::device_uvector<math_t> x_mu(n_progs, stream);  // predicted output mean
+  rmm::device_scalar<math_t> y_mu(stream);                // output mean
+  rmm::device_uvector<math_t> x_mu(n_progs, stream);      // predicted output mean
 
   rmm::device_uvector<math_t> y_diff(n_samples, stream);  // normalized output
   rmm::device_uvector<math_t> x_diff(n_samples * n_progs,
-                                     stream);  // normalized predicted output
+                                     stream);             // normalized predicted output
 
-  rmm::device_uvector<math_t> y_std(1, stream);  // output stddev
+  rmm::device_uvector<math_t> y_std(1, stream);           // output stddev
   rmm::device_uvector<math_t> x_std(n_progs,
-                                    stream);  // predicted output stddev
+                                    stream);              // predicted output stddev
 
-  rmm::device_scalar<math_t> dWS(stream);  // sample weight sum
+  rmm::device_scalar<math_t> dWS(stream);                 // sample weight sum
   math_t N = (math_t)n_samples;
 
   // Sum of weights

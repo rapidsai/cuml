@@ -24,9 +24,9 @@ namespace detail {
 #ifdef __cpplib_hardware_interference_size
 using std::hardware_constructive_interference_size;
 #else
-auto constexpr static const hardware_constructive_interference_size=std::size_t{64};
+auto constexpr static const hardware_constructive_interference_size = std::size_t{64};
 #endif
-}
-}
-}
-}
+}  // namespace detail
+}  // namespace fil
+}  // namespace experimental
+}  // namespace ML

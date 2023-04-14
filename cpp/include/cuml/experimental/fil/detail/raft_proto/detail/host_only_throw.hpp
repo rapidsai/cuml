@@ -19,6 +19,6 @@
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 
 namespace raft_proto {
-template<typename T, bool host=!GPU_COMPILATION>
+template <typename T, bool host = !GPU_COMPILATION>
 using host_only_throw = detail::host_only_throw<T, host>;
 }

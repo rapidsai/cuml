@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -158,7 +158,7 @@ __global__ void _undiff_kernel(DataT* d_fc,
     for (int i = 0; i < num_steps; i++) {
       if (!double_diff) {  // One simple or seasonal difference
         b_fc[i] += _select_read(b_in, n_in, b_fc, i - s0);
-      } else {  // Two differences (simple, seasonal or both)
+      } else {             // Two differences (simple, seasonal or both)
         DataT fc_acc = -_select_read(b_in, n_in, b_fc, i - s0 - s1);
         fc_acc += _select_read(b_in, n_in, b_fc, i - s0);
         fc_acc += _select_read(b_in, n_in, b_fc, i - s1);

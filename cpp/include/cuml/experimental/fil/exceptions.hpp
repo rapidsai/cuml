@@ -23,16 +23,11 @@ namespace fil {
 
 /** Exception indicating model is incompatible with experimental FIL */
 struct unusable_model_exception : std::exception {
-  unusable_model_exception () : msg_{"Model is not compatible with experimental FIL"}
-  {
-  }
-  unusable_model_exception (std::string msg) : msg_{msg}
-  {
-  }
-  unusable_model_exception (char const* msg) : msg_{msg}
-  {
-  }
+  unusable_model_exception() : msg_{"Model is not compatible with experimental FIL"} {}
+  unusable_model_exception(std::string msg) : msg_{msg} {}
+  unusable_model_exception(char const* msg) : msg_{msg} {}
   virtual char const* what() const noexcept { return msg_.c_str(); }
+
  private:
   std::string msg_;
 };
@@ -63,6 +58,6 @@ struct type_error : std::exception {
   char const* msg_;
 };
 
-}
-}
-}
+}  // namespace fil
+}  // namespace experimental
+}  // namespace ML
