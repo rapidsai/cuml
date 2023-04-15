@@ -46,7 +46,6 @@ requirements:
     - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
-    - cudf ={{ minor_version }}
     - gmock
     - gtest {{ gtest_version }}
     - lapack
@@ -98,7 +97,6 @@ outputs:
       build:
         - cmake {{ cmake_version }}
       run:
-        - cudf ={{ minor_version }}
         {% if cuda_major == "11" %}
         - cudatoolkit {{ cuda_spec }}
         - libcublas {{ cuda11_libcublas_run_version }}
