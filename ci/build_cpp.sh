@@ -35,6 +35,6 @@ rapids-print-env
 
 rapids-logger "Begin cpp build"
 
-rapids-mamba-retry mambabuild --channel "${LIBRMM_CHANNEL}" --channel "${LIBRAFT_CHANNEL}" --channel "${LIBCUMLPRIMS_CHANNEL}" conda/recipes/libcuml
+rapids-mamba-retry mambabuild --channel "${LIBRMM_CHANNEL}" --channel "${LIBRAFT_CHANNEL}" conda/recipes/libcuml
 
 rapids-upload-conda-to-s3 cpp
