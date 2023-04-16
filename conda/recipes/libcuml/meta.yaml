@@ -79,7 +79,7 @@ requirements:
     - libcusparse {{ libcusparse_host_version }}
     - libcusparse-dev {{ libcusparse_host_version }}
     {% endif %}
-    - libcumlprims ={{ minor_version }}
+    # - libcumlprims ={{ minor_version }}
     - libraft ={{ minor_version }}
     - libraft-headers ={{ minor_version }}
     - treelite {{ treelite_version }}
@@ -119,7 +119,7 @@ outputs:
         - libcusparse {{ libcusparse_run_version }}
         - libcusparse-dev {{ libcusparse_run_version }}
         {% endif %}
-        - libcumlprims ={{ minor_version }}
+        # - libcumlprims ={{ minor_version }}
         - libraft ={{ minor_version }}
         - libraft-headers ={{ minor_version }}
         - treelite {{ treelite_version }}
