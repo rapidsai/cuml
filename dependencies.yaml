@@ -93,10 +93,10 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - libcumlprims==23.4.*
-          - libraft==23.4.*
-          - libraft-headers==23.4.*
-          - librmm==23.4.*
+          - libcumlprims==23.6.*
+          - libraft==23.6.*
+          - libraft-headers==23.6.*
+          - librmm==23.6.*
     specific:
       - output_types: conda
         matrices:
@@ -117,24 +117,23 @@ dependencies:
           - cuda-python>=11.7.1,<12.0
           - scikit-build>=0.13.1
           - cython>=0.29,<0.30
-          - &treelite treelite==3.1.0
-          - pylibraft==23.4.*
-          - rmm==23.4.*
+          - &treelite treelite==3.2.0
+          - pylibraft==23.6.*
+          - rmm==23.6.*
       - output_types: pyproject
         packages:
           - wheel
           - setuptools
-          - &treelite_runtime treelite_runtime==3.1.0
+          - &treelite_runtime treelite_runtime==3.2.0
   py_run:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cudf==23.4.*
-          - cupy>=9.5.0,<12.0.0a0
-          - dask>=2023.1.1
-          - dask-cuda==23.4.*
-          - dask-cudf==23.4.*
-          - distributed>=2023.1.1
+          - cudf==23.6.*
+          - dask==2023.3.2
+          - dask-cuda==23.6.*
+          - dask-cudf==23.6.*
+          - distributed==2023.3.2.1
           - joblib>=0.11
           - numba
             # TODO: Are seaborn and scipy really hard dependencies, or should
@@ -142,10 +141,17 @@ dependencies:
             # installation/run_constrained for conda)?
           - seaborn
           - scipy
-          - raft-dask==23.4.*
+          - raft-dask==23.6.*
           - *treelite
+      - output_types: [conda, requirements]
+        packages:
+          - cupy>=9.5.0,<12.0.0a0
+      - output_types: conda
+        packages:
+          - dask-core==2023.3.2
       - output_types: pyproject
         packages:
+          - &cupy_pip cupy-cuda11x>=9.5.0,<12.0.0a0
           - *treelite_runtime
     specific:
       - output_types: requirements

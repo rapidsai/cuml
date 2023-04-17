@@ -511,6 +511,7 @@ def tsvd_test_data(request):
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
             "metric": ["euclidean", "cosine"],
             "n_neighbors": [3, 8],
+            "return_distance": [True],
         }
     )
 )
@@ -519,6 +520,7 @@ def nn_test_data(request):
         "metric": request.param["metric"],
         "n_neighbors": request.param["n_neighbors"],
     }
+    infer_func_kwargs = {"return_distance": request.param["return_distance"]}
 
     sk_model = skNearestNeighbors(**kwargs)
     sk_model.fit(X_train_blob)
@@ -529,6 +531,7 @@ def nn_test_data(request):
         "cuEstimator": NearestNeighbors,
         "kwargs": kwargs,
         "infer_func": "kneighbors",
+        "infer_func_kwargs": infer_func_kwargs,
         "assert_func": check_nn,
         "X_train": to_output_type(X_train_blob, input_type),
         "X_test": to_output_type(X_test_blob, input_type),
@@ -563,7 +566,8 @@ def test_train_cpu_infer_cpu(test_data):
         else:
             model.fit(test_data["X_train"])
         infer_func = getattr(model, test_data["infer_func"])
-        cuml_output = infer_func(test_data["X_test"])
+        infer_func_kwargs = test_data.get("infer_func_kwargs", {})
+        cuml_output = infer_func(test_data["X_test"], **infer_func_kwargs)
 
     assert_func = test_data["assert_func"]
     assert_func(cuml_output, test_data)
@@ -582,7 +586,8 @@ def test_train_gpu_infer_cpu(test_data):
             model.fit(test_data["X_train"])
     with using_device_type("cpu"):
         infer_func = getattr(model, test_data["infer_func"])
-        cuml_output = infer_func(test_data["X_test"])
+        infer_func_kwargs = test_data.get("infer_func_kwargs", {})
+        cuml_output = infer_func(test_data["X_test"], **infer_func_kwargs)
 
     assert_func = test_data["assert_func"]
     assert_func(cuml_output, test_data)
@@ -598,7 +603,8 @@ def test_train_cpu_infer_gpu(test_data):
             model.fit(test_data["X_train"])
     with using_device_type("gpu"):
         infer_func = getattr(model, test_data["infer_func"])
-        cuml_output = infer_func(test_data["X_test"])
+        infer_func_kwargs = test_data.get("infer_func_kwargs", {})
+        cuml_output = infer_func(test_data["X_test"], **infer_func_kwargs)
 
     assert_func = test_data["assert_func"]
     assert_func(cuml_output, test_data)
@@ -613,7 +619,8 @@ def test_train_gpu_infer_gpu(test_data):
         else:
             model.fit(test_data["X_train"])
         infer_func = getattr(model, test_data["infer_func"])
-        cuml_output = infer_func(test_data["X_test"])
+        infer_func_kwargs = test_data.get("infer_func_kwargs", {})
+        cuml_output = infer_func(test_data["X_test"], **infer_func_kwargs)
 
     assert_func = test_data["assert_func"]
     assert_func(cuml_output, test_data)

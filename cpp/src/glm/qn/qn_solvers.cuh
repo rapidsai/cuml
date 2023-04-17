@@ -49,6 +49,7 @@
 
 namespace ML {
 namespace GLM {
+namespace detail {
 
 // TODO better way to deal with alignment? Smaller align possible?
 constexpr size_t qn_align = 256;
@@ -415,10 +416,10 @@ inline int qn_minimize(const raft::handle_t& handle,
                        LossFunction& loss,
                        const T l1,
                        const LBFGSParam<T>& opt_param,
-                       cudaStream_t stream,
                        const int verbosity = 0)
 {
   // TODO should the worksapce allocation happen outside?
+  cudaStream_t stream = handle.get_stream();
   OPT_RETCODE ret;
   if (l1 == 0.0) {
     rmm::device_uvector<T> tmp(lbfgs_workspace_size(opt_param, x.len), stream);
@@ -466,6 +467,6 @@ inline int qn_minimize(const raft::handle_t& handle,
   }
   return ret;
 }
-
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML
