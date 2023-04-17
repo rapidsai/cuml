@@ -25,6 +25,8 @@
 
 #include <raft/util/cuda_utils.cuh>
 
+#include <rmm/mr/device/per_device_resource.hpp>
+
 namespace ML {
 namespace KNN {
 namespace opg {
