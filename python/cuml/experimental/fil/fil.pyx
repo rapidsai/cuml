@@ -1318,8 +1318,8 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             xpy = GlobalSettings().xpy
             dtype = self.forest.get_dtype()
             data = xpy.random.uniform(
-                xpy.finfo(dtype).min,
-                xpy.finfo(dtype).max,
+                xpy.finfo(dtype).min / 2,
+                xpy.finfo(dtype).max / 2,
                 (iterations, batch_size, self.forest.num_features())
             )
         else:
