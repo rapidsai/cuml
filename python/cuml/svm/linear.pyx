@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -109,6 +109,14 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM" nogil:
 
         @staticmethod
         void predict(
+            const handle_t& handle,
+            const LinearSVMParams& params,
+            const LinearSVMModel[T]& model,
+            const T* X,
+            const size_t nRows, const size_t nCols, T* out) except +
+
+        @staticmethod
+        void decisionFunction(
             const handle_t& handle,
             const LinearSVMParams& params,
             const LinearSVMModel[T]& model,
@@ -452,6 +460,32 @@ cdef class LinearSVMWrapper:
 
         return y
 
+    def decision_function(self, X: CumlArray) -> CumlArray:
+        y = CumlArray.empty(
+            shape=(X.shape[0],),
+            dtype=self.dtype, order='C')
+
+        if self.dtype == np.float32:
+            LinearSVMModel[float].decisionFunction(
+                deref(self.handle),
+                self.params,
+                self.model.float32,
+                <const float*><uintptr_t>X.ptr,
+                X.shape[0], X.shape[1],
+                <float*><uintptr_t>y.ptr)
+        elif self.dtype == np.float64:
+            LinearSVMModel[double].decisionFunction(
+                deref(self.handle),
+                self.params,
+                self.model.float64,
+                <const double*><uintptr_t>X.ptr,
+                X.shape[0], X.shape[1],
+                <double*><uintptr_t>y.ptr)
+        else:
+            raise TypeError('Input data type should be float32 or float64')
+
+        return y
+
     def predict_proba(self, X, log=False) -> CumlArray:
         y = CumlArray.empty(
             shape=(X.shape[0], self.classes_.shape[0]),
@@ -607,6 +641,7 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
             y, check_dtype=self.dtype,
             convert_to_dtype=convert_to_dtype,
             check_rows=n_rows, check_cols=1).array
+        
         sample_weight_m = input_to_cuml_array(
             sample_weight, check_dtype=self.dtype,
             convert_to_dtype=convert_to_dtype,
@@ -658,6 +693,14 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
             convert_to_dtype=convert_to_dtype)
         self.__sync_model()
         return self.model_.predict(X_m)
+
+    def decision_function(self, X, convert_dtype=True) -> CumlArray:
+        convert_to_dtype = self.dtype if convert_dtype else None
+        X_m, n_rows, n_cols, _ = input_to_cuml_array(
+            X, check_dtype=self.dtype,
+            convert_to_dtype=convert_to_dtype)
+        self.__sync_model()
+        return self.model_.decision_function(X_m)
 
     def predict_proba(self, X, log=False, convert_dtype=True) -> CumlArray:
         convert_to_dtype = self.dtype if convert_dtype else None
