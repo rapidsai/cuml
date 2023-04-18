@@ -177,10 +177,15 @@ struct buffer {
   }
 
   /**
+   * @brief Create owning copy of existing buffer with given stream
+   * The memory type of this new buffer will be the same as the original
+   */
+  buffer(buffer<T> const& other, cuda_stream stream=cuda_stream{}) : buffer(other, other.memory_type(), other.device_index(), stream) {}
+
+  /**
    * @brief Create owning copy of existing buffer
    * The memory type of this new buffer will be the same as the original
    */
-  buffer(buffer<T> const& other) : buffer(other, other.memory_type(), other.device_index()) {}
   friend void swap(buffer<T>& first, buffer<T>& second) {
     using std::swap;
     swap(first.device_, second.device_);
@@ -188,16 +193,11 @@ struct buffer {
     swap(first.size_, second.size_);
     swap(first.cached_ptr, second.cached_ptr);
   }
-  buffer<T>& operator=(buffer<T> other) {
-    swap(*this, other);
+  buffer<T>& operator=(buffer<T> const& other) {
+    auto copy = other;
+    swap(*this, copy);
     return *this;
   }
-
-  /**
-   * @brief Create owning copy of existing buffer with given stream
-   * The memory type of this new buffer will be the same as the original
-   */
-  buffer(buffer<T> const& other, cuda_stream stream) : buffer(other, other.memory_type(), other.device_index(), stream) {}
 
   /**
    * @brief Move from existing buffer unless a copy is necessary based on
@@ -257,8 +257,14 @@ struct buffer {
   {
   }
 
-  buffer(buffer<T>&& other) : buffer<T>{} {
-    swap(*this, other);
+  buffer(buffer<T>&& other) noexcept
+    : buffer{std::move(other), other.memory_type(), other.device_index(), cuda_stream{}} {}
+  buffer<T>& operator=(buffer<T>&& other) noexcept {
+    data_ = std::move(other.data_);
+    device_ = std::move(other.device_);
+    size_ = std::move(other.size_);
+    cached_ptr = std::move(other.cached_ptr);
+    return *this;
   }
 
   template <
