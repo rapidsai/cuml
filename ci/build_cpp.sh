@@ -17,6 +17,4 @@ rapids-mamba-retry mambabuild \
     --channel "${LIBRAFT_CHANNEL}" \
     conda/recipes/libcuml
 
-rapids-mamba-retry mambabuild conda/recipes/libcuml
-
 rapids-upload-conda-to-s3 cpp
