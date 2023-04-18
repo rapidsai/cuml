@@ -34,6 +34,7 @@
 
 #include <device_launch_parameters.h>
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 
 namespace cuml {
 namespace genetic {
