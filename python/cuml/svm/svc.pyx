@@ -92,9 +92,6 @@ def apply_class_weight(handle, sample_weight, class_weight, y, verbose, output_t
     if class_weight is None:
         return sample_weight
 
-    if dtype is None:
-        dtype = y.dtype
-
     if y is CumlArray:
         y_m = y
     else:

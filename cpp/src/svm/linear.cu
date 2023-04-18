@@ -519,8 +519,7 @@ void LinearSVMModel<T>::decisionFunction(const raft::handle_t& handle,
                                          const std::size_t nCols,
                                          T* out)
 {
-  ASSERT(!isRegression(params.loss),
-         "Predicting confidence scores is not available for the regression model");
+  ASSERT(!isRegression(params.loss), "Decision function is not available for the regression model");
   predictLinear(handle,
                 X,
                 model.w,

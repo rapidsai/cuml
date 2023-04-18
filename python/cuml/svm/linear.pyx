@@ -252,7 +252,7 @@ cdef class LinearSVMWrapper:
         cudaMemcpyAsync(
             <void*><uintptr_t>target.ptr,
             <void*><uintptr_t>source.ptr,
-            <size_t>(source.nbytes),
+            <size_t>(source.size),
             cudaMemcpyKind.cudaMemcpyDeviceToDevice,
             stream.value())
         if synchronize:
@@ -461,8 +461,11 @@ cdef class LinearSVMWrapper:
         return y
 
     def decision_function(self, X: CumlArray) -> CumlArray:
+        n_classes = self.classes_.shape[0]
+        # special handling of binary case
+        shape = (X.shape[0],) if n_classes <= 2 else (X.shape[0], n_classes)
         y = CumlArray.empty(
-            shape=(X.shape[0],),
+            shape=shape,
             dtype=self.dtype, order='C')
 
         if self.dtype == np.float32:
