@@ -84,7 +84,6 @@ outputs:
         - libraft ={{ minor_version }}
         - libraft-headers ={{ minor_version }}
         - treelite {{ treelite_version }}
-        - faiss-proc=*=cuda
     about:
       home: https://rapids.ai/
       license: Apache-2.0
