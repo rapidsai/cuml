@@ -304,13 +304,14 @@ def run_classification(datatype, penalty, loss, dims, nclasses, class_weight):
 def test_decision_function(
     datatype, penalty, loss, dims, nclasses, fit_intercept
 ):
-
-    t = time.perf_counter()
+    # The decision function is not stable to compare given random
+    # input data and models that are similar but not equal.
+    # This test will only check the cuml decision function
+    # implementation based on an imported model from sklearn.
     nrows, ncols = dims
     X_train, X_test, y_train, y_test = make_classification_dataset(
         datatype, nrows, ncols, nclasses
     )
-    logger.debug(f"Data generation time: {time.perf_counter() - t} s.")
 
     # solving in primal is not supported by sklearn for this loss type.
     skdual = loss == "hinge" and penalty == "l2"
@@ -340,7 +341,7 @@ def test_decision_function(
     cum.fit(X_train, y_train)
     handle.sync()
 
-    # override coef_/intercept_ in order to expect identical results
+    # override model attributes
     sk_coef_m, _, _, _ = input_to_cuml_array(
         skm.coef_, convert_to_dtype=datatype, order="F"
     )
@@ -354,7 +355,7 @@ def test_decision_function(
     cud = cum.decision_function(X_test)
 
     assert np.allclose(
-        cud.get(), skd, ERROR_TOLERANCE_REL, ERROR_TOLERANCE_ABS
+        cud.get(), skd, atol=1e-4
     ), "The decision_function returned different values"
 
     # cleanup cuml objects so that we can more easily fork the process
