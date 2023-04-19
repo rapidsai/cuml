@@ -276,7 +276,8 @@ dependencies:
           - pytest-xdist
           - *scikit_learn
           - statsmodels
-          - umap-learn
+          - umap-learn==0.5.3
+          - pynndescent==0.5.8
       - output_types: conda
         packages:
           - pip

@@ -51,6 +51,7 @@ dependencies:
 - pip
 - pydata-sphinx-theme
 - pylibraft==23.4.*
+- pynndescent==0.5.8
 - pytest
 - pytest-benchmark
 - pytest-cases
@@ -70,7 +71,7 @@ dependencies:
 - statsmodels
 - sysroot_linux-64==2.17
 - treelite==3.2.0
-- umap-learn
+- umap-learn==0.5.3
 - pip:
   - git+https://github.com/dask/dask-glm@main
 name: all_cuda-118_arch-x86_64
