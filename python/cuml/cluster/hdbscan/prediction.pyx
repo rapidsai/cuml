@@ -148,10 +148,10 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
     batch_size : int, optional, default=min(4096, n_rows)
         Lowers memory requirement by computing distance-based membership in
         smaller batches of points in the training data. Batch size of 0 uses
-        all of the training points, batch size of 1000 computes distances for
-        1000 points at a time. The default batch_size is 4096. If the number
-        of rows in the original dataset is less than 4096, this defaults to
-        the number of rows.
+        all of the training points, batch_size of 1000 computes distance
+        based memberships for 1000 points at a time. The default batch_size
+        is 4096. If the number of rows in the original dataset is less than
+        4096, this defaults to the number of rows.
 
     Returns
     -------
@@ -252,11 +252,11 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
     
     batch_size : int, optional, default=min(4096, n_points_to_predict)
         Lowers memory requirement by computing distance-based membership in
-        smaller batches of points in the training data. Batch size of 0 uses
-        all of the training points, batch size of 1000 computes distances for
-        1000 points at a time. The default batch_size is 4096. If the number
-        of rows in the original dataset is less than 4096, this defaults to
-        the number of rows.
+        smaller batches of points in the prediction data. Batch size of 0
+        uses all of the prediction points, batch_size of 1000 computes
+        distance based memberships for 1000 points at a time. The default
+        batch_size is 4096. If the number of rows in the original dataset
+        is less than 4096, this defaults to the number of rows.
 
     Returns
     -------

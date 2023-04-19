@@ -396,7 +396,7 @@ void all_points_membership_vectors(const raft::handle_t& handle,
   size_t n = prediction_data.n_cols;
 
   if (batch_size > m) batch_size = m;
-  RAFT_EXPECTS(0 < batch_size && batch_size <= m, "Invalid batch_size. batch_size should be > 0 and <= the number of samples in the training data");
+  ASSERT(0 < batch_size && batch_size <= m, "Invalid batch_size. batch_size should be > 0 and <= the number of samples in the training data");
 
   auto parents    = condensed_tree.get_parents();
   auto children   = condensed_tree.get_children();
@@ -506,7 +506,7 @@ void membership_vector(const raft::handle_t& handle,
                        value_t* membership_vec,
                        size_t batch_size)
 {
-  RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
+  ASSERT(metric == raft::distance::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
 
   auto stream      = handle.get_stream();
@@ -522,7 +522,7 @@ void membership_vector(const raft::handle_t& handle,
   value_t* lambdas               = condensed_tree.get_lambdas();
 
   if (batch_size > n_prediction_points) batch_size = n_prediction_points;
-  RAFT_EXPECTS(0 < batch_size && batch_size <= n_prediction_points, "Invalid batch_size. batch_size should be > 0 and <= the number of samples in the training data");
+  ASSERT(0 < batch_size && batch_size <= n_prediction_points, "Invalid batch_size. batch_size should be > 0 and <= the number of prediction points");
 
   rmm::device_uvector<value_t> dist_membership_vec(n_prediction_points * n_selected_clusters,
                                                    stream);
