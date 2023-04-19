@@ -32,10 +32,12 @@
 #include "detail/extract.cuh"
 #include "detail/reachability.cuh"
 #include "detail/soft_clustering.cuh"
+#include "thrust/iterator/zip_iterator.h"
 #include <cuml/cluster/hdbscan.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
+#include <thrust/gather.h>
 #include <thrust/transform.h>
 
 namespace ML {
@@ -102,6 +104,11 @@ struct FixConnectivitiesRedOp {
   {
     out->key   = -1;
     out->value = maxVal;
+  }
+
+  void rearrange(value_idx* map) {
+    auto it = thrust::make_zip_iterator(thrust::make_tuple(colors, core_dists));
+    thrust::gather(map, map + m, it, it);
   }
 };
 
