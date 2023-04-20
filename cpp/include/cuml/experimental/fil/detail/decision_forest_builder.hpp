@@ -84,7 +84,7 @@ struct decision_forest_builder {
   void add_categorical_node(
     iter_t vec_begin,
     iter_t vec_end,
-    int tl_node_id,
+    std::optional<int> tl_node_id,
     bool default_to_distant_child=false,
     typename node_type::metadata_storage_type feature = typename node_type::metadata_storage_type{},
     typename node_type::offset_type offset = typename node_type::offset_type{}

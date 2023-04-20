@@ -526,6 +526,7 @@ struct treelite_importer {
                 builder.add_categorical_node(
                   std::begin(categories),
                   std::end(categories),
+                  tl_node_id,
                   node.default_distant(),
                   node.get_feature(),
                   offsets[tree_index][node_index]
