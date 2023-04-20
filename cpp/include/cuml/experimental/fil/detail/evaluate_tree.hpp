@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 #pragma once
-#include <cstdint>
-#include <cstddef>
+#include <stdint.h>
 #include <type_traits>
 #ifndef __CUDACC__
 #include <math.h>
 #endif
 #include <cuml/experimental/fil/detail/bitset.hpp>
-#include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 namespace ML {
 namespace experimental {

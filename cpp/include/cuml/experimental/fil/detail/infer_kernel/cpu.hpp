@@ -222,5 +222,3 @@ void infer_kernel_cpu(
 }
 }
 }
-
-#pragma clang diagnostic pop
