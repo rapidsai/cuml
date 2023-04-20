@@ -53,6 +53,65 @@ if has_sklearn():
     from sklearn.calibration import CalibratedClassifierCV
 
 
+cdef extern from "raft/distance/distance_types.hpp" \
+        namespace "raft::distance::kernels":
+    enum KernelType:
+        LINEAR,
+        POLYNOMIAL,
+        RBF,
+        TANH
+
+    cdef struct KernelParams:
+        KernelType kernel
+        int degree
+        double gamma
+        double coef0
+
+cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
+    enum SvmType:
+        C_SVC,
+        NU_SVC,
+        EPSILON_SVR,
+        NU_SVR
+
+    cdef struct SvmParameter:
+        # parameters for training
+        double C
+        double cache_size
+        int max_iter
+        int nochange_steps
+        double tol
+        int verbosity
+        double epsilon
+        SvmType svmType
+
+cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
+    cdef cppclass SvmModel[math_t]:
+        # parameters of a fitted model
+        int n_support
+        int n_cols
+        math_t b
+        math_t *dual_coefs
+        math_t *x_support
+        int *support_idx
+        int n_classes
+        math_t *unique_labels
+
+cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
+
+    cdef void svcFit[math_t](const handle_t &handle, math_t *input,
+                             int n_rows, int n_cols, math_t *labels,
+                             const SvmParameter &param,
+                             KernelParams &kernel_params,
+                             SvmModel[math_t] &model,
+                             const math_t *sample_weight) except+
+
+    cdef void svcPredict[math_t](
+        const handle_t &handle, math_t *input, int n_rows, int n_cols,
+        KernelParams &kernel_params, const SvmModel[math_t] &model,
+        math_t *preds, math_t buffer_size, bool predict_class) except +
+
+
 def apply_class_weight(handle, sample_weight, class_weight, y, verbose, output_type, dtype) -> CumlArray:
     """
     Scale the sample weights with the class weights.
@@ -128,65 +187,6 @@ def apply_class_weight(handle, sample_weight, class_weight, y, verbose, output_t
         sample_weight[encoded_labels==label] *= weight
 
     return sample_weight
-
-
-cdef extern from "raft/distance/distance_types.hpp" \
-        namespace "raft::distance::kernels":
-    enum KernelType:
-        LINEAR,
-        POLYNOMIAL,
-        RBF,
-        TANH
-
-    cdef struct KernelParams:
-        KernelType kernel
-        int degree
-        double gamma
-        double coef0
-
-cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
-    enum SvmType:
-        C_SVC,
-        NU_SVC,
-        EPSILON_SVR,
-        NU_SVR
-
-    cdef struct SvmParameter:
-        # parameters for training
-        double C
-        double cache_size
-        int max_iter
-        int nochange_steps
-        double tol
-        int verbosity
-        double epsilon
-        SvmType svmType
-
-cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
-    cdef cppclass SvmModel[math_t]:
-        # parameters of a fitted model
-        int n_support
-        int n_cols
-        math_t b
-        math_t *dual_coefs
-        math_t *x_support
-        int *support_idx
-        int n_classes
-        math_t *unique_labels
-
-cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
-
-    cdef void svcFit[math_t](const handle_t &handle, math_t *input,
-                             int n_rows, int n_cols, math_t *labels,
-                             const SvmParameter &param,
-                             KernelParams &kernel_params,
-                             SvmModel[math_t] &model,
-                             const math_t *sample_weight) except+
-
-    cdef void svcPredict[math_t](
-        const handle_t &handle, math_t *input, int n_rows, int n_cols,
-        KernelParams &kernel_params, const SvmModel[math_t] &model,
-        math_t *preds, math_t buffer_size, bool predict_class) except +
 
 
 class SVC(SVMBase,

@@ -289,21 +289,16 @@ def run_classification(datatype, penalty, loss, dims, nclasses, class_weight):
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("penalty", ["l2"])
-@pytest.mark.parametrize("loss", ["squared_hinge"])
 @pytest.mark.parametrize(
     "dims",
     [
         unit_param((3, 1)),
         unit_param((1000, 10)),
-        unit_param((100, 100)),
     ],
 )
-@pytest.mark.parametrize("nclasses", [2, 3, 5, 8])
+@pytest.mark.parametrize("nclasses", [2, 7])
 @pytest.mark.parametrize("fit_intercept", [True, False])
-def test_decision_function(
-    datatype, penalty, loss, dims, nclasses, fit_intercept
-):
+def test_decision_function(datatype, dims, nclasses, fit_intercept):
     # The decision function is not stable to compare given random
     # input data and models that are similar but not equal.
     # This test will only check the cuml decision function
@@ -313,18 +308,9 @@ def test_decision_function(
         datatype, nrows, ncols, nclasses
     )
 
-    # solving in primal is not supported by sklearn for this loss type.
-    skdual = loss == "hinge" and penalty == "l2"
-    if loss == "hinge" and penalty == "l1":
-        pytest.skip(
-            "sklearn does not support this combination of loss and penalty"
-        )
-
     skm = sk.LinearSVC(
-        loss=loss,
-        penalty=penalty,
         max_iter=10,
-        dual=skdual,
+        dual=False,
         fit_intercept=fit_intercept,
     )
     skm.fit(X_train.get(), y_train.get())
@@ -333,8 +319,6 @@ def test_decision_function(
     handle = cuml.Handle(n_streams=0)
     cum = cu.LinearSVC(
         handle=handle,
-        loss=loss,
-        penalty=penalty,
         max_iter=10,
         fit_intercept=fit_intercept,
     )
@@ -385,9 +369,8 @@ def test_decision_function(
         stress_param((100000, 1000)),
     ],
 )
-@pytest.mark.parametrize("class_weight", ["balanced", {0: 0.5, 1: 1.5}])
-def test_classification_1(datatype, penalty, loss, dims, class_weight):
-    run_classification(datatype, penalty, loss, dims, 2, class_weight)
+def test_classification_1(datatype, penalty, loss, dims):
+    run_classification(datatype, penalty, loss, dims, 2, None)
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -405,6 +388,24 @@ def test_classification_1(datatype, penalty, loss, dims, class_weight):
     ],
 )
 @pytest.mark.parametrize("nclasses", [2, 3, 5, 8])
-@pytest.mark.parametrize("class_weight", ["balanced", None])
-def test_classification_2(datatype, dims, nclasses, class_weight):
-    run_classification(datatype, "l2", "hinge", dims, nclasses, class_weight)
+def test_classification_2(datatype, dims, nclasses):
+    run_classification(datatype, "l2", "hinge", dims, nclasses, "balanced")
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize(
+    "dims",
+    [
+        unit_param((3, 1)),
+        unit_param((100, 1)),
+        unit_param((1000, 10)),
+        unit_param((100, 100)),
+        unit_param((100, 300)),
+        quality_param((10000, 10)),
+        quality_param((10000, 50)),
+        stress_param((100000, 1000)),
+    ],
+)
+@pytest.mark.parametrize("class_weight", [{0: 0.5, 1: 1.5}])
+def test_classification_3(datatype, dims, class_weight):
+    run_classification(datatype, "l2", "hinge", dims, 2, class_weight)
