@@ -48,7 +48,7 @@ filterwarnings = [
 
 [project]
 name = "cuml"
-version = "23.04.00"
+version = "23.04.01"
 description = "cuML - RAPIDS ML Algorithms"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
