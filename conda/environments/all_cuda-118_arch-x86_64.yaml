@@ -22,7 +22,6 @@ dependencies:
 - dask==2023.3.2
 - distributed==2023.3.2.1
 - doxygen=1.8.20
-- faiss-proc=*=cuda
 - gcc_linux-64=11.*
 - graphviz
 - hdbscan
@@ -41,7 +40,6 @@ dependencies:
 - libcusolver=11.4.1.48
 - libcusparse-dev=11.7.5.86
 - libcusparse=11.7.5.86
-- libfaiss>=1.7.1
 - libraft-headers==23.6.*
 - libraft==23.6.*
 - librmm==23.6.*
@@ -53,6 +51,7 @@ dependencies:
 - pip
 - pydata-sphinx-theme
 - pylibraft==23.6.*
+- pynndescent==0.5.8
 - pytest
 - pytest-benchmark
 - pytest-cases
@@ -72,7 +71,7 @@ dependencies:
 - statsmodels
 - sysroot_linux-64==2.17
 - treelite==3.2.0
-- umap-learn
+- umap-learn==0.5.3
 - pip:
   - git+https://github.com/dask/dask-glm@main
 name: all_cuda-118_arch-x86_64
