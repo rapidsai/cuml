@@ -11,7 +11,7 @@ rapids-print-env
 
 rapids-logger "Begin cpp build"
 
-LIBRAFT_CHANNEL=$(rapids-get-artifact ci/raft/pull-request/1415/144d5c1/raft_conda_cpp_cuda11_$(arch).tar.gz)
+LIBRAFT_CHANNEL=$(rapids-get-artifact ci/raft/pull-request/1441/6109c12/raft_conda_cpp_cuda11_$(arch).tar.gz)
 
 rapids-mamba-retry mambabuild \
     --channel "${LIBRAFT_CHANNEL}" \
