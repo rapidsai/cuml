@@ -106,7 +106,7 @@ struct FixConnectivitiesRedOp {
     out->value = maxVal;
   }
 
-  void rearrange(value_idx* map) {
+  void gather(value_idx* map) {
     auto it = thrust::make_zip_iterator(thrust::make_tuple(colors, core_dists));
     thrust::gather(map, map + m, it, it);
   }
