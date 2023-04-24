@@ -507,7 +507,7 @@ void membership_vector(const raft::handle_t& handle,
                        value_t* membership_vec,
                        size_t batch_size)
 {
-  ASSERT(metric == raft::distance::DistanceType::L2SqrtExpanded,
+  RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
 
   auto stream      = handle.get_stream();
