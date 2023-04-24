@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,7 +123,7 @@ namespace SVM {
  * @tparam math_t floating point data type
  * @tparam WSIZE working set size (max 1024)
  * @param [in] y_array target labels size [n_train]
- * @param [in] n_train number of trainig vectors
+ * @param [in] n_train number of training vectors
  * @param [inout] alpha dual coefficients, size [n_train]
  * @param [in] n_ws number of elements in the working set
  * @param [out] delta_alpha change in the dual coeff of vectors in the working
@@ -136,7 +136,7 @@ namespace SVM {
  *   size [n_train]
  * @param [in] eps tolerance, iterations will stop if the duality gap is smaller
  *  than this value (or if the gap is smaller than 0.1 times the initial gap)
- * @param [out] return_buff, two valies are returned: duality gap and the number
+ * @param [out] return_buff, two values are returned: duality gap and the number
  *   of iterations
  * @param [in] max_iter maximum number of iterations
  * @param [in] svmType type of the SVM problem to solve
@@ -187,7 +187,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
   int64_t n_rows = (svmType == EPSILON_SVR) ? n_train / 2 : n_train;
 
   // Consult KernelCache::GetTile for the layout of the kernel matrix
-  // kernel matrix row and colums indices for workspace vector ws_idx[tid]
+  // kernel matrix row and columns indices for workspace vector ws_idx[tid]
   // k_row_idx \in [0..n_rows-1]
   int64_t k_row_idx = (svmType == EPSILON_SVR && idx >= n_rows) ? idx - n_rows : idx;
   // k_col_idx \in [0..n_unique-1]
@@ -262,7 +262,7 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
     // Knowing that q > 0 (since f_l > f_u and \eta_ul > 0), and 0 <= a_u <= C,
     // the constraints are simplified as
     // y == 1:  q <= C-a_u, and  y == -1: q <= a_u
-    // Similarily we can say for a'_l:
+    // Similarly we can say for a'_l:
     // y == 1:  q <= a_l, and y ==- 1: q <= C - a_l
     // We clip q accordingly before we do the update of a.
     if (threadIdx.x == u) tmp_u = y > 0 ? C - a : a;

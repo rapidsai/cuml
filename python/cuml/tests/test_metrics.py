@@ -1047,7 +1047,7 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     S2 = ref_dense_pairwise_dist(X, Y, metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
-    # Compare single and double inputs to eachother
+    # Compare single and double inputs to each other
     S = pairwise_distances(X, metric=metric)
     S2 = pairwise_distances(X, Y, metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)

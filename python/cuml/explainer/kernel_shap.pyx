@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -146,7 +146,7 @@ class KernelExplainer(SHAPBase):
     dtype : np.float32 or np.float64 (default = None)
         Parameter to specify the precision of data to generate to call the
         model. If not specified, the explainer will try to get the dtype
-        of the model, if it cannot be queried, then it will defaul to
+        of the model, if it cannot be queried, then it will default to
         np.float32.
     output_type : 'cupy' or 'numpy' (default = 'numpy')
         Parameter to specify the type of data to output.
@@ -404,7 +404,7 @@ class KernelExplainer(SHAPBase):
                 axis=1
             )
 
-            # we neeed to do l1 regularization if user left it as auto and we
+            # we need to do l1 regularization if user left it as auto and we
             # evaluated less than 20% of the space, or if the user set it
             # and we did not evaluate all the space (i.e. nsamples_random == 0)
             nonzero_inds = None

@@ -464,7 +464,7 @@ def test_svm_memleak(
     tmp.fit(X_train, y_train)
     ms = get_memsize(tmp)
     print(
-        "Memory consumtion of SVC object is {} MiB".format(
+        "Memory consumption of SVC object is {} MiB".format(
             ms / (1024 * 1024.0)
         )
     )

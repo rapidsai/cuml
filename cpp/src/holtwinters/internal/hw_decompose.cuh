@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -208,7 +208,7 @@ void batched_ls(const raft::handle_t& handle,
                                                                  dev_info_d.data(),
                                                                  stream));
 
-  // Single thread kenrel to inverse R
+  // Single thread kernel to inverse R
   RinvKernel<Dtype><<<1, 1, 0, stream>>>(A_d.data(), Rinv_d.data(), trend_len);
 
   // R1QT = inv(R)*transpose(Q)

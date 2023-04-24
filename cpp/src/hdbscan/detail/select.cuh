@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -302,7 +302,7 @@ void leaf(const raft::handle_t& handle,
  * @param[in] n_clusters number of clusters in cluster tree
  * @param[in] cluster_selection_epsilon distance threshold
  * @param[in] allow_single_cluster allows a single cluster with noisy datasets
- * @param[in] n_selected_clusters numnber of cluster selections in is_cluster
+ * @param[in] n_selected_clusters number of cluster selections in is_cluster
  */
 template <typename value_idx, typename value_t, int tpb = 256>
 void cluster_epsilon_search(const raft::handle_t& handle,
@@ -421,7 +421,7 @@ void select_clusters(const raft::handle_t& handle,
   auto epsilon_search = true;
 
   if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::LEAF) {
-    // TODO: reenable to match reference implementation
+    // TODO: re-enable to match reference implementation
     // It's a confirmed bug https://github.com/scikit-learn-contrib/hdbscan/issues/476
 
     // if no cluster leaves were found, declare root as cluster

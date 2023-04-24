@@ -18,6 +18,13 @@ repos:
             types_or: [python, cython]
             exclude: thirdparty
             additional_dependencies: [flake8-force]
+    - repo: https://github.com/codespell-project/codespell
+      rev: v2.2.2
+      hooks:
+          - id: codespell
+            additional_dependencies: [tomli]
+            args: ["--toml", "pyproject.toml"]
+            exclude: (?x)^(.*stemmer.*|.*stop_words.*|^CHANGELOG.md$)
     - repo: local
       hooks:
           - id: no-deprecationwarning
@@ -54,7 +61,7 @@ repos:
             pass_filenames: false
             language: python
     - repo: https://github.com/rapidsai/dependency-file-generator
-      rev: v1.4.0
+      rev: v1.5.1
       hooks:
           - id: rapids-dependency-file-generator
             args: ["--clean"]

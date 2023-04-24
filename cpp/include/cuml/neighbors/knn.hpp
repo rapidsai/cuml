@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -139,7 +139,7 @@ void knn_classify(raft::handle_t& handle,
 /**
  * @brief Flat C++ API function to perform a knn regression using
  * a given a vector of label arrays. This supports multilabel
- * regression by clasifying on multiple label arrays. Note that
+ * regression by classifying on multiple label arrays. Note that
  * each label is classified independently, as is done in scikit-learn.
  *
  * @param[in] handle RAFT handle

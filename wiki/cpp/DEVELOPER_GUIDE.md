@@ -318,7 +318,7 @@ void foo(const raft::handle_t& h, ..., cudaStream_t stream )
     ...
 }
 ```
-If thrust 1.9.4 or later is avaiable for use in cuML a similar allocator can be provided for `thrust::device_vector`.
+If thrust 1.9.4 or later is available for use in cuML a similar allocator can be provided for `thrust::device_vector`.
 
 ### <a name="allocationsthrust"></a>Using Thrust
 To ensure that thrust algorithms allocate temporary memory via the provided device memory allocator, use the `ML::thrustAllocatorAdapter` available in `src/common/allocatorAdapter.hpp` with the `thrust::cuda::par` execution policy:

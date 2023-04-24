@@ -38,18 +38,17 @@ void olsFit(const raft::handle_t& handle,
             int algo,
             float* sample_weight)
 {
-  olsFit(handle,
-         input,
-         n_rows,
-         n_cols,
-         labels,
-         coef,
-         intercept,
-         fit_intercept,
-         normalize,
-         handle.get_stream(),
-         algo,
-         sample_weight);
+  detail::olsFit(handle,
+                 input,
+                 n_rows,
+                 n_cols,
+                 labels,
+                 coef,
+                 intercept,
+                 fit_intercept,
+                 normalize,
+                 algo,
+                 sample_weight);
 }
 
 void olsFit(const raft::handle_t& handle,
@@ -64,18 +63,17 @@ void olsFit(const raft::handle_t& handle,
             int algo,
             double* sample_weight)
 {
-  olsFit(handle,
-         input,
-         n_rows,
-         n_cols,
-         labels,
-         coef,
-         intercept,
-         fit_intercept,
-         normalize,
-         handle.get_stream(),
-         algo,
-         sample_weight);
+  detail::olsFit(handle,
+                 input,
+                 n_rows,
+                 n_cols,
+                 labels,
+                 coef,
+                 intercept,
+                 fit_intercept,
+                 normalize,
+                 algo,
+                 sample_weight);
 }
 
 void gemmPredict(const raft::handle_t& handle,
@@ -86,7 +84,7 @@ void gemmPredict(const raft::handle_t& handle,
                  float intercept,
                  float* preds)
 {
-  gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds, handle.get_stream());
+  detail::gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds);
 }
 
 void gemmPredict(const raft::handle_t& handle,
@@ -97,7 +95,7 @@ void gemmPredict(const raft::handle_t& handle,
                  double intercept,
                  double* preds)
 {
-  gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds, handle.get_stream());
+  detail::gemmPredict(handle, input, n_rows, n_cols, coef, intercept, preds);
 }
 
 void ridgeFit(const raft::handle_t& handle,
@@ -114,20 +112,19 @@ void ridgeFit(const raft::handle_t& handle,
               int algo,
               float* sample_weight)
 {
-  ridgeFit(handle,
-           input,
-           n_rows,
-           n_cols,
-           labels,
-           alpha,
-           n_alpha,
-           coef,
-           intercept,
-           fit_intercept,
-           normalize,
-           handle.get_stream(),
-           algo,
-           sample_weight);
+  detail::ridgeFit(handle,
+                   input,
+                   n_rows,
+                   n_cols,
+                   labels,
+                   alpha,
+                   n_alpha,
+                   coef,
+                   intercept,
+                   fit_intercept,
+                   normalize,
+                   algo,
+                   sample_weight);
 }
 
 void ridgeFit(const raft::handle_t& handle,
@@ -144,20 +141,19 @@ void ridgeFit(const raft::handle_t& handle,
               int algo,
               double* sample_weight)
 {
-  ridgeFit(handle,
-           input,
-           n_rows,
-           n_cols,
-           labels,
-           alpha,
-           n_alpha,
-           coef,
-           intercept,
-           fit_intercept,
-           normalize,
-           handle.get_stream(),
-           algo,
-           sample_weight);
+  detail::ridgeFit(handle,
+                   input,
+                   n_rows,
+                   n_cols,
+                   labels,
+                   alpha,
+                   n_alpha,
+                   coef,
+                   intercept,
+                   fit_intercept,
+                   normalize,
+                   algo,
+                   sample_weight);
 }
 
 template <typename T, typename I>
@@ -172,21 +168,11 @@ void qnFit(const raft::handle_t& cuml_handle,
            T* w0,
            T* f,
            int* num_iters,
-           T* sample_weight)
+           T* sample_weight,
+           T svr_eps)
 {
-  qnFit<T>(cuml_handle,
-           pams,
-           X,
-           X_col_major,
-           y,
-           N,
-           D,
-           C,
-           w0,
-           f,
-           num_iters,
-           cuml_handle.get_stream(),
-           sample_weight);
+  detail::qnFit<T>(
+    cuml_handle, pams, X, X_col_major, y, N, D, C, w0, f, num_iters, sample_weight, svr_eps);
 }
 
 template void qnFit<float>(const raft::handle_t&,
@@ -200,7 +186,8 @@ template void qnFit<float>(const raft::handle_t&,
                            float*,
                            float*,
                            int*,
-                           float*);
+                           float*,
+                           float);
 template void qnFit<double>(const raft::handle_t&,
                             const qn_params&,
                             double*,
@@ -212,7 +199,8 @@ template void qnFit<double>(const raft::handle_t&,
                             double*,
                             double*,
                             int*,
-                            double*);
+                            double*,
+                            double);
 
 template <typename T, typename I>
 void qnFitSparse(const raft::handle_t& cuml_handle,
@@ -228,23 +216,24 @@ void qnFitSparse(const raft::handle_t& cuml_handle,
                  T* w0,
                  T* f,
                  int* num_iters,
-                 T* sample_weight)
+                 T* sample_weight,
+                 T svr_eps)
 {
-  qnFitSparse<T>(cuml_handle,
-                 pams,
-                 X_values,
-                 X_cols,
-                 X_row_ids,
-                 X_nnz,
-                 y,
-                 N,
-                 D,
-                 C,
-                 w0,
-                 f,
-                 num_iters,
-                 cuml_handle.get_stream(),
-                 sample_weight);
+  detail::qnFitSparse<T>(cuml_handle,
+                         pams,
+                         X_values,
+                         X_cols,
+                         X_row_ids,
+                         X_nnz,
+                         y,
+                         N,
+                         D,
+                         C,
+                         w0,
+                         f,
+                         num_iters,
+                         sample_weight,
+                         svr_eps);
 }
 
 template void qnFitSparse<float>(const raft::handle_t&,
@@ -260,7 +249,8 @@ template void qnFitSparse<float>(const raft::handle_t&,
                                  float*,
                                  float*,
                                  int*,
-                                 float*);
+                                 float*,
+                                 float);
 template void qnFitSparse<double>(const raft::handle_t&,
                                   const qn_params&,
                                   double*,
@@ -274,7 +264,8 @@ template void qnFitSparse<double>(const raft::handle_t&,
                                   double*,
                                   double*,
                                   int*,
-                                  double*);
+                                  double*,
+                                  double);
 
 template <typename T, typename I>
 void qnDecisionFunction(const raft::handle_t& cuml_handle,
@@ -287,8 +278,7 @@ void qnDecisionFunction(const raft::handle_t& cuml_handle,
                         T* params,
                         T* scores)
 {
-  qnDecisionFunction<T>(
-    cuml_handle, pams, X, X_col_major, N, D, C, params, scores, cuml_handle.get_stream());
+  detail::qnDecisionFunction<T>(cuml_handle, pams, X, X_col_major, N, D, C, params, scores);
 }
 
 template void qnDecisionFunction<float>(
@@ -309,18 +299,8 @@ void qnDecisionFunctionSparse(const raft::handle_t& cuml_handle,
                               T* params,
                               T* scores)
 {
-  qnDecisionFunctionSparse<T>(cuml_handle,
-                              pams,
-                              X_values,
-                              X_cols,
-                              X_row_ids,
-                              X_nnz,
-                              N,
-                              D,
-                              C,
-                              params,
-                              scores,
-                              cuml_handle.get_stream());
+  detail::qnDecisionFunctionSparse<T>(
+    cuml_handle, pams, X_values, X_cols, X_row_ids, X_nnz, N, D, C, params, scores);
 }
 
 template void qnDecisionFunctionSparse<float>(
@@ -348,8 +328,7 @@ void qnPredict(const raft::handle_t& cuml_handle,
                T* params,
                T* scores)
 {
-  qnPredict<T>(
-    cuml_handle, pams, X, X_col_major, N, D, C, params, scores, cuml_handle.get_stream());
+  detail::qnPredict<T>(cuml_handle, pams, X, X_col_major, N, D, C, params, scores);
 }
 
 template void qnPredict<float>(
@@ -370,18 +349,8 @@ void qnPredictSparse(const raft::handle_t& cuml_handle,
                      T* params,
                      T* preds)
 {
-  qnPredictSparse<T>(cuml_handle,
-                     pams,
-                     X_values,
-                     X_cols,
-                     X_row_ids,
-                     X_nnz,
-                     N,
-                     D,
-                     C,
-                     params,
-                     preds,
-                     cuml_handle.get_stream());
+  detail::qnPredictSparse<T>(
+    cuml_handle, pams, X_values, X_cols, X_row_ids, X_nnz, N, D, C, params, preds);
 }
 
 template void qnPredictSparse<float>(

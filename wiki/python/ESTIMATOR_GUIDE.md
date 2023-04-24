@@ -86,7 +86,7 @@ At a high level, all cuML Estimators must:
          ]
    ```
 
-7. Implement the appropriate tags method if any of the [default tags](#estimator-tags-and-cuml-specific-tags) need to be overriden for the new estimator.
+7. Implement the appropriate tags method if any of the [default tags](#estimator-tags-and-cuml-specific-tags) need to be overridden for the new estimator.
 There are some convenience [Mixins](../../python/common/mixins.py), that the estimator can inherit, can be used for indicating the preferred order (column or row major) as well as for sparse input capability.
 
 If other tags are needed, they are static (i.e. don't change depending on the instantiated estimator), and more than one estimator will use them, then implement a new [Mixin](../../python/common/mixins.py), if the tag will be used by a single class then implement the `_more_static_tags` method:
@@ -272,12 +272,12 @@ def get_param_names(self):
 
 Scikit-learn introduced estimator tags in version 0.21, which are used to programmatically inspect the capabilities of estimators. These capabilities include items like sparse matrix support and the need for positive inputs, among other things. cuML estimators support _all_ of the tags defined by the Scikit-learn estimator [developer guide](https://scikit-learn.org/stable/developers/index.html), and will add support for any tag added there.
 
-Additionaly, some tags specific to cuML have been added. These tags may or may not be specific to GPU data types and can even apply outside of automated testing, such as allowing for the optimization of data generation. This can be useful for pipelines and HPO, among other things. These are:
+Additionally, some tags specific to cuML have been added. These tags may or may not be specific to GPU data types and can even apply outside of automated testing, such as allowing for the optimization of data generation. This can be useful for pipelines and HPO, among other things. These are:
 
 - `X_types_gpu` (default=['2darray'])
    Analogous to `X_types`, indicates what types of GPU objects an estimator can take. `2darray` includes GPU ndarray objects (like CuPy and Numba) and cuDF objects, since they are all processed the same by `input_utils`. `sparse` includes `CuPy` sparse arrays.
  - `preferred_input_order` (default=None)
-   One of ['F', 'C', None]. Whether an estimator "prefers" data in column-major ('F') or row-major ('C') contiguous memory layout. If different methods prefer different layouts or neither format is benefitial, then it is defined to `None` unless there is a good reason to chose either `F` or `C`. For example, all of `fit`, `predict`, etc. in an estimator use `F` but only `score` uses`C`.
+   One of ['F', 'C', None]. Whether an estimator "prefers" data in column-major ('F') or row-major ('C') contiguous memory layout. If different methods prefer different layouts or neither format is beneficial, then it is defined to `None` unless there is a good reason to chose either `F` or `C`. For example, all of `fit`, `predict`, etc. in an estimator use `F` but only `score` uses`C`.
 - `dynamic_tags` (default=False)
    Most estimators only need to define the tags statically, which facilitates the usage of tags in general. But some estimators might need to modify the values of a tag based on runtime attributes, so this tag reflects whether an estimator needs to do that. This tag value is automatically set by the `Base` estimator class if an Estimator has defined the `_more_tags` instance method.
 
@@ -304,7 +304,7 @@ Any array-like attribute stored in an estimator needs to be convertible to the u
 
 The `CumlArrayDescriptor` behaves different when accessed internally (from within one of `cuml`'s functions) vs. externally (for user code outside the cuml module). Internally, it behaves exactly like a normal attribute and will return the previous value set. Externally, the array will get converted to the user's desired output type lazily and repeated conversion will be cached.
 
-Performing the arrray conversion lazily (i.e. converting the input array to the desired output type, only when the attribute it read from for the first time) can greatly help reduce memory consumption, but can have unintended impacts the developers should be aware of. For example, benchmarking should take into account the lazy evaluation and ensure the array conversion is included in any profiling.
+Performing the array conversion lazily (i.e. converting the input array to the desired output type, only when the attribute it read from for the first time) can greatly help reduce memory consumption, but can have unintended impacts the developers should be aware of. For example, benchmarking should take into account the lazy evaluation and ensure the array conversion is included in any profiling.
 
 #### Defining Array-Like Attributes
 
@@ -474,7 +474,7 @@ def predict(self, X) -> CumlArray:
 
 #### Option 2: Manual Estimator Method Decoration
 
-While the automatic converions from type annotations works for many estimator functions, sometimes its necessary to explicitly decorate an estimator method. This allows developers greater flexibility over the input argument, output type and output dtype.
+While the automatic conversions from type annotations works for many estimator functions, sometimes its necessary to explicitly decorate an estimator method. This allows developers greater flexibility over the input argument, output type and output dtype.
 
 Which decorator to use for an estimator function is determined by 2 factors:
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -347,7 +347,7 @@ class QN(Base,
         Note, this parameter corresponds to `ftol` in
         `scipy.optimize.minimize(method='L-BFGS-B')
         <https://docs.scipy.org/doc/scipy/reference/optimize.minimize-lbfgsb.html>`_,
-        which is set by default to a miniscule `2.2e-9` and is not exposed in
+        which is set by default to a minuscule `2.2e-9` and is not exposed in
         `sklearn.LogisticRegression()
         <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
         This condition is meant to protect the solver against doing vanishingly

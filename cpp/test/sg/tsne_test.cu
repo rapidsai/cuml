@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 #include <iostream>
 #include <raft/core/handle.hpp>
 
-#if defined RAFT_DISTANCE_COMPILED
+#if defined RAFT_COMPILED
 #include <raft/spatial/knn/specializations.cuh>
 #endif
 
@@ -125,6 +125,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     model_params.n_neighbors   = 90;
     model_params.min_grad_norm = 1e-12;
     model_params.verbosity     = CUML_LEVEL_DEBUG;
+    model_params.metric = DEFAULT_DISTANCE_METRIC;
 
     // Allocate memory
     rmm::device_uvector<float> X_d(n * p, stream);
@@ -162,7 +163,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
                       false);
     handle.sync_stream(stream);
 
-    // Compute theorical KL div
+    // Compute theoretical KL div
     results.kl_div_ref =
       get_kl_div(model_params, runner.COO_Matrix, pw_emb_dists.data(), n, stream);
 
