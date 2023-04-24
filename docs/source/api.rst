@@ -473,10 +473,14 @@ Agglomerative Clustering
 
 HDBSCAN
 -------
+.. autoclass:: cuml.cluster.hdbscan.HDBSCAN
+    :members:
 
-.. automodule:: cuml.cluster.hdbscan
-   :members:
-   :undoc-members:
+.. autofunction:: cuml.cluster.hdbscan.all_points_membership_vectors
+
+.. autofunction:: cuml.cluster.hdbscan.membership_vector
+
+.. autofunction:: cuml.cluster.hdbscan.approximate_predict
 
 
 Dimensionality Reduction and Manifold Learning
