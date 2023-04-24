@@ -781,7 +781,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             See :ref:`verbosity-levels` for more info.
         default_chunk_size : int or None, default=None
             If set, predict calls without a specified chunk size will use
-            this default value
+            this default value.
         align_bytes : int or None, default=None
             If set, each tree will be padded with empty nodes until its
             in-memory size is a multiple of the given value. It is recommended
@@ -909,7 +909,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             See :ref:`verbosity-levels` for more info.
         default_chunk_size : int or None, default=None
             If set, predict calls without a specified chunk size will use
-            this default value
+            this default value.
         align_bytes : int or None, default=None
             If set, each tree will be padded with empty nodes until its
             in-memory size is a multiple of the given value. It is recommended
@@ -1032,7 +1032,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             See :ref:`verbosity-levels` for more info.
         default_chunk_size : int or None, default=None
             If set, predict calls without a specified chunk size will use
-            this default value
+            this default value.
         align_bytes : int or None, default=None
             If set, each tree will be padded with empty nodes until its
             in-memory size is a multiple of the given value. It is recommended
@@ -1331,11 +1331,11 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             iterations, batch_size, features = data.shape
         except ValueError:
             batch_size, features = data.shape
-            data = [data for _ in range(iterations)]
+            data = [data] * iterations
 
         if max_chunk_size is None:
             max_chunk_size = 512
-        if GlobalSettings().device_type == DeviceType.device:
+        if GlobalSettings().device_type is DeviceType.device:
             max_chunk_size = min(max_chunk_size, 32)
 
         infer = getattr(self, predict_method)
