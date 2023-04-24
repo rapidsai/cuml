@@ -42,8 +42,8 @@ dependencies:
 - libcusparse-dev=11.7.5.86
 - libcusparse=11.7.5.86
 - libfaiss>=1.7.1
-- libraft-headers==23.6.*
-- libraft==23.6.*
+# - libraft-headers==23.6.*
+# - libraft==23.6.*
 - librmm==23.6.*
 - nbsphinx
 - ninja
@@ -52,14 +52,14 @@ dependencies:
 - numpydoc
 - pip
 - pydata-sphinx-theme
-- pylibraft==23.6.*
+# - pylibraft==23.6.*
 - pytest
 - pytest-benchmark
 - pytest-cases
 - pytest-cov
 - pytest-xdist
 - python>=3.8,<3.11
-- raft-dask==23.6.*
+# - raft-dask==23.6.*
 - recommonmark
 - rmm==23.6.*
 - scikit-build>=0.13.1

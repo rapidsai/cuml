@@ -52,18 +52,16 @@ namespace HDBSCAN {
  */
 template <typename value_idx, typename value_t>
 struct FixConnectivitiesRedOp {
-  value_idx* colors;
   value_t* core_dists;
   value_idx m;
 
-  FixConnectivitiesRedOp(value_idx* colors_, value_t* core_dists_, value_idx m_)
-    : colors(colors_), core_dists(core_dists_), m(m_){};
+  FixConnectivitiesRedOp(value_t* core_dists_, value_idx m_)
+    : core_dists(core_dists_), m(m_){};
 
   typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
   DI void operator()(value_idx rit, KVP* out, const KVP& other)
   {
-    if (rit < m && other.value < std::numeric_limits<value_t>::max() &&
-        colors[rit] != colors[other.key]) {
+    if (rit < m && other.value < std::numeric_limits<value_t>::max()) {
       value_t core_dist_rit   = core_dists[rit];
       value_t core_dist_other = max(core_dist_rit, max(core_dists[other.key], other.value));
 
@@ -82,7 +80,7 @@ struct FixConnectivitiesRedOp {
 
   DI KVP operator()(value_idx rit, const KVP& a, const KVP& b)
   {
-    if (rit < m && a.key > -1 && colors[rit] != colors[a.key]) {
+    if (rit < m && a.key > -1) {
       value_t core_dist_rit = core_dists[rit];
       value_t core_dist_a   = max(core_dist_rit, max(core_dists[a.key], a.value));
 
@@ -107,8 +105,11 @@ struct FixConnectivitiesRedOp {
   }
 
   void gather(value_idx* map) {
-    auto it = thrust::make_zip_iterator(thrust::make_tuple(colors, core_dists));
-    thrust::gather(map, map + m, it, it);
+    thrust::gather(map, map + m, core_dists, core_dists);
+  }
+
+  void scatter(value_idx* map) {
+    thrust::scatter(map, map + m, core_dists, core_dists);
   }
 };
 
