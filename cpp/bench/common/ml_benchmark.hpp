@@ -22,6 +22,7 @@
 #include <cuml/common/utils.hpp>
 #include <memory>
 #include <raft/util/cudart_utils.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 #include <sstream>
 #include <string>
 #include <vector>
