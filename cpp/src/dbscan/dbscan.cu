@@ -186,5 +186,141 @@ void fit(const raft::handle_t& handle,
                                           verbosity);
 }
 
+void fit(const raft::handle_t& handle,
+         float* input,
+         int n_groups,
+         int* n_rows_ptr,
+         int n_cols,
+         const float* eps_ptr,
+         const int* min_pts_ptr,
+         raft::distance::DistanceType metric,
+         int* labels,
+         int* core_sample_indices,
+         size_t max_bytes_per_batch,
+         int verbosity,
+         void* custom_workspace,
+         size_t* custom_workspace_size,
+         bool opg)
+{
+  ASSERT(!opg, "DBSCAN for multi-groups doesn't support multi-GPU");
+  dbscanFitImpl<float, int, false>(handle,
+                                   input,
+                                   n_groups,
+                                   n_rows_ptr,
+                                   n_cols,
+                                   eps_ptr,
+                                   min_pts_ptr,
+                                   metric,
+                                   labels,
+                                   core_sample_indices,
+                                   max_bytes_per_batch / 1e6,
+                                   handle.get_stream(),
+                                   verbosity,
+                                   custom_workspace,
+                                   custom_workspace_size);
+}
+
+void fit(const raft::handle_t& handle,
+         double* input,
+         int n_groups,
+         int* n_rows_ptr,
+         int n_cols,
+         const double* eps_ptr,
+         const int* min_pts_ptr,
+         raft::distance::DistanceType metric,
+         int* labels,
+         int* core_sample_indices,
+         size_t max_bytes_per_batch,
+         int verbosity,
+         void* custom_workspace,
+         size_t* custom_workspace_size,
+         bool opg)
+{
+  ASSERT(!opg, "DBSCAN for multi-groups doesn't support multi-GPU");
+  dbscanFitImpl<double, int, false>(handle,
+                                    input,
+                                    n_groups,
+                                    n_rows_ptr,
+                                    n_cols,
+                                    eps_ptr,
+                                    min_pts_ptr,
+                                    metric,
+                                    labels,
+                                    core_sample_indices,
+                                    max_bytes_per_batch / 1e6,
+                                    handle.get_stream(),
+                                    verbosity,
+                                    custom_workspace,
+                                    custom_workspace_size);
+}
+
+void fit(const raft::handle_t& handle,
+         float* input,
+         int64_t n_groups,
+         int64_t* n_rows_ptr,
+         int64_t n_cols,
+         const float* eps_ptr,
+         const int64_t* min_pts_ptr,
+         raft::distance::DistanceType metric,
+         int64_t* labels,
+         int64_t* core_sample_indices,
+         size_t max_bytes_per_batch,
+         int verbosity,
+         void* custom_workspace,
+         size_t* custom_workspace_size,
+         bool opg)
+{
+  ASSERT(!opg, "DBSCAN for multi-groups doesn't support multi-GPU");
+  dbscanFitImpl<float, int64_t, false>(handle,
+                                       input,
+                                       n_groups,
+                                       n_rows_ptr,
+                                       n_cols,
+                                       eps_ptr,
+                                       min_pts_ptr,
+                                       metric,
+                                       labels,
+                                       core_sample_indices,
+                                       max_bytes_per_batch / 1e6,
+                                       handle.get_stream(),
+                                       verbosity,
+                                       custom_workspace,
+                                       custom_workspace_size);
+}
+
+void fit(const raft::handle_t& handle,
+         double* input,
+         int64_t n_groups,
+         int64_t* n_rows_ptr,
+         int64_t n_cols,
+         const double* eps_ptr,
+         const int64_t* min_pts_ptr,
+         raft::distance::DistanceType metric,
+         int64_t* labels,
+         int64_t* core_sample_indices,
+         size_t max_bytes_per_batch,
+         int verbosity,
+         void* custom_workspace,
+         size_t* custom_workspace_size,
+         bool opg)
+{
+  ASSERT(!opg, "DBSCAN for multi-groups doesn't support multi-GPU");
+  dbscanFitImpl<double, int64_t, false>(handle,
+                                        input,
+                                        n_groups,
+                                        n_rows_ptr,
+                                        n_cols,
+                                        eps_ptr,
+                                        min_pts_ptr,
+                                        metric,
+                                        labels,
+                                        core_sample_indices,
+                                        max_bytes_per_batch / 1e6,
+                                        handle.get_stream(),
+                                        verbosity,
+                                        custom_workspace,
+                                        custom_workspace_size);
+}
+
 }  // namespace Dbscan
 }  // namespace ML

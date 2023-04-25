@@ -21,6 +21,11 @@
 #include "corepoints/exchange.cuh"
 #include "mergelabels/runner.cuh"
 #include "mergelabels/tree_reduction.cuh"
+#include "multigroups/mgrp_accessor.cuh"
+#include "multigroups/mgrp_adjgraph.cuh"
+#include "multigroups/mgrp_corepoints.cuh"
+#include "multigroups/mgrp_labels.cuh"
+#include "multigroups/mgrp_vertexdeg.cuh"
 #include "vertexdeg/runner.cuh"
 #include <common/nvtx.hpp>
 #include <raft/core/nvtx.hpp>
@@ -327,5 +332,244 @@ std::size_t run(const raft::handle_t& handle,
   CUML_LOG_DEBUG("Done.");
   return (std::size_t)0;
 }
+
+/**
+ * Run the DBSCAN algorithm (common code for multi-groups on single-GPU)
+ * @tparam opg Whether we are running in a multi-node multi-GPU context (disabled for now)
+ * @param[in]  handle       raft handle
+ * @param[in]  x            Input data (N*D row-major device array)
+ * @param[in]  N            Number of the concatenated and padding points
+ * @param[in]  D            Dimensionality of the concatenated and padding points
+ * @param[in]  n_groups     Number of individual groups
+ * @param[in]  n_rows_ptr   Pointer to the numbers of samples
+ * @param[in]  n_cols       Number of features
+ * @param[in]  eps_ptr      Pointer to the epsilon neighborhood criterion (device array of length
+ * n_groups)
+ * @param[in]  min_pts_ptr  Pointer to the core points criterion (device array of length n_groups)
+ * @param[out] labels       Output labels (device array of length N)
+ * @param[out] core_indices If not nullptr, the indices of core points are written in this array
+ * @param[in]  algo_vd      Algorithm used for the vertex degrees
+ * @param[in]  algo_adj     Algorithm used for the adjacency graph
+ * @param[in]  algo_ccl     Algorithm used for the final relabel
+ * @param[in]  workspace    Temporary global memory buffer used to store intermediate computations
+ *                          If nullptr, then this function will return the workspace size needed.
+ *                          It is the responsibility of the user to allocate and free this buffer!
+ * @param[in]  stream       The CUDA stream where to launch the kernels
+ * @return In case the workspace pointer is null, this returns the size needed.
+ */
+template <typename Type_f, typename Index_ = int, bool opg = false>
+std::size_t run(const raft::handle_t& handle,
+                const Type_f* x,
+                Index_ n_groups,
+                Index_* n_rows_ptr,
+                Index_ n_cols,
+                const Type_f* eps_ptr,
+                const Index_* min_pts_ptr,
+                Index_* labels,
+                Index_* core_indices,
+                int algo_vd,
+                int algo_adj,
+                int algo_ccl,
+                void* workspace,
+                cudaStream_t stream,
+                raft::distance::DistanceType metric)
+{
+  using namespace Multigroups;
+
+  const std::size_t align = 256;
+  Metadata::MultiGroupMetaData<Index_> mgrp_metadata(n_groups, n_rows_ptr, n_cols);
+  Index_ N          = mgrp_metadata.sum_rows;
+  Index_ D          = n_cols;
+  Index_ n_rows_max = mgrp_metadata.max_rows;
+
+  /**
+   * Note on coupling between data types:
+   * - adjacency graph has a worst case size of N * max_n_rows elements. Thus,
+   * if N is very close to being greater than the maximum 32-bit IdxType type used, a
+   * 64-bit IdxType should probably be used instead.
+   * - exclusive scan is the CSR row index for the adjacency graph and its values have a
+   * risk of overflowing when N * max_n_rows becomes larger what can be stored in IdxType
+   * - the vertex degree array has a worst case of each element having all other
+   * elements in their neighborhood, so any IdxType can be safely used, so long as N doesn't
+   * overflow.
+   */
+  Metadata::AdjGraphAccessor<bool, Index_> temp_adj_ac(&mgrp_metadata, nullptr);
+  Metadata::CorePointAccessor<bool, Index_> temp_corepts_ac(&mgrp_metadata, nullptr);
+  std::size_t metadata_size = mgrp_metadata.get_wsp_size();
+  std::size_t adjac_size    = temp_adj_ac.get_wsp_size();
+  std::size_t cptac_size    = temp_corepts_ac.get_wsp_size();
+  std::size_t eps_size      = raft::alignTo<std::size_t>(sizeof(Type_f) * n_groups, align);
+  std::size_t min_pts_size  = raft::alignTo<std::size_t>(sizeof(Index_) * n_groups, align);
+  std::size_t adj_size      = temp_adj_ac.get_layout_size();
+  std::size_t core_pts_size = raft::alignTo<std::size_t>(sizeof(bool) * N, align);
+  std::size_t m_size        = raft::alignTo<std::size_t>(sizeof(bool), align);
+  std::size_t vd_size      = raft::alignTo<std::size_t>(sizeof(Index_) * (N + n_groups + 1), align);
+  std::size_t ex_scan_size = raft::alignTo<std::size_t>(sizeof(Index_) * N, align);
+  std::size_t row_cnt_size = raft::alignTo<std::size_t>(sizeof(Index_) * N, align);
+  std::size_t labels_size  = raft::alignTo<std::size_t>(sizeof(Index_) * N, align);
+
+  Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
+
+  /// TODO: modify this part of code.
+  // ASSERT(N * batch_size < static_cast<std::size_t>(MAX_LABEL),
+  //        "An overflow occurred with the current choice of precision "
+  //        "and the number of samples. (Max allowed batch size is %ld, but was %ld). "
+  //        "Consider using double precision for the output labels.",
+  //        (unsigned long)(MAX_LABEL / N),
+  //        (unsigned long)batch_size);
+
+  if (workspace == NULL) {
+    auto size = metadata_size + adjac_size + cptac_size + eps_size + min_pts_size + adj_size +
+                core_pts_size + m_size + vd_size + ex_scan_size + row_cnt_size + labels_size;
+    return size;
+  }
+
+  // partition the temporary workspace needed for different stages of dbscan.
+
+  Index_ maxadjlen        = 0;
+  Index_ curradjlen       = 0;
+  char* temp              = (char*)workspace;
+  Index_* metadata_buffer = (Index_*)temp;
+  temp += metadata_size;
+  Index_* adjac_buffer = (Index_*)temp;
+  temp += adjac_size;
+  Index_* cptac_buffer = (Index_*)temp;
+  temp += cptac_size;
+  Type_f* eps2_ptr = (Type_f*)temp;
+  temp += eps_size;
+  Index_* min_pts2_ptr = (Index_*)temp;
+  temp += min_pts_size;
+  bool* adj = (bool*)temp;
+  temp += adj_size;
+  bool* core_pts = (bool*)temp;
+  temp += core_pts_size;
+  Index_* vd = (Index_*)temp;
+  temp += vd_size;
+  bool* m = (bool*)temp;
+  temp += m_size;
+  Index_* ex_scan = (Index_*)temp;
+  temp += ex_scan_size;
+  Index_* row_counters = (Index_*)temp;
+  temp += row_cnt_size;
+  Index_* labels_temp = (Index_*)temp;
+  temp += labels_size;
+
+  CUML_LOG_DEBUG("--> Initialize multigroup metadata and accessor");
+  raft::common::nvtx::push_range("Trace::Dbscan::MultiGroup");
+  mgrp_metadata.initialize(handle, metadata_buffer, metadata_size, stream);
+  Metadata::PointAccessor<Type_f, Index_> pts_ac(&mgrp_metadata, x);
+  Metadata::VertexDegAccessor<Index_, Index_> vd_ac(&mgrp_metadata, vd);
+  Metadata::AdjGraphAccessor<bool, Index_> adj_ac(&mgrp_metadata, adj);
+  Metadata::CorePointAccessor<bool, Index_> corepts_ac(&mgrp_metadata, core_pts);
+  RAFT_CUDA_TRY(
+    cudaMemcpyAsync(eps2_ptr, eps_ptr, n_groups * sizeof(Type_f), cudaMemcpyHostToDevice, stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
+    min_pts2_ptr, min_pts_ptr, n_groups * sizeof(Index_), cudaMemcpyHostToDevice, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(adj, 0, adj_size + core_pts_size + vd_size, stream));
+  adj_ac.initialize(handle, adjac_buffer, adjac_size, stream);
+  corepts_ac.initialize(handle, cptac_buffer, cptac_size, stream);
+  raft::common::nvtx::pop_range();
+
+  // Compute the vertex degree
+  CUML_LOG_DEBUG("--> Computing vertex degrees");
+  raft::common::nvtx::push_range("Trace::Dbscan::VertexDeg");
+  Multigroups::VertexDeg::run<Type_f, Index_>(
+    handle, adj_ac, vd_ac, pts_ac, eps2_ptr, algo_vd, stream, metric);
+  raft::common::nvtx::pop_range();
+
+  CUML_LOG_DEBUG("--> Computing core point mask");
+  raft::common::nvtx::push_range("Trace::Dbscan::CorePoints");
+  Multigroups::CorePoints::multi_groups_compute(handle, vd_ac, corepts_ac, min_pts2_ptr);
+  raft::common::nvtx::pop_range();
+
+  // Compute the labelling for the owned part of the graph
+  raft::sparse::WeakCCState state(m);
+  rmm::device_uvector<Index_> adj_graph(0, stream);
+
+  raft::update_host(&curradjlen, vd + N, 1, stream);
+  handle.sync_stream(stream);
+
+  CUML_LOG_DEBUG("--> Computing adjacency graph with %ld nnz.", (unsigned long)curradjlen);
+  raft::common::nvtx::push_range("Trace::Dbscan::AdjGraph");
+  if (curradjlen > maxadjlen || adj_graph.data() == NULL) {
+    maxadjlen = curradjlen;
+    adj_graph.resize(maxadjlen, stream);
+  }
+  Multigroups::AdjGraph::run<Index_>(
+    handle, adj_ac, vd_ac, adj_graph.data(), curradjlen, ex_scan, algo_adj, row_counters, stream);
+  raft::common::nvtx::pop_range();
+
+  CUML_LOG_DEBUG("--> Computing connected components");
+  raft::common::nvtx::push_range("Trace::Dbscan::WeakCC");
+  raft::sparse::weak_cc_batched<Index_>(labels,
+                                        ex_scan,
+                                        adj_graph.data(),
+                                        curradjlen,
+                                        N,
+                                        0,
+                                        N,
+                                        &state,
+                                        stream,
+                                        [core_pts, N] __device__(Index_ global_id) {
+                                          return global_id < N ? __ldg((char*)core_pts + global_id)
+                                                               : 0;
+                                        });
+  raft::common::nvtx::pop_range();
+
+  // Final relabel
+  raft::common::nvtx::push_range("Trace::Dbscan::FinalRelabel");
+  if (algo_ccl == 2) final_relabel(labels, N, stream);
+
+  Index_* label_bias = labels_temp;
+  Multigroups::Labels::label_bias_kernel<Index_, TPB / 2><<<n_groups, TPB / 2, 0, stream>>>(
+    labels, label_bias, mgrp_metadata.get_dev_pfxsum_rows(), n_groups, MAX_LABEL);
+
+  std::size_t nblks = raft::ceildiv<std::size_t>(mgrp_metadata.max_rows, TPB);
+  dim3 grid(nblks, n_groups);
+  dim3 blk(TPB, 1);
+  Multigroups::Labels::multiGroupRelabelForSklKernel<Index_>
+    <<<grid, blk, 0, stream>>>(labels,
+                               mgrp_metadata.get_dev_pfxsum_rows(),
+                               mgrp_metadata.get_dev_rows(),
+                               label_bias,
+                               n_groups,
+                               N,
+                               MAX_LABEL);
+  raft::common::nvtx::pop_range();
+
+  // Calculate the core_indices only if an array was passed in
+  if (core_indices != nullptr) {
+    raft::common::nvtx::range fun_scope("Trace::Dbscan::CoreSampleIndices");
+
+    // Create the execution policy
+    auto thrust_exec_policy = handle.get_thrust_policy();
+
+    // Get wrappers for the device ptrs
+    thrust::device_ptr<bool> dev_core_pts       = thrust::device_pointer_cast(core_pts);
+    thrust::device_ptr<Index_> dev_core_indices = thrust::device_pointer_cast(core_indices);
+
+    // First fill the core_indices with -1 which will be used if core_point_count < N
+    thrust::fill_n(thrust_exec_policy, dev_core_indices, N, (Index_)-1);
+
+    auto index_iterator = thrust::counting_iterator<Index_>(0);
+
+    // Perform stream reduction on the core points. The core_pts acts as the stencil and we use
+    // thrust::counting_iterator to return the index
+    thrust::copy_if(thrust_exec_policy,
+                    index_iterator,
+                    index_iterator + N,
+                    dev_core_pts,
+                    dev_core_indices,
+                    [=] __device__(const bool is_core_point) { return is_core_point; });
+  }
+
+  adj_ac.destroy();
+  corepts_ac.destroy();
+  mgrp_metadata.destroy();
+
+  CUML_LOG_DEBUG("Done.");
+  return (std::size_t)0;
+}
+
 }  // namespace Dbscan
 }  // namespace ML

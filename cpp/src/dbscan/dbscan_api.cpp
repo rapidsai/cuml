@@ -103,4 +103,98 @@ cumlError_t cumlDpDbscanFit(cumlHandle_t handle,
   }
   return status;
 }
+
+cumlError_t cumlMultiSpDbscanFit(cumlHandle_t handle,
+                                 float* input,
+                                 int n_groups,
+                                 int* n_rows_ptr,
+                                 int n_cols,
+                                 const float* eps_ptr,
+                                 const int* min_pts_ptr,
+                                 int* labels,
+                                 int* core_sample_indices,
+                                 size_t max_bytes_per_batch,
+                                 int verbosity,
+                                 void* custom_workspace,
+                                 size_t* custom_workspace_size)
+{
+  cumlError_t status;
+  raft::handle_t* handle_ptr;
+  std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+  if (status == CUML_SUCCESS) {
+    try {
+      ML::Dbscan::fit(*handle_ptr,
+                      input,
+                      n_groups,
+                      n_rows_ptr,
+                      n_cols,
+                      eps_ptr,
+                      min_pts_ptr,
+                      raft::distance::L2SqrtUnexpanded,
+                      labels,
+                      core_sample_indices,
+                      max_bytes_per_batch,
+                      verbosity,
+                      custom_workspace,
+                      custom_workspace_size);
+    }
+    // TODO: Implement this
+    // catch (const MLCommon::Exception& e)
+    //{
+    //    //log e.what()?
+    //    status =  e.getErrorCode();
+    //}
+    catch (...) {
+      status = CUML_ERROR_UNKNOWN;
+    }
+  }
+  return status;
+}
+
+cumlError_t cumlMultiDpDbscanFit(cumlHandle_t handle,
+                                 double* input,
+                                 int n_groups,
+                                 int* n_rows_ptr,
+                                 int n_cols,
+                                 const double* eps_ptr,
+                                 const int* min_pts_ptr,
+                                 int* labels,
+                                 int* core_sample_indices,
+                                 size_t max_bytes_per_batch,
+                                 int verbosity,
+                                 void* custom_workspace,
+                                 size_t* custom_workspace_size)
+{
+  cumlError_t status;
+  raft::handle_t* handle_ptr;
+  std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+  if (status == CUML_SUCCESS) {
+    try {
+      ML::Dbscan::fit(*handle_ptr,
+                      input,
+                      n_groups,
+                      n_rows_ptr,
+                      n_cols,
+                      eps_ptr,
+                      min_pts_ptr,
+                      raft::distance::L2SqrtUnexpanded,
+                      labels,
+                      core_sample_indices,
+                      max_bytes_per_batch,
+                      verbosity,
+                      custom_workspace,
+                      custom_workspace_size);
+    }
+    // TODO: Implement this
+    // catch (const MLCommon::Exception& e)
+    //{
+    //    //log e.what()?
+    //    status =  e.getErrorCode();
+    //}
+    catch (...) {
+      status = CUML_ERROR_UNKNOWN;
+    }
+  }
+  return status;
+}
 }

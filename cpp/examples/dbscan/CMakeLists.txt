@@ -16,3 +16,6 @@
 
 add_executable(dbscan_example dbscan_example.cpp)
 target_link_libraries(dbscan_example cuml++)
+
+add_executable(mgrp_dbscan_example mgrp_dbscan_example.cpp)
+target_link_libraries(mgrp_dbscan_example cuml++)
