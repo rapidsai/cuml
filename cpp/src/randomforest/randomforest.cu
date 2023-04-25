@@ -398,9 +398,7 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles)
 {
   /* TODO(hcho3): Use treelite::ConcatenateModelObjects(),
      once https://github.com/dmlc/treelite/issues/474 is fixed. */
-  if (treelite_handles.empty()) {
-    return nullptr;
-  }
+  if (treelite_handles.empty()) { return nullptr; }
   tl::Model& first_model  = *static_cast<tl::Model*>(treelite_handles[0]);
   tl::Model* concat_model = first_model.Dispatch([&treelite_handles](auto& first_model_inner) {
     // first_model_inner is of the concrete type tl::ModelImpl<T, L>
