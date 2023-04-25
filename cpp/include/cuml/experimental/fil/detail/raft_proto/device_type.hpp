@@ -15,8 +15,5 @@
  */
 #pragma once
 namespace raft_proto {
-enum class device_type {
-  cpu,
-  gpu
-};
+enum class device_type { cpu, gpu };
 }

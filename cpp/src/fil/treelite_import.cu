@@ -22,7 +22,7 @@
 
 #include <cuml/common/logger.hpp>  // for CUML_LOG_WARN
 #include <cuml/fil/fil.h>  // for algo_t, from_treelite, storage_type_repr, storage_type_t, treelite_params_t
-#include <cuml/fil/fnv_hash.h>  // for fowler_noll_vo_fingerprint64_32
+#include <cuml/fil/fnv_hash.h>         // for fowler_noll_vo_fingerprint64_32
 
 #include <raft/core/error.hpp>         // for ASSERT
 #include <raft/core/handle.hpp>        // for handle_t
@@ -32,18 +32,18 @@
 #include <treelite/c_api.h>  // for ModelHandle
 #include <treelite/tree.h>   // for Tree, Model, ModelImpl, ModelParam
 
-#include <omp.h>  // for omp
+#include <omp.h>             // for omp
 
-#include <algorithm>    // for std::max
-#include <bitset>       // for std::bitset
-#include <cmath>        // for NAN
-#include <cstddef>      // for std::size_t
-#include <cstdint>      // for uint8_t
-#include <iosfwd>       // for ios, stringstream
-#include <limits>       // for std::numeric_limits
-#include <stack>        // for std::stack
-#include <string>       // for std::string
-#include <type_traits>  // for std::is_same
+#include <algorithm>         // for std::max
+#include <bitset>            // for std::bitset
+#include <cmath>             // for NAN
+#include <cstddef>           // for std::size_t
+#include <cstdint>           // for uint8_t
+#include <iosfwd>            // for ios, stringstream
+#include <limits>            // for std::numeric_limits
+#include <stack>             // for std::stack
+#include <string>            // for std::string
+#include <type_traits>       // for std::is_same
 
 namespace ML {
 namespace fil {
@@ -204,9 +204,9 @@ inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, const categorical_s
 template <typename T, typename L>
 cat_sets_owner allocate_cat_sets_owner(const tl::ModelImpl<T, L>& model)
 {
-#pragma omp declare reduction(cat_counter_vec_red : std::vector<cat_feature_counters> \
-      : elementwise_combine(omp_out, omp_in))                 \
-    initializer(omp_priv = omp_orig)
+#pragma omp declare reduction(                                                     \
+    cat_counter_vec_red : std::vector<cat_feature_counters> : elementwise_combine( \
+        omp_out, omp_in)) initializer(omp_priv = omp_orig)
   const auto& trees = model.trees;
   cat_sets_owner cat_sets;
   std::vector<cat_feature_counters> counters(model.num_feature);

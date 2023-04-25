@@ -542,7 +542,7 @@ __global__ __launch_bounds__(THREADS4, FACTOR4) void SortKernel(value_idx* restr
  */
 template <typename value_idx, typename value_t>
 __global__ __launch_bounds__(
-  THREADS5, 1) void RepulsionKernel(/* int *restrict errd, */
+  THREADS5, 1) void RepulsionKernel(                     /* int *restrict errd, */
                                     const float theta,
                                     const float epssqd,  // correction for zero distance
                                     const value_idx* restrict sortd,

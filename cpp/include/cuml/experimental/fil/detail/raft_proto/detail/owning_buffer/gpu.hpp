@@ -15,26 +15,28 @@
  */
 #pragma once
 #include <cuda_runtime_api.h>
-#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/device_setter.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/detail/owning_buffer/base.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_setter.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <rmm/device_buffer.hpp>
 #include <type_traits>
 
 namespace raft_proto {
 namespace detail {
-template<typename T>
+template <typename T>
 struct owning_buffer<device_type::gpu, T> {
   // TODO(wphicks): Assess need for buffers of const T
   using value_type = std::remove_const_t<T>;
   owning_buffer() : data_{} {}
 
-  owning_buffer(device_id<device_type::gpu> device_id, std::size_t size, cudaStream_t stream) noexcept(false)
+  owning_buffer(device_id<device_type::gpu> device_id,
+                std::size_t size,
+                cudaStream_t stream) noexcept(false)
     : data_{[&device_id, &size, &stream]() {
-      auto device_context = device_setter{device_id};
-      return rmm::device_buffer{size * sizeof(value_type), rmm::cuda_stream_view{stream}};
-    }()}
+        auto device_context = device_setter{device_id};
+        return rmm::device_buffer{size * sizeof(value_type), rmm::cuda_stream_view{stream}};
+      }()}
   {
   }
 
@@ -43,5 +45,5 @@ struct owning_buffer<device_type::gpu, T> {
  private:
   mutable rmm::device_buffer data_;
 };
-}
-}
+}  // namespace detail
+}  // namespace raft_proto
