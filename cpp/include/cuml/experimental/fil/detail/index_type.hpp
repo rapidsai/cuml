@@ -20,5 +20,5 @@ namespace experimental {
 namespace fil {
 using index_type = uint32_t;
 }
-}
-}
+}  // namespace experimental
+}  // namespace ML

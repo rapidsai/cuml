@@ -59,7 +59,7 @@ class BitField {
   __host__ __device__ explicit BitField(raft::span<T, is_device> bits) : bits_(bits) {}
   __host__ __device__ BitField(const BitField& other) : bits_(other.bits_) {}
   BitField& operator=(const BitField& other) = default;
-  BitField& operator=(BitField&& other) = default;
+  BitField& operator=(BitField&& other)      = default;
   __host__ __device__ bool Check(std::size_t pos) const
   {
     T bitmask = kOne << (pos % kValueSize);

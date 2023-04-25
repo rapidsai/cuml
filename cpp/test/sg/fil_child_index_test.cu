@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -206,7 +206,7 @@ std::vector<ChildIndexTestParams> params = {
   CHILD_INDEX_TEST_PARAMS(node = NODE(def_left = true), input = QNAN, correct = 1),  // !def_left
   CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = QNAN), input = QNAN, correct = 2),    // !def_left
   CHILD_INDEX_TEST_PARAMS(
-    node = NODE(def_left = true, thresh = QNAN), input = QNAN, correct = 1),      // !def_left
+    node = NODE(def_left = true, thresh = QNAN), input = QNAN, correct = 1),         // !def_left
   CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = QNAN), input = 0.0, correct = 1),  // val !>= thresh
   CHILD_INDEX_TEST_PARAMS(
     node = NODE(thresh = 0.0), parent_node_idx = 1, input = -INF, correct = 3),
@@ -224,7 +224,7 @@ std::vector<ChildIndexTestParams> params = {
     node = NODE(thresh = 0.0), parent_node_idx = 4, input = -INF, correct = 9),
   CHILD_INDEX_TEST_PARAMS(
     node = NODE(thresh = 0.0), parent_node_idx = 4, input = 0.0, correct = 10),
-  CHILD_INDEX_TEST_PARAMS(parent_node_idx = 4, input = QNAN, correct = 10),  // !def_left
+  CHILD_INDEX_TEST_PARAMS(parent_node_idx = 4, input = QNAN, correct = 10),         // !def_left
   CHILD_INDEX_TEST_PARAMS(
     node = NODE(def_left = true), input = QNAN, parent_node_idx = 4, correct = 9),  // !def_left
   // cannot match ( < 0 and realistic fid_num_cats)
