@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,4 +18,5 @@ from cuml.cluster.hdbscan.hdbscan import HDBSCAN
 from cuml.cluster.hdbscan.hdbscan import condense_hierarchy
 
 from cuml.cluster.hdbscan.prediction import all_points_membership_vectors
+from cuml.cluster.hdbscan.prediction import membership_vector
 from cuml.cluster.hdbscan.prediction import approximate_predict

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,57 +22,51 @@
 #include <iostream>
 
 namespace ML {
-    namespace  Internals {
+namespace Internals {
 
-        class DefaultGraphBasedDimRedCallback : public GraphBasedDimRedCallback {
-            public:
+class DefaultGraphBasedDimRedCallback : public GraphBasedDimRedCallback {
+ public:
+  PyObject* get_numba_matrix(void* embeddings)
+  {
+    PyObject* pycl = (PyObject*)this->pyCallbackClass;
 
-                PyObject* get_numba_matrix(void* embeddings)
-                {
-                    PyObject* pycl = (PyObject*)this->pyCallbackClass;
-
-                    if (isFloat)
-                    {
-                        return PyObject_CallMethod(pycl,
-                        "get_numba_matrix", "(l(ll)s)", embeddings,
-                        n, n_components, "float32");
-                    } else {
-                        return PyObject_CallMethod(pycl,
-                        "get_numba_matrix", "(l(ll)s)", embeddings,
-                        n, n_components, "float64");
-                    }
-                }
-
-                void on_preprocess_end(void* embeddings) override
-                {
-                    PyObject* numba_matrix = get_numba_matrix(embeddings);
-                    PyObject* res = PyObject_CallMethod(this->pyCallbackClass,
-                        "on_preprocess_end", "(O)", numba_matrix);
-                    Py_DECREF(numba_matrix);
-                    Py_DECREF(res);
-                }
-
-                void on_epoch_end(void* embeddings) override
-                {
-                    PyObject* numba_matrix = get_numba_matrix(embeddings);
-                    PyObject* res = PyObject_CallMethod(this->pyCallbackClass,
-                        "on_epoch_end", "(O)", numba_matrix);
-                    Py_DECREF(numba_matrix);
-                    Py_DECREF(res);
-                }
-
-                void on_train_end(void* embeddings) override
-                {
-                    PyObject* numba_matrix = get_numba_matrix(embeddings);
-                    PyObject* res = PyObject_CallMethod(this->pyCallbackClass,
-                        "on_train_end", "(O)", numba_matrix);
-                    Py_DECREF(numba_matrix);
-                    Py_DECREF(res);
-                }
-
-            public:
-                PyObject* pyCallbackClass = nullptr;
-        };
-
+    if (isFloat) {
+      return PyObject_CallMethod(
+        pycl, "get_numba_matrix", "(l(ll)s)", embeddings, n, n_components, "float32");
+    } else {
+      return PyObject_CallMethod(
+        pycl, "get_numba_matrix", "(l(ll)s)", embeddings, n, n_components, "float64");
     }
-}
+  }
+
+  void on_preprocess_end(void* embeddings) override
+  {
+    PyObject* numba_matrix = get_numba_matrix(embeddings);
+    PyObject* res =
+      PyObject_CallMethod(this->pyCallbackClass, "on_preprocess_end", "(O)", numba_matrix);
+    Py_DECREF(numba_matrix);
+    Py_DECREF(res);
+  }
+
+  void on_epoch_end(void* embeddings) override
+  {
+    PyObject* numba_matrix = get_numba_matrix(embeddings);
+    PyObject* res = PyObject_CallMethod(this->pyCallbackClass, "on_epoch_end", "(O)", numba_matrix);
+    Py_DECREF(numba_matrix);
+    Py_DECREF(res);
+  }
+
+  void on_train_end(void* embeddings) override
+  {
+    PyObject* numba_matrix = get_numba_matrix(embeddings);
+    PyObject* res = PyObject_CallMethod(this->pyCallbackClass, "on_train_end", "(O)", numba_matrix);
+    Py_DECREF(numba_matrix);
+    Py_DECREF(res);
+  }
+
+ public:
+  PyObject* pyCallbackClass = nullptr;
+};
+
+}  // namespace Internals
+}  // namespace ML
