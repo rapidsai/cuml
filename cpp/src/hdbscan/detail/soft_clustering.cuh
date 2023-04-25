@@ -105,7 +105,7 @@ void dist_membership_vector(const raft::handle_t& handle,
         distance<raft::distance::DistanceType::CosineExpanded, value_t, value_t, value_t, int>(
           handle, query + batch_offset * n, exemplars_dense.data(), dist.data(), samples_per_batch, n_exemplars, n, true);
       break;
-    default: ASSERT(false, "Incorrect metric passed!");
+    default: RAFT_EXPECTS(false, "Incorrect metric passed!");
   }
 
   // compute the minimum distances to exemplars of each cluster
@@ -396,7 +396,8 @@ void all_points_membership_vectors(const raft::handle_t& handle,
   size_t n = prediction_data.n_cols;
 
   if (batch_size > m) batch_size = m;
-  RAFT_EXPECTS(0 < batch_size && batch_size <= m, "Invalid batch_size. batch_size should be > 0 and <= the number of samples in the training data");
+  RAFT_EXPECTS(0 < batch_size && batch_size <= m,
+               "Invalid batch_size. batch_size should be > 0 and <= the number of samples in the training data");
 
   auto parents    = condensed_tree.get_parents();
   auto children   = condensed_tree.get_children();
@@ -522,7 +523,8 @@ void membership_vector(const raft::handle_t& handle,
   value_t* lambdas               = condensed_tree.get_lambdas();
 
   if (batch_size > n_prediction_points) batch_size = n_prediction_points;
-  RAFT_EXPECTS(0 < batch_size && batch_size <= n_prediction_points, "Invalid batch_size. batch_size should be > 0 and <= the number of samples in the training data");
+  RAFT_EXPECTS(0 < batch_size && batch_size <= n_prediction_points,
+               "Invalid batch_size. batch_size should be > 0 and <= the number of prediction points");
 
   rmm::device_uvector<value_t> dist_membership_vec(n_prediction_points * n_selected_clusters,
                                                    stream);
