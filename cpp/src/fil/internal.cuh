@@ -299,8 +299,7 @@ template <typename node_t>
 struct tree;
 
 template <leaf_algo_t leaf_algo, typename real_t>
-struct leaf_output_t {
-};
+struct leaf_output_t {};
 template <typename real_t>
 struct leaf_output_t<leaf_algo_t::FLOAT_UNARY_BINARY, real_t> {
   typedef real_t T;

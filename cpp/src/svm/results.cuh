@@ -283,13 +283,13 @@ class Results {
   const raft::handle_t& handle;
   cudaStream_t stream;
 
-  int n_rows;       //!< number of rows in the training vector matrix
-  int n_cols;       //!< number of features
-  const math_t* x;  //!< training vectors
-  const math_t* y;  //!< labels
-  const math_t* C;  //!< penalty parameter
-  SvmType svmType;  //!< SVM problem type: SVC or SVR
-  int n_train;      //!< number of training vectors (including duplicates for SVR)
+  int n_rows;           //!< number of rows in the training vector matrix
+  int n_cols;           //!< number of features
+  const math_t* x;      //!< training vectors
+  const math_t* y;      //!< labels
+  const math_t* C;      //!< penalty parameter
+  SvmType svmType;      //!< SVM problem type: SVC or SVR
+  int n_train;          //!< number of training vectors (including duplicates for SVR)
 
   const int TPB = 256;  // threads per block
   // Temporary variables used by cub in GetResults

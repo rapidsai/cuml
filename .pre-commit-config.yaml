@@ -18,6 +18,12 @@ repos:
             types_or: [python, cython]
             exclude: thirdparty
             additional_dependencies: [flake8-force]
+    - repo: https://github.com/pre-commit/mirrors-clang-format
+      rev: v16.0.1
+      hooks:
+          - id: clang-format
+            types_or: [c, c++, cuda]
+            args: ["-fallback-style=none", "-style=file", "-i"]
     - repo: https://github.com/codespell-project/codespell
       rev: v2.2.2
       hooks:
@@ -33,11 +39,6 @@ repos:
             entry: '(category=|\s)DeprecationWarning[,)]'
             language: pygrep
             types_or: [python, cython]
-          - id: clang-format
-            name: clang-format
-            entry: python ./cpp/scripts/run-clang-format.py
-            language: python
-            additional_dependencies: [clang-format==11.1.0]
           - id: copyright-check
             name: copyright-check
             entry: python ./ci/checks/copyright.py --fix-in-place
