@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/core/device_resources.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <raft/core/handle.hpp>
@@ -104,12 +105,16 @@ struct FixConnectivitiesRedOp {
     out->value = maxVal;
   }
 
-  void gather(value_idx* map) {
-    thrust::gather(map, map + m, core_dists, core_dists);
+  void gather(const raft::device_resources& handle, value_idx* map) {
+    rmm::device_uvector<value_t> temp(m, handle.get_stream());
+    thrust::gather(handle.get_thrust_policy(), map, map + m, core_dists, temp.data());
+    thrust::copy(handle.get_thrust_policy(), temp.data(), temp.data() + (value_idx)m, core_dists);
   }
 
-  void scatter(value_idx* map) {
-    thrust::scatter(map, map + m, core_dists, core_dists);
+  void scatter(const raft::device_resources& handle, value_idx* map) {
+    rmm::device_uvector<value_t> temp(m, handle.get_stream());
+    thrust::scatter(handle.get_thrust_policy(), core_dists, core_dists + m, map, temp.data());
+    thrust::copy(handle.get_thrust_policy(), temp.data(), temp.data() + (value_idx)m, core_dists);
   }
 };
 
