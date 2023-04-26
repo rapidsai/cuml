@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,16 +43,16 @@ class FIL : public RegressionFixture<float> {
 
  public:
   FIL(const std::string& name, const Params& p)
-  /*
-        fitting to linear combinations in "y" normally yields trees that check
-        values of all significant columns, as well as their linear
-        combinations in "X". During inference, the exact threshold
-        values do not affect speed. The distribution of column popularity does
-        not affect speed barring lots of uninformative columns in succession.
-        Hence, this method represents real datasets well enough for both
-        classification and regression.
-      */
-  : RegressionFixture<float>(name, p.data, p.blobs), model(p.model), p_rest(p)
+    /*
+          fitting to linear combinations in "y" normally yields trees that check
+          values of all significant columns, as well as their linear
+          combinations in "X". During inference, the exact threshold
+          values do not affect speed. The distribution of column popularity does
+          not affect speed barring lots of uninformative columns in succession.
+          Hence, this method represents real datasets well enough for both
+          classification and regression.
+        */
+    : RegressionFixture<float>(name, p.data, p.blobs), model(p.model), p_rest(p)
   {
   }
 
@@ -140,12 +140,12 @@ std::vector<Params> getInputs()
   Params p;
   p.data.rowMajor = true;
   p.blobs         = {.n_informative  = -1,  // Just a placeholder value, anyway changed below
-             .effective_rank = -1,  // Just a placeholder value, anyway changed below
-             .bias           = 0.f,
-             .tail_strength  = 0.1,
-             .noise          = 0.01,
-             .shuffle        = false,
-             .seed           = 12345ULL};
+                     .effective_rank = -1,  // Just a placeholder value, anyway changed below
+                     .bias           = 0.f,
+                     .tail_strength  = 0.1,
+                     .noise          = 0.01,
+                     .shuffle        = false,
+                     .seed           = 12345ULL};
 
   p.rf = set_rf_params(10,                 /*max_depth */
                        (1 << 20),          /* max_leaves */
