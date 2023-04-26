@@ -33,12 +33,12 @@
 #include "detail/extract.cuh"
 #include "detail/reachability.cuh"
 #include "detail/soft_clustering.cuh"
-#include "thrust/iterator/zip_iterator.h"
 #include <cuml/cluster/hdbscan.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
 #include <thrust/gather.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
 
 namespace ML {
@@ -106,15 +106,11 @@ struct FixConnectivitiesRedOp {
   }
 
   void gather(const raft::device_resources& handle, value_idx* map) {
-    rmm::device_uvector<value_t> temp(m, handle.get_stream());
-    thrust::gather(handle.get_thrust_policy(), map, map + m, core_dists, temp.data());
-    thrust::copy(handle.get_thrust_policy(), temp.data(), temp.data() + (value_idx)m, core_dists);
+    thrust::gather(handle.get_thrust_policy(), map, map + m, core_dists, core_dists);
   }
 
   void scatter(const raft::device_resources& handle, value_idx* map) {
-    rmm::device_uvector<value_t> temp(m, handle.get_stream());
-    thrust::scatter(handle.get_thrust_policy(), core_dists, core_dists + m, map, temp.data());
-    thrust::copy(handle.get_thrust_policy(), temp.data(), temp.data() + (value_idx)m, core_dists);
+    thrust::scatter(handle.get_thrust_policy(), core_dists, core_dists + m, map, core_dists);
   }
 };
 
