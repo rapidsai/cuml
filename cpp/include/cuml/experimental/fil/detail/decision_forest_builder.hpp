@@ -17,19 +17,19 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <stdint.h>
-#include <numeric>
-#include <optional>
-#include <vector>
-#include <cuml/experimental/fil/postproc_ops.hpp>
+#include <cuml/experimental/fil/detail/bitset.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
-#include <cuml/experimental/fil/exceptions.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
-#include <cuml/experimental/fil/detail/bitset.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/ceildiv.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/experimental/fil/exceptions.hpp>
+#include <cuml/experimental/fil/postproc_ops.hpp>
+#include <numeric>
+#include <optional>
+#include <stdint.h>
+#include <vector>
 
 namespace ML {
 namespace experimental {
@@ -51,14 +51,14 @@ struct model_builder_error : std::exception {
 /*
  * Struct used to build FIL forests
  */
-template<typename decision_forest_t>
+template <typename decision_forest_t>
 struct decision_forest_builder {
-
   /* The type for nodes in the given decision_forest type */
   using node_type = typename decision_forest_t::node_type;
 
   /* Add a root node, indicating the beginning of a new tree */
-  void start_new_tree() {
+  void start_new_tree()
+  {
     if (root_node_indexes_.empty()) {
       root_node_indexes_.emplace_back();
     } else {
@@ -71,90 +71,67 @@ struct decision_forest_builder {
           }
         }
       }
-      root_node_indexes_.push_back(
-        root_node_indexes_.back() + cur_tree_size_
-      );
+      root_node_indexes_.push_back(root_node_indexes_.back() + cur_tree_size_);
       cur_tree_size_ = index_type{};
     }
   }
 
   /* Add a node with a categorical split */
-  template<typename iter_t>
+  template <typename iter_t>
   void add_categorical_node(
     iter_t vec_begin,
     iter_t vec_end,
-    bool default_to_distant_child=false,
+    bool default_to_distant_child                     = false,
     typename node_type::metadata_storage_type feature = typename node_type::metadata_storage_type{},
-    typename node_type::offset_type offset = typename node_type::offset_type{}
-  ) {
+    typename node_type::offset_type offset            = typename node_type::offset_type{})
+  {
     auto constexpr const bin_width = index_type(sizeof(typename node_type::index_type) * 8);
-    auto node_value = typename node_type::index_type{};
-    auto set_storage = &node_value;
-    auto max_node_categories = *std::max_element(vec_begin, vec_end) + 1;
+    auto node_value                = typename node_type::index_type{};
+    auto set_storage               = &node_value;
+    auto max_node_categories       = *std::max_element(vec_begin, vec_end) + 1;
     if (max_num_categories_ > bin_width) {
       // TODO(wphicks): Check for overflow here
-      node_value = categorical_storage_.size();
+      node_value         = categorical_storage_.size();
       auto bins_required = raft_proto::ceildiv(max_node_categories, bin_width);
       categorical_storage_.push_back(max_node_categories);
       categorical_storage_.resize(categorical_storage_.size() + bins_required);
       set_storage = &(categorical_storage_[node_value + 1]);
     }
     auto set = bitset{set_storage, max_node_categories};
-    std::for_each(
-      vec_begin,
-      vec_end, 
-      [&set](auto&& cat_index) {
-        set.set(cat_index);
-      }
-    );
+    std::for_each(vec_begin, vec_end, [&set](auto&& cat_index) { set.set(cat_index); });
 
-    add_node(
-      node_value,
-      false,
-      default_to_distant_child,
-      true,
-      feature,
-      offset,
-      false
-    );
+    add_node(node_value, false, default_to_distant_child, true, feature, offset, false);
   }
 
   /* Add a leaf node with vector output */
-  template<typename iter_t>
-  void add_leaf_vector_node(
-    iter_t vec_begin,
-    iter_t vec_end
-  ) {
+  template <typename iter_t>
+  void add_leaf_vector_node(iter_t vec_begin, iter_t vec_end)
+  {
     auto leaf_index = typename node_type::index_type(vector_output_.size() / output_size_);
     std::copy(vec_begin, vec_end, std::back_inserter(vector_output_));
-    nodes_.emplace_back(
-      leaf_index,
-      true,
-      false,
-      false,
-      typename node_type::metadata_storage_type{},
-      typename node_type::offset_type{}
-    );
+    nodes_.emplace_back(leaf_index,
+                        true,
+                        false,
+                        false,
+                        typename node_type::metadata_storage_type{},
+                        typename node_type::offset_type{});
     ++cur_tree_size_;
   }
 
   /* Add a node to the model */
-  template<typename value_t>
+  template <typename value_t>
   void add_node(
     value_t val,
-    bool is_leaf_node=true,
-    bool default_to_distant_child=false,
-    bool is_categorical_node=false,
+    bool is_leaf_node                                 = true,
+    bool default_to_distant_child                     = false,
+    bool is_categorical_node                          = false,
     typename node_type::metadata_storage_type feature = typename node_type::metadata_storage_type{},
-    typename node_type::offset_type offset = typename node_type::offset_type{},
-    bool is_inclusive=false
-  ) {
-    if (is_inclusive) {
-      val = std::nextafter(val, std::numeric_limits<value_t>::infinity());
-    }
+    typename node_type::offset_type offset            = typename node_type::offset_type{},
+    bool is_inclusive                                 = false)
+  {
+    if (is_inclusive) { val = std::nextafter(val, std::numeric_limits<value_t>::infinity()); }
     nodes_.emplace_back(
-      val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset
-    );
+      val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset);
     ++cur_tree_size_;
   }
 
@@ -170,41 +147,39 @@ struct decision_forest_builder {
    * (if any) */
   void set_postproc_constant(double val) { postproc_constant_ = val; }
   /* Set the number of outputs per row for this model */
-  void set_output_size(index_type val) {
+  void set_output_size(index_type val)
+  {
     if (output_size_ != index_type{1} && output_size_ != val) {
       throw model_import_error("Inconsistent leaf vector size");
     }
     output_size_ = val;
   }
 
-  decision_forest_builder(
-      index_type max_num_categories=index_type{},
-      index_type align_bytes=index_type{}
-    ) :
-    cur_tree_size_{},
-    max_num_categories_{max_num_categories},
-    alignment_{std::lcm(align_bytes, index_type(sizeof(node_type)))},
-    output_size_{1},
-    element_postproc_{},
-    average_factor_{},
-    row_postproc_{},
-    bias_{},
-    postproc_constant_{},
-    max_tree_size_{},
-    nodes_{},
-    root_node_indexes_{},
-    vector_output_{} {
+  decision_forest_builder(index_type max_num_categories = index_type{},
+                          index_type align_bytes        = index_type{})
+    : cur_tree_size_{},
+      max_num_categories_{max_num_categories},
+      alignment_{std::lcm(align_bytes, index_type(sizeof(node_type)))},
+      output_size_{1},
+      element_postproc_{},
+      average_factor_{},
+      row_postproc_{},
+      bias_{},
+      postproc_constant_{},
+      max_tree_size_{},
+      nodes_{},
+      root_node_indexes_{},
+      vector_output_{}
+  {
   }
 
   /* Return the FIL decision forest built by this builder */
-  auto get_decision_forest(
-      index_type num_feature,
-      index_type num_class,
-      raft_proto::device_type mem_type=raft_proto::device_type::cpu,
-      int device=0,
-      raft_proto::cuda_stream stream=raft_proto::cuda_stream{}
-  ) {
-
+  auto get_decision_forest(index_type num_feature,
+                           index_type num_class,
+                           raft_proto::device_type mem_type = raft_proto::device_type::cpu,
+                           int device                       = 0,
+                           raft_proto::cuda_stream stream   = raft_proto::cuda_stream{})
+  {
     // Allow narrowing for preprocessing constants. They are stored as doubles
     // for consistency in the builder but must be converted to the proper types
     // for the concrete forest model.
@@ -212,46 +187,36 @@ struct decision_forest_builder {
 #pragma GCC diagnostic ignored "-Wnarrowing"
     return decision_forest_t{
       raft_proto::buffer{
-        raft_proto::buffer{nodes_.data(), nodes_.size()},
-        mem_type,
-        device,
-        stream
-      },
-      raft_proto::buffer{
-        raft_proto::buffer{root_node_indexes_.data(), root_node_indexes_.size()},
-        mem_type,
-        device,
-        stream
-      },
+        raft_proto::buffer{nodes_.data(), nodes_.size()}, mem_type, device, stream},
+      raft_proto::buffer{raft_proto::buffer{root_node_indexes_.data(), root_node_indexes_.size()},
+                         mem_type,
+                         device,
+                         stream},
       num_feature,
       num_class,
       max_num_categories_ != 0,
-      vector_output_.empty() ?
-        std::nullopt :
-        std::make_optional<raft_proto::buffer<typename node_type::threshold_type>>(
-          raft_proto::buffer{vector_output_.data(), vector_output_.size()},
-          mem_type,
-          device,
-          stream
-        ),
-      categorical_storage_.empty() ?
-        std::nullopt :
-        std::make_optional<raft_proto::buffer<typename node_type::index_type>>(
-          raft_proto::buffer{categorical_storage_.data(), categorical_storage_.size()},
-          mem_type,
-          device,
-          stream
-        ),
+      vector_output_.empty()
+        ? std::nullopt
+        : std::make_optional<raft_proto::buffer<typename node_type::threshold_type>>(
+            raft_proto::buffer{vector_output_.data(), vector_output_.size()},
+            mem_type,
+            device,
+            stream),
+      categorical_storage_.empty()
+        ? std::nullopt
+        : std::make_optional<raft_proto::buffer<typename node_type::index_type>>(
+            raft_proto::buffer{categorical_storage_.data(), categorical_storage_.size()},
+            mem_type,
+            device,
+            stream),
       output_size_,
       row_postproc_,
       element_postproc_,
       static_cast<typename node_type::threshold_type>(average_factor_),
       static_cast<typename node_type::threshold_type>(bias_),
-      static_cast<typename node_type::threshold_type>(postproc_constant_)
-    };
+      static_cast<typename node_type::threshold_type>(postproc_constant_)};
 #pragma GCC diagnostic pop
   }
-
 
  private:
   index_type cur_tree_size_;
@@ -271,7 +236,7 @@ struct decision_forest_builder {
   std::vector<typename node_type::index_type> categorical_storage_;
 };
 
-}
-}
-}
-}
+}  // namespace detail
+}  // namespace fil
+}  // namespace experimental
+}  // namespace ML

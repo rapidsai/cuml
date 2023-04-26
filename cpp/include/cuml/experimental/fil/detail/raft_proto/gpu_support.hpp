@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 #pragma once
-#include <exception>
 #include <cstddef>
+#include <exception>
 #include <stdint.h>
 
 namespace raft_proto {
 #ifdef CUML_ENABLE_GPU
 auto constexpr static const GPU_ENABLED = true;
 #else
-auto constexpr static const GPU_ENABLED = false;
+auto constexpr static const GPU_ENABLED     = false;
 #endif
 
 #ifdef __CUDACC__
-#define HOST __host__
+#define HOST   __host__
 #define DEVICE __device__
 auto constexpr static const GPU_COMPILATION = true;
 #else
@@ -38,7 +38,7 @@ auto constexpr static const GPU_COMPILATION = false;
 #ifndef DEBUG
 auto constexpr static const DEBUG_ENABLED = false;
 #elif DEBUG == 0
-auto constexpr static const DEBUG_ENABLED = false;
+auto constexpr static const DEBUG_ENABLED   = false;
 #else
 auto constexpr static const DEBUG_ENABLED = true;
 #endif
@@ -52,4 +52,4 @@ struct gpu_unsupported : std::exception {
   char const* msg_;
 };
 
-}
+}  // namespace raft_proto

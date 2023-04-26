@@ -397,7 +397,7 @@ class SmoSolver {
   rmm::device_uvector<math_t> f;        //!< optimality indicator vector
   rmm::device_uvector<math_t> y_label;  //!< extra label for regression
 
-  rmm::device_uvector<math_t> C_vec;  //!< penalty parameter vector
+  rmm::device_uvector<math_t> C_vec;    //!< penalty parameter vector
 
   // Buffers for the working set [n_ws]
   //! change in alpha parameter during a blocksolve step
@@ -415,7 +415,7 @@ class SmoSolver {
   raft::distance::kernels::GramMatrixBase<math_t>* kernel;
   float cache_size;  //!< size of kernel cache in MiB
 
-  SvmType svmType;  ///!< Type of the SVM problem to solve
+  SvmType svmType;   ///!< Type of the SVM problem to solve
 
   // Variables to track convergence of training
   math_t diff_prev;
