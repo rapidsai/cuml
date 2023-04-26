@@ -151,7 +151,7 @@ def apply_class_weight(handle, sample_weight, class_weight, y, verbose, output_t
     if class_weight is None:
         return sample_weight
 
-    if y is CumlArray:
+    if type(y) is CumlArray:
         y_m = y
     else:
         y_m, _, _, _ = input_to_cuml_array(y, check_cols=1)

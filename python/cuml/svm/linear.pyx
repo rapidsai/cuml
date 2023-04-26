@@ -456,7 +456,7 @@ cdef class LinearSVMWrapper:
                 X.shape[0], X.shape[1],
                 <double*><uintptr_t>y.ptr)
         else:
-            raise TypeError('Input data type should be float32 or float64')
+            raise TypeError('Input data type must be float32 or float64')
 
         return y
 
@@ -644,7 +644,6 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
             y, check_dtype=self.dtype,
             convert_to_dtype=convert_to_dtype,
             check_rows=n_rows, check_cols=1).array
-        
         sample_weight_m = input_to_cuml_array(
             sample_weight, check_dtype=self.dtype,
             convert_to_dtype=convert_to_dtype,
