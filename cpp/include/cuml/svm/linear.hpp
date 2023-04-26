@@ -170,8 +170,7 @@ struct LinearSVMModel {
    * @param [in] X the input data matrix of size (nRows, nCols) in column-major format.
    * @param [in] nRows number of vectors
    * @param [in] nCols number of features
-   * @param [out] out the decision function value of size (nRows, n_classes <= 2 ? 1 : n_classes) 
-   * in row-major format.
+   * @param [out] out the decision function value of size (nRows, n_classes <= 2 ? 1 : n_classes) in row-major format.
    */
   static void decisionFunction(const raft::handle_t& handle,
                                const LinearSVMParams& params,
