@@ -125,7 +125,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     model_params.n_neighbors   = 90;
     model_params.min_grad_norm = 1e-12;
     model_params.verbosity     = CUML_LEVEL_DEBUG;
-    model_params.metric = DEFAULT_DISTANCE_METRIC;
+    model_params.metric        = DEFAULT_DISTANCE_METRIC;
 
     // Allocate memory
     rmm::device_uvector<float> X_d(n * p, stream);

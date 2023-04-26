@@ -14,29 +14,26 @@
  * limitations under the License.
  */
 
-#include <cuml/linear_model/qn.h>
 #include <cuml/linear_model/glm_api.h>
+#include <cuml/linear_model/qn.h>
 
-void test_glm() {
+void test_glm()
+{
+  cumlHandle_t handle  = 0;
+  cumlError_t response = CUML_SUCCESS;
+  qn_params pams       = {.loss                = QN_LOSS_UNKNOWN,
+                          .penalty_l1          = 0,
+                          .penalty_l2          = 1.0,
+                          .grad_tol            = 1e-4,
+                          .change_tol          = 1e-5,
+                          .max_iter            = 1000,
+                          .linesearch_max_iter = 50,
+                          .lbfgs_memory        = 5,
+                          .verbose             = 0,
+                          .fit_intercept       = true,
+                          .penalty_normalized  = true};
 
-   cumlHandle_t handle = 0;
-   cumlError_t response = CUML_SUCCESS;
-   qn_params pams = {
-      .loss = QN_LOSS_UNKNOWN,
-      .penalty_l1 = 0,
-      .penalty_l2 = 1.0,
-      .grad_tol = 1e-4,
-      .change_tol = 1e-5,
-      .max_iter = 1000,
-      .linesearch_max_iter = 50,
-      .lbfgs_memory = 5,
-      .verbose = 0,
-      .fit_intercept = true,
-      .penalty_normalized = true
-   };
+  response = cumlSpQnFit(handle, &pams, NULL, NULL, 0, 1, 2, NULL, NULL, NULL, true);
 
-   response = cumlSpQnFit(handle, &pams, NULL, NULL, 0, 1, 2, NULL, NULL, NULL, true);
-
-   response = cumlDpQnFit(handle, &pams, NULL, NULL, 0, 1, 2, NULL, NULL, NULL, true);
-
+  response = cumlDpQnFit(handle, &pams, NULL, NULL, 0, 1, 2, NULL, NULL, NULL, true);
 }
