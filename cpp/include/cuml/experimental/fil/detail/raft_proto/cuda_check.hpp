@@ -23,7 +23,8 @@
 
 namespace raft_proto {
 template <typename error_t>
-void cuda_check(error_t const& err) noexcept(!GPU_ENABLED) {
+void cuda_check(error_t const& err) noexcept(!GPU_ENABLED)
+{
   detail::cuda_check<device_type::gpu>(err);
 }
-}
+}  // namespace raft_proto

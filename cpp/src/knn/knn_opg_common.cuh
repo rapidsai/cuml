@@ -97,9 +97,9 @@ struct opg_knn_param {
   size_t batch_size = 0;                                  /**< Batch size */
   bool verbose;                                           /**< verbose */
 
-  std::size_t n_outputs = 0;              /**< Number of outputs per query (cl&re) */
-  std::vector<std::vector<out_t*>>* y;    /**< Labels input array (cl&re) */
-  std::vector<Matrix::Data<out_t>*>* out; /**< KNN outputs output array (cl&re) */
+  std::size_t n_outputs = 0;                  /**< Number of outputs per query (cl&re) */
+  std::vector<std::vector<out_t*>>* y;        /**< Labels input array (cl&re) */
+  std::vector<Matrix::Data<out_t>*>* out;     /**< KNN outputs output array (cl&re) */
 
   std::vector<int>* n_unique       = nullptr; /**< Number of unique labels (classification) */
   std::vector<out_t*>* uniq_labels = nullptr; /**< Unique labels (classification) */

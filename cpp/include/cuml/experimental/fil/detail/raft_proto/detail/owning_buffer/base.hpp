@@ -22,12 +22,12 @@
 namespace raft_proto {
 namespace detail {
 
-template<device_type D, typename T>
+template <device_type D, typename T>
 struct owning_buffer {
   owning_buffer() {}
   owning_buffer(device_id<D> device_id, std::size_t size, cuda_stream stream) {}
   auto* get() const { return static_cast<T*>(nullptr); }
 };
 
-}
-}
+}  // namespace detail
+}  // namespace raft_proto

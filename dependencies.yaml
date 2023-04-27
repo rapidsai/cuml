@@ -7,7 +7,6 @@ files:
       arch: [x86_64]
     includes:
       - common_build
-      - cpp_run
       - cudatoolkit
       - docs
       - py_build
@@ -21,7 +20,6 @@ files:
       arch: [x86_64]
     includes:
       - common_build
-      - cpp_run
       - cudatoolkit
   checks:
     output: none
@@ -164,12 +162,6 @@ dependencies:
               arch: aarch64
             packages:
               - cupy-cuda11x -f https://pip.cupy.dev/aarch64 # TODO: Verify that this works.
-  cpp_run:
-    common:
-      - output_types: conda
-        packages:
-          - libfaiss>=1.7.1
-          - faiss-proc=*=cuda
   cudatoolkit:
     specific:
       - output_types: conda
@@ -255,10 +247,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              py: "3.8"
-            packages:
-              - python=3.8
-          - matrix:
               py: "3.9"
             packages:
               - python=3.9
@@ -268,7 +256,7 @@ dependencies:
               - python=3.10
           - matrix:
             packages:
-              - python>=3.8,<3.11
+              - python>=3.9,<3.11
   test_python:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -284,7 +272,8 @@ dependencies:
           - pytest-xdist
           - *scikit_learn
           - statsmodels
-          - umap-learn
+          - umap-learn==0.5.3
+          - pynndescent==0.5.8
       - output_types: conda
         packages:
           - pip
