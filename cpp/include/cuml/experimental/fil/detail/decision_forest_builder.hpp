@@ -138,8 +138,7 @@ struct decision_forest_builder {
       val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset);
     // -1 indicates the lack of ID mapping for a particular node
     node_id_mapping_.push_back(static_cast<index_type>(tl_node_id.value_or(-1)));
-      val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset);
-      ++cur_tree_size_;
+    ++cur_tree_size_;
   }
 
   /* Set the element-wise postprocessing operation for this model */
@@ -156,10 +155,10 @@ struct decision_forest_builder {
   /* Set the number of outputs per row for this model */
   void set_output_size(index_type val)
   {
-      if (output_size_ != index_type{1} && output_size_ != val) {
-        throw model_import_error("Inconsistent leaf vector size");
-      }
-      output_size_ = val;
+    if (output_size_ != index_type{1} && output_size_ != val) {
+      throw model_import_error("Inconsistent leaf vector size");
+    }
+    output_size_ = val;
   }
 
   decision_forest_builder(index_type max_num_categories = index_type{},
@@ -187,45 +186,45 @@ struct decision_forest_builder {
                            int device                       = 0,
                            raft_proto::cuda_stream stream   = raft_proto::cuda_stream{})
   {
-      // Allow narrowing for preprocessing constants. They are stored as doubles
-      // for consistency in the builder but must be converted to the proper types
-      // for the concrete forest model.
+    // Allow narrowing for preprocessing constants. They are stored as doubles
+    // for consistency in the builder but must be converted to the proper types
+    // for the concrete forest model.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wnarrowing"
-      return decision_forest_t{
-        raft_proto::buffer{
-          raft_proto::buffer{nodes_.data(), nodes_.size()}, mem_type, device, stream},
-        raft_proto::buffer{raft_proto::buffer{root_node_indexes_.data(), root_node_indexes_.size()},
-                           mem_type,
-                           device,
-                           stream},
-        raft_proto::buffer{raft_proto::buffer{node_id_mapping_.data(), node_id_mapping_.size()},
-                           mem_type,
-                           device,
-                           stream},
-        num_feature,
-        num_class,
-        max_num_categories_ != 0,
-        vector_output_.empty()
-          ? std::nullopt
-          : std::make_optional<raft_proto::buffer<typename node_type::threshold_type>>(
-              raft_proto::buffer{vector_output_.data(), vector_output_.size()},
-              mem_type,
-              device,
-              stream),
-        categorical_storage_.empty()
-          ? std::nullopt
-          : std::make_optional<raft_proto::buffer<typename node_type::index_type>>(
-              raft_proto::buffer{categorical_storage_.data(), categorical_storage_.size()},
-              mem_type,
-              device,
-              stream),
-        output_size_,
-        row_postproc_,
-        element_postproc_,
-        static_cast<typename node_type::threshold_type>(average_factor_),
-        static_cast<typename node_type::threshold_type>(bias_),
-        static_cast<typename node_type::threshold_type>(postproc_constant_)};
+    return decision_forest_t{
+      raft_proto::buffer{
+        raft_proto::buffer{nodes_.data(), nodes_.size()}, mem_type, device, stream},
+      raft_proto::buffer{raft_proto::buffer{root_node_indexes_.data(), root_node_indexes_.size()},
+                         mem_type,
+                         device,
+                         stream},
+      raft_proto::buffer{raft_proto::buffer{node_id_mapping_.data(), node_id_mapping_.size()},
+                         mem_type,
+                         device,
+                         stream},
+      num_feature,
+      num_class,
+      max_num_categories_ != 0,
+      vector_output_.empty()
+        ? std::nullopt
+        : std::make_optional<raft_proto::buffer<typename node_type::threshold_type>>(
+            raft_proto::buffer{vector_output_.data(), vector_output_.size()},
+            mem_type,
+            device,
+            stream),
+      categorical_storage_.empty()
+        ? std::nullopt
+        : std::make_optional<raft_proto::buffer<typename node_type::index_type>>(
+            raft_proto::buffer{categorical_storage_.data(), categorical_storage_.size()},
+            mem_type,
+            device,
+            stream),
+      output_size_,
+      row_postproc_,
+      element_postproc_,
+      static_cast<typename node_type::threshold_type>(average_factor_),
+      static_cast<typename node_type::threshold_type>(bias_),
+      static_cast<typename node_type::threshold_type>(postproc_constant_)};
 #pragma GCC diagnostic pop
   }
 
