@@ -23,8 +23,8 @@ CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
 PY_VER=${RAPIDS_PY_VERSION//./}
 
-LIBRAFT_CHANNEL=$(rapids-get-artifact ci/raft/pull-request/1441/6109c12/raft_conda_cpp_cuda11_$(arch).tar.gz)
-RAFT_CHANNEL=$(rapids-get-artifact ci/raft/pull-request/1441/6109c12/raft_conda_python_cuda11_${PY_VER}_$(arch).tar.gz)
+LIBRAFT_CHANNEL=$(rapids-get-artifact ci/raft/pull-request/1469/6d8ec7b/raft_conda_cpp_cuda11_$(arch).tar.gz)
+RAFT_CHANNEL=$(rapids-get-artifact ci/raft/pull-request/1469/6d8ec7b/raft_conda_python_cuda11_${PY_VER}_$(arch).tar.gz)
 
 
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
