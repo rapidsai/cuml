@@ -20,7 +20,7 @@ requires = [
     "ninja",
     "pylibraft==23.6.*",
     "rmm==23.6.*",
-    "scikit-build>=0.13.1",
+    "scikit-build>=0.13.1,<0.17.2",
     "setuptools",
     "treelite==3.2.0",
     "treelite_runtime==3.2.0",
