@@ -1,3 +1,81 @@
+# cuML 23.04.00 (6 Apr 2023)
+
+## 🚨 Breaking Changes
+
+- Pin `dask` and `distributed` for release ([#5333](https://github.com/rapidsai/cuml/pull/5333)) [@galipremsagar](https://github.com/galipremsagar)
+
+## 🐛 Bug Fixes
+
+- Skip pickle notebook during nbsphinx ([#5342](https://github.com/rapidsai/cuml/pull/5342)) [@dantegd](https://github.com/dantegd)
+- Avoid race condition in FIL predict_per_tree ([#5334](https://github.com/rapidsai/cuml/pull/5334)) [@wphicks](https://github.com/wphicks)
+- Ensure experimental FIL shmem usage is below device limits ([#5326](https://github.com/rapidsai/cuml/pull/5326)) [@wphicks](https://github.com/wphicks)
+- Update cuda architectures for threads per sm restriction ([#5323](https://github.com/rapidsai/cuml/pull/5323)) [@wphicks](https://github.com/wphicks)
+- Run experimental FIL tests in CI ([#5316](https://github.com/rapidsai/cuml/pull/5316)) [@wphicks](https://github.com/wphicks)
+- Run memory leak pytests without parallelism to avoid sporadic test failures ([#5313](https://github.com/rapidsai/cuml/pull/5313)) [@dantegd](https://github.com/dantegd)
+- Update cupy version for pip wheels ([#5311](https://github.com/rapidsai/cuml/pull/5311)) [@dantegd](https://github.com/dantegd)
+- Fix for raising attributeerors erroneously for ipython methods ([#5299](https://github.com/rapidsai/cuml/pull/5299)) [@dantegd](https://github.com/dantegd)
+- Fix cuml local cpp docs build ([#5297](https://github.com/rapidsai/cuml/pull/5297)) [@galipremsagar](https://github.com/galipremsagar)
+- Don&#39;t run dask tests twice when testing wheels ([#5279](https://github.com/rapidsai/cuml/pull/5279)) [@benfred](https://github.com/benfred)
+- Remove MANIFEST.in use auto-generated one for sdists and package_data for wheels ([#5278](https://github.com/rapidsai/cuml/pull/5278)) [@vyasr](https://github.com/vyasr)
+- Removing remaining include of `raft/distance/distance_type.hpp` ([#5264](https://github.com/rapidsai/cuml/pull/5264)) [@cjnolet](https://github.com/cjnolet)
+- Enable hypothesis testing for nightly test runs. ([#5244](https://github.com/rapidsai/cuml/pull/5244)) [@csadorf](https://github.com/csadorf)
+- Support numeric, boolean, and string keyword arguments to class methods during CPU dispatching ([#5236](https://github.com/rapidsai/cuml/pull/5236)) [@beckernick](https://github.com/beckernick)
+- Allowing large data in kmeans ([#5228](https://github.com/rapidsai/cuml/pull/5228)) [@cjnolet](https://github.com/cjnolet)
+
+## 📖 Documentation
+
+- Fix docs build to be `pydata-sphinx-theme=0.13.0` compatible ([#5259](https://github.com/rapidsai/cuml/pull/5259)) [@galipremsagar](https://github.com/galipremsagar)
+- Add supported CPU/GPU operators to API docs and update docstrings ([#5239](https://github.com/rapidsai/cuml/pull/5239)) [@beckernick](https://github.com/beckernick)
+- Fix documentation author ([#5126](https://github.com/rapidsai/cuml/pull/5126)) [@bdice](https://github.com/bdice)
+
+## 🚀 New Features
+
+- Modify default batch size in HDBSCAN soft clustering ([#5335](https://github.com/rapidsai/cuml/pull/5335)) [@tarang-jain](https://github.com/tarang-jain)
+- reduce memory pressure in membership vector computation ([#5268](https://github.com/rapidsai/cuml/pull/5268)) [@tarang-jain](https://github.com/tarang-jain)
+- membership_vector for HDBSCAN ([#5247](https://github.com/rapidsai/cuml/pull/5247)) [@tarang-jain](https://github.com/tarang-jain)
+- Provide FIL implementation for both CPU and GPU ([#4890](https://github.com/rapidsai/cuml/pull/4890)) [@wphicks](https://github.com/wphicks)
+
+## 🛠️ Improvements
+
+- Remove deprecated Treelite CI API from FIL ([#5348](https://github.com/rapidsai/cuml/pull/5348)) [@hcho3](https://github.com/hcho3)
+- Updated forest inference to new dask worker api for 23.04 ([#5347](https://github.com/rapidsai/cuml/pull/5347)) [@taureandyernv](https://github.com/taureandyernv)
+- Pin `dask` and `distributed` for release ([#5333](https://github.com/rapidsai/cuml/pull/5333)) [@galipremsagar](https://github.com/galipremsagar)
+- Pin cupy in wheel tests to supported versions ([#5312](https://github.com/rapidsai/cuml/pull/5312)) [@vyasr](https://github.com/vyasr)
+- Drop `pickle5` ([#5310](https://github.com/rapidsai/cuml/pull/5310)) [@jakirkham](https://github.com/jakirkham)
+- Remove CUDA_CHECK macro ([#5308](https://github.com/rapidsai/cuml/pull/5308)) [@hcho3](https://github.com/hcho3)
+- Revert faiss removal pinned tag ([#5306](https://github.com/rapidsai/cuml/pull/5306)) [@cjnolet](https://github.com/cjnolet)
+- Upgrade to Treelite 3.2.0 ([#5304](https://github.com/rapidsai/cuml/pull/5304)) [@hcho3](https://github.com/hcho3)
+- Implement predict_per_tree() in FIL ([#5303](https://github.com/rapidsai/cuml/pull/5303)) [@hcho3](https://github.com/hcho3)
+- remove faiss from cuml ([#5293](https://github.com/rapidsai/cuml/pull/5293)) [@benfred](https://github.com/benfred)
+- Stop setting package version attribute in wheels ([#5285](https://github.com/rapidsai/cuml/pull/5285)) [@vyasr](https://github.com/vyasr)
+- Add libfaiss runtime dependency to libcuml. ([#5284](https://github.com/rapidsai/cuml/pull/5284)) [@bdice](https://github.com/bdice)
+- Move faiss_mr from raft ([#5281](https://github.com/rapidsai/cuml/pull/5281)) [@benfred](https://github.com/benfred)
+- Generate pyproject dependencies with dfg ([#5275](https://github.com/rapidsai/cuml/pull/5275)) [@vyasr](https://github.com/vyasr)
+- Updating cuML to use consolidated RAFT libs ([#5272](https://github.com/rapidsai/cuml/pull/5272)) [@cjnolet](https://github.com/cjnolet)
+- Add codespell as a linter ([#5265](https://github.com/rapidsai/cuml/pull/5265)) [@benfred](https://github.com/benfred)
+- Pass `AWS_SESSION_TOKEN` and `SCCACHE_S3_USE_SSL` vars to conda build ([#5263](https://github.com/rapidsai/cuml/pull/5263)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Update to GCC 11 ([#5258](https://github.com/rapidsai/cuml/pull/5258)) [@bdice](https://github.com/bdice)
+- Drop Python 3.7 handling for pickle protocol 4 ([#5256](https://github.com/rapidsai/cuml/pull/5256)) [@jakirkham](https://github.com/jakirkham)
+- Migrate as much as possible to pyproject.toml ([#5251](https://github.com/rapidsai/cuml/pull/5251)) [@vyasr](https://github.com/vyasr)
+- Adapt to rapidsai/rmm#1221 which moves allocator callbacks ([#5249](https://github.com/rapidsai/cuml/pull/5249)) [@wence-](https://github.com/wence-)
+- Add dfg as a pre-commit hook. ([#5246](https://github.com/rapidsai/cuml/pull/5246)) [@vyasr](https://github.com/vyasr)
+- Stop using versioneer to manage versions ([#5245](https://github.com/rapidsai/cuml/pull/5245)) [@vyasr](https://github.com/vyasr)
+- Enhance cuML benchmark utility and refactor hdbscan import utilities ([#5242](https://github.com/rapidsai/cuml/pull/5242)) [@beckernick](https://github.com/beckernick)
+- Fix GHA build workflow ([#5241](https://github.com/rapidsai/cuml/pull/5241)) [@AjayThorve](https://github.com/AjayThorve)
+- Support innerproduct distance in the pairwise_distance API ([#5230](https://github.com/rapidsai/cuml/pull/5230)) [@benfred](https://github.com/benfred)
+- Enable hypothesis for 23.04 ([#5221](https://github.com/rapidsai/cuml/pull/5221)) [@csadorf](https://github.com/csadorf)
+- Reduce error handling verbosity in CI tests scripts ([#5219](https://github.com/rapidsai/cuml/pull/5219)) [@AjayThorve](https://github.com/AjayThorve)
+- Bump pinned pip wheel deps to 23.4 ([#5217](https://github.com/rapidsai/cuml/pull/5217)) [@sevagh](https://github.com/sevagh)
+- Update shared workflow branches ([#5215](https://github.com/rapidsai/cuml/pull/5215)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Unpin `dask` and `distributed` for development ([#5209](https://github.com/rapidsai/cuml/pull/5209)) [@galipremsagar](https://github.com/galipremsagar)
+- Remove gpuCI scripts. ([#5208](https://github.com/rapidsai/cuml/pull/5208)) [@bdice](https://github.com/bdice)
+- Move date to build string in `conda` recipe ([#5190](https://github.com/rapidsai/cuml/pull/5190)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Kernel shap improvements ([#5187](https://github.com/rapidsai/cuml/pull/5187)) [@vinaydes](https://github.com/vinaydes)
+- test out the raft bfknn replacement ([#5186](https://github.com/rapidsai/cuml/pull/5186)) [@benfred](https://github.com/benfred)
+- Forward merge 23.02 into 23.04 ([#5182](https://github.com/rapidsai/cuml/pull/5182)) [@vyasr](https://github.com/vyasr)
+- Add `detail` namespace for linear models ([#5107](https://github.com/rapidsai/cuml/pull/5107)) [@lowener](https://github.com/lowener)
+- Add pre-commit configuration ([#4983](https://github.com/rapidsai/cuml/pull/4983)) [@csadorf](https://github.com/csadorf)
+
 # cuML 23.02.00 (9 Feb 2023)
 
 ## 🚨 Breaking Changes
