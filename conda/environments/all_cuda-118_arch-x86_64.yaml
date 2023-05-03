@@ -61,7 +61,7 @@ dependencies:
 - raft-dask==23.6.*
 - recommonmark
 - rmm==23.6.*
-- scikit-build>=0.13.1
+- scikit-build>=0.13.1,<0.17.2
 - scikit-learn==1.2
 - scipy
 - seaborn

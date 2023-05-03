@@ -113,7 +113,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cuda-python>=11.7.1,<12.0
-          - scikit-build>=0.13.1
+          - scikit-build>=0.13.1,<0.17.2
           - cython>=0.29,<0.30
           - &treelite treelite==3.2.0
           - pylibraft==23.6.*
