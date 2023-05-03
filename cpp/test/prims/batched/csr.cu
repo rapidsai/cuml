@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ template <typename T>
 struct CSRInputs {
   CSROperation operation;
   int batch_size;
-  int m;  // Dimensions of A
+  int m;    // Dimensions of A
   int n;
   int nnz;  // Number of non-zero elements in A
   int p;    // Dimensions of B or x

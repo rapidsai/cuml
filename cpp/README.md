@@ -18,7 +18,7 @@ The `test` directory has subdirectories that reflect this distinction between th
 1. cmake (>= 3.23.1)
 2. CUDA (>= 11.0)
 3. gcc (>=9.3.0)
-4. clang-format (= 11.1.0) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=11` and `clang-tools=11` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
+4. clang-format (= 16.0.1) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=16` and `clang-tools=16` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
 
 ### Building cuML:
 

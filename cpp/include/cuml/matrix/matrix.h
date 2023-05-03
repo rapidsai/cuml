@@ -104,7 +104,7 @@ class CsrMatrix : public Matrix<math_t> {
   CsrMatrix(int* indptr, int* indices, math_t* data, int nnz, int rows, int cols) : Matrix<math_t>()
   {
     auto csr_structure =
-      raft::make_device_csr_structure_view<int, int, int>(indptr, indices, rows, cols, nnz);
+      raft::make_device_compressed_structure_view<int, int, int>(indptr, indices, rows, cols, nnz);
     csr_matrix_view_ = std::make_unique<csr_matrix_view_t>(
       raft::device_span<math_t>(data, csr_structure.get_nnz()), csr_structure);
   }
@@ -116,26 +116,26 @@ class CsrMatrix : public Matrix<math_t> {
       d_indices_(std::make_unique<rmm::device_uvector<int>>(nnz, handle.get_stream())),
       d_data_(std::make_unique<rmm::device_uvector<math_t>>(nnz, handle.get_stream()))
   {
-    auto csr_structure = raft::make_device_csr_structure_view<int, int, int>(
+    auto csr_structure = raft::make_device_compressed_structure_view<int, int, int>(
       d_indptr_->data(), d_indices_->data(), rows, cols, nnz);
     csr_matrix_view_ = std::make_unique<csr_matrix_view_t>(
       raft::device_span<math_t>(d_data_->data(), csr_structure.get_nnz()), csr_structure);
   }
 
   bool is_dense() const { return false; }
-  int get_n_rows() const { return get_csr_view().get_structure().get_n_rows(); }
-  int get_n_cols() const { return get_csr_view().get_structure().get_n_cols(); }
-  int get_nnz() const { return get_csr_view().get_structure().get_nnz(); }
+  int get_n_rows() const { return get_csr_view().structure_view().get_n_rows(); }
+  int get_n_cols() const { return get_csr_view().structure_view().get_n_cols(); }
+  int get_nnz() const { return get_csr_view().structure_view().get_nnz(); }
 
-  int* get_indptr() const { return get_csr_view().get_structure().get_indptr().data(); }
-  int* get_indices() const { return get_csr_view().get_structure().get_indices().data(); }
+  int* get_indptr() const { return get_csr_view().structure_view().get_indptr().data(); }
+  int* get_indices() const { return get_csr_view().structure_view().get_indices().data(); }
   math_t* get_data() const { return get_csr_view().get_elements().data(); }
 
   void initialize_dimensions(const raft::handle_t& handle, int rows, int cols)
   {
     assert(d_indptr_);
     d_indptr_->resize(rows + 1, handle.get_stream());
-    auto csr_structure = raft::make_device_csr_structure_view<int, int, int>(
+    auto csr_structure = raft::make_device_compressed_structure_view<int, int, int>(
       d_indptr_->data(), d_indices_->data(), rows, cols, get_nnz());
     csr_matrix_view_ = std::make_unique<csr_matrix_view_t>(
       raft::device_span<math_t>(d_data_->data(), csr_structure.get_nnz()), csr_structure);
@@ -147,7 +147,7 @@ class CsrMatrix : public Matrix<math_t> {
     assert(d_data_);
     d_indices_->resize(nnz, handle.get_stream());
     d_data_->resize(nnz, handle.get_stream());
-    auto csr_structure = raft::make_device_csr_structure_view<int, int, int>(
+    auto csr_structure = raft::make_device_compressed_structure_view<int, int, int>(
       d_indptr_->data(), d_indices_->data(), get_n_rows(), get_n_cols(), nnz);
     csr_matrix_view_ = std::make_unique<csr_matrix_view_t>(
       raft::device_span<math_t>(d_data_->data(), csr_structure.get_nnz()), csr_structure);
@@ -158,7 +158,7 @@ class CsrMatrix : public Matrix<math_t> {
   csr_matrix_const_view_t get_const_csr_view() const
   {
     csr_matrix_const_view_t const_view(raft::device_span<const math_t>(get_data(), get_nnz()),
-                                       get_csr_view().get_structure());
+                                       get_csr_view().structure_view());
     return const_view;
   }
 
@@ -188,143 +188,30 @@ class Matrix {
   DenseMatrix<math_t>* as_dense()
   {
     DenseMatrix<math_t>* cast = dynamic_cast<DenseMatrix<math_t>*>(this);
-    ASSERT(cast != nullptr, "Invalid cast! Please check for isDense() before casting.");
+    ASSERT(cast != nullptr, "Invalid cast! Please check for is_dense() before casting.");
     return cast;
   };
 
   CsrMatrix<math_t>* as_csr()
   {
     CsrMatrix<math_t>* cast = dynamic_cast<CsrMatrix<math_t>*>(this);
-    ASSERT(cast != nullptr, "Invalid cast! Please check for isDense() before casting.");
+    ASSERT(cast != nullptr, "Invalid cast! Please check for is_dense() before casting.");
     return cast;
   };
 
   const DenseMatrix<math_t>* as_dense() const
   {
     const DenseMatrix<math_t>* cast = dynamic_cast<const DenseMatrix<math_t>*>(this);
-    ASSERT(cast != nullptr, "Invalid cast! Please check for isDense() before casting.");
+    ASSERT(cast != nullptr, "Invalid cast! Please check for is_dense() before casting.");
     return cast;
   };
 
   const CsrMatrix<math_t>* as_csr() const
   {
     const CsrMatrix<math_t>* cast = dynamic_cast<const CsrMatrix<math_t>*>(this);
-    ASSERT(cast != nullptr, "Invalid cast! Please check for isDense() before casting.");
+    ASSERT(cast != nullptr, "Invalid cast! Please check for is_dense() before casting.");
     return cast;
   };
-};
-
-template <typename math_t>
-class DenseMatrix3;
-template <typename math_t>
-class CsrMatrix3;
-
-/*
- * Thin matrix wrapper to allow single API for different matrix representations
- */
-template <typename math_t>
-class Matrix3 {
- public:
-  Matrix3(int rows, int cols) : n_rows(rows), n_cols(cols){};
-  virtual bool isDense() const = 0;
-  virtual ~Matrix3(){};
-
-  DenseMatrix3<math_t>* asDense()
-  {
-    DenseMatrix3<math_t>* cast = dynamic_cast<DenseMatrix3<math_t>*>(this);
-    ASSERT(cast != nullptr, "Invalid cast! Please check for isDense() before casting.");
-    return cast;
-  };
-
-  CsrMatrix3<math_t>* asCsr()
-  {
-    CsrMatrix3<math_t>* cast = dynamic_cast<CsrMatrix3<math_t>*>(this);
-    ASSERT(cast != nullptr, "Invalid cast! Please check for isDense() before casting.");
-    return cast;
-  };
-
-  const DenseMatrix3<math_t>* asDense() const
-  {
-    const DenseMatrix3<math_t>* cast = dynamic_cast<const DenseMatrix3<math_t>*>(this);
-    ASSERT(cast != nullptr, "Invalid cast! Please check for isDense() before casting.");
-    return cast;
-  };
-
-  const CsrMatrix3<math_t>* asCsr() const
-  {
-    const CsrMatrix3<math_t>* cast = dynamic_cast<const CsrMatrix3<math_t>*>(this);
-    ASSERT(cast != nullptr, "Invalid cast! Please check for isDense() before casting.");
-    return cast;
-  };
-
-  int n_rows;
-  int n_cols;
-};
-
-template <typename math_t>
-class DenseMatrix3 : public Matrix3<math_t> {
- public:
-  DenseMatrix3(math_t* data, int rows, int cols, bool row_major = false, int ld_in = 0)
-    : Matrix3<math_t>(rows, cols), data(data), is_row_major(row_major), ld(ld_in)
-  {
-    if (ld <= 0) ld = is_row_major ? cols : rows;
-  }
-  bool isDense() const { return true; }
-  math_t* data;
-  bool is_row_major;
-  int ld;
-};
-
-template <typename math_t>
-class CsrMatrix3 : public Matrix3<math_t> {
- public:
-  CsrMatrix3(int* indptr, int* indices, math_t* data, int nnz, int rows, int cols)
-    : Matrix3<math_t>(rows, cols), indptr(indptr), indices(indices), data(data), nnz(nnz)
-  {
-  }
-  bool isDense() const { return false; }
-
-  int nnz;
-  int* indptr;
-  int* indices;
-  math_t* data;
-};
-
-/*
- * Extension to raft matrix wrapper that owns the backing memory
- * and allows dynamic resizing. This simplifies CSR row extraction
- * where the target nnz is not known in advance
- */
-template <typename math_t>
-class ResizableCsrMatrix3 : public CsrMatrix3<math_t> {
- public:
-  ResizableCsrMatrix3(int rows, int cols, int nnz, cudaStream_t stream)
-    : CsrMatrix3<math_t>(nullptr, nullptr, nullptr, nnz, rows, cols),
-      d_indptr(rows + 1, stream),
-      d_indices(nnz, stream),
-      d_data(nnz, stream)
-  {
-    CsrMatrix3<math_t>::indptr  = d_indptr.data();
-    CsrMatrix3<math_t>::indices = d_indices.data();
-    CsrMatrix3<math_t>::data    = d_data.data();
-  }
-
-  void reserveRows(int rows, cudaStream_t stream)
-  {
-    d_indptr.reserve(rows + 1, stream);
-    CsrMatrix3<math_t>::indptr = d_indptr.data();
-  }
-
-  void reserveNnz(int nnz, cudaStream_t stream)
-  {
-    d_indices.reserve(nnz, stream);
-    d_data.reserve(nnz, stream);
-    CsrMatrix3<math_t>::indices = d_indices.data();
-    CsrMatrix3<math_t>::data    = d_data.data();
-  }
-
-  rmm::device_uvector<int> d_indptr, d_indices;
-  rmm::device_uvector<math_t> d_data;
 };
 
 };  // end namespace Matrix

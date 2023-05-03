@@ -34,6 +34,7 @@
 
 #include <device_launch_parameters.h>
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 
 namespace cuml {
 namespace genetic {
@@ -370,8 +371,8 @@ void symFit(const raft::handle_t& handle,
 {
   cudaStream_t stream = handle.get_stream();
 
-  // Update arity map in params - Need to do this only here, as all operations will call Fit at least
-  // once
+  // Update arity map in params - Need to do this only here, as all operations will call Fit at
+  // least once
   for (auto f : params.function_set) {
     int ar = 1;
     if (node::type::binary_begin <= f && f <= node::type::binary_end) { ar = 2; }

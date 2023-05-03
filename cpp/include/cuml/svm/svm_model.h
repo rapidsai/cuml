@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include "cuml/matrix/matrix.h"
+#include <cuml/matrix/matrix.h>
 
 namespace ML {
 namespace SVM {

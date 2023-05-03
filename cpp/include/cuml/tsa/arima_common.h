@@ -21,6 +21,7 @@
 #include <algorithm>
 
 #include <raft/util/cudart_utils.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>

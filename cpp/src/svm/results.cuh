@@ -293,6 +293,7 @@ class Results {
   const math_t* C;                                 //!< penalty parameter
   SvmType svmType;                                 //!< SVM problem type: SVC or SVR
   int n_train;          //!< number of training vectors (including duplicates for SVR)
+
   const int TPB = 256;  // threads per block
   // Temporary variables used by cub in GetResults
   rmm::device_scalar<int> d_num_selected;
