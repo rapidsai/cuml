@@ -31,6 +31,10 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/iterator/constant_iterator.h>
+
 #include <cuml/common/logger.hpp>
 
 #include <cub/cub.cuh>
@@ -71,7 +75,297 @@ __global__ void mapColumnIndices(
     out[tid] = k;
   }
 }
+
+template <typename math_t>
+struct select_at_index : public thrust::unary_function<int, math_t> {
+  const math_t* dot_;
+  select_at_index(const math_t* dot) : dot_(dot) {}
+
+  __device__ math_t operator()(const int& i) const { return dot_[i]; }
+};
+
 }  // end unnamed namespace
+
+// Strategy:
+//    - rows && cols sufficiently small to allow n_ws * n_rows/n_cols to fit in memory
+//       * extract dense rows for dot product
+//       * No batching of update step
+//
+//    if n_rows too large:
+//       -> Enable batching in update step to limit kernel_big memory
+//
+//    if n_cols too large: (CSR only support)
+//       -> extract CSR rows instead of dense for kernel compute
+//
+template <typename math_t>
+class KernelCache {
+ public:
+  KernelCache(const raft::handle_t& handle,
+              const MLCommon::Matrix::Matrix<math_t>& matrix,
+              int n_rows,
+              int n_cols,
+              int n_ws,
+              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
+              raft::distance::kernels::KernelType kernel_type,
+              float cache_size = 200,
+              SvmType svmType  = C_SVC)
+    : cache(handle.get_stream(), n_rows, cache_size),
+      handle(handle),
+      kernel(kernel),
+      kernel_type(kernel_type),
+      matrix(matrix),
+      n_rows(n_rows),
+      n_cols(n_cols),
+      n_ws(n_ws),
+      svmType(svmType),
+      cublas_handle(handle.get_cublas_handle()),
+      kernel_tile(n_ws * n_ws, handle.get_stream()),
+      kernel_tile_big(0, handle.get_stream()),
+      matrix_l2(0, handle.get_stream()),
+      matrix_l2_ws(0, handle.get_stream()),
+      ws_idx_mod(svmType == EPSILON_SVR ? n_ws : 0, handle.get_stream()),
+      x_ws_csr(handle, 0, 0, 0),
+      x_ws_dense(handle, 0, 0, 0),
+      indptr_batched(0, handle.get_stream())
+  {
+    stream = handle.get_stream();
+
+    // FIXME: not sure if this has to be static
+    batching_enabled = false;
+    is_csr           = !matrix.is_dense();
+    sparse_extract   = false;
+    batch_size_base  = n_rows;
+
+    // enable batching for kernel > 1 GB
+    size_t big_kernel_max_bytes = 1 << 30;
+    if (n_rows * n_ws * sizeof(math_t) > big_kernel_max_bytes) {
+      batching_enabled = true;
+      // only select based on desired big-kernel size
+      batch_size_base = big_kernel_max_bytes / n_ws / sizeof(math_t);
+    }
+
+    kernel_tile_big.reserve(n_ws * batch_size_base, stream);
+
+    // enable sparse row extraction for sparse input where n_ws * n_cols > 1 GB
+    // Warning: kernel computation will be much slower!
+    size_t extract_rows_max_bytes = 1 << 30;
+    if (is_csr && (n_cols * n_ws * sizeof(math_t) > extract_rows_max_bytes)) {
+      sparse_extract = true;
+    }
+
+    if (sparse_extract)
+      x_ws_matrix = &x_ws_csr;
+    else
+      x_ws_matrix = &x_ws_dense;
+
+    // store matrix l2 norm for RBF kernels
+    if (kernel_type == raft::distance::kernels::KernelType::RBF) {
+      matrix_l2.reserve(n_rows, stream);
+      matrix_l2_ws.reserve(n_ws, stream);
+      ML::SVM::matrixRowNorm(handle, matrix, matrix_l2.data(), raft::linalg::NormType::L2Norm);
+    }
+
+    // additional row pointer information needed for batched CSR access
+    // copy matrix row pointer to host to compute partial nnz on the fly
+    if (is_csr && batching_enabled) {
+      host_indptr.reserve(n_rows + 1);
+      indptr_batched.reserve(batch_size_base + 1, stream);
+      raft::update_host(host_indptr.data(), matrix.as_csr()->get_indptr(), n_rows + 1, stream);
+    }
+  }
+  ~KernelCache(){};
+
+  struct BatchDescriptor {
+    int offset;
+    int batch_size;
+    math_t* kernel_data;
+    int* nz_da_idx;
+    int nnz_da;
+  };
+
+  // needs call to 'getSquareTileWithoutCaching' first
+  // TODO cleanup -- maybe initi first?
+  const int* getIndicesModRows() { return ws_idx; }
+
+  math_t* getSquareTileWithoutCaching(const int* ws_idx_in)
+  {
+    // extract x_ws_matrix
+    ws_idx_org = ws_idx_in;
+    if (svmType == EPSILON_SVR) {
+      ModululoWsIndex(ws_idx_mod.data(), ws_idx_in, n_ws, n_rows);
+      ws_idx = ws_idx_mod.data();
+    } else {
+      ws_idx = ws_idx_in;
+    }
+
+    ML::SVM::extractRows<math_t>(matrix, *x_ws_matrix, ws_idx, n_ws, handle);
+
+    // extract dot array for RBF
+    if (kernel_type == raft::distance::kernels::KernelType::RBF) {
+      selectValueSubset(matrix_l2_ws.data(), matrix_l2.data(), ws_idx, n_ws);
+    }
+
+    // compute kernel
+    {
+      MLCommon::Matrix::DenseMatrix<math_t> kernel_matrix(kernel_tile.data(), n_ws, n_ws);
+      KernelOp(handle,
+               kernel,
+               *x_ws_matrix,
+               *x_ws_matrix,
+               kernel_matrix,
+               matrix_l2_ws.data(),
+               matrix_l2_ws.data());
+    }
+    return kernel_tile.data();
+  }
+
+  BatchDescriptor InitFullTileBatching(int* nz_da_idx, int nnz_da)
+  {
+    ML::SVM::extractRows<math_t>(matrix, *x_ws_matrix, nz_da_idx, nnz_da, handle);
+    // extract dot array for RBF
+    if (kernel_type == raft::distance::kernels::KernelType::RBF) {
+      selectValueSubset(matrix_l2_ws.data(), matrix_l2.data(), nz_da_idx, nnz_da);
+    }
+    return {.offset      = 0,
+            .batch_size  = 0,
+            .kernel_data = nullptr,
+            .nz_da_idx   = nz_da_idx,
+            .nnz_da      = nnz_da};
+  }
+
+  // at least perform consistency check if batching is enabled
+  // can not be truly stateless due to partial cache-invalidation
+  // could make batch-decision on the fly based on nnz_da
+  bool getNextBatchKernel(BatchDescriptor& batch_descriptor)
+  {
+    int offset = batch_descriptor.offset + batch_descriptor.batch_size;
+    if (offset >= n_rows) return false;
+
+    int batch_size = std::min(batch_size_base, n_rows - offset);
+
+    const MLCommon::Matrix::Matrix<math_t>* batch_matrix = nullptr;
+    if (batch_size == n_rows) {
+      batch_matrix = &matrix;
+    } else if (matrix.is_dense()) {
+      auto dense_matrix = matrix.as_dense();
+      batch_matrix      = new MLCommon::Matrix::DenseMatrix(
+        dense_matrix->get_data() + offset, batch_size, n_cols, false, n_rows);
+    } else {
+      // create indptr array for batch interval
+      // indptr_batched = indices[offset, offset+batch_size+1] - indices[offset]
+      auto csr_matrix = matrix.as_csr();
+      int batch_nnz   = host_indptr[offset + batch_size] - host_indptr[offset];
+      {
+        thrust::device_ptr<int> inptr_src(csr_matrix->get_indptr() + offset);
+        thrust::device_ptr<int> inptr_tgt(indptr_batched.data());
+        thrust::transform(thrust::cuda::par.on(stream),
+                          inptr_src,
+                          inptr_src + batch_size + 1,
+                          thrust::make_constant_iterator(host_indptr[offset]),
+                          inptr_tgt,
+                          thrust::minus<int>());
+      }
+      batch_matrix =
+        new MLCommon::Matrix::CsrMatrix(indptr_batched.data(),
+                                        csr_matrix->get_indices() + host_indptr[offset],
+                                        csr_matrix->get_data() + host_indptr[offset],
+                                        batch_nnz,
+                                        batch_size,
+                                        n_cols);
+    }
+
+    // compute kernel
+    MLCommon::Matrix::DenseMatrix<math_t> kernel_matrix(
+      kernel_tile_big.data(), batch_size, batch_descriptor.nnz_da);
+    KernelOp(handle,
+             kernel,
+             *batch_matrix,
+             *x_ws_matrix,
+             kernel_matrix,
+             matrix_l2.data() + offset,
+             matrix_l2_ws.data());
+
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+    if (batch_matrix != &matrix) delete batch_matrix;
+
+    batch_descriptor.offset      = offset;
+    batch_descriptor.batch_size  = batch_size;
+    batch_descriptor.kernel_data = kernel_tile_big.data();
+
+    return true;
+  }
+
+  void ModululoWsIndex(int* target, const int* source, int size, int modulo)
+  {
+    thrust::device_ptr<int> source_ptr(const_cast<int*>(source));
+    thrust::device_ptr<int> target_ptr(target);
+    thrust::transform(thrust::cuda::par.on(stream),
+                      source_ptr,
+                      source_ptr + size,
+                      thrust::make_constant_iterator(modulo),
+                      target_ptr,
+                      thrust::modulus<int>());
+  }
+
+  void selectValueSubset(math_t* target, const math_t* source, const int* indices, int num_indices)
+  {
+    thrust::device_ptr<const int> indices_ptr(indices);
+    thrust::device_ptr<math_t> target_ptr(target);
+    thrust::transform(thrust::cuda::par.on(stream),
+                      indices_ptr,
+                      indices_ptr + num_indices,
+                      target_ptr,
+                      select_at_index(source));
+  }
+
+ private:
+  const MLCommon::Matrix::Matrix<math_t>& matrix;
+
+  const int* ws_idx_org;  //!< ptr to the original working set indices
+  const int* ws_idx;      //!< ptr to the working set indices modulo n_rows
+
+  bool batching_enabled;
+  bool is_csr;
+  bool sparse_extract;
+  int batch_size_base;
+
+  rmm::device_uvector<math_t> kernel_tile;
+  rmm::device_uvector<math_t> kernel_tile_big;
+  rmm::device_uvector<int> ws_idx_mod;
+
+  // tmp storage for row extractions
+  MLCommon::Matrix::CsrMatrix<math_t> x_ws_csr;
+  MLCommon::Matrix::DenseMatrix<math_t> x_ws_dense;
+  MLCommon::Matrix::Matrix<math_t>* x_ws_matrix = nullptr;
+
+  // matrix l2 norm for RBF kernels
+  rmm::device_uvector<math_t> matrix_l2;
+  rmm::device_uvector<math_t> matrix_l2_ws;
+
+  // additional row pointer information needed for batched CSR access
+  // copy matrix row pointer to host to compute partial nnz on the fly
+  std::vector<int> host_indptr;
+  rmm::device_uvector<int> indptr_batched;
+
+  raft::distance::kernels::GramMatrixBase<math_t>* kernel;
+  raft::distance::kernels::KernelType kernel_type;
+
+  int n_rows;  //!< number of rows in x
+  int n_cols;  //!< number of columns in x
+  int n_ws;    //!< number of elements in the working set
+
+  cublasHandle_t cublas_handle;
+
+  const raft::handle_t handle;
+
+  const int TPB = 256;  //!< threads per block for kernels launched
+
+  raft::cache::Cache<math_t> cache;
+
+  cudaStream_t stream;
+  SvmType svmType;
+};
 
 /**
  * @brief Buffer to store a kernel tile
@@ -82,13 +376,13 @@ __global__ void mapColumnIndices(
  *
  * A kernel tile stores all the kernel rows for the working set, i.e. K(x_j, x_i)
  * for all i in the working set, and j in 1..n_rows. For details about the kernel
- * tile layout, see KernelCache::GetTile
+ * tile layout, see KernelCacheOld::GetTile
  *
  * The kernel values can be cached to avoid repeated calculation of the kernel
  * function.
  */
 template <typename math_t>
-class KernelCache {
+class KernelCacheOld {
  public:
   /**
    * Construct an object to manage kernel cache
@@ -103,14 +397,14 @@ class KernelCache {
    * @param cache_size (default 200 MiB)
    * @param svmType is this SVR or SVC
    */
-  KernelCache(const raft::handle_t& handle,
-              const math_t* x,
-              int n_rows,
-              int n_cols,
-              int n_ws,
-              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
-              float cache_size = 200,
-              SvmType svmType  = C_SVC)
+  KernelCacheOld(const raft::handle_t& handle,
+                 const math_t* x,
+                 int n_rows,
+                 int n_cols,
+                 int n_ws,
+                 raft::distance::kernels::GramMatrixBase<math_t>* kernel,
+                 float cache_size = 200,
+                 SvmType svmType  = C_SVC)
     : cache(handle.get_stream(), n_rows, cache_size),
       handle(handle),
       kernel(kernel),
@@ -128,7 +422,7 @@ class KernelCache {
       k_col_idx(n_ws, handle.get_stream()),
       ws_cache_idx(n_ws, handle.get_stream())
   {
-    ASSERT(kernel != nullptr, "Kernel pointer required for KernelCache!");
+    ASSERT(kernel != nullptr, "Kernel pointer required for KernelCacheOld!");
     stream = handle.get_stream();
 
     size_t kernel_tile_size = (size_t)n_ws * n_rows;
@@ -154,7 +448,7 @@ class KernelCache {
     d_temp_storage.resize(d_temp_storage_size, stream);
   }
 
-  ~KernelCache(){};
+  ~KernelCacheOld(){};
 
   /**
    * @brief Get all the kernel matrix rows for the working set.
@@ -191,10 +485,10 @@ class KernelCache {
    * in the working set (x_15) is stored at column zero in the kernel matrix:
    * e.g.: K(x_i, x_15) = kernel[i + n_rows * 0]
    *
-   * The returned kernel tile array allocated/deallocated by KernelCache.
+   * The returned kernel tile array allocated/deallocated by KernelCacheOld.
    *
    * Note: when cache_size > 0, the workspace indices can be permuted during
-   * the call to GetTile. Use KernelCache::GetWsIndices to query the actual
+   * the call to GetTile. Use KernelCacheOld::GetWsIndices to query the actual
    * list of workspace indices.
    *
    * @param [in] ws_idx indices of the working set
@@ -230,7 +524,7 @@ class KernelCache {
         MLCommon::Matrix::DenseMatrix<math_t> x_ws_mat(x_ws.data(), non_cached, n_cols);
         MLCommon::Matrix::DenseMatrix<math_t> kernel_mat(tile_new, n_rows, non_cached);
 
-        KernelOp(kernel, x_mat, x_ws_mat, kernel_mat, handle);
+        KernelOp(handle, kernel, x_mat, x_ws_mat, kernel_mat);
         //(*kernel)(x_mat, x_ws_mat, kernel_mat, handle);
         // We need AssignCacheIdx to be finished before calling StoreCols
         cache.StoreVecs(tile_new, n_rows, non_cached, ws_cache_idx.data() + n_cached, stream);
@@ -245,7 +539,7 @@ class KernelCache {
         MLCommon::Matrix::DenseMatrix<math_t> x_ws_mat(x_ws.data(), n_unique, n_cols);
         MLCommon::Matrix::DenseMatrix<math_t> kernel_mat(tile.data(), n_rows, n_unique);
 
-        KernelOp(kernel, x_mat, x_ws_mat, kernel_mat, handle);
+        KernelOp(handle, kernel, x_mat, x_ws_mat, kernel_mat);
         //(*kernel)(x_mat, x_ws_mat, kernel_mat, handle);
       }
     }
@@ -272,7 +566,7 @@ class KernelCache {
    * GetIdxMap() == [1 0 1 0].
    *
    * @return device array of index map size [n_ws], the array is owned by
-   *   KernelCache
+   *   KernelCacheOld
    */
   int* GetColIdxMap()
   {

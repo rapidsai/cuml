@@ -251,14 +251,14 @@ TYPED_TEST_P(KernelCacheTest, EvalTest)
 
   for (auto params : param_vec) {
     GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(params);
-    KernelCache<TypeParam> cache(this->handle,
-                                 this->x_dev.data(),
-                                 this->n_rows,
-                                 this->n_cols,
-                                 this->n_ws,
-                                 kernel,
-                                 cache_size,
-                                 C_SVC);
+    KernelCacheOld<TypeParam> cache(this->handle,
+                                    this->x_dev.data(),
+                                    this->n_rows,
+                                    this->n_cols,
+                                    this->n_ws,
+                                    kernel,
+                                    cache_size,
+                                    C_SVC);
     TypeParam* tile_dev = cache.GetTile(this->ws_idx_dev.data());
     // apply nonlinearity on tile_host_expected
     this->ApplyNonlin(params);
@@ -277,14 +277,14 @@ TYPED_TEST_P(KernelCacheTest, CacheEvalTest)
   float cache_size = sizeof(TypeParam) * this->n_rows * 32 / (1024.0 * 1024);
 
   GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param);
-  KernelCache<TypeParam> cache(this->handle,
-                               this->x_dev.data(),
-                               this->n_rows,
-                               this->n_cols,
-                               this->n_ws,
-                               kernel,
-                               cache_size,
-                               C_SVC);
+  KernelCacheOld<TypeParam> cache(this->handle,
+                                  this->x_dev.data(),
+                                  this->n_rows,
+                                  this->n_cols,
+                                  this->n_ws,
+                                  kernel,
+                                  cache_size,
+                                  C_SVC);
   for (int i = 0; i < 2; i++) {
     // We calculate cache tile multiple times to see if cache lookup works
     TypeParam* tile_dev = cache.GetTile(this->ws_idx_dev.data());
@@ -303,14 +303,14 @@ TYPED_TEST_P(KernelCacheTest, SvrEvalTest)
   raft::update_device(this->ws_idx_dev.data(), ws_idx_svr, 6, this->stream);
 
   GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param);
-  KernelCache<TypeParam> cache(this->handle,
-                               this->x_dev.data(),
-                               this->n_rows,
-                               this->n_cols,
-                               this->n_ws,
-                               kernel,
-                               cache_size,
-                               EPSILON_SVR);
+  KernelCacheOld<TypeParam> cache(this->handle,
+                                  this->x_dev.data(),
+                                  this->n_rows,
+                                  this->n_cols,
+                                  this->n_ws,
+                                  kernel,
+                                  cache_size,
+                                  EPSILON_SVR);
 
   for (int i = 0; i < 2; i++) {
     // We calculate cache tile multiple times to see if cache lookup works

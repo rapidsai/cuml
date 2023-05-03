@@ -240,11 +240,11 @@ void svcPredictX(const raft::handle_t& handle,
       kernel_input2 = model.support_matrix->as_dense();
     }
 
-    KernelOp(kernel,
+    KernelOp(handle_impl,
+             kernel,
              transpose_kernel ? *kernel_input2 : *kernel_input1,
              transpose_kernel ? *kernel_input1 : *kernel_input2,
              kernel_out,
-             handle_impl,
              transpose_kernel ? l2_input2 : l2_input1,
              transpose_kernel ? l2_input1 : l2_input2);
 

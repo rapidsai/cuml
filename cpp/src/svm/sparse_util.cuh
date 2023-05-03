@@ -25,11 +25,11 @@ namespace SVM {
 
 // kernel call helper
 template <typename math_t>
-void KernelOp(raft::distance::kernels::GramMatrixBase<math_t>* kernel,
+void KernelOp(const raft::handle_t& handle,
+              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
               const MLCommon::Matrix::Matrix<math_t>& input1,
               const MLCommon::Matrix::Matrix<math_t>& input2,
               MLCommon::Matrix::DenseMatrix<math_t>& result,
-              const raft::handle_t& handle,
               math_t* norm1 = nullptr,
               math_t* norm2 = nullptr)
 {
