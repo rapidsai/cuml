@@ -143,13 +143,13 @@ dependencies:
           - *treelite
       - output_types: [conda, requirements]
         packages:
-          - cupy>=9.5.0,<12.0.0a0
+          - cupy>=12.0.0
       - output_types: conda
         packages:
           - dask-core==2023.3.2
       - output_types: pyproject
         packages:
-          - &cupy_pip cupy-cuda11x>=9.5.0,<12.0.0a0
+          - &cupy_pip cupy-cuda11x>=12.0.0
           - *treelite_runtime
     specific:
       - output_types: requirements
@@ -157,7 +157,7 @@ dependencies:
           - matrix:
               arch: x86_64
             packages:
-              - cupy-cuda115>=9.5.0,<12.0.0a0 # TODO: This might change to cupy-cuda11x?
+              - cupy-cuda115>=12.0.0
           - matrix:
               arch: aarch64
             packages:
