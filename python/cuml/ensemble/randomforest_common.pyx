@@ -107,13 +107,6 @@ class BaseRandomForestModel(Base):
                     "(https://docs.rapids.ai/api/cuml/nightly/"
                     "api.html#random-forest) for more information")
 
-        if ((random_state is not None) and (n_streams != 1)):
-            warnings.warn("For reproducible results in Random Forest"
-                          " Classifier or for almost reproducible results"
-                          " in Random Forest Regressor, n_streams=1 is "
-                          "recommended. If n_streams is > 1, results may vary "
-                          "due to stream/thread timing differences, even when "
-                          "random_state is set")
         if handle is None:
             handle = Handle(n_streams=n_streams)
 
