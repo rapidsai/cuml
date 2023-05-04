@@ -42,7 +42,7 @@ jobs:
       test_script: "ci/test_python_dask.sh"
   wheel-tests-cuml:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.06
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@manylinux_v2
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
