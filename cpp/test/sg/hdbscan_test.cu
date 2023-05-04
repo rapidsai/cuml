@@ -237,8 +237,8 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
 
 
 #if 0
-//         gtest-1.11.0 makes it a runtime error
-//         to define and not instantiate these.
+// gtest-1.11.0 makes it a runtime error to define and not instantiate this test case.
+
 typedef ClusterCondensingTest<float, int> ClusterCondensingTestF_Int;
 TEST_P(ClusterCondensingTestF_Int, Result) { EXPECT_TRUE(score == 1.0); }
 
