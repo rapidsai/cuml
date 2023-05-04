@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <cuml/fil/fil.h>
-#include <cuml/experimental/fil/infer_kind.hpp>
-#include <cuml/experimental/fil/treelite_importer.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
+#include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/tree_layout.hpp>
+#include <cuml/experimental/fil/treelite_importer.hpp>
+#include <cuml/fil/fil.h>
 
 #include "benchmark.cuh"
 #include <chrono>
@@ -49,7 +49,7 @@ class FILEX : public RegressionFixture<float> {
 
  public:
   FILEX(const std::string& name, const Params& p)
-  : RegressionFixture<float>(name, p.data, p.blobs), model(p.model), p_rest(p)
+    : RegressionFixture<float>(name, p.data, p.blobs), model(p.model), p_rest(p)
   {
   }
 
@@ -59,7 +59,7 @@ class FILEX : public RegressionFixture<float> {
     if (!params.rowMajor) { state.SkipWithError("FIL only supports row-major inputs"); }
     // create model
     ML::RandomForestRegressorF rf_model;
-    auto* mPtr         = &rf_model;
+    auto* mPtr       = &rf_model;
     auto train_nrows = std::min(params.nrows, 1000);
     fit(*handle, mPtr, data.X.data(), train_nrows, params.ncols, data.y.data(), p_rest.rf);
     handle->sync_stream(stream);
@@ -73,8 +73,7 @@ class FILEX : public RegressionFixture<float> {
       false,
       raft_proto::device_type::gpu,
       0,
-      stream
-    );
+      stream);
 
     ML::fil::treelite_params_t tl_params = {
       .algo              = ML::fil::algo_t::NAIVE,
@@ -86,10 +85,10 @@ class FILEX : public RegressionFixture<float> {
       .n_items           = 0,
       .pforest_shape_str = nullptr};
     ML::fil::forest_variant forest_variant;
-    auto optimal_chunk_size = 1;
-    auto optimal_storage_type = p_rest.storage;
-    auto optimal_algo_type = ML::fil::algo_t::NAIVE;
-    auto optimal_layout = ML::experimental::fil::tree_layout::breadth_first;
+    auto optimal_chunk_size    = 1;
+    auto optimal_storage_type  = p_rest.storage;
+    auto optimal_algo_type     = ML::fil::algo_t::NAIVE;
+    auto optimal_layout        = ML::experimental::fil::tree_layout::breadth_first;
     auto allowed_storage_types = std::vector<ML::fil::storage_type_t>{};
     if (p_rest.storage == ML::fil::storage_type_t::DENSE) {
       allowed_storage_types.push_back(ML::fil::storage_type_t::DENSE);
@@ -119,14 +118,7 @@ class FILEX : public RegressionFixture<float> {
         tl_params.algo = algo_type;
         for (auto layout : allowed_layouts) {
           filex_model = ML::experimental::fil::import_from_treelite_handle(
-            model,
-            layout,
-            128,
-            false,
-            raft_proto::device_type::gpu,
-            0,
-            stream
-          );
+            model, layout, 128, false, raft_proto::device_type::gpu, 0, stream);
           for (auto chunk_size = 1; chunk_size <= 32; chunk_size *= 2) {
             if (!p_rest.use_experimental) {
               tl_params.threads_per_tree = chunk_size;
@@ -139,104 +131,83 @@ class FILEX : public RegressionFixture<float> {
             for (int i = 0; i < p_rest.predict_repetitions; i++) {
               // Create FIL forest
               if (p_rest.use_experimental) {
-                filex_model.predict(
-                  *handle,
-                  data.y.data(),
-                  data.X.data(),
-                  params.nrows,
-                  raft_proto::device_type::gpu,
-                  raft_proto::device_type::gpu,
-                  ML::experimental::fil::infer_kind::default_kind,
-                  chunk_size
-                );
+                filex_model.predict(*handle,
+                                    data.y.data(),
+                                    data.X.data(),
+                                    params.nrows,
+                                    raft_proto::device_type::gpu,
+                                    raft_proto::device_type::gpu,
+                                    ML::experimental::fil::infer_kind::default_kind,
+                                    chunk_size);
               } else {
-                ML::fil::predict(*handle,
-                                 forest,
-                                 data.y.data(),
-                                 data.X.data(),
-                                 params.nrows,
-                                 false);
+                ML::fil::predict(
+                  *handle, forest, data.y.data(), data.X.data(), params.nrows, false);
               }
             }
             handle->sync_stream();
             handle->sync_stream_pool();
             auto end = std::chrono::high_resolution_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
-              end - start
-            ).count();
+            auto elapsed =
+              std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
             if (elapsed < min_time) {
-              min_time = elapsed;
-              optimal_chunk_size = chunk_size;
+              min_time             = elapsed;
+              optimal_chunk_size   = chunk_size;
               optimal_storage_type = storage_type;
-              optimal_algo_type = algo_type;
-              optimal_layout = layout;
+              optimal_algo_type    = algo_type;
+              optimal_layout       = layout;
             }
 
             // Clean up from FIL
-            if (!p_rest.use_experimental) {
-              ML::fil::free(*handle, forest);
-            }
+            if (!p_rest.use_experimental) { ML::fil::free(*handle, forest); }
           }
-          if (!p_rest.use_experimental) {
-            break;
-          }
+          if (!p_rest.use_experimental) { break; }
         }
-        if (p_rest.use_experimental) {
-          break;
-        }
+        if (p_rest.use_experimental) { break; }
       }
-      if (p_rest.use_experimental) {
-        break;
-      }
+      if (p_rest.use_experimental) { break; }
     }
 
     // Build optimal FIL tree
-    tl_params.storage_type = optimal_storage_type;
-    tl_params.algo = optimal_algo_type;
+    tl_params.storage_type     = optimal_storage_type;
+    tl_params.algo             = optimal_algo_type;
     tl_params.threads_per_tree = optimal_chunk_size;
     ML::fil::from_treelite(*handle, &forest_variant, model, &tl_params);
-    forest = std::get<ML::fil::forest_t<float>>(forest_variant);
+    forest      = std::get<ML::fil::forest_t<float>>(forest_variant);
     filex_model = ML::experimental::fil::import_from_treelite_handle(
-      model,
-      optimal_layout,
-      128,
-      false,
-      raft_proto::device_type::gpu,
-      0,
-      stream
-    );
+      model, optimal_layout, 128, false, raft_proto::device_type::gpu, 0, stream);
 
     handle->sync_stream();
     handle->sync_stream_pool();
 
     // only time prediction
-    this->loopOnState(state, [this, &filex_model, optimal_chunk_size]() {
-      for (int i = 0; i < p_rest.predict_repetitions; i++) {
-        if (p_rest.use_experimental) {
-          filex_model.predict(
-            *handle,
-            this->data.y.data(),
-            this->data.X.data(),
-            this->params.nrows,
-            raft_proto::device_type::gpu,
-            raft_proto::device_type::gpu,
-            ML::experimental::fil::infer_kind::default_kind,
-            optimal_chunk_size
-          );
-          handle->sync_stream();
-          handle->sync_stream_pool();
-        } else {
-          ML::fil::predict(*this->handle,
-                           this->forest,
-                           this->data.y.data(),
-                           this->data.X.data(),
-                           this->params.nrows,
-                           false);
-          handle->sync_stream();
-          handle->sync_stream_pool();
+    this->loopOnState(
+      state,
+      [this, &filex_model, optimal_chunk_size]() {
+        for (int i = 0; i < p_rest.predict_repetitions; i++) {
+          if (p_rest.use_experimental) {
+            filex_model.predict(*handle,
+                                this->data.y.data(),
+                                this->data.X.data(),
+                                this->params.nrows,
+                                raft_proto::device_type::gpu,
+                                raft_proto::device_type::gpu,
+                                ML::experimental::fil::infer_kind::default_kind,
+                                optimal_chunk_size);
+            handle->sync_stream();
+            handle->sync_stream_pool();
+          } else {
+            ML::fil::predict(*this->handle,
+                             this->forest,
+                             this->data.y.data(),
+                             this->data.X.data(),
+                             this->params.nrows,
+                             false);
+            handle->sync_stream();
+            handle->sync_stream_pool();
+          }
         }
-      }
-    }, true);
+      },
+      true);
   }
 
   void allocateBuffers(const ::benchmark::State& state) override { Base::allocateBuffers(state); }
@@ -269,12 +240,12 @@ std::vector<Params> getInputs()
   Params p;
   p.data.rowMajor = true;
   p.blobs         = {.n_informative  = -1,  // Just a placeholder value, anyway changed below
-             .effective_rank = -1,  // Just a placeholder value, anyway changed below
-             .bias           = 0.f,
-             .tail_strength  = 0.1,
-             .noise          = 0.01,
-             .shuffle        = false,
-             .seed           = 12345ULL};
+                     .effective_rank = -1,  // Just a placeholder value, anyway changed below
+                     .bias           = 0.f,
+                     .tail_strength  = 0.1,
+                     .noise          = 0.01,
+                     .shuffle        = false,
+                     .seed           = 12345ULL};
 
   p.rf = set_rf_params(10,                 /*max_depth */
                        (1 << 20),          /* max_leaves */
@@ -306,8 +277,7 @@ std::vector<Params> getInputs()
     {(int)1e6, 20, 1, 10, 10000, storage_type_t::DENSE, false},
     {(int)1e6, 20, 1, 10, 10000, storage_type_t::DENSE, true},
     {(int)1e6, 200, 1, 10, 1000, storage_type_t::DENSE, false},
-    {(int)1e6, 200, 1, 10, 1000, storage_type_t::DENSE, true}
-  };
+    {(int)1e6, 200, 1, 10, 1000, storage_type_t::DENSE, true}};
   for (auto& i : var_params) {
     p.data.nrows               = i.nrows;
     p.data.ncols               = i.ncols;
@@ -326,6 +296,6 @@ std::vector<Params> getInputs()
 
 ML_BENCH_REGISTER(Params, FILEX, "", getInputs());
 
-}  // end namespace fil
+}  // namespace filex
 }  // end namespace Bench
 }  // end namespace ML

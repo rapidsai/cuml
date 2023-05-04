@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 
 namespace raft_proto {
 namespace detail {
@@ -26,5 +26,5 @@ struct device_setter {
   device_setter(device_id<D> device) {}
 };
 
-}
-}
+}  // namespace detail
+}  // namespace raft_proto

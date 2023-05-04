@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #include <cuml/experimental/fil/detail/device_initialization/gpu.cuh>
-#include <cuml/experimental/fil/detail/specializations/device_initialization_macros.hpp>
 #include <cuml/experimental/fil/detail/infer/gpu.cuh>
+#include <cuml/experimental/fil/detail/specializations/device_initialization_macros.hpp>
 #include <cuml/experimental/fil/detail/specializations/infer_macros.hpp>
 namespace ML {
 namespace experimental {
@@ -27,7 +27,7 @@ CUML_FIL_INFER_ALL(template, raft_proto::device_type::gpu, 4)
 namespace device_initialization {
 CUML_FIL_INITIALIZE_DEVICE(template, 4)
 }
-}
-}
-}
-}
+}  // namespace detail
+}  // namespace fil
+}  // namespace experimental
+}  // namespace ML

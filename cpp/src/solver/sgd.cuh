@@ -70,8 +70,8 @@ using namespace MLCommon;
  * @param lr_type
  *        type of the learning rate function (i.e. OPTIMAL, CONSTANT, INVSCALING, ADAPTIVE)
  * @param eta0
- *        learning rate for constant lr_type. It's used to calculate learning rate function for other
- * types of lr_type
+ *        learning rate for constant lr_type. It's used to calculate learning rate function for
+ * other types of lr_type
  * @param power_t
  *        power value in the INVSCALING lr_type
  * @param loss
