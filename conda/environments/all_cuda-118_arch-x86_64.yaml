@@ -46,7 +46,7 @@ dependencies:
 - nbsphinx
 - ninja
 - nltk
-- numba
+- numba>=0.56.4,<0.57
 - numpydoc
 - pip
 - pydata-sphinx-theme
