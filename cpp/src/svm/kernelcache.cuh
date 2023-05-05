@@ -34,6 +34,7 @@
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/iterator/constant_iterator.h>
+#include <thrust/reverse.h>
 
 #include <cuml/common/logger.hpp>
 
@@ -76,12 +77,124 @@ __global__ void mapColumnIndices(
   }
 }
 
+/**
+ * @brief Re-raise working set indexes to dual space
+ *
+ * On exit, out is the permutation of n_ws such that out[k]%n_rows == n_ws_perm[k]
+ * In case n_ws_perm contains duplicates they are considered to
+ * represent primal first and dual second
+ *
+ * @param [in] ws array with working set indices, size [n_ws]
+ * @param [in] n_ws number of elements in the working set
+ * @param [in] n_rows number of rows in the original problem
+ * @param [in] n_ws_perm array with indices of vectors in the working set, size [n_ws]
+ * @param [out] out array with workspace idx to column idx mapping, size [n_ws]
+ */
+__global__ void mapColumnIndicesToDualSpace(
+  const int* ws, int n_ws, int n_rows, const int* n_ws_perm, int* out)
+{
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < n_ws) {
+    int wsx      = ws[tid];
+    int idx      = wsx % n_rows;
+    bool is_dual = idx < wsx;
+    int k        = -1;
+    // we have only max 1024 elements, we do a linear search
+    for (int i = 0; i < n_ws; i++) {
+      if (n_ws_perm[i] == idx && (is_dual || k < 0)) k = i;
+      // since the array is derived from ws, the search will always return
+      //  a) the first occurrence k for primal idx
+      //  b) the last occurrence k for dual idx
+    }
+    out[k] = wsx;
+  }
+}
+
 template <typename math_t>
 struct select_at_index : public thrust::unary_function<int, math_t> {
   const math_t* dot_;
   select_at_index(const math_t* dot) : dot_(dot) {}
 
   __device__ math_t operator()(const int& i) const { return dot_[i]; }
+};
+
+template <typename math_t>
+class BatchCache {
+ public:
+  BatchCache(int n_vec, float cache_size = 200) : n_vec(n_vec), cache_size(cache_size) {}
+
+  ~BatchCache()
+  {
+    for (auto* cache : caches)
+      delete cache;
+  }
+
+  void Initialize(cudaStream_t stream, int batch_size_base, int* dummy, int n_ws)
+  {
+    RAFT_CUDA_TRY(cudaMemsetAsync(dummy, 0, n_ws * 2 * sizeof(int), stream));
+    for (int offset = 0; offset < n_vec; offset += batch_size_base) {
+      int batch_size         = std::min(batch_size_base, n_vec - offset);
+      float cache_size_batch = cache_size * batch_size / n_vec;
+      auto* cache            = new raft::cache::Cache<math_t>(stream, batch_size, cache_size_batch);
+
+      // initialize internal data structures
+      if (cache->GetSize() > 0) {
+        int cached;
+        cache->GetCacheIdxPartitioned(dummy, n_ws, dummy + n_ws, &cached, stream);
+      }
+
+      caches.push_back(cache);
+    }
+
+    int size = GetSize();
+    for (auto* cache : caches) {
+      ASSERT(cache->GetSize() == size, "Unexpected cache size");
+    }
+  }
+
+  int GetSize(int batch_idx = 0) const
+  {
+    return caches.size() > 0 ? caches[batch_idx]->GetSize() : 0;
+  }
+
+  void GetCacheIdxPartitionedStable(
+    int* keys, int n, int* cache_idx, int* n_cached, cudaStream_t stream)
+  {
+    caches[0]->GetCacheIdxPartitioned(keys, n, cache_idx, n_cached, stream);
+
+    // reverse the uncached values (due to cub::DevicePartition:Flagged)
+    int n_uncached = n - *n_cached;
+    if (n_uncached > 0) {
+      thrust::device_ptr<int> keys_v(keys + *n_cached);
+      thrust::reverse(thrust::cuda::par.on(stream), keys_v, keys_v + n_uncached);
+      thrust::device_ptr<int> cache_idx_v(cache_idx + *n_cached);
+      thrust::reverse(thrust::cuda::par.on(stream), cache_idx_v, cache_idx_v + n_uncached);
+    }
+  }
+
+  void GetVecs(int batch_idx, const int* idx, int n, math_t* out, cudaStream_t stream)
+  {
+    caches[batch_idx]->GetVecs(idx, n, out, stream);
+  }
+
+  void AssignAndStoreVecs(int batch_idx,
+                          int* keys,
+                          int n,
+                          int* cache_idx,
+                          const math_t* tile,
+                          int n_tile,
+                          cudaStream_t stream)
+  {
+    // here we assume that the input keys are already ordered by cache_idx
+    // this will prevent AssignCacheIdx to modify it further
+    caches[batch_idx]->AssignCacheIdx(keys, n, cache_idx, stream);
+    caches[batch_idx]->StoreVecs(tile, n_tile, n, cache_idx, stream);
+  }
+
+ private:
+  int n_vec;         //!< Total number of elements (sum over all caches)
+  float cache_size;  //!< total over all caches in MiB
+  std::vector<raft::cache::Cache<math_t>*> caches;
 };
 
 }  // end unnamed namespace
@@ -109,7 +222,7 @@ class KernelCache {
               raft::distance::kernels::KernelType kernel_type,
               float cache_size = 200,
               SvmType svmType  = C_SVC)
-    : cache(handle.get_stream(), n_rows, cache_size),
+    : batch_cache(n_rows, cache_size),
       handle(handle),
       kernel(kernel),
       kernel_type(kernel_type),
@@ -118,16 +231,18 @@ class KernelCache {
       n_cols(n_cols),
       n_ws(n_ws),
       svmType(svmType),
-      cublas_handle(handle.get_cublas_handle()),
-      kernel_tile(n_ws * n_ws, handle.get_stream()),
-      kernel_tile_big(0, handle.get_stream()),
+      kernel_tile(0, handle.get_stream()),
       matrix_l2(0, handle.get_stream()),
       matrix_l2_ws(0, handle.get_stream()),
-      ws_idx_mod(svmType == EPSILON_SVR ? n_ws : 0, handle.get_stream()),
+      ws_idx_mod(n_ws, handle.get_stream()),
+      ws_idx_mod_dual(svmType == EPSILON_SVR ? n_ws : 0, handle.get_stream()),
       x_ws_csr(handle, 0, 0, 0),
       x_ws_dense(handle, 0, 0, 0),
-      indptr_batched(0, handle.get_stream())
+      indptr_batched(0, handle.get_stream()),
+      d_temp_storage(0, handle.get_stream()),
+      ws_cache_idx(n_ws * 2, handle.get_stream())
   {
+    ASSERT(kernel != nullptr, "Kernel pointer required for KernelCache!");
     stream = handle.get_stream();
 
     // FIXME: not sure if this has to be static
@@ -144,7 +259,8 @@ class KernelCache {
       batch_size_base = big_kernel_max_bytes / n_ws / sizeof(math_t);
     }
 
-    kernel_tile_big.reserve(n_ws * batch_size_base, stream);
+    batch_cache.Initialize(stream, batch_size_base, ws_cache_idx.data(), n_ws);
+    kernel_tile.reserve(n_ws * std::max(batch_size_base, n_ws), stream);
 
     // enable sparse row extraction for sparse input where n_ws * n_cols > 1 GB
     // Warning: kernel computation will be much slower!
@@ -172,37 +288,110 @@ class KernelCache {
       indptr_batched.reserve(batch_size_base + 1, stream);
       raft::update_host(host_indptr.data(), matrix.as_csr()->get_indptr(), n_rows + 1, stream);
     }
+
+    // Init cub buffers
+    cub::DeviceRadixSort::SortKeys(NULL,
+                                   d_temp_storage_size,
+                                   ws_idx_mod.data(),
+                                   ws_idx_mod.data(),
+                                   n_ws,
+                                   0,
+                                   sizeof(int) * 8,
+                                   stream);
+    d_temp_storage.resize(d_temp_storage_size, stream);
   }
   ~KernelCache(){};
 
   struct BatchDescriptor {
+    int batch_id;
     int offset;
     int batch_size;
     math_t* kernel_data;
     int* nz_da_idx;
     int nnz_da;
+    int n_cached;
   };
 
-  // needs call to 'getSquareTileWithoutCaching' first
-  // TODO cleanup -- maybe initi first?
-  const int* getIndicesModRows() { return ws_idx; }
+  enum CacheState {
+    READY                = 0,
+    WS_INITIALIZED       = 1,
+    BATCHING_INITIALIZED = 2,
+  };
 
-  math_t* getSquareTileWithoutCaching(const int* ws_idx_in)
+  // reorder indices to cached/uncached
+  void InitWorkingSet(const int* ws_idx)
   {
-    // extract x_ws_matrix
-    ws_idx_org = ws_idx_in;
+    ASSERT(cache_state != CacheState::WS_INITIALIZED, "Working set has already been initialized!");
+    ASSERT(cache_state != CacheState::BATCHING_INITIALIZED, "Previous batching step incomplete!");
+    this->ws_idx = ws_idx;
     if (svmType == EPSILON_SVR) {
-      ModululoWsIndex(ws_idx_mod.data(), ws_idx_in, n_ws, n_rows);
-      ws_idx = ws_idx_mod.data();
+      GetVecIndices(ws_idx, n_ws, ws_idx_mod.data());
     } else {
-      ws_idx = ws_idx_in;
+      raft::copy(ws_idx_mod.data(), ws_idx, n_ws, stream);
     }
 
-    ML::SVM::extractRows<math_t>(matrix, *x_ws_matrix, ws_idx, n_ws, handle);
+    // perform reordering of indices to partition into cached/uncached
+    // batch_id 0 should behave the same as all other batches
+    if (batch_cache.GetSize() > 0) {
+      int n_cached = 0;
+      batch_cache.GetCacheIdxPartitionedStable(
+        ws_idx_mod.data(), n_ws, ws_cache_idx.data(), &n_cached, stream);
+      int n_uncached = n_ws - n_cached;
+      if (n_uncached > 0) {
+        // we also need to make sure that the next cache assignment does not need to rearrange!
+        // this way the resulting ws_idx_mod keys won't change during the cache update
+        int* tmp = (int*)kernel_tile.data();
+        cub::DeviceRadixSort::SortPairs(d_temp_storage.data(),
+                                        d_temp_storage_size,
+                                        ws_cache_idx.data() + n_cached,
+                                        tmp,
+                                        ws_idx_mod.data() + n_cached,
+                                        tmp + n_ws,
+                                        n_uncached,
+                                        0,
+                                        sizeof(int) * 8,
+                                        stream);
+
+        // raft::copy(ws_cache_idx.data() + n_cached, tmp, n_uncached, stream); // TODO: debug,not
+        // really needed
+        raft::copy(ws_idx_mod.data() + n_cached, tmp + n_ws, n_uncached, stream);
+      }
+    }
+
+    // re-compute original (dual) indices that got flattened by GetVecIndices
+    if (svmType == EPSILON_SVR) {
+      mapColumnIndicesToDualSpace<<<raft::ceildiv(n_ws, TPB), TPB, 0, stream>>>(
+        ws_idx, n_ws, n_rows, ws_idx_mod.data(), ws_idx_mod_dual.data());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
+    }
+
+    cache_state = CacheState::WS_INITIALIZED;
+  }
+
+  // needs call to 'InitWorkingSet' first
+  const int* getKernelIndices(int allow_dual)
+  {
+    ASSERT(cache_state != CacheState::READY, "Working set not initialized!");
+    if (allow_dual && svmType == EPSILON_SVR) {
+      return ws_idx_mod_dual.data();
+    } else {
+      return ws_idx_mod.data();
+    }
+  }
+
+  // needs call to 'InitWorkingSet' first
+  // does currently not utilize cache BUT honors order of cached/uncached partition
+  // maybe we can still utilize existing cache entries but not update it
+  math_t* getSquareTileWithoutCaching()
+  {
+    ASSERT(cache_state != CacheState::READY, "Working set not initialized!");
+    ASSERT(cache_state != CacheState::BATCHING_INITIALIZED, "Previous batching step incomplete!");
+
+    ML::SVM::extractRows<math_t>(matrix, *x_ws_matrix, ws_idx_mod.data(), n_ws, handle);
 
     // extract dot array for RBF
     if (kernel_type == raft::distance::kernels::KernelType::RBF) {
-      selectValueSubset(matrix_l2_ws.data(), matrix_l2.data(), ws_idx, n_ws);
+      selectValueSubset(matrix_l2_ws.data(), matrix_l2.data(), ws_idx_mod.data(), n_ws);
     }
 
     // compute kernel
@@ -219,93 +408,141 @@ class KernelCache {
     return kernel_tile.data();
   }
 
+  // input should only be in range of [0, nvec) (primal space)
   BatchDescriptor InitFullTileBatching(int* nz_da_idx, int nnz_da)
   {
-    ML::SVM::extractRows<math_t>(matrix, *x_ws_matrix, nz_da_idx, nnz_da, handle);
-    // extract dot array for RBF
-    if (kernel_type == raft::distance::kernels::KernelType::RBF) {
-      selectValueSubset(matrix_l2_ws.data(), matrix_l2.data(), nz_da_idx, nnz_da);
+    ASSERT(cache_state != CacheState::READY, "Working set not initialized!");
+    ASSERT(cache_state != CacheState::BATCHING_INITIALIZED, "Previous batching step incomplete!");
+
+    int n_cached = 0;
+    if (batch_cache.GetSize() > 0) {
+      // we only do this once per workingset for cache 0 - all others should behave the same
+      batch_cache.GetCacheIdxPartitionedStable(
+        nz_da_idx, nnz_da, ws_cache_idx.data() + n_ws, &n_cached, stream);
     }
-    return {.offset      = 0,
+
+    int n_uncached = nnz_da - n_cached;
+    if (n_uncached > 0) {
+      ML::SVM::extractRows<math_t>(matrix, *x_ws_matrix, nz_da_idx + n_cached, n_uncached, handle);
+      // extract dot array for RBF
+      if (kernel_type == raft::distance::kernels::KernelType::RBF) {
+        selectValueSubset(matrix_l2_ws.data(), matrix_l2.data(), nz_da_idx + n_cached, n_uncached);
+      }
+    }
+
+    cache_state = CacheState::BATCHING_INITIALIZED;
+
+    return {.batch_id    = -1,
+            .offset      = 0,
             .batch_size  = 0,
             .kernel_data = nullptr,
             .nz_da_idx   = nz_da_idx,
-            .nnz_da      = nnz_da};
+            .nnz_da      = nnz_da,
+            .n_cached    = n_cached};
   }
 
-  // at least perform consistency check if batching is enabled
-  // can not be truly stateless due to partial cache-invalidation
-  // could make batch-decision on the fly based on nnz_da
+  // Assumption:
+  // 1. cached lines are identical for all batches !
+  //     -- this is needed to re-use x_ws_matrix
+  // 2. permutation is identical for all batches & is stored
+  // 3. permutation can be used to reorder nz_da array for multiply
   bool getNextBatchKernel(BatchDescriptor& batch_descriptor)
   {
+    ASSERT(cache_state == CacheState::BATCHING_INITIALIZED, "Batching step not initialized!");
+
     int offset = batch_descriptor.offset + batch_descriptor.batch_size;
-    if (offset >= n_rows) return false;
-
-    int batch_size = std::min(batch_size_base, n_rows - offset);
-
-    const MLCommon::Matrix::Matrix<math_t>* batch_matrix = nullptr;
-    if (batch_size == n_rows) {
-      batch_matrix = &matrix;
-    } else if (matrix.is_dense()) {
-      auto dense_matrix = matrix.as_dense();
-      batch_matrix      = new MLCommon::Matrix::DenseMatrix(
-        dense_matrix->get_data() + offset, batch_size, n_cols, false, n_rows);
-    } else {
-      // create indptr array for batch interval
-      // indptr_batched = indices[offset, offset+batch_size+1] - indices[offset]
-      auto csr_matrix = matrix.as_csr();
-      int batch_nnz   = host_indptr[offset + batch_size] - host_indptr[offset];
-      {
-        thrust::device_ptr<int> inptr_src(csr_matrix->get_indptr() + offset);
-        thrust::device_ptr<int> inptr_tgt(indptr_batched.data());
-        thrust::transform(thrust::cuda::par.on(stream),
-                          inptr_src,
-                          inptr_src + batch_size + 1,
-                          thrust::make_constant_iterator(host_indptr[offset]),
-                          inptr_tgt,
-                          thrust::minus<int>());
-      }
-      batch_matrix =
-        new MLCommon::Matrix::CsrMatrix(indptr_batched.data(),
-                                        csr_matrix->get_indices() + host_indptr[offset],
-                                        csr_matrix->get_data() + host_indptr[offset],
-                                        batch_nnz,
-                                        batch_size,
-                                        n_cols);
+    if (offset >= n_rows) {
+      cache_state = CacheState::READY;
+      return false;
     }
 
-    // compute kernel
-    MLCommon::Matrix::DenseMatrix<math_t> kernel_matrix(
-      kernel_tile_big.data(), batch_size, batch_descriptor.nnz_da);
-    KernelOp(handle,
-             kernel,
-             *batch_matrix,
-             *x_ws_matrix,
-             kernel_matrix,
-             matrix_l2.data() + offset,
-             matrix_l2_ws.data());
+    int batch_size = std::min(batch_size_base, n_rows - offset);
+    int batch_id   = offset / batch_size_base;
 
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
+    ASSERT(offset % batch_size_base == 0, "Inconsistent offset!");
+    ASSERT(batch_id == batch_descriptor.batch_id + 1, "Inconsistent batch_id!");
 
-    if (batch_matrix != &matrix) delete batch_matrix;
+    int nnz_da     = batch_descriptor.nnz_da;
+    int n_cached   = batch_descriptor.n_cached;
+    int n_uncached = nnz_da - n_cached;
+    if (batch_cache.GetSize() > 0) {
+      // re-init ws_cache_idx for each batch
+      raft::copy(ws_cache_idx.data(), ws_cache_idx.data() + n_ws, nnz_da, stream);
+    }
 
+    // fill in n_cached ids from cache
+    if (n_cached > 0) {
+      batch_cache.GetVecs(batch_id, ws_cache_idx.data(), n_cached, kernel_tile.data(), stream);
+    }
+
+    if (n_uncached > 0) {
+      int* ws_idx_new  = batch_descriptor.nz_da_idx + n_cached;
+      math_t* tile_new = kernel_tile.data() + (size_t)n_cached * batch_size;
+
+      const MLCommon::Matrix::Matrix<math_t>* batch_matrix = nullptr;
+      if (batch_size == n_rows) {
+        batch_matrix = &matrix;
+      } else if (matrix.is_dense()) {
+        auto dense_matrix = matrix.as_dense();
+        batch_matrix      = new MLCommon::Matrix::DenseMatrix(
+          dense_matrix->get_data() + offset, batch_size, n_cols, false, n_rows);
+      } else {
+        // create indptr array for batch interval
+        // indptr_batched = indices[offset, offset+batch_size+1] - indices[offset]
+        auto csr_matrix = matrix.as_csr();
+        int batch_nnz   = host_indptr[offset + batch_size] - host_indptr[offset];
+        {
+          thrust::device_ptr<int> inptr_src(csr_matrix->get_indptr() + offset);
+          thrust::device_ptr<int> inptr_tgt(indptr_batched.data());
+          thrust::transform(thrust::cuda::par.on(stream),
+                            inptr_src,
+                            inptr_src + batch_size + 1,
+                            thrust::make_constant_iterator(host_indptr[offset]),
+                            inptr_tgt,
+                            thrust::minus<int>());
+        }
+        batch_matrix =
+          new MLCommon::Matrix::CsrMatrix(indptr_batched.data(),
+                                          csr_matrix->get_indices() + host_indptr[offset],
+                                          csr_matrix->get_data() + host_indptr[offset],
+                                          batch_nnz,
+                                          batch_size,
+                                          n_cols);
+      }
+
+      // compute kernel
+      MLCommon::Matrix::DenseMatrix<math_t> kernel_matrix(tile_new, batch_size, n_uncached);
+      KernelOp(handle,
+               kernel,
+               *batch_matrix,
+               *x_ws_matrix,
+               kernel_matrix,
+               matrix_l2.data() + offset,
+               matrix_l2_ws.data());
+
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+      if (batch_matrix != &matrix) delete batch_matrix;
+
+      if (batch_cache.GetSize() > 0) {
+        // AssignCacheIdx should not permute ws_idx_new anymore as we have sorted
+        // it already during InitWorkingSet
+        batch_cache.AssignAndStoreVecs(batch_id,
+                                       ws_idx_new,
+                                       n_uncached,
+                                       ws_cache_idx.data() + n_cached,
+                                       tile_new,
+                                       batch_size,
+                                       stream);
+      }
+    }
+
+    batch_descriptor.batch_id    = batch_id;
     batch_descriptor.offset      = offset;
     batch_descriptor.batch_size  = batch_size;
-    batch_descriptor.kernel_data = kernel_tile_big.data();
+    batch_descriptor.kernel_data = kernel_tile.data();
 
     return true;
-  }
-
-  void ModululoWsIndex(int* target, const int* source, int size, int modulo)
-  {
-    thrust::device_ptr<int> source_ptr(const_cast<int*>(source));
-    thrust::device_ptr<int> target_ptr(target);
-    thrust::transform(thrust::cuda::par.on(stream),
-                      source_ptr,
-                      source_ptr + size,
-                      thrust::make_constant_iterator(modulo),
-                      target_ptr,
-                      thrust::modulus<int>());
   }
 
   void selectValueSubset(math_t* target, const math_t* source, const int* indices, int num_indices)
@@ -319,20 +556,42 @@ class KernelCache {
                       select_at_index(source));
   }
 
+  /** @brief Get the original training vector idx.
+   *
+   * Only used for SVR (for SVC this is identity operation).
+   *
+   * For SVR we have duplicate set of training vectors, we return the original
+   * idx, which is simply ws_idx % n_rows.
+   *
+   * @param [in] ws_idx array of working set indices, size [n_ws]
+   * @param [in] n_ws number of elements in the working set
+   * @param [out] vec_idx original training vector indices, size [n_ws]
+   */
+  void GetVecIndices(const int* ws_idx, int n_ws, int* vec_idx)
+  {
+    int n = n_rows;
+    raft::linalg::unaryOp(
+      vec_idx, ws_idx, n_ws, [n] __device__(math_t y) { return y < n ? y : y - n; }, stream);
+  }
+
  private:
   const MLCommon::Matrix::Matrix<math_t>& matrix;
 
-  const int* ws_idx_org;  //!< ptr to the original working set indices
-  const int* ws_idx;      //!< ptr to the working set indices modulo n_rows
+  const int* ws_idx;  //!< ptr to the original working set
 
   bool batching_enabled;
   bool is_csr;
   bool sparse_extract;
   int batch_size_base;
 
+  // cache state
+  CacheState cache_state = CacheState::READY;
+
   rmm::device_uvector<math_t> kernel_tile;
-  rmm::device_uvector<math_t> kernel_tile_big;
+
+  // permutation of working set indices to partition cached/uncached
   rmm::device_uvector<int> ws_idx_mod;
+  rmm::device_uvector<int> ws_idx_mod_dual;
 
   // tmp storage for row extractions
   MLCommon::Matrix::CsrMatrix<math_t> x_ws_csr;
@@ -355,16 +614,21 @@ class KernelCache {
   int n_cols;  //!< number of columns in x
   int n_ws;    //!< number of elements in the working set
 
-  cublasHandle_t cublas_handle;
+  /// cache position of a workspace vectors
+  rmm::device_uvector<int> ws_cache_idx;
+
+  // tmp storage for cub
+  rmm::device_uvector<char> d_temp_storage;
+  size_t d_temp_storage_size = 0;
 
   const raft::handle_t handle;
 
-  const int TPB = 256;  //!< threads per block for kernels launched
-
-  raft::cache::Cache<math_t> cache;
+  BatchCache<math_t> batch_cache;
 
   cudaStream_t stream;
   SvmType svmType;
+
+  const int TPB = 256;  //!< threads per block for kernels launched
 };
 
 /**

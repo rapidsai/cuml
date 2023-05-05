@@ -202,7 +202,9 @@ class SmoSolver {
       RAFT_CUDA_TRY(cudaPeekAtLastError());
       raft::common::nvtx::push_range("SmoSolver::Kernel");
 
-      math_t* cacheTile = cache.getSquareTileWithoutCaching(ws.GetIndices());
+      cache.InitWorkingSet(ws.GetIndices());
+
+      math_t* cacheTile = cache.getSquareTileWithoutCaching();
 
       raft::common::nvtx::pop_range();
       raft::common::nvtx::push_range("SmoSolver::SmoBlockSolve");
@@ -213,7 +215,7 @@ class SmoSolver {
                                                                  delta_alpha.data(),
                                                                  f.data(),
                                                                  cacheTile,
-                                                                 ws.GetIndices(),
+                                                                 cache.getKernelIndices(true),
                                                                  C_vec.data(),
                                                                  tol,
                                                                  return_buff.data(),
@@ -228,7 +230,7 @@ class SmoSolver {
       int nnz_da;
       GetNonzeroDeltaAlpha(delta_alpha.data(),
                            n_ws,
-                           cache.getIndicesModRows(),
+                           cache.getKernelIndices(false),
                            nz_da.data(),
                            &nnz_da,
                            nz_da_idx.data(),
