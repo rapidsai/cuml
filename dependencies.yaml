@@ -133,7 +133,7 @@ dependencies:
           - dask-cudf==23.6.*
           - distributed==2023.3.2.1
           - joblib>=0.11
-          - numba
+          - numba>=0.56.4,<0.57
             # TODO: Are seaborn and scipy really hard dependencies, or should
             # we make them optional (i.e. an extra for pip
             # installation/run_constrained for conda)?
@@ -149,8 +149,8 @@ dependencies:
           - dask-core==2023.3.2
       - output_types: pyproject
         packages:
-          - &cupy_pip cupy-cuda11x>=12.0.0
           - *treelite_runtime
+          - cupy-cuda11x>=12.0.0
     specific:
       - output_types: requirements
         matrices:
