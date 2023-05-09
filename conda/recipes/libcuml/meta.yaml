@@ -40,7 +40,6 @@ requirements:
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     - cudatoolkit ={{ cuda_version }}
-    - cudf ={{ minor_version }}
     - gmock
     - gtest {{ gtest_version }}
     - lapack
@@ -73,7 +72,6 @@ outputs:
         - cmake {{ cmake_version }}
       run:
         - cudatoolkit {{ cuda_spec }}
-        - cudf ={{ minor_version }}
         - libcublas {{ libcublas_run_version }}
         - libcublas-dev {{ libcublas_run_version }}
         - libcufft {{ libcufft_run_version }}
