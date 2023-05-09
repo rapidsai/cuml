@@ -284,7 +284,7 @@ std::vector<Params> getInputs()
     p.storage                  = i.storage;
     p.use_experimental         = i.use_experimental;
     p.device                   = i.device;
-    p.predict_repetitions      = 10;
+    p.predict_repetitions      = 100;
     out.push_back(p);
   }
   return out;
