@@ -37,6 +37,7 @@
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/matrix/argmax.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <raft/util/fast_int_div.cuh>
 
 #include <algorithm>
