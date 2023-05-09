@@ -41,7 +41,7 @@ requirements:
   host:
     - cudatoolkit ={{ cuda_version }}
     - cudf ={{ minor_version }}
-    - gmock
+    - gmock {{ gtest_version }}
     - gtest {{ gtest_version }}
     - lapack
     - libcublas {{ libcublas_host_version }}
