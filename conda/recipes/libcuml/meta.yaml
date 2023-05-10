@@ -56,6 +56,7 @@ requirements:
     - libcusparse-dev {{ libcusparse_host_version }}
     - libraft ={{ minor_version }}
     - libraft-headers ={{ minor_version }}
+    - librmm ={{ minor_version }}
     - treelite {{ treelite_version }}
 
 outputs:
@@ -81,6 +82,7 @@ outputs:
         - libcusparse-dev {{ libcusparse_run_version }}
         - libraft ={{ minor_version }}
         - libraft-headers ={{ minor_version }}
+        - librmm ={{ minor_version }}
         - treelite {{ treelite_version }}
     about:
       home: https://rapids.ai/
