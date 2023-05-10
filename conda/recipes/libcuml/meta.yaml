@@ -40,7 +40,7 @@ requirements:
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     - cudatoolkit ={{ cuda_version }}
-    - gmock
+    - gmock {{ gtest_version }}
     - gtest {{ gtest_version }}
     - lapack
     - libcublas {{ libcublas_host_version }}
