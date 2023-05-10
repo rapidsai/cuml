@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,6 +111,7 @@ void loadDefaultDataset(std::vector<float>& inputData,
   constexpr int MIN_PTS     = 2;
   constexpr float EPS       = 1.0f;
 
+  // Random dataset
   constexpr float data[NUM_GRPS * NUM_ROWS * NUM_COLS] = {
     -7.497668f, 9.218568f,  -4.924911f, 8.001691f,  -2.377415f, -3.496702f, -7.402899f, 9.162857f,
     -4.894407f, -7.590056f, 9.375731f,  -4.762814f, 7.822048f,  -2.388025f, -3.403690f, -7.376115f,

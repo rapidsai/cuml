@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ cumlError_t cumlDpDbscanFit(cumlHandle_t handle,
  * @param[in] handle cuml handle to use across the algorithm
  * @param[in] input row-major and concatenated input feature matrixes from different groups
  * @param[in] n_groups number of groups of multiple input feature matrixes
- * @param[in] n_rows_ptr ponter to the numbers of samples in the grouped input feature matrixes
+ * @param[in] n_rows_ptr pointer to the numbers of samples in the grouped input feature matrixes
  * @param[in] n_cols number of features in the grouped input feature matrixes
  * @param[in] eps_ptr pointer to the epsilon values to use for epsilon-neighborhood determination
  * @param[in] min_pts_ptr pointer to the minimum numbers of points to determine a cluster for each
