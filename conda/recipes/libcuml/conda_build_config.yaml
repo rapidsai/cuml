@@ -17,7 +17,7 @@ treelite_version:
   - "=3.2.0"
 
 gtest_version:
-  - "=1.10.0"
+  - ">=1.13.0"
 
 # The CTK libraries below are missing from the conda-forge::cudatoolkit
 # package. The "*_host_*" version specifiers correspond to `11.8` packages and the
