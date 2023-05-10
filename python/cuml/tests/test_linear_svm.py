@@ -28,6 +28,7 @@ import multiprocessing as mp
 import time
 import math
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.common import input_to_cuml_array
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
@@ -214,7 +215,7 @@ def test_regression_eps(loss, epsilon, dims):
     run_regression(np.float32, loss, epsilon, dims)
 
 
-def run_classification(datatype, penalty, loss, dims, nclasses):
+def run_classification(datatype, penalty, loss, dims, nclasses, class_weight):
 
     t = time.perf_counter()
     nrows, ncols = dims
@@ -232,15 +233,20 @@ def run_classification(datatype, penalty, loss, dims, nclasses):
 
     # limit the max iterations for sklearn to reduce the max test time
     cuit = 10000
-    skit = max(10, min(cuit, cuit * 1000 / nrows))
+    skit = int(max(10, min(cuit, cuit * 1000 / nrows)))
 
     t = time.perf_counter()
     handle = cuml.Handle(n_streams=0)
     cum = cu.LinearSVC(
-        handle=handle, loss=loss, penalty=penalty, max_iter=cuit
+        handle=handle,
+        loss=loss,
+        penalty=penalty,
+        max_iter=cuit,
+        class_weight=class_weight,
     )
     cum.fit(X_train, y_train)
     cus = cum.score(X_test, y_test)
+    cud = cum.decision_function(X_test)
     handle.sync()
     t = time.perf_counter() - t
     logger.debug(f"Cuml time: {t} s.")
@@ -253,21 +259,98 @@ def run_classification(datatype, penalty, loss, dims, nclasses):
     X_test = X_test.get()
     y_train = y_train.get()
     y_test = y_test.get()
+    cud = cud.get()
     gc.collect()
 
     try:
 
         def run_sklearn():
             skm = sk.LinearSVC(
-                loss=loss, penalty=penalty, max_iter=skit, dual=skdual
+                loss=loss,
+                penalty=penalty,
+                max_iter=skit,
+                dual=skdual,
+                class_weight=class_weight,
             )
             skm.fit(X_train, y_train)
-            return skm.score(X_test, y_test)
+            return skm.score(X_test, y_test), skm.decision_function(X_test)
 
-        sks = with_timeout(timeout=t, target=run_sklearn)
+        sks, skd = with_timeout(timeout=t, target=run_sklearn)
         good_enough(cus, sks, nrows)
+
+        # always confirm correct shape of decision function
+        assert cud.shape == skd.shape, (
+            f"The decision_function returned different shape "
+            f"cud.shape = {cud.shape}; skd.shape = {skd.shape}))"
+        )
+
     except TimeoutError:
         pytest.skip(f"sklearn did not finish within {t} seconds.")
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize(
+    "dims",
+    [
+        unit_param((3, 1)),
+        unit_param((1000, 10)),
+    ],
+)
+@pytest.mark.parametrize("nclasses", [2, 7])
+@pytest.mark.parametrize("fit_intercept", [True, False])
+def test_decision_function(datatype, dims, nclasses, fit_intercept):
+    # The decision function is not stable to compare given random
+    # input data and models that are similar but not equal.
+    # This test will only check the cuml decision function
+    # implementation based on an imported model from sklearn.
+    nrows, ncols = dims
+    X_train, X_test, y_train, y_test = make_classification_dataset(
+        datatype, nrows, ncols, nclasses
+    )
+
+    skm = sk.LinearSVC(
+        max_iter=10,
+        dual=False,
+        fit_intercept=fit_intercept,
+    )
+    skm.fit(X_train.get(), y_train.get())
+    skd = skm.decision_function(X_test.get())
+
+    handle = cuml.Handle(n_streams=0)
+    cum = cu.LinearSVC(
+        handle=handle,
+        max_iter=10,
+        fit_intercept=fit_intercept,
+    )
+    cum.fit(X_train, y_train)
+    handle.sync()
+
+    # override model attributes
+    sk_coef_m, _, _, _ = input_to_cuml_array(
+        skm.coef_, convert_to_dtype=datatype, order="F"
+    )
+    cum.model_.coef_ = sk_coef_m
+    if fit_intercept:
+        sk_intercept_m, _, _, _ = input_to_cuml_array(
+            skm.intercept_, convert_to_dtype=datatype, order="F"
+        )
+        cum.model_.intercept_ = sk_intercept_m
+
+    cud = cum.decision_function(X_test)
+
+    assert np.allclose(
+        cud.get(), skd, atol=1e-4
+    ), "The decision_function returned different values"
+
+    # cleanup cuml objects so that we can more easily fork the process
+    # and test sklearn
+    del cum
+    X_train = X_train.get()
+    X_test = X_test.get()
+    y_train = y_train.get()
+    y_test = y_test.get()
+    cud = cud.get()
+    gc.collect()
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -287,7 +370,7 @@ def run_classification(datatype, penalty, loss, dims, nclasses):
     ],
 )
 def test_classification_1(datatype, penalty, loss, dims):
-    run_classification(datatype, penalty, loss, dims, 2)
+    run_classification(datatype, penalty, loss, dims, 2, None)
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -306,4 +389,23 @@ def test_classification_1(datatype, penalty, loss, dims):
 )
 @pytest.mark.parametrize("nclasses", [2, 3, 5, 8])
 def test_classification_2(datatype, dims, nclasses):
-    run_classification(datatype, "l2", "hinge", dims, nclasses)
+    run_classification(datatype, "l2", "hinge", dims, nclasses, "balanced")
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize(
+    "dims",
+    [
+        unit_param((3, 1)),
+        unit_param((100, 1)),
+        unit_param((1000, 10)),
+        unit_param((100, 100)),
+        unit_param((100, 300)),
+        quality_param((10000, 10)),
+        quality_param((10000, 50)),
+        stress_param((100000, 1000)),
+    ],
+)
+@pytest.mark.parametrize("class_weight", [{0: 0.5, 1: 1.5}])
+def test_classification_3(datatype, dims, class_weight):
+    run_classification(datatype, "l2", "hinge", dims, 2, class_weight)
