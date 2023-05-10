@@ -26,8 +26,9 @@ struct device_id<device_type::cpu> {
   device_id(value_type dev_id) : id_{dev_id} {};
 
   auto value() const noexcept { return id_; }
+
  private:
   value_type id_;
 };
-}
-}
+}  // namespace detail
+}  // namespace raft_proto

@@ -16,9 +16,9 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
+#include <cuml/experimental/fil/tree_layout.hpp>
 #include <type_traits>
 #include <variant>
-#include <cuml/experimental/fil/tree_layout.hpp>
 namespace ML {
 namespace experimental {
 namespace fil {
@@ -42,23 +42,15 @@ template <tree_layout layout_v, bool double_precision, bool large_trees>
 struct specialization_types {
   /* The node threshold type to be used based on the template parameters
    */
-  using threshold_type = std::conditional_t<
-    double_precision, double, float
-  >;
+  using threshold_type = std::conditional_t<double_precision, double, float>;
   /* The type required for specifying indexes to vector leaf outputs or
    * non-local categorical data.
    */
-  using index_type = std::conditional_t<
-    double_precision, std::uint64_t, std::uint32_t
-  >;
+  using index_type = std::conditional_t<double_precision, std::uint64_t, std::uint32_t>;
   /* The type used to provide metadata storage for nodes */
-  using metadata_type = std::conditional_t<
-    large_trees, std::uint32_t, std::uint16_t
-  >;
+  using metadata_type = std::conditional_t<large_trees, std::uint32_t, std::uint16_t>;
   /* The type used to provide metadata storage for nodes */
-  using offset_type = std::conditional_t<
-    large_trees, std::uint32_t, std::uint16_t
-  >;
+  using offset_type = std::conditional_t<large_trees, std::uint32_t, std::uint16_t>;
   /* The tree layout (alias for layout_v)*/
   auto static constexpr const layout = layout_v;
   /* Whether or not this tree requires double precision (alias for
@@ -74,18 +66,17 @@ struct specialization_types {
 /* A variant holding information on all specialization types compiled
  * in standard cuML FIL
  */
-using specialization_variant = std::variant<
-  specialization_types<tree_layout::depth_first, false, false>,
-  specialization_types<tree_layout::depth_first, false, true>,
-  specialization_types<tree_layout::depth_first, true, false>,
-  specialization_types<tree_layout::depth_first, true, true>,
-  specialization_types<tree_layout::breadth_first, false, false>,
-  specialization_types<tree_layout::breadth_first, false, true>,
-  specialization_types<tree_layout::breadth_first, true, false>,
-  specialization_types<tree_layout::breadth_first, true, true>
->;
+using specialization_variant =
+  std::variant<specialization_types<tree_layout::depth_first, false, false>,
+               specialization_types<tree_layout::depth_first, false, true>,
+               specialization_types<tree_layout::depth_first, true, false>,
+               specialization_types<tree_layout::depth_first, true, true>,
+               specialization_types<tree_layout::breadth_first, false, false>,
+               specialization_types<tree_layout::breadth_first, false, true>,
+               specialization_types<tree_layout::breadth_first, true, false>,
+               specialization_types<tree_layout::breadth_first, true, true>>;
 
-}
-}
-}
-}
+}  // namespace detail
+}  // namespace fil
+}  // namespace experimental
+}  // namespace ML
