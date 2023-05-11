@@ -32,7 +32,7 @@ namespace detail {
  * instead of the leaf value.
  *
  * @tparam has_vector_leaves Whether or not this tree has vector leaves
- * @tparam has_categorical nodes Whether or not this tree has any nodes with
+ * @tparam has_categorical_nodes Whether or not this tree has any nodes with
  * categorical splits
  * @tparam node_t The type of nodes in this tree
  * @tparam io_t The type used for input to and output from this tree (typically
@@ -142,6 +142,68 @@ HOST DEVICE auto evaluate_tree(node_t const* __restrict__ node,
     return node_id_mapping[node - first_root_node];
   } else {
     return cur_node.template output<has_vector_leaves>();
+  }
+}
+
+/**
+ * Dispatch to an appropriate version of evaluate_tree kernel.
+ *
+ * @tparam has_vector_leaves Whether or not this tree has vector leaves
+ * @tparam has_categorical_nodes Whether or not this tree has any nodes with
+ * categorical splits
+ * @tparam has_nonlocal_categories Whether or not this tree has any nodes that store
+ * categorical split data externally
+ * @tparam predict_leaf Whether to predict leaf IDs
+ * @tparam forest_t The type of forest
+ * @tparam io_t The type used for input to and output from this tree (typically
+ * either floats or doubles)
+ * @tparam categorical_data_t The type for non-local categorical data storage.
+ * @param forest The forest used to perform inference
+ * @param tree_index The index of the tree we are evaluating
+ * @param row The data row we are evaluating
+ * @param categorical_data The pointer to where non-local data on categorical splits are stored.
+ */
+template <bool has_vector_leaves,
+          bool has_categorical_nodes,
+          bool has_nonlocal_categories,
+          bool predict_leaf,
+          typename forest_t,
+          typename io_t,
+          typename categorical_data_t>
+HOST DEVICE auto evaluate_tree_dispatch(forest_t const& forest,
+                                        index_type tree_index,
+                                        io_t const* __restrict__ row,
+                                        categorical_data_t categorical_data)
+{
+  using node_t      = typename forest_t::node_type;
+  auto tree_output  = std::conditional_t<has_vector_leaves,
+                                        typename node_t::index_type,
+                                        typename node_t::threshold_type>{};
+  auto leaf_node_id = index_type{};
+  if constexpr (predict_leaf) {
+    if constexpr (has_nonlocal_categories) {
+      leaf_node_id = evaluate_tree<has_vector_leaves>(forest.get_tree_root(tree_index),
+                                                      row,
+                                                      categorical_data,
+                                                      forest.get_tree_root(0),
+                                                      forest.get_node_id_mapping());
+    } else {
+      leaf_node_id =
+        evaluate_tree<has_vector_leaves, has_categorical_nodes>(forest.get_tree_root(tree_index),
+                                                                row,
+                                                                forest.get_tree_root(0),
+                                                                forest.get_node_id_mapping());
+    }
+    return leaf_node_id;
+  } else {
+    if constexpr (has_nonlocal_categories) {
+      tree_output =
+        evaluate_tree<has_vector_leaves>(forest.get_tree_root(tree_index), row, categorical_data);
+    } else {
+      tree_output = evaluate_tree<has_vector_leaves, has_categorical_nodes>(
+        forest.get_tree_root(tree_index), row);
+    }
+    return tree_output;
   }
 }
 

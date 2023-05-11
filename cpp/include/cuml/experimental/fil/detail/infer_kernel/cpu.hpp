@@ -114,27 +114,17 @@ void infer_kernel_cpu(forest_t const& forest,
                                               typename node_t::threshold_type>{};
         auto leaf_node_id = index_type{};
         if (infer_type == infer_kind::leaf_id) {
-          if constexpr (has_nonlocal_categories) {
-            leaf_node_id = evaluate_tree<has_vector_leaves>(forest.get_tree_root(tree_index),
-                                                            input + row_index * col_count,
-                                                            categorical_data,
-                                                            forest.get_tree_root(0),
-                                                            forest.get_node_id_mapping());
-          } else {
-            leaf_node_id = evaluate_tree<has_vector_leaves, has_categorical_nodes>(
-              forest.get_tree_root(tree_index),
-              input + row_index * col_count,
-              forest.get_tree_root(0),
-              forest.get_node_id_mapping());
-          }
+          leaf_node_id = evaluate_tree_dispatch<has_vector_leaves,
+                                                has_categorical_nodes,
+                                                has_nonlocal_categories,
+                                                true>(
+            forest, tree_index, input + row_index * col_count, categorical_data);
         } else {
-          if constexpr (has_nonlocal_categories) {
-            tree_output = evaluate_tree<has_vector_leaves>(
-              forest.get_tree_root(tree_index), input + row_index * col_count, categorical_data);
-          } else {
-            tree_output = evaluate_tree<has_vector_leaves, has_categorical_nodes>(
-              forest.get_tree_root(tree_index), input + row_index * col_count);
-          }
+          tree_output = evaluate_tree_dispatch<has_vector_leaves,
+                                               has_categorical_nodes,
+                                               has_nonlocal_categories,
+                                               false>(
+            forest, tree_index, input + row_index * col_count, categorical_data);
         }
         if (infer_type == infer_kind::leaf_id) {
           output_workspace[row_index * num_outputs * num_grove + tree_index * num_grove +
