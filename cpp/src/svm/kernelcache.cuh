@@ -118,10 +118,22 @@ struct select_at_index : public thrust::unary_function<int, math_t> {
   __device__ math_t operator()(const int& i) const { return dot_[i]; }
 };
 
+/**
+ * @brief Helper class to interact with static amount of sub-caches
+ *
+ * Allows for partial row updates in an underlying cache consisting of a
+ * fixed amount of statically sized sub caches.
+ *
+ * The sub-caches are forced to keep the same indices and only differ
+ * in the batch of total rows they represent.
+ */
 template <typename math_t>
 class BatchCache {
  public:
-  BatchCache(int n_vec, float cache_size = 200) : n_vec(n_vec), cache_size(cache_size) {}
+  BatchCache(int n_rows, float cache_size, cudaStream_t stream)
+    : n_rows(n_rows), cache_size(cache_size), d_temp_storage(0, stream)
+  {
+  }
 
   ~BatchCache()
   {
@@ -129,27 +141,46 @@ class BatchCache {
       delete cache;
   }
 
-  void Initialize(cudaStream_t stream, int batch_size_base, int* dummy, int n_ws)
+  /**
+   * @brief Initialize BatchCache
+   *
+   * This will generate the internal raft::Cache<> elements for each batch
+   * given a static batch_size
+   *
+   * @param [in] batch_size_base number of elements in the working set
+   * @param [in] n_ws array with indices of vectors in the working set, size [n_ws]
+   * @param [out] tmp_buffer temporary buffer of size [2*n_ws]
+   * @param [in] stream cuda stream
+   */
+  void Initialize(int batch_size_base, int n_ws, int* tmp_buffer, cudaStream_t stream)
   {
-    RAFT_CUDA_TRY(cudaMemsetAsync(dummy, 0, n_ws * 2 * sizeof(int), stream));
-    for (int offset = 0; offset < n_vec; offset += batch_size_base) {
-      int batch_size         = std::min(batch_size_base, n_vec - offset);
-      float cache_size_batch = cache_size * batch_size / n_vec;
+    RAFT_CUDA_TRY(cudaMemsetAsync(tmp_buffer, 0, n_ws * 2 * sizeof(int), stream));
+    for (int offset = 0; offset < n_rows; offset += batch_size_base) {
+      int batch_size         = std::min(batch_size_base, n_rows - offset);
+      float cache_size_batch = cache_size * batch_size / n_rows;
       auto* cache            = new raft::cache::Cache<math_t>(stream, batch_size, cache_size_batch);
 
-      // initialize internal data structures
-      if (cache->GetSize() > 0) {
+      // initialize internal data structures (only needed for batch_id > 0)
+      if (cache->GetSize() > 0 && offset > 0) {
         int cached;
-        cache->GetCacheIdxPartitioned(dummy, n_ws, dummy + n_ws, &cached, stream);
+        cache->GetCacheIdxPartitioned(tmp_buffer, n_ws, tmp_buffer + n_ws, &cached, stream);
       }
 
       caches.push_back(cache);
     }
 
+    // Check all caches have the same capacity
+    // This is a requirement for the assumption that the cached indices
+    // are identical for all batches
     int size = GetSize();
     for (auto* cache : caches) {
       ASSERT(cache->GetSize() == size, "Unexpected cache size");
     }
+
+    // Init cub buffers
+    cub::DeviceRadixSort::SortKeys(
+      NULL, d_temp_storage_size, tmp_buffer, tmp_buffer, n_ws, 0, sizeof(int) * 8, stream);
+    d_temp_storage.resize(d_temp_storage_size, stream);
   }
 
   int GetSize(int batch_idx = 0) const
@@ -157,14 +188,69 @@ class BatchCache {
     return caches.size() > 0 ? caches[batch_idx]->GetSize() : 0;
   }
 
+  /**
+   * @brief Prepare sort order of indices
+   *
+   * This will reorder the keys w.r.t. the state of the cache in a way that
+   *   - the keys are partitioned in cached, uncached
+   *   - the uncached elements are sorted based on the cache idx
+   * This will ensure that neither cache retrieval nor cache updates will
+   * require additional reordering of keys.
+   *
+   * @param [inout] keys key indices to be reordered
+   * @param [in] n number of keys
+   * @param [out] cache_idx tmp buffer for cache indices [n]
+   * @param [out] reorder_buffer tmp buffer for reordering of size [2*n]
+   * @param [in] stream cuda stream
+   */
+  void PreparePartitionedIdxOrder(
+    int* keys, int n, int* cache_idx, int* reorder_buffer, cudaStream_t stream)
+  {
+    int n_cached = 0;
+    caches[0]->GetCacheIdxPartitioned(keys, n, cache_idx, &n_cached, stream);
+
+    int n_uncached = n - n_cached;
+    if (n_uncached > 1) {
+      // we also need to make sure that the next cache assignment
+      // does not need to rearrange. This way the resulting ws_idx_mod
+      // keys won't change during the cache update
+      cub::DeviceRadixSort::SortPairs(d_temp_storage.data(),
+                                      d_temp_storage_size,
+                                      cache_idx + n_cached,
+                                      reorder_buffer,
+                                      keys + n_cached,
+                                      reorder_buffer + n,
+                                      n_uncached,
+                                      0,
+                                      sizeof(int) * 8,
+                                      stream);
+      // We can skip cache_idx as we are only interested in keys here
+      raft::copy(keys + n_cached, reorder_buffer + n, n_uncached, stream);
+    }
+  }
+
+  /**
+   * @brief Get cache indices for keys
+   *
+   * This will return the cache indices for cached keys as well as the
+   * cache set for uncached keys.
+   * When this is called with keys coming from 'PreparePartitionedIdxOrder'
+   * the keys should be unchanged upon return.
+   *
+   * @param [in] keys key indices
+   * @param [in] n number of keys
+   * @param [out] cache_idx buffer for cache indices [n]
+   * @param [out] n_cached number of cached keys
+   * @param [in] stream cuda stream
+   */
   void GetCacheIdxPartitionedStable(
     int* keys, int n, int* cache_idx, int* n_cached, cudaStream_t stream)
   {
     caches[0]->GetCacheIdxPartitioned(keys, n, cache_idx, n_cached, stream);
 
-    // reverse the uncached values (due to cub::DevicePartition:Flagged)
     int n_uncached = n - *n_cached;
-    if (n_uncached > 0) {
+    if (n_uncached > 1) {
+      // reverse the uncached values (due to cub::DevicePartition:Flagged)
       thrust::device_ptr<int> keys_v(keys + *n_cached);
       thrust::reverse(thrust::cuda::par.on(stream), keys_v, keys_v + n_uncached);
       thrust::device_ptr<int> cache_idx_v(cache_idx + *n_cached);
@@ -172,11 +258,35 @@ class BatchCache {
     }
   }
 
+  /**
+   * @brief Retrieve cached rows
+   *
+   * This will retrieve cached rows at the given positions for a given batch.
+   *
+   * @param [in] batch_idx batch id
+   * @param [in] idx indices to be retrieved
+   * @param [in] n number of indices
+   * @param [out] out buffer for cache rows, should be at least [n*batch_size[batch_id]]
+   * @param [in] stream cuda stream
+   */
   void GetVecs(int batch_idx, const int* idx, int n, math_t* out, cudaStream_t stream)
   {
     caches[batch_idx]->GetVecs(idx, n, out, stream);
   }
 
+  /**
+   * @brief Store rows to cache
+   *
+   * This will store new rows for a given batch.
+   *
+   * @param [in] batch_idx batch id
+   * @param [in] keys keys for rows to store
+   * @param [in] n number of keys
+   * @param [inout] cache_idx cache set ids
+   * @param [in] tile rows store, should be at least [n*n_tile]
+   * @param [in] n_tile number of rows in tile, corresponds to batch_size[batch_idx]
+   * @param [in] stream cuda stream
+   */
   void AssignAndStoreVecs(int batch_idx,
                           int* keys,
                           int n,
@@ -192,27 +302,45 @@ class BatchCache {
   }
 
  private:
-  int n_vec;         //!< Total number of elements (sum over all caches)
+  int n_rows;        //!< Total number of rows to cache
   float cache_size;  //!< total over all caches in MiB
   std::vector<raft::cache::Cache<math_t>*> caches;
+
+  // tmp storage for cub sort
+  rmm::device_uvector<char> d_temp_storage;
+  size_t d_temp_storage_size = 0;
 };
 
 }  // end unnamed namespace
 
-// Strategy:
-//    - rows && cols sufficiently small to allow n_ws * n_rows/n_cols to fit in memory
-//       * extract dense rows for dot product
-//       * No batching of update step
-//
-//    if n_rows too large:
-//       -> Enable batching in update step to limit kernel_big memory
-//
-//    if n_cols too large: (CSR only support)
-//       -> extract CSR rows instead of dense for kernel compute
-//
+/**
+ * @brief KernelCache to provide kernel tiles
+ *
+ * We calculate the kernel matrix tile for the vectors in the working set.
+ *
+ * This cache supports large matrix dimensions as well as sparse data.
+ *  - For large n_rows only partial kernel rows are computed.
+ *  - For large n_cols the intermediate storages are kept sparse.
+ *
+ * The kernel values can be cached to avoid repeated calculation of the kernel
+ * function.
+ */
 template <typename math_t>
 class KernelCache {
  public:
+  /**
+   * Construct an object to manage kernel cache
+   *
+   * @param handle reference to raft::handle_t implementation
+   * @param matrix device matrix of training vectors [n_rows x n_cols]
+   * @param n_rows number of training vectors
+   * @param n_cols number of features
+   * @param n_ws size of working set
+   * @param kernel pointer to kernel
+   * @param kernel_type kernel type
+   * @param cache_size (default 200 MiB)
+   * @param svmType is this SVR or SVC
+   */
   KernelCache(const raft::handle_t& handle,
               const MLCommon::Matrix::Matrix<math_t>& matrix,
               int n_rows,
@@ -222,7 +350,7 @@ class KernelCache {
               raft::distance::kernels::KernelType kernel_type,
               float cache_size = 200,
               SvmType svmType  = C_SVC)
-    : batch_cache(n_rows, cache_size),
+    : batch_cache(n_rows, cache_size, handle.get_stream()),
       handle(handle),
       kernel(kernel),
       kernel_type(kernel_type),
@@ -239,7 +367,6 @@ class KernelCache {
       x_ws_csr(handle, 0, 0, 0),
       x_ws_dense(handle, 0, 0, 0),
       indptr_batched(0, handle.get_stream()),
-      d_temp_storage(0, handle.get_stream()),
       ws_cache_idx(n_ws * 2, handle.get_stream())
   {
     ASSERT(kernel != nullptr, "Kernel pointer required for KernelCache!");
@@ -259,7 +386,7 @@ class KernelCache {
       batch_size_base = big_kernel_max_bytes / n_ws / sizeof(math_t);
     }
 
-    batch_cache.Initialize(stream, batch_size_base, ws_cache_idx.data(), n_ws);
+    batch_cache.Initialize(batch_size_base, n_ws, ws_cache_idx.data(), stream);
     kernel_tile.reserve(n_ws * std::max(batch_size_base, n_ws), stream);
 
     // enable sparse row extraction for sparse input where n_ws * n_cols > 1 GB
@@ -288,20 +415,12 @@ class KernelCache {
       indptr_batched.reserve(batch_size_base + 1, stream);
       raft::update_host(host_indptr.data(), matrix.as_csr()->get_indptr(), n_rows + 1, stream);
     }
-
-    // Init cub buffers
-    cub::DeviceRadixSort::SortKeys(NULL,
-                                   d_temp_storage_size,
-                                   ws_idx_mod.data(),
-                                   ws_idx_mod.data(),
-                                   n_ws,
-                                   0,
-                                   sizeof(int) * 8,
-                                   stream);
-    d_temp_storage.resize(d_temp_storage_size, stream);
   }
   ~KernelCache(){};
 
+  /**
+   * Helper object to pass batch information of cache while iterating batches
+   */
   struct BatchDescriptor {
     int batch_id;
     int offset;
@@ -312,13 +431,22 @@ class KernelCache {
     int n_cached;
   };
 
+  // debugging
   enum CacheState {
     READY                = 0,
     WS_INITIALIZED       = 1,
     BATCHING_INITIALIZED = 2,
   };
 
-  // reorder indices to cached/uncached
+  /**
+   * @brief Initialize cache for new working set
+   *
+   * Will initialize the cache for a new working set.
+   * In particular the indices will be re-ordered to allow for cache retrieval and update.
+   * The re-ordered indices will stored and are accessible via 'getKernelIndices'.
+   *
+   * @param [in] ws_idx indices of size [n_ws]
+   */
   void InitWorkingSet(const int* ws_idx)
   {
     ASSERT(cache_state != CacheState::WS_INITIALIZED, "Working set has already been initialized!");
@@ -330,32 +458,12 @@ class KernelCache {
       raft::copy(ws_idx_mod.data(), ws_idx, n_ws, stream);
     }
 
-    // perform reordering of indices to partition into cached/uncached
-    // batch_id 0 should behave the same as all other batches
     if (batch_cache.GetSize() > 0) {
-      int n_cached = 0;
-      batch_cache.GetCacheIdxPartitionedStable(
-        ws_idx_mod.data(), n_ws, ws_cache_idx.data(), &n_cached, stream);
-      int n_uncached = n_ws - n_cached;
-      if (n_uncached > 0) {
-        // we also need to make sure that the next cache assignment does not need to rearrange!
-        // this way the resulting ws_idx_mod keys won't change during the cache update
-        int* tmp = (int*)kernel_tile.data();
-        cub::DeviceRadixSort::SortPairs(d_temp_storage.data(),
-                                        d_temp_storage_size,
-                                        ws_cache_idx.data() + n_cached,
-                                        tmp,
-                                        ws_idx_mod.data() + n_cached,
-                                        tmp + n_ws,
-                                        n_uncached,
-                                        0,
-                                        sizeof(int) * 8,
-                                        stream);
-
-        // raft::copy(ws_cache_idx.data() + n_cached, tmp, n_uncached, stream); // TODO: debug,not
-        // really needed
-        raft::copy(ws_idx_mod.data() + n_cached, tmp + n_ws, n_uncached, stream);
-      }
+      // perform reordering of indices to partition into cached/uncached
+      // batch_id 0 should behave the same as all other batches
+      // provide currently unused 'kernel_tile' as temporary storage
+      batch_cache.PreparePartitionedIdxOrder(
+        ws_idx_mod.data(), n_ws, ws_cache_idx.data(), (int*)kernel_tile.data(), stream);
     }
 
     // re-compute original (dual) indices that got flattened by GetVecIndices
@@ -368,7 +476,20 @@ class KernelCache {
     cache_state = CacheState::WS_INITIALIZED;
   }
 
-  // needs call to 'InitWorkingSet' first
+  /**
+   * @brief Retrieve kernel indices
+   *
+   * Returns the reordered (!) workspace indices corresponding
+   * to the order used in the provided kernel matrices.
+   *
+   * If allow_dual is true, input indices >= n_rows (only valid for SVR)
+   * will be returned as such. Otherwise they will be projected to the primal.
+   *
+   * This should only be called after 'InitWorkingSet'.
+   *
+   * @param [in] allow_dual allows indices in dual space (only SVR)
+   * @return pointer to indices corresponding to kernel
+   */
   const int* getKernelIndices(int allow_dual)
   {
     ASSERT(cache_state != CacheState::READY, "Working set not initialized!");
@@ -379,9 +500,16 @@ class KernelCache {
     }
   }
 
-  // needs call to 'InitWorkingSet' first
-  // does currently not utilize cache BUT honors order of cached/uncached partition
-  // maybe we can still utilize existing cache entries but not update it
+  /**
+   * @brief Retrieve kernel matrix for n_ws*n_ws square
+   *
+   * Computes and returns the square kernel tile corresponding to the indices
+   * provided by 'InitWorkingSet'.
+   *
+   * TODO: utilize cache read without update
+   *
+   * @return pointer to kernel matrix
+   */
   math_t* getSquareTileWithoutCaching()
   {
     ASSERT(cache_state != CacheState::READY, "Working set not initialized!");
@@ -408,12 +536,19 @@ class KernelCache {
     return kernel_tile.data();
   }
 
-  // input should only be in range of [0, nvec) (primal space)
+  /**
+   * @brief Initialize the (batched) kernel retrieval for full rows
+   *
+   * Note: Values of nz_da_idx should be a subset of kernel indices with unmodified ordering!
+   *
+   * @param [in] nz_da_idx sub-set of working set indices to be requested
+   * @param [in] nnz_da size of nz_da_idx
+   * @return initialized batch descriptor object for iterating batches
+   */
   BatchDescriptor InitFullTileBatching(int* nz_da_idx, int nnz_da)
   {
     ASSERT(cache_state != CacheState::READY, "Working set not initialized!");
     ASSERT(cache_state != CacheState::BATCHING_INITIALIZED, "Previous batching step incomplete!");
-
     int n_cached = 0;
     if (batch_cache.GetSize() > 0) {
       // we only do this once per workingset for cache 0 - all others should behave the same
@@ -441,11 +576,15 @@ class KernelCache {
             .n_cached    = n_cached};
   }
 
-  // Assumption:
-  // 1. cached lines are identical for all batches !
-  //     -- this is needed to re-use x_ws_matrix
-  // 2. permutation is identical for all batches & is stored
-  // 3. permutation can be used to reorder nz_da array for multiply
+  /**
+   * @brief Iterate batches of full kernel tile [n_rows, nnz_da]
+   *
+   * In order to keep the cache consistent the function should always be called
+   * until it returns false and all batches have been processed.
+   *
+   * @param [inout] batch_descriptor batching state information
+   * @return true if there is still a batch to be processed
+   */
   bool getNextBatchKernel(BatchDescriptor& batch_descriptor)
   {
     ASSERT(cache_state == CacheState::BATCHING_INITIALIZED, "Batching step not initialized!");
@@ -545,6 +684,15 @@ class KernelCache {
     return true;
   }
 
+  /** @brief Select a subset of values
+   *
+   * Select a subset of values
+   *
+   * @param [out] target array of values selected, size at least [num_indices]
+   * @param [in] source source array
+   * @param [in] indices indices within range [0,source.size)
+   * @param [in] num_indices number of indices
+   */
   void selectValueSubset(math_t* target, const math_t* source, const int* indices, int num_indices)
   {
     thrust::device_ptr<const int> indices_ptr(indices);
@@ -614,12 +762,9 @@ class KernelCache {
   int n_cols;  //!< number of columns in x
   int n_ws;    //!< number of elements in the working set
 
-  /// cache position of a workspace vectors
+  // cache position of a workspace vectors
+  // will fit n_ws twice in order to backup values
   rmm::device_uvector<int> ws_cache_idx;
-
-  // tmp storage for cub
-  rmm::device_uvector<char> d_temp_storage;
-  size_t d_temp_storage_size = 0;
 
   const raft::handle_t handle;
 
