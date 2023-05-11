@@ -175,12 +175,9 @@ HOST DEVICE auto evaluate_tree_dispatch(forest_t const& forest,
                                         io_t const* __restrict__ row,
                                         categorical_data_t categorical_data)
 {
-  using node_t      = typename forest_t::node_type;
-  auto tree_output  = std::conditional_t<has_vector_leaves,
-                                        typename node_t::index_type,
-                                        typename node_t::threshold_type>{};
-  auto leaf_node_id = index_type{};
+  using node_t = typename forest_t::node_type;
   if constexpr (predict_leaf) {
+    auto leaf_node_id = index_type{};
     if constexpr (has_nonlocal_categories) {
       leaf_node_id = evaluate_tree<has_vector_leaves>(forest.get_tree_root(tree_index),
                                                       row,
@@ -196,6 +193,9 @@ HOST DEVICE auto evaluate_tree_dispatch(forest_t const& forest,
     }
     return leaf_node_id;
   } else {
+    auto tree_output = std::conditional_t<has_vector_leaves,
+                                          typename node_t::index_type,
+                                          typename node_t::threshold_type>{};
     if constexpr (has_nonlocal_categories) {
       tree_output =
         evaluate_tree<has_vector_leaves>(forest.get_tree_root(tree_index), row, categorical_data);
