@@ -320,10 +320,10 @@ class KernelCache {
 
   rmm::device_uvector<math_t> tile;  //!< Kernel matrix  tile
 
-  int n_rows;    //!< number of rows in x
-  int n_cols;    //!< number of columns in x
-  int n_ws;      //!< number of elements in the working set
-  int n_unique;  //!< number of unique x vectors in the working set
+  int n_rows;                        //!< number of rows in x
+  int n_cols;                        //!< number of columns in x
+  int n_ws;                          //!< number of elements in the working set
+  int n_unique;                      //!< number of unique x vectors in the working set
 
   cublasHandle_t cublas_handle;
 

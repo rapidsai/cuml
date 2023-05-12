@@ -24,9 +24,10 @@ using cuda_stream = cudaStream_t;
 #else
 using cuda_stream = int;
 #endif
-inline void synchronize(cuda_stream stream) {
+inline void synchronize(cuda_stream stream)
+{
 #ifdef CUML_ENABLE_GPU
   cudaStreamSynchronize(stream);
 #endif
 }
-}
+}  // namespace raft_proto

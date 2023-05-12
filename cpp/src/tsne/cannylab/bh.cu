@@ -38,17 +38,16 @@ Tree-based Barnes Hut n-Body Algorithm. Chapter 6 in GPU Computing Gems
 Emerald Edition, pp. 75-92. January 2011.
 */
 
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
-#include <sys/time.h>
 #include <cuda.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
 
 // threads per block
-#define THREADS1 1024  /* must be a power of 2 */
+#define THREADS1 1024 /* must be a power of 2 */
 #define THREADS2 1024
-#define THREADS3 768   /* shared-memory limited on some devices */
+#define THREADS3 768  /* shared-memory limited on some devices */
 #define THREADS4 1024
 #define THREADS5 1024
 #define THREADS6 1024
@@ -56,8 +55,8 @@ Emerald Edition, pp. 75-92. January 2011.
 // block count = factor * #SMs
 #define FACTOR1 2
 #define FACTOR2 2
-#define FACTOR3 1  /* must all be resident at the same time */
-#define FACTOR4 1  /* must all be resident at the same time */
+#define FACTOR3 1 /* must all be resident at the same time */
+#define FACTOR4 1 /* must all be resident at the same time */
 #define FACTOR5 2
 #define FACTOR6 2
 
@@ -68,29 +67,33 @@ __device__ volatile int stepd, bottomd;
 __device__ unsigned int blkcntd;
 __device__ volatile float radiusd;
 
-
 /******************************************************************************/
 /*** initialize memory ********************************************************/
 /******************************************************************************/
 
 __global__ void InitializationKernel()
 {
-  stepd = -1;
+  stepd   = -1;
   blkcntd = 0;
 }
-
 
 /******************************************************************************/
 /*** compute center and radius ************************************************/
 /******************************************************************************/
 
-__global__
-__launch_bounds__(THREADS1, FACTOR1)
-void BoundingBoxKernel(const int nnodesd, const int nbodiesd, int* const __restrict__ startd, int* const __restrict__ childd, float4* const __restrict__ posMassd, float3* const __restrict__ maxd, float3* const __restrict__ mind)
+__global__ __launch_bounds__(THREADS1,
+                             FACTOR1) void BoundingBoxKernel(const int nnodesd,
+                                                             const int nbodiesd,
+                                                             int* const __restrict__ startd,
+                                                             int* const __restrict__ childd,
+                                                             float4* const __restrict__ posMassd,
+                                                             float3* const __restrict__ maxd,
+                                                             float3* const __restrict__ mind)
 {
   int i, j, k, inc;
   float val;
-  __shared__ volatile float sminx[THREADS1], smaxx[THREADS1], sminy[THREADS1], smaxy[THREADS1], sminz[THREADS1], smaxz[THREADS1];
+  __shared__ volatile float sminx[THREADS1], smaxx[THREADS1], sminy[THREADS1], smaxy[THREADS1],
+    sminz[THREADS1], smaxz[THREADS1];
   float3 min, max;
 
   // initialize with valid data (in case #bodies < #threads)
@@ -100,19 +103,19 @@ void BoundingBoxKernel(const int nnodesd, const int nbodiesd, int* const __restr
   min.z = max.z = p0.z;
 
   // scan all bodies
-  i = threadIdx.x;
+  i   = threadIdx.x;
   inc = THREADS1 * gridDim.x;
   for (j = i + blockIdx.x * THREADS1; j < nbodiesd; j += inc) {
     const float4 p = posMassd[j];
-    val = p.x;
-    min.x = fminf(min.x, val);
-    max.x = fmaxf(max.x, val);
-    val = p.y;
-    min.y = fminf(min.y, val);
-    max.y = fmaxf(max.y, val);
-    val = p.z;
-    min.z = fminf(min.z, val);
-    max.z = fmaxf(max.z, val);
+    val            = p.x;
+    min.x          = fminf(min.x, val);
+    max.x          = fmaxf(max.x, val);
+    val            = p.y;
+    min.y          = fminf(min.y, val);
+    max.y          = fmaxf(max.y, val);
+    val            = p.z;
+    min.z          = fminf(min.z, val);
+    max.z          = fmaxf(max.z, val);
   }
 
   // reduction in shared memory
@@ -126,7 +129,7 @@ void BoundingBoxKernel(const int nnodesd, const int nbodiesd, int* const __restr
   for (j = THREADS1 / 2; j > 0; j /= 2) {
     __syncthreads();
     if (i < j) {
-      k = i + j;
+      k        = i + j;
       sminx[i] = min.x = fminf(min.x, sminx[k]);
       smaxx[i] = max.x = fmaxf(max.x, smaxx[k]);
       sminy[i] = min.y = fminf(min.y, sminy[k]);
@@ -138,7 +141,7 @@ void BoundingBoxKernel(const int nnodesd, const int nbodiesd, int* const __restr
 
   // write block result to global memory
   if (i == 0) {
-    k = blockIdx.x;
+    k       = blockIdx.x;
     mind[k] = min;
     maxd[k] = max;
     __threadfence();
@@ -149,52 +152,52 @@ void BoundingBoxKernel(const int nnodesd, const int nbodiesd, int* const __restr
       for (j = 0; j <= inc; j++) {
         float3 minp = mind[j];
         float3 maxp = maxd[j];
-        min.x = fminf(min.x, minp.x);
-        max.x = fmaxf(max.x, maxp.x);
-        min.y = fminf(min.y, minp.y);
-        max.y = fmaxf(max.y, maxp.y);
-        min.z = fminf(min.z, minp.z);
-        max.z = fmaxf(max.z, maxp.z);
+        min.x       = fminf(min.x, minp.x);
+        max.x       = fmaxf(max.x, maxp.x);
+        min.y       = fminf(min.y, minp.y);
+        max.y       = fmaxf(max.y, maxp.y);
+        min.z       = fminf(min.z, minp.z);
+        max.z       = fmaxf(max.z, maxp.z);
       }
 
       // compute radius
-      val = fmaxf(max.x - min.x, max.y - min.y);
+      val     = fmaxf(max.x - min.x, max.y - min.y);
       radiusd = fmaxf(val, max.z - min.z) * 0.5f;
 
       // create root node
-      k = nnodesd;
+      k       = nnodesd;
       bottomd = k;
 
       startd[k] = 0;
       float4 p;
-      p.x = (min.x + max.x) * 0.5f;
-      p.y = (min.y + max.y) * 0.5f;
-      p.z = (min.z + max.z) * 0.5f;
-      p.w = -1.0f;
+      p.x         = (min.x + max.x) * 0.5f;
+      p.y         = (min.y + max.y) * 0.5f;
+      p.z         = (min.z + max.z) * 0.5f;
+      p.w         = -1.0f;
       posMassd[k] = p;
       k *= 8;
-      for (i = 0; i < 8; i++) childd[k + i] = -1;
+      for (i = 0; i < 8; i++)
+        childd[k + i] = -1;
 
       stepd++;
     }
   }
 }
 
-
 /******************************************************************************/
 /*** build tree ***************************************************************/
 /******************************************************************************/
 
-__global__
-__launch_bounds__(1024, 1)
-void ClearKernel1(const int nnodesd, const int nbodiesd, int* const __restrict__ childd)
+__global__ __launch_bounds__(1024, 1) void ClearKernel1(const int nnodesd,
+                                                        const int nbodiesd,
+                                                        int* const __restrict__ childd)
 {
   int k, inc, top, bottom;
 
-  top = 8 * nnodesd;
+  top    = 8 * nnodesd;
   bottom = 8 * nbodiesd;
-  inc = blockDim.x * gridDim.x;
-  k = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;  // align to warp size
+  inc    = blockDim.x * gridDim.x;
+  k      = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;  // align to warp size
   if (k < bottom) k += inc;
 
   // iterate over all cells assigned to thread
@@ -204,10 +207,11 @@ void ClearKernel1(const int nnodesd, const int nbodiesd, int* const __restrict__
   }
 }
 
-
-__global__
-__launch_bounds__(THREADS2, FACTOR2)
-void TreeBuildingKernel(const int nnodesd, const int nbodiesd, volatile int* const __restrict__ childd, const float4* const __restrict__ posMassd)
+__global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
+  const int nnodesd,
+  const int nbodiesd,
+  volatile int* const __restrict__ childd,
+  const float4* const __restrict__ posMassd)
 {
   int i, j, depth, skip, inc;
   float x, y, z, r;
@@ -216,96 +220,127 @@ void TreeBuildingKernel(const int nnodesd, const int nbodiesd, volatile int* con
   float radius;
 
   // cache root data
-  radius = radiusd * 0.5f;
+  radius            = radiusd * 0.5f;
   const float4 root = posMassd[nnodesd];
 
   skip = 1;
-  inc = blockDim.x * gridDim.x;
-  i = threadIdx.x + blockIdx.x * blockDim.x;
+  inc  = blockDim.x * gridDim.x;
+  i    = threadIdx.x + blockIdx.x * blockDim.x;
 
   // iterate over all bodies assigned to thread
   while (i < nbodiesd) {
     const float4 p = posMassd[i];
     if (skip != 0) {
       // new body, so start traversing at root
-      skip = 0;
-      n = nnodesd;
+      skip  = 0;
+      n     = nnodesd;
       depth = 1;
-      r = radius;
+      r     = radius;
       dx = dy = dz = -r;
-      j = 0;
+      j            = 0;
       // determine which child to follow
-      if (root.x < p.x) {j = 1; dx = r;}
-      if (root.y < p.y) {j |= 2; dy = r;}
-      if (root.z < p.z) {j |= 4; dz = r;}
+      if (root.x < p.x) {
+        j  = 1;
+        dx = r;
+      }
+      if (root.y < p.y) {
+        j |= 2;
+        dy = r;
+      }
+      if (root.z < p.z) {
+        j |= 4;
+        dz = r;
+      }
       x = root.x + dx;
       y = root.y + dy;
       z = root.z + dz;
     }
 
     // follow path to leaf cell
-    ch = childd[n*8+j];
+    ch = childd[n * 8 + j];
     while (ch >= nbodiesd) {
       n = ch;
       depth++;
       r *= 0.5f;
       dx = dy = dz = -r;
-      j = 0;
+      j            = 0;
       // determine which child to follow
-      if (x < p.x) {j = 1; dx = r;}
-      if (y < p.y) {j |= 2; dy = r;}
-      if (z < p.z) {j |= 4; dz = r;}
+      if (x < p.x) {
+        j  = 1;
+        dx = r;
+      }
+      if (y < p.y) {
+        j |= 2;
+        dy = r;
+      }
+      if (z < p.z) {
+        j |= 4;
+        dz = r;
+      }
       x += dx;
       y += dy;
       z += dz;
-      ch = childd[n*8+j];
+      ch = childd[n * 8 + j];
     }
 
     if (ch != -2) {  // skip if child pointer is locked and try again later
-      locked = n*8+j;
+      locked = n * 8 + j;
       if (ch == -1) {
         if (-1 == atomicCAS((int*)&childd[locked], -1, i)) {  // if null, just insert the new body
-          i += inc;  // move on to next body
+          i += inc;                                           // move on to next body
           skip = 1;
         }
       } else {  // there already is a body at this position
         if (ch == atomicCAS((int*)&childd[locked], ch, -2)) {  // try to lock
-          patch = -1;
+          patch            = -1;
           const float4 chp = posMassd[ch];
           // create new cell(s) and insert the old and new bodies
           do {
             depth++;
-            if (depth > MAXDEPTH) {printf("ERROR: maximum depth exceeded (bodies are too close together)\n"); asm("trap;");}
+            if (depth > MAXDEPTH) {
+              printf("ERROR: maximum depth exceeded (bodies are too close together)\n");
+              asm("trap;");
+            }
 
             cell = atomicSub((int*)&bottomd, 1) - 1;
-            if (cell <= nbodiesd) {printf("ERROR: out of cell memory\n"); asm("trap;");}
-
-            if (patch != -1) {
-              childd[n*8+j] = cell;
+            if (cell <= nbodiesd) {
+              printf("ERROR: out of cell memory\n");
+              asm("trap;");
             }
+
+            if (patch != -1) { childd[n * 8 + j] = cell; }
             patch = max(patch, cell);
 
             j = 0;
             if (x < chp.x) j = 1;
             if (y < chp.y) j |= 2;
             if (z < chp.z) j |= 4;
-            childd[cell*8+j] = ch;
+            childd[cell * 8 + j] = ch;
 
             n = cell;
             r *= 0.5f;
             dx = dy = dz = -r;
-            j = 0;
-            if (x < p.x) {j = 1; dx = r;}
-            if (y < p.y) {j |= 2; dy = r;}
-            if (z < p.z) {j |= 4; dz = r;}
+            j            = 0;
+            if (x < p.x) {
+              j  = 1;
+              dx = r;
+            }
+            if (y < p.y) {
+              j |= 2;
+              dy = r;
+            }
+            if (z < p.z) {
+              j |= 4;
+              dz = r;
+            }
             x += dx;
             y += dy;
             z += dz;
 
-            ch = childd[n*8+j];
+            ch = childd[n * 8 + j];
             // repeat until the two bodies are different children
           } while (ch >= 0);
-          childd[n*8+j] = i;
+          childd[n * 8 + j] = i;
 
           i += inc;  // move on to next body
           skip = 2;
@@ -315,40 +350,39 @@ void TreeBuildingKernel(const int nnodesd, const int nbodiesd, volatile int* con
     __syncthreads();  // optional barrier for performance
     __threadfence();
 
-    if (skip == 2) {
-      childd[locked] = patch;
-    }
+    if (skip == 2) { childd[locked] = patch; }
   }
 }
 
-
-__global__
-__launch_bounds__(1024, 1)
-void ClearKernel2(const int nnodesd, int* const __restrict__ startd, float4* const __restrict__ posMassd)
+__global__ __launch_bounds__(1024, 1) void ClearKernel2(const int nnodesd,
+                                                        int* const __restrict__ startd,
+                                                        float4* const __restrict__ posMassd)
 {
   int k, inc, bottom;
 
   bottom = bottomd;
-  inc = blockDim.x * gridDim.x;
-  k = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;  // align to warp size
+  inc    = blockDim.x * gridDim.x;
+  k      = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;  // align to warp size
   if (k < bottom) k += inc;
 
   // iterate over all cells assigned to thread
   while (k < nnodesd) {
     posMassd[k].w = -1.0f;
-    startd[k] = -1;
+    startd[k]     = -1;
     k += inc;
   }
 }
-
 
 /******************************************************************************/
 /*** compute center of mass ***************************************************/
 /******************************************************************************/
 
-__global__
-__launch_bounds__(THREADS3, FACTOR3)
-void SummarizationKernel(const int nnodesd, const int nbodiesd, volatile int* const __restrict__ countd, const int* const __restrict__ childd, volatile float4* const __restrict__ posMassd)
+__global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
+  const int nnodesd,
+  const int nbodiesd,
+  volatile int* const __restrict__ countd,
+  const int* const __restrict__ childd,
+  volatile float4* const __restrict__ posMassd)
 {
   int i, j, k, ch, inc, cnt, bottom;
   float m, cm, px, py, pz;
@@ -356,8 +390,8 @@ void SummarizationKernel(const int nnodesd, const int nbodiesd, volatile int* co
   __shared__ float mass[THREADS3 * 8];
 
   bottom = bottomd;
-  inc = blockDim.x * gridDim.x;
-  k = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;  // align to warp size
+  inc    = blockDim.x * gridDim.x;
+  k      = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;  // align to warp size
   if (k < bottom) k += inc;
 
   int restart = k;
@@ -366,21 +400,21 @@ void SummarizationKernel(const int nnodesd, const int nbodiesd, volatile int* co
     while (k <= nnodesd) {
       if (posMassd[k].w < 0.0f) {
         for (i = 0; i < 8; i++) {
-          ch = childd[k*8+i];
-          child[i*THREADS3+threadIdx.x] = ch;  // cache children
-          if ((ch >= nbodiesd) && ((mass[i*THREADS3+threadIdx.x] = posMassd[ch].w) < 0.0f)) {
+          ch                                = childd[k * 8 + i];
+          child[i * THREADS3 + threadIdx.x] = ch;  // cache children
+          if ((ch >= nbodiesd) && ((mass[i * THREADS3 + threadIdx.x] = posMassd[ch].w) < 0.0f)) {
             break;
           }
         }
         if (i == 8) {
           // all children are ready
-          cm = 0.0f;
-          px = 0.0f;
-          py = 0.0f;
-          pz = 0.0f;
+          cm  = 0.0f;
+          px  = 0.0f;
+          py  = 0.0f;
+          pz  = 0.0f;
           cnt = 0;
           for (i = 0; i < 8; i++) {
-            ch = child[i*THREADS3+threadIdx.x];
+            ch = child[i * THREADS3 + threadIdx.x];
             if (ch >= 0) {
               // four reads due to missing copy constructor for "volatile float4"
               const float chx = posMassd[ch].x;
@@ -388,7 +422,7 @@ void SummarizationKernel(const int nnodesd, const int nbodiesd, volatile int* co
               const float chz = posMassd[ch].z;
               const float chw = posMassd[ch].w;
               if (ch >= nbodiesd) {  // count bodies (needed later)
-                m = mass[i*THREADS3+threadIdx.x];
+                m = mass[i * THREADS3 + threadIdx.x];
                 cnt += countd[ch];
               } else {
                 m = chw;
@@ -402,7 +436,7 @@ void SummarizationKernel(const int nnodesd, const int nbodiesd, volatile int* co
             }
           }
           countd[k] = cnt;
-          m = 1.0f / cm;
+          m         = 1.0f / cm;
           // four writes due to missing copy constructor for "volatile float4"
           posMassd[k].x = px * m;
           posMassd[k].y = py * m;
@@ -425,17 +459,18 @@ void SummarizationKernel(const int nnodesd, const int nbodiesd, volatile int* co
       if (j == 0) {
         j = 8;
         for (i = 0; i < 8; i++) {
-          ch = childd[k*8+i];
-          child[i*THREADS3+threadIdx.x] = ch;  // cache children
-          if ((ch < nbodiesd) || ((mass[i*THREADS3+threadIdx.x] = posMassd[ch].w) >= 0.0f)) {
+          ch                                = childd[k * 8 + i];
+          child[i * THREADS3 + threadIdx.x] = ch;  // cache children
+          if ((ch < nbodiesd) || ((mass[i * THREADS3 + threadIdx.x] = posMassd[ch].w) >= 0.0f)) {
             j--;
           }
         }
       } else {
         j = 8;
         for (i = 0; i < 8; i++) {
-          ch = child[i*THREADS3+threadIdx.x];
-          if ((ch < nbodiesd) || (mass[i*THREADS3+threadIdx.x] >= 0.0f) || ((mass[i*THREADS3+threadIdx.x] = posMassd[ch].w) >= 0.0f)) {
+          ch = child[i * THREADS3 + threadIdx.x];
+          if ((ch < nbodiesd) || (mass[i * THREADS3 + threadIdx.x] >= 0.0f) ||
+              ((mass[i * THREADS3 + threadIdx.x] = posMassd[ch].w) >= 0.0f)) {
             j--;
           }
         }
@@ -443,13 +478,13 @@ void SummarizationKernel(const int nnodesd, const int nbodiesd, volatile int* co
 
       if (j == 0) {
         // all children are ready
-        cm = 0.0f;
-        px = 0.0f;
-        py = 0.0f;
-        pz = 0.0f;
+        cm  = 0.0f;
+        px  = 0.0f;
+        py  = 0.0f;
+        pz  = 0.0f;
         cnt = 0;
         for (i = 0; i < 8; i++) {
-          ch = child[i*THREADS3+threadIdx.x];
+          ch = child[i * THREADS3 + threadIdx.x];
           if (ch >= 0) {
             // four reads due to missing copy constructor for "volatile float4"
             const float chx = posMassd[ch].x;
@@ -457,7 +492,7 @@ void SummarizationKernel(const int nnodesd, const int nbodiesd, volatile int* co
             const float chz = posMassd[ch].z;
             const float chw = posMassd[ch].w;
             if (ch >= nbodiesd) {  // count bodies (needed later)
-              m = mass[i*THREADS3+threadIdx.x];
+              m = mass[i * THREADS3 + threadIdx.x];
               cnt += countd[ch];
             } else {
               m = chw;
@@ -471,7 +506,7 @@ void SummarizationKernel(const int nnodesd, const int nbodiesd, volatile int* co
           }
         }
         countd[k] = cnt;
-        m = 1.0f / cm;
+        m         = 1.0f / cm;
         // four writes due to missing copy constructor for "volatile float4"
         posMassd[k].x = px * m;
         posMassd[k].y = py * m;
@@ -484,20 +519,23 @@ void SummarizationKernel(const int nnodesd, const int nbodiesd, volatile int* co
   }
 }
 
-
 /******************************************************************************/
 /*** sort bodies **************************************************************/
 /******************************************************************************/
 
-__global__
-__launch_bounds__(THREADS4, FACTOR4)
-void SortKernel(const int nnodesd, const int nbodiesd, int* const __restrict__ sortd, const int* const __restrict__ countd, volatile int* const __restrict__ startd, int* const __restrict__ childd)
+__global__ __launch_bounds__(THREADS4,
+                             FACTOR4) void SortKernel(const int nnodesd,
+                                                      const int nbodiesd,
+                                                      int* const __restrict__ sortd,
+                                                      const int* const __restrict__ countd,
+                                                      volatile int* const __restrict__ startd,
+                                                      int* const __restrict__ childd)
 {
   int i, j, k, ch, dec, start, bottom;
 
   bottom = bottomd;
-  dec = blockDim.x * gridDim.x;
-  k = nnodesd + 1 - dec + threadIdx.x + blockIdx.x * blockDim.x;
+  dec    = blockDim.x * gridDim.x;
+  k      = nnodesd + 1 - dec + threadIdx.x + blockIdx.x * blockDim.x;
 
   // iterate over all cells assigned to thread
   while (k >= bottom) {
@@ -505,17 +543,17 @@ void SortKernel(const int nnodesd, const int nbodiesd, int* const __restrict__ s
     if (start >= 0) {
       j = 0;
       for (i = 0; i < 8; i++) {
-        ch = childd[k*8+i];
+        ch = childd[k * 8 + i];
         if (ch >= 0) {
           if (i != j) {
             // move children to front (needed later for speed)
-            childd[k*8+i] = -1;
-            childd[k*8+j] = ch;
+            childd[k * 8 + i] = -1;
+            childd[k * 8 + j] = ch;
           }
           j++;
           if (ch >= nbodiesd) {
             // child is a cell
-            startd[ch] = start;  // set start ID of child
+            startd[ch] = start;   // set start ID of child
             start += countd[ch];  // add #bodies in subtree
           } else {
             // child is a body
@@ -524,25 +562,32 @@ void SortKernel(const int nnodesd, const int nbodiesd, int* const __restrict__ s
           }
         }
       }
-      k -= dec;  // move on to next cell
+      k -= dec;       // move on to next cell
     }
     __syncthreads();  // optional barrier for performance
   }
 }
 
-
 /******************************************************************************/
 /*** compute force ************************************************************/
 /******************************************************************************/
 
-__global__
-__launch_bounds__(THREADS5, FACTOR5)
-void ForceCalculationKernel(const int nnodesd, const int nbodiesd, const float dthfd, const float itolsqd, const float epssqd, const int* const __restrict__ sortd, const int* const __restrict__ childd, const float4* const __restrict__ posMassd, float2* const __restrict__ veld, float4* const __restrict__ accVeld)
+__global__ __launch_bounds__(THREADS5, FACTOR5) void ForceCalculationKernel(
+  const int nnodesd,
+  const int nbodiesd,
+  const float dthfd,
+  const float itolsqd,
+  const float epssqd,
+  const int* const __restrict__ sortd,
+  const int* const __restrict__ childd,
+  const float4* const __restrict__ posMassd,
+  float2* const __restrict__ veld,
+  float4* const __restrict__ accVeld)
 {
   int i, j, k, n, depth, base, sbase, diff, pd, nd;
   float ax, ay, az, dx, dy, dz, tmp;
-  __shared__ volatile int pos[MAXDEPTH * THREADS5/WARPSIZE], node[MAXDEPTH * THREADS5/WARPSIZE];
-  __shared__ float dq[MAXDEPTH * THREADS5/WARPSIZE];
+  __shared__ volatile int pos[MAXDEPTH * THREADS5 / WARPSIZE], node[MAXDEPTH * THREADS5 / WARPSIZE];
+  __shared__ float dq[MAXDEPTH * THREADS5 / WARPSIZE];
 
   if (0 == threadIdx.x) {
     tmp = radiusd * 2;
@@ -557,15 +602,13 @@ void ForceCalculationKernel(const int nnodesd, const int nbodiesd, const float d
   __syncthreads();
 
   // figure out first thread in each warp (lane 0)
-  base = threadIdx.x / WARPSIZE;
+  base  = threadIdx.x / WARPSIZE;
   sbase = base * WARPSIZE;
-  j = base * MAXDEPTH;
+  j     = base * MAXDEPTH;
 
   diff = threadIdx.x - sbase;
   // make multiple copies to avoid index calculations later
-  if (diff < MAXDEPTH) {
-    dq[diff+j] = dq[diff];
-  }
+  if (diff < MAXDEPTH) { dq[diff + j] = dq[diff]; }
   __syncthreads();
 
   // iterate over all bodies assigned to thread
@@ -581,7 +624,7 @@ void ForceCalculationKernel(const int nnodesd, const int nbodiesd, const float d
     // initialize iteration stack, i.e., push root node onto stack
     depth = j;
     if (sbase == threadIdx.x) {
-      pos[j] = 0;
+      pos[j]  = 0;
       node[j] = nnodesd * 8;
     }
 
@@ -596,12 +639,15 @@ void ForceCalculationKernel(const int nnodesd, const int nbodiesd, const float d
 
         if (n >= 0) {
           const float4 pn = posMassd[n];
-          dx = pn.x - pi.x;
-          dy = pn.y - pi.y;
-          dz = pn.z - pi.z;
-          tmp = dx*dx + (dy*dy + (dz*dz + epssqd));  // compute distance squared (plus softening)
-          if ((n < nbodiesd) || __all_sync(0xffffffff, tmp >= dq[depth])) {  // check if all threads agree that cell is far enough away (or is a body)
-            tmp = rsqrtf(tmp);  // compute distance
+          dx              = pn.x - pi.x;
+          dy              = pn.y - pi.y;
+          dz              = pn.z - pi.z;
+          tmp =
+            dx * dx + (dy * dy + (dz * dz + epssqd));  // compute distance squared (plus softening)
+          if ((n < nbodiesd) ||
+              __all_sync(0xffffffff, tmp >= dq[depth])) {  // check if all threads agree that cell
+                                                           // is far enough away (or is a body)
+            tmp = rsqrtf(tmp);                             // compute distance
             tmp = pn.w * tmp * tmp * tmp;
             ax += dx * tmp;
             ay += dy * tmp;
@@ -609,7 +655,7 @@ void ForceCalculationKernel(const int nnodesd, const int nbodiesd, const float d
           } else {
             // push cell onto stack
             if (sbase == threadIdx.x) {
-              pos[depth] = pd;
+              pos[depth]  = pd;
               node[depth] = nd;
             }
             depth++;
@@ -634,21 +680,24 @@ void ForceCalculationKernel(const int nnodesd, const int nbodiesd, const float d
     }
 
     // save computed acceleration
-    acc.x = ax;
-    acc.y = ay;
-    acc.z = az;
+    acc.x      = ax;
+    acc.y      = ay;
+    acc.z      = az;
     accVeld[i] = acc;
   }
 }
-
 
 /******************************************************************************/
 /*** advance bodies ***********************************************************/
 /******************************************************************************/
 
-__global__
-__launch_bounds__(THREADS6, FACTOR6)
-void IntegrationKernel(const int nbodiesd, const float dtimed, const float dthfd, float4* const __restrict__ posMass, float2* const __restrict__ veld, float4* const __restrict__ accVeld)
+__global__ __launch_bounds__(THREADS6,
+                             FACTOR6) void IntegrationKernel(const int nbodiesd,
+                                                             const float dtimed,
+                                                             const float dthfd,
+                                                             float4* const __restrict__ posMass,
+                                                             float2* const __restrict__ veld,
+                                                             float4* const __restrict__ accVeld)
 {
   int i, inc;
   float dvelx, dvely, dvelz;
@@ -659,14 +708,14 @@ void IntegrationKernel(const int nbodiesd, const float dtimed, const float dthfd
   for (i = threadIdx.x + blockIdx.x * blockDim.x; i < nbodiesd; i += inc) {
     // integrate
     float4 acc = accVeld[i];
-    dvelx = acc.x * dthfd;
-    dvely = acc.y * dthfd;
-    dvelz = acc.z * dthfd;
+    dvelx      = acc.x * dthfd;
+    dvely      = acc.y * dthfd;
+    dvelz      = acc.z * dthfd;
 
     float2 v = veld[i];
-    velhx = v.x + dvelx;
-    velhy = v.y + dvely;
-    velhz = acc.w + dvelz;
+    velhx    = v.x + dvelx;
+    velhy    = v.y + dvely;
+    velhz    = acc.w + dvelz;
 
     float4 p = posMass[i];
     p.x += velhx * dtimed;
@@ -674,10 +723,10 @@ void IntegrationKernel(const int nbodiesd, const float dtimed, const float dthfd
     p.z += velhz * dtimed;
     posMass[i] = p;
 
-    v.x = velhx + dvelx;
-    v.y = velhy + dvely;
-    acc.w = velhz + dvelz;
-    veld[i] = v;
+    v.x        = velhx + dvelx;
+    v.y        = velhy + dvely;
+    acc.w      = velhz + dvelz;
+    veld[i]    = v;
     accVeld[i] = acc;
   }
 }
@@ -696,21 +745,19 @@ static void CudaTest(const char* const msg)
   }
 }
 
-
 /******************************************************************************/
 
-// random number generator (based on SPLASH-2 code at https://github.com/staceyson/splash2/blob/master/codes/apps/barnes/util.C)
+// random number generator (based on SPLASH-2 code at
+// https://github.com/staceyson/splash2/blob/master/codes/apps/barnes/util.C)
 
 static int randx = 7;
 
-
 static double drnd()
 {
-   const int lastrand = randx;
-   randx = (1103515245 * randx + 12345) & 0x7FFFFFFF;
-   return (double)lastrand / 2147483648.0;
+  const int lastrand = randx;
+  randx              = (1103515245 * randx + 12345) & 0x7FFFFFFF;
+  return (double)lastrand / 2147483648.0;
 }
-
 
 /******************************************************************************/
 
@@ -723,14 +770,14 @@ int main(int argc, char* argv[])
   float time, timing[7];
   cudaEvent_t start, stop;
 
-  float4 *accVel;
-  float2 *vel;
+  float4* accVel;
+  float2* vel;
   int *sortl, *childl, *countl, *startl;
-  float4 *accVell;
-  float2 *vell;
+  float4* accVell;
+  float2* vell;
   float3 *maxl, *minl;
-  float4 *posMassl;
-  float4 *posMass;
+  float4* posMassl;
+  float4* posMass;
   double rsc, vsc, r, v, x, y, z, sq, scale;
 
   // perform some checks
@@ -774,11 +821,16 @@ int main(int argc, char* argv[])
     exit(-1);
   }
 
-  blocks = deviceProp.multiProcessorCount;
+  blocks         = deviceProp.multiProcessorCount;
   const int mTSM = deviceProp.maxThreadsPerMultiProcessor;
-  printf("gpu: %s with %d SMs and %d mTpSM (%.1f MHz and %.1f MHz)\n", deviceProp.name, blocks, mTSM, deviceProp.clockRate * 0.001, deviceProp.memoryClockRate * 0.001);
+  printf("gpu: %s with %d SMs and %d mTpSM (%.1f MHz and %.1f MHz)\n",
+         deviceProp.name,
+         blocks,
+         mTSM,
+         deviceProp.clockRate * 0.001,
+         deviceProp.memoryClockRate * 0.001);
 
-  if ((WARPSIZE <= 0) || (WARPSIZE & (WARPSIZE-1) != 0)) {
+  if ((WARPSIZE <= 0) || (WARPSIZE & (WARPSIZE - 1) != 0)) {
     fprintf(stderr, "Warp size must be greater than zero and a power of two\n");
     exit(-1);
   }
@@ -786,7 +838,7 @@ int main(int argc, char* argv[])
     fprintf(stderr, "MAXDEPTH must be less than or equal to WARPSIZE\n");
     exit(-1);
   }
-  if ((THREADS1 <= 0) || (THREADS1 & (THREADS1-1) != 0)) {
+  if ((THREADS1 <= 0) || (THREADS1 & (THREADS1 - 1) != 0)) {
     fprintf(stderr, "THREADS1 must be greater than zero and a power of two\n");
     exit(-1);
   }
@@ -801,9 +853,10 @@ int main(int argc, char* argv[])
   cudaFuncSetCacheConfig(ForceCalculationKernel, cudaFuncCachePreferEqual);
   cudaFuncSetCacheConfig(IntegrationKernel, cudaFuncCachePreferL1);
 
-  cudaGetLastError();  // reset error value
+  cudaGetLastError();              // reset error value
   for (run = 0; run < 1; run++) {  // in case multiple runs are desired for timing
-    for (i = 0; i < 7; i++) timing[i] = 0.0f;
+    for (i = 0; i < 7; i++)
+      timing[i] = 0.0f;
 
     nbodies = atoi(argv[1]);
     if (nbodies < 1) {
@@ -815,14 +868,16 @@ int main(int argc, char* argv[])
       exit(-1);
     }
     nnodes = nbodies * 2;
-    if (nnodes < 1024*blocks) nnodes = 1024*blocks;
-    while ((nnodes & (WARPSIZE-1)) != 0) nnodes++;
+    if (nnodes < 1024 * blocks) nnodes = 1024 * blocks;
+    while ((nnodes & (WARPSIZE - 1)) != 0)
+      nnodes++;
     nnodes--;
 
     timesteps = atoi(argv[2]);
-    dtime = 0.025;  dthf = dtime * 0.5f;
-    epssq = 0.05 * 0.05;
-    itolsq = 1.0f / (0.5 * 0.5);
+    dtime     = 0.025;
+    dthf      = dtime * 0.5f;
+    epssq     = 0.05 * 0.05;
+    itolsq    = 1.0f / (0.5 * 0.5);
 
     // allocate memory
 
@@ -830,124 +885,181 @@ int main(int argc, char* argv[])
       printf("configuration: %d bodies, %d time steps\n", nbodies, timesteps);
 
       accVel = (float4*)malloc(sizeof(float4) * nbodies);
-      if (accVel == NULL) {fprintf(stderr, "cannot allocate accVel\n");  exit(-1);}
+      if (accVel == NULL) {
+        fprintf(stderr, "cannot allocate accVel\n");
+        exit(-1);
+      }
       vel = (float2*)malloc(sizeof(float2) * nbodies);
-      if (vel == NULL) {fprintf(stderr, "cannot allocate vel\n");  exit(-1);}
+      if (vel == NULL) {
+        fprintf(stderr, "cannot allocate vel\n");
+        exit(-1);
+      }
       posMass = (float4*)malloc(sizeof(float4) * nbodies);
-      if (posMass == NULL) {fprintf(stderr, "cannot allocate posMass\n");  exit(-1);}
+      if (posMass == NULL) {
+        fprintf(stderr, "cannot allocate posMass\n");
+        exit(-1);
+      }
 
-      if (cudaSuccess != cudaMalloc((void **)&childl, sizeof(int) * (nnodes+1) * 8)) fprintf(stderr, "could not allocate childd\n");  CudaTest("couldn't allocate childd");
-      if (cudaSuccess != cudaMalloc((void **)&vell, sizeof(float2) * (nnodes+1))) fprintf(stderr, "could not allocate veld\n");  CudaTest("couldn't allocate veld");
-      if (cudaSuccess != cudaMalloc((void **)&accVell, sizeof(float4) * (nnodes+1))) fprintf(stderr, "could not allocate accVeld\n");  CudaTest("couldn't allocate accVeld");
-      if (cudaSuccess != cudaMalloc((void **)&countl, sizeof(int) * (nnodes+1))) fprintf(stderr, "could not allocate countd\n");  CudaTest("couldn't allocate countd");
-      if (cudaSuccess != cudaMalloc((void **)&startl, sizeof(int) * (nnodes+1))) fprintf(stderr, "could not allocate startd\n");  CudaTest("couldn't allocate startd");
-      if (cudaSuccess != cudaMalloc((void **)&sortl, sizeof(int) * (nnodes+1))) fprintf(stderr, "could not allocate sortd\n");  CudaTest("couldn't allocate sortd");
+      if (cudaSuccess != cudaMalloc((void**)&childl, sizeof(int) * (nnodes + 1) * 8))
+        fprintf(stderr, "could not allocate childd\n");
+      CudaTest("couldn't allocate childd");
+      if (cudaSuccess != cudaMalloc((void**)&vell, sizeof(float2) * (nnodes + 1)))
+        fprintf(stderr, "could not allocate veld\n");
+      CudaTest("couldn't allocate veld");
+      if (cudaSuccess != cudaMalloc((void**)&accVell, sizeof(float4) * (nnodes + 1)))
+        fprintf(stderr, "could not allocate accVeld\n");
+      CudaTest("couldn't allocate accVeld");
+      if (cudaSuccess != cudaMalloc((void**)&countl, sizeof(int) * (nnodes + 1)))
+        fprintf(stderr, "could not allocate countd\n");
+      CudaTest("couldn't allocate countd");
+      if (cudaSuccess != cudaMalloc((void**)&startl, sizeof(int) * (nnodes + 1)))
+        fprintf(stderr, "could not allocate startd\n");
+      CudaTest("couldn't allocate startd");
+      if (cudaSuccess != cudaMalloc((void**)&sortl, sizeof(int) * (nnodes + 1)))
+        fprintf(stderr, "could not allocate sortd\n");
+      CudaTest("couldn't allocate sortd");
 
-      if (cudaSuccess != cudaMalloc((void **)&posMassl, sizeof(float4) * (nnodes+1))) fprintf(stderr, "could not allocate posMassd\n");  CudaTest("couldn't allocate posMassd");
+      if (cudaSuccess != cudaMalloc((void**)&posMassl, sizeof(float4) * (nnodes + 1)))
+        fprintf(stderr, "could not allocate posMassd\n");
+      CudaTest("couldn't allocate posMassd");
 
-      if (cudaSuccess != cudaMalloc((void **)&maxl, sizeof(float3) * blocks * FACTOR1)) fprintf(stderr, "could not allocate maxd\n");  CudaTest("couldn't allocate maxd");
-      if (cudaSuccess != cudaMalloc((void **)&minl, sizeof(float3) * blocks * FACTOR1)) fprintf(stderr, "could not allocate mind\n");  CudaTest("couldn't allocate mind");
+      if (cudaSuccess != cudaMalloc((void**)&maxl, sizeof(float3) * blocks * FACTOR1))
+        fprintf(stderr, "could not allocate maxd\n");
+      CudaTest("couldn't allocate maxd");
+      if (cudaSuccess != cudaMalloc((void**)&minl, sizeof(float3) * blocks * FACTOR1))
+        fprintf(stderr, "could not allocate mind\n");
+      CudaTest("couldn't allocate mind");
     }
 
-    // generate input (based on SPLASH-2 code at https://github.com/staceyson/splash2/blob/master/codes/apps/barnes/code.C)
+    // generate input (based on SPLASH-2 code at
+    // https://github.com/staceyson/splash2/blob/master/codes/apps/barnes/code.C)
 
     rsc = (3 * 3.1415926535897932384626433832795) / 16;
     vsc = sqrt(1.0 / rsc);
     for (i = 0; i < nbodies; i++) {
       float4 p;
       p.w = 1.0 / nbodies;
-      r = 1.0 / sqrt(pow(drnd()*0.999, -2.0/3.0) - 1);
+      r   = 1.0 / sqrt(pow(drnd() * 0.999, -2.0 / 3.0) - 1);
       do {
-        x = drnd()*2.0 - 1.0;
-        y = drnd()*2.0 - 1.0;
-        z = drnd()*2.0 - 1.0;
-        sq = x*x + y*y + z*z;
+        x  = drnd() * 2.0 - 1.0;
+        y  = drnd() * 2.0 - 1.0;
+        z  = drnd() * 2.0 - 1.0;
+        sq = x * x + y * y + z * z;
       } while (sq > 1.0);
-      scale = rsc * r / sqrt(sq);
-      p.x = x * scale;
-      p.y = y * scale;
-      p.z = z * scale;
+      scale      = rsc * r / sqrt(sq);
+      p.x        = x * scale;
+      p.y        = y * scale;
+      p.z        = z * scale;
       posMass[i] = p;
 
       do {
         x = drnd();
         y = drnd() * 0.1;
-      } while (y > x*x * pow(1 - x*x, 3.5));
-      v = x * sqrt(2.0 / sqrt(1 + r*r));
+      } while (y > x * x * pow(1 - x * x, 3.5));
+      v = x * sqrt(2.0 / sqrt(1 + r * r));
       do {
-        x = drnd()*2.0 - 1.0;
-        y = drnd()*2.0 - 1.0;
-        z = drnd()*2.0 - 1.0;
-        sq = x*x + y*y + z*z;
+        x  = drnd() * 2.0 - 1.0;
+        y  = drnd() * 2.0 - 1.0;
+        z  = drnd() * 2.0 - 1.0;
+        sq = x * x + y * y + z * z;
       } while (sq > 1.0);
       scale = vsc * v / sqrt(sq);
       float2 v;
-      v.x = x * scale;
-      v.y = y * scale;
+      v.x         = x * scale;
+      v.y         = y * scale;
       accVel[i].w = z * scale;
-      vel[i] = v;
+      vel[i]      = v;
     }
 
-    if (cudaSuccess != cudaMemcpy(accVell, accVel, sizeof(float4) * nbodies, cudaMemcpyHostToDevice)) fprintf(stderr, "copying of vel to device failed\n");  CudaTest("vel copy to device failed");
-    if (cudaSuccess != cudaMemcpy(vell, vel, sizeof(float2) * nbodies, cudaMemcpyHostToDevice)) fprintf(stderr, "copying of vel to device failed\n");  CudaTest("vel copy to device failed");
-    if (cudaSuccess != cudaMemcpy(posMassl, posMass, sizeof(float4) * nbodies, cudaMemcpyHostToDevice)) fprintf(stderr, "copying of posMass to device failed\n");  CudaTest("posMass copy to device failed");
+    if (cudaSuccess !=
+        cudaMemcpy(accVell, accVel, sizeof(float4) * nbodies, cudaMemcpyHostToDevice))
+      fprintf(stderr, "copying of vel to device failed\n");
+    CudaTest("vel copy to device failed");
+    if (cudaSuccess != cudaMemcpy(vell, vel, sizeof(float2) * nbodies, cudaMemcpyHostToDevice))
+      fprintf(stderr, "copying of vel to device failed\n");
+    CudaTest("vel copy to device failed");
+    if (cudaSuccess !=
+        cudaMemcpy(posMassl, posMass, sizeof(float4) * nbodies, cudaMemcpyHostToDevice))
+      fprintf(stderr, "copying of posMass to device failed\n");
+    CudaTest("posMass copy to device failed");
 
     // run timesteps (launch GPU kernels)
 
-    cudaEventCreate(&start);  cudaEventCreate(&stop);
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
     struct timeval starttime, endtime;
     gettimeofday(&starttime, NULL);
 
     cudaEventRecord(start, 0);
     InitializationKernel<<<1, 1>>>();
-    cudaEventRecord(stop, 0);  cudaEventSynchronize(stop);  cudaEventElapsedTime(&time, start, stop);
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&time, start, stop);
     timing[0] += time;
-    //CudaTest("kernel 0 launch failed");
+    // CudaTest("kernel 0 launch failed");
 
     for (step = 0; step < timesteps; step++) {
       cudaEventRecord(start, 0);
-      BoundingBoxKernel<<<blocks * FACTOR1, THREADS1>>>(nnodes, nbodies, startl, childl, posMassl, maxl, minl);
-      cudaEventRecord(stop, 0);  cudaEventSynchronize(stop);  cudaEventElapsedTime(&time, start, stop);
+      BoundingBoxKernel<<<blocks * FACTOR1, THREADS1>>>(
+        nnodes, nbodies, startl, childl, posMassl, maxl, minl);
+      cudaEventRecord(stop, 0);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&time, start, stop);
       timing[1] += time;
-      //CudaTest("kernel 1 launch failed");
+      // CudaTest("kernel 1 launch failed");
 
       cudaEventRecord(start, 0);
       ClearKernel1<<<blocks * 1, 1024>>>(nnodes, nbodies, childl);
       TreeBuildingKernel<<<blocks * FACTOR2, THREADS2>>>(nnodes, nbodies, childl, posMassl);
       ClearKernel2<<<blocks * 1, 1024>>>(nnodes, startl, posMassl);
-      cudaEventRecord(stop, 0);  cudaEventSynchronize(stop);  cudaEventElapsedTime(&time, start, stop);
+      cudaEventRecord(stop, 0);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&time, start, stop);
       timing[2] += time;
-      //CudaTest("kernel 2 launch failed");
+      // CudaTest("kernel 2 launch failed");
 
       cudaEventRecord(start, 0);
-      SummarizationKernel<<<blocks * FACTOR3, THREADS3>>>(nnodes, nbodies, countl, childl, posMassl);
-      cudaEventRecord(stop, 0);  cudaEventSynchronize(stop);  cudaEventElapsedTime(&time, start, stop);
+      SummarizationKernel<<<blocks * FACTOR3, THREADS3>>>(
+        nnodes, nbodies, countl, childl, posMassl);
+      cudaEventRecord(stop, 0);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&time, start, stop);
       timing[3] += time;
-      //CudaTest("kernel 3 launch failed");
+      // CudaTest("kernel 3 launch failed");
 
       cudaEventRecord(start, 0);
       SortKernel<<<blocks * FACTOR4, THREADS4>>>(nnodes, nbodies, sortl, countl, startl, childl);
-      cudaEventRecord(stop, 0);  cudaEventSynchronize(stop);  cudaEventElapsedTime(&time, start, stop);
+      cudaEventRecord(stop, 0);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&time, start, stop);
       timing[4] += time;
-      //CudaTest("kernel 4 launch failed");
+      // CudaTest("kernel 4 launch failed");
 
       cudaEventRecord(start, 0);
-      ForceCalculationKernel<<<blocks * FACTOR5, THREADS5>>>(nnodes, nbodies, dthf, itolsq, epssq, sortl, childl, posMassl, vell, accVell);
-      cudaEventRecord(stop, 0);  cudaEventSynchronize(stop);  cudaEventElapsedTime(&time, start, stop);
+      ForceCalculationKernel<<<blocks * FACTOR5, THREADS5>>>(
+        nnodes, nbodies, dthf, itolsq, epssq, sortl, childl, posMassl, vell, accVell);
+      cudaEventRecord(stop, 0);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&time, start, stop);
       timing[5] += time;
-      //CudaTest("kernel 5 launch failed");
+      // CudaTest("kernel 5 launch failed");
 
       cudaEventRecord(start, 0);
-      IntegrationKernel<<<blocks * FACTOR6, THREADS6>>>(nbodies, dtime, dthf, posMassl, vell, accVell);
-      cudaEventRecord(stop, 0);  cudaEventSynchronize(stop);  cudaEventElapsedTime(&time, start, stop);
+      IntegrationKernel<<<blocks * FACTOR6, THREADS6>>>(
+        nbodies, dtime, dthf, posMassl, vell, accVell);
+      cudaEventRecord(stop, 0);
+      cudaEventSynchronize(stop);
+      cudaEventElapsedTime(&time, start, stop);
       timing[6] += time;
-      //CudaTest("kernel 6 launch failed");
+      // CudaTest("kernel 6 launch failed");
     }
     CudaTest("kernel launch failed");
-    cudaEventDestroy(start);  cudaEventDestroy(stop);
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
 
     gettimeofday(&endtime, NULL);
-    runtime = (endtime.tv_sec + endtime.tv_usec/1000000.0 - starttime.tv_sec - starttime.tv_usec/1000000.0);
+    runtime = (endtime.tv_sec + endtime.tv_usec / 1000000.0 - starttime.tv_sec -
+               starttime.tv_usec / 1000000.0);
 
     printf("runtime: %.4lf s  (", runtime);
     time = 0;
@@ -959,15 +1071,22 @@ int main(int argc, char* argv[])
   }
 
   // transfer final result back to CPU
-  if (cudaSuccess != cudaMemcpy(accVel, accVell, sizeof(float4) * nbodies, cudaMemcpyDeviceToHost)) fprintf(stderr, "copying of accVel from device failed\n");  CudaTest("vel copy from device failed");
-  if (cudaSuccess != cudaMemcpy(vel, vell, sizeof(float2) * nbodies, cudaMemcpyDeviceToHost)) fprintf(stderr, "copying of vel from device failed\n");  CudaTest("vel copy from device failed");
-  if (cudaSuccess != cudaMemcpy(posMass, posMassl, sizeof(float4) * nbodies, cudaMemcpyDeviceToHost)) fprintf(stderr, "copying of posMass from device failed\n");  CudaTest("posMass copy from device failed");
+  if (cudaSuccess != cudaMemcpy(accVel, accVell, sizeof(float4) * nbodies, cudaMemcpyDeviceToHost))
+    fprintf(stderr, "copying of accVel from device failed\n");
+  CudaTest("vel copy from device failed");
+  if (cudaSuccess != cudaMemcpy(vel, vell, sizeof(float2) * nbodies, cudaMemcpyDeviceToHost))
+    fprintf(stderr, "copying of vel from device failed\n");
+  CudaTest("vel copy from device failed");
+  if (cudaSuccess !=
+      cudaMemcpy(posMass, posMassl, sizeof(float4) * nbodies, cudaMemcpyDeviceToHost))
+    fprintf(stderr, "copying of posMass from device failed\n");
+  CudaTest("posMass copy from device failed");
 
   // print output
   i = 0;
-//  for (i = 0; i < nbodies; i++) {
-    printf("%.2e %.2e %.2e\n", posMass[i].x, posMass[i].y, posMass[i].z);
-//  }
+  //  for (i = 0; i < nbodies; i++) {
+  printf("%.2e %.2e %.2e\n", posMass[i].x, posMass[i].y, posMass[i].z);
+  //  }
 
   free(vel);
   free(accVel);

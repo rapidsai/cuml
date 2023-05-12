@@ -14,26 +14,26 @@
  * limitations under the License.
  */
 #pragma once
-#include <stddef.h>
-#include <stdint.h>
 #include <algorithm>
 #include <cstddef>
 #include <cuml/experimental/fil/constants.hpp>
-#include <cuml/experimental/fil/postproc_ops.hpp>
-#include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/detail/device_initialization.hpp>
+#include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/infer.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
-#include <cuml/experimental/fil/detail/specialization_types.hpp>
-#include <cuml/experimental/fil/exceptions.hpp>
-#include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/exceptions.hpp>
+#include <cuml/experimental/fil/detail/specialization_types.hpp>
+#include <cuml/experimental/fil/exceptions.hpp>
+#include <cuml/experimental/fil/infer_kind.hpp>
+#include <cuml/experimental/fil/postproc_ops.hpp>
 #include <cuml/experimental/fil/tree_layout.hpp>
 #include <limits>
 #include <optional>
+#include <stddef.h>
+#include <stdint.h>
 #include <variant>
 
 namespace ML {
@@ -63,9 +63,12 @@ namespace fil {
  * its most distant child. This type must be large enough to store the
  * largest such offset in the entire forest.
  */
-template <tree_layout layout_v, typename threshold_t, typename index_t, typename metadata_storage_t, typename offset_t>
+template <tree_layout layout_v,
+          typename threshold_t,
+          typename index_t,
+          typename metadata_storage_t,
+          typename offset_t>
 struct decision_forest {
-
   /**
    * The in-memory layout of nodes in this forest
    */
@@ -74,13 +77,7 @@ struct decision_forest {
    * The type of the forest object which is actually passed to the CPU/GPU
    * for inference
    */
-  using forest_type = forest<
-    layout,
-    threshold_t,
-    index_t,
-    metadata_storage_t,
-    offset_t
-  >;
+  using forest_type = forest<layout, threshold_t, index_t, metadata_storage_t, offset_t>;
   /**
    * The type of nodes within the forest
    */
@@ -105,20 +102,22 @@ struct decision_forest {
   /**
    * Construct an empty decision forest
    */
-  decision_forest() :
-    nodes_{},
-    root_node_indexes_{},
-    vector_output_{},
-    categorical_storage_{},
-    num_features_{},
-    num_outputs_{},
-    leaf_size_{},
-    has_categorical_nodes_{false},
-    row_postproc_{},
-    elem_postproc_{},
-    average_factor_{},
-    bias_{},
-    postproc_constant_{} {}
+  decision_forest()
+    : nodes_{},
+      root_node_indexes_{},
+      vector_output_{},
+      categorical_storage_{},
+      num_features_{},
+      num_outputs_{},
+      leaf_size_{},
+      has_categorical_nodes_{false},
+      row_postproc_{},
+      elem_postproc_{},
+      average_factor_{},
+      bias_{},
+      postproc_constant_{}
+  {
+  }
 
   /**
    * Construct a decision forest with the indicated data
@@ -154,44 +153,41 @@ struct decision_forest {
    * operations, including sigmoid, exponential, and
    * logarithm_one_plus_exp
    */
-  decision_forest(
-    raft_proto::buffer<node_type>&& nodes,
-    raft_proto::buffer<index_type>&& root_node_indexes,
-    index_type num_features,
-    index_type num_outputs=index_type{2},
-    bool has_categorical_nodes = false,
-    std::optional<raft_proto::buffer<io_type>>&& vector_output=std::nullopt,
-    std::optional<raft_proto::buffer<typename node_type::index_type>>&& categorical_storage=std::nullopt,
-    index_type leaf_size=index_type{1},
-    row_op row_postproc=row_op::disable,
-    element_op elem_postproc=element_op::disable,
-    io_type average_factor=io_type{1},
-    io_type bias=io_type{0},
-    io_type postproc_constant=io_type{1}
-  ) :
-    nodes_{nodes},
-    root_node_indexes_{root_node_indexes},
-    vector_output_{vector_output},
-    categorical_storage_{categorical_storage},
-    num_features_{num_features},
-    num_outputs_{num_outputs},
-    leaf_size_{leaf_size},
-    has_categorical_nodes_{has_categorical_nodes},
-    row_postproc_{row_postproc},
-    elem_postproc_{elem_postproc},
-    average_factor_{average_factor},
-    bias_{bias},
-    postproc_constant_{postproc_constant}
+  decision_forest(raft_proto::buffer<node_type>&& nodes,
+                  raft_proto::buffer<index_type>&& root_node_indexes,
+                  index_type num_features,
+                  index_type num_outputs                                     = index_type{2},
+                  bool has_categorical_nodes                                 = false,
+                  std::optional<raft_proto::buffer<io_type>>&& vector_output = std::nullopt,
+                  std::optional<raft_proto::buffer<typename node_type::index_type>>&&
+                    categorical_storage     = std::nullopt,
+                  index_type leaf_size      = index_type{1},
+                  row_op row_postproc       = row_op::disable,
+                  element_op elem_postproc  = element_op::disable,
+                  io_type average_factor    = io_type{1},
+                  io_type bias              = io_type{0},
+                  io_type postproc_constant = io_type{1})
+    : nodes_{nodes},
+      root_node_indexes_{root_node_indexes},
+      vector_output_{vector_output},
+      categorical_storage_{categorical_storage},
+      num_features_{num_features},
+      num_outputs_{num_outputs},
+      leaf_size_{leaf_size},
+      has_categorical_nodes_{has_categorical_nodes},
+      row_postproc_{row_postproc},
+      elem_postproc_{elem_postproc},
+      average_factor_{average_factor},
+      bias_{bias},
+      postproc_constant_{postproc_constant}
   {
     if (nodes.memory_type() != root_node_indexes.memory_type()) {
       throw raft_proto::mem_type_mismatch(
-        "Nodes and indexes of forest must both be stored on either host or device"
-      );
+        "Nodes and indexes of forest must both be stored on either host or device");
     }
     if (nodes.device_index() != root_node_indexes.device_index()) {
       throw raft_proto::mem_type_mismatch(
-        "Nodes and indexes of forest must both be stored on same device"
-      );
+        "Nodes and indexes of forest must both be stored on same device");
     }
     detail::initialize_device<forest_type>(nodes.device());
   }
@@ -205,15 +201,12 @@ struct decision_forest {
 
   /** The number of outputs per row generated by the model for the given
    * type of inference */
-  auto num_outputs(
-    infer_kind inference_kind=infer_kind::default_kind
-  ) const {
+  auto num_outputs(infer_kind inference_kind = infer_kind::default_kind) const
+  {
     auto result = num_outputs_;
     if (inference_kind == infer_kind::per_tree) {
       result = num_trees();
-      if (has_vector_leaves()) {
-        result *= num_outputs_;
-      }
+      if (has_vector_leaves()) { result *= num_outputs_; }
     }
     return result;
   }
@@ -225,13 +218,9 @@ struct decision_forest {
   auto elem_postprocessing() const { return elem_postproc_; }
 
   /** The type of memory (device/host) where the model is stored */
-  auto memory_type() {
-    return nodes_.memory_type();
-  }
+  auto memory_type() { return nodes_.memory_type(); }
   /** The ID of the device on which this model is loaded */
-  auto device_index() {
-    return nodes_.device_index();
-  }
+  auto device_index() { return nodes_.device_index(); }
 
   /**
    * Perform inference with this model
@@ -253,65 +242,56 @@ struct decision_forest {
    * 1 to 32 is a valid value, and in general larger batches benefit from
    * larger values.
    */
-  void predict(
-    raft_proto::buffer<typename forest_type::io_type>& output,
-    raft_proto::buffer<typename forest_type::io_type> const& input,
-    raft_proto::cuda_stream stream = raft_proto::cuda_stream{},
-    infer_kind predict_type=infer_kind::default_kind,
-    std::optional<index_type> specified_rows_per_block_iter=std::nullopt
-  ) {
+  void predict(raft_proto::buffer<typename forest_type::io_type>& output,
+               raft_proto::buffer<typename forest_type::io_type> const& input,
+               raft_proto::cuda_stream stream                          = raft_proto::cuda_stream{},
+               infer_kind predict_type                                 = infer_kind::default_kind,
+               std::optional<index_type> specified_rows_per_block_iter = std::nullopt)
+  {
     if (output.memory_type() != memory_type() || input.memory_type() != memory_type()) {
       throw raft_proto::wrong_device_type{
-        "Tried to use host I/O data with model on device or vice versa"
-      };
+        "Tried to use host I/O data with model on device or vice versa"};
     }
     if (output.device_index() != device_index() || input.device_index() != device_index()) {
-      throw raft_proto::wrong_device{
-        "I/O data on different device than model"
-      };
+      throw raft_proto::wrong_device{"I/O data on different device than model"};
     }
-    auto* vector_output_data = (
-      vector_output_.has_value() ? vector_output_->data() : static_cast<io_type*>(nullptr)
-    );
-    auto* categorical_storage_data = (
-      categorical_storage_.has_value() ? categorical_storage_->data() : static_cast<categorical_storage_type*>(nullptr)
-    );
-    switch(nodes_.device().index()) {
+    auto* vector_output_data =
+      (vector_output_.has_value() ? vector_output_->data() : static_cast<io_type*>(nullptr));
+    auto* categorical_storage_data =
+      (categorical_storage_.has_value() ? categorical_storage_->data()
+                                        : static_cast<categorical_storage_type*>(nullptr));
+    switch (nodes_.device().index()) {
       case 0:
-        fil::detail::infer(
-          obj(),
-          get_postprocessor(predict_type),
-          output.data(),
-          input.data(),
-          index_type(input.size() / num_features_),
-          num_features_,
-          num_outputs(predict_type),
-          has_categorical_nodes_,
-          vector_output_data,
-          categorical_storage_data,
-          predict_type,
-          specified_rows_per_block_iter,
-          std::get<0>(nodes_.device()),
-          stream
-        );
+        fil::detail::infer(obj(),
+                           get_postprocessor(predict_type),
+                           output.data(),
+                           input.data(),
+                           index_type(input.size() / num_features_),
+                           num_features_,
+                           num_outputs(predict_type),
+                           has_categorical_nodes_,
+                           vector_output_data,
+                           categorical_storage_data,
+                           predict_type,
+                           specified_rows_per_block_iter,
+                           std::get<0>(nodes_.device()),
+                           stream);
         break;
       case 1:
-        fil::detail::infer(
-          obj(),
-          get_postprocessor(predict_type),
-          output.data(),
-          input.data(),
-          index_type(input.size() / num_features_),
-          num_features_,
-          num_outputs(predict_type),
-          has_categorical_nodes_,
-          vector_output_data,
-          categorical_storage_data,
-          predict_type,
-          specified_rows_per_block_iter,
-          std::get<1>(nodes_.device()),
-          stream
-        );
+        fil::detail::infer(obj(),
+                           get_postprocessor(predict_type),
+                           output.data(),
+                           input.data(),
+                           index_type(input.size() / num_features_),
+                           num_features_,
+                           num_outputs(predict_type),
+                           has_categorical_nodes_,
+                           vector_output_data,
+                           categorical_storage_data,
+                           predict_type,
+                           specified_rows_per_block_iter,
+                           std::get<1>(nodes_.device()),
+                           stream);
         break;
     }
   }
@@ -339,27 +319,20 @@ struct decision_forest {
   io_type bias_;
   io_type postproc_constant_;
 
-  auto obj() const {
-    return forest_type{
-      nodes_.data(),
-      root_node_indexes_.data(),
-      static_cast<index_type>(root_node_indexes_.size()),
-      num_outputs_
-    };
+  auto obj() const
+  {
+    return forest_type{nodes_.data(),
+                       root_node_indexes_.data(),
+                       static_cast<index_type>(root_node_indexes_.size()),
+                       num_outputs_};
   }
 
-  auto get_postprocessor(
-    infer_kind inference_kind=infer_kind::default_kind
-  ) const {
+  auto get_postprocessor(infer_kind inference_kind = infer_kind::default_kind) const
+  {
     auto result = postprocessor_type{};
     if (inference_kind == infer_kind::default_kind) {
-      result = postprocessor_type {
-        row_postproc_,
-        elem_postproc_,
-        average_factor_,
-        bias_,
-        postproc_constant_
-      };
+      result = postprocessor_type{
+        row_postproc_, elem_postproc_, average_factor_, bias_, postproc_constant_};
     }
     return result;
   }
@@ -381,64 +354,50 @@ namespace detail {
  * @tparam large_trees Whether this forest expects more than 2**(16 -3) - 1 =
  * 8191 features or contains nodes whose child is offset more than 2**16 - 1 = 65535 nodes away.
  */
-template<
-  tree_layout layout,
-  bool double_precision,
-  bool large_trees
->
+template <tree_layout layout, bool double_precision, bool large_trees>
 using preset_decision_forest = decision_forest<
   layout,
   typename specialization_types<layout, double_precision, large_trees>::threshold_type,
   typename specialization_types<layout, double_precision, large_trees>::index_type,
   typename specialization_types<layout, double_precision, large_trees>::metadata_type,
-  typename specialization_types<layout, double_precision, large_trees>::offset_type
->;
+  typename specialization_types<layout, double_precision, large_trees>::offset_type>;
 
-}
+}  // namespace detail
 
 /** A variant containing all standard decision_forest instantiations */
-using decision_forest_variant = std::variant<
-  detail::preset_decision_forest<
-    std::variant_alternative_t<0, detail::specialization_variant>::layout,
-    std::variant_alternative_t<0, detail::specialization_variant>::is_double_precision,
-    std::variant_alternative_t<0, detail::specialization_variant>::has_large_trees
-  >,
-  detail::preset_decision_forest<
-    std::variant_alternative_t<1, detail::specialization_variant>::layout,
-    std::variant_alternative_t<1, detail::specialization_variant>::is_double_precision,
-    std::variant_alternative_t<1, detail::specialization_variant>::has_large_trees
-  >,
-  detail::preset_decision_forest<
-    std::variant_alternative_t<2, detail::specialization_variant>::layout,
-    std::variant_alternative_t<2, detail::specialization_variant>::is_double_precision,
-    std::variant_alternative_t<2, detail::specialization_variant>::has_large_trees
-  >,
-  detail::preset_decision_forest<
-    std::variant_alternative_t<3, detail::specialization_variant>::layout,
-    std::variant_alternative_t<3, detail::specialization_variant>::is_double_precision,
-    std::variant_alternative_t<3, detail::specialization_variant>::has_large_trees
-  >,
-  detail::preset_decision_forest<
-    std::variant_alternative_t<4, detail::specialization_variant>::layout,
-    std::variant_alternative_t<4, detail::specialization_variant>::is_double_precision,
-    std::variant_alternative_t<4, detail::specialization_variant>::has_large_trees
-  >,
-  detail::preset_decision_forest<
-    std::variant_alternative_t<5, detail::specialization_variant>::layout,
-    std::variant_alternative_t<5, detail::specialization_variant>::is_double_precision,
-    std::variant_alternative_t<5, detail::specialization_variant>::has_large_trees
-  >,
-  detail::preset_decision_forest<
-    std::variant_alternative_t<6, detail::specialization_variant>::layout,
-    std::variant_alternative_t<6, detail::specialization_variant>::is_double_precision,
-    std::variant_alternative_t<6, detail::specialization_variant>::has_large_trees
-  >,
-  detail::preset_decision_forest<
-    std::variant_alternative_t<7, detail::specialization_variant>::layout,
-    std::variant_alternative_t<7, detail::specialization_variant>::is_double_precision,
-    std::variant_alternative_t<7, detail::specialization_variant>::has_large_trees
-  >
->;
+using decision_forest_variant =
+  std::variant<detail::preset_decision_forest<
+                 std::variant_alternative_t<0, detail::specialization_variant>::layout,
+                 std::variant_alternative_t<0, detail::specialization_variant>::is_double_precision,
+                 std::variant_alternative_t<0, detail::specialization_variant>::has_large_trees>,
+               detail::preset_decision_forest<
+                 std::variant_alternative_t<1, detail::specialization_variant>::layout,
+                 std::variant_alternative_t<1, detail::specialization_variant>::is_double_precision,
+                 std::variant_alternative_t<1, detail::specialization_variant>::has_large_trees>,
+               detail::preset_decision_forest<
+                 std::variant_alternative_t<2, detail::specialization_variant>::layout,
+                 std::variant_alternative_t<2, detail::specialization_variant>::is_double_precision,
+                 std::variant_alternative_t<2, detail::specialization_variant>::has_large_trees>,
+               detail::preset_decision_forest<
+                 std::variant_alternative_t<3, detail::specialization_variant>::layout,
+                 std::variant_alternative_t<3, detail::specialization_variant>::is_double_precision,
+                 std::variant_alternative_t<3, detail::specialization_variant>::has_large_trees>,
+               detail::preset_decision_forest<
+                 std::variant_alternative_t<4, detail::specialization_variant>::layout,
+                 std::variant_alternative_t<4, detail::specialization_variant>::is_double_precision,
+                 std::variant_alternative_t<4, detail::specialization_variant>::has_large_trees>,
+               detail::preset_decision_forest<
+                 std::variant_alternative_t<5, detail::specialization_variant>::layout,
+                 std::variant_alternative_t<5, detail::specialization_variant>::is_double_precision,
+                 std::variant_alternative_t<5, detail::specialization_variant>::has_large_trees>,
+               detail::preset_decision_forest<
+                 std::variant_alternative_t<6, detail::specialization_variant>::layout,
+                 std::variant_alternative_t<6, detail::specialization_variant>::is_double_precision,
+                 std::variant_alternative_t<6, detail::specialization_variant>::has_large_trees>,
+               detail::preset_decision_forest<
+                 std::variant_alternative_t<7, detail::specialization_variant>::layout,
+                 std::variant_alternative_t<7, detail::specialization_variant>::is_double_precision,
+                 std::variant_alternative_t<7, detail::specialization_variant>::has_large_trees>>;
 
 /**
  * Determine the variant index of the decision_forest type to used based on
@@ -458,50 +417,43 @@ using decision_forest_variant = std::variant<
  * models, this should be the total number of leaf nodes.
  * @param layout The in-memory layout to be used for nodes in the forest
  */
-inline auto get_forest_variant_index(
-  bool use_double_thresholds,
-  index_type max_node_offset,
-  index_type num_features,
-  index_type num_categorical_nodes = index_type{},
-  index_type max_num_categories = index_type{},
-  index_type num_vector_leaves = index_type{},
-  tree_layout layout = preferred_tree_layout
-) {
-  using small_index_t = typename detail::specialization_types<preferred_tree_layout, false, false>::index_type;
+inline auto get_forest_variant_index(bool use_double_thresholds,
+                                     index_type max_node_offset,
+                                     index_type num_features,
+                                     index_type num_categorical_nodes = index_type{},
+                                     index_type max_num_categories    = index_type{},
+                                     index_type num_vector_leaves     = index_type{},
+                                     tree_layout layout               = preferred_tree_layout)
+{
+  using small_index_t =
+    typename detail::specialization_types<preferred_tree_layout, false, false>::index_type;
   auto max_local_categories = index_type(sizeof(small_index_t) * 8);
   // If the index required for pointing to categorical storage bins or vector
   // leaf output exceeds what we can store in a uint32_t, uint64_t will be used
   //
   // TODO(wphicks): We are overestimating categorical storage required here
-  auto double_indexes_required = (
-    max_num_categories > max_local_categories
-    && (
-      (
-        raft_proto::ceildiv(max_num_categories, max_local_categories) + 1
-        * num_categorical_nodes
-      ) > std::numeric_limits<small_index_t>::max()
-    )
-  ) || num_vector_leaves > std::numeric_limits<small_index_t>::max();
+  auto double_indexes_required =
+    (max_num_categories > max_local_categories &&
+     ((raft_proto::ceildiv(max_num_categories, max_local_categories) + 1 * num_categorical_nodes) >
+      std::numeric_limits<small_index_t>::max())) ||
+    num_vector_leaves > std::numeric_limits<small_index_t>::max();
 
   auto double_precision = use_double_thresholds || double_indexes_required;
 
-  using small_metadata_t = typename detail::specialization_types<preferred_tree_layout, false, false>::metadata_type;
-  using small_offset_t = typename detail::specialization_types<preferred_tree_layout, false, false>::offset_type;
+  using small_metadata_t =
+    typename detail::specialization_types<preferred_tree_layout, false, false>::metadata_type;
+  using small_offset_t =
+    typename detail::specialization_types<preferred_tree_layout, false, false>::offset_type;
 
-  auto large_trees = (
-    num_features > (
-      std::numeric_limits<small_metadata_t>::max() >> reserved_node_metadata_bits
-    ) || max_node_offset > std::numeric_limits<small_offset_t>::max()
-  );
+  auto large_trees =
+    (num_features > (std::numeric_limits<small_metadata_t>::max() >> reserved_node_metadata_bits) ||
+     max_node_offset > std::numeric_limits<small_offset_t>::max());
 
   auto layout_value = static_cast<std::underlying_type_t<tree_layout>>(layout);
 
-  return (
-    (index_type{layout_value} << index_type{2})
-    + (index_type{double_precision} << index_type{1})
-    + index_type{large_trees}
-  );
+  return ((index_type{layout_value} << index_type{2}) +
+          (index_type{double_precision} << index_type{1}) + index_type{large_trees});
 }
-}
-}
-}
+}  // namespace fil
+}  // namespace experimental
+}  // namespace ML

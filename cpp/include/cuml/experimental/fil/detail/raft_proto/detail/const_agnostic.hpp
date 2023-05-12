@@ -24,4 +24,4 @@ using const_agnostic_same_t =
 template <typename T, typename U>
 inline constexpr auto const_agnostic_same_v =
   std::is_same_v<std::remove_const_t<T>, std::remove_const_t<U>>;
-}
+}  // namespace raft_proto

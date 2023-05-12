@@ -235,6 +235,9 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
   double score;
 };
 
+#if 0
+// gtest-1.11.0 makes it a runtime error to define and not instantiate this test case.
+
 typedef ClusterCondensingTest<float, int> ClusterCondensingTestF_Int;
 TEST_P(ClusterCondensingTestF_Int, Result) { EXPECT_TRUE(score == 1.0); }
 
@@ -242,6 +245,8 @@ TEST_P(ClusterCondensingTestF_Int, Result) { EXPECT_TRUE(score == 1.0); }
 // test Cluster Condensation correctly
 // INSTANTIATE_TEST_CASE_P(ClusterCondensingTest, ClusterCondensingTestF_Int,
 //                         ::testing::ValuesIn(cluster_condensing_inputs));
+
+#endif
 
 template <typename T, typename IdxT>
 class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInputs<T, IdxT>> {
