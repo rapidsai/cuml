@@ -152,6 +152,19 @@ TYPED_TEST(WorkingSetTest, Select)
 // See Issue #946
 //}
 
+struct KernelCacheTestInput {
+  bool sparse;
+  bool batching;
+  bool sparse_compute;
+};
+
+std::ostream& operator<<(std::ostream& os, const KernelCacheTestInput& b)
+{
+  os << "sparse=" << b.sparse << ", batching=" << b.batching
+     << ", sparse_compute=" << b.sparse_compute;
+  return os;
+}
+
 template <typename math_t>
 class KernelCacheTest : public ::testing::Test {
  public:
@@ -161,9 +174,15 @@ class KernelCacheTest : public ::testing::Test {
       n_cols(2),
       n_ws(3),
       x_dev(n_rows * n_cols, stream),
+      x_indptr_dev(n_rows + 1, stream),
+      x_indices_dev(n_rows * n_cols, stream),
+      x_data_dev(n_rows * n_cols, stream),
       ws_idx_dev(2 * n_ws, stream)
   {
     raft::update_device(x_dev.data(), x_host, n_rows * n_cols, stream);
+    raft::update_device(x_indptr_dev.data(), x_host_indptr, n_rows + 1, stream);
+    raft::update_device(x_indices_dev.data(), x_host_indices, n_rows * n_cols, stream);
+    raft::update_device(x_data_dev.data(), x_host_data, n_rows * n_cols, stream);
     raft::update_device(ws_idx_dev.data(), ws_idx_host, n_ws, stream);
   }
 
@@ -201,38 +220,47 @@ class KernelCacheTest : public ::testing::Test {
     }
   }
 
-  void check(const math_t* tile_dev, int n_ws, int n_rows, const int* ws_idx, const int* kColIdx)
+  void check(typename KernelCache<math_t>::BatchDescriptor batch_descriptor)
   {
+    int nnz_da  = batch_descriptor.nnz_da;
     auto stream = this->handle.get_stream();
-    std::vector<int> ws_idx_h(n_ws);
-    raft::update_host(ws_idx_h.data(), ws_idx, n_ws, stream);
-    std::vector<int> kidx_h(n_ws);
-    raft::update_host(kidx_h.data(), kColIdx, n_ws, stream);
+    std::vector<int> ws_idx_h(nnz_da);
+    raft::update_host(ws_idx_h.data(), batch_descriptor.nz_da_idx, nnz_da, stream);
     handle.sync_stream(stream);
     // Note: kernel cache can permute the working set, so we have to look
     // up which rows we compare
-    for (int i = 0; i < n_ws; i++) {
+    for (int i = 0; i < nnz_da; i++) {
       SCOPED_TRACE(i);
-      int widx                = ws_idx_h[i] % n_rows;
-      int kidx                = kidx_h[i];
-      const math_t* cache_row = tile_dev + kidx * n_rows;
-      const math_t* row_exp   = tile_host_all + widx * n_rows;
-      EXPECT_TRUE(devArrMatchHost(
-        row_exp, cache_row, n_rows, MLCommon::CompareApprox<math_t>(1e-6f), stream));
+      const math_t* cache_row = batch_descriptor.kernel_data + i * batch_descriptor.batch_size;
+      const math_t* row_exp = tile_host_all + ws_idx_h[i] * this->n_rows + batch_descriptor.offset;
+      EXPECT_TRUE(devArrMatchHost(row_exp,
+                                  cache_row,
+                                  batch_descriptor.batch_size,
+                                  MLCommon::CompareApprox<math_t>(1e-6f),
+                                  stream));
     }
   }
 
   raft::handle_t handle;
   cudaStream_t stream = 0;
 
-  int n_rows;
-  int n_cols;
+  int n_rows;  // =4
+  int n_cols;  // =2
   int n_ws;
 
   rmm::device_uvector<math_t> x_dev;
   rmm::device_uvector<int> ws_idx_dev;
 
-  math_t x_host[8]              = {1, 2, 3, 4, 5, 6, 7, 8};
+  math_t x_host[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+
+  // csr representation
+  int x_host_indptr[5]  = {0, 2, 4, 6, 8};
+  int x_host_indices[8] = {0, 1, 0, 1, 0, 1, 0, 1};
+  math_t x_host_data[8] = {1, 5, 2, 6, 3, 7, 4, 8};
+  rmm::device_uvector<int> x_indptr_dev;
+  rmm::device_uvector<int> x_indices_dev;
+  rmm::device_uvector<math_t> x_data_dev;
+
   int ws_idx_host[4]            = {0, 1, 3};
   math_t tile_host_expected[12] = {26, 32, 38, 44, 32, 40, 48, 56, 44, 56, 68, 80};
   math_t tile_host_all[16]      = {26, 32, 38, 44, 32, 40, 48, 56, 38, 48, 58, 68, 44, 56, 68, 80};
@@ -249,51 +277,96 @@ TYPED_TEST_P(KernelCacheTest, EvalTest)
                                       KernelParams{RBF, 2, 0.5, 0}};
   float cache_size = 0;
 
+  MLCommon::Matrix::DenseMatrix matrix_wrapper(this->x_dev.data(), this->n_rows, this->n_cols);
+
   for (auto params : param_vec) {
     GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(params);
-    KernelCacheOld<TypeParam> cache(this->handle,
-                                    this->x_dev.data(),
-                                    this->n_rows,
-                                    this->n_cols,
-                                    this->n_ws,
-                                    kernel,
-                                    cache_size,
-                                    C_SVC);
-    TypeParam* tile_dev = cache.GetTile(this->ws_idx_dev.data());
+    KernelCache<TypeParam> cache(this->handle,
+                                 matrix_wrapper,
+                                 this->n_rows,
+                                 this->n_cols,
+                                 this->n_ws,
+                                 kernel,
+                                 params.kernel,
+                                 cache_size,
+                                 C_SVC);
+
+    cache.InitWorkingSet(this->ws_idx_dev.data());
+    auto batch_descriptor = cache.InitFullTileBatching(cache.getKernelIndices(false), this->n_ws);
+
+    // there should be only one batch for this test that contains the full n_rows x n_ws tile
+    ASSERT_TRUE(cache.getNextBatchKernel(batch_descriptor));
+
     // apply nonlinearity on tile_host_expected
     this->ApplyNonlin(params);
     ASSERT_TRUE(devArrMatchHost(this->tile_host_expected,
-                                tile_dev,
+                                batch_descriptor.kernel_data,
                                 this->n_rows * this->n_ws,
                                 MLCommon::CompareApprox<TypeParam>(1e-6f),
                                 stream));
+
+    ASSERT_FALSE(cache.getNextBatchKernel(batch_descriptor));
     delete kernel;
   }
 }
 
-TYPED_TEST_P(KernelCacheTest, CacheEvalTest)
+TYPED_TEST_P(KernelCacheTest, SvcCacheEvalTest)
 {
   KernelParams param{LINEAR, 3, 1, 0};
   float cache_size = sizeof(TypeParam) * this->n_rows * 32 / (1024.0 * 1024);
 
-  GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param);
-  KernelCacheOld<TypeParam> cache(this->handle,
-                                  this->x_dev.data(),
-                                  this->n_rows,
-                                  this->n_cols,
-                                  this->n_ws,
-                                  kernel,
-                                  cache_size,
-                                  C_SVC);
-  for (int i = 0; i < 2; i++) {
-    // We calculate cache tile multiple times to see if cache lookup works
-    TypeParam* tile_dev = cache.GetTile(this->ws_idx_dev.data());
-    this->check(tile_dev, this->n_ws, this->n_rows, cache.GetWsIndices(), cache.GetColIdxMap());
+  std::vector<KernelCacheTestInput> data{{KernelCacheTestInput{false, false, false}},
+                                         {KernelCacheTestInput{false, true, false}},
+                                         {KernelCacheTestInput{true, false, false}},
+                                         {KernelCacheTestInput{true, true, false}},
+                                         {KernelCacheTestInput{true, false, true}},
+                                         {KernelCacheTestInput{true, true, true}}};
+
+  for (auto input : data) {
+    SCOPED_TRACE(input);
+
+    size_t tile_byte_limit   = input.batching ? (2 * this->n_ws * sizeof(TypeParam)) : (1 << 30);
+    size_t sparse_byte_limit = input.sparse_compute ? 1 : (1 << 30);
+    MLCommon::Matrix::Matrix<TypeParam>* matrix_wrapper;
+    if (input.sparse) {
+      matrix_wrapper = new MLCommon::Matrix::CsrMatrix(this->x_indptr_dev.data(),
+                                                       this->x_indices_dev.data(),
+                                                       this->x_data_dev.data(),
+                                                       this->n_rows * this->n_cols,
+                                                       this->n_rows,
+                                                       this->n_cols);
+    } else {
+      matrix_wrapper =
+        new MLCommon::Matrix::DenseMatrix(this->x_dev.data(), this->n_rows, this->n_cols);
+    }
+
+    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param);
+    KernelCache<TypeParam> cache(this->handle,
+                                 *matrix_wrapper,
+                                 this->n_rows,
+                                 this->n_cols,
+                                 this->n_ws,
+                                 kernel,
+                                 param.kernel,
+                                 cache_size,
+                                 C_SVC,
+                                 tile_byte_limit,
+                                 sparse_byte_limit);
+    for (int i = 0; i < 2; i++) {
+      // We calculate cache tile multiple times to see if cache lookup works
+      cache.InitWorkingSet(this->ws_idx_dev.data());
+      auto batch_descriptor = cache.InitFullTileBatching(cache.getKernelIndices(false), this->n_ws);
+      while (cache.getNextBatchKernel(batch_descriptor)) {
+        this->check(batch_descriptor);
+      }
+    }
+
+    delete matrix_wrapper;
+    delete kernel;
   }
-  delete kernel;
 }
 
-TYPED_TEST_P(KernelCacheTest, SvrEvalTest)
+TYPED_TEST_P(KernelCacheTest, SvrCacheEvalTest)
 {
   KernelParams param{LINEAR, 3, 1, 0};
   float cache_size = sizeof(TypeParam) * this->n_rows * 32 / (1024.0 * 1024);
@@ -302,25 +375,58 @@ TYPED_TEST_P(KernelCacheTest, SvrEvalTest)
   int ws_idx_svr[6] = {0, 5, 1, 4, 3, 7};
   raft::update_device(this->ws_idx_dev.data(), ws_idx_svr, 6, this->stream);
 
-  GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param);
-  KernelCacheOld<TypeParam> cache(this->handle,
-                                  this->x_dev.data(),
-                                  this->n_rows,
-                                  this->n_cols,
-                                  this->n_ws,
-                                  kernel,
-                                  cache_size,
-                                  EPSILON_SVR);
+  std::vector<KernelCacheTestInput> data{{KernelCacheTestInput{false, false, false}},
+                                         {KernelCacheTestInput{false, true, false}},
+                                         {KernelCacheTestInput{true, false, false}},
+                                         {KernelCacheTestInput{true, true, false}},
+                                         {KernelCacheTestInput{true, false, true}},
+                                         {KernelCacheTestInput{true, true, true}}};
 
-  for (int i = 0; i < 2; i++) {
-    // We calculate cache tile multiple times to see if cache lookup works
-    TypeParam* tile_dev = cache.GetTile(this->ws_idx_dev.data());
-    this->check(tile_dev, this->n_ws, this->n_rows, cache.GetWsIndices(), cache.GetColIdxMap());
+  for (auto input : data) {
+    SCOPED_TRACE(input);
+
+    size_t tile_byte_limit   = input.batching ? (2 * this->n_ws * sizeof(TypeParam)) : (1 << 30);
+    size_t sparse_byte_limit = input.sparse_compute ? 1 : (1 << 30);
+    MLCommon::Matrix::Matrix<TypeParam>* matrix_wrapper;
+    if (input.sparse) {
+      matrix_wrapper = new MLCommon::Matrix::CsrMatrix(this->x_indptr_dev.data(),
+                                                       this->x_indices_dev.data(),
+                                                       this->x_data_dev.data(),
+                                                       this->n_rows * this->n_cols,
+                                                       this->n_rows,
+                                                       this->n_cols);
+    } else {
+      matrix_wrapper =
+        new MLCommon::Matrix::DenseMatrix(this->x_dev.data(), this->n_rows, this->n_cols);
+    }
+
+    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param);
+    KernelCache<TypeParam> cache(this->handle,
+                                 *matrix_wrapper,
+                                 this->n_rows,
+                                 this->n_cols,
+                                 this->n_ws,
+                                 kernel,
+                                 param.kernel,
+                                 cache_size,
+                                 EPSILON_SVR,
+                                 tile_byte_limit,
+                                 sparse_byte_limit);
+    for (int i = 0; i < 2; i++) {
+      // We calculate cache tile multiple times to see if cache lookup works
+      cache.InitWorkingSet(this->ws_idx_dev.data());
+      auto batch_descriptor = cache.InitFullTileBatching(cache.getKernelIndices(false), this->n_ws);
+      while (cache.getNextBatchKernel(batch_descriptor)) {
+        this->check(batch_descriptor);
+      }
+    }
+
+    delete matrix_wrapper;
+    delete kernel;
   }
-  delete kernel;
 }
 
-REGISTER_TYPED_TEST_CASE_P(KernelCacheTest, EvalTest, CacheEvalTest, SvrEvalTest);
+REGISTER_TYPED_TEST_CASE_P(KernelCacheTest, EvalTest, SvcCacheEvalTest, SvrCacheEvalTest);
 INSTANTIATE_TYPED_TEST_CASE_P(My, KernelCacheTest, FloatTypes);
 
 template <typename math_t>
