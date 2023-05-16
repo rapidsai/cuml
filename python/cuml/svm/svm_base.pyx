@@ -427,8 +427,21 @@ class SVMBase(Base,
             model_f.b = self._intercept_.item()
             model_f.dual_coefs = \
                 <float*><size_t>self.dual_coef_.ptr
-            model_f.support_matrix = \
-                new DenseMatrix[float](<float*><uintptr_t>self.support_vectors_.ptr, self.n_support_, self.n_cols)
+            if isinstance(self.support_vectors_, SparseCumlArray):
+                model_f.support_matrix = \
+                    new CsrMatrix[float](
+                        <int*><uintptr_t>self.support_vectors_.indptr.ptr, 
+                        <int*><uintptr_t>self.support_vectors_.indices.ptr, 
+                        <float*><uintptr_t>self.support_vectors_.data.ptr, 
+                        self.support_vectors_.nnz, 
+                        self.n_support_, 
+                        self.n_cols)    
+            else:
+                model_f.support_matrix = \
+                    new DenseMatrix[float](
+                        <float*><uintptr_t>self.support_vectors_.ptr, 
+                        self.n_support_, 
+                        self.n_cols)
             model_f.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
             model_f.n_classes = self.n_classes_
@@ -445,8 +458,21 @@ class SVMBase(Base,
             model_d.b = self._intercept_.item()
             model_d.dual_coefs = \
                 <double*><size_t>self.dual_coef_.ptr
-            model_d.support_matrix = \
-                new DenseMatrix[double](<double*><uintptr_t>self.support_vectors_.ptr, self.n_support_, self.n_cols)
+            if isinstance(self.support_vectors_, SparseCumlArray):
+                model_d.support_matrix = \
+                    new CsrMatrix[double](
+                        <int*><uintptr_t>self.support_vectors_.indptr.ptr, 
+                        <int*><uintptr_t>self.support_vectors_.indices.ptr, 
+                        <double*><uintptr_t>self.support_vectors_.data.ptr, 
+                        self.support_vectors_.nnz, 
+                        self.n_support_, 
+                        self.n_cols)
+            else:
+                model_d.support_matrix = \
+                    new DenseMatrix[double](
+                        <double*><uintptr_t>self.support_vectors_.ptr, 
+                        self.n_support_, 
+                        self.n_cols)
             model_d.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
             model_d.n_classes = self.n_classes_
@@ -513,7 +539,13 @@ class SVMBase(Base,
                                      shape=(csr_matrix_f.get_nnz(),),
                                      dtype=self.dtype,
                                      order='F')
-                    sparse_input = SparseCumlArrayInput(dtype=self.dtype, indptr=indptr, indices=indices, data=data, nnz=csr_matrix_f.get_nnz(), shape=(self.n_support_, self.n_cols))
+                    sparse_input = SparseCumlArrayInput(
+                        dtype=self.dtype, 
+                        indptr=indptr, 
+                        indices=indices, 
+                        data=data, 
+                        nnz=csr_matrix_f.get_nnz(), 
+                        shape=(self.n_support_, self.n_cols))
                     self.support_vectors_ = SparseCumlArray(data=sparse_input)
 
 
@@ -566,7 +598,13 @@ class SVMBase(Base,
                                      shape=(csr_matrix_d.get_nnz(),),
                                      dtype=self.dtype,
                                      order='F')
-                    sparse_input = SparseCumlArrayInput(dtype=self.dtype, indptr=indptr, indices=indices, data=data, nnz=csr_matrix_d.get_nnz(), shape=(self.n_support_, self.n_cols))
+                    sparse_input = SparseCumlArrayInput(
+                        dtype=self.dtype, 
+                        indptr=indptr, 
+                        indices=indices, 
+                        data=data, 
+                        nnz=csr_matrix_d.get_nnz(), 
+                        shape=(self.n_support_, self.n_cols))
                     self.support_vectors_ = SparseCumlArray(data=sparse_input)
 
             self.n_classes_ = model_d.n_classes
