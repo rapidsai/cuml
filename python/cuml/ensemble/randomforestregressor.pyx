@@ -21,7 +21,6 @@ from cuml.internals.safe_imports import (
     gpu_only_import_from,
     null_decorator
 )
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 np = cpu_only_import('numpy')
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 rmm = gpu_only_import('rmm')
