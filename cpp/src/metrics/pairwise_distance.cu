@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -164,28 +164,18 @@ void pairwiseDistance_sparse(const raft::handle_t& handle,
                              raft::distance::DistanceType metric,
                              float metric_arg)
 {
-  auto out = raft::make_device_matrix_view<value_t, value_idx>(
-  dists,
-  x_nrows,
-  y_nrows);
+  auto out = raft::make_device_matrix_view<value_t, value_idx>(dists, x_nrows, y_nrows);
 
   auto x_structure = raft::make_device_compressed_structure_view<value_idx, value_idx, value_idx>(
-  x_indptr,
-  x_indices,
-  x_nrows,
-  n_cols,
-  x_nnz);
+    x_indptr, x_indices, x_nrows, n_cols, x_nnz);
   auto x_csr_view = raft::make_device_csr_matrix_view<const value_t>(x, x_structure);
 
   auto y_structure = raft::make_device_compressed_structure_view<value_idx, value_idx, value_idx>(
-    y_indptr,
-    y_indices,
-    y_nrows,
-    n_cols,
-    y_nnz);
+    y_indptr, y_indices, y_nrows, n_cols, y_nnz);
   auto y_csr_view = raft::make_device_csr_matrix_view<const value_t>(x, x_structure);
 
-  raft::sparse::distance::pairwise_distance(handle, x_csr_view, y_csr_view, out, metric, metric_arg);
+  raft::sparse::distance::pairwise_distance(
+    handle, x_csr_view, y_csr_view, out, metric, metric_arg);
 }
 
 void pairwiseDistance_sparse(const raft::handle_t& handle,
