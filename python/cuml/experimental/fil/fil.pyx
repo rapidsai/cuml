@@ -1268,47 +1268,16 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             X, predict_type="per_tree", preds=preds, chunk_size=chunk_size
         )
 
-class ForestInferenceOptimizer:
-    def __init__(
-            self,
-            base_estimator,
-            *,
-            in_place=False,
-            batch_size=1024,
-            target_time=0.2,
-            predict_method='predict',
-            max_chunk_size=None,
-            seed=0
-        ):
-            if in_place:
-                self.best_estimator_ = base_estimator
-            else:
-                self.best_estimator_ = ForestInference(
-                    treelite_model=base_estimator.treelite_model,
-                    handle=base_estimator.handle,
-                    output_type=base_estimator.output_type,
-                    verbose=base_estimator.verbose,
-                    is_classifier=base_estimator.is_classifier,
-                    layout='depth_first',
-                    default_chunk_size=None,
-                    align_bytes=base_estimator.align_bytes,
-                    precision=base_estimator.precision,
-                    device_id=base_estimator.device_id
-                )
-
-            self.best_params_ = {
-                'layout': self.best_estimator_.layout,
-                'default_chunk_size':
-                    self.best_estimator_.default_chunk_size,
-            }
-
-            self.batch_size = batch_size
-            self.target_time = target_time
-            self.predict_method = predict_method
-            self.max_chunk_size = max_chunk_size
-            self.seed = seed
-
-    def fit(self, *, X=None):
+    def optimize(
+        self,
+        *,
+        data=None,
+        batch_size=1024,
+        iterations=10,
+        predict_method='predict',
+        max_chunk_size=None,
+        seed=0
+    ):
         """
         Find the optimal layout and chunk size for this model
 
@@ -1345,47 +1314,47 @@ class ForestInferenceOptimizer:
             The random seed used for generating example data if none is
             provided.
         """
-        if X is None:
+        if data is None:
             xpy = GlobalSettings().xpy
-            dtype = self.best_estimator_.forest.get_dtype()
-            X = xpy.random.uniform(
+            dtype = self.forest.get_dtype()
+            data = xpy.random.uniform(
                 xpy.finfo(dtype).min / 2,
                 xpy.finfo(dtype).max / 2,
-                (1, self.batch_size, self.best_estimator_.forest.num_features())
+                (iterations, batch_size, self.forest.num_features())
             )
         else:
-            X = CumlArray.from_input(
-                X,
+            data = CumlArray.from_input(
+                data,
                 order='K',
             ).to_output('array')
         try:
-            unique_batches, batch_size, features = X.shape
+            iterations, batch_size, features = data.shape
         except ValueError:
-            batch_size, features = X.shape
-            X = [X for _ in range(iterations)]
+            batch_size, features = data.shape
+            data = [data] * iterations
 
         if max_chunk_size is None:
             max_chunk_size = 512
         if GlobalSettings().device_type is DeviceType.device:
             max_chunk_size = min(max_chunk_size, 32)
 
-        infer = getattr(self.best_estimator_, predict_method)
+        infer = getattr(self, predict_method)
 
         optimal_layout = 'depth_first'
         optimal_chunk_size = 1
         optimal_time = float('inf')
 
         for layout in ('depth_first', 'breadth_first'):
-            self.best_estimator_.layout = layout
+            self.layout = layout
             chunk_size = 1
             while chunk_size <= max_chunk_size:
                 # Warmup
-                infer(X[0], chunk_size=chunk_size)
+                infer(data[0], chunk_size=chunk_size)
                 # Measure performance
                 start = perf_counter()
                 for iter_index in range(iterations):
                     infer(
-                        X[iter_index], chunk_size=chunk_size
+                        data[iter_index], chunk_size=chunk_size
                     )
                 end = perf_counter()
                 elapsed = end - start
@@ -1395,5 +1364,5 @@ class ForestInferenceOptimizer:
                     optimal_chunk_size = chunk_size
                 chunk_size *= 2
 
-        self.best_estimator_.layout = optimal_layout
-        self.best_estimator_.default_chunk_size = optimal_chunk_size
+        self.layout = optimal_layout
+        self.default_chunk_size = optimal_chunk_size
