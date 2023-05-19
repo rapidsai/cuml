@@ -15,6 +15,7 @@
 #
 import cupy as cp
 import functools
+import itertools
 import numpy as np
 import nvtx
 import pathlib
@@ -293,6 +294,23 @@ cdef class ForestInference_impl():
             chunk_size=chunk_size,
             output_dtype=output_dtype
         )
+
+
+class _AutoIterations:
+    """Used to generate sequence of iterations (1, 3, 5, 10, 30, 50...) during
+    FIL optimization"""
+    sequence = (1, 3, 5)
+    def __init__(self):
+        self.invocations = 0
+
+    def next(self):
+        result = (
+            (10 ** (
+                self.invocations // len(self.sequence)
+            )) * self.sequence[self.invocations % len(self.sequence)]
+        )
+        self.invocations += 1
+        return result
 
 def _handle_legacy_fil_args(func):
     @functools.wraps(func)
@@ -1273,7 +1291,8 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         *,
         data=None,
         batch_size=1024,
-        iterations=10,
+        unique_batches=10,
+        timeout=0.2,
         predict_method='predict',
         max_chunk_size=None,
         seed=0
@@ -1292,14 +1311,24 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         Parameters
         ----------
         data
-            Example data of shape iterations x batch size x features or None.
-            If None, random data will be generated instead.
+            Example data either of shape unique_batches x batch size x features
+            or batch_size x features or None. If None, random data will be
+            generated instead.
         batch_size : int
             If example data is not provided, random data with this many rows
             per batch will be used.
-        iterations : int
-            The number of times to repeat inference in order to mitigate
-            outliers in performance data.
+        unique_batches : int
+            The number of unique batches to generate if random data are used.
+            Increasing this number decreases the chance that the optimal
+            configuration will be skewed by a single batch with unusual
+            performance characteristics.
+        timeout : float
+            Time in seconds to target for optimization. The optimization loop
+            will be repeatedly run a number of times increasing in the sequence
+            1, 2, 5, 10, 20, 50, ... until the time taken is at least the given
+            value. Note that for very large batch sizes and large models, the
+            total elapsed time may exceed this timeout; it is a soft target for
+            elapsed time.
         predict_method : str
             If desired, optimization can occur over one of the prediction
             method variants (e.g. "predict_per_tree") rather than the
@@ -1320,7 +1349,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             data = xpy.random.uniform(
                 xpy.finfo(dtype).min / 2,
                 xpy.finfo(dtype).max / 2,
-                (iterations, batch_size, self.forest.num_features())
+                (unique_batches, batch_size, self.forest.num_features())
             )
         else:
             data = CumlArray.from_input(
@@ -1328,10 +1357,10 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                 order='K',
             ).to_output('array')
         try:
-            iterations, batch_size, features = data.shape
+            unique_batches, batch_size, features = data.shape
         except ValueError:
             batch_size, features = data.shape
-            data = [data] * iterations
+            data = [data] * unique_batches
 
         if max_chunk_size is None:
             max_chunk_size = 512
@@ -1342,27 +1371,44 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
 
         optimal_layout = 'depth_first'
         optimal_chunk_size = 1
-        optimal_time = float('inf')
 
-        for layout in ('depth_first', 'breadth_first'):
-            self.layout = layout
-            chunk_size = 1
-            while chunk_size <= max_chunk_size:
-                # Warmup
+        valid_layouts = ('depth_first', 'breadth_first')
+        chunk_size = 1
+        valid_chunk_sizes = []
+        while chunk_size <= max_chunk_size:
+            valid_chunk_sizes.append(chunk_size)
+            chunk_size *= 2
+
+        all_params = list(itertools.product(valid_layouts, valid_chunk_sizes))
+        auto_iterator = _AutoIterations()
+        loop_start = perf_counter()
+        while (perf_counter() - loop_start < timeout):
+            optimal_time = float('inf')
+            for layout, chunk_size in all_params:
+                self.layout = layout
                 infer(data[0], chunk_size=chunk_size)
-                # Measure performance
-                start = perf_counter()
-                for iter_index in range(iterations):
-                    infer(
-                        data[iter_index], chunk_size=chunk_size
-                    )
-                end = perf_counter()
-                elapsed = end - start
+                elapsed = float('inf')
+                for _ in range(auto_iterator.next()):
+                    start = perf_counter()
+                    for iter_index in range(unique_batches):
+                        infer(
+                            data[iter_index], chunk_size=chunk_size
+                        )
+                    elapsed = min(elapsed, perf_counter() - start)
                 if elapsed < optimal_time:
                     optimal_time = elapsed
                     optimal_layout = layout
                     optimal_chunk_size = chunk_size
-                chunk_size *= 2
 
         self.layout = optimal_layout
         self.default_chunk_size = optimal_chunk_size
+
+
+class ForestInferenceOptimizer:
+    def __init__(
+        self,
+        base_estimator,
+        *,
+        in_place=False
+    ):
+        pass
