@@ -66,6 +66,7 @@ namespace detail {
  * for each tree.
  */
 template <bool has_categorical_nodes,
+          bool predict_leaf,
           typename forest_t,
           typename vector_output_t    = std::nullptr_t,
           typename categorical_data_t = std::nullptr_t>
@@ -109,26 +110,19 @@ void infer_kernel_cpu(forest_t const& forest,
 
     for (auto row_index = start_row; row_index < end_row; ++row_index) {
       for (auto tree_index = start_tree; tree_index < end_tree; ++tree_index) {
-        auto tree_output  = std::conditional_t<has_vector_leaves,
-                                              typename node_t::index_type,
-                                              typename node_t::threshold_type>{};
-        auto leaf_node_id = index_type{};
-        if (infer_type == infer_kind::leaf_id) {
-          leaf_node_id = evaluate_tree_dispatch<has_vector_leaves,
-                                                has_categorical_nodes,
-                                                has_nonlocal_categories,
-                                                true>(
-            forest, tree_index, input + row_index * col_count, categorical_data);
-        } else {
-          tree_output = evaluate_tree_dispatch<has_vector_leaves,
-                                               has_categorical_nodes,
-                                               has_nonlocal_categories,
-                                               false>(
-            forest, tree_index, input + row_index * col_count, categorical_data);
-        }
-        if (infer_type == infer_kind::leaf_id) {
+        auto tree_output = std::conditional_t<predict_leaf,
+                                              index_type,
+                                              std::conditional_t<has_vector_leaves,
+                                                                 typename node_t::index_type,
+                                                                 typename node_t::threshold_type>>{};
+        tree_output = evaluate_tree_dispatch<has_vector_leaves,
+                                             has_categorical_nodes,
+                                             has_nonlocal_categories,
+                                             predict_leaf>(
+          forest, tree_index, input + row_index * col_count, categorical_data);
+        if constexpr (predict_leaf) {
           output_workspace[row_index * num_outputs * num_grove + tree_index * num_grove +
-                           grove_index] = static_cast<typename forest_t::io_type>(leaf_node_id);
+                           grove_index] = static_cast<typename forest_t::io_type>(tree_output);
         } else {
           if constexpr (has_vector_leaves) {
             auto output_offset =

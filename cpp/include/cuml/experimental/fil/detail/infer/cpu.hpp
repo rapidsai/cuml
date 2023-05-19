@@ -99,19 +99,35 @@ infer(forest_t const& forest,
   if constexpr (D == raft_proto::device_type::gpu) {
     throw raft_proto::gpu_unsupported("Tried to use GPU inference in CPU-only build");
   } else {
-    infer_kernel_cpu<has_categorical_nodes>(
-      forest,
-      postproc,
-      output,
-      input,
-      row_count,
-      col_count,
-      output_count,
-      specified_chunk_size.value_or(hardware_constructive_interference_size),
-      hardware_constructive_interference_size,
-      vector_output,
-      categorical_data,
-      infer_type);
+    if (infer_type == infer_kind::leaf_id) {
+      infer_kernel_cpu<has_categorical_nodes, true>(
+        forest,
+        postproc,
+        output,
+        input,
+        row_count,
+        col_count,
+        output_count,
+        specified_chunk_size.value_or(hardware_constructive_interference_size),
+        hardware_constructive_interference_size,
+        vector_output,
+        categorical_data,
+        infer_type);
+    } else {
+      infer_kernel_cpu<has_categorical_nodes, false>(
+        forest,
+        postproc,
+        output,
+        input,
+        row_count,
+        col_count,
+        output_count,
+        specified_chunk_size.value_or(hardware_constructive_interference_size),
+        hardware_constructive_interference_size,
+        vector_output,
+        categorical_data,
+        infer_type);
+    }
   }
 }
 
