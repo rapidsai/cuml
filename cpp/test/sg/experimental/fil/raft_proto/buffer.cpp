@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
-#include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/cuda_check.hpp>
+#include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/exceptions.hpp>
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 namespace raft_proto {
 
@@ -34,7 +34,7 @@ TEST(Buffer, default_buffer)
 
 TEST(Buffer, device_buffer)
 {
-  auto data = std::vector<int>{1, 2, 3};
+  auto data         = std::vector<int>{1, 2, 3};
   auto test_buffers = std::vector<buffer<int>>{};
   test_buffers.emplace_back(data.size(), device_type::gpu, 0, cuda_stream{});
   test_buffers.emplace_back(data.size(), device_type::gpu, 0);
@@ -62,7 +62,7 @@ TEST(Buffer, device_buffer)
 
 TEST(Buffer, non_owning_device_buffer)
 {
-  auto data = std::vector<int>{1, 2, 3};
+  auto data   = std::vector<int>{1, 2, 3};
   auto* ptr_d = static_cast<int*>(nullptr);
 #ifdef CUML_ENABLE_GPU
   cudaMalloc(reinterpret_cast<void**>(&ptr_d), sizeof(int) * data.size());
@@ -94,7 +94,7 @@ TEST(Buffer, non_owning_device_buffer)
 
 TEST(Buffer, host_buffer)
 {
-  auto data   = std::vector<int>{1, 2, 3};
+  auto data         = std::vector<int>{1, 2, 3};
   auto test_buffers = std::vector<buffer<int>>{};
   test_buffers.emplace_back(data.size(), device_type::cpu, 0, cuda_stream{});
   test_buffers.emplace_back(data.size(), device_type::cpu, 0);
@@ -116,7 +116,7 @@ TEST(Buffer, host_buffer)
 
 TEST(Buffer, host_buffer_from_iters)
 {
-  auto data   = std::vector<int>{1, 2, 3};
+  auto data         = std::vector<int>{1, 2, 3};
   auto test_buffers = std::vector<buffer<int>>{};
   test_buffers.emplace_back(std::begin(data), std::end(data));
 
@@ -135,7 +135,7 @@ TEST(Buffer, host_buffer_from_iters)
 
 TEST(Buffer, device_buffer_from_iters)
 {
-  auto data = std::vector<int>{1, 2, 3};
+  auto data         = std::vector<int>{1, 2, 3};
   auto test_buffers = std::vector<buffer<int>>{};
   test_buffers.emplace_back(std::begin(data), std::end(data), device_type::gpu);
   test_buffers.emplace_back(std::begin(data), std::end(data), device_type::gpu, 0);
@@ -163,7 +163,7 @@ TEST(Buffer, device_buffer_from_iters)
 
 TEST(Buffer, non_owning_host_buffer)
 {
-  auto data   = std::vector<int>{1, 2, 3};
+  auto data = std::vector<int>{1, 2, 3};
   std::vector<buffer<int>> test_buffers;
   test_buffers.emplace_back(data.data(), data.size(), device_type::cpu, 0);
   ASSERT_EQ(test_buffers.back().memory_type(), device_type::cpu);
@@ -214,7 +214,10 @@ TEST(Buffer, copy_buffer)
     test_dev_buffers.emplace_back(orig_buffer, device_type::gpu, 0, cuda_stream{});
     for (auto& dev_buf : test_dev_buffers) {
       data_out = std::vector<int>(data.size());
-      cuda_check(cudaMemcpy(static_cast<void*>(data_out.data()), static_cast<void*>(dev_buf.data()), dev_buf.size() * sizeof(int), cudaMemcpyDefault));
+      cuda_check(cudaMemcpy(static_cast<void*>(data_out.data()),
+                            static_cast<void*>(dev_buf.data()),
+                            dev_buf.size() * sizeof(int),
+                            cudaMemcpyDefault));
       EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
 
       auto test_dev_copies = std::vector<buffer<int>>{};
@@ -223,7 +226,10 @@ TEST(Buffer, copy_buffer)
       test_dev_copies.emplace_back(dev_buf, device_type::gpu, 0, cuda_stream{});
       for (auto& copy_buf : test_dev_copies) {
         data_out = std::vector<int>(data.size());
-        cuda_check(cudaMemcpy(static_cast<void*>(data_out.data()), static_cast<void*>(copy_buf.data()), copy_buf.size() * sizeof(int), cudaMemcpyDefault));
+        cuda_check(cudaMemcpy(static_cast<void*>(data_out.data()),
+                              static_cast<void*>(copy_buf.data()),
+                              copy_buf.size() * sizeof(int),
+                              cudaMemcpyDefault));
         EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
       }
 
@@ -242,12 +248,15 @@ TEST(Buffer, copy_buffer)
 
 TEST(Buffer, move_buffer)
 {
-  auto data   = std::vector<int>{1, 2, 3};
+  auto data         = std::vector<int>{1, 2, 3};
   auto test_buffers = std::vector<buffer<int>>{};
   test_buffers.emplace_back(buffer<int>(data.data(), data.size(), device_type::cpu));
-  test_buffers.emplace_back(buffer<int>(data.data(), data.size(), device_type::cpu), device_type::cpu);
-  test_buffers.emplace_back(buffer<int>(data.data(), data.size(), device_type::cpu), device_type::cpu, 0);
-  test_buffers.emplace_back(buffer<int>(data.data(), data.size(), device_type::cpu), device_type::cpu, 0, cuda_stream{});
+  test_buffers.emplace_back(buffer<int>(data.data(), data.size(), device_type::cpu),
+                            device_type::cpu);
+  test_buffers.emplace_back(
+    buffer<int>(data.data(), data.size(), device_type::cpu), device_type::cpu, 0);
+  test_buffers.emplace_back(
+    buffer<int>(data.data(), data.size(), device_type::cpu), device_type::cpu, 0, cuda_stream{});
 
   for (auto& buf : test_buffers) {
     ASSERT_EQ(buf.memory_type(), device_type::cpu);
@@ -259,16 +268,22 @@ TEST(Buffer, move_buffer)
   }
 #ifdef CUML_ENABLE_GPU
   test_buffers = std::vector<buffer<int>>{};
-  test_buffers.emplace_back(buffer<int>(data.data(), data.size(), device_type::cpu), device_type::gpu);
-  test_buffers.emplace_back(buffer<int>(data.data(), data.size(), device_type::cpu), device_type::gpu, 0);
-  test_buffers.emplace_back(buffer<int>(data.data(), data.size(), device_type::cpu), device_type::gpu, 0, cuda_stream{});
+  test_buffers.emplace_back(buffer<int>(data.data(), data.size(), device_type::cpu),
+                            device_type::gpu);
+  test_buffers.emplace_back(
+    buffer<int>(data.data(), data.size(), device_type::cpu), device_type::gpu, 0);
+  test_buffers.emplace_back(
+    buffer<int>(data.data(), data.size(), device_type::cpu), device_type::gpu, 0, cuda_stream{});
   for (auto& buf : test_buffers) {
     ASSERT_EQ(buf.memory_type(), device_type::gpu);
     ASSERT_EQ(buf.size(), data.size());
     ASSERT_NE(buf.data(), data.data());
 
     auto data_out = std::vector<int>(buf.size());
-    cuda_check(cudaMemcpy(static_cast<void*>(data_out.data()), static_cast<void*>(buf.data()), buf.size() * sizeof(int), cudaMemcpyDefault));
+    cuda_check(cudaMemcpy(static_cast<void*>(data_out.data()),
+                          static_cast<void*>(buf.data()),
+                          buf.size() * sizeof(int),
+                          cudaMemcpyDefault));
     EXPECT_THAT(data_out, ::testing::ElementsAreArray(data));
   }
 #endif
@@ -281,9 +296,9 @@ TEST(Buffer, move_assignment_buffer)
 #ifdef CUML_ENABLE_GPU
   auto buf = buffer<int>{data.data(), data.size() - 1, device_type::gpu};
 #else
-  auto buf = buffer<int>{data.data(), data.size() - 1, device_type::cpu};
+  auto buf  = buffer<int>{data.data(), data.size() - 1, device_type::cpu};
 #endif
-  buf      = buffer<int>{data.size(), device_type::cpu};
+  buf = buffer<int>{data.size(), device_type::cpu};
 
   ASSERT_EQ(buf.memory_type(), device_type::cpu);
   ASSERT_EQ(buf.size(), data.size());
@@ -291,11 +306,12 @@ TEST(Buffer, move_assignment_buffer)
 
 TEST(Buffer, partial_buffer_copy)
 {
-  auto data1 = std::vector<int>{1, 2, 3, 4, 5};
-  auto data2 = std::vector<int>{0, 0, 0, 0, 0};
+  auto data1    = std::vector<int>{1, 2, 3, 4, 5};
+  auto data2    = std::vector<int>{0, 0, 0, 0, 0};
   auto expected = std::vector<int>{0, 3, 4, 5, 0};
 #ifdef CUML_ENABLE_GPU
-  auto buf1 = buffer<int>{buffer<int>{data1.data(), data1.size(), device_type::cpu}, device_type::gpu};
+  auto buf1 =
+    buffer<int>{buffer<int>{data1.data(), data1.size(), device_type::cpu}, device_type::gpu};
 #else
   auto buf1 = buffer<int>{data1.data(), data1.size(), device_type::cpu};
 #endif
@@ -307,26 +323,26 @@ TEST(Buffer, partial_buffer_copy)
 
 TEST(Buffer, buffer_copy_overloads)
 {
-  auto data = std::vector<int>{1, 2, 3};
-  auto expected = data;
+  auto data             = std::vector<int>{1, 2, 3};
+  auto expected         = data;
   auto orig_host_buffer = buffer<int>(data.data(), data.size(), device_type::cpu);
-  auto orig_dev_buffer = buffer<int>(orig_host_buffer, device_type::gpu);
-  auto copy_dev_buffer = buffer<int>(data.size(), device_type::gpu);
+  auto orig_dev_buffer  = buffer<int>(orig_host_buffer, device_type::gpu);
+  auto copy_dev_buffer  = buffer<int>(data.size(), device_type::gpu);
 
   // copying host to host
-  auto data_out = std::vector<int>(data.size());
+  auto data_out         = std::vector<int>(data.size());
   auto copy_host_buffer = buffer<int>(data_out.data(), data.size(), device_type::cpu);
   copy<true>(copy_host_buffer, orig_host_buffer);
   EXPECT_THAT(data_out, ::testing::ElementsAreArray(expected));
 
   // copying host to host with stream
-  data_out = std::vector<int>(data.size());
+  data_out         = std::vector<int>(data.size());
   copy_host_buffer = buffer<int>(data_out.data(), data.size(), device_type::cpu);
   copy<true>(copy_host_buffer, orig_host_buffer, cuda_stream{});
   EXPECT_THAT(data_out, ::testing::ElementsAreArray(expected));
 
   // copying host to host with offset
-  data_out = std::vector<int>(data.size() + 1);
+  data_out         = std::vector<int>(data.size() + 1);
   copy_host_buffer = buffer<int>(data_out.data(), data.size(), device_type::cpu);
   copy<true>(copy_host_buffer, orig_host_buffer, 2, 1, 1, cuda_stream{});
   expected = std::vector<int>{0, 0, 2, 0};
@@ -334,21 +350,21 @@ TEST(Buffer, buffer_copy_overloads)
 
 #ifdef CUML_ENABLE_GPU
   // copy device to host
-  data_out = std::vector<int>(data.size());
+  data_out         = std::vector<int>(data.size());
   copy_host_buffer = buffer<int>(data_out.data(), data.size(), device_type::cpu);
   copy<true>(copy_host_buffer, orig_dev_buffer);
   expected = data;
   EXPECT_THAT(data_out, ::testing::ElementsAreArray(expected));
 
   // copy device to host with stream
-  data_out = std::vector<int>(data.size());
+  data_out         = std::vector<int>(data.size());
   copy_host_buffer = buffer<int>(data_out.data(), data.size(), device_type::cpu);
   copy<true>(copy_host_buffer, orig_dev_buffer, cuda_stream{});
   expected = data;
   EXPECT_THAT(data_out, ::testing::ElementsAreArray(expected));
 
   // copy device to host with offset
-  data_out = std::vector<int>(data.size() + 1);
+  data_out         = std::vector<int>(data.size() + 1);
   copy_host_buffer = buffer<int>(data_out.data(), data.size(), device_type::cpu);
   copy<true>(copy_host_buffer, orig_dev_buffer, 2, 1, 1, cuda_stream{});
   expected = std::vector<int>{0, 0, 2, 0};
@@ -356,4 +372,4 @@ TEST(Buffer, buffer_copy_overloads)
 #endif
 }
 
-}
+}  // namespace raft_proto
