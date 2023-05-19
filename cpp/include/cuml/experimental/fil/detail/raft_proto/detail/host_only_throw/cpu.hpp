@@ -19,12 +19,13 @@
 
 namespace raft_proto {
 namespace detail {
-template<typename T>
-struct host_only_throw<T, true>{
+template <typename T>
+struct host_only_throw<T, true> {
   template <typename... Args>
-  host_only_throw(Args&&... args) noexcept(false)  {
+  host_only_throw(Args&&... args) noexcept(false)
+  {
     throw T{std::forward<Args>(args)...};
   }
 };
-}
-}
+}  // namespace detail
+}  // namespace raft_proto

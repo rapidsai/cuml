@@ -40,8 +40,7 @@ requirements:
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
     - cudatoolkit ={{ cuda_version }}
-    - cudf ={{ minor_version }}
-    - gmock
+    - gmock {{ gtest_version }}
     - gtest {{ gtest_version }}
     - lapack
     - libcublas {{ libcublas_host_version }}
@@ -57,9 +56,8 @@ requirements:
     - libcusparse-dev {{ libcusparse_host_version }}
     - libraft ={{ minor_version }}
     - libraft-headers ={{ minor_version }}
+    - librmm ={{ minor_version }}
     - treelite {{ treelite_version }}
-    - libfaiss>=1.7.1
-    - faiss-proc=*=cuda
 
 outputs:
   - name: libcuml
@@ -75,7 +73,6 @@ outputs:
         - cmake {{ cmake_version }}
       run:
         - cudatoolkit {{ cuda_spec }}
-        - cudf ={{ minor_version }}
         - libcublas {{ libcublas_run_version }}
         - libcublas-dev {{ libcublas_run_version }}
         - libcufft {{ libcufft_run_version }}
@@ -85,9 +82,8 @@ outputs:
         - libcusparse-dev {{ libcusparse_run_version }}
         - libraft ={{ minor_version }}
         - libraft-headers ={{ minor_version }}
+        - librmm ={{ minor_version }}
         - treelite {{ treelite_version }}
-        - libfaiss>=1.7.1
-        - faiss-proc=*=cuda
     about:
       home: https://rapids.ai/
       license: Apache-2.0
