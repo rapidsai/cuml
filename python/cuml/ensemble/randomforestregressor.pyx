@@ -18,6 +18,7 @@
 
 from cuml.internals.safe_imports import (
     cpu_only_import,
+    gpu_only_import,
     gpu_only_import_from,
     null_decorator
 )
