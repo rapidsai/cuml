@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/core/device_resources.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <raft/core/handle.hpp>
@@ -56,8 +57,7 @@ struct FixConnectivitiesRedOp {
   value_t* core_dists;
   value_idx m;
 
-  FixConnectivitiesRedOp(value_t* core_dists_, value_idx m_)
-    : core_dists(core_dists_), m(m_){};
+  FixConnectivitiesRedOp(value_t* core_dists_, value_idx m_) : core_dists(core_dists_), m(m_){};
 
   typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
   DI void operator()(value_idx rit, KVP* out, const KVP& other)
@@ -105,12 +105,15 @@ struct FixConnectivitiesRedOp {
     out->value = maxVal;
   }
 
-  void gather(const raft::device_resources& handle, value_idx* map) {
-    thrust::gather(handle.get_thrust_policy(), map, map + m, core_dists, core_dists);
+  void gather(const raft::resources& handle, value_idx* map)
+  {
+    thrust::gather(raft::resource::get_thrust_policy(handle), map, map + m, core_dists, core_dists);
   }
 
-  void scatter(const raft::device_resources& handle, value_idx* map) {
-    thrust::scatter(handle.get_thrust_policy(), core_dists, core_dists + m, map, core_dists);
+  void scatter(const raft::resources& handle, value_idx* map)
+  {
+    thrust::scatter(
+      raft::resource::get_thrust_policy(handle), core_dists, core_dists + m, map, core_dists);
   }
 };
 
