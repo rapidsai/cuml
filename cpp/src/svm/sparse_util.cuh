@@ -18,6 +18,7 @@
 #include <cuml/matrix/matrix.h>
 #include <raft/distance/kernels.cuh>
 #include <raft/util/cuda_utils.cuh>
+#include <raft/matrix/matrix.cuh>
 #include <thrust/transform_scan.h>
 
 namespace ML {

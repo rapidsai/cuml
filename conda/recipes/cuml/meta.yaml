@@ -68,7 +68,7 @@ requirements:
     - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
     - cuda-python >=11.7.1,<12.0
     - cudf ={{ minor_version }}
-    - cupy >=7.8.0,<12.0.0a0
+    - cupy >=12.0.0
     - dask-cudf ={{ minor_version }}
     - dask ==2023.3.2
     - dask-core==2023.3.2

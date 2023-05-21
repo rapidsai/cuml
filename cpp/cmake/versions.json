@@ -1,9 +1,0 @@
-{
-  "packages" : {
-      "Thrust" : {
-        "version" : "1.15.0",
-        "git_url" : "https://github.com/NVIDIA/thrust.git",
-        "git_tag" : "${version}"
-    }
-  }
-}
