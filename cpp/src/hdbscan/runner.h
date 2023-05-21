@@ -54,11 +54,13 @@ struct FixConnectivitiesRedOp {
   value_t* core_dists;
   value_idx m;
 
+  DI FixConnectivitiesRedOp() : colors(0), m(0) {}
+
   FixConnectivitiesRedOp(value_idx* colors_, value_t* core_dists_, value_idx m_)
     : colors(colors_), core_dists(core_dists_), m(m_){};
 
   typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
-  DI void operator()(value_idx rit, KVP* out, const KVP& other)
+  DI void operator()(value_idx rit, KVP* out, const KVP& other) const
   {
     if (rit < m && other.value < std::numeric_limits<value_t>::max() &&
         colors[rit] != colors[other.key]) {
@@ -78,7 +80,7 @@ struct FixConnectivitiesRedOp {
     }
   }
 
-  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b)
+  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b) const
   {
     if (rit < m && a.key > -1 && colors[rit] != colors[a.key]) {
       value_t core_dist_rit = core_dists[rit];
@@ -97,12 +99,18 @@ struct FixConnectivitiesRedOp {
     return b;
   }
 
-  DI void init(value_t* out, value_t maxVal) { *out = maxVal; }
-  DI void init(KVP* out, value_t maxVal)
+  DI void init(value_t* out, value_t maxVal) const { *out = maxVal; }
+  DI void init(KVP* out, value_t maxVal) const
   {
     out->key   = -1;
     out->value = maxVal;
   }
+
+  DI void init_key(value_t& out, value_idx idx) const { return; }
+  DI void init_key(KVP& out, value_idx idx) const { out.key = idx; }
+
+  DI value_t get_value(KVP& out) const { return out.value; }
+  DI value_t get_value(value_t& out) const { return out; }
 };
 
 /**
