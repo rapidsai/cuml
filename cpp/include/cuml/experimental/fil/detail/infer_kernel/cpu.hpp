@@ -116,10 +116,10 @@ void infer_kernel_cpu(forest_t const& forest,
                              std::conditional_t<has_vector_leaves,
                                                 typename node_t::index_type,
                                                 typename node_t::threshold_type>>{};
-        tree_output = evaluate_tree_dispatch<has_vector_leaves,
-                                             has_categorical_nodes,
-                                             has_nonlocal_categories,
-                                             predict_leaf>(
+        tree_output = evaluate_tree<has_vector_leaves,
+                                    has_categorical_nodes,
+                                    has_nonlocal_categories,
+                                    predict_leaf>(
           forest, tree_index, input + row_index * col_count, categorical_data);
         if constexpr (predict_leaf) {
           output_workspace[row_index * num_outputs * num_grove + tree_index * num_grove +

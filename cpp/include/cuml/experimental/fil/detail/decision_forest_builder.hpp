@@ -81,7 +81,7 @@ struct decision_forest_builder {
   void add_categorical_node(
     iter_t vec_begin,
     iter_t vec_end,
-    std::optional<int> tl_node_id,
+    std::optional<int> tl_node_id                     = std::nullopt,
     bool default_to_distant_child                     = false,
     typename node_type::metadata_storage_type feature = typename node_type::metadata_storage_type{},
     typename node_type::offset_type offset            = typename node_type::offset_type{})
@@ -106,7 +106,9 @@ struct decision_forest_builder {
 
   /* Add a leaf node with vector output */
   template <typename iter_t>
-  void add_leaf_vector_node(iter_t vec_begin, iter_t vec_end, std::optional<int> tl_node_id)
+  void add_leaf_vector_node(iter_t vec_begin,
+                            iter_t vec_end,
+                            std::optional<int> tl_node_id = std::nullopt)
   {
     auto leaf_index = typename node_type::index_type(vector_output_.size() / output_size_);
     std::copy(vec_begin, vec_end, std::back_inserter(vector_output_));
@@ -116,8 +118,8 @@ struct decision_forest_builder {
                         false,
                         typename node_type::metadata_storage_type{},
                         typename node_type::offset_type{});
-    // -1 indicates the lack of ID mapping for a particular node
-    node_id_mapping_.push_back(static_cast<index_type>(tl_node_id.value_or(-1)));
+    // 0 indicates the lack of ID mapping for a particular node
+    node_id_mapping_.push_back(static_cast<index_type>(tl_node_id.value_or(0)));
     ++cur_tree_size_;
   }
 
@@ -125,7 +127,7 @@ struct decision_forest_builder {
   template <typename value_t>
   void add_node(
     value_t val,
-    std::optional<int> tl_node_id,
+    std::optional<int> tl_node_id                     = std::nullopt,
     bool is_leaf_node                                 = true,
     bool default_to_distant_child                     = false,
     bool is_categorical_node                          = false,
@@ -136,8 +138,8 @@ struct decision_forest_builder {
     if (is_inclusive) { val = std::nextafter(val, std::numeric_limits<value_t>::infinity()); }
     nodes_.emplace_back(
       val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset);
-    // -1 indicates the lack of ID mapping for a particular node
-    node_id_mapping_.push_back(static_cast<index_type>(tl_node_id.value_or(-1)));
+    // 0 indicates the lack of ID mapping for a particular node
+    node_id_mapping_.push_back(static_cast<index_type>(tl_node_id.value_or(0)));
     ++cur_tree_size_;
   }
 

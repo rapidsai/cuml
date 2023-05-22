@@ -148,17 +148,13 @@ __global__ void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_SM) infe
                                             typename node_t::threshold_type>{};
       auto leaf_node_id = index_type{};
       if (infer_type == infer_kind::leaf_id) {
-        leaf_node_id = evaluate_tree_dispatch<has_vector_leaves,
-                                              has_categorical_nodes,
-                                              has_nonlocal_categories,
-                                              true>(
-          forest, tree_index, input_data + row_index * col_count, categorical_data);
+        leaf_node_id =
+          evaluate_tree<has_vector_leaves, has_categorical_nodes, has_nonlocal_categories, true>(
+            forest, tree_index, input_data + row_index * col_count, categorical_data);
       } else {
-        tree_output = evaluate_tree_dispatch<has_vector_leaves,
-                                             has_categorical_nodes,
-                                             has_nonlocal_categories,
-                                             false>(
-          forest, tree_index, input_data + row_index * col_count, categorical_data);
+        tree_output =
+          evaluate_tree<has_vector_leaves, has_categorical_nodes, has_nonlocal_categories, false>(
+            forest, tree_index, input_data + row_index * col_count, categorical_data);
       }
 
       if (infer_type == infer_kind::leaf_id) {
