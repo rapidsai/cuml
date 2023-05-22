@@ -90,73 +90,50 @@ struct select_at_index : public thrust::unary_function<int, math_t> {
 };
 
 /**
- * @brief Helper class to interact with static amount of sub-caches
+ * @brief Helper class to to allow batch-wise interaction with Cache
  *
- * Allows for partial row updates in an underlying cache consisting of a
- * fixed amount of statically sized sub caches.
+ * Allows for partial row updates with an underlying cache.
+ * It is assumed that 'AssignAndStoreVecs' operations are always performed
+ * for all batches starting at batch 0.
  *
- * The sub-caches are forced to keep the same indices and only differ
- * in the batch of total rows they represent.
  */
 template <typename math_t>
-class BatchCache {
+class BatchCache : public raft::cache::Cache<math_t> {
  public:
+  /**
+   * @brief BatchCache Constructor
+   *
+   * @param [in] n_rows number of elements in a single vector that is stored in a
+   *   cache entry
+   * @param [in] cache_size in MiB
+   * @param [out] tmp_buffer temporary buffer of size [2*n_ws]
+   * @param [in] stream cuda stream
+   */
   BatchCache(int n_rows, float cache_size, cudaStream_t stream)
-    : n_rows(n_rows), cache_size(cache_size), d_temp_storage(0, stream)
+    : raft::cache::Cache<math_t>(stream, n_rows, cache_size), d_temp_storage(0, stream)
   {
   }
-
-  ~BatchCache()
-  {
-    for (auto* cache : caches)
-      delete cache;
-  }
+  ~BatchCache() {}
 
   /**
    * @brief Initialize BatchCache
    *
-   * This will generate the internal raft::Cache<> elements for each batch
-   * given a static batch_size
+   * This will initialize internal tmp structures for cub
    *
-   * @param [in] batch_size_base number of elements in the working set
+   * @param [in] batch_size_base maximum number of rows in a batch
    * @param [in] n_ws array with indices of vectors in the working set, size [n_ws]
    * @param [out] tmp_buffer temporary buffer of size [2*n_ws]
    * @param [in] stream cuda stream
    */
   void Initialize(int batch_size_base, int n_ws, int* tmp_buffer, cudaStream_t stream)
   {
+    this->batch_size_base = batch_size_base;
     RAFT_CUDA_TRY(cudaMemsetAsync(tmp_buffer, 0, n_ws * 2 * sizeof(int), stream));
-    for (int offset = 0; offset < n_rows; offset += batch_size_base) {
-      int batch_size         = std::min(batch_size_base, n_rows - offset);
-      float cache_size_batch = cache_size * batch_size / n_rows;
-      auto* cache            = new raft::cache::Cache<math_t>(stream, batch_size, cache_size_batch);
-
-      // initialize internal data structures (only needed for batch_id > 0)
-      if (cache->GetSize() > 0 && offset > 0) {
-        int cached;
-        cache->GetCacheIdxPartitioned(tmp_buffer, n_ws, tmp_buffer + n_ws, &cached, stream);
-      }
-
-      caches.push_back(cache);
-    }
-
-    // Check all caches have the same capacity
-    // This is a requirement for the assumption that the cached indices
-    // are identical for all batches
-    int size = GetSize();
-    for (auto* cache : caches) {
-      ASSERT(cache->GetSize() == size, "Unexpected cache size");
-    }
 
     // Init cub buffers
     cub::DeviceRadixSort::SortKeys(
       NULL, d_temp_storage_size, tmp_buffer, tmp_buffer, n_ws, 0, sizeof(int) * 8, stream);
     d_temp_storage.resize(d_temp_storage_size, stream);
-  }
-
-  int GetSize(int batch_idx = 0) const
-  {
-    return caches.size() > 0 ? caches[batch_idx]->GetSize() : 0;
   }
 
   /**
@@ -178,7 +155,7 @@ class BatchCache {
     int* keys, int n, int* cache_idx, int* reorder_buffer, cudaStream_t stream)
   {
     int n_cached = 0;
-    caches[0]->GetCacheIdxPartitioned(keys, n, cache_idx, &n_cached, stream);
+    raft::cache::Cache<math_t>::GetCacheIdxPartitioned(keys, n, cache_idx, &n_cached, stream);
 
     int n_uncached = n - n_cached;
     if (n_uncached > 1) {
@@ -217,7 +194,7 @@ class BatchCache {
   void GetCacheIdxPartitionedStable(
     int* keys, int n, int* cache_idx, int* n_cached, cudaStream_t stream)
   {
-    caches[0]->GetCacheIdxPartitioned(keys, n, cache_idx, n_cached, stream);
+    raft::cache::Cache<math_t>::GetCacheIdxPartitioned(keys, n, cache_idx, n_cached, stream);
 
     int n_uncached = n - *n_cached;
     if (n_uncached > 1) {
@@ -235,14 +212,22 @@ class BatchCache {
    * This will retrieve cached rows at the given positions for a given batch.
    *
    * @param [in] batch_idx batch id
+   * @param [in] batch_size batch size
    * @param [in] idx indices to be retrieved
    * @param [in] n number of indices
-   * @param [out] out buffer for cache rows, should be at least [n*batch_size[batch_id]]
+   * @param [out] out buffer for cache rows, should be at least [n*batch_size]
    * @param [in] stream cuda stream
    */
-  void GetVecs(int batch_idx, const int* idx, int n, math_t* out, cudaStream_t stream)
+  void GetVecs(
+    int batch_idx, int batch_size, const int* idx, int n, math_t* out, cudaStream_t stream)
   {
-    caches[batch_idx]->GetVecs(idx, n, out, stream);
+    if (n > 0) {
+      int offset = raft::cache::Cache<math_t>::GetSize() * batch_size_base * batch_idx;
+      rmm::device_uvector<math_t>& cache = raft::cache::Cache<math_t>::cache;
+      raft::cache::get_vecs<<<raft::ceildiv(n * batch_size, TPB), TPB, 0, stream>>>(
+        cache.data() + offset, batch_size, idx, n, out);
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
+    }
   }
 
   /**
@@ -251,29 +236,51 @@ class BatchCache {
    * This will store new rows for a given batch.
    *
    * @param [in] batch_idx batch id
+   * @param [in] batch_size batch size
    * @param [in] keys keys for rows to store
    * @param [in] n number of keys
    * @param [inout] cache_idx cache set ids
-   * @param [in] tile rows store, should be at least [n*n_tile]
+   * @param [in] tile rows store, should be at least [n*batch_size]
    * @param [in] stream cuda stream
    */
-  void AssignAndStoreVecs(
-    int batch_idx, int* keys, int n, int* cache_idx, const math_t* tile, cudaStream_t stream)
+  void AssignAndStoreVecs(int batch_idx,
+                          int batch_size,
+                          int* keys,
+                          int n,
+                          int* cache_idx,
+                          const math_t* tile,
+                          cudaStream_t stream)
   {
     // here we assume that the input keys are already ordered by cache_idx
     // this will prevent AssignCacheIdx to modify it further
-    caches[batch_idx]->AssignCacheIdx(keys, n, cache_idx, stream);
-    caches[batch_idx]->StoreVecs(tile, n, n, cache_idx, stream);
+    if (n > 0) {
+      if (batch_idx == 0) {
+        // we only need to do this for the initial batch
+        raft::cache::Cache<math_t>::AssignCacheIdx(keys, n, cache_idx, stream);
+      }
+      int offset = raft::cache::Cache<math_t>::GetSize() * batch_size_base * batch_idx;
+      rmm::device_uvector<math_t>& cache = raft::cache::Cache<math_t>::cache;
+      raft::cache::store_vecs<<<raft::ceildiv(n * batch_size, TPB), TPB, 0, stream>>>(
+        tile,
+        n,
+        batch_size,
+        nullptr,
+        n,
+        cache_idx,
+        cache.data() + offset,
+        raft::cache::Cache<math_t>::GetSize());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
+    }
   }
 
  private:
-  int n_rows;        //!< Total number of rows to cache
-  float cache_size;  //!< total over all caches in MiB
-  std::vector<raft::cache::Cache<math_t>*> caches;
+  int batch_size_base;  //!< maximum number of rows per batch
 
   // tmp storage for cub sort
   rmm::device_uvector<char> d_temp_storage;
   size_t d_temp_storage_size = 0;
+
+  const int TPB = 256;  //!< threads per block for kernels launched
 };
 
 }  // end unnamed namespace
@@ -522,9 +529,11 @@ class KernelCache {
     ASSERT(cache_state != CacheState::BATCHING_INITIALIZED, "Previous batching step incomplete!");
     int n_cached = 0;
     if (batch_cache.GetSize() > 0) {
-      // we only do this once per workingset for cache 0 - all others should behave the same
+      // we only do this once per workingset for
       batch_cache.GetCacheIdxPartitionedStable(
         nz_da_idx, nnz_da, ws_cache_idx.data() + n_ws, &n_cached, stream);
+      // the second instance will be permuted during the assign step
+      raft::copy(ws_cache_idx.data(), ws_cache_idx.data() + n_ws, nnz_da, stream);
     }
 
     int n_uncached = nnz_da - n_cached;
@@ -575,14 +584,11 @@ class KernelCache {
     int nnz_da     = batch_descriptor.nnz_da;
     int n_cached   = batch_descriptor.n_cached;
     int n_uncached = nnz_da - n_cached;
-    if (batch_cache.GetSize() > 0) {
-      // re-init ws_cache_idx for each batch
-      raft::copy(ws_cache_idx.data(), ws_cache_idx.data() + n_ws, nnz_da, stream);
-    }
 
     // fill in n_cached ids from cache
     if (n_cached > 0) {
-      batch_cache.GetVecs(batch_id, ws_cache_idx.data(), n_cached, kernel_tile.data(), stream);
+      batch_cache.GetVecs(
+        batch_id, batch_size, ws_cache_idx.data(), n_cached, kernel_tile.data(), stream);
     }
 
     if (n_uncached > 0) {
@@ -641,8 +647,13 @@ class KernelCache {
       if (batch_cache.GetSize() > 0 && n_uncached > 0) {
         // AssignCacheIdx should not permute ws_idx_new anymore as we have sorted
         // it already during InitWorkingSet
-        batch_cache.AssignAndStoreVecs(
-          batch_id, ws_idx_new, n_uncached, ws_cache_idx.data() + n_cached, tile_new, stream);
+        batch_cache.AssignAndStoreVecs(batch_id,
+                                       batch_size,
+                                       ws_idx_new,
+                                       n_uncached,
+                                       ws_cache_idx.data() + n_ws + n_cached,
+                                       tile_new,
+                                       stream);
       }
     }
 
