@@ -1329,7 +1329,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             value. Note that for very large batch sizes and large models, the
             total elapsed time may exceed this timeout; it is a soft target for
             elapsed time. Setting the timeout to zero will run through the
-            indicated number of unique batches exactly once.
+            indicated number of unique batches exactly once. Defaults to 0.2s.
         predict_method : str
             If desired, optimization can occur over one of the prediction
             method variants (e.g. "predict_per_tree") rather than the
