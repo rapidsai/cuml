@@ -625,11 +625,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         if old_value != value:
             self._reload_model()
 
-    def _get_chunk_size(self, chunk_size=None):
-        if chunk_size is None:
-            return self.default_chunk_size
-        return chunk_size
-
     def __init__(
             self,
             *,
@@ -1141,7 +1136,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                 " with is_classifer=True if this is a classifier."
             )
         return self.forest.predict(
-            X, preds=preds, chunk_size=self._get_chunk_size(chunk_size)
+            X, preds=preds, chunk_size=(chunk_size or self.default_chunk_size)
         )
 
     @nvtx.annotate(
@@ -1201,7 +1196,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             classifiers, the highest probability class is chosen regardless
             of threshold.
         """
-        chunk_size = self._get_chunk_size(chunk_size)
+        chunk_size = (chunk_size or self.default_chunk_size)
         if self.forest.row_postprocessing() == 'max_index':
             raw_out = self.forest.predict(X, chunk_size=chunk_size)
             result = raw_out[:, 0]
@@ -1281,7 +1276,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             any power of 2, but little benefit is expected above a chunk size
             of 512.
         """
-        chunk_size = self._get_chunk_size(chunk_size)
+        chunk_size = (chunk_size or self.default_chunk_size)
         return self.forest.predict(
             X, predict_type="per_tree", preds=preds, chunk_size=chunk_size
         )
