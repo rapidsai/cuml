@@ -56,21 +56,31 @@ template void svrFit<double>(const raft::handle_t& handle,
                              SvmModel<double>& model,
                              const double* sample_weight);
 
-template void svrFitX<float>(const raft::handle_t& handle,
-                             const MLCommon::Matrix::Matrix<float>& matrix,
-                             float* y,
-                             const SvmParameter& param,
-                             KernelParams& kernel_params,
-                             SvmModel<float>& model,
-                             const float* sample_weight);
+template void svrFitSparse<float>(const raft::handle_t& handle,
+                                  int* indptr,
+                                  int* indices,
+                                  float* data,
+                                  int n_rows,
+                                  int n_cols,
+                                  int nnz,
+                                  float* y,
+                                  const SvmParameter& param,
+                                  KernelParams& kernel_params,
+                                  SvmModel<float>& model,
+                                  const float* sample_weight);
 
-template void svrFitX<double>(const raft::handle_t& handle,
-                              const MLCommon::Matrix::Matrix<double>& matrix,
-                              double* y,
-                              const SvmParameter& param,
-                              KernelParams& kernel_params,
-                              SvmModel<double>& model,
-                              const double* sample_weight);
+template void svrFitSparse<double>(const raft::handle_t& handle,
+                                   int* indptr,
+                                   int* indices,
+                                   double* data,
+                                   int n_rows,
+                                   int n_cols,
+                                   int nnz,
+                                   double* y,
+                                   const SvmParameter& param,
+                                   KernelParams& kernel_params,
+                                   SvmModel<double>& model,
+                                   const double* sample_weight);
 
 };  // namespace SVM
 };  // end namespace ML

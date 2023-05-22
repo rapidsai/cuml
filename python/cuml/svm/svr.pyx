@@ -96,13 +96,28 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
 
 cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM" nogil:
 
-    cdef void svrFitX[math_t](const handle_t &handle, 
-                              const Matrix[math_t] &matrix, 
-                              math_t *y,
-                              const SvmParameter &param,
-                              KernelParams &kernel_params,
-                              SvmModel[math_t] &model,
-                              const math_t *sample_weight) except+
+    cdef void svrFit[math_t](const handle_t &handle, 
+                             math_t* data, 
+                             int n_rows,
+                             int n_cols,
+                             math_t *y,
+                             const SvmParameter &param,
+                             KernelParams &kernel_params,
+                             SvmModel[math_t] &model,
+                             const math_t *sample_weight) except+
+
+    cdef void svrFitSparse[math_t](const handle_t &handle, 
+                                   int* indptr, 
+                                   int* indices, 
+                                   math_t* data, 
+                                   int n_rows,
+                                   int n_cols,
+                                   int nnz,
+                                   math_t *y,
+                                   const SvmParameter &param,
+                                   KernelParams &kernel_params,
+                                   SvmModel[math_t] &model,
+                                   const math_t *sample_weight) except+
 
 class SVR(SVMBase, RegressorMixin):
     """
@@ -290,8 +305,6 @@ class SVR(SVMBase, RegressorMixin):
         cdef SvmParameter param = self._get_svm_params()
         cdef SvmModel[float] *model_f
         cdef SvmModel[double] *model_d
-        cdef Matrix[float] *matrix_f
-        cdef Matrix[double] *matrix_d
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef int n_rows = self.n_rows
@@ -304,22 +317,26 @@ class SVR(SVMBase, RegressorMixin):
         if self.dtype == np.float32:
             model_f = new SvmModel[float]()
             if is_sparse:
-                matrix_f = new CsrMatrix[float](<int*>X_indptr, <int*>X_indices, <float*>X_data, n_nnz, n_rows, n_cols)
+                svrFitSparse(handle_[0], <int*>X_indptr, <int*>X_indices, 
+                        <float*>X_data, n_rows, n_cols, n_nnz,
+                        <float*>y_ptr, param, _kernel_params,
+                        model_f[0], <float*>sample_weight_ptr)
             else:
-                matrix_f = new DenseMatrix[float](<float*>X_data, n_rows, n_cols)
-            svrFitX(handle_[0], deref(matrix_f),
-                    <float*>y_ptr, param, _kernel_params,
-                    model_f[0], <float*>sample_weight_ptr)
+                svrFit(handle_[0], <float*>X_data, n_rows, n_cols,
+                        <float*>y_ptr, param, _kernel_params,
+                        model_f[0], <float*>sample_weight_ptr)
             self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
             model_d = new SvmModel[double]()
             if is_sparse:
-                matrix_d = new CsrMatrix[double](<int*>X_indptr, <int*>X_indices, <double*>X_data, n_nnz, n_rows, n_cols)
+                svrFitSparse(handle_[0], <int*>X_indptr, <int*>X_indices, 
+                        <double*>X_data, n_rows, n_cols, n_nnz,
+                        <double*>y_ptr, param, _kernel_params,
+                        model_d[0], <double*>sample_weight_ptr)
             else:
-                matrix_d = new DenseMatrix[double](<double*>X_data, n_rows, n_cols)
-            svrFitX(handle_[0], deref(matrix_d),
-                    <double*>y_ptr, param, _kernel_params,
-                    model_d[0], <double*>sample_weight_ptr)
+                svrFit(handle_[0], <double*>X_data, n_rows, n_cols,
+                        <double*>y_ptr, param, _kernel_params,
+                        model_d[0], <double*>sample_weight_ptr)
             self._model = <uintptr_t>model_d
         else:
             raise TypeError('Input data type should be float32 or float64')

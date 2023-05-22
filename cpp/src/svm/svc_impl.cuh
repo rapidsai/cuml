@@ -98,7 +98,6 @@ void svcFitX(const raft::handle_t& handle,
   delete kernel;
 }
 
-// TODO remove layer once matrix object can be passed from python
 template <typename math_t>
 void svcFit(const raft::handle_t& handle,
             math_t* input,
@@ -112,6 +111,24 @@ void svcFit(const raft::handle_t& handle,
 {
   MLCommon::Matrix::DenseMatrix<math_t> dense_matrix(input, n_rows, n_cols);
   svcFitX(handle, dense_matrix, labels, param, kernel_params, model, sample_weight);
+}
+
+template <typename math_t>
+void svcFitSparse(const raft::handle_t& handle,
+                  int* indptr,
+                  int* indices,
+                  math_t* data,
+                  int n_rows,
+                  int n_cols,
+                  int nnz,
+                  math_t* labels,
+                  const SvmParameter& param,
+                  raft::distance::kernels::KernelParams& kernel_params,
+                  SvmModel<math_t>& model,
+                  const math_t* sample_weight)
+{
+  MLCommon::Matrix::CsrMatrix<math_t> csr_matrix(indptr, indices, data, nnz, n_rows, n_cols);
+  svcFitX(handle, csr_matrix, labels, param, kernel_params, model, sample_weight);
 }
 
 template <typename math_t>
@@ -287,7 +304,6 @@ void svcPredictX(const raft::handle_t& handle,
   delete kernel;
 }
 
-// TODO remove layer once matrix object can be passed from python
 template <typename math_t>
 void svcPredict(const raft::handle_t& handle,
                 math_t* input,
@@ -301,6 +317,24 @@ void svcPredict(const raft::handle_t& handle,
 {
   MLCommon::Matrix::DenseMatrix<math_t> dense_matrix(input, n_rows, n_cols);
   svcPredictX(handle, dense_matrix, kernel_params, model, preds, buffer_size, predict_class);
+}
+
+template <typename math_t>
+void svcPredictSparse(const raft::handle_t& handle,
+                      int* indptr,
+                      int* indices,
+                      math_t* data,
+                      int n_rows,
+                      int n_cols,
+                      int nnz,
+                      raft::distance::kernels::KernelParams& kernel_params,
+                      const SvmModel<math_t>& model,
+                      math_t* preds,
+                      math_t buffer_size,
+                      bool predict_class)
+{
+  MLCommon::Matrix::CsrMatrix<math_t> csr_matrix(indptr, indices, data, nnz, n_rows, n_cols);
+  svcPredictX(handle, csr_matrix, kernel_params, model, preds, buffer_size, predict_class);
 }
 
 template <typename math_t>

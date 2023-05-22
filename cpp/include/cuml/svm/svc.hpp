@@ -61,14 +61,41 @@ void svcFit(const raft::handle_t& handle,
             SvmModel<math_t>& model,
             const math_t* sample_weight);
 
+/**
+ * @brief Fit a support vector classifier to the training data.
+ *
+ * Each row of the input data stores a feature vector.
+ * We use the SMO method to fit the SVM.
+ *
+ * The output device buffers in model shall be unallocated on entry.
+ *
+ * @tparam math_t floating point type
+ * @param [in] handle the cuML handle
+ * @param [in] indptr device pointer for CSR row positions. Size [n_rows + 1].
+ * @param [in] indices device pointer for CSR column indices. Size [nnz].
+ * @param [in] data device pointer for the CSR data. Size [nnz].
+ * @param [in] n_rows number of rows
+ * @param [in] n_cols number of columns
+ * @param [in] nnz number of stored entries.
+ * @param [in] labels device pointer for the labels. Size [n_rows].
+ * @param [in] param parameters for training
+ * @param [in] kernel_params parameters for the kernel function
+ * @param [out] model parameters of the trained model
+ * @param [in] sample_weight optional sample weights, size [n_rows]
+ */
 template <typename math_t>
-void svcFitX(const raft::handle_t& handle,
-             const MLCommon::Matrix::Matrix<math_t>& matrix,
-             math_t* labels,
-             const SvmParameter& param,
-             raft::distance::kernels::KernelParams& kernel_params,
-             SvmModel<math_t>& model,
-             const math_t* sample_weight);
+void svcFitSparse(const raft::handle_t& handle,
+                  int* indptr,
+                  int* indices,
+                  math_t* data,
+                  int n_rows,
+                  int n_cols,
+                  int nnz,
+                  math_t* labels,
+                  const SvmParameter& param,
+                  raft::distance::kernels::KernelParams& kernel_params,
+                  SvmModel<math_t>& model,
+                  const math_t* sample_weight);
 
 /**
  * @brief Predict classes or decision function value for samples in input.
@@ -110,14 +137,50 @@ void svcPredict(const raft::handle_t& handle,
                 math_t buffer_size,
                 bool predict_class);
 
+/**
+ * @brief Predict classes or decision function value for samples in input.
+ *
+ * We evaluate the decision function f(x_i). Depending on the parameter
+ * predict_class, we either return f(x_i) or the label corresponding to
+ * sign(f(x_i)).
+ *
+ * The predictions are calculated according to the following formulas:
+ * \f[
+ *    f(x_i) = \sum_{j=1}^n_support K(x_i, x_j) * dual_coefs[j] + b)
+ * \f]
+ *
+ * pred(x_i) = label[sign(f(x_i))], if predict_class==true, or
+ * pred(x_i) = f(x_i),       if predict_class==falsee.
+ *
+ * @tparam math_t floating point type
+ * @param handle the cuML handle
+ * @param [in] indptr device pointer for CSR row positions. Size [n_rows + 1].
+ * @param [in] indices device pointer for CSR column indices. Size [nnz].
+ * @param [in] data device pointer for the CSR data. Size [nnz].
+ * @param [in] n_rows number of rows
+ * @param [in] n_cols number of columns
+ * @param [in] nnz number of stored entries.
+ * @param [in] kernel_params parameters for the kernel function
+ * @param [in] model SVM model parameters
+ * @param [out] preds device pointer to store the predicted class labels.
+ *    Size [n_rows]. Should be allocated on entry.
+ * @param [in] buffer_size size of temporary buffer in MiB
+ * @param [in] predict_class whether to predict class label (true), or just
+ *     return the decision function value (false)
+ */
 template <typename math_t>
-void svcPredictX(const raft::handle_t& handle,
-                 const MLCommon::Matrix::Matrix<math_t>& matrix,
-                 raft::distance::kernels::KernelParams& kernel_params,
-                 const SvmModel<math_t>& model,
-                 math_t* preds,
-                 math_t buffer_size,
-                 bool predict_class);
+void svcPredictSparse(const raft::handle_t& handle,
+                      int* indptr,
+                      int* indices,
+                      math_t* data,
+                      int n_rows,
+                      int n_cols,
+                      int nnz,
+                      raft::distance::kernels::KernelParams& kernel_params,
+                      const SvmModel<math_t>& model,
+                      math_t* preds,
+                      math_t buffer_size,
+                      bool predict_class);
 
 /**
  * Deallocate device buffers in the SvmModel struct.

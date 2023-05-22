@@ -94,5 +94,23 @@ void svrFit(const raft::handle_t& handle,
   svrFitX(handle, dense_matrix, y, param, kernel_params, model, sample_weight);
 }
 
+template <typename math_t>
+void svrFitSparse(const raft::handle_t& handle,
+                  int* indptr,
+                  int* indices,
+                  math_t* data,
+                  int n_rows,
+                  int n_cols,
+                  int nnz,
+                  math_t* y,
+                  const SvmParameter& param,
+                  raft::distance::kernels::KernelParams& kernel_params,
+                  SvmModel<math_t>& model,
+                  const math_t* sample_weight)
+{
+  MLCommon::Matrix::CsrMatrix<math_t> csr_matrix(indptr, indices, data, nnz, n_rows, n_cols);
+  svrFitX(handle, csr_matrix, y, param, kernel_params, model, sample_weight);
+}
+
 };  // end namespace SVM
 };  // end namespace ML

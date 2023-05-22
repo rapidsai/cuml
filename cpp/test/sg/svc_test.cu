@@ -1550,18 +1550,27 @@ TYPED_TEST(SmoSolverTest, DenseBatching)
 
       SvmModel<TypeParam> model;
       TypeParam* sample_weights = nullptr;
-      svcFitX(
-        this->handle, dense_input, y.data(), param, input.kernel_params, model, sample_weights);
+      svcFit(this->handle,
+             dense_input.get_data(),
+             dense_input.get_n_rows(),
+             dense_input.get_n_cols(),
+             y.data(),
+             param,
+             input.kernel_params,
+             model,
+             sample_weights);
 
       // TODO predict with subset csr & dense
       rmm::device_uvector<TypeParam> y_pred(input.n_rows, stream);
-      svcPredictX(this->handle,
-                  dense_input,
-                  input.kernel_params,
-                  model,
-                  y_pred.data(),
-                  (TypeParam)200.0,
-                  false);
+      svcPredict(this->handle,
+                 dense_input.get_data(),
+                 dense_input.get_n_rows(),
+                 dense_input.get_n_cols(),
+                 input.kernel_params,
+                 model,
+                 y_pred.data(),
+                 (TypeParam)200.0,
+                 false);
 
       svmFreeBuffers(this->handle, model);
     }
@@ -1609,17 +1618,33 @@ TYPED_TEST(SmoSolverTest, SparseBatching)
 
       SvmModel<TypeParam> model;
       TypeParam* sample_weights = nullptr;
-      svcFitX(this->handle, csr_input, y.data(), param, input.kernel_params, model, sample_weights);
+      svcFitSparse(this->handle,
+                   csr_input.get_indptr(),
+                   csr_input.get_indices(),
+                   csr_input.get_data(),
+                   csr_input.get_n_rows(),
+                   csr_input.get_n_cols(),
+                   csr_input.get_nnz(),
+                   y.data(),
+                   param,
+                   input.kernel_params,
+                   model,
+                   sample_weights);
 
       // predict with full input
       rmm::device_uvector<TypeParam> y_pred(input.n_rows, stream);
-      svcPredictX(this->handle,
-                  csr_input,
-                  input.kernel_params,
-                  model,
-                  y_pred.data(),
-                  (TypeParam)200.0,
-                  false);
+      svcPredictSparse(this->handle,
+                       csr_input.get_indptr(),
+                       csr_input.get_indices(),
+                       csr_input.get_data(),
+                       csr_input.get_n_rows(),
+                       csr_input.get_n_cols(),
+                       csr_input.get_nnz(),
+                       input.kernel_params,
+                       model,
+                       y_pred.data(),
+                       (TypeParam)200.0,
+                       false);
       MLCommon::devArrMatch(
         y.data(), y_pred.data(), input.n_rows, MLCommon::CompareApprox<TypeParam>(1e-6), stream);
 
@@ -1641,20 +1666,27 @@ TYPED_TEST(SmoSolverTest, SparseBatching)
         rmm::device_uvector<TypeParam> y_pred_csr(n_extract, stream);
         rmm::device_uvector<TypeParam> y_pred_dense(n_extract, stream);
         // also reduce buffer memory to ensure batching
-        svcPredictX(this->handle,
-                    csr_subset,
-                    input.kernel_params,
-                    model,
-                    y_pred_csr.data(),
-                    (TypeParam)50.0,
-                    false);
-        svcPredictX(this->handle,
-                    dense_subset,
-                    input.kernel_params,
-                    model,
-                    y_pred_dense.data(),
-                    (TypeParam)50.0,
-                    false);
+        svcPredictSparse(this->handle,
+                         csr_subset.get_indptr(),
+                         csr_subset.get_indices(),
+                         csr_subset.get_data(),
+                         csr_subset.get_n_rows(),
+                         csr_subset.get_n_cols(),
+                         csr_subset.get_nnz(),
+                         input.kernel_params,
+                         model,
+                         y_pred_csr.data(),
+                         (TypeParam)50.0,
+                         false);
+        svcPredict(this->handle,
+                   dense_subset.get_data(),
+                   dense_subset.get_n_rows(),
+                   dense_subset.get_n_cols(),
+                   input.kernel_params,
+                   model,
+                   y_pred_dense.data(),
+                   (TypeParam)50.0,
+                   false);
         MLCommon::devArrMatch(y_pred_csr.data(),
                               y_pred_dense.data(),
                               n_extract,
@@ -1879,11 +1911,26 @@ class SvrTest : public ::testing::Test {
         sample_weights = sample_weights_dev.data();
         raft::update_device(sample_weights_dev.data(), p.sample_weighs.data(), p.n_rows, stream);
       }
-      MLCommon::Matrix::DenseMatrix matrix_wrapper(x_dev.data(), p.n_rows, p.n_cols);
-      svrFitX(handle, matrix_wrapper, y_dev.data(), p.param, p.kernel, model, sample_weights);
+      svrFit(handle,
+             x_dev.data(),
+             p.n_rows,
+             p.n_cols,
+             y_dev.data(),
+             p.param,
+             p.kernel,
+             model,
+             sample_weights);
       checkResults(model, toSmoOutput(exp), stream);
       rmm::device_uvector<math_t> preds(p.n_rows, stream);
-      svcPredictX(handle, matrix_wrapper, p.kernel, model, preds.data(), (math_t)200.0, false);
+      svcPredict(handle,
+                 x_dev.data(),
+                 p.n_rows,
+                 p.n_cols,
+                 p.kernel,
+                 model,
+                 preds.data(),
+                 (math_t)200.0,
+                 false);
       if (!exp.decision_function.empty()) {
         EXPECT_TRUE(devArrMatchHost(exp.decision_function.data(),
                                     preds.data(),
