@@ -297,9 +297,9 @@ cdef class ForestInference_impl():
 
 
 class _AutoIterations:
-    """Used to generate sequence of iterations (1, 3, 5, 10, 30, 50...) during
+    """Used to generate sequence of iterations (1, 2, 5, 10, 20, 50...) during
     FIL optimization"""
-    sequence = (1, 3, 5)
+    sequence = (1, 2, 5)
     def __init__(self):
         self.invocations = 0
 
@@ -1328,7 +1328,8 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             1, 2, 5, 10, 20, 50, ... until the time taken is at least the given
             value. Note that for very large batch sizes and large models, the
             total elapsed time may exceed this timeout; it is a soft target for
-            elapsed time.
+            elapsed time. Setting the timeout to zero will run through the
+            indicated number of unique batches exactly once.
         predict_method : str
             If desired, optimization can occur over one of the prediction
             method variants (e.g. "predict_per_tree") rather than the
@@ -1359,8 +1360,9 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         try:
             unique_batches, batch_size, features = data.shape
         except ValueError:
+            unique_batches = 1
             batch_size, features = data.shape
-            data = [data] * unique_batches
+            data = [data]
 
         if max_chunk_size is None:
             max_chunk_size = 512
@@ -1382,13 +1384,14 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         all_params = list(itertools.product(valid_layouts, valid_chunk_sizes))
         auto_iterator = _AutoIterations()
         loop_start = perf_counter()
-        while (perf_counter() - loop_start < timeout):
+        while True:
             optimal_time = float('inf')
+            iterations = auto_iterator.next()
             for layout, chunk_size in all_params:
                 self.layout = layout
                 infer(data[0], chunk_size=chunk_size)
                 elapsed = float('inf')
-                for _ in range(auto_iterator.next()):
+                for _ in range(iterations):
                     start = perf_counter()
                     for iter_index in range(unique_batches):
                         infer(
@@ -1399,16 +1402,8 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                     optimal_time = elapsed
                     optimal_layout = layout
                     optimal_chunk_size = chunk_size
+            if (perf_counter() - loop_start > timeout):
+                break
 
         self.layout = optimal_layout
         self.default_chunk_size = optimal_chunk_size
-
-
-class ForestInferenceOptimizer:
-    def __init__(
-        self,
-        base_estimator,
-        *,
-        in_place=False
-    ):
-        pass
