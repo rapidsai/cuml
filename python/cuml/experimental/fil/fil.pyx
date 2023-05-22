@@ -299,9 +299,10 @@ cdef class ForestInference_impl():
 class _AutoIterations:
     """Used to generate sequence of iterations (1, 2, 5, 10, 20, 50...) during
     FIL optimization"""
-    sequence = (1, 2, 5)
+
     def __init__(self):
         self.invocations = 0
+        self.sequence = (1, 2, 5)
 
     def next(self):
         result = (
