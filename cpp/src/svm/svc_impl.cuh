@@ -146,10 +146,7 @@ void svcPredictX(const raft::handle_t& handle,
   ASSERT(n_cols == model.n_cols, "Parameter n_cols: shall be the same that was used for fitting");
   // We might want to query the available memory before selecting the batch size.
   // We will need n_batch * n_support floats for the kernel matrix K.
-  // FIXME: why choose such a small max? Why choose a max at all when we limit by the buffer_size?
-  const int N_PRED_BATCH = 4096;
-  int n_batch            = N_PRED_BATCH < n_rows ? N_PRED_BATCH : n_rows;
-
+  int n_batch = n_rows;
   // Limit the memory size of the prediction buffer
   buffer_size = buffer_size * 1024 * 1024;
   if (n_batch * model.n_support * sizeof(math_t) > buffer_size) {
@@ -180,19 +177,17 @@ void svcPredictX(const raft::handle_t& handle,
       * transpose kernel compute, expanded L2 norm for RBF
     Sparse input, sparse support
       * row ptr copy/shift for input csr
-
-    Note: RBF with expanded euclidean only possible with single norm vector for both matrices
   */
 
-  // store matrix dot product for RBF kernels if applicable
+  // store matrix dot product (l2 norm) for RBF kernels if applicable
   rmm::device_uvector<math_t> l2_input(0, stream);
   rmm::device_uvector<math_t> l2_support(0, stream);
   bool is_csr_input     = !matrix.is_dense();
   bool is_csr_support   = model.support_matrix && !model.support_matrix->is_dense();
   bool transpose_kernel = is_csr_support && !is_csr_input;
   if (model.n_support > 0 && kernel_params.kernel == raft::distance::kernels::RBF) {
-    l2_input.reserve(n_rows, stream);
-    l2_support.reserve(model.n_support, stream);
+    l2_input.resize(n_rows, stream);
+    l2_support.resize(model.n_support, stream);
     ML::SVM::matrixRowNorm(handle, matrix, l2_input.data(), raft::linalg::NormType::L2Norm);
     if (model.n_support > 0)
       ML::SVM::matrixRowNorm(
@@ -205,8 +200,8 @@ void svcPredictX(const raft::handle_t& handle,
   rmm::device_uvector<int> indptr_batched(0, stream);
   if (model.n_support > 0 && is_csr_input) {
     auto csr_matrix = matrix.as_csr();
-    host_indptr.reserve(n_rows + 1);
-    indptr_batched.reserve(n_batch + 1, stream);
+    host_indptr.resize(n_rows + 1);
+    indptr_batched.resize(n_batch + 1, stream);
     raft::update_host(host_indptr.data(), csr_matrix->get_indptr(), n_rows + 1, stream);
   }
 
@@ -229,7 +224,8 @@ void svcPredictX(const raft::handle_t& handle,
       // indptr_batched = indices[i, i+n_batch+1] - indices[i]
       // allows for batched csr access on original col/data
       auto csr_input = matrix.as_csr();
-      int batch_nnz  = host_indptr[i + n_batch] - host_indptr[i];
+      handle_impl.sync_stream(stream);
+      int batch_nnz = host_indptr[i + n_batch] - host_indptr[i];
       {
         thrust::device_ptr<int> inptr_src(csr_input->get_indptr() + i);
         thrust::device_ptr<int> inptr_tgt(indptr_batched.data());

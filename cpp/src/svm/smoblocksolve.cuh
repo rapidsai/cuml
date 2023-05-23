@@ -140,7 +140,6 @@ namespace SVM {
  *   of iterations
  * @param [in] max_iter maximum number of iterations
  * @param [in] svmType type of the SVM problem to solve
- * @param [in] kColIdx column index map for the kernel tile, size [n_ws]
  */
 template <typename math_t, int WSIZE>
 __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,

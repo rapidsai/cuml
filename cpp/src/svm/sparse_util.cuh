@@ -17,14 +17,25 @@
 #pragma once
 #include <cuml/matrix/matrix.h>
 #include <raft/distance/kernels.cuh>
-#include <raft/util/cuda_utils.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <thrust/transform_scan.h>
 
 namespace ML {
 namespace SVM {
 
-// kernel call helper
+/**
+ * @brief Kernel call helper
+ *
+ * This helper dispatches the kernel call based on the
+ * input matrix type (dense or sparse).
+ *
+ * @param [in] handle raft handle
+ * @param [in] kernel kernel instance
+ * @param [in] input1 matrix input, either dense or csr [i, j]
+ * @param [in] input2 matrix input, either dense or csr [k, j]
+ * @param [out] result evaluated kernel matrix [i, k]
+ */
 template <typename math_t>
 void KernelOp(const raft::handle_t& handle,
               raft::distance::kernels::GramMatrixBase<math_t>* kernel,
@@ -105,6 +116,17 @@ static __global__ void extractCSRRowsFromCSR(int* indptr_out,  // already holds 
   }
 }
 
+/**
+ * @brief Compute row norm
+ *
+ * This utility dispatches the row norm computation based on the
+ * input matrix type (dense or sparse).
+ *
+ * @param [in] handle raft handle
+ * @param [in] matrix matrix input, either dense or csr [i, j]
+ * @param [out] target row norm, size needs to be at least [i]
+ * @param [in] norm norm type to be evaluated
+ */
 template <typename math_t>
 void matrixRowNorm(const raft::handle_t& handle,
                    const MLCommon::Matrix::Matrix<math_t>& matrix,
@@ -134,6 +156,22 @@ void matrixRowNorm(const raft::handle_t& handle,
   }
 }
 
+/**
+ * @brief Extract CSR rows to dense
+ *
+ * Extraction of individual rows of a CSR matrix into a dense
+ * array with column major order.
+ *
+ * @param [in] indptr row index pointer of CSR input [n_rows + 1]
+ * @param [in] indices column indices of CSR input [nnz = indptr[nrows + 1]]
+ * @param [in] data values of CSR input [nnz = indptr[nrows + 1]]
+ * @param [in] n_rows number of matrix rows
+ * @param [in] n_cols number of matrix columns
+ * @param [out] output dense array, size needs to be at least [num_indices * n_cols]
+ * @param [in] row_indices row indices to extract [num_indices]
+ * @param [in] num_indices number of indices to extract
+ * @param [in] stream cuda stream
+ */
 template <typename math_t>
 static void copySparseRowsToDense(const int* indptr,
                                   const int* indices,
@@ -154,7 +192,6 @@ static void copySparseRowsToDense(const int* indptr,
   const dim3 gs(raft::ceildiv(num_indices, (int)bs.y), 1, 1);
   extractDenseRowsFromCSR<math_t>
     <<<gs, bs, 0, stream>>>(output, indptr, indices, data, row_indices, num_indices);
-  cudaDeviceSynchronize();
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
@@ -165,6 +202,25 @@ struct rowsize : public thrust::unary_function<int, int> {
   __device__ int64_t operator()(const int& x) const { return indptr_[x + 1] - indptr_[x]; }
 };
 
+/**
+ * @brief Extract matrix rows to sub matrix
+ *
+ * This function dispatches the extraction of matrix rows based on matrix
+ * input and output type (dense, sparse).
+ *
+ * Available extraction types are:
+ *     'dense -> dense'
+ *     'csr -> dense'
+ *     'csr -> csr'
+ *
+ * @param [in] handle raft handle
+ * @param [in] matrix_in matrix input, either dense or csr [i, j]
+ * @param [out] matrix_out matrix output, either dense or csr. Will be
+ *     resized to [num_indices, matrix_in.n_cols]
+ * @param [in] row_indices row indices to extract [num_indices]
+ * @param [in] num_indices number of indices to extract
+ * @param [in] handle raft handle
+ */
 template <typename math_t>
 static void extractRows(const MLCommon::Matrix::Matrix<math_t>& matrix_in,
                         MLCommon::Matrix::Matrix<math_t>& matrix_out,
@@ -228,11 +284,10 @@ static void extractRows(const MLCommon::Matrix::Matrix<math_t>& matrix_in,
                                        rowsize(indptr),
                                        thrust::plus<int>());
 
-      cudaStreamSynchronize(stream);
-
       // retrieve nnz from indptr[num_indices]
       int nnz;
       raft::update_host(&nnz, csr_matrix_out->get_indptr() + num_indices, 1, stream);
+      cudaStreamSynchronize(stream);
 
       csr_matrix_out->initialize_sparsity(handle, nnz);
 

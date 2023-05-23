@@ -49,11 +49,11 @@ namespace SVM {
 namespace {  // unnamed namespace to avoid multiple definition error
 
 /**
- * @brief Re-raise working set indexes to dual space
+ * @brief Re-raise working set indexes to SVR scope [0..2*n_rows)
  *
  * On exit, out is the permutation of n_ws such that out[k]%n_rows == n_ws_perm[k]
  * In case n_ws_perm contains duplicates they are considered to
- * represent primal first and dual second
+ * represent the subspace [0..n_rows) first and [n_rows..2*n_rows) second
  *
  * @param [in] ws array with working set indices, size [n_ws]
  * @param [in] n_ws number of elements in the working set
@@ -66,16 +66,16 @@ __global__ void mapColumnIndicesToDualSpace(
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n_ws) {
-    int wsx      = ws[tid];
-    int idx      = wsx % n_rows;
-    bool is_dual = idx < wsx;
-    int k        = -1;
+    int wsx       = ws[tid];
+    int idx       = wsx % n_rows;
+    bool is_upper = idx < wsx;
+    int k         = -1;
     // we have only max 1024 elements, we do a linear search
     for (int i = 0; i < n_ws; i++) {
-      if (n_ws_perm[i] == idx && (is_dual || k < 0)) k = i;
+      if (n_ws_perm[i] == idx && (is_upper || k < 0)) k = i;
       // since the array is derived from ws, the search will always return
-      //  a) the first occurrence k for primal idx
-      //  b) the last occurrence k for dual idx
+      //  a) the first occurrence k within [0..n_rows)
+      //  b) the last occurrence k within [n_rows..2*n_rows)
     }
     out[k] = wsx;
   }
@@ -342,7 +342,7 @@ class KernelCache {
       matrix_l2(0, handle.get_stream()),
       matrix_l2_ws(0, handle.get_stream()),
       ws_idx_mod(n_ws, handle.get_stream()),
-      ws_idx_mod_dual(svmType == EPSILON_SVR ? n_ws : 0, handle.get_stream()),
+      ws_idx_mod_svr(svmType == EPSILON_SVR ? n_ws : 0, handle.get_stream()),
       x_ws_csr(handle, 0, 0, 0),
       x_ws_dense(handle, 0, 0, 0),
       indptr_batched(0, handle.get_stream()),
@@ -430,7 +430,7 @@ class KernelCache {
     ASSERT(cache_state != CacheState::BATCHING_INITIALIZED, "Previous batching step incomplete!");
     this->ws_idx = ws_idx;
     if (svmType == EPSILON_SVR) {
-      raft::copy(ws_idx_mod_dual.data(), ws_idx, n_ws, stream);
+      raft::copy(ws_idx_mod_svr.data(), ws_idx, n_ws, stream);
       GetVecIndices(ws_idx, n_ws, ws_idx_mod.data());
     } else {
       raft::copy(ws_idx_mod.data(), ws_idx, n_ws, stream);
@@ -443,10 +443,10 @@ class KernelCache {
       batch_cache.PreparePartitionedIdxOrder(
         ws_idx_mod.data(), n_ws, ws_cache_idx.data(), (int*)kernel_tile.data(), stream);
 
-      // re-compute original (dual) indices that got flattened by GetVecIndices
+      // re-compute original indices that got flattened by GetVecIndices
       if (svmType == EPSILON_SVR) {
         mapColumnIndicesToDualSpace<<<raft::ceildiv(n_ws, TPB), TPB, 0, stream>>>(
-          ws_idx, n_ws, n_rows, ws_idx_mod.data(), ws_idx_mod_dual.data());
+          ws_idx, n_ws, n_rows, ws_idx_mod.data(), ws_idx_mod_svr.data());
         RAFT_CUDA_TRY(cudaPeekAtLastError());
       }
     }
@@ -460,19 +460,19 @@ class KernelCache {
    * Returns the reordered (!) workspace indices corresponding
    * to the order used in the provided kernel matrices.
    *
-   * If allow_dual is true, input indices >= n_rows (only valid for SVR)
-   * will be returned as such. Otherwise they will be projected to the primal.
+   * If allow_svr is true, input indices >= n_rows (only valid for SVR)
+   * will be returned as such. Otherwise they will be projected to [0,nrows).
    *
    * This should only be called after 'InitWorkingSet'.
    *
-   * @param [in] allow_dual allows indices in dual space (only SVR)
+   * @param [in] allow_svr allows indices >= n_rows (only SVR)
    * @return pointer to indices corresponding to kernel
    */
-  int* getKernelIndices(int allow_dual)
+  int* getKernelIndices(int allow_svr)
   {
     ASSERT(cache_state != CacheState::READY, "Working set not initialized!");
-    if (allow_dual && svmType == EPSILON_SVR) {
-      return ws_idx_mod_dual.data();
+    if (allow_svr && svmType == EPSILON_SVR) {
+      return ws_idx_mod_svr.data();
     } else {
       return ws_idx_mod.data();
     }
@@ -720,7 +720,7 @@ class KernelCache {
 
   // permutation of working set indices to partition cached/uncached
   rmm::device_uvector<int> ws_idx_mod;
-  rmm::device_uvector<int> ws_idx_mod_dual;
+  rmm::device_uvector<int> ws_idx_mod_svr;
 
   // tmp storage for row extractions
   MLCommon::Matrix::CsrMatrix<math_t> x_ws_csr;

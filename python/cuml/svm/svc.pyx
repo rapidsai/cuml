@@ -502,7 +502,7 @@ class SVC(SVMBase,
             return self._fit_multiclass(X, y, sample_weight)
 
 
-        # we need to check whether out input X is sparse 
+        # we need to check whether input X is sparse 
         # In that case we don't want to make a dense copy
         array_type, is_sparse = determine_array_type_full(X)
         
