@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -161,6 +161,25 @@ struct LinearSVMModel {
                       const std::size_t nRows,
                       const std::size_t nCols,
                       T* out);
+
+  /**
+   * @brief Calculate decision function value for samples in input.
+   * @param [in] handle the cuML handle.
+   * @param [in] params the model parameters.
+   * @param [in] model the trained model.
+   * @param [in] X the input data matrix of size (nRows, nCols) in column-major format.
+   * @param [in] nRows number of vectors
+   * @param [in] nCols number of features
+   * @param [out] out the decision function value of size (nRows, n_classes <= 2 ? 1 : n_classes) in
+   * row-major format.
+   */
+  static void decisionFunction(const raft::handle_t& handle,
+                               const LinearSVMParams& params,
+                               const LinearSVMModel<T>& model,
+                               const T* X,
+                               const std::size_t nRows,
+                               const std::size_t nCols,
+                               T* out);
 
   /**
    * @brief For SVC, predict the probabilities for each outcome.
