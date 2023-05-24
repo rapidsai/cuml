@@ -803,7 +803,8 @@ class HashingVectorizer(_VectorizerMixin):
         ...     'Is this the first document?',
         ... ]
         >>> vectorizer = HashingVectorizer(n_features=2**4)
-        >>> X = vectorizer.fit_transform(pd.Series(corpus))        (4, 16)
+        >>> X = vectorizer.fit_transform(pd.Series(corpus))
+        (4, 16)
 
     See Also
     --------
