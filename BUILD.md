@@ -23,12 +23,6 @@ conda activate cuml_dev
 conda env update --file=conda/environments/all_cuda-115_arch-x86_64.yaml
 ```
 
-These conda environments are based on the general RAPIDS meta packages that install common dependencies for RAPIDS projects. To install different versions of packages contained in those meta packages after creating the environment, it is recommended to remove those meta packages (without removing the actual packages contained in the environment) with the following command (having the environment active):
-
-```bash
-conda remove --force rapids-build-env rapids-notebook-env rapids-doc-env
-```
-
 ## Installing from Source:
 
 ### Recommended process

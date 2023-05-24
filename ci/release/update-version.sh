@@ -60,19 +60,15 @@ sed_runner 's/release = .*/release = '"'${NEXT_FULL_TAG}'"'/g' docs/source/conf.
 sed_runner "s/\(PROJECT_NUMBER.*=\).*/\1 \"${NEXT_SHORT_TAG}\"/g" cpp/Doxyfile.in
 
 for FILE in dependencies.yaml conda/environments/*.yaml; do
-   sed_runner "s/cudf=${CURRENT_SHORT_TAG}/cudf=${NEXT_SHORT_TAG}/g" ${FILE};
-   sed_runner "s/rmm=${CURRENT_SHORT_TAG}/rmm=${NEXT_SHORT_TAG}/g" ${FILE};
-   sed_runner "s/dask-cuda=${CURRENT_SHORT_TAG}/dask-cuda=${NEXT_SHORT_TAG}/g" ${FILE};
-   sed_runner "s/dask-cudf=${CURRENT_SHORT_TAG}/dask-cudf=${NEXT_SHORT_TAG}/g" ${FILE};
-   sed_runner "s/libcumlprims=${CURRENT_SHORT_TAG}/libcumlprims=${NEXT_SHORT_TAG}/g" ${FILE};
-   sed_runner "s/libraft-headers=${CURRENT_SHORT_TAG}/libraft-headers=${NEXT_SHORT_TAG}/g" ${FILE};
-   sed_runner "s/libraft-distance=${CURRENT_SHORT_TAG}/libraft-distance=${NEXT_SHORT_TAG}/g" ${FILE};
-   sed_runner "s/libraft-nn=${CURRENT_SHORT_TAG}/libraft-nn=${NEXT_SHORT_TAG}/g" ${FILE};
-   sed_runner "s/raft-dask=${CURRENT_SHORT_TAG}/raft-dask=${NEXT_SHORT_TAG}/g" ${FILE};
-   sed_runner "s/pylibraft=${CURRENT_SHORT_TAG}/pylibraft=${NEXT_SHORT_TAG}/g" ${FILE};
-   sed_runner "s/rapids-build-env=${CURRENT_SHORT_TAG}/rapids-build-env=${NEXT_SHORT_TAG}/g" ${FILE};
-   sed_runner "s/rapids-notebook-env=${CURRENT_SHORT_TAG}/rapids-notebook-env=${NEXT_SHORT_TAG}/g" ${FILE};
-   sed_runner "s/rapids-doc-env=${CURRENT_SHORT_TAG}/rapids-doc-env=${NEXT_SHORT_TAG}/g" ${FILE};
+   sed_runner "s/rmm==.*\",/rmm==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
+   sed_runner "s/cudf==.*\",/cudf==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
+   sed_runner "s/dask-cuda==.*\",/dask-cuda==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
+   sed_runner "s/dask-cudf==.*\",/dask-cudf==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
+   sed_runner "s/libcumlprims==.*\",/libcumlprims==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
+   sed_runner "s/libraft-headers==.*\",/libraft-headers==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
+   sed_runner "s/libraft==.*\",/libraft==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
+   sed_runner "s/raft-dask==.*\",/raft-dask==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
+   sed_runner "s/pylibraft==.*\",/pylibraft==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
 done
 
 sed_runner "s|/branch-.*?/|/branch-${NEXT_SHORT_TAG}/|g" README.md
