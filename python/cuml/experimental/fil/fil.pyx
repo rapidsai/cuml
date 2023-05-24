@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cupy as cp
 import functools
 import numpy as np
 import nvtx
@@ -201,7 +200,7 @@ cdef class ForestInference_impl():
         model_dtype = self.get_dtype()
 
         cdef uintptr_t in_ptr
-        in_arr, n_rows, n_cols, dtype = input_to_cuml_array(
+        in_arr, n_rows, _, _ = input_to_cuml_array(
             X,
             order='C',
             convert_to_dtype=model_dtype,
@@ -288,6 +287,7 @@ cdef class ForestInference_impl():
             chunk_size=chunk_size,
             output_dtype=output_dtype
         )
+
 
 def _handle_legacy_fil_args(func):
     @functools.wraps(func)
@@ -601,7 +601,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             self._layout_ = value
         if old_value != value:
             self._reload_model()
-
 
     def __init__(
             self,

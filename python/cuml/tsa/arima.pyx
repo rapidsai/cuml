@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,14 +18,12 @@
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-import sys
 import nvtx
 
-import ctypes
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
-from typing import List, Tuple, Dict, Mapping, Optional, Union
+from typing import Tuple, Dict, Mapping, Optional, Union
 
 import cuml.internals
 from cuml.internals.array import CumlArray
@@ -35,11 +33,8 @@ from pylibraft.common.handle cimport handle_t
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 import cuml.internals.logger as logger
 from cuml.common import has_scipy
-from cuml.internals.input_utils import determine_array_dtype
 from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.input_utils import input_to_host_array
 from cuml.internals import _deprecate_pos_args
-import warnings
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
@@ -882,7 +877,6 @@ class ARIMA(Base):
             observations
         """  # noqa
         def fit_helper(x_in, fit_method):
-            cdef uintptr_t d_y_ptr = self.d_y.ptr
 
             def f(x: np.ndarray) -> np.ndarray:
                 """The (batched) energy functional returning the negative
@@ -1102,7 +1096,6 @@ class ARIMA(Base):
                     else self.n_obs)
 
         cdef LoglikeMethod ll_method = MLE
-        diff = self.simple_differencing
 
         cdef uintptr_t d_temp_mem = self._temp_mem.ptr
         arima_mem_ptr = new ARIMAMemory[double](

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,23 +35,23 @@ cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
     # Structure holding random projection hyperparameters
     cdef struct paramsRPROJ:
-        int n_samples           # number of samples
-        int n_features          # number of features (original dimension)
-        int n_components        # number of components (target dimension)
-        double eps              # error tolerance according to Johnson-Lindenstrauss lemma # noqa E501
-        bool gaussian_method    # toggle Gaussian or Sparse random projection methods # noqa E501
-        double density		    # ratio of non-zero component in the random projection matrix (used for sparse random projection) # noqa E501
-        bool dense_output       # toggle random projection's transformation as a dense or sparse matrix # noqa E501
-        int random_state        # seed used by random generator
+        int n_samples            # number of samples
+        int n_features           # number of features (original dimension)
+        int n_components         # number of components (target dimension)
+        double eps               # error tolerance according to Johnson-Lindenstrauss lemma # noqa E501
+        bool gaussian_method     # toggle Gaussian or Sparse random projection methods # noqa E501
+        double density           # ratio of non-zero component in the random projection matrix (used for sparse random projection) # noqa E501
+        bool dense_output        # toggle random projection's transformation as a dense or sparse matrix # noqa E501
+        int random_state         # seed used by random generator
 
     # Structure describing random matrix
     cdef cppclass rand_mat[T]:
         rand_mat(cuda_stream_view stream) except +     # random matrix structure constructor (set all to nullptr) # noqa E501
-        T *dense_data           # dense random matrix data
-        int *indices            # sparse CSC random matrix indices
-        int *indptr             # sparse CSC random matrix indptr
-        T *sparse_data          # sparse CSC random matrix data
-        size_t sparse_data_size # sparse CSC random matrix number of non-zero elements # noqa E501
+        T *dense_data            # dense random matrix data
+        int *indices             # sparse CSC random matrix indices
+        int *indptr              # sparse CSC random matrix indptr
+        T *sparse_data           # sparse CSC random matrix data
+        size_t sparse_data_size  # sparse CSC random matrix number of non-zero elements # noqa E501
 
     # Function used to fit the model
     cdef void RPROJfit[T](const handle_t& handle, rand_mat[T] *random_matrix,

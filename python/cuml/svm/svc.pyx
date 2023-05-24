@@ -15,9 +15,6 @@
 
 # distutils: language = c++
 
-import typing
-
-import ctypes
 from cuml.internals.safe_imports import gpu_only_import
 cudf = gpu_only_import('cudf')
 from cuml.internals.safe_imports import gpu_only_import
@@ -33,20 +30,17 @@ from libc.stdint cimport uintptr_t
 
 import cuml.internals
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
 from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.logger import warn
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.interruptible import cuda_interruptible
-from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
+from cuml.common import input_to_cuml_array, input_to_host_array
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.preprocessing import LabelEncoder
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
 from cuml.internals.import_utils import has_sklearn
-from cuml.internals.mixins import FMajorInputTagMixin
 
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
@@ -125,7 +119,7 @@ def apply_class_weight(handle, sample_weight, class_weight, y, verbose, output_t
     -----------
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. 
+        computations in this model.
     sample_weight: array-like (device or host), shape = (n_samples, 1)
         sample weights or None if not given
     class_weight : dict or string (default=None)
@@ -171,7 +165,6 @@ def apply_class_weight(handle, sample_weight, class_weight, y, verbose, output_t
         class_weight = {i: weights[i] for i in range(n_classes)}
     else:
         keys = class_weight.keys()
-        keys_series = cudf.Series(keys)
         encoded_keys = le.transform(cudf.Series(keys)).values_host
         class_weight = {enc_key: class_weight[key]
                         for enc_key, key in zip(encoded_keys, keys)}

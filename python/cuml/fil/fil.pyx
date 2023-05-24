@@ -16,12 +16,8 @@
 
 # distutils: language = c++
 
-import copy
-import ctypes
-import math
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-import warnings
 pd = cpu_only_import('pandas')
 from inspect import getdoc
 
@@ -30,7 +26,7 @@ rmm = gpu_only_import('rmm')
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport calloc, malloc, free
+from libc.stdlib cimport free
 
 import cuml.internals
 from cuml.internals.array import CumlArray
@@ -43,7 +39,6 @@ from cuml.common.doc_utils import _parameters_docstrings
 from rmm._lib.memory_resource cimport DeviceMemoryResource
 from rmm._lib.memory_resource cimport get_current_device_resource
 
-import treelite
 import treelite.sklearn as tl_skl
 
 cimport cuml.common.cuda
@@ -382,7 +377,7 @@ cdef class ForestInference_impl():
                                       " the FIL model.")
         fil_dtype = self.get_dtype()
         cdef uintptr_t X_ptr
-        X_m, n_rows, n_cols, dtype = \
+        X_m, n_rows, _n_cols, _dtype = \
             input_to_cuml_array(X, order='C',
                                 convert_to_dtype=fil_dtype,
                                 safe_dtype_conversion=safe_dtype_conversion,

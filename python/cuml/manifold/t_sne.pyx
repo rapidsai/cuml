@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,8 @@
 # cython: boundscheck = False
 # cython: wraparound = False
 
-import ctypes
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-import inspect
 pd = cpu_only_import('pandas')
 import warnings
 from cuml.internals.safe_imports import gpu_only_import
@@ -47,7 +45,6 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdint cimport int64_t
 from libc.stdlib cimport free
-from libcpp.memory cimport shared_ptr
 from cython.operator cimport dereference as deref
 
 cimport cuml.common.cuda

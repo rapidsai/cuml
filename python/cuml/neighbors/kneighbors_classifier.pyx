@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,14 +39,9 @@ from cython.operator cimport dereference as deref
 from pylibraft.common.handle cimport handle_t
 from libcpp.vector cimport vector
 
-from libcpp cimport bool
-from libcpp.memory cimport shared_ptr
-
 rmm = gpu_only_import('rmm')
-from libc.stdlib cimport malloc, free
 
 from libc.stdint cimport uintptr_t, int64_t
-from libc.stdlib cimport calloc, malloc, free
 
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
@@ -252,7 +247,7 @@ class KNeighborsClassifier(ClassifierMixin,
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
 
-        inds, n_rows, n_cols, dtype = \
+        inds, n_rows, _, _ = \
             input_to_cuml_array(knn_indices, order='C',
                                 check_dtype=np.int64,
                                 convert_to_dtype=(np.int64

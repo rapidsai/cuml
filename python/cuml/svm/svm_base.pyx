@@ -15,7 +15,6 @@
 
 # distutils: language = c++
 
-import ctypes
 from cuml.internals.safe_imports import gpu_only_import
 cupy = gpu_only_import('cupy')
 from cuml.internals.safe_imports import cpu_only_import
@@ -24,7 +23,6 @@ np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
 
-from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
@@ -553,7 +551,7 @@ class SVMBase(Base,
 
         self._check_is_fitted('_model')
 
-        X_m, n_rows, n_cols, pred_dtype = \
+        X_m, n_rows, n_cols, _ = \
             input_to_cuml_array(
                 X,
                 check_dtype=self.dtype,
