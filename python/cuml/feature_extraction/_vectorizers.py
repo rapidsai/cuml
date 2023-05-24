@@ -153,7 +153,7 @@ class _VectorizerMixin:
         meaning we need to first tokenize and pad each token with a delimiter.
         """
         if self.analyzer == "char_wb" and ngram_size != 1:
-            token_count = str_series.str.token_count(self.delimiter)
+            token_count = str_series.str.token_count(delimiter=self.delimiter)
             tokens = str_series.str.tokenize(self.delimiter)
             del str_series
 
@@ -598,7 +598,7 @@ class CountVectorizer(_VectorizerMixin):
         if self._fixed_vocabulary:
             self.vocabulary_ = self.vocabulary
         else:
-            self.vocabulary_ = tokenized_df["token"].unique()
+            self.vocabulary_ = tokenized_df["token"].unique().sort_values()
 
         count_df = self._count_vocab(tokenized_df)
 
@@ -803,9 +803,7 @@ class HashingVectorizer(_VectorizerMixin):
         ...     'Is this the first document?',
         ... ]
         >>> vectorizer = HashingVectorizer(n_features=2**4)
-        >>> X = vectorizer.fit_transform(pd.Series(corpus))
-        >>> print(X.shape)
-        (4, 16)
+        >>> X = vectorizer.fit_transform(pd.Series(corpus))        (4, 16)
 
     See Also
     --------
