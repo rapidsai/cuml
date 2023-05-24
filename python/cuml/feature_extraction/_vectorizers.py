@@ -804,6 +804,7 @@ class HashingVectorizer(_VectorizerMixin):
         ... ]
         >>> vectorizer = HashingVectorizer(n_features=2**4)
         >>> X = vectorizer.fit_transform(pd.Series(corpus))
+        >>> print(X.shape)
         (4, 16)
 
     See Also
