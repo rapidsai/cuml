@@ -138,7 +138,7 @@ dependencies:
             # we make them optional (i.e. an extra for pip
             # installation/run_constrained for conda)?
           - seaborn
-          - scipy
+          - scipy>=1.8.0
           - raft-dask==23.6.*
           - *treelite
       - output_types: [conda, requirements]

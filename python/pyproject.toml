@@ -66,7 +66,7 @@ dependencies = [
     "joblib>=0.11",
     "numba>=0.56.4,<0.57",
     "raft-dask==23.6.*",
-    "scipy",
+    "scipy>=1.8.0",
     "seaborn",
     "treelite==3.2.0",
     "treelite_runtime==3.2.0",

@@ -43,7 +43,7 @@ from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.decomposition import PCA as skPCA
 from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
 from sklearn.datasets import make_regression, make_blobs
-from pytest_cases import fixture_union, pytest_fixture_plus
+from pytest_cases import fixture_union, fixture_plus
 from importlib import import_module
 import inspect
 import pickle
@@ -189,7 +189,7 @@ def fixture_generation_helper(params):
     return {"scope": "session", "params": param_combis, "ids": ids}
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
@@ -226,7 +226,7 @@ def linreg_test_data(request):
     }
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
@@ -268,7 +268,7 @@ def logreg_test_data(request):
     }
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
@@ -308,7 +308,7 @@ def lasso_test_data(request):
     }
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
@@ -348,7 +348,7 @@ def elasticnet_test_data(request):
     }
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
@@ -383,7 +383,7 @@ def ridge_test_data(request):
     }
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["cupy"],
@@ -426,7 +426,7 @@ def umap_test_data(request):
     }
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
@@ -466,7 +466,7 @@ def pca_test_data(request):
     }
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
@@ -505,7 +505,7 @@ def tsvd_test_data(request):
     }
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],

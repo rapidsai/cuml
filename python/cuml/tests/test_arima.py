@@ -46,9 +46,7 @@ from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import("numpy")
 
 pd = cpu_only_import("pandas")
-approx_fprime = cpu_only_import_from(
-    "scipy.optimize.optimize", "approx_fprime"
-)
+approx_fprime = cpu_only_import_from("scipy.optimize", "approx_fprime")
 
 cudf = gpu_only_import("cudf")
 
