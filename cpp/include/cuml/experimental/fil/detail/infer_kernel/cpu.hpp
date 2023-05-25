@@ -83,7 +83,6 @@ void infer_kernel_cpu(forest_t const& forest,
                       categorical_data_t categorical_data = nullptr,
                       infer_kind infer_type               = infer_kind::default_kind)
 {
-  auto const default_num_outputs         = forest.num_outputs();
   auto constexpr has_vector_leaves       = !std::is_same_v<vector_output_t, std::nullptr_t>;
   auto constexpr has_nonlocal_categories = !std::is_same_v<categorical_data_t, std::nullptr_t>;
 
@@ -125,6 +124,7 @@ void infer_kernel_cpu(forest_t const& forest,
           output_workspace[row_index * num_outputs * num_grove + tree_index * num_grove +
                            grove_index] = static_cast<typename forest_t::io_type>(tree_output);
         } else {
+          auto const default_num_outputs = forest.num_outputs();
           if constexpr (has_vector_leaves) {
             auto output_offset =
               (row_index * num_outputs * num_grove +
