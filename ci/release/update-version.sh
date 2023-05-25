@@ -59,16 +59,22 @@ sed_runner 's/release = .*/release = '"'${NEXT_FULL_TAG}'"'/g' docs/source/conf.
 # Update project_number (RAPIDS_VERSION) in the CPP doxygen file
 sed_runner "s/\(PROJECT_NUMBER.*=\).*/\1 \"${NEXT_SHORT_TAG}\"/g" cpp/Doxyfile.in
 
+DEPENDENCIES=(
+  cudf
+  dask-cuda
+  dask-cudf
+  libcumlprims
+  libraft-headers
+  libraft
+  librmm
+  pylibraft
+  raft-dask
+  rmm
+)
 for FILE in dependencies.yaml conda/environments/*.yaml; do
-   sed_runner "s/rmm==.*\",/rmm==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
-   sed_runner "s/cudf==.*\",/cudf==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
-   sed_runner "s/dask-cuda==.*\",/dask-cuda==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
-   sed_runner "s/dask-cudf==.*\",/dask-cudf==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
-   sed_runner "s/libcumlprims==.*\",/libcumlprims==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
-   sed_runner "s/libraft-headers==.*\",/libraft-headers==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
-   sed_runner "s/libraft==.*\",/libraft==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
-   sed_runner "s/raft-dask==.*\",/raft-dask==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
-   sed_runner "s/pylibraft==.*\",/pylibraft==${NEXT_SHORT_TAG_PEP440}.*\",/g" ${FILE};
+  for DEP in "${DEPENDENCIES[@]}"; do
+    sed_runner "/- ${DEP}==/ s/==.*/==${NEXT_SHORT_TAG_PEP440}\.*/g" ${FILE};
+  done
 done
 
 sed_runner "s|/branch-.*?/|/branch-${NEXT_SHORT_TAG}/|g" README.md
