@@ -108,6 +108,8 @@ if(BUILD_CUML_TESTS)
     ConfigureTest(PREFIX SG NAME FIL_TEST PATH sg/fil_test.cu OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME FNV_HASH_TEST PATH sg/fnv_hash_test.cpp OPTIONAL ML_INCLUDE)
     ConfigureTest(PREFIX SG NAME MULTI_SUM_TEST PATH sg/multi_sum_test.cu OPTIONAL ML_INCLUDE)
+    ConfigureTest(PREFIX SG NAME HOST_BUFFER_TEST PATH sg/experimental/fil/raft_proto/buffer.cpp OPTIONAL ML_INCLUDE)
+    ConfigureTest(PREFIX SG NAME DEVICE_BUFFER_TEST PATH sg/experimental/fil/raft_proto/buffer.cu OPTIONAL ML_INCLUDE)
   endif()
 
   # todo: organize linear models better
