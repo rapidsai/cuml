@@ -404,10 +404,15 @@ def umap_test_data(request):
         "random_state": 42,
     }
 
-    ref_model = refUMAP(**kwargs)
-    ref_model.fit(X_train_blob, y_train_blob)
-    ref_embedding = ref_model.transform(X_test_blob)
-    ref_trust = trustworthiness(X_test_blob, ref_embedding, n_neighbors=12)
+    # todo: remove after https://github.com/rapidsai/cuml/issues/5441 is
+    # fixed
+    if not IS_ARM:
+        ref_model = refUMAP(**kwargs)
+        ref_model.fit(X_train_blob, y_train_blob)
+        ref_embedding = ref_model.transform(X_test_blob)
+        ref_trust = trustworthiness(X_test_blob, ref_embedding, n_neighbors=12)
+    else:
+        ref_trust = 0.0
 
     input_type = request.param["input_type"]
 
