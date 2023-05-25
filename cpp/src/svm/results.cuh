@@ -24,6 +24,7 @@
 #include "sparse_util.cuh"
 #include "ws_util.cuh"
 #include <cub/device/device_select.cuh>
+#include <cuml/svm/svm_model.h>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/init.cuh>
@@ -44,7 +45,7 @@ __global__ void set_flag(bool* flag, const math_t* alpha, int n, Lambda op)
   if (tid < n) flag[tid] = op(alpha[tid]);
 }
 
-template <typename math_t>
+template <typename math_t, typename MatrixViewType>
 class Results {
  public:
   /*
@@ -59,15 +60,17 @@ class Results {
    * @param C penalty parameter
    */
   Results(const raft::handle_t& handle,
-          const MLCommon::Matrix::Matrix<math_t>& matrix,
+          MatrixViewType matrix,
+          int n_rows,
+          int n_cols,
           const math_t* y,
           const math_t* C,
           SvmType svmType)
     : rmm_alloc(rmm::mr::get_current_device_resource()),
       stream(handle.get_stream()),
       handle(handle),
-      n_rows(matrix.get_n_rows()),
-      n_cols(matrix.get_n_cols()),
+      n_rows(n_rows),
+      n_cols(n_cols),
       matrix(matrix),
       y(y),
       C(C),
@@ -110,7 +113,7 @@ class Results {
            math_t** dual_coefs,
            int* n_support,
            int** idx,
-           MLCommon::Matrix::Matrix<math_t>** support_matrix,
+           SupportStorage<math_t>** support_matrix,
            math_t* b)
   {
     CombineCoefs(alpha, val_tmp.data());
@@ -136,16 +139,24 @@ class Results {
    * @return pointer to a newly allocated device buffer that stores the support
    *   vectors, size [n_suppor*n_cols]
    */
-  MLCommon::Matrix::Matrix<math_t>* CollectSupportVectorMatrix(const int* idx, int n_support)
+  SupportStorage<math_t>* CollectSupportVectorMatrix(const int* idx, int n_support)
   {
-    MLCommon::Matrix::Matrix<math_t>* support_matrix;
+    auto* support_matrix = new SupportStorage<math_t>();
     // allow ~1GB dense support matrix
-    if (matrix.is_dense() || (n_support * n_cols * sizeof(math_t) < (1 << 30))) {
-      support_matrix = new MLCommon::Matrix::DenseMatrix<math_t>(handle, 0, 0);
+    if (isDenseType<MatrixViewType>() || (n_support * n_cols * sizeof(math_t) < (1 << 30))) {
+      support_matrix->data =
+        (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
+      ML::SVM::extractRows<math_t>(matrix, support_matrix->data, idx, n_support, handle);
     } else {
-      support_matrix = new MLCommon::Matrix::CsrMatrix<math_t>(handle, 0, 0, 0);
+      ML::SVM::extractRows<math_t>(matrix,
+                                   &(support_matrix->indptr),
+                                   &(support_matrix->indices),
+                                   &(support_matrix->data),
+                                   &(support_matrix->nnz),
+                                   idx,
+                                   n_support,
+                                   handle);
     }
-    ML::SVM::extractRows<math_t>(matrix, *support_matrix, idx, n_support, handle);
 
     return support_matrix;
   }
@@ -286,15 +297,15 @@ class Results {
   const raft::handle_t& handle;
   cudaStream_t stream;
 
-  int n_rows;                                      //!< number of rows in the training vector matrix
-  int n_cols;                                      //!< number of features
-  const MLCommon::Matrix::Matrix<math_t>& matrix;  //!< training vector matrix
-  const math_t* y;                                 //!< labels
-  const math_t* C;                                 //!< penalty parameter
-  SvmType svmType;                                 //!< SVM problem type: SVC or SVR
-  int n_train;          //!< number of training vectors (including duplicates for SVR)
+  int n_rows;             //!< number of rows in the training vector matrix
+  int n_cols;             //!< number of features
+  MatrixViewType matrix;  //!< training vector matrix
+  const math_t* y;        //!< labels
+  const math_t* C;        //!< penalty parameter
+  SvmType svmType;        //!< SVM problem type: SVC or SVR
+  int n_train;            //!< number of training vectors (including duplicates for SVR)
 
-  const int TPB = 256;  // threads per block
+  const int TPB = 256;    // threads per block
   // Temporary variables used by cub in GetResults
   rmm::device_scalar<int> d_num_selected;
   rmm::device_scalar<math_t> d_val_reduced;

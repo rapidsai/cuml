@@ -154,14 +154,15 @@ class SmoSolver {
    * @param [in] max_outer_iter maximum number of outer iteration (default 100 * n_rows)
    * @param [in] max_inner_iter maximum number of inner iterations (default 10000)
    */
-  void Solve(const MLCommon::Matrix::Matrix<math_t>& matrix,
+  template <typename MatrixViewType>
+  void Solve(MatrixViewType matrix,
              int n_rows,
              int n_cols,
              math_t* y,
              const math_t* sample_weight,
              math_t** dual_coefs,
              int* n_support,
-             MLCommon::Matrix::Matrix<math_t>** support_matrix,
+             SupportStorage<math_t>** support_matrix,
              int** idx,
              math_t* b,
              int max_outer_iter = -1,
@@ -171,7 +172,7 @@ class SmoSolver {
     WorkingSet<math_t> ws(handle, stream, n_rows, SMO_WS_SIZE, svmType);
     n_ws = ws.GetSize();
     Initialize(&y, sample_weight, n_rows, n_cols);
-    KernelCache<math_t> cache(
+    KernelCache<math_t, MatrixViewType> cache(
       handle, matrix, n_rows, n_cols, n_ws, kernel, kernel_type, cache_size, svmType);
 
     // Init counters
@@ -183,13 +184,6 @@ class SmoSolver {
     n_increased_diff      = 0;
     report_increased_diff = true;
     bool keep_going       = true;
-
-    // dense input matrices should be col-major with default ld
-    if (matrix.is_dense()) {
-      ASSERT(!matrix.as_dense()->is_row_major(), "Input matrix should be column major");
-      ASSERT(matrix.as_dense()->get_ld() == matrix.get_n_rows(),
-             "Input matrix ld should be default n_rows");
-    }
 
     rmm::device_uvector<math_t> nz_da(n_ws, stream);
     rmm::device_uvector<int> nz_da_idx(n_ws, stream);
@@ -272,42 +266,10 @@ class SmoSolver {
       n_inner_iter,
       diff_prev);
 
-    Results<math_t> res(handle, matrix, y, C_vec.data(), svmType);
+    Results<math_t, MatrixViewType> res(handle, matrix, n_rows, n_cols, y, C_vec.data(), svmType);
     res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, support_matrix, b);
 
     ReleaseBuffers();
-  }
-
-  // legacy interface
-  void Solve(math_t* x,
-             int n_rows,
-             int n_cols,
-             math_t* y,
-             const math_t* sample_weight,
-             math_t** dual_coefs,
-             int* n_support,
-             math_t** x_support,
-             int** idx,
-             math_t* b,
-             int max_outer_iter = -1,
-             int max_inner_iter = 10000)
-  {
-    MLCommon::Matrix::DenseMatrix<math_t> dense_matrix(x, n_rows, n_cols);
-    MLCommon::Matrix::Matrix<math_t>* support_matrix_ptr;
-    Solve(dense_matrix,
-          n_rows,
-          n_cols,
-          y,
-          sample_weight,
-          dual_coefs,
-          n_support,
-          &support_matrix_ptr,
-          idx,
-          b,
-          max_outer_iter,
-          max_inner_iter);
-    *x_support = support_matrix_ptr->as_dense()->get_data();
-    delete support_matrix_ptr;
   }
 
   /**

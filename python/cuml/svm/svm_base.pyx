@@ -73,34 +73,23 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         int verbosity
         double epsilon
         SvmType svmType
-
-cdef extern from "cuml/matrix/matrix.h" namespace "MLCommon::Matrix":
-    cdef cppclass Matrix[math_t]:
-        bool is_dense()
-        DenseMatrix[math_t]* as_dense()
-        CsrMatrix[math_t]* as_csr()
-
-    cdef cppclass CsrMatrix[math_t](Matrix[math_t]):
-        int get_nnz();
-        int* get_indptr();
-        int* get_indices();
-        math_t* get_data();
-        CsrMatrix(int* indptr, int* indices, math_t* data, int nnz, int rows, int cols) except +
-
-    cdef cppclass DenseMatrix[math_t](Matrix[math_t]):
-        math_t* get_data();
-        bool is_row_major();
-        DenseMatrix(math_t* data, int rows, int cols) except +
   
 
 cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
+    
+    cdef cppclass SupportStorage[math_t]:
+        int nnz;
+        int* indptr;
+        int* indices;
+        math_t* data;
+    
     cdef cppclass SvmModel[math_t]:
         # parameters of a fitted model
         int n_support
         int n_cols
         math_t b
         math_t *dual_coefs
-        Matrix[math_t] *support_matrix
+        SupportStorage[math_t] *support_matrix
         int *support_idx
         int n_classes
         math_t *unique_labels
@@ -423,6 +412,8 @@ class SVMBase(Base,
         """
         cdef SvmModel[float] *model_f
         cdef SvmModel[double] *model_d
+        cdef SupportStorage[float] *support_storage_f
+        cdef SupportStorage[double] *support_storage_d
         if self.dual_coef_ is None:
             # the model is not fitted in this case
             return None
@@ -433,21 +424,16 @@ class SVMBase(Base,
             model_f.b = self._intercept_.item()
             model_f.dual_coefs = \
                 <float*><size_t>self.dual_coef_.ptr
+            support_storage_f = new SupportStorage[float]()
             if isinstance(self.support_vectors_, SparseCumlArray):
-                model_f.support_matrix = \
-                    new CsrMatrix[float](
-                        <int*><uintptr_t>self.support_vectors_.indptr.ptr, 
-                        <int*><uintptr_t>self.support_vectors_.indices.ptr, 
-                        <float*><uintptr_t>self.support_vectors_.data.ptr, 
-                        self.support_vectors_.nnz, 
-                        self.n_support_, 
-                        self.n_cols)    
+                support_storage_f.nnz = self.support_vectors_.nnz
+                support_storage_f.indptr = <int*><uintptr_t>self.support_vectors_.indptr.ptr
+                support_storage_f.indices = <int*><uintptr_t>self.support_vectors_.indices.ptr
+                support_storage_f.data = <float*><uintptr_t>self.support_vectors_.data.ptr
+                model_f.support_matrix = support_storage_f
             else:
-                model_f.support_matrix = \
-                    new DenseMatrix[float](
-                        <float*><uintptr_t>self.support_vectors_.ptr, 
-                        self.n_support_, 
-                        self.n_cols)
+                support_storage_f.data = <float*><uintptr_t>self.support_vectors_.ptr
+                model_f.support_matrix = support_storage_f
             model_f.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
             model_f.n_classes = self.n_classes_
@@ -464,21 +450,16 @@ class SVMBase(Base,
             model_d.b = self._intercept_.item()
             model_d.dual_coefs = \
                 <double*><size_t>self.dual_coef_.ptr
+            support_storage_d = new SupportStorage[double]()
             if isinstance(self.support_vectors_, SparseCumlArray):
-                model_d.support_matrix = \
-                    new CsrMatrix[double](
-                        <int*><uintptr_t>self.support_vectors_.indptr.ptr, 
-                        <int*><uintptr_t>self.support_vectors_.indices.ptr, 
-                        <double*><uintptr_t>self.support_vectors_.data.ptr, 
-                        self.support_vectors_.nnz, 
-                        self.n_support_, 
-                        self.n_cols)
+                support_storage_d.nnz = self.support_vectors_.nnz
+                support_storage_d.indptr = <int*><uintptr_t>self.support_vectors_.indptr.ptr
+                support_storage_d.indices = <int*><uintptr_t>self.support_vectors_.indices.ptr
+                support_storage_d.data = <double*><uintptr_t>self.support_vectors_.data.ptr
+                model_d.support_matrix = support_storage_d
             else:
-                model_d.support_matrix = \
-                    new DenseMatrix[double](
-                        <double*><uintptr_t>self.support_vectors_.ptr, 
-                        self.n_support_, 
-                        self.n_cols)
+                support_storage_d.data = <double*><uintptr_t>self.support_vectors_.ptr
+                model_d.support_matrix = support_storage_d
             model_d.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
             model_d.n_classes = self.n_classes_
@@ -492,13 +473,9 @@ class SVMBase(Base,
     def _unpack_model(self):
         """ Expose the model parameters as attributes """
         cdef SvmModel[float] *model_f
-        cdef Matrix[float] *matrix_f
-        cdef DenseMatrix[float] *dense_matrix_f
-        cdef CsrMatrix[float] *csr_matrix_f
         cdef SvmModel[double] *model_d
-        cdef Matrix[double] *matrix_d
-        cdef DenseMatrix[double] *dense_matrix_d
-        cdef CsrMatrix[double] *csr_matrix_d
+        cdef SupportStorage[float] *support_storage_f
+        cdef SupportStorage[double] *support_storage_d
 
         # Mark that the C++ layer should free the parameter vectors
         # If we could pass the deviceArray deallocator as finalizer for the
@@ -523,26 +500,24 @@ class SVMBase(Base,
                     dtype=np.int32,
                     order='F')
 
-                matrix_f = model_f.support_matrix
-                if matrix_f.is_dense():
-                    dense_matrix_f=matrix_f.as_dense()
+                support_storage_f = model_f.support_matrix
+                if support_storage_f.nnz == -1:
                     self.support_vectors_ = CumlArray(
-                        data=<uintptr_t>dense_matrix_f.get_data(),
+                        data=<uintptr_t>support_storage_f.data,
                         shape=(self.n_support_, self.n_cols),
                         dtype=self.dtype,
-                        order='C' if dense_matrix_f.is_row_major() else 'F')
+                        order='F')
                 else:
-                    csr_matrix_f=matrix_f.as_csr()
-                    indptr = CumlArray(data=<uintptr_t>csr_matrix_f.get_indptr(),
+                    indptr = CumlArray(data=<uintptr_t>support_storage_f.indptr,
                                        shape=(self.n_support_ + 1,),
                                        dtype=np.int32,
                                        order='F')
-                    indices = CumlArray(data=<uintptr_t>csr_matrix_f.get_indices(),
-                                        shape=(csr_matrix_f.get_nnz(),),
+                    indices = CumlArray(data=<uintptr_t>support_storage_f.indices,
+                                        shape=(support_storage_f.nnz,),
                                         dtype=np.int32,
                                         order='F')
-                    data = CumlArray(data=<uintptr_t>csr_matrix_f.get_data(),
-                                     shape=(csr_matrix_f.get_nnz(),),
+                    data = CumlArray(data=<uintptr_t>support_storage_f.data,
+                                     shape=(support_storage_f.nnz,),
                                      dtype=self.dtype,
                                      order='F')
                     sparse_input = SparseCumlArrayInput(
@@ -550,7 +525,7 @@ class SVMBase(Base,
                         indptr=indptr, 
                         indices=indices, 
                         data=data, 
-                        nnz=csr_matrix_f.get_nnz(), 
+                        nnz=support_storage_f.nnz, 
                         shape=(self.n_support_, self.n_cols))
                     self.support_vectors_ = SparseCumlArray(data=sparse_input)
 
@@ -582,26 +557,24 @@ class SVMBase(Base,
                     dtype=np.int32,
                     order='F')
 
-                matrix_d = model_d.support_matrix
-                if matrix_d.is_dense():
-                    dense_matrix_d=matrix_d.as_dense()
+                support_storage_d = model_d.support_matrix
+                if support_storage_d.nnz == -1:
                     self.support_vectors_ = CumlArray(
-                        data=<uintptr_t>dense_matrix_d.get_data(),
+                        data=<uintptr_t>support_storage_d.data,
                         shape=(self.n_support_, self.n_cols),
                         dtype=self.dtype,
-                        order='C' if dense_matrix_d.is_row_major() else 'F')
+                        order='F')
                 else:
-                    csr_matrix_d=matrix_d.as_csr()
-                    indptr = CumlArray(data=<uintptr_t>csr_matrix_d.get_indptr(),
+                    indptr = CumlArray(data=<uintptr_t>support_storage_d.indptr,
                                        shape=(self.n_support_ + 1,),
                                        dtype=np.int32,
                                        order='F')
-                    indices = CumlArray(data=<uintptr_t>csr_matrix_d.get_indices(),
-                                        shape=(csr_matrix_d.get_nnz(),),
+                    indices = CumlArray(data=<uintptr_t>support_storage_d.indices,
+                                        shape=(support_storage_d.nnz,),
                                         dtype=np.int32,
                                         order='F')
-                    data = CumlArray(data=<uintptr_t>csr_matrix_d.get_data(),
-                                     shape=(csr_matrix_d.get_nnz(),),
+                    data = CumlArray(data=<uintptr_t>support_storage_d.data,
+                                     shape=(support_storage_d.nnz,),
                                      dtype=self.dtype,
                                      order='F')
                     sparse_input = SparseCumlArrayInput(
@@ -609,7 +582,7 @@ class SVMBase(Base,
                         indptr=indptr, 
                         indices=indices, 
                         data=data, 
-                        nnz=csr_matrix_d.get_nnz(), 
+                        nnz=support_storage_d.nnz, 
                         shape=(self.n_support_, self.n_cols))
                     self.support_vectors_ = SparseCumlArray(data=sparse_input)
 

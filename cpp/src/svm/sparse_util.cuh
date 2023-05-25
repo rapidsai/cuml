@@ -15,10 +15,16 @@
  */
 
 #pragma once
-#include <cuml/matrix/matrix.h>
+#include <raft/core/device_csr_matrix.hpp>
+#include <raft/core/device_resources.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
+#include <rmm/device_uvector.hpp>
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/iterator/constant_iterator.h>
 #include <thrust/transform_scan.h>
 
 namespace ML {
@@ -27,40 +33,300 @@ namespace SVM {
 /**
  * @brief Kernel call helper
  *
- * This helper dispatches the kernel call based on the
- * input matrix type (dense or sparse).
+ * Specialization for
+ * DENSE(mdspan) x DENSE(mdspan) -> DENSE(raw pointer)
  *
  * @param [in] handle raft handle
  * @param [in] kernel kernel instance
  * @param [in] input1 matrix input, either dense or csr [i, j]
  * @param [in] input2 matrix input, either dense or csr [k, j]
  * @param [out] result evaluated kernel matrix [i, k]
+ * @param [in] norm_x1 L2-norm of input1's rows (optional, only RBF)
+ * @param [in] norm_x2 L2-norm of input2's rows (optional, only RBF)
  */
 template <typename math_t>
 void KernelOp(const raft::handle_t& handle,
               raft::distance::kernels::GramMatrixBase<math_t>* kernel,
-              const MLCommon::Matrix::Matrix<math_t>& input1,
-              const MLCommon::Matrix::Matrix<math_t>& input2,
-              MLCommon::Matrix::DenseMatrix<math_t>& result,
+              raft::device_matrix_view<math_t, int, raft::layout_stride> input1,
+              raft::device_matrix_view<math_t, int, raft::layout_stride> input2,
+              math_t* result,
               math_t* norm1 = nullptr,
               math_t* norm2 = nullptr)
 {
-  auto gram_result = result.get_dense_view();
-  if (input1.is_dense()) {
-    assert(input2.is_dense());
-    // Dense x Dense
-    auto dense1 = input1.as_dense()->get_const_dense_view();
-    auto dense2 = input2.as_dense()->get_const_dense_view();
-    (*kernel)(handle, dense1, dense2, gram_result, norm1, norm2);
+  auto const_input1 = raft::make_const_mdspan(input1);
+  auto const_input2 = raft::make_const_mdspan(input2);
+  auto result_view  = raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
+    result, input1.extent(0), input2.extent(0), 0);
+  (*kernel)(handle, const_input1, const_input2, result_view, norm1, norm2);
+}
+
+/**
+ * @brief Kernel call helper
+ *
+ * Specialization for
+ * DENSE(mdspan) x DENSE(raw pointer) -> DENSE(raw pointer)
+ *
+ * @param [in] handle raft handle
+ * @param [in] kernel kernel instance
+ * @param [in] input1 matrix input, either dense or csr [i, j]
+ * @param [in] input2 matrix input, either dense or csr [k, j]
+ * @param [in] rows2 number of rows for input2
+ * @param [out] result evaluated kernel matrix [i, k]
+ * @param [in] norm_x1 L2-norm of input1's rows (optional, only RBF)
+ * @param [in] norm_x2 L2-norm of input2's rows (optional, only RBF)
+ */
+template <typename math_t>
+void KernelOp(const raft::handle_t& handle,
+              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
+              raft::device_matrix_view<math_t, int, raft::layout_stride> input1,
+              math_t* input2,
+              int rows2,
+              math_t* result,
+              math_t* norm1 = nullptr,
+              math_t* norm2 = nullptr)
+{
+  auto view2 = raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
+    input2, rows2, input1.extent(1), 0);
+  KernelOp(handle, kernel, input1, view2, result, norm1, norm2);
+}
+
+/**
+ * @brief Kernel call helper
+ *
+ * Specialization for
+ * DENSE(raw pointer) x DENSE(raw pointer) -> DENSE(raw pointer)
+ *
+ * @param [in] handle raft handle
+ * @param [in] kernel kernel instance
+ * @param [in] input1 matrix input, either dense or csr [i, j]
+ * @param [in] rows1 number of rows for input1
+ * @param [in] cols number of cols for input1/input2
+ * @param [in] input2 matrix input, either dense or csr [k, j]
+ * @param [in] rows2 number of rows for input2
+ * @param [out] result evaluated kernel matrix [i, k]
+ * @param [in] norm_x1 L2-norm of input1's rows (optional, only RBF)
+ * @param [in] norm_x2 L2-norm of input2's rows (optional, only RBF)
+ */
+template <typename math_t>
+void KernelOp(const raft::handle_t& handle,
+              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
+              math_t* input1,
+              int rows1,
+              int cols,
+              math_t* input2,
+              int rows2,
+              math_t* result,
+              math_t* norm1 = nullptr,
+              math_t* norm2 = nullptr)
+{
+  auto view1 = raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
+    input1, rows1, cols, 0);
+  auto view2 = raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
+    input2, rows2, cols, 0);
+  KernelOp(handle, kernel, view1, view2, result, norm1, norm2);
+}
+
+/**
+ * @brief Kernel call helper
+ *
+ * Specialization for
+ * CSR(matrix_view) x CSR(matrix_view) -> DENSE(raw pointer)
+ *
+ * @param [in] handle raft handle
+ * @param [in] kernel kernel instance
+ * @param [in] input1 matrix input, either dense or csr [i, j]
+ * @param [in] input2 matrix input, either dense or csr [k, j]
+ * @param [out] result evaluated kernel matrix [i, k]
+ * @param [in] norm_x1 L2-norm of input1's rows (optional, only RBF)
+ * @param [in] norm_x2 L2-norm of input2's rows (optional, only RBF)
+ */
+template <typename math_t>
+void KernelOp(const raft::handle_t& handle,
+              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
+              raft::device_csr_matrix_view<math_t, int, int, int> input1,
+              raft::device_csr_matrix_view<math_t, int, int, int> input2,
+              math_t* result,
+              math_t* norm1 = nullptr,
+              math_t* norm2 = nullptr)
+{
+  auto const_input1 = raft::make_device_csr_matrix_view<const math_t, int, int, int>(
+    input1.get_elements().data(), input1.structure_view());
+  auto const_input2 = raft::make_device_csr_matrix_view<const math_t, int, int, int>(
+    input2.get_elements().data(), input2.structure_view());
+  auto result_view = raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
+    result, input1.structure_view().get_n_rows(), input2.structure_view().get_n_rows(), 0);
+  (*kernel)(handle, const_input1, const_input2, result_view, norm1, norm2);
+}
+
+/**
+ * @brief Kernel call helper
+ *
+ * Specialization for
+ * CSR(matrix_view) x DENSE(mdspan) -> DENSE(raw pointer)
+ *
+ * @param [in] handle raft handle
+ * @param [in] kernel kernel instance
+ * @param [in] input1 matrix input, either dense or csr [i, j]
+ * @param [in] input2 matrix input, either dense or csr [k, j]
+ * @param [out] result evaluated kernel matrix [i, k]
+ * @param [in] norm_x1 L2-norm of input1's rows (optional, only RBF)
+ * @param [in] norm_x2 L2-norm of input2's rows (optional, only RBF)
+ */
+template <typename math_t>
+void KernelOp(const raft::handle_t& handle,
+              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
+              raft::device_csr_matrix_view<math_t, int, int, int> input1,
+              raft::device_matrix_view<math_t, int, raft::layout_stride> input2,
+              math_t* result,
+              math_t* norm1 = nullptr,
+              math_t* norm2 = nullptr)
+{
+  auto const_input1 = raft::make_device_csr_matrix_view<const math_t, int, int, int>(
+    input1.get_elements().data(), input1.structure_view());
+  auto const_input2 = raft::make_const_mdspan(input2);
+  auto result_view  = raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
+    result, input1.structure_view().get_n_rows(), input2.extent(0), 0);
+  (*kernel)(handle, const_input1, const_input2, result_view, norm1, norm2);
+}
+
+/**
+ * @brief Kernel call helper
+ *
+ * Specialization for
+ * DENSE(mdspan) x CSR(matrix_view) -> DENSE(raw pointer)
+ *
+ * @param [in] handle raft handle
+ * @param [in] kernel kernel instance
+ * @param [in] input1 matrix input, either dense or csr [i, j]
+ * @param [in] input2 matrix input, either dense or csr [k, j]
+ * @param [out] result evaluated kernel matrix [i, k]
+ * @param [in] norm_x1 L2-norm of input1's rows (optional, only RBF)
+ * @param [in] norm_x2 L2-norm of input2's rows (optional, only RBF)
+ */
+template <typename math_t>
+void KernelOp(const raft::handle_t& handle,
+              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
+              raft::device_matrix_view<math_t, int, raft::layout_stride> input1,
+              raft::device_csr_matrix_view<math_t, int, int, int> input2,
+              math_t* result,
+              math_t* norm1 = nullptr,
+              math_t* norm2 = nullptr)
+{
+  ASSERT(false, "KernelOp not implemented for DENSE x CSR.");
+}
+
+/**
+ * @brief Kernel call helper
+ *
+ * Specialization for
+ * CSR(matrix_view) x DENSE(raw pointer) -> DENSE(raw pointer)
+ *
+ * @param [in] handle raft handle
+ * @param [in] kernel kernel instance
+ * @param [in] input1 matrix input, either dense or csr [i, j]
+ * @param [in] input2 matrix input, either dense or csr [k, j]
+ * @param [in] rows2 number of rows for input2
+ * @param [out] result evaluated kernel matrix [i, k]
+ * @param [in] norm_x1 L2-norm of input1's rows (optional, only RBF)
+ * @param [in] norm_x2 L2-norm of input2's rows (optional, only RBF)
+ */
+template <typename math_t>
+void KernelOp(const raft::handle_t& handle,
+              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
+              raft::device_csr_matrix_view<math_t, int, int, int> input1,
+              math_t* input2,
+              int rows2,
+              math_t* result,
+              math_t* norm1 = nullptr,
+              math_t* norm2 = nullptr)
+{
+  auto view2 = raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
+    input2, rows2, input1.structure_view().get_n_cols(), 0);
+  KernelOp(handle, kernel, input1, view2, result, norm1, norm2);
+}
+
+/**
+ * @brief Create view on matrix batch of contiguous rows
+ *
+ * This specialization creates a device matrix view
+ * representing a batch from a from a given device
+ * matrix view.
+ *
+ * @param [in] handle raft handle
+ * @param [in] matrix matrix input, csr [i, j]
+ * @param [in] batch_size number of rows within batch
+ * @param [in] offset row offset for batch start
+ * @param [in] host_indptr unused
+ * @param [in] target_indptr unused
+ * @param [in] stream stream
+ * @return matrix_batch
+ */
+template <typename math_t>
+raft::device_matrix_view<math_t, int, raft::layout_stride> getMatrixBatch(
+  raft::device_matrix_view<math_t, int, raft::layout_stride> matrix,
+  int batch_size,
+  int offset,
+  int* host_indptr,
+  int* target_indptr,
+  cudaStream_t stream)
+{
+  if (batch_size == matrix.extent(0)) {
+    return matrix;
   } else {
-    auto csr1 = input1.as_csr()->get_const_csr_view();
-    if (input2.is_dense()) {
-      auto dense2 = input2.as_dense()->get_const_dense_view();
-      (*kernel)(handle, csr1, dense2, gram_result, norm1, norm2);
-    } else {
-      auto csr2 = input2.as_csr()->get_const_csr_view();
-      (*kernel)(handle, csr1, csr2, gram_result, norm1, norm2);
+    return raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
+      matrix.data_handle() + offset, batch_size, matrix.extent(1), matrix.extent(0));
+  }
+}
+
+/**
+ * @brief Create view on matrix batch of contiguous rows
+ *
+ * This specialization creates a device csr matrix view
+ * representing a batch from a from a given device csr
+ * matrix view.
+ *
+ * @param [in] handle raft handle
+ * @param [in] matrix matrix input, csr [i, j]
+ * @param [in] batch_size number of rows within batch
+ * @param [in] offset row offset for batch start
+ * @param [in] host_indptr host copy of indptr
+ * @param [in] target_indptr target buffer for modified indptr
+ * @param [in] stream stream
+ * @return matrix_batch
+ */
+template <typename math_t>
+raft::device_csr_matrix_view<math_t, int, int, int> getMatrixBatch(
+  raft::device_csr_matrix_view<math_t, int, int, int> matrix,
+  int batch_size,
+  int offset,
+  int* host_indptr,
+  int* target_indptr,
+  cudaStream_t stream)
+{
+  auto csr_struct_in = matrix.structure_view();
+  if (batch_size == csr_struct_in.get_n_rows()) {
+    return matrix;
+  } else {
+    int* indptr_in  = csr_struct_in.get_indptr().data();
+    int* indices_in = csr_struct_in.get_indices().data();
+    math_t* data_in = matrix.get_elements().data();
+
+    int nnz_offset = host_indptr[offset];
+    int batch_nnz  = host_indptr[offset + batch_size] - nnz_offset;
+    {
+      thrust::device_ptr<int> inptr_src(indptr_in + offset);
+      thrust::device_ptr<int> inptr_tgt(target_indptr);
+      thrust::transform(thrust::cuda::par.on(stream),
+                        inptr_src,
+                        inptr_src + batch_size + 1,
+                        thrust::make_constant_iterator(nnz_offset),
+                        inptr_tgt,
+                        thrust::minus<int>());
     }
+
+    auto csr_struct_out = raft::make_device_compressed_structure_view<int, int, int>(
+      target_indptr, indices_in + nnz_offset, batch_size, csr_struct_in.get_n_cols(), batch_nnz);
+    return raft::make_device_csr_matrix_view(data_in + nnz_offset, csr_struct_out);
   }
 }
 
@@ -117,43 +383,74 @@ static __global__ void extractCSRRowsFromCSR(int* indptr_out,  // already holds 
 }
 
 /**
- * @brief Compute row norm
+ * Returns whether MatrixViewType is a device_matrix_view
  *
- * This utility dispatches the row norm computation based on the
- * input matrix type (dense or sparse).
+ * @return true if MatrixViewType is device dense mdspan
+ */
+template <typename MatrixViewType>
+bool isDenseType()
+{
+  return (std::is_same<MatrixViewType,
+                       raft::device_matrix_view<float, int, raft::layout_stride>>::value ||
+          std::is_same<MatrixViewType,
+                       raft::device_matrix_view<double, int, raft::layout_stride>>::value);
+}
+
+/**
+ * @brief Specialization of compute row norm for dense matrix
+ *
+ * This utility runs the row norm computation for a dense and
+ * contiguous device matrix.
+ *
  *
  * @param [in] handle raft handle
- * @param [in] matrix matrix input, either dense or csr [i, j]
+ * @param [in] matrix matrix input, dense [i, j]
  * @param [out] target row norm, size needs to be at least [i]
  * @param [in] norm norm type to be evaluated
  */
 template <typename math_t>
 void matrixRowNorm(const raft::handle_t& handle,
-                   const MLCommon::Matrix::Matrix<math_t>& matrix,
+                   raft::device_matrix_view<math_t, int, raft::layout_stride> matrix,
                    math_t* target,
                    raft::linalg::NormType norm)
 {
-  if (matrix.is_dense()) {
-    int minor = matrix.as_dense()->is_row_major() ? matrix.get_n_cols() : matrix.get_n_rows();
-    ASSERT(matrix.as_dense()->get_ld() == minor,
-           "Dense matrix rowNorm only support contiguous data");
-    raft::linalg::rowNorm(target,
-                          matrix.as_dense()->get_data(),
-                          matrix.get_n_cols(),
-                          matrix.get_n_rows(),
-                          norm,
-                          matrix.as_dense()->is_row_major(),
-                          handle.get_stream());
-  } else {
-    auto csr_matrix = matrix.as_csr();
-    raft::sparse::linalg::rowNormCsr(handle,
-                                     csr_matrix->get_indptr(),
-                                     csr_matrix->get_data(),
-                                     csr_matrix->get_nnz(),
-                                     matrix.get_n_rows(),
-                                     target,
-                                     norm);
-  }
+  bool is_row_major_contiguous = matrix.stride(1) == 1 && matrix.stride(0) == matrix.extent(1);
+  bool is_col_major_contiguous = matrix.stride(0) == 1 && matrix.stride(1) == matrix.extent(0);
+  ASSERT(is_row_major_contiguous || is_col_major_contiguous,
+         "Dense matrix rowNorm only support contiguous data");
+  raft::linalg::rowNorm(target,
+                        matrix.data_handle(),
+                        matrix.extent(1),  //! cols first arg!
+                        matrix.extent(0),
+                        norm,
+                        is_row_major_contiguous,
+                        handle.get_stream());
+}
+
+/**
+ * @brief Specialization of compute row norm for csr matrix
+ *
+ * This utility runs the row norm computation for a csr matrix.
+ *
+ * @param [in] handle raft handle
+ * @param [in] matrix matrix input, csr [i, j]
+ * @param [out] target row norm, size needs to be at least [i]
+ * @param [in] norm norm type to be evaluated
+ */
+template <typename math_t>
+void matrixRowNorm(const raft::handle_t& handle,
+                   raft::device_csr_matrix_view<math_t, int, int, int> matrix,
+                   math_t* target,
+                   raft::linalg::NormType norm)
+{
+  auto csr_struct_in = matrix.structure_view();
+  raft::sparse::linalg::rowNormCsr(handle,
+                                   csr_struct_in.get_indptr().data(),
+                                   matrix.get_elements().data(),
+                                   csr_struct_in.get_nnz(),
+                                   csr_struct_in.get_n_rows(),
+                                   target,
+                                   norm);
 }
 
 /**
@@ -205,103 +502,276 @@ struct rowsize : public thrust::unary_function<int, int> {
 /**
  * @brief Extract matrix rows to sub matrix
  *
- * This function dispatches the extraction of matrix rows based on matrix
- * input and output type (dense, sparse).
+ * This is the specialized version for
+ *     'DENSE -> CSR (data owning)'
  *
- * Available extraction types are:
- *     'dense -> dense'
- *     'csr -> dense'
- *     'csr -> csr'
+ * Note: just added for compilation, should not be hit at runtime
+ */
+template <typename math_t, typename LayoutPolicyIn>
+void extractRows(raft::device_matrix_view<math_t, int, LayoutPolicyIn> matrix_in,
+                 raft::device_csr_matrix<math_t, int, int, int> matrix_out,
+                 const int* row_indices,
+                 int num_indices,
+                 const raft::handle_t& handle)
+{
+  ASSERT(false, "extractRows from DENSE-CSR not implemented.");
+}
+
+/**
+ * @brief Extract matrix rows to sub matrix
  *
+ * This is the specialized version for
+ *     'DENSE -> DENSE (raw pointer)'
+ *
+ * TODO: move this functionality to
+ * https://github.com/rapidsai/raft/issues/1524
+ *
+ * @param [in] matrix_in matrix input (dense view)  [i, j]
+ * @param [out] matrix_out matrix output raw pointer, size at least num_indices*j
+ * @param [in] row_indices row indices to extract [num_indices]
+ * @param [in] num_indices number of indices to extract
  * @param [in] handle raft handle
- * @param [in] matrix_in matrix input, either dense or csr [i, j]
- * @param [out] matrix_out matrix output, either dense or csr. Will be
- *     resized to [num_indices, matrix_in.n_cols]
+ */
+template <typename math_t, typename LayoutPolicyIn>
+void extractRows(raft::device_matrix_view<math_t, int, LayoutPolicyIn> matrix_in,
+                 math_t* matrix_out,
+                 const int* row_indices,
+                 int num_indices,
+                 const raft::handle_t& handle)
+{
+  ASSERT(matrix_in.stride(0) == 1, "Matrix needs to be column major");
+  ASSERT(matrix_in.stride(1) == matrix_in.extent(0), "No padding supported");
+
+  raft::matrix::copyRows<math_t, int, size_t>(matrix_in.data_handle(),
+                                              matrix_in.extent(0),
+                                              matrix_in.extent(1),
+                                              matrix_out,
+                                              row_indices,
+                                              num_indices,
+                                              handle.get_stream(),
+                                              false);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+/**
+ * @brief Extract matrix rows to sub matrix
+ *
+ * This is the specialized version for
+ *     'CSR -> DENSE (raw pointer)'
+ *
+ * @param [in] matrix_in matrix input in CSR  [i, j]
+ * @param [out] matrix_out matrix output raw pointer, size at least num_indices*j
  * @param [in] row_indices row indices to extract [num_indices]
  * @param [in] num_indices number of indices to extract
  * @param [in] handle raft handle
  */
 template <typename math_t>
-static void extractRows(const MLCommon::Matrix::Matrix<math_t>& matrix_in,
-                        MLCommon::Matrix::Matrix<math_t>& matrix_out,
-                        const int* row_indices,
-                        int num_indices,
-                        const raft::handle_t& handle)
+void extractRows(raft::device_csr_matrix_view<math_t, int, int, int> matrix_in,
+                 math_t* matrix_out,
+                 const int* row_indices,
+                 int num_indices,
+                 const raft::handle_t& handle)
 {
-  auto stream = handle.get_stream();
-  matrix_out.initialize_dimensions(handle, num_indices, matrix_in.get_n_cols());
+  auto stream        = handle.get_stream();
+  auto csr_struct_in = matrix_in.structure_view();
+
   // initialize dense target
-  if (!matrix_in.is_dense() && matrix_out.is_dense()) {
-    thrust::device_ptr<math_t> output_ptr(matrix_out.as_dense()->get_data());
-    thrust::fill(thrust::cuda::par.on(stream),
-                 output_ptr,
-                 output_ptr + matrix_out.get_n_rows() * matrix_out.get_n_cols(),
-                 (math_t)0);
-  }
+  thrust::device_ptr<math_t> output_ptr(matrix_out);
+  thrust::fill(thrust::cuda::par.on(stream),
+               output_ptr,
+               output_ptr + num_indices * csr_struct_in.get_n_cols(),
+               (math_t)0);
 
-  if (matrix_in.is_dense()) {
-    ASSERT(matrix_out.is_dense(), "Cannot extract sparse rows from dense matrix");
-    auto dense_matrix_in  = matrix_in.as_dense();
-    auto dense_matrix_out = matrix_out.as_dense();
-    int minor = dense_matrix_in->is_row_major() ? matrix_in.get_n_cols() : matrix_in.get_n_rows();
-    ASSERT(minor == dense_matrix_in->get_ld(), "No padding supported");
-    ASSERT(dense_matrix_out->is_row_major() == dense_matrix_in->is_row_major(),
-           "Layout does not match");
+  int* indptr  = csr_struct_in.get_indptr().data();
+  int* indices = csr_struct_in.get_indices().data();
+  math_t* data = matrix_in.get_elements().data();
 
-    raft::matrix::copyRows<math_t, int, size_t>(matrix_in.as_dense()->get_data(),
-                                                matrix_in.get_n_rows(),
-                                                matrix_in.get_n_cols(),
-                                                matrix_out.as_dense()->get_data(),
-                                                row_indices,
-                                                num_indices,
-                                                stream,
-                                                dense_matrix_in->is_row_major());
-  } else {
-    auto csr_matrix_in = matrix_in.as_csr();
-    int* indptr        = csr_matrix_in->get_indptr();
-    int* indices       = csr_matrix_in->get_indices();
-    math_t* data       = csr_matrix_in->get_data();
+  // copy with 1 warp per row for now, blocksize 256
+  const dim3 bs(32, 8, 1);
+  const dim3 gs(raft::ceildiv(num_indices, (int)bs.y), 1, 1);
+  extractDenseRowsFromCSR<math_t>
+    <<<gs, bs, 0, stream>>>(matrix_out, indptr, indices, data, row_indices, num_indices);
 
-    // copy with 1 warp per row for now, blocksize 256
-    const dim3 bs(32, 8, 1);
-    const dim3 gs(raft::ceildiv(num_indices, (int)bs.y), 1, 1);
-    if (matrix_out.is_dense()) {
-      auto dense_matrix_out = matrix_out.as_dense();
-      ASSERT(!dense_matrix_out->is_row_major() && dense_matrix_out->get_ld() == num_indices,
-             "Invalid Layout");
-      extractDenseRowsFromCSR<math_t><<<gs, bs, 0, stream>>>(
-        dense_matrix_out->get_data(), indptr, indices, data, row_indices, num_indices);
-    } else {
-      auto csr_matrix_out = matrix_out.as_csr();
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
 
-      // row sizes + inclusive_scan -> row end positions
-      thrust::device_ptr<int> row_sizes_ptr(csr_matrix_out->get_indptr());
-      thrust::device_ptr<const int> row_new_indices_ptr(row_indices);
-      thrust::transform_inclusive_scan(thrust::cuda::par.on(stream),
-                                       row_new_indices_ptr,
-                                       row_new_indices_ptr + num_indices,
-                                       row_sizes_ptr + 1,
-                                       rowsize(indptr),
-                                       thrust::plus<int>());
+namespace {
+int computeIndptrForSubset(
+  int* indptr_in, int* indptr_out, const int* row_indices, int num_indices, cudaStream_t stream)
+{
+  thrust::device_ptr<int> row_sizes_ptr(indptr_out);
+  thrust::device_ptr<const int> row_new_indices_ptr(row_indices);
+  thrust::transform_inclusive_scan(thrust::cuda::par.on(stream),
+                                   row_new_indices_ptr,
+                                   row_new_indices_ptr + num_indices,
+                                   row_sizes_ptr + 1,
+                                   rowsize(indptr_in),
+                                   thrust::plus<int>());
 
-      // retrieve nnz from indptr[num_indices]
-      int nnz;
-      raft::update_host(&nnz, csr_matrix_out->get_indptr() + num_indices, 1, stream);
-      cudaStreamSynchronize(stream);
-
-      csr_matrix_out->initialize_sparsity(handle, nnz);
-
-      extractCSRRowsFromCSR<math_t><<<gs, bs, 0, stream>>>(csr_matrix_out->get_indptr(),
-                                                           csr_matrix_out->get_indices(),
-                                                           csr_matrix_out->get_data(),
-                                                           indptr,
-                                                           indices,
-                                                           data,
-                                                           row_indices,
-                                                           num_indices);
-    }
-  }
+  // retrieve nnz from indptr_in[num_indices]
+  int nnz;
+  raft::update_host(&nnz, indptr_out + num_indices, 1, stream);
   cudaStreamSynchronize(stream);
+  return nnz;
+}
+
+}  // namespace
+
+/**
+ * @brief copy row pointers from device to host
+ *
+ * This is only implemented for CSR
+ *
+ * @param [in] matrix matrix input in CSR  [i, j]
+ * @param [out] host_indptr indptr in host  [i + 1]
+ * @param [in] stream cuda stream
+ */
+template <typename math_t>
+void copyIndptrToHost(raft::device_csr_matrix_view<math_t, int, int, int> matrix,
+                      int* host_indptr,
+                      cudaStream_t stream)
+{
+  raft::update_host(host_indptr,
+                    matrix.structure_view().get_indptr().data(),
+                    matrix.structure_view().get_n_rows() + 1,
+                    stream);
+}
+
+/**
+ * @brief copy row pointers from device to host
+ *
+ * This is only implemented for CSR
+ *
+ * @param [in] matrix matrix input [i, j]
+ * @param [out] host_indptr indptr in host  [i + 1]
+ * @param [in] stream cuda stream
+ */
+template <typename math_t, typename LayoutPolicyIn>
+void copyIndptrToHost(raft::device_matrix_view<math_t, int, LayoutPolicyIn> matrix,
+                      int* host_indptr,
+                      cudaStream_t stream)
+{
+  ASSERT(false, "Variant not implemented.");
+}
+
+/**
+ * @brief Extract matrix rows to sub matrix
+ *
+ * This is the specialized version for
+ *     'CSR -> CSR (data owning)'
+ *
+ * TODO: move this functionality to
+ * https://github.com/rapidsai/raft/issues/1524
+ *
+ * @param [in] matrix_in matrix input in CSR  [i, j]
+ * @param [out] matrix_out matrix output in CSR  [num_indices, j]
+ * @param [in] row_indices row indices to extract [num_indices]
+ * @param [in] num_indices number of indices to extract
+ * @param [in] handle raft handle
+ */
+template <typename math_t>
+void extractRows(raft::device_csr_matrix_view<math_t, int, int, int> matrix_in,
+                 raft::device_csr_matrix<math_t, int, int, int>& matrix_out,
+                 const int* row_indices,
+                 int num_indices,
+                 const raft::handle_t& handle)
+{
+  auto stream        = handle.get_stream();
+  auto csr_struct_in = matrix_in.structure_view();
+  int* indptr_in     = csr_struct_in.get_indptr().data();
+  int* indices_in    = csr_struct_in.get_indices().data();
+  math_t* data_in    = matrix_in.get_elements().data();
+
+  auto csr_struct_out = matrix_out.structure_view();
+  int* indptr_out     = csr_struct_out.get_indptr().data();
+
+  int nnz = computeIndptrForSubset(indptr_in, indptr_out, row_indices, num_indices, stream);
+
+  // this might invalidate indices/data pointers!
+  matrix_out.initialize_sparsity(nnz);
+
+  int* indices_out = matrix_out.structure_view().get_indices().data();
+  math_t* data_out = matrix_out.get_elements().data();
+
+  // copy with 1 warp per row for now, blocksize 256
+  const dim3 bs(32, 8, 1);
+  const dim3 gs(raft::ceildiv(num_indices, (int)bs.y), 1, 1);
+  extractCSRRowsFromCSR<math_t><<<gs, bs, 0, stream>>>(
+    indptr_out, indices_out, data_out, indptr_in, indices_in, data_in, row_indices, num_indices);
+
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+/**
+ * @brief Extract matrix rows to sub matrix
+ *
+ * This is the specialized version for
+ *     'DENSE -> CSR (raw pointers)'
+ *
+ * Note: just added for compilation, should not be hit at runtime
+ */
+template <typename math_t, typename LayoutPolicyIn>
+void extractRows(raft::device_matrix_view<math_t, int, LayoutPolicyIn> matrix_in,
+                 int** indptr_out,
+                 int** indices_out,
+                 math_t** data_out,
+                 int* nnz,
+                 const int* row_indices,
+                 int num_indices,
+                 const raft::handle_t& handle)
+{
+  ASSERT(false, "extractRows not implemented for DENSE->CSR");
+}
+
+/**
+ * @brief Extract matrix rows to sub matrix
+ *
+ * This is the specialized version for
+ *     'CSR -> CSR (raw pointers)'
+ *
+ * Warning: this specialization will allocate the the required arrays in device memory.
+ *
+ * @param [in] matrix_in matrix input in CSR  [i, j]
+ * @param [out] indptr_out row index pointer of CSR output [num_indices + 1]
+ * @param [out] indices_out column indices of CSR output [nnz = indptr_out[num_indices + 1]]
+ * @param [out] data_out values of CSR output [nnz = indptr_out[num_indices + 1]]
+ * @param [out] nnz number of indices to extract
+ * @param [in] row_indices row indices to extract [num_indices]
+ * @param [in] num_indices number of indices to extract
+ * @param [in] handle raft handle
+ */
+template <typename math_t>
+void extractRows(raft::device_csr_matrix_view<math_t, int, int, int> matrix_in,
+                 int** indptr_out,
+                 int** indices_out,
+                 math_t** data_out,
+                 int* nnz,
+                 const int* row_indices,
+                 int num_indices,
+                 const raft::handle_t& handle)
+{
+  auto stream        = handle.get_stream();
+  auto csr_struct_in = matrix_in.structure_view();
+  int* indptr_in     = csr_struct_in.get_indptr().data();
+  int* indices_in    = csr_struct_in.get_indices().data();
+  math_t* data_in    = matrix_in.get_elements().data();
+
+  // allocate indptr
+  auto* rmm_alloc = rmm::mr::get_current_device_resource();
+  *indptr_out     = (int*)rmm_alloc->allocate((num_indices + 1) * sizeof(int), stream);
+
+  *nnz = computeIndptrForSubset(indptr_in, *indptr_out, row_indices, num_indices, stream);
+
+  // allocate indices, data
+  *indices_out = (int*)rmm_alloc->allocate(*nnz * sizeof(int), stream);
+  *data_out    = (math_t*)rmm_alloc->allocate(*nnz * sizeof(math_t), stream);
+
+  // copy with 1 warp per row for now, blocksize 256
+  const dim3 bs(32, 8, 1);
+  const dim3 gs(raft::ceildiv(num_indices, (int)bs.y), 1, 1);
+  extractCSRRowsFromCSR<math_t><<<gs, bs, 0, stream>>>(
+    *indptr_out, *indices_out, *data_out, indptr_in, indices_in, data_in, row_indices, num_indices);
+
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 

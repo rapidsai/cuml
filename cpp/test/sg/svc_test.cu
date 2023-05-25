@@ -220,24 +220,20 @@ class KernelCacheTest : public ::testing::Test {
     }
   }
 
-  void check(typename KernelCache<math_t>::BatchDescriptor batch_descriptor)
+  void check(math_t* kernel_data, int* nz_da_idx, int nnz_da, int batch_size, int offset)
   {
-    int nnz_da  = batch_descriptor.nnz_da;
     auto stream = this->handle.get_stream();
     std::vector<int> ws_idx_h(nnz_da);
-    raft::update_host(ws_idx_h.data(), batch_descriptor.nz_da_idx, nnz_da, stream);
+    raft::update_host(ws_idx_h.data(), nz_da_idx, nnz_da, stream);
     handle.sync_stream(stream);
     // Note: kernel cache can permute the working set, so we have to look
     // up which rows we compare
     for (int i = 0; i < nnz_da; i++) {
       SCOPED_TRACE(i);
-      const math_t* cache_row = batch_descriptor.kernel_data + i * batch_descriptor.batch_size;
-      const math_t* row_exp = tile_host_all + ws_idx_h[i] * this->n_rows + batch_descriptor.offset;
-      EXPECT_TRUE(devArrMatchHost(row_exp,
-                                  cache_row,
-                                  batch_descriptor.batch_size,
-                                  MLCommon::CompareApprox<math_t>(1e-6f),
-                                  stream));
+      const math_t* cache_row = kernel_data + i * batch_size;
+      const math_t* row_exp   = tile_host_all + ws_idx_h[i] * this->n_rows + offset;
+      EXPECT_TRUE(devArrMatchHost(
+        row_exp, cache_row, batch_size, MLCommon::CompareApprox<math_t>(1e-6f), stream));
     }
   }
 
@@ -277,19 +273,22 @@ TYPED_TEST_P(KernelCacheTest, EvalTest)
                                       KernelParams{RBF, 2, 0.5, 0}};
   float cache_size = 0;
 
-  MLCommon::Matrix::DenseMatrix matrix_wrapper(this->x_dev.data(), this->n_rows, this->n_cols);
+  auto dense_view =
+    raft::make_device_strided_matrix_view<TypeParam, int, raft::layout_f_contiguous>(
+      this->x_dev.data(), this->n_rows, this->n_cols, 0);
 
   for (auto params : param_vec) {
     GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(params);
-    KernelCache<TypeParam> cache(this->handle,
-                                 matrix_wrapper,
-                                 this->n_rows,
-                                 this->n_cols,
-                                 this->n_ws,
-                                 kernel,
-                                 params.kernel,
-                                 cache_size,
-                                 C_SVC);
+    KernelCache<TypeParam, raft::device_matrix_view<TypeParam, int, raft::layout_stride>> cache(
+      this->handle,
+      dense_view,
+      this->n_rows,
+      this->n_cols,
+      this->n_ws,
+      kernel,
+      params.kernel,
+      cache_size,
+      C_SVC);
 
     cache.InitWorkingSet(this->ws_idx_dev.data());
     auto batch_descriptor = cache.InitFullTileBatching(cache.getKernelIndices(false), this->n_ws);
@@ -327,41 +326,73 @@ TYPED_TEST_P(KernelCacheTest, SvcCacheEvalTest)
 
     size_t tile_byte_limit   = input.batching ? (2 * this->n_ws * sizeof(TypeParam)) : (1 << 30);
     size_t sparse_byte_limit = input.sparse_compute ? 1 : (1 << 30);
-    MLCommon::Matrix::Matrix<TypeParam>* matrix_wrapper;
-    if (input.sparse) {
-      matrix_wrapper = new MLCommon::Matrix::CsrMatrix(this->x_indptr_dev.data(),
-                                                       this->x_indices_dev.data(),
-                                                       this->x_data_dev.data(),
-                                                       this->n_rows * this->n_cols,
-                                                       this->n_rows,
-                                                       this->n_cols);
-    } else {
-      matrix_wrapper =
-        new MLCommon::Matrix::DenseMatrix(this->x_dev.data(), this->n_rows, this->n_cols);
-    }
-
     GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param);
-    KernelCache<TypeParam> cache(this->handle,
-                                 *matrix_wrapper,
-                                 this->n_rows,
-                                 this->n_cols,
-                                 this->n_ws,
-                                 kernel,
-                                 param.kernel,
-                                 cache_size,
-                                 C_SVC,
-                                 tile_byte_limit,
-                                 sparse_byte_limit);
-    for (int i = 0; i < 2; i++) {
-      // We calculate cache tile multiple times to see if cache lookup works
-      cache.InitWorkingSet(this->ws_idx_dev.data());
-      auto batch_descriptor = cache.InitFullTileBatching(cache.getKernelIndices(false), this->n_ws);
-      while (cache.getNextBatchKernel(batch_descriptor)) {
-        this->check(batch_descriptor);
+    if (input.sparse) {
+      auto csr_structure =
+        raft::make_device_compressed_structure_view<int, int, int>(this->x_indptr_dev.data(),
+                                                                   this->x_indices_dev.data(),
+                                                                   this->n_rows,
+                                                                   this->n_cols,
+                                                                   this->n_rows * this->n_cols);
+      auto csr_view = raft::make_device_csr_matrix_view(this->x_data_dev.data(), csr_structure);
+      KernelCache<TypeParam, raft::device_csr_matrix_view<TypeParam, int, int, int>> cache(
+        this->handle,
+        csr_view,
+        this->n_rows,
+        this->n_cols,
+        this->n_ws,
+        kernel,
+        param.kernel,
+        cache_size,
+        C_SVC,
+        tile_byte_limit,
+        sparse_byte_limit);
+
+      for (int i = 0; i < 2; i++) {
+        // We calculate cache tile multiple times to see if cache lookup works
+        cache.InitWorkingSet(this->ws_idx_dev.data());
+        auto batch_descriptor =
+          cache.InitFullTileBatching(cache.getKernelIndices(false), this->n_ws);
+        while (cache.getNextBatchKernel(batch_descriptor)) {
+          this->check(batch_descriptor.kernel_data,
+                      batch_descriptor.nz_da_idx,
+                      batch_descriptor.nnz_da,
+                      batch_descriptor.batch_size,
+                      batch_descriptor.offset);
+        }
+      }
+    } else {
+      auto dense_view =
+        raft::make_device_strided_matrix_view<TypeParam, int, raft::layout_f_contiguous>(
+          this->x_dev.data(), this->n_rows, this->n_cols, 0);
+      KernelCache<TypeParam, raft::device_matrix_view<TypeParam, int, raft::layout_stride>> cache(
+        this->handle,
+        dense_view,
+        this->n_rows,
+        this->n_cols,
+        this->n_ws,
+        kernel,
+        param.kernel,
+        cache_size,
+        C_SVC,
+        tile_byte_limit,
+        sparse_byte_limit);
+
+      for (int i = 0; i < 2; i++) {
+        // We calculate cache tile multiple times to see if cache lookup works
+        cache.InitWorkingSet(this->ws_idx_dev.data());
+        auto batch_descriptor =
+          cache.InitFullTileBatching(cache.getKernelIndices(false), this->n_ws);
+        while (cache.getNextBatchKernel(batch_descriptor)) {
+          this->check(batch_descriptor.kernel_data,
+                      batch_descriptor.nz_da_idx,
+                      batch_descriptor.nnz_da,
+                      batch_descriptor.batch_size,
+                      batch_descriptor.offset);
+        }
       }
     }
 
-    delete matrix_wrapper;
     delete kernel;
   }
 }
@@ -387,41 +418,72 @@ TYPED_TEST_P(KernelCacheTest, SvrCacheEvalTest)
 
     size_t tile_byte_limit   = input.batching ? (2 * this->n_ws * sizeof(TypeParam)) : (1 << 30);
     size_t sparse_byte_limit = input.sparse_compute ? 1 : (1 << 30);
-    MLCommon::Matrix::Matrix<TypeParam>* matrix_wrapper;
-    if (input.sparse) {
-      matrix_wrapper = new MLCommon::Matrix::CsrMatrix(this->x_indptr_dev.data(),
-                                                       this->x_indices_dev.data(),
-                                                       this->x_data_dev.data(),
-                                                       this->n_rows * this->n_cols,
-                                                       this->n_rows,
-                                                       this->n_cols);
-    } else {
-      matrix_wrapper =
-        new MLCommon::Matrix::DenseMatrix(this->x_dev.data(), this->n_rows, this->n_cols);
-    }
-
     GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param);
-    KernelCache<TypeParam> cache(this->handle,
-                                 *matrix_wrapper,
-                                 this->n_rows,
-                                 this->n_cols,
-                                 this->n_ws,
-                                 kernel,
-                                 param.kernel,
-                                 cache_size,
-                                 EPSILON_SVR,
-                                 tile_byte_limit,
-                                 sparse_byte_limit);
-    for (int i = 0; i < 2; i++) {
-      // We calculate cache tile multiple times to see if cache lookup works
-      cache.InitWorkingSet(this->ws_idx_dev.data());
-      auto batch_descriptor = cache.InitFullTileBatching(cache.getKernelIndices(false), this->n_ws);
-      while (cache.getNextBatchKernel(batch_descriptor)) {
-        this->check(batch_descriptor);
+    if (input.sparse) {
+      auto csr_structure =
+        raft::make_device_compressed_structure_view<int, int, int>(this->x_indptr_dev.data(),
+                                                                   this->x_indices_dev.data(),
+                                                                   this->n_rows,
+                                                                   this->n_cols,
+                                                                   this->n_rows * this->n_cols);
+      auto csr_view = raft::make_device_csr_matrix_view(this->x_data_dev.data(), csr_structure);
+      KernelCache<TypeParam, raft::device_csr_matrix_view<TypeParam, int, int, int>> cache(
+        this->handle,
+        csr_view,
+        this->n_rows,
+        this->n_cols,
+        this->n_ws,
+        kernel,
+        param.kernel,
+        cache_size,
+        EPSILON_SVR,
+        tile_byte_limit,
+        sparse_byte_limit);
+      for (int i = 0; i < 2; i++) {
+        // We calculate cache tile multiple times to see if cache lookup works
+        cache.InitWorkingSet(this->ws_idx_dev.data());
+        auto batch_descriptor =
+          cache.InitFullTileBatching(cache.getKernelIndices(false), this->n_ws);
+        while (cache.getNextBatchKernel(batch_descriptor)) {
+          this->check(batch_descriptor.kernel_data,
+                      batch_descriptor.nz_da_idx,
+                      batch_descriptor.nnz_da,
+                      batch_descriptor.batch_size,
+                      batch_descriptor.offset);
+        }
+      }
+
+    } else {
+      auto dense_view =
+        raft::make_device_strided_matrix_view<TypeParam, int, raft::layout_f_contiguous>(
+          this->x_dev.data(), this->n_rows, this->n_cols, 0);
+      KernelCache<TypeParam, raft::device_matrix_view<TypeParam, int, raft::layout_stride>> cache(
+        this->handle,
+        dense_view,
+        this->n_rows,
+        this->n_cols,
+        this->n_ws,
+        kernel,
+        param.kernel,
+        cache_size,
+        EPSILON_SVR,
+        tile_byte_limit,
+        sparse_byte_limit);
+      for (int i = 0; i < 2; i++) {
+        // We calculate cache tile multiple times to see if cache lookup works
+        cache.InitWorkingSet(this->ws_idx_dev.data());
+        auto batch_descriptor =
+          cache.InitFullTileBatching(cache.getKernelIndices(false), this->n_ws);
+        while (cache.getNextBatchKernel(batch_descriptor)) {
+          this->check(batch_descriptor.kernel_data,
+                      batch_descriptor.nz_da_idx,
+                      batch_descriptor.nnz_da,
+                      batch_descriptor.batch_size,
+                      batch_descriptor.offset);
+        }
       }
     }
 
-    delete matrix_wrapper;
     delete kernel;
   }
 }
@@ -435,6 +497,14 @@ class GetResultsTest : public ::testing::Test {
   GetResultsTest() : stream(handle.get_stream()) {}
 
  protected:
+  void FreeDenseSupport()
+  {
+    rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
+    auto stream                                = this->handle.get_stream();
+    rmm_alloc->deallocate(support_matrix->data, n_coefs * n_cols * sizeof(math_t), stream);
+    delete support_matrix;
+  }
+
   void TestResults()
   {
     auto stream = this->handle.get_stream();
@@ -448,8 +518,11 @@ class GetResultsTest : public ::testing::Test {
     raft::update_device(alpha_dev.data(), alpha_host, n_rows, stream);
     rmm::device_uvector<math_t> C_dev(n_rows, stream);
     init_C(C, C_dev.data(), n_rows, stream);
-    MLCommon::Matrix::DenseMatrix matrix_wrapper(x_dev.data(), n_rows, n_cols);
-    Results<math_t> res(handle, matrix_wrapper, y_dev.data(), C_dev.data(), C_SVC);
+
+    auto dense_view = raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
+      x_dev.data(), n_rows, n_cols, 0);
+    Results<math_t, raft::device_matrix_view<math_t, int, raft::layout_stride>> res(
+      handle, dense_view, n_rows, n_cols, y_dev.data(), C_dev.data(), C_SVC);
     res.Get(alpha_dev.data(), f_dev.data(), &dual_coefs, &n_coefs, &idx, &support_matrix, &b);
 
     ASSERT_EQ(n_coefs, 7);
@@ -461,11 +534,10 @@ class GetResultsTest : public ::testing::Test {
     int idx_exp[] = {2, 3, 4, 6, 7, 8, 9};
     EXPECT_TRUE(devArrMatchHost(idx_exp, idx, n_coefs, MLCommon::Compare<int>(), stream));
 
-    EXPECT_TRUE(support_matrix->is_dense());
-
     math_t x_support_exp[] = {3, 4, 5, 7, 8, 9, 10, 13, 14, 15, 17, 18, 19, 20};
+
     EXPECT_TRUE(devArrMatchHost(x_support_exp,
-                                support_matrix->as_dense()->get_data(),
+                                support_matrix->data,
                                 n_coefs * n_cols,
                                 MLCommon::CompareApprox<math_t>(1e-6f),
                                 stream));
@@ -475,9 +547,9 @@ class GetResultsTest : public ::testing::Test {
     // Modify the test by setting all SVs bound, then b is calculated differently
     math_t alpha_host2[10] = {0, 0, 1.5, 1.5, 1.5, 0, 1.5, 1.5, 1.5, 1.5};
     raft::update_device(alpha_dev.data(), alpha_host2, n_rows, stream);
-    delete support_matrix;
+    FreeDenseSupport();
     res.Get(alpha_dev.data(), f_dev.data(), &dual_coefs, &n_coefs, &idx, &support_matrix, &b);
-    delete support_matrix;
+    FreeDenseSupport();
     EXPECT_FLOAT_EQ(b, -5.5f);
   }
 
@@ -496,7 +568,7 @@ class GetResultsTest : public ::testing::Test {
   math_t* dual_coefs;
   int n_coefs;
   int* idx;
-  MLCommon::Matrix::Matrix<math_t>* support_matrix;
+  SupportStorage<math_t>* support_matrix;
   math_t b;
 };
 
@@ -745,9 +817,9 @@ void checkResults(SvmModel<math_t> model,
   EXPECT_LT(raft::abs(ay), ay_tol);
 
   if (x_support_exp) {
-    EXPECT_TRUE(model.support_matrix && model.support_matrix->is_dense());
+    EXPECT_TRUE(model.support_matrix && model.support_matrix->nnz == -1);
     EXPECT_TRUE(devArrMatchHost(x_support_exp,
-                                model.support_matrix->as_dense()->get_data(),
+                                model.support_matrix->data,
                                 model.n_support * model.n_cols,
                                 MLCommon::CompareApprox<math_t>(1e-6f),
                                 stream));
@@ -760,11 +832,9 @@ void checkResults(SvmModel<math_t> model,
 
   math_t* x_support_host = new math_t[model.n_support * model.n_cols];
   if (model.n_support * model.n_cols > 0) {
-    EXPECT_TRUE(model.support_matrix && model.support_matrix->is_dense());
-    raft::update_host(x_support_host,
-                      model.support_matrix->as_dense()->get_data(),
-                      model.n_support * model.n_cols,
-                      stream);
+    EXPECT_TRUE(model.support_matrix && model.support_matrix->nnz == -1);
+    raft::update_host(
+      x_support_host, model.support_matrix->data, model.n_support * model.n_cols, stream);
   }
   raft::interruptible::synchronize(stream);
 
@@ -1034,8 +1104,10 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
     SmoSolver<TypeParam> smo(this->handle, param, p.kernel_params.kernel, kernel);
     {
       SvmModel<TypeParam> model1{0, this->n_cols, 0, nullptr, nullptr, nullptr, 0, nullptr};
-      MLCommon::Matrix::DenseMatrix dense_matrix(this->x_dev.data(), this->n_rows, this->n_cols);
-      smo.Solve(dense_matrix,
+      auto dense_view =
+        raft::make_device_strided_matrix_view<TypeParam, int, raft::layout_f_contiguous>(
+          this->x_dev.data(), this->n_rows, this->n_cols, 0);
+      smo.Solve(dense_view,
                 this->n_rows,
                 this->n_cols,
                 this->y_dev.data(),
@@ -1054,13 +1126,14 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
     // also check sparse input
     {
       SvmModel<TypeParam> model2{0, this->n_cols, 0, nullptr, nullptr, nullptr, 0, nullptr};
-      MLCommon::Matrix::CsrMatrix csr_matrix(this->x_dev_indptr.data(),
-                                             this->x_dev_indices.data(),
-                                             this->x_dev_data.data(),
-                                             this->n_nnz,
-                                             this->n_rows,
-                                             this->n_cols);
-      smo.Solve(csr_matrix,
+      auto csr_structure =
+        raft::make_device_compressed_structure_view<int, int, int>(this->x_dev_indptr.data(),
+                                                                   this->x_dev_indices.data(),
+                                                                   this->n_rows,
+                                                                   this->n_cols,
+                                                                   this->n_nnz);
+      auto csr_view = raft::make_device_csr_matrix_view(this->x_dev_data.data(), csr_structure);
+      smo.Solve(csr_view,
                 this->n_rows,
                 this->n_cols,
                 this->y_dev.data(),
@@ -1427,15 +1500,65 @@ TYPED_TEST(SmoSolverTest, DISABLED_MillionRows)
 }
 
 template <typename math_t>
+void initializeTestMatrix(
+  const raft::handle_t& handle, math_t* dense_matrix, int n_rows, int n_cols, math_t* y)
+{
+  auto stream = handle.get_stream();
+  assert(n_cols % n_rows * n_rows % n_cols == 0);
+
+  /*
+  1 0 0 1 0 0
+  0 1 0 0 1 0
+  0 0 1 0 0 1
+
+  1 0 0
+  0 1 0
+  0 0 1
+  1 0 0
+  0 1 0
+  0 0 1
+  */
+
+  // fill col-major
+  thrust::device_ptr<math_t> data_ptr(dense_matrix);
+  auto one_or_zero = [n_rows, n_cols] __device__(const int& a) {
+    int cycle  = min(n_rows, n_cols);
+    int row_id = a % n_rows;
+    int col_id = a / n_rows;
+    return (row_id % cycle == col_id % cycle) ? (math_t)1 : (math_t)0;
+  };
+  thrust::transform(thrust::cuda::par.on(stream),
+                    thrust::make_counting_iterator<int>(0),
+                    thrust::make_counting_iterator<int>(n_rows * n_cols),
+                    data_ptr,
+                    one_or_zero);
+
+  // init y label to 1 for all that contain the first half of the features
+  {
+    thrust::device_ptr<math_t> label_ptr(y);
+    auto lable_hit = [n_rows, n_cols] __device__(const int& row) {
+      int cycle     = min(n_rows, n_cols);
+      int first_col = row % cycle;
+      return (first_col < cycle / 2) ? (math_t)1 : (math_t)0;
+    };
+    thrust::transform(thrust::cuda::par.on(stream),
+                      thrust::make_counting_iterator<int>(0),
+                      thrust::make_counting_iterator<int>(n_rows),
+                      label_ptr,
+                      lable_hit);
+  }
+
+  handle.sync_stream(stream);
+}
+
+template <typename math_t>
 void initializeTestMatrix(const raft::handle_t& handle,
-                          MLCommon::Matrix::Matrix<math_t>& matrix,
+                          raft::device_csr_matrix<math_t, int, int, int>& csr_matrix,
                           int n_rows,
                           int n_cols,
                           math_t* y)
 {
-  auto stream     = handle.get_stream();
-  int nnz_per_row = std::max(n_cols / n_rows, 1);
-
+  auto stream = handle.get_stream();
   assert(n_cols % n_rows * n_rows % n_cols == 0);
 
   /*
@@ -1451,61 +1574,44 @@ void initializeTestMatrix(const raft::handle_t& handle,
   0 0 1
 
   */
-  matrix.initialize_dimensions(handle, n_rows, n_cols);
-  if (matrix.is_dense()) {
-    auto dense_matrix = matrix.as_dense();
-    // fill col-major
-    thrust::device_ptr<math_t> data_ptr(dense_matrix->get_data());
-    auto one_or_zero = [n_rows, n_cols] __device__(const int& a) {
+  int nnz_per_row = std::max(n_cols / n_rows, 1);
+  int nnz         = n_rows * nnz_per_row;
+  csr_matrix.initialize_sparsity(nnz);
+  auto csr_structure = csr_matrix.structure_view();
+
+  {
+    // init indptr with nnz_per_row
+    thrust::device_ptr<int> indptr_ptr(csr_structure.get_indptr().data());
+    auto mul_x = [] __device__(const int& a, const int& b) { return a * b; };
+    thrust::transform(thrust::cuda::par.on(stream),
+                      thrust::make_counting_iterator<int>(0),
+                      thrust::make_counting_iterator<int>(n_rows + 1),
+                      thrust::make_constant_iterator<int>(nnz_per_row),
+                      indptr_ptr,
+                      mul_x);
+  }
+
+  // init indices/ data round-robin
+  {
+    thrust::device_ptr<int> indices_ptr(csr_structure.get_indices().data());
+    auto one_or_zero = [n_rows, n_cols, nnz_per_row] __device__(const int& a) {
       int cycle  = min(n_rows, n_cols);
-      int row_id = a % n_rows;
-      int col_id = a / n_rows;
-      return (row_id % cycle == col_id % cycle) ? (math_t)1 : (math_t)0;
+      int row_id = a / nnz_per_row;
+      int ith1   = a % nnz_per_row;
+      int col_id = ith1 * cycle + row_id % cycle;
+      return col_id;
     };
     thrust::transform(thrust::cuda::par.on(stream),
                       thrust::make_counting_iterator<int>(0),
-                      thrust::make_counting_iterator<int>(n_rows * n_cols),
-                      data_ptr,
+                      thrust::make_counting_iterator<int>(nnz),
+                      indices_ptr,
                       one_or_zero);
-  } else {
-    auto csr_matrix = matrix.as_csr();
-    int nnz         = n_rows * nnz_per_row;
-    csr_matrix->initialize_sparsity(handle, nnz);
+  }
 
-    {
-      // init indptr with nnz_per_row
-      thrust::device_ptr<int> indptr_ptr(csr_matrix->get_indptr());
-      auto mul_x = [] __device__(const int& a, const int& b) { return a * b; };
-      thrust::transform(thrust::cuda::par.on(stream),
-                        thrust::make_counting_iterator<int>(0),
-                        thrust::make_counting_iterator<int>(n_rows + 1),
-                        thrust::make_constant_iterator<int>(nnz_per_row),
-                        indptr_ptr,
-                        mul_x);
-    }
-
-    // init indices/ data round-robin
-    {
-      thrust::device_ptr<int> indices_ptr(csr_matrix->get_indices());
-      auto one_or_zero = [n_rows, n_cols, nnz_per_row] __device__(const int& a) {
-        int cycle  = min(n_rows, n_cols);
-        int row_id = a / nnz_per_row;
-        int ith1   = a % nnz_per_row;
-        int col_id = ith1 * cycle + row_id % cycle;
-        return col_id;
-      };
-      thrust::transform(thrust::cuda::par.on(stream),
-                        thrust::make_counting_iterator<int>(0),
-                        thrust::make_counting_iterator<int>(nnz),
-                        indices_ptr,
-                        one_or_zero);
-    }
-
-    // init data to 1
-    {
-      thrust::device_ptr<math_t> data_ptr(csr_matrix->get_data());
-      thrust::fill(thrust::cuda::par.on(stream), data_ptr, data_ptr + nnz, (math_t)1);
-    }
+  // init data to 1
+  {
+    thrust::device_ptr<math_t> data_ptr(csr_matrix.get_elements().data());
+    thrust::fill(thrust::cuda::par.on(stream), data_ptr, data_ptr + nnz, (math_t)1);
   }
 
   // init y label to 1 for all that contain the first half of the features
@@ -1541,9 +1647,9 @@ TYPED_TEST(SmoSolverTest, DenseBatching)
     for (auto input : data) {
       SCOPED_TRACE(input);
       // this will result in a big kernel tile of ~4GB which will result in batching
-      MLCommon::Matrix::DenseMatrix<TypeParam> dense_input(this->handle, 0, 0, 0);
       rmm::device_uvector<TypeParam> y(input.n_rows, stream);
-      initializeTestMatrix(this->handle, dense_input, input.n_rows, input.n_cols, y.data());
+      rmm::device_uvector<TypeParam> dense_input(input.n_rows * input.n_cols, stream);
+      initializeTestMatrix(this->handle, dense_input.data(), input.n_rows, input.n_cols, y.data());
 
       SvmParameter param = getDefaultSvmParameter();
       param.max_iter     = 2;
@@ -1551,9 +1657,9 @@ TYPED_TEST(SmoSolverTest, DenseBatching)
       SvmModel<TypeParam> model;
       TypeParam* sample_weights = nullptr;
       svcFit(this->handle,
-             dense_input.get_data(),
-             dense_input.get_n_rows(),
-             dense_input.get_n_cols(),
+             dense_input.data(),
+             input.n_rows,
+             input.n_cols,
              y.data(),
              param,
              input.kernel_params,
@@ -1563,9 +1669,9 @@ TYPED_TEST(SmoSolverTest, DenseBatching)
       // TODO predict with subset csr & dense
       rmm::device_uvector<TypeParam> y_pred(input.n_rows, stream);
       svcPredict(this->handle,
-                 dense_input.get_data(),
-                 dense_input.get_n_rows(),
-                 dense_input.get_n_cols(),
+                 dense_input.data(),
+                 input.n_rows,
+                 input.n_cols,
                  input.kernel_params,
                  model,
                  y_pred.data(),
@@ -1609,9 +1715,12 @@ TYPED_TEST(SmoSolverTest, SparseBatching)
       SCOPED_TRACE(input);
 
       // this will result in a big kernel tile of ~4GB which will result in batching
-      MLCommon::Matrix::CsrMatrix<TypeParam> csr_input(this->handle, 0, 0, 0);
+      auto csr_input = raft::make_device_csr_matrix<TypeParam, int, int, int>(
+        this->handle, input.n_rows, input.n_cols);
       rmm::device_uvector<TypeParam> y(input.n_rows, stream);
       initializeTestMatrix(this->handle, csr_input, input.n_rows, input.n_cols, y.data());
+
+      auto csr_structure = csr_input.structure_view();
 
       SvmParameter param = getDefaultSvmParameter();
       param.max_iter     = 2;
@@ -1619,12 +1728,12 @@ TYPED_TEST(SmoSolverTest, SparseBatching)
       SvmModel<TypeParam> model;
       TypeParam* sample_weights = nullptr;
       svcFitSparse(this->handle,
-                   csr_input.get_indptr(),
-                   csr_input.get_indices(),
-                   csr_input.get_data(),
-                   csr_input.get_n_rows(),
-                   csr_input.get_n_cols(),
-                   csr_input.get_nnz(),
+                   csr_structure.get_indptr().data(),
+                   csr_structure.get_indices().data(),
+                   csr_input.get_elements().data(),
+                   csr_structure.get_n_rows(),
+                   csr_structure.get_n_cols(),
+                   csr_structure.get_nnz(),
                    y.data(),
                    param,
                    input.kernel_params,
@@ -1634,12 +1743,12 @@ TYPED_TEST(SmoSolverTest, SparseBatching)
       // predict with full input
       rmm::device_uvector<TypeParam> y_pred(input.n_rows, stream);
       svcPredictSparse(this->handle,
-                       csr_input.get_indptr(),
-                       csr_input.get_indices(),
-                       csr_input.get_data(),
-                       csr_input.get_n_rows(),
-                       csr_input.get_n_cols(),
-                       csr_input.get_nnz(),
+                       csr_structure.get_indptr().data(),
+                       csr_structure.get_indices().data(),
+                       csr_input.get_elements().data(),
+                       csr_structure.get_n_rows(),
+                       csr_structure.get_n_cols(),
+                       csr_structure.get_nnz(),
                        input.kernel_params,
                        model,
                        y_pred.data(),
@@ -1649,39 +1758,41 @@ TYPED_TEST(SmoSolverTest, SparseBatching)
         y.data(), y_pred.data(), input.n_rows, MLCommon::CompareApprox<TypeParam>(1e-6), stream);
 
       // predict with subset csr & dense for all edge cases
-      if (!model.support_matrix->is_dense()) {
+      if (model.support_matrix->nnz >= 0) {
         int n_extract = 100;
         rmm::device_uvector<int> sequence(n_extract, stream);
-        MLCommon::Matrix::CsrMatrix<TypeParam> csr_subset(this->handle, 0, 0, 0);
-        MLCommon::Matrix::DenseMatrix<TypeParam> dense_subset(this->handle, 0, 0);
+        auto csr_subset = raft::make_device_csr_matrix<TypeParam, int, int, int>(
+          this->handle, n_extract, input.n_cols);
+        csr_subset.initialize_sparsity(10);  //! otherwise structure_view() call will fail
+        rmm::device_uvector<TypeParam> dense_subset(n_extract * input.n_cols, stream);
         {
           thrust::device_ptr<int> sequence_ptr(sequence.data());
           thrust::sequence(
             thrust::cuda::par.on(stream), sequence_ptr, sequence_ptr + n_extract, (int)0);
-          ML::SVM::extractRows<TypeParam>(
-            csr_input, csr_subset, sequence.data(), n_extract, this->handle);
-          ML::SVM::extractRows<TypeParam>(
-            csr_input, dense_subset, sequence.data(), n_extract, this->handle);
+          ML::SVM::extractRows(
+            csr_input.view(), csr_subset, sequence.data(), n_extract, this->handle);
+          ML::SVM::extractRows(
+            csr_input.view(), dense_subset.data(), sequence.data(), n_extract, this->handle);
         }
         rmm::device_uvector<TypeParam> y_pred_csr(n_extract, stream);
         rmm::device_uvector<TypeParam> y_pred_dense(n_extract, stream);
         // also reduce buffer memory to ensure batching
         svcPredictSparse(this->handle,
-                         csr_subset.get_indptr(),
-                         csr_subset.get_indices(),
-                         csr_subset.get_data(),
-                         csr_subset.get_n_rows(),
-                         csr_subset.get_n_cols(),
-                         csr_subset.get_nnz(),
+                         csr_subset.structure_view().get_indptr().data(),
+                         csr_subset.structure_view().get_indices().data(),
+                         csr_subset.get_elements().data(),
+                         csr_subset.structure_view().get_n_rows(),
+                         csr_subset.structure_view().get_n_cols(),
+                         csr_subset.structure_view().get_nnz(),
                          input.kernel_params,
                          model,
                          y_pred_csr.data(),
                          (TypeParam)50.0,
                          false);
         svcPredict(this->handle,
-                   dense_subset.get_data(),
-                   dense_subset.get_n_rows(),
-                   dense_subset.get_n_cols(),
+                   dense_subset.data(),
+                   n_extract,
+                   input.n_cols,
                    input.kernel_params,
                    model,
                    y_pred_dense.data(),
@@ -1793,8 +1904,10 @@ class SvrTest : public ::testing::Test {
   {
     raft::update_device(yc.data(), yc_exp, n_train, stream);
     init_C((math_t)0.001, C_dev.data(), n_rows * 2, stream);
-    MLCommon::Matrix::DenseMatrix matrix_wrapper(x_dev.data(), n_rows, n_cols);
-    Results<math_t> res(handle, matrix_wrapper, yc.data(), C_dev.data(), EPSILON_SVR);
+    auto dense_view = raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
+      x_dev.data(), n_rows, n_cols, 0);
+    Results<math_t, raft::device_matrix_view<math_t, int, raft::layout_stride>> res(
+      handle, dense_view, n_rows, n_cols, yc.data(), C_dev.data(), EPSILON_SVR);
     model.n_cols = n_cols;
     raft::update_device(alpha.data(), alpha_host, n_train, stream);
     raft::update_device(f.data(), f_exp, n_train, stream);
@@ -1811,11 +1924,11 @@ class SvrTest : public ::testing::Test {
     EXPECT_TRUE(devArrMatchHost(
       dc_exp, model.dual_coefs, model.n_support, MLCommon::CompareApprox<math_t>(1.0e-6), stream));
 
-    EXPECT_TRUE(model.support_matrix->is_dense());
+    EXPECT_TRUE(model.support_matrix->nnz == -1);
 
     math_t x_exp[] = {1, 2, 3, 5, 6};
     EXPECT_TRUE(devArrMatchHost(x_exp,
-                                model.support_matrix->as_dense()->get_data(),
+                                model.support_matrix->data,
                                 model.n_support * n_cols,
                                 MLCommon::CompareApprox<math_t>(1.0e-6),
                                 stream));

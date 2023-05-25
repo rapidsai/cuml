@@ -297,7 +297,7 @@ class BatchCache : public raft::cache::Cache<math_t> {
  * The kernel values can be cached to avoid repeated calculation of the kernel
  * function.
  */
-template <typename math_t>
+template <typename math_t, typename MatrixViewType>
 class KernelCache {
  public:
   /**
@@ -319,7 +319,7 @@ class KernelCache {
    *        for sparse input. (default 1GB)
    */
   KernelCache(const raft::handle_t& handle,
-              const MLCommon::Matrix::Matrix<math_t>& matrix,
+              MatrixViewType matrix,
               int n_rows,
               int n_cols,
               int n_ws,
@@ -343,17 +343,16 @@ class KernelCache {
       matrix_l2_ws(0, handle.get_stream()),
       ws_idx_mod(n_ws, handle.get_stream()),
       ws_idx_mod_svr(svmType == EPSILON_SVR ? n_ws : 0, handle.get_stream()),
-      x_ws_csr(handle, 0, 0, 0),
-      x_ws_dense(handle, 0, 0, 0),
+      x_ws_csr(nullptr),
+      x_ws_dense(0, handle.get_stream()),
       indptr_batched(0, handle.get_stream()),
       ws_cache_idx(n_ws * 2, handle.get_stream())
   {
     ASSERT(kernel != nullptr, "Kernel pointer required for KernelCache!");
     stream = handle.get_stream();
 
-    // FIXME: not sure if this has to be static
     batching_enabled = false;
-    is_csr           = !matrix.is_dense();
+    is_csr           = !isDenseType<MatrixViewType>();
     sparse_extract   = false;
     batch_size_base  = n_rows;
 
@@ -373,24 +372,28 @@ class KernelCache {
       sparse_extract = true;
     }
 
-    if (sparse_extract)
-      x_ws_matrix = &x_ws_csr;
-    else
-      x_ws_matrix = &x_ws_dense;
+    if (sparse_extract) {
+      x_ws_csr =
+        std::make_unique<raft::device_csr_matrix<math_t, int, int, int>>(handle, n_ws, n_cols);
+      // we need to make an initial sparsity init before we can retrieve the structure_view
+      x_ws_csr->initialize_sparsity(10);
+    } else {
+      x_ws_dense.resize(n_ws * n_cols, stream);
+    }
 
     // store matrix l2 norm for RBF kernels
     if (kernel_type == raft::distance::kernels::KernelType::RBF) {
-      matrix_l2.reserve(n_rows, stream);
-      matrix_l2_ws.reserve(n_ws, stream);
+      matrix_l2.resize(n_rows, stream);
+      matrix_l2_ws.resize(n_ws, stream);
       ML::SVM::matrixRowNorm(handle, matrix, matrix_l2.data(), raft::linalg::NormType::L2Norm);
     }
 
     // additional row pointer information needed for batched CSR access
     // copy matrix row pointer to host to compute partial nnz on the fly
     if (is_csr && batching_enabled) {
-      host_indptr.reserve(n_rows + 1);
-      indptr_batched.reserve(batch_size_base + 1, stream);
-      raft::update_host(host_indptr.data(), matrix.as_csr()->get_indptr(), n_rows + 1, stream);
+      host_indptr.resize(n_rows + 1);
+      indptr_batched.resize(batch_size_base + 1, stream);
+      copyIndptrToHost(matrix, host_indptr.data(), stream);
     }
   }
   ~KernelCache(){};
@@ -493,7 +496,11 @@ class KernelCache {
     ASSERT(cache_state != CacheState::READY, "Working set not initialized!");
     ASSERT(cache_state != CacheState::BATCHING_INITIALIZED, "Previous batching step incomplete!");
 
-    ML::SVM::extractRows<math_t>(matrix, *x_ws_matrix, ws_idx_mod.data(), n_ws, handle);
+    if (sparse_extract) {
+      ML::SVM::extractRows<math_t>(matrix, *x_ws_csr, ws_idx_mod.data(), n_ws, handle);
+    } else {
+      ML::SVM::extractRows<math_t>(matrix, x_ws_dense.data(), ws_idx_mod.data(), n_ws, handle);
+    }
 
     // extract dot array for RBF
     if (kernel_type == raft::distance::kernels::KernelType::RBF) {
@@ -502,14 +509,27 @@ class KernelCache {
 
     // compute kernel
     {
-      MLCommon::Matrix::DenseMatrix<math_t> kernel_matrix(kernel_tile.data(), n_ws, n_ws);
-      KernelOp(handle,
-               kernel,
-               *x_ws_matrix,
-               *x_ws_matrix,
-               kernel_matrix,
-               matrix_l2_ws.data(),
-               matrix_l2_ws.data());
+      if (sparse_extract) {
+        auto ws_view = getViewWithFixedDimension(*x_ws_csr, n_ws, n_cols);
+        KernelOp(handle,
+                 kernel,
+                 ws_view,
+                 ws_view,
+                 kernel_tile.data(),
+                 matrix_l2_ws.data(),
+                 matrix_l2_ws.data());
+      } else {
+        KernelOp(handle,
+                 kernel,
+                 x_ws_dense.data(),
+                 n_ws,
+                 n_cols,
+                 x_ws_dense.data(),
+                 n_ws,
+                 kernel_tile.data(),
+                 matrix_l2_ws.data(),
+                 matrix_l2_ws.data());
+      }
     }
     return kernel_tile.data();
   }
@@ -538,7 +558,12 @@ class KernelCache {
 
     int n_uncached = nnz_da - n_cached;
     if (n_uncached > 0) {
-      ML::SVM::extractRows<math_t>(matrix, *x_ws_matrix, nz_da_idx + n_cached, n_uncached, handle);
+      if (sparse_extract) {
+        ML::SVM::extractRows<math_t>(matrix, *x_ws_csr, nz_da_idx + n_cached, n_uncached, handle);
+      } else {
+        ML::SVM::extractRows<math_t>(
+          matrix, x_ws_dense.data(), nz_da_idx + n_cached, n_uncached, handle);
+      }
       // extract dot array for RBF
       if (kernel_type == raft::distance::kernels::KernelType::RBF) {
         selectValueSubset(matrix_l2_ws.data(), matrix_l2.data(), nz_da_idx + n_cached, n_uncached);
@@ -554,6 +579,22 @@ class KernelCache {
             .nz_da_idx   = nz_da_idx,
             .nnz_da      = nnz_da,
             .n_cached    = n_cached};
+  }
+
+  // workaround to create a view based on an owning csr_matrix that fixes
+  // the initial dimensions
+  // TODO: remove once not needed anymore
+  raft::device_csr_matrix_view<math_t, int, int, int> getViewWithFixedDimension(
+    raft::device_csr_matrix<math_t, int, int, int>& tmp_matrix, int n_rows, int n_cols)
+  {
+    auto csr_struct_in = tmp_matrix.structure_view();
+    auto csr_struct_out =
+      raft::make_device_compressed_structure_view<int, int, int>(csr_struct_in.get_indptr().data(),
+                                                                 csr_struct_in.get_indices().data(),
+                                                                 n_rows,
+                                                                 n_cols,
+                                                                 csr_struct_in.get_nnz());
+    return raft::make_device_csr_matrix_view(tmp_matrix.get_elements().data(), csr_struct_out);
   }
 
   /**
@@ -595,54 +636,27 @@ class KernelCache {
       int* ws_idx_new  = batch_descriptor.nz_da_idx + n_cached;
       math_t* tile_new = kernel_tile.data() + (size_t)n_cached * batch_size;
 
-      const MLCommon::Matrix::Matrix<math_t>* batch_matrix = nullptr;
-      if (batch_size == n_rows) {
-        batch_matrix = &matrix;
-      } else if (matrix.is_dense()) {
-        auto dense_matrix = matrix.as_dense();
-        batch_matrix      = new MLCommon::Matrix::DenseMatrix(
-          dense_matrix->get_data() + offset, batch_size, n_cols, false, n_rows);
-      } else {
-        // create indptr array for batch interval
-        // indptr_batched = indices[offset, offset+batch_size+1] - indices[offset]
-        auto csr_matrix = matrix.as_csr();
-        int batch_nnz   = host_indptr[offset + batch_size] - host_indptr[offset];
-        {
-          thrust::device_ptr<int> inptr_src(csr_matrix->get_indptr() + offset);
-          thrust::device_ptr<int> inptr_tgt(indptr_batched.data());
-          thrust::transform(thrust::cuda::par.on(stream),
-                            inptr_src,
-                            inptr_src + batch_size + 1,
-                            thrust::make_constant_iterator(host_indptr[offset]),
-                            inptr_tgt,
-                            thrust::minus<int>());
-        }
-        batch_matrix =
-          new MLCommon::Matrix::CsrMatrix(indptr_batched.data(),
-                                          csr_matrix->get_indices() + host_indptr[offset],
-                                          csr_matrix->get_data() + host_indptr[offset],
-                                          batch_nnz,
-                                          batch_size,
-                                          n_cols);
-      }
+      auto batch_matrix = getMatrixBatch(
+        matrix, batch_size, offset, host_indptr.data(), indptr_batched.data(), stream);
 
       // compute kernel
-      MLCommon::Matrix::DenseMatrix<math_t> kernel_matrix(tile_new, batch_size, n_uncached);
-      if (kernel_type == raft::distance::kernels::KernelType::RBF) {
+      math_t* norm_with_offset = matrix_l2.data() != nullptr ? matrix_l2.data() + offset : nullptr;
+      if (sparse_extract) {
+        auto ws_view = getViewWithFixedDimension(*x_ws_csr, n_uncached, n_cols);
+        KernelOp(
+          handle, kernel, batch_matrix, ws_view, tile_new, norm_with_offset, matrix_l2_ws.data());
+      } else {
         KernelOp(handle,
                  kernel,
-                 *batch_matrix,
-                 *x_ws_matrix,
-                 kernel_matrix,
-                 matrix_l2.data() + offset,
+                 batch_matrix,
+                 x_ws_dense.data(),
+                 n_uncached,
+                 tile_new,
+                 norm_with_offset,
                  matrix_l2_ws.data());
-      } else {
-        KernelOp(handle, kernel, *batch_matrix, *x_ws_matrix, kernel_matrix);
       }
 
       RAFT_CUDA_TRY(cudaPeekAtLastError());
-
-      if (batch_matrix != &matrix) delete batch_matrix;
 
       if (batch_cache.GetSize() > 0 && n_uncached > 0) {
         // AssignCacheIdx should not permute ws_idx_new anymore as we have sorted
@@ -704,7 +718,7 @@ class KernelCache {
   }
 
  private:
-  const MLCommon::Matrix::Matrix<math_t>& matrix;
+  MatrixViewType matrix;
 
   const int* ws_idx;  //!< ptr to the original working set
 
@@ -723,9 +737,9 @@ class KernelCache {
   rmm::device_uvector<int> ws_idx_mod_svr;
 
   // tmp storage for row extractions
-  MLCommon::Matrix::CsrMatrix<math_t> x_ws_csr;
-  MLCommon::Matrix::DenseMatrix<math_t> x_ws_dense;
-  MLCommon::Matrix::Matrix<math_t>* x_ws_matrix = nullptr;
+  // needs to ne a ptr atm as there is no way to resize rows
+  std::unique_ptr<raft::device_csr_matrix<math_t, int, int, int>> x_ws_csr;
+  rmm::device_uvector<math_t> x_ws_dense;
 
   // matrix l2 norm for RBF kernels
   rmm::device_uvector<math_t> matrix_l2;

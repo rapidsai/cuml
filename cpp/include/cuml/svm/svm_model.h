@@ -14,10 +14,18 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuml/matrix/matrix.h>
 
 namespace ML {
 namespace SVM {
+
+// Contains array(s) for matrix storage
+template <typename math_t>
+struct SupportStorage {
+  int nnz      = -1;
+  int* indptr  = nullptr;
+  int* indices = nullptr;
+  math_t* data = nullptr;
+};
 
 /**
  * Parameters that describe a trained SVM model.
@@ -33,8 +41,8 @@ struct SvmModel {
   //! Size [n_support].
   math_t* dual_coefs;
 
-  //! Support vectors in matrix format. Size [n_support x n_cols].
-  MLCommon::Matrix::Matrix<math_t>* support_matrix;
+  //! Support vector storage - can contain either CSR or dense
+  SupportStorage<math_t>* support_matrix;
 
   //! Indices (from the training set) of the support vectors, size [n_support].
   int* support_idx;

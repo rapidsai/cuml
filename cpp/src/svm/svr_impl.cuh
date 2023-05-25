@@ -39,18 +39,17 @@
 namespace ML {
 namespace SVM {
 
-template <typename math_t>
+template <typename math_t, typename MatrixViewType>
 void svrFitX(const raft::handle_t& handle,
-             const MLCommon::Matrix::Matrix<math_t>& matrix,
+             MatrixViewType matrix,
+             int n_rows,
+             int n_cols,
              math_t* y,
              const SvmParameter& param,
              raft::distance::kernels::KernelParams& kernel_params,
              SvmModel<math_t>& model,
              const math_t* sample_weight)
 {
-  int n_cols = matrix.get_n_cols();
-  int n_rows = matrix.get_n_rows();
-
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");
 
@@ -90,8 +89,9 @@ void svrFit(const raft::handle_t& handle,
             SvmModel<math_t>& model,
             const math_t* sample_weight)
 {
-  MLCommon::Matrix::DenseMatrix<math_t> dense_matrix(X, n_rows, n_cols);
-  svrFitX(handle, dense_matrix, y, param, kernel_params, model, sample_weight);
+  auto dense_view = raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
+    X, n_rows, n_cols, 0);
+  svrFitX(handle, dense_view, n_rows, n_cols, y, param, kernel_params, model, sample_weight);
 }
 
 template <typename math_t>
@@ -108,8 +108,10 @@ void svrFitSparse(const raft::handle_t& handle,
                   SvmModel<math_t>& model,
                   const math_t* sample_weight)
 {
-  MLCommon::Matrix::CsrMatrix<math_t> csr_matrix(indptr, indices, data, nnz, n_rows, n_cols);
-  svrFitX(handle, csr_matrix, y, param, kernel_params, model, sample_weight);
+  auto csr_structure_view = raft::make_device_compressed_structure_view<int, int, int>(
+    indptr, indices, n_rows, n_cols, nnz);
+  auto csr_matrix_view = raft::make_device_csr_matrix_view(data, csr_structure_view);
+  svrFitX(handle, csr_matrix_view, n_rows, n_cols, y, param, kernel_params, model, sample_weight);
 }
 
 };  // end namespace SVM
