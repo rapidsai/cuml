@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import platform
 from cuml.testing.test_preproc_utils import to_output_type
 from cuml.testing.utils import array_equal
 
