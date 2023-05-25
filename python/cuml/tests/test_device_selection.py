@@ -58,6 +58,9 @@ pd = cpu_only_import("pandas")
 cudf = gpu_only_import("cudf")
 
 
+IS_ARM = platform.processor() == "aarch64"
+
+
 def assert_membership_vectors(cu_vecs, sk_vecs):
     """
     Assert the membership vectors by taking the adjusted rand score
@@ -559,6 +562,8 @@ def test_train_cpu_infer_cpu(test_data):
     cuEstimator = test_data["cuEstimator"]
     if cuEstimator is Lasso:
         pytest.skip("https://github.com/rapidsai/cuml/issues/5298")
+    if cuEstimator is UMAP and IS_ARM:
+        pytest.skip("https://github.com/rapidsai/cuml/issues/5441")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("cpu"):
         if "y_train" in test_data:
@@ -595,6 +600,8 @@ def test_train_gpu_infer_cpu(test_data):
 
 def test_train_cpu_infer_gpu(test_data):
     cuEstimator = test_data["cuEstimator"]
+    if cuEstimator is UMAP and IS_ARM:
+        pytest.skip("https://github.com/rapidsai/cuml/issues/5441")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("cpu"):
         if "y_train" in test_data:
@@ -612,6 +619,8 @@ def test_train_cpu_infer_gpu(test_data):
 
 def test_train_gpu_infer_gpu(test_data):
     cuEstimator = test_data["cuEstimator"]
+    if cuEstimator is UMAP and IS_ARM:
+        pytest.skip("https://github.com/rapidsai/cuml/issues/5441")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("gpu"):
         if "y_train" in test_data:
@@ -671,6 +680,8 @@ def test_pickle_interop(test_data):
     ],
 )
 def test_hyperparams_defaults(estimator):
+    if estimator is UMAP and IS_ARM:
+        pytest.skip("https://github.com/rapidsai/cuml/issues/5441")
     model = estimator()
     cu_signature = inspect.signature(model.__init__).parameters
 
@@ -817,6 +828,9 @@ def test_ridge_methods(train_device, infer_device):
 
 
 @pytest.mark.parametrize("device", ["cpu", "gpu"])
+@pytest.mark.skipif(
+    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
+)
 def test_umap_methods(device):
     ref_model = refUMAP(n_neighbors=12)
     ref_embedding = ref_model.fit_transform(X_train_blob, y_train_blob)
