@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from cuml.internals.safe_imports import cpu_only_import
+import platform
 import pytest
 from sklearn.manifold import trustworthiness as sklearn_trustworthiness
 from cuml.metrics import trustworthiness as cuml_trustworthiness
@@ -26,11 +27,17 @@ cudf = gpu_only_import("cudf")
 np = cpu_only_import("numpy")
 
 
+IS_ARM = platform.processor() == "aarch64"
+
+
 @pytest.mark.parametrize("input_type", ["ndarray", "dataframe"])
 @pytest.mark.parametrize("n_samples", [150, 500])
 @pytest.mark.parametrize("n_features", [10, 100])
 @pytest.mark.parametrize("n_components", [2, 8])
 @pytest.mark.parametrize("batch_size", [128, 1024])
+@pytest.mark.skipif(
+    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
+)
 def test_trustworthiness(
     input_type, n_samples, n_features, n_components, batch_size
 ):
