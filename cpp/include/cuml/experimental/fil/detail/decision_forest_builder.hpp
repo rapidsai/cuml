@@ -67,7 +67,7 @@ struct decision_forest_builder {
         if (cur_tree_size_ % alignment_ != index_type{}) {
           auto padding = (alignment_ - cur_tree_size_ % alignment_);
           for (auto i = index_type{}; i < padding; ++i) {
-            add_node(typename node_type::threshold_type{});
+            add_node(typename node_type::threshold_type{}, std::nullopt);
           }
         }
       }
@@ -81,6 +81,7 @@ struct decision_forest_builder {
   void add_categorical_node(
     iter_t vec_begin,
     iter_t vec_end,
+    std::optional<int> tl_node_id                     = std::nullopt,
     bool default_to_distant_child                     = false,
     typename node_type::metadata_storage_type feature = typename node_type::metadata_storage_type{},
     typename node_type::offset_type offset            = typename node_type::offset_type{})
@@ -100,12 +101,14 @@ struct decision_forest_builder {
     auto set = bitset{set_storage, max_node_categories};
     std::for_each(vec_begin, vec_end, [&set](auto&& cat_index) { set.set(cat_index); });
 
-    add_node(node_value, false, default_to_distant_child, true, feature, offset, false);
+    add_node(node_value, tl_node_id, false, default_to_distant_child, true, feature, offset, false);
   }
 
   /* Add a leaf node with vector output */
   template <typename iter_t>
-  void add_leaf_vector_node(iter_t vec_begin, iter_t vec_end)
+  void add_leaf_vector_node(iter_t vec_begin,
+                            iter_t vec_end,
+                            std::optional<int> tl_node_id = std::nullopt)
   {
     auto leaf_index = typename node_type::index_type(vector_output_.size() / output_size_);
     std::copy(vec_begin, vec_end, std::back_inserter(vector_output_));
@@ -115,6 +118,8 @@ struct decision_forest_builder {
                         false,
                         typename node_type::metadata_storage_type{},
                         typename node_type::offset_type{});
+    // 0 indicates the lack of ID mapping for a particular node
+    node_id_mapping_.push_back(static_cast<index_type>(tl_node_id.value_or(0)));
     ++cur_tree_size_;
   }
 
@@ -122,6 +127,7 @@ struct decision_forest_builder {
   template <typename value_t>
   void add_node(
     value_t val,
+    std::optional<int> tl_node_id                     = std::nullopt,
     bool is_leaf_node                                 = true,
     bool default_to_distant_child                     = false,
     bool is_categorical_node                          = false,
@@ -132,6 +138,8 @@ struct decision_forest_builder {
     if (is_inclusive) { val = std::nextafter(val, std::numeric_limits<value_t>::infinity()); }
     nodes_.emplace_back(
       val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset);
+    // 0 indicates the lack of ID mapping for a particular node
+    node_id_mapping_.push_back(static_cast<index_type>(tl_node_id.value_or(0)));
     ++cur_tree_size_;
   }
 
@@ -192,6 +200,10 @@ struct decision_forest_builder {
                          mem_type,
                          device,
                          stream},
+      raft_proto::buffer{raft_proto::buffer{node_id_mapping_.data(), node_id_mapping_.size()},
+                         mem_type,
+                         device,
+                         stream},
       num_feature,
       num_class,
       max_num_categories_ != 0,
@@ -234,6 +246,7 @@ struct decision_forest_builder {
   std::vector<index_type> root_node_indexes_;
   std::vector<typename node_type::threshold_type> vector_output_;
   std::vector<typename node_type::index_type> categorical_storage_;
+  std::vector<index_type> node_id_mapping_;
 };
 
 }  // namespace detail

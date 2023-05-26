@@ -120,7 +120,7 @@ class KNeighborsClassifier(NearestNeighbors):
             uniq_labels = list(map(lambda x: x.values_host, uniq_labels))
         elif hasattr(uniq_labels[0], "values"):  # for pandas Series
             uniq_labels = list(map(lambda x: x.values, uniq_labels))
-        self.uniq_labels = np.array(uniq_labels)
+        self.uniq_labels = np.sort(np.array(uniq_labels))
         self.n_unique = list(map(lambda x: len(x), self.uniq_labels))
 
         return self
