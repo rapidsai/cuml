@@ -260,7 +260,9 @@ class RandomForestClassifier(
             is trained on its partition
 
         """
-        self.unique_classes = cp.asarray(y.unique().compute())
+        self.unique_classes = cp.asarray(
+            y.unique().compute().sort_values(ignore_index=True)
+        )
         self.num_classes = len(self.unique_classes)
         self._set_internal_model(None)
         self._fit(

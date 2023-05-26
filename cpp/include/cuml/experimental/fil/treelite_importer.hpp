@@ -176,7 +176,7 @@ struct treelite_importer {
 
       auto tl_node = treelite_node<tl_threshold_t, tl_output_t>{
         tl_tree, node_id, parent_indices.next(), cur_index};
-      lambda(tl_node);
+      lambda(tl_node, node_id);
 
       if (!tl_tree.IsLeaf(node_id)) {
         auto tl_left_id  = tl_tree.LeftChild(node_id);
@@ -209,7 +209,7 @@ struct treelite_importer {
                       iter_t output_iter,
                       lambda_t&& lambda)
   {
-    node_for_each(tl_tree, [&output_iter, &lambda](auto&& tl_node) {
+    node_for_each(tl_tree, [&output_iter, &lambda](auto&& tl_node, int tl_node_id) {
       *output_iter = lambda(tl_node);
       ++output_iter;
     });
@@ -221,8 +221,9 @@ struct treelite_importer {
                        lambda_t&& lambda)
   {
     auto result = init;
-    node_for_each(tl_tree,
-                  [&result, &lambda](auto&& tl_node) { result = lambda(result, tl_node); });
+    node_for_each(tl_tree, [&result, &lambda](auto&& tl_node, int tl_node_id) {
+      result = lambda(result, tl_node);
+    });
     return result;
   }
 
@@ -473,35 +474,38 @@ struct treelite_importer {
         tree_for_each(tl_model, [this, &builder, &tree_index, &offsets](auto&& tree) {
           builder.start_new_tree();
           auto node_index = index_type{};
-          node_for_each(tree, [&builder, &tree_index, &node_index, &offsets](auto&& node) {
-            if (node.is_leaf()) {
-              auto output = node.get_output();
-              builder.set_output_size(output.size());
-              if (output.size() > index_type{1}) {
-                builder.add_leaf_vector_node(std::begin(output), std::end(output));
+          node_for_each(
+            tree, [&builder, &tree_index, &node_index, &offsets](auto&& node, int tl_node_id) {
+              if (node.is_leaf()) {
+                auto output = node.get_output();
+                builder.set_output_size(output.size());
+                if (output.size() > index_type{1}) {
+                  builder.add_leaf_vector_node(std::begin(output), std::end(output), tl_node_id);
+                } else {
+                  builder.add_node(typename forest_model_t::io_type(output[0]), tl_node_id, true);
+                }
               } else {
-                builder.add_node(typename forest_model_t::io_type(output[0]), true);
+                if (node.is_categorical()) {
+                  auto categories = node.get_categories();
+                  builder.add_categorical_node(std::begin(categories),
+                                               std::end(categories),
+                                               tl_node_id,
+                                               node.default_distant(),
+                                               node.get_feature(),
+                                               offsets[tree_index][node_index]);
+                } else {
+                  builder.add_node(typename forest_model_t::threshold_type(node.threshold()),
+                                   tl_node_id,
+                                   false,
+                                   node.default_distant(),
+                                   false,
+                                   node.get_feature(),
+                                   offsets[tree_index][node_index],
+                                   node.is_inclusive());
+                }
               }
-            } else {
-              if (node.is_categorical()) {
-                auto categories = node.get_categories();
-                builder.add_categorical_node(std::begin(categories),
-                                             std::end(categories),
-                                             node.default_distant(),
-                                             node.get_feature(),
-                                             offsets[tree_index][node_index]);
-              } else {
-                builder.add_node(typename forest_model_t::threshold_type(node.threshold()),
-                                 false,
-                                 node.default_distant(),
-                                 false,
-                                 node.get_feature(),
-                                 offsets[tree_index][node_index],
-                                 node.is_inclusive());
-              }
-            }
-            ++node_index;
-          });
+              ++node_index;
+            });
           ++tree_index;
         });
 
