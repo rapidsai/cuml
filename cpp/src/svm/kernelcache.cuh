@@ -223,7 +223,7 @@ class BatchCache : public raft::cache::Cache<math_t> {
     int batch_idx, int batch_size, const int* idx, int n, math_t* out, cudaStream_t stream)
   {
     if (n > 0) {
-      int offset = raft::cache::Cache<math_t>::GetSize() * batch_size_base * batch_idx;
+      size_t offset = raft::cache::Cache<math_t>::GetSize() * batch_size_base * batch_idx;
       rmm::device_uvector<math_t>& cache = raft::cache::Cache<math_t>::cache;
       raft::cache::get_vecs<<<raft::ceildiv(n * batch_size, TPB), TPB, 0, stream>>>(
         cache.data() + offset, batch_size, idx, n, out);
@@ -259,7 +259,7 @@ class BatchCache : public raft::cache::Cache<math_t> {
         // we only need to do this for the initial batch
         raft::cache::Cache<math_t>::AssignCacheIdx(keys, n, cache_idx, stream);
       }
-      int offset = raft::cache::Cache<math_t>::GetSize() * batch_size_base * batch_idx;
+      size_t offset = raft::cache::Cache<math_t>::GetSize() * batch_size_base * batch_idx;
       rmm::device_uvector<math_t>& cache = raft::cache::Cache<math_t>::cache;
       raft::cache::store_vecs<<<raft::ceildiv(n * batch_size, TPB), TPB, 0, stream>>>(
         tile,

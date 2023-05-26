@@ -248,10 +248,9 @@ class SmoSolver {
           raft::common::nvtx::pop_range();
         }
       }
-      cudaDeviceSynchronize();
+      handle.sync_stream(stream);
       raft::common::nvtx::pop_range();  // ("SmoSolver::UpdateF");
 
-      handle.sync_stream(stream);
       math_t diff = host_return_buff[0];
       keep_going  = CheckStoppingCondition(diff);
       n_inner_iter += host_return_buff[1];
