@@ -148,7 +148,7 @@ SVC<math_t>::SVC(raft::handle_t& handle,
 {
   model.n_support      = 0;
   model.dual_coefs     = nullptr;
-  model.support_matrix = nullptr;
+  model.support_matrix = {};
   model.support_idx    = nullptr;
   model.unique_labels  = nullptr;
 }

@@ -79,7 +79,7 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle,
       *n_support     = model.n_support;
       *b             = model.b;
       *dual_coefs    = model.dual_coefs;
-      *x_support     = model.support_matrix->data;
+      *x_support     = model.support_matrix.data;
       *support_idx   = model.support_idx;
       *n_classes     = model.n_classes;
       *unique_labels = model.unique_labels;
@@ -153,7 +153,7 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle,
       *n_support     = model.n_support;
       *b             = model.b;
       *dual_coefs    = model.dual_coefs;
-      *x_support     = model.support_matrix->data;
+      *x_support     = model.support_matrix.data;
       *support_idx   = model.support_idx;
       *n_classes     = model.n_classes;
       *unique_labels = model.unique_labels;
@@ -200,8 +200,7 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle,
   model.b          = b;
   model.dual_coefs = dual_coefs;
 
-  ML::SVM::SupportStorage<float> support_store{.data = x_support};
-  model.support_matrix = &support_store;
+  model.support_matrix = {.data = x_support};
   model.support_idx    = nullptr;
   model.n_classes      = n_classes;
   model.unique_labels  = unique_labels;
@@ -256,8 +255,7 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle,
   model.b          = b;
   model.dual_coefs = dual_coefs;
 
-  ML::SVM::SupportStorage<double> support_store{.data = x_support};
-  model.support_matrix = &support_store;
+  model.support_matrix = {.data = x_support};
   model.support_idx    = nullptr;
   model.n_classes      = n_classes;
   model.unique_labels  = unique_labels;

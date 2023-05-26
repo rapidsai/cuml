@@ -53,7 +53,7 @@ class Results {
    * fitted using SMO.
    *
    * @param handle cuML handle implementation
-   * @param matrix training vectors in matrix format (MLCommon::Matrix::Matrix)
+   * @param matrix training vectors in matrix format
    * @param y target labels (values +/-1), size [n_train]
    * @param n_rows number of training vectors
    * @param n_cols number of features
@@ -113,7 +113,7 @@ class Results {
            math_t** dual_coefs,
            int* n_support,
            int** idx,
-           SupportStorage<math_t>** support_matrix,
+           SupportStorage<math_t>* support_matrix,
            math_t* b)
   {
     CombineCoefs(alpha, val_tmp.data());
@@ -125,7 +125,7 @@ class Results {
     } else {
       *dual_coefs     = nullptr;
       *idx            = nullptr;
-      *support_matrix = nullptr;
+      *support_matrix = {};
     }
     // Make sure that all pending GPU calculations finished before we return
     handle.sync_stream(stream);
@@ -139,20 +139,20 @@ class Results {
    * @return pointer to a newly allocated device buffer that stores the support
    *   vectors, size [n_suppor*n_cols]
    */
-  SupportStorage<math_t>* CollectSupportVectorMatrix(const int* idx, int n_support)
+  SupportStorage<math_t> CollectSupportVectorMatrix(const int* idx, int n_support)
   {
-    auto* support_matrix = new SupportStorage<math_t>();
+    SupportStorage<math_t> support_matrix;
     // allow ~1GB dense support matrix
     if (isDenseType<MatrixViewType>() || (n_support * n_cols * sizeof(math_t) < (1 << 30))) {
-      support_matrix->data =
+      support_matrix.data =
         (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
-      ML::SVM::extractRows<math_t>(matrix, support_matrix->data, idx, n_support, handle);
+      ML::SVM::extractRows<math_t>(matrix, support_matrix.data, idx, n_support, handle);
     } else {
       ML::SVM::extractRows<math_t>(matrix,
-                                   &(support_matrix->indptr),
-                                   &(support_matrix->indices),
-                                   &(support_matrix->data),
-                                   &(support_matrix->nnz),
+                                   &(support_matrix.indptr),
+                                   &(support_matrix.indices),
+                                   &(support_matrix.data),
+                                   &(support_matrix.nnz),
                                    idx,
                                    n_support,
                                    handle);

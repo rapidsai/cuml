@@ -61,7 +61,7 @@ namespace {  // unnamed namespace to avoid multiple definition error
  * @param [in] n_ws_perm array with indices of vectors in the working set, size [n_ws]
  * @param [out] out array with workspace idx to column idx mapping, size [n_ws]
  */
-__global__ void mapColumnIndicesToDualSpace(
+__global__ void mapColumnIndicesToSVRSpace(
   const int* ws, int n_ws, int n_rows, const int* n_ws_perm, int* out)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -141,7 +141,8 @@ class BatchCache : public raft::cache::Cache<math_t> {
    *
    * This will reorder the keys w.r.t. the state of the cache in a way that
    *   - the keys are partitioned in cached, uncached
-   *   - the uncached elements are sorted based on the cache idx
+   *   - the uncached elements are sorted based on the value returned
+   *     in cache_idx (which refers to the target cache set for uncached)
    * This will ensure that neither cache retrieval nor cache updates will
    * require additional reordering of keys.
    *
@@ -288,14 +289,18 @@ class BatchCache : public raft::cache::Cache<math_t> {
 /**
  * @brief KernelCache to provide kernel tiles
  *
- * We calculate the kernel matrix tile for the vectors in the working set.
+ * We calculate the kernel matrix elements for the vectors in the working set.
+ *
+ * Two tiles can be calculated:
+ *  - SquareTile[i,j] = K(x_i, x_j) where i,j are vector indices from the working set
+ *  - FullTile[i,j] = K(x_i, x_j) where i=0.._rows-1, and j is a vector index from the working set
+ * The smaller square tile is calculated without caching. The larger tile can load already cached
+ * columns from the cache. The large tile can be also computed batch wise to limit memory usage.
  *
  * This cache supports large matrix dimensions as well as sparse data.
- *  - For large n_rows only partial kernel rows are computed.
+ *  - For large n_rows the FullTile will be processed batch-wise.
  *  - For large n_cols the intermediate storages are kept sparse.
  *
- * The kernel values can be cached to avoid repeated calculation of the kernel
- * function.
  */
 template <typename math_t, typename MatrixViewType>
 class KernelCache {
@@ -364,7 +369,7 @@ class KernelCache {
     }
 
     batch_cache.Initialize(batch_size_base, n_ws, ws_cache_idx.data(), stream);
-    kernel_tile.reserve(n_ws * std::max(batch_size_base, n_ws), stream);
+    kernel_tile.reserve(n_ws * std::max<size_t>(batch_size_base, n_ws), stream);
 
     // enable sparse row extraction for sparse input where n_ws * n_cols > 1 GB
     // Warning: kernel computation will be much slower!
@@ -378,7 +383,7 @@ class KernelCache {
       // we need to make an initial sparsity init before we can retrieve the structure_view
       x_ws_csr->initialize_sparsity(10);
     } else {
-      x_ws_dense.resize(n_ws * n_cols, stream);
+      x_ws_dense.resize(n_ws * static_cast<size_t>(n_cols), stream);
     }
 
     // store matrix l2 norm for RBF kernels
@@ -448,7 +453,7 @@ class KernelCache {
 
       // re-compute original indices that got flattened by GetVecIndices
       if (svmType == EPSILON_SVR) {
-        mapColumnIndicesToDualSpace<<<raft::ceildiv(n_ws, TPB), TPB, 0, stream>>>(
+        mapColumnIndicesToSVRSpace<<<raft::ceildiv(n_ws, TPB), TPB, 0, stream>>>(
           ws_idx, n_ws, n_rows, ws_idx_mod.data(), ws_idx_mod_svr.data());
         RAFT_CUDA_TRY(cudaPeekAtLastError());
       }

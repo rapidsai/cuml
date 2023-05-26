@@ -101,7 +101,7 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
         int n_cols
         math_t b
         math_t *dual_coefs
-        SupportStorage[math_t] *support_matrix
+        SupportStorage[math_t] support_matrix
         int *support_idx
         int n_classes
         math_t *unique_labels
@@ -484,16 +484,19 @@ class SVC(SVMBase,
 
         self.n_classes_ = self._get_num_classes(y)
 
-        if self.probability:
-            return self._fit_proba(X, y, sample_weight)
-
-        if self.n_classes_ > 2:
-            return self._fit_multiclass(X, y, sample_weight)
-
-
         # we need to check whether input X is sparse 
         # In that case we don't want to make a dense copy
         array_type, is_sparse = determine_array_type_full(X)
+
+        if self.probability:
+            if is_sparse:
+                raise ValueError("Probabilistic SVM does not support sparse input.")
+            return self._fit_proba(X, y, sample_weight)
+
+        if self.n_classes_ > 2:
+            if is_sparse:
+                raise ValueError("Multiclass SVM does not support sparse input.")
+            return self._fit_multiclass(X, y, sample_weight)
         
         if is_sparse:
             X_m = SparseCumlArray(X)

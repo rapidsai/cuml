@@ -705,6 +705,12 @@ def test_tsne_pickle(tmpdir):
 def test_svc_pickle(tmpdir, datatype, params, multiclass, sparse):
     result = {}
 
+    if sparse and multiclass:
+        pytest.skip("Multiclass SVC does not support sparse input")
+
+    if sparse and params["probability"]:
+        pytest.skip("Probabilistic SVC does not support sparse input")
+
     def create_mod():
         model = cuml.svm.SVC(**params)
         iris = load_iris()
@@ -786,6 +792,14 @@ def test_svr_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize("ncols", [unit_param(300000)])
 @pytest.mark.parametrize("n_info", [unit_param(2)])
 def test_sparse_svr_pickle(tmpdir, datatype, nrows, ncols, n_info):
+    """
+    A separate test to cover the case when the SVM model
+    parameters are sparse. Spares input alone does not
+    guarantee that the model parameters (SvmModel.support_matrix)
+    are sparse (a dense representation can be chosen for
+    performance reason). The large number of features used
+    here will result in a sparse model representation.
+    """
     result = {}
 
     def create_mod():

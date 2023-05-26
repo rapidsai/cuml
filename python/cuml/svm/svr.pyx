@@ -78,7 +78,7 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
         int n_cols
         math_t b
         math_t *dual_coefs
-        SupportStorage[math_t] *support_matrix
+        SupportStorage[math_t] support_matrix
         int *support_idx
         int n_classes
         math_t *unique_labels

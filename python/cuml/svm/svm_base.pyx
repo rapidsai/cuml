@@ -89,7 +89,7 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
         int n_cols
         math_t b
         math_t *dual_coefs
-        SupportStorage[math_t] *support_matrix
+        SupportStorage[math_t] support_matrix
         int *support_idx
         int n_classes
         math_t *unique_labels
@@ -412,8 +412,6 @@ class SVMBase(Base,
         """
         cdef SvmModel[float] *model_f
         cdef SvmModel[double] *model_d
-        cdef SupportStorage[float] *support_storage_f
-        cdef SupportStorage[double] *support_storage_d
         if self.dual_coef_ is None:
             # the model is not fitted in this case
             return None
@@ -424,16 +422,13 @@ class SVMBase(Base,
             model_f.b = self._intercept_.item()
             model_f.dual_coefs = \
                 <float*><size_t>self.dual_coef_.ptr
-            support_storage_f = new SupportStorage[float]()
             if isinstance(self.support_vectors_, SparseCumlArray):
-                support_storage_f.nnz = self.support_vectors_.nnz
-                support_storage_f.indptr = <int*><uintptr_t>self.support_vectors_.indptr.ptr
-                support_storage_f.indices = <int*><uintptr_t>self.support_vectors_.indices.ptr
-                support_storage_f.data = <float*><uintptr_t>self.support_vectors_.data.ptr
-                model_f.support_matrix = support_storage_f
+                model_f.support_matrix.nnz = self.support_vectors_.nnz
+                model_f.support_matrix.indptr = <int*><uintptr_t>self.support_vectors_.indptr.ptr
+                model_f.support_matrix.indices = <int*><uintptr_t>self.support_vectors_.indices.ptr
+                model_f.support_matrix.data = <float*><uintptr_t>self.support_vectors_.data.ptr
             else:
-                support_storage_f.data = <float*><uintptr_t>self.support_vectors_.ptr
-                model_f.support_matrix = support_storage_f
+                model_f.support_matrix.data = <float*><uintptr_t>self.support_vectors_.ptr
             model_f.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
             model_f.n_classes = self.n_classes_
@@ -450,16 +445,13 @@ class SVMBase(Base,
             model_d.b = self._intercept_.item()
             model_d.dual_coefs = \
                 <double*><size_t>self.dual_coef_.ptr
-            support_storage_d = new SupportStorage[double]()
             if isinstance(self.support_vectors_, SparseCumlArray):
-                support_storage_d.nnz = self.support_vectors_.nnz
-                support_storage_d.indptr = <int*><uintptr_t>self.support_vectors_.indptr.ptr
-                support_storage_d.indices = <int*><uintptr_t>self.support_vectors_.indices.ptr
-                support_storage_d.data = <double*><uintptr_t>self.support_vectors_.data.ptr
-                model_d.support_matrix = support_storage_d
+                model_d.support_matrix.nnz = self.support_vectors_.nnz
+                model_d.support_matrix.indptr = <int*><uintptr_t>self.support_vectors_.indptr.ptr
+                model_d.support_matrix.indices = <int*><uintptr_t>self.support_vectors_.indices.ptr
+                model_d.support_matrix.data = <double*><uintptr_t>self.support_vectors_.data.ptr
             else:
-                support_storage_d.data = <double*><uintptr_t>self.support_vectors_.ptr
-                model_d.support_matrix = support_storage_d
+                model_d.support_matrix.data = <double*><uintptr_t>self.support_vectors_.ptr
             model_d.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
             model_d.n_classes = self.n_classes_
@@ -474,8 +466,6 @@ class SVMBase(Base,
         """ Expose the model parameters as attributes """
         cdef SvmModel[float] *model_f
         cdef SvmModel[double] *model_d
-        cdef SupportStorage[float] *support_storage_f
-        cdef SupportStorage[double] *support_storage_d
 
         # Mark that the C++ layer should free the parameter vectors
         # If we could pass the deviceArray deallocator as finalizer for the
@@ -500,24 +490,23 @@ class SVMBase(Base,
                     dtype=np.int32,
                     order='F')
 
-                support_storage_f = model_f.support_matrix
-                if support_storage_f.nnz == -1:
+                if model_f.support_matrix.nnz == -1:
                     self.support_vectors_ = CumlArray(
-                        data=<uintptr_t>support_storage_f.data,
+                        data=<uintptr_t>model_f.support_matrix.data,
                         shape=(self.n_support_, self.n_cols),
                         dtype=self.dtype,
                         order='F')
                 else:
-                    indptr = CumlArray(data=<uintptr_t>support_storage_f.indptr,
+                    indptr = CumlArray(data=<uintptr_t>model_f.support_matrix.indptr,
                                        shape=(self.n_support_ + 1,),
                                        dtype=np.int32,
                                        order='F')
-                    indices = CumlArray(data=<uintptr_t>support_storage_f.indices,
-                                        shape=(support_storage_f.nnz,),
+                    indices = CumlArray(data=<uintptr_t>model_f.support_matrix.indices,
+                                        shape=(model_f.support_matrix.nnz,),
                                         dtype=np.int32,
                                         order='F')
-                    data = CumlArray(data=<uintptr_t>support_storage_f.data,
-                                     shape=(support_storage_f.nnz,),
+                    data = CumlArray(data=<uintptr_t>model_f.support_matrix.data,
+                                     shape=(model_f.support_matrix.nnz,),
                                      dtype=self.dtype,
                                      order='F')
                     sparse_input = SparseCumlArrayInput(
@@ -525,7 +514,7 @@ class SVMBase(Base,
                         indptr=indptr, 
                         indices=indices, 
                         data=data, 
-                        nnz=support_storage_f.nnz, 
+                        nnz=model_f.support_matrix.nnz, 
                         shape=(self.n_support_, self.n_cols))
                     self.support_vectors_ = SparseCumlArray(data=sparse_input)
 
@@ -557,24 +546,23 @@ class SVMBase(Base,
                     dtype=np.int32,
                     order='F')
 
-                support_storage_d = model_d.support_matrix
-                if support_storage_d.nnz == -1:
+                if model_d.support_matrix.nnz == -1:
                     self.support_vectors_ = CumlArray(
-                        data=<uintptr_t>support_storage_d.data,
+                        data=<uintptr_t>model_d.support_matrix.data,
                         shape=(self.n_support_, self.n_cols),
                         dtype=self.dtype,
                         order='F')
                 else:
-                    indptr = CumlArray(data=<uintptr_t>support_storage_d.indptr,
+                    indptr = CumlArray(data=<uintptr_t>model_d.support_matrix.indptr,
                                        shape=(self.n_support_ + 1,),
                                        dtype=np.int32,
                                        order='F')
-                    indices = CumlArray(data=<uintptr_t>support_storage_d.indices,
-                                        shape=(support_storage_d.nnz,),
+                    indices = CumlArray(data=<uintptr_t>model_d.support_matrix.indices,
+                                        shape=(model_d.support_matrix.nnz,),
                                         dtype=np.int32,
                                         order='F')
-                    data = CumlArray(data=<uintptr_t>support_storage_d.data,
-                                     shape=(support_storage_d.nnz,),
+                    data = CumlArray(data=<uintptr_t>model_d.support_matrix.data,
+                                     shape=(model_d.support_matrix.nnz,),
                                      dtype=self.dtype,
                                      order='F')
                     sparse_input = SparseCumlArrayInput(
@@ -582,7 +570,7 @@ class SVMBase(Base,
                         indptr=indptr, 
                         indices=indices, 
                         data=data, 
-                        nnz=support_storage_d.nnz, 
+                        nnz=model_d.support_matrix.nnz, 
                         shape=(self.n_support_, self.n_cols))
                     self.support_vectors_ = SparseCumlArray(data=sparse_input)
 

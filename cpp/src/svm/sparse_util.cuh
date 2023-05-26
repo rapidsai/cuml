@@ -635,6 +635,7 @@ void copyIndptrToHost(raft::device_csr_matrix_view<math_t, int, int, int> matrix
                     matrix.structure_view().get_indptr().data(),
                     matrix.structure_view().get_n_rows() + 1,
                     stream);
+  cudaStreamSynchronize(stream);
 }
 
 /**

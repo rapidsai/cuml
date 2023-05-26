@@ -162,7 +162,7 @@ class SmoSolver {
              const math_t* sample_weight,
              math_t** dual_coefs,
              int* n_support,
-             SupportStorage<math_t>** support_matrix,
+             SupportStorage<math_t>* support_matrix,
              int** idx,
              math_t* b,
              int max_outer_iter = -1,

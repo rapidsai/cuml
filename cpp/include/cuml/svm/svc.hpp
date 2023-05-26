@@ -110,7 +110,7 @@ void svcFitSparse(const raft::handle_t& handle,
  * \f]
  *
  * pred(x_i) = label[sign(f(x_i))], if predict_class==true, or
- * pred(x_i) = f(x_i),       if predict_class==falsee.
+ * pred(x_i) = f(x_i),       if predict_class==false.
  *
  * @tparam math_t floating point type
  * @param handle the cuML handle

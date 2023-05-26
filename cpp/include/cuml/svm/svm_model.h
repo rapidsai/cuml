@@ -42,7 +42,7 @@ struct SvmModel {
   math_t* dual_coefs;
 
   //! Support vector storage - can contain either CSR or dense
-  SupportStorage<math_t>* support_matrix;
+  SupportStorage<math_t> support_matrix;
 
   //! Indices (from the training set) of the support vectors, size [n_support].
   int* support_idx;
