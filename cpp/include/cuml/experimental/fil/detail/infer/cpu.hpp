@@ -60,7 +60,8 @@ namespace inference {
  * data on categorical splits.
  * @param infer_type Type of inference to perform. Defaults to summing the outputs of all trees
  * and produce an output per row. If set to "per_tree", we will instead output all outputs of
- * individual trees.
+ * individual trees. If set to "leaf_id", we will output the integer ID of the leaf node
+ * for each tree.
  * @param specified_chunk_size If non-nullopt, the mini-batch size used for
  * processing rows in a batch. For CPU inference, this essentially determines
  * the granularity of parallelism. A larger chunk size means that a single
@@ -98,19 +99,35 @@ infer(forest_t const& forest,
   if constexpr (D == raft_proto::device_type::gpu) {
     throw raft_proto::gpu_unsupported("Tried to use GPU inference in CPU-only build");
   } else {
-    infer_kernel_cpu<has_categorical_nodes>(
-      forest,
-      postproc,
-      output,
-      input,
-      row_count,
-      col_count,
-      output_count,
-      specified_chunk_size.value_or(hardware_constructive_interference_size),
-      hardware_constructive_interference_size,
-      vector_output,
-      categorical_data,
-      infer_type);
+    if (infer_type == infer_kind::leaf_id) {
+      infer_kernel_cpu<has_categorical_nodes, true>(
+        forest,
+        postproc,
+        output,
+        input,
+        row_count,
+        col_count,
+        output_count,
+        specified_chunk_size.value_or(hardware_constructive_interference_size),
+        hardware_constructive_interference_size,
+        vector_output,
+        categorical_data,
+        infer_type);
+    } else {
+      infer_kernel_cpu<has_categorical_nodes, false>(
+        forest,
+        postproc,
+        output,
+        input,
+        row_count,
+        col_count,
+        output_count,
+        specified_chunk_size.value_or(hardware_constructive_interference_size),
+        hardware_constructive_interference_size,
+        vector_output,
+        categorical_data,
+        infer_type);
+    }
   }
 }
 
