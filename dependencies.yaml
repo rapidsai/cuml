@@ -269,6 +269,7 @@ dependencies:
           - pytest-cases
           - pytest-cov
           - pytest-xdist
+          - seaborn
           - *scikit_learn
           - statsmodels
           - umap-learn==0.5.3
