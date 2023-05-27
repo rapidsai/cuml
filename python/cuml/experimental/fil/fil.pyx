@@ -1241,7 +1241,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             X, predict_type="per_tree", preds=preds, chunk_size=chunk_size
         )
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message='ForestInference.apply',
         domain='cuml_python'
     )
