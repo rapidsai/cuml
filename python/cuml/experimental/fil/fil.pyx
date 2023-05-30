@@ -17,7 +17,6 @@ import cupy as cp
 import functools
 import itertools
 import numpy as np
-import nvtx
 import pathlib
 import treelite.sklearn
 import warnings
@@ -26,6 +25,10 @@ from libc.stdint cimport uint32_t, uintptr_t
 
 from cuml.common.device_selection import using_device_type
 from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.safe_imports import (
+    gpu_only_import_from,
+    null_decorator
+)
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.experimental.fil.postprocessing cimport element_op, row_op
@@ -42,6 +45,8 @@ from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from pylibraft.common.handle cimport handle_t as raft_handle_t
 from time import perf_counter
+
+nvtx_annotate = gpu_only_import_from('nvtx', 'annotate', alt=null_decorator)
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
@@ -228,6 +233,9 @@ cdef class ForestInference_impl():
                 output_shape = (n_rows, self.model.num_trees(), self.model.num_outputs())
             else:
                 output_shape = (n_rows, self.model.num_trees())
+        elif predict_type == "leaf_id":
+            infer_type_enum = infer_kind.leaf_id
+            output_shape = (n_rows, self.model.num_trees())
         else:
             raise ValueError(f"Unrecognized predict_type: {predict_type}")
         if preds is None:
@@ -1090,7 +1098,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             device_id=device_id
         )
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message='ForestInference.predict_proba',
         domain='cuml_python'
     )
@@ -1140,7 +1148,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             X, preds=preds, chunk_size=(chunk_size or self.default_chunk_size)
         )
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message='ForestInference.predict',
         domain='cuml_python'
     )
@@ -1228,7 +1236,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                 X, predict_type="default", preds=preds, chunk_size=chunk_size
             )
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message='ForestInference.predict_per_tree',
         domain='cuml_python'
     )
@@ -1280,6 +1288,57 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         chunk_size = (chunk_size or self.default_chunk_size)
         return self.forest.predict(
             X, predict_type="per_tree", preds=preds, chunk_size=chunk_size
+        )
+
+    @nvtx_annotate(
+        message='ForestInference.apply',
+        domain='cuml_python'
+    )
+    def apply(
+            self,
+            X,
+            *,
+            preds=None,
+            chunk_size=None) -> CumlArray:
+        """
+        Output the ID of the leaf node for each tree.
+
+        Parameters
+        ----------
+        X
+            The input data of shape Rows X Features. This can be a numpy
+            array, cupy array, Pandas/cuDF Dataframe or any other array type
+            accepted by cuML. FIL is optimized for C-major arrays (e.g.
+            numpy/cupy arrays). Inputs whose datatype does not match the
+            precision of the loaded model (float/double) will be converted
+            to the correct datatype before inference. If this input is in a
+            memory location that is inaccessible to the current device type
+            (as set with e.g. the `using_device_type` context manager),
+            it will be copied to the correct location. This copy will be
+            distributed across as many CUDA streams as are available
+            in the stream pool of the model's RAFT handle.
+        preds
+            If non-None, outputs will be written in-place to this array.
+            Therefore, if given, this should be a C-major array of shape
+            n_rows * n_trees.
+            Classes with a datatype (float/double) corresponding to the
+            precision of the model. If None, an output array of the correct
+            shape and type will be allocated and returned.
+        chunk_size : int
+            The number of rows to simultaneously process in one iteration
+            of the inference algorithm. Batches are further broken down into
+            "chunks" of this size when assigning available threads to tasks.
+            The choice of chunk size can have a substantial impact on
+            performance, but the optimal choice depends on model and
+            hardware and is difficult to predict a priori. In general,
+            larger batch sizes benefit from larger chunk sizes, and smaller
+            batch sizes benefit from small chunk sizes. On GPU, valid
+            values are powers of 2 from 1 to 32. On CPU, valid values are
+            any power of 2, but little benefit is expected above a chunk size
+            of 512.
+        """
+        return self.forest.predict(
+            X, predict_type="leaf_id", preds=preds, chunk_size=chunk_size
         )
 
     def optimize(
