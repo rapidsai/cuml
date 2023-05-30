@@ -59,7 +59,7 @@ pd = cpu_only_import("pandas")
 cudf = gpu_only_import("cudf")
 
 
-IS_ARM = platform.processor() == "aarch64"
+IS_ARM = False
 
 
 def assert_membership_vectors(cu_vecs, sk_vecs):

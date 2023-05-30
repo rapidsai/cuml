@@ -27,7 +27,7 @@ cudf = gpu_only_import("cudf")
 np = cpu_only_import("numpy")
 
 
-IS_ARM = platform.processor() == "aarch64"
+IS_ARM = False
 
 
 @pytest.mark.parametrize("input_type", ["ndarray", "dataframe"])

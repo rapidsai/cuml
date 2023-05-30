@@ -32,7 +32,7 @@ np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
 
 
-IS_ARM = platform.processor() == "aarch64"
+IS_ARM = False
 
 
 def correctness_dense(a, b, rtol=0.1, threshold=0.95):
