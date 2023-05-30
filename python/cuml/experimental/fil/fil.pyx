@@ -16,7 +16,6 @@
 import cupy as cp
 import functools
 import numpy as np
-import nvtx
 import pathlib
 import treelite.sklearn
 import warnings
@@ -40,6 +39,13 @@ from cuml.internals.device_type import DeviceType, DeviceTypeError
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from pylibraft.common.handle cimport handle_t as raft_handle_t
+
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import_from,
+    null_decorator
+)
+nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
@@ -1047,7 +1053,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             device_id=device_id
         )
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message='ForestInference.predict_proba',
         domain='cuml_python'
     )
@@ -1095,7 +1101,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             )
         return self.forest.predict(X, preds=preds, chunk_size=chunk_size)
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message='ForestInference.predict',
         domain='cuml_python'
     )
@@ -1182,7 +1188,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                 X, predict_type="default", preds=preds, chunk_size=chunk_size
             )
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message='ForestInference.predict_per_tree',
         domain='cuml_python'
     )
@@ -1235,7 +1241,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             X, predict_type="per_tree", preds=preds, chunk_size=chunk_size
         )
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message='ForestInference.apply',
         domain='cuml_python'
     )
