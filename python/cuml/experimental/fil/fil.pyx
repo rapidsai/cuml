@@ -48,6 +48,13 @@ from time import perf_counter
 
 nvtx_annotate = gpu_only_import_from('nvtx', 'annotate', alt=null_decorator)
 
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import_from,
+    null_decorator
+)
+nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
+
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
 
