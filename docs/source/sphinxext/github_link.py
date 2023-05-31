@@ -101,7 +101,7 @@ def _linkcode_resolve(domain, info, package, url_fmt, revision):
         else:
             return
     else:
-        if (fn.endswith(".pyx")):
+        if fn.endswith(".pyx"):
             sp_path = next(x for x in sys.path if re.match(".*site-packages$", x))
             fn = fn.replace("/opt/conda/conda-bld/work/python", sp_path)
 
