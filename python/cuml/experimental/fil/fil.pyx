@@ -15,6 +15,7 @@
 #
 import cupy as cp
 import functools
+import itertools
 import numpy as np
 import pathlib
 import treelite.sklearn
@@ -24,6 +25,10 @@ from libc.stdint cimport uint32_t, uintptr_t
 
 from cuml.common.device_selection import using_device_type
 from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.safe_imports import (
+    gpu_only_import_from,
+    null_decorator
+)
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.experimental.fil.postprocessing cimport element_op, row_op
@@ -39,6 +44,9 @@ from cuml.internals.device_type import DeviceType, DeviceTypeError
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from pylibraft.common.handle cimport handle_t as raft_handle_t
+from time import perf_counter
+
+nvtx_annotate = gpu_only_import_from('nvtx', 'annotate', alt=null_decorator)
 
 from cuml.internals.safe_imports import (
     cpu_only_import,
@@ -79,6 +87,7 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
         ) except +
 
         bool is_double_precision() except +
+        size_t num_features() except +
         size_t num_outputs() except +
         size_t num_trees() except +
         bool has_vector_leaves() except +
@@ -164,6 +173,9 @@ cdef class ForestInference_impl():
 
     def get_dtype(self):
         return [np.float32, np.float64][self.model.is_double_precision()]
+
+    def num_features(self):
+        return self.model.num_features()
 
     def num_outputs(self):
         return self.model.num_outputs()
@@ -297,6 +309,24 @@ cdef class ForestInference_impl():
             chunk_size=chunk_size,
             output_dtype=output_dtype
         )
+
+
+class _AutoIterations:
+    """Used to generate sequence of iterations (1, 2, 5, 10, 20, 50...) during
+    FIL optimization"""
+
+    def __init__(self):
+        self.invocations = 0
+        self.sequence = (1, 2, 5)
+
+    def next(self):
+        result = (
+            (10 ** (
+                self.invocations // len(self.sequence)
+            )) * self.sequence[self.invocations % len(self.sequence)]
+        )
+        self.invocations += 1
+        return result
 
 def _handle_legacy_fil_args(func):
     @functools.wraps(func)
@@ -611,7 +641,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         if old_value != value:
             self._reload_model()
 
-
     def __init__(
             self,
             *,
@@ -622,6 +651,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             is_classifier=False,
             output_class=None,
             layout='depth_first',
+            default_chunk_size=None,
             align_bytes=None,
             precision='single',
             device_id=0):
@@ -629,6 +659,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             handle=handle, verbose=verbose, output_type=output_type
         )
 
+        self.default_chunk_size = default_chunk_size
         self.align_bytes = align_bytes
         self.layout = layout
         self.precision = precision
@@ -717,6 +748,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             model_type=None,
             output_type=None,
             verbose=False,
+            default_chunk_size=None,
             align_bytes=None,
             layout='depth_first',
             device_id=0,
@@ -776,6 +808,9 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         verbose : int or boolean, default=False
             Sets logging level. It must be one of `cuml.common.logger.level_*`.
             See :ref:`verbosity-levels` for more info.
+        default_chunk_size : int or None, default=None
+            If set, predict calls without a specified chunk size will use
+            this default value.
         align_bytes : int or None, default=None
             If set, each tree will be padded with empty nodes until its
             in-memory size is a multiple of the given value. It is recommended
@@ -810,12 +845,15 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             tl_model = treelite.frontend.Model.load(
                 path, model_type
             )
+        if default_chunk_size is None:
+            default_chunk_size = threads_per_tree
         return cls(
             treelite_model=tl_model,
             handle=handle,
             output_type=output_type,
             verbose=verbose,
             output_class=output_class,
+            default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
             layout=layout,
             precision=precision,
@@ -840,6 +878,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             model_type=None,
             output_type=None,
             verbose=False,
+            default_chunk_size=None,
             align_bytes=None,
             layout='breadth_first',
             device_id=0,
@@ -897,6 +936,9 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         verbose : int or boolean, default=False
             Sets logging level. It must be one of `cuml.common.logger.level_*`.
             See :ref:`verbosity-levels` for more info.
+        default_chunk_size : int or None, default=None
+            If set, predict calls without a specified chunk size will use
+            this default value.
         align_bytes : int or None, default=None
             If set, each tree will be padded with empty nodes until its
             in-memory size is a multiple of the given value. It is recommended
@@ -926,12 +968,15 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             pool to use during loading and inference.
         """
         tl_model = treelite.sklearn.import_model(skl_model)
+        if default_chunk_size is None:
+            default_chunk_size = threads_per_tree
         result = cls(
             treelite_model=tl_model,
             handle=handle,
             output_type=output_type,
             verbose=verbose,
             output_class=output_class,
+            default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
             layout=layout,
             precision=precision,
@@ -956,6 +1001,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             model_type=None,
             output_type=None,
             verbose=False,
+            default_chunk_size=None,
             align_bytes=None,
             layout='breadth_first',
             device_id=0,
@@ -1013,6 +1059,9 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         verbose : int or boolean, default=False
             Sets logging level. It must be one of `cuml.common.logger.level_*`.
             See :ref:`verbosity-levels` for more info.
+        default_chunk_size : int or None, default=None
+            If set, predict calls without a specified chunk size will use
+            this default value.
         align_bytes : int or None, default=None
             If set, each tree will be padded with empty nodes until its
             in-memory size is a multiple of the given value. It is recommended
@@ -1041,12 +1090,15 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
+        if default_chunk_size is None:
+            default_chunk_size = threads_per_tree
         return cls(
             treelite_model=tl_model,
             handle=handle,
             output_type=output_type,
             verbose=verbose,
             output_class=output_class,
+            default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
             layout=layout,
             precision=precision,
@@ -1099,7 +1151,9 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
                 "predict_proba is not available for regression models. Load"
                 " with is_classifer=True if this is a classifier."
             )
-        return self.forest.predict(X, preds=preds, chunk_size=chunk_size)
+        return self.forest.predict(
+            X, preds=preds, chunk_size=(chunk_size or self.default_chunk_size)
+        )
 
     @nvtx_annotate(
         message='ForestInference.predict',
@@ -1158,6 +1212,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             classifiers, the highest probability class is chosen regardless
             of threshold.
         """
+        chunk_size = (chunk_size or self.default_chunk_size)
         if self.forest.row_postprocessing() == 'max_index':
             raw_out = self.forest.predict(X, chunk_size=chunk_size)
             result = raw_out[:, 0]
@@ -1237,6 +1292,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             any power of 2, but little benefit is expected above a chunk size
             of 512.
         """
+        chunk_size = (chunk_size or self.default_chunk_size)
         return self.forest.predict(
             X, predict_type="per_tree", preds=preds, chunk_size=chunk_size
         )
@@ -1291,3 +1347,125 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         return self.forest.predict(
             X, predict_type="leaf_id", preds=preds, chunk_size=chunk_size
         )
+
+    def optimize(
+        self,
+        *,
+        data=None,
+        batch_size=1024,
+        unique_batches=10,
+        timeout=0.2,
+        predict_method='predict',
+        max_chunk_size=None,
+        seed=0
+    ):
+        """
+        Find the optimal layout and chunk size for this model
+
+        The optimal value for layout and chunk size depends on the model,
+        batch size, and available hardware. In order to get the most
+        realistic performance distribution, example data can be provided. If
+        it is not, random data will be generated based on the indicated batch
+        size. After finding the optimal layout, the model will be reloaded if
+        necessary. The optimal chunk size will be used to set the default chunk
+        size used if none is passed to the predict call.
+
+        Parameters
+        ----------
+        data
+            Example data either of shape unique_batches x batch size x features
+            or batch_size x features or None. If None, random data will be
+            generated instead.
+        batch_size : int
+            If example data is not provided, random data with this many rows
+            per batch will be used.
+        unique_batches : int
+            The number of unique batches to generate if random data are used.
+            Increasing this number decreases the chance that the optimal
+            configuration will be skewed by a single batch with unusual
+            performance characteristics.
+        timeout : float
+            Time in seconds to target for optimization. The optimization loop
+            will be repeatedly run a number of times increasing in the sequence
+            1, 2, 5, 10, 20, 50, ... until the time taken is at least the given
+            value. Note that for very large batch sizes and large models, the
+            total elapsed time may exceed this timeout; it is a soft target for
+            elapsed time. Setting the timeout to zero will run through the
+            indicated number of unique batches exactly once. Defaults to 0.2s.
+        predict_method : str
+            If desired, optimization can occur over one of the prediction
+            method variants (e.g. "predict_per_tree") rather than the
+            default `predict` method. To do so, pass the name of the method
+            here.
+        max_chunk_size : int or None
+            The maximum chunk size to explore during optimization. If not
+            set, a value will be picked based on the current device type.
+            Setting this to a lower value will reduce the optimization search
+            time but may not result in optimal performance.
+        seed : int
+            The random seed used for generating example data if none is
+            provided.
+        """
+        if data is None:
+            xpy = GlobalSettings().xpy
+            dtype = self.forest.get_dtype()
+            data = xpy.random.uniform(
+                xpy.finfo(dtype).min / 2,
+                xpy.finfo(dtype).max / 2,
+                (unique_batches, batch_size, self.forest.num_features())
+            )
+        else:
+            data = CumlArray.from_input(
+                data,
+                order='K',
+            ).to_output('array')
+        try:
+            unique_batches, batch_size, features = data.shape
+        except ValueError:
+            unique_batches = 1
+            batch_size, features = data.shape
+            data = [data]
+
+        if max_chunk_size is None:
+            max_chunk_size = 512
+        if GlobalSettings().device_type is DeviceType.device:
+            max_chunk_size = min(max_chunk_size, 32)
+
+        infer = getattr(self, predict_method)
+
+        optimal_layout = 'depth_first'
+        optimal_chunk_size = 1
+
+        valid_layouts = ('depth_first', 'breadth_first')
+        chunk_size = 1
+        valid_chunk_sizes = []
+        while chunk_size <= max_chunk_size:
+            valid_chunk_sizes.append(chunk_size)
+            chunk_size *= 2
+
+        all_params = list(itertools.product(valid_layouts, valid_chunk_sizes))
+        auto_iterator = _AutoIterations()
+        loop_start = perf_counter()
+        while True:
+            optimal_time = float('inf')
+            iterations = auto_iterator.next()
+            for layout, chunk_size in all_params:
+                self.layout = layout
+                infer(data[0], chunk_size=chunk_size)
+                elapsed = float('inf')
+                for _ in range(iterations):
+                    start = perf_counter()
+                    for iter_index in range(unique_batches):
+                        infer(
+                            data[iter_index], chunk_size=chunk_size
+                        )
+                    elapsed = min(elapsed, perf_counter() - start)
+                if elapsed < optimal_time:
+                    optimal_time = elapsed
+                    optimal_layout = layout
+                    optimal_chunk_size = chunk_size
+            if (perf_counter() - loop_start > timeout):
+                break
+
+        self.layout = optimal_layout
+        self.default_chunk_size = optimal_chunk_size

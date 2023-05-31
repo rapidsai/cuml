@@ -193,12 +193,24 @@ def test_fil_classification(
         fil_proba = np.reshape(
             np.asarray(fm.predict_proba(X_validation)), xgb_preds.shape
         )
+        fm.optimize(batch_size=len(X_validation))
+        fil_preds_opt = np.reshape(
+            np.asarray(fm.predict(X_validation, threshold=0.50)),
+            xgb_preds_int.shape,
+        )
+        fil_proba_opt = np.reshape(
+            np.asarray(fm.predict_proba(X_validation)), xgb_preds.shape
+        )
         fil_acc = accuracy_score(y_validation, fil_preds)
 
         assert fil_acc == pytest.approx(xgb_acc, abs=0.01)
         assert array_equal(fil_preds, xgb_preds_int)
+        assert array_equal(fil_preds_opt, fil_preds)
         np.testing.assert_allclose(
             fil_proba, xgb_preds, atol=proba_atol[n_classes > 2]
+        )
+        np.testing.assert_allclose(
+            fil_proba_opt, fil_proba, atol=proba_atol[n_classes > 2]
         )
 
 
@@ -265,9 +277,13 @@ def test_fil_regression(
         fil_preds = np.asarray(fm.predict(X_validation))
         fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
         fil_mse = mean_squared_error(y_validation, fil_preds)
+        fm.optimize(data=X_validation)
+        fil_preds_opt = np.asarray(fm.predict(X_validation))
+        fil_preds_opt = np.reshape(fil_preds_opt, np.shape(xgb_preds))
 
         assert fil_mse == pytest.approx(xgb_mse, abs=0.01)
         assert np.allclose(fil_preds, xgb_preds, 1e-3)
+        assert np.allclose(fil_preds_opt, fil_preds, 1e-3)
 
 
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
@@ -369,13 +385,20 @@ def test_fil_skl_classification(
         if n_classes == 2:
             assert array_equal(fil_preds, skl_preds_int)
         fil_proba = np.asarray(fm.predict_proba(X_validation))
+        fm.optimize(data=np.expand_dims(X_validation, 0))
+        fil_proba_opt = np.asarray(fm.predict_proba(X_validation))
         try:
             fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
+            fil_proba_opt = np.reshape(fil_proba_opt, np.shape(skl_proba))
         except ValueError:
             skl_proba = skl_proba[:, 1]
             fil_proba = np.reshape(fil_proba, np.shape(skl_proba))
+            fil_proba_opt = np.reshape(fil_proba_opt, np.shape(skl_proba))
         np.testing.assert_allclose(
             fil_proba, skl_proba, atol=proba_atol[n_classes > 2]
+        )
+        np.testing.assert_allclose(
+            fil_proba_opt, fil_proba, atol=proba_atol[n_classes > 2]
         )
 
 
@@ -456,11 +479,15 @@ def test_fil_skl_regression(
     with using_device_type(infer_device):
         fil_preds = np.asarray(fm.predict(X_validation))
         fil_preds = np.reshape(fil_preds, np.shape(skl_preds))
+        fm.optimize(batch_size=len(X_validation))
+        fil_preds_opt = np.asarray(fm.predict(X_validation))
+        fil_preds_opt = np.reshape(fil_preds_opt, np.shape(skl_preds))
 
         fil_mse = mean_squared_error(y_validation, fil_preds)
 
         assert fil_mse <= skl_mse * (1.0 + 1e-6) + 1e-4
         np.testing.assert_allclose(fil_preds, skl_preds, atol=1.2e-3)
+        np.testing.assert_allclose(fil_preds_opt, fil_preds, atol=1.2e-3)
 
 
 @pytest.fixture(scope="session", params=["binary", "json"])
@@ -741,10 +768,15 @@ def test_predict_per_tree(
                     for class_id in range(n_classes)
                 )
             )
+        fm.optimize(batch_size=len(X), predict_method="predict_per_tree")
+        pred_per_tree_opt = fm.predict_per_tree(X)
         assert pred_per_tree.shape == expected_shape
         np.testing.assert_almost_equal(sum_by_class, margin_pred, decimal=3)
         np.testing.assert_almost_equal(
             pred_per_tree, pred_per_tree_tl, decimal=3
+        )
+        np.testing.assert_almost_equal(
+            pred_per_tree_opt, pred_per_tree, decimal=3
         )
 
 
@@ -780,12 +812,17 @@ def test_predict_per_tree_with_vector_leaf(
 
     with using_device_type(infer_device):
         pred_per_tree = fm.predict_per_tree(X)
+        fm.optimize(batch_size=len(X), predict_method="predict_per_tree")
+        pred_per_tree_opt = fm.predict_per_tree(X)
         margin_pred = skl_model.predict_proba(X)
         assert pred_per_tree.shape == (n_rows, n_estimators, n_classes)
         avg_by_class = np.sum(pred_per_tree, axis=1) / n_estimators
         np.testing.assert_almost_equal(avg_by_class, margin_pred, decimal=3)
         np.testing.assert_almost_equal(
             pred_per_tree, pred_per_tree_tl, decimal=3
+        )
+        np.testing.assert_almost_equal(
+            pred_per_tree_opt, pred_per_tree, decimal=3
         )
 
 
