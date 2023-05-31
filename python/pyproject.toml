@@ -19,7 +19,7 @@ requires = [
     "cython>=0.29,<0.30",
     "ninja",
     "pylibraft==23.8.*",
-    "rmm==23.8.*",
+    "rmm==23.6.*",
     "scikit-build>=0.13.1,<0.17.2",
     "setuptools",
     "treelite==3.2.0",
@@ -59,7 +59,7 @@ requires-python = ">=3.9"
 dependencies = [
     "cudf==23.8.*",
     "cupy-cuda11x>=12.0.0",
-    "dask-cuda==23.6.*",
+    "dask-cuda==23.8.*",
     "dask-cudf==23.8.*",
     "dask==2023.3.2",
     "distributed==2023.3.2.1",

@@ -91,10 +91,10 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - libcumlprims==23.6.*
-          - libraft==23.6.*
-          - libraft-headers==23.6.*
-          - librmm==23.6.*
+          - libcumlprims==23.8.*
+          - libraft==23.8.*
+          - libraft-headers==23.8.*
+          - librmm==23.8.*
     specific:
       - output_types: conda
         matrices:
@@ -116,7 +116,7 @@ dependencies:
           - scikit-build>=0.13.1,<0.17.2
           - cython>=0.29,<0.30
           - &treelite treelite==3.2.0
-          - pylibraft==23.6.*
+          - pylibraft==23.8.*
           - rmm==23.6.*
       - output_types: pyproject
         packages:
@@ -127,10 +127,10 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cudf==23.6.*
+          - cudf==23.8.*
           - dask==2023.3.2
-          - dask-cuda==23.6.*
-          - dask-cudf==23.6.*
+          - dask-cuda==23.8.*
+          - dask-cudf==23.8.*
           - distributed==2023.3.2.1
           - joblib>=0.11
           - numba>=0.56.4,<0.57
@@ -139,7 +139,7 @@ dependencies:
             # installation/run_constrained for conda)?
           - seaborn
           - scipy
-          - raft-dask==23.6.*
+          - raft-dask==23.8.*
           - *treelite
       - output_types: [conda, requirements]
         packages:
