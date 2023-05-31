@@ -462,6 +462,63 @@ class SVMBase(Base,
                 model_d.unique_labels = NULL
             return <uintptr_t>model_d
 
+    def _unpack_svm_model(self, b, n_support, dual_coefs, support_idx, nnz, indptr, indices, data, n_classes, unique_labels):
+        self._intercept_ = CumlArray.full(1, b, self.dtype)
+        self.n_support_ = n_support
+
+        if n_support > 0:
+            self.dual_coef_ = CumlArray(
+                data=dual_coefs,
+                shape=(1, self.n_support_),
+                dtype=self.dtype,
+                order='F')
+
+            self.support_ = CumlArray(
+                data=support_idx,
+                shape=(self.n_support_,),
+                dtype=np.int32,
+                order='F')
+
+            if nnz == -1:
+                self.support_vectors_ = CumlArray(
+                    data=data,
+                    shape=(self.n_support_, self.n_cols),
+                    dtype=self.dtype,
+                    order='F')
+            else:
+                indptr = CumlArray(data=indptr,
+                                    shape=(self.n_support_ + 1,),
+                                    dtype=np.int32,
+                                    order='F')
+                indices = CumlArray(data=indices,
+                                    shape=(nnz,),
+                                    dtype=np.int32,
+                                    order='F')
+                data = CumlArray(data=data,
+                                    shape=(nnz,),
+                                    dtype=self.dtype,
+                                    order='F')
+                sparse_input = SparseCumlArrayInput(
+                    dtype=self.dtype, 
+                    indptr=indptr, 
+                    indices=indices, 
+                    data=data, 
+                    nnz=nnz, 
+                    shape=(self.n_support_, self.n_cols))
+                self.support_vectors_ = SparseCumlArray(data=sparse_input)
+
+
+        self.n_classes_ = n_classes
+        if self.n_classes_ > 0:
+            self._unique_labels_ = CumlArray(
+                data=unique_labels,
+                shape=(self.n_classes_,),
+                dtype=self.dtype,
+                order='F')
+        else:
+            self._unique_labels_ = None
+
+
     def _unpack_model(self):
         """ Expose the model parameters as attributes """
         cdef SvmModel[float] *model_f
@@ -474,115 +531,30 @@ class SVMBase(Base,
 
         if self.dtype == np.float32:
             model_f = <SvmModel[float]*><uintptr_t> self._model
-            self._intercept_ = CumlArray.full(1, model_f.b, np.float32)
-            self.n_support_ = model_f.n_support
-
-            if model_f.n_support > 0:
-                self.dual_coef_ = CumlArray(
-                    data=<uintptr_t>model_f.dual_coefs,
-                    shape=(1, self.n_support_),
-                    dtype=self.dtype,
-                    order='F')
-
-                self.support_ = CumlArray(
-                    data=<uintptr_t>model_f.support_idx,
-                    shape=(self.n_support_,),
-                    dtype=np.int32,
-                    order='F')
-
-                if model_f.support_matrix.nnz == -1:
-                    self.support_vectors_ = CumlArray(
-                        data=<uintptr_t>model_f.support_matrix.data,
-                        shape=(self.n_support_, self.n_cols),
-                        dtype=self.dtype,
-                        order='F')
-                else:
-                    indptr = CumlArray(data=<uintptr_t>model_f.support_matrix.indptr,
-                                       shape=(self.n_support_ + 1,),
-                                       dtype=np.int32,
-                                       order='F')
-                    indices = CumlArray(data=<uintptr_t>model_f.support_matrix.indices,
-                                        shape=(model_f.support_matrix.nnz,),
-                                        dtype=np.int32,
-                                        order='F')
-                    data = CumlArray(data=<uintptr_t>model_f.support_matrix.data,
-                                     shape=(model_f.support_matrix.nnz,),
-                                     dtype=self.dtype,
-                                     order='F')
-                    sparse_input = SparseCumlArrayInput(
-                        dtype=self.dtype, 
-                        indptr=indptr, 
-                        indices=indices, 
-                        data=data, 
-                        nnz=model_f.support_matrix.nnz, 
-                        shape=(self.n_support_, self.n_cols))
-                    self.support_vectors_ = SparseCumlArray(data=sparse_input)
-
-
-            self.n_classes_ = model_f.n_classes
-            if self.n_classes_ > 0:
-                self._unique_labels_ = CumlArray(
-                    data=<uintptr_t>model_f.unique_labels,
-                    shape=(self.n_classes_,),
-                    dtype=self.dtype,
-                    order='F')
-            else:
-                self._unique_labels_ = None
+            self._unpack_svm_model(
+                model_f.b, 
+                model_f.n_support, 
+                <uintptr_t>model_f.dual_coefs, 
+                <uintptr_t>model_f.support_idx, 
+                model_f.support_matrix.nnz, 
+                <uintptr_t>model_f.support_matrix.indptr, 
+                <uintptr_t>model_f.support_matrix.indices, 
+                <uintptr_t>model_f.support_matrix.data, 
+                model_f.n_classes,
+                <uintptr_t> model_f.unique_labels)
         else:
             model_d = <SvmModel[double]*><uintptr_t> self._model
-            self._intercept_ = CumlArray.full(1, model_d.b, np.float64)
-            self.n_support_ = model_d.n_support
-
-            if model_d.n_support > 0:
-                self.dual_coef_ = CumlArray(
-                    data=<uintptr_t>model_d.dual_coefs,
-                    shape=(1, self.n_support_),
-                    dtype=self.dtype,
-                    order='F')
-
-                self.support_ = CumlArray(
-                    data=<uintptr_t>model_d.support_idx,
-                    shape=(self.n_support_,),
-                    dtype=np.int32,
-                    order='F')
-
-                if model_d.support_matrix.nnz == -1:
-                    self.support_vectors_ = CumlArray(
-                        data=<uintptr_t>model_d.support_matrix.data,
-                        shape=(self.n_support_, self.n_cols),
-                        dtype=self.dtype,
-                        order='F')
-                else:
-                    indptr = CumlArray(data=<uintptr_t>model_d.support_matrix.indptr,
-                                       shape=(self.n_support_ + 1,),
-                                       dtype=np.int32,
-                                       order='F')
-                    indices = CumlArray(data=<uintptr_t>model_d.support_matrix.indices,
-                                        shape=(model_d.support_matrix.nnz,),
-                                        dtype=np.int32,
-                                        order='F')
-                    data = CumlArray(data=<uintptr_t>model_d.support_matrix.data,
-                                     shape=(model_d.support_matrix.nnz,),
-                                     dtype=self.dtype,
-                                     order='F')
-                    sparse_input = SparseCumlArrayInput(
-                        dtype=self.dtype, 
-                        indptr=indptr, 
-                        indices=indices, 
-                        data=data, 
-                        nnz=model_d.support_matrix.nnz, 
-                        shape=(self.n_support_, self.n_cols))
-                    self.support_vectors_ = SparseCumlArray(data=sparse_input)
-
-            self.n_classes_ = model_d.n_classes
-            if self.n_classes_ > 0:
-                self._unique_labels_ = CumlArray(
-                    data=<uintptr_t>model_d.unique_labels,
-                    shape=(self.n_classes_,),
-                    dtype=self.dtype,
-                    order='F')
-            else:
-                self._unique_labels_ = None
+            self._unpack_svm_model(
+                model_d.b, 
+                model_d.n_support, 
+                <uintptr_t>model_d.dual_coefs, 
+                <uintptr_t>model_d.support_idx, 
+                model_d.support_matrix.nnz, 
+                <uintptr_t>model_d.support_matrix.indptr, 
+                <uintptr_t>model_d.support_matrix.indices, 
+                <uintptr_t>model_d.support_matrix.data, 
+                model_d.n_classes,
+                <uintptr_t> model_d.unique_labels)
 
         if self.n_support_ == 0:
             self.dual_coef_ = CumlArray.empty(
