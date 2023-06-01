@@ -326,23 +326,21 @@ class AdjGraphAccessor : public BaseClass {
     // cudaMallocHost(&h_adj_group_offset, this->n_groups * sizeof(Index_t));
 
     if (!optim_layout) {
-      auto counting                      = thrust::make_counting_iterator<Index_t>(0);
-      const Index_t* temp_row_start_ids  = this->row_start_ids;
-      std::size_t* temp_adj_group_offset = adj_group_offset;
-      thrust::for_each(handle.get_thrust_policy(),
-                       counting,
-                       counting + this->n_groups,
-                       [temp_adj_group_offset, temp_row_start_ids] __device__(Index_t idx) {
-                         temp_adj_group_offset[idx] =
-                           static_cast<std::size_t>(temp_row_start_ids[idx]);
-                       });
-      const Index_t scalar = max_nbr;
-      thrust::for_each(handle.get_thrust_policy(),
-                       counting,
-                       counting + this->n_groups,
-                       [=] __device__(Index_t idx) {
-                         temp_adj_group_offset[idx] = temp_adj_group_offset[idx] * scalar;
-                       });
+      auto row_start_ids_view = raft::make_device_vector_view(this->row_start_ids, this->n_groups);
+      auto adj_group_offset_view = raft::make_device_vector_view(
+        const_cast<std::size_t*>(adj_group_offset), this->n_groups);
+      raft::linalg::map(handle, adj_group_offset_view, raft::cast_op<std::size_t>{}, row_start_ids_view);
+
+      auto offset_in_view = raft::make_device_vector_view(
+        const_cast<const std::size_t*>(adj_group_offset), this->n_groups);
+      auto offset_out_view = raft::make_device_vector_view(
+        const_cast<std::size_t*>(adj_group_offset), this->n_groups);
+      raft::linalg::map(
+        handle, 
+        offset_out_view,
+        raft::mul_const_op<Index_t>(static_cast<Index_t>(max_nbr)),
+        offset_in_view
+      );
     } else {
       const Index_t* host_n_rows = this->metadata->get_host_rows();
       for (struct {

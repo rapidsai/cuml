@@ -49,11 +49,16 @@ void launcher(const raft::handle_t& handle,
 
   // Compute adjacency matrix `adj` using Cosine or L2 metric.
   if (metric == raft::distance::DistanceType::CosineExpanded) {
-    auto counting = thrust::make_counting_iterator<index_t>(0);
-    thrust::for_each(
-      handle.get_thrust_policy(), counting, counting + n_groups, [=] __device__(index_t idx) {
-        eps[idx] *= 2;
-      });
+    auto eps_in_view = raft::make_device_vector_view(
+      const_cast<const value_t*>(eps), n_groups);
+    auto eps_out_view = raft::make_device_vector_view(
+      const_cast<value_t*>(eps), n_groups);
+    raft::linalg::map(
+      handle, 
+      eps_out_view, 
+      raft::mul_const_op<value_t>(2),
+      eps_in_view);
+
     rmm::device_uvector<value_t> rowNorms(m, stream);
 
     raft::linalg::rowNorm(
@@ -97,11 +102,11 @@ void launcher(const raft::handle_t& handle,
       [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
       stream);
   } else {
-    auto counting = thrust::make_counting_iterator<index_t>(0);
-    thrust::for_each(
-      handle.get_thrust_policy(), counting, counting + n_groups, [=] __device__(index_t idx) {
-        eps[idx] = eps[idx] * eps[idx];
-      });
+    auto eps_in_view = raft::make_device_vector_view(
+      const_cast<const value_t*>(eps), n_groups);
+    auto eps_out_view = raft::make_device_vector_view(
+      const_cast<value_t*>(eps), n_groups);
+    raft::linalg::map(handle, eps_out_view, raft::sq_op{}, eps_in_view);
 
     // 1. The output matrix adj is now an n x m matrix (row-major order)
     // 2. Do not compute the vertex degree in epsUnexpL2SqNeighborhood (pass a

@@ -35,11 +35,10 @@ void multi_groups_compute(const raft::handle_t& handle,
   bool* mask            = corepts_ac.core_pts;
   const Index_* offset  = corepts_ac.offset_mask;
 
-  auto counting = thrust::make_counting_iterator<Index_>(0);
-  thrust::for_each(
-    handle.get_thrust_policy(), counting, counting + n_samples, [=] __device__(Index_ idx) {
-      mask[idx] = vd_base[idx] >= *(min_pts + offset[idx]);
-    });
+  auto mask_view = raft::make_device_vector_view(mask, n_samples);
+  raft::linalg::map_offset(handle, mask_view, [=] __device__(Index_ idx) {
+    return vd_base[idx] >= *(min_pts + offset[idx]);
+  });
   return;
 }
 
