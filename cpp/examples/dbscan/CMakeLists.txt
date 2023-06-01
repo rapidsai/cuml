@@ -19,3 +19,6 @@ target_link_libraries(dbscan_example cuml++)
 
 add_executable(mgrp_dbscan_example mgrp_dbscan_example.cpp)
 target_link_libraries(mgrp_dbscan_example cuml++)
+
+add_executable(mgrp_dbscan_benchmark mgrp_dbscan_benchmark.cpp)
+target_link_libraries(mgrp_dbscan_benchmark cuml++)
