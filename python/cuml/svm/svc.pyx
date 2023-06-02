@@ -41,12 +41,14 @@ from cuml.internals.logger import warn
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
-from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array, determine_array_type_full
 from cuml.preprocessing import LabelEncoder
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
 from cuml.internals.import_utils import has_sklearn
 from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.common.sparse_utils import is_sparse
+from cuml.internals.array_sparse import SparseCumlArray
 
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
@@ -84,32 +86,43 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         int verbosity
         double epsilon
         SvmType svmType
-
+  
 cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
+
+    cdef cppclass SupportStorage[math_t]:
+        int nnz;
+        int* indptr;
+        int* indices;
+        math_t* data;
+    
     cdef cppclass SvmModel[math_t]:
         # parameters of a fitted model
         int n_support
         int n_cols
         math_t b
         math_t *dual_coefs
-        math_t *x_support
+        SupportStorage[math_t] support_matrix
         int *support_idx
         int n_classes
         math_t *unique_labels
 
 cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
 
-    cdef void svcFit[math_t](const handle_t &handle, math_t *input,
-                             int n_rows, int n_cols, math_t *labels,
+    cdef void svcFit[math_t](const handle_t &handle, math_t* data, 
+                             int n_rows, int n_cols,
+                             math_t *labels,
                              const SvmParameter &param,
                              KernelParams &kernel_params,
                              SvmModel[math_t] &model,
-                             const math_t *sample_weight) except+
+                             const math_t *sample_weight) except +
 
-    cdef void svcPredict[math_t](
-        const handle_t &handle, math_t *input, int n_rows, int n_cols,
-        KernelParams &kernel_params, const SvmModel[math_t] &model,
-        math_t *preds, math_t buffer_size, bool predict_class) except +
+    cdef void svcFitSparse[math_t](const handle_t &handle, int* indptr, int* indices, 
+                                   math_t* data, int n_rows, int n_cols, int nnz,
+                                   math_t *labels,
+                                   const SvmParameter &param,
+                                   KernelParams &kernel_params,
+                                   SvmModel[math_t] &model,
+                                   const math_t *sample_weight) except +
 
 
 def apply_class_weight(handle, sample_weight, class_weight, y, verbose, output_type, dtype) -> CumlArray:
@@ -471,17 +484,30 @@ class SVC(SVMBase,
 
         self.n_classes_ = self._get_num_classes(y)
 
+        # we need to check whether input X is sparse 
+        # In that case we don't want to make a dense copy
+        array_type, is_sparse = determine_array_type_full(X)
+
         if self.probability:
+            if is_sparse:
+                raise ValueError("Probabilistic SVM does not support sparse input.")
             return self._fit_proba(X, y, sample_weight)
 
         if self.n_classes_ > 2:
+            if is_sparse:
+                raise ValueError("Multiclass SVM does not support sparse input.")
             return self._fit_multiclass(X, y, sample_weight)
+        
+        if is_sparse:
+            X_m = SparseCumlArray(X)
+            self.n_rows = X_m.shape[0]
+            self.n_cols = X_m.shape[1]
+            self.dtype = X_m.dtype
+        else:
+            X_m, self.n_rows, self.n_cols, self.dtype = \
+                input_to_cuml_array(X, order='F')
 
         # Fit binary classifier
-        X_m, self.n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X, order='F')
-
-        cdef uintptr_t X_ptr = X_m.ptr
         convert_to_dtype = self.dtype if convert_dtype else None
         y_m, _, _, _ = \
             input_to_cuml_array(y, check_dtype=self.dtype,
@@ -510,23 +536,48 @@ class SVC(SVMBase,
 
         cdef int n_rows = self.n_rows
         cdef int n_cols = self.n_cols
+        cdef uintptr_t X_ptr = X_m.data.ptr if is_sparse else X_m.ptr 
+
+        cdef int n_nnz = X_m.nnz if is_sparse else self.n_rows * self.n_cols 
+        cdef uintptr_t X_indptr = X_m.indptr.ptr if is_sparse else X_m.ptr 
+        cdef uintptr_t X_indices = X_m.indices.ptr if is_sparse else X_m.ptr 
+        cdef uintptr_t X_data = X_m.data.ptr if is_sparse else X_m.ptr 
+                
         if self.dtype == np.float32:
             model_f = new SvmModel[float]()
-            with cuda_interruptible():
-                with nogil:
-                    svcFit(
-                        deref(handle_), <float*>X_ptr, n_rows,
-                        n_cols, <float*>y_ptr, param, _kernel_params,
-                        deref(model_f), <float*>sample_weight_ptr)
+            if is_sparse:
+                with cuda_interruptible():
+                    with nogil:
+                        svcFitSparse(
+                            deref(handle_), <int*>X_indptr, <int*>X_indices, 
+                            <float*>X_data, n_rows, n_cols, n_nnz,
+                            <float*>y_ptr, param, _kernel_params,
+                            deref(model_f), <float*>sample_weight_ptr)
+            else:
+                with cuda_interruptible():
+                    with nogil:
+                        svcFit(
+                            deref(handle_), <float*>X_data, n_rows, n_cols,
+                            <float*>y_ptr, param, _kernel_params,
+                            deref(model_f), <float*>sample_weight_ptr)
             self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
             model_d = new SvmModel[double]()
-            with cuda_interruptible():
-                with nogil:
-                    svcFit(
-                        deref(handle_), <double*>X_ptr, n_rows,
-                        n_cols, <double*>y_ptr, param, _kernel_params,
-                        deref(model_d), <double*>sample_weight_ptr)
+            if is_sparse:
+                with cuda_interruptible():
+                    with nogil:
+                        svcFitSparse(
+                            deref(handle_), <int*>X_indptr, <int*>X_indices, 
+                            <double*>X_data, n_rows, n_cols, n_nnz,
+                            <double*>y_ptr, param, _kernel_params,
+                            deref(model_d), <double*>sample_weight_ptr)
+            else:
+                with cuda_interruptible():
+                    with nogil:
+                        svcFit(
+                            deref(handle_), <double*>X_data, n_rows, n_cols,
+                            <double*>y_ptr, param, _kernel_params,
+                            deref(model_d), <double*>sample_weight_ptr)
             self._model = <uintptr_t>model_d
         else:
             raise TypeError('Input data type should be float32 or float64')
