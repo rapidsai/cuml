@@ -133,11 +133,11 @@ dependencies:
           - dask-cudf==23.8.*
           - distributed==2023.3.2.1
           - joblib>=0.11
+          - numba>=0.57
             # TODO: Is scipy really a hard dependency, or should
             # we make it optional (i.e. an extra for pip
-          - numba>=0.57
             # installation/run_constrained for conda)?
-          - scipy
+          - scipy>=1.8.0
           - raft-dask==23.8.*
           - *treelite
       - output_types: [conda, requirements]
