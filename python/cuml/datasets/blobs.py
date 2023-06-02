@@ -14,14 +14,19 @@
 # limitations under the License.
 #
 
-
-from cuml.datasets.utils import _create_rs_generator
-import cuml.internals
-from cuml.internals.safe_imports import cpu_only_import
-import nvtx
 import numbers
+import cuml.internals
+
 from collections.abc import Iterable
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.datasets.utils import _create_rs_generator
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import_from,
+    null_decorator,
+)
+
+nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
@@ -83,7 +88,7 @@ def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
     return centers, n_centers
 
 
-@nvtx.annotate(message="datasets.make_blobs", domain="cuml_python")
+@nvtx_annotate(message="datasets.make_blobs", domain="cuml_python")
 @cuml.internals.api_return_generic()
 def make_blobs(
     n_samples=100,
