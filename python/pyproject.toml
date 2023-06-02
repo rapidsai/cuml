@@ -19,7 +19,7 @@ requires = [
     "cython>=0.29,<0.30",
     "ninja",
     "pylibraft==23.8.*",
-    "rmm==23.6.*",
+    "rmm==23.8.*",
     "scikit-build>=0.13.1,<0.17.2",
     "setuptools",
     "treelite==3.2.0",

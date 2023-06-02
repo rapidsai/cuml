@@ -117,7 +117,7 @@ dependencies:
           - cython>=0.29,<0.30
           - &treelite treelite==3.2.0
           - pylibraft==23.8.*
-          - rmm==23.6.*
+          - rmm==23.8.*
       - output_types: pyproject
         packages:
           - wheel

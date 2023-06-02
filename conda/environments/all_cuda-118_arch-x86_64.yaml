@@ -60,7 +60,7 @@ dependencies:
 - python>=3.9,<3.11
 - raft-dask==23.8.*
 - recommonmark
-- rmm==23.6.*
+- rmm==23.8.*
 - scikit-build>=0.13.1,<0.17.2
 - scikit-learn==1.2
 - scipy
