@@ -62,9 +62,11 @@ namespace detail {
  * data on categorical splits are stored.
  * @param infer_type Type of inference to perform. Defaults to summing the outputs of all trees
  * and produce an output per row. If set to "per_tree", we will instead output all outputs of
- * individual trees.
+ * individual trees. If set to "leaf_id", we will output the integer ID of the leaf node
+ * for each tree.
  */
 template <bool has_categorical_nodes,
+          bool predict_leaf,
           typename forest_t,
           typename vector_output_t    = std::nullptr_t,
           typename categorical_data_t = std::nullptr_t>
@@ -81,7 +83,6 @@ void infer_kernel_cpu(forest_t const& forest,
                       categorical_data_t categorical_data = nullptr,
                       infer_kind infer_type               = infer_kind::default_kind)
 {
-  auto const default_num_outputs         = forest.num_outputs();
   auto constexpr has_vector_leaves       = !std::is_same_v<vector_output_t, std::nullptr_t>;
   auto constexpr has_nonlocal_categories = !std::is_same_v<categorical_data_t, std::nullptr_t>;
 
@@ -108,33 +109,40 @@ void infer_kernel_cpu(forest_t const& forest,
 
     for (auto row_index = start_row; row_index < end_row; ++row_index) {
       for (auto tree_index = start_tree; tree_index < end_tree; ++tree_index) {
-        auto tree_output = std::conditional_t<has_vector_leaves,
-                                              typename node_t::index_type,
-                                              typename node_t::threshold_type>{};
-        if constexpr (has_nonlocal_categories) {
-          tree_output = evaluate_tree<has_vector_leaves>(
-            forest.get_tree_root(tree_index), input + row_index * col_count, categorical_data);
+        auto tree_output =
+          std::conditional_t<predict_leaf,
+                             index_type,
+                             std::conditional_t<has_vector_leaves,
+                                                typename node_t::index_type,
+                                                typename node_t::threshold_type>>{};
+        tree_output = evaluate_tree<has_vector_leaves,
+                                    has_categorical_nodes,
+                                    has_nonlocal_categories,
+                                    predict_leaf>(
+          forest, tree_index, input + row_index * col_count, categorical_data);
+        if constexpr (predict_leaf) {
+          output_workspace[row_index * num_outputs * num_grove + tree_index * num_grove +
+                           grove_index] = static_cast<typename forest_t::io_type>(tree_output);
         } else {
-          tree_output = evaluate_tree<has_vector_leaves, has_categorical_nodes>(
-            forest.get_tree_root(tree_index), input + row_index * col_count);
-        }
-        if constexpr (has_vector_leaves) {
-          auto output_offset =
-            (row_index * num_outputs * num_grove +
-             tree_index * default_num_outputs * num_grove * (infer_type == infer_kind::per_tree) +
-             grove_index);
-          for (auto output_index = index_type{}; output_index < default_num_outputs;
-               ++output_index) {
-            output_workspace[output_offset + output_index * num_grove] +=
-              vector_output_p[tree_output * default_num_outputs + output_index];
+          auto const default_num_outputs = forest.num_outputs();
+          if constexpr (has_vector_leaves) {
+            auto output_offset =
+              (row_index * num_outputs * num_grove +
+               tree_index * default_num_outputs * num_grove * (infer_type == infer_kind::per_tree) +
+               grove_index);
+            for (auto output_index = index_type{}; output_index < default_num_outputs;
+                 ++output_index) {
+              output_workspace[output_offset + output_index * num_grove] +=
+                vector_output_p[tree_output * default_num_outputs + output_index];
+            }
+          } else {
+            auto output_offset =
+              (row_index * num_outputs * num_grove +
+               (tree_index % default_num_outputs) * num_grove *
+                 (infer_type == infer_kind::default_kind) +
+               tree_index * num_grove * (infer_type == infer_kind::per_tree) + grove_index);
+            output_workspace[output_offset] += tree_output;
           }
-        } else {
-          auto output_offset =
-            (row_index * num_outputs * num_grove +
-             (tree_index % default_num_outputs) * num_grove *
-               (infer_type == infer_kind::default_kind) +
-             tree_index * num_grove * (infer_type == infer_kind::per_tree) + grove_index);
-          output_workspace[output_offset] += tree_output;
         }
       }  // Trees
     }    // Rows

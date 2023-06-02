@@ -105,6 +105,7 @@ struct decision_forest {
   decision_forest()
     : nodes_{},
       root_node_indexes_{},
+      node_id_mapping_{},
       vector_output_{},
       categorical_storage_{},
       num_features_{},
@@ -125,6 +126,8 @@ struct decision_forest {
    * @param nodes A buffer containing all nodes within the forest
    * @param root_node_indexes A buffer containing the index of the root node
    * of every tree in the forest
+   * @param node_id_mapping Mapping to use to convert FIL's internal node ID into Treelite's node
+   * ID. Only relevant when predict_type == infer_kind::leaf_id
    * @param num_features The number of features per input sample for this model
    * @param num_outputs The number of outputs per row from this model
    * @param has_categorical_nodes Whether this forest contains any
@@ -155,6 +158,7 @@ struct decision_forest {
    */
   decision_forest(raft_proto::buffer<node_type>&& nodes,
                   raft_proto::buffer<index_type>&& root_node_indexes,
+                  raft_proto::buffer<index_type>&& node_id_mapping,
                   index_type num_features,
                   index_type num_outputs                                     = index_type{2},
                   bool has_categorical_nodes                                 = false,
@@ -169,6 +173,7 @@ struct decision_forest {
                   io_type postproc_constant = io_type{1})
     : nodes_{nodes},
       root_node_indexes_{root_node_indexes},
+      node_id_mapping_{node_id_mapping},
       vector_output_{vector_output},
       categorical_storage_{categorical_storage},
       num_features_{num_features},
@@ -207,6 +212,8 @@ struct decision_forest {
     if (inference_kind == infer_kind::per_tree) {
       result = num_trees();
       if (has_vector_leaves()) { result *= num_outputs_; }
+    } else if (inference_kind == infer_kind::leaf_id) {
+      result = num_trees();
     }
     return result;
   }
@@ -233,6 +240,8 @@ struct decision_forest {
    * @param[in] predict_type Type of inference to perform. Defaults to summing
    * the outputs of all trees and produce an output per row. If set to
    * "per_tree", we will instead output all outputs of individual trees.
+   * If set to "leaf_id", we will output the integer ID of the leaf node
+   * for each tree.
    * @param[in] specified_rows_per_block_iter If non-nullopt, this value is
    * used to determine how many rows are evaluated for each inference
    * iteration within a CUDA block. Runtime performance is quite sensitive
@@ -301,6 +310,8 @@ struct decision_forest {
   raft_proto::buffer<node_type> nodes_;
   /** The index of the root node for each tree in the forest */
   raft_proto::buffer<index_type> root_node_indexes_;
+  /** Mapping to apply to node IDs. Only relevant when predict_type == infer_kind::leaf_id */
+  raft_proto::buffer<index_type> node_id_mapping_;
   /** Buffer of outputs for all leaves in vector-leaf models */
   std::optional<raft_proto::buffer<io_type>> vector_output_;
   /** Buffer of elements used as backing data for bitsets which specify
@@ -323,6 +334,7 @@ struct decision_forest {
   {
     return forest_type{nodes_.data(),
                        root_node_indexes_.data(),
+                       node_id_mapping_.data(),
                        static_cast<index_type>(root_node_indexes_.size()),
                        num_outputs_};
   }
