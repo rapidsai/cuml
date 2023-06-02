@@ -57,6 +57,32 @@ template void svcFit<double>(const raft::handle_t& handle,
                              SvmModel<double>& model,
                              const double* sample_weight);
 
+template void svcFitSparse<float>(const raft::handle_t& handle,
+                                  int* indptr,
+                                  int* indices,
+                                  float* data,
+                                  int n_rows,
+                                  int n_cols,
+                                  int nnz,
+                                  float* labels,
+                                  const SvmParameter& param,
+                                  KernelParams& kernel_params,
+                                  SvmModel<float>& model,
+                                  const float* sample_weight);
+
+template void svcFitSparse<double>(const raft::handle_t& handle,
+                                   int* indptr,
+                                   int* indices,
+                                   double* data,
+                                   int n_rows,
+                                   int n_cols,
+                                   int nnz,
+                                   double* labels,
+                                   const SvmParameter& param,
+                                   KernelParams& kernel_params,
+                                   SvmModel<double>& model,
+                                   const double* sample_weight);
+
 template void svcPredict<float>(const raft::handle_t& handle,
                                 float* input,
                                 int n_rows,
@@ -77,6 +103,32 @@ template void svcPredict<double>(const raft::handle_t& handle,
                                  double buffer_size,
                                  bool predict_class);
 
+template void svcPredictSparse<float>(const raft::handle_t& handle,
+                                      int* indptr,
+                                      int* indices,
+                                      float* data,
+                                      int n_rows,
+                                      int n_cols,
+                                      int nnz,
+                                      KernelParams& kernel_params,
+                                      const SvmModel<float>& model,
+                                      float* preds,
+                                      float buffer_size,
+                                      bool predict_class);
+
+template void svcPredictSparse<double>(const raft::handle_t& handle,
+                                       int* indptr,
+                                       int* indices,
+                                       double* data,
+                                       int n_rows,
+                                       int n_cols,
+                                       int nnz,
+                                       KernelParams& kernel_params,
+                                       const SvmModel<double>& model,
+                                       double* preds,
+                                       double buffer_size,
+                                       bool predict_class);
+
 template void svmFreeBuffers(const raft::handle_t& handle, SvmModel<float>& m);
 
 template void svmFreeBuffers(const raft::handle_t& handle, SvmModel<double>& m);
@@ -94,11 +146,11 @@ SVC<math_t>::SVC(raft::handle_t& handle,
     param(SvmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity}),
     kernel_params(kernel_params)
 {
-  model.n_support     = 0;
-  model.dual_coefs    = nullptr;
-  model.x_support     = nullptr;
-  model.support_idx   = nullptr;
-  model.unique_labels = nullptr;
+  model.n_support      = 0;
+  model.dual_coefs     = nullptr;
+  model.support_matrix = {};
+  model.support_idx    = nullptr;
+  model.unique_labels  = nullptr;
 }
 
 template <typename math_t>

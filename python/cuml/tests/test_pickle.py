@@ -30,10 +30,10 @@ from cuml.tsa.arima import ARIMA
 import pytest
 import pickle
 import cuml
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import cpu_only_import, cpu_only_import_from
 
 np = cpu_only_import("numpy")
-
+scipy_sparse = cpu_only_import_from("scipy", "sparse")
 
 regression_config = ClassEnumerator(module=cuml.linear_model)
 regression_models = regression_config.get_models()
@@ -701,8 +701,15 @@ def test_tsne_pickle(tmpdir):
     "params", [{"probability": True}, {"probability": False}]
 )
 @pytest.mark.parametrize("multiclass", [True, False])
-def test_svc_pickle(tmpdir, datatype, params, multiclass):
+@pytest.mark.parametrize("sparse", [False, True])
+def test_svc_pickle(tmpdir, datatype, params, multiclass, sparse):
     result = {}
+
+    if sparse and multiclass:
+        pytest.skip("Multiclass SVC does not support sparse input")
+
+    if sparse and params["probability"]:
+        pytest.skip("Probabilistic SVC does not support sparse input")
 
     def create_mod():
         model = cuml.svm.SVC(**params)
@@ -711,6 +718,8 @@ def test_svc_pickle(tmpdir, datatype, params, multiclass):
             [True, False], 150, replace=True, p=[0.75, 0.25]
         )
         X_train = iris.data[iris_selection]
+        if sparse:
+            X_train = scipy_sparse.csr_matrix(X_train)
         y_train = iris.target[iris_selection]
         if not multiclass:
             y_train = (y_train > 0).astype(datatype)
@@ -735,11 +744,15 @@ def test_svc_pickle(tmpdir, datatype, params, multiclass):
 @pytest.mark.parametrize("nrows", [unit_param(500)])
 @pytest.mark.parametrize("ncols", [unit_param(16)])
 @pytest.mark.parametrize("n_info", [unit_param(7)])
-def test_svr_pickle(tmpdir, datatype, nrows, ncols, n_info):
+@pytest.mark.parametrize("sparse", [False, True])
+def test_svr_pickle(tmpdir, datatype, nrows, ncols, n_info, sparse):
     result = {}
 
     def create_mod():
         X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
+        if sparse:
+            X_train = scipy_sparse.csr_matrix(X_train)
+            X_test = scipy_sparse.csr_matrix(X_test)
         model = cuml.svm.SVR()
         model.fit(X_train, y_train)
         result["svr"] = model.predict(X_test)
@@ -770,6 +783,43 @@ def test_svr_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
         state = pickled_model.__dict__
 
         assert state["_fit_status_"] == 0
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize("datatype", [np.float64])
+@pytest.mark.parametrize("nrows", [unit_param(1024)])
+@pytest.mark.parametrize("ncols", [unit_param(300000)])
+@pytest.mark.parametrize("n_info", [unit_param(2)])
+def test_sparse_svr_pickle(tmpdir, datatype, nrows, ncols, n_info):
+    """
+    A separate test to cover the case when the SVM model
+    parameters are sparse. Spares input alone does not
+    guarantee that the model parameters (SvmModel.support_matrix)
+    are sparse (a dense representation can be chosen for
+    performance reason). The large number of features used
+    here will result in a sparse model representation.
+    """
+    result = {}
+
+    def create_mod():
+        X_train = scipy_sparse.random(
+            nrows,
+            ncols,
+            density=0.001,
+            format="csr",
+            dtype=datatype,
+            random_state=42,
+        )
+        y_train = np.random.RandomState(42).rand(nrows)
+        X_test = X_train
+        model = cuml.svm.SVR(max_iter=1)
+        model.fit(X_train, y_train)
+        result["svr"] = model.predict(X_test)
+        return model, X_test
+
+    def assert_model(pickled_model, X_test):
+        assert array_equal(result["svr"], pickled_model.predict(X_test))
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 

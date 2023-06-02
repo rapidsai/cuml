@@ -78,7 +78,8 @@ inline auto compute_output_size(index_type row_output_size,
  * data on categorical splits.
  * @param infer_type Type of inference to perform. Defaults to summing the outputs of all trees
  * and produce an output per row. If set to "per_tree", we will instead output all outputs of
- * individual trees.
+ * individual trees. If set to "leaf_id", we will output the integer ID of the leaf node
+ * for each tree.
  * @param specified_chunk_size If non-nullopt, the mini-batch size used for
  * processing rows in a batch. For GPU inference, this determines the number of
  * rows that are processed per iteration of inference in a single block. It
