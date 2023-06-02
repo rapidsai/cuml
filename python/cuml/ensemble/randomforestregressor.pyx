@@ -16,10 +16,14 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+    null_decorator
+)
 np = cpu_only_import('numpy')
-import nvtx
-from cuml.internals.safe_imports import gpu_only_import
+nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 rmm = gpu_only_import('rmm')
 
 from cuml.internals.array import CumlArray
@@ -398,7 +402,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message="fit RF-Regressor @randomforestregressor.pyx",
         domain="cuml_python")
     @generate_docstring()
@@ -517,10 +521,10 @@ class RandomForestRegressor(BaseRandomForestModel,
 
         self.handle.sync()
         # synchronous w/o a stream
-        del(X_m)
+        del X_m
         return preds
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message="predict RF-Regressor @randomforestclassifier.pyx",
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
@@ -580,7 +584,7 @@ class RandomForestRegressor(BaseRandomForestModel,
 
         return preds
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message="score RF-Regressor @randomforestclassifier.pyx",
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
@@ -658,8 +662,8 @@ class RandomForestRegressor(BaseRandomForestModel,
         if self.accuracy_metric == "r2":
             stats = r2_score(y_m, preds, handle=self.handle)
             self.handle.sync()
-            del(y_m)
-            del(preds_m)
+            del y_m
+            del preds_m
             return stats
 
         cdef handle_t* handle_ =\
@@ -695,8 +699,8 @@ class RandomForestRegressor(BaseRandomForestModel,
             stats = self.temp_stats['mean_squared_error']
 
         self.handle.sync()
-        del(y_m)
-        del(preds_m)
+        del y_m
+        del preds_m
         return stats
 
     def get_summary_text(self):

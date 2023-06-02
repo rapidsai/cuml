@@ -17,6 +17,7 @@
 # Please install UMAP before running the code
 # use 'conda install -c conda-forge umap-learn' command to install it
 
+import platform
 import pytest
 import copy
 import joblib
@@ -45,6 +46,9 @@ cupyx = gpu_only_import("cupyx")
 scipy_sparse = cpu_only_import("scipy.sparse")
 
 
+IS_ARM = platform.processor() == "aarch64"
+
+
 dataset_names = ["iris", "digits", "wine", "blobs"]
 
 
@@ -71,6 +75,9 @@ def test_blobs_cluster(nrows, n_feats):
 )
 @pytest.mark.parametrize(
     "n_feats", [unit_param(10), quality_param(100), stress_param(1000)]
+)
+@pytest.mark.skipif(
+    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
 )
 def test_umap_fit_transform_score(nrows, n_feats):
 
@@ -243,6 +250,9 @@ def test_umap_transform_on_digits(target_metric):
 
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
 @pytest.mark.parametrize("name", dataset_names)
+@pytest.mark.skipif(
+    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
+)
 def test_umap_fit_transform_trust(name, target_metric):
 
     if name == "iris":
@@ -285,6 +295,9 @@ def test_umap_fit_transform_trust(name, target_metric):
 @pytest.mark.parametrize("n_feats", [quality_param(100), stress_param(1000)])
 @pytest.mark.parametrize("should_downcast", [True])
 @pytest.mark.parametrize("input_type", ["dataframe", "ndarray"])
+@pytest.mark.skipif(
+    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
+)
 def test_umap_data_formats(
     input_type, should_downcast, nrows, n_feats, name, target_metric
 ):
@@ -311,6 +324,9 @@ def test_umap_data_formats(
 
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
 @pytest.mark.filterwarnings("ignore:(.*)connected(.*):UserWarning:sklearn[.*]")
+@pytest.mark.skipif(
+    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
+)
 def test_umap_fit_transform_score_default(target_metric):
 
     n_samples = 500
@@ -503,6 +519,9 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
 
 
 @pytest.mark.filterwarnings("ignore:(.*)zero(.*)::scipy[.*]|umap[.*]")
+@pytest.mark.skipif(
+    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
+)
 def test_exp_decay_params():
     def compare_exp_decay_params(a=None, b=None, min_dist=0.1, spread=1.0):
         cuml_model = cuUMAP(a=a, b=b, min_dist=min_dist, spread=spread)
@@ -623,6 +642,9 @@ def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
 @pytest.mark.parametrize("n_rows", [200, 800])
 @pytest.mark.parametrize("n_features", [8, 32])
 @pytest.mark.parametrize("n_neighbors", [8, 16])
+@pytest.mark.skipif(
+    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
+)
 def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
     n_clusters = 30
     random_state = 42
@@ -666,6 +688,9 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
         "canberra",
     ],
 )
+@pytest.mark.skipif(
+    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
+)
 def test_umap_distance_metrics_fit_transform_trust(metric):
     data, labels = make_blobs(
         n_samples=1000, n_features=64, centers=5, random_state=42
@@ -707,6 +732,9 @@ def test_umap_distance_metrics_fit_transform_trust(metric):
         "hamming",
         "canberra",
     ],
+)
+@pytest.mark.skipif(
+    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
 )
 def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(metric):
     data, labels = make_blobs(

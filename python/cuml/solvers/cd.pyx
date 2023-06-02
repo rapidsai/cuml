@@ -348,7 +348,7 @@ class CD(Base,
 
         self.handle.sync()
 
-        del(X_m)
+        del X_m
 
         return preds
 

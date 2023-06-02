@@ -218,7 +218,7 @@ class KMeansMG(KMeans):
                                                     sample_weight=sample_weight), order='C',
                                                     convert_to_dtype=self.dtype)
 
-        del(X_m)
+        del X_m
         free(params)
 
         return self

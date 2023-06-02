@@ -16,9 +16,13 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import_from,
+    null_decorator
+)
 np = cpu_only_import('numpy')
-import nvtx
+nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -453,7 +457,7 @@ class ARIMA(Base):
             return "ARIMA({},{},{}) ({}) - {} series".format(
                 order.p, order.d, order.q, intercept_str, self.batch_size)
 
-    @nvtx.annotate(message="tsa.arima.ARIMA._ic", domain="cuml_python")
+    @nvtx_annotate(message="tsa.arima.ARIMA._ic", domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
     def _ic(self, ic_type: str):
         """Wrapper around C++ information_criterion
@@ -739,7 +743,7 @@ class ARIMA(Base):
                     d_lower,
                     d_upper)
 
-    @nvtx.annotate(message="tsa.arima.ARIMA.forecast", domain="cuml_python")
+    @nvtx_annotate(message="tsa.arima.ARIMA.forecast", domain="cuml_python")
     @cuml.internals.api_base_return_generic_skipall
     def forecast(
         self,
@@ -811,7 +815,7 @@ class ARIMA(Base):
         if not hasattr(self, "sigma2_"):
             self.sigma2_ = CumlArray.empty(self.batch_size, np.float64)
 
-    @nvtx.annotate(message="tsa.arima.ARIMA._estimate_x0",
+    @nvtx_annotate(message="tsa.arima.ARIMA._estimate_x0",
                    domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
     def _estimate_x0(self):
@@ -931,7 +935,7 @@ class ARIMA(Base):
         self.unpack(self._batched_transform(x))
         return self
 
-    @nvtx.annotate(message="tsa.arima.ARIMA._loglike", domain="cuml_python")
+    @nvtx_annotate(message="tsa.arima.ARIMA._loglike", domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
     def _loglike(self, x, trans=True, method="ml", truncate=0):
         """Compute the batched log-likelihood for the given parameters.
@@ -994,7 +998,7 @@ class ARIMA(Base):
 
         return np.array(vec_loglike, dtype=np.float64)
 
-    @nvtx.annotate(message="tsa.arima.ARIMA._loglike_grad",
+    @nvtx_annotate(message="tsa.arima.ARIMA._loglike_grad",
                    domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
     def _loglike_grad(self, x, h=1e-8, trans=True, method="ml", truncate=0):
@@ -1112,7 +1116,7 @@ class ARIMA(Base):
 
         return np.array(vec_loglike, dtype=np.float64)
 
-    @nvtx.annotate(message="tsa.arima.ARIMA.unpack", domain="cuml_python")
+    @nvtx_annotate(message="tsa.arima.ARIMA.unpack", domain="cuml_python")
     def unpack(self, x: Union[list, np.ndarray]):
         """Unpack linearized parameter vector `x` into the separate
         parameter arrays of the model
@@ -1137,7 +1141,7 @@ class ARIMA(Base):
         cpp_unpack(handle_[0], cpp_params, order, <int> self.batch_size,
                    <double*>d_x_ptr)
 
-    @nvtx.annotate(message="tsa.arima.ARIMA.pack", domain="cuml_python")
+    @nvtx_annotate(message="tsa.arima.ARIMA.pack", domain="cuml_python")
     def pack(self) -> np.ndarray:
         """Pack parameters of the model into a linearized vector `x`
 
@@ -1161,7 +1165,7 @@ class ARIMA(Base):
 
         return d_x_array.to_output("numpy")
 
-    @nvtx.annotate(message="tsa.arima.ARIMA._batched_transform",
+    @nvtx_annotate(message="tsa.arima.ARIMA._batched_transform",
                    domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
     def _batched_transform(self, x, isInv=False):

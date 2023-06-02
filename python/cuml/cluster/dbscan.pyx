@@ -341,7 +341,7 @@ class DBSCAN(Base,
         # make sure that the `fit` is complete before the following
         # delete call happens
         self.handle.sync()
-        del(X_m)
+        del X_m
 
         # Finally, resize the core_sample_indices array if necessary
         if self.calc_core_sample_indices:

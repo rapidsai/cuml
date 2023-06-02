@@ -441,7 +441,7 @@ class SGD(Base,
 
         self.handle.sync()
 
-        del(X_m)
+        del X_m
 
         return preds
 
@@ -488,7 +488,7 @@ class SGD(Base,
 
         self.handle.sync()
 
-        del(X_m)
+        del X_m
 
         return preds
 

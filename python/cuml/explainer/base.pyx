@@ -289,7 +289,7 @@ class SHAPBase():
             )
 
         if free_synth_data and getattr(self, "synth_data", None) is not None:
-            del(self._synth_data)
+            del self._synth_data
 
         if return_as_list:
             shap_values = output_list_shap_values(

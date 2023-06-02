@@ -366,8 +366,8 @@ class KMeans(Base,
                             ' passed.')
 
         self.handle.sync()
-        del(X_m)
-        del(sample_weight_m)
+        del X_m
+        del sample_weight_m
         free(params)
         return self
 
@@ -510,8 +510,8 @@ class KMeans(Base,
                             ' passed.')
 
         self.handle.sync()
-        del(X_m)
-        del(sample_weight_m)
+        del X_m
+        del sample_weight_m
         free(params)
         return labels_, inertia
 
@@ -615,7 +615,7 @@ class KMeans(Base,
 
         self.handle.sync()
 
-        del(X_m)
+        del X_m
         free(params)
         return preds
 
