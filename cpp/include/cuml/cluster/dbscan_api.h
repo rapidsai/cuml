@@ -68,7 +68,7 @@ cumlError_t cumlDpDbscanFit(cumlHandle_t handle,
 
 /**
  * @defgroup DbscanC C-wrapper to C++ implementation of Dbscan algo
- * @brief Fits a DBSCAN model on an input feature matrix and outputs the labels.
+ * @brief Multi Group DBSCAN
  * @param[in] handle cuml handle to use across the algorithm
  * @param[in] input row-major and concatenated input feature matrixes from different groups
  * @param[in] n_groups number of groups of multiple input feature matrixes

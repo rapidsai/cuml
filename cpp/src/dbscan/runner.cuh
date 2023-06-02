@@ -338,8 +338,6 @@ std::size_t run(const raft::handle_t& handle,
  * @tparam opg Whether we are running in a multi-node multi-GPU context (disabled for now)
  * @param[in]  handle       raft handle
  * @param[in]  x            Input data (N*D row-major device array)
- * @param[in]  N            Number of the concatenated and padding points
- * @param[in]  D            Dimensionality of the concatenated and padding points
  * @param[in]  n_groups     Number of individual groups
  * @param[in]  n_rows_ptr   Pointer to the numbers of samples
  * @param[in]  n_cols       Number of features
@@ -461,10 +459,8 @@ std::size_t run(const raft::handle_t& handle,
   Metadata::VertexDegAccessor<Index_, Index_> vd_ac(&mgrp_metadata, vd);
   Metadata::AdjGraphAccessor<bool, Index_> adj_ac(&mgrp_metadata, adj);
   Metadata::CorePointAccessor<bool, Index_> corepts_ac(&mgrp_metadata, core_pts);
-  RAFT_CUDA_TRY(
-    cudaMemcpyAsync(eps2_ptr, eps_ptr, n_groups * sizeof(Type_f), cudaMemcpyHostToDevice, stream));
-  RAFT_CUDA_TRY(cudaMemcpyAsync(
-    min_pts2_ptr, min_pts_ptr, n_groups * sizeof(Index_), cudaMemcpyHostToDevice, stream));
+  raft::copy(eps2_ptr, eps_ptr, n_groups, stream);
+  raft::copy( min_pts2_ptr, min_pts_ptr, n_groups,  stream));
   RAFT_CUDA_TRY(cudaMemsetAsync(adj, 0, adj_size + core_pts_size + vd_size, stream));
   adj_ac.initialize(handle, adjac_buffer, adjac_size, stream);
   corepts_ac.initialize(handle, cptac_buffer, cptac_size, stream);
@@ -473,7 +469,7 @@ std::size_t run(const raft::handle_t& handle,
   // Compute the vertex degree
   CUML_LOG_DEBUG("--> Computing vertex degrees");
   raft::common::nvtx::push_range("Trace::Dbscan::VertexDeg");
-  Multigroups::VertexDeg::run<Type_f, Index_>(
+  Multigroups::VertexDeg::launcher<Type_f, Index_>(
     handle, adj_ac, vd_ac, pts_ac, eps2_ptr, algo_vd, stream, metric);
   raft::common::nvtx::pop_range();
 

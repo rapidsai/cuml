@@ -242,7 +242,7 @@ void mgrp_dbscan_scheduler(size_t max_mbytes_per_dispatch,
       if (!group.empty()) {
         grouped_row_ids.emplace_back(std::move(group));
         group.clear();
-        accum_est_mem = 0;
+        accum_est_mem = est_mem;
       }
     }
     group.emplace_back(i);

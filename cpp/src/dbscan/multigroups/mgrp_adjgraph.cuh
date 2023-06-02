@@ -25,7 +25,7 @@ namespace Multigroups {
 namespace AdjGraph {
 
 template <typename Index_ = int>
-void launcher(const raft::handle_t& handle,
+void run(const raft::handle_t& handle,
               Metadata::AdjGraphAccessor<bool, Index_>& adj_ac,
               const Metadata::VertexDegAccessor<Index_, Index_>& vd_ac,
               Index_* adj_graph,
@@ -47,27 +47,6 @@ void launcher(const raft::handle_t& handle,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-template <typename Index_ = int>
-void run(const raft::handle_t& handle,
-         Metadata::AdjGraphAccessor<bool, Index_>& adj_ac,
-         const Metadata::VertexDegAccessor<Index_, Index_>& vd_ac,
-         Index_* adj_graph,
-         Index_ adjnnz,
-         Index_* ex_scan,
-         int algo,
-         Index_* row_counters,
-         cudaStream_t stream)
-{
-  switch (algo) {
-    case 0:
-      ASSERT(
-        false, "Incorrect algo '%d' passed! Naive version of adjgraph has been removed.", algo);
-    case 1:
-      launcher<Index_>(handle, adj_ac, vd_ac, adj_graph, adjnnz, ex_scan, row_counters, stream);
-      break;
-    default: ASSERT(false, "Incorrect algo passed! '%d'", algo);
-  }
-}
 
 }  // namespace AdjGraph
 }  // namespace Multigroups

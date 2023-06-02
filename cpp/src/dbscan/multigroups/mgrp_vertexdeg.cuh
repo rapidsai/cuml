@@ -110,7 +110,7 @@ void launcher(const raft::handle_t& handle,
 
     // 1. The output matrix adj is now an n x m matrix (row-major order)
     // 2. Do not compute the vertex degree in epsUnexpL2SqNeighborhood (pass a
-    // nullptr)
+    // calc_vd = false
     EpsNeighborhood::MultiGroupEpsUnexpL2SqNeighborhood<value_t, index_t>(
       adj_ac, vd_ac, x_ac, x_ac, eps, false, stream);
   }
@@ -143,29 +143,6 @@ void launcher(const raft::handle_t& handle,
     });
 }
 
-template <typename Type_f, typename Index_ = int>
-void run(const raft::handle_t& handle,
-         Metadata::AdjGraphAccessor<bool, Index_>& adj_ac,
-         Metadata::VertexDegAccessor<Index_, Index_>& vd_ac,
-         const Metadata::PointAccessor<Type_f, Index_>& x_ac,
-         Type_f* eps,
-         int algo,
-         cudaStream_t stream,
-         raft::distance::DistanceType metric)
-{
-  switch (algo) {
-    case 0:
-      ASSERT(
-        false, "Incorrect algo '%d' passed! Naive version of vertexdeg has been removed.", algo);
-    case 1: launcher<Type_f, Index_>(handle, adj_ac, vd_ac, x_ac, eps, stream, metric); break;
-    case 2:
-      ASSERT(false,
-             "Incorrect algo '%d' passed! Precomputed version of vertexdeg is not supported for "
-             "multi-groups vertexdeg.",
-             algo);
-    default: ASSERT(false, "Incorrect algo passed! '%d'", algo);
-  }
-}
 
 }  // namespace VertexDeg
 }  // namespace Multigroups
