@@ -53,14 +53,13 @@ namespace HDBSCAN {
  * @tparam value_t
  */
 template <typename value_idx, typename value_t>
-  struct FixConnectivitiesRedOp {
+struct FixConnectivitiesRedOp {
   value_t* core_dists;
   value_idx m;
 
   DI FixConnectivitiesRedOp() : m(0) {}
 
-  FixConnectivitiesRedOp(value_t* core_dists_, value_idx m_)
-    : core_dists(core_dists_), m(m_) {};
+  FixConnectivitiesRedOp(value_t* core_dists_, value_idx m_) : core_dists(core_dists_), m(m_){};
 
   typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
   DI void operator()(value_idx rit, KVP* out, const KVP& other) const
@@ -117,16 +116,25 @@ template <typename value_idx, typename value_t>
   void gather(const raft::resources& handle, value_idx* map)
   {
     auto tmp_core_dists = raft::make_device_vector<value_t>(handle, m);
-    thrust::gather(raft::resource::get_thrust_policy(handle), map, map + m, core_dists, tmp_core_dists.data_handle());
-    raft::copy_async(core_dists, tmp_core_dists.data_handle(), m, raft::resource::get_cuda_stream(handle));
+    thrust::gather(raft::resource::get_thrust_policy(handle),
+                   map,
+                   map + m,
+                   core_dists,
+                   tmp_core_dists.data_handle());
+    raft::copy_async(
+      core_dists, tmp_core_dists.data_handle(), m, raft::resource::get_cuda_stream(handle));
   }
 
   void scatter(const raft::resources& handle, value_idx* map)
   {
     auto tmp_core_dists = raft::make_device_vector<value_t>(handle, m);
-    thrust::scatter(
-      raft::resource::get_thrust_policy(handle), core_dists, core_dists + m, map, tmp_core_dists.data_handle());
-    raft::copy_async(core_dists, tmp_core_dists.data_handle(), m, raft::resource::get_cuda_stream(handle));
+    thrust::scatter(raft::resource::get_thrust_policy(handle),
+                    core_dists,
+                    core_dists + m,
+                    map,
+                    tmp_core_dists.data_handle());
+    raft::copy_async(
+      core_dists, tmp_core_dists.data_handle(), m, raft::resource::get_cuda_stream(handle));
   }
 };
 
