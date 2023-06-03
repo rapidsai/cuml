@@ -25,6 +25,8 @@ from cuml.internals.safe_imports import (
     null_decorator,
     UnavailableError,
 )
+from collections import namedtuple
+
 
 cpx_sparse = gpu_only_import("cupyx.scipy.sparse")
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
@@ -40,6 +42,11 @@ try:
 except UnavailableError:
     pass
 sparse_matrix_classes = tuple(sparse_matrix_classes)
+
+SparseCumlArrayInput = namedtuple(
+    "SparseCumlArrayInput",
+    ["indptr", "indices", "data", "nnz", "dtype", "shape"],
+)
 
 
 @class_with_cupy_rmm()
@@ -99,39 +106,42 @@ class SparseCumlArray:
         convert_index=None,
         convert_format=True,
     ):
-        is_sparse = False
-        try:
-            is_sparse = cpx_sparse.isspmatrix(data)
-            from_mem_type = MemoryType.device
-        except UnavailableError:
-            pass
-        if not is_sparse:
+        if not isinstance(data, SparseCumlArrayInput):
+            is_sparse = False
             try:
-                is_sparse = scipy_sparse.isspmatrix(data)
-                from_mem_type = MemoryType.host
+                is_sparse = cpx_sparse.isspmatrix(data)
+                from_mem_type = MemoryType.device
             except UnavailableError:
                 pass
-        if not is_sparse:
-            raise ValueError(
-                "A sparse matrix is expected as input. "
-                "Received %s" % type(data)
-            )
-
-        if not isinstance(data, sparse_matrix_classes):
-            if convert_format:
-                debug(
-                    "Received sparse matrix in {} format but CSR is "
-                    "expected. Data will be converted to CSR, but this "
-                    "will require additional memory copies. If this "
-                    "conversion is not desired, set "
-                    "set_convert_format=False to raise an exception "
-                    "instead.".format(type(data))
-                )
-                data = data.tocsr()  # currently only CSR is supported
-            else:
+            if not is_sparse:
+                try:
+                    is_sparse = scipy_sparse.isspmatrix(data)
+                    from_mem_type = MemoryType.host
+                except UnavailableError:
+                    pass
+            if not is_sparse:
                 raise ValueError(
-                    "Expected CSR matrix but received {}".format(type(data))
+                    "A sparse matrix is expected as input. "
+                    "Received %s" % type(data)
                 )
+
+            if not isinstance(data, sparse_matrix_classes):
+                if convert_format:
+                    debug(
+                        "Received sparse matrix in {} format but CSR is "
+                        "expected. Data will be converted to CSR, but this "
+                        "will require additional memory copies. If this "
+                        "conversion is not desired, set "
+                        "set_convert_format=False to raise an exception "
+                        "instead.".format(type(data))
+                    )
+                    data = data.tocsr()  # currently only CSR is supported
+                else:
+                    raise ValueError(
+                        "Expected CSR matrix but received {}".format(
+                            type(data)
+                        )
+                    )
 
         if not convert_to_dtype:
             convert_to_dtype = data.dtype

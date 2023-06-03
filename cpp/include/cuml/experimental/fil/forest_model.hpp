@@ -121,6 +121,8 @@ struct forest_model {
    * @param[in] predict_type Type of inference to perform. Defaults to summing
    * the outputs of all trees and produce an output per row. If set to
    * "per_tree", we will instead output all outputs of individual trees.
+   * If set to "leaf_id", we will output the integer ID of the leaf node
+   * for each tree.
    * @param[in] specified_chunk_size: Specifies the mini-batch size for
    * processing. This has different meanings on CPU and GPU, but on GPU it
    * corresponds to the number of rows evaluated per inference iteration
@@ -167,6 +169,8 @@ struct forest_model {
    * @param[in] predict_type Type of inference to perform. Defaults to summing
    * the outputs of all trees and produce an output per row. If set to
    * "per_tree", we will instead output all outputs of individual trees.
+   * If set to "leaf_id", we will output the integer ID of the leaf node
+   * for each tree.
    * @param[in] specified_chunk_size: Specifies the mini-batch size for
    * processing. This has different meanings on CPU and GPU, but on GPU it
    * corresponds to the number of rows evaluated per inference iteration
@@ -264,6 +268,8 @@ struct forest_model {
    * @param[in] predict_type Type of inference to perform. Defaults to summing
    * the outputs of all trees and produce an output per row. If set to
    * "per_tree", we will instead output all outputs of individual trees.
+   * If set to "leaf_id", we will output the integer ID of the leaf node
+   * for each tree.
    * @param[in] specified_chunk_size: Specifies the mini-batch size for
    * processing. This has different meanings on CPU and GPU, but on GPU it
    * corresponds to the number of rows evaluated per inference iteration
