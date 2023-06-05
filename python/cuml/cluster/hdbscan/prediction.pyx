@@ -147,13 +147,9 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
 
     batch_size : int, optional, default=min(4096, n_rows)
         Lowers memory requirement by computing distance-based membership
-        in smaller batches of points in the training data. A batch size
-        of 1000 computes distance based memberships for 1000 points at a
-        time. The default batch size is 4096. If the number of rows in
-        the training data is less than 4096, this defaults to the
-        number of rows. If a batch size larger than the number of rows in
-        the training data is passed, the batch size used is the number
-        of rows.
+        in smaller batches of points in the training data. For example, a batch
+        size of 1,000 computes distance based memberships for 1,000 points at a
+        time. The default batch size is 4,096.
 
     Returns
     -------
@@ -163,7 +159,7 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
     """
 
     if batch_size <= 0:
-        raise ValueError("batch_size should be in integer that is > 0")
+        raise ValueError("batch_size  must be > 0")
 
     device_type = cuml.global_settings.device_type
 
@@ -257,13 +253,9 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
     
     batch_size : int, optional, default=min(4096, n_points_to_predict)
         Lowers memory requirement by computing distance-based membership
-        in smaller batches of points in the prediction data. A batch size
-        of 1000 computes distance based memberships for 1000 points at a
-        time. The default batch_size is 4096. If the number of rows in
-        the prediction data is less than 4096, this defaults to the
-        number of rows. If a batch size larger than the number of rows in
-        the prediction data is passed, the batch size used is the number
-        of rows in the prediction data.
+        in smaller batches of points in the prediction data. For example, a
+        batch size of 1,000 computes distance based memberships for 1,000
+        points at a time. The default batch size is 4,096.
 
     Returns
     -------
@@ -308,7 +300,7 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
                          "prediction_data=True")
 
     if batch_size <= 0:
-        raise ValueError("batch_size should be in integer that is > 0")
+        raise ValueError("batch_size  must be > 0")
 
     points_to_predict_m, n_prediction_points, n_cols, _ = \
         input_to_cuml_array(points_to_predict, order='C',
