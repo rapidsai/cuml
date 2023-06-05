@@ -159,7 +159,7 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
     """
 
     if batch_size <= 0:
-        raise ValueError("batch_size  must be > 0")
+        raise ValueError("batch_size must be > 0")
 
     device_type = cuml.global_settings.device_type
 
@@ -300,7 +300,7 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
                          "prediction_data=True")
 
     if batch_size <= 0:
-        raise ValueError("batch_size  must be > 0")
+        raise ValueError("batch_size must be > 0")
 
     points_to_predict_m, n_prediction_points, n_cols, _ = \
         input_to_cuml_array(points_to_predict, order='C',
