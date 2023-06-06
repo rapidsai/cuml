@@ -19,7 +19,6 @@ from sklearn.manifold import trustworthiness as sklearn_trustworthiness
 from cuml.metrics import trustworthiness as cuml_trustworthiness
 
 from sklearn.datasets import make_blobs
-from umap import UMAP
 
 from cuml.internals.safe_imports import gpu_only_import
 
@@ -28,6 +27,9 @@ np = cpu_only_import("numpy")
 
 
 IS_ARM = platform.processor() == "aarch64"
+
+if not IS_ARM:
+    from umap import UMAP
 
 
 @pytest.mark.parametrize("input_type", ["ndarray", "dataframe"])

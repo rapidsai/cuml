@@ -17,12 +17,9 @@ import platform
 from cuml.manifold.umap import (
     simplicial_set_embedding as cu_simplicial_set_embedding,
 )
-from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
 from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
-from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
 from cuml.neighbors import NearestNeighbors
 from cuml.manifold.umap import UMAP
-import umap.distances as dist
 from cuml.internals.safe_imports import gpu_only_import
 import pytest
 from cuml.datasets import make_blobs
@@ -33,6 +30,13 @@ cp = gpu_only_import("cupy")
 
 
 IS_ARM = platform.processor() == "aarch64"
+
+if not IS_ARM:
+    from umap.umap_ import (
+        simplicial_set_embedding as ref_simplicial_set_embedding,
+    )
+    from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
+    import umap.distances as dist
 
 
 def correctness_dense(a, b, rtol=0.1, threshold=0.95):
