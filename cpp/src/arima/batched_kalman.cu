@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1624,12 +1624,12 @@ void batched_jones_transform(raft::handle_t& handle,
   double* d_params            = arima_mem.d_params;
   double* d_Tparams           = arima_mem.d_Tparams;
   ARIMAParams<double> params  = {arima_mem.params_mu,
-                                arima_mem.params_beta,
-                                arima_mem.params_ar,
-                                arima_mem.params_ma,
-                                arima_mem.params_sar,
-                                arima_mem.params_sma,
-                                arima_mem.params_sigma2};
+                                 arima_mem.params_beta,
+                                 arima_mem.params_ar,
+                                 arima_mem.params_ma,
+                                 arima_mem.params_sar,
+                                 arima_mem.params_sma,
+                                 arima_mem.params_sigma2};
   ARIMAParams<double> Tparams = {params.mu,
                                  params.beta,
                                  arima_mem.Tparams_ar,

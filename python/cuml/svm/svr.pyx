@@ -28,7 +28,9 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
+from cuml.internals.input_utils import determine_array_type_full
 from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.metrics import r2_score
@@ -63,43 +65,48 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         SvmType svmType
 
 cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
+
+    cdef cppclass SupportStorage[math_t]:
+        int nnz;
+        int* indptr;
+        int* indices;
+        math_t* data;
+    
     cdef cppclass SvmModel[math_t]:
         # parameters of a fitted model
         int n_support
         int n_cols
         math_t b
         math_t *dual_coefs
-        math_t *x_support
+        SupportStorage[math_t] support_matrix
         int *support_idx
         int n_classes
         math_t *unique_labels
 
-cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
-
-    cdef void svcFit[math_t](const handle_t &handle, math_t *input,
-                             int n_rows, int n_cols, math_t *labels,
-                             const SvmParameter &param,
-                             KernelParams &kernel_params,
-                             SvmModel[math_t] &model,
-                             const math_t *sample_weight) except+
-
-    cdef void svcPredict[math_t](
-        const handle_t &handle, math_t *input, int n_rows, int n_cols,
-        KernelParams &kernel_params, const SvmModel[math_t] &model,
-        math_t *preds, math_t buffer_size, bool predict_class) except +
-
-    cdef void svmFreeBuffers[math_t](const handle_t &handle,
-                                     SvmModel[math_t] &m) except +
-
 cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM" nogil:
 
-    cdef void svrFit[math_t](const handle_t &handle, math_t *X,
-                             int n_rows, int n_cols, math_t *y,
+    cdef void svrFit[math_t](const handle_t &handle, 
+                             math_t* data, 
+                             int n_rows,
+                             int n_cols,
+                             math_t *y,
                              const SvmParameter &param,
                              KernelParams &kernel_params,
                              SvmModel[math_t] &model,
                              const math_t *sample_weight) except+
 
+    cdef void svrFitSparse[math_t](const handle_t &handle, 
+                                   int* indptr, 
+                                   int* indices, 
+                                   math_t* data, 
+                                   int n_rows,
+                                   int n_cols,
+                                   int nnz,
+                                   math_t *y,
+                                   const SvmParameter &param,
+                                   KernelParams &kernel_params,
+                                   SvmModel[math_t] &model,
+                                   const math_t *sample_weight) except+
 
 class SVR(SVMBase, RegressorMixin):
     """
@@ -251,11 +258,18 @@ class SVR(SVMBase, RegressorMixin):
         Fit the model with X and y.
 
         """
-        cdef uintptr_t X_ptr, y_ptr
-
-        X_m, self.n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X, order='F')
-        X_ptr = X_m.ptr
+        # we need to check whether out input X is sparse 
+        # In that case we don't want to make a dense copy
+        array_type, is_sparse = determine_array_type_full(X)
+        
+        if is_sparse:
+            X_m = SparseCumlArray(X)
+            self.n_rows = X_m.shape[0]
+            self.n_cols = X_m.shape[1]
+            self.dtype = X_m.dtype
+        else:
+            X_m, self.n_rows, self.n_cols, self.dtype = \
+                input_to_cuml_array(X, order='F')
 
         convert_to_dtype = self.dtype if convert_dtype else None
         y_m, _, _, _ = \
@@ -263,7 +277,7 @@ class SVR(SVMBase, RegressorMixin):
                                 convert_to_dtype=convert_to_dtype,
                                 check_rows=self.n_rows, check_cols=1)
 
-        y_ptr = y_m.ptr
+        cdef uintptr_t y_ptr = y_m.ptr
 
         cdef uintptr_t sample_weight_ptr = <uintptr_t> nullptr
         if sample_weight is not None:
@@ -282,17 +296,36 @@ class SVR(SVMBase, RegressorMixin):
         cdef SvmModel[double] *model_d
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
+        cdef int n_rows = self.n_rows
+        cdef int n_cols = self.n_cols
+        cdef int n_nnz = X_m.nnz if is_sparse else self.n_rows * self.n_cols 
+        cdef uintptr_t X_indptr = X_m.indptr.ptr if is_sparse else X_m.ptr 
+        cdef uintptr_t X_indices = X_m.indices.ptr if is_sparse else X_m.ptr 
+        cdef uintptr_t X_data = X_m.data.ptr if is_sparse else X_m.ptr 
+
         if self.dtype == np.float32:
             model_f = new SvmModel[float]()
-            svrFit(handle_[0], <float*>X_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <float*>y_ptr, param, _kernel_params,
-                   model_f[0], <float*>sample_weight_ptr)
+            if is_sparse:
+                svrFitSparse(handle_[0], <int*>X_indptr, <int*>X_indices, 
+                        <float*>X_data, n_rows, n_cols, n_nnz,
+                        <float*>y_ptr, param, _kernel_params,
+                        model_f[0], <float*>sample_weight_ptr)
+            else:
+                svrFit(handle_[0], <float*>X_data, n_rows, n_cols,
+                        <float*>y_ptr, param, _kernel_params,
+                        model_f[0], <float*>sample_weight_ptr)
             self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
             model_d = new SvmModel[double]()
-            svrFit(handle_[0], <double*>X_ptr, <int>self.n_rows,
-                   <int>self.n_cols, <double*>y_ptr, param, _kernel_params,
-                   model_d[0], <double*>sample_weight_ptr)
+            if is_sparse:
+                svrFitSparse(handle_[0], <int*>X_indptr, <int*>X_indices, 
+                        <double*>X_data, n_rows, n_cols, n_nnz,
+                        <double*>y_ptr, param, _kernel_params,
+                        model_d[0], <double*>sample_weight_ptr)
+            else:
+                svrFit(handle_[0], <double*>X_data, n_rows, n_cols,
+                        <double*>y_ptr, param, _kernel_params,
+                        model_d[0], <double*>sample_weight_ptr)
             self._model = <uintptr_t>model_d
         else:
             raise TypeError('Input data type should be float32 or float64')

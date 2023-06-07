@@ -15,6 +15,8 @@
 
 from cuml.internals.mixins import ClassifierMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
+from cuml.svm.svc import apply_class_weight
+
 
 __all__ = ["LinearSVC"]
 
@@ -76,6 +78,10 @@ class LinearSVC(LinearSVM, ClassifierMixin):
             } (default = {LinearSVM_defaults.lbfgs_memory})
         Number of vectors approximating the hessian for the underlying QN
         solver (l-bfgs).
+    class_weight : dict or string (default=None)
+        Weights to modify the parameter C for class i to class_weight[i]*C. The
+        string 'balanced' is also accepted, in which case ``class_weight[i] =
+        n_samples / (n_classes * n_samples_of_class[i])``
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -171,6 +177,7 @@ class LinearSVC(LinearSVM, ClassifierMixin):
         return list(
             {
                 "handle",
+                "class_weight",
                 "verbose",
                 "penalty",
                 "loss",
@@ -186,3 +193,15 @@ class LinearSVC(LinearSVM, ClassifierMixin):
                 "multi_class",
             }.union(super().get_param_names())
         )
+
+    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "LinearSVM":
+        sample_weight = apply_class_weight(
+            self.handle,
+            sample_weight,
+            self.class_weight,
+            y,
+            self.verbose,
+            self.output_type,
+            X.dtype,
+        )
+        return super(LinearSVC, self).fit(X, y, sample_weight, convert_dtype)

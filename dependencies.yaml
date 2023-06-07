@@ -91,10 +91,10 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - libcumlprims==23.4.*
-          - libraft==23.4.*
-          - libraft-headers==23.4.*
-          - librmm==23.4.*
+          - libcumlprims==23.6.*
+          - libraft==23.6.*
+          - libraft-headers==23.6.*
+          - librmm==23.6.*
     specific:
       - output_types: conda
         matrices:
@@ -113,11 +113,11 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cuda-python>=11.7.1,<12.0
-          - scikit-build>=0.13.1
+          - scikit-build>=0.13.1,<0.17.2
           - cython>=0.29,<0.30
           - &treelite treelite==3.2.0
-          - pylibraft==23.4.*
-          - rmm==23.4.*
+          - pylibraft==23.6.*
+          - rmm==23.6.*
       - output_types: pyproject
         packages:
           - wheel
@@ -127,37 +127,36 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cudf==23.4.*
+          - cudf==23.6.*
           - dask==2023.3.2
-          - dask-cuda==23.4.*
-          - dask-cudf==23.4.*
+          - dask-cuda==23.6.*
+          - dask-cudf==23.6.*
           - distributed==2023.3.2.1
           - joblib>=0.11
-          - numba
-            # TODO: Are seaborn and scipy really hard dependencies, or should
-            # we make them optional (i.e. an extra for pip
+            # TODO: Is scipy really a hard dependency, or should
+            # we make it optional (i.e. an extra for pip
+          - numba>=0.57
             # installation/run_constrained for conda)?
-          - seaborn
           - scipy
-          - raft-dask==23.4.*
+          - raft-dask==23.6.*
           - *treelite
       - output_types: [conda, requirements]
         packages:
-          - cupy>=9.5.0,<12.0.0a0
+          - cupy>=12.0.0
       - output_types: conda
         packages:
           - dask-core==2023.3.2
       - output_types: pyproject
         packages:
-          - &cupy_pip cupy-cuda11x>=9.5.0,<12.0.0a0
           - *treelite_runtime
+          - cupy-cuda11x>=12.0.0
     specific:
       - output_types: requirements
         matrices:
           - matrix:
               arch: x86_64
             packages:
-              - cupy-cuda115>=9.5.0,<12.0.0a0 # TODO: This might change to cupy-cuda11x?
+              - cupy-cuda115>=12.0.0
           - matrix:
               arch: aarch64
             packages:
@@ -247,10 +246,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              py: "3.8"
-            packages:
-              - python=3.8
-          - matrix:
               py: "3.9"
             packages:
               - python=3.9
@@ -260,7 +255,7 @@ dependencies:
               - python=3.10
           - matrix:
             packages:
-              - python>=3.8,<3.11
+              - python>=3.9,<3.11
   test_python:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -274,6 +269,7 @@ dependencies:
           - pytest-cases
           - pytest-cov
           - pytest-xdist
+          - seaborn
           - *scikit_learn
           - statsmodels
           - umap-learn==0.5.3
@@ -303,3 +299,4 @@ dependencies:
           - numpy
           - pandas
           - *scikit_learn
+          - seaborn

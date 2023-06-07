@@ -40,6 +40,7 @@
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -508,6 +509,27 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
   }
 
   return model;
+}
+
+template <typename T>
+void LinearSVMModel<T>::decisionFunction(const raft::handle_t& handle,
+                                         const LinearSVMParams& params,
+                                         const LinearSVMModel<T>& model,
+                                         const T* X,
+                                         const std::size_t nRows,
+                                         const std::size_t nCols,
+                                         T* out)
+{
+  ASSERT(!isRegression(params.loss), "Decision function is not available for the regression model");
+  predictLinear(handle,
+                X,
+                model.w,
+                nRows,
+                nCols,
+                model.coefCols(),
+                params.fit_intercept,
+                out,
+                handle.get_stream());
 }
 
 template <typename T>

@@ -15,19 +15,19 @@
  */
 #pragma once
 #include <cstddef>
-#include <optional>
 #include <cuml/experimental/fil/constants.hpp>
-#include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/detail/cpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/infer_kernel/cpu.hpp>
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
-#include <cuml/experimental/fil/detail/specializations/infer_macros.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
+#include <cuml/experimental/fil/detail/specializations/infer_macros.hpp>
+#include <cuml/experimental/fil/infer_kind.hpp>
+#include <optional>
 namespace ML {
 namespace experimental {
 namespace fil {
@@ -60,7 +60,8 @@ namespace inference {
  * data on categorical splits.
  * @param infer_type Type of inference to perform. Defaults to summing the outputs of all trees
  * and produce an output per row. If set to "per_tree", we will instead output all outputs of
- * individual trees.
+ * individual trees. If set to "leaf_id", we will output the integer ID of the leaf node
+ * for each tree.
  * @param specified_chunk_size If non-nullopt, the mini-batch size used for
  * processing rows in a batch. For CPU inference, this essentially determines
  * the granularity of parallelism. A larger chunk size means that a single
@@ -73,45 +74,60 @@ namespace inference {
  * (for individual row inference) to 512 (for very large batch
  * inference). A value of 64 is a generally-useful default.
  */
-template<
-  raft_proto::device_type D,
-  bool has_categorical_nodes,
-  typename forest_t,
-  typename vector_output_t=std::nullptr_t,
-  typename categorical_data_t=std::nullptr_t
->
-std::enable_if_t<std::disjunction_v<std::bool_constant<D==raft_proto::device_type::cpu>, std::bool_constant<!raft_proto::GPU_ENABLED>>, void> infer(
-  forest_t const& forest,
-  postprocessor<typename forest_t::io_type> const& postproc,
-  typename forest_t::io_type* output,
-  typename forest_t::io_type* input,
-  index_type row_count,
-  index_type col_count,
-  index_type output_count,
-  vector_output_t vector_output=nullptr,
-  categorical_data_t categorical_data=nullptr,
-  infer_kind infer_type=infer_kind::default_kind,
-  std::optional<index_type> specified_chunk_size=std::nullopt,
-  raft_proto::device_id<D> device=raft_proto::device_id<D>{},
-  raft_proto::cuda_stream=raft_proto::cuda_stream{}
-) {
-  if constexpr(D==raft_proto::device_type::gpu) {
+template <raft_proto::device_type D,
+          bool has_categorical_nodes,
+          typename forest_t,
+          typename vector_output_t    = std::nullptr_t,
+          typename categorical_data_t = std::nullptr_t>
+std::enable_if_t<std::disjunction_v<std::bool_constant<D == raft_proto::device_type::cpu>,
+                                    std::bool_constant<!raft_proto::GPU_ENABLED>>,
+                 void>
+infer(forest_t const& forest,
+      postprocessor<typename forest_t::io_type> const& postproc,
+      typename forest_t::io_type* output,
+      typename forest_t::io_type* input,
+      index_type row_count,
+      index_type col_count,
+      index_type output_count,
+      vector_output_t vector_output                  = nullptr,
+      categorical_data_t categorical_data            = nullptr,
+      infer_kind infer_type                          = infer_kind::default_kind,
+      std::optional<index_type> specified_chunk_size = std::nullopt,
+      raft_proto::device_id<D> device                = raft_proto::device_id<D>{},
+      raft_proto::cuda_stream                        = raft_proto::cuda_stream{})
+{
+  if constexpr (D == raft_proto::device_type::gpu) {
     throw raft_proto::gpu_unsupported("Tried to use GPU inference in CPU-only build");
   } else {
-    infer_kernel_cpu<has_categorical_nodes>(
-      forest,
-      postproc,
-      output,
-      input,
-      row_count,
-      col_count,
-      output_count,
-      specified_chunk_size.value_or(hardware_constructive_interference_size),
-      hardware_constructive_interference_size,
-      vector_output,
-      categorical_data,
-      infer_type
-    );
+    if (infer_type == infer_kind::leaf_id) {
+      infer_kernel_cpu<has_categorical_nodes, true>(
+        forest,
+        postproc,
+        output,
+        input,
+        row_count,
+        col_count,
+        output_count,
+        specified_chunk_size.value_or(hardware_constructive_interference_size),
+        hardware_constructive_interference_size,
+        vector_output,
+        categorical_data,
+        infer_type);
+    } else {
+      infer_kernel_cpu<has_categorical_nodes, false>(
+        forest,
+        postproc,
+        output,
+        input,
+        row_count,
+        col_count,
+        output_count,
+        specified_chunk_size.value_or(hardware_constructive_interference_size),
+        hardware_constructive_interference_size,
+        vector_output,
+        categorical_data,
+        infer_type);
+    }
   }
 }
 
@@ -129,9 +145,9 @@ CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 5)
 CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 6)
 CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 7)
 
-}
-}
-}
+}  // namespace inference
+}  // namespace detail
+}  // namespace fil
 
-}
-}
+}  // namespace experimental
+}  // namespace ML
