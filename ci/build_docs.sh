@@ -18,29 +18,30 @@ rapids-logger "Downloading artifacts from previous jobs"
 
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
-VERSION_NUMBER="23.08"
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   --channel "${PYTHON_CHANNEL}" \
   cuml libcuml
 
-# # Build CPP docs
-rapids-logger "Build cpp docs"
+export RAPIDS_VERSION_NUMBER="23.08"
+export RAPIDS_DOCS_DIR="$(mktemp -d)"
+
+rapids-logger "Build CPP docs"
 pushd cpp
 doxygen Doxyfile.in
+mkdir -p "${RAPIDS_DOCS_DIR}/libcuml/html"
+mv html/* "${RAPIDS_DOCS_DIR}/libcuml/html"
 popd
 
-# Build Python docs
 rapids-logger "Build Python docs"
 pushd docs
 sphinx-build -b dirhtml ./source _html -W
 sphinx-build -b text ./source _text -W
+mkdir -p "${RAPIDS_DOCS_DIR}/cuml/"{html,txt}
+mv _html/* "${RAPIDS_DOCS_DIR}/cuml/html"
+mv _text/* "${RAPIDS_DOCS_DIR}/cuml/txt"
 popd
 
-if [[ "${RAPIDS_BUILD_TYPE}" != "pull-request" ]]; then
-  rapids-logger "Upload Docs to S3"
-  aws s3 sync --no-progress --delete cpp/html "s3://rapidsai-docs/libcuml/${VERSION_NUMBER}/html"
-  aws s3 sync --no-progress --delete docs/_html "s3://rapidsai-docs/cuml/${VERSION_NUMBER}/html"
-  aws s3 sync --no-progress --delete docs/_text "s3://rapidsai-docs/cuml/${VERSION_NUMBER}/txt"
-fi
+rapids-upload-docs
+
