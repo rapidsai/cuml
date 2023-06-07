@@ -34,7 +34,6 @@ from cuml.internals.mem_type import MemoryType
 from cuml.decomposition import PCA, TruncatedSVD
 from cuml.common.device_selection import DeviceType, using_device_type
 from hdbscan import HDBSCAN as refHDBSCAN
-from umap import UMAP as refUMAP
 from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
 from sklearn.linear_model import Ridge as skRidge
 from sklearn.linear_model import ElasticNet as skElasticNet
@@ -60,6 +59,9 @@ cudf = gpu_only_import("cudf")
 
 
 IS_ARM = platform.processor() == "aarch64"
+
+if not IS_ARM:
+    from umap import UMAP as refUMAP
 
 
 def assert_membership_vectors(cu_vecs, sk_vecs):

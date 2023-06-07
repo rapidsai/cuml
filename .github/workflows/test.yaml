@@ -53,4 +53,4 @@ jobs:
       # On arm also need to install CMake because treelite needs to be compiled (no wheels available for arm).
       test-before-arm64: "pip install cmake && pip install git+https://github.com/dask/dask.git@2023.3.2 git+https://github.com/dask/distributed.git@2023.3.2.1 git+https://github.com/rapidsai/dask-cuda.git@branch-23.06"
       # parallelization is based on current test memory usage
-      test-unittest: "pytest ./python/cuml/tests -k 'not test_sparse_pca_inputs' -n 8 --ignore=python/cuml/tests/dask && pytest ./python/cuml/tests -k 'test_sparse_pca_inputs' && pytest ./python/cuml/tests/dask"
+      test-unittest: "python -m pytest ./python/cuml/tests -k 'not test_sparse_pca_inputs' -n 8 --ignore=python/cuml/tests/dask && python -m pytest ./python/cuml/tests -k 'test_sparse_pca_inputs' && python -m pytest ./python/cuml/tests/dask"
