@@ -70,8 +70,8 @@ Packages required for multigpu algorithms*:
 - ucx-py version matching the cuML version
 - dask-cudf version matching the cuML version
 - nccl>=2.5
-- dask>=2.12.0
-- distributed>=2.12.0
+- dask>=2023.5.1
+- distributed>=2023.5.1
 
 * this can be avoided with `--singlegpu` argument flag.
 
