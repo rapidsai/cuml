@@ -432,6 +432,7 @@ def all_algorithms():
             name="KNeighborsClassifier",
             accepts_labels=True,
             accuracy_function=cuml.metrics.accuracy_score,
+            bench_func=fit_predict,
         ),
         AlgorithmPair(
             sklearn.neighbors.KNeighborsRegressor,
@@ -441,6 +442,7 @@ def all_algorithms():
             name="KNeighborsRegressor",
             accepts_labels=True,
             accuracy_function=cuml.metrics.r2_score,
+            bench_func=fit_predict,
         ),
         AlgorithmPair(
             sklearn.naive_bayes.MultinomialNB,
