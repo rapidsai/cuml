@@ -21,7 +21,6 @@ import platform
 import pytest
 import copy
 import joblib
-import umap
 from sklearn.metrics import adjusted_rand_score
 from sklearn.manifold import trustworthiness
 from sklearn.datasets import make_blobs
@@ -47,6 +46,9 @@ scipy_sparse = cpu_only_import("scipy.sparse")
 
 
 IS_ARM = platform.processor() == "aarch64"
+
+if not IS_ARM:
+    import umap
 
 
 dataset_names = ["iris", "digits", "wine", "blobs"]
