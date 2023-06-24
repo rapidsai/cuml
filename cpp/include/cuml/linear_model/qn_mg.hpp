@@ -21,6 +21,7 @@ void toy(const raft::handle_t &handle,
            int D) ;
 
 void qnFit(const raft::handle_t &handle, 
+           const qn_params& pams,
            float* X,
            bool X_col_major,
            float *y,

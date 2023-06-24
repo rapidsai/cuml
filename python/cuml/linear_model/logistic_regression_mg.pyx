@@ -50,18 +50,25 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
         QN_LOSS_ABS      "ML::GLM::QN_LOSS_ABS"
         QN_LOSS_UNKNOWN  "ML::GLM::QN_LOSS_UNKNOWN"
 
+    cdef struct qn_params:
+        qn_loss_type loss
+        double penalty_l1
+        double penalty_l2
+        double grad_tol
+        double change_tol
+        int max_iter
+        int linesearch_max_iter
+        int lbfgs_memory
+        int verbose
+        bool fit_intercept
+        bool penalty_normalized
+
 
 cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
 
-    void toy(
-        const handle_t& handle,
-        float *X,
-        int N,
-        int D
-    ) except +
-
     void qnFit(
         const handle_t& handle,
+        const qn_params& pams, 
         float *X,
         bool X_col_major,
         float *y,
@@ -75,25 +82,14 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         int rank,
         int n_ranks) except +
 
-#class Tmp:
-#    def __init__(self) -> None:
-#        self.a = 10
-#
-#class SubTmp(Tmp):
-#    def __init__(self) -> None:
-#        super().__init__()
-#        print("subtmp self.a")
-#        print(self.a)
 
-class LogisticRegressionMG(QN):
+class LogisticRegressionMG(LogisticRegression):
     
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *, handle=None):
+        super().__init__(handle=handle)
 
-    def prepare_for_fit(self, y_m):
-        # fully copied code from qn.pyx::fit to prepare self.coef, self.qnparams etc.
-        # modified cdef qn_params qnpams = self.qnparams.params
-        # modifled qnpams.loss to qnpams['loss']
+    def prepare_for_fit(self, n_classes):
+        print("debug start prepare for fit")
         self.qnparams = QNParams(
             loss=self.loss,
             penalty_l1=self.l1_strength,
@@ -124,7 +120,7 @@ class LogisticRegressionMG(QN):
         }
 
         if solves_classification:
-            self._num_classes = len(cp.unique(y_m))
+            self._num_classes = n_classes
         else:
             self._num_classes = 1
 
@@ -148,11 +144,12 @@ class LogisticRegressionMG(QN):
         else:
             coef_size = (self.n_cols, self._num_classes_dim)
 
-        if self._coef_ is None or not self.warm_start:
-            self._coef_ = CumlArray.zeros(
+        if self.coef_ is None or not self.warm_start:
+            self.solver_model._coef_ = CumlArray.zeros(
                 coef_size, dtype=self.dtype, order='C')
 
-    def fit(self, X, y, rank, n_ranks, n_samples, convert_dtype=False) -> "LogisticRegressionMG":
+    def fit(self, X, y, rank, n_ranks, n_samples, n_classes, convert_dtype=False) -> "LogisticRegressionMG":
+
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle() 
 
         X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
@@ -165,27 +162,20 @@ class LogisticRegressionMG(QN):
             check_rows=n_rows, check_cols=1
         )
 
-        self.classes = cp.unique(y_m)
-        self._num_classes = len(self.classes)
-
         cdef uintptr_t y_ptr = y_m.ptr
         cdef float objective32
         cdef int num_iters
 
-        #toy(
-        #    handle_[0],
-        #    <float*><uintptr_t> X_m.ptr,
-        #    <int> n_rows,
-        #    <int> self.n_cols
-        #)
+        self._num_classes = n_classes
+        self.prepare_for_fit(n_classes)
 
-
-        self.prepare_for_fit(y_m)
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        cdef qn_params qnpams = self.qnparams.params
+        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         if self.dtype == np.float32:
             qnFit(
                 handle_[0],
+                qnpams,
                 <float*><uintptr_t> X_m.ptr,
                 <bool> __is_col_major(X_m),
                 <float*> y_ptr,
@@ -199,6 +189,8 @@ class LogisticRegressionMG(QN):
                 <int> rank,
                 <int> n_ranks
             )
+
+        self.solver_model._calc_intercept()
 
         self.handle.sync()
         del X_m
