@@ -31,10 +31,8 @@ void toy(const raft::handle_t &handle,
            int N,
            int D) 
 {
-  std::cout << "hello world from qnFit" << std::endl;
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  // std::cout << raft::arr2Str(X, N * D, "X data", stream).c_str() << std::endl; 
 }
 
 template<typename T, typename I>
@@ -53,34 +51,17 @@ void qnFit_impl(const raft::handle_t &handle,
                 int rank,
                 int n_ranks) 
 {
-  std::cout << "hello world from qnFit" << std::endl;
-
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
 
   auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major? COL_MAJOR : ROW_MAJOR);
-  std::cout << raft::arr2Str(X_simple.data, N * D, "X data", stream).c_str() << std::endl;
 
   auto y_simple = SimpleVec<T>(y, N);
-  std::cout << raft::arr2Str(y_simple.data, N * 1, "y_sample data", stream).c_str() << std::endl;
 
   SimpleVec<T> coef_simple(w0, D + pams.fit_intercept);
 
-  std::cout << "DEBUG: before coef_simple arr2Str" << std::endl;
-  std::cout << "rank " << rank << ", D: " << D << ", fit_intercept: " << pams.fit_intercept << ", C: " << C << std::endl;
-
   auto coef_size = (D + pams.fit_intercept) * (C == 2 ? 1 : C); 
-  std::cout << "rank " << rank << ", coef_size: " << coef_size << std::endl;
-  std::cout << raft::arr2Str(coef_simple.data, 1 , "coef data[0]: ", stream).c_str() << std::endl;
-  std::cout << raft::arr2Str(coef_simple.data, coef_size, "coef data", stream).c_str() << std::endl;
-  std::cout << "DEBUG: after coef_simple arr2Str" << std::endl;
 
-  // prepare configs opt_param
-  //qn_params pams;
-  //pams.loss = QN_LOSS_LOGISTIC;
-  //pams.penalty_l2 = 1;
-  //pams.change_tol = 1e-6;
   ML::GLM::detail::LBFGSParam<T> opt_param(pams);
-
 
   // prepare regularizer regularizer_obj
   ML::GLM::detail::LogisticLoss<T> loss_func(handle, D, pams.fit_intercept);
@@ -108,7 +89,6 @@ void qnFit_impl(const raft::handle_t &handle,
 
   // call min_lbfgs
   min_lbfgs(opt_param, obj_function, coef_simple, fx, &k, workspace, stream, 5);
-  std::cout << raft::arr2Str(coef_simple.data, 3, "coef result", stream).c_str() << std::endl;
 
 }
 

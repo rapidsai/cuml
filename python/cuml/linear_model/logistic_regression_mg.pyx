@@ -89,7 +89,6 @@ class LogisticRegressionMG(LogisticRegression):
         super().__init__(handle=handle)
 
     def prepare_for_fit(self, n_classes):
-        print("debug start prepare for fit")
         self.qnparams = QNParams(
             loss=self.loss,
             penalty_l1=self.l1_strength,
