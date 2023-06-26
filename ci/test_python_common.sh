@@ -33,6 +33,21 @@ rapids-mamba-retry install \
   --channel "${PYTHON_CHANNEL}" \
   libcuml cuml
 
+LIBCUDF_CHANNEL_20=$(rapids-get-artifact ci/cudf/pull-request/13599/adfe7c5/cudf_conda_cpp_cuda11_$(arch).tar.gz)
+CUDF_CHANNEL_20=$(rapids-get-artifact ci/cudf/pull-request/13599/adfe7c5/cudf_conda_python_cuda11_${RAPIDS_PY_VERSION}_$(arch).tar.gz)
+
+rapids-logger $LIBCUDF_CHANNEL
+rapids-logger $CUDF_CHANNEL_20
+
+rapids-mamba-retry install \
+  --channel "${CUDF_CHANNEL_20}" \
+  --channel "${LIBCUDF_CHANNEL_20}" \
+  --channel dask/label/dev \
+  --channel conda-forge \
+  cudf libcudf dask-cudf pandas==2.0.2 python-tzdata --no-deps
+
+rapids-print-env
+
 rapids-logger "Check GPU usage"
 nvidia-smi
 
