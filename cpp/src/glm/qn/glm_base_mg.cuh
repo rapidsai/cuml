@@ -3,7 +3,6 @@
 #include <raft/core/handle.hpp>
 #include <raft/linalg/multiply.cuh>
 
-// the following are for PCA
 #include "glm/qn/glm_base.cuh"
 #include "glm/qn/glm_logistic.cuh"
 #include "glm/qn/qn_util.cuh"
@@ -46,8 +45,6 @@ inline void linearBwdMG(const raft::handle_t& handle,
     // TODO can this be fused somehow?
     const SimpleDenseMat<T>* X_simple_p = (const SimpleDenseMat<T>*)(&X);
     Gweights.assign_gemm(handle, 1.0 / n_samples, dZ, false, X, false, beta / n_ranks, stream);
-
-    // Stats::opg::mean(handle, mu_data, input_data, input_desc, streams, n_streams);
 
     raft::stats::mean(Gbias.data, dZ.data, dZ.m, dZ.n, false, true, stream);
     T bias_factor = 1.0 * dZ.n / n_samples;
@@ -95,21 +92,8 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
         raft::update_host(&reg_host, dev_scalar, 1, stream);
 
         // apply linearFwd, getLossAndDz, linearBwd
-        /*
-          inline void loss_grad(T* loss_val,
-                        Mat& G,
-                        const Mat& W,
-                        const SimpleMat<T>& Xb,
-                        const Vec& yb,
-                        Mat& Zb,
-                        cudaStream_t stream,
-                        bool initGradZero = true)
-        */
-        // call linearFwd, linearBwd, getLossAndDz
         ML::GLM::detail::linearFwd(lossFunc->handle, *(this->Z), *(this->X), W);                  // linear part: forward pass
 
-        //raft::interruptible::synchronize(stream);
-        // raft::comms::comms_t const& communicator = raft::resource::get_comms(handle);   
         raft::comms::comms_t const& communicator = raft::resource::get_comms(*(this->handle_p));   
 
         lossFunc->getLossAndDZ(dev_scalar, *(this->Z), *(this->y), stream);  // loss specific part
@@ -126,7 +110,6 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
         raft::resource::sync_stream(*(this->handle_p));    
         raft::interruptible::synchronize(stream);
 
-        //linearBwd(lossFunc->handle, G, *(this->X), *(this->Z), false);    // linear part: backward pass
         linearBwdMG(lossFunc->handle, G, *(this->X), *(this->Z), false, n_samples, n_ranks);    // linear part: backward pass
         raft::interruptible::synchronize(stream);
 

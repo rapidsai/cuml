@@ -148,6 +148,7 @@ class LogisticRegressionMG(LogisticRegression):
                 coef_size, dtype=self.dtype, order='C')
 
     def fit(self, X, y, rank, n_ranks, n_samples, n_classes, convert_dtype=False) -> "LogisticRegressionMG":
+        assert (n_classes == 2):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle() 
 

@@ -1,16 +1,8 @@
 #include <raft/core/comms.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
-
 #include <cuml/common/logger.hpp>
-
-//#include "glm/qn/glm_base.cuh"
-//#include "glm/qn/glm_logistic.cuh"
-//#include "glm/qn/qn_util.cuh"
-//#include "glm/qn/qn_solvers.cuh"
-//#include "glm/qn/glm_regularizer.cuh"
-
-#include <cuml/linear_model/qn.h> // to use qn_params
+#include <cuml/linear_model/qn.h> 
 #include "qn/simple_mat/dense.hpp"
 #include "qn/qn_util.cuh"
 #include "qn/glm_logistic.cuh"
@@ -19,8 +11,6 @@
 #include "qn/glm_base_mg.cuh"
 
 #include <cuda_runtime.h>
-#include <iostream>
-
 
 namespace ML {
 namespace GLM {
@@ -127,37 +117,3 @@ void qnFit(const raft::handle_t &handle,
 };  // namespace OPG
 };  // namespace GLM
 };  // namespace ML
-
-// #include <raft/core/device_mdarray.hpp>
-//#include <iostream>
-//#include <vector>
-
-//#include <cuml/linear_model/qn_mg.hpp>
-
-/*
-namespace ML {
-namespace GLM {
-
-
-};  // namespace GLM
-};  // namespace ML
-*/
-
-/*
-template <typename T>
-void qnFit(const raft::handle_t& handle,
-           const qn_params& pams,
-           T* X_data,
-           bool X_col_major,
-           T* y_data,
-           int N,
-           int D,
-           int C,
-           T* w0_data,
-           T* f,
-           int* num_iters,
-           T* sample_weight = nullptr,
-           T svr_eps        = 0)
-{
-}
-*/
