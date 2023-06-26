@@ -34,7 +34,6 @@ from cuml.internals.mem_type import MemoryType
 from cuml.decomposition import PCA, TruncatedSVD
 from cuml.common.device_selection import DeviceType, using_device_type
 from hdbscan import HDBSCAN as refHDBSCAN
-from umap import UMAP as refUMAP
 from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
 from sklearn.linear_model import Ridge as skRidge
 from sklearn.linear_model import ElasticNet as skElasticNet
@@ -44,7 +43,7 @@ from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.decomposition import PCA as skPCA
 from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
 from sklearn.datasets import make_regression, make_blobs
-from pytest_cases import fixture_union, pytest_fixture_plus
+from pytest_cases import fixture_union, fixture_plus
 from importlib import import_module
 import inspect
 import pickle
@@ -60,6 +59,9 @@ cudf = gpu_only_import("cudf")
 
 
 IS_ARM = False
+
+if not IS_ARM:
+    from umap import UMAP as refUMAP
 
 
 def assert_membership_vectors(cu_vecs, sk_vecs):
@@ -193,7 +195,7 @@ def fixture_generation_helper(params):
     return {"scope": "session", "params": param_combis, "ids": ids}
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
@@ -230,7 +232,7 @@ def linreg_test_data(request):
     }
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
@@ -272,7 +274,7 @@ def logreg_test_data(request):
     }
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
@@ -312,7 +314,7 @@ def lasso_test_data(request):
     }
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
@@ -352,7 +354,7 @@ def elasticnet_test_data(request):
     }
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
@@ -387,7 +389,7 @@ def ridge_test_data(request):
     }
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["cupy"],
@@ -435,7 +437,7 @@ def umap_test_data(request):
     }
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
@@ -475,7 +477,7 @@ def pca_test_data(request):
     }
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
@@ -514,7 +516,7 @@ def tsvd_test_data(request):
     }
 
 
-@pytest_fixture_plus(
+@fixture_plus(
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],

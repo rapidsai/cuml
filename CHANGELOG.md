@@ -1,3 +1,65 @@
+# cuML 23.06.00 (7 Jun 2023)
+
+## 🚨 Breaking Changes
+
+- Dropping Python 3.8 ([#5385](https://github.com/rapidsai/cuml/pull/5385)) [@divyegala](https://github.com/divyegala)
+- Support sparse input for SVC and SVR ([#5273](https://github.com/rapidsai/cuml/pull/5273)) [@mfoerste4](https://github.com/mfoerste4)
+
+## 🐛 Bug Fixes
+
+- Fixes for nightly GHA runs ([#5446](https://github.com/rapidsai/cuml/pull/5446)) [@dantegd](https://github.com/dantegd)
+- Add missing RAFT cusolver_macros import and changes for recent cuDF updates ([#5434](https://github.com/rapidsai/cuml/pull/5434)) [@dantegd](https://github.com/dantegd)
+- Fix kmeans pytest to correctly compute fp output error ([#5426](https://github.com/rapidsai/cuml/pull/5426)) [@mdoijade](https://github.com/mdoijade)
+- Add missing `raft/matrix/matrix.cuh` include ([#5411](https://github.com/rapidsai/cuml/pull/5411)) [@benfred](https://github.com/benfred)
+- Fix path to cumlprims_mg in build workflow ([#5406](https://github.com/rapidsai/cuml/pull/5406)) [@divyegala](https://github.com/divyegala)
+- Fix path to cumlprims in build workflow ([#5405](https://github.com/rapidsai/cuml/pull/5405)) [@vyasr](https://github.com/vyasr)
+- Pin to scikit-build&lt;17.2 ([#5400](https://github.com/rapidsai/cuml/pull/5400)) [@vyasr](https://github.com/vyasr)
+- Fix forward merge #5383 ([#5384](https://github.com/rapidsai/cuml/pull/5384)) [@dantegd](https://github.com/dantegd)
+- Correct buffer move assignment in experimental FIL ([#5372](https://github.com/rapidsai/cuml/pull/5372)) [@wphicks](https://github.com/wphicks)
+- Avoid invalid memory access in experimental FIL for large output size ([#5365](https://github.com/rapidsai/cuml/pull/5365)) [@wphicks](https://github.com/wphicks)
+- Fix forward merge #5336 ([#5345](https://github.com/rapidsai/cuml/pull/5345)) [@dantegd](https://github.com/dantegd)
+
+## 📖 Documentation
+
+- Fix HDBSCAN docs and add membership_vector to cuml.cluster.hdbscan namespace ([#5378](https://github.com/rapidsai/cuml/pull/5378)) [@beckernick](https://github.com/beckernick)
+- Small doc fix ([#5375](https://github.com/rapidsai/cuml/pull/5375)) [@tarang-jain](https://github.com/tarang-jain)
+
+## 🚀 New Features
+
+- Provide method for auto-optimization of FIL parameters ([#5368](https://github.com/rapidsai/cuml/pull/5368)) [@wphicks](https://github.com/wphicks)
+
+## 🛠️ Improvements
+
+- Fix documentation source code links ([#5449](https://github.com/rapidsai/cuml/pull/5449)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Drop seaborn dependency. ([#5437](https://github.com/rapidsai/cuml/pull/5437)) [@bdice](https://github.com/bdice)
+- Make all nvtx usage go through safe imports ([#5424](https://github.com/rapidsai/cuml/pull/5424)) [@dantegd](https://github.com/dantegd)
+- run docs nightly too ([#5423](https://github.com/rapidsai/cuml/pull/5423)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Switch back to using primary shared-action-workflows branch ([#5420](https://github.com/rapidsai/cuml/pull/5420)) [@vyasr](https://github.com/vyasr)
+- Add librmm to libcuml dependencies. ([#5410](https://github.com/rapidsai/cuml/pull/5410)) [@bdice](https://github.com/bdice)
+- Update recipes to GTest version &gt;=1.13.0 ([#5408](https://github.com/rapidsai/cuml/pull/5408)) [@bdice](https://github.com/bdice)
+- Remove cudf from libcuml `meta.yaml` ([#5407](https://github.com/rapidsai/cuml/pull/5407)) [@divyegala](https://github.com/divyegala)
+- Support CUDA 12.0 for pip wheels ([#5404](https://github.com/rapidsai/cuml/pull/5404)) [@divyegala](https://github.com/divyegala)
+- Support for gtest 1.11+ changes ([#5403](https://github.com/rapidsai/cuml/pull/5403)) [@dantegd](https://github.com/dantegd)
+- Update cupy dependency ([#5401](https://github.com/rapidsai/cuml/pull/5401)) [@vyasr](https://github.com/vyasr)
+- Build wheels using new single image workflow ([#5394](https://github.com/rapidsai/cuml/pull/5394)) [@vyasr](https://github.com/vyasr)
+- Revert shared-action-workflows pin ([#5391](https://github.com/rapidsai/cuml/pull/5391)) [@divyegala](https://github.com/divyegala)
+- Fix logic for concatenating Treelite objects ([#5387](https://github.com/rapidsai/cuml/pull/5387)) [@hcho3](https://github.com/hcho3)
+- Dropping Python 3.8 ([#5385](https://github.com/rapidsai/cuml/pull/5385)) [@divyegala](https://github.com/divyegala)
+- Remove usage of rapids-get-rapids-version-from-git ([#5379](https://github.com/rapidsai/cuml/pull/5379)) [@jjacobelli](https://github.com/jjacobelli)
+- [ENH] Add missing includes of rmm/mr/device/per_device_resource.hpp ([#5369](https://github.com/rapidsai/cuml/pull/5369)) [@ahendriksen](https://github.com/ahendriksen)
+- Remove wheel pytest verbosity ([#5367](https://github.com/rapidsai/cuml/pull/5367)) [@sevagh](https://github.com/sevagh)
+- support parameter &#39;class_weight&#39; and method &#39;decision_function&#39; in LinearSVC ([#5364](https://github.com/rapidsai/cuml/pull/5364)) [@mfoerste4](https://github.com/mfoerste4)
+- Update clang-format to 16.0.1. ([#5361](https://github.com/rapidsai/cuml/pull/5361)) [@bdice](https://github.com/bdice)
+- Implement apply() in FIL ([#5358](https://github.com/rapidsai/cuml/pull/5358)) [@hcho3](https://github.com/hcho3)
+- Use ARC V2 self-hosted runners for GPU jobs ([#5356](https://github.com/rapidsai/cuml/pull/5356)) [@jjacobelli](https://github.com/jjacobelli)
+- Try running silhouette test ([#5353](https://github.com/rapidsai/cuml/pull/5353)) [@vyasr](https://github.com/vyasr)
+- Remove uses-setup-env-vars ([#5344](https://github.com/rapidsai/cuml/pull/5344)) [@vyasr](https://github.com/vyasr)
+- Resolve auto-merger conflicts between `branch-23.04` &amp; `branch-23.06` ([#5340](https://github.com/rapidsai/cuml/pull/5340)) [@galipremsagar](https://github.com/galipremsagar)
+- Solve merge conflict of PR #5327 ([#5329](https://github.com/rapidsai/cuml/pull/5329)) [@dantegd](https://github.com/dantegd)
+- Branch 23.06 merge 23.04 ([#5315](https://github.com/rapidsai/cuml/pull/5315)) [@vyasr](https://github.com/vyasr)
+- Support sparse input for SVC and SVR ([#5273](https://github.com/rapidsai/cuml/pull/5273)) [@mfoerste4](https://github.com/mfoerste4)
+- Delete outdated versions.json. ([#5229](https://github.com/rapidsai/cuml/pull/5229)) [@bdice](https://github.com/bdice)
+
 # cuML 23.04.00 (6 Apr 2023)
 
 ## 🚨 Breaking Changes

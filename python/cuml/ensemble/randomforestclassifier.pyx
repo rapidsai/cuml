@@ -16,10 +16,15 @@
 #
 
 # distutils: language = c++
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+    null_decorator
+)
+
 np = cpu_only_import('numpy')
-import nvtx
-from cuml.internals.safe_imports import gpu_only_import
+nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 rmm = gpu_only_import('rmm')
 import warnings
 
@@ -413,7 +418,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message="fit RF-Classifier @randomforestclassifier.pyx",
         domain="cuml_python")
     @generate_docstring(skip_parameters_heading=True,
@@ -554,7 +559,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         del(X_m)
         return preds
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message="predict RF-Classifier @randomforestclassifier.pyx",
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
@@ -676,7 +681,7 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         return preds_proba
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message="score RF-Classifier @randomforestclassifier.pyx",
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
