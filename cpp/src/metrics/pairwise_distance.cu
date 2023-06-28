@@ -174,7 +174,7 @@ void pairwiseDistance_sparse(const raft::handle_t& handle,
   auto y_csr_view = raft::make_device_csr_matrix_view<const value_t>(y, y_structure);
 
   raft::sparse::distance::pairwise_distance(
-    handle, x_csr_view, y_csr_view, out, metric, metric_arg);
+    handle, y_csr_view, x_csr_view, out, metric, metric_arg);
 }
 
 void pairwiseDistance_sparse(const raft::handle_t& handle,
