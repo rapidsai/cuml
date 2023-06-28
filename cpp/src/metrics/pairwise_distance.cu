@@ -163,7 +163,7 @@ void pairwiseDistance_sparse(const raft::handle_t& handle,
                              raft::distance::DistanceType metric,
                              float metric_arg)
 {
-  auto out = raft::make_device_matrix_view<value_t, value_idx>(dist, x_nrows, y_nrows);
+  auto out = raft::make_device_matrix_view<value_t, value_idx>(dist, y_nrows, x_nrows);
 
   auto x_structure = raft::make_device_compressed_structure_view<value_idx, value_idx, value_idx>(
     x_indptr, x_indices, x_nrows, n_cols, x_nnz);
