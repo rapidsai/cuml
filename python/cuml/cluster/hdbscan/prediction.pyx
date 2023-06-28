@@ -147,11 +147,9 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
 
     batch_size : int, optional, default=min(4096, n_rows)
         Lowers memory requirement by computing distance-based membership
-        in smaller batches of points in the training data. A batch size
-        of 1000 computes distance based memberships for 1000 points at a
-        time. The default batch size is 4096. If the number of rows in
-        the original dataset is less than 4096, this defaults to the
-        number of rows.
+        in smaller batches of points in the training data. For example, a batch
+        size of 1,000 computes distance based memberships for 1,000 points at a
+        time. The default batch size is 4,096.
 
     Returns
     -------
@@ -159,6 +157,9 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
         The probability that point ``i`` of the original dataset is a member of
         cluster ``j`` is in ``membership_vectors[i, j]``.
     """
+
+    if batch_size <= 0:
+        raise ValueError("batch_size must be > 0")
 
     device_type = cuml.global_settings.device_type
 
@@ -252,11 +253,9 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
     
     batch_size : int, optional, default=min(4096, n_points_to_predict)
         Lowers memory requirement by computing distance-based membership
-        in smaller batches of points in the prediction data. A batch size
-        of 1000 computes distance based memberships for 1000 points at a
-        time. The default batch_size is 4096. If the number of rows in
-        the prediction dataset is less than 4096, this defaults to the
-        number of rows.
+        in smaller batches of points in the prediction data. For example, a
+        batch size of 1,000 computes distance based memberships for 1,000
+        points at a time. The default batch size is 4,096.
 
     Returns
     -------
@@ -300,6 +299,9 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
                          "Please call clusterer.fit again with "
                          "prediction_data=True")
 
+    if batch_size <= 0:
+        raise ValueError("batch_size must be > 0")
+
     points_to_predict_m, n_prediction_points, n_cols, _ = \
         input_to_cuml_array(points_to_predict, order='C',
                             check_dtype=[np.float32],
@@ -309,9 +311,6 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
     
     if clusterer.n_clusters_ == 0:
         return np.zeros(n_prediction_points, dtype=np.float32)
-
-    if batch_size < 0 or batch_size > n_prediction_points:
-        raise ValueError("batch_size should be in integer that is >= 0 and <= the number of prediction points")
 
     if n_cols != clusterer.n_cols:
         raise ValueError('New points dimension does not match fit data!')
