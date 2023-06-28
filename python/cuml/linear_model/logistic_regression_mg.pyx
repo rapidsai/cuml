@@ -157,6 +157,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         else:
             coef_size = (self.n_cols, self._num_classes_dim)
 
+        print(f"coef_size is {coef_size}")
         if self.coef_ is None or not self.warm_start:
             self.solver_model._coef_ = CumlArray.zeros(
                 coef_size, dtype=self.dtype, order='C')
@@ -176,6 +177,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
         # TODO: calculate _num_classes at runtime
         self._num_classes = 2
+        self.loss = "sigmoid" if self._num_classes <= 2 else "softmax"
         self.prepare_for_fit(self._num_classes)
         cdef uintptr_t mat_coef_ptr = self.coef_.ptr
 
