@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,8 +31,7 @@
 #include <raft/core/handle.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/label/classlabels.cuh>
-// #TODO: Replace with public header when ready
-#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/linalg/gemv.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
@@ -44,16 +43,16 @@
 namespace ML {
 namespace SVM {
 
-template <typename math_t>
-void svcFit(const raft::handle_t& handle,
-            math_t* input,
-            int n_rows,
-            int n_cols,
-            math_t* labels,
-            const SvmParameter& param,
-            raft::distance::kernels::KernelParams& kernel_params,
-            SvmModel<math_t>& model,
-            const math_t* sample_weight)
+template <typename math_t, typename MatrixViewType>
+void svcFitX(const raft::handle_t& handle,
+             MatrixViewType matrix,
+             int n_rows,
+             int n_cols,
+             math_t* labels,
+             const SvmParameter& param,
+             raft::distance::kernels::KernelParams& kernel_params,
+             SvmModel<math_t>& model,
+             const math_t* sample_weight)
 {
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");
@@ -80,17 +79,16 @@ void svcFit(const raft::handle_t& handle,
     labels, n_rows, model.unique_labels, model.n_classes, y.data(), 1, stream);
 
   raft::distance::kernels::GramMatrixBase<math_t>* kernel =
-    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params,
-                                                           handle_impl.get_cublas_handle());
-  SmoSolver<math_t> smo(handle_impl, param, kernel);
-  smo.Solve(input,
+    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params);
+  SmoSolver<math_t> smo(handle_impl, param, kernel_params.kernel, kernel);
+  smo.Solve(matrix,
             n_rows,
             n_cols,
             y.data(),
             sample_weight,
             &(model.dual_coefs),
             &(model.n_support),
-            &(model.x_support),
+            &(model.support_matrix),
             &(model.support_idx),
             &(model.b),
             param.max_iter);
@@ -99,22 +97,57 @@ void svcFit(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void svcPredict(const raft::handle_t& handle,
-                math_t* input,
-                int n_rows,
-                int n_cols,
-                raft::distance::kernels::KernelParams& kernel_params,
-                const SvmModel<math_t>& model,
-                math_t* preds,
-                math_t buffer_size,
-                bool predict_class)
+void svcFit(const raft::handle_t& handle,
+            math_t* input,
+            int n_rows,
+            int n_cols,
+            math_t* labels,
+            const SvmParameter& param,
+            raft::distance::kernels::KernelParams& kernel_params,
+            SvmModel<math_t>& model,
+            const math_t* sample_weight)
+{
+  auto dense_view = raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
+    input, n_rows, n_cols, 0);
+  svcFitX(handle, dense_view, n_rows, n_cols, labels, param, kernel_params, model, sample_weight);
+}
+
+template <typename math_t>
+void svcFitSparse(const raft::handle_t& handle,
+                  int* indptr,
+                  int* indices,
+                  math_t* data,
+                  int n_rows,
+                  int n_cols,
+                  int nnz,
+                  math_t* labels,
+                  const SvmParameter& param,
+                  raft::distance::kernels::KernelParams& kernel_params,
+                  SvmModel<math_t>& model,
+                  const math_t* sample_weight)
+{
+  auto csr_structure_view = raft::make_device_compressed_structure_view<int, int, int>(
+    indptr, indices, n_rows, n_cols, nnz);
+  auto csr_matrix_view = raft::make_device_csr_matrix_view(data, csr_structure_view);
+  svcFitX(
+    handle, csr_matrix_view, n_rows, n_cols, labels, param, kernel_params, model, sample_weight);
+}
+
+template <typename math_t, typename MatrixViewType>
+void svcPredictX(const raft::handle_t& handle,
+                 MatrixViewType matrix,
+                 int n_rows,
+                 int n_cols,
+                 raft::distance::kernels::KernelParams& kernel_params,
+                 const SvmModel<math_t>& model,
+                 math_t* preds,
+                 math_t buffer_size,
+                 bool predict_class)
 {
   ASSERT(n_cols == model.n_cols, "Parameter n_cols: shall be the same that was used for fitting");
   // We might want to query the available memory before selecting the batch size.
   // We will need n_batch * n_support floats for the kernel matrix K.
-  const int N_PRED_BATCH = 4096;
-  int n_batch            = N_PRED_BATCH < n_rows ? N_PRED_BATCH : n_rows;
-
+  int n_batch = n_rows;
   // Limit the memory size of the prediction buffer
   buffer_size = buffer_size * 1024 * 1024;
   if (n_batch * model.n_support * sizeof(math_t) > buffer_size) {
@@ -130,69 +163,122 @@ void svcPredict(const raft::handle_t& handle,
   if (model.n_support == 0) {
     RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
   }
-  rmm::device_uvector<math_t> x_rbf(0, stream);
-  rmm::device_uvector<int> idx(0, stream);
-
-  cublasHandle_t cublas_handle = handle_impl.get_cublas_handle();
 
   raft::distance::kernels::GramMatrixBase<math_t>* kernel =
-    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params, cublas_handle);
-  if (kernel_params.kernel == raft::distance::kernels::RBF) {
-    // Temporary buffers for the RBF kernel, see below
-    x_rbf.resize(n_batch * n_cols, stream);
-    idx.resize(n_batch, stream);
+    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params);
+
+  /*
+    // kernel computation:
+    //////////////////////////////////
+    Dense input, dense support:
+      * just multiply, expanded L2 norm for RBF
+    Sparse Input, dense support
+      * row ptr copy/shift for input csr, expanded L2 norm for RBF
+    Dense input, sparse support
+      * transpose kernel compute, expanded L2 norm for RBF
+    Sparse input, sparse support
+      * row ptr copy/shift for input csr
+  */
+
+  // store matrix dot product (l2 norm) for RBF kernels if applicable
+  rmm::device_uvector<math_t> l2_input(0, stream);
+  rmm::device_uvector<math_t> l2_support(0, stream);
+  bool is_csr_input = !isDenseType<MatrixViewType>();
+
+  bool is_csr_support   = model.support_matrix.data != nullptr && model.support_matrix.nnz >= 0;
+  bool is_dense_support = model.support_matrix.data != nullptr && !is_csr_support;
+
+  // Unfortunately we need runtime support for both types
+  raft::device_matrix_view<math_t, int, raft::layout_stride> dense_support_matrix_view;
+  if (is_dense_support) {
+    dense_support_matrix_view =
+      raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
+        model.support_matrix.data, model.n_support, n_cols, 0);
   }
+  auto csr_structure_view =
+    is_csr_support
+      ? raft::make_device_compressed_structure_view<int, int, int>(model.support_matrix.indptr,
+                                                                   model.support_matrix.indices,
+                                                                   model.n_support,
+                                                                   n_cols,
+                                                                   model.support_matrix.nnz)
+      : raft::make_device_compressed_structure_view<int, int, int>(nullptr, nullptr, 0, 0, 0);
+  auto csr_support_matrix_view =
+    is_csr_support
+      ? raft::make_device_csr_matrix_view<math_t, int, int, int>(model.support_matrix.data,
+                                                                 csr_structure_view)
+      : raft::make_device_csr_matrix_view<math_t, int, int, int>(nullptr, csr_structure_view);
+
+  bool transpose_kernel = is_csr_support && !is_csr_input;
+  if (model.n_support > 0 && kernel_params.kernel == raft::distance::kernels::RBF) {
+    l2_input.resize(n_rows, stream);
+    l2_support.resize(model.n_support, stream);
+    ML::SVM::matrixRowNorm(handle, matrix, l2_input.data(), raft::linalg::NormType::L2Norm);
+    if (model.n_support > 0)
+      if (is_csr_support) {
+        ML::SVM::matrixRowNorm(
+          handle, csr_support_matrix_view, l2_support.data(), raft::linalg::NormType::L2Norm);
+      } else {
+        ML::SVM::matrixRowNorm(
+          handle, dense_support_matrix_view, l2_support.data(), raft::linalg::NormType::L2Norm);
+      }
+  }
+
+  // additional row pointer information needed for batched CSR access
+  // copy matrix row pointer to host to compute partial nnz on the fly
+  std::vector<int> host_indptr;
+  rmm::device_uvector<int> indptr_batched(0, stream);
+  if (model.n_support > 0 && is_csr_input) {
+    host_indptr.resize(n_rows + 1);
+    indptr_batched.resize(n_batch + 1, stream);
+    copyIndptrToHost(matrix, host_indptr.data(), stream);
+  }
+
   // We process the input data batchwise:
   //  - calculate the kernel values K[x_batch, x_support]
   //  - calculate y(x_batch) = K[x_batch, x_support] * dual_coeffs
   for (int i = 0; i < n_rows && model.n_support > 0; i += n_batch) {
     if (i + n_batch >= n_rows) { n_batch = n_rows - i; }
-    math_t* x_ptr = nullptr;
-    int ld1       = 0;
-    if (kernel_params.kernel == raft::distance::kernels::RBF) {
-      // The RBF kernel does not support ld parameters (See issue #1172)
-      // To come around this limitation, we copy the batch into a temporary
-      // buffer.
-      thrust::counting_iterator<int> first(i);
-      thrust::counting_iterator<int> last = first + n_batch;
-      thrust::device_ptr<int> idx_ptr(idx.data());
-      thrust::copy(thrust::cuda::par.on(stream), first, last, idx_ptr);
-      raft::matrix::copyRows(
-        input, n_rows, n_cols, x_rbf.data(), idx.data(), n_batch, stream, false);
-      x_ptr = x_rbf.data();
-      ld1   = n_batch;
+    math_t* l2_input1 = l2_input.data() != nullptr ? l2_input.data() + i : nullptr;
+    math_t* l2_input2 = l2_support.data();
+
+    auto batch_matrix =
+      getMatrixBatch(matrix, n_batch, i, host_indptr.data(), indptr_batched.data(), stream);
+
+    if (transpose_kernel) {
+      KernelOp(
+        handle_impl, kernel, csr_support_matrix_view, batch_matrix, K.data(), l2_input2, l2_input1);
+    } else if (is_csr_support) {
+      KernelOp(
+        handle_impl, kernel, batch_matrix, csr_support_matrix_view, K.data(), l2_input1, l2_input2);
     } else {
-      x_ptr = input + i;
-      ld1   = n_rows;
+      KernelOp(handle_impl,
+               kernel,
+               batch_matrix,
+               dense_support_matrix_view,
+               K.data(),
+               l2_input1,
+               l2_input2);
     }
-    kernel->evaluate(x_ptr,
-                     n_batch,
-                     n_cols,
-                     model.x_support,
-                     model.n_support,
-                     K.data(),
-                     false,
-                     stream,
-                     ld1,
-                     model.n_support,
-                     n_batch);
+
     math_t one  = 1;
     math_t null = 0;
-    // #TODO: Call from public API when ready
-    RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(cublas_handle,
-                                                     CUBLAS_OP_N,
-                                                     n_batch,
-                                                     model.n_support,
-                                                     &one,
-                                                     K.data(),
-                                                     n_batch,
-                                                     model.dual_coefs,
-                                                     1,
-                                                     &null,
-                                                     y.data() + i,
-                                                     1,
-                                                     stream));
-  }
+    raft::linalg::gemv(handle_impl,
+                       transpose_kernel,
+                       transpose_kernel ? model.n_support : n_batch,
+                       transpose_kernel ? n_batch : model.n_support,
+                       &one,
+                       K.data(),
+                       transpose_kernel ? model.n_support : n_batch,
+                       model.dual_coefs,
+                       1,
+                       &null,
+                       y.data() + i,
+                       1,
+                       stream);
+
+  }  // end of loop
+
   math_t* labels = model.unique_labels;
   math_t b       = model.b;
   if (predict_class) {
@@ -214,18 +300,76 @@ void svcPredict(const raft::handle_t& handle,
 }
 
 template <typename math_t>
+void svcPredict(const raft::handle_t& handle,
+                math_t* input,
+                int n_rows,
+                int n_cols,
+                raft::distance::kernels::KernelParams& kernel_params,
+                const SvmModel<math_t>& model,
+                math_t* preds,
+                math_t buffer_size,
+                bool predict_class)
+{
+  auto dense_view = raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
+    input, n_rows, n_cols, 0);
+  svcPredictX(
+    handle, dense_view, n_rows, n_cols, kernel_params, model, preds, buffer_size, predict_class);
+}
+
+template <typename math_t>
+void svcPredictSparse(const raft::handle_t& handle,
+                      int* indptr,
+                      int* indices,
+                      math_t* data,
+                      int n_rows,
+                      int n_cols,
+                      int nnz,
+                      raft::distance::kernels::KernelParams& kernel_params,
+                      const SvmModel<math_t>& model,
+                      math_t* preds,
+                      math_t buffer_size,
+                      bool predict_class)
+{
+  auto csr_structure_view = raft::make_device_compressed_structure_view<int, int, int>(
+    indptr, indices, n_rows, n_cols, nnz);
+  auto csr_matrix_view = raft::make_device_csr_matrix_view(data, csr_structure_view);
+  svcPredictX(handle,
+              csr_matrix_view,
+              n_rows,
+              n_cols,
+              kernel_params,
+              model,
+              preds,
+              buffer_size,
+              predict_class);
+}
+
+template <typename math_t>
 void svmFreeBuffers(const raft::handle_t& handle, SvmModel<math_t>& m)
 {
   cudaStream_t stream                        = handle.get_stream();
   rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
   if (m.dual_coefs) rmm_alloc->deallocate(m.dual_coefs, m.n_support * sizeof(math_t), stream);
   if (m.support_idx) rmm_alloc->deallocate(m.support_idx, m.n_support * sizeof(int), stream);
-  if (m.x_support)
-    rmm_alloc->deallocate(m.x_support, m.n_support * m.n_cols * sizeof(math_t), stream);
+  if (m.support_matrix.indptr) {
+    rmm_alloc->deallocate(m.support_matrix.indptr, (m.n_support + 1) * sizeof(int), stream);
+    m.support_matrix.indptr = nullptr;
+  }
+  if (m.support_matrix.indices) {
+    rmm_alloc->deallocate(m.support_matrix.indices, m.support_matrix.nnz * sizeof(int), stream);
+    m.support_matrix.indices = nullptr;
+  }
+  if (m.support_matrix.data) {
+    if (m.support_matrix.nnz == -1) {
+      rmm_alloc->deallocate(m.support_matrix.data, m.n_support * m.n_cols * sizeof(math_t), stream);
+    } else {
+      rmm_alloc->deallocate(m.support_matrix.data, m.support_matrix.nnz * sizeof(math_t), stream);
+    }
+  }
+  m.support_matrix.nnz = -1;
   if (m.unique_labels) rmm_alloc->deallocate(m.unique_labels, m.n_classes * sizeof(math_t), stream);
   m.dual_coefs    = nullptr;
   m.support_idx   = nullptr;
-  m.x_support     = nullptr;
   m.unique_labels = nullptr;
 }
 

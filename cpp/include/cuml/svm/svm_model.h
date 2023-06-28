@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,15 @@
 namespace ML {
 namespace SVM {
 
+// Contains array(s) for matrix storage
+template <typename math_t>
+struct SupportStorage {
+  int nnz      = -1;
+  int* indptr  = nullptr;
+  int* indices = nullptr;
+  math_t* data = nullptr;
+};
+
 /**
  * Parameters that describe a trained SVM model.
  * All pointers are device pointers.
@@ -32,8 +41,9 @@ struct SvmModel {
   //! Size [n_support].
   math_t* dual_coefs;
 
-  //! Support vectors in column major format. Size [n_support x n_cols].
-  math_t* x_support;
+  //! Support vector storage - can contain either CSR or dense
+  SupportStorage<math_t> support_matrix;
+
   //! Indices (from the training set) of the support vectors, size [n_support].
   int* support_idx;
 

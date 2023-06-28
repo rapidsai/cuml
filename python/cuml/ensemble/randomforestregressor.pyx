@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,14 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+    null_decorator
+)
 np = cpu_only_import('numpy')
-import nvtx
-from cuml.internals.safe_imports import gpu_only_import
+nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 rmm = gpu_only_import('rmm')
 import warnings
 
@@ -411,7 +415,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message="fit RF-Regressor @randomforestregressor.pyx",
         domain="cuml_python")
     @generate_docstring()
@@ -533,7 +537,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         del(X_m)
         return preds
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message="predict RF-Regressor @randomforestclassifier.pyx",
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
@@ -593,7 +597,7 @@ class RandomForestRegressor(BaseRandomForestModel,
 
         return preds
 
-    @nvtx.annotate(
+    @nvtx_annotate(
         message="score RF-Regressor @randomforestclassifier.pyx",
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
