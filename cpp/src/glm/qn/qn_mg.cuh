@@ -9,7 +9,7 @@
 
 #include <cuml/linear_model/qn.h>
 
-#include <raft/matrix/math.cuh>
+// #include <raft/matrix/math.cuh>
 #include <rmm/device_uvector.hpp>
 namespace ML {
 namespace GLM {
@@ -41,14 +41,14 @@ int qn_fit_mg(const raft::handle_t& handle,
   }
 
   if (l2 == 0) {
-    GLMWithDataMG<T, LossFunction> lossWith(handle, rank, n_ranks, n_samples, &loss, X, y, Z);
+    GLMWithDataMG<T, LossFunction, LossFunction> lossWith(handle, rank, n_ranks, n_samples, &loss, X, y, Z);
 
     return ML::GLM::detail::qn_minimize(handle, w0, fx, num_iters, lossWith, l1, opt_param, pams.verbose);
 
   } else {
     ML::GLM::detail::Tikhonov<T> reg(l2);
     ML::GLM::detail::RegularizedGLM<T, LossFunction, decltype(reg)> obj(&loss, &reg);
-    GLMWithDataMG<T, decltype(obj)> lossWith(handle, rank, n_ranks, n_samples, &obj, X, y, Z);
+    GLMWithDataMG<T, decltype(obj), LossFunction> lossWith(handle, rank, n_ranks, n_samples, &obj, X, y, Z);
 
     return ML::GLM::detail::qn_minimize(handle, w0, fx, num_iters, lossWith, l1, opt_param, pams.verbose);
   }

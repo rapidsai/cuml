@@ -25,6 +25,8 @@
 #include <glm/qn/qn_solvers.cuh>
 #include <glm/qn/qn_util.cuh>
 
+// #include <type_traits>
+
 namespace ML {
 namespace GLM {
 namespace opg {
