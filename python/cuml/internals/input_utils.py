@@ -180,7 +180,7 @@ def get_supported_input_type(X):
     except UnavailableError:
         pass
 
-    # Return None if this type isnt supported
+    # Return None if this type is not supported
     return None
 
 
