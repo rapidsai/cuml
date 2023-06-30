@@ -345,9 +345,6 @@ class BaseRandomForestModel(Base):
                               fil_sparse_format, threshold=0.5,
                               output_class=False,
                               predict_proba=False) -> CumlArray:
-        _, _, _, _ = \
-            input_to_cuml_array(X, order='F',
-                                check_cols=self.n_cols)
         treelite_handle = self._obtain_treelite_handle()
         storage_type = \
             _check_fil_parameter_validity(depth=self.max_depth,
