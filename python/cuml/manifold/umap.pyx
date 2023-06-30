@@ -51,6 +51,10 @@ from cuml.metrics.distance_type cimport DistanceType
 
 from cuml.manifold.simpl_set import fuzzy_simplicial_set  # no-cython-lint
 from cuml.manifold.simpl_set import simplicial_set_embedding  # no-cython-lint
+# TODO: These two symbols are considered part of the public API of this module
+# which is why imports should not be removed. The no-cython-lint markers can be
+# replaced with an explicit __all__ specifications once
+# https://github.com/MarcoGorelli/cython-lint/issues/80 is resolved.
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.api_decorators import device_interop_preparation
