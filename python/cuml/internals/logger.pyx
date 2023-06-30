@@ -121,7 +121,7 @@ def set_level(level):
     .. code-block:: python
 
         # regular usage of setting a logging level for all subsequent logs
-        # in this case, it will enable all logs upto and including `info()`
+        # in this case, it will enable all logs up to and including `info()`
         logger.set_level(logger.level_info)
 
         # in case one wants to temporarily set the log level for a code block
