@@ -49,6 +49,9 @@ from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
 from cuml.metrics.distance_type cimport DistanceType
 
+from cuml.manifold.simpl_set import fuzzy_simplicial_set  # no-cython-lint
+from cuml.manifold.simpl_set import simplicial_set_embedding  # no-cython-lint
+
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
