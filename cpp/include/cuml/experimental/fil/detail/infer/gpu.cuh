@@ -78,7 +78,8 @@ inline auto compute_output_size(index_type row_output_size,
  * data on categorical splits.
  * @param infer_type Type of inference to perform. Defaults to summing the outputs of all trees
  * and produce an output per row. If set to "per_tree", we will instead output all outputs of
- * individual trees.
+ * individual trees. If set to "leaf_id", we will output the integer ID of the leaf node
+ * for each tree.
  * @param specified_chunk_size If non-nullopt, the mini-batch size used for
  * processing rows in a batch. For GPU inference, this determines the number of
  * rows that are processed per iteration of inference in a single block. It
@@ -178,17 +179,19 @@ std::enable_if_t<D == raft_proto::device_type::gpu, void> infer(
     rows_per_block_iteration = index_type{32};
   }
 
-  do {
-    output_workspace_size =
-      compute_output_size(row_output_size, threads_per_block, rows_per_block_iteration, infer_type);
-    output_workspace_size_bytes = output_item_bytes * output_workspace_size;
+  if (row_output_size != 0) {
+    do {
+      output_workspace_size = compute_output_size(
+        row_output_size, threads_per_block, rows_per_block_iteration, infer_type);
+      output_workspace_size_bytes = output_item_bytes * output_workspace_size;
 
-    shared_mem_per_block =
-      (rows_per_block_iteration * row_size_bytes + output_workspace_size_bytes);
-    if (shared_mem_per_block > max_overall_shared_mem) {
-      rows_per_block_iteration >>= index_type{1};
-    }
-  } while (shared_mem_per_block > max_overall_shared_mem && rows_per_block_iteration > 1);
+      shared_mem_per_block =
+        (rows_per_block_iteration * row_size_bytes + output_workspace_size_bytes);
+      if (shared_mem_per_block > max_overall_shared_mem) {
+        rows_per_block_iteration >>= index_type{1};
+      }
+    } while (shared_mem_per_block > max_overall_shared_mem && rows_per_block_iteration > 1);
+  }
 
   shared_mem_per_block = std::min(shared_mem_per_block, max_overall_shared_mem);
 

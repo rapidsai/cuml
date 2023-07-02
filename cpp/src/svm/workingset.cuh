@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -289,7 +289,10 @@ class WorkingSet {
                                     ws_priority_sorted.data(),
                                     idx.data(),
                                     ws_idx_sorted.data(),
-                                    n_ws);
+                                    n_ws,
+                                    0,
+                                    sizeof(int) * 8,
+                                    stream);
 
     // Select first from free vectors (0<alpha<C)
     n_selected += SelectPrevWs(
@@ -440,7 +443,8 @@ class WorkingSet {
                                available_sorted.data(),
                                idx_tmp.data(),
                                d_num_selected.data(),
-                               n_train);
+                               n_train,
+                               stream);
     int n_selected = d_num_selected.value(stream);
     handle.sync_stream(stream);
 
@@ -487,7 +491,8 @@ class WorkingSet {
                           ws_idx_selected.data(),
                           d_num_selected.data(),
                           n_ws,
-                          op);
+                          op,
+                          stream);
     int n_selected = d_num_selected.value(stream);
     handle.sync_stream(stream);
     int n_copy = n_selected < n_needed ? n_selected : n_needed;

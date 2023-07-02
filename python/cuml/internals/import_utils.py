@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import platform
 
 from cuml.internals.safe_imports import gpu_only_import, UnavailableError
 from distutils.version import LooseVersion
@@ -70,6 +71,8 @@ def has_ucp():
 
 
 def has_umap():
+    if platform.processor() == "aarch64":
+        return False
     try:
         import umap  # NOQA
 

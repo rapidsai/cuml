@@ -12,11 +12,11 @@
 # the License.
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 include(../fetch_rapids.cmake)
 
-set(CUML_VERSION 23.06.00)
+set(CUML_VERSION 23.08.00)
 
 # We always need CUDA for cuML because the raft dependency brings in a
 # header-only cuco dependency that enables CUDA unconditionally.

@@ -54,19 +54,19 @@ cdef extern from "cuml/common/logger.hpp" nogil:
     cdef int CUML_LEVEL_OFF
 
 
-"""Enables all log messages upto and including `trace()`"""
+"""Enables all log messages up to and including `trace()`"""
 level_trace = CUML_LEVEL_TRACE
 
-"""Enables all log messages upto and including `debug()`"""
+"""Enables all log messages up to and including `debug()`"""
 level_debug = CUML_LEVEL_DEBUG
 
-"""Enables all log messages upto and including `info()`"""
+"""Enables all log messages up to and including `info()`"""
 level_info = CUML_LEVEL_INFO
 
-"""Enables all log messages upto and including `warn()`"""
+"""Enables all log messages up to and including `warn()`"""
 level_warn = CUML_LEVEL_WARN
 
-"""Enables all log messages upto and include `error()`"""
+"""Enables all log messages up to and include `error()`"""
 level_error = CUML_LEVEL_ERROR
 
 """Enables only `critical()` messages"""
@@ -121,7 +121,7 @@ def set_level(level):
     .. code-block:: python
 
         # regular usage of setting a logging level for all subsequent logs
-        # in this case, it will enable all logs upto and including `info()`
+        # in this case, it will enable all logs up to and including `info()`
         logger.set_level(logger.level_info)
 
         # in case one wants to temporarily set the log level for a code block

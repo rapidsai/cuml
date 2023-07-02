@@ -50,7 +50,7 @@ HYPOTHESIS_ENABLED = os.environ.get("HYPOTHESIS_ENABLED") in (
 # Configure hypothesis profiles
 
 HEALTH_CHECKS_SUPPRESSED_BY_DEFAULT = (
-    hypothesis.HealthCheck.all()
+    list(hypothesis.HealthCheck)
     if CI
     else [
         hypothesis.HealthCheck.data_too_large,

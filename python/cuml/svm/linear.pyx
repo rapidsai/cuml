@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -109,6 +109,14 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM" nogil:
 
         @staticmethod
         void predict(
+            const handle_t& handle,
+            const LinearSVMParams& params,
+            const LinearSVMModel[T]& model,
+            const T* X,
+            const size_t nRows, const size_t nCols, T* out) except +
+
+        @staticmethod
+        void decisionFunction(
             const handle_t& handle,
             const LinearSVMParams& params,
             const LinearSVMModel[T]& model,
@@ -244,7 +252,7 @@ cdef class LinearSVMWrapper:
         cudaMemcpyAsync(
             <void*><uintptr_t>target.ptr,
             <void*><uintptr_t>source.ptr,
-            <size_t>(source.nbytes),
+            <size_t>(source.size),
             cudaMemcpyKind.cudaMemcpyDeviceToDevice,
             stream.value())
         if synchronize:
@@ -441,6 +449,35 @@ cdef class LinearSVMWrapper:
                 <float*><uintptr_t>y.ptr)
         elif self.dtype == np.float64:
             LinearSVMModel[double].predict(
+                deref(self.handle),
+                self.params,
+                self.model.float64,
+                <const double*><uintptr_t>X.ptr,
+                X.shape[0], X.shape[1],
+                <double*><uintptr_t>y.ptr)
+        else:
+            raise TypeError('Input data type must be float32 or float64')
+
+        return y
+
+    def decision_function(self, X: CumlArray) -> CumlArray:
+        n_classes = self.classes_.shape[0]
+        # special handling of binary case
+        shape = (X.shape[0],) if n_classes <= 2 else (X.shape[0], n_classes)
+        y = CumlArray.empty(
+            shape=shape,
+            dtype=self.dtype, order='C')
+
+        if self.dtype == np.float32:
+            LinearSVMModel[float].decisionFunction(
+                deref(self.handle),
+                self.params,
+                self.model.float32,
+                <const float*><uintptr_t>X.ptr,
+                X.shape[0], X.shape[1],
+                <float*><uintptr_t>y.ptr)
+        elif self.dtype == np.float64:
+            LinearSVMModel[double].decisionFunction(
                 deref(self.handle),
                 self.params,
                 self.model.float64,
@@ -658,6 +695,14 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
             convert_to_dtype=convert_to_dtype)
         self.__sync_model()
         return self.model_.predict(X_m)
+
+    def decision_function(self, X, convert_dtype=True) -> CumlArray:
+        convert_to_dtype = self.dtype if convert_dtype else None
+        X_m, n_rows, n_cols, _ = input_to_cuml_array(
+            X, check_dtype=self.dtype,
+            convert_to_dtype=convert_to_dtype)
+        self.__sync_model()
+        return self.model_.decision_function(X_m)
 
     def predict_proba(self, X, log=False, convert_dtype=True) -> CumlArray:
         convert_to_dtype = self.dtype if convert_dtype else None
