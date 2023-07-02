@@ -460,7 +460,7 @@ std::size_t run(const raft::handle_t& handle,
   Metadata::AdjGraphAccessor<bool, Index_> adj_ac(&mgrp_metadata, adj);
   Metadata::CorePointAccessor<bool, Index_> corepts_ac(&mgrp_metadata, core_pts);
   raft::copy(eps2_ptr, eps_ptr, n_groups, stream);
-  raft::copy( min_pts2_ptr, min_pts_ptr, n_groups,  stream));
+  raft::copy(min_pts2_ptr, min_pts_ptr, n_groups, stream);
   RAFT_CUDA_TRY(cudaMemsetAsync(adj, 0, adj_size + core_pts_size + vd_size, stream));
   adj_ac.initialize(handle, adjac_buffer, adjac_size, stream);
   corepts_ac.initialize(handle, cptac_buffer, cptac_size, stream);
@@ -470,7 +470,7 @@ std::size_t run(const raft::handle_t& handle,
   CUML_LOG_DEBUG("--> Computing vertex degrees");
   raft::common::nvtx::push_range("Trace::Dbscan::VertexDeg");
   Multigroups::VertexDeg::launcher<Type_f, Index_>(
-    handle, adj_ac, vd_ac, pts_ac, eps2_ptr, algo_vd, stream, metric);
+    handle, adj_ac, vd_ac, pts_ac, eps2_ptr, stream, metric);
   raft::common::nvtx::pop_range();
 
   CUML_LOG_DEBUG("--> Computing core point mask");
@@ -492,7 +492,7 @@ std::size_t run(const raft::handle_t& handle,
     adj_graph.resize(maxadjlen, stream);
   }
   Multigroups::AdjGraph::run<Index_>(
-    handle, adj_ac, vd_ac, adj_graph.data(), curradjlen, ex_scan, algo_adj, row_counters, stream);
+    handle, adj_ac, vd_ac, adj_graph.data(), curradjlen, ex_scan, row_counters, stream);
   raft::common::nvtx::pop_range();
 
   CUML_LOG_DEBUG("--> Computing connected components");

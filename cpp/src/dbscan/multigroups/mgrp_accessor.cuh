@@ -327,20 +327,19 @@ class AdjGraphAccessor : public BaseClass {
 
     if (!optim_layout) {
       auto row_start_ids_view = raft::make_device_vector_view(this->row_start_ids, this->n_groups);
-      auto adj_group_offset_view = raft::make_device_vector_view(
-        const_cast<std::size_t*>(adj_group_offset), this->n_groups);
-      raft::linalg::map(handle, adj_group_offset_view, raft::cast_op<std::size_t>{}, row_start_ids_view);
+      auto adj_group_offset_view =
+        raft::make_device_vector_view(const_cast<std::size_t*>(adj_group_offset), this->n_groups);
+      raft::linalg::map(
+        handle, adj_group_offset_view, raft::cast_op<std::size_t>{}, row_start_ids_view);
 
       auto offset_in_view = raft::make_device_vector_view(
         const_cast<const std::size_t*>(adj_group_offset), this->n_groups);
-      auto offset_out_view = raft::make_device_vector_view(
-        const_cast<std::size_t*>(adj_group_offset), this->n_groups);
-      raft::linalg::map(
-        handle, 
-        offset_out_view,
-        raft::mul_const_op<Index_t>(static_cast<Index_t>(max_nbr)),
-        offset_in_view
-      );
+      auto offset_out_view =
+        raft::make_device_vector_view(const_cast<std::size_t*>(adj_group_offset), this->n_groups);
+      raft::linalg::map(handle,
+                        offset_out_view,
+                        raft::mul_const_op<Index_t>(static_cast<Index_t>(max_nbr)),
+                        offset_in_view);
     } else {
       const Index_t* host_n_rows = this->metadata->get_host_rows();
       for (struct {

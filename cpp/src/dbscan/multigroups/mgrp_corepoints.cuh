@@ -23,6 +23,17 @@ namespace Dbscan {
 namespace Multigroups {
 namespace CorePoints {
 
+/**
+ * Compute the core points mask.
+ *
+ * Core points have at least min_pts neighbors. Each group can have different number of min points.
+ *
+ * @tparam[Index_]: indexing arithmetic type
+ * @param[in]  handle     cuML handle
+ * @param[in]  vd_ac      Vertex degrees
+ * @param[out] corepts_ac Boolean core point mask
+ * @param[in]  min_pts    Core point criterion
+ */
 template <typename Index_ = int>
 void multi_groups_compute(const raft::handle_t& handle,
                           const Metadata::VertexDegAccessor<Index_, Index_>& vd_ac,

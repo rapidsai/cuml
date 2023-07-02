@@ -106,9 +106,11 @@ void fit(const raft::handle_t& handle,
 /**
  * @defgroup DbscanCpp C++ implementation of Dbscan algo
  * @brief Multi-group DBSCAN fit
- 
- Cluster multiple individual groups of points at once. Fits a separate DBSCAN model to each group of points. Each group is expected to have the same number of features (columns) but it can have different number of points.
- 
+
+ Cluster multiple individual groups of points at once. Fits a separate DBSCAN model to each group of
+ points. Each group is expected to have the same number of features (columns) but it can have
+ different number of points.
+
  * @param[in] handle cuml handle to use across the algorithm
  * @param[in] input row-major and concatenated input feature matrixes from different groups
  * @param[in] n_groups number of groups of multiple input feature matrixes

@@ -26,13 +26,13 @@ namespace AdjGraph {
 
 template <typename Index_ = int>
 void run(const raft::handle_t& handle,
-              Metadata::AdjGraphAccessor<bool, Index_>& adj_ac,
-              const Metadata::VertexDegAccessor<Index_, Index_>& vd_ac,
-              Index_* adj_graph,
-              Index_ adjnnz,
-              Index_* ex_scan,
-              Index_* row_counters,
-              cudaStream_t stream)
+         Metadata::AdjGraphAccessor<bool, Index_>& adj_ac,
+         const Metadata::VertexDegAccessor<Index_, Index_>& vd_ac,
+         Index_* adj_graph,
+         Index_ adjnnz,
+         Index_* ex_scan,
+         Index_* row_counters,
+         cudaStream_t stream)
 {
   Index_* vd      = vd_ac.vd;
   Index_ n_points = vd_ac.n_points;
@@ -46,7 +46,6 @@ void run(const raft::handle_t& handle,
   Csr::multi_groups_adj_to_csr(handle, adj_ac, ex_scan, row_counters, adj_graph, stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
-
 
 }  // namespace AdjGraph
 }  // namespace Multigroups

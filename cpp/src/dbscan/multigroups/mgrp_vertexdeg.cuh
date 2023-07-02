@@ -49,15 +49,9 @@ void launcher(const raft::handle_t& handle,
 
   // Compute adjacency matrix `adj` using Cosine or L2 metric.
   if (metric == raft::distance::DistanceType::CosineExpanded) {
-    auto eps_in_view = raft::make_device_vector_view(
-      const_cast<const value_t*>(eps), n_groups);
-    auto eps_out_view = raft::make_device_vector_view(
-      const_cast<value_t*>(eps), n_groups);
-    raft::linalg::map(
-      handle, 
-      eps_out_view, 
-      raft::mul_const_op<value_t>(2),
-      eps_in_view);
+    auto eps_in_view  = raft::make_device_vector_view(const_cast<const value_t*>(eps), n_groups);
+    auto eps_out_view = raft::make_device_vector_view(const_cast<value_t*>(eps), n_groups);
+    raft::linalg::map(handle, eps_out_view, raft::mul_const_op<value_t>(2), eps_in_view);
 
     rmm::device_uvector<value_t> rowNorms(m, stream);
 
@@ -102,10 +96,8 @@ void launcher(const raft::handle_t& handle,
       [] __device__(value_t mat_in, value_t vec_in) { return mat_in * vec_in; },
       stream);
   } else {
-    auto eps_in_view = raft::make_device_vector_view(
-      const_cast<const value_t*>(eps), n_groups);
-    auto eps_out_view = raft::make_device_vector_view(
-      const_cast<value_t*>(eps), n_groups);
+    auto eps_in_view  = raft::make_device_vector_view(const_cast<const value_t*>(eps), n_groups);
+    auto eps_out_view = raft::make_device_vector_view(const_cast<value_t*>(eps), n_groups);
     raft::linalg::map(handle, eps_out_view, raft::sq_op{}, eps_in_view);
 
     // 1. The output matrix adj is now an n x m matrix (row-major order)
@@ -142,7 +134,6 @@ void launcher(const raft::handle_t& handle,
       return degree;
     });
 }
-
 
 }  // namespace VertexDeg
 }  // namespace Multigroups
