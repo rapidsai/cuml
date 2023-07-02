@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,19 +23,19 @@
 #include <map>
 #include <numeric>
 #include <sstream>
-#include <vector>
 #include <utility>
+#include <vector>
 
 #include <raft/core/nvtx.hpp>
 
-#include <raft/util/cudart_utils.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <cuml/cluster/dbscan.hpp>
 
-#include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include <thrust/extrema.h>
+#include <thrust/host_vector.h>
 
 #ifndef CUDA_RT_CALL
 #define CUDA_RT_CALL(call)                                                    \
@@ -97,22 +97,24 @@ std::ostream& operator<<(std::ostream& os, const thrust::host_vector<DataT>& dat
 }
 
 template <typename DataT>
-double getHostDiff(const DataT *src1, const DataT *src2, int size) {
+double getHostDiff(const DataT* src1, const DataT* src2, int size)
+{
   double diff = 0.f;
-  for(int i = 0; i < size; ++i) {
+  for (int i = 0; i < size; ++i) {
     diff += std::abs(static_cast<double>(src1[i] - src2[i]));
   }
   return diff;
 }
 
 template <typename DataT>
-double getDevDiff(const DataT *d_src1, const DataT *d_src2, int size) {
+double getDevDiff(const DataT* d_src1, const DataT* d_src2, int size)
+{
   double diff = 0.f;
-  DataT *src1 = new DataT[size];
-  DataT *src2 = new DataT[size];
+  DataT* src1 = new DataT[size];
+  DataT* src2 = new DataT[size];
   CUDA_RT_CALL(cudaMemcpy(src1, d_src1, size * sizeof(DataT), cudaMemcpyDeviceToHost));
   CUDA_RT_CALL(cudaMemcpy(src2, d_src2, size * sizeof(DataT), cudaMemcpyDeviceToHost));
-  for(int i = 0; i < size; ++i) {
+  for (int i = 0; i < size; ++i) {
     diff += std::abs(static_cast<double>(src1[i] - src2[i]));
   }
   delete[] src1;
@@ -121,11 +123,11 @@ double getDevDiff(const DataT *d_src1, const DataT *d_src2, int size) {
 }
 
 template <typename DataT>
-void printVec(const DataT *src, int size) {
-  if(src == nullptr)
-    return;
+void printVec(const DataT* src, int size)
+{
+  if (src == nullptr) return;
   std::cout << "[ ";
-  for(int i = 0; i < size; ++i) {
+  for (int i = 0; i < size; ++i) {
     std::cout << src[i] << " ";
   }
   std::cout << "]" << std::endl;
@@ -161,18 +163,18 @@ void generateDefaultDataset(std::vector<float>& inputData,
 
 template <typename Index_t = int>
 void run_sg_dbscan(const raft::handle_t& handle,
-                   float *d_inputData,
+                   float* d_inputData,
                    Index_t nGroups,
                    Index_t nTotalRows,
                    Index_t nCols,
-                   Index_t *h_nRows,
-                   const float *pEps,
-                   const Index_t *pMinPts,
-                   Index_t *d_labels,
-                   Index_t *d_corepts_indices,
+                   Index_t* h_nRows,
+                   const float* pEps,
+                   const Index_t* pMinPts,
+                   Index_t* d_labels,
+                   Index_t* d_corepts_indices,
                    raft::distance::DistanceType metric,
                    size_t& max_bytes_per_batch,
-                   void *workspace,
+                   void* workspace,
                    const Index_t nWarmup,
                    const Index_t nLoops,
                    double& cpuLatency,
@@ -186,20 +188,18 @@ void run_sg_dbscan(const raft::handle_t& handle,
   CUDA_RT_CALL(cudaEventCreate(&stop_event));
 
   thrust::host_vector<Index_t> pfx_nRows(nGroups, 0);
-  thrust::exclusive_scan(thrust::host, 
-                         h_nRows, 
-                         h_nRows + nGroups, 
-                         thrust::raw_pointer_cast(pfx_nRows.data()));
+  thrust::exclusive_scan(
+    thrust::host, h_nRows, h_nRows + nGroups, thrust::raw_pointer_cast(pfx_nRows.data()));
 
   std::cout << "=== Run Dbscan (native) ===" << std::endl;
-  for(Index_t g = 0; g < nGroups; ++g) {
-    Index_t nRows = h_nRows[g];
-    float *input = d_inputData + pfx_nRows[g] * nCols;
-    float eps = pEps[g];
-    Index_t minPts = pMinPts[g];
-    Index_t *labels = d_labels + pfx_nRows[g];
-    Index_t *core_pts_indices = (d_corepts_indices == nullptr)?
-                                nullptr : d_corepts_indices + pfx_nRows[g];
+  for (Index_t g = 0; g < nGroups; ++g) {
+    Index_t nRows   = h_nRows[g];
+    float* input    = d_inputData + pfx_nRows[g] * nCols;
+    float eps       = pEps[g];
+    Index_t minPts  = pMinPts[g];
+    Index_t* labels = d_labels + pfx_nRows[g];
+    Index_t* core_pts_indices =
+      (d_corepts_indices == nullptr) ? nullptr : d_corepts_indices + pfx_nRows[g];
     ML::Dbscan::fit(handle,
                     input,
                     nRows,
@@ -216,11 +216,11 @@ void run_sg_dbscan(const raft::handle_t& handle,
 
   cpuLatency = 0;
   gpuLatency = 0;
-  for(Index_t i = 0; i < nWarmup; ++i) {
-    for(Index_t g = 0; g < nGroups; ++g) {
-      Index_t nRows = h_nRows[g];
-      float *input = d_inputData + pfx_nRows[g] * nCols;
-      float eps = pEps[g];
+  for (Index_t i = 0; i < nWarmup; ++i) {
+    for (Index_t g = 0; g < nGroups; ++g) {
+      Index_t nRows  = h_nRows[g];
+      float* input   = d_inputData + pfx_nRows[g] * nCols;
+      float eps      = pEps[g];
       Index_t minPts = pMinPts[g];
       ML::Dbscan::fit(handle,
                       input,
@@ -237,14 +237,14 @@ void run_sg_dbscan(const raft::handle_t& handle,
     }
   }
 
-  for(Index_t i = 0; i < nLoops; ++i) {
-    float epoch_time = 0.f;
+  for (Index_t i = 0; i < nLoops; ++i) {
+    float epoch_time  = 0.f;
     auto cpuStartTime = std::chrono::high_resolution_clock::now();
     CUDA_RT_CALL(cudaEventRecord(start_event, stream));
-    for(Index_t g = 0; g < nGroups; ++g) {
-      Index_t nRows = h_nRows[g];
-      float *input = d_inputData + pfx_nRows[g] * nCols;
-      float eps = pEps[g];
+    for (Index_t g = 0; g < nGroups; ++g) {
+      Index_t nRows  = h_nRows[g];
+      float* input   = d_inputData + pfx_nRows[g] * nCols;
+      float eps      = pEps[g];
       Index_t minPts = pMinPts[g];
       ML::Dbscan::fit(handle,
                       input,
@@ -262,8 +262,9 @@ void run_sg_dbscan(const raft::handle_t& handle,
     CUDA_RT_CALL(cudaEventRecord(stop_event, stream));
     CUDA_RT_CALL(cudaStreamSynchronize(stream));
     cpuLatency += (std::chrono::duration_cast<std::chrono::duration<double>>(
-                   std::chrono::high_resolution_clock::now() - cpuStartTime)
-                   .count()) * 1000;
+                     std::chrono::high_resolution_clock::now() - cpuStartTime)
+                     .count()) *
+                  1000;
     CUDA_RT_CALL(cudaEventElapsedTime(&epoch_time, start_event, stop_event));
     gpuLatency += epoch_time;
   }
@@ -274,18 +275,18 @@ void run_sg_dbscan(const raft::handle_t& handle,
 
 template <typename Index_t = int>
 void run_mg_dbscan(const raft::handle_t& handle,
-                   float *d_inputData,
+                   float* d_inputData,
                    Index_t nGroups,
                    Index_t nTotalRows,
                    Index_t nCols,
-                   Index_t *h_nRows,
-                   float *pEps,
-                   Index_t *pMinPts,
-                   Index_t *d_labels,
-                   Index_t *d_corepts_indices,
+                   Index_t* h_nRows,
+                   float* pEps,
+                   Index_t* pMinPts,
+                   Index_t* d_labels,
+                   Index_t* d_corepts_indices,
                    raft::distance::DistanceType metric,
                    size_t& max_bytes_per_batch,
-                   void *workspace,
+                   void* workspace,
                    const Index_t nWarmup,
                    const Index_t nLoops,
                    double& cpuLatency,
@@ -341,7 +342,7 @@ void run_mg_dbscan(const raft::handle_t& handle,
 
   cpuLatency = 0;
   gpuLatency = 0;
-  for(Index_t i = 0; i < nWarmup; ++i) {
+  for (Index_t i = 0; i < nWarmup; ++i) {
     ML::Dbscan::fit(handle,
                     d_inputData,
                     nGroups,
@@ -359,8 +360,8 @@ void run_mg_dbscan(const raft::handle_t& handle,
                     false);
   }
 
-  for(Index_t i = 0; i < nLoops; ++i) {
-    float epoch_time = 0.f;
+  for (Index_t i = 0; i < nLoops; ++i) {
+    float epoch_time  = 0.f;
     auto cpuStartTime = std::chrono::high_resolution_clock::now();
     CUDA_RT_CALL(cudaEventRecord(start_event, stream));
     ML::Dbscan::fit(handle,
@@ -381,16 +382,15 @@ void run_mg_dbscan(const raft::handle_t& handle,
     CUDA_RT_CALL(cudaEventRecord(stop_event, stream));
     CUDA_RT_CALL(cudaStreamSynchronize(stream));
     cpuLatency += static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
-                    std::chrono::high_resolution_clock::now() - cpuStartTime)
-                    .count()) / 1000;
+                                        std::chrono::high_resolution_clock::now() - cpuStartTime)
+                                        .count()) /
+                  1000;
     CUDA_RT_CALL(cudaEventElapsedTime(&epoch_time, start_event, stop_event));
     gpuLatency += epoch_time;
   }
   cpuLatency /= nLoops;
   gpuLatency /= nLoops;
-  if(useCustomWorkspace) {
-    CUDA_RT_CALL(cudaFree(workspace_buffer));
-  }
+  if (useCustomWorkspace) { CUDA_RT_CALL(cudaFree(workspace_buffer)); }
   return;
 }
 
@@ -413,7 +413,7 @@ int main(int argc, char* argv[])
   size_t max_bytes_per_batch =
     get_argval<size_t>(argv, argv + argc, "-max_bytes_per_batch", (size_t)13e9);
   const int nWarmup = (bNoWarmup) ? 0 : 30;
-  size_t nRows      = (bStaticShape)? maxRows : maxRows * 2 / 3;
+  size_t nRows      = (bStaticShape) ? maxRows : maxRows * 2 / 3;
 
   {
     cudaError_t cudaStatus = cudaSuccess;
@@ -434,8 +434,8 @@ int main(int argc, char* argv[])
   std::srand(std::time(nullptr));
   thrust::host_vector<size_t> vRows;
   for (size_t i = 0; i < nGroups; ++i) {
-    size_t nRowsPG = (bStaticShape)? nRows : (rand() % nRows + rand() % maxRows) / 2;
-    nRowsPG = std::max(nRowsPG, (size_t)1);
+    size_t nRowsPG = (bStaticShape) ? nRows : (rand() % nRows + rand() % maxRows) / 2;
+    nRowsPG        = std::max(nRowsPG, (size_t)1);
     vRows.push_back(nRowsPG);
   }
   assert(nGroups <= vRows.size());
@@ -446,14 +446,19 @@ int main(int argc, char* argv[])
     // Samples file not specified, run with defaults
     std::cout << "Samples file not specified. (-input option)" << std::endl;
     std::cout << "Running with default dataset:" << std::endl;
-    generateDefaultDataset(
-      h_inputData, nGroups, thrust::raw_pointer_cast(vRows.data()), nCols, minPts, eps, max_bytes_per_batch);
+    generateDefaultDataset(h_inputData,
+                           nGroups,
+                           thrust::raw_pointer_cast(vRows.data()),
+                           nCols,
+                           minPts,
+                           eps,
+                           max_bytes_per_batch);
   } else if (nGroups == 0 || vRows.empty() || nCols == 0) {
     // Samples file specified but nRows and nCols is not specified
     // Print usage and quit
     std::cerr << "Samples file: " << input << std::endl;
-    std::cerr << "Incorrect value for (num_groups, num_samples, num_features): (" 
-              << nGroups << ", " << nTotalRows << ", " << nCols << ")" << std::endl;
+    std::cerr << "Incorrect value for (num_groups, num_samples, num_features): (" << nGroups << ", "
+              << nTotalRows << ", " << nCols << ")" << std::endl;
     printUsage();
     return 1;
   } else {
@@ -469,10 +474,8 @@ int main(int argc, char* argv[])
     float val = 0.0;
     for (int g = 0; g < nGroups; ++g) {
       for (int n = 0; n < maxRows * nCols; ++n) {
-        if (!(input_stream >> val && h_inputData.size() <= nTotalRows * nCols))
-          break;
-        if (n >= vRows[g] * nCols)
-          continue;
+        if (!(input_stream >> val && h_inputData.size() <= nTotalRows * nCols)) break;
+        if (n >= vRows[g] * nCols) continue;
         h_inputData.push_back(val);
       }
     }
@@ -495,14 +498,15 @@ int main(int argc, char* argv[])
   std::cout << "Running DBSCAN with following parameters:" << std::endl
             << "Number of loops - " << nLoops << std::endl
             << "Number of groups - " << nGroups << std::endl
-            << "Number of samples in all groups - [" << vRows << "] sum: " << nTotalRows << std::endl
+            << "Number of samples in all groups - [" << vRows << "] sum: " << nTotalRows
+            << std::endl
             << "Number of features - " << nCols << std::endl
             << "min_pts - " << minPts << std::endl
             << "eps - " << eps << std::endl
             << "max_bytes_per_batch - " << max_bytes_per_batch << std::endl;
 
-  float *d_inputData_sg = nullptr;
-  float *d_inputData_mg = nullptr;
+  float* d_inputData_sg = nullptr;
+  float* d_inputData_mg = nullptr;
   CUDA_RT_CALL(cudaMalloc(&d_inputData_sg, nTotalRows * nCols * sizeof(float)));
   CUDA_RT_CALL(cudaMalloc(&d_inputData_mg, nTotalRows * nCols * sizeof(float)));
   CUDA_RT_CALL(cudaMemcpyAsync(d_inputData_sg,
@@ -517,21 +521,23 @@ int main(int argc, char* argv[])
                                stream));
 
   if (bPrint)
-    std::printf("Diff in input: %lf\n", getDevDiff(d_inputData_sg, d_inputData_mg, nTotalRows * nCols));
+    std::printf("Diff in input: %lf\n",
+                getDevDiff(d_inputData_sg, d_inputData_mg, nTotalRows * nCols));
 
   {
     using Index_t = int;
     // auto metric = raft::distance::L2SqrtUnexpanded;
-    auto metric = (bMetric == 1)? raft::distance::CosineExpanded : raft::distance::L2SqrtUnexpanded;
-    std::printf("Running with metric %s\n", (bMetric == 1)? "CosineExpanded" : "L2SqrtUnexpanded");
+    auto metric =
+      (bMetric == 1) ? raft::distance::CosineExpanded : raft::distance::L2SqrtUnexpanded;
+    std::printf("Running with metric %s\n", (bMetric == 1) ? "CosineExpanded" : "L2SqrtUnexpanded");
     std::vector<float> vEps(nGroups, eps);
     std::vector<Index_t> vMinPts(nGroups, minPts);
 
-    Index_t *labels_sg = nullptr;
-    Index_t *corepoints_indices_sg = nullptr;
-    Index_t *labels_mg = nullptr;
-    Index_t *corepoints_indices_mg = nullptr;
-    void *workspace = nullptr;
+    Index_t* labels_sg             = nullptr;
+    Index_t* corepoints_indices_sg = nullptr;
+    Index_t* labels_mg             = nullptr;
+    Index_t* corepoints_indices_mg = nullptr;
+    void* workspace                = nullptr;
     CUDA_RT_CALL(cudaMalloc(&labels_sg, nTotalRows * sizeof(Index_t)));
     CUDA_RT_CALL(cudaMalloc(&corepoints_indices_sg, nTotalRows * sizeof(Index_t)));
     CUDA_RT_CALL(cudaMalloc(&labels_mg, nTotalRows * sizeof(Index_t)));
@@ -539,7 +545,7 @@ int main(int argc, char* argv[])
     CUDA_RT_CALL(cudaMalloc(&workspace, nTotalRows * sizeof(Index_t)));
 
     std::vector<Index_t> vTyRows(nGroups, 0);
-    for(int i = 0; i < nGroups; ++i)
+    for (int i = 0; i < nGroups; ++i)
       vTyRows[i] = static_cast<Index_t>(vRows[i]);
     double cpuSgLatency, gpuSgLatency, cpuMgLatency, gpuMgLatency;
     raft::common::nvtx::push_range("Trace::Example::run_sg_dbscan");
@@ -586,36 +592,46 @@ int main(int argc, char* argv[])
     raft::common::nvtx::pop_range();
 
     // Compare the results
-    Index_t *h_labels_sg = new Index_t[nTotalRows];
-    Index_t *h_labels_mg = new Index_t[nTotalRows];
-    Index_t *h_corepts_sg = new Index_t[nTotalRows];
-    Index_t *h_corepts_mg = new Index_t[nTotalRows];
+    Index_t* h_labels_sg  = new Index_t[nTotalRows];
+    Index_t* h_labels_mg  = new Index_t[nTotalRows];
+    Index_t* h_corepts_sg = new Index_t[nTotalRows];
+    Index_t* h_corepts_mg = new Index_t[nTotalRows];
 
-    CUDA_RT_CALL(cudaMemcpy(h_labels_sg, labels_sg, nTotalRows * sizeof(Index_t), cudaMemcpyDeviceToHost));
-    CUDA_RT_CALL(cudaMemcpy(h_labels_mg, labels_mg, nTotalRows * sizeof(Index_t), cudaMemcpyDeviceToHost));
-    CUDA_RT_CALL(cudaMemcpy(h_corepts_sg, corepoints_indices_sg, nTotalRows * sizeof(Index_t), cudaMemcpyDeviceToHost));
-    CUDA_RT_CALL(cudaMemcpy(h_corepts_mg, corepoints_indices_mg, nTotalRows * sizeof(Index_t), cudaMemcpyDeviceToHost));
+    CUDA_RT_CALL(
+      cudaMemcpy(h_labels_sg, labels_sg, nTotalRows * sizeof(Index_t), cudaMemcpyDeviceToHost));
+    CUDA_RT_CALL(
+      cudaMemcpy(h_labels_mg, labels_mg, nTotalRows * sizeof(Index_t), cudaMemcpyDeviceToHost));
+    CUDA_RT_CALL(cudaMemcpy(
+      h_corepts_sg, corepoints_indices_sg, nTotalRows * sizeof(Index_t), cudaMemcpyDeviceToHost));
+    CUDA_RT_CALL(cudaMemcpy(
+      h_corepts_mg, corepoints_indices_mg, nTotalRows * sizeof(Index_t), cudaMemcpyDeviceToHost));
 
     std::vector<Index_t> vResDiff(nGroups, 0);
     size_t startRow = 0;
-    for(int g = 0; g < nGroups; ++g) {
+    for (int g = 0; g < nGroups; ++g) {
       thrust::host_vector<Index_t> h_diff(vRows[g]);
-      for(int i = 0; i < vRows[g]; ++i) {
+      for (int i = 0; i < vRows[g]; ++i) {
         h_diff[i] = std::abs(h_labels_sg[startRow + i] - h_labels_mg[startRow + i]);
       }
       vResDiff[g] = thrust::reduce(thrust::host, h_diff.begin(), h_diff.end());
       startRow += vRows[g];
     }
-    Index_t sum_diff = thrust::reduce(thrust::host, vResDiff.data(), vResDiff.data() + vResDiff.size());
+    Index_t sum_diff =
+      thrust::reduce(thrust::host, vResDiff.data(), vResDiff.data() + vResDiff.size());
     std::cout << "diff: " << sum_diff << " ===> (";
-    std::for_each(vResDiff.begin(), vResDiff.end(), [](Index_t x){std::cout << x << " ";});
+    std::for_each(vResDiff.begin(), vResDiff.end(), [](Index_t x) { std::cout << x << " "; });
     std::cout << ")" << std::endl;
 
-    std::printf("Latency: on cpu %.4lf ms, on gpu %.4lf ms (single);\n"
-                "Latency: on cpu %.4lf ms, on gpu %.4lf ms (multi);\n"
-                "Speedup: on cpu %.4lf x, on gpu %.4lf x\n",
-                cpuSgLatency, gpuSgLatency, cpuMgLatency, gpuMgLatency,
-                cpuSgLatency / cpuMgLatency, gpuSgLatency / gpuMgLatency);
+    std::printf(
+      "Latency: on cpu %.4lf ms, on gpu %.4lf ms (single);\n"
+      "Latency: on cpu %.4lf ms, on gpu %.4lf ms (multi);\n"
+      "Speedup: on cpu %.4lf x, on gpu %.4lf x\n",
+      cpuSgLatency,
+      gpuSgLatency,
+      cpuMgLatency,
+      gpuMgLatency,
+      cpuSgLatency / cpuMgLatency,
+      gpuSgLatency / gpuMgLatency);
 
     CUDA_RT_CALL(cudaFree(labels_sg));
     CUDA_RT_CALL(cudaFree(corepoints_indices_sg));
