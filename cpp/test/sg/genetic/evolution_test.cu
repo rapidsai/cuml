@@ -121,7 +121,7 @@ class GeneticEvolutionTest : public ::testing::Test {
   const int n_tr_rows   = 250;
   const int n_tst_rows  = 50;
   const int n_cols      = 2;
-  const float tolerance = 0.025f;  // assuming upto 2.5% tolerance for results(for now)
+  const float tolerance = 0.025f;  // assuming up to 2.5% tolerance for results(for now)
 
   // Contains synthetic Data
   // y =
