@@ -66,6 +66,7 @@ inline void launcher(const raft::handle_t& handle,
   ptrs[0]  = inputsA.X;
   sizes[0] = inputsA.n;
 
+  std::vector<int64_t>* translations = nullptr;
   raft::spatial::knn::brute_force_knn(handle,
                                       ptrs,
                                       sizes,
@@ -75,6 +76,9 @@ inline void launcher(const raft::handle_t& handle,
                                       out.knn_indices,
                                       out.knn_dists,
                                       n_neighbors,
+                                      true,
+                                      true,
+                                      translations,
                                       params->metric,
                                       params->p);
 }
