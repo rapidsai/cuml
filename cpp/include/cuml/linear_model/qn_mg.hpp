@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,19 @@ namespace ML {
 namespace GLM {
 namespace opg {
 
+/**
+ * @brief performs MNMG fit operation for the logistic regression using quasi newton methods
+ * @param[in] handle: the internal cuml handle object
+ * @param[in] input_data: vector holding all partitions for that rank
+ * @param[in] input_desc: PartDescriptor object for the input
+ * @param[in] labels: labels data
+ * @param[out] coef: learned coefficients
+ * @param[in] params: model parameters
+ * @param[in] X_col_major: true if X is stored column-major
+ * @param[in] n_classes: number of outputs (number of classes or `1` for regression)
+ * @param[out] f: host pointer holding the final objective value
+ * @param[out] num_iters: host pointer holding the actual number of iterations taken
+ */
 void qnFit(raft::handle_t& handle,
            std::vector<Matrix::Data<float>*>& input_data,
            Matrix::PartDescriptor& input_desc,
@@ -34,25 +47,9 @@ void qnFit(raft::handle_t& handle,
            float* coef,
            const qn_params& pams,
            bool X_col_major,
+           int n_classes,
            float* f,
            int* num_iters);
-
-/*
-void qnFit(const raft::handle_t &handle, 
-           const qn_params& pams,
-           float* X,
-           bool X_col_major,
-           float *y,
-           int N,
-           int D,
-           int C,
-           float* w0,
-           float* f,
-           int* num_iters,
-           int n_samples,
-           int rank,
-           int n_ranks);
-*/
 
 };  // namespace opg
 };  // namespace GLM

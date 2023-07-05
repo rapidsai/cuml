@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -79,6 +79,7 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         float *coef,
         const qn_params& pams, 
         bool X_col_major,
+        int n_classes,
         float *f,
         int *num_iters) except +
 
@@ -178,7 +179,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         cdef int num_iters
 
 
-        self._num_classes = 2
+        self._num_classes = 2 # TODO: calculate _num_classes at runtime
         self.prepare_for_fit(self._num_classes)
         cdef uintptr_t mat_coef_ptr = self.coef_.ptr
 
@@ -192,6 +193,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                 <float*>mat_coef_ptr,
                 qnpams,
                 self.is_col_major,
+                self._num_classes,
                 <float*> &objective32,
                 <int*> &num_iters)
 

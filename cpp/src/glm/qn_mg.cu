@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,45 +36,6 @@ namespace ML {
 namespace GLM {
 namespace opg {
 
-/*
-void toy(const raft::handle_t &handle,
-         std::vector<Matrix::Data<float>*>& input_data,
-         Matrix::PartDescriptor& input_desc,
-         std::vector<Matrix::Data<float>*>& labels,
-         float* coef) 
-{
-  ASSERT(input_data.size() == 1, "qn_mg.cu currently does not accept more than one input matrix");
-  ASSERT(labels.size() == input_data.size(), "labels size does not input_data size ");
-
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  std::cout << "entered toy:input_data.size() " << input_data.size() << std::endl;
-  auto X = input_data[0];
-  std::cout << "X.numElements: " << X->numElements() << ", totalSize: " << X->totalSize << std::endl;
-  std::cout << "X: " << raft::arr2Str(X->ptr, 4, "first X", stream).c_str() << std::endl;
-
-  auto y = labels[0];
-  std::cout << "y.numElements: " << y->numElements() << ", totalSize: " << y->totalSize << std::endl;
-
-  std::cout << "first_y.ptr: " << raft::arr2Str(y->ptr, 2, "first_y ", stream).c_str() << std::endl;
-
-  int N = input_desc.M;
-  int D = input_desc.N;
-  int rank = input_desc.rank;
-  int n_ranks = input_desc.partsToRanks.size();
-  size_t n_samples = 0;
-  for (auto p : input_desc.partsToRanks) {
-    n_samples += p->size;
-
-  }
-
-  std::cout << "report: N: " << N << ", D: " << D << ", rank: " << rank << ", n_ranks " << n_ranks << ", n_samples " << n_samples << std::endl;
-
-
-
-
-}
-*/
-
 template<typename T>
 void qnFit_impl(const raft::handle_t &handle, 
                 const qn_params& pams,
@@ -104,11 +65,6 @@ void qnFit_impl(const raft::handle_t &handle,
   auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major? COL_MAJOR : ROW_MAJOR);
   auto y_simple = SimpleVec<T>(y, N);
   SimpleVec<T> coef_simple(w0, D + pams.fit_intercept);
-
-  //std::cout << "rank " << rank << ", N " << N << ", D " << D << ", n_samples " << n_samples << std::endl;
-  //std::cout << "ranl " << rank << raft::arr2Str(X_simple.data, N * D, "X_simple", stream) << std::endl;
-  //std::cout << "ranl " << rank << raft::arr2Str(y_simple.data, N, "y_simple", stream) << std::endl;
-  //std::cout << "ranl " << rank << raft::arr2Str(coef_simple.data, D + pams.fit_intercept, "y_simple", stream) << std::endl;
 
   ML::GLM::detail::LBFGSParam<T> opt_param(pams);
 
@@ -147,6 +103,7 @@ void qnFit_impl(raft::handle_t& handle,
               T* coef,
               const qn_params& pams,
               bool X_col_major,
+              int n_classes,
               T* f,
               int* num_iters) 
 {
@@ -169,7 +126,7 @@ void qnFit_impl(raft::handle_t& handle,
     data_y->ptr,
     input_desc.totalElementsOwnedBy(input_desc.rank),
     input_desc.N, 
-    2,  // TODO: support multiple classes
+    n_classes,
     coef,
     f,
     num_iters,
@@ -185,10 +142,11 @@ void qnFit(raft::handle_t& handle,
            float* coef,
            const qn_params& pams,
            bool X_col_major,
+           int n_classes,
            float* f,
            int* num_iters) 
 {
-  qnFit_impl(
+  qnFit_impl<float>(
     handle,
     input_data,
     input_desc,
@@ -196,6 +154,7 @@ void qnFit(raft::handle_t& handle,
     coef,
     pams,
     X_col_major,
+    n_classes,
     f,
     num_iters
   );

@@ -172,7 +172,7 @@ def test_lbfgs_toy(
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [1e5])
 @pytest.mark.parametrize("ncols", [20])
-@pytest.mark.parametrize("n_parts", [2])
+@pytest.mark.parametrize("n_parts", [2, 23])
 @pytest.mark.parametrize("datatype", [np.float32])
 def test_lbfgs(
     nrows, ncols, n_parts, datatype, client
