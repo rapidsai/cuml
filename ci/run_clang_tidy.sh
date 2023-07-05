@@ -21,11 +21,5 @@ mkdir -p $(dirname ${RAPIDS_CMAKE_FORMAT_FILE})
 wget -O ${RAPIDS_CMAKE_FORMAT_FILE} ${FORMAT_FILE_URL}
 
 export LD_LIBRARY_PATH="$CONDA_PREFIX/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-mkdir -p cpp/build
-cd cpp/build
-cmake -DGPU_ARCHS=70 \
-      -DBLAS_LIBRARIES=${CONDA_PREFIX}/lib/libopenblas.so.0 \
-      ..
-make -j treelite
-cd ../..
+./build.sh treelite
 python cpp/scripts/run-clang-tidy.py
