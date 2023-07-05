@@ -25,20 +25,13 @@ from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
-from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 
-from pylibraft.common.handle import Handle
 from cuml.common import (
     input_to_cuml_array,
     input_to_host_array
 )
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
-from cuml.internals.mixins import ClusterMixin
-from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals import logger
 from cuml.internals.import_utils import has_hdbscan
 
@@ -96,7 +89,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
         DistanceType metric,
         float* membership_vec,
         size_t batch_size)
-    
+
     void compute_membership_vector(
         const handle_t& handle,
         CondensedHierarchy[int, float] &condensed_tree,
@@ -107,7 +100,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
         int min_samples,
         DistanceType metric,
         float* membership_vec,
-        size_t batch_size);
+        size_t batch_size)
 
     void out_of_sample_predict(const handle_t &handle,
                                CondensedHierarchy[int, float] &condensed_tree,
@@ -250,7 +243,7 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
         The new data points to predict cluster labels for. They should
         have the same dimensionality as the original dataset over which
         clusterer was fit.
-    
+
     batch_size : int, optional, default=min(4096, n_points_to_predict)
         Lowers memory requirement by computing distance-based membership
         in smaller batches of points in the prediction data. For example, a
@@ -308,7 +301,7 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
                             convert_to_dtype=(np.float32
                                               if convert_dtype
                                               else None))
-    
+
     if clusterer.n_clusters_ == 0:
         return np.zeros(n_prediction_points, dtype=np.float32)
 
@@ -317,7 +310,7 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
 
     cdef uintptr_t prediction_ptr = points_to_predict_m.ptr
     cdef uintptr_t input_ptr = clusterer.X_m.ptr
-    
+
     membership_vec = CumlArray.empty(
         (n_prediction_points * clusterer.n_clusters_,),
         dtype="float32")

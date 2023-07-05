@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 # distutils: language = c++
 
-import ctypes
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 
@@ -24,7 +23,6 @@ from enum import IntEnum
 
 from cuml.internals.safe_imports import gpu_only_import
 rmm = gpu_only_import('rmm')
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
 

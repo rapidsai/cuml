@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 # distutils: language = c++
 
-import ctypes
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
@@ -24,7 +23,6 @@ cp = gpu_only_import('cupy')
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
-from libc.stdlib cimport calloc, malloc, free
 
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
@@ -36,8 +34,6 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.metrics.distance_type cimport DistanceType
-
-from collections import defaultdict
 
 cdef extern from "cuml/cluster/dbscan.hpp" \
         namespace "ML::Dbscan":
@@ -345,7 +341,7 @@ class DBSCAN(Base,
         # make sure that the `fit` is complete before the following
         # delete call happens
         self.handle.sync()
-        del(X_m)
+        del X_m
 
         # Finally, resize the core_sample_indices array if necessary
         if self.calc_core_sample_indices:

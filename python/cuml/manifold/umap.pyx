@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +16,9 @@
 
 # distutils: language = c++
 
-import typing
-import ctypes
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
-import warnings
 
 import joblib
 
@@ -41,25 +38,23 @@ cp_coo_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'coo_matrix')
 cp_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')
 
 import cuml.internals
-from cuml.common import using_output_type
 from cuml.internals.base import UniversalBase
 from pylibraft.common.handle cimport handle_t
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger
 from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.memory_utils import using_output_type
-from cuml.internals.import_utils import has_scipy
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
 from cuml.metrics.distance_type cimport DistanceType
 
-from cuml.manifold.simpl_set import fuzzy_simplicial_set, \
-    simplicial_set_embedding
-
-if has_scipy(True):
-    import scipy.sparse
+from cuml.manifold.simpl_set import fuzzy_simplicial_set  # no-cython-lint
+from cuml.manifold.simpl_set import simplicial_set_embedding  # no-cython-lint
+# TODO: These two symbols are considered part of the public API of this module
+# which is why imports should not be removed. The no-cython-lint markers can be
+# replaced with an explicit __all__ specifications once
+# https://github.com/MarcoGorelli/cython-lint/issues/80 is resolved.
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.api_decorators import device_interop_preparation
@@ -69,8 +64,6 @@ rmm = gpu_only_import('rmm')
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free
-
-from libcpp.memory cimport shared_ptr
 
 cimport cuml.common.cuda
 
@@ -541,7 +534,7 @@ class UMAP(UniversalBase,
 
         # Handle dense inputs
         else:
-            self._raw_data, self.n_rows, self.n_dims, dtype = \
+            self._raw_data, self.n_rows, self.n_dims, _ = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
@@ -720,7 +713,7 @@ class UMAP(UniversalBase,
                                   convert_format=False)
             index = None
         else:
-            X_m, n_rows, n_cols, dtype = \
+            X_m, n_rows, n_cols, _ = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype

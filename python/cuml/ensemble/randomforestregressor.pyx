@@ -25,18 +25,13 @@ from cuml.internals.safe_imports import (
 np = cpu_only_import('numpy')
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 rmm = gpu_only_import('rmm')
-import warnings
 
-import cuml.internals.logger as logger
-
-from cuml import ForestInference
 from cuml.internals.array import CumlArray
 import cuml.internals
 
 from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
@@ -45,20 +40,14 @@ from cuml.ensemble.randomforest_shared cimport *
 
 from cuml.fil.fil import TreeliteModel
 
-from cython.operator cimport dereference as deref
-
 from libcpp cimport bool
-from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t, uint64_t
-from libc.stdlib cimport calloc, malloc, free
 
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
 
 from pylibraft.common.handle cimport handle_t
 cimport cuml.common.cuda
-
-cimport cython
 
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
@@ -271,11 +260,9 @@ class RandomForestRegressor(BaseRandomForestModel,
             verbose=verbose,
             output_type=output_type,
             **kwargs)
-    """
-    TODO:
-        Add the preprocess and postprocess functions
-        in the cython code to normalize the labels
-    """
+
+    # TODO: Add the preprocess and postprocess functions in the cython code to
+    # normalize the labels
     def __getstate__(self):
         state = self.__dict__.copy()
         cdef size_t params_t
@@ -534,7 +521,7 @@ class RandomForestRegressor(BaseRandomForestModel,
 
         self.handle.sync()
         # synchronous w/o a stream
-        del(X_m)
+        del X_m
         return preds
 
     @nvtx_annotate(
@@ -656,7 +643,7 @@ class RandomForestRegressor(BaseRandomForestModel,
             input_to_cuml_array(X,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None))
-        y_m, n_rows, _, y_dtype = \
+        y_m, n_rows, _, _ = \
             input_to_cuml_array(y,
                                 convert_to_dtype=(dtype if convert_dtype
                                                   else False))
@@ -675,8 +662,8 @@ class RandomForestRegressor(BaseRandomForestModel,
         if self.accuracy_metric == "r2":
             stats = r2_score(y_m, preds, handle=self.handle)
             self.handle.sync()
-            del(y_m)
-            del(preds_m)
+            del y_m
+            del preds_m
             return stats
 
         cdef handle_t* handle_ =\
@@ -712,8 +699,8 @@ class RandomForestRegressor(BaseRandomForestModel,
             stats = self.temp_stats['mean_squared_error']
 
         self.handle.sync()
-        del(y_m)
-        del(preds_m)
+        del y_m
+        del preds_m
         return stats
 
     def get_summary_text(self):

@@ -31,13 +31,10 @@ cudf = gpu_only_import('cudf')
 scipy = cpu_only_import('scipy')
 cupyx = gpu_only_import('cupyx')
 import cuml.internals
-from cuml.internals.base import _determine_stateless_output_type
 from cuml.common import (input_to_cuml_array, CumlArray)
-from cuml.internals import logger
 from cuml.internals.input_utils import sparse_scipy_to_cp
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 from cuml.metrics.distance_type cimport DistanceType
 from cuml.thirdparty_adapters import _get_mask
 
@@ -65,9 +62,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                                  DistanceType metric,
                                  float metric_arg) except +
 
-"""
-List of available distance metrics in `pairwise_distances`
-"""
+# List of available distance metrics in `pairwise_distances`
 PAIRWISE_DISTANCE_METRICS = {
     "cityblock": DistanceType.L1,
     "cosine": DistanceType.CosineExpanded,
@@ -106,7 +101,7 @@ PAIRWISE_DISTANCE_SPARSE_METRICS = {
 }
 
 
-def _determine_metric(metric_str, is_sparse=False):
+def _determine_metric(metric_str, is_sparse_=False):
     # Available options in scikit-learn and their pairs. See
     # sklearn.metrics.pairwise.PAIRWISE_DISTANCE_FUNCTIONS:
     # 'cityblock': L1
@@ -125,16 +120,16 @@ def _determine_metric(metric_str, is_sparse=False):
         raise ValueError(" The metric: '{}', is not supported at this time."
                          .format(metric_str))
 
-    if not(is_sparse) and (metric_str not in PAIRWISE_DISTANCE_METRICS):
+    if not is_sparse_ and (metric_str not in PAIRWISE_DISTANCE_METRICS):
         if metric_str in PAIRWISE_DISTANCE_SPARSE_METRICS:
             raise ValueError(" The metric: '{}', is only available on "
                              "sparse data.".format(metric_str))
         else:
             raise ValueError("Unknown metric: {}".format(metric_str))
-    elif is_sparse and (metric_str not in PAIRWISE_DISTANCE_SPARSE_METRICS):
+    elif is_sparse_ and (metric_str not in PAIRWISE_DISTANCE_SPARSE_METRICS):
         raise ValueError("Unknown metric: {}".format(metric_str))
 
-    if is_sparse:
+    if is_sparse_:
         return PAIRWISE_DISTANCE_SPARSE_METRICS[metric_str]
     else:
         return PAIRWISE_DISTANCE_METRICS[metric_str]
@@ -195,13 +190,13 @@ def nan_euclidean_distances(
         if (Y.isnull().any()).any():
             Y.fillna(0, inplace=True)
 
-    X_m, n_samples_x, n_features_x, dtype_x = \
+    X_m, _n_samples_x, _n_features_x, dtype_x = \
         input_to_cuml_array(X, order="K", check_dtype=[np.float32, np.float64])
 
     if Y is None:
         Y = X_m
 
-    Y_m, n_samples_y, n_features_y, dtype_y = \
+    Y_m, _n_samples_y, _n_features_y, _dtype_y = \
         input_to_cuml_array(
             Y, order=X_m.order, convert_to_dtype=dtype_x,
             check_dtype=[dtype_x])
@@ -578,7 +573,7 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
                          .format(n_features_x, n_features_y))
 
     # Get the metric string to a distance enum
-    metric_val = _determine_metric(metric, is_sparse=True)
+    metric_val = _determine_metric(metric, is_sparse_=True)
 
     x_nrows, y_nrows = X_m.indptr.shape[0] - 1, Y_m.indptr.shape[0] - 1
     dest_m = CumlArray.zeros((x_nrows, y_nrows), dtype=dtype_x)

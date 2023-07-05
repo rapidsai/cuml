@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-import cuml.internals.logger as logger
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 from cuml.internals.safe_imports import cpu_only_import
@@ -26,10 +25,8 @@ from cuml.internals.input_utils import input_to_cupy_array
 from cuml.explainer.base import SHAPBase
 from cuml.explainer.common import get_cai_ptr
 from cuml.explainer.common import model_func_call
-from cuml.explainer.common import output_list_shap_values
 from cuml.linear_model import Lasso
 from cuml.linear_model import LinearRegression
-from pylibraft.common.handle import Handle
 from functools import lru_cache
 from itertools import combinations
 from numbers import Number
@@ -324,12 +321,12 @@ class KernelExplainer(SHAPBase):
                                            self.randind,
                                            self.dtype)
 
-        row, n_rows, n_cols, dtype = \
+        row, _, _, _ = \
             input_to_cupy_array(row, order=self.order)
 
         cdef handle_t* handle_ = \
             <handle_t*><size_t>self.handle.getHandle()
-        cdef uintptr_t row_ptr, bg_ptr, ds_ptr, masked_ptr, x_ptr, smp_ptr
+        cdef uintptr_t row_ptr, bg_ptr, ds_ptr, x_ptr, smp_ptr
 
         row_ptr = get_cai_ptr(row)
         bg_ptr = get_cai_ptr(self.background)
