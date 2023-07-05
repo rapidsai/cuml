@@ -30,39 +30,6 @@ from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
 
-## TODO, replace this class with existing SyncFitMixnLinearModel. 
-## This requires moving num_classes calculation to c++ fit
-#class SyncFitMixinLogisticModel(SyncFitMixinLinearModel):
-#
-#    @staticmethod
-#    @mnmg_import
-#    def _func_fit(sessionId, objs, datatype, has_weights, **kwargs):
-#        from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
-#
-#        handle = get_raft_comm_state(sessionId, get_worker())["handle"]
-#
-#        if not has_weights:
-#            inp_data = concatenate(objs)
-#            inp_weights = None
-#        else:
-#            inp_data = concatenate([X for X, weights in objs])
-#            inp_weights = concatenate([weights for X, weights in objs])
-#
-#        return cumlKMeans(handle=handle, output_type=datatype, **kwargs).fit(
-#            inp_data, sample_weight=inp_weights
-#        )
-#
-#def _func_fit_lrmg(f, data, n_rows, n_cols, partsToSizes, rank):
-#            if not has_weights:
-#            inp_data = concatenate(objs)
-#            inp_weights = None
-#        else:
-#            inp_data = concatenate([X for X, weights in objs])
-#            inp_weights = concatenate([weights for X, weights in objs])
-#
-#    int n_ranks = partsToSizes
-#    return f.fit(data, n_rows, n_cols, partsToSizes, rank)
-
     
 class LogisticRegression(
     BaseEstimator, SyncFitMixinLinearModel 
@@ -107,11 +74,6 @@ class LogisticRegression(
 
     @staticmethod
     def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
-        print("using logisticregression func_fit")
-        print(f"type(data) is {type(data)}")
-        print(f"len(data) is {len(data)}")
-        print(f"(data[0][0]) is {data[0][0]}")
-        print(f"(data[0][1]) is {data[0][1]}")
         inp_X = concatenate([X for X, _ in data])
         inp_y = concatenate([y for _, y in data])
         return f.fit([(inp_X, inp_y)], n_rows, n_cols, partsToSizes, rank)
