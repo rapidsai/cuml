@@ -106,6 +106,8 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
         reg->reg_grad(dev_scalar, G, W, lossFunc->fit_intercept, stream);
         float reg_host;
         raft::update_host(&reg_host, dev_scalar, 1, stream);
+        // note: avoid syncing here because there's a sync before reg_host is used.
+
 
         // apply linearFwd, getLossAndDz, linearBwd
         ML::GLM::detail::linearFwd(lossFunc->handle, *(this->Z), *(this->X), W);                  // linear part: forward pass
@@ -114,34 +116,25 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
 
         lossFunc->getLossAndDZ(dev_scalar, *(this->Z), *(this->y), stream);  // loss specific part
 
-        // add normalization to distributed losses
-        float tmp_host = -1.0;
-        raft::update_host(&tmp_host, dev_scalar, 1, stream);
-        tmp_host = tmp_host * (*this->y).len / this->n_samples;
-        lossVal.fill(tmp_host, stream);
-        raft::interruptible::synchronize(stream);
+        // normalize local loss before allreduce sum 
+        T factor = 1.0 * (*this->y).len / this->n_samples;
+        raft::linalg::multiplyScalar(dev_scalar, dev_scalar, factor, 1, stream);
 
         communicator.allreduce(dev_scalar, dev_scalar, 1,                          
             raft::comms::op_t::SUM, stream);                                                                 
-        raft::resource::sync_stream(*(this->handle_p));    
-        raft::interruptible::synchronize(stream);
+        communicator.sync_stream(stream);
 
         linearBwdMG(lossFunc->handle, G, *(this->X), *(this->Z), false, n_samples, n_ranks);    // linear part: backward pass
-        raft::interruptible::synchronize(stream);
 
         communicator.allreduce(G.data, G.data, this->C * this->dims,                          
             raft::comms::op_t::SUM, stream);                                                                 
-        raft::resource::sync_stream(*(this->handle_p));    
+        communicator.sync_stream(stream);
 
         float loss_host;
         raft::update_host(&loss_host, dev_scalar, 1, stream);
-
-        raft::interruptible::synchronize(stream);
-
-
+        raft::resource::sync_stream(*(this->handle_p));    
+        loss_host += reg_host;
         lossVal.fill(loss_host + reg_host, stream);
-        raft::update_host(&loss_host, dev_scalar, 1, stream);
-        raft::interruptible::synchronize(stream);
 
         return loss_host;
     }

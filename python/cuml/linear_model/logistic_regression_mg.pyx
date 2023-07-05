@@ -26,13 +26,18 @@ from libc.stdint cimport uintptr_t
 from cuml.common import input_to_cuml_array
 import numpy as np
 
+import cuml.internals
+from cuml.internals.logger import warn
 from cuml.internals.array import CumlArray
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.linear_model.base_mg import MGFitMixin
 from cuml.linear_model import LogisticRegression 
 from cuml.solvers.qn import QN
 from cuml.solvers.qn import QNParams
+from cython.operator cimport dereference as deref
 
 from pylibraft.common.handle cimport handle_t
+from cuml.common.opg_data_utils_mg cimport *
 
 from cuml.solvers.qn import __is_col_major
 
@@ -66,27 +71,39 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
 
 cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
 
-    void qnFit(
-        const handle_t& handle,
+    cdef void qnFit(
+        handle_t& handle,
+        vector[floatData_t *] input_data,
+        PartDescriptor &input_desc,
+        vector[floatData_t *] labels,
+        float *coef,
         const qn_params& pams, 
-        float *X,
         bool X_col_major,
-        float *y,
-        int N,
-        int D,
-        int C,
-        float *w0,
         float *f,
-        int *num_iters,
-        int n_samples,
-        int rank,
-        int n_ranks) except +
+        int *num_iters) except +
 
 
-class LogisticRegressionMG(LogisticRegression):
+class LogisticRegressionMG(MGFitMixin, LogisticRegression):
     
     def __init__(self, *, handle=None):
         super().__init__(handle=handle)
+
+    @property
+    @cuml.internals.api_base_return_array_skipall
+    def coef_(self):
+        return self.solver_model.coef_
+
+    @coef_.setter
+    def coef_(self, value):
+        # convert 1-D value to 2-D (to inherit MGFitMixin which sets self.coef_ to a 1-D array of length self.n_cols)
+        if len(value.shape) == 1:
+            new_shape=(1, value.shape[0])
+            cp_array = value.to_output('array').reshape(new_shape)
+            value, _, _, _ = input_to_cuml_array(cp_array, order='K')
+            if (self.fit_intercept) and (self.solver_model.intercept_ is None):
+                self.solver_model.intercept_ = CumlArray.zeros(shape=(1, 1), dtype = value.dtype) 
+
+        self.solver_model.coef_ = value
 
     def prepare_for_fit(self, n_classes):
         self.qnparams = QNParams(
@@ -147,52 +164,37 @@ class LogisticRegressionMG(LogisticRegression):
             self.solver_model._coef_ = CumlArray.zeros(
                 coef_size, dtype=self.dtype, order='C')
 
-    def fit(self, X, y, rank, n_ranks, n_samples, n_classes, convert_dtype=False) -> "LogisticRegressionMG":
-        assert (n_classes == 2)
+    def fit(self, input_data, n_rows, n_cols, parts_rank_size, rank, convert_dtype=False):
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle() 
+        assert len(input_data) == 1, f"Currently support only one (X, y) pair in the list. Received {len(input_data)} pairs."
+        self.is_col_major = False
+        order = 'F' if self.is_col_major else 'C'
+        super().fit(input_data, n_rows, n_cols, parts_rank_size, rank, order=order)
 
-        X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
-            X, check_dtype=[np.float32, np.float64], order = 'K'
-        ) 
-
-        y_m, label_rows, _, _ = input_to_cuml_array(
-            y, check_dtype=self.dtype,
-            convert_to_dtype=(self.dtype if convert_dtype else None),
-            check_rows=n_rows, check_cols=1
-        )
-
-        cdef uintptr_t y_ptr = y_m.ptr
+    @cuml.internals.api_base_return_any_skipall
+    def _fit(self, X, y, coef_ptr, input_desc):
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef float objective32
         cdef int num_iters
 
-        self._num_classes = n_classes
-        self.prepare_for_fit(n_classes)
+
+        self._num_classes = 2
+        self.prepare_for_fit(self._num_classes)
+        cdef uintptr_t mat_coef_ptr = self.coef_.ptr
 
         cdef qn_params qnpams = self.qnparams.params
-        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         if self.dtype == np.float32:
-            qnFit(
-                handle_[0],
+            qnFit(handle_[0],
+                deref(<vector[floatData_t*]*><uintptr_t>X),
+                deref(<PartDescriptor*><uintptr_t>input_desc),
+                deref(<vector[floatData_t*]*><uintptr_t>y),
+                <float*>mat_coef_ptr,
                 qnpams,
-                <float*><uintptr_t> X_m.ptr,
-                <bool> __is_col_major(X_m),
-                <float*> y_ptr,
-                <int> n_rows,
-                <int> self.n_cols,
-                <int> self._num_classes,
-                <float*> coef_ptr,
+                self.is_col_major,
                 <float*> &objective32,
-                <int*> &num_iters,
-                <int> n_samples,
-                <int> rank,
-                <int> n_ranks
-            )
+                <int*> &num_iters)
 
         self.solver_model._calc_intercept()
 
         self.handle.sync()
-        del X_m
-        del y_m
-        return self

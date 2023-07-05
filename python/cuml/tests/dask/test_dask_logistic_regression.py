@@ -141,3 +141,42 @@ def test_lr_fit_predict_score(
     probs_cuml = cuml_model.predict_proba(gX).compute()
     probs_sk = sk_model.predict_proba(X)[:, 1]
     assert np.abs(probs_sk - probs_cuml.get()).max() <= 0.05
+
+@pytest.mark.mg
+@pytest.mark.parametrize("nrows", [1e5])
+@pytest.mark.parametrize("ncols", [20])
+@pytest.mark.parametrize("n_parts", [2])
+@pytest.mark.parametrize("datatype", [np.float32])
+def test_lbfgs(
+    nrows, ncols, n_parts, datatype, client
+):
+    def imp():
+        import cuml.comm.serialize  # NOQA
+
+    client.run(imp)
+
+    from cuml.dask.linear_model.logistic_regression import LogisticRegression as cumlLBFGS_dask
+
+    n_info = 5
+    nrows = int(nrows)
+    ncols = int(ncols)
+    X, y = make_classification_dataset(datatype, nrows, ncols, n_info)
+
+    X_df, y_df = _prep_training_data(client, X, y, n_parts)
+
+    lr = cumlLBFGS_dask()
+    lr.fit(X_df, y_df)
+
+
+    sk_model = skLR()
+    sk_model.fit(X, y)
+
+    sk_coef_ = sk_model.coef_.tolist()
+    sk_intercept_ = sk_model.intercept_.tolist()
+
+    assert len(lr.coef_) == len(sk_coef_)
+    for i in range(len(lr.coef_)):
+        assert lr.coef_[i] == pytest.approx(sk_coef_[i], 1e-3)
+    assert lr.intercet_ == pytest.approx(sk_intercept_, 1e-3)
+    assert lr.n_cols == sk_model.n_cols
+    assert lr.dtype == sk_model.dtype

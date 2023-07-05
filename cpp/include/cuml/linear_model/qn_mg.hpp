@@ -19,10 +19,25 @@
 #include <cuml/linear_model/qn.h> 
 #include <cuda_runtime.h>
 
+#include <cumlprims/opg/matrix/data.hpp>
+#include <cumlprims/opg/matrix/part_descriptor.hpp>
+using namespace MLCommon;
+
 namespace ML {
 namespace GLM {
 namespace opg {
 
+void qnFit(raft::handle_t& handle,
+           std::vector<Matrix::Data<float>*>& input_data,
+           Matrix::PartDescriptor& input_desc,
+           std::vector<Matrix::Data<float>*>& labels,
+           float* coef,
+           const qn_params& pams,
+           bool X_col_major,
+           float* f,
+           int* num_iters);
+
+/*
 void qnFit(const raft::handle_t &handle, 
            const qn_params& pams,
            float* X,
@@ -37,6 +52,7 @@ void qnFit(const raft::handle_t &handle,
            int n_samples,
            int rank,
            int n_ranks);
+*/
 
 };  // namespace opg
 };  // namespace GLM

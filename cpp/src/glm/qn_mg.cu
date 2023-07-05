@@ -23,49 +23,99 @@
 #include "qn/qn_util.cuh"
 #include "qn/glm_logistic.cuh"
 #include "qn/glm_regularizer.cuh"
+#include <cuml/linear_model/qn_mg.hpp>
+using namespace MLCommon;
 
 #include "qn/glm_base_mg.cuh"
 
 #include <cuda_runtime.h>
+#include <iostream>
+
 
 namespace ML {
 namespace GLM {
 namespace opg {
 
-template<typename T, typename I>
+/*
+void toy(const raft::handle_t &handle,
+         std::vector<Matrix::Data<float>*>& input_data,
+         Matrix::PartDescriptor& input_desc,
+         std::vector<Matrix::Data<float>*>& labels,
+         float* coef) 
+{
+  ASSERT(input_data.size() == 1, "qn_mg.cu currently does not accept more than one input matrix");
+  ASSERT(labels.size() == input_data.size(), "labels size does not input_data size ");
+
+  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
+  std::cout << "entered toy:input_data.size() " << input_data.size() << std::endl;
+  auto X = input_data[0];
+  std::cout << "X.numElements: " << X->numElements() << ", totalSize: " << X->totalSize << std::endl;
+  std::cout << "X: " << raft::arr2Str(X->ptr, 4, "first X", stream).c_str() << std::endl;
+
+  auto y = labels[0];
+  std::cout << "y.numElements: " << y->numElements() << ", totalSize: " << y->totalSize << std::endl;
+
+  std::cout << "first_y.ptr: " << raft::arr2Str(y->ptr, 2, "first_y ", stream).c_str() << std::endl;
+
+  int N = input_desc.M;
+  int D = input_desc.N;
+  int rank = input_desc.rank;
+  int n_ranks = input_desc.partsToRanks.size();
+  size_t n_samples = 0;
+  for (auto p : input_desc.partsToRanks) {
+    n_samples += p->size;
+
+  }
+
+  std::cout << "report: N: " << N << ", D: " << D << ", rank: " << rank << ", n_ranks " << n_ranks << ", n_samples " << n_samples << std::endl;
+
+
+
+
+}
+*/
+
+template<typename T>
 void qnFit_impl(const raft::handle_t &handle, 
                 const qn_params& pams,
                 T* X,
                 bool X_col_major,
                 T *y,
-                I N,
-                I D,
-                I C,
+                size_t N,
+                size_t D,
+                size_t C,
                 T* w0,
                 T* f,
                 int* num_iters,
-                I n_samples,
+                size_t n_samples,
                 int rank,
                 int n_ranks) 
 {
+  switch (pams.loss) {
+    case QN_LOSS_LOGISTIC: {
+      ASSERT(C == 2, "qn_mg.cu: logistic loss invalid C");
+    } break;
+    default: {
+      ASSERT(false, "qn_mg.cu: unknown loss function type (id = %d).", pams.loss);
+    }
+  }
+
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-
   auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major? COL_MAJOR : ROW_MAJOR);
-
   auto y_simple = SimpleVec<T>(y, N);
-
   SimpleVec<T> coef_simple(w0, D + pams.fit_intercept);
 
-  auto coef_size = (D + pams.fit_intercept) * (C == 2 ? 1 : C); 
+  //std::cout << "rank " << rank << ", N " << N << ", D " << D << ", n_samples " << n_samples << std::endl;
+  //std::cout << "ranl " << rank << raft::arr2Str(X_simple.data, N * D, "X_simple", stream) << std::endl;
+  //std::cout << "ranl " << rank << raft::arr2Str(y_simple.data, N, "y_simple", stream) << std::endl;
+  //std::cout << "ranl " << rank << raft::arr2Str(coef_simple.data, D + pams.fit_intercept, "y_simple", stream) << std::endl;
 
   ML::GLM::detail::LBFGSParam<T> opt_param(pams);
 
   // prepare regularizer regularizer_obj
   ML::GLM::detail::LogisticLoss<T> loss_func(handle, D, pams.fit_intercept);
-  T l1 = pams.penalty_l1;
   T l2 = pams.penalty_l2;
   if (pams.penalty_normalized) {
-      l1 /= n_samples; // l1 /= 1/X.m
       l2 /= n_samples; // l2 /= 1/X.m
   }
   ML::GLM::detail::Tikhonov<T> reg(l2);
@@ -89,6 +139,70 @@ void qnFit_impl(const raft::handle_t &handle,
 
 }
 
+template <typename T>
+void qnFit_impl(raft::handle_t& handle,
+              std::vector<Matrix::Data<T>*>& input_data,
+              Matrix::PartDescriptor& input_desc,
+              std::vector<Matrix::Data<T>*>& labels,
+              T* coef,
+              const qn_params& pams,
+              bool X_col_major,
+              T* f,
+              int* num_iters) 
+{
+  ASSERT(input_data.size() == 1, "qn_mg.cu currently does not accept more than one input matrix");
+  ASSERT(labels.size() == input_data.size(), "labels size does not equal to input_data size");
+
+  auto data_X = input_data[0];
+  auto data_y = labels[0];
+
+  size_t n_samples = 0;
+  for (auto p : input_desc.partsToRanks) {
+    n_samples += p->size;
+  }
+
+  qnFit_impl<T>(
+    handle,
+    pams,
+    data_X->ptr,
+    X_col_major,
+    data_y->ptr,
+    input_desc.totalElementsOwnedBy(input_desc.rank),
+    input_desc.N, 
+    2,  // TODO: support multiple classes
+    coef,
+    f,
+    num_iters,
+    input_desc.M,
+    input_desc.rank,
+    input_desc.uniqueRanks().size());
+}
+
+void qnFit(raft::handle_t& handle,
+           std::vector<Matrix::Data<float>*>& input_data,
+           Matrix::PartDescriptor& input_desc,
+           std::vector<Matrix::Data<float>*>& labels,
+           float* coef,
+           const qn_params& pams,
+           bool X_col_major,
+           float* f,
+           int* num_iters) 
+{
+  qnFit_impl(
+    handle,
+    input_data,
+    input_desc,
+    labels,
+    coef,
+    pams,
+    X_col_major,
+    f,
+    num_iters
+  );
+
+}
+
+/*
 void qnFit(const raft::handle_t &handle, 
            const qn_params& pams,
            float* X,
@@ -120,6 +234,7 @@ void qnFit(const raft::handle_t &handle,
     rank,
     n_ranks);
 }
+*/
 
 };  // namespace OPG
 };  // namespace GLM
