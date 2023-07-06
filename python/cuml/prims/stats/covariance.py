@@ -48,16 +48,18 @@ mean_cov_kernel_str =r"""
         for(int idx = start_idx; idx< stop_idx; idx++){
             int index1 = index[idx];
             {0} data1 = data[idx];
-            atomicAdd(&out[index1*ncols+index1],data1*data1);
+            long long int outidx = static_cast<long long int>(index1) *ncols+index1;
+            atomicAdd(&out[outidx],data1*data1);
             atomicAdd(&mean[index1],data1);
             for(int idx2 = idx+1; idx2< stop_idx; idx2++){
                 int index2 = index[idx2];
                 {0} data2 = data[idx2];
-                atomicAdd(&out[index1*ncols+index2],data1*data2);
+                long long int outidx2 = static_cast<long long int>(index1) *ncols+index2;
+                atomicAdd(&out[outidx2],data1*data2);
                 }
             }
         }
-    """
+"""
 
 
 def _cov_kernel(dtype):
