@@ -132,8 +132,12 @@ def get_tidy_args(cmd, exe):
     command, file = cmd["command"], cmd["file"]
     is_cuda = file.endswith(".cu")
     command = re.split(SPACES, command)
-    # compiler is always clang++!
-    command[0] = "clang++"
+    # Adjust compiler command
+    if "c++" in command[0]:
+        command[0] = "clang-cpp"
+        command.insert(1, "-std=c++17")
+    elif command[0][-2:] == "cc":
+        command[0] = "clang"
     # remove compilation and output targets from the original command
     remove_item_plus_one(command, "-c")
     remove_item_plus_one(command, "-o")
@@ -161,13 +165,9 @@ def run_clang_tidy_command(tidy_cmd):
     result = subprocess.run(
         cmd, check=False, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
-    status = result.returncode == 0
-    if status:
-        out = ""
-    else:
-        out = "CMD: " + cmd
-    out += result.stdout.decode("utf-8").rstrip()
-    return status, out
+    passed = result.returncode == 0
+    out = "" if passed else f"CMD: {cmd}: {result.stdout.decode('utf-8').rstrip()}"
+    return passed, out
 
 
 def run_clang_tidy(cmd, args):
@@ -179,28 +179,29 @@ def run_clang_tidy(cmd, args):
         "--",
     ]
     tidy_cmd.extend(command)
-    status = True
-    out = ""
+    all_passed = True
+    out = []
     if is_cuda:
         tidy_cmd.append("--cuda-device-only")
         tidy_cmd.append(cmd["file"])
-        ret, out1 = run_clang_tidy_command(tidy_cmd)
-        out += out1
-        out += "%s" % SEPARATOR
-        if not ret:
-            status = ret
+        passed, out1 = run_clang_tidy_command(tidy_cmd)
+        out.append(out1)
+        out.append(SEPARATOR)
+        if not passed:
+            all_passed = False
         tidy_cmd[-2] = "--cuda-host-only"
-        ret, out1 = run_clang_tidy_command(tidy_cmd)
-        if not ret:
-            status = ret
-        out += out1
+        passed, out1 = run_clang_tidy_command(tidy_cmd)
+        if not passed:
+            all_passed = False
+        out.append(out1)
     else:
         tidy_cmd.append(cmd["file"])
-        ret, out1 = run_clang_tidy_command(tidy_cmd)
-        if not ret:
-            status = ret
+        passed, out1 = run_clang_tidy_command(tidy_cmd)
+        if not passed:
+            all_passed = False
+        out.append(out1)
         out += out1
-    return status, out, cmd["file"]
+    return all_passed, "".join(out), cmd["file"]
 
 
 # yikes! global var :(
@@ -245,6 +246,9 @@ def run_tidy_for_all_files(args, all_files):
             and re.search(args.select_compiled, cmd["file"]) is None
         ):
             continue
+        # from pprint import pprint;
+        # pprint(cmd)
+        # print(cmd["command"].split()[-1])
         if pool is not None:
             pool.apply_async(run_clang_tidy, args=(cmd, args), callback=collect_result)
         else:
