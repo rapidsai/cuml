@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,14 +43,18 @@ def client(cluster):
 
 @pytest.fixture(scope="module")
 def ucx_cluster():
-    initialize.initialize(create_cuda_context=True,
-                          enable_tcp_over_ucx=enable_tcp_over_ucx,
-                          enable_nvlink=enable_nvlink,
-                          enable_infiniband=enable_infiniband)
-    cluster = LocalCUDACluster(protocol="ucx",
-                               enable_tcp_over_ucx=enable_tcp_over_ucx,
-                               enable_nvlink=enable_nvlink,
-                               enable_infiniband=enable_infiniband)
+    initialize.initialize(
+        create_cuda_context=True,
+        enable_tcp_over_ucx=enable_tcp_over_ucx,
+        enable_nvlink=enable_nvlink,
+        enable_infiniband=enable_infiniband,
+    )
+    cluster = LocalCUDACluster(
+        protocol="ucx",
+        enable_tcp_over_ucx=enable_tcp_over_ucx,
+        enable_nvlink=enable_nvlink,
+        enable_infiniband=enable_infiniband,
+    )
     yield cluster
     cluster.close()
 

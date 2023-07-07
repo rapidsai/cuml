@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,38 +13,44 @@
 # limitations under the License.
 #
 
-import cudf.comm.serialize  # noqa: F401
-import cupy as cp
-import dask
-import numpy as np
-from toolz import first
-from collections.abc import Iterable
-
-from cuml.dask.common.utils import get_client
-
-from cuml import Base
-from cuml.common.array import CumlArray
-from cuml.dask.common.utils import wait_and_raise_from_futures
-from raft.dask.common.comms import Comms
-from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.dask.common import parts_to_ranks
-from cuml.internals import BaseMetaClass
-
-from dask_cudf.core import DataFrame as dcDataFrame
-from dask_cudf.core import Series as dcSeries
-from functools import wraps
-
 from distributed.client import Future
+from functools import wraps
+from dask_cudf.core import Series as dcSeries
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.base import Base
+from cuml.internals import BaseMetaClass
+from cuml.dask.common import parts_to_ranks
+from cuml.dask.common.input_utils import DistributedDataHandler
+from raft_dask.common.comms import Comms
+from cuml.dask.common.utils import wait_and_raise_from_futures
+from cuml.internals.array import CumlArray
+from cuml.dask.common.utils import get_client
+from collections.abc import Iterable
+from toolz import first
+from cuml.internals.safe_imports import cpu_only_import
+import dask
+import cudf.comm.serialize  # noqa: F401
+from cuml.internals.safe_imports import gpu_only_import
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
+
+
+dcDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
 
 
 class BaseEstimator(object, metaclass=BaseMetaClass):
-
     def __init__(self, *, client=None, verbose=False, **kwargs):
         """
         Constructor for distributed estimators.
         """
         self.client = get_client(client)
+
+        # set client verbosity
         self.verbose = verbose
+
+        # kwargs transmits the verbosity level to workers
+        kwargs["verbose"] = verbose
         self.kwargs = kwargs
 
         self.internal_model = None
@@ -65,8 +71,10 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
         if isinstance(self.internal_model, Iterable):
             # This function needs to return a single instance of cuml.Base,
             # even if the class is just a composite.
-            raise ValueError("Expected a single instance of cuml.Base "
-                             "but got %s instead." % type(self.internal_model))
+            raise ValueError(
+                "Expected a single instance of cuml.Base "
+                "but got %s instead." % type(self.internal_model)
+            )
 
         elif isinstance(self.internal_model, Future):
             internal_model = self.internal_model.result()
@@ -74,7 +82,6 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
         return internal_model
 
     def _set_internal_model(self, model):
-
         """
         Assigns model (a Future or list of futures containins a single-GPU
         model) to be an internal model.
@@ -129,12 +136,16 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
                 wait_and_raise_from_futures([model])
 
             if not issubclass(model.type, Base):
-                raise ValueError("Dask Future expected to contain cuml.Base "
-                                 "but found %s instead." % model.type)
+                raise ValueError(
+                    "Dask Future expected to contain cuml.Base "
+                    "but found %s instead." % model.type
+                )
 
         elif model is not None and not isinstance(model, Base):
-            raise ValueError("Expected model of type cuml.Base but found %s "
-                             "instead." % type(model))
+            raise ValueError(
+                "Expected model of type cuml.Base but found %s "
+                "instead." % type(model)
+            )
         return model
 
     def _get_internal_model(self):
@@ -157,9 +168,13 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
     def _get_model_attr(model, name):
         if hasattr(model, name):
             return getattr(model, name)
+        # skip raising an error for ipython/jupyter related attributes
+        elif any([x in name for x in ("_ipython", "_repr")]):
+            pass
         else:
-            raise AttributeError("Attribute %s does not exist on model %s" %
-                                 (name, type(model)))
+            raise AttributeError(
+                "Attribute %s does not exist on model %s" % (name, type(model))
+            )
 
     def __getattr__(self, attr):
         """
@@ -173,7 +188,7 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
         will be fetched either locally or remotely depending on whether
         self.internal_model is a local object instance or a future.
         """
-        real_name = '_' + attr
+        real_name = "_" + attr
 
         ret_attr = None
 
@@ -198,10 +213,12 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
                 # Otherwise, fetch the attribute from the distributed
                 # model and return it
                 ret_attr = BaseEstimator._get_model_attr(
-                    internal_model, attr).compute()
+                    internal_model, attr
+                ).compute()
         else:
-            raise AttributeError("Attribute %s not found in %s" %
-                                 (attr, type(self)))
+            raise AttributeError(
+                "Attribute %s not found in %s" % (attr, type(self))
+            )
 
         if isinstance(ret_attr, CumlArray):
             # Dask wrappers aren't meant to be pickled, so we can
@@ -212,15 +229,17 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
 
 
 class DelayedParallelFunc(object):
-    def _run_parallel_func(self,
-                           func,
-                           X,
-                           n_dims=1,
-                           delayed=True,
-                           output_futures=False,
-                           output_dtype=None,
-                           output_collection_type=None,
-                           **kwargs):
+    def _run_parallel_func(
+        self,
+        func,
+        X,
+        n_dims=1,
+        delayed=True,
+        output_futures=False,
+        output_dtype=None,
+        output_collection_type=None,
+        **kwargs,
+    ):
         """
         Runs a function embarrassingly parallel on a set of workers while
         reusing instances of models and constraining the number of
@@ -265,9 +284,9 @@ class DelayedParallelFunc(object):
         if output_collection_type is None:
             output_collection_type = self.datatype
 
-        model_delayed = dask.delayed(self._get_internal_model(),
-                                     pure=True,
-                                     traverse=False)
+        model_delayed = dask.delayed(
+            self._get_internal_model(), pure=True, traverse=False
+        )
 
         func = dask.delayed(func, pure=False, nout=1)
         if isinstance(X, dcDataFrame):
@@ -277,81 +296,80 @@ class DelayedParallelFunc(object):
             preds = [func(model_delayed, part, **kwargs) for part in X_d]
             dtype = X.dtype if output_dtype is None else output_dtype
         else:
-            preds = [func(model_delayed, part[0])
-                     for part in X_d]
+            preds = [func(model_delayed, part[0]) for part in X_d]
             dtype = X.dtype if output_dtype is None else output_dtype
 
         # TODO: Put the following conditionals in a
         #  `to_delayed_output()` function
         # TODO: Add eager path back in
 
-        if output_collection_type == 'cupy':
+        if output_collection_type == "cupy":
 
             # todo: add parameter for option of not checking directly
             shape = (np.nan,) * n_dims
             preds_arr = [
-                dask.array.from_delayed(pred,
-                                        meta=cp.zeros(1, dtype=dtype),
-                                        shape=shape,
-                                        dtype=dtype)
-                for pred in preds]
+                dask.array.from_delayed(
+                    pred,
+                    meta=cp.zeros(1, dtype=dtype),
+                    shape=shape,
+                    dtype=dtype,
+                )
+                for pred in preds
+            ]
 
             if output_futures:
                 return self.client.compute(preds)
             else:
-                output = dask.array.concatenate(preds_arr, axis=0,
-                                                allow_unknown_chunksizes=True
-                                                )
+                output = dask.array.concatenate(
+                    preds_arr, axis=0, allow_unknown_chunksizes=True
+                )
                 return output if delayed else output.persist()
 
-        elif output_collection_type == 'cudf':
+        elif output_collection_type == "cudf":
             if output_futures:
                 return self.client.compute(preds)
             else:
                 output = dask.dataframe.from_delayed(preds)
                 return output if delayed else output.persist()
         else:
-            raise ValueError("Expected cupy or cudf but found %s" %
-                             (output_collection_type))
+            raise ValueError(
+                "Expected cupy or cudf but found %s" % (output_collection_type)
+            )
 
 
 class DelayedPredictionProbaMixin(DelayedParallelFunc):
-
     def _predict_proba(self, X, delayed=True, **kwargs):
-        return self._run_parallel_func(func=_predict_proba_func, X=X,
-                                       n_dims=2, delayed=delayed, **kwargs)
+        return self._run_parallel_func(
+            func=_predict_proba_func, X=X, n_dims=2, delayed=delayed, **kwargs
+        )
 
 
 class DelayedPredictionMixin(DelayedParallelFunc):
-
     def _predict(self, X, delayed=True, **kwargs):
-        return self._run_parallel_func(func=_predict_func, X=X,
-                                       n_dims=1, delayed=delayed,
-                                       **kwargs)
+        return self._run_parallel_func(
+            func=_predict_func, X=X, n_dims=1, delayed=delayed, **kwargs
+        )
 
 
 class DelayedTransformMixin(DelayedParallelFunc):
-
     def _transform(self, X, n_dims=1, delayed=True, **kwargs):
-        return self._run_parallel_func(func=_transform_func,
-                                       X=X,
-                                       n_dims=n_dims,
-                                       delayed=delayed,
-                                       **kwargs)
+        return self._run_parallel_func(
+            func=_transform_func, X=X, n_dims=n_dims, delayed=delayed, **kwargs
+        )
 
 
 class DelayedInverseTransformMixin(DelayedParallelFunc):
-
     def _inverse_transform(self, X, n_dims=1, delayed=True, **kwargs):
-        return self._run_parallel_func(func=_inverse_transform_func,
-                                       X=X,
-                                       n_dims=n_dims,
-                                       delayed=delayed,
-                                       **kwargs)
+        return self._run_parallel_func(
+            func=_inverse_transform_func,
+            X=X,
+            n_dims=n_dims,
+            delayed=delayed,
+            **kwargs,
+        )
 
 
 class SyncFitMixinLinearModel(object):
-
     def _fit(self, model_func, data):
 
         n_cols = data[0].shape[1]
@@ -366,35 +384,50 @@ class SyncFitMixinLinearModel(object):
         self.ranks = data.ranks
 
         worker_info = comms.worker_info(comms.worker_addresses)
-        parts_to_sizes, _ = parts_to_ranks(self.client,
-                                           worker_info,
-                                           data.gpu_futures)
+        parts_to_sizes, _ = parts_to_ranks(
+            self.client, worker_info, data.gpu_futures
+        )
 
-        lin_models = dict([(data.worker_info[worker_data[0]]["rank"],
-                            self.client.submit(
-            model_func,
-            comms.sessionId,
-            self.datatype,
-            **self.kwargs,
-            pure=False,
-            workers=[worker_data[0]]))
+        lin_models = dict(
+            [
+                (
+                    data.worker_info[worker_data[0]]["rank"],
+                    self.client.submit(
+                        model_func,
+                        comms.sessionId,
+                        self.datatype,
+                        **self.kwargs,
+                        pure=False,
+                        workers=[worker_data[0]],
+                    ),
+                )
+                for worker, worker_data in enumerate(
+                    data.worker_to_parts.items()
+                )
+            ]
+        )
 
-            for worker, worker_data in
-            enumerate(data.worker_to_parts.items())])
-
-        lin_fit = dict([(worker_data[0], self.client.submit(
-            _func_fit,
-            lin_models[data.worker_info[worker_data[0]]["rank"]],
-            worker_data[1],
-            data.total_rows,
-            n_cols,
-            parts_to_sizes,
-            data.worker_info[worker_data[0]]["rank"],
-            pure=False,
-            workers=[worker_data[0]]))
-
-            for worker, worker_data in
-            enumerate(data.worker_to_parts.items())])
+        lin_fit = dict(
+            [
+                (
+                    worker_data[0],
+                    self.client.submit(
+                        _func_fit,
+                        lin_models[data.worker_info[worker_data[0]]["rank"]],
+                        worker_data[1],
+                        data.total_rows,
+                        n_cols,
+                        parts_to_sizes,
+                        data.worker_info[worker_data[0]]["rank"],
+                        pure=False,
+                        workers=[worker_data[0]],
+                    ),
+                )
+                for worker, worker_data in enumerate(
+                    data.worker_to_parts.items()
+                )
+            ]
+        )
 
         wait_and_raise_from_futures(list(lin_fit.values()))
 
@@ -407,15 +440,16 @@ def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
 
 
 def mnmg_import(func):
-
     @wraps(func)
     def check_cuml_mnmg(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except ImportError:
-            raise RuntimeError("cuML has not been built with multiGPU support "
-                               "enabled. Build with the --multigpu flag to"
-                               " enable multiGPU support.")
+            raise RuntimeError(
+                "cuML has not been built with multiGPU support "
+                "enabled. Build with the --multigpu flag to"
+                " enable multiGPU support."
+            )
 
     return check_cuml_mnmg
 

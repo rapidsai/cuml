@@ -16,28 +16,15 @@
 
 #pragma once
 
-#include "haversine_knn.cuh"
-#include "processing.cuh"
-
-#include <label/classlabels.cuh>
+#include <raft/label/classlabels.cuh>
 
 #include <cuml/neighbors/knn.hpp>
+#include <raft/core/handle.hpp>
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/distance/distance.hpp>
-#include <raft/distance/distance_type.hpp>
-
-#include <faiss/gpu/GpuDistance.h>
-#include <faiss/gpu/GpuIndexFlat.h>
-#include <faiss/gpu/GpuIndexIVFFlat.h>
-#include <faiss/gpu/GpuIndexIVFPQ.h>
-#include <faiss/gpu/GpuIndexIVFScalarQuantizer.h>
-#include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/utils/Limits.cuh>
-#include <faiss/gpu/utils/Select.cuh>
-#include <faiss/gpu/utils/Tensor.cuh>
-#include <faiss/utils/Heap.h>
+#include <raft/distance/distance.cuh>
+#include <raft/distance/distance_types.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
@@ -203,7 +190,7 @@ void class_probs(const raft::handle_t& handle,
     raft::update_device(y_tmp.data(), y[i], n_index_rows, stream);
     raft::update_device(y_tmp.data() + n_index_rows, uniq_labels[i], n_unique_labels, stream);
 
-    MLCommon::Label::make_monotonic(y_normalized.data(), y_tmp.data(), y_tmp.size(), stream);
+    raft::label::make_monotonic(y_normalized.data(), y_tmp.data(), y_tmp.size(), stream);
     raft::linalg::unaryOp<int>(
       y_normalized.data(),
       y_normalized.data(),

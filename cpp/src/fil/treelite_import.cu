@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@
 #include <cuml/fil/fil.h>  // for algo_t, from_treelite, storage_type_repr, storage_type_t, treelite_params_t
 #include <cuml/fil/fnv_hash.h>  // for fowler_noll_vo_fingerprint64_32
 
-#include <raft/cudart_utils.h>  // for RAFT_CUDA_TRY
-#include <raft/error.hpp>       // for ASSERT
-#include <raft/handle.hpp>      // for handle_t
+#include <raft/core/error.hpp>         // for ASSERT
+#include <raft/core/handle.hpp>        // for handle_t
+#include <raft/util/cudart_utils.hpp>  // for RAFT_CUDA_TRY
 
 #include <treelite/base.h>   // for Operator, SplitFeatureType, kGE, kGT, kLE, kLT, kNumerical
 #include <treelite/c_api.h>  // for ModelHandle
@@ -229,7 +229,7 @@ void adjust_threshold(real_t* pthreshold, bool* swap_child_nodes, tl::Operator c
 {
   // in treelite (take left node if val [op] threshold),
   // the meaning of the condition is reversed compared to FIL;
-  // thus, "<" in treelite corresonds to comparison ">=" used by FIL
+  // thus, "<" in treelite corresponds to comparison ">=" used by FIL
   // https://github.com/dmlc/treelite/blob/master/include/treelite/tree.h#L243
   if (isnan(*pthreshold)) {
     *swap_child_nodes = !*swap_child_nodes;
@@ -482,7 +482,7 @@ void tl2fil_common(forest_params_t* params,
                    const tl::ModelImpl<T, L>& model,
                    const treelite_params_t* tl_params)
 {
-  // fill in forest-indendent params
+  // fill in forest-independent params
   params->algo      = tl_params->algo;
   params->threshold = tl_params->threshold;
 
@@ -673,13 +673,39 @@ void from_treelite(const raft::handle_t& handle,
                    const tl::ModelImpl<threshold_t, leaf_t>& model,
                    const treelite_params_t* tl_params)
 {
-  // floating-point type used for model representation
-  using real_t = decltype(threshold_t(0) + leaf_t(0));
+  precision_t precision = tl_params->precision;
+  // choose the precision based on model if required
+  if (precision == PRECISION_NATIVE) {
+    precision = std::is_same_v<decltype(threshold_t(0) + leaf_t(0)), float> ? PRECISION_FLOAT32
+                                                                            : PRECISION_FLOAT64;
+  }
 
-  // get the pointer to the right forest variant
-  *pforest_variant          = (forest_t<real_t>)nullptr;
-  forest_t<real_t>* pforest = &std::get<forest_t<real_t>>(*pforest_variant);
+  switch (precision) {
+    case PRECISION_FLOAT32: {
+      *pforest_variant         = (forest_t<float>)nullptr;
+      forest_t<float>* pforest = &std::get<forest_t<float>>(*pforest_variant);
+      from_treelite(handle, pforest, model, tl_params);
+      break;
+    }
+    case PRECISION_FLOAT64: {
+      *pforest_variant          = (forest_t<double>)nullptr;
+      forest_t<double>* pforest = &std::get<forest_t<double>>(*pforest_variant);
+      from_treelite(handle, pforest, model, tl_params);
+      break;
+    }
+    default:
+      ASSERT(false,
+             "bad value of tl_params->precision, must be one of "
+             "PRECISION_{NATIVE,FLOAT32,FLOAT64}");
+  }
+}
 
+template <typename threshold_t, typename leaf_t, typename real_t>
+void from_treelite(const raft::handle_t& handle,
+                   forest_t<real_t>* pforest,
+                   const tl::ModelImpl<threshold_t, leaf_t>& model,
+                   const treelite_params_t* tl_params)
+{
   // Invariants on threshold and leaf types
   static_assert(type_supported<threshold_t>(),
                 "Model must contain float32 or float64 thresholds for splits");

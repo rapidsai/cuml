@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,22 +13,20 @@
 # limitations under the License.
 #
 
-import cupy as cp
-
-from cuml.dask.common.base import BaseEstimator
-from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.dask.common.base import DelayedTransformMixin
-from cuml.dask.common.base import mnmg_import
-
-from cuml.dask.common.input_utils import concatenate
-from cuml.dask.common.input_utils import DistributedDataHandler
-
-from raft.dask.common.comms import Comms
-from raft.dask.common.comms import get_raft_comm_state
-
+from cuml.internals.memory_utils import with_cupy_rmm
 from cuml.dask.common.utils import wait_and_raise_from_futures
+from raft_dask.common.comms import get_raft_comm_state
+from raft_dask.common.comms import Comms
+from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common.input_utils import concatenate
+from cuml.dask.common.base import mnmg_import
+from dask.distributed import get_worker
+from cuml.dask.common.base import DelayedTransformMixin
+from cuml.dask.common.base import DelayedPredictionMixin
+from cuml.dask.common.base import BaseEstimator
+from cuml.internals.safe_imports import gpu_only_import
 
-from cuml.common.memory_utils import with_cupy_rmm
+cp = gpu_only_import("cupy")
 
 
 class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -69,7 +67,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray} \
            (default = 'scalable-k-means++')
         'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
-        kmeans++ intialization.
+        kmeans++ initialization.
         'random': Choose 'n_cluster' observations (rows) at random
         from data for the initial centroids. If an ndarray is passed,
         it should be of shape (n_clusters, n_features) and gives the
@@ -89,7 +87,6 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
     Attributes
     ----------
-
     cluster_centers_ : cuDF DataFrame or CuPy ndarray
         The coordinates of the final clusters. This represents of "mean" of
         each data cluster.
@@ -97,15 +94,14 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     """
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
-        super().__init__(client=client,
-                         verbose=verbose,
-                         **kwargs)
+        super().__init__(client=client, verbose=verbose, **kwargs)
 
     @staticmethod
     @mnmg_import
     def _func_fit(sessionId, objs, datatype, has_weights, **kwargs):
         from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
-        handle = get_raft_comm_state(sessionId)["handle"]
+
+        handle = get_raft_comm_state(sessionId, get_worker())["handle"]
 
         if not has_weights:
             inp_data = concatenate(objs)
@@ -114,9 +110,9 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             inp_data = concatenate([X for X, weights in objs])
             inp_weights = concatenate([weights for X, weights in objs])
 
-        return cumlKMeans(handle=handle, output_type=datatype,
-                          **kwargs).fit(inp_data,
-                                        sample_weight=inp_weights)
+        return cumlKMeans(handle=handle, output_type=datatype, **kwargs).fit(
+            inp_data, sample_weight=inp_weights
+        )
 
     @staticmethod
     def _score(model, data, sample_weight=None):
@@ -162,15 +158,19 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         comms = Comms(comms_p2p=False, client=self.client)
         comms.init(workers=data.workers)
 
-        kmeans_fit = [self.client.submit(KMeans._func_fit,
-                                         comms.sessionId,
-                                         wf[1],
-                                         self.datatype,
-                                         data.multiple,
-                                         **self.kwargs,
-                                         workers=[wf[0]],
-                                         pure=False)
-                      for idx, wf in enumerate(data.worker_to_parts.items())]
+        kmeans_fit = [
+            self.client.submit(
+                KMeans._func_fit,
+                comms.sessionId,
+                wf[1],
+                self.datatype,
+                data.multiple,
+                **self.kwargs,
+                workers=[wf[0]],
+                pure=False,
+            )
+            for idx, wf in enumerate(data.worker_to_parts.items())
+        ]
 
         wait_and_raise_from_futures(kmeans_fit)
 
@@ -195,8 +195,9 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             Distributed object containing predictions
 
         """
-        return self.fit(X, sample_weight=sample_weight)\
-            .predict(X, sample_weight=sample_weight, delayed=delayed)
+        return self.fit(X, sample_weight=sample_weight).predict(
+            X, sample_weight=sample_weight, delayed=delayed
+        )
 
     def predict(self, X, sample_weight=None, delayed=True):
         """
@@ -219,8 +220,12 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         sample_weight = self._check_normalize_sample_weight(sample_weight)
 
-        return self._predict(X, delayed=delayed, sample_weight=sample_weight,
-                             normalize_weights=False)
+        return self._predict(
+            X,
+            delayed=delayed,
+            sample_weight=sample_weight,
+            normalize_weights=False,
+        )
 
     def fit_transform(self, X, sample_weight=None, delayed=True):
         """
@@ -239,8 +244,9 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         result: Dask cuDF DataFrame or CuPy backed Dask Array
             Distributed object containing the transformed data
         """
-        return self.fit(X, sample_weight=sample_weight)\
-            .transform(X, delayed=delayed)
+        return self.fit(X, sample_weight=sample_weight).transform(
+            X, delayed=delayed
+        )
 
     def transform(self, X, delayed=True):
         """
@@ -279,15 +285,18 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         sample_weight = self._check_normalize_sample_weight(sample_weight)
 
-        scores = self._run_parallel_func(KMeans._score,
-                                         X,
-                                         sample_weight=sample_weight,
-                                         n_dims=1,
-                                         delayed=False,
-                                         output_futures=True)
+        scores = self._run_parallel_func(
+            KMeans._score,
+            X,
+            sample_weight=sample_weight,
+            n_dims=1,
+            delayed=False,
+            output_futures=True,
+        )
 
-        return -1 * cp.sum(cp.asarray(
-            self.client.compute(scores, sync=True))*-1.0)
+        return -1 * cp.sum(
+            cp.asarray(self.client.compute(scores, sync=True)) * -1.0
+        )
 
     def get_param_names(self):
         return list(self.kwargs.keys())

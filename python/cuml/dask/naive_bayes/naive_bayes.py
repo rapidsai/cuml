@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,31 +14,24 @@
 # limitations under the License.
 #
 
-import cupy as cp
-import dask
-from toolz import first
-
-import dask.array
-
-
-from cuml.common import with_cupy_rmm
-
-from cuml.dask.common.base import BaseEstimator
-from cuml.dask.common.base import DelayedPredictionMixin
-
-from cuml.dask.common.utils import wait_and_raise_from_futures
-
-from cuml.dask.common.func import reduce
-from cuml.dask.common.func import tree_reduce
-
-from cuml.dask.common.input_utils import DistributedDataHandler
-from cuml.common import rmm_cupy_ary
-
 from cuml.naive_bayes import MultinomialNB as MNB
+from cuml.common import rmm_cupy_ary
+from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common.func import tree_reduce
+from cuml.dask.common.func import reduce
+from cuml.dask.common.utils import wait_and_raise_from_futures
+from cuml.dask.common.base import DelayedPredictionMixin
+from cuml.dask.common.base import BaseEstimator
+from cuml.common import with_cupy_rmm
+import dask.array
+from toolz import first
+import dask
+from cuml.internals.safe_imports import gpu_only_import
+
+cp = gpu_only_import("cupy")
 
 
-class MultinomialNB(BaseEstimator,
-                    DelayedPredictionMixin):
+class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
 
     """
     Distributed Naive Bayes classifier for multinomial models
@@ -88,8 +81,8 @@ class MultinomialNB(BaseEstimator,
         >>> cluster.close()
 
     """
-    def __init__(self, *, client=None, verbose=False, **kwargs):
 
+    def __init__(self, *, client=None, verbose=False, **kwargs):
         """
         Create new multinomial distributed Naive Bayes classifier instance
 
@@ -98,8 +91,7 @@ class MultinomialNB(BaseEstimator,
 
         client : dask.distributed.Client optional Dask client to use
         """
-        super().__init__(client=client, verbose=verbose,
-                         **kwargs)
+        super().__init__(client=client, verbose=verbose, **kwargs)
 
         self.datatype = "cupy"
 
@@ -138,7 +130,6 @@ class MultinomialNB(BaseEstimator,
 
     @with_cupy_rmm
     def fit(self, X, y, classes=None):
-
         """
         Fit distributed Naive Bayes classifier model
 
@@ -163,26 +154,31 @@ class MultinomialNB(BaseEstimator,
             raise ValueError("Only dask.Array is supported for y")
 
         if len(X.chunks[1]) != 1:
-            raise ValueError("X must be chunked by row only. "
-                             "Multi-dimensional chunking is not supported")
+            raise ValueError(
+                "X must be chunked by row only. "
+                "Multi-dimensional chunking is not supported"
+            )
 
         futures = DistributedDataHandler.create([X, y], self.client)
 
-        classes = self._unique(y.map_blocks(
-            MultinomialNB._unique).compute()) \
-            if classes is None else classes
+        classes = (
+            self._unique(y.map_blocks(MultinomialNB._unique).compute())
+            if classes is None
+            else classes
+        )
 
-        models = [self.client.submit(self._fit, part, classes, self.kwargs,
-                                     pure=False)
-                  for w, part in futures.gpu_futures]
+        models = [
+            self.client.submit(
+                self._fit, part, classes, self.kwargs, pure=False
+            )
+            for w, part in futures.gpu_futures
+        ]
 
-        models = reduce(models,
-                        self._merge_counts_to_model,
-                        client=self.client)
+        models = reduce(
+            models, self._merge_counts_to_model, client=self.client
+        )
 
-        models = self.client.submit(self._update_log_probs,
-                                    models,
-                                    pure=False)
+        models = self.client.submit(self._update_log_probs, models, pure=False)
 
         wait_and_raise_from_futures([models])
 
@@ -252,12 +248,13 @@ class MultinomialNB(BaseEstimator,
         def _count_accurate_predictions(y_hat, y):
             y_hat = rmm_cupy_ary(cp.asarray, y_hat, dtype=y_hat.dtype)
             y = rmm_cupy_ary(cp.asarray, y, dtype=y.dtype)
-            return y.shape[0] - cp.count_nonzero(y-y_hat)
+            return y.shape[0] - cp.count_nonzero(y - y_hat)
 
         delayed_parts = zip(y_hat.to_delayed(), y.to_delayed())
 
-        accuracy_parts = [_count_accurate_predictions(*p)
-                          for p in delayed_parts]
+        accuracy_parts = [
+            _count_accurate_predictions(*p) for p in delayed_parts
+        ]
 
         reduced = first(dask.compute(tree_reduce(accuracy_parts)))
 

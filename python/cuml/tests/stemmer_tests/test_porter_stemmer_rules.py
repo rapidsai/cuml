@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cudf
-import numpy as np
 from cuml.preprocessing.text.stem.porter_stemmer_utils import (
     porter_stemmer_rules,
 )
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
+
+cudf = gpu_only_import("cudf")
+np = cpu_only_import("numpy")
 
 
 def test_ends_with_suffix():

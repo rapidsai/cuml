@@ -19,13 +19,13 @@
 #include <cub/cub.cuh>
 #include <iostream>
 #include <memory>
-#include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 #include <thrust/fill.h>
 
-#include <raft/common/nvtx.hpp>
+#include <raft/core/nvtx.hpp>
 
 #include "quantiles.h"
 

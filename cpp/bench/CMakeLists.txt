@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,11 @@ if(BUILD_CUML_BENCH)
     sg/svr.cu
     sg/umap.cu
     sg/fil.cu
+    sg/filex.cu
   )
+  if (CUML_ENABLE_GPU)
+    target_compile_definitions(${CUML_CPP_BENCH_TARGET} PUBLIC CUML_ENABLE_GPU)
+  endif()
 
   target_compile_options(${CUML_CPP_BENCH_TARGET}
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
@@ -46,8 +50,7 @@ if(BUILD_CUML_BENCH)
       benchmark::benchmark
       ${TREELITE_LIBS}
       raft::raft
-      raft::nn
-      raft::distance
+      raft::compiled
   )
 
   target_include_directories(${CUML_CPP_BENCH_TARGET}
@@ -64,61 +67,6 @@ if(BUILD_CUML_BENCH)
     TARGETS ${CUML_CPP_BENCH_TARGET}
     COMPONENT testing
     DESTINATION bin/benchmarks/libcuml
-    EXCLUDE_FROM_ALL
-  )
-endif()
-
-##############################################################################
-# - build prims bench executable ----------------------------------------------
-
-if(BUILD_CUML_PRIMS_BENCH)
-  # (please keep the filenames in alphabetical order)
-  add_executable(${PRIMS_BENCH_TARGET}
-    prims/add.cu
-    prims/distance_cosine.cu
-    prims/distance_exp_l2.cu
-    prims/distance_l1.cu
-    prims/distance_unexp_l2.cu
-    prims/fused_l2_nn.cu
-    prims/gram_matrix.cu
-    prims/main.cpp
-    prims/make_blobs.cu
-    prims/map_then_reduce.cu
-    prims/matrix_vector_op.cu
-    prims/permute.cu
-    prims/reduce.cu
-    prims/rng.cu)
-
-  target_compile_options(${PRIMS_BENCH_TARGET}
-        PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
-                "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
-  )
-
-  target_link_libraries(${PRIMS_BENCH_TARGET}
-    PUBLIC
-      cuml::${CUML_CPP_TARGET}
-      benchmark::benchmark
-      ${TREELITE_LIBS}
-      raft::raft
-      raft::nn
-      raft::distance
-  )
-
-  target_include_directories(${PRIMS_BENCH_TARGET}
-    PRIVATE
-      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
-      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-  )
-
-  set_target_properties(
-    ${PRIMS_BENCH_TARGET}
-    PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
-  )
-
-  install(
-    TARGETS ${PRIMS_BENCH_TARGET}
-    COMPONENT testing
-    DESTINATION bin/benchmarks/libcuml_prims
     EXCLUDE_FROM_ALL
   )
 endif()

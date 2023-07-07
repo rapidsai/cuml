@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ class ElasticNet(BaseEstimator):
     descent to fit a linear model.
 
     Parameters
-    -----------
+    ----------
     alpha : float (default = 1.0)
         Constant that multiplies the L1 term.
         alpha = 0 is equivalent to an ordinary least square, solved by the
@@ -69,14 +69,15 @@ class ElasticNet(BaseEstimator):
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Attributes
-    -----------
+    ----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
@@ -90,13 +91,13 @@ class ElasticNet(BaseEstimator):
     def __init__(self, *, client=None, **kwargs):
         super().__init__(client=client, **kwargs)
 
-        kwargs['shuffle'] = False
+        kwargs["shuffle"] = False
 
-        if 'selection' in kwargs:
-            if kwargs['selection'] == 'random':
-                kwargs['shuffle'] = True
+        if "selection" in kwargs:
+            if kwargs["selection"] == "random":
+                kwargs["shuffle"] = True
 
-            del kwargs['selection']
+            del kwargs["selection"]
 
         self.solver = CD(client=client, **kwargs)
 

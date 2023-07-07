@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #include <test_utils.h>
 
+#include <raft/core/handle.hpp>
 #include <umap/runner.cuh>
 
 #include <cuml/datasets/make_blobs.hpp>
@@ -24,18 +25,21 @@
 #include <cuml/metrics/metrics.hpp>
 #include <cuml/neighbors/knn.hpp>
 #include <datasets/digits.h>
-#include <raft/cudart_utils.h>
+
+#if defined RAFT_COMPILED
+#include <raft/spatial/knn/specializations.cuh>
+#endif
+
 #include <test_utils.h>
 
 #include <datasets/digits.h>
 #include <raft/linalg/reduce_rows_by_key.cuh>
-#include <selection/knn.cuh>
+#include <raft/spatial/knn/knn.cuh>
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/distance/distance.hpp>
-#include <raft/handle.hpp>
-#include <selection/knn.cuh>
+#include <raft/core/handle.hpp>
+#include <raft/distance/distance.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <umap/runner.cuh>
 
 #include <gtest/gtest.h>
@@ -47,8 +51,6 @@
 
 using namespace ML;
 using namespace ML::Metrics;
-
-using namespace std;
 
 using namespace MLCommon;
 using namespace MLCommon::Datasets::Digits;
@@ -141,15 +143,15 @@ class UMAPParametrizableTest : public ::testing::Test {
       ptrs[0]  = X;
       sizes[0] = n_samples;
 
-      raft::spatial::knn::brute_force_knn(handle,
-                                          ptrs,
-                                          sizes,
-                                          n_features,
-                                          X,
-                                          n_samples,
-                                          knn_indices,
-                                          knn_dists,
-                                          umap_params.n_neighbors);
+      raft::spatial::knn::brute_force_knn<long, float, int>(handle,
+                                                            ptrs,
+                                                            sizes,
+                                                            n_features,
+                                                            X,
+                                                            n_samples,
+                                                            knn_indices,
+                                                            knn_dists,
+                                                            umap_params.n_neighbors);
 
       handle.sync_stream(stream);
     }
@@ -221,8 +223,6 @@ class UMAPParametrizableTest : public ::testing::Test {
                           X,
                           n_samples,
                           umap_params.n_components,
-                          knn_indices,
-                          knn_dists,
                           X,
                           n_samples,
                           model_embedding,
@@ -349,8 +349,8 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     ASSERT_TRUE(equal);
 #else
-    ASSERT_TRUE(
-      raft::devArrMatch(e1, e2, n_samples * umap_params.n_components, raft::Compare<float>{}));
+    ASSERT_TRUE(MLCommon::devArrMatch(
+      e1, e2, n_samples * umap_params.n_components, MLCommon::Compare<float>{}));
 #endif
   }
 

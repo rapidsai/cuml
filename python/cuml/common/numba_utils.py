@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2020, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,10 @@
 # DEPRECATED: to be removed once full migration to CumlArray is done
 # remaining usages: blobs.pyx, regression.pyx
 
-from numba import cuda
 from numba.cuda.cudadrv.driver import driver
+from cuml.internals.safe_imports import gpu_only_import_from
+
+cuda = gpu_only_import_from("numba", "cuda")
 
 
 @cuda.jit

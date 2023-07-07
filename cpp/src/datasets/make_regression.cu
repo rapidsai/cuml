@@ -15,7 +15,8 @@
  */
 
 #include <cuml/datasets/make_regression.hpp>
-#include <raft/random/make_regression.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/random/make_regression.cuh>
 
 namespace ML {
 namespace Datasets {

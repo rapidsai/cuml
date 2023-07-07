@@ -16,10 +16,11 @@
 # distutils: language = c++
 
 import ctypes
-import cudf
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
-import rmm
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 
 from libc.stdlib cimport malloc, free
 
@@ -28,9 +29,9 @@ from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
 import cuml.internals
-from cuml.common.base import Base
-from cuml.common.array import CumlArray
-from raft.common.handle cimport handle_t
+from cuml.internals.base import Base
+from cuml.internals.array import CumlArray
+from pylibraft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.common import input_to_cuml_array
 from cuml.decomposition.utils cimport *

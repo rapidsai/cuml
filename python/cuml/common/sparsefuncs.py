@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,23 +13,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 import math
-import numpy as np
-import cupy as cp
-import cupyx
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.memory_utils import with_cupy_rmm
-from cuml.common.import_utils import has_scipy
-import cuml.internals
+import cuml
+from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
+from cuml.internals.memory_utils import with_cupy_rmm
+from cuml.internals.import_utils import has_scipy
 from cuml.common.kernel_utils import cuda_kernel_factory
-from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
-    coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import gpu_only_import_from
+
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
+cp_csr_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csr_matrix")
+cp_coo_matrix = gpu_only_import_from("cupyx.scipy.sparse", "coo_matrix")
+cp_csc_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csc_matrix")
+
+
+if has_scipy():
+    from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
+else:
+    from cuml.common.import_utils import DummyClass
+
+    csr_matrix = DummyClass
+    coo_matrix = DummyClass
+    csc_matrix = DummyClass
 
 
 def _map_l1_norm_kernel(dtype):
     """Creates cupy RawKernel for csr_raw_normalize_l1 function."""
 
-    map_kernel_str = r'''
+    map_kernel_str = r"""
     ({0} *data, {1} *indices, {2} *indptr, int n_samples) {
 
       int tid = blockDim.x * blockIdx.x + threadIdx.x;
@@ -49,14 +65,14 @@ def _map_l1_norm_kernel(dtype):
         data[i] /= sum;
       }
     }
-    '''
+    """
     return cuda_kernel_factory(map_kernel_str, dtype, "map_l1_norm_kernel")
 
 
 def _map_l2_norm_kernel(dtype):
     """Creates cupy RawKernel for csr_raw_normalize_l2 function."""
 
-    map_kernel_str = r'''
+    map_kernel_str = r"""
     ({0} *data, {1} *indices, {2} *indptr, int n_samples) {
 
       int tid = blockDim.x * blockIdx.x + threadIdx.x;
@@ -76,7 +92,7 @@ def _map_l2_norm_kernel(dtype):
         data[i] /= sum;
       }
     }
-    '''
+    """
     return cuda_kernel_factory(map_kernel_str, dtype, "map_l2_norm_kernel")
 
 
@@ -87,8 +103,11 @@ def csr_row_normalize_l1(X, inplace=True):
         X = X.copy()
 
     kernel = _map_l1_norm_kernel((X.dtype, X.indices.dtype, X.indptr.dtype))
-    kernel((math.ceil(X.shape[0] / 32),), (32,),
-           (X.data, X.indices, X.indptr, X.shape[0]))
+    kernel(
+        (math.ceil(X.shape[0] / 32),),
+        (32,),
+        (X.data, X.indices, X.indptr, X.shape[0]),
+    )
 
     return X
 
@@ -100,8 +119,11 @@ def csr_row_normalize_l2(X, inplace=True):
         X = X.copy()
 
     kernel = _map_l2_norm_kernel((X.dtype, X.indices.dtype, X.indptr.dtype))
-    kernel((math.ceil(X.shape[0] / 32),), (32,),
-           (X.data, X.indices, X.indptr, X.shape[0]))
+    kernel(
+        (math.ceil(X.shape[0] / 32),),
+        (32,),
+        (X.data, X.indices, X.indptr, X.shape[0]),
+    )
 
     return X
 
@@ -118,8 +140,9 @@ def csr_diag_mul(X, y, inplace=True):
 
 
 @cuml.internals.api_return_any()
-def create_csr_matrix_from_count_df(count_df, empty_doc_ids, n_doc, n_features,
-                                    dtype=cp.float32):
+def create_csr_matrix_from_count_df(
+    count_df, empty_doc_ids, n_doc, n_features, dtype=cp.float32
+):
     """
     Create a sparse matrix from the count of tokens by document
 
@@ -148,8 +171,7 @@ def create_csr_matrix_from_count_df(count_df, empty_doc_ids, n_doc, n_features,
     indptr = cp.pad(indptr, (1, 0), "constant")
 
     return cupyx.scipy.sparse.csr_matrix(
-        arg1=(data, indices, indptr), dtype=dtype,
-        shape=(n_doc, n_features)
+        arg1=(data, indices, indptr), dtype=dtype, shape=(n_doc, n_features)
     )
 
 
@@ -168,28 +190,21 @@ def _insert_zeros(ary, zero_indices):
     new_ary = cp.zeros((len(ary) + len(zero_indices)), dtype=cp.int32)
 
     # getting mask of non-zeros
-    data_mask = ~cp.in1d(cp.arange(0, len(new_ary), dtype=cp.int32),
-                         zero_indices)
+    data_mask = ~cp.in1d(
+        cp.arange(0, len(new_ary), dtype=cp.int32), zero_indices
+    )
 
     new_ary[data_mask] = ary
     return new_ary
 
 
 @with_cupy_rmm
-def extract_knn_graph(knn_graph, convert_dtype=True, sparse=False):
+def extract_knn_graph(knn_graph):
     """
     Converts KNN graph from CSR, COO and CSC formats into separate
     distance and indice arrays. Input can be a cupy sparse graph (device)
     or a numpy sparse graph (host).
     """
-    if has_scipy():
-        from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
-    else:
-        from cuml.common.import_utils import DummyClass
-        csr_matrix = DummyClass
-        coo_matrix = DummyClass
-        csc_matrix = DummyClass
-
     if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
         knn_graph = cupyx.scipy.sparse.csr_matrix(knn_graph)
         n_samples = knn_graph.shape[0]
@@ -208,25 +223,100 @@ def extract_knn_graph(knn_graph, convert_dtype=True, sparse=False):
         knn_indices = knn_graph.col
 
     if knn_indices is not None:
-        convert_to_dtype = None
-        if convert_dtype:
-            convert_to_dtype = np.int32 if sparse else np.int64
-
         knn_dists = knn_graph.data
-        knn_indices_m, _, _, _ = \
-            input_to_cuml_array(knn_indices, order='C',
-                                deepcopy=True,
-                                check_dtype=(np.int64, np.int32),
-                                convert_to_dtype=convert_to_dtype)
+        return knn_indices, knn_dists
+    else:
+        return None
 
-        knn_dists_m, _, _, _ = \
-            input_to_cuml_array(knn_dists, order='C',
-                                deepcopy=True,
-                                check_dtype=np.float32,
-                                convert_to_dtype=(np.float32
-                                                  if convert_dtype
-                                                  else None))
 
-        return (knn_indices_m, knn_indices_m.ptr),\
-            (knn_dists_m, knn_dists_m.ptr)
-    return (None, None), (None, None)
+@with_cupy_rmm
+def extract_pairwise_dists(pw_dists, n_neighbors):
+    """
+    Extract the nearest neighbors distances and indices
+    from a pairwise distance matrix.
+
+    Parameters
+    ----------
+        pw_dists: paiwise distances matrix of shape (n_samples, n_samples)
+        n_neighbors: number of nearest neighbors
+
+    (inspired from Scikit-Learn code)
+    """
+    pw_dists, _, _, _ = input_to_cupy_array(pw_dists)
+
+    n_rows = pw_dists.shape[0]
+    sample_range = cp.arange(n_rows)[:, None]
+    knn_indices = cp.argpartition(pw_dists, n_neighbors - 1, axis=1)
+    knn_indices = knn_indices[:, :n_neighbors]
+    argdist = cp.argsort(pw_dists[sample_range, knn_indices])
+    knn_indices = knn_indices[sample_range, argdist]
+    knn_dists = pw_dists[sample_range, knn_indices]
+    return knn_indices, knn_dists
+
+
+@with_cupy_rmm
+def extract_knn_infos(knn_info, n_neighbors):
+    """
+    Extract the nearest neighbors distances and indices
+    from the knn_info parameter.
+
+    Parameters
+    ----------
+        knn_info : array / sparse array / tuple, optional (device or host)
+        Either one of :
+            - Tuple (indices, distances) of arrays of
+              shape (n_samples, n_neighbors)
+            - Pairwise distances dense array of shape (n_samples, n_samples)
+            - KNN graph sparse array (preferably CSR/COO)
+        n_neighbors: number of nearest neighbors
+    """
+    if knn_info is None:
+        # no KNN was provided
+        return None
+
+    deepcopy = False
+    if isinstance(knn_info, tuple):
+        # dists and indices provided as a tuple
+        results = knn_info
+    else:
+        isaKNNGraph = isinstance(
+            knn_info,
+            (
+                csr_matrix,
+                coo_matrix,
+                csc_matrix,
+                cp_csr_matrix,
+                cp_coo_matrix,
+                cp_csc_matrix,
+            ),
+        )
+        if isaKNNGraph:
+            # extract dists and indices from a KNN graph
+            deepcopy = True
+            results = extract_knn_graph(knn_info)
+        else:
+            # extract dists and indices from a pairwise distance matrix
+            results = extract_pairwise_dists(knn_info, n_neighbors)
+
+    if results is not None:
+        knn_indices, knn_dists = results
+
+        knn_indices_m, _, _, _ = input_to_cuml_array(
+            knn_indices.flatten(),
+            order="C",
+            deepcopy=deepcopy,
+            check_dtype=np.int64,
+            convert_to_dtype=np.int64,
+        )
+
+        knn_dists_m, _, _, _ = input_to_cuml_array(
+            knn_dists.flatten(),
+            order="C",
+            deepcopy=deepcopy,
+            check_dtype=np.float32,
+            convert_to_dtype=np.float32,
+        )
+
+        return knn_indices_m, knn_dists_m
+    else:
+        return None

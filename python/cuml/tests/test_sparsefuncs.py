@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,25 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from cuml.internals.safe_imports import gpu_only_import
 from cuml.common.sparsefuncs import csr_row_normalize_l1
 from cuml.common.sparsefuncs import csr_row_normalize_l2
 from sklearn.utils.sparsefuncs_fast import inplace_csr_row_normalize_l1
 from sklearn.utils.sparsefuncs_fast import inplace_csr_row_normalize_l2
 
 import pytest
-import numpy as np
-import scipy.sparse as sp
-import cupy as cp
-import cupyx
+from cuml.internals.safe_imports import cpu_only_import
+
+np = cpu_only_import("numpy")
+sp = cpu_only_import("scipy.sparse")
+cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
 
 
-@pytest.mark.parametrize('norm, ref_norm', [
-    (csr_row_normalize_l1, inplace_csr_row_normalize_l1),
-    (csr_row_normalize_l2, inplace_csr_row_normalize_l2)
-])
-@pytest.mark.parametrize('dtype', [np.float32, np.float64])
-@pytest.mark.parametrize('seed, shape', [(10, (10, 5)),
-                                         (123, (500, 12))])
+@pytest.mark.parametrize(
+    "norm, ref_norm",
+    [
+        (csr_row_normalize_l1, inplace_csr_row_normalize_l1),
+        (csr_row_normalize_l2, inplace_csr_row_normalize_l2),
+    ],
+)
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("seed, shape", [(10, (10, 5)), (123, (500, 12))])
 def test_csr_norms(norm, ref_norm, dtype, seed, shape):
     X = np.random.RandomState(seed).randn(*shape).astype(dtype)
     X_csr = sp.csr_matrix(X)

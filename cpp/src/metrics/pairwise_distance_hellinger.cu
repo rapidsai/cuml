@@ -16,8 +16,8 @@
  */
 
 #include "pairwise_distance_hellinger.cuh"
-#include <raft/distance/distance.hpp>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/distance/distance.cuh>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {
@@ -36,7 +36,7 @@ void pairwise_distance_hellinger(const raft::handle_t& handle,
   // Call the distance function
   raft::distance::
     distance<raft::distance::DistanceType::HellingerExpanded, double, double, double, int>(
-      x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+      handle, x, y, dist, m, n, k, isRowMajor);
 }
 
 void pairwise_distance_hellinger(const raft::handle_t& handle,
@@ -51,7 +51,7 @@ void pairwise_distance_hellinger(const raft::handle_t& handle,
 {
   raft::distance::
     distance<raft::distance::DistanceType::HellingerExpanded, float, float, float, int>(
-      x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
+      handle, x, y, dist, m, n, k, isRowMajor);
 }
 
 }  // namespace Metrics

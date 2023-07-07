@@ -18,24 +18,26 @@
 import typing
 
 import ctypes
-import cudf
-import numpy as np
-import cupy as cp
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 import cuml.internals
-from cuml.common.base import Base
-from cuml.common.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.mixins import FMajorInputTagMixin
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 
@@ -160,7 +162,7 @@ class SGD(Base,
         cuML predictions :  [3.0055...  2.0214...]
 
     Parameters
-    -----------
+    ----------
     loss : 'hinge', 'log', 'squared_loss' (default = 'squared_loss')
         'hinge' uses linear SVM
         'log' uses logistic regression
@@ -200,7 +202,7 @@ class SGD(Base,
         validation accuracy does not improve for n_iter_no_change epochs.
         The old learning rate is generally divide by 5
     n_iter_no_change : int (default = 5)
-        The number of epochs to train without any imporvement in the model
+        The number of epochs to train without any improvement in the model
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -208,11 +210,12 @@ class SGD(Base,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -234,6 +237,8 @@ class SGD(Base,
             msg = "loss {!r} is not supported"
             raise TypeError(msg.format(loss))
 
+        if penalty is None:
+            penalty = 'none'
         if penalty in ['none', 'l1', 'l2', 'elasticnet']:
             self.penalty = penalty
         else:

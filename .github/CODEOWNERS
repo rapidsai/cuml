@@ -2,7 +2,7 @@
 cpp/               @rapidsai/cuml-cpp-codeowners
 
 #python code owners
-python/cuml/       @rapidsai/cuml-python-codeowners
+python/            @rapidsai/cuml-python-codeowners
 
 #cmake code owners
 **/CMakeLists.txt  @rapidsai/cuml-cmake-codeowners
@@ -17,3 +17,4 @@ ci/                @rapidsai/ops-codeowners
 conda/             @rapidsai/ops-codeowners
 **/Dockerfile      @rapidsai/ops-codeowners
 **/.dockerignore   @rapidsai/ops-codeowners
+dependencies.yaml   @rapidsai/ops-codeowners

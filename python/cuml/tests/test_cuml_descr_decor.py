@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,29 +13,39 @@
 # limitations under the License.
 #
 
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import determine_array_type
+from cuml.internals.input_utils import determine_array_dtype
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.array import CumlArray
+import pytest
+from cuml.internals.safe_imports import cpu_only_import
 import pickle
 
 import cuml
 import cuml.internals
-import cupy as cp
-import numpy as np
-import pytest
-from cuml.common.array import CumlArray
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.input_utils import determine_array_dtype
-from cuml.common.input_utils import determine_array_type
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.input_utils import unsupported_cudf_dtypes
+from cuml.internals.safe_imports import gpu_only_import
 
-test_input_types = ['numpy', 'numba', 'cupy', 'cudf']
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
 
-test_output_types_str = ['numpy', 'numba', 'cupy', 'cudf']
+test_input_types = ["numpy", "numba", "cupy", "cudf"]
+
+test_output_types_str = ["numpy", "numba", "cupy", "cudf"]
 
 test_dtypes_short = [
     np.uint8,
     np.float16,
     np.int32,
     np.float64,
+]
+
+unsupported_cudf_dtypes = [
+    np.uint8,
+    np.uint16,
+    np.uint32,
+    np.uint64,
+    np.float16,
 ]
 
 test_shapes = [10, (10, 1), (10, 5), (1, 10)]
@@ -103,10 +113,10 @@ def create_output(X_in, output_type):
     return cuml_ary_tuple.array.to_output(output_type)
 
 
-@pytest.mark.parametrize('input_type', test_input_types)
+@pytest.mark.parametrize("input_type", test_input_types)
 def test_pickle(input_type):
 
-    if (input_type == "numba"):
+    if input_type == "numba":
         pytest.skip("numba arrays cant be picked at this time")
 
     est = DummyTestEstimator()
@@ -118,8 +128,9 @@ def test_pickle(input_type):
     # Loop and verify we have filled the cache
     for out_type in test_output_types_str:
         with cuml.using_output_type(out_type):
-            assert_array_identical(est.input_any_,
-                                   create_output(X_in, out_type))
+            assert_array_identical(
+                est.input_any_, create_output(X_in, out_type)
+            )
 
     est_pickled_bytes = pickle.dumps(est)
     est_unpickled: DummyTestEstimator = pickle.loads(est_pickled_bytes)
@@ -134,23 +145,25 @@ def test_pickle(input_type):
     # Loop one more time with the picked one to make sure it works right
     for out_type in test_output_types_str:
         with cuml.using_output_type(out_type):
-            assert_array_identical(est.input_any_,
-                                   create_output(X_in, out_type))
+            assert_array_identical(
+                est.input_any_, create_output(X_in, out_type)
+            )
 
         est_unpickled.output_type = out_type
 
-        assert_array_identical(est_unpickled.input_any_,
-                               create_output(X_in, out_type))
+        assert_array_identical(
+            est_unpickled.input_any_, create_output(X_in, out_type)
+        )
 
 
-@pytest.mark.parametrize('input_type', test_input_types)
-@pytest.mark.parametrize('input_dtype', [np.float32, np.int16])
-@pytest.mark.parametrize('input_shape', [10, (10, 5)])
-@pytest.mark.parametrize('output_type', test_output_types_str)
+@pytest.mark.parametrize("input_type", test_input_types)
+@pytest.mark.parametrize("input_dtype", [np.float32, np.int16])
+@pytest.mark.parametrize("input_shape", [10, (10, 5)])
+@pytest.mark.parametrize("output_type", test_output_types_str)
 def test_dec_input_output(input_type, input_dtype, input_shape, output_type):
 
-    if (input_type == "cudf" or output_type == "cudf"):
-        if (input_dtype in unsupported_cudf_dtypes):
+    if input_type == "cudf" or output_type == "cudf":
+        if input_dtype in unsupported_cudf_dtypes:
             pytest.skip("Unsupported cudf combination")
 
     X_in = create_input(input_type, input_dtype, input_shape, "C")
@@ -195,9 +208,9 @@ def test_dec_input_output(input_type, input_dtype, input_shape, output_type):
         assert_array_identical(est.input_any_, X_in)
 
 
-@pytest.mark.parametrize('input_type', test_input_types)
-@pytest.mark.parametrize('input_dtype', [np.float32, np.int16])
-@pytest.mark.parametrize('input_shape', test_shapes)
+@pytest.mark.parametrize("input_type", test_input_types)
+@pytest.mark.parametrize("input_dtype", [np.float32, np.int16])
+@pytest.mark.parametrize("input_shape", test_shapes)
 def test_auto_fit(input_type, input_dtype, input_shape):
     """
     Test autowrapping on fit that will set output_type, and n_features
@@ -210,11 +223,11 @@ def test_auto_fit(input_type, input_dtype, input_shape):
     est.fit(X_in)
 
     def calc_n_features(shape):
-        if (isinstance(shape, tuple) and len(shape) >= 1):
+        if isinstance(shape, tuple) and len(shape) >= 1:
 
             # When cudf and shape[1] is used, a series is created which will
             # remove the last shape
-            if (input_type == "cudf" and shape[1] == 1):
+            if input_type == "cudf" and shape[1] == 1:
                 return None
 
             return shape[1]
@@ -226,10 +239,11 @@ def test_auto_fit(input_type, input_dtype, input_shape):
     assert est.n_features_in_ == calc_n_features(input_shape)
 
 
-@pytest.mark.parametrize('input_type', test_input_types)
-@pytest.mark.parametrize('base_output_type', test_input_types)
-@pytest.mark.parametrize('global_output_type',
-                         test_output_types_str + ["input", None])
+@pytest.mark.parametrize("input_type", test_input_types)
+@pytest.mark.parametrize("base_output_type", test_input_types)
+@pytest.mark.parametrize(
+    "global_output_type", test_output_types_str + ["input", None]
+)
 def test_auto_predict(input_type, base_output_type, global_output_type):
     """
     Test autowrapping on predict that will set target_type
@@ -264,10 +278,10 @@ def test_auto_predict(input_type, base_output_type, global_output_type):
 
         target_output_type = global_output_type
 
-        if (target_output_type is None or target_output_type == "input"):
+        if target_output_type is None or target_output_type == "input":
             target_output_type = base_output_type
 
-        if (target_output_type == "input"):
+        if target_output_type == "input":
             target_output_type = input_type
 
         assert determine_array_type(X_out) == target_output_type
@@ -275,14 +289,16 @@ def test_auto_predict(input_type, base_output_type, global_output_type):
         assert_array_identical(X_in, X_out)
 
 
-@pytest.mark.parametrize('input_arg', ["X", "y", "bad", ...])
-@pytest.mark.parametrize('target_arg', ["X", "y", "bad", ...])
-@pytest.mark.parametrize('get_output_type', [True, False])
-@pytest.mark.parametrize('get_output_dtype', [True, False])
-def test_return_array(input_arg: str,
-                      target_arg: str,
-                      get_output_type: bool,
-                      get_output_dtype: bool):
+@pytest.mark.parametrize("input_arg", ["X", "y", "bad", ...])
+@pytest.mark.parametrize("target_arg", ["X", "y", "bad", ...])
+@pytest.mark.parametrize("get_output_type", [True, False])
+@pytest.mark.parametrize("get_output_dtype", [True, False])
+def test_return_array(
+    input_arg: str,
+    target_arg: str,
+    get_output_type: bool,
+    get_output_dtype: bool,
+):
     """
     Test autowrapping on predict that will set target_type
     """
@@ -301,40 +317,48 @@ def test_return_array(input_arg: str,
 
     def test_func(X, y):
 
-        if (not get_output_type):
+        if not get_output_type:
             cuml.internals.set_api_output_type(inner_type)
 
-        if (not get_output_dtype):
+        if not get_output_dtype:
             cuml.internals.set_api_output_dtype(inner_dtype)
 
         return X
 
-    if (input_arg == "bad" or target_arg == "bad"):
-        pytest.xfail("Expected error with bad arg name")
+    expected_to_fail = (input_arg == "bad" and get_output_type) or (
+        target_arg == "bad" and get_output_dtype
+    )
 
-    test_func = cuml.internals.api_return_array(
-        input_arg=input_arg,
-        target_arg=target_arg,
-        get_output_type=get_output_type,
-        get_output_dtype=get_output_dtype)(test_func)
+    try:
+        test_func = cuml.internals.api_return_array(
+            input_arg=input_arg,
+            target_arg=target_arg,
+            get_output_type=get_output_type,
+            get_output_dtype=get_output_dtype,
+        )(test_func)
+    except ValueError:
+        assert expected_to_fail
+        return
+    else:
+        assert not expected_to_fail
 
     X_out = test_func(X=X_in, y=Y_in)
 
     target_type = None
     target_dtype = None
 
-    if (not get_output_type):
+    if not get_output_type:
         target_type = inner_type
     else:
-        if (input_arg == "y"):
+        if input_arg == "y":
             target_type = input_type_Y
         else:
             target_type = input_type_X
 
-    if (not get_output_dtype):
+    if not get_output_dtype:
         target_dtype = inner_dtype
     else:
-        if (target_arg == "X"):
+        if target_arg == "X":
             target_dtype = input_dtype_X
         else:
             target_dtype = input_dtype_Y

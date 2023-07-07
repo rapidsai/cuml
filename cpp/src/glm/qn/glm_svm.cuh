@@ -18,11 +18,12 @@
 
 #include "glm_base.cuh"
 #include "simple_mat.cuh"
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/add.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace ML {
 namespace GLM {
+namespace detail {
 
 template <typename T>
 struct SVCL1Loss : GLMBase<T, SVCL1Loss<T>> {
@@ -153,6 +154,6 @@ struct SVRL2Loss : GLMBase<T, SVRL2Loss<T>> {
     return squaredNorm(grad, dev_scalar, stream) * 0.5;
   }
 };
-
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,21 +16,23 @@
 # distutils: language = c++
 
 import ctypes
-import cudf
-import cupy
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cupy = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
-from cuml.common.mixins import RegressorMixin
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.metrics import r2_score
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
@@ -50,7 +52,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         C_SVC, NU_SVC, EPSILON_SVR, NU_SVR
 
     cdef struct SvmParameter:
-        # parameters for trainig
+        # parameters for training
         double C
         double cache_size
         int max_iter
@@ -129,7 +131,7 @@ class SVR(SVMBase, RegressorMixin):
         - 'scale': gamma will be se to ``1 / (n_features * X.var())``
 
     coef0 : float (default = 0.0)
-        Independent term in kernel function, only signifficant for poly and
+        Independent term in kernel function, only significant for poly and
         sigmoid
     tol : float (default = 1e-3)
         Tolerance for stopping criterion.
@@ -142,7 +144,7 @@ class SVR(SVMBase, RegressorMixin):
         the training time, at the cost of higher memory footprint. After
         training the kernel cache is deallocated.
         During prediction, we also need a temporary space to store kernel
-        matrix elements (this can be signifficant if n_support is large).
+        matrix elements (this can be significant if n_support is large).
         The cache_size variable sets an upper limit to the prediction
         buffer as well.
     max_iter : int (default = -1)
@@ -155,11 +157,12 @@ class SVR(SVMBase, RegressorMixin):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -168,7 +171,7 @@ class SVR(SVMBase, RegressorMixin):
         future to represent number support vectors for each class (like
         in Sklearn, see Issue #956)
     support_ : int, shape = [n_support]
-        Device array of suppurt vector indices
+        Device array of support vector indices
     support_vectors_ : float, shape [n_support, n_cols]
         Device array of support vectors
     dual_coef_ : float, shape = [1, n_support]

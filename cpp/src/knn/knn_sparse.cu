@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn_sparse.hpp>
+#include <raft/core/handle.hpp>
 
-#include <raft/sparse/selection/knn.hpp>
-
-#include <cusparse_v2.h>
+#include <raft/sparse/selection/knn.cuh>
+#include <raft/spatial/knn/specializations.cuh>
 
 namespace ML {
 namespace Sparse {

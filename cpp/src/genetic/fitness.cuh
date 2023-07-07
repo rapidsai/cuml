@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/eltwise.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
-#include <raft/linalg/strided_reduction.hpp>
-#include <raft/linalg/unary_op.hpp>
-#include <raft/matrix/math.hpp>
-#include <raft/stats/mean.hpp>
-#include <raft/stats/mean_center.hpp>
-#include <raft/stats/stddev.hpp>
-#include <raft/stats/sum.hpp>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/strided_reduction.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
+#include <raft/stats/stddev.cuh>
+#include <raft/stats/sum.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -34,11 +34,13 @@
 #include <thrust/device_vector.h>
 #include <thrust/functional.h>
 #include <thrust/iterator/permutation_iterator.h>
+#include <thrust/memory.h>
+#include <thrust/scan.h>
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 
 namespace cuml {
 namespace genetic {

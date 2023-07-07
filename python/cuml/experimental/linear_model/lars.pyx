@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,11 +20,12 @@
 # cython: language_level = 3
 
 import ctypes
-import cudf
-import numpy as np
-import cupy as cp
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 import warnings
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 import cuml.internals
 
 from collections import defaultdict
@@ -33,13 +34,13 @@ from libcpp cimport bool, nullptr
 from libc.stdint cimport uintptr_t
 
 from cuml.common import input_to_cuml_array
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
-from cuml.common.mixins import RegressorMixin
+from cuml.internals.base import Base
+from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 
 cdef extern from "cuml/solvers/lars.hpp" namespace "ML::Solver::Lars":
 
@@ -85,7 +86,7 @@ class Lars(Base, RegressorMixin):
             for j=0..n_{col}-1
 
     Parameters
-    -----------
+    ----------
     fit_intercept : boolean (default = True)
         If True, Lars tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
@@ -98,7 +99,7 @@ class Lars(Base, RegressorMixin):
         The solver permutes the columns of X. Set `copy_X` to True to prevent
         changing the input data.
     fit_path : boolean (default = True)
-        Whether to return all the coefficients along the reularization path
+        Whether to return all the coefficients along the regularization path
         in the `coef_path_` attribute.
     precompute : bool, 'auto', or array-like with shape = (n_features, \
             n_features). (default = 'auto')
@@ -118,14 +119,15 @@ class Lars(Base, RegressorMixin):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Attributes
-    -----------
+    ----------
     alphas_ : array of floats or doubles, shape = [n_alphas + 1]
         The maximum correlation at each step.
     active_ : array of ints shape = [n_alphas]
@@ -220,7 +222,7 @@ class Lars(Base, RegressorMixin):
                 Gram = cp.dot(X.T, X)
             except MemoryError as err:
                 if self.precompute:
-                    logger.debug("Not enought memory to store the Gram matrix."
+                    logger.debug("Not enough memory to store the Gram matrix."
                                  " Proceeding without it.")
         return Gram
 

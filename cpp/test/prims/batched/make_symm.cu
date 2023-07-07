@@ -17,8 +17,8 @@
 #include "../test_utils.h"
 #include <gtest/gtest.h>
 #include <linalg/batched/make_symm.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <test_utils.h>
 
@@ -102,7 +102,7 @@ TEST_P(BatchMakeSymmTestF, Result)
 {
   int len = params.batchSize * params.n * params.n;
   ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), len, raft::CompareApprox<float>(params.tolerance)));
+    devArrMatch(out_ref.data(), out.data(), len, MLCommon::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchMakeSymmTests, BatchMakeSymmTestF, ::testing::ValuesIn(inputsf));
 
@@ -115,8 +115,8 @@ const std::vector<BatchMakeSymmInputs<double>> inputsd = {
 TEST_P(BatchMakeSymmTestD, Result)
 {
   int len = params.batchSize * params.n * params.n;
-  ASSERT_TRUE(
-    devArrMatch(out_ref.data(), out.data(), len, raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), len, MLCommon::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchMakeSymmTests, BatchMakeSymmTestD, ::testing::ValuesIn(inputsd));
 

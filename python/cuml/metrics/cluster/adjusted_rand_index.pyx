@@ -16,15 +16,16 @@
 
 # distutils: language = c++
 
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 import warnings
 
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
-from raft.common.handle import Handle
+from pylibraft.common.handle import Handle
 cimport cuml.common.cuda
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":

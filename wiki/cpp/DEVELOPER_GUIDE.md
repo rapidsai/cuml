@@ -161,7 +161,7 @@ The reasons behind these deviations from the Google style guide are given in com
 All formatting checks are done by this python script: [run-clang-format.py](../../cpp/scripts/run-clang-format.py) which is effectively a wrapper over `clang-format`. An error is raised if the code diverges from the format suggested by clang-format. It is expected that the developers run this script to detect and fix formatting violations before creating PR.
 
 #### As part of CI
-[run-clang-format.py](../../cpp/scripts/run-clang-format.py) is executed as part of our `gpuCI/cuml/style-check` CI test. If there are any formatting violations, PR author is expected to fix those to get CI passing. Steps needed to fix the formatting violations are described in the subsequent sub-section.
+[run-clang-format.py](../../cpp/scripts/run-clang-format.py) is executed as part of our CI tests. If there are any formatting violations, PR author is expected to fix those to get CI passing. Steps needed to fix the formatting violations are described in the subsequent sub-section.
 
 #### Manually
 Developers can also manually (or setup this command as part of git pre-commit hook) run this check by executing:
@@ -318,7 +318,7 @@ void foo(const raft::handle_t& h, ..., cudaStream_t stream )
     ...
 }
 ```
-If thrust 1.9.4 or later is avaiable for use in cuML a similar allocator can be provided for `thrust::device_vector`.
+If thrust 1.9.4 or later is available for use in cuML a similar allocator can be provided for `thrust::device_vector`.
 
 ### <a name="allocationsthrust"></a>Using Thrust
 To ensure that thrust algorithms allocate temporary memory via the provided device memory allocator, use the `ML::thrustAllocatorAdapter` available in `src/common/allocatorAdapter.hpp` with the `thrust::cuda::par` execution policy:
@@ -368,7 +368,7 @@ void foo(const double* const srcdata, double* const result)
 ```
 No work in any stream should start in `ML::algo` before the `cudaMemcpyAsync` in `stream` launched before the call to `ML::algo` is done. And all work in all streams used in `ML::algo` should be done before the `cudaMemcpyAsync` in `stream` launched after the call to `ML::algo` starts.
 
-This can be ensured by introducing interstream dependencies with CUDA events and `cudaStreamWaitEvent`. For convenience, the header `raft/handle.hpp` provides the class `raft::stream_syncer` which lets all `raft::handle_t` internal CUDA streams wait on `raft::handle_t:get_stream()` in its constructor and in its destructor and lets `raft::handle_t::get_stream()` wait on all work enqueued in the `raft::handle_t` internal CUDA streams. The intended use would be to create a `raft::stream_syncer` object as the first thing in a entry function of the public cuML API:
+This can be ensured by introducing interstream dependencies with CUDA events and `cudaStreamWaitEvent`. For convenience, the header `raft/core/handle.hpp` provides the class `raft::stream_syncer` which lets all `raft::handle_t` internal CUDA streams wait on `raft::handle_t::get_stream()` in its constructor and in its destructor and lets `raft::handle_t::get_stream()` wait on all work enqueued in the `raft::handle_t` internal CUDA streams. The intended use would be to create a `raft::stream_syncer` object as the first thing in a entry function of the public cuML API:
 
 ```cpp
 void cumlAlgo(const raft::handle_t& handle, ...)
@@ -408,13 +408,13 @@ int main(int argc, char** argv)
 
 ## Multi-GPU
 
-The multi GPU paradigm of cuML is **O**ne **P**rocess per **G**PU (OPG). Each algorithm should be implemented in a way that it can run with a single GPU without any specific dependencies to a particular communication library. A multi-GPU implementation should use the methods offered by the class `raft::comms::comms_t` from [raft/comms/comms.hpp] for inter-rank/GPU communication. It is the responsibility of the user of cuML to create an initialized instance of `raft::comms::comms_t`.
+The multi GPU paradigm of cuML is **O**ne **P**rocess per **G**PU (OPG). Each algorithm should be implemented in a way that it can run with a single GPU without any specific dependencies to a particular communication library. A multi-GPU implementation should use the methods offered by the class `raft::comms::comms_t` from [raft/core/comms.hpp] for inter-rank/GPU communication. It is the responsibility of the user of cuML to create an initialized instance of `raft::comms::comms_t`.
 
 E.g. with a CUDA-aware MPI, a cuML user could use code like this to inject an initialized instance of `raft::comms::mpi_comms` into a `raft::handle_t`:
 
 ```cpp
 #include <mpi.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/comms/mpi_comms.hpp>
 #include <mlalgo/mlalgo.hpp>
 ...

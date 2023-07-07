@@ -30,9 +30,14 @@ log
 dask-worker-space/
 tmp/
 .hypothesis
+wheels/
+wheelhouse/
+_skbuild/
 
 ## files pickled in notebook when ran during python docstring generation
 docs/source/*.model
+docs/source/*.pkl
+docs/source/*.tl
 
 ## eclipse
 .project
@@ -55,3 +60,7 @@ docs/source/*.model
 
 ## doxygen build check inside ci/checks/style.sh
 doxygen_check/
+
+## Doxygen
+cpp/html
+cpp/Doxyfile

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,10 +24,15 @@
 #include <limits>
 #include <memory>
 #include <numeric>
-#include <raft/error.hpp>
-#include <raft/span.hpp>
+#include <raft/core/error.hpp>
+#include <raft/core/span.hpp>
 #include <rmm/device_uvector.hpp>
 #include <thrust/device_ptr.h>
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+#include <thrust/for_each.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/memory.h>
 #include <treelite/tree.h>
 #include <type_traits>
 #include <variant>
@@ -96,7 +101,7 @@ class BitField {
     return oss.str();
   }
 
-  static_assert(!std::is_signed<T>::value, "Must use unsiged type as underlying storage.");
+  static_assert(!std::is_signed<T>::value, "Must use unsigned type as underlying storage.");
 };
 
 using CatBitFieldStorageT = std::uint32_t;
@@ -624,7 +629,7 @@ void visit_path_segments_in_model(const tl::ModelImpl<ThresholdType, LeafType>& 
 
 // Traverse a path from the root node to a leaf node and return the list of the path segments
 // Note: the path segments will have missing values in path_idx, group_id and v (leaf value).
-//       The callser is responsible for filling in these fields.
+//       The caller is responsible for filling in these fields.
 template <typename ThresholdType, typename LeafType>
 std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> traverse_towards_leaf_node(
   const tl::Tree<ThresholdType, LeafType>& tree,

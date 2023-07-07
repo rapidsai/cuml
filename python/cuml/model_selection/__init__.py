@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,16 +15,20 @@
 #
 
 from cuml.model_selection._split import train_test_split
-from cuml.common.import_utils import has_sklearn
+from cuml.model_selection._split import StratifiedKFold
+from cuml.internals.import_utils import has_sklearn
 
 if has_sklearn():
     from sklearn.model_selection import GridSearchCV
 
-    GridSearchCV.__doc__ = """
+    GridSearchCV.__doc__ = (
+        """
     This code is developed and maintained by scikit-learn and imported
     by cuML to maintain the familiar sklearn namespace structure.
     cuML includes tests to ensure full compatibility of these wrappers
     with CUDA-based data and cuML estimators, but all of the underlying code
-    is due to the scikit-learn developers.\n\n""" + GridSearchCV.__doc__
+    is due to the scikit-learn developers.\n\n"""
+        + GridSearchCV.__doc__
+    )
 
-__all__ = ['train_test_split', 'GridSearchCV']
+__all__ = ["train_test_split", "GridSearchCV", "StratifiedKFold"]

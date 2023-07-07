@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,13 @@
 #include "utils.cuh"
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/tsne.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/eltwise.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/util/cudart_utils.hpp>
+
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/fill.h>
 
 namespace ML {
 namespace TSNE {
@@ -51,7 +56,7 @@ value_t Barnes_Hut(value_t* VAL,
 
   value_t kl_div = 0;
 
-  // Get device properites
+  // Get device properties
   //---------------------------------------------------
   const int blocks = raft::getMultiProcessorCount();
 

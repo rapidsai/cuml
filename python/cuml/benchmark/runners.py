@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,14 +15,18 @@
 #
 """Wrappers to run ML benchmarks"""
 
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.benchmark import datagen
+from cuml.common.device_selection import using_device_type
+import warnings
 import time
 import itertools
-import numpy as np
-import pandas as pd
-import warnings
+from cuml.internals.safe_imports import cpu_only_import
 
-from cuml.benchmark import datagen
-from cudf import Series
+np = cpu_only_import("numpy")
+pd = cpu_only_import("pandas")
+
+Series = gpu_only_import_from("cudf", "Series")
 
 
 class BenchmarkTimer:
@@ -78,46 +82,56 @@ class SpeedupComparisonRunner:
         dataset_param_overrides={},
         dtype=np.float32,
         run_cpu=True,
+        device="gpu",
         verbose=False,
     ):
         data = datagen.gen_data(
-            self.dataset_name, self.input_type, n_samples, n_features,
-            dtype=dtype, **dataset_param_overrides
+            self.dataset_name,
+            self.input_type,
+            n_samples,
+            n_features,
+            dtype=dtype,
+            **dataset_param_overrides,
         )
 
-        setup_overrides = algo_pair.setup_cuml(
-            data, **param_overrides, **cuml_param_overrides
-        )
-
-        cuml_timer = BenchmarkTimer(self.n_reps)
-        for rep in cuml_timer.benchmark_runs():
-            algo_pair.run_cuml(
-                data,
-                **param_overrides,
-                **cuml_param_overrides,
-                **setup_overrides
+        with using_device_type(device):
+            setup_overrides = algo_pair.setup_cuml(
+                data, **param_overrides, **cuml_param_overrides
             )
-        cu_elapsed = np.min(cuml_timer.timings)
+            cuml_timer = BenchmarkTimer(self.n_reps)
+            for rep in cuml_timer.benchmark_runs():
+                algo_pair.run_cuml(
+                    data,
+                    **param_overrides,
+                    **cuml_param_overrides,
+                    **setup_overrides,
+                )
+            cu_elapsed = np.min(cuml_timer.timings)
 
         if run_cpu and algo_pair.cpu_class is not None:
-            setup_overrides = algo_pair.setup_cpu(data,
-                                                  **param_overrides,
-                                                  **cpu_param_overrides)
+            setup_overrides = algo_pair.setup_cpu(
+                data, **param_overrides, **cpu_param_overrides
+            )
 
             cpu_timer = BenchmarkTimer(self.n_reps)
             for rep in cpu_timer.benchmark_runs():
-                algo_pair.run_cpu(data, **param_overrides,
-                                  **cpu_param_overrides,
-                                  **setup_overrides)
+                algo_pair.run_cpu(
+                    data,
+                    **param_overrides,
+                    **cpu_param_overrides,
+                    **setup_overrides,
+                )
             cpu_elapsed = np.min(cpu_timer.timings)
         else:
 
             if run_cpu:
-                warnings.warn("run_cpu argument is set to True but no CPU "
-                              "implementation was provided. It's possible "
-                              "an additional library is needed but one could "
-                              "not be found. Benchmark will be executed with "
-                              "run_cpu=False")
+                warnings.warn(
+                    "run_cpu argument is set to True but no CPU "
+                    "implementation was provided. It's possible "
+                    "an additional library is needed but one could "
+                    "not be found. Benchmark will be executed with "
+                    "run_cpu=False"
+                )
 
             cpu_elapsed = 0.0
 
@@ -125,12 +139,18 @@ class SpeedupComparisonRunner:
         if verbose:
             print(
                 "%s (n_samples=%s, n_features=%s) [cpu=%s, gpu=%s, speedup=%s]"
-                % (algo_pair.name, n_samples, n_features, cpu_elapsed,
-                   cu_elapsed, speedup)
+                % (
+                    algo_pair.name,
+                    n_samples,
+                    n_features,
+                    cpu_elapsed,
+                    cu_elapsed,
+                    speedup,
+                )
             )
 
         return dict(
-            cu_time=cu_elapsed,
+            cuml_time=cu_elapsed,
             cpu_time=cpu_elapsed,
             speedup=speedup,
             n_samples=n_samples,
@@ -138,7 +158,7 @@ class SpeedupComparisonRunner:
             **param_overrides,
             **cuml_param_overrides,
             **cpu_param_overrides,
-            **dataset_param_overrides
+            **dataset_param_overrides,
         )
 
     def run(
@@ -151,8 +171,9 @@ class SpeedupComparisonRunner:
         dtype=np.float32,
         *,
         run_cpu=True,
+        device="gpu",
         raise_on_error=False,
-        verbose=False
+        verbose=False,
     ):
         all_results = []
         for ns in self.bench_rows:
@@ -169,6 +190,7 @@ class SpeedupComparisonRunner:
                             dataset_param_overrides=dataset_param_overrides,
                             dtype=dtype,
                             run_cpu=run_cpu,
+                            device=device,
                             verbose=verbose,
                         )
                     )
@@ -213,6 +235,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
         dataset_param_overrides={},
         dtype=np.float32,
         run_cpu=True,
+        device="gpu",
         verbose=False,
     ):
         data = datagen.gen_data(
@@ -222,20 +245,25 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             n_features,
             dtype=dtype,
             test_fraction=self.test_fraction,
-            **dataset_param_overrides
+            **dataset_param_overrides,
         )
 
         setup_override = algo_pair.setup_cuml(
             data, **{**param_overrides, **cuml_param_overrides}
         )
 
-        cuml_timer = BenchmarkTimer(self.n_reps)
-        for _ in cuml_timer.benchmark_runs():
-            cuml_model = algo_pair.run_cuml(
-                data,
-                **{**param_overrides, **cuml_param_overrides, **setup_override}
-            )
-        cu_elapsed = np.min(cuml_timer.timings)
+        with using_device_type(device):
+            cuml_timer = BenchmarkTimer(self.n_reps)
+            for _ in cuml_timer.benchmark_runs():
+                cuml_model = algo_pair.run_cuml(
+                    data,
+                    **{
+                        **param_overrides,
+                        **cuml_param_overrides,
+                        **setup_override,
+                    },
+                )
+            cu_elapsed = np.min(cuml_timer.timings)
 
         if algo_pair.accuracy_function:
             if algo_pair.cuml_data_prep_hook is not None:
@@ -249,24 +277,23 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                 y_pred_cuml = cuml_model.transform(X_test)
             if isinstance(y_pred_cuml, Series):
                 y_pred_cuml = y_pred_cuml.to_numpy()
-            cuml_accuracy = algo_pair.accuracy_function(
-                y_test, y_pred_cuml
-            )
+            cuml_accuracy = algo_pair.accuracy_function(y_test, y_pred_cuml)
         else:
             cuml_accuracy = 0.0
 
         cpu_accuracy = 0.0
         if run_cpu and algo_pair.cpu_class is not None:
-            setup_override = algo_pair.setup_cpu(data,
-                                                 **param_overrides,
-                                                 **cpu_param_overrides)
+            setup_override = algo_pair.setup_cpu(
+                data, **param_overrides, **cpu_param_overrides
+            )
 
             cpu_timer = BenchmarkTimer(self.n_reps)
             for rep in cpu_timer.benchmark_runs():
                 cpu_model = algo_pair.run_cpu(
-                    data, **param_overrides,
+                    data,
+                    **param_overrides,
                     **cpu_param_overrides,
-                    **setup_override
+                    **setup_override,
                 )
             cpu_elapsed = np.min(cpu_timer.timings)
 
@@ -286,7 +313,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             cpu_elapsed = 0.0
 
         return dict(
-            cu_time=cu_elapsed,
+            cuml_time=cu_elapsed,
             cpu_time=cpu_elapsed,
             cuml_acc=cuml_accuracy,
             cpu_acc=cpu_accuracy,
@@ -296,7 +323,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             **param_overrides,
             **cuml_param_overrides,
             **cpu_param_overrides,
-            **dataset_param_overrides
+            **dataset_param_overrides,
         )
 
 
@@ -313,6 +340,7 @@ def run_variations(
     input_type="numpy",
     test_fraction=0.1,
     run_cpu=True,
+    device_list=("gpu",),
     raise_on_error=False,
     n_reps=1,
 ):
@@ -349,17 +377,29 @@ def run_variations(
     """
     print("Running: \n", "\n ".join([str(a.name) for a in algos]))
     runner = AccuracyComparisonRunner(
-        bench_rows, bench_dims, dataset_name, input_type,
-        test_fraction=test_fraction, n_reps=n_reps
+        bench_rows,
+        bench_dims,
+        dataset_name,
+        input_type,
+        test_fraction=test_fraction,
+        n_reps=n_reps,
     )
     all_results = []
     for algo in algos:
         print("Running %s..." % (algo.name))
-        for overrides, cuml_overrides, cpu_overrides, dataset_overrides in \
-            itertools.product(param_override_list,
-                              cuml_param_override_list,
-                              cpu_param_override_list,
-                              dataset_param_override_list):
+        for (
+            overrides,
+            cuml_overrides,
+            cpu_overrides,
+            dataset_overrides,
+            device,
+        ) in itertools.product(
+            param_override_list,
+            cuml_param_override_list,
+            cpu_param_override_list,
+            dataset_param_override_list,
+            device_list,
+        ):
             results = runner.run(
                 algo,
                 overrides,
@@ -368,11 +408,17 @@ def run_variations(
                 dataset_param_overrides=dataset_overrides,
                 dtype=dtype,
                 run_cpu=run_cpu,
+                device=device,
                 raise_on_error=raise_on_error,
             )
             for r in results:
                 all_results.append(
-                    {"algo": algo.name, "input": input_type, **r}
+                    {
+                        "algo": algo.name,
+                        "input": input_type,
+                        "device": device,
+                        **r,
+                    }
                 )
 
     print("Finished all benchmark runs")

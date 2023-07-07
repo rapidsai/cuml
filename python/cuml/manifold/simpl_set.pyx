@@ -16,19 +16,21 @@
 
 # distutils: language = c++
 
-import numpy as np
-import cupy as cp
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 from cuml.manifold.umap_utils cimport *
 from cuml.manifold.umap_utils import GraphHolder, find_ab_params
 
 import cuml.internals
-from cuml.common.base import Base
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.array import CumlArray
 
-from raft.common.handle cimport handle_t
-from raft.common.handle import Handle
+from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle import Handle
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free

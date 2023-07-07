@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +13,18 @@
 # limitations under the License.
 #
 
+from cuml.internals.safe_imports import gpu_only_import
+import pytest
 import contextlib
 import doctest
 import inspect
 import io
 
 import cuml
-import numpy as np
-import pytest
-import cudf
+from cuml.internals.safe_imports import cpu_only_import
+
+np = cpu_only_import("numpy")
+cudf = gpu_only_import("cudf")
 
 
 def _name_in_all(parent, name):
@@ -76,9 +79,7 @@ def _find_doctests_in_obj(obj, finder=None, criteria=None):
                 member, finder, criteria=_is_public_name
             )
         if inspect.isfunction(member):
-            yield from _find_doctests_in_obj(
-                member, finder
-            )
+            yield from _find_doctests_in_obj(member, finder)
 
 
 @pytest.mark.parametrize(
@@ -91,6 +92,8 @@ def test_docstring(docstring):
     # the use of an ellipsis "..." to match any string in the doctest
     # output. An ellipsis is useful for, e.g., memory addresses or
     # imprecise floating point values.
+    if docstring.name == "Handle":
+        pytest.skip("Docstring is tested in RAFT.")
     optionflags = doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE
     runner = doctest.DocTestRunner(optionflags=optionflags)
 
@@ -104,7 +107,20 @@ def test_docstring(docstring):
     with contextlib.redirect_stdout(doctest_stdout):
         runner.run(docstring)
         results = runner.summarize()
-    assert not results.failed, (
-        f"{results.failed} of {results.attempted} doctests failed for "
-        f"{docstring.name}:\n{doctest_stdout.getvalue()}"
-    )
+    try:
+        assert not results.failed, (
+            f"{results.failed} of {results.attempted} doctests failed for "
+            f"{docstring.name}:\n{doctest_stdout.getvalue()}"
+        )
+    except AssertionError:
+        # If some failed but all the failures were due to lack of multiGPU
+        # support, we can skip. This code assumes that any MG-related failures
+        # mean that all doctests failed for that reason, which is heavy-handed
+        # and could miss a few things but is much easier than trying to
+        # identify every line corresponding to any Exception raised.
+        if (
+            "cuML has not been built with multiGPU support"
+            in doctest_stdout.getvalue()
+        ):
+            pytest.skip("Doctest requires MG support.")
+        raise

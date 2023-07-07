@@ -1,6 +1,6 @@
-~~~~~~~~~~~~~~~~~~~
-cuML API Reference
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+API Reference
+~~~~~~~~~~~~~
 
 .. role:: py(code)
    :language: python
@@ -15,8 +15,64 @@ Module Configuration
 Output Data Type Configuration
 ------------------------------
 
- .. autofunction:: cuml.common.memory_utils.set_global_output_type
- .. autofunction:: cuml.common.memory_utils.using_output_type
+ .. autofunction:: cuml.internals.memory_utils.set_global_output_type
+ .. autofunction:: cuml.internals.memory_utils.using_output_type
+
+.. _device-selection:
+
+CPU / GPU Device Selection (Experimental)
+-----------------------------------------
+cuML provides experimental support for running selected estimators and operators on either the GPU or CPU. This document covers the set of operators for which CPU/GPU device selection capabilities are supported as of the current nightly packages. If an operator isn't listed here, it can only be run on the GPU. Prior versions of cuML may have reduced support compared to the following table.
+
+.. list-table:: Operators Supporting CPU/GPU Device Selection and Execution
+   :header-rows: 1
+   :align: center
+   :widths: auto
+
+   * - Category
+     - Operator
+   * - Clustering
+     - HDBSCAN
+   * - Dimensionality Reduction and Manifold Learning
+     - PCA
+   * - Dimensionality Reduction and Manifold Learning
+     - TruncatedSVD
+   * - Dimensionality Reduction and Manifold Learning
+     - UMAP
+   * - Neighbors
+     - NearestNeighbors
+   * - Regression and Classification
+     - ElasticNet
+   * - Regression and Classification
+     - Lasso
+   * - Regression and Classification
+     - LinearRegression
+   * - Regression and Classification
+     - LogisticRegression
+   * - Regression and Classification
+     - Ridge
+
+If a CUDA-enabled GPU is available on the system, cuML will default to using it. Users can configure CPU or GPU execution for supported operators via context managers or global configuration. 
+
+.. code-block:: python
+
+   from cuml.linear_model import Lasso
+   from cuml.common.device_selection import using_device_type, set_global_device_type
+
+   with using_device_type("CPU"): # Alternatively, using_device_type("GPU")
+       model = Lasso()
+       model.fit(X_train, y_train)
+       predictions = model.predict(X_test)
+
+   # All operators supporting CPU execution will run on the CPU after this configuration
+   set_global_device_type("CPU")
+
+   model = Lasso()
+   model.fit(X_train, y_train)
+   predictions = model.predict(X_test)
+
+For more detailed examples, please see the `Execution Device Interoperability Notebook
+<execution_device_interoperability.ipynb>`_ in the User Guide.
 
 .. _verbosity-levels:
 
@@ -108,9 +164,15 @@ Other preprocessing methods (Single-GPU)
     :members:
 .. autoclass:: cuml.preprocessing.KBinsDiscretizer
     :members:
+.. autoclass:: cuml.preprocessing.KernelCenterer
+    :members:
 .. autoclass:: cuml.preprocessing.MissingIndicator
     :members:
 .. autoclass:: cuml.preprocessing.PolynomialFeatures
+    :members:
+.. autoclass:: cuml.preprocessing.PowerTransformer
+    :members:
+.. autoclass:: cuml.preprocessing.QuantileTransformer
     :members:
 .. autoclass:: cuml.preprocessing.SimpleImputer
     :members:
@@ -129,6 +191,9 @@ Feature and Label Encoding (Dask-based Multi-GPU)
 -------------------------------------------------
 
  .. autoclass:: cuml.dask.preprocessing.LabelBinarizer
+    :members:
+
+ .. autoclass:: cuml.dask.preprocessing.LabelEncoder.LabelEncoder
     :members:
 
  .. autoclass:: cuml.dask.preprocessing.OneHotEncoder
@@ -174,14 +239,9 @@ Dataset Generation (Dask-based Multi-GPU)
   .. automodule:: cuml.dask.datasets.regression
      :members:
 
-Array Wrappers (Internal API)
------------------------------
-
-.. autoclass:: cuml.common.CumlArray
-    :members:
 
 Metrics (regression, classification, and distance)
----------------------------------------------------
+--------------------------------------------------
 
   .. automodule:: cuml.metrics.regression
     :members:
@@ -229,8 +289,11 @@ Metrics (clustering and manifold learning)
   .. automodule:: cuml.metrics.cluster.mutual_info_score
     :members:
 
+  .. automodule:: cuml.metrics.cluster.v_measure_score
+    :members:
+
 Benchmarking
--------------
+------------
 
   .. automodule:: cuml.benchmark.algorithms
     :members:
@@ -300,12 +363,15 @@ Multiclass Classification
     :members:
 
 Naive Bayes
-----------------------
+-----------
 
 .. autoclass:: cuml.naive_bayes.MultinomialNB
     :members:
 
 .. autoclass:: cuml.naive_bayes.BernoulliNB
+    :members:
+
+.. autoclass:: cuml.naive_bayes.ComplementNB
     :members:
 
 .. autoclass:: cuml.naive_bayes.GaussianNB
@@ -387,13 +453,13 @@ Clustering
 ==========
 
 K-Means Clustering
---------------------
+------------------
 
 .. autoclass:: cuml.KMeans
     :members:
 
 DBSCAN
--------
+------
 
 .. autoclass:: cuml.DBSCAN
     :members:
@@ -408,8 +474,9 @@ Agglomerative Clustering
 HDBSCAN
 -------
 
-.. autoclass:: cuml.cluster.HDBSCAN
+.. automodule:: cuml.cluster.hdbscan
    :members:
+   :undoc-members:
 
 
 Dimensionality Reduction and Manifold Learning
@@ -433,7 +500,7 @@ Truncated SVD
     :members:
 
 UMAP
--------------
+----
 
 .. autoclass:: cuml.UMAP
     :members:
@@ -451,7 +518,7 @@ Random Projections
 
 
 TSNE
--------------
+----
 
 .. autoclass:: cuml.TSNE
     :members:
@@ -472,22 +539,22 @@ Nearest Neighbors Classification
     :members:
 
 Nearest Neighbors Regression
---------------------------------
+----------------------------
 
 .. autoclass:: cuml.neighbors.KNeighborsRegressor
     :members:
 
 Kernel Density Estimation
---------------------------------
+-------------------------
 
 .. autoclass:: cuml.neighbors.KernelDensity
     :members:
 
 Time Series
-============
+===========
 
 HoltWinters
--------------
+-----------
 
 .. autoclass:: cuml.ExponentialSmoothing
     :members:
@@ -521,13 +588,13 @@ Multi-Node, Multi-GPU Algorithms
 ================================
 
 DBSCAN Clustering
---------------------
+-----------------
 
 .. autoclass:: cuml.dask.cluster.DBSCAN
     :members:
 
 K-Means Clustering
---------------------
+------------------
 
 .. autoclass:: cuml.dask.cluster.KMeans
     :members:
@@ -546,7 +613,7 @@ Nearest Neighbors
 
 
 Principal Component Analysis
------------------------------
+----------------------------
 .. autoclass:: cuml.dask.decomposition.PCA
     :members:
 
@@ -560,7 +627,7 @@ Random Forest
     :members:
 
 Truncated SVD
---------------
+-------------
 
 .. autoclass:: cuml.dask.decomposition.TruncatedSVD
     :members:

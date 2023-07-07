@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,21 +24,28 @@ from ... import datagen
 #
 
 
-@pytest.fixture(**fixture_generation_helper({
-                    'n_samples': [1000, 10000],
-                    'n_features': [5, 500]
-                }))
+@pytest.fixture(
+    **fixture_generation_helper(
+        {"n_samples": [1000, 10000], "n_features": [5, 500]}
+    )
+)
 def classification(request):
     data = datagen.gen_data(
-        'classification',
-        'cudf',
-        n_samples=request.param['n_samples'],
-        n_features=request.param['n_features']
+        "classification",
+        "cudf",
+        n_samples=request.param["n_samples"],
+        n_features=request.param["n_features"],
     )
     return data, None
 
 
-def bench_mnmg_knnclassifier(gpubenchmark, bench_step,  # noqa: F811
-                             classification, client):
-    _benchmark_algo(gpubenchmark, 'MNMG.KNeighborsClassifier',
-                    bench_step, classification, client=client)
+def bench_mnmg_knnclassifier(
+    gpubenchmark, bench_step, classification, client  # noqa: F811
+):
+    _benchmark_algo(
+        gpubenchmark,
+        "MNMG.KNeighborsClassifier",
+        bench_step,
+        classification,
+        client=client,
+    )

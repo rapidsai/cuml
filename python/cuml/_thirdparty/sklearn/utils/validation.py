@@ -15,14 +15,15 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
-import numbers
-import numpy as np
-import cupy as cp
-import cupyx.scipy.sparse as sp
-from inspect import isclass
-
-from ....common.exceptions import NotFittedError
 from ....thirdparty_adapters import check_array
+from ....common.exceptions import NotFittedError
+from inspect import isclass
+from cuml.internals.safe_imports import gpu_only_import
+import numbers
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+cp = gpu_only_import('cupy')
+sp = gpu_only_import('cupyx.scipy.sparse')
 
 
 FLOAT_DTYPES = (np.float64, np.float32, np.float16)
@@ -148,7 +149,6 @@ def check_X_y(X, y, accept_sparse=False, *, accept_large_sparse=True,
 
 def check_random_state(seed):
     """Turn seed into a np.random.RandomState instance
-
     Parameters
     ----------
     seed : None | int | instance of RandomState

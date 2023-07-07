@@ -15,13 +15,14 @@
  */
 
 #include <cuda_runtime.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/label/classlabels.hpp>
-#include <raft/spatial/knn/ann.hpp>
-#include <raft/spatial/knn/ball_cover.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/label/classlabels.cuh>
+#include <raft/spatial/knn/ann.cuh>
+#include <raft/spatial/knn/ball_cover.cuh>
+#include <raft/util/cuda_utils.cuh>
 
-#include <raft/spatial/knn/knn.hpp>
-#include <raft/spatial/knn/specializations.hpp>
+#include <raft/spatial/knn/knn.cuh>
+#include <raft/spatial/knn/specializations.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <cuml/common/logger.hpp>

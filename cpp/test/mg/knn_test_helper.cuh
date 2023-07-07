@@ -19,14 +19,14 @@
 #include <cuml/neighbors/knn_mg.hpp>
 #include <gtest/gtest.h>
 #include <memory>
-#include <raft/random/make_blobs.hpp>
+#include <raft/random/make_blobs.cuh>
 
 #include <raft/comms/mpi_comms.hpp>
 
 #include <raft/linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace ML {
 namespace KNN {

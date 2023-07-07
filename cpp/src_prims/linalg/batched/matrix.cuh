@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,12 @@
 
 #include <common/fast_int_div.cuh>
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/add.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/unary_op.cuh>
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/execution_policy.h>
@@ -221,7 +221,7 @@ class Matrix {
     initialize(setZero);
   }
 
-  //! Destructor: nothing to destroy explicitely
+  //! Destructor: nothing to destroy explicitly
   ~Matrix() {}
 
   //! Copy constructor
@@ -784,7 +784,7 @@ Matrix<T> operator-(const Matrix<T>& A, const Matrix<T>& B)
 }
 
 /**
- * @brief Unary substraction
+ * @brief Unary subtraction
  *
  * @param[in]  A  Batched matrix A
  * @return -A

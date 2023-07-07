@@ -21,34 +21,35 @@ import typing
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 import cuml.internals
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.mixins import ClassifierMixin
+from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.mixins import FMajorInputTagMixin
 
-import numpy as np
-import cupy as cp
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
-import cudf
 
 from cython.operator cimport dereference as deref
 
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from libcpp.vector cimport vector
 
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
-import rmm
+rmm = gpu_only_import('rmm')
 from libc.stdlib cimport malloc, free
 
 from libc.stdint cimport uintptr_t, int64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from numba import cuda
-import rmm
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 
 cimport cuml.common.cuda
 
@@ -76,9 +77,9 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
     ) except +
 
 
-class KNeighborsClassifier(NearestNeighbors,
-                           ClassifierMixin,
-                           FMajorInputTagMixin):
+class KNeighborsClassifier(ClassifierMixin,
+                           FMajorInputTagMixin,
+                           NearestNeighbors):
     """
     K-Nearest Neighbors Classifier is an instance-based learning technique,
     that keeps training samples around for prediction, rather than trying
@@ -105,11 +106,12 @@ class KNeighborsClassifier(NearestNeighbors,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
@@ -134,7 +136,7 @@ class KNeighborsClassifier(NearestNeighbors,
             4., 1., 3.], dtype=float32)
 
     Notes
-    ------
+    -----
 
     For additional docs, see `scikitlearn's KNeighborsClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
@@ -202,7 +204,7 @@ class KNeighborsClassifier(NearestNeighbors,
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
 
         classes = CumlArray.zeros(out_shape, dtype=np.int32, order="C",
-                                  index=knn_indices.index)
+                                  index=inds.index)
 
         cdef vector[int*] *y_vec = new vector[int*]()
 
@@ -223,7 +225,7 @@ class KNeighborsClassifier(NearestNeighbors,
             <int*> classes_ptr,
             <int64_t*>inds_ctype,
             deref(y_vec),
-            <size_t>self.n_rows,
+            <size_t>self.n_samples_fit_,
             <size_t>n_rows,
             <int>self.n_neighbors
         )
@@ -272,7 +274,7 @@ class KNeighborsClassifier(NearestNeighbors,
                                        len(cp.unique(cp.asarray(col)))),
                                       dtype=np.float32,
                                       order="C",
-                                      index=knn_indices.index)
+                                      index=inds.index)
             out_classes.append(classes)
             classes_ptr = classes.ptr
             out_vec.push_back(<float*>classes_ptr)
@@ -287,7 +289,7 @@ class KNeighborsClassifier(NearestNeighbors,
             deref(out_vec),
             <int64_t*>inds_ctype,
             deref(y_vec),
-            <size_t>self.n_rows,
+            <size_t>self.n_samples_fit_,
             <size_t>n_rows,
             <int>self.n_neighbors
         )

@@ -25,16 +25,17 @@
 #include <cumlprims/opg/linalg/norm.hpp>
 
 #include "shuffle.h"
-#include <raft/comms/comms.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/eltwise.hpp>
-#include <raft/linalg/gemm.hpp>
-#include <raft/linalg/multiply.hpp>
-#include <raft/linalg/subtract.hpp>
-#include <raft/matrix/math.hpp>
-#include <raft/matrix/matrix.hpp>
+#include <raft/core/comms.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/multiply.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <cstddef>
 

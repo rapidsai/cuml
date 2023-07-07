@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #include <rmm/device_uvector.hpp>
 
@@ -267,7 +267,8 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
         handle_, n_leaves_, labels_, children_, sizes_, deltas_, mst_src_, mst_dst_, mst_weights_),
       probabilities(probabilities_),
       stabilities(0, handle_.get_stream()),
-      condensed_tree(handle_, n_leaves_)
+      condensed_tree(handle_, n_leaves_),
+      inverse_label_map(0, handle_.get_stream())
   {
   }
 
@@ -276,6 +277,9 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
   // it much easier to use / debug.
   value_t* get_probabilities() { return probabilities; }
   value_t* get_stabilities() { return stabilities.data(); }
+  value_idx* get_inverse_label_map() { return inverse_label_map.data(); }
+  // internal function
+  rmm::device_uvector<value_idx>& _get_inverse_label_map() { return inverse_label_map; }
 
   /**
    * Once n_clusters is known, the stabilities array
@@ -293,6 +297,9 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
 
  private:
   value_t* probabilities;  // size n_leaves
+  // inversely maps normalized labels to pre-normalized labels
+  // used for out-of-sample prediction
+  rmm::device_uvector<value_idx> inverse_label_map;  // size n_clusters
 
   // Size not known ahead of time. Initialize
   // with `initialize_stabilities()` method.
@@ -305,6 +312,89 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
 };
 
 template class CondensedHierarchy<int, float>;
+
+/**
+ * Container object for computing and storing intermediate information needed later for computing
+ * membership vectors and approximate predict. Users are only expected to create an instance of this
+ * object, the hdbscan method will do the rest.
+ * @tparam value_idx
+ * @tparam value_t
+ */
+template <typename value_idx, typename value_t>
+class PredictionData {
+ public:
+  PredictionData(const raft::handle_t& handle_, value_idx m, value_idx n, value_t* core_dists_)
+    : handle(handle_),
+      exemplar_idx(0, handle.get_stream()),
+      exemplar_label_offsets(0, handle.get_stream()),
+      n_selected_clusters(0),
+      selected_clusters(0, handle.get_stream()),
+      deaths(0, handle.get_stream()),
+      core_dists(core_dists_),
+      index_into_children(0, handle.get_stream()),
+      n_exemplars(0),
+      n_rows(m),
+      n_cols(n)
+  {
+  }
+  size_t n_rows;
+  size_t n_cols;
+
+  // Using getters here, making the members private and forcing
+  // consistent state with the constructor. This should make
+  // it much easier to use / debug.
+  value_idx get_n_exemplars() { return n_exemplars; }
+  value_idx get_n_selected_clusters() { return n_selected_clusters; }
+  value_idx* get_exemplar_idx() { return exemplar_idx.data(); }
+  value_idx* get_exemplar_label_offsets() { return exemplar_label_offsets.data(); }
+  value_idx* get_selected_clusters() { return selected_clusters.data(); }
+  value_t* get_deaths() { return deaths.data(); }
+  value_t* get_core_dists() { return core_dists; }
+  value_idx* get_index_into_children() { return index_into_children.data(); }
+
+  /**
+   * Resizes the buffers in the PredictionData object.
+   *
+   * @param[in] handle raft handle for resource reuse
+   * @param[in] n_exemplars_ number of exemplar points
+   * @param[in] n_selected_clusters_ number of selected clusters in the final clustering
+   * @param[in] n_edges_ number of edges in the condensed hierarchy
+   */
+  void allocate(const raft::handle_t& handle,
+                value_idx n_exemplars_,
+                value_idx n_selected_clusters_,
+                value_idx n_edges_);
+
+  /**
+   * Resize buffers for cluster deaths to n_clusters
+   * @param handle raft handle for ordering cuda operations
+   * @param n_clusters_ number of clusters
+   */
+  void set_n_clusters(const raft::handle_t& handle, value_idx n_clusters_)
+  {
+    deaths.resize(n_clusters_, handle.get_stream());
+  }
+
+ private:
+  const raft::handle_t& handle;
+  rmm::device_uvector<value_idx> exemplar_idx;
+  rmm::device_uvector<value_idx> exemplar_label_offsets;
+  value_idx n_exemplars;
+  value_idx n_selected_clusters;
+  rmm::device_uvector<value_idx> selected_clusters;
+  rmm::device_uvector<value_t> deaths;
+  value_t* core_dists;
+  rmm::device_uvector<value_idx> index_into_children;
+};
+
+template class PredictionData<int, float>;
+
+void generate_prediction_data(const raft::handle_t& handle,
+                              CondensedHierarchy<int, float>& condensed_tree,
+                              int* labels,
+                              int* inverse_label_map,
+                              int n_selected_clusters,
+                              PredictionData<int, float>& prediction_data);
 
 };  // namespace Common
 };  // namespace HDBSCAN
@@ -329,6 +419,7 @@ template class CondensedHierarchy<int, float>;
  * @param metric distance metric to use
  * @param params struct of configuration hyper-parameters
  * @param out struct of output data and arrays on device
+ * @param core_dists array (size m, 1) of core distances
  */
 void hdbscan(const raft::handle_t& handle,
              const float* X,
@@ -336,7 +427,8 @@ void hdbscan(const raft::handle_t& handle,
              size_t n,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams& params,
-             HDBSCAN::Common::hdbscan_output<int, float>& out);
+             HDBSCAN::Common::hdbscan_output<int, float>& out,
+             float* core_dists);
 
 void build_condensed_hierarchy(const raft::handle_t& handle,
                                const int* children,
@@ -359,4 +451,81 @@ void _extract_clusters(const raft::handle_t& handle,
                        bool allow_single_cluster,
                        int max_cluster_size,
                        float cluster_selection_epsilon);
+
+void compute_all_points_membership_vectors(
+  const raft::handle_t& handle,
+  HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+  HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+  const float* X,
+  raft::distance::DistanceType metric,
+  float* membership_vec,
+  size_t batch_size = 4096);
+
+void compute_membership_vector(const raft::handle_t& handle,
+                               HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                               HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+                               const float* X,
+                               const float* points_to_predict,
+                               size_t n_prediction_points,
+                               int min_samples,
+                               raft::distance::DistanceType metric,
+                               float* membership_vec,
+                               size_t batch_size = 4096);
+
+void out_of_sample_predict(const raft::handle_t& handle,
+                           HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                           HDBSCAN::Common::PredictionData<int, float>& prediction_data,
+                           const float* X,
+                           int* labels,
+                           const float* points_to_predict,
+                           size_t n_prediction_points,
+                           raft::distance::DistanceType metric,
+                           int min_samples,
+                           int* out_labels,
+                           float* out_probabilities);
+
+namespace HDBSCAN::HELPER {
+
+/**
+ * @brief Compute the core distances for each point in the training matrix
+ *
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] X array (size m, n) on device in row-major format
+ * @param[out] core_dists array (size m, 1) of core distances
+ * @param m number of rows in X
+ * @param n number of columns in X
+ * @param metric distance metric to use
+ * @param min_samples minimum number of samples to use for computing core distances
+ */
+void compute_core_dists(const raft::handle_t& handle,
+                        const float* X,
+                        float* core_dists,
+                        size_t m,
+                        size_t n,
+                        raft::distance::DistanceType metric,
+                        int min_samples);
+
+/**
+ * @brief Compute the map from final, normalize labels to the labels in the CondensedHierarchy
+ *
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] condensed_tree the Condensed Hierarchy object
+ * @param[in] n_leaves number of leaves in the input data
+ * @param[in] cluster_selection_method cluster selection method
+ * @param[out] inverse_label_map rmm::device_uvector of size 0. It will be resized during the
+ * computation
+ * @param[in] allow_single_cluster allow single cluster
+ * @param[in] max_cluster_size max cluster size
+ * @param[in] cluster_selection_epsilon cluster selection epsilon
+ */
+void compute_inverse_label_map(const raft::handle_t& handle,
+                               HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree,
+                               size_t n_leaves,
+                               HDBSCAN::Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
+                               rmm::device_uvector<int>& inverse_label_map,
+                               bool allow_single_cluster,
+                               int max_cluster_size,
+                               float cluster_selection_epsilon);
+
+}  // namespace HDBSCAN::HELPER
 }  // END namespace ML

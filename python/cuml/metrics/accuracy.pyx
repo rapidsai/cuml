@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,17 +16,17 @@
 
 # distutils: language = c++
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 from libc.stdint cimport uintptr_t
 
-import cudf
 
 import cuml.internals
 
-from cuml.common.input_utils import input_to_cuml_array
-from raft.common.handle cimport handle_t
-from raft.common.handle import Handle
+from cuml.internals.input_utils import input_to_cuml_array
+from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle import Handle
 cimport cuml.common.cuda
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
@@ -40,7 +40,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 @cuml.internals.api_return_any()
 def accuracy_score(ground_truth, predictions, handle=None, convert_dtype=True):
     """
-    Calcuates the accuracy score of a classification model.
+    Calculates the accuracy score of a classification model.
 
         Parameters
         ----------

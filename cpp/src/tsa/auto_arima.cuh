@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 #include <cuda_runtime.h>
 
-#include <cub/device/device_scan.cuh>
+#include <cub/cub.cuh>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/functional.h>
@@ -28,11 +28,15 @@
 #include <thrust/transform.h>
 
 #include <common/fast_int_div.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {
 namespace TimeSeries {
+
+struct BoolToIntFunctor {
+  HDI int operator()(const bool& a) const { return static_cast<int>(a); }
+};
 
 /**
  * Helper to compute the cumulative sum of a boolean mask
@@ -44,22 +48,19 @@ namespace TimeSeries {
  */
 void cumulative_sum_helper(const bool* mask, int* cumul, int mask_size, cudaStream_t stream)
 {
+  BoolToIntFunctor conversion_op;
+  cub::TransformInputIterator<int, BoolToIntFunctor, const bool*> itr(mask, conversion_op);
+
   // Determine temporary storage size
   size_t temp_storage_bytes = 0;
-  cub::DeviceScan::InclusiveSum(
-    NULL, temp_storage_bytes, reinterpret_cast<const char*>(mask), cumul, mask_size, stream);
+  cub::DeviceScan::InclusiveSum(NULL, temp_storage_bytes, itr, cumul, mask_size, stream);
 
   // Allocate temporary storage
   rmm::device_uvector<uint8_t> temp_storage(temp_storage_bytes, stream);
   void* d_temp_storage = (void*)temp_storage.data();
 
   // Execute the scan
-  cub::DeviceScan::InclusiveSum(d_temp_storage,
-                                temp_storage_bytes,
-                                reinterpret_cast<const char*>(mask),
-                                cumul,
-                                mask_size,
-                                stream);
+  cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, itr, cumul, mask_size, stream);
 }
 
 /**
@@ -208,7 +209,7 @@ inline void divide_by_min_build_index(const DataT* d_matrix,
   auto counting = thrust::make_counting_iterator(0);
 
   // In the first pass, compute d_batch and initialize the matrix that will
-  // be used to compute d_size and d_index (1 for the first occurence of the
+  // be used to compute d_size and d_index (1 for the first occurrence of the
   // minimum of each row, else 0)
   rmm::device_uvector<int> cumul(batch_size * n_sub, stream);
   int* d_cumul = cumul.data();

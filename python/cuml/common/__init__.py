@@ -14,30 +14,36 @@
 # limitations under the License.
 #
 
-from cuml.common.array import CumlArray
-from cuml.common.array_sparse import SparseCumlArray
+# from cuml.internals.array import CumlArray
+# from cuml.internals.array_sparse import SparseCumlArray
+
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 
 # utils
 
-from cuml.common.import_utils import has_cupy
-from cuml.common.import_utils import has_dask
-from cuml.common.import_utils import check_min_numba_version
-from cuml.common.import_utils import check_min_cupy_version, has_scipy
+from cuml.internals import logger
+from cuml.internals.import_utils import has_cupy
+from cuml.internals.import_utils import has_dask
+from cuml.internals.import_utils import check_min_numba_version
+from cuml.internals.import_utils import check_min_cupy_version, has_scipy
 
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.input_utils import input_to_host_array
-from cuml.common.input_utils import inp_array
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_host_array
 
-from cuml.common.memory_utils import rmm_cupy_ary
-from cuml.common.memory_utils import set_global_output_type
-from cuml.common.memory_utils import using_output_type
-from cuml.common.memory_utils import with_cupy_rmm
+from cuml.internals.memory_utils import rmm_cupy_ary
+from cuml.internals.memory_utils import set_global_output_type
+from cuml.internals.memory_utils import using_memory_type
+from cuml.internals.memory_utils import using_output_type
+from cuml.internals.memory_utils import with_cupy_rmm
+from cuml.common.device_selection import using_device_type
+
 
 from cuml.common.pointer_utils import device_of_gpu_matrix
 
 # legacy to be removed after complete CumlAray migration
 
-from cuml.common.input_utils import sparse_scipy_to_cp
+from cuml.internals.input_utils import sparse_scipy_to_cp
 from cuml.common.timing_utils import timed
 
 __all__ = [
@@ -51,9 +57,10 @@ __all__ = [
     "has_scipy",
     "input_to_cuml_array",
     "input_to_host_array",
-    "inp_array",
     "rmm_cupy_ary",
     "set_global_output_type",
+    "using_device_type",
+    "using_memory_type",
     "using_output_type",
     "with_cupy_rmm",
     "sparse_scipy_to_cp",

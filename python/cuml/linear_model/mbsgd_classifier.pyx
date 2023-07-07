@@ -17,11 +17,11 @@
 # distutils: language = c++
 
 import cuml.internals
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
-from cuml.common.mixins import ClassifierMixin
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.solvers import SGD
 
 
@@ -34,9 +34,11 @@ class MBSGDClassifier(Base,
     The MBSGD Classifier implementation is experimental and and it uses a
     different algorithm than sklearn's SGDClassifier. In order to improve
     the results obtained from cuML's MBSGDClassifier:
+
     * Reduce the batch size
     * Increase the eta0
     * Increase the number of iterations
+
     Since cuML is analyzing the data in batches using a small eta0 might
     not let the model learn as much as scikit learn does. Furthermore,
     decreasing the batch size might seen an increase in the time required
@@ -79,7 +81,7 @@ class MBSGDClassifier(Base,
         dtype: float32
 
     Parameters
-    -----------
+    ----------
     loss : {'hinge', 'log', 'squared_loss'} (default = 'hinge')
        'hinge' uses linear SVM
 
@@ -133,7 +135,7 @@ class MBSGDClassifier(Base,
         validation accuracy does not improve for `n_iter_no_change` epochs.
         The old learning rate is generally divided by 5
     n_iter_no_change : int (default = 5)
-        the number of epochs to train without any imporvement in the model
+        the number of epochs to train without any improvement in the model
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -144,14 +146,15 @@ class MBSGDClassifier(Base,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Notes
-    ------
+    -----
     For additional docs, see `scikitlearn's SGDClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>`_.
     """

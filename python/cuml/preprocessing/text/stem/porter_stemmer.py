@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,18 @@
 # limitations under the License.
 #
 
-import cudf
-import cupy as cp
-from .porter_stemmer_utils.suffix_utils import (
-    get_stem_series,
-    get_str_replacement_series,
-    replace_suffix,
+from .porter_stemmer_utils.measure_utils import (
+    has_positive_measure,
+    measure_gt_n,
+    measure_eq_n,
+)
+from .porter_stemmer_utils.len_flags_utils import (
+    len_eq_n,
+    len_gt_n,
+)
+from .porter_stemmer_utils.consonant_vowel_utils import (
+    contains_vowel,
+    is_consonant,
 )
 from .porter_stemmer_utils.porter_stemmer_rules import (
     ends_with_suffix,
@@ -28,19 +34,15 @@ from .porter_stemmer_utils.porter_stemmer_rules import (
     last_char_in,
     ends_cvc,
 )
-from .porter_stemmer_utils.consonant_vowel_utils import (
-    contains_vowel,
-    is_consonant,
+from .porter_stemmer_utils.suffix_utils import (
+    get_stem_series,
+    get_str_replacement_series,
+    replace_suffix,
 )
-from .porter_stemmer_utils.len_flags_utils import (
-    len_eq_n,
-    len_gt_n,
-)
-from .porter_stemmer_utils.measure_utils import (
-    has_positive_measure,
-    measure_gt_n,
-    measure_eq_n,
-)
+from cuml.internals.safe_imports import gpu_only_import
+
+cudf = gpu_only_import("cudf")
+cp = gpu_only_import("cupy")
 
 
 # Implementation based on nltk//stem/porter.html
@@ -148,7 +150,7 @@ class PorterStemmer:
             SSES -> SS                         caresses  ->  caress
             IES  -> I                          ponies    ->  poni
                                                ties      ->  ti
-                                               (### this is for orignal impl)
+                                               (### this is for original impl)
             SS   -> SS                         caress    ->  caress
             S    ->                            cats      ->  cat
         """
@@ -719,8 +721,8 @@ def map_irregular_forms(word_str_ser, can_replace_mask):
 
 def get_condition_flag(word_str_ser, condition):
     """
-        condition  = None or a function that returns a bool series
-        return a bool series where flag is valid
+    condition  = None or a function that returns a bool series
+    return a bool series where flag is valid
     """
     if condition is None:
         return cudf.Series(cp.ones(len(word_str_ser), bool))
@@ -797,8 +799,8 @@ def apply_rule_list(word_str_ser, rules, condition_flag):
 
 def build_can_replace_mask(len_mask, mask):
     """
-      Creates a cudf series represeting can_replace_mask of length=len_mask
-      if mask is None else returns mask
+    Creates a cudf series representing can_replace_mask of length=len_mask
+    if mask is None else returns mask
     """
     if mask is None:
         mask = cudf.Series(cp.ones(len_mask, dtype=bool))

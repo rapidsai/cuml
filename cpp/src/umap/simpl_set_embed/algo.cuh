@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,26 +24,23 @@
 
 #include <curand.h>
 #include <math.h>
-#include <thrust/device_ptr.h>
-#include <thrust/extrema.h>
-#include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
-#include <thrust/system/cuda/execution_policy.h>
 
 #include <common/fast_int_div.cuh>
 #include <cstdlib>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/coo.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include "optimize_batch_kernel.cuh"
 #include <string>
 
-#include <raft/sparse/op/filter.hpp>
+#include <raft/sparse/op/filter.cuh>
+#include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/discard_iterator.h>
-#pragma once
+#include <thrust/reduce.h>
+#include <thrust/system/cuda/execution_policy.h>
 
 namespace UMAPAlgo {
 namespace SimplSetEmbed {
@@ -176,7 +173,7 @@ T create_gradient_rounding_factor(
   const int* head, int nnz, int n_samples, T alpha, rmm::cuda_stream_view stream)
 {
   rmm::device_uvector<T> buffer(n_samples, stream);
-  // calcuate the maximum number of edges conected to 1 vertex.
+  // calculate the maximum number of edges connected to 1 vertex.
   thrust::reduce_by_key(rmm::exec_policy(stream),
                         head,
                         head + nnz,

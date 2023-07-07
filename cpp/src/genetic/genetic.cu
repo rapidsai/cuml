@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,11 @@
 #include <cuml/genetic/genetic.h>
 #include <cuml/genetic/program.h>
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/unary_op.hpp>
-#include <raft/random/rng.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <algorithm>
 #include <numeric>
@@ -370,7 +370,7 @@ void symFit(const raft::handle_t& handle,
 {
   cudaStream_t stream = handle.get_stream();
 
-  // Update arity map in params - Need to do this only here, as all operations will call Fit atleast
+  // Update arity map in params - Need to do this only here, as all operations will call Fit at least
   // once
   for (auto f : params.function_set) {
     int ar = 1;

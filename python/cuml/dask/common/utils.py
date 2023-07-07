@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,21 +13,19 @@
 # limitations under the License.
 #
 
+from threading import Lock
+from asyncio import InvalidStateError
+from cuml.internals.import_utils import check_min_dask_version
+from cuml.common import device_of_gpu_matrix
+from dask.distributed import default_client, wait
+import time
+import random
 import dask
 import logging
 import os
-import numba.cuda
-import random
-import time
+from cuml.internals.safe_imports import gpu_only_import
 
-from dask.distributed import default_client, wait
-
-from cuml.common import device_of_gpu_matrix
-from cuml.common.import_utils import check_min_dask_version
-
-from asyncio import InvalidStateError
-
-from threading import Lock
+numba_cuda = gpu_only_import("numba.cuda")
 
 
 def get_visible_devices():
@@ -73,15 +71,18 @@ def select_device(dev, close=True):
     :param dev: int device to select
     :param close: bool close the cuda context and create new one?
     """
-    if numba.cuda.get_current_device().id != dev:
+    if numba_cuda.get_current_device().id != dev:
         logging.warning("Selecting device " + str(dev))
         if close:
-            numba.cuda.close()
-        numba.cuda.select_device(dev)
-        if dev != numba.cuda.get_current_device().id:
-            logging.warning("Current device " +
-                            str(numba.cuda.get_current_device()) +
-                            " does not match expected " + str(dev))
+            numba_cuda.close()
+        numba_cuda.select_device(dev)
+        if dev != numba_cuda.get_current_device().id:
+            logging.warning(
+                "Current device "
+                + str(numba_cuda.get_current_device())
+                + " does not match expected "
+                + str(dev)
+            )
 
 
 def get_client(client=None):
@@ -94,9 +95,9 @@ def parse_host_port(address):
     :param address: string address to parse
     :return: tuple(host, port)
     """
-    if '://' in address:
-        address = address.rsplit('://', 1)[1]
-    host, port = address.split(':')
+    if "://" in address:
+        address = address.rsplit("://", 1)[1]
+    host, port = address.split(":")
     port = int(port)
     return host, port
 
@@ -148,9 +149,10 @@ def raise_exception_from_futures(futures):
     """Raises a RuntimeError if any of the futures indicates an exception"""
     errs = [f.exception() for f in futures if f.exception()]
     if errs:
-        raise RuntimeError("%d of %d worker jobs failed: %s" % (
-            len(errs), len(futures), ", ".join(map(str, errs))
-            ))
+        raise RuntimeError(
+            "%d of %d worker jobs failed: %s"
+            % (len(errs), len(futures), ", ".join(map(str, errs)))
+        )
 
 
 def wait_and_raise_from_futures(futures):
@@ -164,9 +166,11 @@ def wait_and_raise_from_futures(futures):
 
 
 def raise_mg_import_exception():
-    raise Exception("cuML has not been built with multiGPU support "
-                    "enabled. Build with the --multigpu flag to"
-                    " enable multiGPU support.")
+    raise Exception(
+        "cuML has not been built with multiGPU support "
+        "enabled. Build with the --multigpu flag to"
+        " enable multiGPU support."
+    )
 
 
 class MultiHolderLock:
@@ -174,7 +178,7 @@ class MultiHolderLock:
     A per-process synchronization lock allowing multiple concurrent holders
     at any one time. This is used in situations where resources might be
     limited and it's important that the number of concurrent users of
-    the resources are constained.
+    the resources are constrained.
 
     This lock is serializable, but relies on a Python threading.Lock
     underneath to properly synchronize internal state across threads.
@@ -250,8 +254,9 @@ class MultiHolderLock:
         """
 
         if self.current_tasks == 0:
-            raise InvalidStateError("Cannot release lock when no "
-                                    "concurrent tasks are executing")
+            raise InvalidStateError(
+                "Cannot release lock when no " "concurrent tasks are executing"
+            )
 
         lock_acquired = self.lock.acquire(blocking, timeout)
         if lock_acquired:

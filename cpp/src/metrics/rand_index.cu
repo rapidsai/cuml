@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/rand_index.cuh>
+#include <raft/core/handle.hpp>
+#include <raft/stats/rand_index.cuh>
 
 namespace ML {
 
@@ -26,7 +27,7 @@ namespace Metrics {
 
 double rand_index(const raft::handle_t& handle, const double* y, const double* y_hat, int n)
 {
-  return MLCommon::Metrics::compute_rand_index(y, y_hat, (uint64_t)n, handle.get_stream());
+  return raft::stats::rand_index(y, y_hat, (uint64_t)n, handle.get_stream());
 }
 }  // namespace Metrics
 }  // namespace ML

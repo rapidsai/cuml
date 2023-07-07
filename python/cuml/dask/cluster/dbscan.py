@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,19 +13,18 @@
 # limitations under the License.
 #
 
-import numpy as np
-
-from cuml.dask.common.base import BaseEstimator
-from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.dask.common.base import DelayedTransformMixin
-from cuml.dask.common.base import mnmg_import
-
-from raft.dask.common.comms import Comms
-from raft.dask.common.comms import get_raft_comm_state
-
+from cuml.internals.memory_utils import with_cupy_rmm
 from cuml.dask.common.utils import wait_and_raise_from_futures
+from raft_dask.common.comms import get_raft_comm_state
+from raft_dask.common.comms import Comms
+from cuml.dask.common.base import mnmg_import
+from dask.distributed import get_worker
+from cuml.dask.common.base import DelayedTransformMixin
+from cuml.dask.common.base import DelayedPredictionMixin
+from cuml.dask.common.base import BaseEstimator
+from cuml.internals.safe_imports import cpu_only_import
 
-from cuml.common.memory_utils import with_cupy_rmm
+np = cpu_only_import("numpy")
 
 
 class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -58,35 +57,37 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         Note: this option does not set the maximum total memory used in the
         DBSCAN computation and so this value will not be able to be set to
         the total memory available on the device.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     calc_core_sample_indices : (optional) boolean (default = True)
         Indicates whether the indices of the core samples should be calculated.
         The the attribute `core_sample_indices_` will not be used, setting this
         to False will avoid unnecessary kernel launches
 
     Notes
-    ------
+    -----
     For additional docs, see the documentation of the single-GPU DBSCAN model
     """
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
-        super().__init__(client=client,
-                         verbose=verbose,
-                         **kwargs)
+        super().__init__(client=client, verbose=verbose, **kwargs)
 
     @staticmethod
     @mnmg_import
     def _func_fit(out_dtype):
-        def _func(sessionId, data, verbose, **kwargs):
+        def _func(sessionId, data, **kwargs):
             from cuml.cluster.dbscan_mg import DBSCANMG as cumlDBSCAN
-            handle = get_raft_comm_state(sessionId)["handle"]
 
-            return cumlDBSCAN(handle=handle, verbose=verbose, **kwargs
-                              ).fit(data, out_dtype=out_dtype)
+            handle = get_raft_comm_state(sessionId, get_worker())["handle"]
+
+            return cumlDBSCAN(handle=handle, **kwargs).fit(
+                data, out_dtype=out_dtype
+            )
+
         return _func
 
     @with_cupy_rmm
@@ -106,23 +107,28 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             "int64", np.int64}.
         """
         if out_dtype not in ["int32", np.int32, "int64", np.int64]:
-            raise ValueError("Invalid value for out_dtype. "
-                             "Valid values are {'int32', 'int64', "
-                             "np.int32, np.int64}")
+            raise ValueError(
+                "Invalid value for out_dtype. "
+                "Valid values are {'int32', 'int64', "
+                "np.int32, np.int64}"
+            )
 
         data = self.client.scatter(X, broadcast=True)
 
         comms = Comms(comms_p2p=True)
         comms.init()
 
-        dbscan_fit = [self.client.submit(DBSCAN._func_fit(out_dtype),
-                                         comms.sessionId,
-                                         data,
-                                         self.verbose,
-                                         **self.kwargs,
-                                         workers=[worker],
-                                         pure=False)
-                      for worker in comms.worker_addresses]
+        dbscan_fit = [
+            self.client.submit(
+                DBSCAN._func_fit(out_dtype),
+                comms.sessionId,
+                data,
+                **self.kwargs,
+                workers=[worker],
+                pure=False,
+            )
+            for worker in comms.worker_addresses
+        ]
 
         wait_and_raise_from_futures(dbscan_fit)
 

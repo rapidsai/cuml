@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,17 @@
 # limitations under the License.
 #
 
-import cupy as cp
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import cuml.internals
-from cuml.common.input_utils import determine_array_type
-from cuml.common import (input_to_cuml_array, CumlArray, logger)
+from cuml.internals.input_utils import determine_array_type
+from cuml.common import (input_to_cuml_array, CumlArray)
+from cuml.internals import logger
 from libc.stdint cimport uintptr_t
-from raft.common.handle cimport handle_t
-from raft.common.handle import Handle
+from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle import Handle
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
     double c_kl_divergence "ML::Metrics::kl_divergence"(
@@ -42,31 +45,32 @@ def kl_divergence(P, Q, handle=None, convert_dtype=True):
     Calculates the "Kullback-Leibler" Divergence
     The KL divergence tells us how well the probability distribution Q
     approximates the probability distribution P
-    It is often also used as a 'distance metric' between two probablity
-    ditributions (not symmetric)
+    It is often also used as a 'distance metric' between two probability
+    distributions (not symmetric)
 
-        Parameters
-        ----------
-        P : Dense array of probabilities corresponding to distribution P
-           shape = (n_samples, 1)
-           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-           ndarray, cuda array interface compliant array like CuPy.
+    Parameters
+    ----------
+    P : Dense array of probabilities corresponding to distribution P
+        shape = (n_samples, 1)
+        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+        ndarray, cuda array interface compliant array like CuPy.
 
-        Q : Dense array of probabilities corresponding to distribution Q
-           shape = (n_samples, 1)
-           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-           ndarray, cuda array interface compliant array like CuPy.
+    Q : Dense array of probabilities corresponding to distribution Q
+        shape = (n_samples, 1)
+        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+        ndarray, cuda array interface compliant array like CuPy.
 
-        handle : cuml.Handle
+    handle : cuml.Handle
 
-        convert_dtype : bool, optional (default = True)
-            When set to True, the method will, convert P and
-            Q to be the same data type: float32. This
-            will increase memory used for the method.
-        Returns
-        -------
-        float
-           The KL Divergence value
+    convert_dtype : bool, optional (default = True)
+        When set to True, the method will, convert P and
+        Q to be the same data type: float32. This
+        will increase memory used for the method.
+
+    Returns
+    -------
+    float
+        The KL Divergence value
     """
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()

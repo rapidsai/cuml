@@ -14,22 +14,30 @@
  * limitations under the License.
  */
 
-#include <raft/label/classlabels.hpp>
+#include <raft/label/classlabels.cuh>
 
 #include <cub/cub.cuh>
 
 #include <cuml/common/logger.hpp>
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <raft/sparse/convert/csr.hpp>
-#include <raft/sparse/op/sort.hpp>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/op/sort.cuh>
 
+#include <thrust/copy.h>
+#include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
+#include <thrust/extrema.h>
+#include <thrust/functional.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
+#include <thrust/sort.h>
+#include <thrust/transform.h>
 #include <thrust/transform_reduce.h>
+#include <thrust/tuple.h>
 
 #include <cuml/cluster/hdbscan.hpp>
 

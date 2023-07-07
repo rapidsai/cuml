@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,16 +13,19 @@
 # limitations under the License.
 #
 
-import cuml
-import cudf
-import dask_cudf
-import pytest
-import numpy as np
-from cuml.common.import_utils import has_dask_sql
-
-from sklearn.linear_model import LogisticRegression
-from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
+from sklearn.datasets import make_classification
+from sklearn.linear_model import LogisticRegression
+from cuml.internals.import_utils import has_dask_sql
+from cuml.internals.safe_imports import cpu_only_import
+import pytest
+import cuml
+from cuml.internals.safe_imports import gpu_only_import
+
+cudf = gpu_only_import("cudf")
+dask_cudf = gpu_only_import("dask_cudf")
+np = cpu_only_import("numpy")
+
 
 if has_dask_sql():
     from dask_sql import Context
@@ -36,11 +39,7 @@ else:
 @pytest.mark.parametrize("n_parts", [2, 20])
 @pytest.mark.parametrize("wrap_predict", [True, False])
 def test_dask_sql_sg_logistic_regression(
-    datatype,
-    nrows,
-    ncols,
-    n_parts,
-    wrap_predict
+    datatype, nrows, ncols, n_parts, wrap_predict
 ):
     if wrap_predict:
         cuml.set_global_output_type("input")

@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,8 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/homogeneity_score.cuh>
+#include <raft/core/handle.hpp>
+#include <raft/stats/homogeneity_score.cuh>
 
 namespace ML {
 
@@ -29,7 +30,7 @@ double completeness_score(const raft::handle_t& handle,
                           const int lower_class_range,
                           const int upper_class_range)
 {
-  return MLCommon::Metrics::homogeneity_score(
+  return raft::stats::homogeneity_score(
     y_hat, y, n, lower_class_range, upper_class_range, handle.get_stream());
 }
 

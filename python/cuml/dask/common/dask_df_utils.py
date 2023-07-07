@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 import dask.dataframe as dd
 
 from dask.distributed import default_client
@@ -61,14 +61,13 @@ def to_dask_df(dask_cudf, client=None):
     delayed_ddf = dask_cudf.to_delayed()
     gpu_futures = c.compute(delayed_ddf)
 
-    dfs = [c.submit(
-        to_pandas,
-        f,
-        pure=False) for idx, f in enumerate(gpu_futures)]
+    dfs = [
+        c.submit(to_pandas, f, pure=False) for idx, f in enumerate(gpu_futures)
+    ]
 
     meta = c.submit(get_meta, dfs[0])
 
-    # Using new variabe for local result to stop race-condition in scheduler
+    # Using new variable for local result to stop race-condition in scheduler
     # Ref: https://github.com/dask/dask/issues/6027
     meta_local = meta.result()
 

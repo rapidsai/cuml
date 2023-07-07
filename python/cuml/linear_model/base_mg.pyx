@@ -17,20 +17,21 @@
 
 
 import ctypes
-import cudf
 import cuml.common.opg_data_utils_mg as opg
-import numpy as np
-import rmm
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 
 from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
 
 import cuml.internals
-from cuml.common.base import Base
-from cuml.common.array import CumlArray
-from raft.common.handle cimport handle_t
+from cuml.internals.base import Base
+from cuml.internals.array import CumlArray
+from pylibraft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
-from cuml.common.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array
 from cuml.decomposition.utils cimport *
 
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,29 +16,32 @@
 # distutils: language = c++
 
 import ctypes
-import cudf
-import cupy
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cupy = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.exceptions import NotFittedError
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
-from cuml.common.logger import warn
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.logger import warn
+from cuml.internals.mixins import FMajorInputTagMixin
 from libcpp cimport bool
 
 
-cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
+cdef extern from "raft/distance/distance_types.hpp" \
+        namespace "raft::distance::kernels":
     enum KernelType:
         LINEAR,
         POLYNOMIAL,
@@ -59,7 +62,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         NU_SVR
 
     cdef struct SvmParameter:
-        # parameters for trainig
+        # parameters for training
         double C
         double cache_size
         int max_iter
@@ -127,7 +130,7 @@ class SVMBase(Base,
         - 'scale': gamma will be se to ``1 / (n_features * X.var())``
 
     coef0 : float (default = 0.0)
-        Independent term in kernel function, only signifficant for poly and
+        Independent term in kernel function, only significant for poly and
         sigmoid
     tol : float (default = 1e-3)
         Tolerance for stopping criterion.
@@ -136,7 +139,7 @@ class SVMBase(Base,
         the training time, at the cost of higher memory footprint. After
         training the kernel cache is deallocated.
         During prediction, we also need a temporary space to store kernel
-        matrix elements (this can be signifficant if n_support is large).
+        matrix elements (this can be significant if n_support is large).
         The cache_size variable sets an upper limit to the prediction
         buffer as well.
     max_iter : int (default = 100*n_samples)
@@ -152,11 +155,12 @@ class SVMBase(Base,
         epsilon parameter of the epsiron-SVR model. There is no penalty
         associated to points that are predicted within the epsilon-tube
         around the target values.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -165,7 +169,7 @@ class SVMBase(Base,
         future to represent number support vectors for each class (like
         in Sklearn, see Issue #956)
     support_ : int, shape = [n_support]
-        Device array of suppurt vector indices
+        Device array of support vector indices
     support_vectors_ : float, shape [n_support, n_cols]
         Device array of support vectors
     dual_coef_ : float, shape = [1, n_support]
@@ -281,7 +285,7 @@ class SVMBase(Base,
         """
         Get KernelType from the kernel string.
 
-        Paramaters
+        Parameters
         ----------
         kernel: string, ('linear', 'poly', 'rbf', or 'sigmoid')
         """
@@ -532,7 +536,7 @@ class SVMBase(Base,
             ndarray, cuda array interface compliant array like CuPy
 
         predict_class : boolean
-            Switch whether to retun class label (true), or decision function
+            Switch whether to return class label (true), or decision function
             value (false).
 
         Returns

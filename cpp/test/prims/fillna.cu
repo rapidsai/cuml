@@ -19,9 +19,9 @@
 #include <random>
 #include <vector>
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include "test_utils.h"
@@ -135,7 +135,7 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
     match = devArrMatchHost(h_y.data(),
                             y.data(),
                             params.n_obs * params.batch_size,
-                            raft::CompareApprox<T>(params.tolerance),
+                            MLCommon::CompareApprox<T>(params.tolerance),
                             handle.get_stream());
   }
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,20 +20,26 @@ import warnings
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from raft.common.handle cimport handle_t
-from raft.common.handle import Handle
-import cupy as cp
-import numpy as np
-import scipy
-import cupyx
+from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle import Handle
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+pd = cpu_only_import('pandas')
+cudf = gpu_only_import('cudf')
+scipy = cpu_only_import('scipy')
+cupyx = gpu_only_import('cupyx')
 import cuml.internals
-from cuml.common.base import _determine_stateless_output_type
-from cuml.common import (input_to_cuml_array, CumlArray, logger)
-from cuml.common.input_utils import sparse_scipy_to_cp
+from cuml.internals.base import _determine_stateless_output_type
+from cuml.common import (input_to_cuml_array, CumlArray)
+from cuml.internals import logger
+from cuml.internals.input_utils import sparse_scipy_to_cp
 from cuml.common.sparse_utils import is_sparse
-from cuml.common.array_sparse import SparseCumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 from cuml.metrics.distance_type cimport DistanceType
+from cuml.thirdparty_adapters import _get_mask
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
     void pairwise_distance(const handle_t &handle, const double *x,
@@ -78,7 +84,8 @@ PAIRWISE_DISTANCE_METRICS = {
     "jensenshannon": DistanceType.JensenShannon,
     "hamming": DistanceType.HammingUnexpanded,
     "kldivergence": DistanceType.KLDivergence,
-    "russellrao": DistanceType.RusselRaoExpanded
+    "russellrao": DistanceType.RusselRaoExpanded,
+    "nan_euclidean": DistanceType.L2Expanded
 }
 
 PAIRWISE_DISTANCE_SPARSE_METRICS = {
@@ -117,9 +124,6 @@ def _determine_metric(metric_str, is_sparse=False):
     if metric_str == 'haversine':
         raise ValueError(" The metric: '{}', is not supported at this time."
                          .format(metric_str))
-    elif metric_str == 'nan_euclidean':
-        raise ValueError(" The metric: '{}', is not supported at this time."
-                         .format(metric_str))
 
     if not(is_sparse) and (metric_str not in PAIRWISE_DISTANCE_METRICS):
         if metric_str in PAIRWISE_DISTANCE_SPARSE_METRICS:
@@ -134,6 +138,126 @@ def _determine_metric(metric_str, is_sparse=False):
         return PAIRWISE_DISTANCE_SPARSE_METRICS[metric_str]
     else:
         return PAIRWISE_DISTANCE_METRICS[metric_str]
+
+
+def nan_euclidean_distances(
+    X, Y=None, *, squared=False, missing_values=cp.nan
+):
+    """Calculate the euclidean distances in the presence of missing values.
+
+    Compute the euclidean distance between each pair of samples in X and Y,
+    where Y=X is assumed if Y=None. When calculating the distance between a
+    pair of samples, this formulation ignores feature coordinates with a
+    missing value in either sample and scales up the weight of the remaining
+    coordinates:
+
+        dist(x,y) = sqrt(weight * sq. distance from present coordinates)
+        where,
+        weight = Total # of coordinates / # of present coordinates
+
+    For example, the distance between ``[3, na, na, 6]`` and ``[1, na, 4, 5]``
+    is:
+
+        .. math::
+            \\sqrt{\\frac{4}{2}((3-1)^2 + (6-5)^2)}
+
+    If all the coordinates are missing or if there are no common present
+    coordinates then NaN is returned for that pair.
+
+    Parameters
+    ----------
+    X : Dense matrix of shape (n_samples_X, n_features)
+        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray,
+        cuda array interface compliant array like CuPy.
+
+    Y : Dense matrix of shape (n_samples_Y, n_features), default=None
+        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray,
+        cuda array interface compliant array like CuPy.
+
+    squared : bool, default=False
+        Return squared Euclidean distances.
+
+    missing_values : np.nan or int, default=np.nan
+        Representation of missing value.
+
+    Returns
+    -------
+    distances : ndarray of shape (n_samples_X, n_samples_Y)
+        Returns the distances between the row vectors of `X`
+        and the row vectors of `Y`.
+    """
+
+    if isinstance(X, cudf.DataFrame) or isinstance(X, pd.DataFrame):
+        if (X.isnull().any()).any():
+            X.fillna(0, inplace=True)
+
+    if isinstance(Y, cudf.DataFrame) or isinstance(Y, pd.DataFrame):
+        if (Y.isnull().any()).any():
+            Y.fillna(0, inplace=True)
+
+    X_m, n_samples_x, n_features_x, dtype_x = \
+        input_to_cuml_array(X, order="K", check_dtype=[np.float32, np.float64])
+
+    if Y is None:
+        Y = X_m
+
+    Y_m, n_samples_y, n_features_y, dtype_y = \
+        input_to_cuml_array(
+            Y, order=X_m.order, convert_to_dtype=dtype_x,
+            check_dtype=[dtype_x])
+
+    X_m = cp.asarray(X_m)
+    Y_m = cp.asarray(Y_m)
+
+    # Get missing mask for X
+    missing_X = _get_mask(X_m, missing_values)
+
+    # Get missing mask for Y
+    missing_Y = missing_X if Y is X else _get_mask(Y_m, missing_values)
+
+    # set missing values to zero
+    X_m[missing_X] = 0
+    Y_m[missing_Y] = 0
+
+    # Adjust distances for squared
+    if X_m.shape == Y_m.shape:
+        if (X_m == Y_m).all():
+            distances = cp.asarray(pairwise_distances(
+                X_m, metric="sqeuclidean"))
+        else:
+            distances = cp.asarray(pairwise_distances(
+                X_m, Y_m, metric="sqeuclidean"))
+    else:
+        distances = cp.asarray(pairwise_distances(
+            X_m, Y_m, metric="sqeuclidean"))
+
+    # Adjust distances for missing values
+    XX = X_m * X_m
+    YY = Y_m * Y_m
+    distances -= cp.dot(XX, missing_Y.T)
+    distances -= cp.dot(missing_X, YY.T)
+
+    cp.clip(distances, 0, None, out=distances)
+
+    if X_m is Y_m:
+        # Ensure that distances between vectors and themselves are set to 0.0.
+        # This may not be the case due to floating point rounding errors.
+        cp.fill_diagonal(distances, 0.0)
+
+    present_X = 1 - missing_X
+    present_Y = present_X if Y_m is X_m else ~missing_Y
+    present_count = cp.dot(present_X, present_Y.T)
+    distances[present_count == 0] = cp.nan
+
+    # avoid divide by zero
+    cp.maximum(1, present_count, out=present_count)
+    distances /= present_count
+    distances *= X_m.shape[1]
+
+    if not squared:
+        cp.sqrt(distances, out=distances)
+
+    return distances
 
 
 @cuml.internals.api_return_array(get_output_type=True)
@@ -190,32 +314,29 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
     Examples
     --------
+    >>> import cupy as cp
+    >>> from cuml.metrics import pairwise_distances
 
-    .. code-block:: python
+    >>> X = cp.array([[2.0, 3.0], [3.0, 5.0], [5.0, 8.0]])
+    >>> Y = cp.array([[1.0, 0.0], [2.0, 1.0]])
 
-        >>> import cupy as cp
-        >>> from cuml.metrics import pairwise_distances
-        >>>
-        >>> X = cp.array([[2.0, 3.0], [3.0, 5.0], [5.0, 8.0]])
-        >>> Y = cp.array([[1.0, 0.0], [2.0, 1.0]])
-        >>>
-        >>> # Euclidean Pairwise Distance, Single Input:
-        >>> pairwise_distances(X, metric='euclidean')
-        array([[0.        , 2.236..., 5.830...],
-            [2.236..., 0.        , 3.605...],
-            [5.830..., 3.605..., 0.        ]])
-        >>>
-        >>> # Cosine Pairwise Distance, Multi-Input:
-        >>> pairwise_distances(X, Y, metric='cosine')
-        array([[0.445... , 0.131...],
-            [0.485..., 0.156...],
-            [0.470..., 0.146...]])
-        >>>
-        >>> # Manhattan Pairwise Distance, Multi-Input:
-        >>> pairwise_distances(X, Y, metric='manhattan')
-        array([[ 4.,  2.],
-            [ 7.,  5.],
-            [12., 10.]])
+    >>> # Euclidean Pairwise Distance, Single Input:
+    >>> pairwise_distances(X, metric='euclidean')
+    array([[0.        , 2.236..., 5.830...],
+        [2.236..., 0.        , 3.605...],
+        [5.830..., 3.605..., 0.        ]])
+
+    >>> # Cosine Pairwise Distance, Multi-Input:
+    >>> pairwise_distances(X, Y, metric='cosine')
+    array([[0.445... , 0.131...],
+        [0.485..., 0.156...],
+        [0.470..., 0.146...]])
+
+    >>> # Manhattan Pairwise Distance, Multi-Input:
+    >>> pairwise_distances(X, Y, metric='manhattan')
+    array([[ 4.,  2.],
+        [ 7.,  5.],
+        [12., 10.]])
     """
 
     if is_sparse(X):
@@ -224,6 +345,9 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
+
+    if metric in ['nan_euclidean']:
+        return nan_euclidean_distances(X, Y, **kwds)
 
     if metric in ['russellrao'] and not np.all(X.data == 1.):
         warnings.warn("X was converted to boolean for metric {}"
@@ -366,7 +490,7 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         will increase memory used for the method.
 
     metric_arg : float, optional (default = 2)
-        Additionnal metric-specific argument.
+        Additional metric-specific argument.
         For Minkowski it's the p-norm to apply.
 
     Returns

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,30 +17,35 @@
 #include <random>
 #include <type_traits>
 
+#if defined RAFT_COMPILED
+#include <raft/distance/specializations.cuh>
+#endif
+
 #include <common/nvtx.hpp>
 #include <cublas_v2.h>
+#include <cuml/linear_model/glm.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
-#include <label/classlabels.cuh>
-#include <matrix/kernelfactory.cuh>
 #include <omp.h>
-#include <raft/common/nvtx.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/gemm.hpp>
-#include <raft/linalg/gemv.hpp>
-#include <raft/linalg/map.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
-#include <raft/linalg/transpose.hpp>
-#include <raft/linalg/unary_op.hpp>
-#include <raft/matrix/matrix.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/core/nvtx.hpp>
+#include <raft/distance/kernels.cuh>
+#include <raft/label/classlabels.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/gemv.cuh>
+#include <raft/linalg/map.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/transpose.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/counting_iterator.h>
-
-#include <glm/ols.cuh>
-#include <glm/qn/qn.cuh>
+#include <thrust/tuple.h>
 
 #include <cuml/svm/linear.hpp>
 
@@ -137,7 +142,7 @@ __global__ void predictProba(T* out, const T* z, const int nRows, const int nCla
   const T* rowIn = z + i * (Binary ? 1 : nClasses);
   T* rowOut      = out + i * nClasses;
 
-  // the largest 'z' in the row (to substract it from z for numeric stability).
+  // the largest 'z' in the row (to subtract it from z for numeric stability).
   T t      = std::numeric_limits<T>::lowest();
   T maxVal = t;
   int j    = threadIdx.x;
@@ -471,7 +476,6 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
                   wi,
                   &target,
                   &num_iters,
-                  worker.stream,
                   (T*)sampleWeight,
                   T(params.epsilon));
 
@@ -493,7 +497,6 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
                   psi,
                   &target,
                   &num_iters,
-                  worker.stream,
                   (T*)sampleWeight);
   }
   if (parallel) handle.sync_stream_pool();

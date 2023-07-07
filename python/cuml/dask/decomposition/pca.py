@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,10 +21,12 @@ from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedInverseTransformMixin
 
 
-class PCA(BaseDecomposition,
-          DelayedTransformMixin,
-          DelayedInverseTransformMixin,
-          DecompositionSyncFitMixin):
+class PCA(
+    BaseDecomposition,
+    DelayedTransformMixin,
+    DelayedInverseTransformMixin,
+    DecompositionSyncFitMixin,
+):
     """
     PCA (Principal Component Analysis) is a fundamental dimensionality
     reduction technique used to combine features in X in linear combinations
@@ -96,7 +98,7 @@ class PCA(BaseDecomposition,
     svd_solver : 'full', 'jacobi', 'auto'
         'full': Run exact full SVD and select the components by postprocessing
         'jacobi': Iteratively compute SVD of the covariance matrix
-        'auto': For compatiblity with Scikit-learn. Alias for 'jacobi'.
+        'auto': For compatibility with Scikit-learn. Alias for 'jacobi'.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -125,9 +127,9 @@ class PCA(BaseDecomposition,
         estimated covariance of X.
 
     Notes
-    ------
+    -----
     PCA considers linear combinations of features, specifically those that
-    maximise global variance structure. This means PCA is fantastic for global
+    maximize global variance structure. This means PCA is fantastic for global
     structure analyses, but weak for local relationships. Consider UMAP or
     T-SNE for a locally important embedding.
 
@@ -145,10 +147,12 @@ class PCA(BaseDecomposition,
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
 
-        super().__init__(model_func=PCA._create_pca,
-                         client=client,
-                         verbose=verbose,
-                         **kwargs)
+        super().__init__(
+            model_func=PCA._create_pca,
+            client=client,
+            verbose=verbose,
+            **kwargs,
+        )
 
     def fit(self, X):
         """
@@ -192,9 +196,7 @@ class PCA(BaseDecomposition,
         X_new : dask cuDF
 
         """
-        return self._transform(X,
-                               n_dims=2,
-                               delayed=delayed)
+        return self._transform(X, n_dims=2, delayed=delayed)
 
     def inverse_transform(self, X, delayed=True):
         """
@@ -211,9 +213,7 @@ class PCA(BaseDecomposition,
         X_original : dask cuDF
 
         """
-        return self._inverse_transform(X,
-                                       n_dims=2,
-                                       delayed=delayed)
+        return self._inverse_transform(X, n_dims=2, delayed=delayed)
 
     def get_param_names(self):
         return list(self.kwargs.keys())
@@ -222,4 +222,5 @@ class PCA(BaseDecomposition,
     @mnmg_import
     def _create_pca(handle, datatype, **kwargs):
         from cuml.decomposition.pca_mg import PCAMG as cumlPCA
+
         return cumlPCA(handle=handle, output_type=datatype, **kwargs)

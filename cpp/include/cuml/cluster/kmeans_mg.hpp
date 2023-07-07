@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,14 @@
 
 #pragma once
 
+#include <cuml/cluster/kmeans.hpp>
+
 namespace raft {
 class handle_t;
 }
 
 namespace ML {
 namespace kmeans {
-struct KMeansParams;
 namespace opg {
 
 /**
@@ -67,6 +68,25 @@ void fit(const raft::handle_t& handle,
          double& inertia,
          int& n_iter);
 
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const float* X,
+         int64_t n_samples,
+         int64_t n_features,
+         const float* sample_weight,
+         float* centroids,
+         float& inertia,
+         int64_t& n_iter);
+
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const double* X,
+         int64_t n_samples,
+         int64_t n_features,
+         const double* sample_weight,
+         double* centroids,
+         double& inertia,
+         int64_t& n_iter);
 };  // end namespace opg
 };  // end namespace kmeans
 };  // end namespace ML

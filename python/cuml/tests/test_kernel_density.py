@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,18 @@
 # limitations under the License.
 #
 
+from cuml.testing.utils import as_type
+from sklearn.model_selection import GridSearchCV
+import pytest
+from hypothesis.extra.numpy import arrays
+from hypothesis import given, settings, assume, strategies as st
 from cuml.neighbors import KernelDensity, VALID_KERNELS, logsumexp_kernel
 from cuml.common.exceptions import NotFittedError
 from sklearn.metrics import pairwise_distances as skl_pairwise_distances
 from sklearn.neighbors._ball_tree import kernel_norm
-import numpy as np
-from hypothesis import given, settings, assume, strategies as st
-from hypothesis.extra.numpy import arrays
-import pytest
-from sklearn.model_selection import GridSearchCV
-from cuml.testing.utils import as_type
+from cuml.internals.safe_imports import cpu_only_import
+
+np = cpu_only_import("numpy")
 
 
 # not in log probability space
@@ -34,18 +36,18 @@ def compute_kernel_naive(Y, X, kernel, metric, h, sample_weight):
     if kernel == "gaussian":
         k = np.exp(-0.5 * (d * d) / (h * h))
     elif kernel == "tophat":
-        k = (d < h)
+        k = d < h
     elif kernel == "epanechnikov":
-        k = ((1.0 - (d * d) / (h * h)) * (d < h))
+        k = (1.0 - (d * d) / (h * h)) * (d < h)
     elif kernel == "exponential":
-        k = (np.exp(-d / h))
+        k = np.exp(-d / h)
     elif kernel == "linear":
-        k = ((1 - d / h) * (d < h))
+        k = (1 - d / h) * (d < h)
     elif kernel == "cosine":
-        k = (np.cos(0.5 * np.pi * d / h) * (d < h))
+        k = np.cos(0.5 * np.pi * d / h) * (d < h)
     else:
         raise ValueError("kernel not recognized")
-    return norm*np.average(k, -1, sample_weight)
+    return norm * np.average(k, -1, sample_weight)
 
 
 @st.composite
@@ -61,46 +63,67 @@ def array_strategy(draw):
     if draw(st.booleans()):
         sample_weight = None
     else:
-        sample_weight = draw(arrays(dtype=np.float64, shape=n,
-                                    elements=st.floats(0.1, 2.0),))
-    type = draw(st.sampled_from(['numpy', 'cupy', 'cudf', 'pandas']))
-    if type == 'cupy':
+        sample_weight = draw(
+            arrays(
+                dtype=np.float64,
+                shape=n,
+                elements=st.floats(0.1, 2.0),
+            )
+        )
+    type = draw(st.sampled_from(["numpy", "cupy", "cudf", "pandas"]))
+    if type == "cupy":
         assume(n > 1 and n_test > 1)
     return as_type(type, X, X_test, sample_weight)
 
 
 metrics_strategy = st.sampled_from(
-    ['euclidean', 'manhattan',
-     'chebyshev', 'minkowski', 'hamming', 'canberra'])
+    ["euclidean", "manhattan", "chebyshev", "minkowski", "hamming", "canberra"]
+)
 
 
 @settings(deadline=None)
-@given(array_strategy(), st.sampled_from(VALID_KERNELS),
-       metrics_strategy, st.floats(0.2, 10))
+@given(
+    array_strategy(),
+    st.sampled_from(VALID_KERNELS),
+    metrics_strategy,
+    st.floats(0.2, 10),
+)
 def test_kernel_density(arrays, kernel, metric, bandwidth):
     X, X_test, sample_weight = arrays
     X_np, X_test_np, sample_weight_np = as_type("numpy", *arrays)
 
-    if kernel == 'cosine':
+    if kernel == "cosine":
         # cosine is numerically unstable at high dimensions
         # for both cuml and sklearn
         assume(X.shape[1] <= 20)
-    kde = KernelDensity(kernel=kernel, metric=metric,
-                        bandwidth=bandwidth).fit(X,
-                                                 sample_weight=sample_weight)
+    kde = KernelDensity(kernel=kernel, metric=metric, bandwidth=bandwidth).fit(
+        X, sample_weight=sample_weight
+    )
     cuml_prob = kde.score_samples(X)
     cuml_prob_test = kde.score_samples(X_test)
 
     if X_np.dtype == np.float64:
         ref_prob = compute_kernel_naive(
-            X_np, X_np, kernel, metric, bandwidth, sample_weight_np)
+            X_np, X_np, kernel, metric, bandwidth, sample_weight_np
+        )
         ref_prob_test = compute_kernel_naive(
-            X_test_np, X_np, kernel, metric, bandwidth, sample_weight_np)
+            X_test_np, X_np, kernel, metric, bandwidth, sample_weight_np
+        )
         tol = 1e-3
-        assert np.allclose(np.exp(as_type("numpy", cuml_prob)), ref_prob,
-                           rtol=tol, atol=tol, equal_nan=True)
-        assert np.allclose(np.exp(as_type("numpy", cuml_prob_test)),
-                           ref_prob_test, rtol=tol, atol=tol, equal_nan=True)
+        assert np.allclose(
+            np.exp(as_type("numpy", cuml_prob)),
+            ref_prob,
+            rtol=tol,
+            atol=tol,
+            equal_nan=True,
+        )
+        assert np.allclose(
+            np.exp(as_type("numpy", cuml_prob_test)),
+            ref_prob_test,
+            rtol=tol,
+            atol=tol,
+            equal_nan=True,
+        )
 
     if kernel in ["gaussian", "tophat"] and metric == "euclidean":
         sample = kde.sample(100, random_state=32).get()
@@ -108,6 +131,7 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
         nearest = nearest.min(axis=1)
         if kernel == "gaussian":
             from scipy.stats import chi
+
             # The euclidean distance of each sample from its cluster
             # follows a chi distribution (not squared) with DoF=dimension
             # and scale = bandwidth
@@ -117,9 +141,11 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
         elif kernel == "tophat":
             assert np.all(nearest <= bandwidth)
     else:
-        with pytest.raises(NotImplementedError,
-                           match=r"Only \['gaussian', 'tophat'\] kernels,"
-                           " and the euclidean metric are supported."):
+        with pytest.raises(
+            NotImplementedError,
+            match=r"Only \['gaussian', 'tophat'\] kernels,"
+            " and the euclidean metric are supported.",
+        ):
             kde.sample(100)
 
 
@@ -136,10 +162,8 @@ def test_logaddexp():
 
 def test_metric_params():
     X = np.array([[0.0, 1.0], [2.0, 0.5]])
-    kde = KernelDensity(metric='minkowski', metric_params={'p': 1.0}
-                        ).fit(X)
-    kde2 = KernelDensity(metric='minkowski', metric_params={'p': 2.0}
-                         ).fit(X)
+    kde = KernelDensity(metric="minkowski", metric_params={"p": 1.0}).fit(X)
+    kde2 = KernelDensity(metric="minkowski", metric_params={"p": 2.0}).fit(X)
     assert not np.allclose(kde.score_samples(X), kde2.score_samples(X))
 
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,24 +17,34 @@
 from inspect import Parameter, signature
 import typing
 
-import cuml
-import cuml.internals
-import cuml.common
+from cuml.internals.api_decorators import (
+    api_base_return_generic,
+    api_base_return_array,
+    api_base_return_sparse_array,
+    api_base_return_any,
+    api_return_any,
+    _deprecate_pos_args,
+)
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.base_return_types import _get_base_return_type
+from cuml.internals.constants import CUML_WRAPPED_FLAG
 
 
 def _process_generic(gen_type):
 
     # Check if the type is not a generic. If not, must return "generic" if
     # subtype is CumlArray otherwise None
-    if (not isinstance(gen_type, typing._GenericAlias)):
-        if (issubclass(gen_type, cuml.common.CumlArray)):
+    if not isinstance(gen_type, typing._GenericAlias):
+        if issubclass(gen_type, CumlArray):
             return "generic"
 
         # We don't handle SparseCumlArray at this time
-        if (issubclass(gen_type, cuml.common.SparseCumlArray)):
+        if issubclass(gen_type, SparseCumlArray):
             raise NotImplementedError(
                 "Generic return types with SparseCumlArray are not supported "
-                "at this time")
+                "at this time"
+            )
 
         # Otherwise None (keep processing)
         return None
@@ -47,12 +57,12 @@ def _process_generic(gen_type):
         typing.Union,
     ]
 
-    if (gen_type.__origin__ in supported_gen_types):
+    if gen_type.__origin__ in supported_gen_types:
         # Check for a CumlArray type in the args
         for arg in gen_type.__args__:
             inner_type = _process_generic(arg)
 
-            if (inner_type is not None):
+            if inner_type is not None:
                 return inner_type
     else:
         raise NotImplementedError("Unknow generic type: {}".format(gen_type))
@@ -60,67 +70,25 @@ def _process_generic(gen_type):
     return None
 
 
-def _get_base_return_type(class_name, attr):
-
-    if (not hasattr(attr, "__annotations__")
-            or "return" not in attr.__annotations__):
-        return None
-
-    try:
-        type_hints = typing.get_type_hints(attr)
-
-        if ("return" in type_hints):
-
-            ret_type = type_hints["return"]
-
-            is_generic = isinstance(ret_type, typing._GenericAlias)
-
-            if (is_generic):
-                return _process_generic(ret_type)
-            elif (issubclass(ret_type, cuml.common.CumlArray)):
-                return "array"
-            elif (issubclass(ret_type, cuml.common.SparseCumlArray)):
-                return "sparsearray"
-            elif (issubclass(ret_type, cuml.Base)):
-                return "base"
-            else:
-                return None
-    except NameError:
-        # A NameError is raised if the return type is the same as the
-        # type being defined (which is incomplete). Check that here and
-        # return base if the name matches
-        if (attr.__annotations__["return"] == class_name):
-            return "base"
-    except Exception:
-        assert False, "Shouldnt get here"
-        return None
-
-    return None
-
-
-def _wrap_attribute(class_name: str,
-                    attribute_name: str,
-                    attribute,
-                    **kwargs):
+def _wrap_attribute(class_name: str, attribute_name: str, attribute, **kwargs):
 
     # Skip items marked with autowrap_ignore
-    if (attribute.__dict__.get(cuml.internals.CUML_WRAPPED_FLAG, False)):
+    if attribute.__dict__.get(CUML_WRAPPED_FLAG, False):
         return attribute
 
     return_type = _get_base_return_type(class_name, attribute)
 
-    if (return_type == "generic"):
-        attribute = cuml.internals.api_base_return_generic(**kwargs)(attribute)
-    elif (return_type == "array"):
-        attribute = cuml.internals.api_base_return_array(**kwargs)(attribute)
-    elif (return_type == "sparsearray"):
-        attribute = cuml.internals.api_base_return_sparse_array(
-            **kwargs)(attribute)
-    elif (return_type == "base"):
-        attribute = cuml.internals.api_base_return_any(**kwargs)(attribute)
-    elif (not attribute_name.startswith("_")):
+    if return_type == "generic":
+        attribute = api_base_return_generic(**kwargs)(attribute)
+    elif return_type == "array":
+        attribute = api_base_return_array(**kwargs)(attribute)
+    elif return_type == "sparsearray":
+        attribute = api_base_return_sparse_array(**kwargs)(attribute)
+    elif return_type == "base":
+        attribute = api_base_return_any(**kwargs)(attribute)
+    elif not attribute_name.startswith("_"):
         # Only replace public functions with return any
-        attribute = cuml.internals.api_return_any()(attribute)
+        attribute = api_return_any()(attribute)
 
     return attribute
 
@@ -128,28 +96,30 @@ def _wrap_attribute(class_name: str,
 def _check_and_wrap_init(attribute, **kwargs):
 
     # Check if the decorator has already been added
-    if (attribute.__dict__.get(cuml.internals._deprecate_pos_args.FLAG_NAME)):
+    if attribute.__dict__.get(_deprecate_pos_args.FLAG_NAME):
         return attribute
 
     # Get the signature to test if all args are keyword only
     sig = signature(attribute)
 
     incorrect_params = [
-        n for n,
-        p in sig.parameters.items()
-        if n != "self" and (p.kind == Parameter.POSITIONAL_ONLY
-                            or p.kind == Parameter.POSITIONAL_OR_KEYWORD)
+        n
+        for n, p in sig.parameters.items()
+        if n != "self"
+        and (
+            p.kind == Parameter.POSITIONAL_ONLY
+            or p.kind == Parameter.POSITIONAL_OR_KEYWORD
+        )
     ]
 
-    assert len(incorrect_params) == 0, \
-        (
-            "Error in `{}`!. Positional arguments for estimators (that derive "
-            "from `Base`) have been deprecated but parameters '{}' can still "
-            "be used as positional arguments. Please specify all parameters "
-            "after `self` as keyword only by using the `*` argument"
-        ).format(attribute.__qualname__, ", ".join(incorrect_params))
+    assert len(incorrect_params) == 0, (
+        "Error in `{}`!. Positional arguments for estimators (that derive "
+        "from `Base`) have been deprecated but parameters '{}' can still "
+        "be used as positional arguments. Please specify all parameters "
+        "after `self` as keyword only by using the `*` argument"
+    ).format(attribute.__qualname__, ", ".join(incorrect_params))
 
-    return cuml.internals._deprecate_pos_args(**kwargs)(attribute)
+    return _deprecate_pos_args(**kwargs)(attribute)
 
 
 class BaseMetaClass(type):
@@ -163,6 +133,7 @@ class BaseMetaClass(type):
         [`cuml.common.Base` only]
 
     """
+
     def __new__(cls, classname, bases, classDict):
 
         is_dask_module = classDict["__module__"].startswith("cuml.dask")
@@ -171,7 +142,7 @@ class BaseMetaClass(type):
 
             # If attributeName is `__init__`, wrap in the decorator to
             # deprecate positional args
-            if (attributeName == "__init__"):
+            if attributeName == "__init__":
                 attribute = _check_and_wrap_init(attribute, version="21.06")
                 classDict[attributeName] = attribute
 
@@ -184,16 +155,20 @@ class BaseMetaClass(type):
             if callable(attribute):
 
                 classDict[attributeName] = _wrap_attribute(
-                    classname, attributeName, attribute)
+                    classname, attributeName, attribute
+                )
 
             elif isinstance(attribute, property):
                 # Need to wrap the getter if it exists
-                if (hasattr(attribute, "fget") and attribute.fget is not None):
+                if hasattr(attribute, "fget") and attribute.fget is not None:
                     classDict[attributeName] = attribute.getter(
-                        _wrap_attribute(classname,
-                                        attributeName,
-                                        attribute.fget,
-                                        input_arg=None))
+                        _wrap_attribute(
+                            classname,
+                            attributeName,
+                            attribute.fget,
+                            input_arg=None,
+                        )
+                    )
 
         return type.__new__(cls, classname, bases, classDict)
 

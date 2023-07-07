@@ -1,4 +1,5 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+#
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,24 +14,42 @@
 # limitations under the License.
 #
 
-import numpy as np
-import cupy as cp
-from cuml.common.input_utils import input_to_cupy_array
-from cupyx.scipy.sparse import csr_matrix as gpu_csr_matrix
-from cupyx.scipy.sparse import csc_matrix as gpu_csc_matrix
-from cupyx.scipy.sparse import csc_matrix as gpu_coo_matrix
-from scipy import sparse as cpu_sparse
 from cupyx.scipy import sparse as gpu_sparse
+from scipy import sparse as cpu_sparse
+from scipy.sparse import csc_matrix as cpu_coo_matrix
+from scipy.sparse import csc_matrix as cpu_csc_matrix
+from cuml.internals.safe_imports import cpu_only_import_from
+from cupyx.scipy.sparse import csc_matrix as gpu_coo_matrix
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.input_utils import input_to_cupy_array, input_to_host_array
+from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import
 
-from pandas import DataFrame as pdDataFrame
-from cudf import DataFrame as cuDataFrame
+np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
+gpu_csr_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csr_matrix")
+gpu_csc_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csc_matrix")
+cpu_csr_matrix = cpu_only_import_from("scipy.sparse", "csr_matrix")
+
+pdDataFrame = cpu_only_import_from("pandas", "DataFrame")
+cuDataFrame = gpu_only_import_from("cudf", "DataFrame")
 
 numeric_types = [
-    np.int8, np.int16, np.int32, np.int64,
-    np.uint8, np.uint16, np.uint32, np.uint64,
-    np.intp, np.uintp,
-    np.float32, np.float64,
-    np.complex64, np.complex128
+    np.int8,
+    np.int16,
+    np.int32,
+    np.int64,
+    np.uint8,
+    np.uint16,
+    np.uint32,
+    np.uint64,
+    np.intp,
+    np.uintp,
+    np.float32,
+    np.float64,
+    np.complex64,
+    np.complex128,
 ]
 
 
@@ -57,8 +76,10 @@ def check_sparse(array, accept_sparse=False, accept_large_sparse=True):
     if accept_sparse is True:
         return
 
-    err_msg = "This algorithm does not support the sparse " + \
-              "input in the current configuration."
+    err_msg = (
+        "This algorithm does not support the sparse "
+        + "input in the current configuration."
+    )
 
     is_sparse = cpu_sparse.issparse(array) or gpu_sparse.issparse(array)
     if is_sparse:
@@ -66,8 +87,10 @@ def check_sparse(array, accept_sparse=False, accept_large_sparse=True):
             raise ValueError(err_msg)
 
         if not accept_large_sparse:
-            if array.indices.dtype != cp.int32 or \
-               array.indptr.dtype != cp.int32:
+            if (
+                array.indices.dtype != cp.int32
+                or array.indptr.dtype != cp.int32
+            ):
                 raise ValueError(err_msg)
 
         if isinstance(accept_sparse, (tuple, list)):
@@ -77,7 +100,7 @@ def check_sparse(array, accept_sparse=False, accept_large_sparse=True):
             raise ValueError(err_msg)
 
 
-def check_dtype(array, dtypes='numeric'):
+def check_dtype(array, dtypes="numeric"):
     """Checks that the input dtype is part of acceptable dtypes
 
     Parameters
@@ -100,7 +123,7 @@ def check_dtype(array, dtypes='numeric'):
         else:
             return array.dtypes.tolist()[0]
 
-    if dtypes == 'numeric':
+    if dtypes == "numeric":
         dtypes = numeric_types
 
     if isinstance(dtypes, (list, tuple)):
@@ -147,16 +170,26 @@ def check_finite(array, force_all_finite=True):
     if force_all_finite is True:
         if not cp.all(cp.isfinite(array)):
             raise ValueError("Non-finite value encountered in array")
-    elif force_all_finite == 'allow-nan':
+    elif force_all_finite == "allow-nan":
         if cp.any(cp.isinf(array)):
             raise ValueError("Non-finite value encountered in array")
 
 
-def check_array(array, accept_sparse=False, accept_large_sparse=True,
-                dtype='numeric', order=None, copy=False,
-                force_all_finite=True, ensure_2d=True, allow_nd=False,
-                ensure_min_samples=1, ensure_min_features=1,
-                warn_on_dtype=None, estimator=None):
+def check_array(
+    array,
+    accept_sparse=False,
+    accept_large_sparse=True,
+    dtype="numeric",
+    order=None,
+    copy=False,
+    force_all_finite=True,
+    ensure_2d=True,
+    allow_nd=False,
+    ensure_min_samples=1,
+    ensure_min_features=1,
+    warn_on_dtype=None,
+    estimator=None,
+):
     """Input validation on an array, list, sparse matrix or similar.
     By default, the input is checked to be a non-empty 2D array containing
     only finite values. If the dtype of the array is object, attempt
@@ -219,22 +252,26 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
         The converted and validated array.
     """
 
-    if dtype == 'numeric':
+    if dtype == "numeric":
         dtype = numeric_types
 
     correct_dtype = check_dtype(array, dtype)
 
-    if (not isinstance(array, (pdDataFrame, cuDataFrame))
-            and copy and not order and hasattr(array, 'flags')):
-        if array.flags['F_CONTIGUOUS']:
-            order = 'F'
-        elif array.flags['C_CONTIGUOUS']:
-            order = 'C'
+    if (
+        not isinstance(array, (pdDataFrame, cuDataFrame))
+        and copy
+        and not order
+        and hasattr(array, "flags")
+    ):
+        if array.flags["F_CONTIGUOUS"]:
+            order = "F"
+        elif array.flags["C_CONTIGUOUS"]:
+            order = "C"
 
     if not order:
-        order = 'F'
+        order = "F"
 
-    hasshape = hasattr(array, 'shape')
+    hasshape = hasattr(array, "shape")
     if ensure_2d and hasshape:
         if len(array.shape) != 2:
             raise ValueError("Not 2D")
@@ -247,33 +284,48 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
         if array.shape[0] < ensure_min_samples:
             raise ValueError("Not enough samples")
 
-    if ensure_min_features > 0 and hasshape and array.ndim == 2:
+    if ensure_min_features > 0 and hasshape and len(array.shape) == 2:
         n_features = array.shape[1]
         if n_features < ensure_min_features:
-            raise ValueError("Found array with %d feature(s) (shape=%s) while"
-                             " a minimum of %d is required."
-                             % (n_features, array.shape, ensure_min_features))
+            raise ValueError(
+                "Found array with %d feature(s) (shape=%s) while"
+                " a minimum of %d is required."
+                % (n_features, array.shape, ensure_min_features)
+            )
 
     is_sparse = cpu_sparse.issparse(array) or gpu_sparse.issparse(array)
     if is_sparse:
         check_sparse(array, accept_sparse, accept_large_sparse)
-        if array.format == 'csr':
-            new_array = gpu_csr_matrix(array, copy=copy)
-        elif array.format == 'csc':
-            new_array = gpu_csc_matrix(array, copy=copy)
-        elif array.format == 'coo':
-            new_array = gpu_coo_matrix(array, copy=copy)
+        if array.format == "csr":
+            if GlobalSettings().memory_type.is_device_accessible:
+                new_array = gpu_csr_matrix(array, copy=copy)
+            else:
+                new_array = cpu_csr_matrix(array, copy=copy)
+        elif array.format == "csc":
+            if GlobalSettings().memory_type.is_device_accessible:
+                new_array = gpu_csc_matrix(array, copy=copy)
+            else:
+                new_array = cpu_csc_matrix(array, copy=copy)
+        elif array.format == "coo":
+            if GlobalSettings().memory_type.is_device_accessible:
+                new_array = gpu_coo_matrix(array, copy=copy)
+            else:
+                new_array = cpu_coo_matrix(array, copy=copy)
         else:
-            raise ValueError('Sparse matrix format not supported')
+            raise ValueError("Sparse matrix format not supported")
         check_finite(new_array.data, force_all_finite)
         if correct_dtype != new_array.dtype:
             new_array = new_array.astype(correct_dtype)
         return new_array
     else:
-        X, n_rows, n_cols, dtype = input_to_cupy_array(array,
-                                                       order=order,
-                                                       deepcopy=copy,
-                                                       fail_on_null=False)
+        if GlobalSettings().memory_type.is_device_accessible:
+            X, n_rows, n_cols, dtype = input_to_cupy_array(
+                array, order=order, deepcopy=copy, fail_on_null=False
+            )
+        else:
+            X, n_rows, n_cols, dtype = input_to_host_array(
+                array, order=order, deepcopy=copy, fail_on_null=False
+            )
         if correct_dtype != dtype:
             X = X.astype(correct_dtype)
         check_finite(X, force_all_finite)
@@ -294,16 +346,18 @@ def _masked_column_median(arr, masked_value):
     mask = _get_mask(arr, masked_value)
     if arr.size == 0:
         return cp.full(arr.shape[1], cp.nan)
-    arr_sorted = arr.copy()
     if not cp.isnan(masked_value):
+        arr_sorted = arr.copy()
         # If nan is not the missing value, any column with nans should
         # have a median of nan
         nan_cols = cp.any(cp.isnan(arr), axis=0)
         arr_sorted[mask] = cp.nan
+        arr_sorted.sort(axis=0)
     else:
         nan_cols = cp.full(arr.shape[1], False)
-    # nans are always sorted to end of array
-    arr_sorted = cp.sort(arr_sorted, axis=0)
+        # nans are always sorted to end of array and the sort call
+        # copies the data
+        arr_sorted = cp.sort(arr, axis=0)
 
     count_missing_values = mask.sum(axis=0)
     # Ignore missing values in determining "halfway" index of sorted
@@ -311,12 +365,14 @@ def _masked_column_median(arr, masked_value):
     n_elems = arr.shape[0] - count_missing_values
 
     # If no elements remain after removing missing value, median for
-    # that colum is nan
+    # that column is nan
     nan_cols = cp.logical_or(nan_cols, n_elems <= 0)
 
     col_index = cp.arange(arr_sorted.shape[1])
-    median = (arr_sorted[cp.floor_divide(n_elems - 1, 2), col_index] +
-              arr_sorted[cp.floor_divide(n_elems, 2), col_index]) / 2
+    median = (
+        arr_sorted[cp.floor_divide(n_elems - 1, 2), col_index]
+        + arr_sorted[cp.floor_divide(n_elems, 2), col_index]
+    ) / 2
 
     median[nan_cols] = cp.nan
     return median
@@ -330,7 +386,7 @@ def _masked_column_mean(arr, masked_value):
     n_elems = arr.shape[0] - count_missing_values
     mean = cp.nansum(arr, axis=0)
     if not cp.isnan(masked_value):
-        mean -= (count_missing_values * masked_value)
+        mean -= count_missing_values * masked_value
     mean /= n_elems
     return mean
 
@@ -343,8 +399,9 @@ def _masked_column_mode(arr, masked_value):
     most_frequent = np.empty(n_features, dtype=arr.dtype)
     for i in range(n_features):
         feature_mask_idxs = cp.where(~mask[:, i])[0]
-        values, counts = cp.unique(arr[feature_mask_idxs, i],
-                                   return_counts=True)
+        values, counts = cp.unique(
+            arr[feature_mask_idxs, i], return_counts=True
+        )
         count_max = counts.max()
         if count_max > 0:
             value = values[counts == count_max].min()

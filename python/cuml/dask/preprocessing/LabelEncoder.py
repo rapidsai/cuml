@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from cuml.preprocessing import LabelEncoder as LE
+from cuml.common.exceptions import NotFittedError
+from dask_cudf.core import Series as daskSeries
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedInverseTransformMixin
@@ -19,17 +22,16 @@ from cuml.dask.common.base import DelayedInverseTransformMixin
 from toolz import first
 
 from collections.abc import Sequence
-from dask_cudf.core import DataFrame as dcDataFrame
-from dask_cudf.core import Series as daskSeries
-from cuml.common.exceptions import NotFittedError
-from cuml.preprocessing import LabelEncoder as LE
+from cuml.internals.safe_imports import gpu_only_import_from
+
+dcDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
 
 
-class LabelEncoder(BaseEstimator,
-                   DelayedTransformMixin,
-                   DelayedInverseTransformMixin):
+class LabelEncoder(
+    BaseEstimator, DelayedTransformMixin, DelayedInverseTransformMixin
+):
     """
-    An nvcategory based implementation of ordinal label encoding
+    A cuDF-based implementation of ordinal label encoding
 
     Parameters
     ----------
@@ -50,6 +52,9 @@ class LabelEncoder(BaseEstimator,
         >>> import cudf
         >>> import dask_cudf
         >>> from cuml.dask.preprocessing import LabelEncoder
+
+        >>> import pandas as pd
+        >>> pd.set_option('display.max_colwidth', 2000)
 
         >>> cluster = LocalCUDACluster(threads_per_worker=1)
         >>> client = Client(cluster)
@@ -116,14 +121,13 @@ class LabelEncoder(BaseEstimator,
         >>> cluster.close()
 
     """
+
     def __init__(self, *, client=None, verbose=False, **kwargs):
-        super().__init__(client=client,
-                         verbose=verbose,
-                         **kwargs)
+        super().__init__(client=client, verbose=verbose, **kwargs)
 
     def fit(self, y):
         """
-        Fit a LabelEncoder (nvcategory) instance to a set of categories
+        Fit a LabelEncoder instance to a set of categories
 
         Parameters
         ----------
@@ -137,14 +141,15 @@ class LabelEncoder(BaseEstimator,
             A fitted instance of itself to allow method chaining
 
         Notes
-        --------
+        -----
         Number of unique classes will be collected at the client. It'll
         consume memory proportional to the number of unique classes.
         """
         _classes = y.unique().compute()
         el = first(y) if isinstance(y, Sequence) else y
-        self.datatype = ('cudf' if isinstance(el, (dcDataFrame, daskSeries))
-                         else 'cupy')
+        self.datatype = (
+            "cudf" if isinstance(el, (dcDataFrame, daskSeries)) else "cupy"
+        )
         self._set_internal_model(LE(**self.kwargs).fit(y, _classes=_classes))
         return self
 
@@ -182,13 +187,17 @@ class LabelEncoder(BaseEstimator,
             if a category appears that was not seen in `fit`
         """
         if self._get_internal_model() is not None:
-            return self._transform(y,
-                                   delayed=delayed,
-                                   output_dtype='int32',
-                                   output_collection_type='cudf')
+            return self._transform(
+                y,
+                delayed=delayed,
+                output_dtype="int32",
+                output_collection_type="cudf",
+            )
         else:
-            msg = ("This LabelEncoder instance is not fitted yet. Call 'fit' "
-                   "with appropriate arguments before using this estimator.")
+            msg = (
+                "This LabelEncoder instance is not fitted yet. Call 'fit' "
+                "with appropriate arguments before using this estimator."
+            )
             raise NotFittedError(msg)
 
     def inverse_transform(self, y, delayed=True):
@@ -210,10 +219,12 @@ class LabelEncoder(BaseEstimator,
             Distributed object containing the inverse transformed array.
         """
         if self._get_internal_model() is not None:
-            return self._inverse_transform(y,
-                                           delayed=delayed,
-                                           output_collection_type='cudf')
+            return self._inverse_transform(
+                y, delayed=delayed, output_collection_type="cudf"
+            )
         else:
-            msg = ("This LabelEncoder instance is not fitted yet. Call 'fit' "
-                   "with appropriate arguments before using this estimator.")
+            msg = (
+                "This LabelEncoder instance is not fitted yet. Call 'fit' "
+                "with appropriate arguments before using this estimator."
+            )
             raise NotFittedError(msg)

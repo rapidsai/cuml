@@ -9,13 +9,22 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
+from ..preprocessing import FunctionTransformer
+from ....thirdparty_adapters import check_array
+from ..utils.validation import check_is_fitted
+from ..utils.skl_dependencies import TransformerMixin, BaseComposition, \
+    BaseEstimator
+from cuml.internals import _deprecate_pos_args
+from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.global_settings import _global_settings_data
+import cuml
 from itertools import chain
 from itertools import compress
 from joblib import Parallel
 import functools
 import timeit
 import numbers
-from cuml.common.import_utils import has_sklearn
+from cuml.internals.import_utils import has_sklearn
 
 if has_sklearn():
     from sklearn.base import clone
@@ -24,25 +33,18 @@ from contextlib import contextmanager
 from collections import defaultdict
 import warnings
 
-from scipy import sparse as sp_sparse
-from cupyx.scipy import sparse as cu_sparse
-import numpy as cpu_np
-import cupy as np
-import numba
+from cuml.internals.safe_imports import cpu_only_import_from
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
 
-import pandas as pd
-import cudf
-
-import cuml
-from cuml.internals.global_settings import _global_settings_data
-from cuml.common.array_sparse import SparseCumlArray
-from cuml.common.import_utils import has_sklearn
-from cuml.internals import _deprecate_pos_args
-from ..utils.skl_dependencies import TransformerMixin, BaseComposition, \
-    BaseEstimator
-from ..utils.validation import check_is_fitted
-from ....thirdparty_adapters import check_array
-from ..preprocessing import FunctionTransformer
+cpu_np = cpu_only_import('numpy')
+cu_sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
+np = gpu_only_import('cupy')
+numba = gpu_only_import('numba')
+pd = cpu_only_import('pandas')
+sp_sparse = cpu_only_import_from('scipy', 'sparse')
+cudf = gpu_only_import('cudf')
 
 
 _ERR_MSG_1DCOLUMN = ("1D data passed to a transformer that expects 2D data. "
@@ -361,6 +363,7 @@ def delayed(function):
 
 class _FuncWrapper:
     """"Load the global configuration before calling the function."""
+
     def __init__(self, function):
         self.function = function
         self.config = _global_settings_data.shared_state
@@ -432,18 +435,18 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
     ----------
     transformers : list of tuples
         List of (name, transformer, columns) tuples specifying the
-        transformer objects to be applied to subsets of the data.
+        transformer objects to be applied to subsets of the data:
 
-        name : str
+        * name : str
             Like in Pipeline and FeatureUnion, this allows the transformer and
             its parameters to be set using ``set_params`` and searched in grid
             search.
-        transformer : {'drop', 'passthrough'} or estimator
+        * transformer : {'drop', 'passthrough'} or estimator
             Estimator must support `fit` and `transform`.
             Special-cased strings 'drop' and 'passthrough' are accepted as
             well, to indicate to drop the columns or to pass them through
             untransformed, respectively.
-        columns :  str, array-like of str, int, array-like of int, \
+        * columns :  str, array-like of str, int, array-like of int, \
                 array-like of bool, slice or callable
             Indexes the data on its second axis. Integers are interpreted as
             positional columns, while strings can reference DataFrame columns
@@ -825,7 +828,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
                     message_clsname='ColumnTransformer',
                     message=self._log_message(name, idx, len(transformers)))
                 for idx, (name, trans, column, weight) in enumerate(
-                        self._iter(fitted=fitted, replace_strings=True), 1))
+                    self._iter(fitted=fitted, replace_strings=True), 1))
         except ValueError as e:
             if "Expected 2D array, got 1D array instead" in str(e):
                 raise ValueError(_ERR_MSG_1DCOLUMN) from e
@@ -1028,14 +1031,14 @@ def make_column_transformer(*transformers,
     ----------
     *transformers : tuples
         Tuples of the form (transformer, columns) specifying the
-        transformer objects to be applied to subsets of the data.
+        transformer objects to be applied to subsets of the data:
 
-        transformer : {'drop', 'passthrough'} or estimator
+        * transformer : {'drop', 'passthrough'} or estimator
             Estimator must support `fit` and `transform`.
             Special-cased strings 'drop' and 'passthrough' are accepted as
             well, to indicate to drop the columns or to pass them through
             untransformed, respectively.
-        columns : str,  array-like of str, int, array-like of int, slice, \
+        * columns : str,  array-like of str, int, array-like of int, slice, \
                 array-like of bool or callable
             Indexes the data on its second axis. Integers are interpreted as
             positional columns, while strings can reference DataFrame columns
@@ -1097,7 +1100,6 @@ def make_column_transformer(*transformers,
                                      ['numerical_column']),
                                     ('onehotencoder', OneHotEncoder(...),
                                      ['categorical_column'])])
-
     """
     # transformer_weights keyword is not passed through because the user
     # would need to know the automatically generated names of the transformers
@@ -1162,6 +1164,7 @@ class make_column_selector:
            [-0.30151134,  0.        ,  1.        ,  0.        ],
            [ 0.90453403,  0.        ,  0.        ,  1.        ]])
     """
+
     def __init__(self, pattern=None, *, dtype_include=None,
                  dtype_exclude=None):
         self.pattern = pattern

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,12 +17,13 @@ from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import SyncFitMixinLinearModel
-from raft.dask.common.comms import get_raft_comm_state
+from raft_dask.common.comms import get_raft_comm_state
+from dask.distributed import get_worker
 
 
-class LinearRegression(BaseEstimator,
-                       SyncFitMixinLinearModel,
-                       DelayedPredictionMixin):
+class LinearRegression(
+    BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin
+):
     """
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
@@ -35,19 +36,19 @@ class LinearRegression(BaseEstimator,
     As the number of features in X increases, the accuracy of Eig algorithm
     drops.
 
-    This is an experimental implementation of dask Linear Regresion. It
+    This is an experimental implementation of dask Linear Regression. It
     supports input X that has more than one column. Single column input
     X will be supported after SVD algorithm is added in an upcoming version.
 
     Parameters
-    -----------
+    ----------
     algorithm : 'eig'
         Eig uses a eigendecomposition of the covariance matrix, and is much
         faster.
         SVD is slower, but guaranteed to be stable.
     fit_intercept : boolean (default = True)
         LinearRegression adds an additional term c to correct for the global
-        mean of y, modeling the reponse as "x * beta + c".
+        mean of y, modeling the response as "x * beta + c".
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
         If True, the predictors in X will be normalized by dividing by its
@@ -55,7 +56,7 @@ class LinearRegression(BaseEstimator,
         If False, no scaling will be done.
 
     Attributes
-    -----------
+    ----------
     coef_ : cuDF series, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
@@ -63,9 +64,7 @@ class LinearRegression(BaseEstimator,
     """
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
-        super().__init__(client=client,
-                         verbose=verbose,
-                         **kwargs)
+        super().__init__(client=client, verbose=verbose, **kwargs)
 
     def fit(self, X, y):
         """
@@ -79,8 +78,9 @@ class LinearRegression(BaseEstimator,
             Labels (outcome values)
         """
 
-        models = self._fit(model_func=LinearRegression._create_model,
-                           data=(X, y))
+        models = self._fit(
+            model_func=LinearRegression._create_model, data=(X, y)
+        )
 
         self._set_internal_model(models[0])
 
@@ -113,6 +113,8 @@ class LinearRegression(BaseEstimator,
     @mnmg_import
     def _create_model(sessionId, datatype, **kwargs):
         from cuml.linear_model.linear_regression_mg import LinearRegressionMG
-        handle = get_raft_comm_state(sessionId)["handle"]
-        return LinearRegressionMG(handle=handle, output_type=datatype,
-                                  **kwargs)
+
+        handle = get_raft_comm_state(sessionId, get_worker())["handle"]
+        return LinearRegressionMG(
+            handle=handle, output_type=datatype, **kwargs
+        )

@@ -15,16 +15,16 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/handle.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <vector>
 
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/datasets/make_blobs.hpp>
-#include <hierarchy/pw_dist_graph.cuh>
 
-#include <raft/distance/distance_type.hpp>
-#include <raft/linalg/transpose.hpp>
+#include <raft/distance/distance_types.hpp>
+#include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
 
 #include <cuml/common/logger.hpp>
@@ -81,7 +81,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
     handle.sync_stream(handle.get_stream());
 
-    raft::hierarchy::linkage_output<IdxT, T> out_arrs;
+    raft::hierarchy::linkage_output<IdxT> out_arrs;
     out_arrs.labels = labels.data();
 
     rmm::device_uvector<IdxT> out_children((params.n_row - 1) * 2, handle.get_stream());
@@ -341,8 +341,8 @@ const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
 typedef LinkageTest<float, int> LinkageTestF_Int;
 TEST_P(LinkageTestF_Int, Result)
 {
-  EXPECT_TRUE(
-    raft::devArrMatch(labels.data(), labels_ref.data(), params.n_row, raft::Compare<int>()));
+  EXPECT_TRUE(MLCommon::devArrMatch(
+    labels.data(), labels_ref.data(), params.n_row, MLCommon::Compare<int>()));
 }
 
 INSTANTIATE_TEST_CASE_P(LinkageTest, LinkageTestF_Int, ::testing::ValuesIn(linkage_inputsf2));

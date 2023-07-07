@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,20 @@
 # limitations under the License.
 #
 
-import cupy as cp
-import numpy as np
-import math
-from numba import cuda
-from cuml.common.input_utils import input_to_cupy_array
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.base import Base
-from cuml.metrics import pairwise_distances
-from cuml.common.import_utils import has_scipy
 from cuml.common.exceptions import NotFittedError
+from cuml.internals.import_utils import has_scipy
+from cuml.metrics import pairwise_distances
+from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.safe_imports import gpu_only_import_from
+import math
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
+
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
+cuda = gpu_only_import_from("numba", "cuda")
 
 if has_scipy():
     from scipy.special import gammainc
@@ -88,12 +92,14 @@ def cosine_log_kernel(x, h):
     return y
 
 
-log_probability_kernels_ = {"gaussian": gaussian_log_kernel,
-                            "tophat": tophat_log_kernel,
-                            "epanechnikov": epanechnikov_log_kernel,
-                            "exponential": exponential_log_kernel,
-                            "linear": linear_log_kernel,
-                            "cosine": cosine_log_kernel}
+log_probability_kernels_ = {
+    "gaussian": gaussian_log_kernel,
+    "tophat": tophat_log_kernel,
+    "epanechnikov": epanechnikov_log_kernel,
+    "exponential": exponential_log_kernel,
+    "linear": linear_log_kernel,
+    "cosine": cosine_log_kernel,
+}
 
 
 def logVn(n):
@@ -164,11 +170,12 @@ class KernelDensity(Base):
     metric_params : dict, default=None
         Additional parameters to be passed to the tree for use with the
         metric.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the
@@ -203,7 +210,7 @@ class KernelDensity(Base):
         metric_params=None,
         output_type=None,
         handle=None,
-        verbose=False
+        verbose=False,
     ):
         super(KernelDensity, self).__init__(
             verbose=verbose, handle=handle, output_type=output_type
@@ -285,14 +292,19 @@ class KernelDensity(Base):
         if self.metric_params:
             if len(self.metric_params) != 1:
                 raise ValueError(
-                    "Cuml only supports metrics with a single arg.")
+                    "Cuml only supports metrics with a single arg."
+                )
             metric_arg = list(self.metric_params.values())[0]
-            distances = pairwise_distances(X_cuml.array, self.X_,
-                                           metric=self.metric,
-                                           metric_arg=metric_arg)
+            distances = pairwise_distances(
+                X_cuml.array,
+                self.X_,
+                metric=self.metric,
+                metric_arg=metric_arg,
+            )
         else:
             distances = pairwise_distances(
-                X_cuml.array, self.X_, metric=self.metric)
+                X_cuml.array, self.X_, metric=self.metric
+            )
 
         distances = cp.asarray(distances)
 
@@ -307,11 +319,12 @@ class KernelDensity(Base):
             distances += cp.log(self.sample_weight_)
 
         logsumexp_kernel.forall(log_probabilities.size)(
-            distances, log_probabilities)
+            distances, log_probabilities
+        )
         # Note that sklearns user guide is wrong
         # It says the (unnormalised) probability output for
         #  the kernel density is sum(K(x,h)).
-        # In fact what they implment is (1/n)*sum(K(x,h))
+        # In fact what they implement is (1/n)*sum(K(x,h))
         # Here we divide by n in normal probability space
         # Which becomes -log(n) in log probability space
         sum_weights = (
@@ -376,11 +389,11 @@ class KernelDensity(Base):
             raise NotFittedError()
 
         supported_kernels = ["gaussian", "tophat"]
-        if (self.kernel not in supported_kernels
-                or self.metric != "euclidean"):
+        if self.kernel not in supported_kernels or self.metric != "euclidean":
             raise NotImplementedError(
                 "Only {} kernels, and the euclidean"
-                " metric are supported.".format(supported_kernels))
+                " metric are supported.".format(supported_kernels)
+            )
 
         if isinstance(random_state, cp.random.RandomState):
             rng = random_state
@@ -406,7 +419,7 @@ class KernelDensity(Base):
             X = rng.normal(size=(n_samples, dim))
             s_sq = cp.einsum("ij,ij->i", X, X).get()
 
-            # do this on the CPU becaause we don't have
+            # do this on the CPU because we don't have
             # a gammainc function  readily available
             correction = cp.array(
                 gammainc(0.5 * dim, 0.5 * s_sq) ** (1.0 / dim)

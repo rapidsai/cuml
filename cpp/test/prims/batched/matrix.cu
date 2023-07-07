@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,14 +19,14 @@
 
 #include <linalg/batched/matrix.cuh>
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/add.hpp>
-
-#include <gtest/gtest.h>
+#include <raft/linalg/add.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <gtest/gtest.h>
+#include <raft/core/math.hpp>
 #include <random>
 #include <vector>
 
@@ -39,7 +39,7 @@ enum MatrixOperation {
   AZT_op,         // Matrix-vector product (with GEMM)
   ZA_op,          // Vector-matrix product (with GEMM)
   ApB_op,         // Addition
-  AmB_op,         // Substraction
+  AmB_op,         // Subtraction
   AkB_op,         // Kronecker product
   AsolveZ_op,     // Linear equation solver Ax=b
   LaggedZ_op,     // Lag matrix
@@ -447,19 +447,19 @@ using BatchedMatrixTestD = MatrixTest<double>;
 using BatchedMatrixTestF = MatrixTest<float>;
 TEST_P(BatchedMatrixTestD, Result)
 {
-  ASSERT_TRUE(raft::devArrMatchHost(res_h.data(),
-                                    res_bM->raw_data(),
-                                    res_h.size(),
-                                    raft::CompareApprox<double>(params.tolerance),
-                                    stream));
+  ASSERT_TRUE(MLCommon::devArrMatchHost(res_h.data(),
+                                        res_bM->raw_data(),
+                                        res_h.size(),
+                                        MLCommon::CompareApprox<double>(params.tolerance),
+                                        stream));
 }
 TEST_P(BatchedMatrixTestF, Result)
 {
-  ASSERT_TRUE(raft::devArrMatchHost(res_h.data(),
-                                    res_bM->raw_data(),
-                                    res_h.size(),
-                                    raft::CompareApprox<float>(params.tolerance),
-                                    stream));
+  ASSERT_TRUE(MLCommon::devArrMatchHost(res_h.data(),
+                                        res_bM->raw_data(),
+                                        res_h.size(),
+                                        MLCommon::CompareApprox<float>(params.tolerance),
+                                        stream));
 }
 
 INSTANTIATE_TEST_CASE_P(BatchedMatrixTests, BatchedMatrixTestD, ::testing::ValuesIn(inputsd));
