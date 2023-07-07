@@ -22,7 +22,7 @@ void test_svm()
   cumlError_t response = CUML_SUCCESS;
 
   // Checking return type at compile time.
-  // NOLINTNEXTLINE(lang-analyzer-deadcode.DeadStores)
+  // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
   response = cumlSpSvcFit(handle,
                           NULL,
                           0,
@@ -46,7 +46,7 @@ void test_svm()
                           NULL,
                           NULL);
 
-  // NOLINTNEXTLINE(lang-analyzer-deadcode.DeadStores)
+  // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
   response = cumlDpSvcFit(handle,
                           NULL,
                           0,
@@ -70,11 +70,11 @@ void test_svm()
                           NULL,
                           NULL);
 
-  // NOLINTNEXTLINE(lang-analyzer-deadcode.DeadStores)
+  // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
   response = cumlSpSvcPredict(
     handle, NULL, 0, 1, LINEAR, 2, 3.0f, 4.0f, 5, 6.0f, NULL, NULL, 7, NULL, NULL, 8.0f, 9);
 
-  // NOLINTNEXTLINE(lang-analyzer-deadcode.DeadStores)
+  // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
   response = cumlDpSvcPredict(
     handle, NULL, 0, 1, LINEAR, 2, 3.0, 4.0, 5, 6.0, NULL, NULL, 7, NULL, NULL, 8.0, 9);
 }

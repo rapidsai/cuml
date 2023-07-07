@@ -22,7 +22,7 @@ void test_knn()
   cumlError_t response = CUML_SUCCESS;
 
   // Checking return type at compile time.
-  // NOLINTNEXTLINE(lang-analyzer-deadcode.DeadStores)
+  // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
   response =
     knn_search(handle, NULL, NULL, 1, 2, NULL, 3, NULL, NULL, 4, true, false, 0, 2.0f, false);
 }

@@ -34,9 +34,9 @@ void test_glm()
                           .penalty_normalized  = true};
 
   // Checking return type at compile time.
-  // NOLINTNEXTLINE(lang-analyzer-deadcode.DeadStores)
+  // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
   response = cumlSpQnFit(handle, &pams, NULL, NULL, 0, 1, 2, NULL, NULL, NULL, true);
 
-  // NOLINTNEXTLINE(lang-analyzer-deadcode.DeadStores)
+  // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
   response = cumlDpQnFit(handle, &pams, NULL, NULL, 0, 1, 2, NULL, NULL, NULL, true);
 }

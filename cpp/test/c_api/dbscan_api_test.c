@@ -22,9 +22,9 @@ void test_dbscan()
   cumlError_t response = CUML_SUCCESS;
 
   // Checking return type at compile time.
-  // NOLINTNEXTLINE(lang-analyzer-deadcode.DeadStores)
+  // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
   response = cumlSpDbscanFit(handle, NULL, 0, 1, 1.0f, 2, NULL, NULL, 10, 1);
 
-  // NOLINTNEXTLINE(lang-analyzer-deadcode.DeadStores)
+  // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
   response = cumlDpDbscanFit(handle, NULL, 0, 1, 1.0, 2, NULL, NULL, 10, 1);
 }
