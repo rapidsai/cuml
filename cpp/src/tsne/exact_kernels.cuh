@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,12 @@
 
 #include <float.h>
 #include <math.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/eltwise.hpp>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/util/cudart_utils.hpp>
+
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/reduce.h>
 
 #define restrict __restrict__
 
@@ -86,7 +90,7 @@ __global__ void sigmas_kernel(const value_t* restrict distances,
 }
 
 /****************************************/
-/* Finds the best Gaussian bandwith for
+/* Finds the best Gaussian bandwidth for
     each row in the dataset             */
 template <typename value_idx, typename value_t>
 __global__ void sigmas_kernel_2d(const value_t* restrict distances,
@@ -396,8 +400,8 @@ value_t repulsive_forces(const value_t* restrict Y,
 }
 
 /****************************************/
-/* Applys or integrates all forces. Uses
-    more gains and contrains the output
+/* Applies or integrates all forces. Uses
+    more gains and constrains the output
     for output stability                */
 template <typename value_idx, typename value_t>
 __global__ void apply_kernel(value_t* restrict Y,

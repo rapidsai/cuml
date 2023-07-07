@@ -17,10 +17,11 @@
 
 
 import ctypes
-import cudf
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
-import rmm
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 
 from libc.stdlib cimport malloc, free
 
@@ -28,11 +29,11 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 import cuml.common.opg_data_utils_mg as opg
 import cuml.internals
-from cuml.common.base import Base
-from raft.common.handle cimport handle_t
+from cuml.internals.base import Base
+from pylibraft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
 from cuml.decomposition.utils_mg cimport *
 from cuml.common import input_to_cuml_array
@@ -68,9 +69,9 @@ class BaseDecompositionMG(object):
         self._set_n_features_in(n_cols)
 
         if self.n_components is None:
-            self._n_components = min(total_rows, n_cols)
+            self.n_components_ = min(total_rows, n_cols)
         else:
-            self._n_components = self.n_components
+            self.n_components_ = self.n_components
 
         X_arys = []
         for i in range(len(X)):
@@ -103,11 +104,11 @@ class BaseDecompositionMG(object):
             trans_arg = opg.build_data_t(trans_arys)
 
             trans_part_desc = opg.build_part_descriptor(total_rows,
-                                                        self._n_components,
+                                                        self.n_components_,
                                                         rank_to_sizes,
                                                         rank)
 
-        self._initialize_arrays(self._n_components, total_rows, n_cols)
+        self._initialize_arrays(self.n_components_, total_rows, n_cols)
         decomp_params = self._build_params(total_rows, n_cols)
 
         if _transform:

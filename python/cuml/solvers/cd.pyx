@@ -16,10 +16,11 @@
 # distutils: language = c++
 
 import ctypes
-import cudf
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -27,11 +28,11 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
+from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
-from raft.common.handle cimport handle_t
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.mixins import FMajorInputTagMixin
+from pylibraft.common.handle cimport handle_t
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.mixins import FMajorInputTagMixin
 
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
@@ -50,7 +51,8 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                     float alpha,
                     float l1_ratio,
                     bool shuffle,
-                    float tol) except +
+                    float tol,
+                    float *sample_weight) except +
 
     cdef void cdFit(handle_t& handle,
                     double *input,
@@ -66,7 +68,8 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                     double alpha,
                     double l1_ratio,
                     bool shuffle,
-                    double tol) except +
+                    double tol,
+                    double *sample_weight) except +
 
     cdef void cdPredict(handle_t& handle,
                         const float *input,
@@ -98,7 +101,7 @@ class CD(Base,
     regression and ridge, lasso, and elastic-net penalties.
 
     Examples
-    ---------
+    --------
     .. code-block:: python
 
         >>> import cupy as cp
@@ -132,7 +135,7 @@ class CD(Base,
         dtype: float32
 
     Parameters
-    -----------
+    ----------
     loss : 'squared_loss'
         Only 'squared_loss' is supported right now.
         'squared_loss' uses linear regression in its predict step.
@@ -171,11 +174,12 @@ class CD(Base,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     """
 
@@ -217,12 +221,12 @@ class CD(Base,
         }[self.loss]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=False) -> "CD":
+    def fit(self, X, y, convert_dtype=False, sample_weight=None) -> "CD":
         """
         Fit the model with X and y.
 
         """
-
+        cdef uintptr_t sample_weight_ptr
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
 
@@ -231,6 +235,16 @@ class CD(Base,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
                                 check_rows=n_rows, check_cols=1)
+
+        if sample_weight is not None:
+            sample_weight_m, _, _, _ = \
+                input_to_cuml_array(sample_weight, check_dtype=self.dtype,
+                                    convert_to_dtype=(
+                                        self.dtype if convert_dtype else None),
+                                    check_rows=n_rows, check_cols=1)
+            sample_weight_ptr = sample_weight_m.ptr
+        else:
+            sample_weight_ptr = 0
 
         cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t y_ptr = y_m.ptr
@@ -259,7 +273,8 @@ class CD(Base,
                   <float>self.alpha,
                   <float>self.l1_ratio,
                   <bool>self.shuffle,
-                  <float>self.tol)
+                  <float>self.tol,
+                  <float*>sample_weight_ptr)
 
             self.intercept_ = c_intercept1
         else:
@@ -277,11 +292,16 @@ class CD(Base,
                   <double>self.alpha,
                   <double>self.l1_ratio,
                   <bool>self.shuffle,
-                  <double>self.tol)
+                  <double>self.tol,
+                  <double*>sample_weight_ptr)
 
             self.intercept_ = c_intercept2
 
         self.handle.sync()
+        del X_m
+        del y_m
+        if sample_weight is not None:
+            del sample_weight_m
 
         return self
 

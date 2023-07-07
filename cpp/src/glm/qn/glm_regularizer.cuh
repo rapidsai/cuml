@@ -17,14 +17,15 @@
 #pragma once
 
 #include "simple_mat.cuh"
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/map_then_reduce.hpp>
-#include <raft/stats/mean.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace ML {
 namespace GLM {
+namespace detail {
 
 template <typename T>
 struct Tikhonov {
@@ -91,5 +92,6 @@ struct RegularizedGLM : GLMDims {
     return loss->gradNorm(grad, dev_scalar, stream);
   }
 };
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML

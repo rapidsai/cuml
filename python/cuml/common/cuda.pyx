@@ -16,6 +16,7 @@
 
 # distutils: language = c++
 
+
 class CudaRuntimeError(RuntimeError):
     def __init__(self, extraMsg=None):
         cdef _Error e = cudaGetLastError()

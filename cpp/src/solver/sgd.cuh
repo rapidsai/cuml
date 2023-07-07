@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,18 +23,19 @@
 #include <functions/linearReg.cuh>
 #include <functions/logisticReg.cuh>
 #include <glm/preprocess.cuh>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/eltwise.hpp>
-#include <raft/linalg/gemv.hpp>
-#include <raft/linalg/norm.hpp>
-#include <raft/linalg/subtract.hpp>
-#include <raft/linalg/unary_op.hpp>
-#include <raft/matrix/math.hpp>
-#include <raft/matrix/matrix.hpp>
-#include <raft/stats/mean.hpp>
-#include <raft/stats/mean_center.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/gemv.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {
@@ -69,7 +70,7 @@ using namespace MLCommon;
  * @param lr_type
  *        type of the learning rate function (i.e. OPTIMAL, CONSTANT, INVSCALING, ADAPTIVE)
  * @param eta0
- *        learning rate for contant lr_type. It's used to calculate learning rate function for other
+ *        learning rate for constant lr_type. It's used to calculate learning rate function for other
  * types of lr_type
  * @param power_t
  *        power value in the INVSCALING lr_type

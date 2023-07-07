@@ -16,18 +16,22 @@
 
 # distutils: language = c++
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
 import warnings
-from cupy import linalg
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals.safe_imports import gpu_only_import
 from cupyx import lapack, geterr, seterr
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
-from cuml.common.mixins import RegressorMixin
+from cuml.internals.base import Base
+from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
 
 from cuml.metrics import pairwise_kernels
+
+cp = gpu_only_import('cupy')
+linalg = gpu_only_import_from('cupy', 'linalg')
+np = cpu_only_import('numpy')
 
 
 # cholesky solve with fallback to least squares for singular problems
@@ -38,6 +42,10 @@ def _safe_solve(K, y):
         err_mode = geterr()["linalg"]
         seterr(linalg="raise")
         dual_coef = lapack.posv(K, y)
+        # Perform following check as a workaround for cusolver issue to be
+        # fixed in a future CUDA version
+        if cp.all(cp.isnan(dual_coef)):
+            raise np.linalg.LinAlgError
         seterr(linalg=err_mode)
     except np.linalg.LinAlgError:
         warnings.warn(
@@ -132,11 +140,12 @@ class KernelRidge(Base, RegressorMixin):
     kernel_params : mapping of str to any, default=None
         Additional parameters (keyword arguments) for kernel function passed
         as callable object.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the

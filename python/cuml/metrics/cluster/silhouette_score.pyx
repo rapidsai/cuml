@@ -14,15 +14,17 @@
 # limitations under the License.
 #
 
-import cupy as cp
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
 from libc.stdint cimport uintptr_t
 
 from cuml.common import input_to_cuml_array
 from cuml.metrics.pairwise_distances import _determine_metric
-from raft.common.handle cimport handle_t
-from raft.common.handle import Handle
+from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle import Handle
 from cuml.metrics.distance_type cimport DistanceType
 from cuml.prims.label.classlabels import make_monotonic, check_labels
 

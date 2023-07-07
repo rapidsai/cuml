@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,15 @@
 
 #include "tsne_runner.cuh"
 #include <cuml/manifold/tsne.h>
+#include <raft/core/handle.hpp>
+
+#if defined RAFT_COMPILED
+#include <raft/spatial/knn/specializations.cuh>
+#endif
+
+#include <raft/distance/distance_types.hpp>
 
 namespace ML {
-
 template <typename tsne_input, typename value_idx, typename value_t>
 value_t _fit(const raft::handle_t& handle,
              tsne_input& input,

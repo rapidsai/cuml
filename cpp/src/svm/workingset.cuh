@@ -22,21 +22,23 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/svm/svm_parameter.h>
 
-#include <linalg/init.h>
+#include <raft/linalg/init.cuh>
 
 #include "smo_sets.cuh"
 #include "ws_util.cuh"
 #include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
-#include <raft/linalg/add.hpp>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/permutation_iterator.h>
 
+#include <thrust/copy.h>
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/iterator/permutation_iterator.h>
 
 #include <cub/cub.cuh>
@@ -460,8 +462,8 @@ class WorkingSet {
 
   void Initialize()
   {
-    MLCommon::LinAlg::range(f_idx.data(), n_train, stream);
-    MLCommon::LinAlg::range(idx.data(), n_ws, stream);
+    raft::linalg::range(f_idx.data(), n_train, stream);
+    raft::linalg::range(idx.data(), n_ws, stream);
   }
 
   /**

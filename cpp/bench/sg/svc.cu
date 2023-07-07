@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,16 @@
  * limitations under the License.
  */
 
+#if defined RAFT_COMPILED
+#include <raft/distance/specializations.cuh>
+#endif
+
 #include "benchmark.cuh"
 #include <cmath>
-#include <cuml/matrix/kernelparams.h>
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
+#include <raft/distance/kernels.cuh>
 #include <sstream>
 #include <utility>
 
@@ -31,7 +35,7 @@ template <typename D>
 struct SvcParams {
   DatasetParams data;
   BlobsParams blobs;
-  MLCommon::Matrix::KernelParams kernel;
+  raft::distance::kernels::KernelParams kernel;
   ML::SVM::SvmParameter svm_param;
   ML::SVM::SvmModel<D> model;
 };
@@ -74,7 +78,7 @@ class SVC : public BlobsFixture<D, D> {
   }
 
  private:
-  MLCommon::Matrix::KernelParams kernel;
+  raft::distance::kernels::KernelParams kernel;
   ML::SVM::SvmParameter svm_param;
   ML::SVM::SvmModel<D> model;
 };
@@ -102,11 +106,11 @@ std::vector<SvcParams<D>> getInputs()
 
   std::vector<Triplets> rowcols = {{50000, 2, 2}, {2048, 100000, 2}, {50000, 1000, 2}};
 
-  std::vector<MLCommon::Matrix::KernelParams> kernels{
-    MLCommon::Matrix::KernelParams{MLCommon::Matrix::LINEAR, 3, 1, 0},
-    MLCommon::Matrix::KernelParams{MLCommon::Matrix::POLYNOMIAL, 3, 1, 0},
-    MLCommon::Matrix::KernelParams{MLCommon::Matrix::RBF, 3, 1, 0},
-    MLCommon::Matrix::KernelParams{MLCommon::Matrix::TANH, 3, 0.1, 0}};
+  std::vector<raft::distance::kernels::KernelParams> kernels{
+    raft::distance::kernels::KernelParams{raft::distance::kernels::LINEAR, 3, 1, 0},
+    raft::distance::kernels::KernelParams{raft::distance::kernels::POLYNOMIAL, 3, 1, 0},
+    raft::distance::kernels::KernelParams{raft::distance::kernels::RBF, 3, 1, 0},
+    raft::distance::kernels::KernelParams{raft::distance::kernels::TANH, 3, 0.1, 0}};
 
   for (auto& rc : rowcols) {
     p.data.nrows    = rc.nrows;

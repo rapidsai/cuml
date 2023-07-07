@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 
 import pytest
 
@@ -29,14 +29,18 @@ def client(cluster):
 
 @pytest.fixture(scope="module")
 def ucx_cluster():
-    initialize.initialize(create_cuda_context=True,
-                          enable_tcp_over_ucx=enable_tcp_over_ucx,
-                          enable_nvlink=enable_nvlink,
-                          enable_infiniband=enable_infiniband)
-    cluster = LocalCUDACluster(protocol="ucx",
-                               enable_tcp_over_ucx=enable_tcp_over_ucx,
-                               enable_nvlink=enable_nvlink,
-                               enable_infiniband=enable_infiniband)
+    initialize.initialize(
+        create_cuda_context=True,
+        enable_tcp_over_ucx=enable_tcp_over_ucx,
+        enable_nvlink=enable_nvlink,
+        enable_infiniband=enable_infiniband,
+    )
+    cluster = LocalCUDACluster(
+        protocol="ucx",
+        enable_tcp_over_ucx=enable_tcp_over_ucx,
+        enable_nvlink=enable_nvlink,
+        enable_infiniband=enable_infiniband,
+    )
     yield cluster
     cluster.close()
 

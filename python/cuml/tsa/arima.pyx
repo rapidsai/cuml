@@ -16,7 +16,8 @@
 
 # distutils: language = c++
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import sys
 import nvtx
 
@@ -27,16 +28,18 @@ from libcpp.vector cimport vector
 from typing import List, Tuple, Dict, Mapping, Optional, Union
 
 import cuml.internals
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
-from raft.common.handle cimport handle_t
+from cuml.internals.base import Base
+from pylibraft.common.handle cimport handle_t
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 from cuml.common import has_scipy
-from cuml.common.input_utils import input_to_cuml_array
-from cuml.common.input_utils import input_to_host_array
+from cuml.internals.input_utils import determine_array_dtype
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_host_array
 from cuml.internals import _deprecate_pos_args
+import warnings
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
@@ -152,7 +155,7 @@ cdef class ARIMAParamsWrapper:
 
 
 class ARIMA(Base):
-    r"""
+    """
     Implements a batched ARIMA model for in- and out-of-sample
     time-series prediction, with support for seasonality (SARIMA)
 
@@ -204,11 +207,15 @@ class ARIMA(Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
+    convert_dtype : boolean
+        When set to True, the model will automatically convert the inputs to
+        np.float64.
 
     Attributes
     ----------
@@ -230,7 +237,8 @@ class ARIMA(Base):
     -----
     *Performance:* Let :math:`r=max(p+s*P, q+s*Q+1)`. The device memory used
     for most operations is
-    :math:`O(\mathtt{batch\_size}*\mathtt{n\_obs} + \mathtt{batch\_size}*r^2)`.
+    :math:\
+    `O(\\mathtt{batch\\_size}*\\mathtt{n\\_obs} + \\mathtt{batch\\_size}*r^2)`.
     The execution time is a linear function of `n_obs` and `batch_size`
     (if `batch_size` is large), but grows very fast with `r`.
 
@@ -311,7 +319,8 @@ class ARIMA(Base):
                  simple_differencing=True,
                  handle=None,
                  verbose=False,
-                 output_type=None):
+                 output_type=None,
+                 convert_dtype=True):
 
         if not has_scipy():
             raise RuntimeError("Scipy is needed to run cuML's ARIMA estimator."
@@ -346,7 +355,9 @@ class ARIMA(Base):
 
         # Endogenous variable. Float64 only for now.
         self.d_y, self.n_obs, self.batch_size, self.dtype \
-            = input_to_cuml_array(endog, check_dtype=np.float64)
+            = input_to_cuml_array(
+                endog, check_dtype=np.float64,
+                convert_to_dtype=(np.float64 if convert_dtype else None))
 
         if self.n_obs < d + s * D + 1:
             raise ValueError("ERROR: Number of observations too small for the"
@@ -516,7 +527,7 @@ class ARIMA(Base):
         return (order.p + order.P + order.q + order.Q + order.k + order.n_exog
                 + 1)
 
-    @cuml.internals.api_base_return_autoarray(input_arg=None)
+    @cuml.internals.api_base_return_generic(input_arg=None)
     def get_fit_params(self) -> Dict[str, CumlArray]:
         """Get all the fit parameters. Not to be confused with get_params
         Note: pack() can be used to get a compact vector of the parameters
@@ -565,32 +576,32 @@ class ARIMA(Base):
 
     def get_param_names(self):
         """
-        .. warning:: ARIMA is unable to be cloned at this time. The methods:
-            `get_param_names()`, `get_params` and `set_params` will raise
-            ``NotImplementedError``
+        .. warning:: ARIMA is unable to be cloned at this time.
+            The methods: `get_param_names()`, `get_params` and
+            `set_params` will raise ``NotImplementedError``
         """
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
     def get_params(self, deep=True):
         """
-        .. warning:: ARIMA is unable to be cloned at this time. The methods:
-            `get_param_names()`, `get_params` and `set_params` will raise
-            ``NotImplementedError``
+        .. warning:: ARIMA is unable to be cloned at this time.
+            The methods: `get_param_names()`, `get_params` and
+            `set_params` will raise ``NotImplementedError``
         """
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
     def set_params(self, **params):
         """
-        .. warning:: ARIMA is unable to be cloned at this time. The methods:
-            `get_param_names()`, `get_params` and `set_params` will raise
-            ``NotImplementedError``
+        .. warning:: ARIMA is unable to be cloned at this time.
+            The methods: `get_param_names()`, `get_params` and
+            `set_params` will raise ``NotImplementedError``
         """
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
-    @cuml.internals.api_base_return_autoarray(input_arg=None)
+    @cuml.internals.api_base_return_generic(input_arg=None)
     def predict(
         self,
         start=0,
@@ -857,7 +868,7 @@ class ARIMA(Base):
         h : float (default=1e-8)
             Finite-differencing step size. The gradient is computed using
             forward finite differencing:
-            :math:`g = \frac{f(x + \mathtt{h}) - f(x)}{\mathtt{h}} + O(\mathtt{h})` # noqa
+            :math:`g = \frac{f(x + \mathtt{h}) - f(x)}{\mathtt{h}} + O(\mathtt{h})`
 
         maxiter : int (default=1000)
             Maximum number of iterations of L-BFGS-B
@@ -869,7 +880,7 @@ class ARIMA(Base):
         truncate : int (default=0)
             When using CSS, start the sum of squares after a given number of
             observations
-        """
+        """  # noqa
         def fit_helper(x_in, fit_method):
             cdef uintptr_t d_y_ptr = self.d_y.ptr
 

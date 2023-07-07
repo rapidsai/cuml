@@ -14,18 +14,20 @@
 # limitations under the License.
 #
 import ctypes
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 import math
 import warnings
 import typing
 from inspect import signature
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 from cuml import ForestInference
 from cuml.fil.fil import TreeliteModel
-from raft.common.handle import Handle
-from cuml.common.base import Base
-from cuml.common.array import CumlArray
+from pylibraft.common.handle import Handle
+from cuml.internals.base import Base
+from cuml.internals.array import CumlArray
 from cuml.common.exceptions import NotFittedError
 import cuml.internals
 
@@ -36,6 +38,7 @@ from cuml.ensemble.randomforest_shared import treelite_serialize, \
 from cuml.ensemble.randomforest_shared cimport *
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.prims.label.classlabels import make_monotonic, check_labels
 
 
 class BaseRandomForestModel(Base):
@@ -283,11 +286,10 @@ class BaseRandomForestModel(Base):
                                 " `int32`")
             self.classes_ = cp.unique(y_m)
             self.num_classes = len(self.classes_)
-            for i in range(self.num_classes):
-                if i not in self.classes_:
-                    raise ValueError("The labels need "
-                                     "to be consecutive values from "
-                                     "0 to the number of unique label values")
+            self.use_monotonic = not check_labels(
+                y_m, cp.arange(self.num_classes, dtype=np.int32))
+            if self.use_monotonic:
+                y_m, _ = make_monotonic(y_m)
 
         else:
             y_m, _, _, y_dtype = \

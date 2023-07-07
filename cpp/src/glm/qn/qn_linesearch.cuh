@@ -23,6 +23,7 @@
 
 namespace ML {
 namespace GLM {
+namespace detail {
 
 template <typename T>
 struct LSProjectedStep {
@@ -205,6 +206,6 @@ LINE_SEARCH_RETCODE ls_backtrack_projected(const LBFGSParam<T>& param,
   }
   return LS_MAX_ITERS_REACHED;
 }
-
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML

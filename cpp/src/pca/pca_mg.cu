@@ -26,12 +26,13 @@
 #include <cumlprims/opg/stats/mean.hpp>
 #include <cumlprims/opg/stats/mean_center.hpp>
 
-#include <raft/comms/comms.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.hpp>
-#include <raft/matrix/math.hpp>
-#include <raft/stats/mean_center.hpp>
+#include <raft/core/comms.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/linalg/transpose.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/stats/mean_center.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <cstddef>
 

@@ -104,16 +104,10 @@ struct manifold_sparse_inputs_t : public manifold_inputs_t<T> {
  * @tparam value_t
  */
 template <typename value_idx, typename value_t>
-struct manifold_precomputed_knn_inputs_t : public manifold_dense_inputs_t<value_t> {
-  manifold_precomputed_knn_inputs_t<value_idx, value_t>(value_idx* knn_indices_,
-                                                        value_t* knn_dists_,
-                                                        value_t* X_,
-                                                        value_t* y_,
-                                                        int n_,
-                                                        int d_,
-                                                        int n_neighbors_)
-    : manifold_dense_inputs_t<value_t>(X_, y_, n_, d_),
-      knn_graph(n_, n_neighbors_, knn_indices_, knn_dists_)
+struct manifold_precomputed_knn_inputs_t : public manifold_inputs_t<value_t> {
+  manifold_precomputed_knn_inputs_t<value_idx, value_t>(
+    value_idx* knn_indices_, value_t* knn_dists_, value_t* y_, int n_, int d_, int n_neighbors_)
+    : manifold_inputs_t<value_t>(y_, n_, d_), knn_graph(n_, n_neighbors_, knn_indices_, knn_dists_)
   {
   }
 

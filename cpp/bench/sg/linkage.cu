@@ -17,7 +17,7 @@
 #include "benchmark.cuh"
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/common/logger.hpp>
-#include <raft/distance/distance_type.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/sparse/hierarchy/common.h>
 #include <utility>
 
@@ -73,7 +73,7 @@ class Linkage : public BlobsFixture<D> {
  private:
   int* labels;
   int* out_children;
-  raft::hierarchy::linkage_output<int, D> out_arrs;
+  raft::hierarchy::linkage_output<int> out_arrs;
 };
 
 std::vector<Params> getInputs()

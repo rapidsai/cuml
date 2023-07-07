@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,27 +17,31 @@
 # distutils: language = c++
 
 import copy
-import cudf
 import ctypes
 import math
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import warnings
-import pandas as pd
+pd = cpu_only_import('pandas')
 from inspect import getdoc
 
-import rmm
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 import cuml.internals
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
-from raft.common.handle cimport handle_t
-from cuml.common import input_to_cuml_array, logger
-from cuml.common.mixins import CMajorInputTagMixin
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+from pylibraft.common.handle cimport handle_t
+from cuml.common import input_to_cuml_array
+from cuml.internals import logger
+from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.doc_utils import _parameters_docstrings
+from rmm._lib.memory_resource cimport DeviceMemoryResource
+from rmm._lib.memory_resource cimport get_current_device_resource
 
 import treelite
 import treelite.sklearn as tl_skl
@@ -46,18 +50,23 @@ cimport cuml.common.cuda
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
-    cdef int TreeliteLoadXGBoostModel(const char* filename,
-                                      ModelHandle* out) except +
-    cdef int TreeliteLoadXGBoostJSON(const char* filename,
-                                     ModelHandle* out) except +
+    cdef int TreeliteLoadXGBoostModelEx(const char* filename,
+                                        const char* config_json,
+                                        ModelHandle* out) except +
+    cdef int TreeliteLoadXGBoostJSONEx(const char* filename,
+                                       const char* config_json,
+                                       ModelHandle* out) except +
     cdef int TreeliteFreeModel(ModelHandle handle) except +
     cdef int TreeliteQueryNumTree(ModelHandle handle, size_t* out) except +
     cdef int TreeliteQueryNumFeature(ModelHandle handle, size_t* out) except +
     cdef int TreeliteQueryNumClass(ModelHandle handle, size_t* out) except +
-    cdef int TreeliteLoadLightGBMModel(const char* filename,
-                                       ModelHandle* out) except +
+    cdef int TreeliteLoadLightGBMModelEx(const char* filename,
+                                         const char* config_json,
+                                         ModelHandle* out) except +
     cdef int TreeliteSerializeModel(const char* filename,
                                     ModelHandle handle) except +
+    cdef int TreeliteDeserializeModel(const char* filename,
+                                      ModelHandle handle) except +
     cdef const char* TreeliteGetLastError()
 
 
@@ -75,8 +84,8 @@ cdef class TreeliteModel():
     handle : ModelHandle
         Opaque pointer to Treelite model
     """
-    cpdef ModelHandle handle
-    cpdef bool owns_handle
+    cdef ModelHandle handle
+    cdef bool owns_handle
 
     def __cinit__(self, owns_handle=True):
         """If owns_handle is True, free the handle's model in destructor.
@@ -112,13 +121,13 @@ cdef class TreeliteModel():
         TreeliteQueryNumFeature(self.handle, &out)
         return out
 
-    @staticmethod
-    def free_treelite_model(model_handle):
+    @classmethod
+    def free_treelite_model(cls, model_handle):
         cdef uintptr_t model_ptr = <uintptr_t>model_handle
         TreeliteFreeModel(<ModelHandle> model_ptr)
 
-    @staticmethod
-    def from_filename(filename, model_type="xgboost"):
+    @classmethod
+    def from_filename(cls, filename, model_type="xgboost"):
         """
         Returns a TreeliteModel object loaded from `filename`
 
@@ -131,14 +140,15 @@ cdef class TreeliteModel():
             Type of model: 'xgboost', 'xgboost_json', or 'lightgbm'
         """
         filename_bytes = filename.encode("UTF-8")
+        config_bytes = "{}".encode("UTF-8")
         cdef ModelHandle handle
         if model_type == "xgboost":
-            res = TreeliteLoadXGBoostModel(filename_bytes, &handle)
+            res = TreeliteLoadXGBoostModelEx(filename_bytes, config_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "xgboost_json":
-            res = TreeliteLoadXGBoostJSON(filename_bytes, &handle)
+            res = TreeliteLoadXGBoostJSONEx(filename_bytes, config_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
@@ -146,7 +156,7 @@ cdef class TreeliteModel():
             logger.warn("Treelite currently does not support float64 model"
                         " parameters. Accuracy may degrade slightly relative"
                         " to native LightGBM invocation.")
-            res = TreeliteLoadLightGBMModel(filename_bytes, &handle)
+            res = TreeliteLoadLightGBMModelEx(filename_bytes, config_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
@@ -169,8 +179,9 @@ cdef class TreeliteModel():
         filename_bytes = filename.encode("UTF-8")
         TreeliteSerializeModel(filename_bytes, self.handle)
 
-    @staticmethod
-    def from_treelite_model_handle(treelite_handle,
+    @classmethod
+    def from_treelite_model_handle(cls,
+                                   treelite_handle,
                                    take_handle_ownership=False):
         cdef ModelHandle handle = <ModelHandle> <size_t> treelite_handle
         model = TreeliteModel(owns_handle=take_handle_ownership)
@@ -198,6 +209,11 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         SPARSE,
         SPARSE8
 
+    cdef enum precision_t:
+        PRECISION_NATIVE,
+        PRECISION_FLOAT32,
+        PRECISION_FLOAT64
+
     cdef cppclass forest[real_t]:
         pass
 
@@ -220,7 +236,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         # limit number of CUDA blocks launched per GPU SM (or unlimited if 0)
         int blocks_per_sm
         # multiple (neighboring) threads infer on the same tree within a block
-        # this improves memory bandwith near tree root (but uses more shared
+        # this improves memory bandwidth near tree root (but uses more shared
         # memory)
         int threads_per_tree
         # n_items is how many input samples (items) any thread processes.
@@ -228,6 +244,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         int n_items
         # this affects inference performance and will become configurable soon
         char** pforest_shape_str
+        precision_t precision
 
     cdef void free[real_t](handle_t& handle,
                            forest[real_t]*)
@@ -251,6 +268,7 @@ cdef class ForestInference_impl():
     cdef size_t num_class
     cdef bool output_class
     cdef char* shape_str
+    cdef DeviceMemoryResource mr
 
     cdef forest32_t get_forest32(self):
         return get[forest32_t, forest32_t, forest64_t](self.forest_data)
@@ -263,6 +281,7 @@ cdef class ForestInference_impl():
         self.handle = handle
         self.forest_data = forest_variant(<forest32_t> NULL)
         self.shape_str = NULL
+        self.mr = get_current_device_resource()
 
     def get_shape_str(self):
         if self.shape_str:
@@ -305,6 +324,18 @@ cdef class ForestInference_impl():
         if storage_type_str == 'sparse8':
             logger.info('storage_type=="sparse8" is an experimental feature')
         return storage_type_dict[storage_type_str]
+
+    def get_precision(self, precision):
+        precision_dict = {'native': precision_t.PRECISION_NATIVE,
+                          'float32': precision_t.PRECISION_FLOAT32,
+                          'float64': precision_t.PRECISION_FLOAT64}
+        if precision not in precision_dict:
+            raise ValueError(
+                "The value entered for precision is not "
+                "supported. Please refer to the documentation at"
+                "(https://docs.rapids.ai/api/cuml/nightly/api.html#"
+                "forest-inferencing) to see the accepted values.")
+        return precision_dict[precision]
 
     def predict(self, X,
                 output_dtype=None,
@@ -433,6 +464,7 @@ cdef class ForestInference_impl():
             treelite_params.pforest_shape_str = &self.shape_str
         else:
             treelite_params.pforest_shape_str = NULL
+        treelite_params.precision = self.get_precision(kwargs['precision'])
 
         cdef handle_t* handle_ =\
             <handle_t*><size_t>self.handle.getHandle()
@@ -508,11 +540,12 @@ class ForestInference(Base,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
@@ -542,9 +575,9 @@ class ForestInference(Base,
         ...     np.asarray(fil_preds_gpu)) # doctest: +SKIP
 
     Notes
-    ------
+    -----
     For additional usage examples, see the sample notebook at
-    https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/forest_inference_demo.ipynb
+    https://github.com/rapidsai/cuml/blob/main/notebooks/forest_inference_demo.ipynb
 
     """
 
@@ -578,12 +611,12 @@ class ForestInference(Base,
            algo='AUTO'
 
     blocks_per_sm : integer (default=0)
-        (experimental) Indicates how the number of thread blocks to lauch
+        (experimental) Indicates how the number of thread blocks to launch
         for the inference kernel is determined.
 
         - ``0`` (default): Launches the number of blocks proportional to
           the number of data rows
-        - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
+        - ``>= 1``: Attempts to launch blocks_per_sm blocks per SM. This
           will fail if blocks_per_sm blocks result in more threads than the
           maximum supported number of threads per GPU. Even if successful,
           it is not guaranteed that blocks_per_sm blocks will run on an SM
@@ -592,6 +625,15 @@ class ForestInference(Base,
         if True or equivalent, creates a ForestInference.shape_str
         (writes a human-readable forest shape description as a
         multiline ascii string)
+    precision : string (default='native')
+        precision of weights and thresholds of the FIL model loaded from
+        the treelite model.
+
+        - ``'native'``: load in float64 if the treelite model contains float64
+          weights or thresholds, otherwise load in float32
+        - ``'float32'``: always load in float32, may lead to loss of precision
+          if the treelite model contains float64 weights or thresholds
+        - ``'float64'``: always load in float64
     """)
         return func
 
@@ -636,7 +678,7 @@ class ForestInference(Base,
             version.
 
         Returns
-        ----------
+        -------
         GPU array of length n_samples with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
@@ -665,7 +707,7 @@ class ForestInference(Base,
             version.
 
         Returns
-        ----------
+        -------
         GPU array of shape (n_samples,2) with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
@@ -681,7 +723,7 @@ class ForestInference(Base,
                                  threads_per_tree=1,
                                  n_items=0,
                                  compute_shape_str=False,
-                                 ):
+                                 precision='native'):
         """Creates a FIL model using the treelite model
         passed to the function.
 
@@ -693,7 +735,7 @@ class ForestInference(Base,
             https://treelite.readthedocs.io/en/latest/treelite-api.html
     {}
         Returns
-        ----------
+        -------
         fil_model
             A Forest Inference model which can be used to perform
             inferencing on the random forest/ XGBoost model.
@@ -709,8 +751,8 @@ class ForestInference(Base,
         self.shape_str = self._impl.get_shape_str()
         return self
 
-    @staticmethod
-    def load_from_sklearn(skl_model,
+    @classmethod
+    def load_from_sklearn(cls, skl_model,
                           output_class=False,
                           threshold=0.50,
                           algo='auto',
@@ -719,6 +761,7 @@ class ForestInference(Base,
                           threads_per_tree=1,
                           n_items=0,
                           compute_shape_str=False,
+                          precision='native',
                           handle=None):
         """
         Creates a FIL model using the scikit-learn model passed to the
@@ -756,12 +799,12 @@ class ForestInference(Base,
                algo='AUTO'
 
         blocks_per_sm : integer (default=0)
-            (experimental) Indicates how the number of thread blocks to lauch
+            (experimental) Indicates how the number of thread blocks to launch
             for the inference kernel is determined.
 
             - ``0`` (default): Launches the number of blocks proportional to
               the number of data rows
-            - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
+            - ``>= 1``: Attempts to launch blocks_per_sm blocks per SM. This
               will fail if blocks_per_sm blocks result in more threads than the
               maximum supported number of threads per GPU. Even if successful,
               it is not guaranteed that blocks_per_sm blocks will run on an SM
@@ -770,26 +813,46 @@ class ForestInference(Base,
             if True or equivalent, creates a ForestInference.shape_str
             (writes a human-readable forest shape description as a
             multiline ascii string)
+        precision : string (default='native')
+            precision of weights and thresholds of the FIL model loaded from
+            the treelite model.
+
+            - ``'native'``: load in float64 if the treelite model contains
+              float64 weights or thresholds, otherwise load in float32
+            - ``'float32'``: always load in float32, may lead to loss of
+              precision if the treelite model contains float64 weights or
+              thresholds
+            - ``'float64'``: always load in float64
 
         Returns
-        ----------
+        -------
         fil_model
             A Forest Inference model created from the scikit-learn
             model passed.
 
         """
-        kwargs = locals()
-        [kwargs.pop(key) for key in ['skl_model', 'handle']]
         cuml_fm = ForestInference(handle=handle)
         logger.warn("Treelite currently does not support float64 model"
                     " parameters. Accuracy may degrade slightly relative to"
                     " native sklearn invocation.")
         tl_model = tl_skl.import_model(skl_model)
-        cuml_fm.load_from_treelite_model(model=tl_model, **kwargs)
+        cuml_fm.load_from_treelite_model(
+            model=tl_model,
+            output_class=output_class,
+            threshold=threshold,
+            algo=algo,
+            storage_type=storage_type,
+            blocks_per_sm=blocks_per_sm,
+            threads_per_tree=threads_per_tree,
+            n_items=n_items,
+            compute_shape_str=compute_shape_str,
+            precision=precision
+        )
         return cuml_fm
 
-    @staticmethod
-    def load(filename,
+    @classmethod
+    def load(cls,
+             filename,
              output_class=False,
              threshold=0.50,
              algo='auto',
@@ -798,6 +861,7 @@ class ForestInference(Base,
              threads_per_tree=1,
              n_items=0,
              compute_shape_str=False,
+             precision='native',
              model_type="xgboost",
              handle=None):
         """
@@ -838,12 +902,12 @@ class ForestInference(Base,
                algo='AUTO'
 
         blocks_per_sm : integer (default=0)
-            (experimental) Indicates how the number of thread blocks to lauch
+            (experimental) Indicates how the number of thread blocks to launch
             for the inference kernel is determined.
 
             - ``0`` (default): Launches the number of blocks proportional to
               the number of data rows
-            - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
+            - ``>= 1``: Attempts to launch blocks_per_sm blocks per SM. This
               will fail if blocks_per_sm blocks result in more threads than the
               maximum supported number of threads per GPU. Even if successful,
               it is not guaranteed that blocks_per_sm blocks will run on an SM
@@ -852,22 +916,42 @@ class ForestInference(Base,
             if True or equivalent, creates a ForestInference.shape_str
             (writes a human-readable forest shape description as a
             multiline ascii string)
+        precision : string (default='native')
+            precision of weights and thresholds of the FIL model loaded from
+            the treelite model.
+
+            - ``'native'``: load in float64 if the treelite model contains
+              float64 weights or thresholds, otherwise load in float32
+            - ``'float32'``: always load in float32, may lead to loss of
+              precision if the treelite model contains float64 weights or
+              thresholds
+            - ``'float64'``: always load in float64
+
         model_type : string (default="xgboost")
             Format of the saved treelite model to be load.
             It can be 'xgboost', 'xgboost_json', 'lightgbm'.
 
         Returns
-        ----------
+        -------
         fil_model
             A Forest Inference model which can be used to perform
             inferencing on the model read from the file.
 
         """
-        kwargs = locals()
-        [kwargs.pop(key) for key in ['filename', 'handle', 'model_type']]
         cuml_fm = ForestInference(handle=handle)
         tl_model = TreeliteModel.from_filename(filename, model_type=model_type)
-        cuml_fm.load_from_treelite_model(model=tl_model, **kwargs)
+        cuml_fm.load_from_treelite_model(
+            model=tl_model,
+            output_class=output_class,
+            threshold=threshold,
+            algo=algo,
+            storage_type=storage_type,
+            blocks_per_sm=blocks_per_sm,
+            threads_per_tree=threads_per_tree,
+            n_items=n_items,
+            compute_shape_str=compute_shape_str,
+            precision=precision
+        )
         return cuml_fm
 
     @common_load_params_docstring
@@ -881,6 +965,7 @@ class ForestInference(Base,
                                    threads_per_tree=1,
                                    n_items=0,
                                    compute_shape_str=False,
+                                   precision='native'
                                    ):
         """
         Returns a FIL instance by converting a treelite model to
@@ -894,7 +979,7 @@ class ForestInference(Base,
     {}
 
         Returns
-        ----------
+        -------
         fil_model
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.

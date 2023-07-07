@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,11 +28,17 @@
 #include <cmath>
 #include <common/device_utils.cuh>
 #include <cufft_utils.h>
-#include <linalg/init.h>
-#include <raft/linalg/eltwise.hpp>
-#include <raft/stats/sum.hpp>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/init.cuh>
+#include <raft/stats/sum.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include <thrust/device_ptr.h>
+#include <thrust/fill.h>
+#include <thrust/functional.h>
+#include <thrust/reduce.h>
+#include <thrust/transform.h>
 
 namespace ML {
 namespace TSNE {
@@ -163,7 +169,7 @@ value_t FFT_TSNE(value_t* VAL,
   auto stream        = handle.get_stream();
   auto thrust_policy = handle.get_thrust_policy();
 
-  // Get device properites
+  // Get device properties
   //---------------------------------------------------
   const int mp_count          = raft::getMultiProcessorCount();
   const int dev_major_version = MLCommon::getDeviceCapability().first;
@@ -202,60 +208,60 @@ value_t FFT_TSNE(value_t* VAL,
 #define DB(type, name, size) rmm::device_uvector<type> name(size, stream)
 
   DB(value_t, repulsive_forces_device, n * 2);
-  MLCommon::LinAlg::zero(repulsive_forces_device.data(), repulsive_forces_device.size(), stream);
+  raft::linalg::zero(repulsive_forces_device.data(), repulsive_forces_device.size(), stream);
   DB(value_t, attractive_forces_device, n * 2);
-  MLCommon::LinAlg::zero(attractive_forces_device.data(), attractive_forces_device.size(), stream);
+  raft::linalg::zero(attractive_forces_device.data(), attractive_forces_device.size(), stream);
   DB(value_t, gains_device, n * 2);
   auto gains_device_thrust = thrust::device_pointer_cast(gains_device.data());
   thrust::fill(thrust_policy, gains_device_thrust, gains_device_thrust + (n * 2), 1.0f);
   DB(value_t, old_forces_device, n * 2);
-  MLCommon::LinAlg::zero(old_forces_device.data(), old_forces_device.size(), stream);
+  raft::linalg::zero(old_forces_device.data(), old_forces_device.size(), stream);
   DB(value_t, normalization_vec_device, n);
-  MLCommon::LinAlg::zero(normalization_vec_device.data(), normalization_vec_device.size(), stream);
+  raft::linalg::zero(normalization_vec_device.data(), normalization_vec_device.size(), stream);
   DB(value_idx, point_box_idx_device, n);
   DB(value_t, x_in_box_device, n);
-  MLCommon::LinAlg::zero(x_in_box_device.data(), x_in_box_device.size(), stream);
+  raft::linalg::zero(x_in_box_device.data(), x_in_box_device.size(), stream);
   DB(value_t, y_in_box_device, n);
-  MLCommon::LinAlg::zero(y_in_box_device.data(), y_in_box_device.size(), stream);
+  raft::linalg::zero(y_in_box_device.data(), y_in_box_device.size(), stream);
   DB(value_t, y_tilde_values, total_interpolation_points * n_terms);
-  MLCommon::LinAlg::zero(y_tilde_values.data(), y_tilde_values.size(), stream);
+  raft::linalg::zero(y_tilde_values.data(), y_tilde_values.size(), stream);
   DB(value_t, x_interpolated_values_device, n * n_interpolation_points);
-  MLCommon::LinAlg::zero(
+  raft::linalg::zero(
     x_interpolated_values_device.data(), x_interpolated_values_device.size(), stream);
   DB(value_t, y_interpolated_values_device, n * n_interpolation_points);
-  MLCommon::LinAlg::zero(
+  raft::linalg::zero(
     y_interpolated_values_device.data(), y_interpolated_values_device.size(), stream);
   DB(value_t, potentialsQij_device, n * n_terms);
-  MLCommon::LinAlg::zero(potentialsQij_device.data(), potentialsQij_device.size(), stream);
+  raft::linalg::zero(potentialsQij_device.data(), potentialsQij_device.size(), stream);
   DB(value_t, w_coefficients_device, total_interpolation_points * n_terms);
-  MLCommon::LinAlg::zero(w_coefficients_device.data(), w_coefficients_device.size(), stream);
+  raft::linalg::zero(w_coefficients_device.data(), w_coefficients_device.size(), stream);
   DB(value_t,
      all_interpolated_values_device,
      n_terms * n_interpolation_points * n_interpolation_points * n);
-  MLCommon::LinAlg::zero(
+  raft::linalg::zero(
     all_interpolated_values_device.data(), all_interpolated_values_device.size(), stream);
   DB(value_t, output_values, n_terms * n_interpolation_points * n_interpolation_points * n);
-  MLCommon::LinAlg::zero(output_values.data(), output_values.size(), stream);
+  raft::linalg::zero(output_values.data(), output_values.size(), stream);
   DB(value_t,
      all_interpolated_indices,
      n_terms * n_interpolation_points * n_interpolation_points * n);
-  MLCommon::LinAlg::zero(all_interpolated_indices.data(), all_interpolated_indices.size(), stream);
+  raft::linalg::zero(all_interpolated_indices.data(), all_interpolated_indices.size(), stream);
   DB(value_t, output_indices, n_terms * n_interpolation_points * n_interpolation_points * n);
-  MLCommon::LinAlg::zero(output_indices.data(), output_indices.size(), stream);
+  raft::linalg::zero(output_indices.data(), output_indices.size(), stream);
   DB(value_t, chargesQij_device, n * n_terms);
-  MLCommon::LinAlg::zero(chargesQij_device.data(), chargesQij_device.size(), stream);
+  raft::linalg::zero(chargesQij_device.data(), chargesQij_device.size(), stream);
   DB(value_t, box_lower_bounds_device, 2 * n_total_boxes);
-  MLCommon::LinAlg::zero(box_lower_bounds_device.data(), box_lower_bounds_device.size(), stream);
+  raft::linalg::zero(box_lower_bounds_device.data(), box_lower_bounds_device.size(), stream);
   DB(value_t, kernel_tilde_device, n_fft_coeffs * n_fft_coeffs);
-  MLCommon::LinAlg::zero(kernel_tilde_device.data(), kernel_tilde_device.size(), stream);
+  raft::linalg::zero(kernel_tilde_device.data(), kernel_tilde_device.size(), stream);
   DB(cufftComplex,
      fft_kernel_tilde_device,
      2 * n_interpolation_points_1d * 2 * n_interpolation_points_1d);
   DB(value_t, fft_input, n_terms * n_fft_coeffs * n_fft_coeffs);
-  MLCommon::LinAlg::zero(fft_input.data(), fft_input.size(), stream);
+  raft::linalg::zero(fft_input.data(), fft_input.size(), stream);
   DB(cufftComplex, fft_w_coefficients, n_terms * n_fft_coeffs * (n_fft_coeffs / 2 + 1));
   DB(value_t, fft_output, n_terms * n_fft_coeffs * n_fft_coeffs);
-  MLCommon::LinAlg::zero(fft_output.data(), fft_output.size(), stream);
+  raft::linalg::zero(fft_output.data(), fft_output.size(), stream);
 
   value_t h = 1.0f / n_interpolation_points;
   value_t y_tilde_spacings[n_interpolation_points];
@@ -348,12 +354,11 @@ value_t FFT_TSNE(value_t* VAL,
       exaggeration  = params.late_exaggeration;
     }
 
-    MLCommon::LinAlg::zero(w_coefficients_device.data(), w_coefficients_device.size(), stream);
-    MLCommon::LinAlg::zero(potentialsQij_device.data(), potentialsQij_device.size(), stream);
+    raft::linalg::zero(w_coefficients_device.data(), w_coefficients_device.size(), stream);
+    raft::linalg::zero(potentialsQij_device.data(), potentialsQij_device.size(), stream);
     // IntegrationKernel zeroes this, but if this is removed
     // then FITSNE runs in an indefinite loop
-    MLCommon::LinAlg::zero(
-      attractive_forces_device.data(), attractive_forces_device.size(), stream);
+    raft::linalg::zero(attractive_forces_device.data(), attractive_forces_device.size(), stream);
 
     auto minmax_pair = min_max(Y, n * 2, stream);
     auto min_coord   = minmax_pair.first;
@@ -575,7 +580,7 @@ value_t FFT_TSNE(value_t* VAL,
                         attractive_forces_device.size();
 
     if (grad_norm <= params.min_grad_norm) {
-      CUML_LOG_DEBUG("Breaking early as `min_grad_norm` was satisifed, after %d iterations", iter);
+      CUML_LOG_DEBUG("Breaking early as `min_grad_norm` was satisfied, after %d iterations", iter);
       break;
     }
   }

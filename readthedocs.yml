@@ -1,9 +1,0 @@
-build:
-   image: latest
-
-python:
-   version: 3.6
-   setup_py_install: false
-
-conda:
-   file: conda/environments/builddocs_py36.yml

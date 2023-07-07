@@ -17,7 +17,7 @@
 
 #include <cuml/linear_model/qn.h>
 
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 namespace ML {
 namespace GLM {
@@ -40,8 +40,8 @@ namespace GLM {
  */
 void olsFit(const raft::handle_t& handle,
             float* input,
-            int n_rows,
-            int n_cols,
+            size_t n_rows,
+            size_t n_cols,
             float* labels,
             float* coef,
             float* intercept,
@@ -51,8 +51,8 @@ void olsFit(const raft::handle_t& handle,
             float* sample_weight = nullptr);
 void olsFit(const raft::handle_t& handle,
             double* input,
-            int n_rows,
-            int n_cols,
+            size_t n_rows,
+            size_t n_cols,
             double* labels,
             double* coef,
             double* intercept,
@@ -81,8 +81,8 @@ void olsFit(const raft::handle_t& handle,
  */
 void ridgeFit(const raft::handle_t& handle,
               float* input,
-              int n_rows,
-              int n_cols,
+              size_t n_rows,
+              size_t n_cols,
               float* labels,
               float* alpha,
               int n_alpha,
@@ -94,8 +94,8 @@ void ridgeFit(const raft::handle_t& handle,
               float* sample_weight = nullptr);
 void ridgeFit(const raft::handle_t& handle,
               double* input,
-              int n_rows,
-              int n_cols,
+              size_t n_rows,
+              size_t n_cols,
               double* labels,
               double* alpha,
               int n_alpha,
@@ -120,15 +120,15 @@ void ridgeFit(const raft::handle_t& handle,
  */
 void gemmPredict(const raft::handle_t& handle,
                  const float* input,
-                 int n_rows,
-                 int n_cols,
+                 size_t n_rows,
+                 size_t n_cols,
                  const float* coef,
                  float intercept,
                  float* preds);
 void gemmPredict(const raft::handle_t& handle,
                  const double* input,
-                 int n_rows,
-                 int n_cols,
+                 size_t n_rows,
+                 size_t n_cols,
                  const double* coef,
                  double intercept,
                  double* preds);
@@ -149,7 +149,9 @@ void gemmPredict(const raft::handle_t& handle,
  *                      overwritten by final result.
  * @param f             host pointer holding the final objective value
  * @param num_iters     host pointer holding the actual number of iterations taken
- * @param sample_weight
+ * @param sample_weight device pointer to sample weight vector of length n_rows (nullptr
+   for uniform weights)
+ * @param svr_eps       epsilon parameter for svr
  */
 template <typename T, typename I = int>
 void qnFit(const raft::handle_t& cuml_handle,
@@ -163,7 +165,8 @@ void qnFit(const raft::handle_t& cuml_handle,
            T* w0,
            T* f,
            int* num_iters,
-           T* sample_weight = nullptr);
+           T* sample_weight = nullptr,
+           T svr_eps        = 0);
 
 /**
  * @brief Fit a GLM using quasi newton methods.
@@ -183,7 +186,9 @@ void qnFit(const raft::handle_t& cuml_handle,
  *                      overwritten by final result.
  * @param f             host pointer holding the final objective value
  * @param num_iters     host pointer holding the actual number of iterations taken
- * @param sample_weight
+ * @param sample_weight device pointer to sample weight vector of length n_rows (nullptr
+   for uniform weights)
+ * @param svr_eps       epsilon parameter for svr
  */
 template <typename T, typename I = int>
 void qnFitSparse(const raft::handle_t& cuml_handle,
@@ -199,7 +204,8 @@ void qnFitSparse(const raft::handle_t& cuml_handle,
                  T* w0,
                  T* f,
                  int* num_iters,
-                 T* sample_weight = nullptr);
+                 T* sample_weight = nullptr,
+                 T svr_eps        = 0);
 
 /**
  * @brief Obtain the confidence scores of samples

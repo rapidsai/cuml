@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,12 @@
 #include <cuml/datasets/make_blobs.hpp>
 #include <fstream>
 #include <iostream>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
-#include <raft/linalg/transpose.hpp>
-#include <raft/linalg/unary_op.hpp>
-#include <raft/random/make_regression.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/linalg/transpose.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/random/make_regression.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -37,7 +37,7 @@ namespace Bench {
  * by every Benchmark's Params structure.
  */
 struct DatasetParams {
-  /** number of rows in the datset */
+  /** number of rows in the dataset */
   int nrows;
   /** number of cols in the dataset */
   int ncols;

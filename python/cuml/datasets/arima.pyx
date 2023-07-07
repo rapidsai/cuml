@@ -18,12 +18,13 @@
 
 import warnings
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
-from cuml.common.array import CumlArray as cumlArray
+from cuml.internals.array import CumlArray as cumlArray
 import cuml.internals
-from raft.common.handle cimport handle_t
-from raft.common.handle import Handle
+from pylibraft.common.handle cimport handle_t
+from pylibraft.common.handle import Handle
 from cuml.tsa.arima cimport ARIMAOrder
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -103,7 +104,7 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
         If it is None, a new one is created just for this function call
 
     Returns
-    --------
+    -------
     out: array-like, shape (n_obs, batch_size)
         Array of the requested type containing the generated dataset
     """

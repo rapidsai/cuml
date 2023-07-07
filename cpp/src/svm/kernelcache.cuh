@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,18 +17,20 @@
 #pragma once
 
 #include <cuml/svm/svm_parameter.h>
+#include <raft/core/handle.hpp>
+#include <raft/distance/kernels.cuh>
+#include <raft/linalg/init.cuh>
+#include <raft/util/cache.cuh>
+#include <raft/util/cache_util.cuh>
 
-#include <cache/cache.cuh>
-#include <cache/cache_util.cuh>
-#include <linalg/init.h>
-#include <matrix/grammatrix.cuh>
-
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/gemm.hpp>
-#include <raft/matrix/matrix.hpp>
+#include <raft/linalg/gemm.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include <cuml/common/logger.hpp>
 
 #include <cub/cub.cuh>
 
@@ -105,7 +107,7 @@ class KernelCache {
               int n_rows,
               int n_cols,
               int n_ws,
-              MLCommon::Matrix::GramMatrixBase<math_t>* kernel,
+              raft::distance::kernels::GramMatrixBase<math_t>* kernel,
               float cache_size = 200,
               SvmType svmType  = C_SVC)
     : cache(handle.get_stream(), n_rows, cache_size),
@@ -137,7 +139,7 @@ class KernelCache {
     x_ws.resize(x_ws_tile_size, handle.get_stream());
 
     // Default kernel_column_idx map for SVC
-    MLCommon::LinAlg::range(k_col_idx.data(), n_ws, stream);
+    raft::linalg::range(k_col_idx.data(), n_ws, stream);
 
     // Init cub buffers
     std::size_t bytes1{};
@@ -204,7 +206,7 @@ class KernelCache {
       int n_cached;
       cache.GetCacheIdxPartitioned(
         unique_idx.data(), n_unique, ws_cache_idx.data(), &n_cached, stream);
-      // collect allready cached values
+      // collect already cached values
       cache.GetVecs(ws_cache_idx.data(), n_cached, tile.data(), stream);
       int non_cached = n_unique - n_cached;
       if (non_cached > 0) {
@@ -325,13 +327,13 @@ class KernelCache {
 
   cublasHandle_t cublas_handle;
 
-  MLCommon::Matrix::GramMatrixBase<math_t>* kernel;
+  raft::distance::kernels::GramMatrixBase<math_t>* kernel;
 
   const raft::handle_t handle;
 
   const int TPB = 256;  //!< threads per block for kernels launched
 
-  MLCommon::Cache::Cache<math_t> cache;
+  raft::cache::Cache<math_t> cache;
 
   cudaStream_t stream;
   SvmType svmType;

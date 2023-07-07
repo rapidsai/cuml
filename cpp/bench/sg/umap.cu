@@ -17,7 +17,7 @@
 #include "benchmark.cuh"
 #include <cuml/manifold/umap.hpp>
 #include <cuml/manifold/umapparams.h>
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <utility>
 
 namespace ML {
@@ -163,8 +163,6 @@ class UmapTransform : public UmapBase {
                     this->data.X.data(),
                     this->params.nrows,
                     this->params.ncols,
-                    nullptr,
-                    nullptr,
                     this->data.X.data(),
                     this->params.nrows,
                     embeddings,

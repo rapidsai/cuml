@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ struct Pack {
   /**
    * @brief reset the output array before calling the actual kernel
    * @param stream cuda stream where to perform this operation
-   * @param vdlen lenght of the vertex degree array
+   * @param vdlen length of the vertex degree array
    */
   void resetArray(cudaStream_t stream, Index_ vdlen)
   {

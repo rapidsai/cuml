@@ -7,7 +7,7 @@ and we provide practitioners with the easy fit-predict-transform paradigm
 without ever having to program on a GPU.
 
 As data gets larger, algorithms running on a CPU becomes slow and cumbersome.
-RAPIDS provides users a streamlined approach where data is intially loaded
+RAPIDS provides users a streamlined approach where data is initially loaded
 in the GPU, and compute tasks can be performed on it directly.
 
 cuML is fully open source, and the RAPIDS team welcomes new and seasoned
@@ -21,12 +21,10 @@ Support for Windows is possible in the near future.
    :maxdepth: 2
    :caption: Contents:
 
-   api.rst
-
    cuml_intro.rst
+   api.rst
+   user_guide.rst
    cuml_blogs.rst
-   estimator_intro.ipynb
-   pickling_cuml_models.ipynb
 
 
 Indices and tables

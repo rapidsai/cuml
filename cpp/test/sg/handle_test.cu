@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <raft/core/handle.hpp>
 
 #include <cuml/cuml_api.h>
 

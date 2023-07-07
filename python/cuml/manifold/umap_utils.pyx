@@ -16,11 +16,14 @@
 
 # distutils: language = c++
 
-from raft.common.handle cimport handle_t
+from rmm._lib.memory_resource cimport get_current_device_resource
+from pylibraft.common.handle cimport handle_t
 from cuml.manifold.umap_utils cimport *
 from libcpp.utility cimport move
-import numpy as np
-import cupy as cp
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
 
 
 cdef class GraphHolder:
@@ -28,6 +31,7 @@ cdef class GraphHolder:
     cdef GraphHolder new_graph(cuda_stream_view stream):
         cdef GraphHolder graph = GraphHolder.__new__(GraphHolder)
         graph.c_graph.reset(new COO(stream))
+        graph.mr = get_current_device_resource()
         return graph
 
     @staticmethod
@@ -65,6 +69,7 @@ cdef class GraphHolder:
         copy_from_array(graph.rows(), coo_array.row.astype('int32'))
         copy_from_array(graph.cols(), coo_array.col.astype('int32'))
 
+        graph.mr = get_current_device_resource()
         return graph
 
     cdef inline COO* get(self):
@@ -113,7 +118,7 @@ def find_ab_params(spread, min_dist):
     def curve(x, a, b):
         return 1.0 / (1.0 + a * x ** (2 * b))
 
-    from cuml.common.import_utils import has_scipy
+    from cuml.internals.import_utils import has_scipy
     if has_scipy():
         from scipy.optimize import curve_fit
     else:

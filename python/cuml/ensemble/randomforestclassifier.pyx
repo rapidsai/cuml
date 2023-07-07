@@ -1,6 +1,6 @@
 
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,20 +16,22 @@
 #
 
 # distutils: language = c++
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import nvtx
-import rmm
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 import warnings
 
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 
 from cuml import ForestInference
-from cuml.common.array import CumlArray
-from cuml.common.mixins import ClassifierMixin
+from cuml.internals.array import CumlArray
+from cuml.internals.mixins import ClassifierMixin
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from raft.common.handle import Handle
+from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
@@ -45,9 +47,11 @@ from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
+from cuml.prims.label.classlabels import check_labels, invert_labels
 
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cimport cython
@@ -145,7 +149,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         Predicted labels :  [0. 1. 0. 1. 0. 1. 0. 1. 0. 1.]
 
     Parameters
-    -----------
+    ----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     split_criterion : int or string (default = ``0`` (``'gini'``))
@@ -204,8 +208,8 @@ class RandomForestClassifier(BaseRandomForestModel,
            and ``max(2, ceil(min_samples_split * n_rows))`` is the minimum
            number of samples for each split.
     min_impurity_decrease : float (default = 0.0)
-        Minimum decrease in impurity requried for
-        node to be spilt.
+        Minimum decrease in impurity required for
+        node to be split.
     max_batch_size : int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
@@ -221,11 +225,12 @@ class RandomForestClassifier(BaseRandomForestModel,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Notes
     -----
@@ -342,7 +347,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         Converts the cuML RF model to a Treelite model
 
         Returns
-        ----------
+        -------
         tl_to_fil_model : Treelite version of this model
         """
         treelite_handle = self._obtain_treelite_handle()
@@ -431,6 +436,8 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
+        # Track the labels to see if update is necessary
+        self.update_labels = not check_labels(y_m, self.classes_)
         cdef uintptr_t X_ptr, y_ptr
 
         X_ptr = X_m.ptr
@@ -596,7 +603,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                or algo='auto'
 
         Returns
-        ----------
+        -------
         y : {}
         """
         if predict_model == "CPU":
@@ -611,6 +618,9 @@ class RandomForestClassifier(BaseRandomForestModel,
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
 
+        if self.update_labels:
+            preds = preds.to_output().astype(self.classes_.dtype)
+            preds = invert_labels(preds, self.classes_)
         return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
@@ -619,7 +629,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                       convert_dtype=True,
                       fil_sparse_format='auto') -> CumlArray:
         """
-        Predicts class probabilites for X. This function uses the GPU
+        Predicts class probabilities for X. This function uses the GPU
         implementation of predict.
 
         Parameters

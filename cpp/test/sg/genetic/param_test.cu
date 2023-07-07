@@ -59,7 +59,7 @@ TEST(Genetic, p_reproduce)
 {
   param p;
   auto ret = p.p_reproduce();
-  ASSERT_TRUE(raft::match(p.p_reproduce(), 0.07f, raft::CompareApprox<float>(0.0001f)));
+  ASSERT_TRUE(MLCommon::match(p.p_reproduce(), 0.07f, MLCommon::CompareApprox<float>(0.0001f)));
 }
 
 }  // namespace genetic

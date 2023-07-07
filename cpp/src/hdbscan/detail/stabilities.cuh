@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,22 +21,26 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 
-#include <raft/sparse/convert/csr.hpp>
-#include <raft/sparse/op/sort.hpp>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/op/sort.cuh>
 
 #include <cuml/cluster/hdbscan.hpp>
 
-#include <raft/label/classlabels.hpp>
+#include <raft/label/classlabels.cuh>
 
 #include <algorithm>
 
 #include <thrust/execution_policy.h>
+#include <thrust/fill.h>
 #include <thrust/for_each.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
+#include <thrust/tuple.h>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -104,7 +108,7 @@ void compute_stabilities(const raft::handle_t& handle,
     stream,
     cub::DeviceSegmentedReduce::Min<const value_t*, value_t*, const value_idx*, const value_idx*>);
   // finally, we find minimum between initialized births where parent=child
-  // and births of parents for their childrens
+  // and births of parents for their children
   auto births_zip =
     thrust::make_zip_iterator(thrust::make_tuple(births.data(), births_parent_min.data()));
   auto min_op = [] __device__(const thrust::tuple<value_t, value_t>& birth_pair) {
@@ -157,7 +161,7 @@ void get_stability_scores(const raft::handle_t& handle,
   /**
    * 1. Populate cluster sizes
    */
-  rmm::device_uvector<value_idx> cluster_sizes(n_leaves, handle.get_stream());
+  rmm::device_uvector<value_idx> cluster_sizes(n_condensed_clusters, handle.get_stream());
   thrust::fill(exec_policy, cluster_sizes.data(), cluster_sizes.data() + cluster_sizes.size(), 0);
 
   value_idx* sizes = cluster_sizes.data();

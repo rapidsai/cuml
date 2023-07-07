@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,37 +18,42 @@
 import typing
 
 import ctypes
-import cudf
-import cupy as cp
-import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+cudf = gpu_only_import('cudf')
+from cuml.internals.safe_imports import gpu_only_import
+cp = gpu_only_import('cupy')
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from cuml.common.array import CumlArray
-from cuml.common.base import Base
-from cuml.common.mixins import ClassifierMixin
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.logger import warn
-from raft.common.handle cimport handle_t
-from raft.common.interruptible import cuda_interruptible
+from cuml.internals.logger import warn
+from pylibraft.common.handle cimport handle_t
+from pylibraft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
-from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.preprocessing import LabelEncoder
 from libcpp cimport bool, nullptr
 from cuml.svm.svm_base import SVMBase
-from cuml.common.import_utils import has_sklearn
-from cuml.common.mixins import FMajorInputTagMixin
+from cuml.internals.import_utils import has_sklearn
+from cuml.internals.mixins import FMajorInputTagMixin
 
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
     from sklearn.calibration import CalibratedClassifierCV
 
-cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
+cdef extern from "raft/distance/distance_types.hpp" \
+        namespace "raft::distance::kernels":
     enum KernelType:
         LINEAR,
         POLYNOMIAL,
@@ -69,7 +74,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         NU_SVR
 
     cdef struct SvmParameter:
-        # parameters for trainig
+        # parameters for training
         double C
         double cache_size
         int max_iter
@@ -152,7 +157,7 @@ class SVC(SVMBase,
         - 'scale': gamma will be se to ``1 / (n_features * X.var())``
 
     coef0 : float (default = 0.0)
-        Independent term in kernel function, only signifficant for poly and
+        Independent term in kernel function, only significant for poly and
         sigmoid
     tol : float (default = 1e-3)
         Tolerance for stopping criterion.
@@ -161,7 +166,7 @@ class SVC(SVMBase,
         the training time, at the cost of higher memory footprint. After
         training the kernel cache is deallocated.
         During prediction, we also need a temporary space to store kernel
-        matrix elements (this can be signifficant if n_support is large).
+        matrix elements (this can be significant if n_support is large).
         The cache_size variable sets an upper limit to the prediction
         buffer as well.
     class_weight : dict or string (default=None)
@@ -180,16 +185,17 @@ class SVC(SVMBase,
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
         for nochange_steps consecutive steps, then we stop training.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     probability: bool (default = False)
         Enable or disable probability estimates.
     random_state: int (default = None)
         Seed for random number generator (used only when probability = True).
-        Currently this argument is not used and a waring will be printed if the
+        Currently this argument is not used and a warning will be printed if the
         user provides it.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -417,8 +423,8 @@ class SVC(SVMBase,
 
         # Currently CalibratedClassifierCV expects data on the host, see
         # https://github.com/rapidsai/cuml/issues/2608
-        X, _, _, _, _ = input_to_host_array(X)
-        y, _, _, _, _ = input_to_host_array(y)
+        X = input_to_host_array(X).array
+        y = input_to_host_array(y).array
 
         if not has_sklearn():
             raise RuntimeError(
@@ -525,7 +531,7 @@ class SVC(SVMBase,
         if self.probability:
             self._check_is_fitted('prob_svc')
 
-            X, _, _, _, _ = input_to_host_array(X)
+            X = input_to_host_array(X).array
 
             with cuml.internals.exit_internal_api():
                 preds = self.prob_svc.predict(X)
@@ -559,7 +565,7 @@ class SVC(SVMBase,
         if self.probability:
             self._check_is_fitted('prob_svc')
 
-            X, _, _, _, _ = input_to_host_array(X)
+            X = input_to_host_array(X).array
 
             # Exit the internal API when calling sklearn code (forces numpy
             # conversion)
@@ -612,7 +618,7 @@ class SVC(SVMBase,
 
             with cuml.internals.exit_internal_api():
                 for clf in self.prob_svc.calibrated_classifiers_:
-                    df = df + clf.base_estimator.decision_function(X)
+                    df = df + clf.estimator.decision_function(X)
             df = df / len(self.prob_svc.calibrated_classifiers_)
             return df
         elif self.n_classes_ > 2:

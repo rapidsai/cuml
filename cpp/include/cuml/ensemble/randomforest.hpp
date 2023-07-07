@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ struct RF_params {
    * round(max_samples * n_samples) number of samples with replacement. More on
    * bootstrapping:
    *     https://en.wikipedia.org/wiki/Bootstrap_aggregating
-   * If boostrapping is set to false, whole dataset is used to build each
+   * If bootstrapping is set to false, whole dataset is used to build each
    * tree.
    */
   bool bootstrap;

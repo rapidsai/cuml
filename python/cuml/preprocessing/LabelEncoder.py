@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +14,16 @@
 # limitations under the License.
 #
 
-import cudf
-import cupy as cp
-import numpy as np
-from cuml import Base
-from pandas import Series as pdSeries
-
 from cuml.common.exceptions import NotFittedError
+from cuml.internals.safe_imports import cpu_only_import_from
+from cuml import Base
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import gpu_only_import
+
+cudf = gpu_only_import("cudf")
+cp = gpu_only_import("cupy")
+np = cpu_only_import("numpy")
+pdSeries = cpu_only_import_from("pandas", "Series")
 
 
 class LabelEncoder(Base):
@@ -44,86 +47,89 @@ class LabelEncoder(Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
 
     Converting a categorical implementation to a numerical one
-    .. code-block:: python
 
-        >>> from cudf import DataFrame, Series
-        >>> from cuml.preprocessing import LabelEncoder
-        >>> data = DataFrame({'category': ['a', 'b', 'c', 'd']})
+    >>> from cudf import DataFrame, Series
+    >>> from cuml.preprocessing import LabelEncoder
+    >>> data = DataFrame({'category': ['a', 'b', 'c', 'd']})
 
-        >>> # There are two functionally equivalent ways to do this
-        >>> le = LabelEncoder()
-        >>> le.fit(data.category)  # le = le.fit(data.category) also works
-        LabelEncoder()
-        >>> encoded = le.transform(data.category)
+    >>> # There are two functionally equivalent ways to do this
+    >>> le = LabelEncoder()
+    >>> le.fit(data.category)  # le = le.fit(data.category) also works
+    LabelEncoder()
+    >>> encoded = le.transform(data.category)
 
-        >>> print(encoded)
-        0    0
-        1    1
-        2    2
-        3    3
-        dtype: uint8
+    >>> print(encoded)
+    0    0
+    1    1
+    2    2
+    3    3
+    dtype: uint8
 
-        >>> # This method is preferred
-        >>> le = LabelEncoder()
-        >>> encoded = le.fit_transform(data.category)
+    >>> # This method is preferred
+    >>> le = LabelEncoder()
+    >>> encoded = le.fit_transform(data.category)
 
-        >>> print(encoded)
-        0    0
-        1    1
-        2    2
-        3    3
-        dtype: uint8
+    >>> print(encoded)
+    0    0
+    1    1
+    2    2
+    3    3
+    dtype: uint8
 
-        >>> # We can assign this to a new column
-        >>> data = data.assign(encoded=encoded)
-        >>> print(data.head())
-        category  encoded
-        0         a        0
-        1         b        1
-        2         c        2
-        3         d        3
+    >>> # We can assign this to a new column
+    >>> data = data.assign(encoded=encoded)
+    >>> print(data.head())
+    category  encoded
+    0         a        0
+    1         b        1
+    2         c        2
+    3         d        3
 
-        >>> # We can also encode more data
-        >>> test_data = Series(['c', 'a'])
-        >>> encoded = le.transform(test_data)
-        >>> print(encoded)
-        0    2
-        1    0
-        dtype: uint8
+    >>> # We can also encode more data
+    >>> test_data = Series(['c', 'a'])
+    >>> encoded = le.transform(test_data)
+    >>> print(encoded)
+    0    2
+    1    0
+    dtype: uint8
 
-        >>> # After train, ordinal label can be inverse_transform() back to
-        >>> # string labels
-        >>> ord_label = cudf.Series([0, 0, 1, 2, 1])
-        >>> str_label = le.inverse_transform(ord_label)
-        >>> print(str_label)
-        0    a
-        1    a
-        2    b
-        3    c
-        4    b
-        dtype: object
+    >>> # After train, ordinal label can be inverse_transform() back to
+    >>> # string labels
+    >>> ord_label = cudf.Series([0, 0, 1, 2, 1])
+    >>> str_label = le.inverse_transform(ord_label)
+    >>> print(str_label)
+    0    a
+    1    a
+    2    b
+    3    c
+    4    b
+    dtype: object
 
     """
 
-    def __init__(self, *,
-                 handle_unknown='error',
-                 handle=None,
-                 verbose=False,
-                 output_type=None):
+    def __init__(
+        self,
+        *,
+        handle_unknown="error",
+        handle=None,
+        verbose=False,
+        output_type=None,
+    ):
 
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
+        super().__init__(
+            handle=handle, verbose=verbose, output_type=output_type
+        )
 
         self.classes_ = None
         self.dtype = None
@@ -132,14 +138,18 @@ class LabelEncoder(Base):
 
     def _check_is_fitted(self):
         if not self._fitted:
-            msg = ("This LabelEncoder instance is not fitted yet. Call 'fit' "
-                   "with appropriate arguments before using this estimator.")
+            msg = (
+                "This LabelEncoder instance is not fitted yet. Call 'fit' "
+                "with appropriate arguments before using this estimator."
+            )
             raise NotFittedError(msg)
 
     def _validate_keywords(self):
-        if self.handle_unknown not in ('error', 'ignore'):
-            msg = ("handle_unknown should be either 'error' or 'ignore', "
-                   "got {0}.".format(self.handle_unknown))
+        if self.handle_unknown not in ("error", "ignore"):
+            msg = (
+                "handle_unknown should be either 'error' or 'ignore', "
+                "got {0}.".format(self.handle_unknown)
+            )
             raise ValueError(msg)
 
     def fit(self, y, _classes=None):
@@ -166,7 +176,7 @@ class LabelEncoder(Base):
 
         self._validate_keywords()
 
-        self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
+        self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
         if _classes is not None:
             self.classes_ = _classes
         else:
@@ -203,12 +213,12 @@ class LabelEncoder(Base):
 
         self._check_is_fitted()
 
-        y = y.astype('category')
+        y = y.astype("category")
 
         encoded = y.cat.set_categories(self.classes_)._column.codes
         encoded = cudf.Series(encoded, index=y.index)
 
-        if encoded.has_nulls and self.handle_unknown == 'error':
+        if encoded.has_nulls and self.handle_unknown == "error":
             raise KeyError("Attempted to encode unseen key")
 
         return encoded
@@ -222,9 +232,9 @@ class LabelEncoder(Base):
         """
 
         y = self._to_cudf_series(y)
-        self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
+        self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
 
-        y = y.astype('category')
+        y = y.astype("category")
         self.classes_ = y._column.categories
 
         self._fitted = True
@@ -253,11 +263,12 @@ class LabelEncoder(Base):
         # check if ord_label out of bound
         ord_label = y.unique()
         category_num = len(self.classes_)
-        if self.handle_unknown == 'error':
+        if self.handle_unknown == "error":
             for ordi in ord_label.values_host:
                 if ordi < 0 or ordi >= category_num:
                     raise ValueError(
-                        'y contains previously unseen label {}'.format(ordi))
+                        "y contains previously unseen label {}".format(ordi)
+                    )
 
         y = y.astype(self.dtype)
 
@@ -281,9 +292,11 @@ class LabelEncoder(Base):
         elif isinstance(y, np.ndarray):
             y = cudf.Series(y)
         elif not isinstance(y, cudf.Series):
-            msg = ("input should be either 'cupy.ndarray'"
-                   " or 'numpy.ndarray' or 'pandas.Series',"
-                   " or 'cudf.Series'"
-                   "got {0}.".format(type(y)))
+            msg = (
+                "input should be either 'cupy.ndarray'"
+                " or 'numpy.ndarray' or 'pandas.Series',"
+                " or 'cudf.Series'"
+                "got {0}.".format(type(y))
+            )
             raise TypeError(msg)
         return y

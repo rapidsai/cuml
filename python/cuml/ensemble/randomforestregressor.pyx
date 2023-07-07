@@ -16,21 +16,23 @@
 
 # distutils: language = c++
 
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import nvtx
-import rmm
+from cuml.internals.safe_imports import gpu_only_import
+rmm = gpu_only_import('rmm')
 import warnings
 
-import cuml.common.logger as logger
+import cuml.internals.logger as logger
 
 from cuml import ForestInference
-from cuml.common.array import CumlArray
+from cuml.internals.array import CumlArray
 import cuml.internals
 
-from cuml.common.mixins import RegressorMixin
+from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from raft.common.handle import Handle
+from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
@@ -46,9 +48,10 @@ from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 
-from raft.common.handle cimport handle_t
+from pylibraft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cimport cython
@@ -143,7 +146,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         MSE score of cuml :  0.9076250195503235
 
     Parameters
-    -----------
+    ----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     split_criterion : int or string (default = ``2`` (``'mse'``))
@@ -227,11 +230,12 @@ class RandomForestRegressor(BaseRandomForestModel,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Notes
     -----
@@ -239,9 +243,9 @@ class RandomForestRegressor(BaseRandomForestModel,
     This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
-      * GPU-based inference is only supported with 32-bit (float32) datatypes.
+      * GPU-based inference is only supported with 32-bit (float32) data-types.
         Alternatives are to use CPU-based inference for 64-bit (float64)
-        datatypes, or let the default automatic datatype conversion occur
+        data-types, or let the default automatic datatype conversion occur
         during GPU inference.
 
     For additional docs, see `scikitlearn's RandomForestRegressor
@@ -346,7 +350,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         Converts the cuML RF model to a Treelite model
 
         Returns
-        ----------
+        -------
         tl_to_fil_model : Treelite version of this model
         """
         treelite_handle = self._obtain_treelite_handle()
@@ -574,7 +578,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                or algo='auto'
 
         Returns
-        ----------
+        -------
         y : {}
 
         """
@@ -636,7 +640,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                or algo='auto'
 
         Returns
-        ----------
+        -------
         mean_square_error : float or
         median_abs_error : float or
         mean_abs_error : float

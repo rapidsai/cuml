@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 
 # cuml build script
 
@@ -47,7 +47,6 @@ HELP="$0 [<target> ...] [<flag> ...]
                        and profiling enabled (WARNING: Impacts performance)
    --ccache          - Use ccache to cache previous compilations
    --nocloneraft     - CMake will clone RAFT even if it is in the environment, use this flag to disable that behavior
-   --static-faiss    - Force CMake to use the FAISS static libs, cloning and building them if necessary
    --static-treelite - Force CMake to use the Treelite static libs, cloning and building them if necessary
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
@@ -74,11 +73,10 @@ CUML_EXTRA_PYTHON_ARGS=${CUML_EXTRA_PYTHON_ARGS:=""}
 NVTX=OFF
 CCACHE=OFF
 CLEAN=0
-BUILD_DISABLE_DEPRECATION_WARNING=ON
+BUILD_DISABLE_DEPRECATION_WARNINGS=ON
 BUILD_CUML_STD_COMMS=ON
 BUILD_CUML_TESTS=ON
 BUILD_CUML_MG_TESTS=OFF
-BUILD_STATIC_FAISS=OFF
 BUILD_STATIC_TREELITE=OFF
 CMAKE_LOG_LEVEL=WARNING
 
@@ -120,6 +118,9 @@ if hasArg clean; then
     CLEAN=1
 fi
 
+if hasArg cpp-mgtests; then
+    BUILD_CUML_MG_TESTS=ON
+fi
 
 # Long arguments
 LONG_ARGUMENT_LIST=(
@@ -182,7 +183,7 @@ while true; do
             NVTX=ON
             ;;
         --show_depr_warn )
-            BUILD_DISABLE_DEPRECATION_WARNING=OFF
+            BUILD_DISABLE_DEPRECATION_WARNINGS=OFF
             ;;
         --codecov )
             CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --linetrace=1 --profile"
@@ -195,9 +196,6 @@ while true; do
             ;;
         --nocloneraft )
             DISABLE_FORCE_CLONE_RAFT=ON
-            ;;
-        --static-faiss )
-            BUILD_STATIC_FAISS=ON
             ;;
         --static-treelite )
             BUILD_STATIC_TREELITE=ON
@@ -229,7 +227,6 @@ if (( ${CLEAN} == 1 )); then
     cd ${REPODIR}
 fi
 
-# Before
 
 ################################################################################
 # Configure for building all C++ targets
@@ -238,7 +235,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
         CUML_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
     else
-        CUML_CMAKE_CUDA_ARCHITECTURES="ALL"
+        CUML_CMAKE_CUDA_ARCHITECTURES="RAPIDS"
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
@@ -254,11 +251,10 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DBUILD_CUML_TESTS=${BUILD_CUML_TESTS} \
           -DBUILD_CUML_MPI_COMMS=${BUILD_CUML_MG_TESTS} \
           -DBUILD_CUML_MG_TESTS=${BUILD_CUML_MG_TESTS} \
-          -DCUML_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DCUML_USE_TREELITE_STATIC=${BUILD_STATIC_TREELITE} \
           -DNVTX=${NVTX} \
           -DUSE_CCACHE=${CCACHE} \
-          -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
+          -DDISABLE_DEPRECATION_WARNINGS=${BUILD_DISABLE_DEPRECATION_WARNINGS} \
           -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           ${CUML_EXTRA_CMAKE_ARGS} \
@@ -283,11 +279,16 @@ fi
 
 # Build and (optionally) install the cuml Python package
 if completeBuild || hasArg cuml || hasArg pydocs; then
+    # Append `-DFIND_CUML_CPP=ON` to CUML_EXTRA_CMAKE_ARGS unless a user specified the option.
+    if [[ "${CUML_EXTRA_CMAKE_ARGS}" != *"DFIND_CUML_CPP"* ]]; then
+        CUML_EXTRA_CMAKE_ARGS="${CUML_EXTRA_CMAKE_ARGS} -DFIND_CUML_CPP=ON"
+    fi
+
     cd ${REPODIR}/python
+
+    python setup.py build_ext --inplace -- -DCMAKE_LIBRARY_PATH=${LIBCUML_BUILD_DIR} -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${CUML_EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${CUML_EXTRA_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR} install --single-version-externally-managed --record=record.txt
-    else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${CUML_EXTRA_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR}
+        python setup.py install --single-version-externally-managed --record=record.txt  -- -DCMAKE_LIBRARY_PATH=${LIBCUML_BUILD_DIR} -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${CUML_EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
     fi
 
     if hasArg pydocs; then

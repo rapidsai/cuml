@@ -17,9 +17,9 @@
 #include "test_utils.h"
 #include <distance/distance.cuh>
 #include <gtest/gtest.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 namespace MLCommon {
 namespace Distance {
@@ -147,7 +147,7 @@ TEST_P(DistanceAdjTestF, Result)
 {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n, raft::Compare<bool>()));
+  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n, MLCommon::Compare<bool>()));
 }
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestF, ::testing::ValuesIn(inputsf));
 
@@ -166,7 +166,7 @@ TEST_P(DistanceAdjTestD, Result)
 {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n, raft::Compare<bool>()));
+  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n, MLCommon::Compare<bool>()));
 }
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestD, ::testing::ValuesIn(inputsd));
 

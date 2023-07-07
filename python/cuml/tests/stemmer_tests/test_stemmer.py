@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,16 @@
 # limitations under the License.
 #
 
-import cudf
-
-from cuml.preprocessing.text import stem as rapids_stem
 from nltk import stem as nltk_stem
+from cuml.preprocessing.text import stem as rapids_stem
+from cuml.internals.safe_imports import gpu_only_import
+
+cudf = gpu_only_import("cudf")
 
 
 def get_words():
     """
-        Returns list of words from nltk treebank
+    Returns list of words from nltk treebank
     """
     import nltk
 
@@ -32,7 +33,7 @@ def get_words():
     word_ls = []
     for item in treebank.fileids():
         for (word, tag) in treebank.tagged_words(item):
-            # assuming the words are allready lowered
+            # assuming the words are already lowered
             word = word.lower()
             word_ls.append(word)
 
@@ -50,5 +51,6 @@ def test_same_results():
     cuml_stemmer = rapids_stem.PorterStemmer()
     cuml_stemmed = cuml_stemmer.stem(word_ser)
 
-    assert all([a == b for a, b in
-           zip(nltk_stemmed, cuml_stemmed.to_pandas().values)])
+    assert all(
+        [a == b for a, b in zip(nltk_stemmed, cuml_stemmed.to_pandas().values)]
+    )

@@ -41,7 +41,8 @@ conda list --show-channel-urls
 
 # Build Doxygen docs
 gpuci_logger "Build Doxygen docs"
-"$PROJECT_WORKSPACE/build.sh" cppdocs -v
+cd "$PROJECT_WORKSPACE/cpp"
+doxygen Doxyfile.in
 
 # Build Python docs
 gpuci_logger "Build Sphinx docs"
@@ -59,5 +60,5 @@ for PROJECT in ${PROJECTS[@]}; do
 done
 
 
-mv "$PROJECT_WORKSPACE/cpp/build/html/"* "$DOCS_WORKSPACE/api/libcuml/$BRANCH_VERSION"
+mv "$PROJECT_WORKSPACE/cpp/html/"* "$DOCS_WORKSPACE/api/libcuml/$BRANCH_VERSION"
 mv "$PROJECT_WORKSPACE/docs/build/html/"* "$DOCS_WORKSPACE/api/cuml/$BRANCH_VERSION"

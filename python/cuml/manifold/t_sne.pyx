@@ -18,28 +18,30 @@
 # cython: boundscheck = False
 # cython: wraparound = False
 
-import cudf
 import ctypes
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import inspect
-import pandas as pd
+pd = cpu_only_import('pandas')
 import warnings
-import cupy
+from cuml.internals.safe_imports import gpu_only_import
+cupy = gpu_only_import('cupy')
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.base import Base
-from raft.common.handle cimport handle_t
-import cuml.common.logger as logger
+from cuml.internals.base import Base
+from pylibraft.common.handle cimport handle_t
+import cuml.internals.logger as logger
 
-from cuml.common.array import CumlArray
-from cuml.common.array_sparse import SparseCumlArray
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
-from cuml.common.mixins import CMajorInputTagMixin
-from cuml.common.sparsefuncs import extract_knn_graph
-import rmm
+from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.common.sparsefuncs import extract_knn_infos
+from cuml.metrics.distance_type cimport DistanceType
+rmm = gpu_only_import('rmm')
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -79,6 +81,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int verbosity,
         bool initialize_embeddings,
         bool square_distances,
+        DistanceType metric,
+        float p,
         TSNE_ALGORITHM algorithm
 
 
@@ -126,7 +130,7 @@ class TSNE(Base,
     algorithm is more accurate, but too slow to use on large datasets.
 
     Parameters
-    -----------
+    ----------
     n_components : int (default 2)
         The output dimensionality size. Currently only 2 is supported.
     perplexity : float (default 30.0)
@@ -151,11 +155,12 @@ class TSNE(Base,
         Used in the 'exact' and 'fft' algorithms. Consider reducing if
         the embeddings are unsatisfactory. It's recommended to use a
         smaller value for smaller datasets.
-    metric : str 'euclidean' only (default 'euclidean')
-        Currently only supports euclidean distance. Will support cosine in
-        a future release.
+    metric : str (default='euclidean').
+        Distance metric to use. Supported distances are ['l1, 'cityblock',
+        'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'minkowski',
+        'chebyshev', 'cosine', 'correlation']
     init : str 'random' (default 'random')
-        Currently supports random intialization.
+        Currently supports random initialization.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -189,11 +194,21 @@ class TSNE(Base,
         During the late phases, less forcefully apply gradients.
     square_distances : boolean, default=True
         Whether TSNE should square the distance values.
-        Internally, this will be used to compute a kNN graph using 'euclidean'
+        Internally, this will be used to compute a kNN graph using the provided
         metric and then squaring it when True. If a `knn_graph` is passed
         to `fit` or `fit_transform` methods, all the distances will be
         squared when True. For example, if a `knn_graph` was obtained using
         'sqeuclidean' metric, the distances will still be squared when True.
+        Note: This argument should likely be set to False for distance metrics
+        other than 'euclidean' and 'l2'.
+    precomputed_knn : array / sparse array / tuple, optional (device or host)
+        Either one of a tuple (indices, distances) of
+        arrays of shape (n_samples, n_neighbors), a pairwise distances
+        dense array of shape (n_samples, n_samples) or a KNN graph
+        sparse array (preferably CSR/COO). This feature allows
+        the precomputation of the KNN outside of TSNE
+        and also allows the use of a custom distance function. This function
+        should match the metric used to train the TSNE embeedings.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -201,11 +216,12 @@ class TSNE(Base,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -214,7 +230,7 @@ class TSNE(Base,
         feature at this time.
 
     References
-    -----------
+    ----------
     .. [1] `van der Maaten, L.J.P.
        t-Distributed Stochastic Neighbor Embedding
        <https://lvdmaaten.github.io/tsne/>`_
@@ -259,6 +275,7 @@ class TSNE(Base,
                  n_iter_without_progress=300,
                  min_grad_norm=1e-07,
                  metric='euclidean',
+                 metric_params=None,
                  init='random',
                  verbose=False,
                  random_state=None,
@@ -271,6 +288,7 @@ class TSNE(Base,
                  pre_momentum=0.5,
                  post_momentum=0.8,
                  square_distances=True,
+                 precomputed_knn=None,
                  handle=None,
                  output_type=None):
 
@@ -302,15 +320,10 @@ class TSNE(Base,
         if n_iter <= 100:
             warnings.warn("n_iter = {} might cause TSNE to output wrong "
                           "results. Set it higher.".format(n_iter))
-        if metric.lower() != 'euclidean':
-            # TODO https://github.com/rapidsai/cuml/issues/1653
-            warnings.warn("TSNE does not support {} (only Euclidean).".format(
-                          metric))
-            metric = 'euclidean'
         if init.lower() != 'random':
             # TODO https://github.com/rapidsai/cuml/issues/3458
             warnings.warn("TSNE does not support {} but only random "
-                          "intialization.".format(init))
+                          "initialization.".format(init))
             init = 'random'
         if angle < 0 or angle > 1:
             raise ValueError("angle = {} should be ≥ 0 and ≤ 1".format(angle))
@@ -353,6 +366,7 @@ class TSNE(Base,
         self.n_iter_without_progress = n_iter_without_progress
         self.min_grad_norm = min_grad_norm
         self.metric = metric
+        self.metric_params = metric_params
         self.init = init
         self.random_state = random_state
         self.method = method
@@ -386,6 +400,9 @@ class TSNE(Base,
 
         self.sparse_fit = False
 
+        self.precomputed_knn = extract_knn_infos(precomputed_knn,
+                                                 n_neighbors)
+
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')
@@ -394,23 +411,16 @@ class TSNE(Base,
         Fit X into an embedded space.
 
         Parameters
-        -----------
-        knn_graph : sparse array-like (device or host), \
-                shape=(n_samples, n_samples)
-            A sparse array containing the k-nearest neighbors of X,
-            where the columns are the nearest neighbor indices
-            for each row and the values are their distances.
-            Users using the knn_graph parameter provide t-SNE
-            with their own run of the KNN algorithm. This allows the user
-            to pick a custom distance function (sometimes useful
-            on certain datasets) whereas t-SNE uses euclidean by default.
-            The custom distance function should match the metric used
-            to train t-SNE embeedings. Storing and reusing a knn_graph
-            will also provide a speedup to the t-SNE algorithm
-            when performing a grid search.
-            Acceptable formats: sparse SciPy ndarray, CuPy device ndarray,
-            CSR/COO preferred other formats will go through conversion to CSR
-
+        ----------
+        knn_graph : array / sparse array / tuple, optional (device or host)
+        Either one of a tuple (indices, distances) of
+        arrays of shape (n_samples, n_neighbors), a pairwise distances
+        dense array of shape (n_samples, n_samples) or a KNN graph
+        sparse array (preferably CSR/COO). This feature allows
+        the precomputation of the KNN outside of TSNE
+        and also allows the use of a custom distance function. This function
+        should match the metric used to train the TSNE embeedings.
+        Takes precedence over the precomputed_knn parameter.
         """
         cdef int n, p
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -426,6 +436,7 @@ class TSNE(Base,
                                        convert_format=False)
             n, p = self.X_m.shape
             self.sparse_fit = True
+
         # Handle dense inputs
         else:
             self.X_m, n, p, _ = \
@@ -444,11 +455,21 @@ class TSNE(Base,
                           "# of datapoints = {}.".format(self.perplexity, n))
             self.perplexity = n
 
-        (knn_indices_m, knn_indices_ctype), (knn_dists_m, knn_dists_ctype) =\
-            extract_knn_graph(knn_graph, convert_dtype, self.sparse_fit)
+        cdef uintptr_t knn_dists_ptr = 0
+        cdef uintptr_t knn_indices_ptr = 0
+        if knn_graph is not None or self.precomputed_knn is not None:
+            if knn_graph is not None:
+                knn_indices, knn_dists = extract_knn_infos(knn_graph,
+                                                           self.n_neighbors)
+            elif self.precomputed_knn is not None:
+                knn_indices, knn_dists = self.precomputed_knn
 
-        cdef uintptr_t knn_indices_raw = knn_indices_ctype or 0
-        cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
+            if self.sparse_fit:
+                knn_indices, _, _, _ = \
+                    input_to_cuml_array(knn_indices, convert_to_dtype=np.int32)
+
+            knn_dists_ptr = knn_dists.ptr
+            knn_indices_ptr = knn_indices.ptr
 
         # Prepare output embeddings
         self.embedding_ = CumlArray.zeros(
@@ -497,6 +518,7 @@ class TSNE(Base,
             self._build_tsne_params(algo)
 
         cdef float kl_divergence = 0
+
         if self.sparse_fit:
             TSNE_fit_sparse(handle_[0],
                             <int*><uintptr_t>
@@ -509,8 +531,8 @@ class TSNE(Base,
                             <int> self.X_m.nnz,
                             <int> n,
                             <int> p,
-                            <int*> knn_indices_raw,
-                            <float*> knn_dists_raw,
+                            <int*> knn_indices_ptr,
+                            <float*> knn_dists_ptr,
                             <TSNEParams&> deref(params),
                             &kl_divergence)
         else:
@@ -519,8 +541,8 @@ class TSNE(Base,
                      <float*> embed_ptr,
                      <int> n,
                      <int> p,
-                     <int64_t*> knn_indices_raw,
-                     <float*> knn_dists_raw,
+                     <int64_t*> knn_indices_ptr,
+                     <float*> knn_dists_ptr,
                      <TSNEParams&> deref(params),
                      &kl_divergence)
 
@@ -583,6 +605,32 @@ class TSNE(Base,
         params.initialize_embeddings = <bool> True
         params.square_distances = <bool> self.square_distances
         params.algorithm = algo
+
+        # metric
+        metric_parsing = {
+            "l2": DistanceType.L2SqrtExpanded,
+            "euclidean": DistanceType.L2SqrtExpanded,
+            "sqeuclidean": DistanceType.L2Expanded,
+            "cityblock": DistanceType.L1,
+            "l1": DistanceType.L1,
+            "manhattan": DistanceType.L1,
+            "minkowski": DistanceType.LpUnexpanded,
+            "chebyshev": DistanceType.Linf,
+            "cosine": DistanceType.CosineExpanded,
+            "correlation": DistanceType.CorrelationExpanded
+        }
+
+        if self.metric.lower() in metric_parsing:
+            params.metric = metric_parsing[self.metric.lower()]
+        else:
+            raise ValueError("Invalid value for metric: {}"
+                             .format(self.metric))
+
+        if self.metric_params is None:
+            params.p = <float> 2.0
+        else:
+            params.p = <float>self.metric_params.get('p')
+
         return <size_t> params
 
     @property
@@ -625,6 +673,7 @@ class TSNE(Base,
             "n_iter_without_progress",
             "min_grad_norm",
             "metric",
+            "metric_params",
             "init",
             "random_state",
             "method",
@@ -635,5 +684,6 @@ class TSNE(Base,
             "exaggeration_iter",
             "pre_momentum",
             "post_momentum",
-            "square_distances"
+            "square_distances",
+            "precomputed_knn"
         ]

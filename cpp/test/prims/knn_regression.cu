@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,20 +15,30 @@
  */
 
 #include "test_utils.h"
+
 #include <gtest/gtest.h>
-#include <iostream>
-#include <label/classlabels.cuh>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/reduce.hpp>
-#include <raft/random/rng.hpp>
-#include <raft/spatial/knn/knn.hpp>
+
+#include <raft/label/classlabels.cuh>
+
+#include <raft/linalg/reduce.cuh>
+#include <raft/random/rng.cuh>
+#include <raft/spatial/knn/knn.cuh>
+#ifdef RAFT_NN_COMPILED
+#include <raft/spatial/knn/specializations.cuh>
+#endif
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
+
 #include <selection/knn.cuh>
-#include <vector>
 
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/extrema.h>
+
+#include <iostream>
+#include <vector>
 
 namespace MLCommon {
 namespace Selection {
@@ -139,7 +149,7 @@ typedef KNNRegressionTest KNNRegressionTestF;
 TEST_P(KNNRegressionTestF, Fit)
 {
   ASSERT_TRUE(devArrMatch(
-    train_labels.data(), pred_labels.data(), params.rows, raft::CompareApprox<float>(0.3)));
+    train_labels.data(), pred_labels.data(), params.rows, MLCommon::CompareApprox<float>(0.3)));
 }
 
 const std::vector<KNNRegressionInputs> inputsf = {{100, 10, 2, 0.01f, 2},

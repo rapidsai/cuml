@@ -23,8 +23,8 @@
 #include <cuml/genetic/program.h>
 #include <gtest/gtest.h>
 #include <iostream>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <test_utils.h>
 #include <vector>
@@ -262,7 +262,7 @@ class GeneticEvolutionTest : public ::testing::Test {
 
 TEST_F(GeneticEvolutionTest, SymReg)
 {
-  raft::CompareApprox<float> compApprox(tolerance);
+  MLCommon::CompareApprox<float> compApprox(tolerance);
   program_t final_progs;
   final_progs = (program_t)rmm::mr::get_current_device_resource()->allocate(
     hyper_params.population_size * sizeof(program), stream);

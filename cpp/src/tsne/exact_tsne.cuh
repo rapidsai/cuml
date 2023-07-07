@@ -18,7 +18,11 @@
 #include "exact_kernels.cuh"
 #include "utils.cuh"
 #include <cuml/common/logger.hpp>
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
+
+#include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
+#include <thrust/fill.h>
 
 namespace ML {
 namespace TSNE {

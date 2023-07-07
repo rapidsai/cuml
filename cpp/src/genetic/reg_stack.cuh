@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/cuda_utils.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 #ifndef CUDA_PRAGMA_UNROLL
 #ifdef __CUDA_ARCH__

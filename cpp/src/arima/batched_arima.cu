@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include <vector>
 
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -30,12 +31,13 @@
 
 #include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
-#include <metrics/batched/information_criterion.cuh>
-#include <raft/common/nvtx.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
-#include <raft/linalg/matrix_vector_op.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/core/nvtx.hpp>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/stats/information_criterion.cuh>
+#include <raft/stats/stats_types.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 #include <timeSeries/arima_helpers.cuh>
 #include <timeSeries/fillna.cuh>
@@ -467,7 +469,7 @@ void batched_loglike(raft::handle_t& handle,
   }
 
   if (host_loglike) {
-    /* Tranfer log-likelihood device -> host */
+    /* Transfer log-likelihood device -> host */
     raft::update_host(loglike, d_loglike, batch_size, stream);
   }
 }
@@ -612,14 +614,13 @@ void information_criterion(raft::handle_t& handle,
     handle, arima_mem, d_y, d_exog, batch_size, n_obs, order, params, d_ic, false, false, MLE);
 
   /* Compute information criterion from log-likelihood and base term */
-  MLCommon::Metrics::Batched::information_criterion(
-    d_ic,
-    d_ic,
-    static_cast<MLCommon::Metrics::IC_Type>(ic_type),
-    order.complexity(),
-    batch_size,
-    n_obs - order.n_diff(),
-    stream);
+  raft::stats::information_criterion_batched(d_ic,
+                                             d_ic,
+                                             static_cast<raft::stats::IC_Type>(ic_type),
+                                             order.complexity(),
+                                             batch_size,
+                                             n_obs - order.n_diff(),
+                                             stream);
 }
 
 /**
@@ -930,7 +931,7 @@ void _start_params(raft::handle_t& handle,
                         order.k,
                         params.mu);
 
-  // Estimate a seasonal ARMA fit independantly
+  // Estimate a seasonal ARMA fit independently
   if (order.P + order.Q)
     _arma_least_squares(handle,
                         params.sar,

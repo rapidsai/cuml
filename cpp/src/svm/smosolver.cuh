@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,23 +17,23 @@
 #pragma once
 
 #include <cuml/common/logger.hpp>
-#include <cuml/matrix/kernelparams.h>
-
-#include <matrix/grammatrix.cuh>
-#include <matrix/kernelfactory.cuh>
 
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
-#include <raft/linalg/gemv.hpp>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/gemv.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 #include <iostream>
 #include <limits>
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
+#include <raft/core/handle.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <string>
+#include <thrust/copy.h>
 #include <thrust/device_ptr.h>
+#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
+#include <thrust/iterator/constant_iterator.h>
 #include <type_traits>
 
 #include "kernelcache.cuh"
@@ -41,12 +41,10 @@
 #include "smoblocksolve.cuh"
 #include "workingset.cuh"
 #include "ws_util.cuh"
-#include <cuml/common/logger.hpp>
-#include <cuml/matrix/kernelparams.h>
-#include <matrix/grammatrix.cuh>
-#include <matrix/kernelfactory.cuh>
-#include <raft/linalg/gemv.hpp>
-#include <raft/linalg/unary_op.hpp>
+#include <raft/distance/distance_types.hpp>
+#include <raft/distance/kernels.cuh>
+#include <raft/linalg/gemv.cuh>
+#include <raft/linalg/unary_op.cuh>
 
 #include "results.cuh"
 
@@ -83,7 +81,7 @@ class SmoSolver {
  public:
   SmoSolver(const raft::handle_t& handle,
             SvmParameter param,
-            MLCommon::Matrix::GramMatrixBase<math_t>* kernel)
+            raft::distance::kernels::GramMatrixBase<math_t>* kernel)
     : handle(handle),
       C(param.C),
       tol(param.tol),
@@ -233,7 +231,7 @@ class SmoSolver {
                                                      1,
                                                      stream));
     if (svmType == EPSILON_SVR) {
-      // SVR has doubled the number of trainig vectors and we need to update
+      // SVR has doubled the number of training vectors and we need to update
       // alpha for both batches individually
       // #TODO: Call from public API when ready
       RAFT_CUBLAS_TRY(raft::linalg::detail::cublasgemv(handle.get_cublas_handle(),
@@ -414,7 +412,7 @@ class SmoSolver {
   math_t tol;      //!< tolerance for stopping condition
   math_t epsilon;  //!< epsilon parameter for epsiolon-SVR
 
-  MLCommon::Matrix::GramMatrixBase<math_t>* kernel;
+  raft::distance::kernels::GramMatrixBase<math_t>* kernel;
   float cache_size;  //!< size of kernel cache in MiB
 
   SvmType svmType;  ///!< Type of the SVM problem to solve

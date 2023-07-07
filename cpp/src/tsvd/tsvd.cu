@@ -16,6 +16,7 @@
 
 #include "tsvd.cuh"
 #include <cuml/decomposition/tsvd.hpp>
+#include <raft/core/handle.hpp>
 
 namespace ML {
 

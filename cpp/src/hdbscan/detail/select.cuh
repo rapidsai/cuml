@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,22 +21,29 @@
 
 #include <cub/cub.cuh>
 
-#include <raft/cudart_utils.h>
+#include <raft/util/cudart_utils.hpp>
 
-#include <raft/sparse/convert/csr.hpp>
-#include <raft/sparse/op/sort.hpp>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/op/sort.cuh>
 
 #include <cuml/cluster/hdbscan.hpp>
 
-#include <raft/label/classlabels.hpp>
+#include <raft/label/classlabels.cuh>
 
 #include <algorithm>
 
+#include <thrust/copy.h>
 #include <thrust/execution_policy.h>
+#include <thrust/fill.h>
 #include <thrust/for_each.h>
+#include <thrust/functional.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
+#include <thrust/transform_reduce.h>
+#include <thrust/tuple.h>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -295,7 +302,7 @@ void leaf(const raft::handle_t& handle,
  * @param[in] n_clusters number of clusters in cluster tree
  * @param[in] cluster_selection_epsilon distance threshold
  * @param[in] allow_single_cluster allows a single cluster with noisy datasets
- * @param[in] n_selected_clusters numnber of cluster selections in is_cluster
+ * @param[in] n_selected_clusters number of cluster selections in is_cluster
  */
 template <typename value_idx, typename value_t, int tpb = 256>
 void cluster_epsilon_search(const raft::handle_t& handle,
@@ -414,7 +421,7 @@ void select_clusters(const raft::handle_t& handle,
   auto epsilon_search = true;
 
   if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::LEAF) {
-    // TODO: reenable to match reference implementation
+    // TODO: re-enable to match reference implementation
     // It's a confirmed bug https://github.com/scikit-learn-contrib/hdbscan/issues/476
 
     // if no cluster leaves were found, declare root as cluster

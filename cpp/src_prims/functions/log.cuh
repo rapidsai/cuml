@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <raft/linalg/unary_op.hpp>
+#include <raft/linalg/unary_op.cuh>
 
 namespace MLCommon {
 namespace Functions {

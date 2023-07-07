@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,12 @@
 #include "utils.cuh"
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/common.hpp>
-#include <raft/cudart_utils.h>
+#include <raft/core/handle.hpp>
+#include <raft/distance/distance_types.hpp>
+#include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include <thrust/transform.h>
 
 #include "barnes_hut_tsne.cuh"
 #include "exact_tsne.cuh"
@@ -116,8 +120,7 @@ class TSNE_runner {
 
       k_graph.knn_indices = indices.data();
       k_graph.knn_dists   = distances.data();
-
-      TSNE::get_distances(handle, input, k_graph, stream);
+      TSNE::get_distances(handle, input, k_graph, stream, params.metric, params.p);
     }
 
     if (params.square_distances) {

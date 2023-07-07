@@ -16,7 +16,7 @@
 
 #include <cuml/tree/decisiontree.hpp>
 #include <cuml/tree/flatnode.h>
-#include <raft/handle.hpp>
+#include <raft/core/handle.hpp>
 
 #include "decisiontree.cuh"
 

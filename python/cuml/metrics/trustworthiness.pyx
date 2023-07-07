@@ -16,19 +16,20 @@
 
 # distutils: language = c++
 
-import cudf
-import numpy as np
+from cuml.internals.safe_imports import cpu_only_import
+np = cpu_only_import('numpy')
 import warnings
 
-from numba import cuda
+from cuml.internals.safe_imports import gpu_only_import_from
+cuda = gpu_only_import_from('numba', 'cuda')
 
 from libc.stdint cimport uintptr_t
 import cuml.internals
-from cuml.common.input_utils import input_to_cuml_array
-from raft.common.handle import Handle
-from raft.common.handle cimport handle_t
+from cuml.internals.input_utils import input_to_cuml_array
+from pylibraft.common.handle import Handle
+from pylibraft.common.handle cimport handle_t
 
-cdef extern from "raft/distance/distance_type.hpp" namespace "raft::distance":
+cdef extern from "raft/distance/distance_types.hpp" namespace "raft::distance":
 
     ctypedef int DistanceType
     ctypedef DistanceType euclidean "(raft::distance::DistanceType)5"

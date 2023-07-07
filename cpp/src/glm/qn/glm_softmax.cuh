@@ -18,11 +18,12 @@
 
 #include "glm_base.cuh"
 #include "simple_mat.cuh"
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/add.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/util/cuda_utils.cuh>
 
 namespace ML {
 namespace GLM {
+namespace detail {
 using raft::ceildiv;
 using raft::myExp;
 using raft::myLog;
@@ -194,6 +195,6 @@ struct Softmax : GLMBase<T, Softmax<T>> {
     return nrmMax(grad, dev_scalar, stream);
   }
 };
-
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML

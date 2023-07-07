@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,23 +18,31 @@
 
 #include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
+#include <raft/core/handle.hpp>
 
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <cuml/fil/fil.h>
 #include <cuml/tree/algo_helper.h>
-#include <raft/random/rng.hpp>
+#include <raft/random/rng.cuh>
 
-#include <raft/cuda_utils.cuh>
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
-#include <raft/linalg/transpose.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/linalg/transpose.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <thrust/binary_search.h>
+#include <thrust/copy.h>
 #include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+#include <thrust/for_each.h>
+#include <thrust/functional.h>
 #include <thrust/host_vector.h>
+#include <thrust/iterator/counting_iterator.h>
 #include <thrust/logical.h>
+#include <thrust/random.h>
 #include <thrust/shuffle.h>
+#include <thrust/transform.h>
 
 #include <gtest/gtest.h>
 
@@ -684,7 +692,7 @@ class RFQuantileVariableBinsTest : public ::testing::TestWithParam<QuantileTestP
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
     thrust::device_vector<T> data(params.n_rows);
 
-    // n_uniques gauranteed to be non-zero and smaller than `max_n_bins`
+    // n_uniques guaranteed to be non-zero and smaller than `max_n_bins`
     int n_uniques;
     while ((n_uniques = rand() % params.max_n_bins) == 0) {}
 

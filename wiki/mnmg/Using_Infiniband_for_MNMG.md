@@ -19,7 +19,7 @@ Install autogen if it's not already installed:
 sudo apt-get install autogen autoconf libtool
 ```
 
-Optionaly install `gdrcopy` for faster GPU-Network card data transfer: 
+Optionally install `gdrcopy` for faster GPU-Network card data transfer: 
 
 From the [ucx wiki](https://github.com/openucx/ucx/wiki/NVIDIA-GPU-Support), `gdrcopy` can be installed, and might be necessary, to enable faster GPU-Network card data transfer.
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,50 +32,59 @@ def test_class_enumerator():
             def __eq__(self, other):
                 return self.some_parameter == other.some_parameter
 
-    module = ClassEnumerator(module=SomeModule,
-                             exclude_classes=[SomeModule.ExcludedClass],
-                             custom_constructors={
-                                 "CustomConstructorClass":
-                                     lambda: SomeModule.CustomConstructorClass(
-                                         some_parameter=1)
-                             })
+    module = ClassEnumerator(
+        module=SomeModule,
+        exclude_classes=[SomeModule.ExcludedClass],
+        custom_constructors={
+            "CustomConstructorClass": lambda: SomeModule.CustomConstructorClass(
+                some_parameter=1
+            )
+        },
+    )
 
     models = module.get_models()
     ref = {
         "SomeClass": SomeModule.SomeClass,
         "CustomConstructorClass": lambda: SomeModule.CustomConstructorClass(
-            some_parameter=1)
+            some_parameter=1
+        ),
     }
 
     # Here we don't do `assert models == ref` because CustomConstructorClass is
     # a lambda.
     assert len(models) == len(ref) == 2
-    assert models['SomeClass'] == ref['SomeClass']
-    assert models['CustomConstructorClass']() == ref[
-        'CustomConstructorClass']()
+    assert models["SomeClass"] == ref["SomeClass"]
+    assert (
+        models["CustomConstructorClass"]() == ref["CustomConstructorClass"]()
+    )
 
 
 def test_class_enumerator_actual_module():
-    module = ClassEnumerator(module=cuml.linear_model,
-                             exclude_classes=[cuml.LinearRegression,
-                                              cuml.MBSGDClassifier,
-                                              cuml.MBSGDRegressor],
-                             custom_constructors={
-                                 'LogisticRegression':
-                                     lambda: cuml.LogisticRegression(handle=1)
-                             })
+    module = ClassEnumerator(
+        module=cuml.linear_model,
+        exclude_classes=[
+            cuml.LinearRegression,
+            cuml.MBSGDClassifier,
+            cuml.MBSGDRegressor,
+        ],
+        custom_constructors={
+            "LogisticRegression": lambda: cuml.LogisticRegression(handle=1)
+        },
+    )
     models = module.get_models()
     ref = {
-        'ElasticNet': cuml.ElasticNet,
-        'Lasso': cuml.Lasso,
-        'LogisticRegression': lambda: cuml.LogisticRegression(handle=1),
-        'Ridge': cuml.Ridge
+        "ElasticNet": cuml.ElasticNet,
+        "Lasso": cuml.Lasso,
+        "LogisticRegression": lambda: cuml.LogisticRegression(handle=1),
+        "Ridge": cuml.Ridge,
     }
 
-    assert models['LogisticRegression']().handle == ref[
-        'LogisticRegression']().handle
-    models.pop('LogisticRegression')
-    ref.pop('LogisticRegression')
+    assert (
+        models["LogisticRegression"]().handle
+        == ref["LogisticRegression"]().handle
+    )
+    models.pop("LogisticRegression")
+    ref.pop("LogisticRegression")
     assert models == ref
 
 
@@ -93,15 +102,16 @@ def test_class_enumerator_parameters():
                 return type(other) == type(self)
 
     models1 = ClassEnumerator(module=SomeModule).get_models()
-    models2 = ClassEnumerator(module=SomeModule,
-                              exclude_classes=[
-                                  SomeModule.SomeClass]).get_models()
+    models2 = ClassEnumerator(
+        module=SomeModule, exclude_classes=[SomeModule.SomeClass]
+    ).get_models()
     models3 = ClassEnumerator(
         module=SomeModule,
-        custom_constructors={'SomeClass': lambda: SomeModule.SomeClass()}
+        custom_constructors={"SomeClass": lambda: SomeModule.SomeClass()},
     ).get_models()
 
-    assert models1 == {'SomeClass': SomeModule.SomeClass}
+    assert models1 == {"SomeClass": SomeModule.SomeClass}
     assert models2 == {}
-    assert len(models3) == 1 and models3[
-        'SomeClass']() == SomeModule.SomeClass()
+    assert (
+        len(models3) == 1 and models3["SomeClass"]() == SomeModule.SomeClass()
+    )
