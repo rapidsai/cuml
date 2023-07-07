@@ -47,7 +47,7 @@ def parse_args():
     argparser.add_argument(
         "-ignore",
         type=str,
-        default="[.]cu$|examples/kmeans/",
+        default="[.]cu$",
         help="Regex used to ignore files from checking",
     )
     argparser.add_argument(
