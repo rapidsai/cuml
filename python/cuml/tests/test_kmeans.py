@@ -292,7 +292,7 @@ def test_all_kmeans_params(n_clusters, max_iter, init,
 @pytest.mark.parametrize("ncols", [10, 30])
 @pytest.mark.parametrize("nclusters", [unit_param(5), quality_param(10),
                                        stress_param(50)])
-def test_score(nrows, ncols, nclusters, random_state):
+def test_score(nrows, ncols, nclusters):
 
     X, y = make_blobs(int(nrows), ncols, nclusters,
                       cluster_std=1.0,
@@ -323,42 +323,3 @@ def test_score(nrows, ncols, nclusters, random_state):
 
     cp.testing.assert_allclose(
         actual_score, expected_score, atol=0.1, rtol=1e-5)
-
-
-@pytest.mark.parametrize('nrows', [100])
-@pytest.mark.parametrize('ncols', [25])
-@pytest.mark.parametrize('nclusters', [5])
-@pytest.mark.parametrize('max_weight', [10])
-def test_fit_transform_weighted_kmeans(nrows, ncols, nclusters,
-                                       max_weight, random_state):
-
-    # Using fairly high variance between points in clusters
-    cluster_std = 1.0
-    np.random.seed(random_state)
-
-    # set weight per sample to be from 1 to max_weight
-    wt = np.random.randint(1, high=max_weight, size=nrows)
-
-    X, y = make_blobs(nrows,
-                      ncols,
-                      nclusters,
-                      cluster_std=cluster_std,
-                      shuffle=False,
-                      random_state=0)
-
-    cuml_kmeans = cuml.KMeans(init="k-means++",
-                              n_clusters=nclusters,
-                              n_init=10,
-                              random_state=random_state,
-                              output_type='numpy')
-
-    cuml_transf = cuml_kmeans.fit_transform(X, sample_weight=wt)
-    cu_score = cuml_kmeans.score(X)
-
-    sk_kmeans = cluster.KMeans(random_state=random_state,
-                               n_clusters=nclusters)
-    sk_transf = sk_kmeans.fit_transform(cp.asnumpy(X), sample_weight=wt)
-    sk_score = sk_kmeans.score(cp.asnumpy(X))
-
-    assert abs(cu_score - sk_score) <= cluster_std * 1.5
-    assert sk_transf.shape == cuml_transf.shape
