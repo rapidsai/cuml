@@ -473,6 +473,24 @@ def test_hdbscan_core_dists_bug_4054():
     ).fit_predict(X)
 
     assert adjusted_rand_score(cu_labels_, sk_labels_) > 0.99
+    
+ 
+@pytest.mark.parametrize("_metric",[
+    "euclidean",
+    "l2",
+    pytest.param("l1", marks = pytest.mark.xfail),
+    pytest.param("L2", marks = pytest.mark.xfail)
+])
+def test_hdbscan_metric_l2_5415(_metric):
+    """
+    this test verifies that only l2 and euclidean
+    metric are acceptable 
+    """
+
+    X, y = make_blobs(n_samples=10000, n_features=15, random_state=12)
+
+    clf = HDBSCAN(metric=_metric)
+    assert isinstance(clf.fit(X),HDBSCAN)
 
 
 def test_hdbscan_empty_cluster_tree():
