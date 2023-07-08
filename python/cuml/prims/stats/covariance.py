@@ -36,37 +36,41 @@ cov_kernel_str = r"""
 }
 """
 
-mean_cov_kernel_str =r"""
+mean_cov_kernel_str = r"""
 (const int *indptr,const int *index, {0} *data,int nrows,int ncols, {0}  * out,{0}  *mean) {
-        int row = blockDim.x * blockIdx.x + threadIdx.x;
-        if(row >= nrows){
-            return;
-        }
-        int start_idx = indptr[row];
-        int stop_idx = indptr[row+1];
+    int row = blockDim.x * blockIdx.x + threadIdx.x;
+    if(row >= nrows){
+        return;
+    }
+    int start_idx = indptr[row];
+    int stop_idx = indptr[row+1];
 
-        for(int idx = start_idx; idx< stop_idx; idx++){
-            int index1 = index[idx];
-            {0} data1 = data[idx];
-            long long int outidx = static_cast<long long int>(index1) *ncols+index1;
-            atomicAdd(&out[outidx],data1*data1);
-            atomicAdd(&mean[index1],data1);
-            for(int idx2 = idx+1; idx2< stop_idx; idx2++){
-                int index2 = index[idx2];
-                {0} data2 = data[idx2];
-                long long int outidx2 = static_cast<long long int>(index1) *ncols+index2;
-                atomicAdd(&out[outidx2],data1*data2);
-                }
-            }
+    for(int idx = start_idx; idx< stop_idx; idx++){
+        int index1 = index[idx];
+        {0} data1 = data[idx];
+        long long int outidx = static_cast<long long int>(index1) *ncols+index1;
+        atomicAdd(&out[outidx],data1*data1);
+        atomicAdd(&mean[index1],data1);
+        for(int idx2 = idx+1; idx2< stop_idx; idx2++){
+            int index2 = index[idx2];
+            {0} data2 = data[idx2];
+            long long int outidx2 = static_cast<long long int>(index1) *ncols+index2;
+            atomicAdd(&out[outidx2],data1*data2);
         }
+    }
+}
 """
 
 
 def _cov_kernel(dtype):
     return cuda_kernel_factory(cov_kernel_str, (dtype,), "cov_kernel")
 
+
 def _mean_cov_kernel(dtype):
-    return cuda_kernel_factory(mean_cov_kernel_str, (dtype,), "mean_cov_kernel")
+    return cuda_kernel_factory(
+        mean_cov_kernel_str, (dtype,), "mean_cov_kernel"
+    )
+
 
 @cuml.internals.api_return_any()
 def cov(x, y, mean_x=None, mean_y=None, return_gram=False, return_mean=False):
@@ -184,6 +188,7 @@ def cov(x, y, mean_x=None, mean_y=None, return_gram=False, return_mean=False):
     elif return_gram and return_mean:
         return cov_result, gram_matrix, mean_x, mean_y
 
+
 @cuml.internals.api_return_any()
 def cov_sparse(x):
     """
@@ -202,24 +207,29 @@ def cov_sparse(x):
     result : cov(X, X), mean(X)
     """
 
-    gram_matrix = cp.zeros((x.shape[1],x.shape[1]),dtype= x.data.dtype)    
-    mean_x = cp.zeros((x.shape[1],),dtype= x.data.dtype)
+    gram_matrix = cp.zeros((x.shape[1], x.shape[1]), dtype=x.data.dtype)
+    mean_x = cp.zeros((x.shape[1],), dtype=x.data.dtype)
 
     block = (8,)
-    grid = (
-        math.ceil(x.shape[0] / block[0]),
-    )
+    grid = (math.ceil(x.shape[0] / block[0]),)
     compute_mean_cov = _mean_cov_kernel(x.data.dtype)
     compute_mean_cov(
-                grid,
-                block,
-                (x.indptr, x.indices, x.data, x.shape[0], x.shape[1], gram_matrix,mean_x),
+        grid,
+        block,
+        (
+            x.indptr,
+            x.indices,
+            x.data,
+            x.shape[0],
+            x.shape[1],
+            gram_matrix,
+            mean_x,
+        ),
     )
     gram_matrix = gram_matrix + gram_matrix.T
-    gram_matrix -= cp.diag(cp.diag(gram_matrix)/2)
-    gram_matrix *= (1 / x.shape[0]) 
-    mean_x *= (1 / x.shape[0])
-
+    gram_matrix -= cp.diag(cp.diag(gram_matrix) / 2)
+    gram_matrix *= 1 / x.shape[0]
+    mean_x *= 1 / x.shape[0]
 
     cov_result = gram_matrix
 
