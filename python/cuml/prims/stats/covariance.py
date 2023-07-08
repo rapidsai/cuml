@@ -66,7 +66,7 @@ def _cov_kernel(dtype):
     return cuda_kernel_factory(cov_kernel_str, (dtype,), "cov_kernel")
 
 def _mean_cov_kernel(dtype):
-    return cuda_kernel_factory(mean_cov_kernel_str, (dtype,), "_mean_cov_kernel")
+    return cuda_kernel_factory(mean_cov_kernel_str, (dtype,), "mean_cov_kernel")
 
 @cuml.internals.api_return_any()
 def cov(x, y, mean_x=None, mean_y=None, return_gram=False, return_mean=False):
