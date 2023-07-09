@@ -238,7 +238,7 @@ def cov_sparse(x):
     compute_cov = _cov_kernel(x.dtype)
 
     block_size = (8, 8)
-    grid_size = (math.ceil(gram_matrix.shape[0] / 8), ) * 2
+    grid_size = (math.ceil(gram_matrix.shape[0] / 8),) * 2
     compute_cov(
         grid_size,
         block_size,
