@@ -133,6 +133,9 @@ def cov(x, y, mean_x=None, mean_y=None, return_gram=False, return_mean=False):
             "X and Y must have same shape %s != %s" % (x.shape, y.shape)
         )
 
+    if x is y and cupyx.scipy.sparse.issparse(x):
+        return _cov_sparse(x, return_gram=return_gram, return_mean=return_mean)
+
     if mean_x is not None and mean_y is not None:
         if mean_x.dtype != mean_y.dtype:
             raise ValueError(
@@ -190,7 +193,7 @@ def cov(x, y, mean_x=None, mean_y=None, return_gram=False, return_mean=False):
 
 
 @cuml.internals.api_return_any()
-def _cov_sparse(x):
+def _cov_sparse(x, return_gram=False, return_mean=False):
     """
     Computes the mean and the covariance of matrix X of
     the form Cov(X, X) = E(XX) - E(X)E(X)
@@ -199,15 +202,30 @@ def _cov_sparse(x):
     ----------
 
     x : cupyx.scipy.sparse of size (m, n)
-
+    return_gram : boolean (default = False)
+        If True, gram matrix of the form (1 / n) * X.T.dot(Y)
+        will be returned.
+        When True, a copy will be created
+        to store the results of the covariance.
+        When False, the local gram matrix result
+        will be overwritten
+    return_mean: boolean (default = False)
+        If True, the Maximum Likelihood Estimate used to
+        calculate the mean of X and Y will be returned,
+        of the form (1 / n) * mean(X) and (1 / n) * mean(Y)
 
     Returns
     -------
 
-    result : cov(X, X), mean(X)
+    result : cov(X, X) when return_gram and return_mean are False
+            cov(X, X), gram(X, X) when return_gram is True,
+            return_mean is False
+            cov(X, X), mean(X), mean(X) when return_gram is False,
+            return_mean is True
+            cov(X, X), gram(X, X), mean(X), mean(X)
+            when return_gram is True and return_mean is True
     """
-
-    if not cupyx.scipy.sparse.issparse_csr(x):
+    if not cupyx.scipy.sparse.isspmatrix_csr(x):
         x = x.tocsr()
     gram_matrix = cp.zeros((x.shape[1], x.shape[1]), dtype=x.data.dtype)
     mean_x = cp.zeros((x.shape[1],), dtype=x.data.dtype)
@@ -233,7 +251,13 @@ def _cov_sparse(x):
     gram_matrix *= 1 / x.shape[0]
     mean_x *= 1 / x.shape[0]
 
-    cov_result = gram_matrix
+    if return_gram:
+        cov_result = cp.zeros(
+            (gram_matrix.shape[0], gram_matrix.shape[0]),
+            dtype=gram_matrix.dtype,
+        )
+    else:
+        cov_result = gram_matrix
 
     compute_cov = _cov_kernel(x.dtype)
 
@@ -245,4 +269,11 @@ def _cov_sparse(x):
         (cov_result, gram_matrix, mean_x, mean_x, gram_matrix.shape[0]),
     )
 
-    return cov_result, mean_x
+    if not return_gram and not return_mean:
+        return cov_result
+    elif return_gram and not return_mean:
+        return cov_result, gram_matrix
+    elif not return_gram and return_mean:
+        return cov_result, mean_x, mean_x
+    elif return_gram and return_mean:
+        return cov_result, gram_matrix, mean_x, mean_x

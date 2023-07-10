@@ -14,7 +14,8 @@
 #
 
 from cuml.testing.utils import array_equal
-from cuml.prims.stats import cov, _cov_sparse
+from cuml.prims.stats import cov
+from cuml.prims.stats.covariance import _cov_sparse
 import pytest
 from cuml.internals.safe_imports import gpu_only_import
 

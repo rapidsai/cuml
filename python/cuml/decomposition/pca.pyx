@@ -42,7 +42,7 @@ from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common import using_output_type
-from cuml.prims.stats import _cov_sparse
+from cuml.prims.stats import cov
 from cuml.internals.input_utils import sparse_scipy_to_cp
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.mixins import FMajorInputTagMixin
@@ -369,7 +369,7 @@ class PCA(UniversalBase,
         # NOTE: All intermediate calculations are done using cupy.ndarray and
         # then converted to CumlArray at the end to minimize conversions
         # between types
-        covariance, self.mean = _cov_sparse(X)
+        covariance, self.mean, _ = cov(X, X, return_mean=True)
 
         self.explained_variance_, self.components_ = \
             cp.linalg.eigh(covariance, UPLO='U')

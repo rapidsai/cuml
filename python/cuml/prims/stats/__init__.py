@@ -14,4 +14,4 @@
 # limitations under the License.
 #
 
-from cuml.prims.stats.covariance import cov, _cov_sparse
+from cuml.prims.stats.covariance import cov
