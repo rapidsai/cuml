@@ -97,10 +97,10 @@ outputs:
         - libcusparse-dev {{ cuda11_libcusparse_run_version }}
         {% else %}
         - cuda-cudart-dev {{ cuda_spec }}
-        - libcublas-dev {{ libcublas_run_version }}
-        - libcufft {{ libcufft_run_version }}
-        - libcurand {{ libcurand_run_version }}
-        - libcusparse {{ libcusparse_run_version }}
+        - libcublas-dev {{ cuda11_libcublas_run_version }}
+        - libcufft {{ cuda11_libcufft_run_version }}
+        - libcurand {{ cuda11_libcurand_run_version }}
+        - libcusparse {{ cuda11_libcusparse_run_version }}
         {% endif %}
         - libcumlprims ={{ minor_version }}
         - libraft ={{ minor_version }}
