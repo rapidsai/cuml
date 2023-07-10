@@ -248,9 +248,6 @@ def run_tidy_for_all_files(args, all_files):
             and re.search(args.select_compiled, cmd["file"]) is None
         ):
             continue
-        # from pprint import pprint;
-        # pprint(cmd)
-        # print(cmd["command"].split()[-1])
         if pool is not None:
             pool.apply_async(run_clang_tidy, args=(cmd, args), callback=collect_result)
         else:
