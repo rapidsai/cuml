@@ -260,7 +260,8 @@ class LinearRegression(LinearPredictMixin,
     intercept_ = CumlArrayDescriptor(order='F')
 
     @device_interop_preparation
-    def __init__(self, *, algorithm='eig', fit_intercept=True, normalize=False,
+    def __init__(self, *, algorithm='eig', fit_intercept=True,
+                 normalize=False, copy_X=True,
                  handle=None, verbose=False, output_type=None):
         if handle is None and algorithm == 'eig':
             # if possible, create two streams, so that eigenvalue decomposition
@@ -284,6 +285,7 @@ class LinearRegression(LinearPredictMixin,
             raise TypeError(msg.format(algorithm))
 
         self.intercept_value = 0.0
+        self.copy_X = copy_X
 
     def _get_algorithm_int(self, algorithm):
         return {
@@ -304,7 +306,9 @@ class LinearRegression(LinearPredictMixin,
         """
         cdef uintptr_t X_ptr, y_ptr, sample_weight_ptr
         X_m, n_rows, self.n_features_in_, self.dtype = \
-            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+            input_to_cuml_array(X,
+                                check_dtype=[np.float32, np.float64],
+                                deepcopy=self.copy_X)
         X_ptr = X_m.ptr
         self.feature_names_in_ = X_m.index
 
