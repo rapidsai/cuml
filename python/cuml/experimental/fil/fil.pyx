@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cupy as cp
 import functools
 import itertools
 import numpy as np
@@ -49,7 +48,6 @@ from time import perf_counter
 nvtx_annotate = gpu_only_import_from('nvtx', 'annotate', alt=null_decorator)
 
 from cuml.internals.safe_imports import (
-    cpu_only_import,
     gpu_only_import_from,
     null_decorator
 )
@@ -219,7 +217,7 @@ cdef class ForestInference_impl():
         model_dtype = self.get_dtype()
 
         cdef uintptr_t in_ptr
-        in_arr, n_rows, n_cols, dtype = input_to_cuml_array(
+        in_arr, n_rows, _, _ = input_to_cuml_array(
             X,
             order='C',
             convert_to_dtype=model_dtype,
@@ -327,6 +325,7 @@ class _AutoIterations:
         )
         self.invocations += 1
         return result
+
 
 def _handle_legacy_fil_args(func):
     @functools.wraps(func)

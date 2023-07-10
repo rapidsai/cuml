@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 
 # distutils: language = c++
 
-import ctypes
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 
@@ -24,7 +23,6 @@ cuda = gpu_only_import_from('numba', 'cuda')
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -314,7 +312,7 @@ class CD(Base,
         Predicts the y for X.
 
         """
-        X_m, n_rows, n_cols, dtype = \
+        X_m, n_rows, n_cols, _ = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
@@ -350,7 +348,7 @@ class CD(Base,
 
         self.handle.sync()
 
-        del(X_m)
+        del X_m
 
         return preds
 

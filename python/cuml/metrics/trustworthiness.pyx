@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-import warnings
 
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
@@ -102,13 +101,13 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_X_embedded_ptr
 
-    X_m, n_samples, n_features, dtype1 = \
+    X_m, n_samples, n_features, _ = \
         input_to_cuml_array(X, order='C', check_dtype=np.float32,
                             convert_to_dtype=(np.float32 if convert_dtype
                                               else None))
     d_X_ptr = X_m.ptr
 
-    X_m2, n_rows, n_components, dtype2 = \
+    X_m2, _, n_components, _ = \
         input_to_cuml_array(X_embedded, order='C',
                             check_dtype=np.float32,
                             convert_to_dtype=(np.float32 if convert_dtype

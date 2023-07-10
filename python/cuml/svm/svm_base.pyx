@@ -15,7 +15,6 @@
 
 # distutils: language = c++
 
-import ctypes
 from cuml.internals.safe_imports import gpu_only_import
 cupy = gpu_only_import('cupy')
 from cuml.internals.safe_imports import cpu_only_import
@@ -24,7 +23,6 @@ np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
 
-from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
@@ -73,16 +71,16 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         int verbosity
         double epsilon
         SvmType svmType
-  
+
 
 cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
-    
+
     cdef cppclass SupportStorage[math_t]:
-        int nnz;
-        int* indptr;
-        int* indices;
-        math_t* data;
-    
+        int nnz
+        int* indptr
+        int* indices
+        math_t* data
+
     cdef cppclass SvmModel[math_t]:
         # parameters of a fitted model
         int n_support
@@ -97,7 +95,7 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
 cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
     cdef void svcPredict[math_t](
-        const handle_t &handle, math_t* data, int n_rows, int n_cols, 
+        const handle_t &handle, math_t* data, int n_rows, int n_cols,
         KernelParams &kernel_params, const SvmModel[math_t] &model,
         math_t *preds, math_t buffer_size, bool predict_class) except +
 
@@ -328,7 +326,7 @@ class SVMBase(Base,
             elif self.gamma == 'scale':
                 if isinstance(X, SparseCumlArray):
                     # account for zero values
-                    data_cupy = cupy.asarray(X.data).copy();
+                    data_cupy = cupy.asarray(X.data).copy()
                     num_elements = self.n_cols * self.n_rows
                     extended_mean = data_cupy.mean()*X.nnz/num_elements
                     data_cupy = (data_cupy - extended_mean)**2
@@ -487,26 +485,25 @@ class SVMBase(Base,
                     order='F')
             else:
                 indptr = CumlArray(data=indptr,
-                                    shape=(self.n_support_ + 1,),
-                                    dtype=np.int32,
-                                    order='F')
+                                   shape=(self.n_support_ + 1,),
+                                   dtype=np.int32,
+                                   order='F')
                 indices = CumlArray(data=indices,
                                     shape=(nnz,),
                                     dtype=np.int32,
                                     order='F')
                 data = CumlArray(data=data,
-                                    shape=(nnz,),
-                                    dtype=self.dtype,
-                                    order='F')
+                                 shape=(nnz,),
+                                 dtype=self.dtype,
+                                 order='F')
                 sparse_input = SparseCumlArrayInput(
-                    dtype=self.dtype, 
-                    indptr=indptr, 
-                    indices=indices, 
-                    data=data, 
-                    nnz=nnz, 
+                    dtype=self.dtype,
+                    indptr=indptr,
+                    indices=indices,
+                    data=data,
+                    nnz=nnz,
                     shape=(self.n_support_, self.n_cols))
                 self.support_vectors_ = SparseCumlArray(data=sparse_input)
-
 
         self.n_classes_ = n_classes
         if self.n_classes_ > 0:
@@ -517,7 +514,6 @@ class SVMBase(Base,
                 order='F')
         else:
             self._unique_labels_ = None
-
 
     def _unpack_model(self):
         """ Expose the model parameters as attributes """
@@ -532,27 +528,27 @@ class SVMBase(Base,
         if self.dtype == np.float32:
             model_f = <SvmModel[float]*><uintptr_t> self._model
             self._unpack_svm_model(
-                model_f.b, 
-                model_f.n_support, 
-                <uintptr_t>model_f.dual_coefs, 
-                <uintptr_t>model_f.support_idx, 
-                model_f.support_matrix.nnz, 
-                <uintptr_t>model_f.support_matrix.indptr, 
-                <uintptr_t>model_f.support_matrix.indices, 
-                <uintptr_t>model_f.support_matrix.data, 
+                model_f.b,
+                model_f.n_support,
+                <uintptr_t>model_f.dual_coefs,
+                <uintptr_t>model_f.support_idx,
+                model_f.support_matrix.nnz,
+                <uintptr_t>model_f.support_matrix.indptr,
+                <uintptr_t>model_f.support_matrix.indices,
+                <uintptr_t>model_f.support_matrix.data,
                 model_f.n_classes,
                 <uintptr_t> model_f.unique_labels)
         else:
             model_d = <SvmModel[double]*><uintptr_t> self._model
             self._unpack_svm_model(
-                model_d.b, 
-                model_d.n_support, 
-                <uintptr_t>model_d.dual_coefs, 
-                <uintptr_t>model_d.support_idx, 
-                model_d.support_matrix.nnz, 
-                <uintptr_t>model_d.support_matrix.indptr, 
-                <uintptr_t>model_d.support_matrix.indices, 
-                <uintptr_t>model_d.support_matrix.data, 
+                model_d.b,
+                model_d.n_support,
+                <uintptr_t>model_d.dual_coefs,
+                <uintptr_t>model_d.support_idx,
+                model_d.support_matrix.nnz,
+                <uintptr_t>model_d.support_matrix.indptr,
+                <uintptr_t>model_d.support_matrix.indices,
+                <uintptr_t>model_d.support_matrix.data,
                 model_d.n_classes,
                 <uintptr_t> model_d.unique_labels)
 
@@ -604,8 +600,8 @@ class SVMBase(Base,
 
         self._check_is_fitted('_model')
 
-        array_type, is_sparse = determine_array_type_full(X)
-        
+        _array_type, is_sparse = determine_array_type_full(X)
+
         if is_sparse:
             X_m = SparseCumlArray(X)
             n_rows = X_m.shape[0]
@@ -623,25 +619,24 @@ class SVMBase(Base,
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef SvmModel[float]* model_f
         cdef SvmModel[double]* model_d
-        cdef uintptr_t X_ptr = X_m.data.ptr if is_sparse else X_m.ptr 
 
         cdef int X_rows = n_rows
         cdef int X_cols = n_cols
-        cdef int X_nnz = X_m.nnz if is_sparse else n_rows * n_cols 
-        cdef uintptr_t X_indptr = X_m.indptr.ptr if is_sparse else X_m.ptr 
-        cdef uintptr_t X_indices = X_m.indices.ptr if is_sparse else X_m.ptr 
+        cdef int X_nnz = X_m.nnz if is_sparse else n_rows * n_cols
+        cdef uintptr_t X_indptr = X_m.indptr.ptr if is_sparse else X_m.ptr
+        cdef uintptr_t X_indices = X_m.indices.ptr if is_sparse else X_m.ptr
         cdef uintptr_t X_data = X_m.data.ptr if is_sparse else X_m.ptr
 
         if self.dtype == np.float32:
             model_f = <SvmModel[float]*><size_t> self._model
             if is_sparse:
-                svcPredictSparse(handle_[0], <int*>X_indptr, <int*>X_indices, 
-                        <float*>X_data, X_rows, X_cols, X_nnz,
-                        self._get_kernel_params(), model_f[0],
-                        <float*>preds_ptr, <float>self.cache_size,
-                        <bool> predict_class)
+                svcPredictSparse(handle_[0], <int*>X_indptr, <int*>X_indices,
+                                 <float*>X_data, X_rows, X_cols, X_nnz,
+                                 self._get_kernel_params(), model_f[0],
+                                 <float*>preds_ptr, <float>self.cache_size,
+                                 <bool> predict_class)
             else:
-                svcPredict(handle_[0], <float*>X_data, n_rows, n_cols, 
+                svcPredict(handle_[0], <float*>X_data, n_rows, n_cols,
                            self._get_kernel_params(), model_f[0],
                            <float*>preds_ptr, <float>self.cache_size,
                            <bool> predict_class)
@@ -649,21 +644,20 @@ class SVMBase(Base,
         else:
             model_d = <SvmModel[double]*><size_t> self._model
             if is_sparse:
-                svcPredictSparse(handle_[0], <int*>X_indptr, <int*>X_indices, 
-                        <double*>X_data, X_rows, X_cols, X_nnz,
-                        self._get_kernel_params(), model_d[0],
-                        <double*>preds_ptr, <double>self.cache_size,
-                        <bool> predict_class)
+                svcPredictSparse(handle_[0], <int*>X_indptr, <int*>X_indices,
+                                 <double*>X_data, X_rows, X_cols, X_nnz,
+                                 self._get_kernel_params(), model_d[0],
+                                 <double*>preds_ptr, <double>self.cache_size,
+                                 <bool> predict_class)
             else:
-                svcPredict(handle_[0], <double*>X_data, n_rows, n_cols, 
+                svcPredict(handle_[0], <double*>X_data, n_rows, n_cols,
                            self._get_kernel_params(), model_d[0],
                            <double*>preds_ptr, <double>self.cache_size,
                            <bool> predict_class)
 
-
         self.handle.sync()
 
-        del(X_m)
+        del X_m
 
         return preds
 

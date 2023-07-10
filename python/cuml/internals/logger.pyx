@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,25 +54,25 @@ cdef extern from "cuml/common/logger.hpp" nogil:
     cdef int CUML_LEVEL_OFF
 
 
-"""Enables all log messages up to and including `trace()`"""
+# Enables all log messages up to and including `trace()`
 level_trace = CUML_LEVEL_TRACE
 
-"""Enables all log messages up to and including `debug()`"""
+# Enables all log messages up to and including `debug()`
 level_debug = CUML_LEVEL_DEBUG
 
-"""Enables all log messages up to and including `info()`"""
+# Enables all log messages up to and including `info()`
 level_info = CUML_LEVEL_INFO
 
-"""Enables all log messages up to and including `warn()`"""
+# Enables all log messages up to and including `warn()`
 level_warn = CUML_LEVEL_WARN
 
-"""Enables all log messages up to and include `error()`"""
+# Enables all log messages up to and include `error()`
 level_error = CUML_LEVEL_ERROR
 
-"""Enables only `critical()` messages"""
+# Enables only `critical()` messages
 level_critical = CUML_LEVEL_CRITICAL
 
-"""Disables all log messages"""
+# Disables all log messages
 level_off = CUML_LEVEL_OFF
 
 cdef void _log_callback(int lvl, const char * msg) with gil:

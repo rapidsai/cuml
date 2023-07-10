@@ -15,7 +15,6 @@
 
 # distutils: language = c++
 
-import ctypes
 from cuml.internals.safe_imports import gpu_only_import
 cupy = gpu_only_import('cupy')
 from cuml.internals.safe_imports import cpu_only_import
@@ -24,19 +23,16 @@ np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
 
-from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
 from cuml.internals.input_utils import determine_array_type_full
 from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.metrics import r2_score
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
-from libcpp cimport bool, nullptr
+from libcpp cimport nullptr
 from cuml.svm.svm_base import SVMBase
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
@@ -67,11 +63,11 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
 cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
 
     cdef cppclass SupportStorage[math_t]:
-        int nnz;
-        int* indptr;
-        int* indices;
-        math_t* data;
-    
+        int nnz
+        int* indptr
+        int* indices
+        math_t* data
+
     cdef cppclass SvmModel[math_t]:
         # parameters of a fitted model
         int n_support
@@ -85,8 +81,8 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
 
 cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM" nogil:
 
-    cdef void svrFit[math_t](const handle_t &handle, 
-                             math_t* data, 
+    cdef void svrFit[math_t](const handle_t &handle,
+                             math_t* data,
                              int n_rows,
                              int n_cols,
                              math_t *y,
@@ -95,10 +91,10 @@ cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM" nogil:
                              SvmModel[math_t] &model,
                              const math_t *sample_weight) except+
 
-    cdef void svrFitSparse[math_t](const handle_t &handle, 
-                                   int* indptr, 
-                                   int* indices, 
-                                   math_t* data, 
+    cdef void svrFitSparse[math_t](const handle_t &handle,
+                                   int* indptr,
+                                   int* indices,
+                                   math_t* data,
                                    int n_rows,
                                    int n_cols,
                                    int nnz,
@@ -107,6 +103,7 @@ cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM" nogil:
                                    KernelParams &kernel_params,
                                    SvmModel[math_t] &model,
                                    const math_t *sample_weight) except+
+
 
 class SVR(SVMBase, RegressorMixin):
     """
@@ -258,10 +255,10 @@ class SVR(SVMBase, RegressorMixin):
         Fit the model with X and y.
 
         """
-        # we need to check whether out input X is sparse 
+        # we need to check whether out input X is sparse
         # In that case we don't want to make a dense copy
-        array_type, is_sparse = determine_array_type_full(X)
-        
+        _array_type, is_sparse = determine_array_type_full(X)
+
         if is_sparse:
             X_m = SparseCumlArray(X)
             self.n_rows = X_m.shape[0]
@@ -298,34 +295,34 @@ class SVR(SVMBase, RegressorMixin):
 
         cdef int n_rows = self.n_rows
         cdef int n_cols = self.n_cols
-        cdef int n_nnz = X_m.nnz if is_sparse else self.n_rows * self.n_cols 
-        cdef uintptr_t X_indptr = X_m.indptr.ptr if is_sparse else X_m.ptr 
-        cdef uintptr_t X_indices = X_m.indices.ptr if is_sparse else X_m.ptr 
-        cdef uintptr_t X_data = X_m.data.ptr if is_sparse else X_m.ptr 
+        cdef int n_nnz = X_m.nnz if is_sparse else self.n_rows * self.n_cols
+        cdef uintptr_t X_indptr = X_m.indptr.ptr if is_sparse else X_m.ptr
+        cdef uintptr_t X_indices = X_m.indices.ptr if is_sparse else X_m.ptr
+        cdef uintptr_t X_data = X_m.data.ptr if is_sparse else X_m.ptr
 
         if self.dtype == np.float32:
             model_f = new SvmModel[float]()
             if is_sparse:
-                svrFitSparse(handle_[0], <int*>X_indptr, <int*>X_indices, 
-                        <float*>X_data, n_rows, n_cols, n_nnz,
-                        <float*>y_ptr, param, _kernel_params,
-                        model_f[0], <float*>sample_weight_ptr)
+                svrFitSparse(handle_[0], <int*>X_indptr, <int*>X_indices,
+                             <float*>X_data, n_rows, n_cols, n_nnz,
+                             <float*>y_ptr, param, _kernel_params, model_f[0],
+                             <float*>sample_weight_ptr)
             else:
                 svrFit(handle_[0], <float*>X_data, n_rows, n_cols,
-                        <float*>y_ptr, param, _kernel_params,
-                        model_f[0], <float*>sample_weight_ptr)
+                       <float*>y_ptr, param, _kernel_params, model_f[0],
+                       <float*>sample_weight_ptr)
             self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
             model_d = new SvmModel[double]()
             if is_sparse:
-                svrFitSparse(handle_[0], <int*>X_indptr, <int*>X_indices, 
-                        <double*>X_data, n_rows, n_cols, n_nnz,
-                        <double*>y_ptr, param, _kernel_params,
-                        model_d[0], <double*>sample_weight_ptr)
+                svrFitSparse(handle_[0], <int*>X_indptr, <int*>X_indices,
+                             <double*>X_data, n_rows, n_cols, n_nnz,
+                             <double*>y_ptr, param, _kernel_params, model_d[0],
+                             <double*>sample_weight_ptr)
             else:
                 svrFit(handle_[0], <double*>X_data, n_rows, n_cols,
-                        <double*>y_ptr, param, _kernel_params,
-                        model_d[0], <double*>sample_weight_ptr)
+                       <double*>y_ptr, param, _kernel_params, model_d[0],
+                       <double*>sample_weight_ptr)
             self._model = <uintptr_t>model_d
         else:
             raise TypeError('Input data type should be float32 or float64')
