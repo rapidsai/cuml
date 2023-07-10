@@ -17,6 +17,8 @@
 
 import importlib
 import traceback
+
+from contextlib import contextmanager
 from cuml.internals.device_support import CPU_ENABLED, GPU_ENABLED
 from cuml.internals import logger
 
@@ -30,6 +32,7 @@ def return_false(*args, **kwargs):
     return False
 
 
+@contextmanager
 def null_decorator(*args, **kwargs):
     if len(kwargs) == 0 and len(args) == 1 and callable(args[0]):
         return args[0]

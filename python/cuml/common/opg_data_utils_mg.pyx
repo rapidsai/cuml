@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ np = cpu_only_import('numpy')
 
 from cuml.common.opg_data_utils_mg cimport *
 from libc.stdlib cimport malloc, free
-from libc.stdint cimport uintptr_t, uint32_t, uint64_t
+from libc.stdint cimport uintptr_t
 from cuml.common import input_to_cuml_array
 from cython.operator cimport dereference as deref
 from cuml.internals.array import CumlArray
@@ -213,7 +213,7 @@ def _build_part_inputs(cuda_arr_ifaces,
 
     cuml_arr_ifaces = []
     for arr in cuda_arr_ifaces:
-        X_m, n_rows, n_cols, dtype = \
+        X_m, _, _, _ = \
             input_to_cuml_array(arr, order="F",
                                 convert_to_dtype=(np.float32
                                                   if convert_dtype

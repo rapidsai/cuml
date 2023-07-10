@@ -15,9 +15,6 @@
 
 # distutils: language = c++
 
-import typing
-
-import ctypes
 from cuml.internals.safe_imports import gpu_only_import
 cudf = gpu_only_import('cudf')
 from cuml.internals.safe_imports import gpu_only_import
@@ -33,24 +30,23 @@ from libc.stdint cimport uintptr_t
 
 import cuml.internals
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
 from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.logger import warn
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.interruptible import cuda_interruptible
-from cuml.common import input_to_cuml_array, input_to_host_array, with_cupy_rmm
-from cuml.internals.input_utils import input_to_cupy_array
+from cuml.common import input_to_cuml_array, input_to_host_array
+from cuml.internals.input_utils import input_to_cupy_array, determine_array_type_full
 from cuml.preprocessing import LabelEncoder
-from libcpp cimport bool, nullptr
+from libcpp cimport nullptr
 from cuml.svm.svm_base import SVMBase
 from cuml.internals.import_utils import has_sklearn
-from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.internals.array_sparse import SparseCumlArray
 
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
     from sklearn.calibration import CalibratedClassifierCV
+
 
 cdef extern from "raft/distance/distance_types.hpp" \
         namespace "raft::distance::kernels":
@@ -85,30 +81,117 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         SvmType svmType
 
 cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
+
+    cdef cppclass SupportStorage[math_t]:
+        int nnz
+        int* indptr
+        int* indices
+        math_t* data
+
     cdef cppclass SvmModel[math_t]:
         # parameters of a fitted model
         int n_support
         int n_cols
         math_t b
         math_t *dual_coefs
-        math_t *x_support
+        SupportStorage[math_t] support_matrix
         int *support_idx
         int n_classes
         math_t *unique_labels
 
 cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
 
-    cdef void svcFit[math_t](const handle_t &handle, math_t *input,
-                             int n_rows, int n_cols, math_t *labels,
+    cdef void svcFit[math_t](const handle_t &handle, math_t* data,
+                             int n_rows, int n_cols,
+                             math_t *labels,
                              const SvmParameter &param,
                              KernelParams &kernel_params,
                              SvmModel[math_t] &model,
-                             const math_t *sample_weight) except+
+                             const math_t *sample_weight) except +
 
-    cdef void svcPredict[math_t](
-        const handle_t &handle, math_t *input, int n_rows, int n_cols,
-        KernelParams &kernel_params, const SvmModel[math_t] &model,
-        math_t *preds, math_t buffer_size, bool predict_class) except +
+    cdef void svcFitSparse[math_t](const handle_t &handle, int* indptr, int* indices,
+                                   math_t* data, int n_rows, int n_cols, int nnz,
+                                   math_t *labels,
+                                   const SvmParameter &param,
+                                   KernelParams &kernel_params,
+                                   SvmModel[math_t] &model,
+                                   const math_t *sample_weight) except +
+
+
+def apply_class_weight(handle, sample_weight, class_weight, y, verbose, output_type, dtype) -> CumlArray:
+    """
+    Scale the sample weights with the class weights.
+
+    Returns the modified sample weights, or None if neither class weights
+    nor sample weights are defined. The returned weights are defined as
+
+    sample_weight[i] = class_weight[y[i]] * sample_weight[i].
+
+    Parameters:
+    -----------
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model.
+    sample_weight: array-like (device or host), shape = (n_samples, 1)
+        sample weights or None if not given
+    class_weight : dict or string (default=None)
+        Weights to modify the parameter C for class i to class_weight[i]*C. The
+        string 'balanced' is also accepted, in which case ``class_weight[i] =
+        n_samples / (n_classes * n_samples_of_class[i])``
+    y: array of floats or doubles, shape = (n_samples, 1)
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {{'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
+    dtype : dtype for sample_weights
+
+    Returns
+    --------
+    sample_weight: device array shape = (n_samples, 1) or None
+    """
+    if class_weight is None:
+        return sample_weight
+
+    if type(y) is CumlArray:
+        y_m = y
+    else:
+        y_m, _, _, _ = input_to_cuml_array(y, check_cols=1)
+
+    le = LabelEncoder(handle=handle,
+                      verbose=verbose,
+                      output_type=output_type)
+    labels = y_m.to_output(output_type='series')
+    encoded_labels = cp.asarray(le.fit_transform(labels))
+    n_samples = y_m.shape[0]
+
+    # Define class weights for the encoded labels
+    if class_weight == 'balanced':
+        counts = cp.asnumpy(cp.bincount(encoded_labels))
+        n_classes = len(counts)
+        weights = n_samples / (n_classes * counts)
+        class_weight = {i: weights[i] for i in range(n_classes)}
+    else:
+        keys = class_weight.keys()
+        encoded_keys = le.transform(cudf.Series(keys)).values_host
+        class_weight = {enc_key: class_weight[key]
+                        for enc_key, key in zip(encoded_keys, keys)}
+
+    if sample_weight is None:
+        sample_weight = cp.ones(y_m.shape, dtype=dtype)
+    else:
+        sample_weight, _, _, _ = \
+            input_to_cupy_array(sample_weight, convert_to_dtype=dtype,
+                                check_rows=n_samples, check_cols=1)
+
+    for label, weight in class_weight.items():
+        sample_weight[encoded_labels==label] *= weight
+
+    return sample_weight
 
 
 class SVC(SVMBase,
@@ -313,62 +396,6 @@ class SVC(SVMBase,
     def intercept_(self, value):
         self._intercept_ = value
 
-    @cuml.internals.api_base_return_array_skipall
-    def _apply_class_weight(self, sample_weight, y_m) -> CumlArray:
-        """
-        Scale the sample weights with the class weights.
-
-        Returns the modified sample weights, or None if neither class weights
-        nor sample weights are defined. The returned weights are defined as
-
-        sample_weight[i] = class_weight[y[i]] * sample_weight[i].
-
-        Parameters:
-        -----------
-        sample_weight: array-like (device or host), shape = (n_samples, 1)
-            sample weights or None if not given
-        y_m: device array of floats or doubles, shape = (n_samples, 1)
-            Array of target labels already copied to the device.
-
-        Returns
-        --------
-        sample_weight: device array shape = (n_samples, 1) or None
-        """
-        if self.class_weight is None:
-            return sample_weight
-
-        le = LabelEncoder(handle=self.handle,
-                          verbose=self.verbose,
-                          output_type=self.output_type)
-        labels = y_m.to_output(output_type='series')
-        encoded_labels = cp.asarray(le.fit_transform(labels))
-
-        # Define class weights for the encoded labels
-        if self.class_weight == 'balanced':
-            counts = cp.asnumpy(cp.bincount(encoded_labels))
-            n_classes = len(counts)
-            n_samples = y_m.shape[0]
-            weights = n_samples / (n_classes * counts)
-            class_weight = {i: weights[i] for i in range(n_classes)}
-        else:
-            keys = self.class_weight.keys()
-            keys_series = cudf.Series(keys)
-            encoded_keys = le.transform(cudf.Series(keys)).values_host
-            class_weight = {enc_key: self.class_weight[key]
-                            for enc_key, key in zip(encoded_keys, keys)}
-
-        if sample_weight is None:
-            sample_weight = cp.ones(y_m.shape, dtype=self.dtype)
-        else:
-            sample_weight, _, _, _ = \
-                input_to_cupy_array(sample_weight, convert_to_dtype=self.dtype,
-                                    check_rows=self.n_rows, check_cols=1)
-
-        for label, weight in class_weight.items():
-            sample_weight[encoded_labels==label] *= weight
-
-        return sample_weight
-
     def _get_num_classes(self, y):
         """
         Determine the number of unique classes in y.
@@ -449,17 +476,30 @@ class SVC(SVMBase,
 
         self.n_classes_ = self._get_num_classes(y)
 
+        # we need to check whether input X is sparse
+        # In that case we don't want to make a dense copy
+        _array_type, is_sparse = determine_array_type_full(X)
+
         if self.probability:
+            if is_sparse:
+                raise ValueError("Probabilistic SVM does not support sparse input.")
             return self._fit_proba(X, y, sample_weight)
 
         if self.n_classes_ > 2:
+            if is_sparse:
+                raise ValueError("Multiclass SVM does not support sparse input.")
             return self._fit_multiclass(X, y, sample_weight)
 
-        # Fit binary classifier
-        X_m, self.n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X, order='F')
+        if is_sparse:
+            X_m = SparseCumlArray(X)
+            self.n_rows = X_m.shape[0]
+            self.n_cols = X_m.shape[1]
+            self.dtype = X_m.dtype
+        else:
+            X_m, self.n_rows, self.n_cols, self.dtype = \
+                input_to_cuml_array(X, order='F')
 
-        cdef uintptr_t X_ptr = X_m.ptr
+        # Fit binary classifier
         convert_to_dtype = self.dtype if convert_dtype else None
         y_m, _, _, _ = \
             input_to_cuml_array(y, check_dtype=self.dtype,
@@ -468,7 +508,7 @@ class SVC(SVMBase,
 
         cdef uintptr_t y_ptr = y_m.ptr
 
-        sample_weight = self._apply_class_weight(sample_weight, y_m)
+        sample_weight = apply_class_weight(self.handle, sample_weight, self.class_weight, y_m, self.verbose, self.output_type, self.dtype)
         cdef uintptr_t sample_weight_ptr = <uintptr_t> nullptr
         if sample_weight is not None:
             sample_weight_m, _, _, _ = \
@@ -488,23 +528,47 @@ class SVC(SVMBase,
 
         cdef int n_rows = self.n_rows
         cdef int n_cols = self.n_cols
+
+        cdef int n_nnz = X_m.nnz if is_sparse else self.n_rows * self.n_cols
+        cdef uintptr_t X_indptr = X_m.indptr.ptr if is_sparse else X_m.ptr
+        cdef uintptr_t X_indices = X_m.indices.ptr if is_sparse else X_m.ptr
+        cdef uintptr_t X_data = X_m.data.ptr if is_sparse else X_m.ptr
+
         if self.dtype == np.float32:
             model_f = new SvmModel[float]()
-            with cuda_interruptible():
-                with nogil:
-                    svcFit(
-                        deref(handle_), <float*>X_ptr, n_rows,
-                        n_cols, <float*>y_ptr, param, _kernel_params,
-                        deref(model_f), <float*>sample_weight_ptr)
+            if is_sparse:
+                with cuda_interruptible():
+                    with nogil:
+                        svcFitSparse(
+                            deref(handle_), <int*>X_indptr, <int*>X_indices,
+                            <float*>X_data, n_rows, n_cols, n_nnz,
+                            <float*>y_ptr, param, _kernel_params,
+                            deref(model_f), <float*>sample_weight_ptr)
+            else:
+                with cuda_interruptible():
+                    with nogil:
+                        svcFit(
+                            deref(handle_), <float*>X_data, n_rows, n_cols,
+                            <float*>y_ptr, param, _kernel_params,
+                            deref(model_f), <float*>sample_weight_ptr)
             self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
             model_d = new SvmModel[double]()
-            with cuda_interruptible():
-                with nogil:
-                    svcFit(
-                        deref(handle_), <double*>X_ptr, n_rows,
-                        n_cols, <double*>y_ptr, param, _kernel_params,
-                        deref(model_d), <double*>sample_weight_ptr)
+            if is_sparse:
+                with cuda_interruptible():
+                    with nogil:
+                        svcFitSparse(
+                            deref(handle_), <int*>X_indptr, <int*>X_indices,
+                            <double*>X_data, n_rows, n_cols, n_nnz,
+                            <double*>y_ptr, param, _kernel_params,
+                            deref(model_d), <double*>sample_weight_ptr)
+            else:
+                with cuda_interruptible():
+                    with nogil:
+                        svcFit(
+                            deref(handle_), <double*>X_data, n_rows, n_cols,
+                            <double*>y_ptr, param, _kernel_params,
+                            deref(model_d), <double*>sample_weight_ptr)
             self._model = <uintptr_t>model_d
         else:
             raise TypeError('Input data type should be float32 or float64')

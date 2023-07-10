@@ -290,8 +290,8 @@ __global__ void repulsive_kernel(const value_t* restrict Y,
                                  value_t* restrict Z_sum2,
                                  const value_idx n,
                                  const value_idx dim,
-                                 const value_t df_power,  // -(df + 1)/2)
-                                 const value_t recp_df)   // 1 / df
+                                 const value_t df_power,   // -(df + 1)/2)
+                                 const value_t recp_df)    // 1 / df
 {
   const auto j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const auto i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row

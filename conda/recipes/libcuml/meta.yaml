@@ -82,6 +82,7 @@ requirements:
     # - libcumlprims ={{ minor_version }}
     - libraft ={{ minor_version }}
     - libraft-headers ={{ minor_version }}
+    - librmm ={{ minor_version }}
     - treelite {{ treelite_version }}
 
 outputs:
@@ -122,6 +123,7 @@ outputs:
         # - libcumlprims ={{ minor_version }}
         - libraft ={{ minor_version }}
         - libraft-headers ={{ minor_version }}
+        - librmm ={{ minor_version }}
         - treelite {{ treelite_version }}
     about:
       home: https://rapids.ai/

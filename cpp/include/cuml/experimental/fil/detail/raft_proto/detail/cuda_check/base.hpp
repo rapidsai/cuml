@@ -20,8 +20,9 @@ namespace raft_proto {
 namespace detail {
 
 template <device_type D, typename error_t>
-void cuda_check(error_t const& err) {
+void cuda_check(error_t const& err)
+{
 }
 
-}
-}
+}  // namespace detail
+}  // namespace raft_proto

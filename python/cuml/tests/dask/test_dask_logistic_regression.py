@@ -98,8 +98,8 @@ def test_lr_fit_predict_score(
     )
 
     n_info = 5
-    nrows = np.int(nrows)
-    ncols = np.int(ncols)
+    nrows = int(nrows)
+    ncols = int(ncols)
     X, y = make_classification_dataset(datatype, nrows, ncols, n_info)
 
     gX, gy = _prep_training_data(client, X, y, n_parts)

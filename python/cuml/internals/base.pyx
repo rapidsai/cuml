@@ -20,10 +20,13 @@ import os
 import inspect
 import numbers
 from importlib import import_module
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import_from,
+    null_decorator
+)
 np = cpu_only_import('numpy')
-import nvtx
-import typing
+nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
 import cuml
 import cuml.common
@@ -48,12 +51,10 @@ from cuml.internals.output_type import (
     VALID_OUTPUT_TYPES
 )
 from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.safe_imports import (
     gpu_only_import, gpu_only_import_from
 )
 
-from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import TagsMixin
 
 cp_ndarray = gpu_only_import_from('cupy', 'ndarray')
@@ -437,14 +438,13 @@ class Base(TagsMixin,
         for func_name in ['fit', 'transform', 'predict', 'fit_transform',
                           'fit_predict']:
             if hasattr(self, func_name):
-                message = self.__class__.__module__ + '.' + func_name
                 msg = '{class_name}.{func_name} [{addr}]'
                 msg = msg.format(class_name=self.__class__.__module__,
                                  func_name=func_name,
                                  addr=hex(id(self)))
                 msg = msg[5:]  # remove cuml.
                 func = getattr(self, func_name)
-                func = nvtx.annotate(message=msg, domain="cuml_python")(func)
+                func = nvtx_annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
 
 
