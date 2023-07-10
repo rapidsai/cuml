@@ -15,7 +15,7 @@ rapids-mamba-retry env create --force -f env.yaml -n clang_tidy
 # Temporarily allow unbound variables for conda activation.
 set +u && conda activate clang_tidy && set -u
 
-./build.sh libcuml
+./build.sh --nobuild libcuml
 
 rapids-logger "Run clang-tidy"
 
