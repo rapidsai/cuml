@@ -24,14 +24,9 @@ mkdir -p "${RAPIDS_TESTS_DIR}"
 
 rapids-print-env
 
-# debug: remove cuda 12 packages from conda-forge that are being combined with nvidia channel ones
-conda remove --force cuda-cccl_linux-64 cuda-cudart cuda-cudart-dev cuda-cudart-dev_linucuda-cudart-static  cuda-cudart-static_lincuda-profiler-api cuda-version libcublas libcublas-dev libcurand libcurand-dev libcusolver          libcusolver-dev libcusparse libcusparse-dev libnvjitlink
-
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   libcuml libcuml-tests
-
-conda list
 
 rapids-logger "Check GPU usage"
 nvidia-smi
