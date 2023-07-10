@@ -138,6 +138,8 @@ def get_tidy_args(cmd, exe):
         command.insert(1, "-std=c++17")
     elif command[0][-2:] == "cc":
         command[0] = "clang"
+    else:
+        raise ValueError("Unable to identify compiler.")
     # remove compilation and output targets from the original command
     remove_item_plus_one(command, "-c")
     remove_item_plus_one(command, "-o")
