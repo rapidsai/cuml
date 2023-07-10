@@ -203,7 +203,7 @@ def _cov_sparse(x, return_gram=False, return_mean=False):
 
     x : cupyx.scipy.sparse of size (m, n)
     return_gram : boolean (default = False)
-        If True, gram matrix of the form (1 / n) * X.T.dot(Y)
+        If True, gram matrix of the form (1 / n) * X.T.dot(X)
         will be returned.
         When True, a copy will be created
         to store the results of the covariance.
@@ -211,8 +211,8 @@ def _cov_sparse(x, return_gram=False, return_mean=False):
         will be overwritten
     return_mean: boolean (default = False)
         If True, the Maximum Likelihood Estimate used to
-        calculate the mean of X and Y will be returned,
-        of the form (1 / n) * mean(X) and (1 / n) * mean(Y)
+        calculate the mean of X and X will be returned,
+        of the form (1 / n) * mean(X) and (1 / n) * mean(X)
 
     Returns
     -------
