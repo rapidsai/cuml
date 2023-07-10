@@ -109,6 +109,18 @@ dependencies:
             packages:
               - gcc_linux-aarch64=11.*
               - sysroot_linux-aarch64==2.17
+      - output_types: conda
+        matrices:
+          - matrix:
+              arch: x86_64
+              cuda: "11.8"
+            packages:
+              - nvcc_linux-64=11.8
+          - matrix:
+              arch: aarch64
+              cuda: "11.8"
+            packages:
+              - nvcc_linux-aarch64=11.8
   py_build:
     common:
       - output_types: [conda, requirements, pyproject]
