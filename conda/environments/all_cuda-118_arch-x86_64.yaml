@@ -25,6 +25,7 @@ dependencies:
 - gcc_linux-64=11.*
 - gmock>=1.13.0
 - graphviz
+- gtest>=1.13.0
 - hdbscan
 - hypothesis>=6.0,<7
 - ipykernel
