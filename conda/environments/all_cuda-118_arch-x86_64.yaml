@@ -23,6 +23,7 @@ dependencies:
 - distributed>=2023.5.1
 - doxygen=1.8.20
 - gcc_linux-64=11.*
+- gmock>=1.13.0
 - graphviz
 - hdbscan
 - hypothesis>=6.0,<7
