@@ -14,7 +14,7 @@
 #
 
 from cuml.testing.utils import array_equal
-from cuml.prims.stats import cov, cov_sparse
+from cuml.prims.stats import cov, _cov_sparse
 import pytest
 from cuml.internals.safe_imports import gpu_only_import
 
@@ -53,7 +53,7 @@ def test_cov_sparse(nrows, ncols, dtype):
     x = cupyx.scipy.sparse.random(
         nrows, ncols, density=0.07, format="csr", dtype=dtype
     )
-    cov_result = cov_sparse(x)
+    cov_result = _cov_sparse(x)
 
     # check cov
     assert cov_result[0].shape == (ncols, ncols)

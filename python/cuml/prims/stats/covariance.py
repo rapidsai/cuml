@@ -190,7 +190,7 @@ def cov(x, y, mean_x=None, mean_y=None, return_gram=False, return_mean=False):
 
 
 @cuml.internals.api_return_any()
-def cov_sparse(x):
+def _cov_sparse(x):
     """
     Computes the mean and the covariance of matrix X of
     the form Cov(X, X) = E(XX) - E(X)E(X)
