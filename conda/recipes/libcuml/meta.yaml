@@ -81,7 +81,9 @@ outputs:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
-        - {{ compiler('cuda') }}
+        {% if cuda_major == "11" %}
+        - {{ compiler('cuda11') }}
+        {% endif %}
     requirements:
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
@@ -116,12 +118,14 @@ outputs:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
-        - {{ compiler('cuda') }}
+        {% if cuda_major == "11" %}
+        - {{ compiler('cuda11') }}
+        {% endif %}
     requirements:
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
-        - cudatoolkit {{ cuda_spec }}
+        - cudatoolkit
         {% endif %}
         - {{ pin_subpackage('libcuml', exact=True) }}
         - gtest {{ gtest_version }}
