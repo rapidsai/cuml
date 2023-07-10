@@ -37,25 +37,25 @@ cov_kernel_str = r"""
 """
 
 mean_cov_kernel_str = r"""
-(const int *indptr, const int *index, {0} *data, int nrows, int ncols, {0}  *out,{0}  *mean) {
+(const int *indptr, const int *index, {0} *data, int nrows, int ncols, {0} *out, {0} *mean) {
     int row = blockDim.x * blockIdx.x + threadIdx.x;
     if(row >= nrows) return;
     int start_idx = indptr[row];
     int stop_idx = indptr[row+1];
 
-    for(int idx = start_idx; idx< stop_idx; idx++){
+    for(int idx = start_idx; idx < stop_idx; idx++){
         int index1 = index[idx];
         {0} data1 = data[idx];
         long long int outidx = \
-            static_cast<long long int>(index1) *ncols+index1;
-        atomicAdd(&out[outidx],data1*data1);
-        atomicAdd(&mean[index1],data1);
-        for(int idx2 = idx+1; idx2< stop_idx; idx2++){
+            static_cast<long long int>(index1) * ncols + index1;
+        atomicAdd(&out[outidx], data1 * data1);
+        atomicAdd(&mean[index1], data1);
+        for(int idx2 = idx+1; idx2 < stop_idx; idx2++){
             int index2 = index[idx2];
             {0} data2 = data[idx2];
             long long int outidx2 = \
-                static_cast<long long int>(index1) *ncols+index2;
-            atomicAdd(&out[outidx2],data1*data2);
+                static_cast<long long int>(index1) * ncols + index2;
+            atomicAdd(&out[outidx2], data1 * data2);
         }
     }
 }
