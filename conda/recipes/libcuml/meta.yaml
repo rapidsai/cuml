@@ -89,6 +89,8 @@ outputs:
         - {{ compiler('cuda11') }}
         {% endif %}
     requirements:
+      build:
+        - cmake {{ cmake_version }}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
@@ -125,6 +127,8 @@ outputs:
         - {{ compiler('cuda11') }}
         {% endif %}
     requirements:
+      build:
+        - cmake {{ cmake_version }}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
