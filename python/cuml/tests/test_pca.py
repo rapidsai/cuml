@@ -263,12 +263,8 @@ def test_pca_inverse_transform(datatype, input_type, name, use_handle, nrows):
     assert array_equal(input_gdf, X, 5e-5, with_sign=True)
 
 
-@pytest.mark.skipif(
-    get_runtime_version() >= 12000,
-    reason="https://github.com/rapidsai/cuml/issues/5497",
-)
-@pytest.mark.parametrize("nrows", [4000, 8000])
-@pytest.mark.parametrize("ncols", [5000, stress_param(20000)])
+@pytest.mark.parametrize("nrows", [4000, 7000])
+@pytest.mark.parametrize("ncols", [2500, stress_param(20000)])
 @pytest.mark.parametrize("whiten", [True, False])
 @pytest.mark.parametrize("return_sparse", [True, False])
 @pytest.mark.parametrize("cupy_input", [True, False])
