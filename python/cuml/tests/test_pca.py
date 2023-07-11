@@ -28,11 +28,16 @@ from cuml.testing.utils import (
 from cuml import PCA as cuPCA
 import pytest
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.internals.safe_imports import cpu_only_import
 
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
+
+get_runtime_version = gpu_only_import_from(
+    "rmm._cuda.gpu", "runtimeGetVersion"
+)
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -259,8 +264,8 @@ def test_pca_inverse_transform(datatype, input_type, name, use_handle, nrows):
 
 
 @pytest.mark.skipif(
-    cp.cuda.driver.get_build_version() <= 11020,
-    reason="Test failing on driver 11.2",
+    get_runtime_version() >= 12000,
+    reason="https://github.com/rapidsai/cuml/issues/5497",
 )
 @pytest.mark.parametrize("nrows", [4000, 8000])
 @pytest.mark.parametrize("ncols", [5000, stress_param(20000)])
