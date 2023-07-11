@@ -133,7 +133,7 @@ def cov(x, y, mean_x=None, mean_y=None, return_gram=False, return_mean=False):
             "X and Y must have same shape %s != %s" % (x.shape, y.shape)
         )
 
-    # Fix for issue #5475: addressing problems with sparse matrix multiplication (spGEMM)
+    # Fix for cupy issue #7699: addressing problems with sparse matrix multiplication (spGEMM)
     if (
         x is y
         and cupyx.scipy.sparse.issparse(x)
@@ -204,7 +204,7 @@ def _cov_sparse(x, return_gram=False, return_mean=False):
     Computes the mean and the covariance of matrix X of
     the form Cov(X, X) = E(XX) - E(X)E(X)
 
-    This is a temporary fix for issue #5475, where the
+    This is a temporary fix for cupy issue #7699, where the
     operation `x.T.dot(x)` did not work for larger
     sparse matrices.
 
