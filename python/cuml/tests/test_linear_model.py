@@ -980,23 +980,27 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
 
 
 @given(
-    split_datasets(
-        standard_regression_datasets(
-            dtypes=floating_dtypes(sizes=(32, 64)),
-        ),
+    dataset=standard_regression_datasets(
+        n_features=st.integers(min_value=1, max_value=10),
+        dtypes=floating_dtypes(sizes=(32, 64)),
     ),
-    algorithms,
+    algorithm=algorithms,
+    xp=st.sampled_from([np, cp]),
+    copy=st.booleans(),
 )
-@example(small_regression_dataset(np.float32), "svd")
-@example(small_regression_dataset(np.float64), "svd")
-@example(small_regression_dataset(np.float32), "eig")
-@example(small_regression_dataset(np.float64), "eig")
-def test_linear_regression_copy(dataset, algorithm):
-    assume(cuml_compatible_dataset(*dataset))
-
-    X, _, y, _ = dataset
+@example(make_regression(n_features=1), "svd", cp, True)
+@example(make_regression(n_features=1), "svd", cp, False)
+@example(make_regression(n_features=1), "svd", np, False)
+@example(make_regression(n_features=2), "svd", cp, False)
+@example(make_regression(n_features=2), "eig", np, False)
+def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
+    X, y = dataset
+    X, y = xp.asarray(X), xp.asarray(y)
     X_copy = X.copy()
 
-    lr = cuLinearRegression(algorithm=algorithm)
-    lr.fit(X, y)
-    assert array_equal(X, X_copy)
+    cuLinearRegression(algorithm=algorithm, copy_X=copy).fit(X, y)
+
+    if (X.shape[1] == 1 and xp is cp) and not copy:
+        assert not array_equal(X, X_copy)
+    else:
+        assert array_equal(X, X_copy)
