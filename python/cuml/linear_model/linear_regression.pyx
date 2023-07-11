@@ -201,7 +201,9 @@ class LinearRegression(LinearPredictMixin,
         If True, LinearRegression tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
     copy_X : bool, default=True
-        If True, X will be copied; else, it may be overwritten.
+        If True, it is guaranteed that a copy of X is created, leaving the
+        original X unchanged. However, if set to False, X may be modified
+        directly, which would reduce the memory usage of the estimator.
     normalize : boolean (default = False)
         This parameter is ignored when `fit_intercept` is set to False.
         If True, the predictors in X will be normalized by dividing by the
