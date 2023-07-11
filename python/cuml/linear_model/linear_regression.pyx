@@ -200,6 +200,8 @@ class LinearRegression(LinearPredictMixin,
     fit_intercept : boolean (default = True)
         If True, LinearRegression tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
+    copy_X : bool, default=True
+        If True, X will be copied; else, it may be overwritten.
     normalize : boolean (default = False)
         This parameter is ignored when `fit_intercept` is set to False.
         If True, the predictors in X will be normalized by dividing by the
@@ -261,7 +263,7 @@ class LinearRegression(LinearPredictMixin,
 
     @device_interop_preparation
     def __init__(self, *, algorithm='eig', fit_intercept=True,
-                 normalize=False, copy_X=True,
+                 copy_X=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
         if handle is None and algorithm == 'eig':
             # if possible, create two streams, so that eigenvalue decomposition
@@ -465,7 +467,7 @@ class LinearRegression(LinearPredictMixin,
 
     def get_param_names(self):
         return super().get_param_names() + \
-            ['algorithm', 'fit_intercept', 'normalize']
+            ['algorithm', 'fit_intercept', 'copy_X', 'normalize']
 
     def get_attr_names(self):
         return ['coef_', 'intercept_', 'n_features_in_', 'feature_names_in_']
