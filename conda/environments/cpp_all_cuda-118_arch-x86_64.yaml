@@ -12,6 +12,8 @@ dependencies:
 - cudatoolkit=11.8
 - cxx-compiler
 - gcc_linux-64=11.*
+- gmock>=1.13.0
+- gtest>=1.13.0
 - libcublas-dev=11.11.3.6
 - libcublas=11.11.3.6
 - libcufft-dev=10.9.0.58
@@ -27,5 +29,6 @@ dependencies:
 - libraft==23.8.*
 - librmm==23.8.*
 - ninja
+- nvcc_linux-64=11.8
 - sysroot_linux-64==2.17
 name: cpp_all_cuda-118_arch-x86_64
