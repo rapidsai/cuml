@@ -138,6 +138,11 @@ def cuml_compatible_dataset(X_train, X_test, y_train, _=None):
     )
 
 
+_ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
+
+algorithms = st.sampled_from(_ALGORITHMS)
+
+
 @pytest.mark.parametrize("ntargets", [1, 2])
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
@@ -980,15 +985,18 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
             dtypes=floating_dtypes(sizes=(32, 64)),
         ),
     ),
+    algorithms,
 )
-@example(small_regression_dataset(np.float32))
-@example(small_regression_dataset(np.float64))
-def test_linear_regression_copy(dataset):
+@example(small_regression_dataset(np.float32), "svd")
+@example(small_regression_dataset(np.float64), "svd")
+@example(small_regression_dataset(np.float32), "eig")
+@example(small_regression_dataset(np.float64), "eig")
+def test_linear_regression_copy(dataset, algorithm):
     assume(cuml_compatible_dataset(*dataset))
 
     X, _, y, _ = dataset
     X_copy = X.copy()
 
-    lr = cuLinearRegression(algorithm="svd")
+    lr = cuLinearRegression(algorithm=algorithm)
     lr.fit(X, y)
     assert array_equal(X, X_copy)
