@@ -15,6 +15,14 @@
 #=============================================================================
 enable_testing()
 
+# We use rapids-cmake testing infrastructure to allow us to run multiple
+# GPU tests concurrently without causing OOM issues.
+# Use the `GPUS` and `PERCENT` options to control how 'much' of the GPUs
+# you need for a test:
+#
+# GPUS 1 PERCENT 25 -> I need 25% of a single GPU
+# GPUS 1 PERCENT 100 -> all of 1 GPU
+# GPUS 2 PERCENT 200 -> all of 2 GPUs (will only run this test on 2 GPU machines)
 include(rapids-test)
 rapids_test_init()
 
