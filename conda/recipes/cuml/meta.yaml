@@ -53,7 +53,7 @@ requirements:
   host:
     - cuda-version ={{ cuda_version }}
     {% if cuda_major == "11" %}
-    - cuda-python >=11.7.1,<12.0a0
+    - cuda-python ==11.7.1
     - cudatoolkit
     - libcublas {{ cuda11_libcublas_host_version }}
     - libcublas-dev {{ cuda11_libcublas_host_version }}
@@ -64,7 +64,7 @@ requirements:
     - libcusparse {{ cuda11_libcusparse_host_version }}
     - libcusparse-dev {{ cuda11_libcusparse_host_version }}
     {% else %}
-    - cuda-python >=12.0,<13.0a0
+    - cuda-python ==12.0.0
     - libcublas-dev
     - libcurand-dev
     - libcusolver-dev
@@ -83,10 +83,7 @@ requirements:
   run:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
-    - cuda-python >=11.7.1,<12.0a0
     - cudatoolkit
-    {% else %}
-    - cuda-python >=12.0,<13.0a0
     {% endif %}
     - cudf ={{ minor_version }}
     - cupy >=12.0.0
