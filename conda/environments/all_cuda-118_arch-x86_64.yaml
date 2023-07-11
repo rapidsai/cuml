@@ -9,7 +9,7 @@ channels:
 dependencies:
 - c-compiler
 - cmake>=3.26.4
-- cuda-python>=11.7.1,<12.0
+- cuda-python>=11.7.1,<12.0a0
 - cuda-version=11.8
 - cudatoolkit
 - cudf==23.8.*

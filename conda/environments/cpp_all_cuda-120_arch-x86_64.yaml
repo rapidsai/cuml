@@ -10,10 +10,13 @@ dependencies:
 - c-compiler
 - cmake>=3.26.4
 - cuda-cudart-dev
+- cuda-nvcc=12.0
 - cuda-profiler-api
 - cuda-version=12.0
 - cxx-compiler
 - gcc_linux-64=11.*
+- gmock>=1.13.0
+- gtest>=1.13.0
 - libcublas-dev
 - libcumlprims==23.8.*
 - libcurand-dev

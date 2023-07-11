@@ -122,11 +122,15 @@ dependencies:
               cuda: "11.8"
             packages:
               - nvcc_linux-aarch64=11.8
+          - matrix:
+              arch: x86_64
+              cuda: "12.0"
+            packages:
+              - cuda-nvcc=12.0
   py_build:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cuda-python>=11.7.1,<12.0
           - scikit-build>=0.13.1
           - cython>=0.29,<0.30
           - &treelite treelite==3.2.0
@@ -137,6 +141,16 @@ dependencies:
           - wheel
           - setuptools
           - &treelite_runtime treelite_runtime==3.2.0
+    specific:
+      - output_types: [conda, requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.0"
+            packages:
+              - &cuda_python12 cuda-python>=12.0,<13.0a0
+          - matrix: # All CUDA 11 versions
+            packages:
+              - &cuda_python11 cuda-python>=11.7.1,<12.0a0
   py_run:
     common:
       - output_types: [conda, requirements, pyproject]
