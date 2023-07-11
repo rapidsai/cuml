@@ -126,7 +126,8 @@ dependencies:
               arch: x86_64
               cuda: "12.0"
             packages:
-              - cuda-nvcc=12.0
+              - cuda-nvcc
+              - cuda-version=12.0
   py_build:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -200,6 +201,7 @@ dependencies:
               - cuda-cudart-dev
               - cuda-profiler-api
               - libcublas-dev
+              - libcufft-dev
               - libcurand-dev
               - libcusolver-dev
               - libcusparse-dev

@@ -50,7 +50,7 @@ requirements:
   host:
     - cuda-version ={{ cuda_version }}
     {% if cuda_major == "11" %}
-    - cudatoolkit ={{ cuda_version }}
+    - cudatoolkit
     - libcublas {{ cuda11_libcublas_host_version }}
     - libcublas-dev {{ cuda11_libcublas_host_version }}
     - libcufft {{ cuda11_libcufft_host_version }}
