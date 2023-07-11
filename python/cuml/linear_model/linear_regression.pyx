@@ -307,10 +307,14 @@ class LinearRegression(LinearPredictMixin,
 
         """
         cdef uintptr_t X_ptr, y_ptr, sample_weight_ptr
+
+        need_explicit_copy = self.copy_X and hasattr(X, "__cuda_array_interface__") and X.shape[1] == 1
+
         X_m, n_rows, self.n_features_in_, self.dtype = \
             input_to_cuml_array(X,
                                 check_dtype=[np.float32, np.float64],
-                                deepcopy=self.copy_X)
+                                deepcopy=need_explicit_copy)
+
         X_ptr = X_m.ptr
         self.feature_names_in_ = X_m.index
 
