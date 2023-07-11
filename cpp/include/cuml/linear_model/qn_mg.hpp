@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <raft/core/comms.hpp>
-#include <cuml/common/logger.hpp>
-#include <cuml/linear_model/qn.h> 
 #include <cuda_runtime.h>
+#include <cuml/common/logger.hpp>
+#include <cuml/linear_model/qn.h>
+#include <raft/core/comms.hpp>
 
 #include <cumlprims/opg/matrix/data.hpp>
 #include <cumlprims/opg/matrix/part_descriptor.hpp>

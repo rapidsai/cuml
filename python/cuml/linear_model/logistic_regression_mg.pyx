@@ -27,19 +27,14 @@ from cuml.common import input_to_cuml_array
 import numpy as np
 
 import cuml.internals
-from cuml.internals.logger import warn
 from cuml.internals.array import CumlArray
-from cuml.internals.api_decorators import device_interop_preparation
 from cuml.linear_model.base_mg import MGFitMixin
-from cuml.linear_model import LogisticRegression 
-from cuml.solvers.qn import QN
+from cuml.linear_model import LogisticRegression
 from cuml.solvers.qn import QNParams
 from cython.operator cimport dereference as deref
 
 from pylibraft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
-
-from cuml.solvers.qn import __is_col_major
 
 # the cdef was copied from cuml.linear_model.qn
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
@@ -77,7 +72,7 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         PartDescriptor &input_desc,
         vector[floatData_t *] labels,
         float *coef,
-        const qn_params& pams, 
+        const qn_params& pams,
         bool X_col_major,
         int n_classes,
         float *f,
@@ -85,7 +80,7 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
 
 
 class LogisticRegressionMG(MGFitMixin, LogisticRegression):
-    
+
     def __init__(self, *, handle=None):
         super().__init__(handle=handle)
 
@@ -102,7 +97,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
             cp_array = value.to_output('array').reshape(new_shape)
             value, _, _, _ = input_to_cuml_array(cp_array, order='K')
             if (self.fit_intercept) and (self.solver_model.intercept_ is None):
-                self.solver_model.intercept_ = CumlArray.zeros(shape=(1, 1), dtype = value.dtype) 
+                self.solver_model.intercept_ = CumlArray.zeros(shape=(1, 1), dtype = value.dtype)
 
         self.solver_model.coef_ = value
 
@@ -178,15 +173,16 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         cdef float objective32
         cdef int num_iters
 
-
-        self._num_classes = 2 # TODO: calculate _num_classes at runtime
+        # TODO: calculate _num_classes at runtime
+        self._num_classes = 2
         self.prepare_for_fit(self._num_classes)
         cdef uintptr_t mat_coef_ptr = self.coef_.ptr
 
         cdef qn_params qnpams = self.qnparams.params
 
         if self.dtype == np.float32:
-            qnFit(handle_[0],
+            qnFit(
+                handle_[0],
                 deref(<vector[floatData_t*]*><uintptr_t>X),
                 deref(<PartDescriptor*><uintptr_t>input_desc),
                 deref(<vector[floatData_t*]*><uintptr_t>y),

@@ -142,21 +142,25 @@ def test_lr_fit_predict_score(
     probs_sk = sk_model.predict_proba(X)[:, 1]
     assert np.abs(probs_sk - probs_cuml.get()).max() <= 0.05
 
+
 @pytest.mark.mg
 @pytest.mark.parametrize("n_parts", [2])
 @pytest.mark.parametrize("datatype", [np.float32])
-def test_lbfgs_toy(
-    n_parts, datatype, client
-):
+def test_lbfgs_toy(n_parts, datatype, client):
     def imp():
         import cuml.comm.serialize  # NOQA
+
     client.run(imp)
 
     import numpy as np
+
     X = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], datatype)
     y = np.array([1.0, 1.0, 0.0, 0.0], datatype)
 
-    from cuml.dask.linear_model.logistic_regression import LogisticRegression as cumlLBFGS_dask
+    from cuml.dask.linear_model.logistic_regression import (
+        LogisticRegression as cumlLBFGS_dask,
+    )
+
     X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
     lr = cumlLBFGS_dask()
@@ -164,7 +168,7 @@ def test_lbfgs_toy(
     lr_coef = lr.coef_.to_numpy()
     lr_intercept = lr.intercept_.to_numpy()
 
-    assert len(lr_coef) == 1 
+    assert len(lr_coef) == 1
     assert lr_coef[0] == pytest.approx([-0.71483153, 0.7148315], abs=1e-6)
     assert lr_intercept == pytest.approx([-2.2614916e-08], abs=1e-6)
 
@@ -174,15 +178,15 @@ def test_lbfgs_toy(
 @pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [2, 23])
 @pytest.mark.parametrize("datatype", [np.float32])
-def test_lbfgs(
-    nrows, ncols, n_parts, datatype, client
-):
+def test_lbfgs(nrows, ncols, n_parts, datatype, client):
     def imp():
         import cuml.comm.serialize  # NOQA
 
     client.run(imp)
 
-    from cuml.dask.linear_model.logistic_regression import LogisticRegression as cumlLBFGS_dask
+    from cuml.dask.linear_model.logistic_regression import (
+        LogisticRegression as cumlLBFGS_dask,
+    )
 
     n_info = 5
     nrows = int(nrows)
@@ -195,7 +199,6 @@ def test_lbfgs(
     lr.fit(X_df, y_df)
     lr_coef = lr.coef_.to_numpy()
     lr_intercept = lr.intercept_.to_numpy()
-
 
     sk_model = skLR()
     sk_model.fit(X, y)

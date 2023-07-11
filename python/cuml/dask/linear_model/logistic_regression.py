@@ -30,11 +30,8 @@ from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
 
-    
-class LogisticRegression(
-    BaseEstimator, SyncFitMixinLinearModel 
-):
 
+class LogisticRegression(BaseEstimator, SyncFitMixinLinearModel):
     def __init__(self, *, client=None, verbose=False, **kwargs):
         super().__init__(client=client, verbose=verbose, **kwargs)
 
@@ -51,8 +48,7 @@ class LogisticRegression(
         """
 
         models = self._fit(
-            model_func=LogisticRegression._create_model, 
-            data=(X, y)
+            model_func=LogisticRegression._create_model, data=(X, y)
         )
 
         self._set_internal_model(models[0])
@@ -65,12 +61,12 @@ class LogisticRegression(
     @staticmethod
     @mnmg_import
     def _create_model(sessionId, datatype, **kwargs):
-        from cuml.linear_model.logistic_regression_mg import LogisticRegressionMG
+        from cuml.linear_model.logistic_regression_mg import (
+            LogisticRegressionMG,
+        )
 
         handle = get_raft_comm_state(sessionId, get_worker())["handle"]
-        return LogisticRegressionMG(
-            handle=handle 
-        )
+        return LogisticRegressionMG(handle=handle)
 
     @staticmethod
     def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
