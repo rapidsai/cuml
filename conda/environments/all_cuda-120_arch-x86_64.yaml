@@ -10,7 +10,7 @@ dependencies:
 - c-compiler
 - cmake>=3.26.4
 - cuda-cudart-dev
-- cuda-nvcc=12.0
+- cuda-nvcc
 - cuda-profiler-api
 - cuda-python>=12.0,<13.0a0
 - cuda-version=12.0
@@ -35,6 +35,7 @@ dependencies:
 - ipython
 - joblib>=0.11
 - libcublas-dev
+- libcufft-dev
 - libcumlprims==23.8.*
 - libcurand-dev
 - libcusolver-dev
