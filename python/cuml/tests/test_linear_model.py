@@ -972,3 +972,27 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
     assert qn.score(X_test, cd_res) > 0.95
     # coefficients of the two models should be close
     assert np.corrcoef(cd.coef_, qn.coef_)[0, 1] > 0.98
+
+
+def test_linear_regression_copy():
+    x = cp.array([335791, 108442, 53268, 31293, 20018, 13590, 9968, 7502,
+                  5648, 4476, 3616, 3047, 2455, 2056, 1713, 1484, 1176,
+                  1123, 931, 826, 745, 625, 614, 520, 448, 404, 371, 340,
+                  306, 289, 279, 217, 209, 185, 156, 172, 152, 145, 125,
+                  134, 104, 82, 79, 90, 78, 62, 69, 63, 57, 80],
+           dtype=float)
+    y = cp.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+                  17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+                  31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44,
+                  45, 46, 47, 48, 49, 50],
+                dtype=float)
+
+    x = cp.log(x)
+    y = cp.log(y)
+
+    X_before = x.copy()
+    X_after = x
+
+    lr = cuLinearRegression(algorithm = "svd")
+    lr.fit(X_before, y)
+    assert array_equal(X_before, X_after, 1e-1, with_sign=True)
