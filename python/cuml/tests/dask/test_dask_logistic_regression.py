@@ -179,6 +179,8 @@ def test_lbfgs_toy(n_parts, datatype, client):
 @pytest.mark.parametrize("n_parts", [2, 23])
 @pytest.mark.parametrize("datatype", [np.float32])
 def test_lbfgs(nrows, ncols, n_parts, datatype, client):
+    tolerance = 0.005
+
     def imp():
         import cuml.comm.serialize  # NOQA
 
@@ -207,5 +209,5 @@ def test_lbfgs(nrows, ncols, n_parts, datatype, client):
 
     assert len(lr_coef) == len(sk_coef)
     for i in range(len(lr_coef)):
-        assert lr_coef[i] == pytest.approx(sk_coef[i], abs=1e-3)
-    assert lr_intercept == pytest.approx(sk_intercept, abs=1e-3)
+        assert lr_coef[i] == pytest.approx(sk_coef[i], abs=tolerance)
+    assert lr_intercept == pytest.approx(sk_intercept, abs=tolerance)

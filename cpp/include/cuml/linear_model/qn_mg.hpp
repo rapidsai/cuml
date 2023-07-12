@@ -34,7 +34,7 @@ namespace opg {
  * @param[in] input_desc: PartDescriptor object for the input
  * @param[in] labels: labels data
  * @param[out] coef: learned coefficients
- * @param[in] params: model parameters
+ * @param[in] pams: model parameters
  * @param[in] X_col_major: true if X is stored column-major
  * @param[in] n_classes: number of outputs (number of classes or `1` for regression)
  * @param[out] f: host pointer holding the final objective value
