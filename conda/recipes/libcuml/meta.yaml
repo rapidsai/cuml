@@ -69,7 +69,7 @@ requirements:
     - libcusolver-dev
     - libcusparse-dev
     {% endif %}
-    - gmock
+    - gmock {{ gtest_version }}
     - gtest {{ gtest_version }}
     - libcumlprims ={{ minor_version }}
     - libraft ={{ minor_version }}
