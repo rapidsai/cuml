@@ -257,6 +257,7 @@ def test_pca_inverse_transform(datatype, input_type, name, use_handle, nrows):
     cupca.handle.sync()
     assert array_equal(input_gdf, X, 5e-5, with_sign=True)
 
+
 @pytest.mark.parametrize("nrows", [4000, 7000])
 @pytest.mark.parametrize("ncols", [2500, stress_param(20000)])
 @pytest.mark.parametrize("whiten", [True, False])
