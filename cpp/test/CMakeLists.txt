@@ -97,6 +97,7 @@ if(BUILD_CUML_TESTS)
 
   if(all_algo OR dbscan_algo)
     ConfigureTest(PREFIX SG NAME DBSCAN_TEST PATH sg/dbscan_test.cu OPTIONAL ML_INCLUDE)
+    ConfigureTest(PREFIX SG NAME MGRP_DBSCAN_TEST PATH sg/mgrp_dbscan_test.cu OPTIONAL ML_INCLUDE)
   endif()
 
   if(all_algo OR explainer_algo)
