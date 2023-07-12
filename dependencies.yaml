@@ -45,6 +45,7 @@ files:
     output: none
     includes:
       - cudatoolkit
+      - test_cpp
   test_python:
     output: none
     includes:
@@ -102,7 +103,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cmake>=3.26.4
+          - &cmake_ver cmake>=3.26.4
           - ninja
       - output_types: conda
         packages:
@@ -287,6 +288,11 @@ dependencies:
           - matrix:
             packages:
               - python>=3.9,<3.11
+  test_cpp:
+    common:
+      - output_types: conda
+        packages:
+          - *cmake_ver
   test_python:
     common:
       - output_types: [conda, requirements, pyproject]
