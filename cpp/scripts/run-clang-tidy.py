@@ -13,19 +13,17 @@
 # limitations under the License.
 #
 
-from __future__ import print_function
-import re
-import os
-import sys
-import subprocess
 import argparse
 import json
 import multiprocessing as mp
+import os
+import re
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import tomli
-
 
 EXPECTED_VERSION = "15.0.7"
 VERSION_REGEX = re.compile(r"  LLVM version ([0-9.]+)")
