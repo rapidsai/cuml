@@ -16,6 +16,7 @@
 from __future__ import print_function
 import re
 import os
+import sys
 import subprocess
 import argparse
 import json
@@ -295,8 +296,11 @@ def main():
         raise Exception("This needs to always be run from the root of repo")
     # Check whether clang-tidy exists
     if shutil.which("clang-tidy") is None:
-        print("clang-tidy not found. Exiting...")
-        return
+        print(
+            "Unable to find the clang-tidy executable, is it installed?",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     all_files = get_all_commands(args.cdb)
     status = run_tidy_for_all_files(args, all_files)
     if not status:
