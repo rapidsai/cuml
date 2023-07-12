@@ -19,4 +19,4 @@ set +u && conda activate clang_tidy && set -u
 
 rapids-logger "Run clang-tidy"
 
-python cpp/scripts/run-clang-tidy.py
+python cpp/scripts/run-clang-tidy.py --config pyproject.toml
