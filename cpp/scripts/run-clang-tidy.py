@@ -21,6 +21,9 @@ import argparse
 import json
 import multiprocessing as mp
 import shutil
+from pathlib import Path
+
+import tomli
 
 
 EXPECTED_VERSION = "15.0.7"
@@ -28,6 +31,17 @@ VERSION_REGEX = re.compile(r"  LLVM version ([0-9.]+)")
 GPU_ARCH_REGEX = re.compile(r"sm_(\d+)")
 SPACES = re.compile(r"\s+")
 SEPARATOR = "-" * 16
+
+
+def _read_config_file(config_file):
+    try:
+        return tomli.loads(Path(config_file).read_text())["tool"]["run-clang-tidy"]
+    except KeyError:
+        return {}
+    except tomli.TOMLDecodeError as error:
+        raise RuntimeError(
+            f"Failed to read config file '{config_file}' due to syntax error: {error}"
+        )
 
 
 def parse_args():
@@ -59,7 +73,22 @@ def parse_args():
     argparser.add_argument(
         "-j", type=int, default=-1, help="Number of parallel jobs to launch."
     )
+    argparser.add_argument(
+        "-c", "--config", type=str, help="Path to config file (default=pyproject.toml)."
+    )
     args = argparser.parse_args()
+
+    # Read from config file.
+    try:
+        config = _read_config_file(args.config or "./pyproject.toml")
+    except FileNotFoundError:
+        if args.config:
+            # only raise if config argument was explicitly used
+            raise RuntimeError(f"File '{args.config}' does not exist.")
+    else:
+        argparser.set_defaults(**config)
+        args = argparser.parse_args()
+
     if args.j <= 0:
         args.j = mp.cpu_count()
     args.ignore_compiled = re.compile(args.ignore) if args.ignore else None

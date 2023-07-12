@@ -94,6 +94,7 @@ dependencies:
           - clang==15.0.7
           - clang-tools==15.0.7
           - ninja
+          - tomli
   common_build:
     common:
       - output_types: [conda, requirements, pyproject]
