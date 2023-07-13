@@ -29,7 +29,8 @@ cupyx = gpu_only_import('cupyx')
 cuda = gpu_only_import('numba.cuda')
 
 from cuml.manifold.umap_utils cimport *
-from cuml.manifold.umap_utils import GraphHolder, find_ab_params
+from cuml.manifold.umap_utils import GraphHolder, find_ab_params, \
+    metric_parsing
 
 from cuml.common.sparsefuncs import extract_knn_infos
 from cuml.internals.safe_imports import gpu_only_import_from
@@ -47,7 +48,6 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
-from cuml.metrics.distance_type cimport DistanceType
 
 from cuml.manifold.simpl_set import fuzzy_simplicial_set  # no-cython-lint
 from cuml.manifold.simpl_set import simplicial_set_embedding  # no-cython-lint
@@ -447,26 +447,6 @@ class UMAP(UniversalBase,
         umap_params.target_weight = <float> cls.target_weight
         umap_params.random_state = <uint64_t> cls.random_state
         umap_params.deterministic = <bool> cls.deterministic
-
-        # metric
-        metric_parsing = {
-            "l2": DistanceType.L2SqrtUnexpanded,
-            "euclidean": DistanceType.L2SqrtUnexpanded,
-            "sqeuclidean": DistanceType.L2Unexpanded,
-            "cityblock": DistanceType.L1,
-            "l1": DistanceType.L1,
-            "manhattan": DistanceType.L1,
-            "taxicab": DistanceType.L1,
-            "minkowski": DistanceType.LpUnexpanded,
-            "chebyshev": DistanceType.Linf,
-            "linf": DistanceType.Linf,
-            "cosine": DistanceType.CosineExpanded,
-            "correlation": DistanceType.CorrelationExpanded,
-            "hellinger": DistanceType.HellingerExpanded,
-            "hamming": DistanceType.HammingUnexpanded,
-            "jaccard": DistanceType.JaccardExpanded,
-            "canberra": DistanceType.Canberra
-        }
 
         if cls.metric.lower() in metric_parsing:
             umap_params.metric = metric_parsing[cls.metric.lower()]

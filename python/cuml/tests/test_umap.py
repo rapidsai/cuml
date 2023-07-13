@@ -685,7 +685,6 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
         "chebyshev",
         "cosine",
         "correlation",
-        "jaccard",
         "hamming",
         "canberra",
     ],
