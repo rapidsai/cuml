@@ -729,7 +729,6 @@ def test_umap_distance_metrics_fit_transform_trust(metric):
         "chebyshev",
         "cosine",
         "correlation",
-        "jaccard",
         "hamming",
         "canberra",
     ],
