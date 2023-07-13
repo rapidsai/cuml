@@ -3,7 +3,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.8"]
+      cuda: ["11.8", "12.0"]
       arch: [x86_64]
     includes:
       - common_build
@@ -16,7 +16,7 @@ files:
   cpp_all:
     output: conda
     matrix:
-      cuda: ["11.8"]
+      cuda: ["11.8", "12.0"]
       arch: [x86_64]
     includes:
       - common_build
@@ -123,11 +123,16 @@ dependencies:
               cuda: "11.8"
             packages:
               - nvcc_linux-aarch64=11.8
+          - matrix:
+              arch: x86_64
+              cuda: "12.0"
+            packages:
+              - cuda-nvcc
+              - cuda-version=12.0
   py_build:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cuda-python>=11.7.1,<12.0
           - scikit-build>=0.13.1
           - cython>=0.29,<0.30
           - &treelite treelite==3.2.0
@@ -138,6 +143,16 @@ dependencies:
           - wheel
           - setuptools
           - &treelite_runtime treelite_runtime==3.2.0
+    specific:
+      - output_types: [conda, requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.0"
+            packages:
+              - &cuda_python12 cuda-python>=12.0,<13.0a0
+          - matrix: # All CUDA 11 versions
+            packages:
+              - &cuda_python11 cuda-python>=11.7.1,<12.0a0
   py_run:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -181,9 +196,21 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
+              cuda: "12.0"
+            packages:
+              - cuda-version=12.0
+              - cuda-cudart-dev
+              - cuda-profiler-api
+              - libcublas-dev
+              - libcufft-dev
+              - libcurand-dev
+              - libcusolver-dev
+              - libcusparse-dev
+          - matrix:
               cuda: "11.8"
             packages:
-              - cudatoolkit=11.8
+              - cuda-version=11.8
+              - cudatoolkit
               - libcublas-dev=11.11.3.6
               - libcublas=11.11.3.6
               - libcufft-dev=10.9.0.58
@@ -197,7 +224,8 @@ dependencies:
           - matrix:
               cuda: "11.5"
             packages:
-              - cudatoolkit=11.5
+              - cuda-version=11.5
+              - cudatoolkit
               - libcublas-dev>=11.7.3.1,<=11.7.4.6
               - libcublas>=11.7.3.1,<=11.7.4.6
               - libcufft-dev>=10.6.0.54,<=10.6.0.107
@@ -211,7 +239,8 @@ dependencies:
           - matrix:
               cuda: "11.4"
             packages:
-              - cudatoolkit=11.4
+              - cuda-version=11.4
+              - cudatoolkit
               - &libcublas_dev114 libcublas-dev>=11.5.2.43,<=11.6.5.2
               - &libcublas114 libcublas>=11.5.2.43,<=11.6.5.2
               - &libcufft_dev114 libcufft-dev>=10.5.0.43,<=10.5.2.100
@@ -225,7 +254,8 @@ dependencies:
           - matrix:
               cuda: "11.2"
             packages:
-              - cudatoolkit=11.2
+              - cuda-version=11.2
+              - cudatoolkit
               # The NVIDIA channel doesn't publish pkgs older than 11.4 for these libs,
               # so 11.2 uses 11.4 packages (the oldest available).
               - *libcublas_dev114
