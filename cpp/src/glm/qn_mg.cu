@@ -149,40 +149,6 @@ void qnFit(raft::handle_t& handle,
     handle, input_data, input_desc, labels, coef, pams, X_col_major, n_classes, f, num_iters);
 }
 
-/*
-void qnFit(const raft::handle_t &handle,
-           const qn_params& pams,
-           float* X,
-           bool X_col_major,
-           float *y,
-           int N,
-           int D,
-           int C,
-           float* w0,
-           float* f,
-           int* num_iters,
-           int n_samples,
-           int rank,
-           int n_ranks)
-{
-  qnFit_impl<float, int>(
-    handle,
-    pams,
-    X,
-    X_col_major,
-    y,
-    N,
-    D,
-    C,
-    w0,
-    f,
-    num_iters,
-    n_samples,
-    rank,
-    n_ranks);
-}
-*/
-
 };  // namespace opg
 };  // namespace GLM
 };  // namespace ML

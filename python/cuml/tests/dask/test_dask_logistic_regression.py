@@ -152,8 +152,6 @@ def test_lbfgs_toy(n_parts, datatype, client):
 
     client.run(imp)
 
-    import numpy as np
-
     X = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], datatype)
     y = np.array([1.0, 1.0, 0.0, 0.0], datatype)
 
@@ -190,6 +188,7 @@ def test_lbfgs(nrows, ncols, n_parts, datatype, client):
         LogisticRegression as cumlLBFGS_dask,
     )
 
+    # set n_informative variable for calling sklearn.datasets.make_classification
     n_info = 5
     nrows = int(nrows)
     ncols = int(ncols)
