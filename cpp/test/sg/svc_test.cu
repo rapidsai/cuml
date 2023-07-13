@@ -108,7 +108,7 @@ TYPED_TEST_CASE(WorkingSetTest, FloatTypes);
 TYPED_TEST(WorkingSetTest, Init)
 {
   auto stream = this->handle.get_stream();
-  this->ws    = new WorkingSet<TypeParam>(this->handle, this->handle.get_stream(), 10);
+  this->ws    = new WorkingSet<TypeParam>(this->handle, stream, 10);
   EXPECT_EQ(this->ws->GetSize(), 10);
   delete this->ws;
 

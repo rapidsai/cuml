@@ -68,7 +68,7 @@ def accuracy_score(ground_truth, predictions, handle=None, convert_dtype=True):
 
     preds_ptr = preds_m.ptr
 
-    ground_truth_m, _, _, ground_truth_dtype=\
+    ground_truth_m, _, _, _ =\
         input_to_cuml_array(ground_truth,
                             convert_to_dtype=np.int32
                             if convert_dtype else None)

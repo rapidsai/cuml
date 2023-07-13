@@ -107,6 +107,7 @@ please see the `.pre-commit-config.yaml` file.
 - `clang-format`: Formats C++ and CUDA code for consistency and readability.
 - `black`: Auto-formats Python code to conform to the PEP 8 style guide.
 - `flake8`: Lints Python code for syntax errors and common code style issues.
+- `cython-lint`: Lints Cython code for syntax errors and common code style issues.
 - _`DeprecationWarning` checker_: Checks for new `DeprecationWarning` being
   introduced in Python code, and instead `FutureWarning` should be used.
 - _`#include` syntax checker_: Ensures consistent syntax for C++ `#include` statements.
