@@ -13,6 +13,7 @@ jobs:
   pr-builder:
     needs:
       - checks
+      - clang-tidy
       - conda-cpp-build
       - conda-cpp-tests
       - conda-python-build
@@ -29,6 +30,16 @@ jobs:
     uses: rapidsai/shared-action-workflows/.github/workflows/checks.yaml@cuda-120
     with:
       enable_check_generated_files: false
+  clang-tidy:
+    needs: checks
+    secrets: inherit
+    uses: rapidsai/shared-action-workflows/.github/workflows/custom-job.yaml@branch-23.08
+    with:
+      build_type: pull-request
+      node_type: "cpu8"
+      arch: "amd64"
+      container_image: "rapidsai/ci:latest"
+      run_script: "ci/run_clang_tidy.sh"
   conda-cpp-build:
     needs: checks
     secrets: inherit

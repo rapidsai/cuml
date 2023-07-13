@@ -115,6 +115,47 @@ please see the `.pre-commit-config.yaml` file.
   of files are up-to-date and in the correct format.
 - `codespell`: Checks for spelling mistakes
 
+### Clang-tidy
+
+In order to maintain high-quality code, cuML uses not only pre-commit hooks
+featuring various formatters and linters but also the clang-tidy tool.
+Clang-tidy is designed to detect potential issues within the C and C++ code. It
+is typically run as part of our continuous integration (CI) process.
+
+While it's generally unnecessary for contributors to run clang-tidy locally,
+there might be cases where you would want to do so. There are two primary
+methods to run clang-tidy on your local machine: using Docker or Conda.
+
+* **Docker**
+
+    1. Navigate to the repository root directory.
+    2. Run the following Docker command:
+
+        ```bash
+        docker run --rm --pull always \
+            --mount type=bind,source="$(pwd)",target=/opt/repo --workdir /opt/repo \
+            -e SCCACHE_S3_NO_CREDENTIALS=1 \
+            rapidsai/ci:latest /opt/repo/ci/run_clang_tidy.sh
+        ```
+
+
+* **Conda**
+
+    1. Navigate to the repository root directory.
+    2. Create and activate the needed conda environment:
+        ```bash
+        conda env create --force -n cuml-clang-tidy -f conda/environments/clang_tidy_cuda-118_arch-x86_64.yaml
+        conda activate cuml-clang-tidy
+        ```
+    3. Generate the compile command database with
+        ```bash
+        ./build.sh --configure-only libcuml
+        ```
+    3. Run clang-tidy with the following command:
+        ```bash
+        python cpp/scripts/run-clang-tidy.py --config pyproject.toml
+        ```
+
 ### Managing PR labels
 
 Each PR must be labeled according to whether it is a "breaking" or "non-breaking" change (using Github labels). This is used to highlight changes that users should know about when upgrading.

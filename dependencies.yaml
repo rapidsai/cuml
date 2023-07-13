@@ -26,6 +26,15 @@ files:
     includes:
       - checks
       - py_version
+  clang_tidy:
+    output: conda
+    matrix:
+      cuda: ["11.8"]
+      arch: [x86_64]
+    includes:
+      - clang_tidy
+      - common_build
+      - cudatoolkit
   docs:
     output: none
     includes:
@@ -82,6 +91,14 @@ dependencies:
       - output_types: [conda, requirements]
         packages:
           - pre-commit
+  clang_tidy:
+    common:
+      - output_types: [conda, requirements]
+        packages:
+          - clang==15.0.7
+          - clang-tools==15.0.7
+          - ninja
+          - tomli
   common_build:
     common:
       - output_types: [conda, requirements, pyproject]

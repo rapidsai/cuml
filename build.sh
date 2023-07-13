@@ -19,7 +19,7 @@ ARGS=$*
 REPODIR=$(cd $(dirname $0); pwd)
 
 VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
-VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov --ccache -h --help "
+VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov --ccache --configure-only -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
@@ -46,6 +46,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    --codecov         - Enable code coverage support by compiling with Cython linetracing
                        and profiling enabled (WARNING: Impacts performance)
    --ccache          - Use ccache to cache previous compilations
+   --configure-only  - Invoke CMake without actually building
    --nocloneraft     - CMake will clone RAFT even if it is in the environment, use this flag to disable that behavior
    --static-treelite - Force CMake to use the Treelite static libs, cloning and building them if necessary
 
@@ -133,6 +134,7 @@ LONG_ARGUMENT_LIST=(
     "ccache"
     "nolibcumltest"
     "nocloneraft"
+    "configure-only"
 )
 
 # Short arguments
@@ -260,7 +262,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
 fi
 
 # If `./build.sh cuml` is called, don't build C/C++ components
-if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests; then
+if (! hasArg --configure-only) && (completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests); then
     cd ${LIBCUML_BUILD_DIR}
     if [ -n "${INSTALL_TARGET}" ]; then
       cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} --target ${INSTALL_TARGET} ${VERBOSE_FLAG}
@@ -269,14 +271,14 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp
     fi
 fi
 
-if hasArg cppdocs; then
+if (! hasArg --configure-only) && hasArg cppdocs; then
     cd ${LIBCUML_BUILD_DIR}
     cmake --build ${LIBCUML_BUILD_DIR} --target docs_cuml
 fi
 
 
 # Build and (optionally) install the cuml Python package
-if completeBuild || hasArg cuml || hasArg pydocs; then
+if (! hasArg --configure-only) && (completeBuild || hasArg cuml || hasArg pydocs); then
     # Append `-DFIND_CUML_CPP=ON` to CUML_EXTRA_CMAKE_ARGS unless a user specified the option.
     SKBUILD_EXTRA_CMAKE_ARGS="${CUML_EXTRA_CMAKE_ARGS}"
     if [[ "${CUML_EXTRA_CMAKE_ARGS}" != *"DFIND_CUML_CPP"* ]]; then

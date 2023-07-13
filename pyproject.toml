@@ -14,3 +14,7 @@ quiet-level = 3
 # TODO: Re-enable E501 with a reasonable line length
 max-line-length = 999
 ignore = ['E501']
+
+
+[tool.run-clang-tidy]
+ignore = "[.]cu$|_deps|examples/kmeans/"
