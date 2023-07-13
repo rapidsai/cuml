@@ -16,21 +16,5 @@ cmake_version:
 sysroot_version:
   - "=2.17"
 
-# The CTK libraries below are missing from the conda-forge::cudatoolkit package
-# for CUDA 11. The "*_host_*" version specifiers correspond to `11.8` packages
-# and the "*_run_*" version specifiers correspond to `11.x` packages.
-
-cuda11_libcublas_host_version:
-  - "=11.11.3.6"
-
-cuda11_libcurand_host_version:
-  - "=10.3.0.86"
-
-cuda11_libcusolver_host_version:
-  - "=11.4.1.48"
-
-cuda11_libcusparse_host_version:
-  - "=11.7.5.86"
-
 treelite_version:
   - "=3.2.0"

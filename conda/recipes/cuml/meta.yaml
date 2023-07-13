@@ -55,16 +55,8 @@ requirements:
     {% if cuda_major == "11" %}
     - cuda-python ==11.7.1
     - cudatoolkit
-    - libcublas {{ cuda11_libcublas_host_version }}
-    - libcurand {{ cuda11_libcurand_host_version }}
-    - libcusolver {{ cuda11_libcusolver_host_version }}
-    - libcusparse {{ cuda11_libcusparse_host_version }}
     {% else %}
     - cuda-python ==12.0.0
-    - libcublas
-    - libcurand
-    - libcusolver
-    - libcusparse
     {% endif %}
     - cudf ={{ minor_version }}
     - cython >=0.29,<0.30
