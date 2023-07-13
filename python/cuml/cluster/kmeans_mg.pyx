@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,21 +16,17 @@
 
 # distutils: language = c++
 
-import ctypes
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-import warnings
 
 from cuml.internals.safe_imports import gpu_only_import
 rmm = gpu_only_import('rmm')
 
 from cython.operator cimport dereference as deref
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
-from libc.stdlib cimport calloc, malloc, free
+from libc.stdlib cimport free
 
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 
@@ -79,10 +75,10 @@ cdef extern from "cuml/cluster/kmeans_mg.hpp" \
                   const double *sample_weight,
                   double *centroids,
                   double &inertia,
-                  int64_t &n_iter) except +                  
+                  int64_t &n_iter) except +
+
 
 class KMeansMG(KMeans):
-
     """
     A Multi-Node Multi-GPU implementation of KMeans
 
@@ -141,15 +137,9 @@ class KMeansMG(KMeans):
 
         cdef uintptr_t cluster_centers_ptr = self.cluster_centers_.ptr
 
-
         int_dtype = np.int32 if np.int64(n_rows) * np.int64(n_cols) < 2**31-1 else np.int64
 
         print(str(n_rows * n_cols))
-
-        labels_ = CumlArray.zeros(shape=n_rows, dtype=int_dtype,
-                                  index=X_m.index)
-
-        cdef uintptr_t labels_ptr = labels_.ptr
 
         cdef float inertiaf = 0
         cdef double inertiad = 0
@@ -224,11 +214,11 @@ class KMeansMG(KMeans):
 
         self.handle.sync()
 
-        self.labels_, _, _, _ =  input_to_cuml_array(self.predict(X,
-                                                     sample_weight=sample_weight), order='C',
-                                                     convert_to_dtype=self.dtype)
+        self.labels_, _, _, _ = input_to_cuml_array(self.predict(X,
+                                                    sample_weight=sample_weight), order='C',
+                                                    convert_to_dtype=self.dtype)
 
-        del(X_m)
+        del X_m
         free(params)
 
         return self

@@ -16,7 +16,6 @@
 
 # distutils: language = c++
 
-import ctypes
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
@@ -25,11 +24,9 @@ import warnings
 
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
-from collections import defaultdict
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport calloc, malloc, free
 
 from cuml import Handle
 from cuml.internals.array import CumlArray

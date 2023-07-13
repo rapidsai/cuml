@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,8 +24,6 @@ cp = gpu_only_import('cupy')
 from cuml.manifold.umap_utils cimport *
 from cuml.manifold.umap_utils import GraphHolder, find_ab_params
 
-import cuml.internals
-from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
 
@@ -61,7 +59,7 @@ def fuzzy_simplicial_set(X,
                          n_neighbors,
                          random_state=None,
                          metric="euclidean",
-                         metric_kwds={},
+                         metric_kwds=None,
                          knn_indices=None,
                          knn_dists=None,
                          set_op_mix_ratio=1.0,
@@ -121,6 +119,9 @@ def fuzzy_simplicial_set(X,
         1-simplex between the ith and jth sample points.
     """
 
+    if metric_kwds is None:
+        metric_kwds = {}
+
     deterministic = random_state is not None
     if not isinstance(random_state, int):
         if isinstance(random_state, np.random.RandomState):
@@ -139,7 +140,7 @@ def fuzzy_simplicial_set(X,
     umap_params.local_connectivity = <float> local_connectivity
     umap_params.verbosity = <int> verbose
 
-    X_m, n_rows, n_cols, _ = \
+    X_m, _, _, _ = \
         input_to_cuml_array(X,
                             order='C',
                             check_dtype=np.float32,
@@ -200,9 +201,9 @@ def simplicial_set_embedding(
     init="spectral",
     random_state=None,
     metric="euclidean",
-    metric_kwds={},
+    metric_kwds=None,
     output_metric="euclidean",
-    output_metric_kwds={},
+    output_metric_kwds=None,
     verbose=False,
 ):
     """Perform a fuzzy simplicial set embedding, using a specified
@@ -262,6 +263,12 @@ def simplicial_set_embedding(
         euclidean space.
     """
 
+    if metric_kwds is None:
+        metric_kwds = {}
+
+    if output_metric_kwds is None:
+        output_metric_kwds = {}
+
     if init not in ['spectral', 'random']:
         raise Exception("Initialization strategy not supported: %d" % init)
 
@@ -307,7 +314,7 @@ def simplicial_set_embedding(
         if 'p' in output_metric_kwds else 0
     umap_params.verbosity = <int> verbose
 
-    X_m, n_rows, n_cols, dtype = \
+    X_m, _, _, _ = \
         input_to_cuml_array(data, order='C', check_dtype=np.float32)
 
     graph = graph.tocoo()

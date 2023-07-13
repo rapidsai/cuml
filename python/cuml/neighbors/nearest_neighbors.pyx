@@ -23,7 +23,6 @@ np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
-import ctypes
 import warnings
 import math
 
@@ -34,7 +33,6 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from cuml.internals.import_utils import has_scipy
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.common import input_to_cuml_array
@@ -50,10 +48,8 @@ from pylibraft.common.handle cimport handle_t
 from cython.operator cimport dereference as deref
 
 from libcpp cimport bool
-from libcpp.memory cimport shared_ptr
 
 from libc.stdint cimport uintptr_t, int64_t, uint32_t
-from libc.stdlib cimport calloc, malloc, free
 
 from libcpp.vector cimport vector
 
@@ -62,10 +58,6 @@ cuda = gpu_only_import_from('numba', 'cuda')
 rmm = gpu_only_import('rmm')
 
 cimport cuml.common.cuda
-
-
-if has_scipy():
-    import scipy.sparse
 
 
 cdef extern from "raft/spatial/knn/ball_cover_types.hpp" \
@@ -368,7 +360,7 @@ class NearestNeighbors(UniversalBase,
         else:
             valid_metrics = cuml.neighbors.VALID_METRICS
             valid_metric_str = ""
-            self._fit_X, _, _, dtype = \
+            self._fit_X, _, _, _ = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
@@ -691,7 +683,7 @@ class NearestNeighbors(UniversalBase,
 
         metric = self._build_metric_type(self.effective_metric_)
 
-        X_m, N, _, dtype = \
+        X_m, N, _, _ = \
             input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                 convert_to_dtype=(np.float32 if convert_dtype
                                                   else False))

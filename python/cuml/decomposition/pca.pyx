@@ -16,7 +16,6 @@
 
 # distutils: language = c++
 
-import ctypes
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
@@ -28,7 +27,6 @@ from enum import IntEnum
 
 rmm = gpu_only_import('rmm')
 
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
 from cython.operator cimport dereference as deref
@@ -38,7 +36,6 @@ from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
-from pylibraft.common.handle import Handle
 import cuml.internals.logger as logger
 from cuml.decomposition.utils cimport *
 from cuml.internals.input_utils import input_to_cuml_array

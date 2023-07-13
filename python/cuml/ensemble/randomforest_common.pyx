@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import ctypes
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 import math
 import warnings
 import typing
-from inspect import signature
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
@@ -347,9 +345,6 @@ class BaseRandomForestModel(Base):
                               fil_sparse_format, threshold=0.5,
                               output_class=False,
                               predict_proba=False) -> CumlArray:
-        _, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='F',
-                                check_cols=self.n_cols)
         treelite_handle = self._obtain_treelite_handle()
         storage_type = \
             _check_fil_parameter_validity(depth=self.max_depth,

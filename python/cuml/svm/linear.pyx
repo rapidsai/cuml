@@ -38,7 +38,6 @@ from libcpp cimport bool as cppbool
 from cuda.ccudart cimport(
     cudaMemcpyAsync,
     cudaMemcpyKind,
-    cudaMemcpyDeviceToDevice
 )
 
 
@@ -219,7 +218,7 @@ for prop_name in LSVMPWrapper().get_param_names():
 del __add_prop
 
 LinearSVM_defaults = LSVMPWrapper()
-'''Default parameter values for LinearSVM, re-exported from C++.'''
+# Default parameter values for LinearSVM, re-exported from C++.
 
 cdef union SomeLinearSVMModel:
     LinearSVMModel[float] float32
@@ -296,7 +295,6 @@ cdef class LinearSVMWrapper:
                     " estimator with fit_intercept enabled")
 
         self.dtype = X.dtype if do_training else coefs.dtype
-        cdef cuda_stream_view stream = self.handle.get_stream()
         nClasses = 0
 
         if self.dtype != np.float32 and self.dtype != np.float64:
@@ -311,7 +309,6 @@ cdef class LinearSVMWrapper:
         if do_training:
             nCols = X.shape[1]
             nRows = X.shape[0]
-            sw_ptr = sampleWeight.ptr if sampleWeight is not None else 0
             if self.dtype == np.float32:
                 with cuda_interruptible():
                     with nogil:
@@ -638,7 +635,7 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
 
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> 'LinearSVM':
 
-        X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(X, order='F')
+        X_m, n_rows, _n_cols, self.dtype = input_to_cuml_array(X, order='F')
         convert_to_dtype = self.dtype if convert_dtype else None
         y_m = input_to_cuml_array(
             y, check_dtype=self.dtype,
@@ -690,7 +687,7 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
 
     def predict(self, X, convert_dtype=True) -> CumlArray:
         convert_to_dtype = self.dtype if convert_dtype else None
-        X_m, n_rows, n_cols, _ = input_to_cuml_array(
+        X_m, _, _, _ = input_to_cuml_array(
             X, check_dtype=self.dtype,
             convert_to_dtype=convert_to_dtype)
         self.__sync_model()
@@ -698,7 +695,7 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
 
     def decision_function(self, X, convert_dtype=True) -> CumlArray:
         convert_to_dtype = self.dtype if convert_dtype else None
-        X_m, n_rows, n_cols, _ = input_to_cuml_array(
+        X_m, _, _, _ = input_to_cuml_array(
             X, check_dtype=self.dtype,
             convert_to_dtype=convert_to_dtype)
         self.__sync_model()
@@ -706,7 +703,7 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
 
     def predict_proba(self, X, log=False, convert_dtype=True) -> CumlArray:
         convert_to_dtype = self.dtype if convert_dtype else None
-        X_m, n_rows, n_cols, _ = input_to_cuml_array(
+        X_m, _, _, _ = input_to_cuml_array(
             X, check_dtype=self.dtype,
             convert_to_dtype=convert_to_dtype)
         self.__sync_model()

@@ -9,3 +9,8 @@ ignore-words-list = "inout,numer,startd,couldn,referr"
 builtin = "clear"
 # disable warnings about binary files and wrong encoding
 quiet-level = 3
+
+[tool.cython-lint]
+# TODO: Re-enable E501 with a reasonable line length
+max-line-length = 999
+ignore = ['E501']

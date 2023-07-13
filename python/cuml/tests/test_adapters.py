@@ -236,5 +236,5 @@ def test_masked_column_mode(failure_logger, mask_dataset):
     n_columns = X.shape[1]
     for i in range(n_columns):
         column_mask = mask[:, i]
-        column_mode = stats.mode(X_np[:, i][column_mask])[0][0]
+        column_mode = stats.mode(X_np[:, i][column_mask], keepdims=True)[0][0]
         assert column_mode == mode[i]

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +15,6 @@
 #
 
 # distutils: language = c++
-
-import warnings
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')

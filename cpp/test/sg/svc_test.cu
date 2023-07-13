@@ -108,7 +108,7 @@ TYPED_TEST_CASE(WorkingSetTest, FloatTypes);
 TYPED_TEST(WorkingSetTest, Init)
 {
   auto stream = this->handle.get_stream();
-  this->ws    = new WorkingSet<TypeParam>(this->handle, this->handle.get_stream(), 10);
+  this->ws    = new WorkingSet<TypeParam>(this->handle, stream, 10);
   EXPECT_EQ(this->ws->GetSize(), 10);
   delete this->ws;
 
@@ -1170,7 +1170,7 @@ TYPED_TEST(SmoSolverTest, SvcTest)
                            {1, 1, 2, 2, 1, 2, 2, 3},
                            {0, 2, 3, 5},
                            {-1.0, -1.4, 0.2, -0.2, 1.4, 1.0}}},
-    {// C == 0 marks a special tast case with sample weights
+    {// C == 0 marks a special test case with sample weights
      svcInput<TypeParam>{0,
                          0.001,
                          KernelParams{LINEAR, 3, 1, 0},

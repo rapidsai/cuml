@@ -1359,7 +1359,7 @@
 - PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
 - PR #1945: enable clang tidy
 - PR #2339: umap performance improvements
-- PR #2308: Using fixture for Dask client to eliminate possiblity of not closing
+- PR #2308: Using fixture for Dask client to eliminate possibility of not closing
 - PR #2345: make C++ logger level definition to be the same as python layer
 - PR #2329: Add short commit hash to conda package name
 - PR #2362: Implement binary/multi-classification log loss with cupy
@@ -1445,7 +1445,7 @@
 - PR #2496: Fixing indentation for simulate_data in test_fil.py
 - PR #2494: Set QN regularization strength consistent with scikit-learn
 - PR #2486: Fix cupy input to kmeans init
-- PR #2497: Changes to accomodate cuDF unsigned categorical changes
+- PR #2497: Changes to accommodate cuDF unsigned categorical changes
 - PR #2209: Fix FIL benchmark for gpuarray-c input
 - PR #2507: Import `treelite.sklearn`
 - PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
@@ -1987,7 +1987,7 @@
 - PR #1208: compile dbscan bug
 - PR #1016: Use correct libcumlprims version in GPU CI
 - PR #1040: Update version of numba in development conda yaml files
-- PR #1043: Updates to accomodate cuDF python code reorganization
+- PR #1043: Updates to accommodate cuDF python code reorganization
 - PR #1044: Remove nvidia driver installation from ci/cpu/build.sh
 - PR #991: Barnes Hut TSNE Memory Issue Fixes
 - PR #1075: Pinning Dask version for consistent CI results
@@ -2196,7 +2196,7 @@
 - PR #430: Add R-Squared Score to ml primitives
 - PR #463: Add matrix gather to ml primitives
 - PR #435: Expose cumlhandle in cython + developer guide
-- PR #455: Remove default-stream arguement across ml-prims and cuML
+- PR #455: Remove default-stream argument across ml-prims and cuML
 - PR #375: cuml cpp shared library renamed to libcuml++.so
 - PR #460: Random Forest & Decision Trees (Single-GPU, Classification)
 - PR #491: Add doxygen build target for ml-prims

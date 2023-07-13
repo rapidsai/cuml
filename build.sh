@@ -81,9 +81,7 @@ BUILD_STATIC_TREELITE=OFF
 CMAKE_LOG_LEVEL=WARNING
 
 # Set defaults for vars that may not have been defined externally
-#  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
-#         CONDA_PREFIX, but there is no fallback from there!
-INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX}}}
+INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX:=$LIBCUML_BUILD_DIR/install}}}
 PARALLEL_LEVEL=${PARALLEL_LEVEL:=""}
 
 # Default to Ninja if generator is not specified
@@ -280,16 +278,14 @@ fi
 # Build and (optionally) install the cuml Python package
 if completeBuild || hasArg cuml || hasArg pydocs; then
     # Append `-DFIND_CUML_CPP=ON` to CUML_EXTRA_CMAKE_ARGS unless a user specified the option.
+    SKBUILD_EXTRA_CMAKE_ARGS="${CUML_EXTRA_CMAKE_ARGS}"
     if [[ "${CUML_EXTRA_CMAKE_ARGS}" != *"DFIND_CUML_CPP"* ]]; then
-        CUML_EXTRA_CMAKE_ARGS="${CUML_EXTRA_CMAKE_ARGS} -DFIND_CUML_CPP=ON"
+        SKBUILD_EXTRA_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS} -DFIND_CUML_CPP=ON"
     fi
 
-    cd ${REPODIR}/python
-
-    python setup.py build_ext --inplace -- -DCMAKE_LIBRARY_PATH=${LIBCUML_BUILD_DIR} -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${CUML_EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
-    if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py install --single-version-externally-managed --record=record.txt  -- -DCMAKE_LIBRARY_PATH=${LIBCUML_BUILD_DIR} -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${CUML_EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
-    fi
+    SKBUILD_CONFIGURE_OPTIONS="-DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${SKBUILD_EXTRA_CMAKE_ARGS}" \
+        SKBUILD_BUILD_OPTIONS="-j${PARALLEL_LEVEL}" \
+        python -m pip install --no-build-isolation --no-deps ${REPODIR}/python
 
     if hasArg pydocs; then
         cd ${REPODIR}/docs
