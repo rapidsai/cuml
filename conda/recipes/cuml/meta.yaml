@@ -33,31 +33,35 @@ build:
     - SCCACHE_S3_KEY_PREFIX=cuml-linux64 # [linux64]
     - SCCACHE_S3_USE_SSL
   ignore_run_exports_from:
-    - {{ compiler('cuda') }}
+    {% if cuda_major == "11" %}
+    - {{ compiler('cuda11') }}
+    {% endif %}
 
 requirements:
   build:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
-    - {{ compiler('cuda') }} {{ cuda_version }}
+    {% if cuda_major == "11" %}
+    - {{ compiler('cuda11') }} ={{ cuda_version }}
+    {% else %}
+    - {{ compiler('cuda') }}
+    {% endif %}
+    - cuda-version ={{ cuda_version }}
     - cmake {{ cmake_version }}
     - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
-    - cuda-python >=11.7.1,<12.0
-    - cudatoolkit ={{ cuda_version }}
+    - cuda-version ={{ cuda_version }}
+    {% if cuda_major == "11" %}
+    - cuda-python ==11.7.1
+    - cudatoolkit
+    {% else %}
+    - cuda-python ==12.0.0
+    {% endif %}
     - cudf ={{ minor_version }}
     - cython >=0.29,<0.30
-    - libcublas {{ libcublas_host_version }}
-    - libcublas-dev {{ libcublas_host_version }}
     - libcuml ={{ version }}
     - libcumlprims ={{ minor_version }}
-    - libcurand {{ libcurand_host_version }}
-    - libcurand-dev {{ libcurand_host_version }}
-    - libcusolver {{ libcusolver_host_version }}
-    - libcusolver-dev {{ libcusolver_host_version }}
-    - libcusparse {{ libcusparse_host_version }}
-    - libcusparse-dev {{ libcusparse_host_version }}
     - pylibraft ={{ minor_version }}
     - python x.x
     - raft-dask ={{ minor_version }}
@@ -65,8 +69,10 @@ requirements:
     - setuptools
     - treelite {{ treelite_version }}
   run:
-    - {{ pin_compatible('cudatoolkit', max_pin='x', min_pin='x') }}
-    - cuda-python >=11.7.1,<12.0
+    - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+    {% if cuda_major == "11" %}
+    - cudatoolkit
+    {% endif %}
     - cudf ={{ minor_version }}
     - cupy >=12.0.0
     - dask-cudf ={{ minor_version }}
@@ -83,7 +89,7 @@ requirements:
 
 tests:
   requirements:
-    - cudatoolkit ={{ cuda_version }}
+    - cuda-version ={{ cuda_version }}
   imports:
     - cuml
 
