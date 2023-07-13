@@ -91,6 +91,8 @@ outputs:
     requirements:
       build:
         - cmake {{ cmake_version }}
+      host:
+        - cuda-version ={{ cuda_version }}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
@@ -98,11 +100,13 @@ outputs:
         - libcublas {{ cuda11_libcublas_run_version }}
         - libcufft {{ cuda11_libcufft_run_version }}
         - libcurand {{ cuda11_libcurand_run_version }}
+        - libcusolver {{ cuda11_libcusolver_run_version }}
         - libcusparse {{ cuda11_libcusparse_run_version }}
         {% else %}
         - libcublas
         - libcufft
         - libcurand
+        - libcusolver
         - libcusparse
         {% endif %}
         - libcumlprims ={{ minor_version }}
