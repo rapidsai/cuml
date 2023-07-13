@@ -834,7 +834,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         if self.metric in _metrics_mapping:
             metric = _metrics_mapping[self.metric]
         else:
-            raise ValueError("'metric' %s not supported(only 'l2' or 'euclidean' is supported)" % self.metric)
+            raise ValueError(f"metric '{self.metric}' not supported, only 'l2' and 'euclidean' are currently supported")
 
         cdef uintptr_t core_dists_ptr = self.core_dists.ptr
 

@@ -476,22 +476,22 @@ def test_hdbscan_core_dists_bug_4054():
 
 
 @pytest.mark.parametrize(
-    "_metric,expected_to_fail",
-    [("euclidean", False), ("l2", False), ("l1", True), ("L2", True)],
+    "metric, supported",
+    [("euclidean", True), ("l1", False), ("l2", True), ("abc", False)],
 )
-def test_hdbscan_metric_l2_5415(_metric, expected_to_fail):
+def test_hdbscan_metric_parameter_input(metric, supported):
     """
-    this test verifies that only l2 and euclidean
-    metric are acceptable
+    tests how valid and invalid arguments to the metric
+    parameter are handled
     """
     X, y = make_blobs(n_samples=10000, n_features=15, random_state=12)
 
-    clf = HDBSCAN(metric=_metric)
-    if expected_to_fail:
+    clf = HDBSCAN(metric=metric)
+    if supported:
+        clf.fit(X)
+    else:
         with pytest.raises(ValueError):
             clf.fit(X)
-    else:
-        clf.fit(X)
 
 
 def test_hdbscan_empty_cluster_tree():
