@@ -11,7 +11,8 @@ dependencies:
 - clang-tools==15.0.7
 - clang==15.0.7
 - cmake>=3.26.4
-- cudatoolkit=11.8
+- cuda-version=11.8
+- cudatoolkit
 - cxx-compiler
 - gcc_linux-64=11.*
 - gmock>=1.13.0
