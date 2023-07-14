@@ -156,7 +156,7 @@ class UMAP(UniversalBase,
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
         'minkowski', 'chebyshev', 'linf', 'cosine', 'correlation', 'hellinger',
-        'hamming', 'jaccard']
+        'hamming']
         Metrics that take arguments (such as minkowski) can have arguments
         passed via the metric_kwds dictionary.
     n_epochs: int (optional, default None)
@@ -452,7 +452,10 @@ class UMAP(UniversalBase,
             umap_params.metric = metric_parsing[cls.metric.lower()]
         except KeyError:
             raise ValueError(f"Invalid value for metric: {cls.metric}")
-        umap_params.p = <float> cls.metric_kwds.get("p", 2.0)
+        if isinstance(cls.metric_kwds, dict):
+            umap_params.p = <float> cls.metric_kwds.get("p", 2.0)
+        else:
+            umap_params.p = <float> 2.0
 
         cdef uintptr_t callback_ptr = 0
         if cls.callback:
