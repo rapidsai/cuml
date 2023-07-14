@@ -448,16 +448,11 @@ class UMAP(UniversalBase,
         umap_params.random_state = <uint64_t> cls.random_state
         umap_params.deterministic = <bool> cls.deterministic
 
-        if cls.metric.lower() in metric_parsing:
+        try:
             umap_params.metric = metric_parsing[cls.metric.lower()]
-        else:
-            raise ValueError("Invalid value for metric: {}"
-                             .format(cls.metric))
-
-        if cls.metric_kwds is None:
-            umap_params.p = <float> 2.0
-        else:
-            umap_params.p = <float>cls.metric_kwds.get('p')
+        except KeyError:
+            raise ValueError(f"Invalid value for metric: {metric}")
+        umap_params.p = <float> metric_kwds.get("p", 2.0)
 
         cdef uintptr_t callback_ptr = 0
         if cls.callback:

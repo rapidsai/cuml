@@ -139,15 +139,11 @@ def fuzzy_simplicial_set(X,
     umap_params.deterministic = <bool> deterministic
     umap_params.set_op_mix_ratio = <float> set_op_mix_ratio
     umap_params.local_connectivity = <float> local_connectivity
-    if metric.lower() in metric_parsing:
+    try:
         umap_params.metric = metric_parsing[metric.lower()]
-    else:
-        raise ValueError("Invalid value for metric: {}"
-                         .format(metric))
-    if metric_kwds is None or len(metric_kwds) == 0:
-        umap_params.p = <float> 2.0
-    else:
-        umap_params.p = <float>metric_kwds.get('p')
+    except KeyError:
+        raise ValueError(f"Invalid value for metric: {metric}")
+    umap_params.p = <float> metric_kwds.get("p", 2.0)
     umap_params.verbosity = <int> verbose
 
     X_m, _, _, _ = \
@@ -316,15 +312,11 @@ def simplicial_set_embedding(
         umap_params.init = <int> 0
     umap_params.random_state = <int> random_state
     umap_params.deterministic = <bool> deterministic
-    if metric.lower() in metric_parsing:
+    try:
         umap_params.metric = metric_parsing[metric.lower()]
-    else:
-        raise ValueError("Invalid value for metric: {}"
-                         .format(metric))
-    if metric_kwds is None or len(metric_kwds) == 0:
-        umap_params.p = <float> 2.0
-    else:
-        umap_params.p = <float>metric_kwds.get('p')
+    except KeyError:
+        raise ValueError(f"Invalid value for metric: {metric}")
+    umap_params.p = <float> metric_kwds.get("p", 2.0)
     if output_metric == 'euclidean':
         umap_params.target_metric = MetricType.EUCLIDEAN
     else:  # output_metric == 'categorical'
