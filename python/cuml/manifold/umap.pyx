@@ -451,8 +451,8 @@ class UMAP(UniversalBase,
         try:
             umap_params.metric = metric_parsing[cls.metric.lower()]
         except KeyError:
-            raise ValueError(f"Invalid value for metric: {metric}")
-        umap_params.p = <float> metric_kwds.get("p", 2.0)
+            raise ValueError(f"Invalid value for metric: {cls.metric}")
+        umap_params.p = <float> cls.metric_kwds.get("p", 2.0)
 
         cdef uintptr_t callback_ptr = 0
         if cls.callback:
