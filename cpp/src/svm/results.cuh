@@ -143,7 +143,8 @@ class Results {
   {
     SupportStorage<math_t> support_matrix;
     // allow ~1GB dense support matrix
-    if (isDenseType<MatrixViewType>() || (n_support * n_cols * sizeof(math_t) < (1 << 30))) {
+    if (isDenseType<MatrixViewType>() ||
+        ((size_t)n_support * n_cols * sizeof(math_t) < (1 << 30))) {
       support_matrix.data =
         (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
       ML::SVM::extractRows<math_t>(matrix, support_matrix.data, idx, n_support, handle);
