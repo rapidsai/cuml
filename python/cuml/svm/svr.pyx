@@ -295,7 +295,7 @@ class SVR(SVMBase, RegressorMixin):
 
         cdef int n_rows = self.n_rows
         cdef int n_cols = self.n_cols
-        cdef int n_nnz = X_m.nnz if is_sparse else self.n_rows * self.n_cols
+        cdef int n_nnz = X_m.nnz if is_sparse else -1
         cdef uintptr_t X_indptr = X_m.indptr.ptr if is_sparse else X_m.ptr
         cdef uintptr_t X_indices = X_m.indices.ptr if is_sparse else X_m.ptr
         cdef uintptr_t X_data = X_m.data.ptr if is_sparse else X_m.ptr
