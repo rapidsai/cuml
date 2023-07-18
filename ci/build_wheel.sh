@@ -19,7 +19,7 @@ bash ci/release/apply_wheel_modifications.sh ${version_override} "-${RAPIDS_PY_C
 echo "The package name and/or version was modified in the package source. The git diff is:"
 git diff
 
-cd python/cuml
+cd python/
 
 SKBUILD_CONFIGURE_OPTIONS="-DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_DEPRECATION_WARNINGS=ON -DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/python/cumlprims_mg/"
 
