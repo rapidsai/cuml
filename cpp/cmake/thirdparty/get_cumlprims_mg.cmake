@@ -62,6 +62,7 @@ endfunction()
 # cumlprims_mg as part of building cuml itself, set the CMake variable
 # `-D CPM_cumlprims_mg_SOURCE=/path/to/cumlprims_mg`
 ###
+message("Searching for cumlprims_mg in ${CPM_cumlprims_mg_SOURCE}")
 find_and_configure_cumlprims_mg(VERSION          ${CUML_MIN_VERSION_cumlprims_mg}
                                 FORK       rapidsai
                                 PINNED_TAG branch-${CUML_BRANCH_VERSION_cumlprims_mg}
