@@ -25,10 +25,7 @@ git diff
 
 cd python/
 
-SKBUILD_CONFIGURE_OPTIONS="-DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_DEPRECATION_WARNINGS=ON -DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/python/cumlprims_mg/"
-
-# Hardcode the output dir
-python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
+SKBUILD_CONFIGURE_OPTIONS="-DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_DEPRECATION_WARNINGS=ON -DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/" python -m pip wheel . -w dist -vvv --no-deps --disable-pip-version-check
 
 mkdir -p final_dist
 python -m auditwheel repair -w final_dist dist/*
