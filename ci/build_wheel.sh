@@ -7,6 +7,10 @@ if [[ ! -d "/tmp/gha-tools" ]]; then
   git clone https://github.com/divyegala/gha-tools.git -b wheel-local-runs /tmp/gha-tools
 fi
 
+if [[ -z "${RAPIDS_EPOCH_TIMESTAMP}" ]]; then
+  export RAPIDS_EPOCH_TIMESTAMP="$(date +%s)"
+fi
+
 source /tmp/gha-tools/tools/rapids-configure-sccache
 
 # Use gha-tools rapids-pip-wheel-version to generate wheel version then
