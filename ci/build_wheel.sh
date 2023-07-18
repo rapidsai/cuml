@@ -1,9 +1,6 @@
 #!/bin/bash
 # Copyright (c) 2023, NVIDIA CORPORATION.
 
-#!/bin/bash
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
-
 set -euo pipefail
 
 if [[ ! -d "/tmp/gha-tools" ]]; then
