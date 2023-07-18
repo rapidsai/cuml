@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,40 +13,81 @@
 # limitations under the License.
 #
 
-from __future__ import print_function
-import re
-import os
-import subprocess
 import argparse
 import json
 import multiprocessing as mp
+import os
+import re
 import shutil
+import subprocess
+import sys
+from pathlib import Path
 
+import tomli
 
-EXPECTED_VERSION = "8.0.1"
+EXPECTED_VERSION = "15.0.7"
 VERSION_REGEX = re.compile(r"  LLVM version ([0-9.]+)")
 GPU_ARCH_REGEX = re.compile(r"sm_(\d+)")
 SPACES = re.compile(r"\s+")
 SEPARATOR = "-" * 16
 
 
+def _read_config_file(config_file):
+    try:
+        return tomli.loads(Path(config_file).read_text())["tool"]["run-clang-tidy"]
+    except KeyError:
+        return {}
+    except tomli.TOMLDecodeError as error:
+        raise RuntimeError(
+            f"Failed to read config file '{config_file}' due to syntax error: {error}"
+        )
+
+
 def parse_args():
     argparser = argparse.ArgumentParser("Runs clang-tidy on a project")
-    argparser.add_argument("-cdb", type=str,
-                           default="cpp/build/compile_commands.json",
-                           help="Path to cmake-generated compilation database"
-                           " file. It is always found inside the root of the "
-                           "cmake build folder. So make sure that `cmake` has "
-                           "been run once before running this script!")
-    argparser.add_argument("-exe", type=str, default="clang-tidy",
-                           help="Path to clang-tidy exe")
-    argparser.add_argument("-ignore", type=str, default="[.]cu$|examples/kmeans/",
-                           help="Regex used to ignore files from checking")
-    argparser.add_argument("-select", type=str, default=None,
-                           help="Regex used to select files for checking")
-    argparser.add_argument("-j", type=int, default=-1,
-                           help="Number of parallel jobs to launch.")
+    argparser.add_argument(
+        "-cdb",
+        type=str,
+        default="cpp/build/compile_commands.json",
+        help="Path to cmake-generated compilation database"
+        " file. It is always found inside the root of the "
+        "cmake build folder. So make sure that `cmake` has "
+        "been run once before running this script!",
+    )
+    argparser.add_argument(
+        "-exe", type=str, default="clang-tidy", help="Path to clang-tidy exe"
+    )
+    argparser.add_argument(
+        "-ignore",
+        type=str,
+        default="[.]cu$",
+        help="Regex used to ignore files from checking",
+    )
+    argparser.add_argument(
+        "-select",
+        type=str,
+        default=None,
+        help="Regex used to select files for checking",
+    )
+    argparser.add_argument(
+        "-j", type=int, default=-1, help="Number of parallel jobs to launch."
+    )
+    argparser.add_argument(
+        "-c", "--config", type=str, help="Path to config file (default=pyproject.toml)."
+    )
     args = argparser.parse_args()
+
+    # Read from config file.
+    try:
+        config = _read_config_file(args.config or "./pyproject.toml")
+    except FileNotFoundError:
+        if args.config:
+            # only raise if config argument was explicitly used
+            raise RuntimeError(f"File '{args.config}' does not exist.")
+    else:
+        argparser.set_defaults(**config)
+        args = argparser.parse_args()
+
     if args.j <= 0:
         args.j = mp.cpu_count()
     args.ignore_compiled = re.compile(args.ignore) if args.ignore else None
@@ -58,8 +99,9 @@ def parse_args():
         raise Exception("Failed to figure out clang-tidy version!")
     version = version.group(1)
     if version != EXPECTED_VERSION:
-        raise Exception("clang-tidy exe must be v%s found '%s'" % \
-                        (EXPECTED_VERSION, version))
+        raise Exception(
+            "clang-tidy exe must be v%s found '%s'" % (EXPECTED_VERSION, version)
+        )
     if not os.path.exists(args.cdb):
         raise Exception("Compilation database '%s' missing" % args.cdb)
     return args
@@ -118,8 +160,14 @@ def get_tidy_args(cmd, exe):
     command, file = cmd["command"], cmd["file"]
     is_cuda = file.endswith(".cu")
     command = re.split(SPACES, command)
-    # compiler is always clang++!
-    command[0] = "clang++"
+    # Adjust compiler command
+    if "c++" in command[0]:
+        command[0] = "clang-cpp"
+        command.insert(1, "-std=c++17")
+    elif command[0][-2:] == "cc":
+        command[0] = "clang"
+    else:
+        raise ValueError("Unable to identify compiler.")
     # remove compilation and output targets from the original command
     remove_item_plus_one(command, "-c")
     remove_item_plus_one(command, "-o")
@@ -144,49 +192,52 @@ def get_tidy_args(cmd, exe):
 
 def run_clang_tidy_command(tidy_cmd):
     cmd = " ".join(tidy_cmd)
-    result = subprocess.run(cmd, check=False, shell=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    status = result.returncode == 0
-    if status:
-        out = ""
-    else:
-        out = "CMD: " + cmd
-    out += result.stdout.decode("utf-8").rstrip()
-    return status, out
+    result = subprocess.run(
+        cmd, check=False, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
+    passed = result.returncode == 0
+    out = "" if passed else f"CMD: {cmd}: {result.stdout.decode('utf-8').rstrip()}"
+    return passed, out
 
 
 def run_clang_tidy(cmd, args):
     command, is_cuda = get_tidy_args(cmd, args.exe)
-    tidy_cmd = [args.exe,
-                "-header-filter='.*cuml/cpp/(src|include|bench|comms).*'",
-                cmd["file"], "--", ]
+    tidy_cmd = [
+        args.exe,
+        "-header-filter='.*cuml/cpp/(src|include|bench|comms).*'",
+        cmd["file"],
+        "--",
+    ]
     tidy_cmd.extend(command)
-    status = True
-    out = ""
+    all_passed = True
+    out = []
     if is_cuda:
         tidy_cmd.append("--cuda-device-only")
         tidy_cmd.append(cmd["file"])
-        ret, out1 = run_clang_tidy_command(tidy_cmd)
-        out += out1
-        out += "%s" % SEPARATOR
-        if not ret:
-            status = ret
+        passed, out1 = run_clang_tidy_command(tidy_cmd)
+        out.append(out1)
+        out.append(SEPARATOR)
+        if not passed:
+            all_passed = False
         tidy_cmd[-2] = "--cuda-host-only"
-        ret, out1 = run_clang_tidy_command(tidy_cmd)
-        if not ret:
-            status = ret
-        out += out1
+        passed, out1 = run_clang_tidy_command(tidy_cmd)
+        if not passed:
+            all_passed = False
+        out.append(out1)
     else:
         tidy_cmd.append(cmd["file"])
-        ret, out1 = run_clang_tidy_command(tidy_cmd)
-        if not ret:
-            status = ret
+        passed, out1 = run_clang_tidy_command(tidy_cmd)
+        if not passed:
+            all_passed = False
+        out.append(out1)
         out += out1
-    return status, out, cmd["file"]
+    return all_passed, "".join(out), cmd["file"]
 
 
 # yikes! global var :(
 results = []
+
+
 def collect_result(result):
     global results
     results.append(result)
@@ -215,15 +266,18 @@ def run_tidy_for_all_files(args, all_files):
     # actual tidy checker
     for cmd in all_files:
         # skip files that we don't want to look at
-        if args.ignore_compiled is not None and \
-           re.search(args.ignore_compiled, cmd["file"]) is not None:
+        if (
+            args.ignore_compiled is not None
+            and re.search(args.ignore_compiled, cmd["file"]) is not None
+        ):
             continue
-        if args.select_compiled is not None and \
-           re.search(args.select_compiled, cmd["file"]) is None:
+        if (
+            args.select_compiled is not None
+            and re.search(args.select_compiled, cmd["file"]) is None
+        ):
             continue
         if pool is not None:
-            pool.apply_async(run_clang_tidy, args=(cmd, args),
-                             callback=collect_result)
+            pool.apply_async(run_clang_tidy, args=(cmd, args), callback=collect_result)
         else:
             passed, stdout, file = run_clang_tidy(cmd, args)
             collect_result((passed, stdout, file))
@@ -239,9 +293,12 @@ def main():
     if not os.path.exists(".git"):
         raise Exception("This needs to always be run from the root of repo")
     # Check whether clang-tidy exists
-    if shutil.which("clang-tidy") is not None:
-        print("clang-tidy not found. Exiting...")
-        return
+    if shutil.which("clang-tidy") is None:
+        print(
+            "Unable to find the clang-tidy executable, is it installed?",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     all_files = get_all_commands(args.cdb)
     status = run_tidy_for_all_files(args, all_files)
     if not status:
