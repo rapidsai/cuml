@@ -151,7 +151,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - scikit-build>=0.13.1
-          - cython>=0.29,<0.30
+          - cython>=3.0.0
           - &treelite treelite==3.2.0
           - pylibraft==23.10.*
           - rmm==23.10.*

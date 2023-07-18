@@ -59,7 +59,7 @@ requirements:
     - cuda-python ==12.0.0
     {% endif %}
     - cudf ={{ minor_version }}
-    - cython >=0.29,<0.30
+    - cython >=3.0.0
     - libcuml ={{ version }}
     - libcumlprims ={{ minor_version }}
     - pylibraft ={{ minor_version }}

@@ -16,7 +16,7 @@
 requires = [
     "cmake>=3.26.4",
     "cuda-python>=11.7.1,<12.0a0",
-    "cython>=0.29,<0.30",
+    "cython>=3.0.0",
     "ninja",
     "pylibraft==23.10.*",
     "rmm==23.10.*",
