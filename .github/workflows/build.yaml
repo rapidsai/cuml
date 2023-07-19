@@ -74,6 +74,7 @@ jobs:
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
+      build_script: "ci/build_wheel.sh"
       # Note that this approach to cloning repos obviates any modification to
       # the CMake variables in get_cumlprims_mg.cmake since CMake will just use
       # the clone as is.
