@@ -177,6 +177,80 @@ def test_lbfgs_toy(n_parts, datatype, client):
     assert_array_equal(preds, y, strict=True)
 
 
+def test_lbfgs_init(client):
+    def imp():
+        import cuml.comm.serialize  # NOQA
+
+    client.run(imp)
+
+    X = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], dtype=np.float32)
+    y = np.array([1.0, 1.0, 0.0, 0.0], dtype=np.float32)
+
+    X_df, y_df = _prep_training_data(
+        c=client, X_train=X, y_train=y, partitions_per_worker=2
+    )
+
+    from cuml.dask.linear_model.logistic_regression import (
+        LogisticRegression as cumlLBFGS_dask,
+    )
+
+    def assert_params(
+        tol,
+        C,
+        fit_intercept,
+        max_iter,
+        linesearch_max_iter,
+        verbose,
+        output_type,
+    ):
+
+        lr = cumlLBFGS_dask(
+            tol=tol,
+            C=C,
+            fit_intercept=fit_intercept,
+            max_iter=max_iter,
+            linesearch_max_iter=linesearch_max_iter,
+            verbose=verbose,
+            output_type=output_type,
+        )
+
+        lr.fit(X_df, y_df)
+        qnpams = lr.qnparams.params
+        assert qnpams["grad_tol"] == tol
+        assert qnpams["loss"] == 0  # "sigmoid" loss
+        assert qnpams["penalty_l1"] == 0.0
+        assert qnpams["penalty_l2"] == 1.0 / C
+        assert qnpams["fit_intercept"] == fit_intercept
+        assert qnpams["max_iter"] == max_iter
+        assert qnpams["linesearch_max_iter"] == linesearch_max_iter
+        assert (
+            qnpams["verbose"] == 5 if verbose is True else 4
+        )  # cuml Verbosity Levels
+        assert (
+            lr.output_type == "input" if output_type is None else output_type
+        )  # cuml.global_settings.output_type
+
+    assert_params(
+        tol=1e-4,
+        C=1.0,
+        fit_intercept=True,
+        max_iter=1000,
+        linesearch_max_iter=50,
+        verbose=False,
+        output_type=None,
+    )
+
+    assert_params(
+        tol=1e-6,
+        C=1.5,
+        fit_intercept=False,
+        max_iter=200,
+        linesearch_max_iter=100,
+        verbose=True,
+        output_type="cudf",
+    )
+
+
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [1e5])
 @pytest.mark.parametrize("ncols", [20])
