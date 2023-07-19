@@ -39,6 +39,7 @@ from cuml.common.opg_data_utils_mg cimport *
 # the cdef was copied from cuml.linear_model.qn
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
 
+    # TODO: Use single-GPU version qn_loss_type and qn_params https://github.com/rapidsai/cuml/issues/5502
     cdef enum qn_loss_type "ML::GLM::qn_loss_type":
         QN_LOSS_LOGISTIC "ML::GLM::QN_LOSS_LOGISTIC"
         QN_LOSS_SQUARED  "ML::GLM::QN_LOSS_SQUARED"

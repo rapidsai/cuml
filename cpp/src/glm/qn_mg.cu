@@ -22,6 +22,7 @@
 #include <cuml/linear_model/qn.h>
 #include <cuml/linear_model/qn_mg.hpp>
 #include <raft/core/comms.hpp>
+#include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
 using namespace MLCommon;
@@ -29,7 +30,6 @@ using namespace MLCommon;
 #include "qn/glm_base_mg.cuh"
 
 #include <cuda_runtime.h>
-#include <iostream>
 
 namespace ML {
 namespace GLM {
@@ -53,10 +53,12 @@ void qnFit_impl(const raft::handle_t& handle,
 {
   switch (pams.loss) {
     case QN_LOSS_LOGISTIC: {
-      ASSERT(C == 2, "qn_mg.cu: logistic loss invalid C");
+      RAFT_EXPECTS(
+        C == 2,
+        "qn_mg.cu: only the LOGISTIC loss is supported currently. The number of classes must be 2");
     } break;
     default: {
-      ASSERT(false, "qn_mg.cu: unknown loss function type (id = %d).", pams.loss);
+      RAFT_EXPECTS(false, "qn_mg.cu: unknown loss function type (id = %d).", pams.loss);
     }
   }
 
@@ -107,8 +109,9 @@ void qnFit_impl(raft::handle_t& handle,
                 T* f,
                 int* num_iters)
 {
-  ASSERT(input_data.size() == 1, "qn_mg.cu currently does not accept more than one input matrix");
-  ASSERT(labels.size() == input_data.size(), "labels size does not equal to input_data size");
+  RAFT_EXPECTS(input_data.size() == 1,
+               "qn_mg.cu currently does not accept more than one input matrix");
+  RAFT_EXPECTS(labels.size() == input_data.size(), "labels size does not equal to input_data size");
 
   auto data_X = input_data[0];
   auto data_y = labels[0];

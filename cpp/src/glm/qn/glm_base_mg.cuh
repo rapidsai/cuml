@@ -68,24 +68,24 @@ inline void linearBwdMG(const raft::handle_t& handle,
   }
 }
 
+/**
+ * @brief Aggregates local gradient vectors and loss values from local training data. This
+ * class is the multi-node-multi-gpu version of GLMWithData.
+ *
+ * The implementation overrides existing GLMWithData::() function. The purpose is to
+ * aggregate local gradient vectors and loss values from distributed X, y, where X represents the
+ * input vectors and y represents labels.
+ *
+ * GLMWithData::() currently invokes three functions: linearFwd, getLossAndDz and linearBwd.
+ * linearFwd multiplies local input vectors with the coefficient vector (i.e. coef_), so does not
+ * require communication. getLossAndDz calculates local loss so requires allreduce to obtain a
+ * global loss. linearBwd calculates local gradient vector so requires allreduce to obtain a
+ * global gradient vector. The global loss and the global gradient vector will be used in
+ * min_lbfgs to update coefficient. The update runs individually on every GPU and when finished,
+ * all GPUs have the same value of coefficient.
+ */
 template <typename T, class GLMObjective>
 struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
-  /**
-   * @brief Aggregates local gradient vectors and loss values from local training data. This
-   * class is the multi-node-multi-gpu version of GLMWithData.
-   *
-   * The implementation overrides existing GLMWithData::() function. The purpose is to
-   * aggregate local gradient vectors and loss values from distributed X, y, where X represents the
-   * input vectors and y represents labels.
-   *
-   * GLMWithData::() currently invokes three functions: linearFwd, getLossAndDz and linearBwd.
-   * linearFwd multiplies local input vectors with the coefficient vector (i.e. coef_), so does not
-   * require communication. getLossAndDz calculates local loss so requires allreduce to obtain a
-   * global loss. linearBwd calculates local gradient vector so requires allreduce to obtain a
-   * global gradient vector. The global loss and the global gradient vector will be used my
-   * min_lbfgs to update coefficient. The update runs individually on every GPU and when finished,
-   * all GPUs have the same value of coefficient.
-   */
   const raft::handle_t* handle_p;
   int rank;
   int64_t n_samples;
