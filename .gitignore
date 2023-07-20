@@ -64,3 +64,6 @@ doxygen_check/
 ## Doxygen
 cpp/html
 cpp/Doxyfile
+
+# clang tooling
+compile_commands.json
