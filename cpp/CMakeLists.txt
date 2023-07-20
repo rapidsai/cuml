@@ -56,7 +56,7 @@ option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)"
 option(CUDA_ENABLE_KERNEL_INFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
-option(DISABLE_DEPRECATION_WARNINGS "Disable deprecation warnings " OFF)
+option(DISABLE_DEPRECATION_WARNINGS "Disable deprecation warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
