@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <raft/core/device_resources.hpp>
 #include <raft/core/resource/thrust_policy.hpp>
 #include <raft/util/cudart_utils.hpp>
 
@@ -39,7 +38,7 @@
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
 #include <thrust/gather.h>
-#include <thrust/iterator/zip_iterator.h>
+#include <thrust/scatter.h>
 #include <thrust/transform.h>
 
 namespace ML {
