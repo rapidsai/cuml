@@ -27,7 +27,7 @@ dependencies:
 - gmock>=1.13.0
 - graphviz
 - gtest>=1.13.0
-- hdbscan
+- hdbscan<=0.8.30
 - hypothesis>=6.0,<7
 - ipykernel
 - ipython
