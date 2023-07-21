@@ -220,6 +220,7 @@ if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   find_package(Threads)
 endif()
 
+include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_raft.cmake)
 
 if(LINK_TREELITE)
