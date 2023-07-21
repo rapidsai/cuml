@@ -8,7 +8,7 @@ RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 RAPIDS_PY_WHEEL_NAME="cuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./dist
 
 # On arm also need to install CMake because treelite needs to be compiled (no wheels available for arm).
-if [[ "${arch}" == "aarch64" ]]; then
+if [[ "$(arch)" == "aarch64" ]]; then
     python -m pip install cmake
 fi
 
