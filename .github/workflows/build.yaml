@@ -68,13 +68,13 @@ jobs:
       sha: ${{ inputs.sha }}
   wheel-build-cuml:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-build.yaml@local-script
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-build.yaml@branch-23.08
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
-      build_script: "ci/build_wheel.sh"
+      script: ci/build_wheel.sh
       # Note that this approach to cloning repos obviates any modification to
       # the CMake variables in get_cumlprims_mg.cmake since CMake will just use
       # the clone as is.
@@ -84,7 +84,7 @@ jobs:
   wheel-publish-cuml:
     needs: wheel-build-cuml
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-publish.yml@cuda-120
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-publish.yaml@branch-23.08
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
