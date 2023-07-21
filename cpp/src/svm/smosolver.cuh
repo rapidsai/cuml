@@ -221,6 +221,7 @@ class SmoSolver {
       raft::update_host(host_return_buff, return_buff.data(), 2, stream);
       raft::common::nvtx::pop_range();
       raft::common::nvtx::push_range("SmoSolver::UpdateF");
+      raft::common::nvtx::push_range("SmoSolver::UpdateF::getNnzDaRows");
       int nnz_da;
       GetNonzeroDeltaAlpha(delta_alpha.data(),
                            n_ws,
@@ -232,11 +233,10 @@ class SmoSolver {
       RAFT_CUDA_TRY(cudaPeekAtLastError());
       // The following should be performed only for elements with nonzero delta_alpha
       if (nnz_da > 0) {
-        raft::common::nvtx::push_range("SmoSolver::UpdateF::getNnzDaRows");
         auto batch_descriptor = cache.InitFullTileBatching(nz_da_idx.data(), nnz_da);
-        raft::common::nvtx::pop_range();
 
         while (cache.getNextBatchKernel(batch_descriptor)) {
+          raft::common::nvtx::pop_range();
           raft::common::nvtx::push_range("SmoSolver::UpdateF::updateBatch");
           // do (partial) update
           UpdateF(f.data() + batch_descriptor.offset,
@@ -245,10 +245,10 @@ class SmoSolver {
                   nnz_da,
                   batch_descriptor.kernel_data);
           RAFT_CUDA_TRY(cudaPeekAtLastError());
-          raft::common::nvtx::pop_range();
         }
       }
       handle.sync_stream(stream);
+      raft::common::nvtx::pop_range();
       raft::common::nvtx::pop_range();  // ("SmoSolver::UpdateF");
 
       math_t diff = host_return_buff[0];

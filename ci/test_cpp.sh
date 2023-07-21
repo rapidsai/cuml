@@ -37,11 +37,7 @@ set +e
 
 # Run libcuml gtests from libcuml-tests package
 rapids-logger "Run gtests"
-for gt in "$CONDA_PREFIX"/bin/gtests/libcuml/* ; do
-    test_name=$(basename ${gt})
-    echo "Running gtest $test_name"
-    ${gt} --gtest_output=xml:${RAPIDS_TESTS_DIR}
-done
+ctest -j9 --output-on-failure
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}

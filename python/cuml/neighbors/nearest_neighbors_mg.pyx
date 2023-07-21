@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ from libcpp cimport bool
 from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
-from libc.stdlib cimport calloc, malloc, free
+from libc.stdlib cimport free
 
 
 cdef extern from "cuml/neighbors/knn_mg.hpp" namespace \
@@ -114,9 +114,9 @@ class NearestNeighborsMG(NearestNeighbors):
             else n_neighbors
 
         # Build input arrays and descriptors for native code interfacing
-        input = type(self).gen_local_input(index, index_parts_to_ranks, index_nrows,
-                                     query, query_parts_to_ranks, query_nrows,
-                                     ncols, rank, convert_dtype)
+        input = type(self).gen_local_input(
+            index, index_parts_to_ranks, index_nrows, query,
+            query_parts_to_ranks, query_nrows, ncols, rank, convert_dtype)
 
         query_cais = input['cais']['query']
         local_query_rows = list(map(lambda x: x.shape[0], query_cais))

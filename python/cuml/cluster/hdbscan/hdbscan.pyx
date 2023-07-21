@@ -40,7 +40,6 @@ from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.internals import logger
 from cuml.internals.import_utils import has_hdbscan
 
 import cuml
@@ -257,7 +256,7 @@ def condense_hierarchy(dendrogram,
         new CondensedHierarchy[int, float](
             handle_[0], <size_t>n_leaves)
 
-    children, n_rows, _, _ = \
+    children, _, _, _ = \
         input_to_cuml_array(dendrogram[:, 0:2].astype('int32'), order='C',
                             check_dtype=[np.int32],
                             convert_to_dtype=(np.int32))
@@ -457,7 +456,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         A score of how persistent each cluster is. A score of 1.0 represents
         a perfectly stable cluster that persists over all distance scales,
         while a score of 0.0 represents a perfectly ephemeral cluster. These
-        scores can be used to gauge the relative coherence of the 
+        scores can be used to gauge the relative coherence of the
         clusters output by the algorithm.
 
     condensed_tree_ : CondensedTree object
@@ -1026,7 +1025,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        self.X_m, self.n_rows, self.n_cols, dtype = \
+        self.X_m, self.n_rows, self.n_cols, _ = \
             input_to_cuml_array(self._cpu_model._raw_data, order='C',
                                 check_dtype=[np.float32],
                                 convert_to_dtype=(np.float32

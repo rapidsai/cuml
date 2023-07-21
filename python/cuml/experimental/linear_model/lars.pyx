@@ -19,18 +19,14 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import ctypes
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-import warnings
 import cuml.internals.logger as logger
 import cuml.internals
 
-from collections import defaultdict
-
-from libcpp cimport bool, nullptr
+from libcpp cimport nullptr
 from libc.stdint cimport uintptr_t
 
 from cuml.common import input_to_cuml_array
@@ -39,7 +35,6 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
 from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.exceptions import NotFittedError
 from pylibraft.common.handle cimport handle_t
 
 cdef extern from "cuml/solvers/lars.hpp" namespace "ML::Solver::Lars":
@@ -360,7 +355,7 @@ class Lars(Base, RegressorMixin):
 
         """
         conv_dtype=(self.dtype if convert_dtype else None)
-        X_m, n_rows, n_cols, dtype = input_to_cuml_array(
+        X_m, n_rows, _n_cols, _dtype = input_to_cuml_array(
             X, check_dtype=self.dtype, convert_to_dtype=conv_dtype,
             check_cols=self.n_cols, order='F')
 

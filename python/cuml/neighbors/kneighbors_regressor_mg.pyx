@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -105,9 +105,9 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         self.get_out_type(index, query)
 
         # Build input arrays and descriptors for native code interfacing
-        input = type(self).gen_local_input(index, index_parts_to_ranks, index_nrows,
-                                     query, query_parts_to_ranks, query_nrows,
-                                     ncols, rank, convert_dtype)
+        input = type(self).gen_local_input(
+            index, index_parts_to_ranks, index_nrows, query,
+            query_parts_to_ranks, query_nrows, ncols, rank, convert_dtype)
 
         # Build input labels arrays and descriptors for native code interfacing
         labels = type(self).gen_local_labels(index, convert_dtype, dtype='float32')

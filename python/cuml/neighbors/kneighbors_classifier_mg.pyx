@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -112,9 +112,9 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         self.get_out_type(index, query)
 
         # Build input arrays and descriptors for native code interfacing
-        input = type(self).gen_local_input(index, index_parts_to_ranks, index_nrows,
-                                     query, query_parts_to_ranks, query_nrows,
-                                     ncols, rank, convert_dtype)
+        input = type(self).gen_local_input(
+            index, index_parts_to_ranks, index_nrows, query,
+            query_parts_to_ranks, query_nrows, ncols, rank, convert_dtype)
 
         # Build input labels arrays and descriptors for native code interfacing
         labels = type(self).gen_local_labels(index, convert_dtype, 'int32')
@@ -180,8 +180,8 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         # Release memory
         type(self).free_mem(input)
         free(<void*><uintptr_t>labels['labels'])
-        type(self)._free_unique(<uintptr_t>uniq_labels_vec,
-                          <uintptr_t>n_unique_vec)
+        type(self)._free_unique(
+            <uintptr_t>uniq_labels_vec, <uintptr_t>n_unique_vec)
         for i in range(out_result_local_parts.size()):
             free(<void*>out_result_local_parts.at(i))
         free(<void*><uintptr_t>out_result_local_parts)
@@ -221,9 +221,9 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         self.get_out_type(index, query)
 
         # Build input arrays and descriptors for native code interfacing
-        input = type(self).gen_local_input(index, index_parts_to_ranks, index_nrows,
-                                     query, query_parts_to_ranks, query_nrows,
-                                     ncols, rank, convert_dtype)
+        input = type(self).gen_local_input(
+            index, index_parts_to_ranks, index_nrows, query,
+            query_parts_to_ranks, query_nrows, ncols, rank, convert_dtype)
 
         # Build input labels arrays and descriptors for native code interfacing
         labels = type(self).gen_local_labels(index, convert_dtype, dtype='int32')
@@ -293,8 +293,8 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         # Release memory
         type(self).free_mem(input)
         free(<void*><uintptr_t>labels['labels'])
-        type(self)._free_unique(<uintptr_t>uniq_labels_vec,
-                          <uintptr_t>n_unique_vec)
+        type(self)._free_unique(
+            <uintptr_t>uniq_labels_vec, <uintptr_t>n_unique_vec)
         free(<void*><uintptr_t>probas_local_parts)
 
         return tuple(proba_cais)

@@ -164,7 +164,7 @@ class GeneticProgramTest : public ::testing::Test {
   const int n_progs     = 2;
   const int n_samples   = 25;
   const int n_samples2  = 5;
-  const float tolerance = 0.025f;  // assuming upto 2.5% tolerance for results(for now)
+  const float tolerance = 0.025f;  // assuming up to 2.5% tolerance for results(for now)
 
   // 25*3 datapoints generated using numpy
   // y = X[0] * X[1] + X[2] + 0.5
