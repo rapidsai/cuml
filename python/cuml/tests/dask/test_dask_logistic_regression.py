@@ -255,9 +255,12 @@ def test_lbfgs_init(client):
 @pytest.mark.parametrize("nrows", [1e5])
 @pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [2, 23])
+@pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("datatype", [np.float32])
 @pytest.mark.parametrize("delayed", [True, False])
-def test_lbfgs(nrows, ncols, n_parts, datatype, delayed, client):
+def test_lbfgs(
+    nrows, ncols, n_parts, fit_intercept, datatype, delayed, client
+):
     tolerance = 0.005
 
     def imp():
@@ -277,12 +280,12 @@ def test_lbfgs(nrows, ncols, n_parts, datatype, delayed, client):
 
     X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
-    lr = cumlLBFGS_dask()
+    lr = cumlLBFGS_dask(fit_intercept=fit_intercept)
     lr.fit(X_df, y_df)
     lr_coef = lr.coef_.to_numpy()
     lr_intercept = lr.intercept_.to_numpy()
 
-    sk_model = skLR()
+    sk_model = skLR(fit_intercept=fit_intercept)
     sk_model.fit(X, y)
     sk_coef = sk_model.coef_
     sk_intercept = sk_model.intercept_

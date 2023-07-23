@@ -64,7 +64,7 @@ class LogisticRegression(LinearRegression):
         )
 
         handle = get_raft_comm_state(sessionId, get_worker())["handle"]
-        return LogisticRegressionMG(handle=handle)
+        return LogisticRegressionMG(handle=handle, **kwargs)
 
     @staticmethod
     def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
