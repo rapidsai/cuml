@@ -61,7 +61,7 @@ function(find_and_configure_raft)
       INSTALL_EXPORT_SET  cuml-exports
       COMPONENTS          ${RAFT_COMPONENTS}
       CPM_ARGS
-        GIT_REPOSITORY         https://github.com/${PKG_FORK}/raft.git
+        GIT_REPOSITORY         https://github.com/tarang-jain/raft.git
         GIT_TAG                ${PKG_PINNED_TAG}
         SOURCE_SUBDIR          cpp
         EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
@@ -86,7 +86,7 @@ endfunction()
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
       FORK             rapidsai
-      PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
+      PINNED_TAG       update-connected-components
       EXCLUDE_FROM_ALL ${CUML_EXCLUDE_RAFT_FROM_ALL}
       # When PINNED_TAG above doesn't match cuml,
       # force local raft clone in build directory
