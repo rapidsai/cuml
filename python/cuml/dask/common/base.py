@@ -407,12 +407,13 @@ class SyncFitMixinLinearModel(object):
             ]
         )
 
+        fit_func = self._func_fit
         lin_fit = dict(
             [
                 (
                     worker_data[0],
                     self.client.submit(
-                        _func_fit,
+                        fit_func,
                         lin_models[data.worker_info[worker_data[0]]["rank"]],
                         worker_data[1],
                         data.total_rows,
@@ -434,9 +435,9 @@ class SyncFitMixinLinearModel(object):
         comms.destroy()
         return lin_models
 
-
-def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
-    return f.fit(data, n_rows, n_cols, partsToSizes, rank)
+    @staticmethod
+    def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
+        return f.fit(data, n_rows, n_cols, partsToSizes, rank)
 
 
 def mnmg_import(func):

@@ -524,6 +524,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/glm/ols_mg.cu
         src/glm/preprocess_mg.cu
         src/glm/ridge_mg.cu
+        src/glm/qn_mg.cu
         src/kmeans/kmeans_mg.cu
         src/knn/knn_mg.cu
         src/knn/knn_classify_mg.cu
