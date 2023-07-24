@@ -24,16 +24,16 @@ jobs:
       - wheel-build-cuml
       - wheel-tests-cuml
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/pr-builder.yaml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/pr-builder.yaml@branch-23.10
   checks:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/checks.yaml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/checks.yaml@branch-23.10
     with:
       enable_check_generated_files: false
   clang-tidy:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/custom-job.yaml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/custom-job.yaml@branch-23.10
     with:
       build_type: pull-request
       node_type: "cpu8"
@@ -43,39 +43,39 @@ jobs:
   conda-cpp-build:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-build.yaml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-build.yaml@branch-23.10
     with:
       build_type: pull-request
   conda-cpp-tests:
     needs: conda-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-cpp-tests.yaml@branch-23.10
     with:
       build_type: pull-request
   conda-python-build:
     needs: conda-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-build.yaml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-build.yaml@branch-23.10
     with:
       build_type: pull-request
   conda-python-tests-singlegpu:
     needs: conda-python-build
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@branch-23.10
     with:
       build_type: pull-request
       test_script: "ci/test_python_singlegpu.sh"
   conda-python-tests-dask:
     needs: conda-python-build
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/conda-python-tests.yaml@branch-23.10
     with:
       build_type: pull-request
       test_script: "ci/test_python_dask.sh"
   conda-notebook-tests:
     needs: conda-python-build
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/custom-job.yaml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/custom-job.yaml@branch-23.10
     with:
       build_type: pull-request
       node_type: "gpu-v100-latest-1"
@@ -85,7 +85,7 @@ jobs:
   docs-build:
     needs: conda-python-build
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/custom-job.yaml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/custom-job.yaml@branch-23.10
     with:
       build_type: pull-request
       node_type: "gpu-v100-latest-1"
@@ -95,7 +95,7 @@ jobs:
   wheel-build-cuml:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@branch-23.10
     with:
       build_type: pull-request
       package-name: cuml
@@ -107,14 +107,14 @@ jobs:
   wheel-tests-cuml:
     needs: wheel-build-cuml
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.10
     with:
       build_type: pull-request
       package-name: cuml
       # Always want to test against latest dask/distributed.
-      test-before-amd64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.08"
+      test-before-amd64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.10"
       # On arm also need to install CMake because treelite needs to be compiled (no wheels available for arm).
-      test-before-arm64: "pip install cmake && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.08"
+      test-before-arm64: "pip install cmake && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.10"
       # parallelization is based on current test memory usage
       test-unittest: "python -m pytest ./python/cuml/tests -k 'not test_sparse_pca_inputs' -n 8 --ignore=python/cuml/tests/dask && python -m pytest ./python/cuml/tests -k 'test_sparse_pca_inputs' && python -m pytest ./python/cuml/tests/dask"
       test-smoketest: "python ci/wheel_smoke_test_cuml.py"
