@@ -26,10 +26,6 @@
 #include <cuml/neighbors/knn.hpp>
 #include <datasets/digits.h>
 
-#if defined RAFT_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
-#endif
-
 #include <test_utils.h>
 
 #include <datasets/digits.h>
