@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-#if defined RAFT_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
 #include "benchmark.cuh"
 #include <cmath>
 #include <cuml/svm/svc.hpp>
