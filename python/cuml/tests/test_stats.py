@@ -49,10 +49,11 @@ def test_cov(nrows, ncols, sparse, dtype):
 @pytest.mark.parametrize("nrows", [1000])
 @pytest.mark.parametrize("ncols", [500, 1500])
 @pytest.mark.parametrize("dtype", [cp.float32, cp.float64])
-def test_cov_sparse(nrows, ncols, dtype):
+@pytest.mark.parametrize("mtype", ["csr", "coo"])
+def test_cov_sparse(nrows, ncols, dtype, mtype):
 
     x = cupyx.scipy.sparse.random(
-        nrows, ncols, density=0.07, format="csr", dtype=dtype
+        nrows, ncols, density=0.07, format=mtype, dtype=dtype
     )
     cov_result = _cov_sparse(x, return_mean=True)
 
