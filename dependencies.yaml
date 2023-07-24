@@ -328,6 +328,9 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - dask-ml
+          # TODO: remove pin once a release that includes fixes for the error
+          # is released: https://github.com/rapidsai/cuml/issues/5514
+          - hdbscan<=0.8.30
           - hypothesis>=6.0,<7
           - nltk
           - numpydoc
@@ -348,14 +351,9 @@ dependencies:
               # TODO: Figure out what to do with this dependency
               # since the repo is now archived.
               - git+https://github.com/dask/dask-glm@main
-          # TODO: remove pin once a release that includes fixes for the error
-          # is released: https://github.com/rapidsai/cuml/issues/5514
-          - hdbscan<=0.8.30
       - output_types: pyproject
         packages:
           - dask-glm @ git+https://github.com/dask/dask-glm@main
-            # TODO: Can we stop pulling from the master branch now that there was a release in October?
-          - hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master
   test_notebooks:
     common:
       - output_types: [conda, requirements]
