@@ -159,6 +159,8 @@ class UMAP(UniversalBase,
         'hamming']
         Metrics that take arguments (such as minkowski) can have arguments
         passed via the metric_kwds dictionary.
+    metric_kwds: dict (optional, default=None)
+        Metric argument
     n_epochs: int (optional, default None)
         The number of training epochs to be used in optimizing the
         low dimensional embedding. Larger values result in more accurate
@@ -452,11 +454,10 @@ class UMAP(UniversalBase,
             umap_params.metric = metric_parsing[cls.metric.lower()]
         except KeyError:
             raise ValueError(f"Invalid value for metric: {cls.metric}")
-        if isinstance(cls.metric_kwds, dict):
-            umap_params.p = <float> cls.metric_kwds.get("p", 2.0)
-        else:
+        if cls.metric_kwds is None:
             umap_params.p = <float> 2.0
-
+        else:
+            umap_params.p = <float> cls.metric_kwds.get("p", 2.0)
         cdef uintptr_t callback_ptr = 0
         if cls.callback:
             callback_ptr = cls.callback.get_native_callback()
