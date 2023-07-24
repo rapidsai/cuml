@@ -22,6 +22,7 @@ if has_dask():
     from cuml.dask.linear_model.ridge import Ridge
     from cuml.dask.linear_model.lasso import Lasso
     from cuml.dask.linear_model.elastic_net import ElasticNet
+    from cuml.dask.linear_model.logistic_regression import LogisticRegression
 else:
     warnings.warn(
         "Dask not found. All Dask-based multi-GPU operation is disabled."

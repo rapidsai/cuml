@@ -16,10 +16,6 @@
 
 #include <iostream>
 
-#if defined RAFT_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 #include "svc_impl.cuh"
