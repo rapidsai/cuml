@@ -18,7 +18,6 @@
 
 #include <raft/cluster/single_linkage.cuh>
 #include <raft/core/handle.hpp>
-#include <raft/distance/specializations.cuh>
 
 namespace ML {
 
