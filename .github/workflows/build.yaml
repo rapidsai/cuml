@@ -68,27 +68,23 @@ jobs:
       sha: ${{ inputs.sha }}
   wheel-build-cuml:
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-build.yaml@branch-23.08
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
-      package-name: cuml
-      package-dir: python
-
+      script: ci/build_wheel.sh
       # Note that this approach to cloning repos obviates any modification to
       # the CMake variables in get_cumlprims_mg.cmake since CMake will just use
       # the clone as is.
       extra-repo: rapidsai/cumlprims_mg
       extra-repo-sha: branch-23.08
       extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
-
-      skbuild-configure-options: "-DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_DEPRECATION_WARNINGS=ON -DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/python/cumlprims_mg/"
   wheel-publish-cuml:
     needs: wheel-build-cuml
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-publish.yml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-publish.yaml@branch-23.08
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
