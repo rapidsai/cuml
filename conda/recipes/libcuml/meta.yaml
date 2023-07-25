@@ -14,6 +14,10 @@ source:
   git_url: ../../..
 
 build:
+  ignore_run_exports_from:
+    {% if cuda_major == "11" %}
+    - {{ compiler('cuda11') }}
+    {% endif %}
   script_env:
     - AWS_ACCESS_KEY_ID
     - AWS_SECRET_ACCESS_KEY
@@ -34,26 +38,40 @@ requirements:
   build:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
-    - {{ compiler('cuda') }} {{ cuda_version }}
+    {% if cuda_major == "11" %}
+    - {{ compiler('cuda11') }} ={{ cuda_version }}
+    {% else %}
+    - {{ compiler('cuda') }}
+    {% endif %}
+    - cuda-version ={{ cuda_version }}
     - cmake {{ cmake_version }}
     - ninja
     - sysroot_{{ target_platform }} {{ sysroot_version }}
   host:
-    - cudatoolkit ={{ cuda_version }}
+    - cuda-version ={{ cuda_version }}
+    {% if cuda_major == "11" %}
+    - cudatoolkit
+    - libcublas {{ cuda11_libcublas_host_version }}
+    - libcublas-dev {{ cuda11_libcublas_host_version }}
+    - libcufft {{ cuda11_libcufft_host_version }}
+    - libcufft-dev {{ cuda11_libcufft_host_version }}
+    - libcurand {{ cuda11_libcurand_host_version }}
+    - libcurand-dev {{ cuda11_libcurand_host_version }}
+    - libcusolver {{ cuda11_libcusolver_host_version }}
+    - libcusolver-dev {{ cuda11_libcusolver_host_version }}
+    - libcusparse {{ cuda11_libcusparse_host_version }}
+    - libcusparse-dev {{ cuda11_libcusparse_host_version }}
+    {% else %}
+    - cuda-cudart-dev
+    - libcublas-dev
+    - libcufft-dev
+    - libcurand-dev
+    - libcusolver-dev
+    - libcusparse-dev
+    {% endif %}
     - gmock {{ gtest_version }}
     - gtest {{ gtest_version }}
-    - lapack
-    - libcublas {{ libcublas_host_version }}
-    - libcublas-dev {{ libcublas_host_version }}
-    - libcufft {{ libcufft_host_version }}
-    - libcufft-dev {{ libcufft_host_version }}
     - libcumlprims ={{ minor_version }}
-    - libcurand {{ libcurand_host_version }}
-    - libcurand-dev {{ libcurand_host_version }}
-    - libcusolver {{ libcusolver_host_version }}
-    - libcusolver-dev {{ libcusolver_host_version }}
-    - libcusparse {{ libcusparse_host_version }}
-    - libcusparse-dev {{ libcusparse_host_version }}
     - libraft ={{ minor_version }}
     - libraft-headers ={{ minor_version }}
     - librmm ={{ minor_version }}
@@ -67,21 +85,32 @@ outputs:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
-        - {{ compiler('cuda') }}
+        {% if cuda_major == "11" %}
+        - {{ compiler('cuda11') }}
+        {% endif %}
     requirements:
       build:
         - cmake {{ cmake_version }}
+      host:
+        - cuda-version ={{ cuda_version }}
       run:
-        - cudatoolkit {{ cuda_spec }}
-        - libcublas {{ libcublas_run_version }}
-        - libcublas-dev {{ libcublas_run_version }}
-        - libcufft {{ libcufft_run_version }}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        {% if cuda_major == "11" %}
+        - cudatoolkit
+        - libcublas {{ cuda11_libcublas_run_version }}
+        - libcufft {{ cuda11_libcufft_run_version }}
+        - libcurand {{ cuda11_libcurand_run_version }}
+        - libcusolver {{ cuda11_libcusolver_run_version }}
+        - libcusparse {{ cuda11_libcusparse_run_version }}
+        {% else %}
+        - libcublas
+        - libcufft
+        - libcurand
+        - libcusolver
+        - libcusparse
+        {% endif %}
         - libcumlprims ={{ minor_version }}
-        - libcurand {{ libcurand_run_version }}
-        - libcusparse {{ libcusparse_run_version }}
-        - libcusparse-dev {{ libcusparse_run_version }}
         - libraft ={{ minor_version }}
-        - libraft-headers ={{ minor_version }}
         - librmm ={{ minor_version }}
         - treelite {{ treelite_version }}
     about:
@@ -95,12 +124,17 @@ outputs:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
-        - {{ compiler('cuda') }}
+        {% if cuda_major == "11" %}
+        - {{ compiler('cuda11') }}
+        {% endif %}
     requirements:
       build:
         - cmake {{ cmake_version }}
       run:
-        - cudatoolkit {{ cuda_spec }}
+        - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
+        {% if cuda_major == "11" %}
+        - cudatoolkit
+        {% endif %}
         - {{ pin_subpackage('libcuml', exact=True) }}
         - gtest {{ gtest_version }}
         - gmock {{ gtest_version }}

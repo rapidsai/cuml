@@ -9,9 +9,11 @@ channels:
 dependencies:
 - c-compiler
 - cmake>=3.26.4
-- cuda-python>=11.7.1,<12.0a0
-- cuda-version=11.8
-- cudatoolkit
+- cuda-cudart-dev
+- cuda-nvcc
+- cuda-profiler-api
+- cuda-python>=12.0,<13.0a0
+- cuda-version=12.0
 - cudf==23.8.*
 - cupy>=12.0.0
 - cxx-compiler
@@ -32,17 +34,12 @@ dependencies:
 - ipykernel
 - ipython
 - joblib>=0.11
-- libcublas-dev=11.11.3.6
-- libcublas=11.11.3.6
-- libcufft-dev=10.9.0.58
-- libcufft=10.9.0.58
+- libcublas-dev
+- libcufft-dev
 - libcumlprims==23.8.*
-- libcurand-dev=10.3.0.86
-- libcurand=10.3.0.86
-- libcusolver-dev=11.4.1.48
-- libcusolver=11.4.1.48
-- libcusparse-dev=11.7.5.86
-- libcusparse=11.7.5.86
+- libcurand-dev
+- libcusolver-dev
+- libcusparse-dev
 - libraft-headers==23.8.*
 - libraft==23.8.*
 - librmm==23.8.*
@@ -51,7 +48,6 @@ dependencies:
 - nltk
 - numba>=0.57
 - numpydoc
-- nvcc_linux-64=11.8
 - pip
 - pydata-sphinx-theme
 - pylibraft==23.8.*
@@ -78,4 +74,4 @@ dependencies:
 - umap-learn==0.5.3
 - pip:
   - git+https://github.com/dask/dask-glm@main
-name: all_cuda-118_arch-x86_64
+name: all_cuda-120_arch-x86_64
