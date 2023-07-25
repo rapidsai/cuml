@@ -95,26 +95,17 @@ jobs:
   wheel-build-cuml:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-build.yml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-build.yaml@branch-23.08
     with:
       build_type: pull-request
-      package-name: cuml
-      package-dir: python
+      script: ci/build_wheel.sh
       extra-repo: rapidsai/cumlprims_mg
       extra-repo-sha: branch-23.02
       extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
-      skbuild-configure-options: "-DCUML_BUILD_WHEELS=ON -DDETECT_CONDA_ENV=OFF -DDISABLE_DEPRECATION_WARNINGS=ON -DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/python/cumlprims_mg/"
   wheel-tests-cuml:
     needs: wheel-build-cuml
     secrets: inherit
-    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-manylinux-test.yml@branch-23.08
+    uses: rapidsai/shared-action-workflows/.github/workflows/wheels-test.yaml@branch-23.08
     with:
       build_type: pull-request
-      package-name: cuml
-      # Always want to test against latest dask/distributed.
-      test-before-amd64: "pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.08"
-      # On arm also need to install CMake because treelite needs to be compiled (no wheels available for arm).
-      test-before-arm64: "pip install cmake && pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-23.08"
-      # parallelization is based on current test memory usage
-      test-unittest: "python -m pytest ./python/cuml/tests -k 'not test_sparse_pca_inputs' -n 8 --ignore=python/cuml/tests/dask && python -m pytest ./python/cuml/tests -k 'test_sparse_pca_inputs' && python -m pytest ./python/cuml/tests/dask"
-      test-smoketest: "python ci/wheel_smoke_test_cuml.py"
+      script: ci/test_wheel.sh
