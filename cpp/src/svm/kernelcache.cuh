@@ -25,7 +25,6 @@
 #include <raft/util/cache_util.cuh>
 
 #include <raft/linalg/gemm.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,6 @@
 #include <raft/core/comms.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
