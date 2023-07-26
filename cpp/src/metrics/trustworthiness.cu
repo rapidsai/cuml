@@ -19,14 +19,6 @@
 #include <cuml/metrics/metrics.hpp>
 #include <raft/core/handle.hpp>
 
-#if defined RAFT_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
-#if defined RAFT_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
-#endif
-
 #include <raft/distance/distance.cuh>
 
 namespace ML {

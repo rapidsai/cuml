@@ -23,9 +23,6 @@
 #include <raft/linalg/reduce.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/knn.cuh>
-#ifdef RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
-#endif
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 

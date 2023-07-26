@@ -17,10 +17,6 @@
 #include <random>
 #include <type_traits>
 
-#if defined RAFT_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
 #include <common/nvtx.hpp>
 #include <cublas_v2.h>
 #include <cuml/linear_model/glm.hpp>

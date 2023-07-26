@@ -34,7 +34,7 @@ from cuml.decomposition.utils cimport *
 class MGFitMixin(object):
 
     @cuml.internals.api_base_return_any_skipall
-    def fit(self, input_data, n_rows, n_cols, partsToSizes, rank):
+    def fit(self, input_data, n_rows, n_cols, partsToSizes, rank, order='F'):
         """
         Fit function for MNMG linear regression classes
         This not meant to be used as
@@ -58,7 +58,7 @@ class MGFitMixin(object):
                 check_dtype = self.dtype
 
             X_m, _, self.n_cols, _ = \
-                input_to_cuml_array(input_data[i][0], check_dtype=check_dtype)
+                input_to_cuml_array(input_data[i][0], check_dtype=check_dtype, order=order)
             X_arys.append(X_m)
 
             if i == 0:
