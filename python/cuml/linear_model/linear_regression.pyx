@@ -257,6 +257,13 @@ class LinearRegression(LinearPredictMixin,
 
     For an additional example see `the OLS notebook
     <https://github.com/rapidsai/cuml/blob/main/notebooks/linear_regression_demo.ipynb>`__.
+
+    .. note:: Starting from version 23.08, the new 'copy_X' parameter defaults
+              to 'True', ensuring a copy of X is created after passing it to
+              fit(), preventing any changes to the input, but with increased
+              memory usage. This represents a change in behavior from previous
+              versions. With `copy_X=False` a copy might still be created if
+              necessary.
     """
 
     _cpu_estimator_import_path = 'sklearn.linear_model.LinearRegression'
@@ -265,7 +272,7 @@ class LinearRegression(LinearPredictMixin,
 
     @device_interop_preparation
     def __init__(self, *, algorithm='eig', fit_intercept=True,
-                 copy_X=True, normalize=False,
+                 copy_X=None, normalize=False,
                  handle=None, verbose=False, output_type=None):
         if handle is None and algorithm == 'eig':
             # if possible, create two streams, so that eigenvalue decomposition
@@ -289,6 +296,16 @@ class LinearRegression(LinearPredictMixin,
             raise TypeError(msg.format(algorithm))
 
         self.intercept_value = 0.0
+        if copy_X is None:
+            warnings.warn(
+                "Starting from version 23.08, the new 'copy_X' parameter defaults "
+                "to 'True', ensuring a copy of X is created after passing it to "
+                "fit(), preventing any changes to the input, but with increased "
+                "memory usage. This represents a change in behavior from previous "
+                "versions. With `copy_X=False` a copy might still be created if "
+                "necessary. Explicitly set 'copy_X' to either True or False to "
+                "suppress this warning.", UserWarning)
+            copy_X = True
         self.copy_X = copy_X
 
     def _get_algorithm_int(self, algorithm):
