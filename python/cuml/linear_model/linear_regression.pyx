@@ -310,7 +310,8 @@ class LinearRegression(LinearPredictMixin,
         """
         cdef uintptr_t X_ptr, y_ptr, sample_weight_ptr
 
-        need_explicit_copy = self.copy_X and hasattr(X, "__cuda_array_interface__") and X.shape[1] == 1
+        need_explicit_copy = self.copy_X and hasattr(X, "__cuda_array_interface__") \
+            and (len(X.shape) < 2 or X.shape[1] == 1)
 
         X_m, n_rows, self.n_features_in_, self.dtype = \
             input_to_cuml_array(X,
