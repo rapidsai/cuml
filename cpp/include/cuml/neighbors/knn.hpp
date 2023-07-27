@@ -43,9 +43,9 @@ namespace ML {
  * @param[in] rowMajorIndex are the index arrays in row-major order?
  * @param[in] rowMajorQuery are the query arrays in row-major order?
  * @param[in] metric distance metric to use. Euclidean (L2) is used by
- * 			   default
+ *            default
  * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
- * 					 is ignored if the metric_type is not Minkowski.
+ *            is ignored if the metric_type is not Minkowski.
  */
 void brute_force_knn(const raft::handle_t& handle,
                      std::vector<float*>& input,
