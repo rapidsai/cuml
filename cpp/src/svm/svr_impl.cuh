@@ -31,7 +31,6 @@
 #include <raft/core/handle.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>

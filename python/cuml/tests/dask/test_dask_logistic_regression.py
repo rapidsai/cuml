@@ -141,3 +141,72 @@ def test_lr_fit_predict_score(
     probs_cuml = cuml_model.predict_proba(gX).compute()
     probs_sk = sk_model.predict_proba(X)[:, 1]
     assert np.abs(probs_sk - probs_cuml.get()).max() <= 0.05
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("n_parts", [2])
+@pytest.mark.parametrize("datatype", [np.float32])
+def test_lbfgs_toy(n_parts, datatype, client):
+    def imp():
+        import cuml.comm.serialize  # NOQA
+
+    client.run(imp)
+
+    X = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], datatype)
+    y = np.array([1.0, 1.0, 0.0, 0.0], datatype)
+
+    from cuml.dask.linear_model.logistic_regression import (
+        LogisticRegression as cumlLBFGS_dask,
+    )
+
+    X_df, y_df = _prep_training_data(client, X, y, n_parts)
+
+    lr = cumlLBFGS_dask()
+    lr.fit(X_df, y_df)
+    lr_coef = lr.coef_.to_numpy()
+    lr_intercept = lr.intercept_.to_numpy()
+
+    assert len(lr_coef) == 1
+    assert lr_coef[0] == pytest.approx([-0.71483153, 0.7148315], abs=1e-6)
+    assert lr_intercept == pytest.approx([-2.2614916e-08], abs=1e-6)
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("nrows", [1e5])
+@pytest.mark.parametrize("ncols", [20])
+@pytest.mark.parametrize("n_parts", [2, 23])
+@pytest.mark.parametrize("datatype", [np.float32])
+def test_lbfgs(nrows, ncols, n_parts, datatype, client):
+    tolerance = 0.005
+
+    def imp():
+        import cuml.comm.serialize  # NOQA
+
+    client.run(imp)
+
+    from cuml.dask.linear_model.logistic_regression import (
+        LogisticRegression as cumlLBFGS_dask,
+    )
+
+    # set n_informative variable for calling sklearn.datasets.make_classification
+    n_info = 5
+    nrows = int(nrows)
+    ncols = int(ncols)
+    X, y = make_classification_dataset(datatype, nrows, ncols, n_info)
+
+    X_df, y_df = _prep_training_data(client, X, y, n_parts)
+
+    lr = cumlLBFGS_dask()
+    lr.fit(X_df, y_df)
+    lr_coef = lr.coef_.to_numpy()
+    lr_intercept = lr.intercept_.to_numpy()
+
+    sk_model = skLR()
+    sk_model.fit(X, y)
+    sk_coef = sk_model.coef_
+    sk_intercept = sk_model.intercept_
+
+    assert len(lr_coef) == len(sk_coef)
+    for i in range(len(lr_coef)):
+        assert lr_coef[i] == pytest.approx(sk_coef[i], abs=tolerance)
+    assert lr_intercept == pytest.approx(sk_intercept, abs=tolerance)
