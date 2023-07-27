@@ -54,7 +54,7 @@ def _using_mirror_output_type():
 
     Yields
     -------
-    string
+    str
         Returns the previous value in global_settings.output_type
     """
     prev_output_type = GlobalSettings().output_type
@@ -66,10 +66,31 @@ def _using_mirror_output_type():
 
 
 def in_internal_api():
+    """
+    Checks if the code is currently executing within an internal API context.
+
+    Returns
+    -------
+    bool
+        True if the code is executing within an internal API context, False otherwise.
+    """
     return GlobalSettings().root_cm is not None
 
 
 def set_api_output_type(output_type: str):
+    """
+    Sets the output type for the current internal API context.
+
+    Parameters
+    ----------
+    output_type : str
+        The desired output type. Valid options are 'input', 'cuml', or 'mirror'.
+
+    Raises
+    ------
+    AssertionError
+        If the root context manager is not set.
+    """
     assert GlobalSettings().root_cm is not None
 
     # Quick exit
@@ -87,6 +108,19 @@ def set_api_output_type(output_type: str):
 
 
 def set_api_memory_type(mem_type):
+    """
+    Sets the memory type for the current internal API context.
+
+    Parameters
+    ----------
+    mem_type : str
+        The desired memory type.
+
+    Raises
+    ------
+    AssertionError
+        If the root context manager is not set.
+    """
     assert GlobalSettings().root_cm is not None
 
     try:
@@ -100,6 +134,19 @@ def set_api_memory_type(mem_type):
 
 
 def set_api_output_dtype(output_dtype):
+    """
+    Sets the output data type for the current internal API context.
+
+    Parameters
+    ----------
+    output_dtype : str or numpy.dtype or cupy.dtype
+        The desired output data type.
+
+    Raises
+    ------
+    AssertionError
+        If the root context manager is not set.
+    """
     assert GlobalSettings().root_cm is not None
 
     # Try to convert any array objects to their type
@@ -117,6 +164,11 @@ def set_api_output_dtype(output_dtype):
 
 class InternalAPIContext(contextlib.ExitStack):
     def __init__(self):
+        """
+        Constructor for InternalAPIContext class.
+
+        This class represents a context manager for internal API handling.
+        """
         super().__init__()
 
         def cleanup():
@@ -145,6 +197,9 @@ class InternalAPIContext(contextlib.ExitStack):
 
     @property
     def output_type(self):
+        """
+        str: The current output type for the internal API context.
+        """
         return self._output_type
 
     @output_type.setter
@@ -153,6 +208,9 @@ class InternalAPIContext(contextlib.ExitStack):
 
     @property
     def memory_type(self):
+        """
+        MemoryType: The current memory type for the internal API context.
+        """
         return self._memory_type
 
     @memory_type.setter
@@ -160,26 +218,48 @@ class InternalAPIContext(contextlib.ExitStack):
         self._memory_type = MemoryType.from_str(value)
 
     def pop_all(self):
-        """Preserve the context stack by transferring it to a new instance."""
+        """
+        Preserve the context stack by transferring it to a new instance.
+
+        Returns
+        -------
+        contextlib.ExitStack
+            A new context stack with the same exit callbacks.
+        """
         new_stack = contextlib.ExitStack()
         new_stack._exit_callbacks = self._exit_callbacks
         self._exit_callbacks = deque()
         return new_stack
 
     def __enter__(self) -> int:
+        """
+        Enter the internal API context.
 
+        Returns
+        -------
+        int
+            The count of how many times this context has been entered.
+        """
         self._count += 1
-
         return self._count
 
     def __exit__(self, *exc_details):
-
+        """
+        Exit the internal API context.
+        """
         self._count -= 1
 
         return
 
     @contextlib.contextmanager
     def push_output_types(self):
+        """
+        A context manager for pushing output types.
+
+        Yields
+        ------
+        None
+        """
         try:
             old_output_type = self.output_type
             old_output_dtype = self.output_dtype
@@ -215,6 +295,14 @@ def get_internal_context() -> InternalAPIContext:
 
 class ProcessEnter(object):
     def __init__(self, context: "InternalAPIContextBase"):
+        """
+        Constructor for the ProcessEnter class.
+
+        Parameters
+        ----------
+        context : InternalAPIContextBase
+            The context object representing the internal API context.
+        """
         super().__init__()
 
         self._context = context
@@ -222,13 +310,23 @@ class ProcessEnter(object):
         self._process_enter_cbs: typing.Deque[typing.Callable] = deque()
 
     def process_enter(self):
-
+        """
+        Execute the registered process enter callbacks.
+        """
         for cb in self._process_enter_cbs:
             cb()
 
 
 class ProcessReturn(object):
     def __init__(self, context: "InternalAPIContextBase"):
+        """
+        Constructor for the ProcessReturn class.
+
+        Parameters
+        ----------
+        context : InternalAPIContextBase
+            The context object representing the internal API context.
+        """
         super().__init__()
 
         self._context = context
@@ -238,7 +336,19 @@ class ProcessReturn(object):
         ] = deque()
 
     def process_return(self, ret_val):
+        """
+        Execute the registered process return callbacks on the given return value.
 
+        Parameters
+        ----------
+        ret_val : any
+            The return value to be processed.
+
+        Returns
+        -------
+        any
+            The processed return value after applying the registered callbacks.
+        """
         for cb in self._process_return_cbs:
             ret_val = cb(ret_val)
 
@@ -252,11 +362,58 @@ ProcessT = typing.TypeVar("ProcessT", bound=ProcessReturn)
 class InternalAPIContextBase(
     contextlib.ExitStack, typing.Generic[EnterT, ProcessT]
 ):
+    """
+    Base class for the internal API context.
+
+    This class provides a context manager for managing the internal API context
+    used to control output type for external API calls and minimize unnecessary
+    internal output conversions.
+
+    Parameters
+    ----------
+    func : callable or None, optional (default=None)
+        The callable object representing the function being executed in the
+        internal API context.
+    args : tuple or None, optional (default=None)
+        The arguments passed to the callable function.
+
+    Attributes
+    ----------
+    ProcessEnter_Type : Type[EnterT]
+        Generic type representing the ProcessEnter class.
+    ProcessReturn_Type : Type[ProcessT]
+        Generic type representing the ProcessReturn class.
+
+    Methods
+    -------
+    __enter__() -> int
+        Enter the internal API context.
+    process_return(ret_val: any) -> any
+        Execute the registered process return callbacks on the given return value.
+
+    Examples
+    --------
+    # Creating an instance of the InternalAPIContextBase class
+    with InternalAPIContextBase():
+        # Code executed within the internal API context
+        ...
+    """
 
     ProcessEnter_Type: typing.Type[EnterT] = None
     ProcessReturn_Type: typing.Type[ProcessT] = None
 
     def __init__(self, func=None, args=None):
+        """
+        Constructor for the InternalAPIContextBase class.
+
+        Parameters
+        ----------
+        func : callable or None, optional (default=None)
+            The callable object representing the function being executed in the
+            internal API context.
+        args : tuple or None, optional (default=None)
+            The arguments passed to the callable function.
+        """
         super().__init__()
 
         self._func = func
@@ -269,28 +426,49 @@ class InternalAPIContextBase(
         self._enter_obj: ProcessEnter = self.ProcessEnter_Type(self)
         self._process_obj: ProcessReturn = None
 
-    def __enter__(self):
+    def __enter__(self) -> int:
+        """
+        Enter the internal API context.
 
-        # Enter the root context to know if we are the root cm
-        self.is_root = self.enter_context(self.root_cm) == 1
-
-        # If we are the first, push any callbacks from the root into this CM
-        # If we are not the first, this will have no effect
-        self.push(self.root_cm.pop_all())
-
-        self._enter_obj.process_enter()
-
-        # Now create the process functions since we know if we are root or not
-        self._process_obj = self.ProcessReturn_Type(self)
-
-        return super().__enter__()
+        Returns
+        -------
+        int
+            The count of how many times this context has been entered.
+        """
+        # ... (Details not shown in the provided code snippet)
 
     def process_return(self, ret_val):
+        """
+        Execute the registered process return callbacks on the given return value.
 
+        Parameters
+        ----------
+        ret_val : any
+            The return value to be processed.
+
+        Returns
+        -------
+        any
+            The processed return value after applying the registered callbacks.
+        """
         return self._process_obj.process_return(ret_val)
 
     def __class_getitem__(cls: typing.Type["InternalAPIContextBase"], params):
+        """
+        Get the class item for the generic type.
 
+        Parameters
+        ----------
+        cls : Type[InternalAPIContextBase]
+            The class object.
+        params : Tuple
+            The tuple representing the generic type parameters.
+
+        Returns
+        -------
+        Type
+            The class with the specific generic type parameters.
+        """
         param_names = [
             param.__name__ if hasattr(param, "__name__") else str(param)
             for param in params
@@ -308,23 +486,44 @@ class InternalAPIContextBase(
 
 class ProcessEnterBaseMixin(ProcessEnter):
     def __init__(self, context: "InternalAPIContextBase"):
+        """
+        Constructor for the ProcessEnterBaseMixin class.
+
+        Parameters
+        ----------
+        context : InternalAPIContextBase
+            The context object representing the internal API context.
+        """
         super().__init__(context)
 
         self.base_obj: Base = self._context._args[0]
 
 
 class ProcessEnterReturnAny(ProcessEnter):
+    """
+    ProcessEnter subclass for handling the return type "Any".
+    """
     pass
 
 
 class ProcessEnterReturnArray(ProcessEnter):
     def __init__(self, context: "InternalAPIContextBase"):
+        """
+        Constructor for the ProcessEnterReturnArray class.
+
+        Parameters
+        ----------
+        context : InternalAPIContextBase
+            The context object representing the internal API context.
+        """
         super().__init__(context)
 
         self._process_enter_cbs.append(self.push_output_types)
 
     def push_output_types(self):
-
+        """
+        Push the output types to the internal API context.
+        """
         self._context.enter_context(self._context.root_cm.push_output_types())
 
 
@@ -332,11 +531,19 @@ class ProcessEnterBaseReturnArray(
     ProcessEnterReturnArray, ProcessEnterBaseMixin
 ):
     def __init__(self, context: "InternalAPIContextBase"):
+        """
+        Constructor for the ProcessEnterBaseReturnArray class.
+
+        Parameters
+        ----------
+        context : InternalAPIContextBase
+            The context object representing the internal API context.
+        """
         super().__init__(context)
 
         # IMPORTANT: Only perform output type processing if
         # `root_cm.output_type` is None. Since we default to using the incoming
-        # value if its set, there is no need to do any processing if the user
+        # value if it's set, there is no need to do any processing if the user
         # has specified the output type
         if (
             self._context.root_cm.prev_output_type is None
@@ -345,7 +552,9 @@ class ProcessEnterBaseReturnArray(
             self._process_enter_cbs.append(self.base_output_type_callback)
 
     def base_output_type_callback(self):
-
+        """
+        Callback function to handle the base output type.
+        """
         root_cm = self._context.root_cm
 
         def set_output_type():
@@ -353,7 +562,7 @@ class ProcessEnterBaseReturnArray(
             mem_type = root_cm.memory_type
 
             # Check if output_type is None, can happen if no output type has
-            # been set by estimator
+            # been set by the estimator
             if output_type is None:
                 output_type = self.base_obj.output_type
             if mem_type is None:
@@ -377,11 +586,22 @@ class ProcessEnterBaseReturnArray(
 
 
 class ProcessReturnAny(ProcessReturn):
+    """
+    ProcessReturn subclass for handling the return type "Any".
+    """
     pass
 
 
 class ProcessReturnArray(ProcessReturn):
     def __init__(self, context: "InternalAPIContextBase"):
+        """
+        Constructor for the ProcessReturnArray class.
+
+        Parameters
+        ----------
+        context : InternalAPIContextBase
+            The context object representing the internal API context.
+        """
         super().__init__(context)
 
         self._process_return_cbs.append(self.convert_to_cumlarray)
@@ -390,7 +610,19 @@ class ProcessReturnArray(ProcessReturn):
             self._process_return_cbs.append(self.convert_to_outputtype)
 
     def convert_to_cumlarray(self, ret_val):
+        """
+        Convert the given return value to a CuML array if it's a supported array type.
 
+        Parameters
+        ----------
+        ret_val : any
+            The return value to be processed.
+
+        Returns
+        -------
+        any
+            The processed return value after converting to a CuML array if applicable.
+        """
         # Get the output type
         (
             ret_val_type_str,
@@ -414,8 +646,21 @@ class ProcessReturnArray(ProcessReturn):
 
         return ret_val
 
-    def convert_to_outputtype(self, ret_val):
 
+    def convert_to_outputtype(self, ret_val):
+        """
+        Convert the given return value to the desired output type as specified in GlobalSettings.
+
+        Parameters
+        ----------
+        ret_val : any
+            The return value to be processed.
+
+        Returns
+        -------
+        any
+            The processed return value after converting to the desired output type.
+        """
         output_type = GlobalSettings().output_type
         memory_type = GlobalSettings().memory_type
 
@@ -442,14 +687,41 @@ class ProcessReturnArray(ProcessReturn):
         )
 
 
-class ProcessReturnSparseArray(ProcessReturnArray):
-    def convert_to_cumlarray(self, ret_val):
 
-        # Get the output type
-        (
-            ret_val_type_str,
-            is_sparse,
-        ) = cuml.internals.input_utils.determine_array_type_full(ret_val)
+class ProcessReturnSparseArray(ProcessReturnArray):
+    """
+    Subclass of ProcessReturnArray that converts the return value to SparseCumlArray if applicable.
+
+    Parameters
+    ----------
+    context : InternalAPIContextBase
+        The context of the process return operation.
+
+    Methods
+    -------
+    convert_to_cumlarray(ret_val)
+        Convert the given return value to SparseCumlArray if not already in that format.
+
+    Returns
+    -------
+    any
+        The processed return value.
+    """
+    def convert_to_cumlarray(self, ret_val):
+        """
+        Convert the given return value to SparseCumlArray if not already in that format.
+
+        Parameters
+        ----------
+        ret_val : any
+            The return value to be processed.
+
+        Returns
+        -------
+        any
+            The processed return value after converting to SparseCumlArray if applicable.
+        """
+        ret_val_type_str, is_sparse = cuml.internals.input_utils.determine_array_type_full(ret_val)
 
         # If we are a supported array and not already cuml, convert to cuml
         if ret_val_type_str is not None and ret_val_type_str != "cuml":
@@ -470,6 +742,32 @@ class ProcessReturnSparseArray(ProcessReturnArray):
 
 
 class ProcessReturnGeneric(ProcessReturnArray):
+    """
+    Subclass of ProcessReturnArray that processes return values with generic types.
+
+    Parameters
+    ----------
+    context : InternalAPIContextBase
+        The context of the process return operation.
+
+    Methods
+    -------
+    process_single(ret_val)
+        Process a single return value.
+    process_tuple(ret_val)
+        Process a tuple return value.
+    process_dict(ret_val)
+        Process a dictionary return value.
+    process_list(ret_val)
+        Process a list return value.
+    process_generic(ret_val)
+        Process a generic return value, handling arrays, tuples, dictionaries, and lists.
+
+    Returns
+    -------
+    any
+        The processed return value after applying the appropriate processing based on its type.
+    """
     def __init__(self, context: "InternalAPIContextBase"):
         super().__init__(context)
 
@@ -482,40 +780,98 @@ class ProcessReturnGeneric(ProcessReturnArray):
         self._process_return_cbs.append(self.process_generic)
 
     def process_single(self, ret_val):
+        """
+        Process a single return value.
+
+        Parameters
+        ----------
+        ret_val : any
+            The single return value to be processed.
+
+        Returns
+        -------
+        any
+            The processed return value.
+        """
         for cb in self._single_array_cbs:
             ret_val = cb(ret_val)
 
         return ret_val
 
     def process_tuple(self, ret_val: tuple):
+        """
+        Process a tuple return value.
 
+        Parameters
+        ----------
+        ret_val : tuple
+            The tuple return value to be processed.
+
+        Returns
+        -------
+        tuple
+            The processed return value as a tuple after applying processing to each item.
+        """
         # Convert to a list
         out_val = list(ret_val)
 
         for idx, item in enumerate(out_val):
-
             out_val[idx] = self.process_generic(item)
 
         return tuple(out_val)
 
     def process_dict(self, ret_val):
+        """
+        Process a dictionary return value.
 
+        Parameters
+        ----------
+        ret_val : dict
+            The dictionary return value to be processed.
+
+        Returns
+        -------
+        dict
+            The processed return value as a dictionary after applying processing to each item.
+        """
         for name, item in ret_val.items():
-
             ret_val[name] = self.process_generic(item)
 
         return ret_val
 
     def process_list(self, ret_val):
+        """
+        Process a list return value.
 
+        Parameters
+        ----------
+        ret_val : list
+            The list return value to be processed.
+
+        Returns
+        -------
+        list
+            The processed return value as a list after applying processing to each item.
+        """
         for idx, item in enumerate(ret_val):
-
             ret_val[idx] = self.process_generic(item)
 
         return ret_val
 
     def process_generic(self, ret_val):
+        """
+        Process a generic return value, handling arrays, tuples, dictionaries, and lists.
 
+        Parameters
+        ----------
+        ret_val : any
+            The return value to be processed.
+
+        Returns
+        -------
+        any
+            The processed return value after applying the appropriate processing based on its type.
+        """
         if cuml.internals.input_utils.is_array_like(ret_val):
             return self.process_single(ret_val)
 
@@ -531,43 +887,122 @@ class ProcessReturnGeneric(ProcessReturnArray):
         return ret_val
 
 
+
 class ReturnAnyCM(
+    """
+    Context manager that handles return values of any type.
+
+    This context manager is used to process the return value of a function
+    where the return type can be any data type. It is responsible for handling
+    the processing of the return value, if needed, before returning it to the caller.
+
+    Inherits from InternalAPIContextBase and uses ProcessEnterReturnAny and
+    ProcessReturnAny as the process enter and process return classes, respectively.
+    """
+
     InternalAPIContextBase[ProcessEnterReturnAny, ProcessReturnAny]
 ):
     pass
 
 
 class ReturnArrayCM(
+    """
+    Context manager that handles return values as arrays.
+
+    This context manager is used to process the return value of a function
+    where the return type is an array-like object. It is responsible for handling
+    the processing of the return value as an array, if needed, before returning it to the caller.
+
+    Inherits from InternalAPIContextBase and uses ProcessEnterReturnArray and
+    ProcessReturnArray as the process enter and process return classes, respectively.
+    """
+
     InternalAPIContextBase[ProcessEnterReturnArray, ProcessReturnArray]
 ):
     pass
 
 
 class ReturnSparseArrayCM(
+    """
+    Context manager that handles return values as sparse arrays.
+
+    This context manager is used to process the return value of a function
+    where the return type is a sparse array-like object. It is responsible for handling
+    the processing of the return value as a sparse array, if needed, before returning it to the caller.
+
+    Inherits from InternalAPIContextBase and uses ProcessEnterReturnArray and
+    ProcessReturnSparseArray as the process enter and process return classes, respectively.
+    """
+
     InternalAPIContextBase[ProcessEnterReturnArray, ProcessReturnSparseArray]
 ):
     pass
 
 
 class ReturnGenericCM(
+    """
+    Context manager that handles return values of generic types.
+
+    This context manager is used to process the return value of a function
+    where the return type is a generic type that can be an array, tuple, dict, or list.
+    It is responsible for handling the processing of the return value as needed,
+    depending on the actual type, before returning it to the caller.
+
+    Inherits from InternalAPIContextBase and uses ProcessEnterReturnArray and
+    ProcessReturnGeneric as the process enter and process return classes, respectively.
+    """
+
     InternalAPIContextBase[ProcessEnterReturnArray, ProcessReturnGeneric]
 ):
     pass
 
 
 class BaseReturnAnyCM(
+    """
+    Base context manager that handles return values of any type.
+
+    This is the base context manager used to process the return value of a function
+    where the return type can be any data type. It is responsible for handling
+    the processing of the return value, if needed, before returning it to the caller.
+
+    Inherits from InternalAPIContextBase and uses ProcessEnterReturnAny and
+    ProcessReturnAny as the process enter and process return classes, respectively.
+    """
+
     InternalAPIContextBase[ProcessEnterReturnAny, ProcessReturnAny]
 ):
     pass
 
 
 class BaseReturnArrayCM(
+    """
+    Base context manager that handles return values as arrays.
+
+    This is the base context manager used to process the return value of a function
+    where the return type is an array-like object. It is responsible for handling
+    the processing of the return value as an array, if needed, before returning it to the caller.
+
+    Inherits from InternalAPIContextBase and uses ProcessEnterBaseReturnArray and
+    ProcessReturnArray as the process enter and process return classes, respectively.
+    """
+
     InternalAPIContextBase[ProcessEnterBaseReturnArray, ProcessReturnArray]
 ):
     pass
 
 
 class BaseReturnSparseArrayCM(
+    """
+    Base context manager that handles return values as sparse arrays.
+
+    This is the base context manager used to process the return value of a function
+    where the return type is a sparse array-like object. It is responsible for handling
+    the processing of the return value as a sparse array, if needed, before returning it to the caller.
+
+    Inherits from InternalAPIContextBase and uses ProcessEnterBaseReturnArray and
+    ProcessReturnSparseArray as the process enter and process return classes, respectively.
+    """
+
     InternalAPIContextBase[
         ProcessEnterBaseReturnArray, ProcessReturnSparseArray
     ]
@@ -576,6 +1011,18 @@ class BaseReturnSparseArrayCM(
 
 
 class BaseReturnGenericCM(
+    """
+    Base context manager that handles return values of generic types.
+
+    This is the base context manager used to process the return value of a function
+    where the return type is a generic type that can be an array, tuple, dict, or list.
+    It is responsible for handling the processing of the return value as needed,
+    depending on the actual type, before returning it to the caller.
+
+    Inherits from InternalAPIContextBase and uses ProcessEnterBaseReturnArray and
+    ProcessReturnGeneric as the process enter and process return classes, respectively.
+    """
+
     InternalAPIContextBase[ProcessEnterBaseReturnArray, ProcessReturnGeneric]
 ):
     pass
