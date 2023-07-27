@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from contextlib import nullcontext
 from distutils.version import LooseVersion
 from functools import lru_cache
 
@@ -986,10 +987,12 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
     ),
     algorithm=algorithms,
     xp=st.sampled_from([np, cp]),
-    copy=st.booleans(),
+    copy=st.sampled_from((True, False, None, ...)),
 )
 @example(make_regression(n_features=1), "svd", cp, True)
 @example(make_regression(n_features=1), "svd", cp, False)
+@example(make_regression(n_features=1), "svd", cp, None)
+@example(make_regression(n_features=1), "svd", cp, ...)
 @example(make_regression(n_features=1), "svd", np, False)
 @example(make_regression(n_features=2), "svd", cp, False)
 @example(make_regression(n_features=2), "eig", np, False)
@@ -998,9 +1001,15 @@ def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
     X, y = xp.asarray(X), xp.asarray(y)
     X_copy = X.copy()
 
-    cuLinearRegression(algorithm=algorithm, copy_X=copy).fit(X, y)
+    with (pytest.warns(UserWarning) if copy in (None, ...) else nullcontext()):
+        if copy is ...:  # no argument
+            cuLR = cuLinearRegression(algorithm=algorithm)
+        else:
+            cuLR = cuLinearRegression(algorithm=algorithm, copy_X=copy)
 
-    if (X.shape[1] == 1 and xp is cp) and not copy:
+    cuLR.fit(X, y)
+
+    if (X.shape[1] == 1 and xp is cp) and copy is False:
         assert not array_equal(X, X_copy)
     else:
         assert array_equal(X, X_copy)
