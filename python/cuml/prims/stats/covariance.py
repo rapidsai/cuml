@@ -329,6 +329,7 @@ def _cov_sparse(x, return_gram=False, return_mean=False):
     )
 
     mean_x = x.sum(axis=0) * (1 / x.shape[0])
+    gram_matrix *= 1 / x.shape[0]
 
     if return_gram:
         cov_result = cp.zeros(
