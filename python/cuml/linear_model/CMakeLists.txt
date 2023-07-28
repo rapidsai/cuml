@@ -27,6 +27,7 @@ if(NOT SINGLEGPU)
   list(APPEND cython_sources
        base_mg.pyx
        linear_regression_mg.pyx
+       logistic_regression_mg.pyx
        ridge_mg.pyx
   )
 

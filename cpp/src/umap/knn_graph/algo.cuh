@@ -24,10 +24,6 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/selection/knn.cuh>
 
-#if defined RAFT_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
-#endif
-
 #include <raft/spatial/knn/knn.cuh>
 
 #include <raft/util/cudart_utils.hpp>
