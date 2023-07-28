@@ -32,7 +32,6 @@ cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
 
 
-# class LogisticRegression(BaseEstimator, SyncFitMixinLinearModel):
 class LogisticRegression(LinearRegression):
     def __init__(self, *, client=None, verbose=False, **kwargs):
         super().__init__(client=client, verbose=verbose, **kwargs)
