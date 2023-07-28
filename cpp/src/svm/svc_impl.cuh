@@ -32,7 +32,6 @@
 #include <raft/distance/kernels.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/gemv.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <thrust/copy.h>
@@ -93,6 +92,7 @@ void svcFitX(const raft::handle_t& handle,
             &(model.b),
             param.max_iter);
   model.n_cols = n_cols;
+  handle_impl.sync_stream(stream);
   delete kernel;
 }
 
@@ -150,7 +150,7 @@ void svcPredictX(const raft::handle_t& handle,
   int n_batch = n_rows;
   // Limit the memory size of the prediction buffer
   buffer_size = buffer_size * 1024 * 1024;
-  if (n_batch * model.n_support * sizeof(math_t) > buffer_size) {
+  if ((size_t)n_batch * model.n_support * sizeof(math_t) > buffer_size) {
     n_batch = buffer_size / (model.n_support * sizeof(math_t));
     if (n_batch < 1) n_batch = 1;
   }

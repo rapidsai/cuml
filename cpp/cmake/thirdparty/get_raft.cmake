@@ -18,7 +18,7 @@ set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
 set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 
 function(find_and_configure_raft)
-	set(oneValueArgs VERSION FORK PINNED_TAG EXCLUDE_FROM_ALL USE_RAFT_STATIC COMPILE_LIBRARY CLONE_ON_PIN NVTX)
+    set(oneValueArgs VERSION FORK PINNED_TAG EXCLUDE_FROM_ALL USE_RAFT_STATIC COMPILE_LIBRARY CLONE_ON_PIN NVTX)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 

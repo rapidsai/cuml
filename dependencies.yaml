@@ -348,10 +348,9 @@ dependencies:
               # TODO: Figure out what to do with this dependency
               # since the repo is now archived.
               - git+https://github.com/dask/dask-glm@main
-          # TODO: The conda-forge package is being generated from Leland's fork
-          # (https://github.com/lmcinnes/hdbscan) which is far behind now. Do
-          # we need to have that updated?
-          - hdbscan
+          # TODO: remove pin once a release that includes fixes for the error
+          # is released: https://github.com/rapidsai/cuml/issues/5514
+          - hdbscan<=0.8.30
       - output_types: pyproject
         packages:
           - dask-glm @ git+https://github.com/dask/dask-glm@main

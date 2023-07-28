@@ -29,7 +29,6 @@
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/matrix/math.cuh>
 
 #include <algorithm>
 

@@ -30,7 +30,6 @@
 
 #include <linalg/batched/matrix.cuh>
 #include <raft/core/cusolver_macros.hpp>
-#include <raft/matrix/matrix.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>
 
