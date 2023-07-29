@@ -16,7 +16,7 @@
 from cuml.internals.safe_imports import gpu_only_import
 import pytest
 from cuml.dask.common import utils as dask_utils
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
 from cuml.internals.safe_imports import cpu_only_import
@@ -155,14 +155,14 @@ def test_lbfgs_toy(n_parts, datatype, client):
     X = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], datatype)
     y = np.array([1.0, 1.0, 0.0, 0.0], datatype)
 
-    from cuml.dask.linear_model.logistic_regression import (
-        LogisticRegression as cumlLBFGS_dask,
-    )
+    from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
 
     X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
     lr = cumlLBFGS_dask()
+
     lr.fit(X_df, y_df)
+
     lr_coef = lr.coef_.to_numpy()
     lr_intercept = lr.intercept_.to_numpy()
 
@@ -170,13 +170,20 @@ def test_lbfgs_toy(n_parts, datatype, client):
     assert lr_coef[0] == pytest.approx([-0.71483153, 0.7148315], abs=1e-6)
     assert lr_intercept == pytest.approx([-2.2614916e-08], abs=1e-6)
 
+    # test predict
+    preds = lr.predict(X_df, delayed=True).compute().to_numpy()
+    from numpy.testing import assert_array_equal
+
+    assert_array_equal(preds, y, strict=True)
+
 
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [1e5])
 @pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [2, 23])
 @pytest.mark.parametrize("datatype", [np.float32])
-def test_lbfgs(nrows, ncols, n_parts, datatype, client):
+@pytest.mark.parametrize("delayed", [True, False])
+def test_lbfgs(nrows, ncols, n_parts, datatype, delayed, client):
     tolerance = 0.005
 
     def imp():
@@ -210,3 +217,14 @@ def test_lbfgs(nrows, ncols, n_parts, datatype, client):
     for i in range(len(lr_coef)):
         assert lr_coef[i] == pytest.approx(sk_coef[i], abs=tolerance)
     assert lr_intercept == pytest.approx(sk_intercept, abs=tolerance)
+
+    # test predict
+    cu_preds = lr.predict(X_df, delayed=delayed)
+    accuracy_cuml = accuracy_score(y, cu_preds.compute().to_numpy())
+
+    sk_preds = sk_model.predict(X)
+    accuracy_sk = accuracy_score(y, sk_preds)
+
+    assert (accuracy_cuml >= accuracy_sk) | (
+        np.abs(accuracy_cuml - accuracy_sk) < 1e-3
+    )
