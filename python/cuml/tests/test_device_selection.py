@@ -643,8 +643,8 @@ def test_train_gpu_infer_gpu(test_data):
     assert_func(cuml_output, test_data)
 
 
-def test_pickle_interop(test_data):
-    pickle_filepath = "/tmp/model.pickle"
+def test_pickle_interop(tmp_path, test_data):
+    pickle_filepath = tmp_path / "model.pickle"
 
     cuEstimator = test_data["cuEstimator"]
     if cuEstimator is UMAP:
