@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from contextlib import nullcontext
 from distutils.version import LooseVersion
 from functools import lru_cache
 
@@ -136,6 +137,11 @@ def cuml_compatible_dataset(X_train, X_test, y_train, _=None):
             if x is not None
         )
     )
+
+
+_ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
+
+algorithms = st.sampled_from(_ALGORITHMS)
 
 
 @pytest.mark.parametrize("ntargets", [1, 2])
@@ -972,3 +978,38 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
     assert qn.score(X_test, cd_res) > 0.95
     # coefficients of the two models should be close
     assert np.corrcoef(cd.coef_, qn.coef_)[0, 1] > 0.98
+
+
+@given(
+    dataset=standard_regression_datasets(
+        n_features=st.integers(min_value=1, max_value=10),
+        dtypes=floating_dtypes(sizes=(32, 64)),
+    ),
+    algorithm=algorithms,
+    xp=st.sampled_from([np, cp]),
+    copy=st.sampled_from((True, False, None, ...)),
+)
+@example(make_regression(n_features=1), "svd", cp, True)
+@example(make_regression(n_features=1), "svd", cp, False)
+@example(make_regression(n_features=1), "svd", cp, None)
+@example(make_regression(n_features=1), "svd", cp, ...)
+@example(make_regression(n_features=1), "svd", np, False)
+@example(make_regression(n_features=2), "svd", cp, False)
+@example(make_regression(n_features=2), "eig", np, False)
+def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
+    X, y = dataset
+    X, y = xp.asarray(X), xp.asarray(y)
+    X_copy = X.copy()
+
+    with (pytest.warns(UserWarning) if copy in (None, ...) else nullcontext()):
+        if copy is ...:  # no argument
+            cuLR = cuLinearRegression(algorithm=algorithm)
+        else:
+            cuLR = cuLinearRegression(algorithm=algorithm, copy_X=copy)
+
+    cuLR.fit(X, y)
+
+    if (X.shape[1] == 1 and xp is cp) and copy is False:
+        assert not array_equal(X, X_copy)
+    else:
+        assert array_equal(X, X_copy)
