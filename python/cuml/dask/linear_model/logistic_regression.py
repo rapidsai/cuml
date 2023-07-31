@@ -17,6 +17,7 @@ from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import SyncFitMixinLinearModel
+from cuml.dask.linear_model import LinearRegression
 from raft_dask.common.comms import get_raft_comm_state
 from dask.distributed import get_worker
 
@@ -31,7 +32,7 @@ cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
 
 
-class LogisticRegression(BaseEstimator, SyncFitMixinLinearModel):
+class LogisticRegression(LinearRegression):
     def __init__(self, *, client=None, verbose=False, **kwargs):
         super().__init__(client=client, verbose=verbose, **kwargs)
 
@@ -54,9 +55,6 @@ class LogisticRegression(BaseEstimator, SyncFitMixinLinearModel):
         self._set_internal_model(models[0])
 
         return self
-
-    def get_param_names(self):
-        return list(self.kwargs.keys())
 
     @staticmethod
     @mnmg_import
