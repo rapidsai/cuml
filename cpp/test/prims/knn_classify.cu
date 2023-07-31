@@ -20,9 +20,6 @@
 #include <raft/label/classlabels.cuh>
 #include <raft/random/make_blobs.cuh>
 #include <raft/spatial/knn/knn.cuh>
-#ifdef RAFT_NN_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
-#endif
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_uvector.hpp>

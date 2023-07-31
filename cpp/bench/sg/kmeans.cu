@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 #include "benchmark.cuh"
 #include <cuml/cluster/kmeans.hpp>
 #include <cuml/common/logger.hpp>
-#include <raft/cluster/specializations.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/random/rng_state.hpp>
 #include <utility>
