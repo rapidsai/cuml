@@ -469,5 +469,5 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
                           <float*> prediction_probs_ptr)
 
     clusterer.handle.sync()
-    return prediction_labels.to_output(output_type="numpy"),\
+    return prediction_labels.to_output(output_type="numpy"), \
         prediction_probs.to_output(output_type="numpy", output_dtype="float32")
