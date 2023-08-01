@@ -170,7 +170,7 @@ class LogisticRegression(UniversalBase,
     Attributes
     ----------
     coef_: dev array, dim (n_classes, n_features) or (n_classes, n_features+1)
-        The estimated coefficients for the linear regression model.
+        The estimated coefficients for the logistic regression model.
     intercept_: device array (n_classes, 1)
         The independent term. If `fit_intercept` is False, will be 0.
 

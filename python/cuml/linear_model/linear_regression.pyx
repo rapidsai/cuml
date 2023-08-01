@@ -200,6 +200,10 @@ class LinearRegression(LinearPredictMixin,
     fit_intercept : boolean (default = True)
         If True, LinearRegression tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
+    copy_X : bool, default=True
+        If True, it is guaranteed that a copy of X is created, leaving the
+        original X unchanged. However, if set to False, X may be modified
+        directly, which would reduce the memory usage of the estimator.
     normalize : boolean (default = False)
         This parameter is ignored when `fit_intercept` is set to False.
         If True, the predictors in X will be normalized by dividing by the
@@ -253,6 +257,13 @@ class LinearRegression(LinearPredictMixin,
 
     For an additional example see `the OLS notebook
     <https://github.com/rapidsai/cuml/blob/main/notebooks/linear_regression_demo.ipynb>`__.
+
+    .. note:: Starting from version 23.08, the new 'copy_X' parameter defaults
+              to 'True', ensuring a copy of X is created after passing it to
+              fit(), preventing any changes to the input, but with increased
+              memory usage. This represents a change in behavior from previous
+              versions. With `copy_X=False` a copy might still be created if
+              necessary.
     """
 
     _cpu_estimator_import_path = 'sklearn.linear_model.LinearRegression'
@@ -260,7 +271,8 @@ class LinearRegression(LinearPredictMixin,
     intercept_ = CumlArrayDescriptor(order='F')
 
     @device_interop_preparation
-    def __init__(self, *, algorithm='eig', fit_intercept=True, normalize=False,
+    def __init__(self, *, algorithm='eig', fit_intercept=True,
+                 copy_X=None, normalize=False,
                  handle=None, verbose=False, output_type=None):
         if handle is None and algorithm == 'eig':
             # if possible, create two streams, so that eigenvalue decomposition
@@ -284,6 +296,17 @@ class LinearRegression(LinearPredictMixin,
             raise TypeError(msg.format(algorithm))
 
         self.intercept_value = 0.0
+        if copy_X is None:
+            warnings.warn(
+                "Starting from version 23.08, the new 'copy_X' parameter defaults "
+                "to 'True', ensuring a copy of X is created after passing it to "
+                "fit(), preventing any changes to the input, but with increased "
+                "memory usage. This represents a change in behavior from previous "
+                "versions. With `copy_X=False` a copy might still be created if "
+                "necessary. Explicitly set 'copy_X' to either True or False to "
+                "suppress this warning.", UserWarning)
+            copy_X = True
+        self.copy_X = copy_X
 
     def _get_algorithm_int(self, algorithm):
         return {
@@ -303,8 +326,15 @@ class LinearRegression(LinearPredictMixin,
 
         """
         cdef uintptr_t X_ptr, y_ptr, sample_weight_ptr
+
+        need_explicit_copy = self.copy_X and hasattr(X, "__cuda_array_interface__") \
+            and (len(X.shape) < 2 or X.shape[1] == 1)
+
         X_m, n_rows, self.n_features_in_, self.dtype = \
-            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+            input_to_cuml_array(X,
+                                check_dtype=[np.float32, np.float64],
+                                deepcopy=need_explicit_copy)
+
         X_ptr = X_m.ptr
         self.feature_names_in_ = X_m.index
 
@@ -461,7 +491,7 @@ class LinearRegression(LinearPredictMixin,
 
     def get_param_names(self):
         return super().get_param_names() + \
-            ['algorithm', 'fit_intercept', 'normalize']
+            ['algorithm', 'fit_intercept', 'copy_X', 'normalize']
 
     def get_attr_names(self):
         return ['coef_', 'intercept_', 'n_features_in_', 'feature_names_in_']
