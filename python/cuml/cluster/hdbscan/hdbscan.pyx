@@ -165,12 +165,8 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::HELPER":
                                    float cluster_selection_epsilon) except +
 
 _metrics_mapping = {
-    'l1': DistanceType.L1,
-    'cityblock': DistanceType.L1,
-    'manhattan': DistanceType.L1,
     'l2': DistanceType.L2SqrtExpanded,
     'euclidean': DistanceType.L2SqrtExpanded,
-    'cosine': DistanceType.CosineExpanded
 }
 
 
@@ -838,7 +834,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         if self.metric in _metrics_mapping:
             metric = _metrics_mapping[self.metric]
         else:
-            raise ValueError("'affinity' %s not supported." % self.affinity)
+            raise ValueError(f"metric '{self.metric}' not supported, only 'l2' and 'euclidean' are currently supported")
 
         cdef uintptr_t core_dists_ptr = self.core_dists.ptr
 

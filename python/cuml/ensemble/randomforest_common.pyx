@@ -156,9 +156,9 @@ class BaseRandomForestModel(Base):
         self.treelite_serialized_model = None
 
     def _get_max_feat_val(self) -> float:
-        if type(self.max_features) == int:
+        if isinstance(self.max_features, int):
             return self.max_features/self.n_cols
-        elif type(self.max_features) == float:
+        elif isinstance(self.max_features, float):
             return self.max_features
         elif self.max_features == 'sqrt':
             return 1/np.sqrt(self.n_cols)
@@ -302,10 +302,10 @@ class BaseRandomForestModel(Base):
                           "to fit the estimator")
 
         max_feature_val = self._get_max_feat_val()
-        if type(self.min_samples_leaf) == float:
+        if isinstance(self.min_samples_leaf, float):
             self.min_samples_leaf = \
                 math.ceil(self.min_samples_leaf * self.n_rows)
-        if type(self.min_samples_split) == float:
+        if isinstance(self.min_samples_split, float):
             self.min_samples_split = \
                 max(2, math.ceil(self.min_samples_split * self.n_rows))
         return X_m, y_m, max_feature_val
