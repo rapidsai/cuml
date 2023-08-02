@@ -83,13 +83,15 @@ def fuzzy_simplicial_set(X,
         structure to the detriment of the larger picture.
     random_state: numpy RandomState or equivalent
         A state capable being used as a numpy random state.
-    metric : string (default='euclidean').
+    metric: string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
         'minkowski', 'chebyshev', 'linf', 'cosine', 'correlation', 'hellinger',
-        'hamming']
+        'hamming', 'jaccard']
         Metrics that take arguments (such as minkowski) can have arguments
         passed via the metric_kwds dictionary.
+        Note: The 'jaccard' distance metric is only supported for sparse
+        inputs.
     metric_kwds: dict (optional, default=None)
         Metric argument
     knn_indices: array of shape (n_samples, n_neighbors) (optional)
@@ -259,13 +261,15 @@ def simplicial_set_embedding(
             * A numpy array of initial embedding positions.
     random_state: numpy RandomState or equivalent
         A state capable being used as a numpy random state.
-    metric : string (default='euclidean').
+    metric: string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
         'minkowski', 'chebyshev', 'linf', 'cosine', 'correlation', 'hellinger',
-        'hamming']
+        'hamming', 'jaccard']
         Metrics that take arguments (such as minkowski) can have arguments
         passed via the metric_kwds dictionary.
+        Note: The 'jaccard' distance metric is only supported for sparse
+        inputs.
     metric_kwds: dict (optional, default=None)
         Metric argument
     output_metric: function

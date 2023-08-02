@@ -152,13 +152,15 @@ class UMAP(UniversalBase,
     n_components: int (optional, default 2)
         The dimension of the space to embed into. This defaults to 2 to
         provide easy visualization, but can reasonably be set to any
-    metric : string (default='euclidean').
+    metric: string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
         'minkowski', 'chebyshev', 'linf', 'cosine', 'correlation', 'hellinger',
-        'hamming']
+        'hamming', 'jaccard']
         Metrics that take arguments (such as minkowski) can have arguments
         passed via the metric_kwds dictionary.
+        Note: The 'jaccard' distance metric is only supported for sparse
+        inputs.
     metric_kwds: dict (optional, default=None)
         Metric argument
     n_epochs: int (optional, default None)
