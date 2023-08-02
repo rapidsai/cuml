@@ -148,5 +148,36 @@ metric_parsing = {
     "correlation": DistanceType.CorrelationExpanded,
     "hellinger": DistanceType.HellingerExpanded,
     "hamming": DistanceType.HammingUnexpanded,
+    "jaccard": DistanceType.JaccardExpanded,
     "canberra": DistanceType.Canberra
 }
+
+
+DENSE_SUPPORTED_METRICS = [
+    DistanceType.Canberra,
+    DistanceType.CorrelationExpanded,
+    DistanceType.CosineExpanded,
+    DistanceType.HammingUnexpanded,
+    DistanceType.HellingerExpanded,
+    # DistanceType.JaccardExpanded,  # not supported
+    DistanceType.L1,
+    DistanceType.L2SqrtUnexpanded,
+    DistanceType.L2Unexpanded,
+    DistanceType.Linf,
+    DistanceType.LpUnexpanded,
+]
+
+
+SPARSE_SUPPORTED_METRICS = [
+    DistanceType.Canberra,
+    DistanceType.CorrelationExpanded,
+    DistanceType.CosineExpanded,
+    DistanceType.HammingUnexpanded,
+    DistanceType.HellingerExpanded,
+    DistanceType.JaccardExpanded,
+    DistanceType.L1,
+    DistanceType.L2SqrtUnexpanded,
+    DistanceType.L2Unexpanded,
+    DistanceType.Linf,
+    DistanceType.LpUnexpanded,
+]

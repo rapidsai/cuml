@@ -30,7 +30,7 @@ cuda = gpu_only_import('numba.cuda')
 
 from cuml.manifold.umap_utils cimport *
 from cuml.manifold.umap_utils import GraphHolder, find_ab_params, \
-    metric_parsing
+    metric_parsing, DENSE_SUPPORTED_METRICS, SPARSE_SUPPORTED_METRICS
 
 from cuml.common.sparsefuncs import extract_knn_infos
 from cuml.internals.safe_imports import gpu_only_import_from
@@ -421,7 +421,7 @@ class UMAP(UniversalBase,
             raise ValueError("min_dist should be <= spread")
 
     @staticmethod
-    def _build_umap_params(cls):
+    def _build_umap_params(cls, sparse):
         cdef UMAPParams* umap_params = new UMAPParams()
         umap_params.n_neighbors = <int> cls.n_neighbors
         umap_params.n_components = <int> cls.n_components
@@ -452,6 +452,12 @@ class UMAP(UniversalBase,
 
         try:
             umap_params.metric = metric_parsing[cls.metric.lower()]
+            if sparse:
+                if umap_params.metric not in SPARSE_SUPPORTED_METRICS:
+                    raise NotImplementedError(f"Metric '{cls.metric}' not supported for sparse inputs.")
+            elif umap_params.metric not in DENSE_SUPPORTED_METRICS:
+                raise NotImplementedError(f"Metric '{cls.metric}' not supported for dense inputs.")
+
         except KeyError:
             raise ValueError(f"Invalid value for metric: {cls.metric}")
         if cls.metric_kwds is None:
@@ -555,7 +561,7 @@ class UMAP(UniversalBase,
         cdef uintptr_t embed_raw = self.embedding_.ptr
 
         cdef UMAPParams* umap_params = \
-            <UMAPParams*> <size_t> UMAP._build_umap_params(self)
+            <UMAPParams*> <size_t> UMAP._build_umap_params(self, self.sparse_fit)
 
         cdef uintptr_t y_raw = 0
 
@@ -721,7 +727,7 @@ class UMAP(UniversalBase,
         cdef uintptr_t embed_ptr = self.embedding_.ptr
 
         cdef UMAPParams* umap_params = \
-            <UMAPParams*> <size_t> UMAP._build_umap_params(self)
+            <UMAPParams*> <size_t> UMAP._build_umap_params(self, self.sparse_fit)
 
         if self.sparse_fit:
             transform_sparse(handle_[0],
