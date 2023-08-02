@@ -18,8 +18,8 @@ requires = [
     "cuda-python>=11.7.1,<12.0a0",
     "cython>=0.29,<0.30",
     "ninja",
-    "pylibraft==23.8.*",
-    "rmm==23.8.*",
+    "pylibraft==23.10.*",
+    "rmm==23.10.*",
     "scikit-build>=0.13.1",
     "setuptools",
     "treelite==3.2.0",
@@ -48,7 +48,7 @@ filterwarnings = [
 
 [project]
 name = "cuml"
-version = "23.08.00"
+version = "23.10.00"
 description = "cuML - RAPIDS ML Algorithms"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
@@ -57,15 +57,15 @@ authors = [
 license = { text = "Apache 2.0" }
 requires-python = ">=3.9"
 dependencies = [
-    "cudf==23.8.*",
+    "cudf==23.10.*",
     "cupy-cuda11x>=12.0.0",
-    "dask-cuda==23.8.*",
-    "dask-cudf==23.8.*",
+    "dask-cuda==23.10.*",
+    "dask-cudf==23.10.*",
     "dask>=2023.5.1",
     "distributed>=2023.5.1",
     "joblib>=0.11",
     "numba>=0.57",
-    "raft-dask==23.8.*",
+    "raft-dask==23.10.*",
     "scipy>=1.8.0",
     "treelite==3.2.0",
     "treelite_runtime==3.2.0",

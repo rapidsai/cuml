@@ -15,17 +15,24 @@
 #
 
 import os
+import shutil
 import sys
+import tempfile
 from subprocess import run
 import json
 
 
 class Profiler:
-    def __init__(self, tmp_path="/tmp/nsys_report"):
-        self.nsys_file = tmp_path + "/report.nsys-rep"
-        self.json_file = tmp_path + "/report.json"
-        self._execute(["rm", "-rf", tmp_path])
-        self._execute(["mkdir", "-p", tmp_path])
+    def __init__(self, tmp_path=None):
+        self.tmp_dir = tempfile.TemporaryDirectory(dir=tmp_path)
+        self.nsys_file = os.path.join(self.tmp_dir.name, "report.nsys-rep")
+        self.json_file = os.path.join(self.tmp_dir.name, "report.json")
+        shutil.rmtree(self.tmp_dir.name)
+        os.makedirs(self.tmp_dir.name, exist_ok=True)
+
+    def __del__(self):
+        self.tmp_dir.cleanup()
+        self.tmp_dir = None
 
     @staticmethod
     def _execute(command):
