@@ -67,3 +67,4 @@ cpp/Doxyfile
 
 # clang tooling
 compile_commands.json
+.clangd/
