@@ -366,3 +366,4 @@ dependencies:
           - pandas
           - *scikit_learn
           - seaborn
+          - dask_ml
