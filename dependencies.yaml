@@ -360,9 +360,11 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
+          - dask-ml==2023.3.24
           - jupyter
           - matplotlib
           - numpy
           - pandas
           - *scikit_learn
           - seaborn
+          
