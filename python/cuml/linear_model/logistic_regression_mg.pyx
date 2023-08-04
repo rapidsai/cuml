@@ -82,8 +82,8 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
 
 class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
-    def __init__(self, *, handle=None):
-        super().__init__(handle=handle)
+    def __init__(self, **kwargs):
+        super(LogisticRegressionMG, self).__init__(**kwargs)
 
     @property
     @cuml.internals.api_base_return_array_skipall
