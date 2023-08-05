@@ -19,6 +19,7 @@
 from rmm._lib.memory_resource cimport get_current_device_resource
 from pylibraft.common.handle cimport handle_t
 from cuml.manifold.umap_utils cimport *
+from cuml.metrics.distance_type cimport DistanceType
 from libcpp.utility cimport move
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
@@ -130,3 +131,53 @@ def find_ab_params(spread, min_dist):
     yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
     params, _ = curve_fit(curve, xv, yv)
     return params[0], params[1]
+
+
+metric_parsing = {
+    "l2": DistanceType.L2SqrtUnexpanded,
+    "euclidean": DistanceType.L2SqrtUnexpanded,
+    "sqeuclidean": DistanceType.L2Unexpanded,
+    "cityblock": DistanceType.L1,
+    "l1": DistanceType.L1,
+    "manhattan": DistanceType.L1,
+    "taxicab": DistanceType.L1,
+    "minkowski": DistanceType.LpUnexpanded,
+    "chebyshev": DistanceType.Linf,
+    "linf": DistanceType.Linf,
+    "cosine": DistanceType.CosineExpanded,
+    "correlation": DistanceType.CorrelationExpanded,
+    "hellinger": DistanceType.HellingerExpanded,
+    "hamming": DistanceType.HammingUnexpanded,
+    "jaccard": DistanceType.JaccardExpanded,
+    "canberra": DistanceType.Canberra
+}
+
+
+DENSE_SUPPORTED_METRICS = [
+    DistanceType.Canberra,
+    DistanceType.CorrelationExpanded,
+    DistanceType.CosineExpanded,
+    DistanceType.HammingUnexpanded,
+    DistanceType.HellingerExpanded,
+    # DistanceType.JaccardExpanded,  # not supported
+    DistanceType.L1,
+    DistanceType.L2SqrtUnexpanded,
+    DistanceType.L2Unexpanded,
+    DistanceType.Linf,
+    DistanceType.LpUnexpanded,
+]
+
+
+SPARSE_SUPPORTED_METRICS = [
+    DistanceType.Canberra,
+    DistanceType.CorrelationExpanded,
+    DistanceType.CosineExpanded,
+    DistanceType.HammingUnexpanded,
+    DistanceType.HellingerExpanded,
+    DistanceType.JaccardExpanded,
+    DistanceType.L1,
+    DistanceType.L2SqrtUnexpanded,
+    DistanceType.L2Unexpanded,
+    DistanceType.Linf,
+    DistanceType.LpUnexpanded,
+]

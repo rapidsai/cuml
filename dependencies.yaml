@@ -175,10 +175,10 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cudf==23.10.*
-          - dask>=2023.5.1
+          - dask==2023.7.1
           - dask-cuda==23.10.*
           - dask-cudf==23.10.*
-          - distributed>=2023.5.1
+          - distributed==2023.7.1
           - joblib>=0.11
           - numba>=0.57
             # TODO: Is scipy really a hard dependency, or should
@@ -192,7 +192,7 @@ dependencies:
           - cupy>=12.0.0
       - output_types: conda
         packages:
-          - dask-core>=2023.5.1
+          - dask-core==2023.7.1
       - output_types: pyproject
         packages:
           - *treelite_runtime
@@ -360,9 +360,11 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
+          - dask-ml==2023.3.24
           - jupyter
           - matplotlib
           - numpy
           - pandas
           - *scikit_learn
           - seaborn
+          

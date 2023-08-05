@@ -674,26 +674,26 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
 
 
 @pytest.mark.parametrize(
-    "metric",
+    "metric,supported",
     [
-        "l2",
-        "euclidean",
-        "sqeuclidean",
-        "l1",
-        "manhattan",
-        "minkowski",
-        "chebyshev",
-        "cosine",
-        "correlation",
-        "jaccard",
-        "hamming",
-        "canberra",
+        ("l2", True),
+        ("euclidean", True),
+        ("sqeuclidean", True),
+        ("l1", True),
+        ("manhattan", True),
+        ("minkowski", True),
+        ("chebyshev", True),
+        ("cosine", True),
+        ("correlation", True),
+        ("jaccard", False),
+        ("hamming", True),
+        ("canberra", True),
     ],
 )
 @pytest.mark.skipif(
     IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
 )
-def test_umap_distance_metrics_fit_transform_trust(metric):
+def test_umap_distance_metrics_fit_transform_trust(metric, supported):
     data, labels = make_blobs(
         n_samples=1000, n_features=64, centers=5, random_state=42
     )
@@ -707,7 +707,13 @@ def test_umap_distance_metrics_fit_transform_trust(metric):
     cuml_model = cuUMAP(
         n_neighbors=10, min_dist=0.01, metric=metric, init="random"
     )
+    if not supported:
+        with pytest.raises(NotImplementedError):
+            cuml_model.fit_transform(data)
+        return
+
     umap_embedding = umap_model.fit_transform(data)
+
     cuml_embedding = cuml_model.fit_transform(data)
 
     umap_trust = trustworthiness(
@@ -721,24 +727,28 @@ def test_umap_distance_metrics_fit_transform_trust(metric):
 
 
 @pytest.mark.parametrize(
-    "metric",
+    "metric,supported,umap_learn_supported",
     [
-        "euclidean",
-        "l1",
-        "manhattan",
-        "minkowski",
-        "chebyshev",
-        "cosine",
-        "correlation",
-        "jaccard",
-        "hamming",
-        "canberra",
+        ("l2", True, False),
+        ("euclidean", True, True),
+        ("sqeuclidean", True, False),
+        ("l1", True, True),
+        ("manhattan", True, True),
+        ("minkowski", True, True),
+        ("chebyshev", True, True),
+        ("cosine", True, True),
+        ("correlation", True, True),
+        ("jaccard", True, True),
+        ("hamming", True, True),
+        ("canberra", True, True),
     ],
 )
 @pytest.mark.skipif(
     IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
 )
-def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(metric):
+def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
+    metric, supported, umap_learn_supported
+):
     data, labels = make_blobs(
         n_samples=1000, n_features=64, centers=5, random_state=42
     )
@@ -752,20 +762,31 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(metric):
 
     new_data = scipy_sparse.csr_matrix(data[~data_selection])
 
-    umap_model = umap.UMAP(
-        n_neighbors=10, min_dist=0.01, metric=metric, init="random"
-    )
+    if umap_learn_supported:
+        umap_model = umap.UMAP(
+            n_neighbors=10, min_dist=0.01, metric=metric, init="random"
+        )
+        umap_embedding = umap_model.fit_transform(new_data)
+        umap_trust = trustworthiness(
+            data[~data_selection],
+            umap_embedding,
+            n_neighbors=10,
+            metric=metric,
+        )
+
     cuml_model = cuUMAP(
         n_neighbors=10, min_dist=0.01, metric=metric, init="random"
     )
-    umap_embedding = umap_model.fit_transform(new_data)
-    cuml_embedding = cuml_model.fit_transform(new_data)
 
-    umap_trust = trustworthiness(
-        data[~data_selection], umap_embedding, n_neighbors=10, metric=metric
-    )
+    if not supported:
+        with pytest.raises(NotImplementedError):
+            cuml_model.fit_transform(new_data)
+        return
+
+    cuml_embedding = cuml_model.fit_transform(new_data)
     cuml_trust = trustworthiness(
         data[~data_selection], cuml_embedding, n_neighbors=10, metric=metric
     )
 
-    assert array_equal(umap_trust, cuml_trust, 0.05, with_sign=True)
+    if umap_learn_supported:
+        assert array_equal(umap_trust, cuml_trust, 0.05, with_sign=True)

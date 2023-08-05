@@ -22,7 +22,8 @@ from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 
 from cuml.manifold.umap_utils cimport *
-from cuml.manifold.umap_utils import GraphHolder, find_ab_params
+from cuml.manifold.umap_utils import GraphHolder, find_ab_params, \
+    metric_parsing
 
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
@@ -82,10 +83,17 @@ def fuzzy_simplicial_set(X,
         structure to the detriment of the larger picture.
     random_state: numpy RandomState or equivalent
         A state capable being used as a numpy random state.
-    metric: string or function (optional, default 'euclidean')
-        unused
-    metric_kwds: dict (optional, default {})
-        unused
+    metric: string (default='euclidean').
+        Distance metric to use. Supported distances are ['l1, 'cityblock',
+        'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
+        'minkowski', 'chebyshev', 'linf', 'cosine', 'correlation', 'hellinger',
+        'hamming', 'jaccard']
+        Metrics that take arguments (such as minkowski) can have arguments
+        passed via the metric_kwds dictionary.
+        Note: The 'jaccard' distance metric is only supported for sparse
+        inputs.
+    metric_kwds: dict (optional, default=None)
+        Metric argument
     knn_indices: array of shape (n_samples, n_neighbors) (optional)
         If the k-nearest neighbors of each point has already been calculated
         you can pass them in here to save computation time. This should be
@@ -138,6 +146,14 @@ def fuzzy_simplicial_set(X,
     umap_params.deterministic = <bool> deterministic
     umap_params.set_op_mix_ratio = <float> set_op_mix_ratio
     umap_params.local_connectivity = <float> local_connectivity
+    try:
+        umap_params.metric = metric_parsing[metric.lower()]
+    except KeyError:
+        raise ValueError(f"Invalid value for metric: {metric}")
+    if metric_kwds is None:
+        umap_params.p = <float> 2.0
+    else:
+        umap_params.p = <float> metric_kwds.get("p", 2.0)
     umap_params.verbosity = <int> verbose
 
     X_m, _, _, _ = \
@@ -245,10 +261,17 @@ def simplicial_set_embedding(
             * A numpy array of initial embedding positions.
     random_state: numpy RandomState or equivalent
         A state capable being used as a numpy random state.
-    metric: string or callable
-        unused
-    metric_kwds: dict
-        unused
+    metric: string (default='euclidean').
+        Distance metric to use. Supported distances are ['l1, 'cityblock',
+        'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
+        'minkowski', 'chebyshev', 'linf', 'cosine', 'correlation', 'hellinger',
+        'hamming', 'jaccard']
+        Metrics that take arguments (such as minkowski) can have arguments
+        passed via the metric_kwds dictionary.
+        Note: The 'jaccard' distance metric is only supported for sparse
+        inputs.
+    metric_kwds: dict (optional, default=None)
+        Metric argument
     output_metric: function
         Function returning the distance between two points in embedding space
         and the gradient of the distance wrt the first argument.
@@ -306,6 +329,14 @@ def simplicial_set_embedding(
         umap_params.init = <int> 0
     umap_params.random_state = <int> random_state
     umap_params.deterministic = <bool> deterministic
+    try:
+        umap_params.metric = metric_parsing[metric.lower()]
+    except KeyError:
+        raise ValueError(f"Invalid value for metric: {metric}")
+    if metric_kwds is None:
+        umap_params.p = <float> 2.0
+    else:
+        umap_params.p = <float> metric_kwds.get("p", 2.0)
     if output_metric == 'euclidean':
         umap_params.target_metric = MetricType.EUCLIDEAN
     else:  # output_metric == 'categorical'
