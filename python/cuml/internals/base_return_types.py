@@ -52,7 +52,10 @@ def _get_base_return_type(class_name, attr):
         # A NameError is raised if the return type is the same as the
         # type being defined (which is incomplete). Check that here and
         # return base if the name matches
-        if attr.__annotations__["return"] == class_name:
+        # Cython 3 changed to preferring types rather than strings for
+        # annotations. Strings end up wrapped in an extra layer of quotes,
+        # which we have to replace here.
+        if attr.__annotations__["return"].replace("'", "") == class_name:
             return "base"
     except Exception:
         assert False, "Shouldn't get here"

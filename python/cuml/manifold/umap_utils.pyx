@@ -42,7 +42,7 @@ cdef class GraphHolder:
         return graph
 
     @staticmethod
-    cdef GraphHolder from_coo_array(graph, handle, coo_array):
+    cdef GraphHolder from_coo_array(GraphHolder graph, handle, coo_array):
         def copy_from_array(dst_raft_coo_ptr, src_cp_coo):
             size = src_cp_coo.size
             itemsize = np.dtype(src_cp_coo.dtype).itemsize

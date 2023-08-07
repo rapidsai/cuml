@@ -266,11 +266,12 @@ class SGD(Base,
 
                 raise TypeError("This option will be supported in the future")
 
-                if self.alpha == 0:
-                    raise ValueError("alpha must be > 0 since "
-                                     "learning_rate is 'optimal'. alpha is "
-                                     "used to compute the optimal learning "
-                                     " rate.")
+                # TODO: uncomment this when optimal learning rate is supported
+                # if self.alpha == 0:
+                #     raise ValueError("alpha must be > 0 since "
+                #                      "learning_rate is 'optimal'. alpha is "
+                #                      "used to compute the optimal learning "
+                #                      " rate.")
 
             elif learning_rate == 'constant':
                 self.lr_type = 1
