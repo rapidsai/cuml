@@ -71,6 +71,9 @@ inline void launcher(const raft::handle_t& handle,
                                       out.knn_indices,
                                       out.knn_dists,
                                       n_neighbors,
+                                      true,
+                                      true,
+                                      static_cast<std::vector<int64_t>*>(nullptr),
                                       params->metric,
                                       params->p);
 }
