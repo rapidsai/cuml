@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 
 import typing
 
-import ctypes
 import itertools
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -39,11 +38,9 @@ from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
-from cuml.internals.input_utils import determine_array_dtype
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
-import warnings
 
 
 # TODO:

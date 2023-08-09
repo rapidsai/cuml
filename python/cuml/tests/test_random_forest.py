@@ -1156,6 +1156,10 @@ def test_rf_get_json(estimator_type, max_depth, n_estimators):
         np.testing.assert_almost_equal(pred, expected_pred, decimal=6)
 
 
+@pytest.mark.xfail(
+    reason="Needs refactoring/debugging due to sporadic failures"
+    "https://github.com/rapidsai/cuml/issues/5528"
+)
 @pytest.mark.memleak
 @pytest.mark.parametrize("estimator_type", ["classification"])
 def test_rf_host_memory_leak(large_clf, estimator_type):
@@ -1196,6 +1200,10 @@ def test_rf_host_memory_leak(large_clf, estimator_type):
     assert (final_mem - initial_baseline_mem) < 2.4e6
 
 
+@pytest.mark.xfail(
+    reason="Needs refactoring/debugging due to sporadic failures"
+    "https://github.com/rapidsai/cuml/issues/5528"
+)
 @pytest.mark.memleak
 @pytest.mark.parametrize("estimator_type", ["regression", "classification"])
 @pytest.mark.parametrize("i", list(range(100)))

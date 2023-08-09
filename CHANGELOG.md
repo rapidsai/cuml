@@ -1,3 +1,61 @@
+# cuML 23.08.00 (9 Aug 2023)
+
+## 🚨 Breaking Changes
+
+- Stop using setup.py in build.sh ([#5500](https://github.com/rapidsai/cuml/pull/5500)) [@vyasr](https://github.com/vyasr)
+- Add `copy_X` parameter to `LinearRegression` ([#5495](https://github.com/rapidsai/cuml/pull/5495)) [@viclafargue](https://github.com/viclafargue)
+
+## 🐛 Bug Fixes
+
+- Update dependencies.yaml test_notebooks to include dask_ml ([#5545](https://github.com/rapidsai/cuml/pull/5545)) [@taureandyernv](https://github.com/taureandyernv)
+- Fix cython-lint issues. ([#5536](https://github.com/rapidsai/cuml/pull/5536)) [@bdice](https://github.com/bdice)
+- Skip rf_memleak tests ([#5529](https://github.com/rapidsai/cuml/pull/5529)) [@dantegd](https://github.com/dantegd)
+- Pin hdbscan to fix pytests in CI ([#5515](https://github.com/rapidsai/cuml/pull/5515)) [@dantegd](https://github.com/dantegd)
+- Fix UMAP and simplicial set functions metric ([#5490](https://github.com/rapidsai/cuml/pull/5490)) [@viclafargue](https://github.com/viclafargue)
+- Fix test_masked_column_mode ([#5480](https://github.com/rapidsai/cuml/pull/5480)) [@viclafargue](https://github.com/viclafargue)
+- Use fit_predict rather than fit for KNeighborsClassifier and KNeighborsRegressor in benchmark utility ([#5460](https://github.com/rapidsai/cuml/pull/5460)) [@beckernick](https://github.com/beckernick)
+- Modify HDBSCAN membership_vector batch_size check ([#5455](https://github.com/rapidsai/cuml/pull/5455)) [@tarang-jain](https://github.com/tarang-jain)
+
+## 🚀 New Features
+
+- Use rapids-cmake testing to run tests in parallel ([#5487](https://github.com/rapidsai/cuml/pull/5487)) [@robertmaynard](https://github.com/robertmaynard)
+- [FEA] Update MST Reduction Op ([#5386](https://github.com/rapidsai/cuml/pull/5386)) [@tarang-jain](https://github.com/tarang-jain)
+- cuml: Build CUDA 12 packages ([#5318](https://github.com/rapidsai/cuml/pull/5318)) [@vyasr](https://github.com/vyasr)
+- CI: Add custom GitHub Actions job to run clang-tidy ([#5235](https://github.com/rapidsai/cuml/pull/5235)) [@csadorf](https://github.com/csadorf)
+
+## 🛠️ Improvements
+
+- Pin `dask` and `distributed` for `23.08` release ([#5541](https://github.com/rapidsai/cuml/pull/5541)) [@galipremsagar](https://github.com/galipremsagar)
+- Remove Dockerfile. ([#5534](https://github.com/rapidsai/cuml/pull/5534)) [@bdice](https://github.com/bdice)
+- Improve temporary directory handling in cuML ([#5527](https://github.com/rapidsai/cuml/pull/5527)) [@jakirkham](https://github.com/jakirkham)
+- Support init arguments in MNMG LogisticRegression ([#5519](https://github.com/rapidsai/cuml/pull/5519)) [@lijinf2](https://github.com/lijinf2)
+- Support predict in MNMG Logistic Regression ([#5516](https://github.com/rapidsai/cuml/pull/5516)) [@lijinf2](https://github.com/lijinf2)
+- Remove unused matrix.cuh and math.cuh headers to eliminate deprecation warnings. ([#5513](https://github.com/rapidsai/cuml/pull/5513)) [@bdice](https://github.com/bdice)
+- Update gputreeshap to use rapids-cmake. ([#5512](https://github.com/rapidsai/cuml/pull/5512)) [@bdice](https://github.com/bdice)
+- Remove raft specializations includes. ([#5509](https://github.com/rapidsai/cuml/pull/5509)) [@bdice](https://github.com/bdice)
+- Revert CUDA 12.0 CI workflows to branch-23.08. ([#5508](https://github.com/rapidsai/cuml/pull/5508)) [@bdice](https://github.com/bdice)
+- Enable wheels CI scripts to run locally ([#5507](https://github.com/rapidsai/cuml/pull/5507)) [@divyegala](https://github.com/divyegala)
+- Default to nproc for PARALLEL_LEVEL in build.sh. ([#5505](https://github.com/rapidsai/cuml/pull/5505)) [@csadorf](https://github.com/csadorf)
+- Fixed potential overflows in SVM, minor adjustments to nvtx ranges ([#5504](https://github.com/rapidsai/cuml/pull/5504)) [@mfoerste4](https://github.com/mfoerste4)
+- Stop using setup.py in build.sh ([#5500](https://github.com/rapidsai/cuml/pull/5500)) [@vyasr](https://github.com/vyasr)
+- Fix PCA test ([#5498](https://github.com/rapidsai/cuml/pull/5498)) [@viclafargue](https://github.com/viclafargue)
+- Update build dependencies ([#5496](https://github.com/rapidsai/cuml/pull/5496)) [@csadorf](https://github.com/csadorf)
+- Add `copy_X` parameter to `LinearRegression` ([#5495](https://github.com/rapidsai/cuml/pull/5495)) [@viclafargue](https://github.com/viclafargue)
+- Sparse pca patch ([#5493](https://github.com/rapidsai/cuml/pull/5493)) [@Intron7](https://github.com/Intron7)
+- Restrict HDBSCAN metric options to L2 #5415 ([#5492](https://github.com/rapidsai/cuml/pull/5492)) [@Rvch7](https://github.com/Rvch7)
+- Fix typos. ([#5481](https://github.com/rapidsai/cuml/pull/5481)) [@bdice](https://github.com/bdice)
+- Add multi-node-multi-gpu Logistic Regression in C++ ([#5477](https://github.com/rapidsai/cuml/pull/5477)) [@lijinf2](https://github.com/lijinf2)
+- Add missing stream argument to cub calls in workingset ([#5476](https://github.com/rapidsai/cuml/pull/5476)) [@mfoerste4](https://github.com/mfoerste4)
+- Update to CMake 3.26.4 ([#5464](https://github.com/rapidsai/cuml/pull/5464)) [@vyasr](https://github.com/vyasr)
+- use rapids-upload-docs script ([#5457](https://github.com/rapidsai/cuml/pull/5457)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Unpin `dask` and `distributed` for development ([#5452](https://github.com/rapidsai/cuml/pull/5452)) [@galipremsagar](https://github.com/galipremsagar)
+- Remove documentation build scripts for Jenkins ([#5450](https://github.com/rapidsai/cuml/pull/5450)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Fix update version and pinnings for 23.08. ([#5440](https://github.com/rapidsai/cuml/pull/5440)) [@bdice](https://github.com/bdice)
+- Add cython-lint configuration. ([#5439](https://github.com/rapidsai/cuml/pull/5439)) [@bdice](https://github.com/bdice)
+- Unpin scikit-build upper bound ([#5438](https://github.com/rapidsai/cuml/pull/5438)) [@vyasr](https://github.com/vyasr)
+- Fix some deprecation warnings in tests. ([#5436](https://github.com/rapidsai/cuml/pull/5436)) [@bdice](https://github.com/bdice)
+- Update `raft::sparse::distance::pairwise_distance` to new API ([#5428](https://github.com/rapidsai/cuml/pull/5428)) [@divyegala](https://github.com/divyegala)
+
 # cuML 23.06.00 (7 Jun 2023)
 
 ## 🚨 Breaking Changes
@@ -1360,7 +1418,7 @@
 - PR #2310: Pinning ucx-py to 0.14 to make 0.15 CI pass
 - PR #1945: enable clang tidy
 - PR #2339: umap performance improvements
-- PR #2308: Using fixture for Dask client to eliminate possiblity of not closing
+- PR #2308: Using fixture for Dask client to eliminate possibility of not closing
 - PR #2345: make C++ logger level definition to be the same as python layer
 - PR #2329: Add short commit hash to conda package name
 - PR #2362: Implement binary/multi-classification log loss with cupy
@@ -1446,7 +1504,7 @@
 - PR #2496: Fixing indentation for simulate_data in test_fil.py
 - PR #2494: Set QN regularization strength consistent with scikit-learn
 - PR #2486: Fix cupy input to kmeans init
-- PR #2497: Changes to accomodate cuDF unsigned categorical changes
+- PR #2497: Changes to accommodate cuDF unsigned categorical changes
 - PR #2209: Fix FIL benchmark for gpuarray-c input
 - PR #2507: Import `treelite.sklearn`
 - PR #2521: Fixing invalid smem calculation in KNeighborsCLassifier
@@ -1988,7 +2046,7 @@
 - PR #1208: compile dbscan bug
 - PR #1016: Use correct libcumlprims version in GPU CI
 - PR #1040: Update version of numba in development conda yaml files
-- PR #1043: Updates to accomodate cuDF python code reorganization
+- PR #1043: Updates to accommodate cuDF python code reorganization
 - PR #1044: Remove nvidia driver installation from ci/cpu/build.sh
 - PR #991: Barnes Hut TSNE Memory Issue Fixes
 - PR #1075: Pinning Dask version for consistent CI results
@@ -2197,7 +2255,7 @@
 - PR #430: Add R-Squared Score to ml primitives
 - PR #463: Add matrix gather to ml primitives
 - PR #435: Expose cumlhandle in cython + developer guide
-- PR #455: Remove default-stream arguement across ml-prims and cuML
+- PR #455: Remove default-stream argument across ml-prims and cuML
 - PR #375: cuml cpp shared library renamed to libcuml++.so
 - PR #460: Random Forest & Decision Trees (Single-GPU, Classification)
 - PR #491: Add doxygen build target for ml-prims

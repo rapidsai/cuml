@@ -475,6 +475,25 @@ def test_hdbscan_core_dists_bug_4054():
     assert adjusted_rand_score(cu_labels_, sk_labels_) > 0.99
 
 
+@pytest.mark.parametrize(
+    "metric, supported",
+    [("euclidean", True), ("l1", False), ("l2", True), ("abc", False)],
+)
+def test_hdbscan_metric_parameter_input(metric, supported):
+    """
+    tests how valid and invalid arguments to the metric
+    parameter are handled
+    """
+    X, y = make_blobs(n_samples=10000, n_features=15, random_state=12)
+
+    clf = HDBSCAN(metric=metric)
+    if supported:
+        clf.fit(X)
+    else:
+        with pytest.raises(ValueError):
+            clf.fit(X)
+
+
 def test_hdbscan_empty_cluster_tree():
 
     raw_tree = np.recarray(

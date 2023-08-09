@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -194,7 +194,7 @@ class ExponentialSmoothing(Base):
                          output_type=output_type)
 
         # Total number of Time Series for forecasting
-        if type(ts_num) != int:
+        if not isinstance(ts_num, int):
             raise TypeError("Type of ts_num must be int. Given: " +
                             type(ts_num))
         if ts_num <= 0:
@@ -203,7 +203,7 @@ class ExponentialSmoothing(Base):
         self.ts_num = ts_num
 
         # Season length in the time series
-        if type(seasonal_periods) != int:
+        if not isinstance(seasonal_periods, int):
             raise TypeError("Type of seasonal_periods must be int."
                             " Given: " + type(seasonal_periods))
         if seasonal_periods < 2:
@@ -223,7 +223,7 @@ class ExponentialSmoothing(Base):
                              "\"additive\" or \"multiplicative\".")
 
         # number of seasons to be used for seasonal seed values
-        if type(start_periods) != int:
+        if not isinstance(start_periods, int):
             raise TypeError("Type of start_periods must be int. Given: " +
                             type(start_periods))
         if start_periods < 2:
@@ -364,7 +364,7 @@ class ExponentialSmoothing(Base):
 
         self.handle.sync()
         self.fit_executed_flag = True
-        del(X_m)
+        del X_m
         return self
 
     def forecast(self, h=1, index=None):
@@ -390,7 +390,7 @@ class ExponentialSmoothing(Base):
         cdef uintptr_t forecast_ptr, level_ptr, trend_ptr, season_ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        if type(h) != int or (type(index) != int and index is not None):
+        if not isinstance(h, int) or (not isinstance(index, int) and index is not None):
             raise TypeError("Input arguments must be of type int."
                             "Index has type: " + str(type(index))
                             + "\nh has type: " + str(type(h)))

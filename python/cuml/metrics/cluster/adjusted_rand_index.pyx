@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-import warnings
 
 from libc.stdint cimport uintptr_t
 

@@ -472,7 +472,7 @@ class QN(Base,
                 X, check_dtype=[np.float32, np.float64], order='K'
             )
 
-        y_m, lab_rows, _, _ = input_to_cuml_array(
+        y_m, _, _, _ = input_to_cuml_array(
             y, check_dtype=self.dtype,
             convert_to_dtype=(self.dtype if convert_dtype else None),
             check_rows=n_rows, check_cols=1

@@ -15,6 +15,7 @@
 
 from cuml.testing.utils import array_equal
 from cuml.prims.stats import cov
+from cuml.prims.stats.covariance import _cov_sparse
 import pytest
 from cuml.internals.safe_imports import gpu_only_import
 
@@ -43,3 +44,27 @@ def test_cov(nrows, ncols, sparse, dtype):
     local_cov = cp.cov(x, rowvar=False, ddof=0)
 
     assert array_equal(cov_result, local_cov, 1e-6, with_sign=True)
+
+
+@pytest.mark.parametrize("nrows", [1000])
+@pytest.mark.parametrize("ncols", [500, 1500])
+@pytest.mark.parametrize("dtype", [cp.float32, cp.float64])
+@pytest.mark.parametrize("mtype", ["csr", "coo"])
+def test_cov_sparse(nrows, ncols, dtype, mtype):
+
+    x = cupyx.scipy.sparse.random(
+        nrows, ncols, density=0.07, format=mtype, dtype=dtype
+    )
+    cov_result = _cov_sparse(x, return_mean=True)
+
+    # check cov
+    assert cov_result[0].shape == (ncols, ncols)
+
+    x = x.todense()
+    local_cov = cp.cov(x, rowvar=False, ddof=0)
+
+    assert array_equal(cov_result[0], local_cov, 1e-6, with_sign=True)
+
+    # check mean
+    local_mean = x.mean(axis=0)
+    assert array_equal(cov_result[1], local_mean, 1e-6, with_sign=True)

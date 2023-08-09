@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,24 +16,21 @@
 
 # distutils: language = c++
 
-import ctypes
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 rmm = gpu_only_import('rmm')
-import warnings
 import typing
 
 from cython.operator cimport dereference as deref
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t, int64_t
-from libc.stdlib cimport calloc, malloc, free
+from libc.stdlib cimport calloc, free
 
 from cuml.cluster.cpp.kmeans cimport fit_predict as cpp_fit_predict
 from cuml.cluster.cpp.kmeans cimport predict as cpp_predict
 from cuml.cluster.cpp.kmeans cimport transform as cpp_transform
 from cuml.cluster.cpp.kmeans cimport KMeansParams
-from cuml.cluster.cpp.kmeans cimport InitMethod
 
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -246,7 +243,7 @@ class KMeans(Base,
         else:
             self.init = 'preset'
             self._params_init = Array
-            self.cluster_centers_, n_rows, self.n_cols, self.dtype = \
+            self.cluster_centers_, _n_rows, self.n_cols, self.dtype = \
                 input_to_cuml_array(init, order='C',
                                     check_dtype=[np.float32, np.float64])
 
@@ -369,8 +366,8 @@ class KMeans(Base,
                             ' passed.')
 
         self.handle.sync()
-        del(X_m)
-        del(sample_weight_m)
+        del X_m
+        del sample_weight_m
         free(params)
         return self
 
@@ -417,7 +414,7 @@ class KMeans(Base,
         Sum of squared distances of samples to their closest cluster center.
         """
 
-        X_m, n_rows, n_cols, dtype = \
+        X_m, n_rows, n_cols, _ = \
             input_to_cuml_array(X, order='C', check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
@@ -451,8 +448,6 @@ class KMeans(Base,
         cdef double inertiad = 0
         cdef KMeansParams* params = \
             <KMeansParams*><size_t>self._get_kmeans_params()
-
-        cur_int_dtype = labels_.dtype
 
         if self.dtype == np.float32:
             if int_dtype == np.int32:
@@ -515,8 +510,8 @@ class KMeans(Base,
                             ' passed.')
 
         self.handle.sync()
-        del(X_m)
-        del(sample_weight_m)
+        del X_m
+        del sample_weight_m
         free(params)
         return labels_, inertia
 
@@ -548,7 +543,7 @@ class KMeans(Base,
 
         """
 
-        X_m, n_rows, n_cols, dtype = \
+        X_m, n_rows, _n_cols, _dtype = \
             input_to_cuml_array(X, order='C', check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
@@ -620,7 +615,7 @@ class KMeans(Base,
 
         self.handle.sync()
 
-        del(X_m)
+        del X_m
         free(params)
         return preds
 

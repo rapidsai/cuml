@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import ctypes
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 import math
 import warnings
 import typing
-from inspect import signature
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
@@ -158,9 +156,9 @@ class BaseRandomForestModel(Base):
         self.treelite_serialized_model = None
 
     def _get_max_feat_val(self) -> float:
-        if type(self.max_features) == int:
+        if isinstance(self.max_features, int):
             return self.max_features/self.n_cols
-        elif type(self.max_features) == float:
+        elif isinstance(self.max_features, float):
             return self.max_features
         elif self.max_features == 'sqrt':
             return 1/np.sqrt(self.n_cols)
@@ -304,10 +302,10 @@ class BaseRandomForestModel(Base):
                           "to fit the estimator")
 
         max_feature_val = self._get_max_feat_val()
-        if type(self.min_samples_leaf) == float:
+        if isinstance(self.min_samples_leaf, float):
             self.min_samples_leaf = \
                 math.ceil(self.min_samples_leaf * self.n_rows)
-        if type(self.min_samples_split) == float:
+        if isinstance(self.min_samples_split, float):
             self.min_samples_split = \
                 max(2, math.ceil(self.min_samples_split * self.n_rows))
         return X_m, y_m, max_feature_val
@@ -347,9 +345,6 @@ class BaseRandomForestModel(Base):
                               fil_sparse_format, threshold=0.5,
                               output_class=False,
                               predict_proba=False) -> CumlArray:
-        _, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='F',
-                                check_cols=self.n_cols)
         treelite_handle = self._obtain_treelite_handle()
         storage_type = \
             _check_fil_parameter_validity(depth=self.max_depth,

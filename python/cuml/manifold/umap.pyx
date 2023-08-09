@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +16,9 @@
 
 # distutils: language = c++
 
-import typing
-import ctypes
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
-import warnings
 
 import joblib
 
@@ -32,7 +29,8 @@ cupyx = gpu_only_import('cupyx')
 cuda = gpu_only_import('numba.cuda')
 
 from cuml.manifold.umap_utils cimport *
-from cuml.manifold.umap_utils import GraphHolder, find_ab_params
+from cuml.manifold.umap_utils import GraphHolder, find_ab_params, \
+    metric_parsing, DENSE_SUPPORTED_METRICS, SPARSE_SUPPORTED_METRICS
 
 from cuml.common.sparsefuncs import extract_knn_infos
 from cuml.internals.safe_imports import gpu_only_import_from
@@ -41,25 +39,22 @@ cp_coo_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'coo_matrix')
 cp_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')
 
 import cuml.internals
-from cuml.common import using_output_type
 from cuml.internals.base import UniversalBase
 from pylibraft.common.handle cimport handle_t
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger
 from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.memory_utils import using_output_type
-from cuml.internals.import_utils import has_scipy
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
-from cuml.metrics.distance_type cimport DistanceType
 
-from cuml.manifold.simpl_set import fuzzy_simplicial_set, \
-    simplicial_set_embedding
-
-if has_scipy(True):
-    import scipy.sparse
+from cuml.manifold.simpl_set import fuzzy_simplicial_set  # no-cython-lint
+from cuml.manifold.simpl_set import simplicial_set_embedding  # no-cython-lint
+# TODO: These two symbols are considered part of the public API of this module
+# which is why imports should not be removed. The no-cython-lint markers can be
+# replaced with an explicit __all__ specifications once
+# https://github.com/MarcoGorelli/cython-lint/issues/80 is resolved.
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.api_decorators import device_interop_preparation
@@ -69,8 +64,6 @@ rmm = gpu_only_import('rmm')
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free
-
-from libcpp.memory cimport shared_ptr
 
 cimport cuml.common.cuda
 
@@ -159,13 +152,17 @@ class UMAP(UniversalBase,
     n_components: int (optional, default 2)
         The dimension of the space to embed into. This defaults to 2 to
         provide easy visualization, but can reasonably be set to any
-    metric : string (default='euclidean').
+    metric: string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
         'minkowski', 'chebyshev', 'linf', 'cosine', 'correlation', 'hellinger',
         'hamming', 'jaccard']
         Metrics that take arguments (such as minkowski) can have arguments
         passed via the metric_kwds dictionary.
+        Note: The 'jaccard' distance metric is only supported for sparse
+        inputs.
+    metric_kwds: dict (optional, default=None)
+        Metric argument
     n_epochs: int (optional, default None)
         The number of training epochs to be used in optimizing the
         low dimensional embedding. Larger values result in more accurate
@@ -426,7 +423,7 @@ class UMAP(UniversalBase,
             raise ValueError("min_dist should be <= spread")
 
     @staticmethod
-    def _build_umap_params(cls):
+    def _build_umap_params(cls, sparse):
         cdef UMAPParams* umap_params = new UMAPParams()
         umap_params.n_neighbors = <int> cls.n_neighbors
         umap_params.n_components = <int> cls.n_components
@@ -455,37 +452,20 @@ class UMAP(UniversalBase,
         umap_params.random_state = <uint64_t> cls.random_state
         umap_params.deterministic = <bool> cls.deterministic
 
-        # metric
-        metric_parsing = {
-            "l2": DistanceType.L2SqrtUnexpanded,
-            "euclidean": DistanceType.L2SqrtUnexpanded,
-            "sqeuclidean": DistanceType.L2Unexpanded,
-            "cityblock": DistanceType.L1,
-            "l1": DistanceType.L1,
-            "manhattan": DistanceType.L1,
-            "taxicab": DistanceType.L1,
-            "minkowski": DistanceType.LpUnexpanded,
-            "chebyshev": DistanceType.Linf,
-            "linf": DistanceType.Linf,
-            "cosine": DistanceType.CosineExpanded,
-            "correlation": DistanceType.CorrelationExpanded,
-            "hellinger": DistanceType.HellingerExpanded,
-            "hamming": DistanceType.HammingUnexpanded,
-            "jaccard": DistanceType.JaccardExpanded,
-            "canberra": DistanceType.Canberra
-        }
-
-        if cls.metric.lower() in metric_parsing:
+        try:
             umap_params.metric = metric_parsing[cls.metric.lower()]
-        else:
-            raise ValueError("Invalid value for metric: {}"
-                             .format(cls.metric))
+            if sparse:
+                if umap_params.metric not in SPARSE_SUPPORTED_METRICS:
+                    raise NotImplementedError(f"Metric '{cls.metric}' not supported for sparse inputs.")
+            elif umap_params.metric not in DENSE_SUPPORTED_METRICS:
+                raise NotImplementedError(f"Metric '{cls.metric}' not supported for dense inputs.")
 
+        except KeyError:
+            raise ValueError(f"Invalid value for metric: {cls.metric}")
         if cls.metric_kwds is None:
             umap_params.p = <float> 2.0
         else:
-            umap_params.p = <float>cls.metric_kwds.get('p')
-
+            umap_params.p = <float> cls.metric_kwds.get("p", 2.0)
         cdef uintptr_t callback_ptr = 0
         if cls.callback:
             callback_ptr = cls.callback.get_native_callback()
@@ -541,7 +521,7 @@ class UMAP(UniversalBase,
 
         # Handle dense inputs
         else:
-            self._raw_data, self.n_rows, self.n_dims, dtype = \
+            self._raw_data, self.n_rows, self.n_dims, _ = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
@@ -583,7 +563,7 @@ class UMAP(UniversalBase,
         cdef uintptr_t embed_raw = self.embedding_.ptr
 
         cdef UMAPParams* umap_params = \
-            <UMAPParams*> <size_t> UMAP._build_umap_params(self)
+            <UMAPParams*> <size_t> UMAP._build_umap_params(self, self.sparse_fit)
 
         cdef uintptr_t y_raw = 0
 
@@ -720,7 +700,7 @@ class UMAP(UniversalBase,
                                   convert_format=False)
             index = None
         else:
-            X_m, n_rows, n_cols, dtype = \
+            X_m, n_rows, n_cols, _ = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
@@ -749,7 +729,7 @@ class UMAP(UniversalBase,
         cdef uintptr_t embed_ptr = self.embedding_.ptr
 
         cdef UMAPParams* umap_params = \
-            <UMAPParams*> <size_t> UMAP._build_umap_params(self)
+            <UMAPParams*> <size_t> UMAP._build_umap_params(self, self.sparse_fit)
 
         if self.sparse_fit:
             transform_sparse(handle_[0],

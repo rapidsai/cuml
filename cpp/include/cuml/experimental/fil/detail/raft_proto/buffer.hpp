@@ -94,7 +94,7 @@ struct buffer {
         }
         return result;
       }()},
-      data_{[this, input_data, mem_type]() {
+      data_{[input_data, mem_type]() {
         auto result = data_store{};
         switch (mem_type) {
           case device_type::cpu: result = non_owning_buffer<device_type::cpu, T>{input_data}; break;
@@ -134,7 +134,7 @@ struct buffer {
         }
         return result;
       }()},
-      data_{[this, &other, mem_type, device, stream]() {
+      data_{[this, &other, mem_type, stream]() {
         auto result      = data_store{};
         auto result_data = static_cast<T*>(nullptr);
         if (mem_type == device_type::cpu) {

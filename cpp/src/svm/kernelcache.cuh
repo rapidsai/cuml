@@ -25,7 +25,6 @@
 #include <raft/util/cache_util.cuh>
 
 #include <raft/linalg/gemm.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <rmm/device_scalar.hpp>
@@ -362,7 +361,7 @@ class KernelCache {
     batch_size_base  = n_rows;
 
     // enable batching for kernel > 1 GB (default)
-    if (n_rows * n_ws * sizeof(math_t) > kernel_tile_byte_limit) {
+    if ((size_t)n_rows * n_ws * sizeof(math_t) > kernel_tile_byte_limit) {
       batching_enabled = true;
       // only select based on desired big-kernel size
       batch_size_base = std::max(1ul, kernel_tile_byte_limit / n_ws / sizeof(math_t));
@@ -373,7 +372,7 @@ class KernelCache {
 
     // enable sparse row extraction for sparse input where n_ws * n_cols > 1 GB
     // Warning: kernel computation will be much slower!
-    if (is_csr && (n_cols * n_ws * sizeof(math_t) > dense_extract_byte_limit)) {
+    if (is_csr && ((size_t)n_cols * n_ws * sizeof(math_t) > dense_extract_byte_limit)) {
       sparse_extract = true;
     }
 

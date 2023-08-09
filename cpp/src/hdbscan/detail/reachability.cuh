@@ -31,10 +31,6 @@
 #include <cuml/neighbors/knn.hpp>
 #include <raft/distance/distance.cuh>
 
-#if defined RAFT_COMPILED
-#include <raft/neighbors/specializations.cuh>
-#endif
-
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>

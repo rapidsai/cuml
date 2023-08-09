@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2022, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 from cuml.internals.safe_imports import gpu_only_import
 cudf = gpu_only_import('cudf')
-import cuml.internals
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 from cuml.internals.safe_imports import cpu_only_import
@@ -27,7 +26,6 @@ import cuml.internals.logger as logger
 from cuml.internals.import_utils import has_shap
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.input_utils import input_to_host_array
-from cuml.internals.logger import debug
 from cuml.internals.logger import warn
 from cuml.explainer.common import get_dtype_from_model_func
 from cuml.explainer.common import get_handle_from_cuml_model_func
@@ -291,7 +289,7 @@ class SHAPBase():
             )
 
         if free_synth_data and getattr(self, "synth_data", None) is not None:
-            del(self._synth_data)
+            del self._synth_data
 
         if return_as_list:
             shap_values = output_list_shap_values(
