@@ -45,7 +45,7 @@ cupyx = gpu_only_import("cupyx")
 scipy_sparse = cpu_only_import("scipy.sparse")
 
 
-IS_ARM = platform.processor() == "aarch64"
+IS_ARM = False
 
 if not IS_ARM:
     import umap

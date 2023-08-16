@@ -58,7 +58,7 @@ pd = cpu_only_import("pandas")
 cudf = gpu_only_import("cudf")
 
 
-IS_ARM = platform.processor() == "aarch64"
+IS_ARM = False
 
 if not IS_ARM:
     from umap import UMAP as refUMAP

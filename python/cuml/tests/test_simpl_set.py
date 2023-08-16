@@ -29,7 +29,7 @@ np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
 
 
-IS_ARM = platform.processor() == "aarch64"
+IS_ARM = False
 
 if not IS_ARM:
     from umap.umap_ import (
