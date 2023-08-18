@@ -47,9 +47,13 @@ def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     return X_train_df, y_train_df
 
 
-def make_classification_dataset(datatype, nrows, ncols, n_info):
+def make_classification_dataset(datatype, nrows, ncols, n_info, n_classes=2):
     X, y = make_classification(
-        n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0
+        n_samples=nrows,
+        n_features=ncols,
+        n_informative=n_info,
+        n_classes=n_classes,
+        random_state=0,
     )
     X = X.astype(datatype)
     y = y.astype(datatype)
@@ -267,6 +271,7 @@ def test_lbfgs(
     delayed,
     client,
     penalty="l2",
+    n_classes=2,
 ):
     tolerance = 0.005
 
@@ -283,24 +288,35 @@ def test_lbfgs(
     n_info = 5
     nrows = int(nrows)
     ncols = int(ncols)
-    X, y = make_classification_dataset(datatype, nrows, ncols, n_info)
+    X, y = make_classification_dataset(
+        datatype, nrows, ncols, n_info, n_classes=n_classes
+    )
 
     X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
     lr = cumlLBFGS_dask(fit_intercept=fit_intercept, penalty=penalty)
     lr.fit(X_df, y_df)
-    lr_coef = lr.coef_.to_numpy()
-    lr_intercept = lr.intercept_.to_numpy()
 
+    def assert_trained_model(this_lr, standard_lr):
+        assert len(this_lr.coef_) == len(standard_lr.coef_)
+        for i in range(len(this_lr.coef_)):
+            assert this_lr.coef_[i] == pytest.approx(
+                standard_lr.coef_[i], abs=tolerance
+            )
+        assert this_lr.intercept_ == pytest.approx(
+            standard_lr.intercept_, abs=tolerance
+        )
+
+    # test fit
     sk_model = skLR(fit_intercept=fit_intercept, penalty=penalty)
     sk_model.fit(X, y)
-    sk_coef = sk_model.coef_
-    sk_intercept = sk_model.intercept_
+    assert_trained_model(lr, sk_model)
 
-    assert len(lr_coef) == len(sk_coef)
-    for i in range(len(lr_coef)):
-        assert lr_coef[i] == pytest.approx(sk_coef[i], abs=tolerance)
-    assert lr_intercept == pytest.approx(sk_intercept, abs=tolerance)
+    from cuml import LogisticRegression as SGLR
+
+    lr_sg = SGLR(fit_intercept=fit_intercept, penalty=penalty)
+    lr_sg.fit(X, y)
+    assert_trained_model(lr, lr_sg)
 
     # test predict
     cu_preds = lr.predict(X_df, delayed=delayed)
@@ -336,3 +352,19 @@ def test_noreg(fit_intercept, client):
     l1_strength, l2_strength = lr._get_qn_params()
     assert l1_strength == 0.0
     assert l2_strength == 0.0
+
+
+@pytest.mark.parametrize("fit_intercept", [True])
+def test_n_classes(fit_intercept, client):
+    n_classes = 16
+    test_lbfgs(
+        nrows=1e5,
+        ncols=20,
+        n_parts=23,
+        fit_intercept=fit_intercept,
+        datatype=np.float32,
+        delayed=True,
+        client=client,
+        penalty="none",
+        n_classes=n_classes,
+    )

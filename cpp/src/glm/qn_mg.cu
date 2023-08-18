@@ -27,6 +27,8 @@
 #include <raft/util/cudart_utils.hpp>
 using namespace MLCommon;
 
+#include <iostream>
+
 namespace ML {
 namespace GLM {
 namespace opg {
@@ -35,17 +37,36 @@ template <typename T>
 int distinct(const raft::handle_t& handle, T* y, size_t n_rows)
 {
   cudaStream_t stream = handle.get_stream();
+
+  std::cout << "distinct: n_rows " << n_rows << std::endl;
+  std::cout << raft::arr2Str(y, n_rows, "distinct: y is ", stream) << std::endl;
+
   rmm::device_uvector<T> unique_labels(0, stream);
   raft::label::getUniquelabels(unique_labels, y, n_rows, stream);
+  std::cout << raft::arr2Str(
+                 unique_labels.data(), unique_labels.size(), "distinct: unique_labels is ", stream)
+            << std::endl;
 
   raft::comms::comms_t const& communicator = raft::resource::get_comms(handle);
   communicator.allgather(unique_labels.data(), unique_labels.data(), unique_labels.size(), stream);
   communicator.sync_stream(stream);
+  std::cout << raft::arr2Str(unique_labels.data(),
+                             unique_labels.size(),
+                             "distinct: gathered unique_labels is ",
+                             stream)
+            << std::endl;
 
   rmm::device_uvector<T> global_unique_labels(0, stream);
-  int num_distinct =
-    raft::label::getUniquelabels(global_unique_labels, unique_labels, unique_labels.size(), stream);
-  return = num_distinct
+  int num_distinct = raft::label::getUniquelabels(
+    global_unique_labels, unique_labels.data(), unique_labels.size(), stream);
+  std::cout << raft::arr2Str(global_unique_labels.data(),
+                             global_unique_labels.size(),
+                             "distinct: global_unique_labels is ",
+                             stream)
+            << std::endl;
+
+  std::cout << "debug num_distinct is: " << num_distinct << std::endl;
+  return num_distinct;
 }
 
 template <typename T>
@@ -64,6 +85,7 @@ void qnFit_impl(const raft::handle_t& handle,
                 int rank,
                 int n_ranks)
 {
+  /*
   switch (pams.loss) {
     case QN_LOSS_LOGISTIC: {
       RAFT_EXPECTS(
@@ -74,6 +96,7 @@ void qnFit_impl(const raft::handle_t& handle,
       RAFT_EXPECTS(false, "qn_mg.cu: unknown loss function type (id = %d).", pams.loss);
     }
   }
+  */
 
   auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
 
@@ -131,7 +154,7 @@ void qnFit_impl(raft::handle_t& handle,
                 input_desc.uniqueRanks().size());
 }
 
-int distinct(const raft::handle_t& handle, std::vector<Matrix::Data<float>*>& labels, size_t n_rows)
+int qnNumClasses(const raft::handle_t& handle, std::vector<Matrix::Data<float>*>& labels)
 {
   RAFT_EXPECTS(labels.size() == 1, "distinct currently does not accept more than one data chunk");
 
