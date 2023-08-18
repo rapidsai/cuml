@@ -23,12 +23,30 @@
 #include <raft/core/comms.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/label/classlabels.cuh>
 #include <raft/util/cudart_utils.hpp>
 using namespace MLCommon;
 
 namespace ML {
 namespace GLM {
 namespace opg {
+
+template <typename T>
+int distinct(const raft::handle_t& handle, T* y, size_t n_rows)
+{
+  cudaStream_t stream = handle.get_stream();
+  rmm::device_uvector<T> unique_labels(0, stream);
+  raft::label::getUniquelabels(unique_labels, y, n_rows, stream);
+
+  raft::comms::comms_t const& communicator = raft::resource::get_comms(handle);
+  communicator.allgather(unique_labels.data(), unique_labels.data(), unique_labels.size(), stream);
+  communicator.sync_stream(stream);
+
+  rmm::device_uvector<T> global_unique_labels(0, stream);
+  int num_distinct =
+    raft::label::getUniquelabels(global_unique_labels, unique_labels, unique_labels.size(), stream);
+  return = num_distinct
+}
 
 template <typename T>
 void qnFit_impl(const raft::handle_t& handle,
@@ -111,6 +129,14 @@ void qnFit_impl(raft::handle_t& handle,
                 input_desc.M,
                 input_desc.rank,
                 input_desc.uniqueRanks().size());
+}
+
+int distinct(const raft::handle_t& handle, std::vector<Matrix::Data<float>*>& labels, size_t n_rows)
+{
+  RAFT_EXPECTS(labels.size() == 1, "distinct currently does not accept more than one data chunk");
+
+  Matrix::Data<float>* data_y = labels[0];
+  return distinct<float>(handle, data_y->ptr, data_y->numElements());
 }
 
 void qnFit(raft::handle_t& handle,
