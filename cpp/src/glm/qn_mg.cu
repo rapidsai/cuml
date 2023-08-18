@@ -16,8 +16,11 @@
 
 #include "qn/glm_logistic.cuh"
 #include "qn/glm_regularizer.cuh"
+#include "qn/qn_mg.cuh"
+#include "qn/qn_solvers.cuh"
 #include "qn/qn_util.cuh"
 #include "qn/simple_mat/dense.hpp"
+#include <cuda_runtime.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/linear_model/qn.h>
 #include <cuml/linear_model/qn_mg.hpp>
@@ -26,12 +29,6 @@
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
 using namespace MLCommon;
-#include "qn/qn_solvers.cuh"
-
-// #include "qn/glm_base_mg.cuh"
-#include "qn/qn_mg.cuh"
-
-#include <cuda_runtime.h>
 
 namespace ML {
 namespace GLM {
@@ -65,11 +62,21 @@ void qnFit_impl(const raft::handle_t& handle,
   }
 
   // cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  auto X_simple       = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
+  auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
   // auto y_simple       = SimpleVec<T>(y, N);
   // SimpleVec<T> coef_simple(w0, D + pams.fit_intercept);
 
-  ML::GLM::opg::qn_fit_x_mg(handle, pams, X_simple, y, C, w0, f, num_iters, n_samples, rank, n_ranks); // ignore sample_weight, svr_eps 
+  ML::GLM::opg::qn_fit_x_mg(handle,
+                            pams,
+                            X_simple,
+                            y,
+                            C,
+                            w0,
+                            f,
+                            num_iters,
+                            n_samples,
+                            rank,
+                            n_ranks);  // ignore sample_weight, svr_eps
   return;
 }
 

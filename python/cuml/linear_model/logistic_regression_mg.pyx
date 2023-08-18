@@ -157,7 +157,6 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         else:
             coef_size = (self.n_cols, self._num_classes_dim)
 
-        print(f"coef_size is {coef_size}")
         if self.coef_ is None or not self.warm_start:
             self.solver_model._coef_ = CumlArray.zeros(
                 coef_size, dtype=self.dtype, order='C')
