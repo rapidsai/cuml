@@ -61,10 +61,7 @@ void qnFit_impl(const raft::handle_t& handle,
     }
   }
 
-  // cudaStream_t stream = raft::resource::get_cuda_stream(handle);
   auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
-  // auto y_simple       = SimpleVec<T>(y, N);
-  // SimpleVec<T> coef_simple(w0, D + pams.fit_intercept);
 
   ML::GLM::opg::qn_fit_x_mg(handle,
                             pams,
