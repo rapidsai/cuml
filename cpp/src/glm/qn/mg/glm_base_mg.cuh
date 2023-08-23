@@ -90,7 +90,6 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
   int rank;
   int64_t n_samples;
   int n_ranks;
-  T l2;
 
   GLMWithDataMG(raft::handle_t const& handle,
                 int rank,
@@ -99,15 +98,13 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
                 GLMObjective* obj,
                 const SimpleMat<T>& X,
                 const SimpleVec<T>& y,
-                SimpleDenseMat<T>& Z,
-                T l2)
+                SimpleDenseMat<T>& Z)
     : ML::GLM::detail::GLMWithData<T, GLMObjective>(obj, X, y, Z)
   {
     this->handle_p  = &handle;
     this->rank      = rank;
     this->n_ranks   = n_ranks;
     this->n_samples = n_samples;
-    this->l2        = l2;
   }
 
   inline T operator()(const SimpleVec<T>& wFlat,
@@ -125,7 +122,7 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
     auto reg             = regularizer_obj->reg;
     G.fill(0, stream);
     float reg_host = 0;
-    if (this->l2 != 0) {
+    if (reg->l2_penalty != 0) {
       reg->reg_grad(dev_scalar, G, W, lossFunc->fit_intercept, stream);
       raft::update_host(&reg_host, dev_scalar, 1, stream);
       // note: avoid syncing here because there's a sync before reg_host is used.

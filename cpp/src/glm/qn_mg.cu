@@ -14,11 +14,7 @@
  * limitations under the License.
  */
 
-#include "qn/glm_logistic.cuh"
-#include "qn/glm_regularizer.cuh"
-#include "qn/qn_mg.cuh"
-#include "qn/qn_solvers.cuh"
-#include "qn/qn_util.cuh"
+#include "qn/mg/qn_mg.cuh"
 #include "qn/simple_mat/dense.hpp"
 #include <cuda_runtime.h>
 #include <cuml/common/logger.hpp>

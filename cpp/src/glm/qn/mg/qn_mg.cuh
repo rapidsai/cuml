@@ -15,12 +15,12 @@
  */
 
 #include "glm_base_mg.cuh"
-#include "glm_logistic.cuh"
-#include "glm_regularizer.cuh"
-#include "glm_softmax.cuh"
-#include "glm_svm.cuh"
-#include "qn_solvers.cuh"
-#include "qn_util.cuh"
+#include <glm/qn/glm_logistic.cuh>
+#include <glm/qn/glm_regularizer.cuh>
+#include <glm/qn/glm_softmax.cuh>
+#include <glm/qn/glm_svm.cuh>
+#include <glm/qn/qn_solvers.cuh>
+#include <glm/qn/qn_util.cuh>
 
 #include <cuml/linear_model/qn.h>
 #include <rmm/device_uvector.hpp>
@@ -56,8 +56,7 @@ int qn_fit_mg(const raft::handle_t& handle,
   ML::GLM::detail::Tikhonov<T> reg(l2);
   ML::GLM::detail::RegularizedGLM<T, LossFunction, decltype(reg)> regularizer_obj(&loss, &reg);
 
-  auto obj_function =
-    GLMWithDataMG(handle, rank, n_ranks, n_samples, &regularizer_obj, X, y, Z, l2);
+  auto obj_function = GLMWithDataMG(handle, rank, n_ranks, n_samples, &regularizer_obj, X, y, Z);
   return ML::GLM::detail::qn_minimize(
     handle, w0, fx, num_iters, obj_function, l1, opt_param, pams.verbose);
 }
@@ -99,19 +98,13 @@ inline void qn_fit_x_mg(const raft::handle_t& handle,
 
   switch (pams.loss) {
     case QN_LOSS_LOGISTIC: {
-      ASSERT(C == 2, "qn.h: logistic loss invalid C");
+      ASSERT(C == 2, "qn_mg.cuh: logistic loss invalid C");
       ML::GLM::detail::LogisticLoss<T> loss(handle, D, pams.fit_intercept);
       ML::GLM::opg::qn_fit_mg<T, decltype(loss)>(
         handle, pams, loss, X, y, Z, w0_data, f, num_iters, n_samples, rank, n_ranks);
     } break;
-    case QN_LOSS_SOFTMAX: {
-      ASSERT(C > 2, "qn.h: softmax invalid C");
-      ML::GLM::detail::Softmax<T> loss(handle, D, C, pams.fit_intercept);
-      ML::GLM::opg::qn_fit_mg<T, decltype(loss)>(
-        handle, pams, loss, X, y, Z, w0_data, f, num_iters, n_samples, rank, n_ranks);
-    } break;
     default: {
-      ASSERT(false, "qn.h: unknown loss function type (id = %d).", pams.loss);
+      ASSERT(false, "qn_mg.cuh: unknown loss function type (id = %d).", pams.loss);
     }
   }
 }
