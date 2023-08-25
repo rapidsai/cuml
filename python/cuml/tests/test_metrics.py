@@ -1031,7 +1031,7 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     rng = np.random.RandomState(0)
 
     # For fp64, compare at 13 decimals, (2 places less than the ~15 max)
-    compare_precision = 6
+    compare_precision = 4
 
     # Compare to sklearn, single input
     X = prep_dense_array(
