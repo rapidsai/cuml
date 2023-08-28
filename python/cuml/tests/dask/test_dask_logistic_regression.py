@@ -47,7 +47,7 @@ def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     return X_train_df, y_train_df
 
 
-def make_classification_dataset(datatype, nrows, ncols, n_info, n_classes=2):
+def make_classification_dataset(datatype, nrows, ncols, n_info, n_classes):
     X, y = make_classification(
         n_samples=nrows,
         n_features=ncols,
@@ -296,27 +296,18 @@ def test_lbfgs(
 
     lr = cumlLBFGS_dask(fit_intercept=fit_intercept, penalty=penalty)
     lr.fit(X_df, y_df)
+    lr_coef = lr.coef_.to_numpy()
+    lr_intercept = lr.intercept_.to_numpy()
 
-    def assert_trained_model(this_lr, standard_lr):
-        assert len(this_lr.coef_) == len(standard_lr.coef_)
-        for i in range(len(this_lr.coef_)):
-            assert this_lr.coef_[i] == pytest.approx(
-                standard_lr.coef_[i], abs=tolerance
-            )
-        assert this_lr.intercept_ == pytest.approx(
-            standard_lr.intercept_, abs=tolerance
-        )
-
-    # test fit
     sk_model = skLR(fit_intercept=fit_intercept, penalty=penalty)
     sk_model.fit(X, y)
-    assert_trained_model(lr, sk_model)
+    sk_coef = sk_model.coef_
+    sk_intercept = sk_model.intercept_
 
-    from cuml import LogisticRegression as SGLR
-
-    lr_sg = SGLR(fit_intercept=fit_intercept, penalty=penalty)
-    lr_sg.fit(X, y)
-    assert_trained_model(lr, lr_sg)
+    assert len(lr_coef) == len(sk_coef)
+    for i in range(len(lr_coef)):
+        assert lr_coef[i] == pytest.approx(sk_coef[i], abs=tolerance)
+    assert lr_intercept == pytest.approx(sk_intercept, abs=tolerance)
 
     # test predict
     cu_preds = lr.predict(X_df, delayed=delayed)
@@ -354,17 +345,40 @@ def test_noreg(fit_intercept, client):
     assert l2_strength == 0.0
 
 
-@pytest.mark.parametrize("fit_intercept", [True])
-def test_n_classes(fit_intercept, client):
-    n_classes = 16
-    test_lbfgs(
+def test_n_classes_small(client):
+    def assert_small(X, y, n_classes):
+        X_df, y_df = _prep_training_data(client, X, y, partitions_per_worker=1)
+        from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
+
+        lr_two_classes = cumlLBFGS_dask()
+        lr_two_classes.fit(X_df, y_df)
+        assert lr_two_classes._num_classes == n_classes
+
+    X_two = np.array([(1, 2), (1, 3)], np.float32)
+    y_two = np.array([1.0, 0.0], np.float32)
+    assert_small(X=X_two, y=y_two, n_classes=2)
+
+    X_two = np.array([(1, 2), (1, 3), (1, 2.5)], np.float32)
+    y_two = np.array([1.0, 0.0, 1.0], np.float32)
+    assert_small(X=X_two, y=y_two, n_classes=2)
+
+    X_two = np.array([(1, 2), (1, 3), (1, 2.5)], np.float32)
+    y_two = np.array([1.0, 0.0, 2.0], np.float32)
+    assert_small(X=X_two, y=y_two, n_classes=3)
+
+
+@pytest.mark.parametrize("n_classes", [4])
+def test_n_classes(n_classes, client):
+    lr = test_lbfgs(
         nrows=1e5,
         ncols=20,
         n_parts=23,
-        fit_intercept=fit_intercept,
+        fit_intercept=True,
         datatype=np.float32,
         delayed=True,
         client=client,
         penalty="none",
         n_classes=n_classes,
     )
+
+    assert lr._num_classes == n_classes

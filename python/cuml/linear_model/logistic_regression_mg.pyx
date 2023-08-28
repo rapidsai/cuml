@@ -79,8 +79,9 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         float *f,
         int *num_iters) except +
 
-    cdef int qnNumClasses(
+    cdef int qnCalNumClasses(
         const handle_t& handle,
+        PartDescriptor &input_desc,
         vector[floatData_t*] labels) except+
 
 
@@ -160,7 +161,6 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
             coef_size = (self.n_cols + 1, self._num_classes_dim)
         else:
             coef_size = (self.n_cols, self._num_classes_dim)
-        print(f"cython debug coef_size is {coef_size}")
 
         if self.coef_ is None or not self.warm_start:
             self.solver_model._coef_ = CumlArray.zeros(
@@ -179,8 +179,9 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         cdef float objective32
         cdef int num_iters
 
-        self._num_classes = qnNumClasses(
+        self._num_classes = qnCalNumClasses(
             handle_[0],
+            deref(<PartDescriptor*><uintptr_t>input_desc),
             deref(<vector[floatData_t*]*><uintptr_t>y))
 
         print(f"cython debug self._num_classes is {self._num_classes}")
