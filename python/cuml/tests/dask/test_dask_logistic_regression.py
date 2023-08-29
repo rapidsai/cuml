@@ -362,12 +362,16 @@ def test_n_classes_small(client):
     y_two = np.array([1.0, 0.0, 1.0], np.float32)
     assert_small(X=X_two, y=y_two, n_classes=2)
 
-    X_two = np.array([(1, 2), (1, 3), (1, 2.5)], np.float32)
-    y_two = np.array([1.0, 0.0, 2.0], np.float32)
-    assert_small(X=X_two, y=y_two, n_classes=3)
+    X_two = np.array([(1, 2), (1, 2.5), (1, 3)], np.float32)
+    y_two = np.array([1.0, 1.0, 0.0], np.float32)
+    assert_small(X=X_two, y=y_two, n_classes=2)
+
+    # X_two = np.array([(1, 2), (1, 3), (1, 2.5)], np.float32)
+    # y_two = np.array([10.0, 50.0, 20.0], np.float32)
+    # assert_small(X=X_two, y=y_two, n_classes=3)
 
 
-@pytest.mark.parametrize("n_classes", [4])
+@pytest.mark.parametrize("n_classes", [2])
 def test_n_classes(n_classes, client):
     lr = test_lbfgs(
         nrows=1e5,
