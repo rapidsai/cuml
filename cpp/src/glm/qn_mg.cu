@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-#include <cuml/common/logger.hpp>
-#include <raft/util/cudart_utils.hpp>
-
 #include "qn/mg/qn_mg.cuh"
 #include "qn/simple_mat/dense.hpp"
 #include <cuda_runtime.h>
@@ -36,56 +33,7 @@ namespace GLM {
 namespace opg {
 
 template <typename T>
-int distinct(const raft::handle_t& handle, T* y, size_t n_rows, int rank)
-{
-  cudaStream_t stream = handle.get_stream();
-
-  rmm::device_uvector<T> unique_labels(0, stream);
-  raft::label::getUniquelabels(unique_labels, y, n_rows, stream);
-  std::cout << "rank " << rank
-            << raft::arr2Str(unique_labels.data(), unique_labels.size(), " unique_labels ", stream)
-            << std::endl;
-
-  raft::comms::comms_t const& communicator = raft::resource::get_comms(handle);
-  auto recv_size = raft::make_device_scalar<size_t>(handle, unique_labels.size());
-  communicator.allreduce(
-    recv_size.data_handle(), recv_size.data_handle(), 1, raft::comms::op_t::SUM, stream);
-  communicator.sync_stream(stream);
-  size_t cpu_recv_size;
-  raft::copy(&cpu_recv_size, recv_size.data_handle(), 1, stream);
-  raft::resource::sync_stream(handle);
-
-  int send_count = unique_labels.size();
-  std::cout << "rank " << rank << " cpu_recv_size " << cpu_recv_size
-            << ", send_count: " << send_count << std::endl;
-  rmm::device_uvector<T> recv_buffer(cpu_recv_size, stream);
-  communicator.allgather(unique_labels.data(), recv_buffer.data(), unique_labels.size(), stream);
-  communicator.sync_stream(stream);
-  std::cout << "rank " << rank
-            << raft::arr2Str(unique_labels.data(),
-                             unique_labels.size(),
-                             " after allgather unique_labels ",
-                             stream)
-            << std::endl;
-  std::cout << "rank " << rank
-            << raft::arr2Str(recv_buffer.data(), recv_buffer.size(), " recv_buffer : ", stream)
-            << std::endl;
-
-  rmm::device_uvector<T> global_unique_labels(0, stream);
-  int num_distinct = raft::label::getUniquelabels(
-    global_unique_labels, recv_buffer.data(), recv_buffer.size(), stream);
-  std::cout << "rank " << rank
-            << raft::arr2Str(global_unique_labels.data(),
-                             global_unique_labels.size(),
-                             " global_unique_labels: ",
-                             stream)
-            << std::endl;
-
-  return num_distinct;
-}
-
-template <typename T>
-int distinct_v(const raft::handle_t& handle, T* y, size_t n_rows)
+int distinct_mg(const raft::handle_t& handle, T* y, size_t n)
 {
   cudaStream_t stream              = handle.get_stream();
   raft::comms::comms_t const& comm = raft::resource::get_comms(handle);
@@ -93,18 +41,12 @@ int distinct_v(const raft::handle_t& handle, T* y, size_t n_rows)
   int n_ranks                      = comm.get_size();
 
   rmm::device_uvector<T> unique_y(0, stream);
-  raft::label::getUniquelabels(unique_y, y, n_rows, stream);
-  std::cout << "rank " << rank
-            << raft::arr2Str(unique_y.data(), unique_y.size(), " unique_labels ", stream)
-            << std::endl;
+  raft::label::getUniquelabels(unique_y, y, n, stream);
 
   rmm::device_uvector<size_t> recv_counts(n_ranks, stream);
   auto send_count = raft::make_device_scalar<size_t>(handle, unique_y.size());
   comm.allgather(send_count.data_handle(), recv_counts.data(), 1, stream);
   comm.sync_stream(stream);
-  std::cout << "rank " << rank
-            << raft::arr2Str(recv_counts.data(), recv_counts.size(), " recv_counts ", stream)
-            << std::endl;
 
   std::vector<size_t> recv_counts_host(n_ranks);
   raft::copy(recv_counts_host.data(), recv_counts.data(), n_ranks, stream);
@@ -115,27 +57,15 @@ int distinct_v(const raft::handle_t& handle, T* y, size_t n_rows)
     pos += recv_counts_host[i];
   }
 
-  // std::cout << "rank " << rank << " displs ";
-  // for (auto e : displs)
-  //   std::cout << e << " ";
-  // std::cout << std::endl;
   rmm::device_uvector<T> recv_buff(displs.back() + recv_counts_host.back(), stream);
   comm.allgatherv(
     unique_y.data(), recv_buff.data(), recv_counts_host.data(), displs.data(), stream);
   comm.sync_stream(stream);
 
-  std::cout << "rank " << rank
-            << raft::arr2Str(recv_buff.data(), recv_buff.size(), " recv_buff ", stream)
-            << std::endl;
-
   rmm::device_uvector<T> global_unique_y(0, stream);
-
   int n_distinct =
     raft::label::getUniquelabels(global_unique_y, recv_buff.data(), recv_buff.size(), stream);
-  std::cout << "rank " << rank
-            << raft::arr2Str(
-                 global_unique_y.data(), global_unique_y.size(), " global_unique_y ", stream)
-            << std::endl;
+
   return n_distinct;
 }
 
@@ -155,19 +85,6 @@ void qnFit_impl(const raft::handle_t& handle,
                 int rank,
                 int n_ranks)
 {
-  /*
-  switch (pams.loss) {
-    case QN_LOSS_LOGISTIC: {
-      RAFT_EXPECTS(
-        C == 2,
-        "qn_mg.cu: only the LOGISTIC loss is supported currently. The number of classes must be 2");
-    } break;
-    default: {
-      RAFT_EXPECTS(false, "qn_mg.cu: unknown loss function type (id = %d).", pams.loss);
-    }
-  }
-  */
-
   auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
 
   ML::GLM::opg::qn_fit_x_mg(handle,
@@ -224,22 +141,15 @@ void qnFit_impl(raft::handle_t& handle,
                 input_desc.uniqueRanks().size());
 }
 
-int qnCalNumClasses(const raft::handle_t& handle,
-                    Matrix::PartDescriptor& input_desc,
-                    std::vector<Matrix::Data<float>*>& labels)
+int getUniquelabelsMG(const raft::handle_t& handle,
+                      Matrix::PartDescriptor& input_desc,
+                      std::vector<Matrix::Data<float>*>& labels)
 {
-  RAFT_EXPECTS(labels.size() == 1, "distinct currently does not accept more than one data chunk");
+  RAFT_EXPECTS(labels.size() == 1,
+               "getUniqueLabelsMG currently does not accept more than one data chunk");
   Matrix::Data<float>* data_y = labels[0];
   int n_rows                  = input_desc.totalElementsOwnedBy(input_desc.rank);
-
-  std::cout << "rank " << input_desc.rank << ", input_desc.M " << input_desc.M
-            << ", totalElementsOwned " << input_desc.totalElementsOwnedBy(input_desc.rank)
-            << std::endl;
-  //<< ", elements: " << raft::arr2Str(data_y->ptr, n_rows, " ", handle.get_stream())
-  //<< std::endl;
-
-  // return distinct<float>(handle, data_y->ptr, n_rows, input_desc.rank);
-  return distinct_v<float>(handle, data_y->ptr, n_rows);
+  return distinct_mg<float>(handle, data_y->ptr, n_rows);
 }
 
 void qnFit(raft::handle_t& handle,

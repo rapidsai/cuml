@@ -28,9 +28,9 @@ namespace GLM {
 namespace opg {
 
 /*TODO add docstring*/
-int qnCalNumClasses(const raft::handle_t& handle,
-                    Matrix::PartDescriptor& input_desc,
-                    std::vector<Matrix::Data<float>*>& labels);
+int getUniquelabelsMG(const raft::handle_t& handle,
+                      Matrix::PartDescriptor& input_desc,
+                      std::vector<Matrix::Data<float>*>& labels);
 
 /**
  * @brief performs MNMG fit operation for the logistic regression using quasi newton methods
