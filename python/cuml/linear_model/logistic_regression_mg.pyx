@@ -124,7 +124,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         )
 
         # modified
-        qnpams = self.qnparams.params
+        qnpams = self.solver_model.qnparams.params
 
         # modified qnp
         solves_classification = qnpams['loss'] in {

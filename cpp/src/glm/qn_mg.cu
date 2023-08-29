@@ -155,6 +155,7 @@ void qnFit_impl(const raft::handle_t& handle,
                 int rank,
                 int n_ranks)
 {
+  /*
   switch (pams.loss) {
     case QN_LOSS_LOGISTIC: {
       RAFT_EXPECTS(
@@ -165,6 +166,7 @@ void qnFit_impl(const raft::handle_t& handle,
       RAFT_EXPECTS(false, "qn_mg.cu: unknown loss function type (id = %d).", pams.loss);
     }
   }
+  */
 
   auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
 

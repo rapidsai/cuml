@@ -103,6 +103,12 @@ inline void qn_fit_x_mg(const raft::handle_t& handle,
       ML::GLM::opg::qn_fit_mg<T, decltype(loss)>(
         handle, pams, loss, X, y, Z, w0_data, f, num_iters, n_samples, rank, n_ranks);
     } break;
+    case QN_LOSS_SOFTMAX: {
+      ASSERT(C > 2, "qn_mg.cuh: softmax invalid C");
+      ML::GLM::detail::Softmax<T> loss(handle, D, C, pams.fit_intercept);
+      ML::GLM::opg::qn_fit_mg<T, decltype(loss)>(
+        handle, pams, loss, X, y, Z, w0_data, f, num_iters, n_samples, rank, n_ranks);
+    } break;
     default: {
       ASSERT(false, "qn_mg.cuh: unknown loss function type (id = %d).", pams.loss);
     }
