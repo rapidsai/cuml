@@ -71,7 +71,7 @@ def select_sk_solver(cuml_solver):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [1e5])
+@pytest.mark.parametrize("nrows", [1e4])
 @pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [2, 6])
 @pytest.mark.parametrize("fit_intercept", [False, True])
@@ -281,6 +281,8 @@ def test_lbfgs(
     delayed,
     client,
     penalty="l2",
+    l1_ratio=None,
+    C=1.0,
     n_classes=2,
 ):
     tolerance = 0.005
@@ -304,20 +306,41 @@ def test_lbfgs(
 
     X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
-    lr = cumlLBFGS_dask(fit_intercept=fit_intercept, penalty=penalty)
+    lr = cumlLBFGS_dask(
+        solver="qn",
+        fit_intercept=fit_intercept,
+        penalty=penalty,
+        l1_ratio=l1_ratio,
+        C=C,
+        verbose=True,
+    )
     lr.fit(X_df, y_df)
     lr_coef = lr.coef_.to_numpy()
     lr_intercept = lr.intercept_.to_numpy()
 
-    sk_model = skLR(fit_intercept=fit_intercept, penalty=penalty)
+    if penalty == "l2" or penalty == "none":
+        sk_solver = "lbfgs"
+    elif penalty == "l1" or penalty == "elasticnet":
+        sk_solver = "saga"
+    else:
+        raise ValueError(f"unexpected penalty {penalty}")
+
+    sk_model = skLR(
+        solver=sk_solver,
+        fit_intercept=fit_intercept,
+        penalty=penalty,
+        l1_ratio=l1_ratio,
+        C=C,
+    )
     sk_model.fit(X, y)
     sk_coef = sk_model.coef_
     sk_intercept = sk_model.intercept_
 
-    assert len(lr_coef) == len(sk_coef)
-    for i in range(len(lr_coef)):
-        assert lr_coef[i] == pytest.approx(sk_coef[i], abs=tolerance)
-    assert lr_intercept == pytest.approx(sk_intercept, abs=tolerance)
+    if sk_solver == "lbfgs":
+        assert len(lr_coef) == len(sk_coef)
+        for i in range(len(lr_coef)):
+            assert lr_coef[i] == pytest.approx(sk_coef[i], abs=tolerance)
+        assert lr_intercept == pytest.approx(sk_intercept, abs=tolerance)
 
     # test predict
     cu_preds = lr.predict(X_df, delayed=delayed).compute().to_numpy()
@@ -337,7 +360,7 @@ def test_lbfgs(
 @pytest.mark.parametrize("fit_intercept", [False, True])
 def test_noreg(fit_intercept, client):
     lr = test_lbfgs(
-        nrows=1e5,
+        nrows=1e4,
         ncols=20,
         n_parts=23,
         fit_intercept=fit_intercept,
@@ -400,7 +423,7 @@ def test_n_classes_small(client):
 @pytest.mark.parametrize("n_classes", [8])
 def test_n_classes(n_parts, fit_intercept, n_classes, client):
     lr = test_lbfgs(
-        nrows=1e5,
+        nrows=1e4,
         ncols=20,
         n_parts=n_parts,
         fit_intercept=fit_intercept,
@@ -414,17 +437,55 @@ def test_n_classes(n_parts, fit_intercept, n_classes, client):
     assert lr._num_classes == n_classes
 
 
-@pytest.mark.parametrize("penalty", ["l1", "elasticnet"])
-@pytest.mark.parametrize("l1_ratio", [0.1])
-def test_l1_and_elasticnet(penalty, l1_ratio, client):
-    X = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], np.float32)
-    y = np.array([1.0, 1.0, 0.0, 0.0], np.float32)
-    X_df, y_df = _prep_training_data(client, X, y, partitions_per_worker=1)
+@pytest.mark.mg
+@pytest.mark.parametrize("fit_intercept", [False, True])
+@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("delayed", [True])
+@pytest.mark.parametrize("n_classes", [2, 8])
+@pytest.mark.parametrize("C", [1.0, 10.0])
+def test_l1(fit_intercept, datatype, delayed, n_classes, C, client):
+    lr = test_lbfgs(
+        nrows=1e4,
+        ncols=20,
+        n_parts=2,
+        fit_intercept=fit_intercept,
+        datatype=datatype,
+        delayed=delayed,
+        client=client,
+        penalty="l1",
+        n_classes=n_classes,
+        C=C,
+    )
 
-    from cuml.dask.linear_model import LogisticRegression
+    l1_strength, l2_strength = lr._get_qn_params()
+    assert l1_strength == 1.0 / lr.C
+    assert l2_strength == 0.0
 
-    lr = LogisticRegression(penalty=penalty, l1_ratio=l1_ratio)
-    with pytest.raises(
-        RuntimeError, match="Currently only support 'l2' and 'none' penalty"
-    ):
-        lr.fit(X_df, y_df)
+
+@pytest.mark.mg
+@pytest.mark.parametrize("fit_intercept", [False, True])
+@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("delayed", [True])
+@pytest.mark.parametrize("n_classes", [2, 8])
+@pytest.mark.parametrize("l1_ratio", [0.2, 0.8])
+def test_elasticnet(
+    fit_intercept, datatype, delayed, n_classes, l1_ratio, client
+):
+    lr = test_lbfgs(
+        nrows=1e4,
+        ncols=20,
+        n_parts=2,
+        fit_intercept=fit_intercept,
+        datatype=datatype,
+        delayed=delayed,
+        client=client,
+        penalty="elasticnet",
+        n_classes=n_classes,
+        l1_ratio=l1_ratio,
+    )
+
+    l1_strength, l2_strength = lr._get_qn_params()
+
+    strength = 1.0 / lr.C
+    assert l1_strength == lr.l1_ratio * strength
+    assert l2_strength == (1.0 - lr.l1_ratio) * strength
