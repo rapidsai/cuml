@@ -116,10 +116,4 @@ jobs:
     uses: rapidsai/shared-action-workflows/.github/workflows/build-in-devcontainer.yaml@fea/devcontainers
     with:
       build_command: |
-        echo ".gitconfig:"
-        cat ~/.gitconfig;
-        echo "ssh_config:"
-        cat ~/.ssh/config;
-        echo "ssh_known_hosts:"
-        cat ~/.ssh/known_hosts;
         build-cuml;
