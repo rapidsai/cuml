@@ -1030,7 +1030,7 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     # Test the pairwise_distance helper function.
     rng = np.random.RandomState(0)
 
-    compare_precision = 2 if metric == "nan_euclidean" else 6
+    compare_precision = 2 if metric == "nan_euclidean" else 4
 
     # Compare to sklearn, single input
     X = prep_dense_array(
