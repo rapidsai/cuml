@@ -36,13 +36,6 @@ function(find_and_configure_raft)
         string(APPEND RAFT_COMPONENTS " distributed")
     endif()
 
-    if(NOT PKG_USE_RAFT_STATIC)
-      set(RAFT_LIB raft::raft)
-    else()
-      set(RAFT_LIB raft::raft_static)
-    endif()
-
-
     if(PKG_COMPILE_LIBRARY)
       if(NOT PKG_USE_RAFT_STATIC)
         string(APPEND RAFT_COMPONENTS " compiled")

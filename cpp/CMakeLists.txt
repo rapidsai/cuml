@@ -577,8 +577,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   set(_cuml_cpp_public_libs)
   set(_cuml_cpp_private_libs)
 
-  if(CUML_USE_RAFT_STATIC AND (TARGET raft::raft_static))
-    copy_interface_excludes(INCLUDED_TARGET raft::raft_static TARGET ${CUML_CPP_TARGET})
+  if(CUML_USE_RAFT_STATIC AND (TARGET raft::raft))
+    copy_interface_excludes(INCLUDED_TARGET raft::raft TARGET ${CUML_CPP_TARGET})
 
     if(CUML_USE_RAFT_DIST AND (TARGET cuco::cuco))
       list(APPEND _cuml_cpp_private_libs cuco::cuco)
@@ -602,7 +602,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # These are always private:
   list(APPEND _cuml_cpp_private_libs
-    ${RAFT_LIB}
+    raft::raft
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix}>
     ${TREELITE_LIBS}
