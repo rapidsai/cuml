@@ -21,6 +21,7 @@
 
 #include <cumlprims/opg/matrix/data.hpp>
 #include <cumlprims/opg/matrix/part_descriptor.hpp>
+#include <vector>
 using namespace MLCommon;
 
 namespace ML {
@@ -28,9 +29,9 @@ namespace GLM {
 namespace opg {
 
 /*TODO add docstring*/
-int getUniquelabelsMG(const raft::handle_t& handle,
-                      Matrix::PartDescriptor& input_desc,
-                      std::vector<Matrix::Data<float>*>& labels);
+std::vector<float> getUniquelabelsMG(const raft::handle_t& handle,
+                                     Matrix::PartDescriptor& input_desc,
+                                     std::vector<Matrix::Data<float>*>& labels);
 
 /**
  * @brief performs MNMG fit operation for the logistic regression using quasi newton methods

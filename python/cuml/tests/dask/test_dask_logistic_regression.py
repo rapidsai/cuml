@@ -358,19 +358,31 @@ def test_n_classes_small(client):
 
     X = np.array([(1, 2), (1, 3)], np.float32)
     y = np.array([1.0, 0.0], np.float32)
-    assert_small(X=X, y=y, n_classes=2)
+    lr = assert_small(X=X, y=y, n_classes=2)
+    assert np.array_equal(
+        lr.classes_.to_numpy(), np.array([0.0, 1.0], np.float32)
+    )
 
     X = np.array([(1, 2), (1, 3), (1, 2.5)], np.float32)
     y = np.array([1.0, 0.0, 1.0], np.float32)
-    assert_small(X=X, y=y, n_classes=2)
+    lr = assert_small(X=X, y=y, n_classes=2)
+    assert np.array_equal(
+        lr.classes_.to_numpy(), np.array([0.0, 1.0], np.float32)
+    )
 
     X = np.array([(1, 2), (1, 2.5), (1, 3)], np.float32)
     y = np.array([1.0, 1.0, 0.0], np.float32)
-    assert_small(X=X, y=y, n_classes=2)
+    lr = assert_small(X=X, y=y, n_classes=2)
+    assert np.array_equal(
+        lr.classes_.to_numpy(), np.array([0.0, 1.0], np.float32)
+    )
 
     X = np.array([(1, 2), (1, 3), (1, 2.5)], np.float32)
     y = np.array([10.0, 50.0, 20.0], np.float32)
-    assert_small(X=X, y=y, n_classes=3)
+    lr = assert_small(X=X, y=y, n_classes=3)
+    assert np.array_equal(
+        lr.classes_.to_numpy(), np.array([10.0, 20.0, 50.0], np.float32)
+    )
 
 
 @pytest.mark.parametrize("fit_intercept", [False, True])

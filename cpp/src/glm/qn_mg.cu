@@ -26,6 +26,7 @@
 #include <raft/core/handle.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/util/cudart_utils.hpp>
+#include <vector>
 using namespace MLCommon;
 
 namespace ML {
@@ -33,7 +34,7 @@ namespace GLM {
 namespace opg {
 
 template <typename T>
-int distinct_mg(const raft::handle_t& handle, T* y, size_t n)
+std::vector<T> distinct_mg(const raft::handle_t& handle, T* y, size_t n)
 {
   cudaStream_t stream              = handle.get_stream();
   raft::comms::comms_t const& comm = raft::resource::get_comms(handle);
@@ -66,7 +67,10 @@ int distinct_mg(const raft::handle_t& handle, T* y, size_t n)
   int n_distinct =
     raft::label::getUniquelabels(global_unique_y, recv_buff.data(), recv_buff.size(), stream);
 
-  return n_distinct;
+  std::vector<T> global_unique_y_host(global_unique_y.size());
+  raft::copy(global_unique_y_host.data(), global_unique_y.data(), global_unique_y.size(), stream);
+
+  return global_unique_y_host;
 }
 
 template <typename T>
@@ -141,9 +145,9 @@ void qnFit_impl(raft::handle_t& handle,
                 input_desc.uniqueRanks().size());
 }
 
-int getUniquelabelsMG(const raft::handle_t& handle,
-                      Matrix::PartDescriptor& input_desc,
-                      std::vector<Matrix::Data<float>*>& labels)
+std::vector<float> getUniquelabelsMG(const raft::handle_t& handle,
+                                     Matrix::PartDescriptor& input_desc,
+                                     std::vector<Matrix::Data<float>*>& labels)
 {
   RAFT_EXPECTS(labels.size() == 1,
                "getUniqueLabelsMG currently does not accept more than one data chunk");

@@ -79,7 +79,7 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         float *f,
         int *num_iters) except +
 
-    cdef int getUniquelabelsMG(
+    cdef vector[float] getUniquelabelsMG(
         const handle_t& handle,
         PartDescriptor &input_desc,
         vector[floatData_t*] labels) except+
@@ -179,11 +179,14 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         cdef float objective32
         cdef int num_iters
 
-        self._num_classes = getUniquelabelsMG(
+        cdef vector[float] c_classes_
+        c_classes_ = getUniquelabelsMG(
             handle_[0],
             deref(<PartDescriptor*><uintptr_t>input_desc),
             deref(<vector[floatData_t*]*><uintptr_t>y))
+        self.classes_ = np.sort(list(c_classes_)).astype('float32')
 
+        self._num_classes = len(self.classes_)
         self.loss = "sigmoid" if self._num_classes <= 2 else "softmax"
         self.prepare_for_fit(self._num_classes)
         cdef uintptr_t mat_coef_ptr = self.coef_.ptr
