@@ -107,8 +107,8 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
         self.solver_model.coef_ = value
 
-    def prepare_for_fit(self, n_classes):
-        self.solver_model.qnparams = QNParams(
+    def create_qnparams(self):
+        return QNParams(
             loss=self.loss,
             penalty_l1=self.l1_strength,
             penalty_l2=self.l2_strength,
@@ -122,6 +122,9 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
             fit_intercept=self.fit_intercept,
             penalty_normalized=self.penalty_normalized
         )
+
+    def prepare_for_fit(self, n_classes):
+        self.solver_model.qnparams = self.create_qnparams()
 
         # modified
         qnpams = self.solver_model.qnparams.params
