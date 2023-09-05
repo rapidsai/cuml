@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,6 +59,7 @@ class Dbscan : public BlobsFixture<D, int> {
                       raft::distance::L2SqrtUnexpanded,
                       this->data.y.data(),
                       this->core_sample_indices,
+                      nullptr,
                       dParams.max_bytes_per_batch);
       state.SetItemsProcessed(this->params.nrows * this->params.ncols);
     });
