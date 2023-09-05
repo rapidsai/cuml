@@ -44,9 +44,6 @@ function(find_and_configure_raft)
         string(APPEND RAFT_COMPONENTS " compiled_static")
         set(RAFT_COMPILED_LIB raft::compiled_static PARENT_SCOPE)
       endif()
-      set(RAFT_COMPILE_LIBRARY ON)
-    else()
-      set(RAFT_COMPILE_LIBRARY OFF)
     endif()
 
     # We need to set this each time so that on subsequent calls to cmake
