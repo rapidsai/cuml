@@ -96,7 +96,7 @@ void launcher(const raft::handle_t& handle,
       [sample_weight] __device__(bool adj_ij, long_index_t j) {
         return adj_ij ? sample_weight[j] : (value_t)0;
       },
-      raft::Sum<index_t>());
+      raft::Sum<value_t>());
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }

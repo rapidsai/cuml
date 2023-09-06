@@ -390,6 +390,12 @@ class DBSCAN(Base,
             default: "int32". Valid values are { "int32", np.int32,
             "int64", np.int64}.
 
+        sample_weight: array-like of shape (n_samples,), default=None
+            Weight of each sample, such that a sample with a weight of at
+            least min_samples is by itself a core sample; a sample with a
+            negative weight may inhibit its eps-neighbor from being core.
+            default: None (which is equivalent to weight 1 for all samples).
+
         """
         return self._fit(X, out_dtype, False, sample_weight)
 
@@ -407,6 +413,12 @@ class DBSCAN(Base,
         out_dtype: dtype Determines the precision of the output labels array.
             default: "int32". Valid values are { "int32", np.int32,
             "int64", np.int64}.
+
+        sample_weight: array-like of shape (n_samples,), default=None
+            Weight of each sample, such that a sample with a weight of at
+            least min_samples is by itself a core sample; a sample with a
+            negative weight may inhibit its eps-neighbor from being core.
+            default: None (which is equivalent to weight 1 for all samples).
 
         """
         self.fit(X, out_dtype, sample_weight)
