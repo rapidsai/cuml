@@ -59,6 +59,9 @@ sed_runner 's/release = .*/release = '"'${NEXT_FULL_TAG}'"'/g' docs/source/conf.
 # Update project_number (RAPIDS_VERSION) in the CPP doxygen file
 sed_runner "s/\(PROJECT_NUMBER.*=\).*/\1 \"${NEXT_SHORT_TAG}\"/g" cpp/Doxyfile.in
 
+# Wheel testing script
+sed_runner "s/branch-.*/branch-${NEXT_SHORT_TAG}/g" ci/test_wheel.sh
+
 DEPENDENCIES=(
   cudf
   dask-cuda

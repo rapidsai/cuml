@@ -31,7 +31,7 @@ from cuml.internals.input_utils import input_to_cuml_array
 
 
 @cuml.internals.api_return_any()
-def r2_score(y, y_hat, convert_dtype=True, handle=None) -> double:
+def r2_score(y, y_hat, convert_dtype=True, handle=None) -> float:
     """
     Calculates r2 score between y and y_hat
 

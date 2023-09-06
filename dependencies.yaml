@@ -111,10 +111,10 @@ dependencies:
           - cxx-compiler
           - gmock>=1.13.0
           - gtest>=1.13.0
-          - libcumlprims==23.8.*
-          - libraft==23.8.*
-          - libraft-headers==23.8.*
-          - librmm==23.8.*
+          - libcumlprims==23.10.*
+          - libraft==23.10.*
+          - libraft-headers==23.10.*
+          - librmm==23.10.*
     specific:
       - output_types: conda
         matrices:
@@ -151,10 +151,10 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - scikit-build>=0.13.1
-          - cython>=0.29,<0.30
+          - cython>=3.0.0
           - &treelite treelite==3.2.0
-          - pylibraft==23.8.*
-          - rmm==23.8.*
+          - pylibraft==23.10.*
+          - rmm==23.10.*
       - output_types: pyproject
         packages:
           - wheel
@@ -174,25 +174,25 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cudf==23.8.*
-          - dask==2023.7.1
-          - dask-cuda==23.8.*
-          - dask-cudf==23.8.*
-          - distributed==2023.7.1
+          - cudf==23.10.*
+          - dask>=2023.7.1
+          - dask-cuda==23.10.*
+          - dask-cudf==23.10.*
+          - distributed>=2023.7.1
           - joblib>=0.11
           - numba>=0.57
             # TODO: Is scipy really a hard dependency, or should
             # we make it optional (i.e. an extra for pip
             # installation/run_constrained for conda)?
           - scipy>=1.8.0
-          - raft-dask==23.8.*
+          - raft-dask==23.10.*
           - *treelite
       - output_types: [conda, requirements]
         packages:
           - cupy>=12.0.0
       - output_types: conda
         packages:
-          - dask-core==2023.7.1
+          - dask-core>=2023.7.1
       - output_types: pyproject
         packages:
           - *treelite_runtime

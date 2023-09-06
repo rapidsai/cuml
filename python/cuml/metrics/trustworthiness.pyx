@@ -55,7 +55,7 @@ def _get_array_ptr(obj):
 @cuml.internals.api_return_any()
 def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                     metric='euclidean',
-                    convert_dtype=True, batch_size=512) -> double:
+                    convert_dtype=True, batch_size=512) -> float:
     """
     Expresses to what extent the local structure is retained in embedding.
     The score is defined in the range [0, 1].
