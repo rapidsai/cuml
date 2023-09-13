@@ -36,17 +36,14 @@ function(find_and_configure_raft)
         string(APPEND RAFT_COMPONENTS " distributed")
     endif()
 
-
     if(PKG_COMPILE_LIBRARY)
-      string(APPEND RAFT_COMPONENTS " compiled")
-      set(RAFT_COMPILE_LIBRARY ON)
-    else()
-      set(RAFT_COMPILE_LIBRARY OFF)
-    endif()
-
-    set(RAFT_BUILD_SHARED_LIBS ON)
-    if(${PKG_USE_RAFT_STATIC})
-        set(RAFT_BUILD_SHARED_LIBS OFF)
+      if(NOT PKG_USE_RAFT_STATIC)
+        string(APPEND RAFT_COMPONENTS " compiled")
+        set(RAFT_COMPILED_LIB raft::compiled PARENT_SCOPE)
+      else()
+        string(APPEND RAFT_COMPONENTS " compiled_static")
+        set(RAFT_COMPILED_LIB raft::compiled_static PARENT_SCOPE)
+      endif()
     endif()
 
     # We need to set this each time so that on subsequent calls to cmake
@@ -68,7 +65,6 @@ function(find_and_configure_raft)
         OPTIONS
           "BUILD_TESTS OFF"
           "BUILD_BENCH OFF"
-          "BUILD_SHARED_LIBS ${RAFT_BUILD_SHARED_LIBS}"
           "RAFT_COMPILE_LIBRARY ${PKG_COMPILE_LIBRARY}"
     )
 
