@@ -36,7 +36,7 @@ function(find_and_configure_treelite)
             EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
             OPTIONS
               "USE_OPENMP ON"
-              "BUILD_STATIC_LIBS ${PKG_BUILD_STATIC_LIBS}"
+              "Treelite_BUILD_STATIC_LIBS ${PKG_BUILD_STATIC_LIBS}"
     )
 
 
