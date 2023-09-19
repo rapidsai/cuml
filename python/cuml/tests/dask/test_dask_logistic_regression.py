@@ -21,6 +21,9 @@ from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.testing.utils import array_equal
+from scipy.sparse import csr_matrix
+
+from test_dask_tfidf import create_cp_sparse_dask_array
 
 pd = cpu_only_import("pandas")
 np = cpu_only_import("numpy")
@@ -46,6 +49,35 @@ def _prep_training_data(c, X_train, y_train, partitions_per_worker):
         c, [X_train_df, y_train_df], workers=workers
     )
     return X_train_df, y_train_df
+
+
+def _prep_training_data_da(c, X_train, y_train, partitions_per_worker):
+    import dask.array as da
+
+    workers = c.has_what().keys()
+    target_n_partitions = partitions_per_worker * len(workers)
+
+    def cal_chunks(dataset, n_partitions):
+        avg_size = dataset.shape[0] // n_partitions
+        assert avg_size > 0, "empty partition is not supported"
+        remainder = dataset.shape[0] - avg_size * n_partitions
+        chunk_sizes = [avg_size + 1] * remainder + [avg_size] * (
+            n_partitions - remainder
+        )
+        return tuple(chunk_sizes)
+
+    assert (
+        X_train.shape[0] == y_train.shape[0]
+    ), "the number of data records is not equal to the number of labels"
+    target_chunk_sizes = cal_chunks(X_train, target_n_partitions)
+
+    X_da = da.from_array(X_train, chunks=(target_chunk_sizes, -1))
+    y_da = da.from_array(y_train, chunks=target_chunk_sizes)
+
+    X_da, y_da = dask_utils.persist_across_workers(
+        c, [X_da, y_da], workers=workers
+    )
+    return X_da, y_da
 
 
 def make_classification_dataset(datatype, nrows, ncols, n_info, n_classes=2):
@@ -285,6 +317,7 @@ def test_lbfgs(
     l1_ratio=None,
     C=1.0,
     n_classes=2,
+    convert_to_sparse=False,
 ):
     tolerance = 0.005
 
@@ -305,7 +338,15 @@ def test_lbfgs(
         datatype, nrows, ncols, n_info, n_classes=n_classes
     )
 
-    X_df, y_df = _prep_training_data(client, X, y, n_parts)
+    if convert_to_sparse is False:
+        # X_dask and y_dask are dask cudf
+        X_dask, y_dask = _prep_training_data(client, X, y, n_parts)
+    else:
+        # X_dask and y_dask are dask array
+
+        workers = client.has_what().keys()
+        X_dask = create_cp_sparse_dask_array(X, n_parts * len(workers))
+        _, y_dask = _prep_training_data_da(client, X, y, n_parts)
 
     lr = cumlLBFGS_dask(
         solver="qn",
@@ -315,9 +356,19 @@ def test_lbfgs(
         C=C,
         verbose=True,
     )
-    lr.fit(X_df, y_df)
-    lr_coef = lr.coef_.to_numpy()
-    lr_intercept = lr.intercept_.to_numpy()
+    lr.fit(X_dask, y_dask)
+
+    def array_to_numpy(ary):
+        if isinstance(ary, cp.ndarray):
+            return cp.asarray(ary)
+        elif isinstance(ary, cudf.DataFrame) or isinstance(ary, cudf.Series):
+            return ary.to_numpy()
+        else:
+            assert isinstance(ary, np.ndarray)
+            return ary
+
+    lr_coef = array_to_numpy(lr.coef_)
+    lr_intercept = array_to_numpy(lr.intercept_)
 
     if penalty == "l2" or penalty == "none":
         sk_solver = "lbfgs"
@@ -345,7 +396,11 @@ def test_lbfgs(
         )
 
     # test predict
-    cu_preds = lr.predict(X_df, delayed=delayed).compute().to_numpy()
+    cu_preds = lr.predict(X_dask, delayed=delayed).compute()
+    if isinstance(cu_preds, cp.ndarray):
+        cu_preds = cp.asnumpy(cu_preds)
+    if not isinstance(cu_preds, np.ndarray):
+        cu_preds = cu_preds.to_numpy()
     accuracy_cuml = accuracy_score(y, cu_preds)
 
     sk_preds = sk_model.predict(X)
@@ -491,3 +546,162 @@ def test_elasticnet(
     strength = 1.0 / lr.C
     assert l1_strength == lr.l1_ratio * strength
     assert l2_strength == (1.0 - lr.l1_ratio) * strength
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("fit_intercept", [False, True])
+@pytest.mark.parametrize(
+    "regularization",
+    [
+        ("none", 1.0, None),
+        ("l2", 2.0, None),
+        ("l1", 2.0, None),
+        ("elasticnet", 2.0, 0.2),
+    ],
+)
+@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("delayed", [True])
+@pytest.mark.parametrize("n_classes", [2, 8])
+def test_sparse_from_dense(
+    fit_intercept, regularization, datatype, delayed, n_classes, client
+):
+    penalty = regularization[0]
+    C = regularization[1]
+    l1_ratio = regularization[2]
+
+    test_lbfgs(
+        nrows=1e5,
+        ncols=20,
+        n_parts=2,
+        fit_intercept=fit_intercept,
+        datatype=datatype,
+        delayed=delayed,
+        client=client,
+        penalty=penalty,
+        n_classes=n_classes,
+        C=C,
+        l1_ratio=l1_ratio,
+        convert_to_sparse=True,
+    )
+
+
+@pytest.mark.xfail(
+    reason="This test is expected to fail with a NCCL error when running multiple times with 2 GPU"
+)
+@pytest.mark.parametrize("fit_intercept", [False, True])
+@pytest.mark.parametrize(
+    "regularization",
+    [
+        ("none", 1.0, None),
+    ],
+)
+@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("delayed", [True])
+@pytest.mark.parametrize("n_classes", [8])
+def test_reproducer_csr_to_da_empty_gpu(
+    fit_intercept, regularization, datatype, delayed, n_classes, client
+):
+
+    penalty = regularization[0]
+    C = regularization[1]
+    l1_ratio = regularization[2]
+
+    nrows = 100000
+    ncols = 20
+    n_parts = 2
+
+    def imp():
+        import cuml.comm.serialize  # NOQA
+
+    client.run(imp)
+
+    from cuml.dask.linear_model.logistic_regression import (
+        LogisticRegression as cumlLBFGS_dask,
+    )
+
+    # set n_informative variable for calling sklearn.datasets.make_classification
+    n_info = 5
+    X, y = make_classification_dataset(
+        datatype, nrows, ncols, n_info, n_classes=n_classes
+    )
+
+    # X_dask and y_dask are dask array
+    X = csr_matrix(X)
+    X_dask, y_dask = _prep_training_data_da(client, X, y, n_parts)
+
+    lr = cumlLBFGS_dask(
+        solver="qn",
+        fit_intercept=fit_intercept,
+        penalty=penalty,
+        l1_ratio=l1_ratio,
+        C=C,
+        verbose=True,
+    )
+    lr.fit(X_dask, y_dask)
+
+
+@pytest.mark.parametrize("dtype", [np.float32])
+def test_sparse_nlp20news(dtype, nlp_20news, client):
+    # sklearn score with max_iter = 10000
+    # sklearn_score = 0.878
+    # acceptable_score = sklearn_score - 0.01
+
+    X, y = nlp_20news
+
+    from scipy.sparse import csr_matrix
+    from sklearn.model_selection import train_test_split
+
+    X = X.astype(dtype)
+
+    X = csr_matrix(X)
+    y = y.get().astype(dtype)
+
+    X = X[:100]
+    y = y[:100]
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
+
+    def test_sg():
+        # from cuml.dask.linear_model import LogisticRegression
+        from cuml.linear_model import LogisticRegression
+
+        culog = LogisticRegression(verbose=True)
+        culog.fit(X_train, y_train)
+        score = culog.score(X_test, y_test)
+
+        # assert score >= acceptable_score
+        print(f"sg.coef_ is {culog.coef_}")
+        print(f"sg score is {score}")
+
+    # test_sg()
+
+    def test_mg():
+        from cuml.dask.linear_model import LogisticRegression as MG
+        import dask
+
+        from test_dask_tfidf import create_cp_sparse_dask_array
+
+        workers = client.has_what().keys()
+        X_train_da = create_cp_sparse_dask_array(
+            X_train, n_parts=2 * len(workers)
+        )
+        _, y_train_da = _prep_training_data_da(client, X_train, y_train, 2)
+
+        # X_train_da, y_train_da = _prep_training_data_da(
+        #    client, X_train, y_train, 2
+        # )
+        # X_test_da, y_test_da = _prep_training_data_da(
+        #    client, X_test, y_test, 2
+        # )
+
+        cumg = MG(verbose=True)
+        cumg.fit(X_train_da, y_train_da)
+        print(f"cumg.coef_ is {cumg.coef_}")
+
+        # preds = cumg.predict(X_test_da).compute()
+
+        # cuml_score = accuracy_score(y_test, preds.tolist())
+        # print(f"cuml_score: {cuml_score}")
+        # assert cuml_score >= acceptable_score
+
+    test_mg()

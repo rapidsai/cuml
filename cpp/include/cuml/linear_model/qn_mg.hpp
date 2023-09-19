@@ -63,6 +63,22 @@ void qnFit(raft::handle_t& handle,
            float* f,
            int* num_iters);
 
+/**
+ * TODO: add docstring
+ */
+void qnFitSparse(raft::handle_t& handle,
+                 std::vector<Matrix::Data<float>*>& input_values,
+                 int* input_cols,
+                 int* input_row_ids,
+                 int X_nnz,
+                 Matrix::PartDescriptor& input_desc,
+                 std::vector<Matrix::Data<float>*>& labels,
+                 float* coef,
+                 const qn_params& pams,
+                 int n_classes,
+                 float* f,
+                 int* num_iters);
+
 };  // namespace opg
 };  // namespace GLM
 };  // namespace ML
