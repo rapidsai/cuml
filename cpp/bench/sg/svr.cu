@@ -91,9 +91,9 @@ std::vector<SvrParams<D>> getInputs()
 
   p.regression.shuffle        = true;  // better to shuffle when n_informative < ncols
   p.regression.seed           = 1378ULL;
-  p.regression.effective_rank = -1;    // dataset generation will be faster
+  p.regression.effective_rank = -1;  // dataset generation will be faster
   p.regression.bias           = 0;
-  p.regression.tail_strength  = 0.5;   // unused when effective_rank = -1
+  p.regression.tail_strength  = 0.5;  // unused when effective_rank = -1
   p.regression.noise          = 1;
 
   // SvmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity,

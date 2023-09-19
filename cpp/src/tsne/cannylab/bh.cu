@@ -47,7 +47,7 @@ Emerald Edition, pp. 75-92. January 2011.
 // threads per block
 #define THREADS1 1024 /* must be a power of 2 */
 #define THREADS2 1024
-#define THREADS3 768  /* shared-memory limited on some devices */
+#define THREADS3 768 /* shared-memory limited on some devices */
 #define THREADS4 1024
 #define THREADS5 1024
 #define THREADS6 1024
@@ -562,7 +562,7 @@ __global__ __launch_bounds__(THREADS4,
           }
         }
       }
-      k -= dec;       // move on to next cell
+      k -= dec;  // move on to next cell
     }
     __syncthreads();  // optional barrier for performance
   }
