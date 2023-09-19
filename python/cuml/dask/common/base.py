@@ -56,11 +56,13 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
         self.internal_model = None
 
     def __getstate__(self):
+        internal_model = self._get_internal_model()
+        internal_model = internal_model.result()
         d = {
             "verbose": self.verbose,
             "kwargs": self.kwargs,
             "datatype": None,
-            "internal_model": self._get_internal_model(),
+            "internal_model": internal_model,
         }
         if hasattr(self, "datatype"):
             d["datatype"] = self.datatype

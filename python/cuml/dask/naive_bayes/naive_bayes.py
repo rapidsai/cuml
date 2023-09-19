@@ -182,8 +182,6 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
 
         wait_and_raise_from_futures([models])
 
-        models = models.result()
-
         self._set_internal_model(models)
 
         return self
