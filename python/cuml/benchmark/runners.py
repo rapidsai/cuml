@@ -149,6 +149,14 @@ class SpeedupComparisonRunner:
                 )
             )
 
+        if n_samples == 0:
+            # Update n_samples = training samples + testing samples
+            n_samples = data[0].shape[0] + data[2].shape[0]
+
+        if n_features == 0:
+            # Update n_features
+            n_features = data[0].shape[1]
+
         return dict(
             cuml_time=cu_elapsed,
             cpu_time=cpu_elapsed,
@@ -291,8 +299,6 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             for rep in cpu_timer.benchmark_runs():
                 cpu_model = algo_pair.run_cpu(
                     data,
-                    **param_overrides,
-                    **cpu_param_overrides,
                     **setup_override,
                 )
             cpu_elapsed = np.min(cpu_timer.timings)
@@ -311,6 +317,14 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                 )
         else:
             cpu_elapsed = 0.0
+
+        if n_samples == 0:
+            # Update n_samples = training samples + testing samples
+            n_samples = data[0].shape[0] + data[2].shape[0]
+
+        if n_features == 0:
+            # Update n_features
+            n_features = data[0].shape[1]
 
         return dict(
             cuml_time=cu_elapsed,
