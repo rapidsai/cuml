@@ -95,7 +95,20 @@ IF GPUBUILD == 1:
             PredictionData[int, float] &prediction_data_,
             float* X,
             DistanceType metric,
-            float* membership_vec)
+            float* membership_vec,
+            size_t batch_size)
+
+        void compute_membership_vector(
+            const handle_t& handle,
+            CondensedHierarchy[int, float] &condensed_tree,
+            PredictionData[int, float] &prediction_data,
+            float* X,
+            float* points_to_predict,
+            size_t n_prediction_points,
+            int min_samples,
+            DistanceType metric,
+            float* membership_vec,
+            size_t batch_size)
 
         void out_of_sample_predict(const handle_t &handle,
                                    CondensedHierarchy[int, float] &condensed_tree,
@@ -130,8 +143,14 @@ def all_points_membership_vectors(clusterer):
     Parameters
     ----------
     clusterer : HDBSCAN
-         A clustering object that has been fit to the data and
+        A clustering object that has been fit to the data and
         had ``prediction_data=True`` set.
+
+    batch_size : int, optional, default=min(4096, n_rows)
+        Lowers memory requirement by computing distance-based membership
+        in smaller batches of points in the training data. For example, a batch
+        size of 1,000 computes distance based memberships for 1,000 points at a
+        time. The default batch size is 4,096.
 
     Returns
     -------
@@ -140,11 +159,14 @@ def all_points_membership_vectors(clusterer):
         cluster ``j`` is in ``membership_vectors[i, j]``.
     """
 
+    if batch_size <= 0:
+        raise ValueError("batch_size must be > 0")
+
     device_type = cuml.global_settings.device_type
 
     # cpu infer, cpu/gpu train
     if device_type == DeviceType.host:
-        assert has_hdbscan_prediction()
+        assert has_hdbscan(raise_if_unavailable=True)
         from hdbscan.prediction import all_points_membership_vectors \
             as cpu_all_points_membership_vectors
 
@@ -201,7 +223,8 @@ def all_points_membership_vectors(clusterer):
                                               deref(prediction_data_),
                                               <float*> input_ptr,
                                               _metrics_mapping[clusterer.metric],
-                                              <float*> membership_vec_ptr)
+                                              <float*> membership_vec_ptr,
+                                              batch_size)
 
     clusterer.handle.sync()
     return membership_vec.to_output(
@@ -209,6 +232,119 @@ def all_points_membership_vectors(clusterer):
         output_dtype="float32").reshape((clusterer.n_rows,
                                          clusterer.n_clusters_))
 
+
+def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dtype=True):
+    """Predict soft cluster membership. The result produces a vector
+    for each point in ``points_to_predict`` that gives a probability that
+    the given point is a member of a cluster for each of the selected clusters
+    of the ``clusterer``.
+    Parameters
+    ----------
+    clusterer : HDBSCAN
+        A clustering object that has been fit to the data and
+        either had ``prediction_data=True`` set, or called the
+        ``generate_prediction_data`` method after the fact.
+    points_to_predict : array, or array-like (n_samples, n_features)
+        The new data points to predict cluster labels for. They should
+        have the same dimensionality as the original dataset over which
+        clusterer was fit.
+    batch_size : int, optional, default=min(4096, n_points_to_predict)
+        Lowers memory requirement by computing distance-based membership
+        in smaller batches of points in the prediction data. For example, a
+        batch size of 1,000 computes distance based memberships for 1,000
+        points at a time. The default batch size is 4,096.
+    Returns
+    -------
+    membership_vectors : array (n_samples, n_clusters)
+        The probability that point ``i`` is a member of cluster ``j`` is
+        in ``membership_vectors[i, j]``.
+    """
+
+    device_type = cuml.global_settings.device_type
+
+    # cpu infer, cpu/gpu train
+    if device_type == DeviceType.host:
+        assert has_hdbscan(raise_if_unavailable=True)
+        from hdbscan.prediction import membership_vector \
+            as cpu_membership_vector
+
+        # trained on gpu
+        if not hasattr(clusterer, "_cpu_model"):
+            # the reference HDBSCAN implementations uses @property
+            # for attributes without setters available for them,
+            # so they can't be transferred from the GPU model
+            # to the CPU model
+            raise ValueError("Inferring on CPU is not supported yet when the "
+                             "model has been trained on GPU")
+
+        host_points_to_predict = input_to_host_array(points_to_predict).array
+        return cpu_membership_vector(clusterer._cpu_model,
+                                     host_points_to_predict)
+
+    elif device_type == DeviceType.device:
+        # trained on cpu
+        if hasattr(clusterer, "_cpu_model"):
+            clusterer._prep_cpu_to_gpu_prediction()
+
+    if not clusterer.fit_called_:
+        raise ValueError("The clusterer is not fit on data. "
+                         "Please call clusterer.fit first")
+
+    if not clusterer.prediction_data:
+        raise ValueError("PredictionData not generated. "
+                         "Please call clusterer.fit again with "
+                         "prediction_data=True")
+
+    if batch_size <= 0:
+        raise ValueError("batch_size must be > 0")
+
+    points_to_predict_m, n_prediction_points, n_cols, _ = \
+        input_to_cuml_array(points_to_predict, order='C',
+                            check_dtype=[np.float32],
+                            convert_to_dtype=(np.float32
+                                              if convert_dtype
+                                              else None))
+
+    if clusterer.n_clusters_ == 0:
+        return np.zeros(n_prediction_points, dtype=np.float32)
+
+    if n_cols != clusterer.n_cols:
+        raise ValueError('New points dimension does not match fit data!')
+
+    IF GPUBUILD == 1:
+        cdef uintptr_t prediction_ptr = points_to_predict_m.ptr
+        cdef uintptr_t input_ptr = clusterer.X_m.ptr
+
+        membership_vec = CumlArray.empty(
+            (n_prediction_points * clusterer.n_clusters_,),
+            dtype="float32")
+
+        cdef uintptr_t membership_vec_ptr = membership_vec.ptr
+
+        cdef CondensedHierarchy[int, float] *condensed_tree = \
+            <CondensedHierarchy[int, float]*><size_t> clusterer.condensed_tree_ptr
+
+        cdef PredictionData *prediction_data_ = \
+            <PredictionData*><size_t>clusterer.prediction_data_ptr
+
+        cdef handle_t* handle_ = <handle_t*><size_t>clusterer.handle.getHandle()
+
+        compute_membership_vector(handle_[0],
+                                  deref(condensed_tree),
+                                  deref(prediction_data_),
+                                  <float*> input_ptr,
+                                  <float*> prediction_ptr,
+                                  n_prediction_points,
+                                  clusterer.min_samples,
+                                  _metrics_mapping[clusterer.metric],
+                                  <float*> membership_vec_ptr,
+                                  batch_size)
+
+    clusterer.handle.sync()
+    return membership_vec.to_output(
+        output_type="numpy",
+        output_dtype="float32").reshape((n_prediction_points,
+                                         clusterer.n_clusters_))
 
 def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
     """Predict the cluster label of new points. The returned labels
@@ -247,7 +383,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
 
     # cpu infer, cpu/gpu train
     if device_type == DeviceType.host:
-        assert has_hdbscan_prediction()
+        assert has_hdbscan(raise_if_unavailable=True)
         from hdbscan.prediction import approximate_predict \
             as cpu_approximate_predict
 
@@ -337,5 +473,5 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
                               <float*> prediction_probs_ptr)
 
     clusterer.handle.sync()
-    return prediction_labels.to_output(output_type="numpy"),\
+    return prediction_labels.to_output(output_type="numpy"), \
         prediction_probs.to_output(output_type="numpy", output_dtype="float32")

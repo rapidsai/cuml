@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -351,7 +351,7 @@ class QN(Base,
         Note, this parameter corresponds to `ftol` in
         `scipy.optimize.minimize(method='L-BFGS-B')
         <https://docs.scipy.org/doc/scipy/reference/optimize.minimize-lbfgsb.html>`_,
-        which is set by default to a miniscule `2.2e-9` and is not exposed in
+        which is set by default to a minuscule `2.2e-9` and is not exposed in
         `sklearn.LogisticRegression()
         <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
         This condition is meant to protect the solver against doing vanishingly
@@ -476,7 +476,7 @@ class QN(Base,
                 X, check_dtype=[np.float32, np.float64], order='K'
             )
 
-        y_m, lab_rows, _, _ = input_to_cuml_array(
+        y_m, _, _, _ = input_to_cuml_array(
             y, check_dtype=self.dtype,
             convert_to_dtype=(self.dtype if convert_dtype else None),
             check_rows=n_rows, check_cols=1
@@ -582,7 +582,7 @@ class QN(Base,
                         handle_[0],
                         qnpams,
                         <float*><uintptr_t> X_m.ptr,
-                        <bool> __is_col_major(X_m),
+                        <bool> _is_col_major(X_m),
                         <float*> y_ptr,
                         <int> n_rows,
                         <int> self.n_cols,
@@ -617,7 +617,7 @@ class QN(Base,
                         handle_[0],
                         qnpams,
                         <double*><uintptr_t> X_m.ptr,
-                        <bool> __is_col_major(X_m),
+                        <bool> _is_col_major(X_m),
                         <double*> y_ptr,
                         <int> n_rows,
                         <int> self.n_cols,
@@ -735,7 +735,7 @@ class QN(Base,
                         handle_[0],
                         qnpams,
                         <float*><uintptr_t> X_m.ptr,
-                        <bool> __is_col_major(X_m),
+                        <bool> _is_col_major(X_m),
                         <int> n_rows,
                         <int> n_cols,
                         <int> _num_classes,
@@ -761,7 +761,7 @@ class QN(Base,
                         handle_[0],
                         qnpams,
                         <double*><uintptr_t> X_m.ptr,
-                        <bool> __is_col_major(X_m),
+                        <bool> _is_col_major(X_m),
                         <int> n_rows,
                         <int> n_cols,
                         <int> _num_classes,
@@ -862,7 +862,7 @@ class QN(Base,
                         handle_[0],
                         qnpams,
                         <float*><uintptr_t> X_m.ptr,
-                        <bool> __is_col_major(X_m),
+                        <bool> _is_col_major(X_m),
                         <int> n_rows,
                         <int> n_cols,
                         <int> _num_classes,
@@ -888,7 +888,7 @@ class QN(Base,
                         handle_[0],
                         qnpams,
                         <double*><uintptr_t> X_m.ptr,
-                        <bool> __is_col_major(X_m),
+                        <bool> _is_col_major(X_m),
                         <int> n_rows,
                         <int> n_cols,
                         <int> _num_classes,
@@ -948,5 +948,5 @@ class QN(Base,
                 'warm_start', 'delta', 'penalty_normalized']
 
 
-def __is_col_major(X):
+def _is_col_major(X):
     return getattr(X, "order", "F").upper() == "F"

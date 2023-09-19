@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2018-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,9 +15,7 @@
 
 # distutils: language = c++
 
-import typing
 
-import ctypes
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
@@ -28,7 +26,6 @@ cuda = gpu_only_import_from('numba', 'cuda')
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport calloc, malloc, free
 
 import cuml.internals
 from cuml.internals.base import Base
@@ -270,11 +267,12 @@ class SGD(Base,
 
                 raise TypeError("This option will be supported in the future")
 
-                if self.alpha == 0:
-                    raise ValueError("alpha must be > 0 since "
-                                     "learning_rate is 'optimal'. alpha is "
-                                     "used to compute the optimal learning "
-                                     " rate.")
+                # TODO: uncomment this when optimal learning rate is supported
+                # if self.alpha == 0:
+                #     raise ValueError("alpha must be > 0 since "
+                #                      "learning_rate is 'optimal'. alpha is "
+                #                      "used to compute the optimal learning "
+                #                      " rate.")
 
             elif learning_rate == 'constant':
                 self.lr_type = 1
@@ -448,7 +446,7 @@ class SGD(Base,
 
         self.handle.sync()
 
-        del(X_m)
+        del X_m
 
         return preds
 
