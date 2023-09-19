@@ -30,12 +30,12 @@ requirements:
     - python x.x
     - setuptools
     - scikit-build>=0.13.1
-    - cython>=0.29,<0.30
+    - cython>=3.0.0
   run:
     - python x.x
     - numpy
     - scikit-learn=1.2
-    - hdbscan=0.8.29
+    - hdbscan<=0.8.30
     - umap-learn=0.5.3
     - nvtx
 
