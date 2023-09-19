@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,40 +16,50 @@
 
 # distutils: language = c++
 
+import ctypes
 import cuml.internals
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
+import warnings
 
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
+from collections import defaultdict
 
+from libcpp cimport bool
 from libc.stdint cimport uintptr_t
+from libc.stdlib cimport calloc, malloc, free
 
 from cuml.internals.array import CumlArray
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
-from pylibraft.common.handle cimport handle_t
 from cuml.internals.api_decorators import enable_device_interop
 
-cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
-    cdef void gemmPredict(handle_t& handle,
-                          const float *input,
-                          size_t n_rows,
-                          size_t n_cols,
-                          const float *coef,
-                          float intercept,
-                          float *preds) except +
+IF GPUBUILD == 1:
+    from pylibraft.common.handle cimport handle_t
+    cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
-    cdef void gemmPredict(handle_t& handle,
-                          const double *input,
-                          size_t n_rows,
-                          size_t n_cols,
-                          const double *coef,
-                          double intercept,
-                          double *preds) except +
+        cdef void gemmPredict(handle_t& handle,
+                              const float *input,
+                              size_t n_rows,
+                              size_t n_cols,
+                              const float *coef,
+                              float intercept,
+                              float *preds) except +
+
+        cdef void gemmPredict(handle_t& handle,
+                              const double *input,
+                              size_t n_rows,
+                              size_t n_cols,
+                              const double *coef,
+                              double intercept,
+                              double *preds) except +
 
 
 class LinearPredictMixin:
@@ -99,24 +109,24 @@ class LinearPredictMixin:
         preds = CumlArray.zeros(n_rows, dtype=dtype, index=X_m.index)
         cdef uintptr_t preds_ptr = preds.ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
-        if dtype.type == np.float32:
-            gemmPredict(handle_[0],
-                        <float*>X_ptr,
-                        <size_t>n_rows,
-                        <size_t>n_cols,
-                        <float*>coef_ptr,
-                        <float>self.intercept_,
-                        <float*>preds_ptr)
-        else:
-            gemmPredict(handle_[0],
-                        <double*>X_ptr,
-                        <size_t>n_rows,
-                        <size_t>n_cols,
-                        <double*>coef_ptr,
-                        <double>self.intercept_,
-                        <double*>preds_ptr)
+        IF GPUBUILD == 1:
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+            if dtype.type == np.float32:
+                gemmPredict(handle_[0],
+                            <float*>X_ptr,
+                            <size_t>n_rows,
+                            <size_t>n_cols,
+                            <float*>coef_ptr,
+                            <float>self.intercept_,
+                            <float*>preds_ptr)
+            else:
+                gemmPredict(handle_[0],
+                            <double*>X_ptr,
+                            <size_t>n_rows,
+                            <size_t>n_cols,
+                            <double*>coef_ptr,
+                            <double>self.intercept_,
+                            <double*>preds_ptr)
 
         self.handle.sync()
 

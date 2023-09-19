@@ -14,12 +14,11 @@
 
 
 
-set(cython_sources
-    simpl_set.pyx
-    t_sne.pyx
-    umap.pyx
-    umap_utils.pyx
-)
+set(cython_sources "")
+add_module_gpu_default("simpl_set.pyx" ${simpl_set_algo} ${manifold_algo})
+add_module_gpu_default("t_sne.pyx" ${t_sne_algo} ${manifold_algo})
+add_module_gpu_default("umap.pyx" ${umap_algo} ${manifold_algo})
+add_module_gpu_default("umap_utils.pyx")
 
 rapids_cython_create_modules(
   CXX

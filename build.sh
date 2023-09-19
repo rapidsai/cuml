@@ -27,6 +27,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    libcuml           - build the cuml C++ code only. Also builds the C-wrapper library
                        around the C++ code.
    cuml              - build the cuml Python package
+   cuml-cpu          - build the cuml CPU Python package
    cpp-mgtests       - build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
    prims             - build the ml-prims tests
    bench             - build the libcuml C++ benchmark
@@ -293,4 +294,10 @@ if (! hasArg --configure-only) && (completeBuild || hasArg cuml || hasArg pydocs
         cd ${REPODIR}/docs
         make html
     fi
+fi
+
+if hasArg cuml-cpu; then
+    SKBUILD_CONFIGURE_OPTIONS="${CUML_EXTRA_CMAKE_ARGS} -DCUML_CPU=ON" \
+        SKBUILD_BUILD_OPTIONS="-j${PARALLEL_LEVEL}" \
+        python -m pip install --no-build-isolation --no-deps ${REPODIR}/python
 fi
