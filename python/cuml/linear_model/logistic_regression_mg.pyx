@@ -103,7 +103,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         self.solver_model.coef_ = value
 
     def prepare_for_fit(self, n_classes):
-        self.qnparams = QNParams(
+        self.solver_model.qnparams = QNParams(
             loss=self.loss,
             penalty_l1=self.l1_strength,
             penalty_l2=self.l2_strength,
@@ -179,7 +179,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         self.prepare_for_fit(self._num_classes)
         cdef uintptr_t mat_coef_ptr = self.coef_.ptr
 
-        cdef qn_params qnpams = self.qnparams.params
+        cdef qn_params qnpams = self.solver_model.qnparams.params
 
         if self.dtype == np.float32:
             qnFit(
