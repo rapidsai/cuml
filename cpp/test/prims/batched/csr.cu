@@ -38,7 +38,7 @@ template <typename T>
 struct CSRInputs {
   CSROperation operation;
   int batch_size;
-  int m;    // Dimensions of A
+  int m;  // Dimensions of A
   int n;
   int nnz;  // Number of non-zero elements in A
   int p;    // Dimensions of B or x

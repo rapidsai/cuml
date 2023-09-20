@@ -22,7 +22,7 @@ dependencies:
 - dask-ml
 - dask>=2023.7.1
 - distributed>=2023.7.1
-- doxygen=1.8.20
+- doxygen=1.9.1
 - gcc_linux-64=11.*
 - gmock>=1.13.0
 - graphviz

@@ -194,7 +194,7 @@ __global__ void compute_membership_strength_kernel(
   const value_idx* knn_indices,
   const float* knn_dists,  // nn outputs
   const value_t* sigmas,
-  const value_t* rhos,     // continuous dists to nearest neighbors
+  const value_t* rhos,  // continuous dists to nearest neighbors
   value_t* vals,
   int* rows,
   int* cols,  // result coo

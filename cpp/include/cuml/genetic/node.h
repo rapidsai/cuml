@@ -86,7 +86,7 @@ struct node {
     tanh,
     unary_end     = tanh,  // keep this to be the last unary function in the list
     functions_end = unary_end,
-  };                       // enum type
+  };  // enum type
 
   /**
    * @brief Default constructor for node

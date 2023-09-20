@@ -95,8 +95,8 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - clang==15.0.7
-          - clang-tools==15.0.7
+          - clang==16.0.6
+          - clang-tools==16.0.6
           - ninja
           - tomli
   common_build:
@@ -302,7 +302,7 @@ dependencies:
           - sphinx-markdown-tables
       - output_types: conda
         packages:
-          - doxygen=1.8.20 # pre-commit hook needs a specific version.
+          - doxygen=1.9.1
   py_version:
     specific:
       - output_types: conda
@@ -367,4 +367,3 @@ dependencies:
           - pandas
           - *scikit_learn
           - seaborn
-          

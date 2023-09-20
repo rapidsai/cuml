@@ -87,7 +87,7 @@ std::vector<RegParams> getInputs()
   p.regression    = {.shuffle        = true,  // Better to shuffle when n_informative < ncols
                      .effective_rank = -1,    // dataset generation will be faster
                      .bias           = 4.5,
-                     .tail_strength  = 0.5,   // unused when effective_rank = -1
+                     .tail_strength  = 0.5,  // unused when effective_rank = -1
                      .noise          = 1.0,
                      .seed           = 12345ULL};
 
