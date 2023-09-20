@@ -56,23 +56,18 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
         self.internal_model = None
 
     def __getstate__(self):
-        internal_model = self._get_internal_model()
-        internal_model = internal_model.result()
-        d = {
+        internal_model = self._get_internal_model().result()
+        state = {
             "verbose": self.verbose,
             "kwargs": self.kwargs,
-            "datatype": None,
+            "datatype": getattr(self, "datatype", None),
             "internal_model": internal_model,
         }
-        if hasattr(self, "datatype"):
-            d["datatype"] = self.datatype
-        return d
+        return state
 
-    def __setstate__(self, d):
-        self.verbose = d["verbose"]
-        self.kwargs = d["kwargs"]
-        self.datatype = d["datatype"]
-        self._set_internal_model(d["internal_model"])
+    def __setstate__(self, state):
+        self._set_internal_model(state.pop("internal_model"))
+        self.__dict__.update(state)
 
     def get_combined_model(self):
         """
