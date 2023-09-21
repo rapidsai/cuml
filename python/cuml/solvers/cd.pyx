@@ -21,7 +21,6 @@ np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
 
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
 from cuml.common import CumlArray
@@ -245,28 +244,28 @@ class CD(Base,
         else:
             sample_weight_ptr = 0
 
-        cdef uintptr_t X_ptr = X_m.ptr
-        cdef uintptr_t y_ptr = y_m.ptr
+        cdef uintptr_t _X_ptr = X_m.ptr
+        cdef uintptr_t _y_ptr = y_m.ptr
 
         self.n_alpha = 1
 
         self.coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t _coef_ptr = self.coef_.ptr
 
-        cdef float c_intercept1
-        cdef double c_intercept2
+        cdef float _c_intercept_f32
+        cdef double _c_intercept2_f64
 
         IF GPUBUILD == 1:
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
             if self.dtype == np.float32:
                 cdFit(handle_[0],
-                      <float*>X_ptr,
+                      <float*>_X_ptr,
                       <int>n_rows,
                       <int>self.n_cols,
-                      <float*>y_ptr,
-                      <float*>coef_ptr,
-                      <float*>&c_intercept1,
+                      <float*>_y_ptr,
+                      <float*>_coef_ptr,
+                      <float*>&_c_intercept_f32,
                       <bool>self.fit_intercept,
                       <bool>self.normalize,
                       <int>self.max_iter,
@@ -277,15 +276,15 @@ class CD(Base,
                       <float>self.tol,
                       <float*>sample_weight_ptr)
 
-                self.intercept_ = c_intercept1
+                self.intercept_ = _c_intercept_f32
             else:
                 cdFit(handle_[0],
-                      <double*>X_ptr,
+                      <double*>_X_ptr,
                       <int>n_rows,
                       <int>self.n_cols,
-                      <double*>y_ptr,
-                      <double*>coef_ptr,
-                      <double*>&c_intercept2,
+                      <double*>_y_ptr,
+                      <double*>_coef_ptr,
+                      <double*>&_c_intercept2_f64,
                       <bool>self.fit_intercept,
                       <bool>self.normalize,
                       <int>self.max_iter,
@@ -296,7 +295,7 @@ class CD(Base,
                       <double>self.tol,
                       <double*>sample_weight_ptr)
 
-            self.intercept_ = c_intercept2
+            self.intercept_ = _c_intercept2_f64
 
         self.handle.sync()
         del X_m
@@ -315,39 +314,39 @@ class CD(Base,
         Predicts the y for X.
 
         """
-        X_m, n_rows, n_cols, _ = \
+        X_m, n_rows, _n_cols, _ = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
                                 check_cols=self.n_cols)
 
-        cdef uintptr_t X_ptr = X_m.ptr
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t _X_ptr = X_m.ptr
+        cdef uintptr_t _coef_ptr = self.coef_.ptr
 
         preds = CumlArray.zeros(n_rows, dtype=self.dtype,
                                 index=X_m.index)
-        cdef uintptr_t preds_ptr = preds.ptr
+        cdef uintptr_t _preds_ptr = preds.ptr
 
         IF GPUBUILD == 1:
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
             if self.dtype == np.float32:
                 cdPredict(handle_[0],
-                          <float*>X_ptr,
+                          <float*>_X_ptr,
                           <int>n_rows,
-                          <int>n_cols,
-                          <float*>coef_ptr,
+                          <int>_n_cols,
+                          <float*>_coef_ptr,
                           <float>self.intercept_,
-                          <float*>preds_ptr,
+                          <float*>_preds_ptr,
                           <int>self._get_loss_int())
             else:
                 cdPredict(handle_[0],
-                          <double*>X_ptr,
+                          <double*>_X_ptr,
                           <int>n_rows,
-                          <int>n_cols,
-                          <double*>coef_ptr,
+                          <int>_n_cols,
+                          <double*>_coef_ptr,
                           <double>self.intercept_,
-                          <double*>preds_ptr,
+                          <double*>_preds_ptr,
                           <int>self._get_loss_int())
 
         self.handle.sync()

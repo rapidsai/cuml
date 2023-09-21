@@ -336,6 +336,7 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
         output_dtype="float32").reshape((n_prediction_points,
                                          clusterer.n_clusters_))
 
+
 def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
     """Predict the cluster label of new points. The returned labels
     will be those of the original clustering found by ``clusterer``,
@@ -433,7 +434,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
         (n_prediction_points,),
         dtype="float32")
 
-    cdef uintptr_t prediction_probs_ptr = prediction_probs.ptr
+    cdef uintptr_t _prediction_probs_ptr = prediction_probs.ptr
 
     labels, _, _, _ = input_to_cuml_array(clusterer.labels_,
                                           order="C",
@@ -460,7 +461,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
                               _metrics_mapping[clusterer.metric],
                               clusterer.min_samples,
                               <int*> _prediction_labels_ptr,
-                              <float*> prediction_probs_ptr)
+                              <float*> _prediction_probs_ptr)
 
     clusterer.handle.sync()
     return prediction_labels.to_output(output_type="numpy"), \

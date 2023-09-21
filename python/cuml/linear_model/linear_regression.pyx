@@ -25,7 +25,6 @@ import warnings
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
 
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
 from cuml.internals.array import CumlArray
@@ -324,7 +323,7 @@ class LinearRegression(LinearPredictMixin,
         Fit the model with X and y.
 
         """
-        cdef uintptr_t X_ptr, y_ptr, sample_weight_ptr
+        cdef uintptr_t _X_ptr, _y_ptr, sample_weight_ptr
 
         need_explicit_copy = self.copy_X and hasattr(X, "__cuda_array_interface__") \
             and (len(X.shape) < 2 or X.shape[1] == 1)
@@ -333,7 +332,7 @@ class LinearRegression(LinearPredictMixin,
             input_to_cuml_array(X,
                                 check_dtype=[np.float32, np.float64],
                                 deepcopy=need_explicit_copy)
-        X_ptr = X_m.ptr
+        _X_ptr = X_m.ptr
         self.feature_names_in_ = X_m.index
 
         y_m, _, y_cols, _ = \
@@ -341,7 +340,7 @@ class LinearRegression(LinearPredictMixin,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
                                 check_rows=n_rows)
-        y_ptr = y_m.ptr
+        _y_ptr = y_m.ptr
 
         if sample_weight is not None:
             sample_weight_m, _, _, _ = \
@@ -376,10 +375,10 @@ class LinearRegression(LinearPredictMixin,
             )
 
         self.coef_ = CumlArray.zeros(self.n_features_in_, dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t _coef_ptr = self.coef_.ptr
 
-        cdef float c_intercept1
-        cdef double c_intercept2
+        cdef float _c_intercept_f32
+        cdef double _c_intercept_f64
 
         IF GPUBUILD == 1:
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -387,32 +386,32 @@ class LinearRegression(LinearPredictMixin,
             if self.dtype == np.float32:
 
                 olsFit(handle_[0],
-                       <float*>X_ptr,
+                       <float*>_X_ptr,
                        <size_t>n_rows,
                        <size_t>self.n_features_in_,
-                       <float*>y_ptr,
-                       <float*>coef_ptr,
-                       <float*>&c_intercept1,
+                       <float*>_y_ptr,
+                       <float*>_coef_ptr,
+                       <float*>&_c_intercept_f32,
                        <bool>self.fit_intercept,
                        <bool>self.normalize,
                        <int>self.algo,
                        <float*>sample_weight_ptr)
 
-                self.intercept_ = c_intercept1
+                self.intercept_ = _c_intercept_f32
             else:
                 olsFit(handle_[0],
-                       <double*>X_ptr,
+                       <double*>_X_ptr,
                        <size_t>n_rows,
                        <size_t>self.n_features_in_,
-                       <double*>y_ptr,
-                       <double*>coef_ptr,
-                       <double*>&c_intercept2,
+                       <double*>_y_ptr,
+                       <double*>_coef_ptr,
+                       <double*>&_c_intercept_f64,
                        <bool>self.fit_intercept,
                        <bool>self.normalize,
                        <int>self.algo,
                        <double*>sample_weight_ptr)
 
-                self.intercept_ = c_intercept2
+                self.intercept_ = _c_intercept_f64
 
         self.handle.sync()
 
