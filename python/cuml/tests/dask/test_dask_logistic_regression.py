@@ -47,7 +47,7 @@ def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     return X_train_df, y_train_df
 
 
-def make_classification_dataset(datatype, nrows, ncols, n_info, n_classes):
+def make_classification_dataset(datatype, nrows, ncols, n_info, n_classes=2):
     X, y = make_classification(
         n_samples=nrows,
         n_features=ncols,
