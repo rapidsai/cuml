@@ -20,7 +20,6 @@ cp = gpu_only_import('cupy')
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
@@ -142,7 +141,6 @@ IF GPUBUILD == 1:
             T *params,
             T *preds) except +
 
-
     class StructWrapper(type):
         '''Define a property for each key in `get_param_defaults`,
            for which there is no explicit property defined in the class.
@@ -162,7 +160,6 @@ IF GPUBUILD == 1:
             del add_prop
 
             return x
-
 
     class StructParams(metaclass=StructWrapper):
         params: dict
@@ -189,7 +186,6 @@ IF GPUBUILD == 1:
 
         def __str__(self):
             return type(self).__name__ + str(self.params)
-
 
     class QNParams(StructParams):
 
@@ -481,9 +477,9 @@ class QN(Base,
             convert_to_dtype=(self.dtype if convert_dtype else None),
             check_rows=n_rows, check_cols=1
         )
-        cdef uintptr_t y_ptr = y_m.ptr
+        cdef uintptr_t _y_ptr = y_m.ptr
 
-        cdef uintptr_t sample_weight_ptr = 0
+        cdef uintptr_t _sample_weight_ptr = 0
         if sample_weight is not None:
             sample_weight, _, _, _ = \
                 input_to_cuml_array(sample_weight,
@@ -492,7 +488,7 @@ class QN(Base,
                                     convert_to_dtype=(self.dtype
                                                       if convert_dtype
                                                       else None))
-            sample_weight_ptr = sample_weight.ptr
+            _sample_weight_ptr = sample_weight.ptr
 
         IF GPUBUILD == 1:
             self.qnparams = QNParams(
@@ -551,7 +547,7 @@ class QN(Base,
                 self._coef_ = CumlArray.zeros(
                     coef_size, dtype=self.dtype, order='C')
 
-            cdef uintptr_t coef_ptr = self._coef_.ptr
+            cdef uintptr_t _coef_ptr = self._coef_.ptr
 
             cdef float objective32
             cdef double objective64
@@ -568,14 +564,14 @@ class QN(Base,
                         <int*><uintptr_t> X_m.indices.ptr,
                         <int*><uintptr_t> X_m.indptr.ptr,
                         <int> X_m.nnz,
-                        <float*> y_ptr,
+                        <float*> _y_ptr,
                         <int> n_rows,
                         <int> self.n_cols,
                         <int> self._num_classes,
-                        <float*> coef_ptr,
+                        <float*> _coef_ptr,
                         <float*> &objective32,
                         <int*> &num_iters,
-                        <float*> sample_weight_ptr)
+                        <float*> _sample_weight_ptr)
 
                 else:
                     qnFit[float, int](
@@ -583,14 +579,14 @@ class QN(Base,
                         qnpams,
                         <float*><uintptr_t> X_m.ptr,
                         <bool> _is_col_major(X_m),
-                        <float*> y_ptr,
+                        <float*> _y_ptr,
                         <int> n_rows,
                         <int> self.n_cols,
                         <int> self._num_classes,
-                        <float*> coef_ptr,
+                        <float*> _coef_ptr,
                         <float*> &objective32,
                         <int*> &num_iters,
-                        <float*> sample_weight_ptr)
+                        <float*> _sample_weight_ptr)
 
                 self.objective = objective32
 
@@ -603,14 +599,14 @@ class QN(Base,
                         <int*><uintptr_t> X_m.indices.ptr,
                         <int*><uintptr_t> X_m.indptr.ptr,
                         <int> X_m.nnz,
-                        <double*> y_ptr,
+                        <double*> _y_ptr,
                         <int> n_rows,
                         <int> self.n_cols,
                         <int> self._num_classes,
-                        <double*> coef_ptr,
+                        <double*> _coef_ptr,
                         <double*> &objective64,
                         <int*> &num_iters,
-                        <double*> sample_weight_ptr)
+                        <double*> _sample_weight_ptr)
 
                 else:
                     qnFit[double, int](
@@ -618,14 +614,14 @@ class QN(Base,
                         qnpams,
                         <double*><uintptr_t> X_m.ptr,
                         <bool> _is_col_major(X_m),
-                        <double*> y_ptr,
+                        <double*> _y_ptr,
                         <int> n_rows,
                         <int> self.n_cols,
                         <int> self._num_classes,
-                        <double*> coef_ptr,
+                        <double*> _coef_ptr,
                         <double*> &objective64,
                         <int*> &num_iters,
-                        <double*> sample_weight_ptr)
+                        <double*> _sample_weight_ptr)
 
                 self.objective = objective64
 
@@ -692,8 +688,8 @@ class QN(Base,
             shape = (n_rows,)
         scores = CumlArray.zeros(shape=shape, dtype=dtype, order='F')
 
-        cdef uintptr_t coef_ptr = self._coef_.ptr
-        cdef uintptr_t scores_ptr = scores.ptr
+        cdef uintptr_t _coef_ptr = self._coef_.ptr
+        cdef uintptr_t _scores_ptr = scores.ptr
 
         IF GPUBUILD == 1:
             if not hasattr(self, 'qnparams'):
@@ -728,8 +724,8 @@ class QN(Base,
                         <int> n_rows,
                         <int> n_cols,
                         <int> _num_classes,
-                        <float*> coef_ptr,
-                        <float*> scores_ptr)
+                        <float*> _coef_ptr,
+                        <float*> _scores_ptr)
                 else:
                     qnDecisionFunction[float, int](
                         handle_[0],
@@ -739,8 +735,8 @@ class QN(Base,
                         <int> n_rows,
                         <int> n_cols,
                         <int> _num_classes,
-                        <float*> coef_ptr,
-                        <float*> scores_ptr)
+                        <float*> _coef_ptr,
+                        <float*> _scores_ptr)
 
             else:
                 if sparse_input:
@@ -754,8 +750,8 @@ class QN(Base,
                         <int> n_rows,
                         <int> n_cols,
                         <int> _num_classes,
-                        <double*> coef_ptr,
-                        <double*> scores_ptr)
+                        <double*> _coef_ptr,
+                        <double*> _scores_ptr)
                 else:
                     qnDecisionFunction[double, int](
                         handle_[0],
@@ -765,8 +761,8 @@ class QN(Base,
                         <int> n_rows,
                         <int> n_cols,
                         <int> _num_classes,
-                        <double*> coef_ptr,
-                        <double*> scores_ptr)
+                        <double*> _coef_ptr,
+                        <double*> _scores_ptr)
 
         self._calc_intercept()
 
@@ -816,8 +812,8 @@ class QN(Base,
 
         preds = CumlArray.zeros(shape=n_rows, dtype=dtype,
                                 index=X_m.index)
-        cdef uintptr_t coef_ptr = self._coef_.ptr
-        cdef uintptr_t pred_ptr = preds.ptr
+        cdef uintptr_t _coef_ptr = self._coef_.ptr
+        cdef uintptr_t _pred_ptr = preds.ptr
 
         # temporary fix for dask-sql empty partitions
         if(n_rows == 0):
@@ -855,8 +851,8 @@ class QN(Base,
                         <int> n_rows,
                         <int> n_cols,
                         <int> _num_classes,
-                        <float*> coef_ptr,
-                        <float*> pred_ptr)
+                        <float*> _coef_ptr,
+                        <float*> _pred_ptr)
                 else:
                     qnPredict[float, int](
                         handle_[0],
@@ -866,8 +862,8 @@ class QN(Base,
                         <int> n_rows,
                         <int> n_cols,
                         <int> _num_classes,
-                        <float*> coef_ptr,
-                        <float*> pred_ptr)
+                        <float*> _coef_ptr,
+                        <float*> _pred_ptr)
 
             else:
                 if sparse_input:
@@ -881,8 +877,8 @@ class QN(Base,
                         <int> n_rows,
                         <int> n_cols,
                         <int> _num_classes,
-                        <double*> coef_ptr,
-                        <double*> pred_ptr)
+                        <double*> _coef_ptr,
+                        <double*> _pred_ptr)
                 else:
                     qnPredict[double, int](
                         handle_[0],
@@ -892,8 +888,8 @@ class QN(Base,
                         <int> n_rows,
                         <int> n_cols,
                         <int> _num_classes,
-                        <double*> coef_ptr,
-                        <double*> pred_ptr)
+                        <double*> _coef_ptr,
+                        <double*> _pred_ptr)
 
         self._calc_intercept()
 

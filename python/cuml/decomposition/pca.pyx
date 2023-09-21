@@ -23,13 +23,9 @@ cp = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
 scipy = cpu_only_import('scipy')
 
-from enum import IntEnum
-
 rmm = gpu_only_import('rmm')
 
 from libc.stdint cimport uintptr_t
-
-from cython.operator cimport dereference as deref
 
 import cuml.internals
 from cuml.internals.array import CumlArray
@@ -105,7 +101,6 @@ IF GPUBUILD == 1:
                                double *singular_vals,
                                double *mu,
                                const paramsPCA &prms) except +
-
 
     class Solver(IntEnum):
         COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
@@ -434,7 +429,7 @@ class PCA(UniversalBase,
 
         X_m, self.n_samples_, self.n_features_in_, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
-        cdef uintptr_t input_ptr = X_m.ptr
+        cdef uintptr_t _input_ptr = X_m.ptr
         self.feature_names_in_ = X_m.index
 
         IF GPUBUILD == 1:
@@ -468,7 +463,7 @@ class PCA(UniversalBase,
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
             if self.dtype == np.float32:
                 pcaFit(handle_[0],
-                       <float*> input_ptr,
+                       <float*> _input_ptr,
                        <float*> comp_ptr,
                        <float*> explained_var_ptr,
                        <float*> explained_var_ratio_ptr,
@@ -478,7 +473,7 @@ class PCA(UniversalBase,
                        deref(params))
             else:
                 pcaFit(handle_[0],
-                       <double*> input_ptr,
+                       <double*> _input_ptr,
                        <double*> comp_ptr,
                        <double*> explained_var_ptr,
                        <double*> explained_var_ratio_ptr,
@@ -574,7 +569,7 @@ class PCA(UniversalBase,
                                                   return_sparse=return_sparse,
                                                   sparse_tol=sparse_tol)
 
-        X_m, n_rows, _, dtype = \
+        X_m, _n_rows, _, dtype = \
             input_to_cuml_array(X, check_dtype=dtype,
                                 convert_to_dtype=(dtype if convert_dtype
                                                   else None)
@@ -586,7 +581,7 @@ class PCA(UniversalBase,
             # todo: check n_cols and dtype
             cdef paramsPCA params
             params.n_components = self.n_components_
-            params.n_rows = n_rows
+            params.n_rows = _n_rows
             params.n_cols = self.n_features_in_
             params.whiten = self.whiten
 
@@ -671,20 +666,20 @@ class PCA(UniversalBase,
                                     check_dtype=[cp.float32, cp.float64])
             return self._sparse_transform(X)
 
-        X_m, n_rows, n_cols, dtype = \
+        X_m, _n_rows, _n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=dtype,
                                 convert_to_dtype=(dtype if convert_dtype
                                                   else None),
                                 check_cols=self.n_features_in_)
 
-        cdef uintptr_t input_ptr = X_m.ptr
+        cdef uintptr_t _input_ptr = X_m.ptr
 
         IF GPUBUILD == 1:
             # todo: check dtype
             cdef paramsPCA params
             params.n_components = self.n_components_
-            params.n_rows = n_rows
-            params.n_cols = n_cols
+            params.n_rows = _n_rows
+            params.n_cols = _n_cols
             params.whiten = self.whiten
 
             t_input_data = \
@@ -700,7 +695,7 @@ class PCA(UniversalBase,
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
             if dtype.type == np.float32:
                 pcaTransform(handle_[0],
-                             <float*> input_ptr,
+                             <float*> _input_ptr,
                              <float*> components_ptr,
                              <float*> _trans_input_ptr,
                              <float*> singular_vals_ptr,
@@ -708,7 +703,7 @@ class PCA(UniversalBase,
                              params)
             else:
                 pcaTransform(handle_[0],
-                             <double*> input_ptr,
+                             <double*> _input_ptr,
                              <double*> components_ptr,
                              <double*> _trans_input_ptr,
                              <double*> singular_vals_ptr,

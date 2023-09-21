@@ -23,8 +23,6 @@ np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
-import ctypes
-import warnings
 import math
 
 import cuml.internals
@@ -34,7 +32,6 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from cuml.internals.import_utils import has_scipy
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.common import input_to_cuml_array
@@ -46,25 +43,13 @@ from cuml.internals.api_decorators import enable_device_interop
 
 from cuml.neighbors.ann cimport *
 
-from cython.operator cimport dereference as deref
-
-from libcpp cimport bool
-from libcpp.memory cimport shared_ptr
-
-from libc.stdint cimport uintptr_t, int64_t, uint32_t
-from libc.stdlib cimport calloc, malloc, free
-
-from libcpp.vector cimport vector
+from libc.stdint cimport uintptr_t
 
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
 rmm = gpu_only_import('rmm')
 
 cimport cuml.common.cuda
-
-
-if has_scipy():
-    import scipy.sparse
 
 IF GPUBUILD == 1:
     from pylibraft.common.handle cimport handle_t
@@ -129,7 +114,6 @@ IF GPUBUILD == 1:
             const float *query_array,
             int n
         ) except +
-
 
     cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
         void brute_force_knn(handle_t &handle,
@@ -393,7 +377,7 @@ class NearestNeighbors(UniversalBase,
                               "(see cuML issue #4020)")
 
                 if not is_dense(X):
-                    raise ValueError("Approximate Nearest Neigbors methods "
+                    raise ValueError("Approximate Nearest Neighbors methods "
                                      "require dense data")
 
                 additional_info = {'n_samples': self.n_samples_fit_,
@@ -686,7 +670,7 @@ class NearestNeighbors(UniversalBase,
             raise ValueError("A NearestNeighbors model trained on dense "
                              "data requires dense input to kneighbors()")
 
-        metric = self._build_metric_type(self.effective_metric_)
+        _metric = self._build_metric_type(self.effective_metric_)
 
         X_m, N, _, _ = \
             input_to_cuml_array(X, order='C', check_dtype=np.float32,
@@ -701,8 +685,8 @@ class NearestNeighbors(UniversalBase,
                                   dtype=np.float32, order="C",
                                   index=X_m.index)
 
-        cdef uintptr_t I_ptr = I_ndarr.ptr
-        cdef uintptr_t D_ptr = D_ndarr.ptr
+        cdef uintptr_t _I_ptr = I_ndarr.ptr
+        cdef uintptr_t _D_ptr = D_ndarr.ptr
         IF GPUBUILD == 1:
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
             cdef vector[float*] *inputs = new vector[float*]()
@@ -731,12 +715,12 @@ class NearestNeighbors(UniversalBase,
                     <int>self.n_features_in_,
                     <float*><uintptr_t>X_m.ptr,
                     <int>N,
-                    <int64_t*>I_ptr,
-                    <float*>D_ptr,
+                    <int64_t*>_I_ptr,
+                    <float*>_D_ptr,
                     <int>n_neighbors,
                     True,
                     True,
-                    <DistanceType>metric,
+                    <DistanceType>_metric,
                     # minkowski order is currently the only metric argument.
                     <float>self.p
                 )
@@ -748,14 +732,14 @@ class NearestNeighbors(UniversalBase,
                               <uint32_t> n_neighbors,
                               <float*><uintptr_t>X_m.ptr,
                               <uint32_t> N,
-                              <int64_t*>I_ptr,
-                              <float*>D_ptr)
+                              <int64_t*>_I_ptr,
+                              <float*>_D_ptr)
             else:
                 knn_index = <knnIndex*><uintptr_t> self.knn_index
                 approx_knn_search(
                     handle_[0],
-                    <float*>D_ptr,
-                    <int64_t*>I_ptr,
+                    <float*>_D_ptr,
+                    <int64_t*>_I_ptr,
                     <knnIndex*>knn_index,
                     <int>n_neighbors,
                     <float*><uintptr_t>X_m.ptr,
@@ -782,15 +766,15 @@ class NearestNeighbors(UniversalBase,
 
         X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
                               convert_format=False)
-        metric = self._build_metric_type(self.effective_metric_)
+        _metric = self._build_metric_type(self.effective_metric_)
 
-        cdef uintptr_t idx_indptr = self._fit_X.indptr.ptr
-        cdef uintptr_t idx_indices = self._fit_X.indices.ptr
-        cdef uintptr_t idx_data = self._fit_X.data.ptr
+        cdef uintptr_t _idx_indptr = self._fit_X.indptr.ptr
+        cdef uintptr_t _idx_indices = self._fit_X.indices.ptr
+        cdef uintptr_t _idx_data = self._fit_X.data.ptr
 
-        cdef uintptr_t search_indptr = X_m.indptr.ptr
-        cdef uintptr_t search_indices = X_m.indices.ptr
-        cdef uintptr_t search_data = X_m.data.ptr
+        cdef uintptr_t _search_indptr = X_m.indptr.ptr
+        cdef uintptr_t _search_indices = X_m.indices.ptr
+        cdef uintptr_t _search_data = X_m.data.ptr
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
@@ -799,32 +783,32 @@ class NearestNeighbors(UniversalBase,
         D_ndarr = CumlArray.zeros((X_m.shape[0], n_neighbors),
                                   dtype=np.float32, order="C")
 
-        cdef uintptr_t I_ptr = I_ndarr.ptr
-        cdef uintptr_t D_ptr = D_ndarr.ptr
+        cdef uintptr_t _I_ptr = I_ndarr.ptr
+        cdef uintptr_t _D_ptr = D_ndarr.ptr
 
         IF GPUBUILD == 1:
 
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
             brute_force_knn(handle_[0],
-                            <int*> idx_indptr,
-                            <int*> idx_indices,
-                            <float*> idx_data,
+                            <int*> _idx_indptr,
+                            <int*> _idx_indices,
+                            <float*> _idx_data,
                             self._fit_X.nnz,
                             self.n_samples_fit_,
                             self.n_features_in_,
-                            <int*> search_indptr,
-                            <int*> search_indices,
-                            <float*> search_data,
+                            <int*> _search_indptr,
+                            <int*> _search_indices,
+                            <float*> _search_data,
                             X_m.nnz,
                             X_m.shape[0],
                             X_m.shape[1],
-                            <int*>I_ptr,
-                            <float*>D_ptr,
+                            <int*>_I_ptr,
+                            <float*>_D_ptr,
                             n_neighbors,
                             <size_t>batch_size_index,
                             <size_t>batch_size_query,
-                            <DistanceType> metric,
+                            <DistanceType> _metric,
                             <float>self.p)
 
         return D_ndarr, I_ndarr

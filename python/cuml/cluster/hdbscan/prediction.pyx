@@ -17,29 +17,19 @@
 
 from libc.stdint cimport uintptr_t
 
-from cython.operator cimport dereference as deref
-
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
-from cuml.common.doc_utils import generate_docstring
 
 from cuml.common import (
     input_to_cuml_array,
     input_to_host_array
 )
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
-from cuml.internals.mixins import ClusterMixin
-from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals import logger
-from cuml.internals.import_utils import has_hdbscan_plots
-from cuml.internals.import_utils import has_hdbscan_prediction
 
 import cuml
 
@@ -203,13 +193,13 @@ def all_points_membership_vectors(clusterer):
     if clusterer.n_clusters_ == 0:
         return np.zeros(clusterer.n_rows, dtype=np.float32)
 
-    cdef uintptr_t input_ptr = clusterer.X_m.ptr
+    cdef uintptr_t _input_ptr = clusterer.X_m.ptr
 
     membership_vec = CumlArray.empty(
         (clusterer.n_rows * clusterer.n_clusters_,),
         dtype="float32")
 
-    cdef uintptr_t membership_vec_ptr = membership_vec.ptr
+    cdef uintptr_t _membership_vec_ptr = membership_vec.ptr
 
     IF GPUBUILD == 1:
         cdef PredictionData *prediction_data_ = \
@@ -221,9 +211,9 @@ def all_points_membership_vectors(clusterer):
         compute_all_points_membership_vectors(handle_[0],
                                               deref(condensed_tree),
                                               deref(prediction_data_),
-                                              <float*> input_ptr,
+                                              <float*> _input_ptr,
                                               _metrics_mapping[clusterer.metric],
-                                              <float*> membership_vec_ptr,
+                                              <float*> _membership_vec_ptr,
                                               batch_size)
 
     clusterer.handle.sync()
@@ -298,7 +288,7 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
     if batch_size <= 0:
         raise ValueError("batch_size must be > 0")
 
-    points_to_predict_m, n_prediction_points, n_cols, _ = \
+    _points_to_predict_m, n_prediction_points, n_cols, _ = \
         input_to_cuml_array(points_to_predict, order='C',
                             check_dtype=[np.float32],
                             convert_to_dtype=(np.float32
@@ -312,14 +302,14 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
         raise ValueError('New points dimension does not match fit data!')
 
     IF GPUBUILD == 1:
-        cdef uintptr_t prediction_ptr = points_to_predict_m.ptr
-        cdef uintptr_t input_ptr = clusterer.X_m.ptr
+        cdef uintptr_t _prediction_ptr = _points_to_predict_m.ptr
+        cdef uintptr_t _input_ptr = clusterer.X_m.ptr
 
         membership_vec = CumlArray.empty(
             (n_prediction_points * clusterer.n_clusters_,),
             dtype="float32")
 
-        cdef uintptr_t membership_vec_ptr = membership_vec.ptr
+        cdef uintptr_t _membership_vec_ptr = membership_vec.ptr
 
         cdef CondensedHierarchy[int, float] *condensed_tree = \
             <CondensedHierarchy[int, float]*><size_t> clusterer.condensed_tree_ptr
@@ -332,12 +322,12 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
         compute_membership_vector(handle_[0],
                                   deref(condensed_tree),
                                   deref(prediction_data_),
-                                  <float*> input_ptr,
-                                  <float*> prediction_ptr,
+                                  <float*> _input_ptr,
+                                  <float*> _prediction_ptr,
                                   n_prediction_points,
                                   clusterer.min_samples,
                                   _metrics_mapping[clusterer.metric],
-                                  <float*> membership_vec_ptr,
+                                  <float*> _membership_vec_ptr,
                                   batch_size)
 
     clusterer.handle.sync()
@@ -420,7 +410,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
             'will be automatically predicted as outliers.'
         )
 
-    points_to_predict_m, n_prediction_points, n_cols, _ = \
+    _points_to_predict_m, n_prediction_points, n_cols, _ = \
         input_to_cuml_array(points_to_predict, order='C',
                             check_dtype=[np.float32],
                             convert_to_dtype=(np.float32
@@ -430,14 +420,14 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
     if n_cols != clusterer.n_cols:
         raise ValueError('New points dimension does not match fit data!')
 
-    cdef uintptr_t prediction_ptr = points_to_predict_m.ptr
-    cdef uintptr_t input_ptr = clusterer.X_m.ptr
+    cdef uintptr_t _prediction_ptr = _points_to_predict_m.ptr
+    cdef uintptr_t _input_ptr = clusterer.X_m.ptr
 
     prediction_labels = CumlArray.empty(
         (n_prediction_points,),
         dtype="int32")
 
-    cdef uintptr_t prediction_labels_ptr = prediction_labels.ptr
+    cdef uintptr_t _prediction_labels_ptr = prediction_labels.ptr
 
     prediction_probs = CumlArray.empty(
         (n_prediction_points,),
@@ -449,7 +439,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
                                           order="C",
                                           convert_to_dtype=np.int32)
 
-    cdef uintptr_t labels_ptr = labels.ptr
+    cdef uintptr_t _labels_ptr = labels.ptr
 
     IF GPUBUILD == 1:
         cdef CondensedHierarchy[int, float] *condensed_tree = \
@@ -463,13 +453,13 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
         out_of_sample_predict(handle_[0],
                               deref(condensed_tree),
                               deref(prediction_data_),
-                              <float*> input_ptr,
-                              <int*> labels_ptr,
-                              <float*> prediction_ptr,
+                              <float*> _input_ptr,
+                              <int*> _labels_ptr,
+                              <float*> _prediction_ptr,
                               n_prediction_points,
                               _metrics_mapping[clusterer.metric],
                               clusterer.min_samples,
-                              <int*> prediction_labels_ptr,
+                              <int*> _prediction_labels_ptr,
                               <float*> prediction_probs_ptr)
 
     clusterer.handle.sync()

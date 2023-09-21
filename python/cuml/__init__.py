@@ -19,7 +19,7 @@ from cuml.internals.available_devices import is_cuda_available
 
 # GPU only packages
 
-if(is_cuda_available()):
+if is_cuda_available():
     import cuml.common.cuda as cuda
     from cuml.common.handle import Handle
 
@@ -66,7 +66,9 @@ if(is_cuda_available()):
 
     from cuml.preprocessing.LabelEncoder import LabelEncoder
 
-    from cuml.random_projection.random_projection import GaussianRandomProjection
+    from cuml.random_projection.random_projection import (
+        GaussianRandomProjection,
+    )
     from cuml.random_projection.random_projection import SparseRandomProjection
     from cuml.random_projection.random_projection import (
         johnson_lindenstrauss_min_dim,
@@ -87,14 +89,14 @@ if(is_cuda_available()):
 # Universal packages
 
 from cuml.internals.global_settings import (
-        GlobalSettings,
-        _global_settings_data,
-    )
+    GlobalSettings,
+    _global_settings_data,
+)
 
 from cuml.internals.memory_utils import (
-        set_global_output_type,
-        using_output_type,
-    )
+    set_global_output_type,
+    using_output_type,
+)
 
 from cuml.cluster.hdbscan import HDBSCAN
 

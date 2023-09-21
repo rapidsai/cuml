@@ -585,7 +585,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
             raw_tree = raw_tree.astype(np.float64)
 
-            if has_hdbscan_plots():
+            if has_hdbscan_plots(raise_if_unavailable=True):
                 from hdbscan.plots import SingleLinkageTree
                 self.single_linkage_tree_obj = SingleLinkageTree(raw_tree)
 
@@ -604,7 +604,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                'model.generate_prediction_data()')
 
         if self.prediction_data_obj is None:
-            if has_hdbscan_prediction():
+            if has_hdbscan_prediction(raise_if_unavailable=True):
                 from sklearn.neighbors import KDTree, BallTree
                 from hdbscan.prediction import PredictionData
 
@@ -645,7 +645,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
             raw_tree = raw_tree.astype(np.float64)
 
-            if has_hdbscan_plots():
+            if has_hdbscan_plots(raise_if_unavailable=True):
                 from hdbscan.plots import MinimumSpanningTree
                 self.minimum_spanning_tree_ = \
                     MinimumSpanningTree(raw_tree, X.to_output("numpy"))

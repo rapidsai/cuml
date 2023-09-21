@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,8 +19,6 @@
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 
-from enum import IntEnum
-
 from cuml.internals.safe_imports import gpu_only_import
 rmm = gpu_only_import('rmm')
 from libc.stdint cimport uintptr_t
@@ -34,8 +32,6 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
-
-from cython.operator cimport dereference as deref
 
 
 IF GPUBUILD == 1:
@@ -96,7 +92,6 @@ IF GPUBUILD == 1:
                                 double *components,
                                 double *trans_input,
                                 const paramsTSVD &prms) except +
-
 
     class Solver(IntEnum):
         COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
@@ -327,20 +322,20 @@ class TruncatedSVD(UniversalBase,
         """
         X_m, self.n_rows, self.n_features_in_, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
-        cdef uintptr_t input_ptr = X_m.ptr
+        cdef uintptr_t _input_ptr = X_m.ptr
 
         self._initialize_arrays(self.n_components, self.n_rows,
                                 self.n_features_in_)
 
-        cdef uintptr_t comp_ptr = self.components_.ptr
+        cdef uintptr_t _comp_ptr = self.components_.ptr
 
-        cdef uintptr_t explained_var_ptr = \
+        cdef uintptr_t _explained_var_ptr = \
             self.explained_variance_.ptr
 
-        cdef uintptr_t explained_var_ratio_ptr = \
+        cdef uintptr_t _explained_var_ratio_ptr = \
             self.explained_variance_ratio_.ptr
 
-        cdef uintptr_t singular_vals_ptr = \
+        cdef uintptr_t _singular_vals_ptr = \
             self.singular_values_.ptr
 
         if self.n_components> self.n_features_in_:
@@ -356,21 +351,21 @@ class TruncatedSVD(UniversalBase,
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
             if self.dtype == np.float32:
                 tsvdFitTransform(handle_[0],
-                                 <float*> input_ptr,
+                                 <float*> _input_ptr,
                                  <float*> t_input_ptr,
-                                 <float*> comp_ptr,
-                                 <float*> explained_var_ptr,
-                                 <float*> explained_var_ratio_ptr,
-                                 <float*> singular_vals_ptr,
+                                 <float*> _comp_ptr,
+                                 <float*> _explained_var_ptr,
+                                 <float*> _explained_var_ratio_ptr,
+                                 <float*> _singular_vals_ptr,
                                  deref(params))
             else:
                 tsvdFitTransform(handle_[0],
-                                 <double*> input_ptr,
+                                 <double*> _input_ptr,
                                  <double*> t_input_ptr,
-                                 <double*> comp_ptr,
-                                 <double*> explained_var_ptr,
-                                 <double*> explained_var_ratio_ptr,
-                                 <double*> singular_vals_ptr,
+                                 <double*> _comp_ptr,
+                                 <double*> _explained_var_ptr,
+                                 <double*> _explained_var_ratio_ptr,
+                                 <double*> _singular_vals_ptr,
                                  deref(params))
 
             # make sure the previously scheduled gpu tasks are complete before the
@@ -391,7 +386,7 @@ class TruncatedSVD(UniversalBase,
 
         """
         dtype = self.components_.dtype
-        X_m, n_rows, _, dtype = \
+        _X_m, _n_rows, _, dtype = \
             input_to_cuml_array(X, check_dtype=dtype,
                                 convert_to_dtype=(dtype if convert_dtype
                                                   else None))
@@ -399,13 +394,13 @@ class TruncatedSVD(UniversalBase,
         IF GPUBUILD == 1:
             cdef paramsTSVD params
             params.n_components = self.n_components
-            params.n_rows = n_rows
+            params.n_rows = _n_rows
             params.n_cols = self.n_features_in_
 
             input_data = CumlArray.zeros((params.n_rows, params.n_cols),
-                                         dtype=dtype, index=X_m.index)
+                                         dtype=dtype, index=_X_m.index)
 
-            cdef uintptr_t trans_input_ptr = X_m.ptr
+            cdef uintptr_t trans_input_ptr = _X_m.ptr
             cdef uintptr_t input_ptr = input_data.ptr
             cdef uintptr_t components_ptr = self.components_.ptr
 
@@ -442,7 +437,7 @@ class TruncatedSVD(UniversalBase,
         dtype = self.components_.dtype
         self.n_features_in_ = self.components_.shape[1]
 
-        X_m, n_rows, _, dtype = \
+        _X_m, _n_rows, _, dtype = \
             input_to_cuml_array(X, check_dtype=dtype,
                                 convert_to_dtype=(dtype if convert_dtype
                                                   else None),
@@ -451,14 +446,14 @@ class TruncatedSVD(UniversalBase,
         IF GPUBUILD == 1:
             cdef paramsTSVD params
             params.n_components = self.n_components
-            params.n_rows = n_rows
+            params.n_rows = _n_rows
             params.n_cols = self.n_features_in_
 
             t_input_data = \
                 CumlArray.zeros((params.n_rows, params.n_components),
-                                dtype=dtype, index=X_m.index)
+                                dtype=dtype, index=_X_m.index)
 
-            cdef uintptr_t input_ptr = X_m.ptr
+            cdef uintptr_t input_ptr = _X_m.ptr
             cdef uintptr_t trans_input_ptr = t_input_data.ptr
             cdef uintptr_t components_ptr = self.components_.ptr
 
