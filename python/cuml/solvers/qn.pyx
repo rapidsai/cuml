@@ -930,8 +930,15 @@ class QN(Base,
 
         if self.fit_intercept:
             self.intercept_ = self._coef_[-1]
-        else:
+            return
+
+        _num_classes_dim, _ = self.coef_.shape
+        _num_classes = self.get_num_classes(_num_classes_dim)
+
+        if _num_classes == 2:
             self.intercept_ = CumlArray.zeros(shape=1)
+        else:
+            self.intercept_ = CumlArray.zeros(shape=_num_classes)
 
     def get_param_names(self):
         return super().get_param_names() + \
