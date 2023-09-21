@@ -259,7 +259,14 @@ def test_lbfgs_init(client):
 @pytest.mark.parametrize("datatype", [np.float32])
 @pytest.mark.parametrize("delayed", [True, False])
 def test_lbfgs(
-    nrows, ncols, n_parts, fit_intercept, datatype, delayed, client
+    nrows,
+    ncols,
+    n_parts,
+    fit_intercept,
+    datatype,
+    delayed,
+    client,
+    penalty="l2",
 ):
     tolerance = 0.005
 
@@ -280,12 +287,12 @@ def test_lbfgs(
 
     X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
-    lr = cumlLBFGS_dask(fit_intercept=fit_intercept)
+    lr = cumlLBFGS_dask(fit_intercept=fit_intercept, penalty=penalty)
     lr.fit(X_df, y_df)
     lr_coef = lr.coef_.to_numpy()
     lr_intercept = lr.intercept_.to_numpy()
 
-    sk_model = skLR(fit_intercept=fit_intercept)
+    sk_model = skLR(fit_intercept=fit_intercept, penalty=penalty)
     sk_model.fit(X, y)
     sk_coef = sk_model.coef_
     sk_intercept = sk_model.intercept_
@@ -305,3 +312,27 @@ def test_lbfgs(
     assert (accuracy_cuml >= accuracy_sk) | (
         np.abs(accuracy_cuml - accuracy_sk) < 1e-3
     )
+
+    return lr
+
+
+@pytest.mark.parametrize("fit_intercept", [False, True])
+def test_noreg(fit_intercept, client):
+    lr = test_lbfgs(
+        nrows=1e5,
+        ncols=20,
+        n_parts=23,
+        fit_intercept=fit_intercept,
+        datatype=np.float32,
+        delayed=True,
+        client=client,
+        penalty="none",
+    )
+
+    qnpams = lr.qnparams.params
+    assert qnpams["penalty_l1"] == 0.0
+    assert qnpams["penalty_l2"] == 0.0
+
+    l1_strength, l2_strength = lr._get_qn_params()
+    assert l1_strength == 0.0
+    assert l2_strength == 0.0
