@@ -152,14 +152,14 @@ dependencies:
         packages:
           - scikit-build>=0.13.1
           - cython>=3.0.0
-          - &treelite treelite==3.2.0
+          - &treelite treelite==3.9.1
           - pylibraft==23.10.*
           - rmm==23.10.*
       - output_types: pyproject
         packages:
           - wheel
           - setuptools
-          - &treelite_runtime treelite_runtime==3.2.0
+          - &treelite_runtime treelite_runtime==3.9.1
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
