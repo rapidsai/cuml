@@ -43,8 +43,6 @@ from cuml.internals.api_decorators import enable_device_interop
 
 from cuml.neighbors.ann cimport *
 
-from libc.stdint cimport uintptr_t
-
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
 rmm = gpu_only_import('rmm')
@@ -52,7 +50,13 @@ rmm = gpu_only_import('rmm')
 cimport cuml.common.cuda
 
 IF GPUBUILD == 1:
+    import warnings
+    from cython.operator cimport dereference as deref
+    from libcpp cimport bool
+    from libc.stdint cimport uintptr_t, int64_t, uint32_t
+    from libcpp.vector cimport vector
     from pylibraft.common.handle cimport handle_t
+
     cdef extern from "raft/spatial/knn/ball_cover_common.h" \
             namespace "raft::spatial::knn":
         cdef cppclass BallCoverIndex[int64_t, float, uint32_t]:

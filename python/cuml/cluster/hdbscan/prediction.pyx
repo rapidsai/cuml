@@ -34,9 +34,13 @@ from cuml.internals import logger
 import cuml
 
 IF GPUBUILD == 1:
+    from cython.operator cimport dereference as deref
+    from pylibraft.common.handle cimport handle_t
+    from cuml.internals.import_utils import has_hdbscan
     from cuml.metrics.distance_type cimport DistanceType
     from pylibraft.common.handle cimport handle_t
     from pylibraft.common.handle import Handle
+
     cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
 
         cdef cppclass CondensedHierarchy[value_idx, value_t]:

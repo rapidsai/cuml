@@ -35,6 +35,7 @@ from cuml.common import input_to_cuml_array
 from cuml.internals.mixins import FMajorInputTagMixin
 
 IF GPUBUILD == 1:
+    from libcpp cimport bool
     from pylibraft.common.handle cimport handle_t
     cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
 

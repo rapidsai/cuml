@@ -62,7 +62,8 @@ IF GPUBUILD == 1:
     from cuml.metrics.distance_type cimport DistanceType
     from cuml.manifold.umap_utils cimport *
     from pylibraft.common.handle cimport handle_t
-    from cuml.manifold.umap_utils import GraphHolder, find_ab_params
+    from cuml.manifold.umap_utils import GraphHolder, find_ab_params, \
+        metric_parsing, DENSE_SUPPORTED_METRICS, SPARSE_SUPPORTED_METRICS
 
     from cuml.manifold.simpl_set import fuzzy_simplicial_set, \
         simplicial_set_embedding

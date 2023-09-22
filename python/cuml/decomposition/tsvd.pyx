@@ -23,7 +23,6 @@ from cuml.internals.safe_imports import gpu_only_import
 rmm = gpu_only_import('rmm')
 from libc.stdint cimport uintptr_t
 
-
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.common import input_to_cuml_array
@@ -35,6 +34,8 @@ from cuml.internals.api_decorators import enable_device_interop
 
 
 IF GPUBUILD == 1:
+    from enum import IntEnum
+    from cuml.decomposition.utils cimport *
     from cuml.decomposition.utils cimport *
     from pylibraft.common.handle cimport handle_t
     cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":

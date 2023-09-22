@@ -40,10 +40,14 @@ import cuml
 
 
 IF GPUBUILD == 1:
+    from libcpp cimport bool
+    from libc.stdlib cimport free
+    from cython.operator cimport dereference as deref
     from cuml.metrics.distance_type cimport DistanceType
     from rmm._lib.device_uvector cimport device_uvector
     from pylibraft.common.handle import Handle
     from pylibraft.common.handle cimport handle_t
+
     cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
 
         ctypedef enum CLUSTER_SELECTION_METHOD:
