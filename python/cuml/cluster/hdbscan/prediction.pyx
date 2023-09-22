@@ -126,7 +126,7 @@ IF GPUBUILD == 1:
     }
 
 
-def all_points_membership_vectors(clusterer):
+def all_points_membership_vectors(clusterer, batch_size=4096):
 
     """
     Predict soft cluster membership vectors for all points in the
