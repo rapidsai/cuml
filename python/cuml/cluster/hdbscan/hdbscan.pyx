@@ -70,7 +70,7 @@ IF GPUBUILD == 1:
             value_idx *get_children()
             value_t *get_lambdas()
             value_idx *get_sizes()
-            value_idx get__n_edges()
+            value_idx get_n_edges()
 
         cdef cppclass hdbscan_output[int, float]:
             hdbscan_output(const handle_t &handle,
@@ -287,7 +287,7 @@ def condense_hierarchy(dendrogram,
                                   deref(condensed_tree))
 
         n_condensed_tree_edges = \
-            condensed_tree.get__n_edges()
+            condensed_tree.get_n_edges()
 
         condensed_parent_ = _construct_condensed_tree_attribute(
             <size_t>condensed_tree.get_parents(), n_condensed_tree_edges)
@@ -730,7 +730,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                 self.cluster_persistence_ = CumlArray.empty((0,), dtype="float32")
 
             n_condensed_tree_edges = \
-                hdbscan_output_.get_condensed_tree().get__n_edges()
+                hdbscan_output_.get_condensed_tree().get_n_edges()
 
             self.condensed_parent_ = _construct_condensed_tree_attribute(
                 <size_t>hdbscan_output_.get_condensed_tree().get_parents(),
