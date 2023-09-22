@@ -35,6 +35,7 @@ from cuml.internals.api_decorators import enable_device_interop
 
 IF GPUBUILD == 1:
     from enum import IntEnum
+    from cython.operator cimport dereference as deref
     from cuml.decomposition.utils cimport *
     from cuml.decomposition.utils cimport *
     from pylibraft.common.handle cimport handle_t
