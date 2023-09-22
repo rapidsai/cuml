@@ -111,10 +111,10 @@ dependencies:
           - cxx-compiler
           - gmock>=1.13.0
           - gtest>=1.13.0
-          - libcumlprims==23.10.*
-          - libraft==23.10.*
-          - libraft-headers==23.10.*
-          - librmm==23.10.*
+          - libcumlprims==23.12.*
+          - libraft==23.12.*
+          - libraft-headers==23.12.*
+          - librmm==23.12.*
     specific:
       - output_types: conda
         matrices:
@@ -153,8 +153,8 @@ dependencies:
           - scikit-build>=0.13.1
           - cython>=3.0.0
           - &treelite treelite==3.9.1
-          - pylibraft==23.10.*
-          - rmm==23.10.*
+          - pylibraft==23.12.*
+          - rmm==23.12.*
       - output_types: pyproject
         packages:
           - wheel
@@ -174,10 +174,10 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cudf==23.10.*
+          - cudf==23.12.*
           - dask>=2023.7.1
-          - dask-cuda==23.10.*
-          - dask-cudf==23.10.*
+          - dask-cuda==23.12.*
+          - dask-cudf==23.12.*
           - distributed>=2023.7.1
           - joblib>=0.11
           - numba>=0.57
@@ -185,7 +185,7 @@ dependencies:
             # we make it optional (i.e. an extra for pip
             # installation/run_constrained for conda)?
           - scipy>=1.8.0
-          - raft-dask==23.10.*
+          - raft-dask==23.12.*
           - *treelite
       - output_types: [conda, requirements]
         packages:

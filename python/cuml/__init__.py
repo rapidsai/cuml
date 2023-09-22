@@ -107,7 +107,7 @@ from cuml.internals.memory_utils import (
 from cuml.linear_model.linear_regression import LinearRegression
 
 # Version configuration
-__version__ = "23.10.00"
+__version__ = "23.12.00"
 
 
 def __getattr__(name):

@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 include(../fetch_rapids.cmake)
 
-set(CUML_VERSION 23.10.00)
+set(CUML_VERSION 23.12.00)
 
 # We always need CUDA for cuML because the raft dependency brings in a
 # header-only cuco dependency that enables CUDA unconditionally.
