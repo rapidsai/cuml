@@ -39,6 +39,7 @@ from cuml.internals.api_decorators import enable_device_interop
 
 
 IF GPUBUILD == 1:
+    from libcpp cimport bool
     from pylibraft.common.handle cimport handle_t
     from pylibraft.common.handle import Handle
 
