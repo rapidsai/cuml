@@ -76,6 +76,14 @@ struct forest_model {
                       decision_forest_);
   }
 
+  /** Setter for row_postprocessing() */
+  void set_row_postprocessing(row_op val)
+  {
+    return std::visit(
+      [&val](auto&& concrete_forest) { concrete_forest.set_row_postprocessing(val); },
+      decision_forest_);
+  }
+
   /** The operation used for postprocessing each element of the output for a
    * single row */
   auto elem_postprocessing()

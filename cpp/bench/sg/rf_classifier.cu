@@ -85,11 +85,11 @@ std::vector<Params> getInputs()
   std::vector<Params> out;
   Params p;
   p.data.rowMajor = false;
-  p.blobs         = {10.0,                  // cluster_std
-                     false,                 // shuffle
-                     -10.0,                 // center_box_min
-                     10.0,                  // center_box_max
-                     2152953ULL};           // seed
+  p.blobs         = {10.0,         // cluster_std
+                     false,        // shuffle
+                     -10.0,        // center_box_min
+                     10.0,         // center_box_max
+                     2152953ULL};  // seed
 
   p.rf = set_rf_params(10,                  /*max_depth */
                        (1 << 20),           /* max_leaves */

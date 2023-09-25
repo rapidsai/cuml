@@ -39,6 +39,7 @@ from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.internals import input_utils
 from urllib.request import urlretrieve
 import sklearn.model_selection
+from sklearn.datasets import load_svmlight_file, fetch_covtype
 import cuml.datasets
 from cuml.internals.safe_imports import cpu_only_import
 import os
@@ -71,7 +72,10 @@ def _gen_data_regression(
         dtype=dtype,
     )
 
-    return X_arr, y_arr
+    X_df = cudf.DataFrame(X_arr)
+    y_df = cudf.Series(y_arr)
+
+    return X_df, y_df
 
 
 def _gen_data_blobs(
@@ -117,68 +121,201 @@ def _gen_data_classification(
         random_state=random_state,
         dtype=dtype,
     )
-
-    return X_arr, y_arr
-
-
-def _gen_data_higgs(n_samples=None, n_features=None, dtype=np.float32):
-    """Wrapper returning Higgs in Pandas format"""
-    X_df, y_df = load_higgs()
-    if n_samples == 0:
-        n_samples = X_df.shape[0]
-    if n_features == 0:
-        n_features = X_df.shape[1]
-    if n_features > X_df.shape[1]:
-        raise ValueError(
-            "Higgs dataset has only %d features, cannot support %d"
-            % (X_df.shape[1], n_features)
-        )
-    if n_samples > X_df.shape[0]:
-        raise ValueError(
-            "Higgs dataset has only %d rows, cannot support %d"
-            % (X_df.shape[0], n_samples)
-        )
-    return X_df.iloc[:n_samples, :n_features].astype(dtype), y_df.iloc[
-        :n_samples
-    ].astype(dtype)
-
-
-def _download_and_cache(url, compressed_filepath, decompressed_filepath):
-    if not os.path.isfile(compressed_filepath):
-        urlretrieve(url, compressed_filepath)
-    if not os.path.isfile(decompressed_filepath):
-        cf = gzip.GzipFile(compressed_filepath)
-        with open(decompressed_filepath, "wb") as df:
-            df.write(cf.read())
-    return decompressed_filepath
+    X_df = cudf.DataFrame(X_arr)
+    y_df = cudf.Series(y_arr)
+    return X_df, y_df
 
 
 # Default location to cache datasets
 DATASETS_DIRECTORY = "."
 
 
-def load_higgs():
-    """Returns the Higgs Boson dataset as an X, y tuple of dataframes."""
-    higgs_url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00280/HIGGS.csv.gz"  # noqa
-    decompressed_filepath = _download_and_cache(
-        higgs_url,
-        os.path.join(DATASETS_DIRECTORY, "HIGGS.csv.gz"),
-        os.path.join(DATASETS_DIRECTORY, "HIGGS.csv"),
+def _gen_data_airline_regression(datasets_root_dir):
+
+    url = "http://kt.ijs.si/elena_ikonomovska/datasets/airline/airline_14col.data.bz2"
+
+    local_url = os.path.join(datasets_root_dir, os.path.basename(url))
+
+    cols = [
+        "Year",
+        "Month",
+        "DayofMonth",
+        "DayofWeek",
+        "CRSDepTime",
+        "CRSArrTime",
+        "UniqueCarrier",
+        "FlightNum",
+        "ActualElapsedTime",
+        "Origin",
+        "Dest",
+        "Distance",
+        "Diverted",
+        "ArrDelay",
+    ]
+    dtype = np.float64
+    dtype_columns = {
+        "Year": dtype,
+        "Month": dtype,
+        "DayofMonth": dtype,
+        "DayofWeek": dtype,
+        "CRSDepTime": dtype,
+        "CRSArrTime": dtype,
+        "FlightNum": dtype,
+        "ActualElapsedTime": dtype,
+        "Distance": dtype,
+        "Diverted": dtype,
+        "ArrDelay": dtype,
+    }
+
+    if not os.path.isfile(local_url):
+        urlretrieve(url, local_url)
+    df = pd.read_csv(local_url, names=cols, dtype=dtype_columns)
+
+    # Encode categoricals as numeric
+    for col in df.select_dtypes(["object"]).columns:
+        df[col] = df[col].astype("category").cat.codes
+
+    X = df[df.columns.difference(["ArrDelay"])]
+    y = df["ArrDelay"]
+
+    return X, y
+
+
+def _gen_data_airline_classification(datasets_root_dir):
+    X, y = _gen_data_airline_regression(datasets_root_dir)
+    y = 1 * (y > 0)
+    return X, y
+
+
+def _gen_data_bosch(datasets_root_dir):
+
+    local_url = os.path.join(datasets_root_dir, "train_numeric.csv.zip")
+
+    if not os.path.isfile(local_url):
+        raise ValueError(
+            "Bosch dataset not found (search path: %s)" % local_url
+        )
+
+    df = pd.read_csv(
+        local_url, index_col=0, compression="zip", dtype=np.float32
     )
+
+    X = df.iloc[:, :-1]
+    y = df.iloc[:, -1]
+
+    return X, y
+
+
+def _gen_data_covtype(datasets_root_dir):
+
+    X, y = fetch_covtype(return_X_y=True)
+    # Labele range in covtype start from 1, making it start from 0
+    y = y - 1
+
+    X = pd.DataFrame(X)
+    y = pd.Series(y)
+
+    return X, y
+
+
+def _gen_data_epsilon(datasets_root_dir):
+
+    url_train = (
+        "https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary"
+        "/epsilon_normalized.bz2"
+    )
+    url_test = (
+        "https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary"
+        "/epsilon_normalized.t.bz2"
+    )
+
+    local_url_train = os.path.join(
+        datasets_root_dir, os.path.basename(url_train)
+    )
+    local_url_test = os.path.join(
+        datasets_root_dir, os.path.basename(url_test)
+    )
+
+    if not os.path.isfile(local_url_train):
+        urlretrieve(url_train, local_url_train)
+    if not os.path.isfile(local_url_test):
+        urlretrieve(url_test, local_url_test)
+
+    X_train, y_train = load_svmlight_file(local_url_train, dtype=np.float32)
+    X_test, y_test = load_svmlight_file(local_url_test, dtype=np.float32)
+
+    X_train = pd.DataFrame(X_train.toarray())
+    X_test = pd.DataFrame(X_test.toarray())
+
+    y_train[y_train <= 0] = 0
+    y_test[y_test <= 0] = 0
+    y_train = pd.Series(y_train)
+    y_test = pd.Series(y_test)
+
+    X = pd.concat([X_train, X_test], ignore_index=True)
+    y = pd.concat([y_train, y_test], ignore_index=True)
+
+    return X, y
+
+
+def _gen_data_fraud(datasets_root_dir):
+
+    local_url = os.path.join(datasets_root_dir, "creditcard.csv.zip")
+
+    if not os.path.isfile(local_url):
+        raise ValueError(
+            "Fraud dataset not found (search path: %s)" % local_url
+        )
+
+    df = pd.read_csv(local_url, dtype=np.float32)
+    X = df[[col for col in df.columns if col.startswith("V")]]
+    y = df["Class"]
+
+    return X, y
+
+
+def _gen_data_higgs(datasets_root_dir):
+
+    higgs_url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00280/HIGGS.csv.gz"  # noqa
+
+    local_url = os.path.join(datasets_root_dir, os.path.basename(higgs_url))
+
+    if not os.path.isfile(local_url):
+        urlretrieve(higgs_url, local_url)
+
     col_names = ["label"] + [
         "col-{}".format(i) for i in range(2, 30)
     ]  # Assign column names
     dtypes_ls = [np.int32] + [
         np.float32 for _ in range(2, 30)
     ]  # Assign dtypes to each column
-    data_df = pd.read_csv(
-        decompressed_filepath,
+
+    df = pd.read_csv(
+        local_url,
         names=col_names,
         dtype={k: v for k, v in zip(col_names, dtypes_ls)},
     )
-    X_df = data_df[data_df.columns.difference(["label"])]
-    y_df = data_df["label"]
-    return cudf.DataFrame.from_pandas(X_df), cudf.Series.from_pandas(y_df)
+
+    X = df[df.columns.difference(["label"])]
+    y = df["label"]
+
+    return X, y
+
+
+def _gen_data_year(datasets_root_dir):
+
+    year_url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00203/YearPredictionMSD.txt.zip"
+
+    local_url = os.path.join(datasets_root_dir, "YearPredictionMSD.txt.zip")
+
+    if not os.path.isfile(local_url):
+        urlretrieve(year_url, local_url)
+
+    df = pd.read_csv(local_url, header=None)
+    X = df.iloc[:, 1:]
+    y = df.iloc[:, 0]
+
+    return X, y
 
 
 def _convert_to_numpy(data):
@@ -346,8 +483,16 @@ _data_generators = {
     "zeros": _gen_data_zeros,
     "classification": _gen_data_classification,
     "regression": _gen_data_regression,
+    "airline_regression": _gen_data_airline_regression,
+    "airline_classification": _gen_data_airline_classification,
+    "bosch": _gen_data_bosch,
+    "covtype": _gen_data_covtype,
+    "epsilon": _gen_data_epsilon,
+    "fraud": _gen_data_fraud,
     "higgs": _gen_data_higgs,
+    "year": _gen_data_year,
 }
+
 _data_converters = {
     "numpy": _convert_to_numpy,
     "cupy": _convert_to_cupy,
@@ -371,6 +516,8 @@ def gen_data(
     n_samples=0,
     n_features=0,
     test_fraction=0.0,
+    datasets_root_dir=DATASETS_DIRECTORY,
+    dtype=np.float32,
     **kwargs,
 ):
     """Returns a tuple of data from the specified generator.
@@ -383,7 +530,7 @@ def gen_data(
     dataset_format : str
         Type of data to return. (One of cudf, numpy, pandas, gpuarray)
     n_samples : int
-        Number of samples to include in training set (regardless of test split)
+        Total number of samples to loaded including training and testing samples
     test_fraction : float
         Fraction of the dataset to partition randomly into the test set.
         If this is 0.0, no test set will be created.
@@ -394,12 +541,56 @@ def gen_data(
         containing matrices or dataframes of the requested format.
         test_features and test_labels may be None if no splitting was done.
     """
-    data = _data_generators[dataset_name](
-        int(n_samples / (1 - test_fraction)), n_features, **kwargs
+
+    pickle_x_file_url = os.path.join(
+        datasets_root_dir, "%s_x.pkl" % dataset_name
     )
-    if test_fraction != 0.0:
+    pickle_y_file_url = os.path.join(
+        datasets_root_dir, "%s_y.pkl" % dataset_name
+    )
+
+    mock_datasets = ["regression", "classification", "blobs", "zero"]
+    if dataset_name in mock_datasets:
+        X_df, y_df = _data_generators[dataset_name](
+            n_samples=n_samples, n_features=n_features, dtype=dtype, **kwargs
+        )
+    else:
+        if os.path.isfile(pickle_x_file_url):
+            # loading data from cache
+            X = pd.read_pickle(pickle_x_file_url)
+            y = pd.read_pickle(pickle_y_file_url)
+        else:
+            X, y = _data_generators[dataset_name](datasets_root_dir, **kwargs)
+
+            # cache the dataset for future use
+            X.to_pickle(pickle_x_file_url)
+            y.to_pickle(pickle_y_file_url)
+
+        if n_samples > X.shape[0]:
+            raise ValueError(
+                "%s dataset has only %d rows, cannot support %d"
+                % (dataset_name, X.shape[0], n_samples)
+            )
+
+        if n_features > X.shape[1]:
+            raise ValueError(
+                "%s dataset has only %d features, cannot support %d"
+                % (dataset_name, X.shape[1], n_features)
+            )
+
         if n_samples == 0:
-            n_samples = int(data[0].shape[0] * (1 - test_fraction))
+            n_samples = X.shape[0]
+
+        if n_features == 0:
+            n_features = X.shape[1]
+
+        X_df = cudf.DataFrame.from_pandas(
+            X.iloc[0:n_samples, 0:n_features].astype(dtype)
+        )
+        y_df = cudf.Series.from_pandas(y.iloc[0:n_samples].astype(dtype))
+
+    data = (X_df, y_df)
+    if test_fraction != 0.0:
         random_state_dict = (
             {"random_state": kwargs["random_state"]}
             if "random_state" in kwargs
@@ -407,12 +598,13 @@ def gen_data(
         )
         X_train, X_test, y_train, y_test = tuple(
             sklearn.model_selection.train_test_split(
-                *data, train_size=n_samples, **random_state_dict
+                *data,
+                test_size=int(n_samples * test_fraction),
+                **random_state_dict,
             )
         )
         data = (X_train, y_train, X_test, y_test)
     else:
         data = (*data, None, None)  # No test set
-
     data = _data_converters[dataset_format](data)
     return data

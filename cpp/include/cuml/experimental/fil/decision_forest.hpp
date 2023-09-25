@@ -220,6 +220,8 @@ struct decision_forest {
 
   /** The operation used for postprocessing all outputs for a single row */
   auto row_postprocessing() const { return row_postproc_; }
+  // Setter for row_postprocessing
+  void set_row_postprocessing(row_op val) { row_postproc_ = val; }
   /** The operation used for postprocessing each element of the output for a
    * single row */
   auto elem_postprocessing() const { return elem_postproc_; }

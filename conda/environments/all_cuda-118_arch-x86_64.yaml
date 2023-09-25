@@ -74,7 +74,7 @@ dependencies:
 - sphinx<6
 - statsmodels
 - sysroot_linux-64==2.17
-- treelite==3.2.0
+- treelite==3.9.1
 - umap-learn==0.5.3
 - pip:
   - git+https://github.com/dask/dask-glm@main
