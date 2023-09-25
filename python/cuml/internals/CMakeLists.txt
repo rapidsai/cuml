@@ -16,6 +16,7 @@
 
 set(cython_sources
     base.pyx
+    device_support.pyx
     internals.pyx
     logger.pyx
 )
