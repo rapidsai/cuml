@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ function(find_and_configure_treelite)
             EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
             OPTIONS
               "USE_OPENMP ON"
-              "BUILD_STATIC_LIBS ${PKG_BUILD_STATIC_LIBS}"
+              "Treelite_BUILD_STATIC_LIBS ${PKG_BUILD_STATIC_LIBS}"
     )
 
 
@@ -90,7 +90,7 @@ function(find_and_configure_treelite)
     rapids_export_find_package_root(BUILD Treelite [=[${CMAKE_CURRENT_LIST_DIR}]=] cuml-exports)
 endfunction()
 
-find_and_configure_treelite(VERSION     3.2.0
-                        PINNED_TAG  ee697b3b58d5f51623dd3b308f290581b58dbe5d
+find_and_configure_treelite(VERSION     3.9.1
+                        PINNED_TAG  346d92547295417676f499ce2dd4fff946b9042a
                         EXCLUDE_FROM_ALL  ${CUML_EXCLUDE_TREELITE_FROM_ALL}
                         BUILD_STATIC_LIBS ${CUML_USE_TREELITE_STATIC})

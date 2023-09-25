@@ -561,6 +561,9 @@ def test_logistic_regression(
     )
     assert len(np.unique(cu_preds)) == len(np.unique(y_test))
 
+    if fit_intercept is False:
+        assert np.array_equal(culog.intercept_, sklog.intercept_)
+
 
 @given(
     dtype=floating_dtypes(sizes=(32, 64)),

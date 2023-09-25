@@ -22,7 +22,7 @@
 
 #include <cuml/common/logger.hpp>  // for CUML_LOG_WARN
 #include <cuml/fil/fil.h>  // for algo_t, from_treelite, storage_type_repr, storage_type_t, treelite_params_t
-#include <cuml/fil/fnv_hash.h>         // for fowler_noll_vo_fingerprint64_32
+#include <cuml/fil/fnv_hash.h>  // for fowler_noll_vo_fingerprint64_32
 
 #include <raft/core/error.hpp>         // for ASSERT
 #include <raft/core/handle.hpp>        // for handle_t
@@ -32,18 +32,18 @@
 #include <treelite/c_api.h>  // for ModelHandle
 #include <treelite/tree.h>   // for Tree, Model, ModelImpl, ModelParam
 
-#include <omp.h>             // for omp
+#include <omp.h>  // for omp
 
-#include <algorithm>         // for std::max
-#include <bitset>            // for std::bitset
-#include <cmath>             // for NAN
-#include <cstddef>           // for std::size_t
-#include <cstdint>           // for uint8_t
-#include <iosfwd>            // for ios, stringstream
-#include <limits>            // for std::numeric_limits
-#include <stack>             // for std::stack
-#include <string>            // for std::string
-#include <type_traits>       // for std::is_same
+#include <algorithm>    // for std::max
+#include <bitset>       // for std::bitset
+#include <cmath>        // for NAN
+#include <cstddef>      // for std::size_t
+#include <cstdint>      // for uint8_t
+#include <iosfwd>       // for ios, stringstream
+#include <limits>       // for std::numeric_limits
+#include <stack>        // for std::stack
+#include <string>       // for std::string
+#include <type_traits>  // for std::is_same
 
 namespace ML {
 namespace fil {
