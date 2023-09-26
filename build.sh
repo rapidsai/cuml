@@ -297,7 +297,7 @@ if (! hasArg --configure-only) && (completeBuild || hasArg cuml || hasArg pydocs
 fi
 
 if hasArg cuml-cpu; then
-    SKBUILD_CONFIGURE_OPTIONS="${CUML_EXTRA_CMAKE_ARGS} -DCUML_CPU=ON" \
+    SKBUILD_CONFIGURE_OPTIONS="${CUML_EXTRA_CMAKE_ARGS} -DCUML_CPU=ON -DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE" \
         SKBUILD_BUILD_OPTIONS="-j${PARALLEL_LEVEL}" \
         python -m pip install --no-build-isolation --no-deps -v ${REPODIR}/python
 fi
