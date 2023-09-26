@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include "qn/glm_logistic.cuh"
-#include "qn/glm_regularizer.cuh"
-#include "qn/qn_util.cuh"
+#include "qn/mg/qn_mg.cuh"
 #include "qn/simple_mat/dense.hpp"
+#include <cuda_runtime.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/linear_model/qn.h>
 #include <cuml/linear_model/qn_mg.hpp>
@@ -26,10 +25,6 @@
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
 using namespace MLCommon;
-
-#include "qn/glm_base_mg.cuh"
-
-#include <cuda_runtime.h>
 
 namespace ML {
 namespace GLM {
@@ -62,39 +57,20 @@ void qnFit_impl(const raft::handle_t& handle,
     }
   }
 
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  auto X_simple       = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
-  auto y_simple       = SimpleVec<T>(y, N);
-  SimpleVec<T> coef_simple(w0, D + pams.fit_intercept);
+  auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
 
-  ML::GLM::detail::LBFGSParam<T> opt_param(pams);
-
-  // prepare regularizer regularizer_obj
-  ML::GLM::detail::LogisticLoss<T> loss_func(handle, D, pams.fit_intercept);
-  T l2 = pams.penalty_l2;
-  if (pams.penalty_normalized) {
-    l2 /= n_samples;  // l2 /= 1/X.m
-  }
-  ML::GLM::detail::Tikhonov<T> reg(l2);
-  ML::GLM::detail::RegularizedGLM<T, ML::GLM::detail::LogisticLoss<T>, decltype(reg)>
-    regularizer_obj(&loss_func, &reg);
-
-  // prepare GLMWithDataMG
-  int n_targets = C == 2 ? 1 : C;
-  rmm::device_uvector<T> tmp(n_targets * N, stream);
-  SimpleDenseMat<T> Z(tmp.data(), n_targets, N);
-  auto obj_function =
-    GLMWithDataMG(handle, rank, n_ranks, n_samples, &regularizer_obj, X_simple, y_simple, Z);
-
-  // prepare temporary variables fx, k, workspace
-  float fx = -1;
-  int k    = -1;
-  rmm::device_uvector<float> tmp_workspace(lbfgs_workspace_size(opt_param, coef_simple.len),
-                                           stream);
-  SimpleVec<float> workspace(tmp_workspace.data(), tmp_workspace.size());
-
-  // call min_lbfgs
-  min_lbfgs(opt_param, obj_function, coef_simple, fx, &k, workspace, stream, 5);
+  ML::GLM::opg::qn_fit_x_mg(handle,
+                            pams,
+                            X_simple,
+                            y,
+                            C,
+                            w0,
+                            f,
+                            num_iters,
+                            n_samples,
+                            rank,
+                            n_ranks);  // ignore sample_weight, svr_eps
+  return;
 }
 
 template <typename T>

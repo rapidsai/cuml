@@ -17,7 +17,7 @@ cmake_version:
   - ">=3.26.4"
 
 treelite_version:
-  - "=3.2.0"
+  - "=3.9.1"
 
 gtest_version:
   - ">=1.13.0"

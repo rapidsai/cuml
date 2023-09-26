@@ -341,29 +341,34 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # FIL components
   if(all_algo OR fil_algo)
+    if(CUML_ENABLE_GPU)
+      target_sources(${CUML_CPP_TARGET}
+        PRIVATE
+          # Current FIL
+          src/fil/fil.cu
+          src/fil/infer.cu
+          src/fil/treelite_import.cu
+          # Experimental FIL
+          src/experimental/fil/infer0.cu
+          src/experimental/fil/infer1.cu
+          src/experimental/fil/infer2.cu
+          src/experimental/fil/infer3.cu
+          src/experimental/fil/infer4.cu
+          src/experimental/fil/infer5.cu
+          src/experimental/fil/infer6.cu
+          src/experimental/fil/infer7.cu)
+    endif()
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
-        src/fil/fil.cu
-        src/fil/infer.cu
-        src/fil/treelite_import.cu)
-    target_sources(${CUML_CPP_TARGET}
-      PRIVATE
+        # Experimental FIL
         src/experimental/fil/infer0.cpp
-        src/experimental/fil/infer0.cu
         src/experimental/fil/infer1.cpp
-        src/experimental/fil/infer1.cu
         src/experimental/fil/infer2.cpp
-        src/experimental/fil/infer2.cu
         src/experimental/fil/infer3.cpp
-        src/experimental/fil/infer3.cu
         src/experimental/fil/infer4.cpp
-        src/experimental/fil/infer4.cu
         src/experimental/fil/infer5.cpp
-        src/experimental/fil/infer5.cu
         src/experimental/fil/infer6.cpp
-        src/experimental/fil/infer6.cu
-        src/experimental/fil/infer7.cpp
-        src/experimental/fil/infer7.cu)
+        src/experimental/fil/infer7.cpp)
   endif()
 
   # todo: organize linear models better
