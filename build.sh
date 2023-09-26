@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
+VALIDTARGETS="clean libcuml cuml cuml-cpu cpp-mgtests prims bench prims-bench cppdocs pydocs"
 VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov --ccache --configure-only -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
@@ -297,7 +297,7 @@ if (! hasArg --configure-only) && (completeBuild || hasArg cuml || hasArg pydocs
 fi
 
 if hasArg cuml-cpu; then
-    SKBUILD_CONFIGURE_OPTIONS="${CUML_EXTRA_CMAKE_ARGS} -DCUML_CPU=ON -DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE" \
+    SKBUILD_CONFIGURE_OPTIONS="-DCUML_CPU=ON -DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE" \
         SKBUILD_BUILD_OPTIONS="-j${PARALLEL_LEVEL}" \
         python -m pip install --no-build-isolation --no-deps -v ${REPODIR}/python
 fi
