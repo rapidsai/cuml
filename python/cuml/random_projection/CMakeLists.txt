@@ -14,9 +14,8 @@
 
 
 
-set(cython_sources
-    random_projection.pyx
-)
+set(cython_sources "")
+add_module_gpu_default("random_projection.pyx" ${random_projection_algo})
 
 rapids_cython_create_modules(
   CXX

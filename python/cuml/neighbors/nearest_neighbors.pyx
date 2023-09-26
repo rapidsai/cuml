@@ -57,7 +57,7 @@ IF GPUBUILD == 1:
     from libcpp.vector cimport vector
     from pylibraft.common.handle cimport handle_t
 
-    cdef extern from "raft/spatial/knn/ball_cover_common.h" \
+    cdef extern from "raft/spatial/knn/ball_cover_types.hpp" \
             namespace "raft::spatial::knn":
         cdef cppclass BallCoverIndex[int64_t, float, uint32_t]:
             BallCoverIndex(const handle_t &handle,

@@ -59,7 +59,7 @@ from libc.stdint cimport uintptr_t
 
 
 IF GPUBUILD == 1:
-    from cuml.metrics.distance_type cimport DistanceType
+    from libc.stdlib cimport free
     from cuml.manifold.umap_utils cimport *
     from pylibraft.common.handle cimport handle_t
     from cuml.manifold.umap_utils import GraphHolder, find_ab_params, \
@@ -89,6 +89,8 @@ IF GPUBUILD == 1:
                         float *y,
                         int n,
                         int d,
+                        int * knn_indices,
+                        float * knn_dists,
                         UMAPParams *params,
                         float *embeddings,
                         COO * graph) except +
@@ -97,8 +99,6 @@ IF GPUBUILD == 1:
                        float * X,
                        int n,
                        int d,
-                       int64_t * knn_indices,
-                       float * knn_dists,
                        float * orig_X,
                        int orig_n,
                        float * embedding,
@@ -419,7 +419,7 @@ class UMAP(UniversalBase,
             raise ValueError("min_dist should be <= spread")
 
     @staticmethod
-    def _build_umap_params(cls):
+    def _build_umap_params(cls, sparse):
         IF GPUBUILD == 1:
             cdef UMAPParams* umap_params = new UMAPParams()
             umap_params.n_neighbors = <int> cls.n_neighbors
@@ -449,31 +449,16 @@ class UMAP(UniversalBase,
             umap_params.random_state = <uint64_t> cls.random_state
             umap_params.deterministic = <bool> cls.deterministic
 
-            # metric
-            metric_parsing = {
-                "l2": DistanceType.L2SqrtUnexpanded,
-                "euclidean": DistanceType.L2SqrtUnexpanded,
-                "sqeuclidean": DistanceType.L2Unexpanded,
-                "cityblock": DistanceType.L1,
-                "l1": DistanceType.L1,
-                "manhattan": DistanceType.L1,
-                "taxicab": DistanceType.L1,
-                "minkowski": DistanceType.LpUnexpanded,
-                "chebyshev": DistanceType.Linf,
-                "linf": DistanceType.Linf,
-                "cosine": DistanceType.CosineExpanded,
-                "correlation": DistanceType.CorrelationExpanded,
-                "hellinger": DistanceType.HellingerExpanded,
-                "hamming": DistanceType.HammingUnexpanded,
-                "jaccard": DistanceType.JaccardExpanded,
-                "canberra": DistanceType.Canberra
-            }
-
-            if cls.metric.lower() in metric_parsing:
+            try:
                 umap_params.metric = metric_parsing[cls.metric.lower()]
-            else:
-                raise ValueError("Invalid value for metric: {}"
-                                 .format(cls.metric))
+                if sparse:
+                    if umap_params.metric not in SPARSE_SUPPORTED_METRICS:
+                        raise NotImplementedError(f"Metric '{cls.metric}' not supported for sparse inputs.")
+                elif umap_params.metric not in DENSE_SUPPORTED_METRICS:
+                    raise NotImplementedError(f"Metric '{cls.metric}' not supported for dense inputs.")
+
+            except KeyError:
+                raise ValueError(f"Invalid value for metric: {cls.metric}")
 
             if cls.metric_kwds is None:
                 umap_params.p = <float> 2.0
@@ -590,7 +575,8 @@ class UMAP(UniversalBase,
                 <handle_t*> <size_t> self.handle.getHandle()
             fss_graph = GraphHolder.new_graph(handle_.get_stream())
             cdef UMAPParams* umap_params = \
-                <UMAPParams*> <size_t> UMAP._build_umap_params(self)
+                <UMAPParams*> <size_t> UMAP._build_umap_params(self,
+                                                               self.sparse_fit)
             if self.sparse_fit:
                 fit_sparse(handle_[0],
                            <int*><uintptr_t> self._raw_data.indptr.ptr,
@@ -600,6 +586,8 @@ class UMAP(UniversalBase,
                            <float*> _y_raw_ptr,
                            <int> self.n_rows,
                            <int> self.n_dims,
+                           <int*> _knn_indices_ptr,
+                           <float*> _knn_dists_ptr,
                            <UMAPParams*> umap_params,
                            <float*> _embed_raw_ptr,
                            <COO*> fss_graph.get())
@@ -610,8 +598,8 @@ class UMAP(UniversalBase,
                     <float*> _y_raw_ptr,
                     <int> self.n_rows,
                     <int> self.n_dims,
-                    <int64_t*> knn_indices_raw,
-                    <float*> knn_dists_raw,
+                    <int64_t*> _knn_indices_ptr,
+                    <float*> _knn_dists_ptr,
                     <UMAPParams*>umap_params,
                     <float*>_embed_raw_ptr,
                     <COO*> fss_graph.get())
@@ -741,7 +729,8 @@ class UMAP(UniversalBase,
 
         IF GPUBUILD == 1:
             cdef UMAPParams* umap_params = \
-                <UMAPParams*> <size_t> UMAP._build_umap_params(self)
+                <UMAPParams*> <size_t> UMAP._build_umap_params(self,
+                                                               self.sparse_fit)
             cdef handle_t * handle_ = \
                 <handle_t*> <size_t> self.handle.getHandle()
             if self.sparse_fit:
@@ -763,17 +752,15 @@ class UMAP(UniversalBase,
                                  <float*> _xformed_ptr)
             else:
                 transform(handle_[0],
-                          <float*><uintptr_t> X_m.ptr,
-                          <int> X_m.shape[0],
-                          <int> X_m.shape[1],
-                          <int64_t*> knn_indices_raw,
-                          <float*> knn_dists_raw,
-                          <float*><uintptr_t>self._raw_data.ptr,
-                          <int> self._raw_data.shape[0],
-                          <float*> _embed_ptr,
-                          <int> self._raw_data.shape[0],
-                          <UMAPParams*> umap_params,
-                          <float*> _xformed_ptr)
+                      <float*><uintptr_t> X_m.ptr,
+                      <int> n_rows,
+                      <int> n_cols,
+                      <float*><uintptr_t>self._raw_data.ptr,
+                      <int> self._raw_data.shape[0],
+                      <float*> _embed_ptr,
+                      <int> n_rows,
+                      <UMAPParams*> umap_params,
+                      <float*> _xformed_ptr)
             self.handle.sync()
 
             UMAP._destroy_umap_params(<size_t>umap_params)

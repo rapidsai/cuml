@@ -35,6 +35,7 @@ from cuml.common.sparse_utils import is_sparse
 
 
 IF GPUBUILD == 1:
+    from libcpp cimport bool
     from cuml.metrics import accuracy_score
     from pylibraft.common.handle cimport handle_t
     cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:

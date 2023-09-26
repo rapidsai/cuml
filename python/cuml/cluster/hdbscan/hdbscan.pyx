@@ -33,9 +33,7 @@ from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.internals.import_utils import has_hdbscan_plots
-from cuml.internals.import_utils import has_hdbscan_prediction
-
+from cuml.internals.import_utils import has_hdbscan
 import cuml
 
 
@@ -167,12 +165,8 @@ IF GPUBUILD == 1:
                                        float cluster_selection_epsilon)
 
     _metrics_mapping = {
-        'l1': DistanceType.L1,
-        'cityblock': DistanceType.L1,
-        'manhattan': DistanceType.L1,
         'l2': DistanceType.L2SqrtExpanded,
         'euclidean': DistanceType.L2SqrtExpanded,
-        'cosine': DistanceType.CosineExpanded
     }
 
 
@@ -210,7 +204,7 @@ def _build_condensed_tree_plot_host(
     raw_tree['lambda_val'] = lambdas
     raw_tree['child_size'] = sizes
 
-    if has_hdbscan_plots():
+    if has_hdbscan(raise_if_unavailable=True):
         from hdbscan.plots import CondensedTree
         return CondensedTree(raw_tree,
                              cluster_selection_method,
@@ -584,7 +578,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
             raw_tree = raw_tree.astype(np.float64)
 
-            if has_hdbscan_plots(raise_if_unavailable=True):
+            if has_hdbscan(raise_if_unavailable=True):
                 from hdbscan.plots import SingleLinkageTree
                 self.single_linkage_tree_obj = SingleLinkageTree(raw_tree)
 
@@ -603,7 +597,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                'model.generate_prediction_data()')
 
         if self.prediction_data_obj is None:
-            if has_hdbscan_prediction(raise_if_unavailable=True):
+            if has_hdbscan(raise_if_unavailable=True):
                 from sklearn.neighbors import KDTree, BallTree
                 from hdbscan.prediction import PredictionData
 
@@ -644,7 +638,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
             raw_tree = raw_tree.astype(np.float64)
 
-            if has_hdbscan_plots(raise_if_unavailable=True):
+            if has_hdbscan(raise_if_unavailable=True):
                 from hdbscan.plots import MinimumSpanningTree
                 self.minimum_spanning_tree_ = \
                     MinimumSpanningTree(raw_tree, X.to_output("numpy"))
@@ -841,7 +835,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
             if self.metric in _metrics_mapping:
                 metric = _metrics_mapping[self.metric]
             else:
-                raise ValueError("'affinity' %s not supported." % self.affinity)
+                raise ValueError(f"metric '{self.metric}' not supported, only "
+                                 "'l2' and 'euclidean' are currently "
+                                 "supported.")
 
             cdef uintptr_t core_dists_ptr = self.core_dists.ptr
 
