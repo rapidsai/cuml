@@ -29,6 +29,7 @@ from cuml.common import (
     input_to_host_array
 )
 from cuml.internals.device_type import DeviceType
+from cuml.internals.import_utils import has_hdbscan
 from cuml.internals import logger
 
 import cuml
@@ -36,7 +37,6 @@ import cuml
 IF GPUBUILD == 1:
     from cython.operator cimport dereference as deref
     from pylibraft.common.handle cimport handle_t
-    from cuml.internals.import_utils import has_hdbscan
     from cuml.metrics.distance_type cimport DistanceType
     from pylibraft.common.handle cimport handle_t
     from pylibraft.common.handle import Handle
@@ -334,11 +334,11 @@ def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dty
                                   <float*> _membership_vec_ptr,
                                   batch_size)
 
-    clusterer.handle.sync()
-    return membership_vec.to_output(
-        output_type="numpy",
-        output_dtype="float32").reshape((n_prediction_points,
-                                         clusterer.n_clusters_))
+        clusterer.handle.sync()
+        return membership_vec.to_output(
+            output_type="numpy",
+            output_dtype="float32").reshape((n_prediction_points,
+                                             clusterer.n_clusters_))
 
 
 def approximate_predict(clusterer, points_to_predict, convert_dtype=True):

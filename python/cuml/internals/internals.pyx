@@ -30,61 +30,62 @@ cdef extern from "Python.h":
     cdef cppclass PyObject
 
 
-cdef extern from "callbacks_implems.h" namespace "ML::Internals":
-    cdef cppclass Callback:
-        pass
+IF GPUBUILD == 1:
+    cdef extern from "callbacks_implems.h" namespace "ML::Internals":
+        cdef cppclass Callback:
+            pass
 
-    cdef cppclass DefaultGraphBasedDimRedCallback(Callback):
-        void setup(int n, int d) except +
-        void on_preprocess_end(void* embeddings) except +
-        void on_epoch_end(void* embeddings) except +
-        void on_train_end(void* embeddings) except +
-        PyObject* pyCallbackClass
-
-
-cdef class PyCallback:
-
-    def get_numba_matrix(self, embeddings, shape, typestr):
-
-        sizeofType = 4 if typestr == "float32" else 8
-        desc = {
-            'shape': shape,
-            'strides': (shape[1]*sizeofType, sizeofType),
-            'typestr': typestr,
-            'data': [embeddings],
-            'order': 'C',
-            'version': 1
-        }
-
-        return from_cuda_array_interface(desc)
+        cdef cppclass DefaultGraphBasedDimRedCallback(Callback):
+            void setup(int n, int d) except +
+            void on_preprocess_end(void* embeddings) except +
+            void on_epoch_end(void* embeddings) except +
+            void on_train_end(void* embeddings) except +
+            PyObject* pyCallbackClass
 
 
-cdef class GraphBasedDimRedCallback(PyCallback):
-    """
-    Usage
-    -----
+    cdef class PyCallback:
 
-    class CustomCallback(GraphBasedDimRedCallback):
-        def on_preprocess_end(self, embeddings):
-            print(embeddings.copy_to_host())
+        def get_numba_matrix(self, embeddings, shape, typestr):
 
-        def on_epoch_end(self, embeddings):
-            print(embeddings.copy_to_host())
+            sizeofType = 4 if typestr == "float32" else 8
+            desc = {
+                'shape': shape,
+                'strides': (shape[1]*sizeofType, sizeofType),
+                'typestr': typestr,
+                'data': [embeddings],
+                'order': 'C',
+                'version': 1
+            }
 
-        def on_train_end(self, embeddings):
-            print(embeddings.copy_to_host())
+            return from_cuda_array_interface(desc)
 
-    reducer = UMAP(n_components=2, callback=CustomCallback())
-    """
 
-    cdef DefaultGraphBasedDimRedCallback native_callback
+    cdef class GraphBasedDimRedCallback(PyCallback):
+        """
+        Usage
+        -----
 
-    def __init__(self):
-        self.native_callback.pyCallbackClass = <PyObject *><void*>self
+        class CustomCallback(GraphBasedDimRedCallback):
+            def on_preprocess_end(self, embeddings):
+                print(embeddings.copy_to_host())
 
-    def get_native_callback(self):
-        if self.native_callback.pyCallbackClass == NULL:
-            raise ValueError(
-                "You need to call `super().__init__` in your callback."
-            )
-        return <uintptr_t>&(self.native_callback)
+            def on_epoch_end(self, embeddings):
+                print(embeddings.copy_to_host())
+
+            def on_train_end(self, embeddings):
+                print(embeddings.copy_to_host())
+
+        reducer = UMAP(n_components=2, callback=CustomCallback())
+        """
+
+        cdef DefaultGraphBasedDimRedCallback native_callback
+
+        def __init__(self):
+            self.native_callback.pyCallbackClass = <PyObject *><void*>self
+
+        def get_native_callback(self):
+            if self.native_callback.pyCallbackClass == NULL:
+                raise ValueError(
+                    "You need to call `super().__init__` in your callback."
+                )
+            return <uintptr_t>&(self.native_callback)
