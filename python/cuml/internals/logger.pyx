@@ -17,16 +17,14 @@
 # distutils: language = c++
 
 
-import sys
-
 IF GPUBUILD == 0:
     import logging
 
 
 IF GPUBUILD == 1:
+    import sys
     from libcpp.string cimport string
     from libcpp cimport bool
-
 
     cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
         cdef cppclass Logger:
@@ -40,7 +38,6 @@ IF GPUBUILD == 1:
             int getLevel() const
             string getPattern() const
             void flush()
-
 
     cdef extern from "cuml/common/logger.hpp" nogil:
         void CUML_LOG_TRACE(const char* fmt, ...)
@@ -57,7 +54,6 @@ IF GPUBUILD == 1:
         cdef int CUML_LEVEL_ERROR
         cdef int CUML_LEVEL_CRITICAL
         cdef int CUML_LEVEL_OFF
-
 
     """Enables all log messages upto and including `trace()`"""
     level_trace = CUML_LEVEL_TRACE
@@ -92,7 +88,6 @@ IF GPUBUILD == 1:
             Message to be logged
         """
         print(msg.decode('utf-8'), end='')
-
 
     cdef void _log_flush() with gil:
         """

@@ -15,14 +15,14 @@
 #
 
 
+try:
+    import sklearn  # noqa: F401  # no-cython-lint
+    CPU_ENABLED = True
+except ImportError:
+    CPU_ENABLED = False
+
 IF GPUBUILD == 1:
     GPU_ENABLED = True
 
 ELSE:
     GPU_ENABLED = False
-
-try:
-    import sklearn  # noqa: F401
-    CPU_ENABLED = True
-except ImportError:
-    CPU_ENABLED = False

@@ -752,15 +752,15 @@ class UMAP(UniversalBase,
                                  <float*> _xformed_ptr)
             else:
                 transform(handle_[0],
-                      <float*><uintptr_t> X_m.ptr,
-                      <int> n_rows,
-                      <int> n_cols,
-                      <float*><uintptr_t>self._raw_data.ptr,
-                      <int> self._raw_data.shape[0],
-                      <float*> _embed_ptr,
-                      <int> n_rows,
-                      <UMAPParams*> umap_params,
-                      <float*> _xformed_ptr)
+                          <float*><uintptr_t> X_m.ptr,
+                          <int> n_rows,
+                          <int> n_cols,
+                          <float*><uintptr_t>self._raw_data.ptr,
+                          <int> self._raw_data.shape[0],
+                          <float*> _embed_ptr,
+                          <int> n_rows,
+                          <UMAPParams*> umap_params,
+                          <float*> _xformed_ptr)
             self.handle.sync()
 
             UMAP._destroy_umap_params(<size_t>umap_params)
