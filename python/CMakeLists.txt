@@ -51,11 +51,11 @@ set(CUML_RAFT_CLONE_ON_PIN OFF)
 
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
 # https://github.com/rapidsai/cuml/issues/4843
+message(VERBOSE "CUML_PY: Build only cuML CPU Python components.: ${CUML_CPU}")
 message(VERBOSE "CUML_PY: Searching for existing CUML C++ installations before defaulting to local files: ${FIND_CUML_CPP}")
 message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 
-set(CUML_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Can specify individual algorithms or groups in a semicolon-separated list.")
-message(VERBOSE "CUML_PY: Building cuML with algorithms: '${CUML_ALGORITHMS}'.")
+set(CUML_ALGORITHMS "ALL" CACHE STRING "Choose which algorithms are built cuML. Can specify individual algorithms or groups in a semicolon-separated list.")
 
 set(CUML_CPP_TARGET "cuml++")
 set(CUML_CPP_SRC "../cpp")
@@ -84,37 +84,39 @@ else()
   set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
 endif()
 
-if(NOT cuml_FOUND AND NOT ${CUML_CPU})
-  set(BUILD_CUML_TESTS OFF)
-  set(BUILD_PRIMS_TESTS OFF)
-  set(BUILD_CUML_C_LIBRARY OFF)
-  set(BUILD_CUML_EXAMPLES OFF)
-  set(BUILD_CUML_BENCH OFF)
-  set(BUILD_CUML_PRIMS_BENCH OFF)
-  set(CUML_EXPORT_TREELITE_LINKAGE ON)
+if(NOT ${CUML_CPU})
+  if(NOT cuml_FOUND)
+    set(BUILD_CUML_TESTS OFF)
+    set(BUILD_PRIMS_TESTS OFF)
+    set(BUILD_CUML_C_LIBRARY OFF)
+    set(BUILD_CUML_EXAMPLES OFF)
+    set(BUILD_CUML_BENCH OFF)
+    set(BUILD_CUML_PRIMS_BENCH OFF)
+    set(CUML_EXPORT_TREELITE_LINKAGE ON)
 
-  set(_exclude_from_all "")
-  if(CUML_BUILD_WHEELS)
-    # Statically link dependencies if building wheels
-    set(CUDA_STATIC_RUNTIME ON)
-    set(CUML_USE_RAFT_STATIC ON)
-    set(CUML_USE_FAISS_STATIC ON)
-    set(CUML_USE_TREELITE_STATIC ON)
-    set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
-    # Don't install the static libs into wheels
-    set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
-    set(RAFT_EXCLUDE_FAISS_FROM_ALL ON)
-    set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
-    set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
+    set(_exclude_from_all "")
+    if(CUML_BUILD_WHEELS)
+      # Statically link dependencies if building wheels
+      set(CUDA_STATIC_RUNTIME ON)
+      set(CUML_USE_RAFT_STATIC ON)
+      set(CUML_USE_FAISS_STATIC ON)
+      set(CUML_USE_TREELITE_STATIC ON)
+      set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
+      # Don't install the static libs into wheels
+      set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
+      set(RAFT_EXCLUDE_FAISS_FROM_ALL ON)
+      set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
+      set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
 
-    # Don't install the cuML C++ targets into wheels
-    set(_exclude_from_all EXCLUDE_FROM_ALL)
+      # Don't install the cuML C++ targets into wheels
+      set(_exclude_from_all EXCLUDE_FROM_ALL)
+    endif()
+
+    add_subdirectory(../cpp cuml-cpp ${_exclude_from_all})
+
+    set(cython_lib_dir cuml)
+    install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
   endif()
-
-  add_subdirectory(../cpp cuml-cpp ${_exclude_from_all})
-
-  set(cython_lib_dir cuml)
-  install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
 endif()
 
 if(CUML_CPU)
@@ -165,8 +167,9 @@ if(${CUML_CPU})
   unset(metrics_algo)
 endif()
 
-rapids_cython_init()
+message(VERBOSE "CUML_PY: Building cuML with algorithms: '${CUML_ALGORITHMS}'.")
 
+rapids_cython_init()
 
 add_subdirectory(cuml/common)
 add_subdirectory(cuml/internals)
