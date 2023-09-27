@@ -403,6 +403,17 @@ class SVC(SVMBase,
         y_m, _, _, _ = input_to_cuml_array(y, check_cols=1)
         return len(cp.unique(cp.asarray(y_m)))
 
+    def _input_to_host_array(self, X):
+        _array_type, is_sparse = determine_array_type_full(X)
+        if is_sparse:
+            if _array_type == "cupy":
+                X = SparseCumlArray(X).to_output(output_type="scipy")
+            elif _array_type == "cuml":
+                X = X.to_output(output_type="scipy")
+        else:
+            X = input_to_host_array(X).array
+        return X
+
     def _fit_multiclass(self, X, y, sample_weight) -> "SVC":
         if sample_weight is not None:
             warn("Sample weights are currently ignored for multi class "
@@ -450,7 +461,7 @@ class SVC(SVMBase,
 
         # Currently CalibratedClassifierCV expects data on the host, see
         # https://github.com/rapidsai/cuml/issues/2608
-        X = input_to_host_array(X).array
+        X = self._input_to_host_array(X)
         y = input_to_host_array(y).array
 
         if not has_sklearn():
@@ -481,13 +492,9 @@ class SVC(SVMBase,
         _array_type, is_sparse = determine_array_type_full(X)
 
         if self.probability:
-            if is_sparse:
-                raise ValueError("Probabilistic SVM does not support sparse input.")
             return self._fit_proba(X, y, sample_weight)
 
         if self.n_classes_ > 2:
-            if is_sparse:
-                raise ValueError("Multiclass SVM does not support sparse input.")
             return self._fit_multiclass(X, y, sample_weight)
 
         if is_sparse:
@@ -595,7 +602,7 @@ class SVC(SVMBase,
         if self.probability:
             self._check_is_fitted('prob_svc')
 
-            X = input_to_host_array(X).array
+            X = self._input_to_host_array(X)
 
             with cuml.internals.exit_internal_api():
                 preds = self.prob_svc.predict(X)
@@ -629,7 +636,7 @@ class SVC(SVMBase,
         if self.probability:
             self._check_is_fitted('prob_svc')
 
-            X = input_to_host_array(X).array
+            X = self._input_to_host_array(X)
 
             # Exit the internal API when calling sklearn code (forces numpy
             # conversion)
