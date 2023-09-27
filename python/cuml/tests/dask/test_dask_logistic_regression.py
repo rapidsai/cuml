@@ -20,6 +20,8 @@ from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
 from cuml.internals.safe_imports import cpu_only_import
+from hypothesis import given
+from hypothesis import strategies as st
 
 pd = cpu_only_import("pandas")
 np = cpu_only_import("numpy")
@@ -385,14 +387,15 @@ def test_n_classes_small(client):
     )
 
 
+@pytest.mark.parametrize("n_parts", [2, 23])
 @pytest.mark.parametrize("fit_intercept", [False, True])
-@pytest.mark.parametrize("n_classes", [2, 8])
-def test_n_classes(fit_intercept, n_classes, client):
+@pytest.mark.parametrize("n_classes", [8])
+def test_n_classes(n_parts, fit_intercept, n_classes, client):
     lr = test_lbfgs(
         nrows=1e5,
         ncols=20,
-        n_parts=23,
-        fit_intercept=False,
+        n_parts=n_parts,
+        fit_intercept=fit_intercept,
         datatype=np.float32,
         delayed=True,
         client=client,
