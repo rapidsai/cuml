@@ -53,7 +53,8 @@ std::vector<T> distinct_mg(const raft::handle_t& handle, T* y, size_t n)
   raft::copy(recv_counts_host.data(), recv_counts.data(), n_ranks, stream);
 
   std::vector<size_t> displs(n_ranks);
-  for (int i = 0, pos = 0; i < n_ranks; ++i) {
+  size_t pos = 0;
+  for (int i = 0; i < n_ranks; ++i) {
     displs[i] = pos;
     pos += recv_counts_host[i];
   }
