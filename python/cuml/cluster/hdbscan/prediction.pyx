@@ -228,25 +228,30 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
 
 
 def membership_vector(clusterer, points_to_predict, batch_size=4096, convert_dtype=True):
-    """Predict soft cluster membership. The result produces a vector
+    """
+    Predict soft cluster membership. The result produces a vector
     for each point in ``points_to_predict`` that gives a probability that
     the given point is a member of a cluster for each of the selected clusters
     of the ``clusterer``.
+
     Parameters
     ----------
     clusterer : HDBSCAN
         A clustering object that has been fit to the data and
         either had ``prediction_data=True`` set, or called the
         ``generate_prediction_data`` method after the fact.
+
     points_to_predict : array, or array-like (n_samples, n_features)
         The new data points to predict cluster labels for. They should
         have the same dimensionality as the original dataset over which
         clusterer was fit.
+
     batch_size : int, optional, default=min(4096, n_points_to_predict)
         Lowers memory requirement by computing distance-based membership
         in smaller batches of points in the prediction data. For example, a
         batch size of 1,000 computes distance based memberships for 1,000
         points at a time. The default batch size is 4,096.
+
     Returns
     -------
     membership_vectors : array (n_samples, n_clusters)
