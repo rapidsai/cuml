@@ -43,26 +43,26 @@ class Lasso(ElasticNet):
         >>> import numpy as np
         >>> import cudf
         >>> from cuml.linear_model import Lasso
-        >>> ls = Lasso(alpha = 0.1)
+        >>> ls = Lasso(alpha = 0.1, solver='qn')
         >>> X = cudf.DataFrame()
         >>> X['col1'] = np.array([0, 1, 2], dtype = np.float32)
         >>> X['col2'] = np.array([0, 1, 2], dtype = np.float32)
         >>> y = cudf.Series( np.array([0.0, 1.0, 2.0], dtype = np.float32) )
         >>> result_lasso = ls.fit(X, y)
         >>> print(result_lasso.coef_)
-        0   0.85
-        1   0.00
+        0   0.425
+        1   0.425
         dtype: float32
         >>> print(result_lasso.intercept_)
-        0.149999...
+        0.150000...
 
         >>> X_new = cudf.DataFrame()
         >>> X_new['col1'] = np.array([3,2], dtype = np.float32)
         >>> X_new['col2'] = np.array([5,5], dtype = np.float32)
         >>> preds = result_lasso.predict(X_new)
         >>> print(preds)
-        0   2.70
-        1   1.85
+        0   3.549997
+        1   3.124997
         dtype: float32
 
     Parameters

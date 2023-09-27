@@ -556,7 +556,6 @@ fixture_union(
         "linreg_test_data",
         "logreg_test_data",
         "lasso_test_data",
-        "elasticnet_test_data",
         "ridge_test_data",
         "umap_test_data",
         "pca_test_data",

@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -12,12 +12,11 @@
 # the License.
 # =============================================================================
 
-set(cython_sources
-    randomforest_common.pyx
-    randomforest_shared.pyx
-    randomforestclassifier.pyx
-    randomforestregressor.pyx
-)
+set(cython_sources "")
+add_module_gpu_default("randomforest_common.pyx" ${randomforestclassifier_algo} ${randomforestregressor_algo} ${ensemble_algo})
+add_module_gpu_default("randomforest_shared.pyx" ${randomforestclassifier_algo} ${randomforestregressor_algo} ${ensemble_algo})
+add_module_gpu_default("randomforestclassifier.pyx" ${randomforestclassifier_algo} ${ensemble_algo})
+add_module_gpu_default("randomforestregressor.pyx" ${randomforestregressor_algo} ${ensemble_algo})
 
 set(linked_libraries
     ${cuml_sg_libraries}

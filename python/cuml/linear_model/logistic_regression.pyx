@@ -67,10 +67,6 @@ class LogisticRegression(UniversalBase,
 
     Note that, just like in Scikit-learn, the bias will not be regularized.
 
-    This estimator supports cuML's experimental device selection capabilities.
-    It can be configured to run on either the CPU or the GPU.
-    To learn more, please see :ref:`device-selection`.
-
     Examples
     --------
 

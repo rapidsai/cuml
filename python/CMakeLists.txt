@@ -18,10 +18,16 @@ include(../fetch_rapids.cmake)
 
 set(CUML_VERSION 23.12.00)
 
-# We always need CUDA for cuML because the raft dependency brings in a
-# header-only cuco dependency that enables CUDA unconditionally.
-include(rapids-cuda)
-rapids_cuda_init_architectures(cuml-python)
+option(CUML_CPU "Build only cuML CPU Python components." OFF)
+set(language_list "C;CXX")
+
+if(NOT CUML_CPU)
+  # We always need CUDA for cuML GPU because the raft dependency brings in a
+  # header-only cuco dependency that enables CUDA unconditionally.
+  include(rapids-cuda)
+  rapids_cuda_init_architectures(cuml-python)
+  list(APPEND language_list "CUDA")
+endif()
 
 project(
   cuml-python
@@ -30,14 +36,12 @@ project(
             # language to be enabled here. The test project that is built in scikit-build to verify
             # various linking options for the python library is hardcoded to build with C, so until
             # that is fixed we need to keep C.
-            C CXX CUDA
+            ${language_list}
 )
 
 ################################################################################
 # - User Options  --------------------------------------------------------------
 option(CUML_UNIVERSAL "Build all cuML Python components." ON)
-option(CUML_CPU "Build only cuML CPU Python components." OFF)
-option(CUML_GPU "Build only cuML GPU Python components. Not supported yet, defaulting to CUML_UNIVERSAL" OFF)
 option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
 option(CUML_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
@@ -47,11 +51,11 @@ set(CUML_RAFT_CLONE_ON_PIN OFF)
 
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
 # https://github.com/rapidsai/cuml/issues/4843
+message(VERBOSE "CUML_PY: Build only cuML CPU Python components.: ${CUML_CPU}")
 message(VERBOSE "CUML_PY: Searching for existing CUML C++ installations before defaulting to local files: ${FIND_CUML_CPP}")
 message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 
-set(CUML_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Can specify individual algorithms or groups in a semicolon-separated list.")
-message(VERBOSE "CUML_PY: Building cuML with algorithms: '${CUML_ALGORITHMS}'.")
+set(CUML_ALGORITHMS "ALL" CACHE STRING "Choose which algorithms are built cuML. Can specify individual algorithms or groups in a semicolon-separated list.")
 
 set(CUML_CPP_TARGET "cuml++")
 set(CUML_CPP_SRC "../cpp")
@@ -80,37 +84,39 @@ else()
   set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
 endif()
 
-if(NOT cuml_FOUND)
-  set(BUILD_CUML_TESTS OFF)
-  set(BUILD_PRIMS_TESTS OFF)
-  set(BUILD_CUML_C_LIBRARY OFF)
-  set(BUILD_CUML_EXAMPLES OFF)
-  set(BUILD_CUML_BENCH OFF)
-  set(BUILD_CUML_PRIMS_BENCH OFF)
-  set(CUML_EXPORT_TREELITE_LINKAGE ON)
+if(NOT ${CUML_CPU})
+  if(NOT cuml_FOUND)
+    set(BUILD_CUML_TESTS OFF)
+    set(BUILD_PRIMS_TESTS OFF)
+    set(BUILD_CUML_C_LIBRARY OFF)
+    set(BUILD_CUML_EXAMPLES OFF)
+    set(BUILD_CUML_BENCH OFF)
+    set(BUILD_CUML_PRIMS_BENCH OFF)
+    set(CUML_EXPORT_TREELITE_LINKAGE ON)
 
-  set(_exclude_from_all "")
-  if(CUML_BUILD_WHEELS)
-    # Statically link dependencies if building wheels
-    set(CUDA_STATIC_RUNTIME ON)
-    set(CUML_USE_RAFT_STATIC ON)
-    set(CUML_USE_FAISS_STATIC ON)
-    set(CUML_USE_TREELITE_STATIC ON)
-    set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
-    # Don't install the static libs into wheels
-    set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
-    set(RAFT_EXCLUDE_FAISS_FROM_ALL ON)
-    set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
-    set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
+    set(_exclude_from_all "")
+    if(CUML_BUILD_WHEELS)
+      # Statically link dependencies if building wheels
+      set(CUDA_STATIC_RUNTIME ON)
+      set(CUML_USE_RAFT_STATIC ON)
+      set(CUML_USE_FAISS_STATIC ON)
+      set(CUML_USE_TREELITE_STATIC ON)
+      set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
+      # Don't install the static libs into wheels
+      set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
+      set(RAFT_EXCLUDE_FAISS_FROM_ALL ON)
+      set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
+      set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
 
-    # Don't install the cuML C++ targets into wheels
-    set(_exclude_from_all EXCLUDE_FROM_ALL)
+      # Don't install the cuML C++ targets into wheels
+      set(_exclude_from_all EXCLUDE_FROM_ALL)
+    endif()
+
+    add_subdirectory(../cpp cuml-cpp ${_exclude_from_all})
+
+    set(cython_lib_dir cuml)
+    install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
   endif()
-
-  add_subdirectory(../cpp cuml-cpp ${_exclude_from_all})
-
-  set(cython_lib_dir cuml)
-  install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
 endif()
 
 if(CUML_CPU)
@@ -118,10 +124,28 @@ if(CUML_CPU)
   set(SINGLEGPU ON)
 
   set(CUML_ALGORITHMS "linearregression")
-endif()
+  list(APPEND CUML_ALGORITHMS "pca")
+  list(APPEND CUML_ALGORITHMS "tsvd")
+  list(APPEND CUML_ALGORITHMS "elasticnet")
+  list(APPEND CUML_ALGORITHMS "logisticregression")
+  list(APPEND CUML_ALGORITHMS "ridge")
+  list(APPEND CUML_ALGORITHMS "lasso")
+  list(APPEND CUML_ALGORITHMS "umap")
+  list(APPEND CUML_ALGORITHMS "knn")
+  list(APPEND CUML_ALGORITHMS "hdbscan")
 
-set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
-set(cuml_mg_libraries cuml::${CUML_CPP_TARGET})
+  # this won't be needed when we add CPU libcuml++ (FIL)
+  set(cuml_sg_libraries "")
+
+  list(APPEND CYTHON_FLAGS
+  "--compile-time-env GPUBUILD=0")
+else()
+  set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
+  set(cuml_mg_libraries cuml::${CUML_CPP_TARGET})
+
+  list(APPEND CYTHON_FLAGS
+  "--compile-time-env GPUBUILD=1")
+endif()
 
 if(NOT SINGLEGPU)
   include("${CUML_CPP_SRC}/cmake/thirdparty/get_cumlprims_mg.cmake")
@@ -131,9 +155,21 @@ if(NOT SINGLEGPU)
   )
 endif()
 
-rapids_cython_init()
+ ################################################################################
+ # - Build Cython artifacts -----------------------------------------------------
 
-include(cmake/ConfigureAlgorithmsHelpers.cmake)
+include("${CUML_CPP_SRC}/cmake/modules/ConfigureAlgorithms.cmake")
+include(cmake/ConfigureCythonAlgorithms.cmake)
+
+if(${CUML_CPU})
+  # libcuml requires metrics built if HDSCAN is built, which is not the case
+  # for cuml-cpu
+  unset(metrics_algo)
+endif()
+
+message(VERBOSE "CUML_PY: Building cuML with algorithms: '${CUML_ALGORITHMS}'.")
+
+rapids_cython_init()
 
 add_subdirectory(cuml/common)
 add_subdirectory(cuml/internals)
