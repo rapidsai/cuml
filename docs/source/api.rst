@@ -414,10 +414,7 @@ Quasi-Newton
     :members:
 
 Support Vector Machines
-------------------------
-
-.. autoclass:: cuml.svm.SVC
-    :members:
+-----------------------
 
 .. autoclass:: cuml.svm.SVR
     :members:
