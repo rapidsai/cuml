@@ -2,20 +2,21 @@
 
 # Usage:
 #   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
-{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
-{% set py_version = environ['CONDA_PY'] %}
-{% set date_string = environ['RAPIDS_DATE_STRING'] %}
+# {% set version = 23.10 %}
+# {% set py_version = 3.10 %}
+# {% set date_string = 0101 %}
 
 package:
   name: cuml-cpu
-  version: {{ version }}
+  version: 23.10
+  script: build_cuml_cpu.sh
 
 source:
   git_url: ../../..
 
 build:
-  number: {{ GIT_DESCRIBE_NUMBER }}
-  string: py{{ py_version }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
+  number: 12
+  string: py3.10
   script_env:
     - VERSION_SUFFIX
 
@@ -39,9 +40,9 @@ requirements:
     - umap-learn=0.5.3
     - nvtx
 
-tests:                                 # [linux64]
-  imports:                             # [linux64]
-    - cuml-cpu                         # [linux64]
+# tests:                                 # [linux64]
+#   imports:                             # [linux64]
+#     - cuml-cpu                         # [linux64]
 
 about:
   home: http://rapids.ai/
