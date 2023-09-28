@@ -89,6 +89,8 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
     def __init__(self, **kwargs):
         super(LogisticRegressionMG, self).__init__(**kwargs)
+        if self.penalty != "l2" and self.penalty != "none":
+            assert False, "Currently only support 'l2' and 'none' penalty"
 
     @property
     @cuml.internals.api_base_return_array_skipall
@@ -208,6 +210,8 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                 self._num_classes,
                 <float*> &objective32,
                 <int*> &num_iters)
+        else:
+            assert False, "dtypes other than float32 are currently not supported yet. See issue: https://github.com/rapidsai/cuml/issues/5589"
 
         self.solver_model._calc_intercept()
 

@@ -20,8 +20,6 @@ from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
 from cuml.internals.safe_imports import cpu_only_import
-from hypothesis import given
-from hypothesis import strategies as st
 
 pd = cpu_only_import("pandas")
 np = cpu_only_import("numpy")
@@ -181,6 +179,16 @@ def test_lbfgs_toy(n_parts, datatype, client):
     from numpy.testing import assert_array_equal
 
     assert_array_equal(preds, y, strict=True)
+
+    # assert error on float64
+    X = X.astype(np.float64)
+    y = y.astype(np.float64)
+    X_df, y_df = _prep_training_data(client, X, y, n_parts)
+    with pytest.raises(
+        RuntimeError,
+        match="dtypes other than float32 are currently not supported yet. See issue: https://github.com/rapidsai/cuml/issues/5589",
+    ):
+        lr.fit(X_df, y_df)
 
 
 def test_lbfgs_init(client):
@@ -404,3 +412,19 @@ def test_n_classes(n_parts, fit_intercept, n_classes, client):
     )
 
     assert lr._num_classes == n_classes
+
+
+@pytest.mark.parametrize("penalty", ["l1", "elasticnet"])
+@pytest.mark.parametrize("l1_ratio", [0.1])
+def test_l1_and_elasticnet(penalty, l1_ratio, client):
+    X = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], np.float32)
+    y = np.array([1.0, 1.0, 0.0, 0.0], np.float32)
+    X_df, y_df = _prep_training_data(client, X, y, partitions_per_worker=1)
+
+    from cuml.dask.linear_model import LogisticRegression
+
+    lr = LogisticRegression(penalty=penalty, l1_ratio=l1_ratio)
+    with pytest.raises(
+        RuntimeError, match="Currently only support 'l2' and 'none' penalty"
+    ):
+        lr.fit(X_df, y_df)
