@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2021, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ class DBSCANMG(DBSCAN):
         super().__init__(**kwargs)
 
     @generate_docstring(skip_parameters_heading=True)
-    def fit(self, X, out_dtype="int32") -> "DBSCANMG":
+    def fit(self, X, out_dtype="int32", sample_weight=None) -> "DBSCANMG":
         """
         Perform DBSCAN clustering in a multi-node multi-GPU setting.
         Parameters
@@ -42,4 +42,4 @@ class DBSCANMG(DBSCAN):
             default: "int32". Valid values are { "int32", np.int32,
             "int64", np.int64}.
         """
-        return self._fit(X, out_dtype, True)
+        return self._fit(X, out_dtype, True, sample_weight)
