@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,6 +81,24 @@ void launcher(const raft::handle_t& handle,
       return degree;
     });
   RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+  if (data.weight_sum != nullptr && data.sample_weight != nullptr) {
+    const value_t* sample_weight = data.sample_weight;
+    // Reduction of adj to compute the weighted vertex degrees
+    raft::linalg::coalescedReduction<bool, value_t, long_index_t>(
+      data.weight_sum,
+      data.adj,
+      data.N,
+      batch_size,
+      (value_t)0,
+      stream,
+      false,
+      [sample_weight] __device__(bool adj_ij, long_index_t j) {
+        return adj_ij ? sample_weight[j] : (value_t)0;
+      },
+      raft::Sum<value_t>());
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+  }
 }
 
 }  // namespace Precomputed

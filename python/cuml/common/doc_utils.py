@@ -216,7 +216,8 @@ def generate_docstring(
 
     def deco(func):
         params = signature(func).parameters
-
+        if func.__doc__ is None:
+            func.__doc__ = ""
         # Add parameter section header if needed, can be skipped
         if (
             "X" in params or "y" in params or parameters

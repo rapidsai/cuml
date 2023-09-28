@@ -12,9 +12,9 @@
 # the License.
 # =============================================================================
 
-set(cython_sources
-        hdbscan.pyx
-        prediction.pyx)
+set(cython_sources "")
+add_module_gpu_default("hdbscan.pyx" ${hdbscan_algo} ${cluster_algo})
+add_module_gpu_default("prediction.pyx" ${hdbscan_algo} ${cluster_algo})
 
 rapids_cython_create_modules(
         CXX
