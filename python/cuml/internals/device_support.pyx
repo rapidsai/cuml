@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,5 +14,15 @@
 # limitations under the License.
 #
 
-GPU_ENABLED = True
-CPU_ENABLED = True
+
+try:
+    import sklearn  # noqa: F401  # no-cython-lint
+    CPU_ENABLED = True
+except ImportError:
+    CPU_ENABLED = False
+
+IF GPUBUILD == 1:
+    GPU_ENABLED = True
+
+ELSE:
+    GPU_ENABLED = False

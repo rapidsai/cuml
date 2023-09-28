@@ -25,47 +25,49 @@ import warnings
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
 
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
-from cuml import Handle
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import RegressorMixin, FMajorInputTagMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
-from pylibraft.common.handle cimport handle_t
-from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 
-cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
-    cdef void olsFit(handle_t& handle,
-                     float *input,
-                     size_t n_rows,
-                     size_t n_cols,
-                     float *labels,
-                     float *coef,
-                     float *intercept,
-                     bool fit_intercept,
-                     bool normalize,
-                     int algo,
-                     float *sample_weight) except +
+IF GPUBUILD == 1:
+    from libcpp cimport bool
+    from pylibraft.common.handle cimport handle_t
+    from pylibraft.common.handle import Handle
 
-    cdef void olsFit(handle_t& handle,
-                     double *input,
-                     size_t n_rows,
-                     size_t n_cols,
-                     double *labels,
-                     double *coef,
-                     double *intercept,
-                     bool fit_intercept,
-                     bool normalize,
-                     int algo,
-                     double *sample_weight) except +
+    cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
+
+        cdef void olsFit(handle_t& handle,
+                         float *input,
+                         size_t n_rows,
+                         size_t n_cols,
+                         float *labels,
+                         float *coef,
+                         float *intercept,
+                         bool fit_intercept,
+                         bool normalize,
+                         int algo,
+                         float *sample_weight) except +
+
+        cdef void olsFit(handle_t& handle,
+                         double *input,
+                         size_t n_rows,
+                         size_t n_cols,
+                         double *labels,
+                         double *coef,
+                         double *intercept,
+                         bool fit_intercept,
+                         bool normalize,
+                         int algo,
+                         double *sample_weight) except +
 
 
 def divide_non_zero(x1, x2):
@@ -139,10 +141,6 @@ class LinearRegression(LinearPredictMixin,
     cuML's LinearRegression expects either a cuDF DataFrame or a NumPy matrix
     and provides 2 algorithms SVD and Eig to fit a linear model. SVD is more
     stable, but Eig (default) is much faster.
-
-    This estimator supports cuML's experimental device selection capabilities.
-    It can be configured to run on either the CPU or the GPU.
-    To learn more, please see :ref:`device-selection`.
 
     Examples
     --------
@@ -274,10 +272,11 @@ class LinearRegression(LinearPredictMixin,
     def __init__(self, *, algorithm='eig', fit_intercept=True,
                  copy_X=None, normalize=False,
                  handle=None, verbose=False, output_type=None):
-        if handle is None and algorithm == 'eig':
-            # if possible, create two streams, so that eigenvalue decomposition
-            # can benefit from running independent operations concurrently.
-            handle = Handle(n_streams=2)
+        IF GPUBUILD == 1:
+            if handle is None and algorithm == 'eig':
+                # if possible, create two streams, so that eigenvalue decomposition
+                # can benefit from running independent operations concurrently.
+                handle = Handle(n_streams=2)
         super().__init__(handle=handle,
                          verbose=verbose,
                          output_type=output_type)
@@ -325,7 +324,7 @@ class LinearRegression(LinearPredictMixin,
         Fit the model with X and y.
 
         """
-        cdef uintptr_t X_ptr, y_ptr, sample_weight_ptr
+        cdef uintptr_t _X_ptr, _y_ptr, sample_weight_ptr
 
         need_explicit_copy = self.copy_X and hasattr(X, "__cuda_array_interface__") \
             and (len(X.shape) < 2 or X.shape[1] == 1)
@@ -334,8 +333,7 @@ class LinearRegression(LinearPredictMixin,
             input_to_cuml_array(X,
                                 check_dtype=[np.float32, np.float64],
                                 deepcopy=need_explicit_copy)
-
-        X_ptr = X_m.ptr
+        _X_ptr = X_m.ptr
         self.feature_names_in_ = X_m.index
 
         y_m, _, y_cols, _ = \
@@ -343,7 +341,7 @@ class LinearRegression(LinearPredictMixin,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
                                 check_rows=n_rows)
-        y_ptr = y_m.ptr
+        _y_ptr = y_m.ptr
 
         if sample_weight is not None:
             sample_weight_m, _, _, _ = \
@@ -378,41 +376,43 @@ class LinearRegression(LinearPredictMixin,
             )
 
         self.coef_ = CumlArray.zeros(self.n_features_in_, dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t _coef_ptr = self.coef_.ptr
 
-        cdef float c_intercept1
-        cdef double c_intercept2
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef float _c_intercept_f32
+        cdef double _c_intercept_f64
 
-        if self.dtype == np.float32:
+        IF GPUBUILD == 1:
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-            olsFit(handle_[0],
-                   <float*>X_ptr,
-                   <size_t>n_rows,
-                   <size_t>self.n_features_in_,
-                   <float*>y_ptr,
-                   <float*>coef_ptr,
-                   <float*>&c_intercept1,
-                   <bool>self.fit_intercept,
-                   <bool>self.normalize,
-                   <int>self.algo,
-                   <float*>sample_weight_ptr)
+            if self.dtype == np.float32:
 
-            self.intercept_ = c_intercept1
-        else:
-            olsFit(handle_[0],
-                   <double*>X_ptr,
-                   <size_t>n_rows,
-                   <size_t>self.n_features_in_,
-                   <double*>y_ptr,
-                   <double*>coef_ptr,
-                   <double*>&c_intercept2,
-                   <bool>self.fit_intercept,
-                   <bool>self.normalize,
-                   <int>self.algo,
-                   <double*>sample_weight_ptr)
+                olsFit(handle_[0],
+                       <float*>_X_ptr,
+                       <size_t>n_rows,
+                       <size_t>self.n_features_in_,
+                       <float*>_y_ptr,
+                       <float*>_coef_ptr,
+                       <float*>&_c_intercept_f32,
+                       <bool>self.fit_intercept,
+                       <bool>self.normalize,
+                       <int>self.algo,
+                       <float*>sample_weight_ptr)
 
-            self.intercept_ = c_intercept2
+                self.intercept_ = _c_intercept_f32
+            else:
+                olsFit(handle_[0],
+                       <double*>_X_ptr,
+                       <size_t>n_rows,
+                       <size_t>self.n_features_in_,
+                       <double*>_y_ptr,
+                       <double*>_coef_ptr,
+                       <double*>&_c_intercept_f64,
+                       <bool>self.fit_intercept,
+                       <bool>self.normalize,
+                       <int>self.algo,
+                       <double*>sample_weight_ptr)
+
+                self.intercept_ = _c_intercept_f64
 
         self.handle.sync()
 
