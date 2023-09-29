@@ -629,15 +629,19 @@ class CumlArray:
                     return np.asarray(
                         self, dtype=output_dtype, order=self.order
                     )
-                # breakpoint()
-                if isinstance(self._owner, _specific_supported_types):
+                if isinstance(self._owner, _specific_supported_types) or "cuml" in str(type(self._owner)):
                     cp_arr = cp.asarray(
                         self, dtype=output_dtype, order=self.order
                     )
                 else:
-                    cp_arr = cp.asarray(
-                        self._owner, dtype=output_dtype, order=self.order
-                    )
+                    if self._owner is not None:
+                        cp_arr = cp.asarray(
+                            self._owner, dtype=output_dtype, order=self.order
+                        )
+                    else:
+                        cp_arr = cp.asarray(
+                            self, dtype=output_dtype, order=self.order
+                        )
                 return cp.asnumpy(
                     cp_arr,
                     order=self.order,
