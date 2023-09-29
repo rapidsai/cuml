@@ -1091,9 +1091,9 @@ class CumlArray:
 
         if isinstance(X, CudfDataFrame):
             X = X.to_cupy(copy=False)
-        if isinstance(X, (PandasDataFrame, PandasSeries)):
+        elif isinstance(X, (PandasDataFrame, PandasSeries)):
             X = X.to_numpy(copy=False)
-        if hasattr(X, "__dataframe__"):
+        elif hasattr(X, "__dataframe__"):
             # temporarily use this codepath to avoid errors, substitute
             # usage of dataframe interchange protocol once ready.
             X = X.to_numpy()
