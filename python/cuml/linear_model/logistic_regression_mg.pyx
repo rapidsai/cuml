@@ -89,8 +89,6 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
     def __init__(self, **kwargs):
         super(LogisticRegressionMG, self).__init__(**kwargs)
-        if self.penalty != "l2" and self.penalty != "none":
-            assert False, "Currently only support 'l2' and 'none' penalty"
 
     @property
     @cuml.internals.api_base_return_array_skipall
