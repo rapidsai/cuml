@@ -47,9 +47,13 @@ def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     return X_train_df, y_train_df
 
 
-def make_classification_dataset(datatype, nrows, ncols, n_info):
+def make_classification_dataset(datatype, nrows, ncols, n_info, n_classes=2):
     X, y = make_classification(
-        n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0
+        n_samples=nrows,
+        n_features=ncols,
+        n_informative=n_info,
+        n_classes=n_classes,
+        random_state=0,
     )
     X = X.astype(datatype)
     y = y.astype(datatype)
@@ -176,6 +180,16 @@ def test_lbfgs_toy(n_parts, datatype, client):
 
     assert_array_equal(preds, y, strict=True)
 
+    # assert error on float64
+    X = X.astype(np.float64)
+    y = y.astype(np.float64)
+    X_df, y_df = _prep_training_data(client, X, y, n_parts)
+    with pytest.raises(
+        RuntimeError,
+        match="dtypes other than float32 are currently not supported yet. See issue: https://github.com/rapidsai/cuml/issues/5589",
+    ):
+        lr.fit(X_df, y_df)
+
 
 def test_lbfgs_init(client):
     def imp():
@@ -267,6 +281,7 @@ def test_lbfgs(
     delayed,
     client,
     penalty="l2",
+    n_classes=2,
 ):
     tolerance = 0.005
 
@@ -283,7 +298,9 @@ def test_lbfgs(
     n_info = 5
     nrows = int(nrows)
     ncols = int(ncols)
-    X, y = make_classification_dataset(datatype, nrows, ncols, n_info)
+    X, y = make_classification_dataset(
+        datatype, nrows, ncols, n_info, n_classes=n_classes
+    )
 
     X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
@@ -303,12 +320,13 @@ def test_lbfgs(
     assert lr_intercept == pytest.approx(sk_intercept, abs=tolerance)
 
     # test predict
-    cu_preds = lr.predict(X_df, delayed=delayed)
-    accuracy_cuml = accuracy_score(y, cu_preds.compute().to_numpy())
+    cu_preds = lr.predict(X_df, delayed=delayed).compute().to_numpy()
+    accuracy_cuml = accuracy_score(y, cu_preds)
 
     sk_preds = sk_model.predict(X)
     accuracy_sk = accuracy_score(y, sk_preds)
 
+    assert len(cu_preds) == len(sk_preds)
     assert (accuracy_cuml >= accuracy_sk) | (
         np.abs(accuracy_cuml - accuracy_sk) < 1e-3
     )
@@ -336,3 +354,77 @@ def test_noreg(fit_intercept, client):
     l1_strength, l2_strength = lr._get_qn_params()
     assert l1_strength == 0.0
     assert l2_strength == 0.0
+
+
+def test_n_classes_small(client):
+    def assert_small(X, y, n_classes):
+        X_df, y_df = _prep_training_data(client, X, y, partitions_per_worker=1)
+        from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
+
+        lr = cumlLBFGS_dask()
+        lr.fit(X_df, y_df)
+        assert lr._num_classes == n_classes
+        return lr
+
+    X = np.array([(1, 2), (1, 3)], np.float32)
+    y = np.array([1.0, 0.0], np.float32)
+    lr = assert_small(X=X, y=y, n_classes=2)
+    assert np.array_equal(
+        lr.classes_.to_numpy(), np.array([0.0, 1.0], np.float32)
+    )
+
+    X = np.array([(1, 2), (1, 3), (1, 2.5)], np.float32)
+    y = np.array([1.0, 0.0, 1.0], np.float32)
+    lr = assert_small(X=X, y=y, n_classes=2)
+    assert np.array_equal(
+        lr.classes_.to_numpy(), np.array([0.0, 1.0], np.float32)
+    )
+
+    X = np.array([(1, 2), (1, 2.5), (1, 3)], np.float32)
+    y = np.array([1.0, 1.0, 0.0], np.float32)
+    lr = assert_small(X=X, y=y, n_classes=2)
+    assert np.array_equal(
+        lr.classes_.to_numpy(), np.array([0.0, 1.0], np.float32)
+    )
+
+    X = np.array([(1, 2), (1, 3), (1, 2.5)], np.float32)
+    y = np.array([10.0, 50.0, 20.0], np.float32)
+    lr = assert_small(X=X, y=y, n_classes=3)
+    assert np.array_equal(
+        lr.classes_.to_numpy(), np.array([10.0, 20.0, 50.0], np.float32)
+    )
+
+
+@pytest.mark.parametrize("n_parts", [2, 23])
+@pytest.mark.parametrize("fit_intercept", [False, True])
+@pytest.mark.parametrize("n_classes", [8])
+def test_n_classes(n_parts, fit_intercept, n_classes, client):
+    lr = test_lbfgs(
+        nrows=1e5,
+        ncols=20,
+        n_parts=n_parts,
+        fit_intercept=fit_intercept,
+        datatype=np.float32,
+        delayed=True,
+        client=client,
+        penalty="l2",
+        n_classes=n_classes,
+    )
+
+    assert lr._num_classes == n_classes
+
+
+@pytest.mark.parametrize("penalty", ["l1", "elasticnet"])
+@pytest.mark.parametrize("l1_ratio", [0.1])
+def test_l1_and_elasticnet(penalty, l1_ratio, client):
+    X = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], np.float32)
+    y = np.array([1.0, 1.0, 0.0, 0.0], np.float32)
+    X_df, y_df = _prep_training_data(client, X, y, partitions_per_worker=1)
+
+    from cuml.dask.linear_model import LogisticRegression
+
+    lr = LogisticRegression(penalty=penalty, l1_ratio=l1_ratio)
+    with pytest.raises(
+        RuntimeError, match="Currently only support 'l2' and 'none' penalty"
+    ):
+        lr.fit(X_df, y_df)
