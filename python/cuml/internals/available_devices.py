@@ -27,6 +27,7 @@ except ImportError:
 def get_cuda_count():
     try:
         import cupy
+
         return True
     except ImportError:
         return False
