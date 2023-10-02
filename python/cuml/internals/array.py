@@ -629,7 +629,9 @@ class CumlArray:
                     return np.asarray(
                         self, dtype=output_dtype, order=self.order
                     )
-                if isinstance(self._owner, _specific_supported_types) or "cuml" in str(type(self._owner)):
+                if isinstance(
+                    self._owner, _specific_supported_types
+                ) or "cuml" in str(type(self._owner)):
                     cp_arr = cp.asarray(
                         self, dtype=output_dtype, order=self.order
                     )
