@@ -24,12 +24,17 @@ except ImportError:
     cache = lru_cache(maxsize=None)
 
 
-get_cuda_count = gpu_only_import_from("rmm._cuda.gpu", "getDeviceCount")
+def get_cuda_count():
+    try:
+        import cupy
+        return True
+    except ImportError:
+        return False
 
 
 @cache
 def is_cuda_available():
     try:
-        return GPU_ENABLED and get_cuda_count() >= 1
+        return GPU_ENABLED and get_cuda_count()
     except UnavailableError:
         return False
