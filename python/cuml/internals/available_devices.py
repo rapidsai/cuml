@@ -27,7 +27,7 @@ except ImportError:
 def gpu_available_no_context_creation():
     """
     Function tries to check if GPUs are available in the system without
-    creating a CUDA context. We check for CuPy presence as a proxy of that. 
+    creating a CUDA context. We check for CuPy presence as a proxy of that.
     """
     try:
         import cupy
