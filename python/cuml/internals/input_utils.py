@@ -71,12 +71,8 @@ _input_type_to_str = {
     CumlArray: "cuml",
     SparseCumlArray: "cuml",
     np_ndarray: "numpy",
-    # cp_ndarray: "cupy",
-    # CudfSeries: "cudf",
-    # CudfDataFrame: "cudf",
     PandasSeries: "pandas",
     PandasDataFrame: "pandas",
-    # NumbaDeviceNDArrayBase: "numba",
 }
 
 
@@ -91,12 +87,8 @@ except UnavailableError:
 
 _input_type_to_mem_type = {
     np_ndarray: MemoryType.host,
-    # cp_ndarray: MemoryType.device,
-    # CudfSeries: MemoryType.device,
-    # CudfDataFrame: MemoryType.device,
     PandasSeries: MemoryType.host,
     PandasDataFrame: MemoryType.host,
-    # NumbaDeviceNDArrayBase: MemoryType.device,
 }
 
 
