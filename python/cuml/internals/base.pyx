@@ -30,7 +30,7 @@ nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
 import cuml
 import cuml.common
-import cuml.common.cuda
+# import cuml.common.cuda
 import cuml.internals.logger as logger
 import cuml.internals
 import pylibraft.common.handle
