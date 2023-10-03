@@ -208,10 +208,11 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                 self._num_classes,
                 <float*> &objective32,
                 <int*> &num_iters)
-        else:
-            assert False, "dtypes other than float32 are currently not supported yet. See issue: https://github.com/rapidsai/cuml/issues/5589"
 
             self.solver_model.objective = objective32
+
+        else:
+            assert False, "dtypes other than float32 are currently not supported yet. See issue: https://github.com/rapidsai/cuml/issues/5589"
 
         self.solver_model.num_iters = num_iters
 

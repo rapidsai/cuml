@@ -20,6 +20,7 @@ from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.testing.utils import array_equal
 
 pd = cpu_only_import("pandas")
 np = cpu_only_import("numpy")
@@ -71,7 +72,7 @@ def select_sk_solver(cuml_solver):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [1e4])
+@pytest.mark.parametrize("nrows", [1e5])
 @pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [2, 6])
 @pytest.mark.parametrize("fit_intercept", [False, True])
@@ -339,8 +340,12 @@ def test_lbfgs(
     if sk_solver == "lbfgs":
         assert len(lr_coef) == len(sk_coef)
         for i in range(len(lr_coef)):
-            assert lr_coef[i] == pytest.approx(sk_coef[i], abs=tolerance)
-        assert lr_intercept == pytest.approx(sk_intercept, abs=tolerance)
+            assert array_equal(
+                lr_coef[i], sk_coef[i], tolerance, with_sign=True
+            )
+        assert array_equal(
+            lr_intercept, sk_intercept, tolerance, with_sign=True
+        )
 
     # test predict
     cu_preds = lr.predict(X_df, delayed=delayed).compute().to_numpy()
@@ -360,7 +365,7 @@ def test_lbfgs(
 @pytest.mark.parametrize("fit_intercept", [False, True])
 def test_noreg(fit_intercept, client):
     lr = test_lbfgs(
-        nrows=1e4,
+        nrows=1e5,
         ncols=20,
         n_parts=23,
         fit_intercept=fit_intercept,
@@ -423,7 +428,7 @@ def test_n_classes_small(client):
 @pytest.mark.parametrize("n_classes", [8])
 def test_n_classes(n_parts, fit_intercept, n_classes, client):
     lr = test_lbfgs(
-        nrows=1e4,
+        nrows=1e5,
         ncols=20,
         n_parts=n_parts,
         fit_intercept=fit_intercept,
@@ -445,7 +450,7 @@ def test_n_classes(n_parts, fit_intercept, n_classes, client):
 @pytest.mark.parametrize("C", [1.0, 10.0])
 def test_l1(fit_intercept, datatype, delayed, n_classes, C, client):
     lr = test_lbfgs(
-        nrows=1e4,
+        nrows=1e5,
         ncols=20,
         n_parts=2,
         fit_intercept=fit_intercept,
@@ -472,7 +477,7 @@ def test_elasticnet(
     fit_intercept, datatype, delayed, n_classes, l1_ratio, client
 ):
     lr = test_lbfgs(
-        nrows=1e4,
+        nrows=1e5,
         ncols=20,
         n_parts=2,
         fit_intercept=fit_intercept,
