@@ -62,6 +62,19 @@ is_numba_array = gpu_only_import_from(
     "numba.cuda", "is_cuda_array", alt=return_false
 )
 
+cp_ndarray = gpu_only_import_from("cupy", "ndarray")
+np_ndarray = cpu_only_import_from("numpy", "ndarray")
+numba_devicearray = gpu_only_import_from("numba.cuda", "devicearray")
+
+_specific_supported_types = (
+    np_ndarray,
+    cp_ndarray,
+    CudfSeries,
+    CudfDataFrame,
+    PandasSeries,
+    PandasDataFrame,
+)
+
 
 def _order_to_strides(order, shape, dtype):
     """
@@ -219,23 +232,21 @@ class CumlArray:
             mem_type = MemoryType.from_str(mem_type)
         self._mem_type = mem_type
 
-        # Coerce data into an array interface and determine mem_type and owner
-        # if necessary
-        try:
+        if hasattr(data, "__cuda_array_interface__"):
             self._array_interface = data.__cuda_array_interface__
             if mem_type in (None, MemoryType.mirror):
                 self._mem_type = MemoryType.device
             self._owner = data
-        except AttributeError:  # Not a Cuda array object
-            try:
+        else:  # Not a CUDA array object
+            if hasattr(data, "__array_interface__"):
                 self._array_interface = data.__array_interface__
                 self._mem_type = MemoryType.host
                 self._owner = data
-            except AttributeError:  # Must construct array interface
+            else:  # Must construct array interface
                 if dtype is None:
-                    try:
+                    if hasattr(data, "dtype"):
                         dtype = data.dtype
-                    except AttributeError:
+                    else:
                         raise ValueError(
                             "Must specify dtype when data is passed as a"
                             " {}".format(type(data))
@@ -618,8 +629,23 @@ class CumlArray:
                     return np.asarray(
                         self, dtype=output_dtype, order=self.order
                     )
+                if isinstance(
+                    self._owner, _specific_supported_types
+                ) or "cuml" in str(type(self._owner)):
+                    cp_arr = cp.asarray(
+                        self, dtype=output_dtype, order=self.order
+                    )
+                else:
+                    if self._owner is not None:
+                        cp_arr = cp.asarray(
+                            self._owner, dtype=output_dtype, order=self.order
+                        )
+                    else:
+                        cp_arr = cp.asarray(
+                            self, dtype=output_dtype, order=self.order
+                        )
                 return cp.asnumpy(
-                    cp.asarray(self, dtype=output_dtype, order=self.order),
+                    cp_arr,
                     order=self.order,
                 )
             return output_mem_type.xpy.asarray(
@@ -1057,7 +1083,10 @@ class CumlArray:
             elif convert_to_mem_type is MemoryType.device and isinstance(
                 index, PandasIndex
             ):
-                index = CudfIndex.from_pandas(index)
+                try:
+                    index = CudfIndex.from_pandas(index)
+                except TypeError:
+                    index = CudfIndex(index)
 
         if isinstance(X, CudfSeries):
             if X.null_count != 0:
@@ -1066,10 +1095,15 @@ class CumlArray:
                     "which are not supported by cuML."
                 )
 
-        if isinstance(X, (PandasDataFrame, PandasSeries)):
-            X = X.to_numpy(copy=False)
         if isinstance(X, CudfDataFrame):
             X = X.to_cupy(copy=False)
+        elif isinstance(X, (PandasDataFrame, PandasSeries)):
+            X = X.to_numpy(copy=False)
+        elif hasattr(X, "__dataframe__"):
+            # temporarily use this codepath to avoid errors, substitute
+            # usage of dataframe interchange protocol once ready.
+            X = X.to_numpy()
+            deepcopy = False
 
         requested_order = (order, None)[fail_on_order]
         arr = cls(X, index=index, order=requested_order, validate=False)
