@@ -339,10 +339,7 @@ def test_lbfgs(
 
     if sk_solver == "lbfgs":
         assert len(lr_coef) == len(sk_coef)
-        for i in range(len(lr_coef)):
-            assert array_equal(
-                lr_coef[i], sk_coef[i], tolerance, with_sign=True
-            )
+        assert array_equal(lr_coef, sk_coef, tolerance, with_sign=True)
         assert array_equal(
             lr_intercept, sk_intercept, tolerance, with_sign=True
         )
