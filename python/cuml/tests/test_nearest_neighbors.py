@@ -256,6 +256,8 @@ def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
 def test_ivfpq_pred(
     nrows, ncols, n_neighbors, nlist, M, n_bits, usePrecomputedTables
 ):
+    if ncols == 512 and usePrecomputedTables is True:
+        pytest.skip("https://github.com/rapidsai/cuml/issues/5603")
     algo_params = {
         "nlist": nlist,
         "nprobe": int(nlist * 0.2),
