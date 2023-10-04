@@ -24,12 +24,22 @@ except ImportError:
     cache = lru_cache(maxsize=None)
 
 
-get_cuda_count = gpu_only_import_from("rmm._cuda.gpu", "getDeviceCount")
+def gpu_available_no_context_creation():
+    """
+    Function tries to check if GPUs are available in the system without
+    creating a CUDA context. We check for CuPy presence as a proxy of that.
+    """
+    try:
+        import cupy
+
+        return True
+    except ImportError:
+        return False
 
 
 @cache
 def is_cuda_available():
     try:
-        return GPU_ENABLED and get_cuda_count() >= 1
+        return GPU_ENABLED and gpu_available_no_context_creation()
     except UnavailableError:
         return False
