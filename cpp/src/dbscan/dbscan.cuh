@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -104,6 +104,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
                    raft::distance::DistanceType metric,
                    Index_* labels,
                    Index_* core_sample_indices,
+                   T* sample_weight,
                    size_t max_mbytes_per_batch,
                    cudaStream_t stream,
                    int verbosity)
@@ -177,6 +178,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
                                                      min_pts,
                                                      labels,
                                                      core_sample_indices,
+                                                     sample_weight,
                                                      algo_vd,
                                                      algo_adj,
                                                      algo_ccl,
@@ -198,6 +200,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
                               min_pts,
                               labels,
                               core_sample_indices,
+                              sample_weight,
                               algo_vd,
                               algo_adj,
                               algo_ccl,

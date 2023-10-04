@@ -47,6 +47,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   DistanceType metric,
                   int *labels,
                   int *core_sample_indices,
+                  float* sample_weight,
                   size_t max_mbytes_per_batch,
                   int verbosity,
                   bool opg) except +
@@ -60,6 +61,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   DistanceType metric,
                   int *labels,
                   int *core_sample_indices,
+                  double* sample_weight,
                   size_t max_mbytes_per_batch,
                   int verbosity,
                   bool opg) except +
@@ -73,6 +75,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   DistanceType metric,
                   int64_t *labels,
                   int64_t *core_sample_indices,
+                  float* sample_weight,
                   size_t max_mbytes_per_batch,
                   int verbosity,
                   bool opg) except +
@@ -86,6 +89,7 @@ cdef extern from "cuml/cluster/dbscan.hpp" \
                   DistanceType metric,
                   int64_t *labels,
                   int64_t *core_sample_indices,
+                  double* sample_weight,
                   size_t max_mbytes_per_batch,
                   int verbosity,
                   bool opg) except +
@@ -235,7 +239,7 @@ class DBSCAN(Base,
         if self.max_mbytes_per_batch is None:
             self.max_mbytes_per_batch = 0
 
-    def _fit(self, X, out_dtype, opg) -> "DBSCAN":
+    def _fit(self, X, out_dtype, opg, sample_weight) -> "DBSCAN":
         """
         Protected auxiliary function for `fit`. Takes an additional parameter
         opg that is set to `False` for SG, `True` for OPG (multi-GPU)
@@ -254,6 +258,13 @@ class DBSCAN(Base,
                              "fitted!")
 
         cdef uintptr_t input_ptr = X_m.ptr
+
+        cdef uintptr_t sample_weight_ptr = <uintptr_t> NULL
+        if sample_weight is not None:
+            sample_weight_m, _, _, _ = \
+                input_to_cuml_array(sample_weight, check_dtype=self.dtype,
+                                    check_rows=n_rows, check_cols=1)
+            sample_weight_ptr = sample_weight_m.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
@@ -293,6 +304,7 @@ class DBSCAN(Base,
                     <DistanceType> metric,
                     <int*> labels_ptr,
                     <int*> core_sample_indices_ptr,
+                    <float*> sample_weight_ptr,
                     <size_t>self.max_mbytes_per_batch,
                     <int> self.verbose,
                     <bool> opg)
@@ -306,6 +318,7 @@ class DBSCAN(Base,
                     <DistanceType> metric,
                     <int64_t*> labels_ptr,
                     <int64_t*> core_sample_indices_ptr,
+                    <float*> sample_weight_ptr,
                     <size_t>self.max_mbytes_per_batch,
                     <int> self.verbose,
                     <bool> opg)
@@ -321,6 +334,7 @@ class DBSCAN(Base,
                     <DistanceType> metric,
                     <int*> labels_ptr,
                     <int*> core_sample_indices_ptr,
+                    <double*> sample_weight_ptr,
                     <size_t> self.max_mbytes_per_batch,
                     <int> self.verbose,
                     <bool> opg)
@@ -334,6 +348,7 @@ class DBSCAN(Base,
                     <DistanceType> metric,
                     <int64_t*> labels_ptr,
                     <int64_t*> core_sample_indices_ptr,
+                    <double*> sample_weight_ptr,
                     <size_t> self.max_mbytes_per_batch,
                     <int> self.verbose,
                     <bool> opg)
@@ -365,7 +380,7 @@ class DBSCAN(Base,
         return self
 
     @generate_docstring(skip_parameters_heading=True)
-    def fit(self, X, out_dtype="int32") -> "DBSCAN":
+    def fit(self, X, out_dtype="int32", sample_weight=None) -> "DBSCAN":
         """
         Perform DBSCAN clustering from features.
 
@@ -375,15 +390,21 @@ class DBSCAN(Base,
             default: "int32". Valid values are { "int32", np.int32,
             "int64", np.int64}.
 
+        sample_weight: array-like of shape (n_samples,), default=None
+            Weight of each sample, such that a sample with a weight of at
+            least min_samples is by itself a core sample; a sample with a
+            negative weight may inhibit its eps-neighbor from being core.
+            default: None (which is equivalent to weight 1 for all samples).
+
         """
-        return self._fit(X, out_dtype, False)
+        return self._fit(X, out_dtype, False, sample_weight)
 
     @generate_docstring(skip_parameters_heading=True,
                         return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
-    def fit_predict(self, X, out_dtype="int32") -> CumlArray:
+    def fit_predict(self, X, out_dtype="int32", sample_weight=None) -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.
 
@@ -393,8 +414,14 @@ class DBSCAN(Base,
             default: "int32". Valid values are { "int32", np.int32,
             "int64", np.int64}.
 
+        sample_weight: array-like of shape (n_samples,), default=None
+            Weight of each sample, such that a sample with a weight of at
+            least min_samples is by itself a core sample; a sample with a
+            negative weight may inhibit its eps-neighbor from being core.
+            default: None (which is equivalent to weight 1 for all samples).
+
         """
-        self.fit(X, out_dtype)
+        self.fit(X, out_dtype, sample_weight)
         return self.labels_
 
     def get_param_names(self):

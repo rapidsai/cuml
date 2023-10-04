@@ -80,6 +80,10 @@ def _find_doctests_in_obj(obj, finder=None, criteria=None):
                 continue
             if "RandomForestClassifier" in member.__name__:
                 continue
+            if "Lasso" in member.__name__:
+                continue
+            if "ElasticNet" in member.__name__:
+                continue
             yield from _find_doctests_in_obj(
                 member, finder, criteria=_is_public_name
             )

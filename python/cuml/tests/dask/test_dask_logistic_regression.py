@@ -20,6 +20,7 @@ from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.testing.utils import array_equal
 
 pd = cpu_only_import("pandas")
 np = cpu_only_import("numpy")
@@ -47,9 +48,13 @@ def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     return X_train_df, y_train_df
 
 
-def make_classification_dataset(datatype, nrows, ncols, n_info):
+def make_classification_dataset(datatype, nrows, ncols, n_info, n_classes=2):
     X, y = make_classification(
-        n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0
+        n_samples=nrows,
+        n_features=ncols,
+        n_informative=n_info,
+        n_classes=n_classes,
+        random_state=0,
     )
     X = X.astype(datatype)
     y = y.astype(datatype)
@@ -176,6 +181,16 @@ def test_lbfgs_toy(n_parts, datatype, client):
 
     assert_array_equal(preds, y, strict=True)
 
+    # assert error on float64
+    X = X.astype(np.float64)
+    y = y.astype(np.float64)
+    X_df, y_df = _prep_training_data(client, X, y, n_parts)
+    with pytest.raises(
+        RuntimeError,
+        match="dtypes other than float32 are currently not supported yet. See issue: https://github.com/rapidsai/cuml/issues/5589",
+    ):
+        lr.fit(X_df, y_df)
+
 
 def test_lbfgs_init(client):
     def imp():
@@ -267,6 +282,9 @@ def test_lbfgs(
     delayed,
     client,
     penalty="l2",
+    l1_ratio=None,
+    C=1.0,
+    n_classes=2,
 ):
     tolerance = 0.005
 
@@ -283,32 +301,57 @@ def test_lbfgs(
     n_info = 5
     nrows = int(nrows)
     ncols = int(ncols)
-    X, y = make_classification_dataset(datatype, nrows, ncols, n_info)
+    X, y = make_classification_dataset(
+        datatype, nrows, ncols, n_info, n_classes=n_classes
+    )
 
     X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
-    lr = cumlLBFGS_dask(fit_intercept=fit_intercept, penalty=penalty)
+    lr = cumlLBFGS_dask(
+        solver="qn",
+        fit_intercept=fit_intercept,
+        penalty=penalty,
+        l1_ratio=l1_ratio,
+        C=C,
+        verbose=True,
+    )
     lr.fit(X_df, y_df)
     lr_coef = lr.coef_.to_numpy()
     lr_intercept = lr.intercept_.to_numpy()
 
-    sk_model = skLR(fit_intercept=fit_intercept, penalty=penalty)
+    if penalty == "l2" or penalty == "none":
+        sk_solver = "lbfgs"
+    elif penalty == "l1" or penalty == "elasticnet":
+        sk_solver = "saga"
+    else:
+        raise ValueError(f"unexpected penalty {penalty}")
+
+    sk_model = skLR(
+        solver=sk_solver,
+        fit_intercept=fit_intercept,
+        penalty=penalty,
+        l1_ratio=l1_ratio,
+        C=C,
+    )
     sk_model.fit(X, y)
     sk_coef = sk_model.coef_
     sk_intercept = sk_model.intercept_
 
-    assert len(lr_coef) == len(sk_coef)
-    for i in range(len(lr_coef)):
-        assert lr_coef[i] == pytest.approx(sk_coef[i], abs=tolerance)
-    assert lr_intercept == pytest.approx(sk_intercept, abs=tolerance)
+    if sk_solver == "lbfgs":
+        assert len(lr_coef) == len(sk_coef)
+        assert array_equal(lr_coef, sk_coef, tolerance, with_sign=True)
+        assert array_equal(
+            lr_intercept, sk_intercept, tolerance, with_sign=True
+        )
 
     # test predict
-    cu_preds = lr.predict(X_df, delayed=delayed)
-    accuracy_cuml = accuracy_score(y, cu_preds.compute().to_numpy())
+    cu_preds = lr.predict(X_df, delayed=delayed).compute().to_numpy()
+    accuracy_cuml = accuracy_score(y, cu_preds)
 
     sk_preds = sk_model.predict(X)
     accuracy_sk = accuracy_score(y, sk_preds)
 
+    assert len(cu_preds) == len(sk_preds)
     assert (accuracy_cuml >= accuracy_sk) | (
         np.abs(accuracy_cuml - accuracy_sk) < 1e-3
     )
@@ -336,3 +379,115 @@ def test_noreg(fit_intercept, client):
     l1_strength, l2_strength = lr._get_qn_params()
     assert l1_strength == 0.0
     assert l2_strength == 0.0
+
+
+def test_n_classes_small(client):
+    def assert_small(X, y, n_classes):
+        X_df, y_df = _prep_training_data(client, X, y, partitions_per_worker=1)
+        from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
+
+        lr = cumlLBFGS_dask()
+        lr.fit(X_df, y_df)
+        assert lr._num_classes == n_classes
+        return lr
+
+    X = np.array([(1, 2), (1, 3)], np.float32)
+    y = np.array([1.0, 0.0], np.float32)
+    lr = assert_small(X=X, y=y, n_classes=2)
+    assert np.array_equal(
+        lr.classes_.to_numpy(), np.array([0.0, 1.0], np.float32)
+    )
+
+    X = np.array([(1, 2), (1, 3), (1, 2.5)], np.float32)
+    y = np.array([1.0, 0.0, 1.0], np.float32)
+    lr = assert_small(X=X, y=y, n_classes=2)
+    assert np.array_equal(
+        lr.classes_.to_numpy(), np.array([0.0, 1.0], np.float32)
+    )
+
+    X = np.array([(1, 2), (1, 2.5), (1, 3)], np.float32)
+    y = np.array([1.0, 1.0, 0.0], np.float32)
+    lr = assert_small(X=X, y=y, n_classes=2)
+    assert np.array_equal(
+        lr.classes_.to_numpy(), np.array([0.0, 1.0], np.float32)
+    )
+
+    X = np.array([(1, 2), (1, 3), (1, 2.5)], np.float32)
+    y = np.array([10.0, 50.0, 20.0], np.float32)
+    lr = assert_small(X=X, y=y, n_classes=3)
+    assert np.array_equal(
+        lr.classes_.to_numpy(), np.array([10.0, 20.0, 50.0], np.float32)
+    )
+
+
+@pytest.mark.parametrize("n_parts", [2, 23])
+@pytest.mark.parametrize("fit_intercept", [False, True])
+@pytest.mark.parametrize("n_classes", [8])
+def test_n_classes(n_parts, fit_intercept, n_classes, client):
+    lr = test_lbfgs(
+        nrows=1e5,
+        ncols=20,
+        n_parts=n_parts,
+        fit_intercept=fit_intercept,
+        datatype=np.float32,
+        delayed=True,
+        client=client,
+        penalty="l2",
+        n_classes=n_classes,
+    )
+
+    assert lr._num_classes == n_classes
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("fit_intercept", [False, True])
+@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("delayed", [True])
+@pytest.mark.parametrize("n_classes", [2, 8])
+@pytest.mark.parametrize("C", [1.0, 10.0])
+def test_l1(fit_intercept, datatype, delayed, n_classes, C, client):
+    lr = test_lbfgs(
+        nrows=1e5,
+        ncols=20,
+        n_parts=2,
+        fit_intercept=fit_intercept,
+        datatype=datatype,
+        delayed=delayed,
+        client=client,
+        penalty="l1",
+        n_classes=n_classes,
+        C=C,
+    )
+
+    l1_strength, l2_strength = lr._get_qn_params()
+    assert l1_strength == 1.0 / lr.C
+    assert l2_strength == 0.0
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("fit_intercept", [False, True])
+@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("delayed", [True])
+@pytest.mark.parametrize("n_classes", [2, 8])
+@pytest.mark.parametrize("l1_ratio", [0.2, 0.8])
+def test_elasticnet(
+    fit_intercept, datatype, delayed, n_classes, l1_ratio, client
+):
+    lr = test_lbfgs(
+        nrows=1e5,
+        ncols=20,
+        n_parts=2,
+        fit_intercept=fit_intercept,
+        datatype=datatype,
+        delayed=delayed,
+        client=client,
+        penalty="elasticnet",
+        n_classes=n_classes,
+        l1_ratio=l1_ratio,
+    )
+
+    l1_strength, l2_strength = lr._get_qn_params()
+
+    strength = 1.0 / lr.C
+    assert l1_strength == lr.l1_ratio * strength
+    assert l2_strength == (1.0 - lr.l1_ratio) * strength

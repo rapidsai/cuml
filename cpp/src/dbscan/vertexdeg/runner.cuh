@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,9 @@ template <typename Type_f, typename Index_ = int>
 void run(const raft::handle_t& handle,
          bool* adj,
          Index_* vd,
+         Type_f* wght_sum,
          const Type_f* x,
+         const Type_f* sample_weight,
          Type_f eps,
          Index_ N,
          Index_ D,
@@ -38,7 +40,7 @@ void run(const raft::handle_t& handle,
          cudaStream_t stream,
          raft::distance::DistanceType metric)
 {
-  Pack<Type_f, Index_> data = {vd, adj, x, eps, N, D};
+  Pack<Type_f, Index_> data = {vd, wght_sum, adj, x, sample_weight, eps, N, D};
   switch (algo) {
     case 0:
       ASSERT(
