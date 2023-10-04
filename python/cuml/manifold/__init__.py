@@ -14,5 +14,8 @@
 # limitations under the License.
 #
 
+from cuml.internals.available_devices import is_cuda_available
 from cuml.manifold.umap import UMAP
-from cuml.manifold.t_sne import TSNE
+
+if is_cuda_available():
+    from cuml.manifold.t_sne import TSNE
