@@ -93,10 +93,10 @@ _input_type_to_mem_type = {
 
 
 try:
-    _input_type_to_str[cp_ndarray] = MemoryType.device
-    _input_type_to_str[CudfSeries] = MemoryType.device
-    _input_type_to_str[CudfDataFrame] = MemoryType.device
-    _input_type_to_str[NumbaDeviceNDArrayBase] = MemoryType.device
+    _input_type_to_mem_type[cp_ndarray] = MemoryType.device
+    _input_type_to_mem_type[CudfSeries] = MemoryType.device
+    _input_type_to_mem_type[CudfDataFrame] = MemoryType.device
+    _input_type_to_mem_type[NumbaDeviceNDArrayBase] = MemoryType.device
 except UnavailableError:
     pass
 
