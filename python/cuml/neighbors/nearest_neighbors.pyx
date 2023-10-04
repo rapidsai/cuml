@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
-import warnings
 import math
 
 import cuml.internals
@@ -43,15 +42,6 @@ from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 
 from cuml.neighbors.ann cimport *
-from pylibraft.common.handle cimport handle_t
-
-from cython.operator cimport dereference as deref
-
-from libcpp cimport bool
-
-from libc.stdint cimport uintptr_t, int64_t, uint32_t
-
-from libcpp.vector cimport vector
 
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
@@ -59,91 +49,97 @@ rmm = gpu_only_import('rmm')
 
 cimport cuml.common.cuda
 
+IF GPUBUILD == 1:
+    import warnings
+    from cython.operator cimport dereference as deref
+    from libcpp cimport bool
+    from libc.stdint cimport uintptr_t, int64_t, uint32_t
+    from libcpp.vector cimport vector
+    from pylibraft.common.handle cimport handle_t
 
-cdef extern from "raft/spatial/knn/ball_cover_types.hpp" \
-        namespace "raft::spatial::knn":
-    cdef cppclass BallCoverIndex[int64_t, float, uint32_t]:
-        BallCoverIndex(const handle_t &handle,
-                       float *X,
-                       uint32_t n_rows,
-                       uint32_t n_cols,
-                       DistanceType metric) except +
+    cdef extern from "raft/spatial/knn/ball_cover_types.hpp" \
+            namespace "raft::spatial::knn":
+        cdef cppclass BallCoverIndex[int64_t, float, uint32_t]:
+            BallCoverIndex(const handle_t &handle,
+                           float *X,
+                           uint32_t n_rows,
+                           uint32_t n_cols,
+                           DistanceType metric) except +
 
-cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
-    void brute_force_knn(
-        const handle_t &handle,
-        vector[float*] &inputs,
-        vector[int] &sizes,
-        int D,
-        float *search_items,
-        int n,
-        int64_t *res_I,
-        float *res_D,
-        int k,
-        bool rowMajorIndex,
-        bool rowMajorQuery,
-        DistanceType metric,
-        float metric_arg
-    ) except +
+    cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
+        void brute_force_knn(
+            const handle_t &handle,
+            vector[float*] &inputs,
+            vector[int] &sizes,
+            int D,
+            float *search_items,
+            int n,
+            int64_t *res_I,
+            float *res_D,
+            int k,
+            bool rowMajorIndex,
+            bool rowMajorQuery,
+            DistanceType metric,
+            float metric_arg
+        ) except +
 
-    void rbc_build_index(
-        const handle_t &handle,
-        BallCoverIndex[int64_t, float, uint32_t] &index,
-    ) except +
+        void rbc_build_index(
+            const handle_t &handle,
+            BallCoverIndex[int64_t, float, uint32_t] &index,
+        ) except +
 
-    void rbc_knn_query(
-        const handle_t &handle,
-        BallCoverIndex[int64_t, float, uint32_t] &index,
-        uint32_t k,
-        float *search_items,
-        uint32_t n_search_items,
-        int64_t *out_inds,
-        float *out_dists
-    ) except +
+        void rbc_knn_query(
+            const handle_t &handle,
+            BallCoverIndex[int64_t, float, uint32_t] &index,
+            uint32_t k,
+            float *search_items,
+            uint32_t n_search_items,
+            int64_t *out_inds,
+            float *out_dists
+        ) except +
 
-    void approx_knn_build_index(
-        handle_t &handle,
-        knnIndex* index,
-        knnIndexParam* params,
-        DistanceType metric,
-        float metricArg,
-        float *index_array,
-        int n,
-        int D
-    ) except +
+        void approx_knn_build_index(
+            handle_t &handle,
+            knnIndex* index,
+            knnIndexParam* params,
+            DistanceType metric,
+            float metricArg,
+            float *index_array,
+            int n,
+            int D
+        ) except +
 
-    void approx_knn_search(
-        handle_t &handle,
-        float *distances,
-        int64_t* indices,
-        knnIndex* index,
-        int k,
-        const float *query_array,
-        int n
-    ) except +
+        void approx_knn_search(
+            handle_t &handle,
+            float *distances,
+            int64_t* indices,
+            knnIndex* index,
+            int k,
+            const float *query_array,
+            int n
+        ) except +
 
-
-cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
-    void brute_force_knn(handle_t &handle,
-                         const int *idxIndptr,
-                         const int *idxIndices,
-                         const float *idxData,
-                         size_t idxNNZ,
-                         int n_idx_rows,
-                         int n_idx_cols,
-                         const int *queryIndptr,
-                         const int *queryIndices,
-                         const float *queryData,
-                         size_t queryNNZ,
-                         int n_query_rows,
-                         int n_query_cols,
-                         int *output_indices,
-                         float *output_dists,
-                         int k,
-                         size_t batch_size_index,
-                         size_t batch_size_query,
-                         DistanceType metric,
-                         float metricArg) except +
+    cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
+        void brute_force_knn(handle_t &handle,
+                             const int *idxIndptr,
+                             const int *idxIndices,
+                             const float *idxData,
+                             size_t idxNNZ,
+                             int n_idx_rows,
+                             int n_idx_cols,
+                             const int *queryIndptr,
+                             const int *queryIndices,
+                             const float *queryData,
+                             size_t queryNNZ,
+                             int n_query_rows,
+                             int n_query_cols,
+                             int *output_indices,
+                             float *output_dists,
+                             int k,
+                             size_t batch_size_index,
+                             size_t batch_size_query,
+                             DistanceType metric,
+                             float metricArg) except +
 
 
 class NearestNeighbors(UniversalBase,
@@ -152,10 +148,6 @@ class NearestNeighbors(UniversalBase,
     NearestNeighbors is an queries neighborhoods from a given set of
     datapoints. Currently, cuML supports k-NN queries, which define
     the neighborhood as the closest `k` neighbors to each query point.
-
-    This estimator supports cuML's experimental device selection capabilities.
-    It can be configured to run on either the CPU or the GPU.
-    To learn more, please see :ref:`device-selection`.
 
     Parameters
     ----------
@@ -378,53 +370,54 @@ class NearestNeighbors(UniversalBase,
                               self.effective_metric_,
                               self._fit_method))
 
-        cdef handle_t* handle_ = <handle_t*><uintptr_t> self.handle.getHandle()
-        cdef knnIndexParam* algo_params = <knnIndexParam*> 0
-        if self._fit_method in ['ivfflat', 'ivfpq']:
-            warnings.warn("\nWarning: Approximate Nearest Neighbor methods "
-                          "might be unstable in this version of cuML. "
-                          "This is due to a known issue in the FAISS "
-                          "release that this cuML version is linked to. "
-                          "(see cuML issue #4020)")
+        IF GPUBUILD == 1:
+            cdef handle_t* handle_ = <handle_t*><uintptr_t> self.handle.getHandle()
+            cdef knnIndexParam* algo_params = <knnIndexParam*> 0
+            if self._fit_method in ['ivfflat', 'ivfpq']:
+                warnings.warn("\nWarning: Approximate Nearest Neighbor methods "
+                              "might be unstable in this version of cuML. "
+                              "This is due to a known issue in the FAISS "
+                              "release that this cuML version is linked to. "
+                              "(see cuML issue #4020)")
 
-            if not is_dense(X):
-                raise ValueError("Approximate Nearest Neighbors methods "
-                                 "require dense data")
+                if not is_dense(X):
+                    raise ValueError("Approximate Nearest Neighbors methods "
+                                     "require dense data")
 
-            additional_info = {'n_samples': self.n_samples_fit_,
-                               'n_features': self.n_features_in_}
-            knn_index = new knnIndex()
-            self.knn_index = <uintptr_t> knn_index
-            algo_params = <knnIndexParam*><uintptr_t> \
-                build_algo_params(self._fit_method, self.algo_params,
-                                  additional_info)
-            metric = self._build_metric_type(self.effective_metric_)
+                additional_info = {'n_samples': self.n_samples_fit_,
+                                   'n_features': self.n_features_in_}
+                knn_index = new knnIndex()
+                self.knn_index = <uintptr_t> knn_index
+                algo_params = <knnIndexParam*><uintptr_t> \
+                    build_algo_params(self._fit_method, self.algo_params,
+                                      additional_info)
+                metric = self._build_metric_type(self.effective_metric_)
 
-            approx_knn_build_index(handle_[0],
-                                   <knnIndex*>knn_index,
-                                   <knnIndexParam*>algo_params,
-                                   <DistanceType>metric,
-                                   <float>self.p,
-                                   <float*><uintptr_t>self._fit_X.ptr,
-                                   <int>self.n_samples_fit_,
-                                   <int>self.n_features_in_)
-            self.handle.sync()
+                approx_knn_build_index(handle_[0],
+                                       <knnIndex*>knn_index,
+                                       <knnIndexParam*>algo_params,
+                                       <DistanceType>metric,
+                                       <float>self.p,
+                                       <float*><uintptr_t>self._fit_X.ptr,
+                                       <int>self.n_samples_fit_,
+                                       <int>self.n_features_in_)
+                self.handle.sync()
 
-            destroy_algo_params(<uintptr_t>algo_params)
+                destroy_algo_params(<uintptr_t>algo_params)
 
-            del self._fit_X
-        elif self._fit_method == "rbc":
-            metric = self._build_metric_type(self.effective_metric_)
+                del self._fit_X
+            elif self._fit_method == "rbc":
+                metric = self._build_metric_type(self.effective_metric_)
 
-            rbc_index = new BallCoverIndex[int64_t, float, uint32_t](
-                handle_[0], <float*><uintptr_t>self._fit_X.ptr,
-                <uint32_t>self.n_samples_fit_, <uint32_t>self.n_features_in_,
-                <DistanceType>metric)
-            rbc_build_index(handle_[0],
-                            deref(rbc_index))
-            self.knn_index = <uintptr_t>rbc_index
+                rbc_index = new BallCoverIndex[int64_t, float, uint32_t](
+                    handle_[0], <float*><uintptr_t>self._fit_X.ptr,
+                    <uint32_t>self.n_samples_fit_, <uint32_t>self.n_features_in_,
+                    <DistanceType>metric)
+                rbc_build_index(handle_[0],
+                                deref(rbc_index))
+                self.knn_index = <uintptr_t>rbc_index
 
-        self.n_indices = 1
+            self.n_indices = 1
         return self
 
     def get_param_names(self):
@@ -681,7 +674,7 @@ class NearestNeighbors(UniversalBase,
             raise ValueError("A NearestNeighbors model trained on dense "
                              "data requires dense input to kneighbors()")
 
-        metric = self._build_metric_type(self.effective_metric_)
+        _metric = self._build_metric_type(self.effective_metric_)
 
         X_m, N, _, _ = \
             input_to_cuml_array(X, order='C', check_dtype=np.float32,
@@ -696,66 +689,66 @@ class NearestNeighbors(UniversalBase,
                                   dtype=np.float32, order="C",
                                   index=X_m.index)
 
-        cdef uintptr_t I_ptr = I_ndarr.ptr
-        cdef uintptr_t D_ptr = D_ndarr.ptr
+        cdef uintptr_t _I_ptr = I_ndarr.ptr
+        cdef uintptr_t _D_ptr = D_ndarr.ptr
+        IF GPUBUILD == 1:
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+            cdef vector[float*] *inputs = new vector[float*]()
+            cdef vector[int] *sizes = new vector[int]()
+            cdef knnIndex* knn_index = <knnIndex*> 0
+            cdef BallCoverIndex[int64_t, float, uint32_t]* rbc_index = \
+                <BallCoverIndex[int64_t, float, uint32_t]*> 0
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef vector[float*] *inputs = new vector[float*]()
-        cdef vector[int] *sizes = new vector[int]()
-        cdef knnIndex* knn_index = <knnIndex*> 0
-        cdef BallCoverIndex[int64_t, float, uint32_t]* rbc_index = \
-            <BallCoverIndex[int64_t, float, uint32_t]*> 0
+            fallback_to_brute = self._fit_method == "rbc" and \
+                n_neighbors > math.sqrt(self.n_samples_fit_)
 
-        fallback_to_brute = self._fit_method == "rbc" and \
-            n_neighbors > math.sqrt(self.n_samples_fit_)
+            if fallback_to_brute:
+                warnings.warn("algorithm='rbc' requires sqrt(%s) be "
+                              "> n_neighbors (%s). falling back to "
+                              "brute force search" %
+                              (self.n_samples_fit_, n_neighbors))
 
-        if fallback_to_brute:
-            warnings.warn("algorithm='rbc' requires sqrt(%s) be "
-                          "> n_neighbors (%s). falling back to "
-                          "brute force search" %
-                          (self.n_samples_fit_, n_neighbors))
+            if self._fit_method == 'brute' or fallback_to_brute:
+                inputs.push_back(<float*><uintptr_t>self._fit_X.ptr)
+                sizes.push_back(<int>self.n_samples_fit_)
 
-        if self._fit_method == 'brute' or fallback_to_brute:
-            inputs.push_back(<float*><uintptr_t>self._fit_X.ptr)
-            sizes.push_back(<int>self.n_samples_fit_)
-
-            brute_force_knn(
-                handle_[0],
-                deref(inputs),
-                deref(sizes),
-                <int>self.n_features_in_,
-                <float*><uintptr_t>X_m.ptr,
-                <int>N,
-                <int64_t*>I_ptr,
-                <float*>D_ptr,
-                <int>n_neighbors,
-                True,
-                True,
-                <DistanceType>metric,
-                # minkowski order is currently the only metric argument.
-                <float>self.p
-            )
-        elif self._fit_method == "rbc":
-            rbc_index = <BallCoverIndex[int64_t, float, uint32_t]*>\
-                <uintptr_t>self.knn_index
-            rbc_knn_query(handle_[0],
-                          deref(rbc_index),
-                          <uint32_t> n_neighbors,
-                          <float*><uintptr_t>X_m.ptr,
-                          <uint32_t> N,
-                          <int64_t*>I_ptr,
-                          <float*>D_ptr)
-        else:
-            knn_index = <knnIndex*><uintptr_t> self.knn_index
-            approx_knn_search(
-                handle_[0],
-                <float*>D_ptr,
-                <int64_t*>I_ptr,
-                <knnIndex*>knn_index,
-                <int>n_neighbors,
-                <float*><uintptr_t>X_m.ptr,
-                <int>N
-            )
+                brute_force_knn(
+                    handle_[0],
+                    deref(inputs),
+                    deref(sizes),
+                    <int>self.n_features_in_,
+                    <float*><uintptr_t>X_m.ptr,
+                    <int>N,
+                    <int64_t*>_I_ptr,
+                    <float*>_D_ptr,
+                    <int>n_neighbors,
+                    True,
+                    True,
+                    <DistanceType>_metric,
+                    # minkowski order is currently the only metric argument.
+                    <float>self.p
+                )
+            elif self._fit_method == "rbc":
+                rbc_index = <BallCoverIndex[int64_t, float, uint32_t]*>\
+                    <uintptr_t>self.knn_index
+                rbc_knn_query(handle_[0],
+                              deref(rbc_index),
+                              <uint32_t> n_neighbors,
+                              <float*><uintptr_t>X_m.ptr,
+                              <uint32_t> N,
+                              <int64_t*>_I_ptr,
+                              <float*>_D_ptr)
+            else:
+                knn_index = <knnIndex*><uintptr_t> self.knn_index
+                approx_knn_search(
+                    handle_[0],
+                    <float*>_D_ptr,
+                    <int64_t*>_I_ptr,
+                    <knnIndex*>knn_index,
+                    <int>n_neighbors,
+                    <float*><uintptr_t>X_m.ptr,
+                    <int>N
+                )
 
         return D_ndarr, I_ndarr
 
@@ -777,15 +770,15 @@ class NearestNeighbors(UniversalBase,
 
         X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
                               convert_format=False)
-        metric = self._build_metric_type(self.effective_metric_)
+        _metric = self._build_metric_type(self.effective_metric_)
 
-        cdef uintptr_t idx_indptr = self._fit_X.indptr.ptr
-        cdef uintptr_t idx_indices = self._fit_X.indices.ptr
-        cdef uintptr_t idx_data = self._fit_X.data.ptr
+        cdef uintptr_t _idx_indptr = self._fit_X.indptr.ptr
+        cdef uintptr_t _idx_indices = self._fit_X.indices.ptr
+        cdef uintptr_t _idx_data = self._fit_X.data.ptr
 
-        cdef uintptr_t search_indptr = X_m.indptr.ptr
-        cdef uintptr_t search_indices = X_m.indices.ptr
-        cdef uintptr_t search_data = X_m.data.ptr
+        cdef uintptr_t _search_indptr = X_m.indptr.ptr
+        cdef uintptr_t _search_indices = X_m.indices.ptr
+        cdef uintptr_t _search_data = X_m.data.ptr
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
@@ -794,31 +787,33 @@ class NearestNeighbors(UniversalBase,
         D_ndarr = CumlArray.zeros((X_m.shape[0], n_neighbors),
                                   dtype=np.float32, order="C")
 
-        cdef uintptr_t I_ptr = I_ndarr.ptr
-        cdef uintptr_t D_ptr = D_ndarr.ptr
+        cdef uintptr_t _I_ptr = I_ndarr.ptr
+        cdef uintptr_t _D_ptr = D_ndarr.ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        IF GPUBUILD == 1:
 
-        brute_force_knn(handle_[0],
-                        <int*> idx_indptr,
-                        <int*> idx_indices,
-                        <float*> idx_data,
-                        self._fit_X.nnz,
-                        self.n_samples_fit_,
-                        self.n_features_in_,
-                        <int*> search_indptr,
-                        <int*> search_indices,
-                        <float*> search_data,
-                        X_m.nnz,
-                        X_m.shape[0],
-                        X_m.shape[1],
-                        <int*>I_ptr,
-                        <float*>D_ptr,
-                        n_neighbors,
-                        <size_t>batch_size_index,
-                        <size_t>batch_size_query,
-                        <DistanceType> metric,
-                        <float>self.p)
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+
+            brute_force_knn(handle_[0],
+                            <int*> _idx_indptr,
+                            <int*> _idx_indices,
+                            <float*> _idx_data,
+                            self._fit_X.nnz,
+                            self.n_samples_fit_,
+                            self.n_features_in_,
+                            <int*> _search_indptr,
+                            <int*> _search_indices,
+                            <float*> _search_data,
+                            X_m.nnz,
+                            X_m.shape[0],
+                            X_m.shape[1],
+                            <int*>_I_ptr,
+                            <float*>_D_ptr,
+                            n_neighbors,
+                            <size_t>batch_size_index,
+                            <size_t>batch_size_query,
+                            <DistanceType> _metric,
+                            <float>self.p)
 
         return D_ndarr, I_ndarr
 

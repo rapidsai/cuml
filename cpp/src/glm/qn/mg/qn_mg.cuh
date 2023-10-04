@@ -49,9 +49,12 @@ int qn_fit_mg(const raft::handle_t& handle,
   SimpleVec<T> w0(w0_data, loss.n_param);
 
   // Scale the regularization strength with the number of samples.
-  T l1 = 0;
+  T l1 = pams.penalty_l1;
   T l2 = pams.penalty_l2;
-  if (pams.penalty_normalized) { l2 /= n_samples; }
+  if (pams.penalty_normalized) {
+    l1 /= n_samples;
+    l2 /= n_samples;
+  }
 
   ML::GLM::detail::Tikhonov<T> reg(l2);
   ML::GLM::detail::RegularizedGLM<T, LossFunction, decltype(reg)> regularizer_obj(&loss, &reg);
@@ -100,6 +103,12 @@ inline void qn_fit_x_mg(const raft::handle_t& handle,
     case QN_LOSS_LOGISTIC: {
       ASSERT(C == 2, "qn_mg.cuh: logistic loss invalid C");
       ML::GLM::detail::LogisticLoss<T> loss(handle, D, pams.fit_intercept);
+      ML::GLM::opg::qn_fit_mg<T, decltype(loss)>(
+        handle, pams, loss, X, y, Z, w0_data, f, num_iters, n_samples, rank, n_ranks);
+    } break;
+    case QN_LOSS_SOFTMAX: {
+      ASSERT(C > 2, "qn_mg.cuh: softmax invalid C");
+      ML::GLM::detail::Softmax<T> loss(handle, D, C, pams.fit_intercept);
       ML::GLM::opg::qn_fit_mg<T, decltype(loss)>(
         handle, pams, loss, X, y, Z, w0_data, f, num_iters, n_samples, rank, n_ranks);
     } break;

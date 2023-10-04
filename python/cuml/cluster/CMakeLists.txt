@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -12,11 +12,10 @@
 # the License.
 # =============================================================================
 
-set(cython_sources
-    agglomerative.pyx
-    dbscan.pyx
-    kmeans.pyx
-)
+set(cython_sources "")
+add_module_gpu_default("agglomerative.pyx" ${agglomerative_algo} ${cluster_algo})
+add_module_gpu_default("dbscan.pyx" ${dbscan_algo} ${cluster_algo})
+add_module_gpu_default("kmeans.pyx" ${kmeans_algo} ${cluster_algo})
 
 if(NOT SINGLEGPU)
   list(APPEND cython_sources

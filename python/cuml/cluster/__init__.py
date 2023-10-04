@@ -17,8 +17,15 @@
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.kmeans import KMeans
 from cuml.cluster.agglomerative import AgglomerativeClustering
+from cuml.internals.device_support import GPU_ENABLED
+
 from cuml.cluster.hdbscan import HDBSCAN
 
 # TODO: These need to be deprecated and moved to hdbscan namespace
 from cuml.cluster.hdbscan.prediction import all_points_membership_vectors
 from cuml.cluster.hdbscan.prediction import approximate_predict
+
+if GPU_ENABLED:
+    from cuml.cluster.dbscan import DBSCAN
+    from cuml.cluster.kmeans import KMeans
+    from cuml.cluster.agglomerative import AgglomerativeClustering

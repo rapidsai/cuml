@@ -16,10 +16,6 @@
 # distutils: language = c++
 
 from libc.stdint cimport uintptr_t
-from libcpp cimport bool
-from libc.stdlib cimport free
-
-from cython.operator cimport dereference as deref
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
@@ -30,10 +26,7 @@ from warnings import warn
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.common.doc_utils import generate_docstring
-from pylibraft.common.handle cimport handle_t
-from rmm._lib.device_uvector cimport device_uvector
 
-from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.api_decorators import device_interop_preparation
@@ -41,133 +34,140 @@ from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.import_utils import has_hdbscan
-
 import cuml
-from cuml.metrics.distance_type cimport DistanceType
 
 
-cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
+IF GPUBUILD == 1:
+    from libcpp cimport bool
+    from libc.stdlib cimport free
+    from cython.operator cimport dereference as deref
+    from cuml.metrics.distance_type cimport DistanceType
+    from rmm._lib.device_uvector cimport device_uvector
+    from pylibraft.common.handle import Handle
+    from pylibraft.common.handle cimport handle_t
 
-    ctypedef enum CLUSTER_SELECTION_METHOD:
-        EOM "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::EOM"
-        LEAF "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::LEAF"
+    cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
 
-    cdef cppclass CondensedHierarchy[value_idx, value_t]:
-        CondensedHierarchy(
-            const handle_t &handle, size_t n_leaves)
+        ctypedef enum CLUSTER_SELECTION_METHOD:
+            EOM "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::EOM"
+            LEAF "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::LEAF"
 
-        CondensedHierarchy(const handle_t& handle_,
-                           size_t n_leaves_,
-                           int n_edges_,
-                           value_idx* parents_,
-                           value_idx* children_,
-                           value_t* lambdas_,
-                           value_idx* sizes_)
+        cdef cppclass CondensedHierarchy[value_idx, value_t]:
+            CondensedHierarchy(
+                const handle_t &handle, size_t n_leaves)
 
-        value_idx *get_parents()
-        value_idx *get_children()
-        value_t *get_lambdas()
-        value_idx *get_sizes()
-        value_idx get_n_edges()
+            CondensedHierarchy(const handle_t& handle_,
+                               size_t n_leaves_,
+                               int _n_edges_,
+                               value_idx* parents_,
+                               value_idx* children_,
+                               value_t* lambdas_,
+                               value_idx* sizes_)
 
-    cdef cppclass hdbscan_output[int, float]:
-        hdbscan_output(const handle_t &handle,
-                       int n_leaves,
-                       int *labels,
-                       float *probabilities,
-                       int *children,
-                       int *sizes,
-                       float *deltas,
-                       int *mst_src,
-                       int *mst_dst,
-                       float *mst_weights)
-        int get_n_leaves()
-        int get_n_clusters()
-        float *get_stabilities()
-        int *get_labels()
-        int *get_inverse_label_map()
-        float *get_core_dists()
-        CondensedHierarchy[int, float] &get_condensed_tree()
+            value_idx *get_parents()
+            value_idx *get_children()
+            value_t *get_lambdas()
+            value_idx *get_sizes()
+            value_idx get_n_edges()
 
-    cdef cppclass HDBSCANParams:
-        int min_samples
-        int min_cluster_size
-        int max_cluster_size,
-
-        float cluster_selection_epsilon,
-
-        bool allow_single_cluster,
-        CLUSTER_SELECTION_METHOD cluster_selection_method,
-
-    cdef cppclass PredictionData[int, float]:
-        PredictionData(const handle_t &handle,
-                       int m,
-                       int n,
-                       float *core_dists)
-
-        size_t n_rows
-        size_t n_cols
-
-    void generate_prediction_data(const handle_t& handle,
-                                  CondensedHierarchy[int, float]&
-                                  condensed_tree,
-                                  int* labels,
-                                  int* inverse_label_map,
-                                  int n_selected_clusters,
-                                  PredictionData[int, float]& prediction_data) except +
-
-cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
-
-    void hdbscan(const handle_t & handle,
-                 const float * X,
-                 size_t m, size_t n,
-                 DistanceType metric,
-                 HDBSCANParams & params,
-                 hdbscan_output & output,
-                 float * core_dists) except +
-
-    void build_condensed_hierarchy(
-      const handle_t &handle,
-      const int *children,
-      const float *delta,
-      const int *sizes,
-      int min_cluster_size,
-      int n_leaves,
-      CondensedHierarchy[int, float] &condensed_tree) except +
-
-    void _extract_clusters(const handle_t &handle, size_t n_leaves,
-                           int n_edges, int *parents, int *children,
-                           float *lambdas, int *sizes, int *labels,
+        cdef cppclass hdbscan_output[int, float]:
+            hdbscan_output(const handle_t &handle,
+                           int n_leaves,
+                           int *labels,
                            float *probabilities,
-                           CLUSTER_SELECTION_METHOD cluster_selection_method,
-                           bool allow_single_cluster, int max_cluster_size,
-                           float cluster_selection_epsilon) except +
+                           int *children,
+                           int *sizes,
+                           float *deltas,
+                           int *mst_src,
+                           int *mst_dst,
+                           float *mst_weights)
+            int get_n_leaves()
+            int get_n_clusters()
+            float *get_stabilities()
+            int *get_labels()
+            int *get_inverse_label_map()
+            float *get_core_dists()
+            CondensedHierarchy[int, float] &get_condensed_tree()
 
-cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::HELPER":
+        cdef cppclass HDBSCANParams:
+            int min_samples
+            int min_cluster_size
+            int max_cluster_size,
 
-    void compute_core_dists(const handle_t& handle,
-                            const float* X,
-                            float* core_dists,
-                            size_t m,
-                            size_t n,
-                            DistanceType metric,
-                            int min_samples) except +
+            float cluster_selection_epsilon,
 
-    void compute_inverse_label_map(const handle_t& handle,
-                                   CondensedHierarchy[int, float]&
-                                   condensed_tree,
-                                   size_t n_leaves,
-                                   CLUSTER_SELECTION_METHOD
-                                   cluster_selection_method,
-                                   device_uvector[int]& inverse_label_map,
-                                   bool allow_single_cluster,
-                                   int max_cluster_size,
-                                   float cluster_selection_epsilon) except +
+            bool allow_single_cluster,
+            CLUSTER_SELECTION_METHOD cluster_selection_method,
 
-_metrics_mapping = {
-    'l2': DistanceType.L2SqrtExpanded,
-    'euclidean': DistanceType.L2SqrtExpanded,
-}
+        cdef cppclass PredictionData[int, float]:
+            PredictionData(const handle_t &handle,
+                           int m,
+                           int n,
+                           float *core_dists)
+
+            size_t n_rows
+            size_t n_cols
+
+        void generate_prediction_data(const handle_t& handle,
+                                      CondensedHierarchy[int, float]&
+                                      condensed_tree,
+                                      int* labels,
+                                      int* inverse_label_map,
+                                      int n_selected_clusters,
+                                      PredictionData[int, float]& prediction_data)
+
+    cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
+
+        void hdbscan(const handle_t & handle,
+                     const float * X,
+                     size_t m, size_t n,
+                     DistanceType metric,
+                     HDBSCANParams & params,
+                     hdbscan_output & output,
+                     float * core_dists)
+
+        void build_condensed_hierarchy(
+          const handle_t &handle,
+          const int *children,
+          const float *delta,
+          const int *sizes,
+          int min_cluster_size,
+          int n_leaves,
+          CondensedHierarchy[int, float] &condensed_tree)
+
+        void _extract_clusters(const handle_t &handle, size_t n_leaves,
+                               int _n_edges, int *parents, int *children,
+                               float *lambdas, int *sizes, int *labels,
+                               float *probabilities,
+                               CLUSTER_SELECTION_METHOD cluster_selection_method,
+                               bool allow_single_cluster, int max_cluster_size,
+                               float cluster_selection_epsilon)
+
+    cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::HELPER":
+
+        void compute_core_dists(const handle_t& handle,
+                                const float* X,
+                                float* core_dists,
+                                size_t m,
+                                size_t n,
+                                DistanceType metric,
+                                int min_samples)
+
+        void compute_inverse_label_map(const handle_t& handle,
+                                       CondensedHierarchy[int, float]&
+                                       condensed_tree,
+                                       size_t n_leaves,
+                                       CLUSTER_SELECTION_METHOD
+                                       cluster_selection_method,
+                                       device_uvector[int]& inverse_label_map,
+                                       bool allow_single_cluster,
+                                       int max_cluster_size,
+                                       float cluster_selection_epsilon)
+
+    _metrics_mapping = {
+        'l2': DistanceType.L2SqrtExpanded,
+        'euclidean': DistanceType.L2SqrtExpanded,
+    }
 
 
 def _cuml_array_from_ptr(ptr, buf_size, shape, dtype, owner):
@@ -244,77 +244,79 @@ def condense_hierarchy(dendrogram,
     condensed_tree : hdbscan.plots.CondensedTree object
     """
 
-    handle = Handle()
-    cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
-
-    n_leaves = dendrogram.shape[0]+1
-    cdef CondensedHierarchy[int, float] *condensed_tree =\
-        new CondensedHierarchy[int, float](
-            handle_[0], <size_t>n_leaves)
-
-    children, _, _, _ = \
+    _children, _, _, _ = \
         input_to_cuml_array(dendrogram[:, 0:2].astype('int32'), order='C',
                             check_dtype=[np.int32],
                             convert_to_dtype=(np.int32))
 
-    lambdas, _, _, _ = \
+    _lambdas, _, _, _ = \
         input_to_cuml_array(dendrogram[:, 2], order='C',
                             check_dtype=[np.float32],
                             convert_to_dtype=(np.float32))
 
-    sizes, _, _, _ = \
+    _sizes, _, _, _ = \
         input_to_cuml_array(dendrogram[:, 3], order='C',
                             check_dtype=[np.int32],
                             convert_to_dtype=(np.int32))
 
-    cdef uintptr_t children_ptr = children.ptr
-    cdef uintptr_t lambdas_ptr = lambdas.ptr
-    cdef uintptr_t sizes_ptr = sizes.ptr
+    IF GPUBUILD == 1:
 
-    build_condensed_hierarchy(handle_[0],
-                              <int*> children_ptr,
-                              <float*> lambdas_ptr,
-                              <int*> sizes_ptr,
-                              <int>min_cluster_size,
-                              n_leaves,
-                              deref(condensed_tree))
+        handle = Handle()
+        cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
+        n_leaves = dendrogram.shape[0]+1
+        cdef CondensedHierarchy[int, float] *condensed_tree =\
+            new CondensedHierarchy[int, float](
+                handle_[0], <size_t>n_leaves)
 
-    n_condensed_tree_edges = \
-        condensed_tree.get_n_edges()
+        cdef uintptr_t _children_ptr = _children.ptr
+        cdef uintptr_t _lambdas_ptr = _lambdas.ptr
+        cdef uintptr_t _sizes_ptr = _sizes.ptr
 
-    condensed_parent_ = _construct_condensed_tree_attribute(
-        <size_t>condensed_tree.get_parents(), n_condensed_tree_edges)
+        build_condensed_hierarchy(handle_[0],
+                                  <int*> _children_ptr,
+                                  <float*> _lambdas_ptr,
+                                  <int*> _sizes_ptr,
+                                  <int>min_cluster_size,
+                                  n_leaves,
+                                  deref(condensed_tree))
 
-    condensed_child_ = _construct_condensed_tree_attribute(
-        <size_t>condensed_tree.get_children(), n_condensed_tree_edges)
+        n_condensed_tree_edges = \
+            condensed_tree.get_n_edges()
 
-    condensed_lambdas_ = \
-        _construct_condensed_tree_attribute(
-            <size_t>condensed_tree.get_lambdas(), n_condensed_tree_edges,
-            "float32")
+        condensed_parent_ = _construct_condensed_tree_attribute(
+            <size_t>condensed_tree.get_parents(), n_condensed_tree_edges)
 
-    condensed_sizes_ = _construct_condensed_tree_attribute(
-        <size_t>condensed_tree.get_sizes(), n_condensed_tree_edges)
+        condensed_child_ = _construct_condensed_tree_attribute(
+            <size_t>condensed_tree.get_children(), n_condensed_tree_edges)
 
-    condensed_tree_host = _build_condensed_tree_plot_host(
-        condensed_parent_.to_output('numpy'),
-        condensed_child_.to_output("numpy"),
-        condensed_lambdas_.to_output("numpy"),
-        condensed_sizes_.to_output("numpy"), cluster_selection_epsilon,
-        allow_single_cluster)
+        condensed_lambdas_ = \
+            _construct_condensed_tree_attribute(
+                <size_t>condensed_tree.get_lambdas(), n_condensed_tree_edges,
+                "float32")
 
-    del condensed_tree
+        condensed_sizes_ = _construct_condensed_tree_attribute(
+            <size_t>condensed_tree.get_sizes(), n_condensed_tree_edges)
 
-    return condensed_tree_host
+        condensed_tree_host = _build_condensed_tree_plot_host(
+            condensed_parent_.to_output('numpy'),
+            condensed_child_.to_output("numpy"),
+            condensed_lambdas_.to_output("numpy"),
+            condensed_sizes_.to_output("numpy"), cluster_selection_epsilon,
+            allow_single_cluster)
+
+        del condensed_tree
+
+        return condensed_tree_host
 
 
 def delete_hdbscan_output(obj):
-    cdef hdbscan_output *output
-    if hasattr(obj, "hdbscan_output_"):
-        output = <hdbscan_output*>\
-                  <uintptr_t> obj.hdbscan_output_
-        del output
-        del obj.hdbscan_output_
+    IF GPUBUILD == 1:
+        cdef hdbscan_output *output
+        if hasattr(obj, "hdbscan_output_"):
+            output = <hdbscan_output*>\
+                      <uintptr_t> obj.hdbscan_output_
+            del output
+            del obj.hdbscan_output_
 
 
 class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
@@ -334,10 +336,6 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
     the minimum spanning trees alone might be subtle, they can
     (and often will) lead to some points being assigned different
     cluster labels between the two implementations.
-
-    This estimator supports cuML's experimental device selection capabilities.
-    It can be configured to run on either the CPU or the GPU.
-    To learn more, please see :ref:`device-selection`.
 
     Parameters
     ----------
@@ -658,29 +656,30 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
             raise ValueError(
                 'The model is not trained yet (call fit() first).')
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        IF GPUBUILD == 1:
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        cdef uintptr_t core_dists = self.core_dists.ptr
-        cdef PredictionData[int, float] *prediction_data = new PredictionData(
-            handle_[0], <int> self.n_rows, <int> self.n_cols,
-            <float*> core_dists)
-        self.prediction_data_ptr = <size_t>prediction_data
+            cdef uintptr_t core_dists = self.core_dists.ptr
+            cdef PredictionData[int, float] *prediction_data = new PredictionData(
+                handle_[0], <int> self.n_rows, <int> self.n_cols,
+                <float*> core_dists)
+            self.prediction_data_ptr = <size_t>prediction_data
 
-        cdef uintptr_t condensed_tree_ptr = self.condensed_tree_ptr
-        cdef CondensedHierarchy[int, float] *condensed_tree = \
-            <CondensedHierarchy[int, float] *> condensed_tree_ptr
-        labels, _, _, _ = input_to_cuml_array(self.labels_,
-                                              order='C',
-                                              convert_to_dtype=np.int32)
-        cdef uintptr_t labels_ptr = labels.ptr
-        cdef uintptr_t inverse_label_map_ptr = self.inverse_label_map.ptr
+            cdef uintptr_t condensed_tree_ptr = self.condensed_tree_ptr
+            cdef CondensedHierarchy[int, float] *condensed_tree = \
+                <CondensedHierarchy[int, float] *> condensed_tree_ptr
+            labels, _, _, _ = input_to_cuml_array(self.labels_,
+                                                  order='C',
+                                                  convert_to_dtype=np.int32)
+            cdef uintptr_t _labels_ptr = labels.ptr
+            cdef uintptr_t inverse_label_map_ptr = self.inverse_label_map.ptr
 
-        generate_prediction_data(handle_[0],
-                                 deref(condensed_tree),
-                                 <int*> labels_ptr,
-                                 <int*> inverse_label_map_ptr,
-                                 <int> self.n_clusters_,
-                                 deref(prediction_data))
+            generate_prediction_data(handle_[0],
+                                     deref(condensed_tree),
+                                     <int*> _labels_ptr,
+                                     <int*> inverse_label_map_ptr,
+                                     <int> self.n_clusters_,
+                                     deref(prediction_data))
 
         self.handle.sync()
 
@@ -688,68 +687,69 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
     def __dealloc__(self):
         delete_hdbscan_output(self)
-        cdef CondensedHierarchy[int, float]* condensed_tree_ptr
-        if hasattr(self, "condensed_tree_ptr"):
-            condensed_tree_ptr = <CondensedHierarchy[int, float]*> \
-                                     <uintptr_t> self.condensed_tree_ptr
-            free(condensed_tree_ptr)
-            del self.condensed_tree_ptr
-        cdef PredictionData* prediction_data_ptr
-        if hasattr(self, "prediction_data_ptr"):
-            prediction_data_ptr = \
-                <PredictionData*> <uintptr_t> self.prediction_data_ptr
-            free(prediction_data_ptr)
-            del self.prediction_data_ptr
-        # this is only constructed when trying to gpu predict
-        # with a cpu model
-        if hasattr(self, "inverse_label_map_ptr"):
-            inverse_label_map_ptr = \
-                <device_uvector[int]*> <uintptr_t> self.inverse_label_map_ptr
-            free(inverse_label_map_ptr)
-            del self.inverse_label_map_ptr
+        IF GPUBUILD == 1:
+            cdef CondensedHierarchy[int, float]* condensed_tree_ptr
+            if hasattr(self, "condensed_tree_ptr"):
+                condensed_tree_ptr = <CondensedHierarchy[int, float]*> \
+                                         <uintptr_t> self.condensed_tree_ptr
+                free(condensed_tree_ptr)
+                del self.condensed_tree_ptr
+            cdef PredictionData* prediction_data_ptr
+            if hasattr(self, "prediction_data_ptr"):
+                prediction_data_ptr = \
+                    <PredictionData*> <uintptr_t> self.prediction_data_ptr
+                free(prediction_data_ptr)
+                del self.prediction_data_ptr
+            # this is only constructed when trying to gpu predict
+            # with a cpu model
+            if hasattr(self, "inverse_label_map_ptr"):
+                inverse_label_map_ptr = \
+                    <device_uvector[int]*> <uintptr_t> self.inverse_label_map_ptr
+                free(inverse_label_map_ptr)
+                del self.inverse_label_map_ptr
 
     def _construct_output_attributes(self):
+        IF GPUBUILD == 1:
+            cdef hdbscan_output *hdbscan_output_ = \
+                    <hdbscan_output*><size_t>self.hdbscan_output_
 
-        cdef hdbscan_output *hdbscan_output_ = \
-                <hdbscan_output*><size_t>self.hdbscan_output_
+            self.n_clusters_ = hdbscan_output_.get_n_clusters()
 
-        self.n_clusters_ = hdbscan_output_.get_n_clusters()
+            if self.n_clusters_ > 0:
+                self.cluster_persistence_ = _cuml_array_from_ptr(
+                    <size_t>hdbscan_output_.get_stabilities(),
+                    hdbscan_output_.get_n_clusters() * sizeof(float),
+                    (1, hdbscan_output_.get_n_clusters()), "float32", self)
+            else:
+                self.cluster_persistence_ = CumlArray.empty((0,), dtype="float32")
 
-        if self.n_clusters_ > 0:
-            self.cluster_persistence_ = _cuml_array_from_ptr(
-                <size_t>hdbscan_output_.get_stabilities(),
-                hdbscan_output_.get_n_clusters() * sizeof(float),
-                (1, hdbscan_output_.get_n_clusters()), "float32", self)
-        else:
-            self.cluster_persistence_ = CumlArray.empty((0,), dtype="float32")
+            n_condensed_tree_edges = \
+                hdbscan_output_.get_condensed_tree().get_n_edges()
 
-        n_condensed_tree_edges = \
-            hdbscan_output_.get_condensed_tree().get_n_edges()
+            self.condensed_parent_ = _construct_condensed_tree_attribute(
+                <size_t>hdbscan_output_.get_condensed_tree().get_parents(),
+                n_condensed_tree_edges)
 
-        self.condensed_parent_ = _construct_condensed_tree_attribute(
-            <size_t>hdbscan_output_.get_condensed_tree().get_parents(),
-            n_condensed_tree_edges)
+            self.condensed_child_ = _construct_condensed_tree_attribute(
+                <size_t>hdbscan_output_.get_condensed_tree().get_children(),
+                n_condensed_tree_edges)
 
-        self.condensed_child_ = _construct_condensed_tree_attribute(
-            <size_t>hdbscan_output_.get_condensed_tree().get_children(),
-            n_condensed_tree_edges)
+            self.condensed_lambdas_ = \
+                _construct_condensed_tree_attribute(
+                    <size_t>hdbscan_output_.get_condensed_tree().get_lambdas(),
+                    n_condensed_tree_edges, "float32")
 
-        self.condensed_lambdas_ = \
-            _construct_condensed_tree_attribute(
-                <size_t>hdbscan_output_.get_condensed_tree().get_lambdas(),
-                n_condensed_tree_edges, "float32")
+            self.condensed_sizes_ = _construct_condensed_tree_attribute(
+                <size_t>hdbscan_output_.get_condensed_tree().get_sizes(),
+                n_condensed_tree_edges)
 
-        self.condensed_sizes_ = _construct_condensed_tree_attribute(
-            <size_t>hdbscan_output_.get_condensed_tree().get_sizes(),
-            n_condensed_tree_edges)
-
-        if self.n_clusters_ > 0:
-            self.inverse_label_map = _cuml_array_from_ptr(
-                <size_t>hdbscan_output_.get_inverse_label_map(),
-                self.n_clusters_ * sizeof(int),
-                (self.n_clusters_, ), "int32", self)
-        else:
-            self.inverse_label_map = CumlArray.empty((0,), dtype="int32")
+            if self.n_clusters_ > 0:
+                self.inverse_label_map = _cuml_array_from_ptr(
+                    <size_t>hdbscan_output_.get_inverse_label_map(),
+                    self.n_clusters_ * sizeof(int),
+                    (self.n_clusters_, ), "int32", self)
+            else:
+                self.inverse_label_map = CumlArray.empty((0,), dtype="int32")
 
     @generate_docstring()
     @enable_device_interop
@@ -769,92 +769,95 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.n_rows = n_rows
         self.n_cols = n_cols
 
-        cdef uintptr_t input_ptr = X_m.ptr
+        cdef uintptr_t _input_ptr = X_m.ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        IF GPUBUILD == 1:
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        # Hardcode n_components_ to 1 for single linkage. This will
-        # not be the case for other linkage types.
-        self.n_connected_components_ = 1
-        self.n_leaves_ = n_rows
+            # Hardcode n_components_ to 1 for single linkage. This will
+            # not be the case for other linkage types.
+            self.n_connected_components_ = 1
+            self.n_leaves_ = n_rows
 
-        self.labels_ = CumlArray.empty(n_rows, dtype="int32", index=X_m.index)
-        self.children_ = CumlArray.empty((2, n_rows), dtype="int32")
-        self.probabilities_ = CumlArray.empty(n_rows, dtype="float32")
-        self.sizes_ = CumlArray.empty(n_rows, dtype="int32")
-        self.lambdas_ = CumlArray.empty(n_rows, dtype="float32")
-        self.mst_src_ = CumlArray.empty(n_rows-1, dtype="int32")
-        self.mst_dst_ = CumlArray.empty(n_rows-1, dtype="int32")
-        self.mst_weights_ = CumlArray.empty(n_rows-1, dtype="float32")
-        self.core_dists = CumlArray.empty(n_rows, dtype="float32")
+            self.labels_ = CumlArray.empty(n_rows, dtype="int32", index=X_m.index)
+            self.children_ = CumlArray.empty((2, n_rows), dtype="int32")
+            self.probabilities_ = CumlArray.empty(n_rows, dtype="float32")
+            self.sizes_ = CumlArray.empty(n_rows, dtype="int32")
+            self.lambdas_ = CumlArray.empty(n_rows, dtype="float32")
+            self.mst_src_ = CumlArray.empty(n_rows-1, dtype="int32")
+            self.mst_dst_ = CumlArray.empty(n_rows-1, dtype="int32")
+            self.mst_weights_ = CumlArray.empty(n_rows-1, dtype="float32")
+            self.core_dists = CumlArray.empty(n_rows, dtype="float32")
 
-        cdef uintptr_t labels_ptr = self.labels_.ptr
-        cdef uintptr_t children_ptr = self.children_.ptr
-        cdef uintptr_t sizes_ptr = self.sizes_.ptr
-        cdef uintptr_t lambdas_ptr = self.lambdas_.ptr
-        cdef uintptr_t probabilities_ptr = self.probabilities_.ptr
-        cdef uintptr_t mst_src_ptr = self.mst_src_.ptr
-        cdef uintptr_t mst_dst_ptr = self.mst_dst_.ptr
-        cdef uintptr_t mst_weights_ptr = self.mst_weights_.ptr
+            cdef uintptr_t _labels_ptr = self.labels_.ptr
+            cdef uintptr_t _children_ptr = self.children_.ptr
+            cdef uintptr_t _sizes_ptr = self.sizes_.ptr
+            cdef uintptr_t _lambdas_ptr = self.lambdas_.ptr
+            cdef uintptr_t _probabilities_ptr = self.probabilities_.ptr
+            cdef uintptr_t mst_src_ptr = self.mst_src_.ptr
+            cdef uintptr_t mst_dst_ptr = self.mst_dst_.ptr
+            cdef uintptr_t mst_weights_ptr = self.mst_weights_.ptr
 
-        # If calling fit a second time, release
-        # any memory owned from previous trainings
-        delete_hdbscan_output(self)
+            # If calling fit a second time, release
+            # any memory owned from previous trainings
+            delete_hdbscan_output(self)
 
-        cdef hdbscan_output *linkage_output = new hdbscan_output(
-            handle_[0], n_rows,
-            <int*>labels_ptr,
-            <float*>probabilities_ptr,
-            <int*>children_ptr,
-            <int*>sizes_ptr,
-            <float*>lambdas_ptr,
-            <int*>mst_src_ptr,
-            <int*>mst_dst_ptr,
-            <float*>mst_weights_ptr)
+            cdef hdbscan_output *linkage_output = new hdbscan_output(
+                handle_[0], n_rows,
+                <int*>_labels_ptr,
+                <float*>_probabilities_ptr,
+                <int*>_children_ptr,
+                <int*>_sizes_ptr,
+                <float*>_lambdas_ptr,
+                <int*>mst_src_ptr,
+                <int*>mst_dst_ptr,
+                <float*>mst_weights_ptr)
 
-        self.hdbscan_output_ = <size_t>linkage_output
+            self.hdbscan_output_ = <size_t>linkage_output
 
-        cdef HDBSCANParams params
-        params.min_samples = self.min_samples
-        # params.alpha = self.alpha
-        params.min_cluster_size = self.min_cluster_size
-        params.max_cluster_size = self.max_cluster_size
-        params.cluster_selection_epsilon = self.cluster_selection_epsilon
-        params.allow_single_cluster = self.allow_single_cluster
+            cdef HDBSCANParams params
+            params.min_samples = self.min_samples
+            # params.alpha = self.alpha
+            params.min_cluster_size = self.min_cluster_size
+            params.max_cluster_size = self.max_cluster_size
+            params.cluster_selection_epsilon = self.cluster_selection_epsilon
+            params.allow_single_cluster = self.allow_single_cluster
 
-        if self.cluster_selection_method == 'eom':
-            params.cluster_selection_method = CLUSTER_SELECTION_METHOD.EOM
-        elif self.cluster_selection_method == 'leaf':
-            params.cluster_selection_method = CLUSTER_SELECTION_METHOD.LEAF
-        else:
-            raise ValueError("Cluster selection method not supported. "
-                             "Must one of {'eom', 'leaf'}")
+            if self.cluster_selection_method == 'eom':
+                params.cluster_selection_method = CLUSTER_SELECTION_METHOD.EOM
+            elif self.cluster_selection_method == 'leaf':
+                params.cluster_selection_method = CLUSTER_SELECTION_METHOD.LEAF
+            else:
+                raise ValueError("Cluster selection method not supported. "
+                                 "Must one of {'eom', 'leaf'}")
 
-        cdef DistanceType metric
-        if self.metric in _metrics_mapping:
-            metric = _metrics_mapping[self.metric]
-        else:
-            raise ValueError(f"metric '{self.metric}' not supported, only 'l2' and 'euclidean' are currently supported")
+            cdef DistanceType metric
+            if self.metric in _metrics_mapping:
+                metric = _metrics_mapping[self.metric]
+            else:
+                raise ValueError(f"metric '{self.metric}' not supported, only "
+                                 "'l2' and 'euclidean' are currently "
+                                 "supported.")
 
-        cdef uintptr_t core_dists_ptr = self.core_dists.ptr
+            cdef uintptr_t core_dists_ptr = self.core_dists.ptr
 
-        if self.connectivity == 'knn' or self.connectivity == 'pairwise':
-            hdbscan(handle_[0],
-                    <float*>input_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <DistanceType> metric,
-                    params,
-                    deref(linkage_output),
-                    <float*> core_dists_ptr)
-        else:
-            raise ValueError("'connectivity' can only be one of "
-                             "{'knn', 'pairwise'}")
+            if self.connectivity == 'knn' or self.connectivity == 'pairwise':
+                hdbscan(handle_[0],
+                        <float*>_input_ptr,
+                        <int> n_rows,
+                        <int> n_cols,
+                        <DistanceType> metric,
+                        params,
+                        deref(linkage_output),
+                        <float*> core_dists_ptr)
+            else:
+                raise ValueError("'connectivity' can only be one of "
+                                 "{'knn', 'pairwise'}")
 
-        self.fit_called_ = True
+            self.fit_called_ = True
 
-        self.condensed_tree_ptr = \
-            <size_t> &linkage_output[0].get_condensed_tree()
+            self.condensed_tree_ptr = \
+                <size_t> &linkage_output[0].get_condensed_tree()
 
         self._construct_output_attributes()
 
@@ -880,7 +883,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         return self.fit(X).labels_
 
     def _extract_clusters(self, condensed_tree):
-        parents, n_edges, _, _ = \
+        parents, _n_edges, _, _ = \
             input_to_cuml_array(condensed_tree.to_numpy()['parent'],
                                 order='C',
                                 convert_to_dtype=np.int32)
@@ -905,33 +908,33 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.labels_test = CumlArray.empty(n_leaves, dtype="int32")
         self.probabilities_test = CumlArray.empty(n_leaves, dtype="float32")
 
-        cdef uintptr_t labels_ptr = self.labels_test.ptr
-        cdef uintptr_t parents_ptr = parents.ptr
-        cdef uintptr_t children_ptr = children.ptr
-        cdef uintptr_t sizes_ptr = sizes.ptr
-        cdef uintptr_t lambdas_ptr = lambdas.ptr
-        cdef uintptr_t probabilities_ptr = self.probabilities_test.ptr
+        cdef uintptr_t _labels_ptr = self.labels_test.ptr
+        cdef uintptr_t _parents_ptr = parents.ptr
+        cdef uintptr_t _children_ptr = children.ptr
+        cdef uintptr_t _sizes_ptr = sizes.ptr
+        cdef uintptr_t _lambdas_ptr = lambdas.ptr
+        cdef uintptr_t _probabilities_ptr = self.probabilities_test.ptr
 
-        if self.cluster_selection_method == 'eom':
-            cluster_selection_method = CLUSTER_SELECTION_METHOD.EOM
-        elif self.cluster_selection_method == 'leaf':
-            cluster_selection_method = CLUSTER_SELECTION_METHOD.LEAF
+        IF GPUBUILD == 1:
+            if self.cluster_selection_method == 'eom':
+                cluster_selection_method = CLUSTER_SELECTION_METHOD.EOM
+            elif self.cluster_selection_method == 'leaf':
+                cluster_selection_method = CLUSTER_SELECTION_METHOD.LEAF
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
-        _extract_clusters(handle_[0],
-                          <size_t> n_leaves,
-                          <int> n_edges,
-                          <int*> parents_ptr,
-                          <int*> children_ptr,
-                          <float*> lambdas_ptr,
-                          <int*> sizes_ptr,
-                          <int*> labels_ptr,
-                          <float*> probabilities_ptr,
-                          <CLUSTER_SELECTION_METHOD> cluster_selection_method,
-                          <bool> self.allow_single_cluster,
-                          <int> self.max_cluster_size,
-                          <float> self.cluster_selection_epsilon)
+            _extract_clusters(handle_[0],
+                              <size_t> n_leaves,
+                              <int> _n_edges,
+                              <int*> _parents_ptr,
+                              <int*> _children_ptr,
+                              <float*> _lambdas_ptr,
+                              <int*> _sizes_ptr,
+                              <int*> _labels_ptr,
+                              <float*> _probabilities_ptr,
+                              <CLUSTER_SELECTION_METHOD> cluster_selection_method,
+                              <bool> self.allow_single_cluster,
+                              <int> self.max_cluster_size,
+                              <float> self.cluster_selection_epsilon)
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -966,40 +969,41 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.inverse_label_map = state["inverse_label_map"]
         self.n_clusters_ = state["n_clusters_"]
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        IF GPUBUILD == 1:
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        cdef uintptr_t parent_ptr = self.condensed_parent_.ptr
-        cdef uintptr_t child_ptr = self.condensed_child_.ptr
-        cdef uintptr_t lambdas_ptr = self.condensed_lambdas_.ptr
-        cdef uintptr_t sizes_ptr = self.condensed_sizes_.ptr
+            cdef uintptr_t _parent_ptr = self.condensed_parent_.ptr
+            cdef uintptr_t _child_ptr = self.condensed_child_.ptr
+            cdef uintptr_t _lambdas_ptr = self.condensed_lambdas_.ptr
+            cdef uintptr_t _sizes_ptr = self.condensed_sizes_.ptr
 
-        cdef CondensedHierarchy[int, float] *condensed_tree = \
-            new CondensedHierarchy[int, float](
-                handle_[0], <size_t>self.n_rows,
-                <int>self.condensed_parent_.shape[0],
-                <int*> parent_ptr, <int*> child_ptr,
-                <float*> lambdas_ptr, <int*> sizes_ptr)
+            cdef CondensedHierarchy[int, float] *condensed_tree = \
+                new CondensedHierarchy[int, float](
+                    handle_[0], <size_t>self.n_rows,
+                    <int>self.condensed_parent_.shape[0],
+                    <int*> _parent_ptr, <int*> _child_ptr,
+                    <float*> _lambdas_ptr, <int*> _sizes_ptr)
 
-        self.condensed_tree_ptr = <size_t> condensed_tree
+            self.condensed_tree_ptr = <size_t> condensed_tree
 
-        cdef uintptr_t core_dists_ptr = self.core_dists.ptr
-        cdef PredictionData[int, float] *prediction_data = new PredictionData(
-            handle_[0], <int> self.n_rows, <int> self.n_cols,
-            <float*> core_dists_ptr)
-        self.prediction_data_ptr = <size_t>prediction_data
+            cdef uintptr_t core_dists_ptr = self.core_dists.ptr
+            cdef PredictionData[int, float] *prediction_data = new PredictionData(
+                handle_[0], <int> self.n_rows, <int> self.n_cols,
+                <float*> core_dists_ptr)
+            self.prediction_data_ptr = <size_t>prediction_data
 
-        self.labels, _, _, _ = input_to_cuml_array(self.labels_.values['cuml'],
-                                                   order='C',
-                                                   convert_to_dtype=np.int32)
-        cdef uintptr_t labels_ptr = self.labels.ptr
-        cdef uintptr_t inverse_label_map_ptr = self.inverse_label_map.ptr
+            self.labels, _, _, _ = input_to_cuml_array(self.labels_.values['cuml'],
+                                                       order='C',
+                                                       convert_to_dtype=np.int32)
+            cdef uintptr_t _labels_ptr = self.labels.ptr
+            cdef uintptr_t inverse_label_map_ptr = self.inverse_label_map.ptr
 
-        generate_prediction_data(handle_[0],
-                                 deref(condensed_tree),
-                                 <int*> labels_ptr,
-                                 <int*> inverse_label_map_ptr,
-                                 <int> self.n_clusters_,
-                                 deref(prediction_data))
+            generate_prediction_data(handle_[0],
+                                     deref(condensed_tree),
+                                     <int*> _labels_ptr,
+                                     <int*> inverse_label_map_ptr,
+                                     <int> self.n_clusters_,
+                                     deref(prediction_data))
 
         self.handle.sync()
 
@@ -1019,8 +1023,6 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         if self._cpu_to_gpu_interop_prepped:
             return
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
         self.X_m, self.n_rows, self.n_cols, _ = \
             input_to_cuml_array(self._cpu_model._raw_data, order='C',
                                 check_dtype=[np.float32],
@@ -1028,7 +1030,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                                                   if convert_dtype
                                                   else None))
 
-        self.condensed_parent_, n_edges, _, _ = \
+        self.condensed_parent_, _n_edges, _, _ = \
             input_to_cuml_array(self.condensed_tree_.to_numpy()['parent'],
                                 order='C',
                                 convert_to_dtype=np.int32)
@@ -1048,64 +1050,67 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                                 order='C',
                                 convert_to_dtype=np.int32)
 
-        cdef uintptr_t parent_ptr = self.condensed_parent_.ptr
-        cdef uintptr_t child_ptr = self.condensed_child_.ptr
-        cdef uintptr_t lambdas_ptr = self.condensed_lambdas_.ptr
-        cdef uintptr_t sizes_ptr = self.condensed_sizes_.ptr
+        cdef uintptr_t _parent_ptr = self.condensed_parent_.ptr
+        cdef uintptr_t _child_ptr = self.condensed_child_.ptr
+        cdef uintptr_t _lambdas_ptr = self.condensed_lambdas_.ptr
+        cdef uintptr_t _sizes_ptr = self.condensed_sizes_.ptr
 
-        cdef CondensedHierarchy[int, float] *condensed_tree = \
-            new CondensedHierarchy[int, float](
-                handle_[0], <size_t>self.n_rows, <int>n_edges,
-                <int*> parent_ptr, <int*> child_ptr,
-                <float*> lambdas_ptr, <int*> sizes_ptr)
-        self.condensed_tree_ptr = <size_t> condensed_tree
+        IF GPUBUILD == 1:
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        self.core_dists = CumlArray.empty(self.n_rows, dtype="float32")
-        metric = _metrics_mapping[self.metric]
+            cdef CondensedHierarchy[int, float] *condensed_tree = \
+                new CondensedHierarchy[int, float](
+                    handle_[0], <size_t>self.n_rows, <int>_n_edges,
+                    <int*> _parent_ptr, <int*> _child_ptr,
+                    <float*> _lambdas_ptr, <int*> _sizes_ptr)
+            self.condensed_tree_ptr = <size_t> condensed_tree
 
-        cdef uintptr_t X_ptr = self.X_m.ptr
-        cdef uintptr_t core_dists_ptr = self.core_dists.ptr
+            self.core_dists = CumlArray.empty(self.n_rows, dtype="float32")
+            metric = _metrics_mapping[self.metric]
 
-        compute_core_dists(handle_[0],
-                           <float*> X_ptr,
-                           <float*> core_dists_ptr,
-                           <size_t> self.n_rows,
-                           <size_t> self.n_cols,
-                           <DistanceType> metric,
-                           <int> self.min_samples)
+            cdef uintptr_t X_ptr = self.X_m.ptr
+            cdef uintptr_t core_dists_ptr = self.core_dists.ptr
 
-        cdef device_uvector[int] *inverse_label_map = \
-            new device_uvector[int](0, handle_[0].get_stream())
+            compute_core_dists(handle_[0],
+                               <float*> X_ptr,
+                               <float*> core_dists_ptr,
+                               <size_t> self.n_rows,
+                               <size_t> self.n_cols,
+                               <DistanceType> metric,
+                               <int> self.min_samples)
 
-        cdef CLUSTER_SELECTION_METHOD cluster_selection_method
-        if self.cluster_selection_method == 'eom':
-            cluster_selection_method = CLUSTER_SELECTION_METHOD.EOM
-        elif self.cluster_selection_method == 'leaf':
-            cluster_selection_method = CLUSTER_SELECTION_METHOD.LEAF
+            cdef device_uvector[int] *inverse_label_map = \
+                new device_uvector[int](0, handle_[0].get_stream())
 
-        compute_inverse_label_map(handle_[0],
-                                  deref(condensed_tree),
-                                  <size_t> self.n_rows,
-                                  <CLUSTER_SELECTION_METHOD>
-                                  cluster_selection_method,
-                                  deref(inverse_label_map),
-                                  <bool> self.allow_single_cluster,
-                                  <int> self.max_cluster_size,
-                                  <float> self.cluster_selection_epsilon)
+            cdef CLUSTER_SELECTION_METHOD cluster_selection_method
+            if self.cluster_selection_method == 'eom':
+                cluster_selection_method = CLUSTER_SELECTION_METHOD.EOM
+            elif self.cluster_selection_method == 'leaf':
+                cluster_selection_method = CLUSTER_SELECTION_METHOD.LEAF
 
-        self.n_clusters_ = <int> inverse_label_map[0].size()
-        self.inverse_label_map_ptr = <size_t> inverse_label_map[0].data()
-        self.inverse_label_map = \
-            _cuml_array_from_ptr(self.inverse_label_map_ptr,
-                                 self.n_clusters_ * sizeof(int),
-                                 (self.n_clusters_, ), "int32", self)
+            compute_inverse_label_map(handle_[0],
+                                      deref(condensed_tree),
+                                      <size_t> self.n_rows,
+                                      <CLUSTER_SELECTION_METHOD>
+                                      cluster_selection_method,
+                                      deref(inverse_label_map),
+                                      <bool> self.allow_single_cluster,
+                                      <int> self.max_cluster_size,
+                                      <float> self.cluster_selection_epsilon)
 
-        self.fit_called_ = True
-        self.generate_prediction_data()
+            self.n_clusters_ = <int> inverse_label_map[0].size()
+            self.inverse_label_map_ptr = <size_t> inverse_label_map[0].data()
+            self.inverse_label_map = \
+                _cuml_array_from_ptr(self.inverse_label_map_ptr,
+                                     self.n_clusters_ * sizeof(int),
+                                     (self.n_clusters_, ), "int32", self)
 
-        self.handle.sync()
+            self.fit_called_ = True
+            self.generate_prediction_data()
 
-        self._cpu_to_gpu_interop_prepped = True
+            self.handle.sync()
+
+            self._cpu_to_gpu_interop_prepped = True
 
     def get_param_names(self):
         return super().get_param_names() + [
