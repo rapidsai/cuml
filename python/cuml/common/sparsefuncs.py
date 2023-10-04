@@ -141,7 +141,7 @@ def csr_diag_mul(X, y, inplace=True):
 
 @cuml.internals.api_return_any()
 def create_csr_matrix_from_count_df(
-    count_df, empty_doc_ids, n_doc, n_features, dtype=cp.float32
+    count_df, empty_doc_ids, n_doc, n_features, dtype=np.float32
 ):
     """
     Create a sparse matrix from the count of tokens by document

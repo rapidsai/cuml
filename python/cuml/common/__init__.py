@@ -17,6 +17,7 @@
 # from cuml.internals.array import CumlArray
 # from cuml.internals.array_sparse import SparseCumlArray
 
+from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 
@@ -39,7 +40,8 @@ from cuml.internals.memory_utils import with_cupy_rmm
 from cuml.common.device_selection import using_device_type
 
 
-from cuml.common.pointer_utils import device_of_gpu_matrix
+if is_cuda_available():
+    from cuml.common.pointer_utils import device_of_gpu_matrix
 
 # legacy to be removed after complete CumlAray migration
 

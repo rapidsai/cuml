@@ -36,18 +36,12 @@ import cuml.internals
 from cuml.internals.base import UniversalBase
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger
+from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
-
-from cuml.manifold.simpl_set import fuzzy_simplicial_set  # no-cython-lint
-from cuml.manifold.simpl_set import simplicial_set_embedding  # no-cython-lint
-# TODO: These two symbols are considered part of the public API of this module
-# which is why imports should not be removed. The no-cython-lint markers can be
-# replaced with an explicit __all__ specifications once
-# https://github.com/MarcoGorelli/cython-lint/issues/80 is resolved.
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.api_decorators import device_interop_preparation
@@ -56,6 +50,19 @@ from cuml.internals.api_decorators import enable_device_interop
 rmm = gpu_only_import('rmm')
 
 from libc.stdint cimport uintptr_t
+
+
+if is_cuda_available():
+    from cuml.manifold.simpl_set import fuzzy_simplicial_set  # no-cython-lint
+    from cuml.manifold.simpl_set import simplicial_set_embedding  # no-cython-lint
+    # TODO: These two symbols are considered part of the public API of this module
+    # which is why imports should not be removed. The no-cython-lint markers can be
+    # replaced with an explicit __all__ specifications once
+    # https://github.com/MarcoGorelli/cython-lint/issues/80 is resolved.
+else:
+    # if no GPU is present, we import the UMAP equivalents
+    from umap.umap_ import fuzzy_simplicial_set  # no-cython-lint
+    from umap.umap_ import simplicial_set_embedding  # no-cython-lint
 
 
 IF GPUBUILD == 1:
