@@ -24,8 +24,6 @@ cp = gpu_only_import('cupy')
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
-from cuml.common import input_to_cuml_array
-from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
@@ -38,6 +36,8 @@ IF GPUBUILD == 1:
     from libc.stdint cimport uintptr_t, int64_t
     from pylibraft.common.handle cimport handle_t
     from cuml.metrics.distance_type cimport DistanceType
+    from cuml.common import input_to_cuml_array
+    from cuml.common import using_output_type
     cdef extern from "cuml/cluster/dbscan.hpp" \
             namespace "ML::Dbscan":
 

@@ -275,30 +275,30 @@ class KMeans(Base,
             check_cols = False
             check_dtype = [np.float32, np.float64]
 
-        X_m, n_rows, self.n_cols, self.dtype = \
+        _X_m, _n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, order='C',
                                 check_cols=check_cols,
                                 check_dtype=check_dtype)
 
         IF GPUBUILD == 1:
 
-            cdef uintptr_t input_ptr = X_m.ptr
+            cdef uintptr_t input_ptr = _X_m.ptr
 
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
             if sample_weight is None:
-                sample_weight_m = CumlArray.ones(shape=n_rows, dtype=self.dtype)
+                sample_weight_m = CumlArray.ones(shape=_n_rows, dtype=self.dtype)
             else:
                 sample_weight_m, _, _, _ = \
                     input_to_cuml_array(sample_weight, order='C',
                                         convert_to_dtype=self.dtype,
-                                        check_rows=n_rows)
+                                        check_rows=_n_rows)
 
             cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
 
-            int_dtype = np.int32 if np.int64(n_rows) * np.int64(self.n_cols) < 2**31-1 else np.int64
+            int_dtype = np.int32 if np.int64(_n_rows) * np.int64(self.n_cols) < 2**31-1 else np.int64
 
-            self.labels_ = CumlArray.zeros(shape=n_rows, dtype=int_dtype)
+            self.labels_ = CumlArray.zeros(shape=_n_rows, dtype=int_dtype)
             cdef uintptr_t labels_ptr = self.labels_.ptr
 
             if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
@@ -323,7 +323,7 @@ class KMeans(Base,
                         handle_[0],
                         <KMeansParams> deref(params),
                         <const float*> input_ptr,
-                        <int> n_rows,
+                        <int> _n_rows,
                         <int> self.n_cols,
                         <const float *>sample_weight_ptr,
                         <float*> cluster_centers_ptr,
@@ -336,7 +336,7 @@ class KMeans(Base,
                         handle_[0],
                         <KMeansParams> deref(params),
                         <const float*> input_ptr,
-                        <int64_t> n_rows,
+                        <int64_t> _n_rows,
                         <int64_t> self.n_cols,
                         <const float *>sample_weight_ptr,
                         <float*> cluster_centers_ptr,
@@ -353,7 +353,7 @@ class KMeans(Base,
                         handle_[0],
                         <KMeansParams> deref(params),
                         <const double*> input_ptr,
-                        <int> n_rows,
+                        <int> _n_rows,
                         <int> self.n_cols,
                         <const double *>sample_weight_ptr,
                         <double*> cluster_centers_ptr,
@@ -367,7 +367,7 @@ class KMeans(Base,
                          handle_[0],
                          <KMeansParams> deref(params),
                          <const double*> input_ptr,
-                         <int64_t> n_rows,
+                         <int64_t> _n_rows,
                          <int64_t> self.n_cols,
                          <const double *>sample_weight_ptr,
                          <double*> cluster_centers_ptr,
@@ -383,7 +383,7 @@ class KMeans(Base,
                                 ' passed.')
 
             self.handle.sync()
-            del X_m
+            del _X_m
             del sample_weight_m
             free(params)
         return self
@@ -432,22 +432,22 @@ class KMeans(Base,
         Sum of squared distances of samples to their closest cluster center.
         """
 
-        X_m, n_rows, n_cols, _ = \
+        _X_m, _n_rows, _n_cols, _ = \
             input_to_cuml_array(X, order='C', check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
                                 check_cols=self.n_cols)
 
         IF GPUBUILD == 1:
-            cdef uintptr_t input_ptr = X_m.ptr
+            cdef uintptr_t input_ptr = _X_m.ptr
 
             if sample_weight is None:
-                sample_weight_m = CumlArray.ones(shape=n_rows, dtype=self.dtype)
+                sample_weight_m = CumlArray.ones(shape=_n_rows, dtype=self.dtype)
             else:
                 sample_weight_m, _, _, _ = \
                     input_to_cuml_array(sample_weight, order='C',
                                         convert_to_dtype=self.dtype,
-                                        check_rows=n_rows)
+                                        check_rows=_n_rows)
 
             cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
 
@@ -455,10 +455,10 @@ class KMeans(Base,
 
             cdef uintptr_t cluster_centers_ptr = self.cluster_centers_.ptr
 
-            int_dtype = np.int32 if np.int64(n_rows) * np.int64(n_cols) < 2**31-1 else np.int64
+            int_dtype = np.int32 if np.int64(_n_rows) * np.int64(_n_cols) < 2**31-1 else np.int64
 
-            labels_ = CumlArray.zeros(shape=n_rows, dtype=int_dtype,
-                                      index=X_m.index)
+            labels_ = CumlArray.zeros(shape=_n_rows, dtype=int_dtype,
+                                      index=_X_m.index)
 
             cdef uintptr_t labels_ptr = labels_.ptr
 
@@ -475,7 +475,7 @@ class KMeans(Base,
                         <KMeansParams> deref(params),
                         <float*> cluster_centers_ptr,
                         <float*> input_ptr,
-                        <size_t> n_rows,
+                        <size_t> _n_rows,
                         <size_t> self.n_cols,
                         <float *>sample_weight_ptr,
                         <bool> normalize_weights,
@@ -487,7 +487,7 @@ class KMeans(Base,
                         <KMeansParams> deref(params),
                         <float*> cluster_centers_ptr,
                         <float*> input_ptr,
-                        <int64_t> n_rows,
+                        <int64_t> _n_rows,
                         <int64_t> self.n_cols,
                         <float *>sample_weight_ptr,
                         <bool> normalize_weights,
@@ -502,7 +502,7 @@ class KMeans(Base,
                         <KMeansParams> deref(params),
                         <double*> cluster_centers_ptr,
                         <double*> input_ptr,
-                        <size_t> n_rows,
+                        <size_t> _n_rows,
                         <size_t> self.n_cols,
                         <double *>sample_weight_ptr,
                         <bool> normalize_weights,
@@ -514,7 +514,7 @@ class KMeans(Base,
                         <KMeansParams> deref(params),
                         <double*> cluster_centers_ptr,
                         <double*> input_ptr,
-                        <int64_t> n_rows,
+                        <int64_t> _n_rows,
                         <int64_t> self.n_cols,
                         <double *>sample_weight_ptr,
                         <bool> normalize_weights,
@@ -529,7 +529,7 @@ class KMeans(Base,
                                 ' passed.')
 
             self.handle.sync()
-            del X_m
+            del _X_m
             del sample_weight_m
             free(params)
             return labels_, inertia
@@ -564,19 +564,19 @@ class KMeans(Base,
 
         """
 
-        X_m, n_rows, _n_cols, _dtype = \
+        _X_m, _n_rows, _n_cols, _dtype = \
             input_to_cuml_array(X, order='C', check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
                                 check_cols=self.n_cols)
         IF GPUBUILD == 1:
-            cdef uintptr_t input_ptr = X_m.ptr
+            cdef uintptr_t input_ptr = _X_m.ptr
 
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
             cdef uintptr_t cluster_centers_ptr = self.cluster_centers_.ptr
 
-            preds = CumlArray.zeros(shape=(n_rows, self.n_clusters),
+            preds = CumlArray.zeros(shape=(_n_rows, self.n_clusters),
                                     dtype=self.dtype,
                                     order='C')
 
@@ -596,7 +596,7 @@ class KMeans(Base,
                         <KMeansParams> deref(params),
                         <float*> cluster_centers_ptr,
                         <float*> input_ptr,
-                        <int> n_rows,
+                        <int> _n_rows,
                         <int> self.n_cols,
                         <float*> preds_ptr)
                 else:
@@ -605,7 +605,7 @@ class KMeans(Base,
                         <KMeansParams> deref(params),
                         <float*> cluster_centers_ptr,
                         <float*> input_ptr,
-                        <int64_t> n_rows,
+                        <int64_t> _n_rows,
                         <int64_t> self.n_cols,
                         <float*> preds_ptr)
 
@@ -616,7 +616,7 @@ class KMeans(Base,
                         <KMeansParams> deref(params),
                         <double*> cluster_centers_ptr,
                         <double*> input_ptr,
-                        <int> n_rows,
+                        <int> _n_rows,
                         <int> self.n_cols,
                         <double*> preds_ptr)
                 else:
@@ -625,7 +625,7 @@ class KMeans(Base,
                         <KMeansParams> deref(params),
                         <double*> cluster_centers_ptr,
                         <double*> input_ptr,
-                        <int64_t> n_rows,
+                        <int64_t> _n_rows,
                         <int64_t> self.n_cols,
                         <double*> preds_ptr)
 
@@ -636,7 +636,7 @@ class KMeans(Base,
 
             self.handle.sync()
 
-            del X_m
+            del _X_m
             free(params)
             return preds
 
