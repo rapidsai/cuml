@@ -29,6 +29,8 @@ from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
 
 IF GPUBUILD == 1:
