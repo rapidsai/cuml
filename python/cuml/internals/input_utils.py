@@ -71,23 +71,34 @@ _input_type_to_str = {
     CumlArray: "cuml",
     SparseCumlArray: "cuml",
     np_ndarray: "numpy",
-    cp_ndarray: "cupy",
-    CudfSeries: "cudf",
-    CudfDataFrame: "cudf",
     PandasSeries: "pandas",
     PandasDataFrame: "pandas",
-    NumbaDeviceNDArrayBase: "numba",
 }
+
+
+try:
+    _input_type_to_str[cp_ndarray] = "cupy"
+    _input_type_to_str[CudfSeries] = "cudf"
+    _input_type_to_str[CudfDataFrame] = "cudf"
+    _input_type_to_str[NumbaDeviceNDArrayBase] = "numba"
+except UnavailableError:
+    pass
+
 
 _input_type_to_mem_type = {
     np_ndarray: MemoryType.host,
-    cp_ndarray: MemoryType.device,
-    CudfSeries: MemoryType.device,
-    CudfDataFrame: MemoryType.device,
     PandasSeries: MemoryType.host,
     PandasDataFrame: MemoryType.host,
-    NumbaDeviceNDArrayBase: MemoryType.device,
 }
+
+
+try:
+    _input_type_to_mem_type[cp_ndarray] = MemoryType.device
+    _input_type_to_mem_type[CudfSeries] = MemoryType.device
+    _input_type_to_mem_type[CudfDataFrame] = MemoryType.device
+    _input_type_to_mem_type[NumbaDeviceNDArrayBase] = MemoryType.device
+except UnavailableError:
+    pass
 
 _SPARSE_TYPES = [SparseCumlArray]
 

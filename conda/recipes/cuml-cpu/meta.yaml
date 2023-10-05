@@ -34,6 +34,7 @@ requirements:
   run:
     - python x.x
     - numpy
+    - pandas
     - scikit-learn=1.2
     - hdbscan<=0.8.30
     - umap-learn=0.5.3
@@ -41,7 +42,7 @@ requirements:
 
 tests:                                 # [linux64]
   imports:                             # [linux64]
-    - cuml-cpu                         # [linux64]
+    - cuml                             # [linux64]
 
 about:
   home: http://rapids.ai/

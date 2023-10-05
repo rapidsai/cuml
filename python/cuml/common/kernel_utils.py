@@ -26,10 +26,6 @@ np = cpu_only_import("numpy")
 
 # Mapping of common PyData dtypes to their corresponding C-primitive
 dtype_str_map = {
-    cp.dtype("float32"): "float",
-    cp.dtype("float64"): "double",
-    cp.dtype("int32"): "int",
-    cp.dtype("int64"): "long long int",
     np.dtype("float32"): "float",
     np.dtype("float64"): "double",
     np.dtype("int32"): "int",
