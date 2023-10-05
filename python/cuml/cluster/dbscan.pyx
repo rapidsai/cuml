@@ -292,7 +292,6 @@ class DBSCAN(Base,
             else:
                 raise ValueError("Invalid value for metric: {}"
                                  .format(self.metric))
-
             # Create the output core_sample_indices only if needed
             if self.calc_core_sample_indices:
                 self.core_sample_indices_ = \
@@ -359,29 +358,26 @@ class DBSCAN(Base,
                         <int> self.verbose,
                         <bool> opg)
 
-                # make sure that the `fit` is complete before the following
-                # delete call happens
-                self.handle.sync()
-                del X_m
+            # make sure that the `fit` is complete before the following
+            # delete call happens
+            self.handle.sync()
+            del X_m
 
-                # Finally, resize the core_sample_indices array if necessary
-                if self.calc_core_sample_indices:
-
-                    # Temp convert to cupy array (better than using `cupy.asarray`)
-                    with using_output_type("cupy"):
-
-                        # First get the min index. These have to monotonically
-                        # increasing, so the min index should be the first returned -1
-                        min_index = cp.argmin(self.core_sample_indices_).item()
-
-                        # Check for the case where there are no -1's
-                        if ((min_index == 0 and
-                             self.core_sample_indices_[min_index].item() != -1)):
-                            # Nothing to delete. The array has no -1's
-                            pass
-                        else:
-                            self.core_sample_indices_ = \
-                                self.core_sample_indices_[:min_index]
+            # Finally, resize the core_sample_indices array if necessary
+            if self.calc_core_sample_indices:
+                # Temp convert to cupy array (better than using `cupy.asarray`)
+                with using_output_type("cupy"):
+                    # First get the min index. These have to monotonically
+                    # increasing, so the min index should be the first returned -1
+                    min_index = cp.argmin(self.core_sample_indices_).item()
+                    # Check for the case where there are no -1's
+                    if ((min_index == 0 and
+                         self.core_sample_indices_[min_index].item() != -1)):
+                        # Nothing to delete. The array has no -1's
+                        pass
+                    else:
+                        self.core_sample_indices_ = \
+                            self.core_sample_indices_[:min_index]
 
         return self
 
