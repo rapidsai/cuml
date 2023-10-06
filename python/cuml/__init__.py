@@ -117,7 +117,7 @@ from cuml.solvers.qn import QN
 
 # Version configuration
 __version__ = "23.12.00"
-__git_commit__ = "HEAD"
+__git_commit__ = ""
 
 
 def __getattr__(name):
