@@ -9,13 +9,22 @@ export CMAKE_GENERATOR=Ninja
 
 rapids-print-env
 
+package_name="cuml"
+package_dir="python"
+
+version_override=$(rapids-generate-version)
+commit_override=$(git rev-parse HEAD)
+
+sed -i "s/__version__ = .*/__version__ = ${version_override}/g" ${package_dir}/${package_name}/__init__.py
+sed -i "s/__git_commit__ = .*/__git_commit__ = \"${commit_override}\"/g" ${package_dir}/${package_name}/__init__.py
+
 rapids-logger "Begin py build"
 
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
 # TODO: Remove `--no-test` flag once importing on a CPU
 # node works correctly
-rapids-conda-retry mambabuild \
+RAPIDS_PACKAGE_VERSION=${version_override} rapids-conda-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \
   conda/recipes/cuml
@@ -24,7 +33,7 @@ rapids-conda-retry mambabuild \
 # version
 RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
 if [[ ${RAPIDS_CUDA_MAJOR} == "11" ]]; then
-  rapids-conda-retry mambabuild \
+  RAPIDS_PACKAGE_VERSION=${version_override} rapids-conda-retry mambabuild \
   --no-test \
   conda/recipes/cuml-cpu
 fi
