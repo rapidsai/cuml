@@ -55,6 +55,20 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
 
         self.internal_model = None
 
+    def __getstate__(self):
+        internal_model = self._get_internal_model().result()
+        state = {
+            "verbose": self.verbose,
+            "kwargs": self.kwargs,
+            "datatype": getattr(self, "datatype", None),
+            "internal_model": internal_model,
+        }
+        return state
+
+    def __setstate__(self, state):
+        self._set_internal_model(state.pop("internal_model"))
+        self.__dict__.update(state)
+
     def get_combined_model(self):
         """
         Return single-GPU model for serialization
