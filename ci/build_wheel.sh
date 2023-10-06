@@ -12,6 +12,7 @@ source rapids-date-string
 # Use gha-tools rapids-pip-wheel-version to generate wheel version then
 # update the necessary files
 version_override="$(rapids-pip-wheel-version ${RAPIDS_DATE_STRING})"
+commit_override=$(git rev-parse HEAD)
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
