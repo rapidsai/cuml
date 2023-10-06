@@ -133,6 +133,8 @@ if(CUML_CPU)
   list(APPEND CUML_ALGORITHMS "umap")
   list(APPEND CUML_ALGORITHMS "knn")
   list(APPEND CUML_ALGORITHMS "hdbscan")
+  list(APPEND CUML_ALGORITHMS "dbscan")
+  list(APPEND CUML_ALGORITHMS "kmeans")
 
   # this won't be needed when we add CPU libcuml++ (FIL)
   set(cuml_sg_libraries "")
