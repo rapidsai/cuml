@@ -25,7 +25,7 @@ pyproject_file="${package_dir}/pyproject.toml"
 init_file="${package_dir}/${package_name}/__init__.py"
 
 sed -i "s/^name = \"cuml\"/name = \"cuml${PACKAGE_CUDA_SUFFIX}\"/g" ${pyproject_file}
-sed -i "s/__version__ = .*/__version__ = ${version_override}/g" ${init_file}
+sed -i "s/__version__ = .*/__version__ = \"${version_override}\"/g" ${init_file}
 sed -i "s/__git_commit__ = .*/__git_commit__ = \"${commit_override}\"/g" ${init_file}
 
 # For nightlies we want to ensure that we're pulling in alphas as well. The
