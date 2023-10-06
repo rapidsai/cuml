@@ -13,10 +13,10 @@ package_name="cuml"
 package_dir="python"
 
 version=$(rapids-generate-version)
-commit_override=$(git rev-parse HEAD)
+git_commit=$(git rev-parse HEAD)
 
 sed -i "s/__version__ = .*/__version__ = ${version}/g" ${package_dir}/${package_name}/__init__.py
-sed -i "s/__git_commit__ = .*/__git_commit__ = \"${commit_override}\"/g" ${package_dir}/${package_name}/__init__.py
+sed -i "s/__git_commit__ = .*/__git_commit__ = \"${git_commit}\"/g" ${package_dir}/${package_name}/__init__.py
 
 rapids-logger "Begin py build"
 
