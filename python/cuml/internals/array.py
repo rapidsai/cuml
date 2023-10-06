@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import cupy as cp
 
 import copy
 import operator
@@ -233,6 +234,12 @@ class CumlArray:
         self._mem_type = mem_type
 
         if hasattr(data, "__cuda_array_interface__"):
+            # using CuPy allows processing delayed array wrappers
+            # like cumlarray without added complexity
+            data = cp.asarray(data)
+            # need to reshape if user requests specific shape
+            if shape is not None:
+                data = data.reshape(shape)
             self._array_interface = data.__cuda_array_interface__
             if mem_type in (None, MemoryType.mirror):
                 self._mem_type = MemoryType.device

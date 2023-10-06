@@ -296,7 +296,7 @@ class CD(Base,
                       <double>self.tol,
                       <double*>sample_weight_ptr)
 
-            self.intercept_ = _c_intercept2_f64
+                self.intercept_ = _c_intercept2_f64
 
         self.handle.sync()
         del X_m
