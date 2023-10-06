@@ -24,9 +24,9 @@ PACKAGE_CUDA_SUFFIX="-${RAPIDS_PY_CUDA_SUFFIX}"
 pyproject_file="${package_dir}/pyproject.toml"
 init_file="${package_dir}/${package_name}/__init__.py"
 
-sed -i "s/^name = \"cuml\"/name = \"cuml${PACKAGE_CUDA_SUFFIX}\"/g" ${pyproject_file}
-sed -i "s/__version__ = .*/__version__ = ${version}/g" ${init_file}
-sed -i "s/__git_commit__ = .*/__git_commit__ = \"${git_commit}\"/g" ${init_file}
+sed -i "/^name.*cuml/ s/= \"cuml\"/= \"cuml${PACKAGE_CUDA_SUFFIX}\"/g" ${pyproject_file}
+sed -i "/__version__ / s/= .*/= ${version}/g" ${init_file}
+sed -i "/__git_commit__ / s/= .*/= \"${git_commit}\"/g" ${init_file}
 
 # For nightlies we want to ensure that we're pulling in alphas as well. The
 # easiest way to do so is to augment the spec with a constraint containing a
