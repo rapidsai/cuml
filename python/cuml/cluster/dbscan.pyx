@@ -21,78 +21,81 @@ np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 
-from libcpp cimport bool
-from libc.stdint cimport uintptr_t, int64_t
-
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.common.doc_utils import generate_docstring
-from pylibraft.common.handle cimport handle_t
-from cuml.common import input_to_cuml_array
-from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.metrics.distance_type cimport DistanceType
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
-cdef extern from "cuml/cluster/dbscan.hpp" \
-        namespace "ML::Dbscan":
 
-    cdef void fit(handle_t& handle,
-                  float *input,
-                  int n_rows,
-                  int n_cols,
-                  float eps,
-                  int min_pts,
-                  DistanceType metric,
-                  int *labels,
-                  int *core_sample_indices,
-                  float* sample_weight,
-                  size_t max_mbytes_per_batch,
-                  int verbosity,
-                  bool opg) except +
+IF GPUBUILD == 1:
+    from libcpp cimport bool
+    from libc.stdint cimport uintptr_t, int64_t
+    from pylibraft.common.handle cimport handle_t
+    from cuml.metrics.distance_type cimport DistanceType
+    from cuml.common import input_to_cuml_array
+    from cuml.common import using_output_type
+    cdef extern from "cuml/cluster/dbscan.hpp" \
+            namespace "ML::Dbscan":
 
-    cdef void fit(handle_t& handle,
-                  double *input,
-                  int n_rows,
-                  int n_cols,
-                  double eps,
-                  int min_pts,
-                  DistanceType metric,
-                  int *labels,
-                  int *core_sample_indices,
-                  double* sample_weight,
-                  size_t max_mbytes_per_batch,
-                  int verbosity,
-                  bool opg) except +
+        cdef void fit(handle_t& handle,
+                      float *input,
+                      int n_rows,
+                      int n_cols,
+                      float eps,
+                      int min_pts,
+                      DistanceType metric,
+                      int *labels,
+                      int *core_sample_indices,
+                      float* sample_weight,
+                      size_t max_mbytes_per_batch,
+                      int verbosity,
+                      bool opg) except +
 
-    cdef void fit(handle_t& handle,
-                  float *input,
-                  int64_t n_rows,
-                  int64_t n_cols,
-                  double eps,
-                  int min_pts,
-                  DistanceType metric,
-                  int64_t *labels,
-                  int64_t *core_sample_indices,
-                  float* sample_weight,
-                  size_t max_mbytes_per_batch,
-                  int verbosity,
-                  bool opg) except +
+        cdef void fit(handle_t& handle,
+                      double *input,
+                      int n_rows,
+                      int n_cols,
+                      double eps,
+                      int min_pts,
+                      DistanceType metric,
+                      int *labels,
+                      int *core_sample_indices,
+                      double* sample_weight,
+                      size_t max_mbytes_per_batch,
+                      int verbosity,
+                      bool opg) except +
 
-    cdef void fit(handle_t& handle,
-                  double *input,
-                  int64_t n_rows,
-                  int64_t n_cols,
-                  double eps,
-                  int min_pts,
-                  DistanceType metric,
-                  int64_t *labels,
-                  int64_t *core_sample_indices,
-                  double* sample_weight,
-                  size_t max_mbytes_per_batch,
-                  int verbosity,
-                  bool opg) except +
+        cdef void fit(handle_t& handle,
+                      float *input,
+                      int64_t n_rows,
+                      int64_t n_cols,
+                      double eps,
+                      int min_pts,
+                      DistanceType metric,
+                      int64_t *labels,
+                      int64_t *core_sample_indices,
+                      float* sample_weight,
+                      size_t max_mbytes_per_batch,
+                      int verbosity,
+                      bool opg) except +
+
+        cdef void fit(handle_t& handle,
+                      double *input,
+                      int64_t n_rows,
+                      int64_t n_cols,
+                      double eps,
+                      int min_pts,
+                      DistanceType metric,
+                      int64_t *labels,
+                      int64_t *core_sample_indices,
+                      double* sample_weight,
+                      size_t max_mbytes_per_batch,
+                      int verbosity,
+                      bool opg) except +
 
 
 class DBSCAN(Base,
@@ -208,9 +211,11 @@ class DBSCAN(Base,
     <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
     """
 
+    _cpu_estimator_import_path = 'sklearn.cluster.DBSCAN'
     labels_ = CumlArrayDescriptor()
     core_sample_indices_ = CumlArrayDescriptor()
 
+    @device_interop_preparation
     def __init__(self, *,
                  eps=0.5,
                  handle=None,
@@ -249,137 +254,135 @@ class DBSCAN(Base,
                              "Valid values are {'int32', 'int64', "
                              "np.int32, np.int64}")
 
-        X_m, n_rows, n_cols, self.dtype = \
-            input_to_cuml_array(X, order='C',
-                                check_dtype=[np.float32, np.float64])
+        IF GPUBUILD == 1:
+            X_m, n_rows, n_cols, self.dtype = \
+                input_to_cuml_array(X, order='C',
+                                    check_dtype=[np.float32, np.float64])
 
-        if n_rows == 0:
-            raise ValueError("No rows in the input array. DBScan cannot be "
-                             "fitted!")
+            if n_rows == 0:
+                raise ValueError("No rows in the input array. DBScan cannot be "
+                                 "fitted!")
 
-        cdef uintptr_t input_ptr = X_m.ptr
+            cdef uintptr_t input_ptr = X_m.ptr
 
-        cdef uintptr_t sample_weight_ptr = <uintptr_t> NULL
-        if sample_weight is not None:
-            sample_weight_m, _, _, _ = \
-                input_to_cuml_array(sample_weight, check_dtype=self.dtype,
-                                    check_rows=n_rows, check_cols=1)
-            sample_weight_ptr = sample_weight_m.ptr
+            cdef uintptr_t sample_weight_ptr = <uintptr_t> NULL
+            if sample_weight is not None:
+                sample_weight_m, _, _, _ = \
+                    input_to_cuml_array(sample_weight, check_dtype=self.dtype,
+                                        check_rows=n_rows, check_cols=1)
+                sample_weight_ptr = sample_weight_m.ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype,
-                                       index=X_m.index)
-        cdef uintptr_t labels_ptr = self.labels_.ptr
+            self.labels_ = CumlArray.empty(n_rows, dtype=out_dtype,
+                                           index=X_m.index)
+            cdef uintptr_t labels_ptr = self.labels_.ptr
 
-        cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL
+            cdef uintptr_t core_sample_indices_ptr = <uintptr_t> NULL
 
-        # metric
-        metric_parsing = {
-            "L2": DistanceType.L2SqrtUnexpanded,
-            "euclidean": DistanceType.L2SqrtUnexpanded,
-            "cosine": DistanceType.CosineExpanded,
-            "precomputed": DistanceType.Precomputed
-        }
-        if self.metric in metric_parsing:
-            metric = metric_parsing[self.metric.lower()]
-        else:
-            raise ValueError("Invalid value for metric: {}"
-                             .format(self.metric))
-
-        # Create the output core_sample_indices only if needed
-        if self.calc_core_sample_indices:
-            self.core_sample_indices_ = \
-                CumlArray.empty(n_rows, dtype=out_dtype)
-            core_sample_indices_ptr = self.core_sample_indices_.ptr
-
-        if self.dtype == np.float32:
-            if out_dtype == "int32" or out_dtype is np.int32:
-                fit(handle_[0],
-                    <float*>input_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <float> self.eps,
-                    <int> self.min_samples,
-                    <DistanceType> metric,
-                    <int*> labels_ptr,
-                    <int*> core_sample_indices_ptr,
-                    <float*> sample_weight_ptr,
-                    <size_t>self.max_mbytes_per_batch,
-                    <int> self.verbose,
-                    <bool> opg)
+            # metric
+            metric_parsing = {
+                "L2": DistanceType.L2SqrtUnexpanded,
+                "euclidean": DistanceType.L2SqrtUnexpanded,
+                "cosine": DistanceType.CosineExpanded,
+                "precomputed": DistanceType.Precomputed
+            }
+            if self.metric in metric_parsing:
+                metric = metric_parsing[self.metric.lower()]
             else:
-                fit(handle_[0],
-                    <float*>input_ptr,
-                    <int64_t> n_rows,
-                    <int64_t> n_cols,
-                    <float> self.eps,
-                    <int> self.min_samples,
-                    <DistanceType> metric,
-                    <int64_t*> labels_ptr,
-                    <int64_t*> core_sample_indices_ptr,
-                    <float*> sample_weight_ptr,
-                    <size_t>self.max_mbytes_per_batch,
-                    <int> self.verbose,
-                    <bool> opg)
+                raise ValueError("Invalid value for metric: {}"
+                                 .format(self.metric))
+            # Create the output core_sample_indices only if needed
+            if self.calc_core_sample_indices:
+                self.core_sample_indices_ = \
+                    CumlArray.empty(n_rows, dtype=out_dtype)
+                core_sample_indices_ptr = self.core_sample_indices_.ptr
 
-        else:
-            if out_dtype == "int32" or out_dtype is np.int32:
-                fit(handle_[0],
-                    <double*>input_ptr,
-                    <int> n_rows,
-                    <int> n_cols,
-                    <double> self.eps,
-                    <int> self.min_samples,
-                    <DistanceType> metric,
-                    <int*> labels_ptr,
-                    <int*> core_sample_indices_ptr,
-                    <double*> sample_weight_ptr,
-                    <size_t> self.max_mbytes_per_batch,
-                    <int> self.verbose,
-                    <bool> opg)
-            else:
-                fit(handle_[0],
-                    <double*>input_ptr,
-                    <int64_t> n_rows,
-                    <int64_t> n_cols,
-                    <double> self.eps,
-                    <int> self.min_samples,
-                    <DistanceType> metric,
-                    <int64_t*> labels_ptr,
-                    <int64_t*> core_sample_indices_ptr,
-                    <double*> sample_weight_ptr,
-                    <size_t> self.max_mbytes_per_batch,
-                    <int> self.verbose,
-                    <bool> opg)
-
-        # make sure that the `fit` is complete before the following
-        # delete call happens
-        self.handle.sync()
-        del X_m
-
-        # Finally, resize the core_sample_indices array if necessary
-        if self.calc_core_sample_indices:
-
-            # Temp convert to cupy array (better than using `cupy.asarray`)
-            with using_output_type("cupy"):
-
-                # First get the min index. These have to monotonically
-                # increasing, so the min index should be the first returned -1
-                min_index = cp.argmin(self.core_sample_indices_).item()
-
-                # Check for the case where there are no -1's
-                if ((min_index == 0 and
-                     self.core_sample_indices_[min_index].item() != -1)):
-                    # Nothing to delete. The array has no -1's
-                    pass
+            if self.dtype == np.float32:
+                if out_dtype == "int32" or out_dtype is np.int32:
+                    fit(handle_[0],
+                        <float*>input_ptr,
+                        <int> n_rows,
+                        <int> n_cols,
+                        <float> self.eps,
+                        <int> self.min_samples,
+                        <DistanceType> metric,
+                        <int*> labels_ptr,
+                        <int*> core_sample_indices_ptr,
+                        <float*> sample_weight_ptr,
+                        <size_t>self.max_mbytes_per_batch,
+                        <int> self.verbose,
+                        <bool> opg)
                 else:
-                    self.core_sample_indices_ = \
-                        self.core_sample_indices_[:min_index]
+                    fit(handle_[0],
+                        <float*>input_ptr,
+                        <int64_t> n_rows,
+                        <int64_t> n_cols,
+                        <float> self.eps,
+                        <int> self.min_samples,
+                        <DistanceType> metric,
+                        <int64_t*> labels_ptr,
+                        <int64_t*> core_sample_indices_ptr,
+                        <float*> sample_weight_ptr,
+                        <size_t>self.max_mbytes_per_batch,
+                        <int> self.verbose,
+                        <bool> opg)
+
+            else:
+                if out_dtype == "int32" or out_dtype is np.int32:
+                    fit(handle_[0],
+                        <double*>input_ptr,
+                        <int> n_rows,
+                        <int> n_cols,
+                        <double> self.eps,
+                        <int> self.min_samples,
+                        <DistanceType> metric,
+                        <int*> labels_ptr,
+                        <int*> core_sample_indices_ptr,
+                        <double*> sample_weight_ptr,
+                        <size_t> self.max_mbytes_per_batch,
+                        <int> self.verbose,
+                        <bool> opg)
+                else:
+                    fit(handle_[0],
+                        <double*>input_ptr,
+                        <int64_t> n_rows,
+                        <int64_t> n_cols,
+                        <double> self.eps,
+                        <int> self.min_samples,
+                        <DistanceType> metric,
+                        <int64_t*> labels_ptr,
+                        <int64_t*> core_sample_indices_ptr,
+                        <double*> sample_weight_ptr,
+                        <size_t> self.max_mbytes_per_batch,
+                        <int> self.verbose,
+                        <bool> opg)
+
+            # make sure that the `fit` is complete before the following
+            # delete call happens
+            self.handle.sync()
+            del X_m
+
+            # Finally, resize the core_sample_indices array if necessary
+            if self.calc_core_sample_indices:
+                # Temp convert to cupy array (better than using `cupy.asarray`)
+                with using_output_type("cupy"):
+                    # First get the min index. These have to monotonically
+                    # increasing, so the min index should be the first returned -1
+                    min_index = cp.argmin(self.core_sample_indices_).item()
+                    # Check for the case where there are no -1's
+                    if ((min_index == 0 and
+                         self.core_sample_indices_[min_index].item() != -1)):
+                        # Nothing to delete. The array has no -1's
+                        pass
+                    else:
+                        self.core_sample_indices_ = \
+                            self.core_sample_indices_[:min_index]
 
         return self
 
     @generate_docstring(skip_parameters_heading=True)
+    @enable_device_interop
     def fit(self, X, out_dtype="int32", sample_weight=None) -> "DBSCAN":
         """
         Perform DBSCAN clustering from features.
@@ -404,6 +407,7 @@ class DBSCAN(Base,
                                        'type': 'dense',
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
+    @enable_device_interop
     def fit_predict(self, X, out_dtype="int32", sample_weight=None) -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.
