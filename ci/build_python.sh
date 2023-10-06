@@ -14,6 +14,7 @@ package_dir="python"
 
 version=$(rapids-generate-version)
 git_commit=$(git rev-parse HEAD)
+export RAPIDS_PACKAGE_VERSION=${version} 
 
 sed -i "/__version__/ s/= .*/= ${version}/g" ${package_dir}/${package_name}/__init__.py
 sed -i "/__git_commit__/ s/= .*/= \"${git_commit}\"/g" ${package_dir}/${package_name}/__init__.py
@@ -24,7 +25,7 @@ CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
 # TODO: Remove `--no-test` flag once importing on a CPU
 # node works correctly
-RAPIDS_PACKAGE_VERSION=${version} rapids-conda-retry mambabuild \
+rapids-conda-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \
   conda/recipes/cuml
@@ -33,7 +34,7 @@ RAPIDS_PACKAGE_VERSION=${version} rapids-conda-retry mambabuild \
 # version
 RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
 if [[ ${RAPIDS_CUDA_MAJOR} == "11" ]]; then
-  RAPIDS_PACKAGE_VERSION=${version} rapids-conda-retry mambabuild \
+  rapids-conda-retry mambabuild \
   --no-test \
   conda/recipes/cuml-cpu
 fi
