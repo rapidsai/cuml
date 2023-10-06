@@ -120,7 +120,7 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
         return model
 
     @with_cupy_rmm
-    def fit(self, X):
+    def fit(self, X, y=None):
 
         """
         Fit distributed TFIDF Transformer
@@ -135,7 +135,6 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
 
         cuml.dask.feature_extraction.text.TfidfTransformer instance
         """
-
         # Only Dask.Array supported for now
         if not isinstance(X, dask.array.core.Array):
             raise ValueError("Only dask.Array is supported for X")
@@ -179,7 +178,7 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
     def _get_size(arrs):
         return arrs.shape[0]
 
-    def fit_transform(self, X):
+    def fit_transform(self, X, y=None):
         """
         Fit distributed TFIDFTransformer and then transform
         the given set of data samples.
@@ -197,7 +196,7 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
         """
         return self.fit(X).transform(X)
 
-    def transform(self, X):
+    def transform(self, X, y=None):
         """
         Use distributed TFIDFTransformer to transform the
         given set of data samples.
