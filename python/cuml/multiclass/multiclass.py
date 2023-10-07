@@ -29,6 +29,20 @@ from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals import _deprecate_pos_args
 
 
+def input_to_host_array_with_sparse_support(X):
+    _array_type, is_sparse = determine_array_type_full(X)
+    if is_sparse:
+        if _array_type == "cupy":
+            return SparseCumlArray(X).to_output(output_type="scipy")
+        elif _array_type == "cuml":
+            return X.to_output(output_type="scipy")
+        elif _array_type == "numpy":
+            return X
+        else:
+            raise ValueError(f"Unsupported sparse array type: {_array_type}.")
+    return input_to_host_array(X).array
+
+
 class MulticlassClassifier(Base, ClassifierMixin):
     """
     Wrapper around scikit-learn multiclass classifiers that allows to
@@ -120,17 +134,6 @@ class MulticlassClassifier(Base, ClassifierMixin):
     def n_classes_(self):
         return self.multiclass_estimator.n_classes_
 
-    def _input_to_host_array(self, X):
-        _array_type, is_sparse = determine_array_type_full(X)
-        if is_sparse:
-            if _array_type == "cupy":
-                X = SparseCumlArray(X).to_output(output_type="scipy")
-            elif _array_type == "cuml":
-                X = X.to_output(output_type="scipy")
-        else:
-            X = input_to_host_array(X).array
-        return X
-
     @generate_docstring(y="dense_anydtype")
     def fit(self, X, y) -> "MulticlassClassifier":
         """
@@ -159,7 +162,7 @@ class MulticlassClassifier(Base, ClassifierMixin):
                 '{"ovr", "ovo"}'
             )
 
-        X = self._input_to_host_array(X)
+        X = input_to_host_array_with_sparse_support(X)
 
         y = input_to_host_array(y).array
         with cuml.internals.exit_internal_api():
@@ -178,7 +181,7 @@ class MulticlassClassifier(Base, ClassifierMixin):
         """
         Predict using multi class classifier.
         """
-        X = self._input_to_host_array(X)
+        X = input_to_host_array_with_sparse_support(X)
 
         with cuml.internals.exit_internal_api():
             return self.multiclass_estimator.predict(X)
@@ -196,7 +199,7 @@ class MulticlassClassifier(Base, ClassifierMixin):
         """
         Calculate the decision function.
         """
-        X = self._input_to_host_array(X)
+        X = input_to_host_array_with_sparse_support(X)
         with cuml.internals.exit_internal_api():
             return self.multiclass_estimator.decision_function(X)
 
