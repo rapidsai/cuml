@@ -22,11 +22,11 @@ PACKAGE_CUDA_SUFFIX="-${RAPIDS_PY_CUDA_SUFFIX}"
 
 # Patch project metadata files to include the CUDA version suffix and version override.
 pyproject_file="${package_dir}/pyproject.toml"
-init_file="${package_dir}/${package_name}/__init__.py"
+version_file="${package_dir}/${package_name}/_version.py"
 
 sed -i "/^name.*cuml/ s/= \"cuml\"/= \"cuml${PACKAGE_CUDA_SUFFIX}\"/g" ${pyproject_file}
-sed -i "/__version__ / s/= .*/= ${version}/g" ${init_file}
-sed -i "/__git_commit__ / s/= .*/= \"${git_commit}\"/g" ${init_file}
+sed -i "/^__version__ / s/= .*/= ${version}/g" ${version_file}
+sed -i "/^__git_commit__ / s/= .*/= \"${git_commit}\"/g" ${version_file}
 
 # For nightlies we want to ensure that we're pulling in alphas as well. The
 # easiest way to do so is to augment the spec with a constraint containing a

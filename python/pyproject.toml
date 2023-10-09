@@ -105,7 +105,7 @@ Documentation = "https://docs.rapids.ai/api/cuml/stable/"
 license-files = ["LICENSE"]
 
 [tool.setuptools.dynamic]
-version = {attr = "cuml.__version__"}
+version = {attr = "cuml._version.__version__"}
 
 [tool.black]
 line-length = 79
