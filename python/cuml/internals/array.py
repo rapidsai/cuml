@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-import cupy as cp
-
 import copy
 import operator
 import pickle
