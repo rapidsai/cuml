@@ -98,7 +98,6 @@ jobs:
     uses: rapidsai/shared-action-workflows/.github/workflows/wheels-build.yaml@cuda-120-arm
     with:
       build_type: pull-request
-      matrix_filter: map(select(.ARCH == "amd64"))
       script: ci/build_wheel.sh
       extra-repo: rapidsai/cumlprims_mg
       extra-repo-sha: branch-23.02
@@ -109,5 +108,4 @@ jobs:
     uses: rapidsai/shared-action-workflows/.github/workflows/wheels-test.yaml@cuda-120-arm
     with:
       build_type: pull-request
-      matrix_filter: map(select(.ARCH == "amd64"))
       script: ci/test_wheel.sh
