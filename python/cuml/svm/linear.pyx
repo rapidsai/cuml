@@ -300,8 +300,8 @@ cdef class LinearSVMWrapper:
         if self.dtype != np.float32 and self.dtype != np.float64:
             raise TypeError('Input data type must be float32 or float64')
 
-        cdef uintptr_t Xptr = <uintptr_t>X.ptr
-        cdef uintptr_t yptr = <uintptr_t>y.ptr
+        cdef uintptr_t Xptr = <uintptr_t>X.ptr if X is not None else 0
+        cdef uintptr_t yptr = <uintptr_t>y.ptr if y is not None else 0
         cdef uintptr_t swptr = <uintptr_t>sampleWeight.ptr \
             if sampleWeight is not None else 0
         cdef size_t nCols = 0
