@@ -9,8 +9,6 @@ package_dir="python"
 source rapids-configure-sccache
 source rapids-date-string
 
-# Use gha-tools rapids-pip-wheel-version to generate wheel version then
-# update the necessary files
 version=$(rapids-generate-version)
 git_commit=$(git rev-parse HEAD)
 
