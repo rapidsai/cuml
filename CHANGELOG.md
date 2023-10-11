@@ -1,3 +1,44 @@
+# cuML 23.10.00 (11 Oct 2023)
+
+## 🚨 Breaking Changes
+
+- add sample_weight parameter to dbscan.fit ([#5574](https://github.com/rapidsai/cuml/pull/5574)) [@mfoerste4](https://github.com/mfoerste4)
+- Update to Cython 3.0.0 ([#5506](https://github.com/rapidsai/cuml/pull/5506)) [@vyasr](https://github.com/vyasr)
+
+## 🐛 Bug Fixes
+
+- Fix accidental unsafe cupy import ([#5613](https://github.com/rapidsai/cuml/pull/5613)) [@dantegd](https://github.com/dantegd)
+- Fixes for CPU package ([#5599](https://github.com/rapidsai/cuml/pull/5599)) [@dantegd](https://github.com/dantegd)
+- Fixes for timeouts in tests ([#5598](https://github.com/rapidsai/cuml/pull/5598)) [@dantegd](https://github.com/dantegd)
+
+## 🚀 New Features
+
+- Enable cuml-cpu nightly ([#5585](https://github.com/rapidsai/cuml/pull/5585)) [@dantegd](https://github.com/dantegd)
+- add sample_weight parameter to dbscan.fit ([#5574](https://github.com/rapidsai/cuml/pull/5574)) [@mfoerste4](https://github.com/mfoerste4)
+
+## 🛠️ Improvements
+
+- cuml-cpu notebook, docs and cluster models ([#5597](https://github.com/rapidsai/cuml/pull/5597)) [@dantegd](https://github.com/dantegd)
+- Pin `dask` and `distributed` for `23.10` release ([#5592](https://github.com/rapidsai/cuml/pull/5592)) [@galipremsagar](https://github.com/galipremsagar)
+- Add changes for early experimental support for dataframe interchange protocol API ([#5591](https://github.com/rapidsai/cuml/pull/5591)) [@dantegd](https://github.com/dantegd)
+- [FEA] Support L1 regularization and ElasticNet in MNMG Dask LogisticRegression ([#5587](https://github.com/rapidsai/cuml/pull/5587)) [@lijinf2](https://github.com/lijinf2)
+- Update image names ([#5586](https://github.com/rapidsai/cuml/pull/5586)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Update to clang 16.0.6. ([#5583](https://github.com/rapidsai/cuml/pull/5583)) [@bdice](https://github.com/bdice)
+- Upgrade to Treelite 3.9.1 ([#5581](https://github.com/rapidsai/cuml/pull/5581)) [@hcho3](https://github.com/hcho3)
+- Update to doxygen 1.9.1. ([#5580](https://github.com/rapidsai/cuml/pull/5580)) [@bdice](https://github.com/bdice)
+- [REVIEW] Adding a few of datasets for benchmarking ([#5573](https://github.com/rapidsai/cuml/pull/5573)) [@vinaydes](https://github.com/vinaydes)
+- Allow cuML MNMG estimators to be serialized ([#5571](https://github.com/rapidsai/cuml/pull/5571)) [@viclafargue](https://github.com/viclafargue)
+- [FEA] Support multiple classes in multi-node-multi-gpu logistic regression, from C++, Cython, to Dask Python class ([#5565](https://github.com/rapidsai/cuml/pull/5565)) [@lijinf2](https://github.com/lijinf2)
+- Use `copy-pr-bot` ([#5563](https://github.com/rapidsai/cuml/pull/5563)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Unblock CI for branch-23.10 ([#5561](https://github.com/rapidsai/cuml/pull/5561)) [@csadorf](https://github.com/csadorf)
+- Fix CPU-only build for new FIL ([#5559](https://github.com/rapidsai/cuml/pull/5559)) [@hcho3](https://github.com/hcho3)
+- [FEA] Support no regularization in MNMG LogisticRegression ([#5558](https://github.com/rapidsai/cuml/pull/5558)) [@lijinf2](https://github.com/lijinf2)
+- Unpin `dask` and `distributed` for `23.10` development ([#5557](https://github.com/rapidsai/cuml/pull/5557)) [@galipremsagar](https://github.com/galipremsagar)
+- Branch 23.10 merge 23.08 ([#5547](https://github.com/rapidsai/cuml/pull/5547)) [@vyasr](https://github.com/vyasr)
+- Use Python builtins to prep benchmark `tmp_dir` ([#5537](https://github.com/rapidsai/cuml/pull/5537)) [@jakirkham](https://github.com/jakirkham)
+- Branch 23.10 merge 23.08 ([#5522](https://github.com/rapidsai/cuml/pull/5522)) [@vyasr](https://github.com/vyasr)
+- Update to Cython 3.0.0 ([#5506](https://github.com/rapidsai/cuml/pull/5506)) [@vyasr](https://github.com/vyasr)
+
 # cuML 23.08.00 (9 Aug 2023)
 
 ## 🚨 Breaking Changes
