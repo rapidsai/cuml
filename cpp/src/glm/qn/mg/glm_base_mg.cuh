@@ -121,10 +121,12 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
     auto lossFunc        = regularizer_obj->loss;
     auto reg             = regularizer_obj->reg;
     G.fill(0, stream);
-    reg->reg_grad(dev_scalar, G, W, lossFunc->fit_intercept, stream);
-    float reg_host;
-    raft::update_host(&reg_host, dev_scalar, 1, stream);
-    // note: avoid syncing here because there's a sync before reg_host is used.
+    float reg_host = 0;
+    if (reg->l2_penalty != 0) {
+      reg->reg_grad(dev_scalar, G, W, lossFunc->fit_intercept, stream);
+      raft::update_host(&reg_host, dev_scalar, 1, stream);
+      // note: avoid syncing here because there's a sync before reg_host is used.
+    }
 
     // apply linearFwd, getLossAndDz, linearBwd
     ML::GLM::detail::linearFwd(

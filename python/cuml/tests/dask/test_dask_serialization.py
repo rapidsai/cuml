@@ -16,7 +16,12 @@
 from distributed.protocol.serialize import serialize
 from cuml.naive_bayes.naive_bayes import MultinomialNB
 from cuml.internals.array_sparse import SparseCumlArray
+from cuml.dask.linear_model import LinearRegression
 from cuml.internals.safe_imports import gpu_only_import
+from dask import array as da
+from sklearn.datasets import make_regression
+import numpy as np
+import pickle
 
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
@@ -62,3 +67,16 @@ def test_sparse_cumlarray_serialization():
     stype, sbytes = serialize(X_m, serializers=["dask"])
 
     assert stype["serializer"] == "dask"
+
+
+def test_serialize_mnmg_model(client):
+    X, y = make_regression(n_samples=1000, n_features=20, random_state=0)
+    X, y = da.from_array(X), da.from_array(y)
+
+    model = LinearRegression(client)
+    model.fit(X, y)
+
+    pickled_model = pickle.dumps(model)
+    unpickled_model = pickle.loads(pickled_model)
+
+    assert np.allclose(unpickled_model.coef_, model.coef_)

@@ -285,7 +285,7 @@ struct Builder {
     d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch * dataset.n_sampled_cols);  // colids
 
     // all nodes in the tree
-    h_wsize +=                                                     // h_workload_info
+    h_wsize +=  // h_workload_info
       calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks_dimx);
     h_wsize += calculateAlignedBytes(sizeof(SplitT) * max_batch);  // splits
 

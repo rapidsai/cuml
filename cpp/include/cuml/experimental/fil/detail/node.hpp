@@ -171,7 +171,7 @@ struct alignas(
     if constexpr (layout == tree_layout::depth_first) {
       return offset_type{1} + condition * (aligned_data.inner_data.distant_offset - offset_type{1});
     } else if constexpr (layout == tree_layout::breadth_first) {
-      return condition* offset_type{1} + (aligned_data.inner_data.distant_offset - offset_type{1});
+      return condition * offset_type{1} + (aligned_data.inner_data.distant_offset - offset_type{1});
     } else {
       static_assert(layout == tree_layout::depth_first);
     }

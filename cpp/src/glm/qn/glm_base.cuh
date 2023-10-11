@@ -192,7 +192,7 @@ struct GLMBase : GLMDims {
                         cudaStream_t stream,
                         bool initGradZero = true)
   {
-    Loss* loss = static_cast<Loss*>(this);         // static polymorphism
+    Loss* loss = static_cast<Loss*>(this);  // static polymorphism
 
     linearFwd(handle, Zb, Xb, W);                  // linear part: forward pass
     loss->getLossAndDZ(loss_val, Zb, yb, stream);  // loss specific part

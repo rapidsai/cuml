@@ -15,9 +15,18 @@ CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
 # TODO: Remove `--no-test` flag once importing on a CPU
 # node works correctly
-rapids-mamba-retry mambabuild \
+rapids-conda-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \
   conda/recipes/cuml
+
+# Build cuml-cpu only in CUDA 11 jobs since it only depends on python
+# version
+RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
+if [[ ${RAPIDS_CUDA_MAJOR} == "11" ]]; then
+  rapids-conda-retry mambabuild \
+  --no-test \
+  conda/recipes/cuml-cpu
+fi
 
 rapids-upload-conda-to-s3 python

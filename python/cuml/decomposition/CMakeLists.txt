@@ -13,10 +13,9 @@
 # =============================================================================
 
 
-set(cython_sources
-    pca.pyx
-    tsvd.pyx
-)
+set(cython_sources "")
+add_module_gpu_default("pca.pyx" ${pca_algo} ${decomposition_algo})
+add_module_gpu_default("tsvd.pyx" ${tsvd_algo} ${decomposition_algo})
 
 if(NOT SINGLEGPU)
   list(APPEND cython_sources

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -118,6 +118,7 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
                 params.metric,
                 labels.data(),
                 nullptr,
+                nullptr,
                 params.max_bytes_per_batch);
 
     handle.sync_stream(stream);
@@ -205,6 +206,7 @@ struct DBScan2DArrayInputs {
   T eps;
   int min_pts;
   const int* core_indices;  // Expected core_indices
+  const T* sample_weight = nullptr;
 };
 
 template <typename T>
@@ -221,9 +223,17 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
     rmm::device_uvector<int> labels(params.n_row, stream);
     rmm::device_uvector<int> labels_ref(params.n_out, stream);
     rmm::device_uvector<int> core_sample_indices_d(params.n_row, stream);
+    rmm::device_uvector<T> sample_weight_d(params.n_row, stream);
 
     raft::copy(inputs.data(), params.points, params.n_row * 2, stream);
     raft::copy(labels_ref.data(), params.out, params.n_out, stream);
+
+    T* sample_weight = nullptr;
+    if (params.sample_weight != nullptr) {
+      raft::copy(sample_weight_d.data(), params.sample_weight, params.n_row, stream);
+      sample_weight = sample_weight_d.data();
+    }
+
     handle.sync_stream(stream);
 
     Dbscan::fit(handle,
@@ -234,7 +244,8 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
                 params.min_pts,
                 raft::distance::L2SqrtUnexpanded,
                 labels.data(),
-                core_sample_indices_d.data());
+                core_sample_indices_d.data(),
+                sample_weight);
 
     handle.sync_stream(handle.get_stream());
 
@@ -275,6 +286,12 @@ const std::vector<float> test2d1_f = {0, 0, 1, 0, 1, 1, 1, -1, 2, 0, 3, 0, 4, 0}
 const std::vector<double> test2d1_d(test2d1_f.begin(), test2d1_f.end());
 const std::vector<int> test2d1_l  = {0, 0, 0, 0, 0, -1, -1};
 const std::vector<int> test2d1c_l = {1, -1, -1, -1, -1, -1, -1};
+// modified for weighted samples --> wheights are shifted so that
+// the rightmost point will be a core point as well
+const std::vector<float> test2d1w_f = {1, 2, 1, 1, -1, 1, 3};
+const std::vector<double> test2d1w_d(test2d1w_f.begin(), test2d1w_f.end());
+const std::vector<int> test2d1w_l  = {0, 0, 0, 0, 0, 1, 1};
+const std::vector<int> test2d1wc_l = {1, 6, -1, -1, -1, -1, -1};
 
 // The input looks like a long two-barred (orhodox) cross or
 // two stars next to each other:
@@ -287,6 +304,12 @@ const std::vector<float> test2d2_f = {0, 0, 1, 0, 1, 1, 1, -1, 2, 0, 3, 0, 4, 0,
 const std::vector<double> test2d2_d(test2d2_f.begin(), test2d2_f.end());
 const std::vector<int> test2d2_l  = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1};
 const std::vector<int> test2d2c_l = {1, 6, -1, -1, -1, -1, -1, -1, -1, -1};
+// modified for weighted samples --> wheight for the right center
+// is negative that the whole right star is noise
+const std::vector<float> test2d2w_f = {1, 1, 1, 1, 1, 1, -2, 1, 1, 1};
+const std::vector<double> test2d2w_d(test2d2w_f.begin(), test2d2w_f.end());
+const std::vector<int> test2d2w_l  = {0, 0, 0, 0, 0, -1, -1, -1, -1, -1};
+const std::vector<int> test2d2wc_l = {1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 
 // The input looks like a two-barred (orhodox) cross or
 // two stars sharing a link:
@@ -323,6 +346,10 @@ const std::vector<double> test2d3_d(test2d3_f.begin(), test2d3_f.end());
 const std::vector<int> test2d3_l  = {0, 0, 0, 0, 1, 1, 1, 1};
 const std::vector<int> test2d3c_l = {1, 4, -1, -1, -1, -1, -1, -1, -1};
 
+// ones for functional sample_weight testing
+const std::vector<float> test2d_ones_f = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+const std::vector<double> test2d_ones_d(test2d_ones_f.begin(), test2d_ones_f.end());
+
 const std::vector<DBScan2DArrayInputs<float>> inputs2d_f = {
   {test2d1_f.data(),
    test2d1_l.data(),
@@ -345,6 +372,48 @@ const std::vector<DBScan2DArrayInputs<float>> inputs2d_f = {
    1.1f,
    4,
    test2d3c_l.data()},
+  // add dummy sample weights
+  {test2d1_f.data(),
+   test2d1_l.data(),
+   test2d1_f.size() / 2,
+   test2d1_l.size(),
+   1.1f,
+   4,
+   test2d1c_l.data(),
+   test2d_ones_f.data()},
+  {test2d2_f.data(),
+   test2d2_l.data(),
+   test2d2_f.size() / 2,
+   test2d2_l.size(),
+   1.1f,
+   4,
+   test2d2c_l.data(),
+   test2d_ones_f.data()},
+  {test2d3_f.data(),
+   test2d3_l.data(),
+   test2d3_f.size() / 2,
+   test2d3_l.size(),
+   1.1f,
+   4,
+   test2d3c_l.data(),
+   test2d_ones_f.data()},
+  // special sample_weight cases
+  {test2d1_f.data(),
+   test2d1w_l.data(),
+   test2d1_f.size() / 2,
+   test2d1w_l.size(),
+   1.1f,
+   4,
+   test2d2wc_l.data(),
+   test2d2w_f.data()},
+  {test2d2_f.data(),
+   test2d2w_l.data(),
+   test2d2_f.size() / 2,
+   test2d2w_l.size(),
+   1.1f,
+   4,
+   test2d2wc_l.data(),
+   test2d2w_f.data()},
 };
 
 const std::vector<DBScan2DArrayInputs<double>> inputs2d_d = {
@@ -369,6 +438,48 @@ const std::vector<DBScan2DArrayInputs<double>> inputs2d_d = {
    1.1,
    4,
    test2d3c_l.data()},
+  // add dummy sample weights
+  {test2d1_d.data(),
+   test2d1_l.data(),
+   test2d1_d.size() / 2,
+   test2d1_l.size(),
+   1.1,
+   4,
+   test2d1c_l.data(),
+   test2d_ones_d.data()},
+  {test2d2_d.data(),
+   test2d2_l.data(),
+   test2d2_d.size() / 2,
+   test2d2_l.size(),
+   1.1,
+   4,
+   test2d2c_l.data(),
+   test2d_ones_d.data()},
+  {test2d3_d.data(),
+   test2d3_l.data(),
+   test2d3_d.size() / 2,
+   test2d3_l.size(),
+   1.1,
+   4,
+   test2d3c_l.data(),
+   test2d_ones_d.data()},
+  // special sample_weight cases
+  {test2d1_d.data(),
+   test2d1w_l.data(),
+   test2d1_d.size() / 2,
+   test2d1w_l.size(),
+   1.1f,
+   4,
+   test2d1wc_l.data(),
+   test2d1w_d.data()},
+  {test2d2_d.data(),
+   test2d2w_l.data(),
+   test2d2_d.size() / 2,
+   test2d2w_l.size(),
+   1.1f,
+   4,
+   test2d2wc_l.data(),
+   test2d2w_d.data()},
 };
 
 typedef Dbscan2DSimple<float> Dbscan2DSimple_F;

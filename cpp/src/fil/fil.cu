@@ -17,10 +17,10 @@
 /** @file fil.cu fil.cu implements the forest data types (dense and sparse), including their
 creation and prediction (the main inference kernel is defined in infer.cu). */
 
-#include "common.cuh"                  // for predict_params, storage, storage
-#include "internal.cuh"                // for cat_sets_device_owner, categorical_sets, output_t,
+#include "common.cuh"    // for predict_params, storage, storage
+#include "internal.cuh"  // for cat_sets_device_owner, categorical_sets, output_t,
 
-#include <cuml/fil/fil.h>              // for algo_t,
+#include <cuml/fil/fil.h>  // for algo_t,
 
 #include <raft/core/error.hpp>         // for ASSERT
 #include <raft/core/handle.hpp>        // for handle_t
@@ -28,9 +28,9 @@ creation and prediction (the main inference kernel is defined in infer.cu). */
 #include <rmm/device_uvector.hpp>      // for device_uvector
 #include <thrust/host_vector.h>        // for host_vector
 
-#include <cmath>                       // for expf
-#include <cstddef>                     // for size_t
-#include <cstdint>                     // for uint8_t
+#include <cmath>    // for expf
+#include <cstddef>  // for size_t
+#include <cstdint>  // for uint8_t
 
 namespace ML {
 namespace fil {

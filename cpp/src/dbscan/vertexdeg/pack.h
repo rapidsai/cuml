@@ -28,10 +28,14 @@ struct Pack {
    * Hence, its length is one more than the number of points
    */
   Index_* vd;
+  /** weighted vertex degree */
+  Type* weight_sum;
   /** the adjacency matrix */
   bool* adj;
   /** input dataset */
   const Type* x;
+  /** weighted vertex degree */
+  const Type* sample_weight;
   /** epsilon neighborhood thresholding param */
   Type eps;
   /** number of points in the dataset */

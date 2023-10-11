@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -12,11 +12,10 @@
 # the License.
 # =============================================================================
 
-set(cython_sources
-    cuda.pyx
-    handle.pyx
-    pointer_utils.pyx
-)
+set(cython_sources "")
+add_module_gpu_default("cuda.pyx")
+add_module_gpu_default("handle.pyx")
+add_module_gpu_default("pointer_utils.pyx")
 
 if(NOT SINGLEGPU)
   list(APPEND cython_sources
@@ -32,7 +31,9 @@ rapids_cython_create_modules(
   ASSOCIATED_TARGETS cuml
 )
 
+if(${CUML_UNIVERSAL})
 # todo: ml_cuda_utils.h should be in the include folder of cuML or the functionality
 # moved to another file, pointer_utils.pyx needs it
 # https://github.com/rapidsai/cuml/issues/4841
-target_include_directories(common_pointer_utils PRIVATE "../../../cpp/src/")
+  target_include_directories(common_pointer_utils PRIVATE "../../../cpp/src/")
+endif()

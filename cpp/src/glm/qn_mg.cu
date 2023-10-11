@@ -14,26 +14,65 @@
  * limitations under the License.
  */
 
-#include "qn/glm_logistic.cuh"
-#include "qn/glm_regularizer.cuh"
-#include "qn/qn_util.cuh"
+#include "qn/mg/qn_mg.cuh"
 #include "qn/simple_mat/dense.hpp"
+#include <cuda_runtime.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/linear_model/qn.h>
 #include <cuml/linear_model/qn_mg.hpp>
 #include <raft/core/comms.hpp>
+#include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/label/classlabels.cuh>
 #include <raft/util/cudart_utils.hpp>
+#include <vector>
 using namespace MLCommon;
-
-#include "qn/glm_base_mg.cuh"
-
-#include <cuda_runtime.h>
 
 namespace ML {
 namespace GLM {
 namespace opg {
+
+template <typename T>
+std::vector<T> distinct_mg(const raft::handle_t& handle, T* y, size_t n)
+{
+  cudaStream_t stream              = handle.get_stream();
+  raft::comms::comms_t const& comm = raft::resource::get_comms(handle);
+  int rank                         = comm.get_rank();
+  int n_ranks                      = comm.get_size();
+
+  rmm::device_uvector<T> unique_y(0, stream);
+  raft::label::getUniquelabels(unique_y, y, n, stream);
+
+  rmm::device_uvector<size_t> recv_counts(n_ranks, stream);
+  auto send_count = raft::make_device_scalar<size_t>(handle, unique_y.size());
+  comm.allgather(send_count.data_handle(), recv_counts.data(), 1, stream);
+  comm.sync_stream(stream);
+
+  std::vector<size_t> recv_counts_host(n_ranks);
+  raft::copy(recv_counts_host.data(), recv_counts.data(), n_ranks, stream);
+
+  std::vector<size_t> displs(n_ranks);
+  size_t pos = 0;
+  for (int i = 0; i < n_ranks; ++i) {
+    displs[i] = pos;
+    pos += recv_counts_host[i];
+  }
+
+  rmm::device_uvector<T> recv_buff(displs.back() + recv_counts_host.back(), stream);
+  comm.allgatherv(
+    unique_y.data(), recv_buff.data(), recv_counts_host.data(), displs.data(), stream);
+  comm.sync_stream(stream);
+
+  rmm::device_uvector<T> global_unique_y(0, stream);
+  int n_distinct =
+    raft::label::getUniquelabels(global_unique_y, recv_buff.data(), recv_buff.size(), stream);
+
+  std::vector<T> global_unique_y_host(global_unique_y.size());
+  raft::copy(global_unique_y_host.data(), global_unique_y.data(), global_unique_y.size(), stream);
+
+  return global_unique_y_host;
+}
 
 template <typename T>
 void qnFit_impl(const raft::handle_t& handle,
@@ -51,50 +90,20 @@ void qnFit_impl(const raft::handle_t& handle,
                 int rank,
                 int n_ranks)
 {
-  switch (pams.loss) {
-    case QN_LOSS_LOGISTIC: {
-      RAFT_EXPECTS(
-        C == 2,
-        "qn_mg.cu: only the LOGISTIC loss is supported currently. The number of classes must be 2");
-    } break;
-    default: {
-      RAFT_EXPECTS(false, "qn_mg.cu: unknown loss function type (id = %d).", pams.loss);
-    }
-  }
+  auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
 
-  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
-  auto X_simple       = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
-  auto y_simple       = SimpleVec<T>(y, N);
-  SimpleVec<T> coef_simple(w0, D + pams.fit_intercept);
-
-  ML::GLM::detail::LBFGSParam<T> opt_param(pams);
-
-  // prepare regularizer regularizer_obj
-  ML::GLM::detail::LogisticLoss<T> loss_func(handle, D, pams.fit_intercept);
-  T l2 = pams.penalty_l2;
-  if (pams.penalty_normalized) {
-    l2 /= n_samples;  // l2 /= 1/X.m
-  }
-  ML::GLM::detail::Tikhonov<T> reg(l2);
-  ML::GLM::detail::RegularizedGLM<T, ML::GLM::detail::LogisticLoss<T>, decltype(reg)>
-    regularizer_obj(&loss_func, &reg);
-
-  // prepare GLMWithDataMG
-  int n_targets = C == 2 ? 1 : C;
-  rmm::device_uvector<T> tmp(n_targets * N, stream);
-  SimpleDenseMat<T> Z(tmp.data(), n_targets, N);
-  auto obj_function =
-    GLMWithDataMG(handle, rank, n_ranks, n_samples, &regularizer_obj, X_simple, y_simple, Z);
-
-  // prepare temporary variables fx, k, workspace
-  float fx = -1;
-  int k    = -1;
-  rmm::device_uvector<float> tmp_workspace(lbfgs_workspace_size(opt_param, coef_simple.len),
-                                           stream);
-  SimpleVec<float> workspace(tmp_workspace.data(), tmp_workspace.size());
-
-  // call min_lbfgs
-  min_lbfgs(opt_param, obj_function, coef_simple, fx, &k, workspace, stream, 5);
+  ML::GLM::opg::qn_fit_x_mg(handle,
+                            pams,
+                            X_simple,
+                            y,
+                            C,
+                            w0,
+                            f,
+                            num_iters,
+                            n_samples,
+                            rank,
+                            n_ranks);  // ignore sample_weight, svr_eps
+  return;
 }
 
 template <typename T>
@@ -135,6 +144,17 @@ void qnFit_impl(raft::handle_t& handle,
                 input_desc.M,
                 input_desc.rank,
                 input_desc.uniqueRanks().size());
+}
+
+std::vector<float> getUniquelabelsMG(const raft::handle_t& handle,
+                                     Matrix::PartDescriptor& input_desc,
+                                     std::vector<Matrix::Data<float>*>& labels)
+{
+  RAFT_EXPECTS(labels.size() == 1,
+               "getUniqueLabelsMG currently does not accept more than one data chunk");
+  Matrix::Data<float>* data_y = labels[0];
+  int n_rows                  = input_desc.totalElementsOwnedBy(input_desc.rank);
+  return distinct_mg<float>(handle, data_y->ptr, n_rows);
 }
 
 void qnFit(raft::handle_t& handle,
