@@ -741,6 +741,43 @@ def test_svc_pickle(tmpdir, datatype, params, multiclass, sparse):
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize(
+    "params", [{"probability": True}, {"probability": False}]
+)
+@pytest.mark.parametrize("multiclass", [True, False])
+def test_linear_svc_pickle(tmpdir, datatype, params, multiclass):
+    result = {}
+
+    def create_mod():
+        model = cuml.svm.LinearSVC(**params)
+        iris = load_iris()
+        iris_selection = np.random.RandomState(42).choice(
+            [True, False], 150, replace=True, p=[0.75, 0.25]
+        )
+        X_train = iris.data[iris_selection]
+        y_train = iris.target[iris_selection]
+        if not multiclass:
+            y_train = (y_train > 0).astype(datatype)
+        data = [X_train, y_train]
+        result["model"] = model.fit(X_train, y_train)
+        return model, data
+
+    def assert_model(pickled_model, data):
+        if result["model"].probability:
+            print("Comparing probabilistic LinearSVC")
+            compare_probabilistic_svm(
+                result["model"], pickled_model, data[0], data[1], 0, 0
+            )
+        else:
+            print("comparing base LinearSVC")
+            pred_before = result["model"].predict(data[0])
+            pred_after = pickled_model.predict(data[0])
+            assert array_equal(pred_before, pred_after)
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("nrows", [unit_param(500)])
 @pytest.mark.parametrize("ncols", [unit_param(16)])
 @pytest.mark.parametrize("n_info", [unit_param(7)])
