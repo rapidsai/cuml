@@ -116,7 +116,7 @@ from cuml.solvers.sgd import SGD
 from cuml.solvers.qn import QN
 
 # Version configuration
-__version__ = "23.10.00"
+__version__ = "23.12.00"
 
 
 def __getattr__(name):

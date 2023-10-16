@@ -13,7 +13,7 @@ if [[ "$(arch)" == "aarch64" ]]; then
 fi
 
 # Always install latest dask for testing
-python -m pip install git+https://github.com/dask/dask.git@2023.9.2 git+https://github.com/dask/distributed.git@2023.9.2 git+https://github.com/rapidsai/dask-cuda.git@branch-23.10
+python -m pip install git+https://github.com/dask/dask.git@2023.9.2 git+https://github.com/dask/distributed.git@2023.9.2 git+https://github.com/rapidsai/dask-cuda.git@branch-23.12
 
 # echo to expand wildcard before adding `[extra]` requires for pip
 python -m pip install $(echo ./dist/cuml*.whl)[test]
@@ -22,5 +22,5 @@ python -m pip install $(echo ./dist/cuml*.whl)[test]
 if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
     python ci/wheel_smoke_test_cuml.py
 else
-    python -m pytest ./python/cuml/tests -k 'not test_sparse_pca_inputs' -n 8 --ignore=python/cuml/tests/dask && python -m pytest ./python/cuml/tests -k 'test_sparse_pca_inputs' && python -m pytest ./python/cuml/tests/dask
+    python -m pytest ./python/cuml/tests -k 'not test_sparse_pca_inputs' -n 4 --ignore=python/cuml/tests/dask && python -m pytest ./python/cuml/tests -k 'test_sparse_pca_inputs' && python -m pytest ./python/cuml/tests/dask
 fi
