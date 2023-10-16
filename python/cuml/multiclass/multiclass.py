@@ -20,27 +20,16 @@ from cuml.internals.base import Base
 from cuml.internals.import_utils import has_sklearn
 from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.common import input_to_host_array
+from cuml.common import (
+    input_to_host_array,
+    input_to_host_array_with_sparse_support,
+)
 from cuml.internals.input_utils import (
     input_to_cupy_array,
     determine_array_type_full,
 )
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals import _deprecate_pos_args
-
-
-def input_to_host_array_with_sparse_support(X):
-    _array_type, is_sparse = determine_array_type_full(X)
-    if is_sparse:
-        if _array_type == "cupy":
-            return SparseCumlArray(X).to_output(output_type="scipy")
-        elif _array_type == "cuml":
-            return X.to_output(output_type="scipy")
-        elif _array_type == "numpy":
-            return X
-        else:
-            raise ValueError(f"Unsupported sparse array type: {_array_type}.")
-    return input_to_host_array(X).array
 
 
 class MulticlassClassifier(Base, ClassifierMixin):

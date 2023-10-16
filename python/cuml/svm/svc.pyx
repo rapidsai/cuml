@@ -35,7 +35,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.logger import warn
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.interruptible import cuda_interruptible
-from cuml.common import input_to_cuml_array, input_to_host_array
+from cuml.common import input_to_cuml_array, input_to_host_array, input_to_host_array_with_sparse_support
 from cuml.internals.input_utils import input_to_cupy_array, determine_array_type_full
 from cuml.preprocessing import LabelEncoder
 from libcpp cimport nullptr
@@ -45,7 +45,6 @@ from cuml.internals.array_sparse import SparseCumlArray
 
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
-    from cuml.multiclass.multiclass import input_to_host_array_with_sparse_support
     from sklearn.calibration import CalibratedClassifierCV
 
 
