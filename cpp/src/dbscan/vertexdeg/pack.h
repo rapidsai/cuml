@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <raft/neighbors/ball_cover.cuh>
+
 namespace ML {
 namespace Dbscan {
 namespace VertexDeg {
@@ -27,6 +29,8 @@ struct Pack {
    * Last position is the sum of all elements in this array (excluding it)
    * Hence, its length is one more than the number of points
    */
+  raft::neighbors::ball_cover::BallCoverIndex<Index_, Type, Index_>* index;
+
   Index_* vd;
   /** weighted vertex degree */
   Type* weight_sum;

@@ -192,6 +192,11 @@ std::size_t run(const raft::handle_t& handle,
     temp += wght_sum_size;
   }
 
+  // build index for rbc
+  auto X_view = raft::make_device_matrix_view<Type_f, std::uint32_t>(const_cast<Type_f*>(x), N, D);
+  raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_> index(handle, X_view, metric);
+  raft::neighbors::ball_cover::build_index(handle, index);
+
   // Compute the mask
   // 1. Compute the part owned by this worker (reversed order of batches to
   // keep the batch 0 in memory)
@@ -205,6 +210,7 @@ std::size_t run(const raft::handle_t& handle,
     CUML_LOG_DEBUG("--> Computing vertex degrees");
     raft::common::nvtx::push_range("Trace::Dbscan::VertexDeg");
     VertexDeg::run<Type_f, Index_>(handle,
+                                   index,
                                    adj,
                                    vd,
                                    wght_sum,
@@ -251,6 +257,7 @@ std::size_t run(const raft::handle_t& handle,
       CUML_LOG_DEBUG("--> Computing vertex degrees");
       raft::common::nvtx::push_range("Trace::Dbscan::VertexDeg");
       VertexDeg::run<Type_f, Index_>(handle,
+                                     index,
                                      adj,
                                      vd,
                                      nullptr,

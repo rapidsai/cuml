@@ -26,6 +26,7 @@ namespace VertexDeg {
 
 template <typename Type_f, typename Index_ = int>
 void run(const raft::handle_t& handle,
+         raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_>& index,
          bool* adj,
          Index_* vd,
          Type_f* wght_sum,
@@ -40,7 +41,7 @@ void run(const raft::handle_t& handle,
          cudaStream_t stream,
          raft::distance::DistanceType metric)
 {
-  Pack<Type_f, Index_> data = {vd, wght_sum, adj, x, sample_weight, eps, N, D};
+  Pack<Type_f, Index_> data = {&index, vd, wght_sum, adj, x, sample_weight, eps, N, D};
   switch (algo) {
     case 0:
       ASSERT(
