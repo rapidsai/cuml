@@ -24,13 +24,13 @@ namespace VertexDeg {
 
 template <typename Type, typename Index_>
 struct Pack {
+  /** optional rbc index */
+  raft::neighbors::ball_cover::BallCoverIndex<Index_, Type, Index_>* rbc_index;
   /**
    * vertex degree array
    * Last position is the sum of all elements in this array (excluding it)
    * Hence, its length is one more than the number of points
    */
-  raft::neighbors::ball_cover::BallCoverIndex<Index_, Type, Index_>* index;
-
   Index_* vd;
   /** weighted vertex degree */
   Type* weight_sum;

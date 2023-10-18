@@ -86,8 +86,13 @@ void launcher(const raft::handle_t& handle,
 
     eps2 = 2 * data.eps;
 
-    raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
-      data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
+    if (data.rbc_index != nullptr) {
+      raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<index_t, value_t, index_t>(
+        handle, *data.rbc_index, data.adj, data.x + start_vertex_id * k, n, k, sqrtf(eps2));
+    } else {
+      raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
+        data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
+    }
 
     /**
      * Restoring the input matrix after normalization.
@@ -108,11 +113,14 @@ void launcher(const raft::handle_t& handle,
     // 1. The output matrix adj is now an n x m matrix (row-major order)
     // 2. Do not compute the vertex degree in epsUnexpL2SqNeighborhood (pass a
     // nullptr)
-    // raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
-    //  data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
 
-    raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<index_t, value_t, index_t>(
-      handle, *data.index, data.adj, data.x + start_vertex_id * k, n, k, data.eps);
+    if (data.rbc_index != nullptr) {
+      raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<index_t, value_t, index_t>(
+        handle, *data.rbc_index, data.adj, data.x + start_vertex_id * k, n, k, data.eps);
+    } else {
+      raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
+        data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
+    }
   }
 
   // Reduction of adj to compute the vertex degrees
