@@ -11,6 +11,10 @@
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
 # =============================================================================
+
+set(rapids-cmake-repo sleeepyjack/rapids-cmake)
+set(rapids-cmake-branch update-cuco-git-tag)
+
 if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/CUML_RAPIDS.cmake)
   file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.12/RAPIDS.cmake
        ${CMAKE_CURRENT_BINARY_DIR}/CUML_RAPIDS.cmake
