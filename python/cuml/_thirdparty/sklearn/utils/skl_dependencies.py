@@ -58,6 +58,8 @@ class BaseEstimator(Base):
 
         if reset:
             self.n_features_in_ = n_features
+            if hasattr(X, "columns"):
+                self.feature_names_in_ = [str(c) for c in X.columns]
         else:
             if not hasattr(self, 'n_features_in_'):
                 raise RuntimeError(
