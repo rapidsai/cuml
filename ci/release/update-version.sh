@@ -35,8 +35,10 @@ function sed_runner() {
 }
 
 
-# __init__.py and pyproject.toml versions
-sed_runner "/^__version__ / s/= .*/= \"${NEXT_FULL_TAG}\"/g" python/cuml/_version.py
+# Centralized version file update
+echo "${NEXT_FULL_TAG}" | tr -d '"' > VERSION
+
+# pyproject.toml versions
 sed_runner "s/rmm==.*\",/rmm==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pyproject.toml
 sed_runner "s/cudf==.*\",/cudf==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pyproject.toml
 sed_runner "s/pylibraft==.*\",/pylibraft==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pyproject.toml
