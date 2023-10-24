@@ -109,6 +109,6 @@ if clean_artifacts:
 packages = find_packages(include=["cuml*"])
 setup(
     packages=packages,
-    package_data={key: ["*.pxd"] for key in packages},
+    package_data={key: ["VERSION", "*.pxd"] for key in packages},
     zip_safe=False,
 )

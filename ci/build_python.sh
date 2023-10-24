@@ -16,9 +16,8 @@ version=$(rapids-generate-version)
 git_commit=$(git rev-parse HEAD)
 export RAPIDS_PACKAGE_VERSION=${version} 
 
-version_file="${package_dir}/${package_name}/_version.py"
-sed -i "/^__version__/ s/= .*/= ${version}/g" ${version_file}
-sed -i "/^__git_commit__/ s/= .*/= \"${git_commit}\"/g" ${version_file}
+echo "${version}" | tr -d '"' > VERSION
+sed -i "/^__git_commit__/ s/= .*/= \"${git_commit}\"/g" "${package_dir}/${package_name}/_version.py"
 
 rapids-logger "Begin py build"
 
