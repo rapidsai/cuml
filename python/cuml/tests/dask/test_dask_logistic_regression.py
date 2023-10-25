@@ -52,6 +52,7 @@ def _prep_training_data(c, X_train, y_train, partitions_per_worker):
 
 
 def _prep_training_data_da(c, X_train, y_train, partitions_per_worker):
+    "The implementation follows _prep_training_data"
     import dask.array as da
 
     workers = c.has_what().keys()
@@ -64,6 +65,38 @@ def _prep_training_data_da(c, X_train, y_train, partitions_per_worker):
         chunk_sizes = [avg_size + 1] * remainder + [avg_size] * (
             n_partitions - remainder
         )
+        return tuple(chunk_sizes)
+
+    assert (
+        X_train.shape[0] == y_train.shape[0]
+    ), "the number of data records is not equal to the number of labels"
+    target_chunk_sizes = cal_chunks(X_train, target_n_partitions)
+
+    X_da = da.from_array(X_train, chunks=(target_chunk_sizes, -1))
+    y_da = da.from_array(y_train, chunks=target_chunk_sizes)
+
+    X_da, y_da = dask_utils.persist_across_workers(
+        c, [X_da, y_da], workers=workers
+    )
+    return X_da, y_da
+
+
+def _prep_training_data_sparse(c, X_train, y_train, partitions_per_worker):
+    "The implementation follows test_dask_tfidf.create_cp_sparse_dask_array"
+    import dask.array as da
+
+    workers = c.has_what().keys()
+    target_n_partitions = partitions_per_worker * len(workers)
+
+    def cal_chunks(dataset, n_partitions):
+
+        n_samples = dataset.shape[0]
+        n_samples_per_part = int(n_samples / n_partitions)
+        chunk_sizes = [n_samples_per_part] * n_partitions
+        samples_last_row = n_samples - (
+            (n_partitions - 1) * n_samples_per_part
+        )
+        chunk_sizes[-1] = samples_last_row
         return tuple(chunk_sizes)
 
     assert (
@@ -643,10 +676,11 @@ def test_reproducer_csr_to_da_empty_gpu(
 @pytest.mark.parametrize("dtype", [np.float32])
 def test_sparse_nlp20news(dtype, nlp_20news, client):
     # sklearn score with max_iter = 10000
-    # sklearn_score = 0.878
-    # acceptable_score = sklearn_score - 0.01
+    sklearn_score = 0.878
+    acceptable_score = sklearn_score - 0.01
 
     X, y = nlp_20news
+    n_parts = 2  # partitions_per_worker
 
     from scipy.sparse import csr_matrix
     from sklearn.model_selection import train_test_split
@@ -655,9 +689,6 @@ def test_sparse_nlp20news(dtype, nlp_20news, client):
 
     X = csr_matrix(X)
     y = y.get().astype(dtype)
-
-    X = X[:100]
-    y = y[:100]
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
 
@@ -673,35 +704,30 @@ def test_sparse_nlp20news(dtype, nlp_20news, client):
         print(f"sg.coef_ is {culog.coef_}")
         print(f"sg score is {score}")
 
-    # test_sg()
+    test_sg()
 
     def test_mg():
         from cuml.dask.linear_model import LogisticRegression as MG
         import dask
 
         from test_dask_tfidf import create_cp_sparse_dask_array
+        from test_dask_tfidf import generate_dask_array
 
-        workers = client.has_what().keys()
-        X_train_da = create_cp_sparse_dask_array(
-            X_train, n_parts=2 * len(workers)
+        X_train_da, y_train_da = _prep_training_data_sparse(
+            client, X_train, y_train, partitions_per_worker=n_parts
         )
-        _, y_train_da = _prep_training_data_da(client, X_train, y_train, 2)
-
-        # X_train_da, y_train_da = _prep_training_data_da(
-        #    client, X_train, y_train, 2
-        # )
-        # X_test_da, y_test_da = _prep_training_data_da(
-        #    client, X_test, y_test, 2
-        # )
+        X_test_da, _ = _prep_training_data_sparse(
+            client, X_test, y_test, partitions_per_worker=n_parts
+        )
 
         cumg = MG(verbose=True)
         cumg.fit(X_train_da, y_train_da)
         print(f"cumg.coef_ is {cumg.coef_}")
 
-        # preds = cumg.predict(X_test_da).compute()
+        preds = cumg.predict(X_test_da).compute()
 
-        # cuml_score = accuracy_score(y_test, preds.tolist())
-        # print(f"cuml_score: {cuml_score}")
-        # assert cuml_score >= acceptable_score
+        cuml_score = accuracy_score(y_test, preds.tolist())
+        print(f"cuml_score: {cuml_score}")
+        assert cuml_score >= acceptable_score
 
     test_mg()
