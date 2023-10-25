@@ -129,6 +129,8 @@ std::size_t run(const raft::handle_t& handle,
   } else
     my_rank = 0;
 
+  bool sparse_rbc_mode = (D == 2 || D == 3);
+
   /**
    * Note on coupling between data types:
    * - adjacency graph has a worst case size of N * batch_size elements. Thus,
@@ -144,11 +146,13 @@ std::size_t run(const raft::handle_t& handle,
   std::size_t core_pts_size = raft::alignTo<std::size_t>(sizeof(bool) * N, align);
   std::size_t m_size        = raft::alignTo<std::size_t>(sizeof(bool), align);
   std::size_t vd_size       = raft::alignTo<std::size_t>(sizeof(Index_) * (batch_size + 1), align);
-  std::size_t ex_scan_size  = raft::alignTo<std::size_t>(sizeof(Index_) * batch_size, align);
+  std::size_t ex_scan_size  = raft::alignTo<std::size_t>(sizeof(Index_) * (batch_size + 1), align);
   std::size_t row_cnt_size  = raft::alignTo<std::size_t>(sizeof(Index_) * batch_size, align);
   std::size_t labels_size   = raft::alignTo<std::size_t>(sizeof(Index_) * N, align);
   std::size_t wght_sum_size =
     sample_weight != nullptr ? raft::alignTo<std::size_t>(sizeof(Type_f) * batch_size, align) : 0;
+  std::size_t ia_size =
+    sparse_rbc_mode ? raft::alignTo<std::size_t>(sizeof(Index_) * (batch_size + 1), align) : 0;
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
 
@@ -191,13 +195,23 @@ std::size_t run(const raft::handle_t& handle,
     wght_sum = (Type_f*)temp;
     temp += wght_sum_size;
   }
+  Index_* ia_ptr = ex_scan;
+  Index_* ja_ptr = nullptr;
+  rmm::device_uvector<Index_> adj_graph(0, stream);
+  if (sparse_rbc_mode) {
+    // FIXME: assumption of worst case here not optimal...
+    adj_graph.resize(N * batch_size, stream);
+    ja_ptr                  = adj_graph.data();
+    auto thrust_exec_policy = handle.get_thrust_policy();
+    thrust::fill(thrust_exec_policy, adj, adj + (N * batch_size), true);
+  }
 
   // build index for rbc
   raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_>* rbc_index_ptr = nullptr;
   raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_> rbc_index(
     handle, x, N, D, metric);
 
-  if (D == 2 | D == 3) {
+  if (sparse_rbc_mode) {
     raft::neighbors::ball_cover::build_index(handle, rbc_index);
     rbc_index_ptr = &rbc_index;
   }
@@ -216,6 +230,8 @@ std::size_t run(const raft::handle_t& handle,
     raft::common::nvtx::push_range("Trace::Dbscan::VertexDeg");
     VertexDeg::run<Type_f, Index_>(handle,
                                    rbc_index_ptr,
+                                   ia_ptr,
+                                   ja_ptr,
                                    adj,
                                    vd,
                                    wght_sum,
@@ -247,7 +263,6 @@ std::size_t run(const raft::handle_t& handle,
 
   // Compute the labelling for the owned part of the graph
   raft::sparse::WeakCCState state(m);
-  rmm::device_uvector<Index_> adj_graph(0, stream);
 
   for (int i = 0; i < n_batches; i++) {
     Index_ start_vertex_id = start_row + i * batch_size;
@@ -263,6 +278,8 @@ std::size_t run(const raft::handle_t& handle,
       raft::common::nvtx::push_range("Trace::Dbscan::VertexDeg");
       VertexDeg::run<Type_f, Index_>(handle,
                                      rbc_index_ptr,
+                                     ia_ptr,
+                                     ja_ptr,
                                      adj,
                                      vd,
                                      nullptr,
@@ -281,25 +298,27 @@ std::size_t run(const raft::handle_t& handle,
     raft::update_host(&curradjlen, vd + n_points, 1, stream);
     handle.sync_stream(stream);
 
-    CUML_LOG_DEBUG("--> Computing adjacency graph with %ld nnz.", (unsigned long)curradjlen);
-    raft::common::nvtx::push_range("Trace::Dbscan::AdjGraph");
-    if (curradjlen > maxadjlen || adj_graph.data() == NULL) {
-      maxadjlen = curradjlen;
-      adj_graph.resize(maxadjlen, stream);
-    }
-    AdjGraph::run<Index_>(handle,
-                          adj,
-                          vd,
-                          adj_graph.data(),
-                          curradjlen,
-                          ex_scan,
-                          N,
-                          algo_adj,
-                          n_points,
-                          row_counters,
-                          stream);
+    if (!sparse_rbc_mode) {
+      CUML_LOG_DEBUG("--> Computing adjacency graph with %ld nnz.", (unsigned long)curradjlen);
+      raft::common::nvtx::push_range("Trace::Dbscan::AdjGraph");
+      if (curradjlen > maxadjlen || adj_graph.data() == NULL) {
+        maxadjlen = curradjlen;
+        adj_graph.resize(maxadjlen, stream);
+      }
+      AdjGraph::run<Index_>(handle,
+                            adj,
+                            vd,
+                            adj_graph.data(),
+                            curradjlen,
+                            ex_scan,
+                            N,
+                            algo_adj,
+                            n_points,
+                            row_counters,
+                            stream);
 
-    raft::common::nvtx::pop_range();
+      raft::common::nvtx::pop_range();
+    }
 
     CUML_LOG_DEBUG("--> Computing connected components");
     raft::common::nvtx::push_range("Trace::Dbscan::WeakCC");

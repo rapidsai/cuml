@@ -35,6 +35,8 @@ struct Pack {
   /** weighted vertex degree */
   Type* weight_sum;
   /** the adjacency matrix */
+  Index_* ia;
+  Index_* ja;
   bool* adj;
   /** input dataset */
   const Type* x;

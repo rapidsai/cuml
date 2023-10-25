@@ -27,11 +27,60 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/util/device_atomics.cuh>
 #include <rmm/device_uvector.hpp>
+#include <thrust/execution_policy.h>
+#include <thrust/functional.h>
+#include <thrust/iterator/constant_iterator.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/transform.h>
 
 namespace ML {
 namespace Dbscan {
 namespace VertexDeg {
 namespace Algo {
+
+template <typename index_t = int>
+struct column_counter : public thrust::unary_function<index_t, index_t> {
+  index_t* ia_;
+  index_t n_;
+
+  column_counter(index_t* ia, index_t n) : ia_(ia), n_(n) {}
+
+  __host__ __device__ index_t operator()(const index_t& input) const
+  {
+    return (input < n_) ? ia_[input + 1] - ia_[input] : ia_[n_];
+  }
+};
+
+template <typename math_t, typename index_t = int, int tpb = 128, int warpsize = 32>
+static __global__ void accumulateWeights(const index_t* ia,
+                                         const index_t num_rows,
+                                         const index_t* ja,
+                                         const math_t* col_weights,
+                                         math_t* weight_sums)
+{
+  constexpr int warps_per_block = tpb / warpsize;
+
+  // Setup WarpReduce shared memory for all warps
+  typedef cub::WarpReduce<math_t> WarpReduce;
+  __shared__ typename WarpReduce::TempStorage temp_storage[warps_per_block];
+
+  // all threads in a warp are responsible for one line of csr
+  const int thread_in_warp = threadIdx.x % warpsize;
+  int warp_id              = threadIdx.x / 32;
+
+  int idx = blockIdx.x * warps_per_block + warp_id;
+
+  math_t weight_sum_tmp = 0;
+  int rowStartIdx       = (idx < num_rows) ? ia[idx] : 0;
+  int rowEndIdx         = (idx < num_rows) ? ia[idx + 1] : 0;
+  for (int pos = rowStartIdx + thread_in_warp; pos < rowEndIdx; pos += warpsize) {
+    weight_sum_tmp += col_weights[ja[pos]];
+  }
+
+  math_t weight_sum = WarpReduce(temp_storage[warp_id]).Sum(weight_sum_tmp);
+
+  if (thread_in_warp == 0 && idx < num_rows && weight_sum > 0) { weight_sums[idx] = weight_sum; }
+}
 
 /**
  * Calculates the vertex degree array and the epsilon neighborhood adjacency matrix for the batch.
@@ -88,7 +137,7 @@ void launcher(const raft::handle_t& handle,
 
     if (data.rbc_index != nullptr) {
       raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<index_t, value_t, index_t>(
-        handle, *data.rbc_index, data.adj, data.x + start_vertex_id * k, n, k, sqrtf(eps2));
+        handle, *data.rbc_index, data.ia, data.ja, data.x + start_vertex_id * k, n, k, sqrtf(eps2));
     } else {
       raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
         data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
@@ -116,46 +165,62 @@ void launcher(const raft::handle_t& handle,
 
     if (data.rbc_index != nullptr) {
       raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<index_t, value_t, index_t>(
-        handle, *data.rbc_index, data.adj, data.x + start_vertex_id * k, n, k, data.eps);
+        handle, *data.rbc_index, data.ia, data.ja, data.x + start_vertex_id * k, n, k, data.eps);
     } else {
       raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
         data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
     }
   }
 
-  // Reduction of adj to compute the vertex degrees
-  raft::linalg::coalescedReduction<bool, index_t, index_t>(
-    data.vd,
-    data.adj,
-    data.N,
-    batch_size,
-    (index_t)0,
-    stream,
-    false,
-    [] __device__(bool adj_ij, index_t idx) { return static_cast<index_t>(adj_ij); },
-    raft::Sum<index_t>(),
-    [d_nnz] __device__(index_t degree) {
-      atomicAdd(d_nnz, degree);
-      return degree;
-    });
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
-
-  if (data.weight_sum != nullptr && data.sample_weight != nullptr) {
-    const value_t* sample_weight = data.sample_weight;
-    // Reduction of adj to compute the weighted vertex degrees
-    raft::linalg::coalescedReduction<bool, value_t, index_t>(
-      data.weight_sum,
+  if (data.rbc_index != nullptr) {
+    auto thrust_exec_policy = handle.get_thrust_policy();
+    thrust::transform(thrust_exec_policy,
+                      thrust::make_counting_iterator<index_t>(0),
+                      thrust::make_counting_iterator<index_t>(n + 1),
+                      data.vd,
+                      column_counter(data.ia, n));
+  } else {
+    // Reduction of adj to compute the vertex degrees
+    raft::linalg::coalescedReduction<bool, index_t, index_t>(
+      data.vd,
       data.adj,
       data.N,
       batch_size,
-      (value_t)0,
+      (index_t)0,
       stream,
       false,
-      [sample_weight] __device__(bool adj_ij, index_t j) {
-        return adj_ij ? sample_weight[j] : (value_t)0;
-      },
-      raft::Sum<value_t>());
+      [] __device__(bool adj_ij, index_t idx) { return static_cast<index_t>(adj_ij); },
+      raft::Sum<index_t>(),
+      [d_nnz] __device__(index_t degree) {
+        atomicAdd(d_nnz, degree);
+        return degree;
+      });
     RAFT_CUDA_TRY(cudaPeekAtLastError());
+  }
+
+  if (data.weight_sum != nullptr && data.sample_weight != nullptr) {
+    if (data.rbc_index != nullptr) {
+      accumulateWeights<value_t, index_t, 128, 32>
+        <<<raft::ceildiv(n, (index_t)4), 128, 0, stream>>>(
+          data.ia, n, data.ja, data.sample_weight, data.weight_sum);
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
+    } else {
+      const value_t* sample_weight = data.sample_weight;
+      // Reduction of adj to compute the weighted vertex degrees
+      raft::linalg::coalescedReduction<bool, value_t, index_t>(
+        data.weight_sum,
+        data.adj,
+        data.N,
+        batch_size,
+        (value_t)0,
+        stream,
+        false,
+        [sample_weight] __device__(bool adj_ij, index_t j) {
+          return adj_ij ? sample_weight[j] : (value_t)0;
+        },
+        raft::Sum<value_t>());
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
+    }
   }
 }
 
