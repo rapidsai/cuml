@@ -49,36 +49,6 @@ def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     return X_train_df, y_train_df
 
 
-def _prep_training_data_da(c, X_train, y_train, partitions_per_worker):
-    "The implementation follows _prep_training_data"
-    import dask.array as da
-
-    workers = c.has_what().keys()
-    target_n_partitions = partitions_per_worker * len(workers)
-
-    def cal_chunks(dataset, n_partitions):
-        avg_size = dataset.shape[0] // n_partitions
-        assert avg_size > 0, "empty partition is not supported"
-        remainder = dataset.shape[0] - avg_size * n_partitions
-        chunk_sizes = [avg_size + 1] * remainder + [avg_size] * (
-            n_partitions - remainder
-        )
-        return tuple(chunk_sizes)
-
-    assert (
-        X_train.shape[0] == y_train.shape[0]
-    ), "the number of data records is not equal to the number of labels"
-    target_chunk_sizes = cal_chunks(X_train, target_n_partitions)
-
-    X_da = da.from_array(X_train, chunks=(target_chunk_sizes, -1))
-    y_da = da.from_array(y_train, chunks=target_chunk_sizes)
-
-    X_da, y_da = dask_utils.persist_across_workers(
-        c, [X_da, y_da], workers=workers
-    )
-    return X_da, y_da
-
-
 def _prep_training_data_sparse(c, X_train, y_train, partitions_per_worker):
     "The implementation follows test_dask_tfidf.create_cp_sparse_dask_array"
     import dask.array as da
@@ -611,61 +581,6 @@ def test_sparse_from_dense(
         l1_ratio=l1_ratio,
         convert_to_sparse=True,
     )
-
-
-@pytest.mark.xfail(
-    reason="This test is expected to fail with a NCCL error when running multiple times with 2 GPU"
-)
-@pytest.mark.parametrize("fit_intercept", [False, True])
-@pytest.mark.parametrize(
-    "regularization",
-    [
-        ("none", 1.0, None),
-    ],
-)
-@pytest.mark.parametrize("datatype", [np.float32])
-@pytest.mark.parametrize("delayed", [True])
-@pytest.mark.parametrize("n_classes", [8])
-def test_reproducer_csr_to_da_empty_gpu(
-    fit_intercept, regularization, datatype, delayed, n_classes, client
-):
-
-    penalty = regularization[0]
-    C = regularization[1]
-    l1_ratio = regularization[2]
-
-    nrows = 100000
-    ncols = 20
-    n_parts = 2
-
-    def imp():
-        import cuml.comm.serialize  # NOQA
-
-    client.run(imp)
-
-    from cuml.dask.linear_model.logistic_regression import (
-        LogisticRegression as cumlLBFGS_dask,
-    )
-
-    # set n_informative variable for calling sklearn.datasets.make_classification
-    n_info = 5
-    X, y = make_classification_dataset(
-        datatype, nrows, ncols, n_info, n_classes=n_classes
-    )
-
-    # X_dask and y_dask are dask array
-    X = csr_matrix(X)
-    X_dask, y_dask = _prep_training_data_da(client, X, y, n_parts)
-
-    lr = cumlLBFGS_dask(
-        solver="qn",
-        fit_intercept=fit_intercept,
-        penalty=penalty,
-        l1_ratio=l1_ratio,
-        C=C,
-        verbose=True,
-    )
-    lr.fit(X_dask, y_dask)
 
 
 @pytest.mark.parametrize("dtype", [np.float32])
