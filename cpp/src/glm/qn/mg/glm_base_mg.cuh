@@ -113,10 +113,14 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
                       T* dev_scalar,
                       cudaStream_t stream)
   {
+    raft::comms::comms_t const& communicator = raft::resource::get_comms(*(this->handle_p));
     SimpleDenseMat<T> W(wFlat.data, this->C, this->dims);
     SimpleDenseMat<T> G(gradFlat.data, this->C, this->dims);
     SimpleVec<T> lossVal(dev_scalar, 1);
-    raft::comms::comms_t const& communicator = raft::resource::get_comms(*(this->handle_p));
+
+    // Ensure the same coefficients on all GPU
+    communicator.bcast(wFlat.data, this->C * this->dims, 0, stream);
+    communicator.sync_stream(stream);
 
     // apply regularization
     auto regularizer_obj = this->objective;
@@ -140,7 +144,7 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
     T factor = 1.0 * (*this->y).len / this->n_samples;
     raft::linalg::multiplyScalar(dev_scalar, dev_scalar, factor, 1, stream);
 
-    // GPUs calculates reg_host independently and may get slightly different values.
+    // GPUs calculates reg_host independently and may get values that show tiny divergence.
     // Take the averaged reg_host to avoid the divergence.
     T reg_factor = reg_host / this->n_ranks;
     raft::linalg::addScalar(dev_scalar, dev_scalar, reg_factor, 1, stream);
@@ -162,6 +166,7 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
     T loss_host;
     raft::update_host(&loss_host, dev_scalar, 1, stream);
     raft::resource::sync_stream(*(this->handle_p));
+
     return loss_host;
   }
 };

@@ -23,8 +23,6 @@ from cuml.internals.safe_imports import cpu_only_import
 from cuml.testing.utils import array_equal
 from scipy.sparse import csr_matrix
 
-from test_dask_tfidf import create_cp_sparse_dask_array
-
 pd = cpu_only_import("pandas")
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
@@ -376,10 +374,7 @@ def test_lbfgs(
         X_dask, y_dask = _prep_training_data(client, X, y, n_parts)
     else:
         # X_dask and y_dask are dask array
-
-        workers = client.has_what().keys()
-        X_dask = create_cp_sparse_dask_array(X, n_parts * len(workers))
-        _, y_dask = _prep_training_data_da(client, X, y, n_parts)
+        X_dask, y_dask = _prep_training_data_sparse(client, X, y, n_parts)
 
     lr = cumlLBFGS_dask(
         solver="qn",
@@ -692,42 +687,19 @@ def test_sparse_nlp20news(dtype, nlp_20news, client):
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
 
-    def test_sg():
-        # from cuml.dask.linear_model import LogisticRegression
-        from cuml.linear_model import LogisticRegression
+    from cuml.dask.linear_model import LogisticRegression as MG
 
-        culog = LogisticRegression(verbose=True)
-        culog.fit(X_train, y_train)
-        score = culog.score(X_test, y_test)
+    X_train_da, y_train_da = _prep_training_data_sparse(
+        client, X_train, y_train, partitions_per_worker=n_parts
+    )
+    X_test_da, _ = _prep_training_data_sparse(
+        client, X_test, y_test, partitions_per_worker=n_parts
+    )
 
-        # assert score >= acceptable_score
-        print(f"sg.coef_ is {culog.coef_}")
-        print(f"sg score is {score}")
+    cumg = MG(verbose=6, C=20.0)
+    cumg.fit(X_train_da, y_train_da)
 
-    test_sg()
+    preds = cumg.predict(X_test_da).compute()
 
-    def test_mg():
-        from cuml.dask.linear_model import LogisticRegression as MG
-        import dask
-
-        from test_dask_tfidf import create_cp_sparse_dask_array
-        from test_dask_tfidf import generate_dask_array
-
-        X_train_da, y_train_da = _prep_training_data_sparse(
-            client, X_train, y_train, partitions_per_worker=n_parts
-        )
-        X_test_da, _ = _prep_training_data_sparse(
-            client, X_test, y_test, partitions_per_worker=n_parts
-        )
-
-        cumg = MG(verbose=True)
-        cumg.fit(X_train_da, y_train_da)
-        print(f"cumg.coef_ is {cumg.coef_}")
-
-        preds = cumg.predict(X_test_da).compute()
-
-        cuml_score = accuracy_score(y_test, preds.tolist())
-        print(f"cuml_score: {cuml_score}")
-        assert cuml_score >= acceptable_score
-
-    test_mg()
+    cuml_score = accuracy_score(y_test, preds.tolist())
+    assert cuml_score >= acceptable_score
