@@ -53,7 +53,7 @@ dependencies:
 - numpydoc
 - nvcc_linux-64=11.8
 - pip
-- pydata-sphinx-theme
+- pydata-sphinx-theme!=0.14.2
 - pylibraft==23.12.*
 - pynndescent==0.5.8
 - pytest

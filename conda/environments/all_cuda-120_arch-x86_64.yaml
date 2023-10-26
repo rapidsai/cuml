@@ -49,7 +49,7 @@ dependencies:
 - numba>=0.57
 - numpydoc
 - pip
-- pydata-sphinx-theme
+- pydata-sphinx-theme!=0.14.2
 - pylibraft==23.12.*
 - pynndescent==0.5.8
 - pytest
