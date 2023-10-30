@@ -22,7 +22,7 @@ PACKAGE_CUDA_SUFFIX="-${RAPIDS_PY_CUDA_SUFFIX}"
 pyproject_file="${package_dir}/pyproject.toml"
 
 sed -i "/^name.*cuml/ s/= \"cuml\"/= \"cuml${PACKAGE_CUDA_SUFFIX}\"/g" ${pyproject_file}
-echo "${version}" | tr -d '"' > VERSION
+echo "${version}" > VERSION
 sed -i "/^__git_commit__ / s/= .*/= \"${git_commit}\"/g" "${package_dir}/${package_name}/_version.py"
 
 # For nightlies we want to ensure that we're pulling in alphas as well. The
