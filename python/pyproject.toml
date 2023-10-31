@@ -48,7 +48,7 @@ filterwarnings = [
 
 [project]
 name = "cuml"
-version = "23.12.00"
+dynamic = ["version"]
 description = "cuML - RAPIDS ML Algorithms"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
@@ -103,6 +103,9 @@ Documentation = "https://docs.rapids.ai/api/cuml/stable/"
 
 [tool.setuptools]
 license-files = ["LICENSE"]
+
+[tool.setuptools.dynamic]
+version = {file = "cuml/VERSION"}
 
 [tool.black]
 line-length = 79
