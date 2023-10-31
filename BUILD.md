@@ -19,8 +19,8 @@ It is recommended to use conda for environment/package management. If doing so, 
 
 ```bash
 conda create -n cuml_dev python=3.10
+conda env update -n cuml_dev --file=conda/environments/all_cuda-118_arch-x86_64.yaml
 conda activate cuml_dev
-conda env update --file=conda/environments/all_cuda-118_arch-x86_64.yaml
 ```
 
 ## Installing from Source:
