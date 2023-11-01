@@ -101,7 +101,7 @@ inline void launcher(const raft::handle_t& handle,
                      cudaStream_t stream)
 {
   raft::resources tmp_handle(handle);
-  raft::resource::set_workspace_resource(tmp_handle);
+  auto mr          = raft::resource::get_workspace_resource(tmp_handle);
   size_t free_size = raft::resource::get_workspace_free_bytes(tmp_handle);
 
   double factor           = 4.0;
@@ -128,7 +128,7 @@ inline void launcher(const raft::handle_t& handle,
                                            out.knn_indices,
                                            out.knn_dists,
                                            n_neighbors,
-                                           handle,
+                                           tmp_handle,
                                            index_batch_size,
                                            query_batch_size,
                                            params->metric,
