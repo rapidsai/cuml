@@ -2,7 +2,7 @@
 
 # Usage:
 #   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
-{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
+{% set version = environ['RAPIDS_PACKAGE_VERSION'].lstrip('v')  + environ.get('VERSION_SUFFIX', '') %}
 {% set py_version = environ['CONDA_PY'] %}
 {% set date_string = environ['RAPIDS_DATE_STRING'] %}
 
@@ -11,7 +11,7 @@ package:
   version: {{ version }}
 
 source:
-  git_url: ../../..
+  path: ../../..
 
 build:
   number: {{ GIT_DESCRIBE_NUMBER }}
