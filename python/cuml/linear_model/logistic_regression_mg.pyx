@@ -84,6 +84,13 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         PartDescriptor &input_desc,
         vector[floatData_t*] labels) except+
 
+    cdef void standardize(
+        handle_t& handle,
+        vector[floatData_t *] input_data,
+        PartDescriptor &input_desc,
+        float *mean_vec,
+        float *stddev_vec) except+
+
     cdef void qnFitSparse(
         handle_t& handle,
         vector[floatData_t *] input_values,
@@ -189,6 +196,25 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         self.is_col_major = False
         order = 'F' if self.is_col_major else 'C'
         super().fit(input_data, n_rows, n_cols, parts_rank_size, rank, order=order)
+
+    def _standardize(self, X, input_desc):
+        self.mean_ = CumlArray.zeros(
+            self.n_cols, dtype=self.dtype
+        )
+        self.stddev_ = CumlArray.zeros(
+            self.n_cols, dtype=self.dtype
+        )
+
+        cdef uintptr_t mean_ptr = self.mean_.ptr
+        cdef uintptr_t stddev_ptr = self.stddev_.ptr
+
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        standardize(
+            handle_[0],
+            deref(<vector[floatData_t*]*><uintptr_t>X),
+            deref(<PartDescriptor*><uintptr_t>input_desc),
+            <float*>mean_ptr,
+            <float*>stddev_ptr)
 
     @cuml.internals.api_base_return_any_skipall
     def _fit(self, X, y, coef_ptr, input_desc):

@@ -39,6 +39,17 @@ std::vector<float> getUniquelabelsMG(const raft::handle_t& handle,
                                      Matrix::PartDescriptor& input_desc,
                                      std::vector<Matrix::Data<float>*>& labels);
 
+/*
+ * @brief Calculate the mean and stddev of every column of input matrix across multi-node multiple
+ * GPUs.
+ * @brief And standardize the input matrix.
+ */
+void standardize(raft::handle_t& handle,
+                 std::vector<Matrix::Data<float>*>& input_data,
+                 Matrix::PartDescriptor& input_desc,
+                 float* mean_vector,
+                 float* stddev_vector);
+
 /**
  * @brief performs MNMG fit operation for the logistic regression using quasi newton methods
  * @param[in] handle: the internal cuml handle object

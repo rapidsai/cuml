@@ -29,6 +29,9 @@
 #include <vector>
 using namespace MLCommon;
 
+#include <cumlprims/opg/stats/mean.hpp>
+#include <cumlprims/opg/stats/mean_center.hpp>
+#include <cumlprims/opg/stats/stddev.hpp>
 #include <iostream>
 
 namespace ML {
@@ -74,6 +77,32 @@ std::vector<T> distinct_mg(const raft::handle_t& handle, T* y, size_t n)
   raft::copy(global_unique_y_host.data(), global_unique_y.data(), global_unique_y.size(), stream);
 
   return global_unique_y_host;
+}
+
+template <typename T>
+void standardize_impl(raft::handle_t& handle,
+                      std::vector<Matrix::Data<T>*>& input_data,
+                      Matrix::PartDescriptor& input_desc,
+                      T* mean_vector,
+                      T* stddev_vector)
+{
+  size_t D = input_desc.N;
+  Matrix::Data<T> mu_data{mean_vector, D};
+
+  int rank       = input_desc.rank;
+  auto n_streams = input_desc.blocksOwnedBy(rank).size();
+  cudaStream_t streams[n_streams];
+  for (std::uint32_t i = 0; i < n_streams; i++) {
+    RAFT_CUDA_TRY(cudaStreamCreate(&streams[i]));
+  }
+
+  Stats::opg::mean(handle, mu_data, input_data, input_desc, streams, n_streams);
+
+  Matrix::Data<T> stddev_data(stddev_vector, D);
+  Stats::opg::var(handle, stddev_data, input_data, input_desc, mean_vector, streams, n_streams);
+
+  const auto& comm = handle.get_comms();
+  Stats::opg::mean_center(input_data, input_desc, mu_data, comm, streams, n_streams);
 }
 
 template <typename T>
@@ -157,6 +186,15 @@ std::vector<float> getUniquelabelsMG(const raft::handle_t& handle,
   Matrix::Data<float>* data_y = labels[0];
   int n_rows                  = input_desc.totalElementsOwnedBy(input_desc.rank);
   return distinct_mg<float>(handle, data_y->ptr, n_rows);
+}
+
+void standardize(raft::handle_t& handle,
+                 std::vector<Matrix::Data<float>*>& input_data,
+                 Matrix::PartDescriptor& input_desc,
+                 float* mean_vector,
+                 float* stddev_vector)
+{
+  standardize_impl<float>(handle, input_data, input_desc, mean_vector, stddev_vector);
 }
 
 void qnFit(raft::handle_t& handle,
