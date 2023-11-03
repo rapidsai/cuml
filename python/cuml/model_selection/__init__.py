@@ -27,7 +27,6 @@ def add_sklearn_documentation(sklearn_method, description):
             + imported_method.__doc__
         )
 
-# List of HPO methods you want to import
 hpo_methods = [
     {"method_name": "GridSearchCV", "description": "Description for GridSearchCV"},
     {"method_name": "RandomizedSearchCV", "description": "Description for RandomizedSearchCV"},
