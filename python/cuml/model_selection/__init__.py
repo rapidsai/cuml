@@ -33,10 +33,10 @@ hpo_methods = [
     {"method_name": "BayesSearchCV", "description": "Description for BayesSearchCV"},
     {"method_name": "OptunaSearchCV", "description": "Description for OptunaSearchCV"},
     {"method_name": "HyperbandSearchCV", "description": "Description for HyperbandSearchCV"},
-    # Add more methods here with their descriptions
+    # Add more methods here with their descriptions, i feel that this would make it easier
 ]
 
-# Import and document HPO methods
+# Import and document the HPO methods
 for method_info in hpo_methods:
     add_sklearn_documentation(method_info["method_name"], method_info["description"])
 
