@@ -17,18 +17,30 @@
 from cuml.model_selection._split import train_test_split
 from cuml.model_selection._split import StratifiedKFold
 from cuml.internals.import_utils import has_sklearn
+import sklearn
 
-if has_sklearn():
-    from sklearn.model_selection import GridSearchCV
+def add_sklearn_documentation(sklearn_method, description):
+    if has_sklearn():
+        imported_method = getattr(sklearn.model_selection, sklearn_method)
+        imported_method.__doc__ = (
+            f"This code is developed and maintained by scikit-learn and imported by cuML to maintain the familiar sklearn namespace structure. cuML includes tests to ensure full compatibility of these wrappers with CUDA-based data and cuML estimators, but all of the underlying code is due to the scikit-learn developers.\n\n{description}\n\n"
+            + imported_method.__doc__
+        )
 
-    GridSearchCV.__doc__ = (
-        """
-    This code is developed and maintained by scikit-learn and imported
-    by cuML to maintain the familiar sklearn namespace structure.
-    cuML includes tests to ensure full compatibility of these wrappers
-    with CUDA-based data and cuML estimators, but all of the underlying code
-    is due to the scikit-learn developers.\n\n"""
-        + GridSearchCV.__doc__
-    )
+# List of HPO methods you want to import
+hpo_methods = [
+    {"method_name": "GridSearchCV", "description": "Description for GridSearchCV"},
+    {"method_name": "RandomizedSearchCV", "description": "Description for RandomizedSearchCV"},
+    {"method_name": "BayesSearchCV", "description": "Description for BayesSearchCV"},
+    {"method_name": "OptunaSearchCV", "description": "Description for OptunaSearchCV"},
+    {"method_name": "HyperbandSearchCV", "description": "Description for HyperbandSearchCV"},
+    # Add more methods here with their descriptions
+]
 
-__all__ = ["train_test_split", "GridSearchCV", "StratifiedKFold"]
+# Import and document HPO methods
+for method_info in hpo_methods:
+    add_sklearn_documentation(method_info["method_name"], method_info["description"])
+
+__all__ = ["train_test_split", "GridSearchCV", "StratifiedKFold", "RandomizedSearchCV", "BayesSearchCV", "OptunaSearchCV", "HyperbandSearchCV"]
+
+
