@@ -19,6 +19,7 @@ from cuml.model_selection._split import StratifiedKFold
 from cuml.internals.import_utils import has_sklearn
 import sklearn
 
+
 def add_sklearn_documentation(sklearn_method, description):
     if has_sklearn():
         imported_method = getattr(sklearn.model_selection, sklearn_method)
@@ -27,19 +28,43 @@ def add_sklearn_documentation(sklearn_method, description):
             + imported_method.__doc__
         )
 
+
 hpo_methods = [
-    {"method_name": "GridSearchCV", "description": "Description for GridSearchCV"},
-    {"method_name": "RandomizedSearchCV", "description": "Description for RandomizedSearchCV"},
-    {"method_name": "BayesSearchCV", "description": "Description for BayesSearchCV"},
-    {"method_name": "OptunaSearchCV", "description": "Description for OptunaSearchCV"},
-    {"method_name": "HyperbandSearchCV", "description": "Description for HyperbandSearchCV"},
+    {
+        "method_name": "GridSearchCV",
+        "description": "Description for GridSearchCV",
+    },
+    {
+        "method_name": "RandomizedSearchCV",
+        "description": "Description for RandomizedSearchCV",
+    },
+    {
+        "method_name": "BayesSearchCV",
+        "description": "Description for BayesSearchCV",
+    },
+    {
+        "method_name": "OptunaSearchCV",
+        "description": "Description for OptunaSearchCV",
+    },
+    {
+        "method_name": "HyperbandSearchCV",
+        "description": "Description for HyperbandSearchCV",
+    },
     # Add more methods here with their descriptions, i feel that this would make it easier
 ]
 
 # Import and document the HPO methods
 for method_info in hpo_methods:
-    add_sklearn_documentation(method_info["method_name"], method_info["description"])
+    add_sklearn_documentation(
+        method_info["method_name"], method_info["description"]
+    )
 
-__all__ = ["train_test_split", "GridSearchCV", "StratifiedKFold", "RandomizedSearchCV", "BayesSearchCV", "OptunaSearchCV", "HyperbandSearchCV"]
-
-
+__all__ = [
+    "train_test_split",
+    "GridSearchCV",
+    "StratifiedKFold",
+    "RandomizedSearchCV",
+    "BayesSearchCV",
+    "OptunaSearchCV",
+    "HyperbandSearchCV",
+]
