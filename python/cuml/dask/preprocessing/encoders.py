@@ -224,6 +224,7 @@ class OrdinalEncoder(
         :ref:`verbosity-levels` for more info.
 
     """
+
     def __init__(self, *, client=None, verbose=False, **kwargs) -> None:
         super().__init__(client=client, verbose=verbose, **kwargs)
 
