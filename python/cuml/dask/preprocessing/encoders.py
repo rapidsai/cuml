@@ -206,8 +206,9 @@ class OrdinalEncoder(
 
     Parameters
     ----------
-    categories : 'auto' an cupy.ndarray or a cudf.DataFrame, default='auto'
-                 Categories (unique values) per feature:
+    categories : :py:class:`cupy.ndarray` or :py:class`cudf.DataFrameq, default='auto'
+        Categories (unique values) per feature. All categories are expected to
+        fit on one GPU.
 
         - 'auto' : Determine categories automatically from the training data.
 
