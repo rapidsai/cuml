@@ -42,6 +42,15 @@ class BaseEncoder(BaseEstimator):
 
     """
 
+    def __init__(
+        self,
+        *,
+        handle=None,
+        verbose=False,
+        output_type=None,
+    ) -> None:
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+
     def _set_input_type(self, value):
         if self.input_type is None:
             self.input_type = value
@@ -651,14 +660,9 @@ class OrdinalEncoder(BaseEncoder):
             (`cuml.global_settings.output_type`) will be used. See
             :ref:`output-data-type-configuration` for more info.
         """
-        # This is called in `BaseEncoder` via a decorated __init__ method and the last
-        # three parameters are removed. The `output_type` in here is guaranteed to be
-        # `None`. Setting it again with a call to base init overrides the value with
-        # `None`.
-
-        # super().__init__(
-        #     handle=handle, verbose=verbose, output_type=output_type
-        # )
+        super().__init__(
+            handle=handle, verbose=verbose, output_type=output_type
+        )
 
         self.categories = categories
         self.dtype = dtype
