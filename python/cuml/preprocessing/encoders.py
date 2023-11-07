@@ -62,6 +62,24 @@ class BaseEncoder(Base, CheckFeaturesMixIn):
     """Base implementation for encoding categorical values, uses
     :py:class:`~cuml.preprocessing.LabelEncoder` for obtaining unique values.
 
+    Parameters
+    ----------
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output type. If
+        None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
+
     """
 
     def __init__(
