@@ -17,6 +17,7 @@
 from cuml.model_selection._split import train_test_split
 from cuml.model_selection._split import StratifiedKFold
 from cuml.internals.import_utils import has_sklearn
+from sklearn import model_selection
 import sklearn
 
 
