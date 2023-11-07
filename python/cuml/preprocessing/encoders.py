@@ -18,8 +18,6 @@ from typing import List, Optional, TypeVar
 import cuml.internals.logger as logger
 from cudf import DataFrame, Series
 from cuml import Base
-from cuml._thirdparty.sklearn.utils.skl_dependencies import BaseEstimator
-from cuml.common import input_to_cuml_array
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.safe_imports import (
     cpu_only_import,
@@ -36,7 +34,28 @@ cupyx = gpu_only_import("cupyx")
 GenericIndex = gpu_only_import_from("cudf", "GenericIndex")
 
 
-class BaseEncoder(BaseEstimator):
+class CheckFeaturesMixIn:
+    def _check_n_features(self, X, reset: bool = False):
+        n_features = X.shape[1]
+        if reset:
+            self.n_features_in_ = n_features
+            if hasattr(X, "columns"):
+                self.feature_names_in_ = [str(c) for c in X.columns]
+        else:
+            if not hasattr(self, 'n_features_in_'):
+                raise RuntimeError(
+                    "The reset parameter is False but there is no "
+                    "n_features_in_ attribute. Is this estimator fitted?"
+                )
+            if n_features != self.n_features_in_:
+                raise ValueError(
+                    'X has {} features, but this {} is expecting {} features '
+                    'as input.'.format(n_features, self.__class__.__name__,
+                                       self.n_features_in_)
+                )
+
+
+class BaseEncoder(Base, CheckFeaturesMixIn):
     """Base implementation for encoding categorical values, uses
     :py:class:`~cuml.preprocessing.LabelEncoder` for obtaining unique values.
 
