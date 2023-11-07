@@ -42,16 +42,19 @@ class CheckFeaturesMixIn:
             if hasattr(X, "columns"):
                 self.feature_names_in_ = [str(c) for c in X.columns]
         else:
-            if not hasattr(self, 'n_features_in_'):
+            if not hasattr(self, "n_features_in_"):
                 raise RuntimeError(
                     "The reset parameter is False but there is no "
                     "n_features_in_ attribute. Is this estimator fitted?"
                 )
             if n_features != self.n_features_in_:
                 raise ValueError(
-                    'X has {} features, but this {} is expecting {} features '
-                    'as input.'.format(n_features, self.__class__.__name__,
-                                       self.n_features_in_)
+                    "X has {} features, but this {} is expecting {} features "
+                    "as input.".format(
+                        n_features,
+                        self.__class__.__name__,
+                        self.n_features_in_,
+                    )
                 )
 
 
@@ -68,7 +71,9 @@ class BaseEncoder(Base, CheckFeaturesMixIn):
         verbose=False,
         output_type=None,
     ) -> None:
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(
+            handle=handle, verbose=verbose, output_type=output_type
+        )
 
     def _set_input_type(self, value):
         if self.input_type is None:
