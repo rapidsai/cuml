@@ -235,11 +235,9 @@ class OrdinalEncoder(
 
         Parameters
         ----------
-        X : :py:class:`dask_cudf.DataFrame` or a :py:class:`dask.array.Array` backed,
+        X : :py:class:`dask_cudf.DataFrame` or a CuPy backed :py:class:`dask.array.Array`.
             shape = (n_samples, n_features) The data to determine the categories of each
             feature.
-        y : None
-            Ignored. This parameter exists for compatibility only.
 
         Returns
         -------

@@ -43,6 +43,7 @@ def test_ordinal_encoder_df(client: Client) -> None:
     assert Xt_1.iloc[1, 1] == Xt.iloc[2, 1]
 
 
+@pytest.mark.mg
 @pytest.mark.parametrize("as_array", [True, False], ids=["cupy", "cudf"])
 def test_handle_unknown(client, as_array: bool) -> None:
     X = DataFrame({"data": [0, 1]})
