@@ -4,6 +4,7 @@ channels:
 - rapidsai
 - rapidsai-nightly
 - dask/label/dev
+- conda-forge/label/treelite_rc
 - conda-forge
 - nvidia
 dependencies:
@@ -68,7 +69,7 @@ dependencies:
 - sphinx<6
 - statsmodels
 - sysroot_linux-64==2.17
-- treelite==3.9.1
+- treelite==4.0.0rc1
 - umap-learn==0.5.3
 - pip:
   - dask-glm==0.3.0
