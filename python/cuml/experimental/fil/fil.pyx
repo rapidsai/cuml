@@ -54,7 +54,7 @@ from cuml.internals.safe_imports import (
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
 cdef extern from "treelite/c_api.h":
-    ctypedef void* ModelHandle
+    ctypedef void* TreeliteModelHandle
 
 
 cdef raft_proto_device_t get_device_type(arr):
@@ -94,7 +94,7 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
 
 cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil":
     forest_model import_from_treelite_handle(
-        ModelHandle,
+        TreeliteModelHandle,
         fil_tree_layout,
         uint32_t,
         optional[bool],
@@ -160,7 +160,7 @@ cdef class ForestInference_impl():
             tree_layout = fil_tree_layout.depth_first
 
         self.model = import_from_treelite_handle(
-            <ModelHandle><uintptr_t>model_handle,
+            <TreeliteModelHandle><uintptr_t>model_handle,
             tree_layout,
             align_bytes,
             use_double_precision_c,
