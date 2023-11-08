@@ -180,7 +180,7 @@ class LabelEncoder(Base):
         if _classes is not None:
             self.classes_ = _classes
         else:
-            self.classes_ = y.unique().sort_values(
+            self.classes_ = y.drop_duplicates().sort_values(
                 ignore_index=True
             )  # dedupe and sort
 
