@@ -34,8 +34,12 @@ if ! rapids-is-release-build; then
     alpha_spec=',>=0.0.0a0'
 fi
 
-for dep in cudf pylibraft raft-dask rmm rapids-dask-dependency dask-cuda; do
+for dep in cudf pylibraft raft-dask rmm; do
     sed -r -i "s/${dep}==(.*)\"/${dep}${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
+done
+
+for dep in dask-cuda rapids-dask-dependency; do
+    sed -r -i "s/${dep}==(.*)\"/${dep}==\1${alpha_spec}\"/g" ${pyproject_file}
 done
 
 if [[ $PACKAGE_CUDA_SUFFIX == "-cu12" ]]; then
