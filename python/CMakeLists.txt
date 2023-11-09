@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 include(../fetch_rapids.cmake)
 
-set(CUML_VERSION 23.12.00)
+set(CUML_VERSION 24.02.00)
 
 option(CUML_CPU "Build only cuML CPU Python components." OFF)
 set(language_list "C;CXX")
