@@ -79,7 +79,7 @@ classifiers = [
 
 [project.optional-dependencies]
 test = [
-    "dask-glm @ git+https://github.com/dask/dask-glm@main",
+    "dask-glm==0.3.0",
     "dask-ml",
     "hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master",
     "hypothesis>=6.0,<7",
