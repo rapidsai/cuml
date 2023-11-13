@@ -38,6 +38,10 @@ for dep in cudf pylibraft raft-dask rmm; do
     sed -r -i "s/${dep}==(.*)\"/${dep}${PACKAGE_CUDA_SUFFIX}==\1${alpha_spec}\"/g" ${pyproject_file}
 done
 
+for dep in dask-cuda rapids-dask-dependency; do
+    sed -r -i "s/${dep}==(.*)\"/${dep}==\1${alpha_spec}\"/g" ${pyproject_file}
+done
+
 if [[ $PACKAGE_CUDA_SUFFIX == "-cu12" ]]; then
     sed -i "s/cuda-python[<=>\.,0-9]*/cuda-python>=12.0,<13.0/g" ${pyproject_file}
     sed -i "s/cupy-cuda11x/cupy-cuda12x/g" ${pyproject_file}
