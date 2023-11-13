@@ -82,11 +82,14 @@ def _prep_training_data_sparse(c, X_train, y_train, partitions_per_worker):
     return X_da, y_da
 
 
-def make_classification_dataset(datatype, nrows, ncols, n_info, n_classes=2):
+def make_classification_dataset(
+    datatype, nrows, ncols, n_info, n_redundant=2, n_classes=2
+):
     X, y = make_classification(
         n_samples=nrows,
         n_features=ncols,
         n_informative=n_info,
+        n_redundant=n_redundant,
         n_classes=n_classes,
         random_state=0,
     )
@@ -318,6 +321,7 @@ def test_lbfgs(
     penalty="l2",
     l1_ratio=None,
     C=1.0,
+    standardization=False,
     n_classes=2,
     convert_to_sparse=False,
 ):
@@ -353,6 +357,7 @@ def test_lbfgs(
         penalty=penalty,
         l1_ratio=l1_ratio,
         C=C,
+        standardization=standardization,
         verbose=True,
     )
     lr.fit(X_dask, y_dask)
@@ -387,7 +392,7 @@ def test_lbfgs(
     sk_coef = sk_model.coef_
     sk_intercept = sk_model.intercept_
 
-    if sk_solver == "lbfgs":
+    if sk_solver == "lbfgs" and standardization is False:
         assert len(lr_coef) == len(sk_coef)
         assert array_equal(lr_coef, sk_coef, tolerance, with_sign=True)
         assert array_equal(
@@ -653,3 +658,204 @@ def test_exception_one_label(fit_intercept, client):
     lr = LogisticRegression(fit_intercept=fit_intercept)
     with pytest.raises(ValueError, match=err_msg):
         lr.fit(X, y)
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("n_parts", [2])
+@pytest.mark.parametrize("fit_intercept", [True])
+@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("delayed", [False])
+def test_standardization_basic(
+    n_parts,
+    fit_intercept,
+    datatype,
+    delayed,
+    client,
+    penalty="l2",
+    l1_ratio=None,
+    C=1.0,
+    n_classes=2,
+):
+    X = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], datatype)
+    y = np.array([1.0, 1.0, 0.0, 0.0], datatype)
+    # X[:, 0] *= 1000  # Scale up the first feature by 1000
+    X_train_dask, y_train_dask = _prep_training_data(client, X, y, n_parts)
+
+    # Logistic Regression without standardization
+    from cuml.dask.linear_model.logistic_regression import (
+        LogisticRegression as cumlLBFGS_dask,
+    )
+
+    mg = cumlLBFGS_dask(
+        standardization=True,
+        solver="qn",
+        fit_intercept=fit_intercept,
+        penalty=penalty,
+        l1_ratio=l1_ratio,
+        C=C,
+        verbose=True,
+    )
+    mg.fit(X_train_dask, y_train_dask)
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("fit_intercept", [False, True])
+@pytest.mark.parametrize(
+    "regularization",
+    [
+        ("none", 1.0, None),
+        ("l2", 2.0, None),
+        ("l1", 2.0, None),
+        ("elasticnet", 2.0, 0.2),
+    ],
+)
+@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("delayed", [False])
+@pytest.mark.parametrize("n_classes", [2, 8])
+def test_standardization_on_normal_dataset(
+    fit_intercept, regularization, datatype, delayed, n_classes, client
+):
+
+    penalty = regularization[0]
+    C = regularization[1]
+    l1_ratio = regularization[2]
+
+    # test correctness compared with scikit-learn
+    test_lbfgs(
+        nrows=1e5,
+        ncols=20,
+        n_parts=2,
+        fit_intercept=fit_intercept,
+        datatype=datatype,
+        delayed=delayed,
+        client=client,
+        penalty=penalty,
+        n_classes=n_classes,
+        C=C,
+        l1_ratio=l1_ratio,
+        standardization=True,
+    )
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("fit_intercept", [False])
+@pytest.mark.parametrize(
+    "regularization",
+    [
+        ("none", 1.0, None),
+        ("l2", 2.0, None),
+        ("l1", 2.0, None),
+        ("elasticnet", 2.0, 0.2),
+    ],
+)
+@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("delayed", [False])
+@pytest.mark.parametrize("n_classes", [2])
+def test_standardization_on_scaled_dataset(
+    fit_intercept, regularization, datatype, delayed, n_classes, client
+):
+
+    penalty = regularization[0]
+    C = regularization[1]
+    l1_ratio = regularization[2]
+    nrows = int(1e5)
+    ncols = 2
+    n_info = 2
+    n_redundant = 0
+    n_parts = 2
+    tol = 1e-10
+
+    from sklearn.model_selection import train_test_split
+    from cuml.dask.linear_model.logistic_regression import (
+        LogisticRegression as cumlLBFGS_dask,
+    )
+    from sklearn.preprocessing import StandardScaler
+
+    X, y = make_classification_dataset(
+        datatype,
+        nrows,
+        ncols,
+        n_info,
+        n_redundant=n_redundant,
+        n_classes=n_classes,
+    )
+    X[:, 0] *= 1000  # Scale up the first features by 1000
+    X[:, 0] += 50  # Shift the first features by 50
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=0
+    )
+
+    def to_dask_data(X_train, X_test, y_train, y_test):
+        X_train_dask, y_train_dask = _prep_training_data(
+            client, X_train, y_train, n_parts
+        )
+        X_test_dask, y_test_dask = _prep_training_data(
+            client, X_test, y_test, n_parts
+        )
+        return (X_train_dask, X_test_dask, y_train_dask, y_test_dask)
+
+    # run MG with standardization=True
+    mg = cumlLBFGS_dask(
+        standardization=True,
+        solver="qn",
+        fit_intercept=fit_intercept,
+        penalty=penalty,
+        l1_ratio=l1_ratio,
+        C=C,
+        tol=tol,
+        verbose=6,
+    )
+    X_train_dask, X_test_dask, y_train_dask, _ = to_dask_data(
+        X_train, X_test, y_train, y_test
+    )
+    mg.fit(X_train_dask, y_train_dask)
+    mg_preds = mg.predict(X_test_dask, delayed=delayed).compute().to_numpy()
+    mg_accuracy = accuracy_score(y_test, mg_preds)
+
+    # run CPU with StandardScaler
+    scaler = StandardScaler()
+    scaler.fit(X_train)
+    X_train_scaled = scaler.transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+    from sklearn.linear_model import LogisticRegression as CPULR
+
+    sk_solver = "lbfgs" if penalty == "l2" or penalty == "none" else "saga"
+    cpu = CPULR(
+        solver=sk_solver,
+        fit_intercept=fit_intercept,
+        penalty=penalty,
+        l1_ratio=l1_ratio,
+        C=C,
+        tol=tol,
+    )
+    cpu.fit(X_train_scaled, y_train)
+    cpu_preds = cpu.predict(X_test_scaled)
+    cpu_accuracy = accuracy_score(y_test, cpu_preds)
+
+    # running MG with standardization=False
+    mgoff = cumlLBFGS_dask(
+        standardization=False,
+        solver="qn",
+        fit_intercept=fit_intercept,
+        penalty=penalty,
+        l1_ratio=l1_ratio,
+        C=C,
+        tol=tol,
+        verbose=6,
+    )
+    X_train_ds, X_test_ds, y_train_dask, _ = to_dask_data(
+        X_train_scaled, X_test_scaled, y_train, y_test
+    )
+    mgoff.fit(X_train_ds, y_train_dask)
+    mgoff_preds = (
+        mgoff.predict(X_test_ds, delayed=delayed).compute().to_numpy()
+    )
+    mgoff_accuracy = accuracy_score(y_test, mgoff_preds)
+
+    print(f"GPU_on accuracy: {mg_accuracy}")
+    print(f"GPU_off accuracy: {mgoff_accuracy}")
+    print(f"CPU accuracy: {cpu_accuracy}")
+    assert (mg_accuracy >= cpu_accuracy) | (
+        np.abs(mg_accuracy - cpu_accuracy) < 0.002
+    )
