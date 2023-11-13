@@ -47,6 +47,7 @@ std::vector<float> getUniquelabelsMG(const raft::handle_t& handle,
 void standardize(raft::handle_t& handle,
                  std::vector<Matrix::Data<float>*>& input_data,
                  Matrix::PartDescriptor& input_desc,
+                 bool col_major,
                  float* mean_vector,
                  float* stddev_vector);
 
@@ -59,6 +60,7 @@ void standardize(raft::handle_t& handle,
  * @param[out] coef: learned coefficients
  * @param[in] pams: model parameters
  * @param[in] X_col_major: true if X is stored column-major
+ * @param[in] standardization: whether to standardize the dataset before training
  * @param[in] n_classes: number of outputs (number of classes or `1` for regression)
  * @param[out] f: host pointer holding the final objective value
  * @param[out] num_iters: host pointer holding the actual number of iterations taken
@@ -70,6 +72,7 @@ void qnFit(raft::handle_t& handle,
            float* coef,
            const qn_params& pams,
            bool X_col_major,
+           bool standardization,
            int n_classes,
            float* f,
            int* num_iters);

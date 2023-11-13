@@ -75,6 +75,7 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         float *coef,
         const qn_params& pams,
         bool X_col_major,
+        bool standardization,
         int n_classes,
         float *f,
         int *num_iters) except +
@@ -83,13 +84,6 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         const handle_t& handle,
         PartDescriptor &input_desc,
         vector[floatData_t*] labels) except+
-
-    cdef void standardize(
-        handle_t& handle,
-        vector[floatData_t *] input_data,
-        PartDescriptor &input_desc,
-        float *mean_vec,
-        float *stddev_vec) except+
 
     cdef void qnFitSparse(
         handle_t& handle,
@@ -108,8 +102,9 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
 
 class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
-    def __init__(self, **kwargs):
+    def __init__(self, *, standardization=False, **kwargs):
         super(LogisticRegressionMG, self).__init__(**kwargs)
+        self.standardization = standardization
 
     @property
     @cuml.internals.api_base_return_array_skipall
@@ -195,29 +190,13 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         assert len(input_data) == 1, f"Currently support only one (X, y) pair in the list. Received {len(input_data)} pairs."
         self.is_col_major = False
         order = 'F' if self.is_col_major else 'C'
+
+        print(f"pyx rank {rank} gets input_data {input_data}")
         super().fit(input_data, n_rows, n_cols, parts_rank_size, rank, order=order)
-
-    def _standardize(self, X, input_desc):
-        self.mean_ = CumlArray.zeros(
-            self.n_cols, dtype=self.dtype
-        )
-        self.stddev_ = CumlArray.zeros(
-            self.n_cols, dtype=self.dtype
-        )
-
-        cdef uintptr_t mean_ptr = self.mean_.ptr
-        cdef uintptr_t stddev_ptr = self.stddev_.ptr
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        standardize(
-            handle_[0],
-            deref(<vector[floatData_t*]*><uintptr_t>X),
-            deref(<PartDescriptor*><uintptr_t>input_desc),
-            <float*>mean_ptr,
-            <float*>stddev_ptr)
 
     @cuml.internals.api_base_return_any_skipall
     def _fit(self, X, y, coef_ptr, input_desc):
+
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef float objective32
         cdef int num_iters
@@ -239,6 +218,9 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
         sparse_input = isinstance(X, list)
 
+        if self.standardization:
+            assert not sparse_input, "standardization for sparse vectors is not supported yet"
+
         if self.dtype == np.float32:
             if sparse_input is False:
                 qnFit(
@@ -249,6 +231,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                     <float*>mat_coef_ptr,
                     qnpams,
                     self.is_col_major,
+                    self.standardization,
                     self._num_classes,
                     <float*> &objective32,
                     <int*> &num_iters)
