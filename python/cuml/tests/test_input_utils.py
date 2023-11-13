@@ -396,7 +396,7 @@ def get_input(
         result = cudf.DataFrame(rand_mat, index=index)
 
     if type == "cudf-series":
-        result = cudf.Series(rand_mat, index=index)
+        result = cudf.Series(rand_mat.reshape(nrows), index=index)
 
     if type == "pandas":
         result = pdDF(cp.asnumpy(rand_mat), index=index)
