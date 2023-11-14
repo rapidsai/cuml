@@ -94,6 +94,8 @@ _parameters_docstrings = {
     "    Ignored when return_sparse=False.\n"
     "    If True, values in the inverse transform below this parameter\n"
     "    are clipped to 0.",
+    None: "{name} : None\n"
+    "    Ignored. This parameter exists for compatibility only."
 }
 
 _parameter_possible_values = [

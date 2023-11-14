@@ -18,6 +18,7 @@ from typing import List, Optional, TypeVar
 import cuml.internals.logger as logger
 from cudf import DataFrame, Series
 from cuml import Base
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.safe_imports import (
     cpu_only_import,
@@ -365,58 +366,41 @@ class OneHotEncoder(BaseEncoder):
         """Check if X_cat has categories that are not present in encoder_cat"""
         return not X_cat.isin(encoder_cat).all()
 
+    @generate_docstring(y=None)
     def fit(self, X, y=None):
-        """
-        Fit OneHotEncoder to X.
-
-        Parameters
-        ----------
-        X : cuDF.DataFrame or cupy.ndarray, shape = (n_samples, n_features)
-            The data to determine the categories of each feature.
-        y : None
-            Ignored. This parameter exists for compatibility only.
-
-        Returns
-        -------
-        self
+        """Fit OneHotEncoder to X.
 
         """
         self._validate_keywords()
         self._fit(X, True)
         return self
 
+    @generate_docstring(
+        y=None,
+        return_values={
+            "name": "X_out",
+            "description": "Transformed input.",
+            "type": "sparse matrix if sparse=True else a 2-d array",
+        }
+    )
     def fit_transform(self, X, y=None):
         """
-        Fit OneHotEncoder to X, then transform X.
-        Equivalent to fit(X).transform(X).
-
-        Parameters
-        ----------
-        X : cudf.DataFrame or cupy.ndarray, shape = (n_samples, n_features)
-            The data to encode.
-
-        Returns
-        -------
-        X_out : sparse matrix if sparse=True else a 2-d array
-            Transformed input.
+        Fit OneHotEncoder to X, then transform X.  Equivalent to fit(X).transform(X).
 
         """
         X = self._check_input(X)
         return self.fit(X).transform(X)
 
+    @generate_docstring(
+        return_values={
+            "name": "X_out",
+            "description": "Transformed input.",
+            "type": "sparse matrix if sparse=True else a 2-d array",
+        }
+    )
     def transform(self, X):
-        """
-        Transform X using one-hot encoding.
+        """Transform X using one-hot encoding.
 
-        Parameters
-        ----------
-        X : cudf.DataFrame or cupy.ndarray
-            The data to encode.
-
-        Returns
-        -------
-        X_out : sparse matrix if sparse=True else a 2-d array
-            Transformed input.
         """
         self._check_is_fitted()
         X = self._check_input(X)
@@ -721,38 +705,24 @@ class OrdinalEncoder(BaseEncoder):
         # performed in `LabelEncoder.fit()`
         return inp
 
+    @generate_docstring(y=None)
     def fit(self, X, y=None) -> "OrdinalEncoder":
-        """
-        Fit Ordinal to X.
-
-        Parameters
-        ----------
-        X : cuDF.DataFrame or cupy.ndarray, shape = (n_samples, n_features)
-            The data to determine the categories of each feature.
-        y : None
-            Ignored. This parameter exists for compatibility only.
-
-        Returns
-        -------
-        self
+        """Fit Ordinal to X.
 
         """
         self._fit(X, need_drop=False)
         return self
 
+    @generate_docstring(
+        return_values={
+            "name": "X_out",
+            "description": "Transformed input.",
+            "type": "Type is specified by the `output_type` parameter.",
+        }
+    )
     def transform(self, X):
-        """
-        Transform X using ordinal encoding.
+        """Transform X using ordinal encoding.
 
-        Parameters
-        ----------
-        X : cudf.DataFrame or cupy.ndarray
-            The data to encode.
-
-        Returns
-        -------
-        X_out : Type is specified by the `output_type` parameter.
-            Transformed input.
         """
         self._check_n_features(X, reset=False)
 
@@ -765,19 +735,17 @@ class OrdinalEncoder(BaseEncoder):
         r = DataFrame(result)
         return _get_output(self.output_type, self.input_type, r, self.dtype)
 
+    @generate_docstring(
+        y=None,
+        return_values={
+            "name": "X_out",
+            "description": "Transformed input.",
+            "type": "Type is specified by the `output_type` parameter.",
+        }
+    )
     def fit_transform(self, X, y=None):
-        """Fit OrdinalEncoder to X, then transform X. Equivalent to
-        fit(X).transform(X).
+        """Fit OrdinalEncoder to X, then transform X. Equivalent to fit(X).transform(X).
 
-        Parameters
-        ----------
-        X : cudf.DataFrame or cupy.ndarray, shape = (n_samples, n_features)
-            The data to encode.
-
-        Returns
-        -------
-        X_out : Type is specified by the `output_type` parameter.
-            Transformed output.
         """
         X = self._check_input(X)
         return self.fit(X).transform(X)
