@@ -621,3 +621,27 @@ def test_sparse_nlp20news(dtype, nlp_20news, client):
     cpu_preds = cpu.predict(X_test)
     cpu_score = accuracy_score(y_test, cpu_preds.tolist())
     assert cuml_score >= cpu_score or np.abs(cuml_score - cpu_score) < 1e-3
+
+
+@pytest.mark.parametrize("fit_intercept", [False, True])
+def test_exception_one_label(fit_intercept, client):
+    n_parts = 2
+    datatype = "float32"
+
+    X = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], datatype)
+    y = np.array([1.0, 1.0, 1.0, 1.0], datatype)
+    X_df, y_df = _prep_training_data(client, X, y, n_parts)
+
+    err_msg = "This solver needs samples of at least 2 classes in the data, but the data contains only one class: 1.0"
+
+    from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
+
+    mg = cumlLBFGS_dask(fit_intercept=fit_intercept, verbose=6)
+    with pytest.raises(RuntimeError, match=err_msg):
+        mg.fit(X_df, y_df)
+
+    from sklearn.linear_model import LogisticRegression
+
+    lr = LogisticRegression(fit_intercept=fit_intercept)
+    with pytest.raises(ValueError, match=err_msg):
+        lr.fit(X, y)

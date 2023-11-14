@@ -195,6 +195,13 @@ class LogisticRegression(LinearRegression):
         for p in partsToSizes:
             aggregated_partsToSizes[p[0]][1] += p[1]
 
-        return f.fit(
+        ret_status = f.fit(
             [(inp_X, inp_y)], n_rows, n_cols, aggregated_partsToSizes, rank
         )
+
+        if len(f.classes_) == 1:
+            raise ValueError(
+                f"This solver needs samples of at least 2 classes in the data, but the data contains only one class: {f.classes_[0]}"
+            )
+
+        return ret_status

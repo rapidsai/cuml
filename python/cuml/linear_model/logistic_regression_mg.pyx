@@ -174,6 +174,9 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         else:
             self._num_classes_dim = self._num_classes
 
+        if solves_classification and self._num_classes == 1:
+            self._num_classes_dim = 1
+
         if self.fit_intercept:
             coef_size = (self.n_cols + 1, self._num_classes_dim)
         else:
@@ -207,6 +210,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         self._num_classes = len(self.classes_)
         self.loss = "sigmoid" if self._num_classes <= 2 else "softmax"
         self.prepare_for_fit(self._num_classes)
+
         cdef uintptr_t mat_coef_ptr = self.coef_.ptr
 
         cdef qn_params qnpams = self.solver_model.qnparams.params
