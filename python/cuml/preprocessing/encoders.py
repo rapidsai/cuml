@@ -368,9 +368,7 @@ class OneHotEncoder(BaseEncoder):
 
     @generate_docstring(y=None)
     def fit(self, X, y=None):
-        """Fit OneHotEncoder to X.
-
-        """
+        """Fit OneHotEncoder to X."""
         self._validate_keywords()
         self._fit(X, True)
         return self
@@ -381,7 +379,7 @@ class OneHotEncoder(BaseEncoder):
             "name": "X_out",
             "description": "Transformed input.",
             "type": "sparse matrix if sparse=True else a 2-d array",
-        }
+        },
     )
     def fit_transform(self, X, y=None):
         """
@@ -399,9 +397,7 @@ class OneHotEncoder(BaseEncoder):
         }
     )
     def transform(self, X):
-        """Transform X using one-hot encoding.
-
-        """
+        """Transform X using one-hot encoding."""
         self._check_is_fitted()
         X = self._check_input(X)
 
@@ -707,9 +703,7 @@ class OrdinalEncoder(BaseEncoder):
 
     @generate_docstring(y=None)
     def fit(self, X, y=None) -> "OrdinalEncoder":
-        """Fit Ordinal to X.
-
-        """
+        """Fit Ordinal to X."""
         self._fit(X, need_drop=False)
         return self
 
@@ -721,9 +715,7 @@ class OrdinalEncoder(BaseEncoder):
         }
     )
     def transform(self, X):
-        """Transform X using ordinal encoding.
-
-        """
+        """Transform X using ordinal encoding."""
         self._check_n_features(X, reset=False)
 
         result = {}
@@ -741,12 +733,10 @@ class OrdinalEncoder(BaseEncoder):
             "name": "X_out",
             "description": "Transformed input.",
             "type": "Type is specified by the `output_type` parameter.",
-        }
+        },
     )
     def fit_transform(self, X, y=None):
-        """Fit OrdinalEncoder to X, then transform X. Equivalent to fit(X).transform(X).
-
-        """
+        """Fit OrdinalEncoder to X, then transform X. Equivalent to fit(X).transform(X)."""
         X = self._check_input(X)
         return self.fit(X).transform(X)
 
