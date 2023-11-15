@@ -106,9 +106,6 @@ class OneHotEncoder(
         will be denoted as None.
     """
 
-    def __init__(self, *, client=None, verbose=False, **kwargs):
-        super().__init__(client=client, verbose=verbose, **kwargs)
-
     @with_cupy_rmm
     def fit(self, X):
         """Fit a multi-node multi-gpu OneHotEncoder to X.
