@@ -187,9 +187,7 @@ def create_cuml_array_input(input_type, dtype, shape, order):
 
     input_type = "cupy" if input_type is None else input_type
 
-    multidimensional = (
-        isinstance(shape, tuple) and len([d for d in shape if d > 1]) > 1
-    )
+    multidimensional = isinstance(shape, tuple) and len(shape) > 1
     assume(
         not (
             input_type == "series"
