@@ -30,9 +30,7 @@ dcDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
 
 class DelayedFitTransformMixin:
     def fit_transform(self, X, delayed=True):
-        """
-        Fit the encoder to X, then transform X.
-        Equivalent to fit(X).transform(X).
+        """Fit the encoder to X, then transform X. Equivalent to fit(X).transform(X).
 
         Parameters
         ----------
@@ -113,8 +111,7 @@ class OneHotEncoder(
 
     @with_cupy_rmm
     def fit(self, X):
-        """
-        Fit a multi-node multi-gpu OneHotEncoder to X.
+        """Fit a multi-node multi-gpu OneHotEncoder to X.
 
         Parameters
         ----------
@@ -138,8 +135,7 @@ class OneHotEncoder(
 
     @with_cupy_rmm
     def transform(self, X, delayed=True):
-        """
-        Transform X using one-hot encoding.
+        """Transform X using one-hot encoding.
 
         Parameters
         ----------
@@ -163,10 +159,9 @@ class OneHotEncoder(
 
     @with_cupy_rmm
     def inverse_transform(self, X, delayed=True):
-        """
-        Convert the data back to the original representation.
-        In case unknown categories are encountered (all zeros in the
-        one-hot encoding), ``None`` is used to represent this category.
+        """Convert the data back to the original representation. In case unknown
+        categories are encountered (all zeros in the one-hot encoding), ``None`` is used
+        to represent this category.
 
         Parameters
         ----------
@@ -209,9 +204,7 @@ class OrdinalEncoder(
     categories : :py:class:`cupy.ndarray` or :py:class`cudf.DataFrameq, default='auto'
         Categories (unique values) per feature. All categories are expected to
         fit on one GPU.
-
         - 'auto' : Determine categories automatically from the training data.
-
         - DataFrame/ndarray : ``categories[col]`` holds the categories expected
           in the feature col.
     handle_unknown : {'error', 'ignore'}, default='error'
@@ -223,16 +216,11 @@ class OrdinalEncoder(
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.  See
         :ref:`verbosity-levels` for more info.
-
     """
-
-    def __init__(self, *, client=None, verbose=False, **kwargs) -> None:
-        super().__init__(client=client, verbose=verbose, **kwargs)
 
     @with_cupy_rmm
     def fit(self, X):
-        """
-        Fit Ordinal to X.
+        """Fit Ordinal to X.
 
         Parameters
         ----------
@@ -243,7 +231,6 @@ class OrdinalEncoder(
         Returns
         -------
         self
-
         """
         from cuml.preprocessing.ordinalencoder_mg import OrdinalEncoderMG
 
@@ -258,8 +245,7 @@ class OrdinalEncoder(
 
     @with_cupy_rmm
     def transform(self, X, delayed=True):
-        """
-        Transform X using ordinal encoding.
+        """Transform X using ordinal encoding.
 
         Parameters
         ----------
@@ -271,19 +257,17 @@ class OrdinalEncoder(
         X_out :
             Transformed input.
         """
-        Xt = self._transform(
+        return self._transform(
             X,
             n_dims=2,
             delayed=delayed,
             output_dtype=self._get_internal_model().dtype,
             output_collection_type=self.datatype,
         )
-        return Xt
 
     @with_cupy_rmm
     def inverse_transform(self, X, delayed=True):
-        """
-        Convert the data back to the original representation.
+        """Convert the data back to the original representation.
 
         Parameters
         ----------

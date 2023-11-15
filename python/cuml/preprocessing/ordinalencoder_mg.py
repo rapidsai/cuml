@@ -25,8 +25,6 @@ DataFrame = gpu_only_import_from("cudf", "DataFrame")
 
 class OrdinalEncoderMG(OrdinalEncoder):
     def __init__(self, *, client=None, **kwargs):
-        # force cupy output type, otherwise, dask doesn't would construct the output as
-        # numpy array.
         super().__init__(**kwargs)
         self.client = client
 

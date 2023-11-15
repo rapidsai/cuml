@@ -61,48 +61,14 @@ class CheckFeaturesMixIn:
 
 class BaseEncoder(Base, CheckFeaturesMixIn):
     """Base implementation for encoding categorical values, uses
-    :py:class:`~cuml.preprocessing.LabelEncoder` for obtaining unique values.
-
-    Parameters
-    ----------
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
-        Return results and set estimator attributes to the indicated output
-        type. If None, the output type set at the module level
-        (`cuml.global_settings.output_type`) will be used. See
-        :ref:`output-data-type-configuration` for more info.
-
-    """
-
-    def __init__(
-        self,
-        *,
-        handle=None,
-        verbose=False,
-        output_type=None,
-    ) -> None:
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+    :py:class:`~cuml.preprocessing.LabelEncoder` for obtaining unique values."""
 
     def _set_input_type(self, value):
         if self.input_type is None:
             self.input_type = value
 
     def _check_input(self, X, is_categories=False):
-        """
-        If input is cupy, convert it to a DataFrame with 0 copies
-        """
+        """If input is cupy, convert it to a DataFrame with 0 copies."""
         if isinstance(X, cp.ndarray):
             self._set_input_type("array")
             if is_categories:
@@ -113,9 +79,16 @@ class BaseEncoder(Base, CheckFeaturesMixIn):
             return X
 
     def _check_input_fit(self, X, is_categories=False):
-        """Helper function used in fit. Can be overridden in subclasses."""
+        """Helper function used in fit, can be overridden in subclasses."""
         self._check_n_features(X, reset=True)
         return self._check_input(X, is_categories=is_categories)
+
+    def _unique(self, inp):
+        """Helper function used in fit. Can be overridden in subclasses."""
+
+        # Default implementation passes input through directly since this is
+        # performed in `LabelEncoder.fit()`
+        return inp
 
     def _fit(self, X, need_drop: bool):
         X = self._check_input_fit(X)
@@ -165,9 +138,7 @@ class BaseEncoder(Base, CheckFeaturesMixIn):
 
     @property
     def categories_(self):
-        """
-        Returns categories used for the one hot encoding in the correct order.
-        """
+        """Returns categories used for the one hot encoding in the correct order."""
         return [self._encoders[f].classes_ for f in self._features]
 
 
@@ -247,7 +218,6 @@ class OneHotEncoder(BaseEncoder):
         ``drop_idx_[i]`` is the index in ``categories_[i]`` of the category to
         be dropped for each feature. None if all the transformed features will
         be retained.
-
     """
 
     def __init__(
@@ -307,7 +277,7 @@ class OneHotEncoder(BaseEncoder):
             raise NotFittedError(msg)
 
     def _compute_drop_idx(self):
-        """Helper to compute indices to drop from category to drop"""
+        """Helper to compute indices to drop from category to drop."""
         if self.drop is None:
             return None
         elif isinstance(self.drop, str) and self.drop == "first":
@@ -355,15 +325,8 @@ class OneHotEncoder(BaseEncoder):
         """Helper function used in fit. Can be overridden in subclasses."""
         return self._check_input(X, is_categories=is_categories)
 
-    def _unique(self, inp):
-        """Helper function used in fit. Can be overridden in subclasses."""
-
-        # Default implementation passes input through directly since this is
-        # performed in `LabelEncoder.fit()`
-        return inp
-
     def _has_unknown(self, X_cat, encoder_cat):
-        """Check if X_cat has categories that are not present in encoder_cat"""
+        """Check if X_cat has categories that are not present in encoder_cat."""
         return not X_cat.isin(encoder_cat).all()
 
     @generate_docstring(y=None)
@@ -479,10 +442,9 @@ class OneHotEncoder(BaseEncoder):
             )
 
     def inverse_transform(self, X):
-        """
-        Convert the data back to the original representation.
-        In case unknown categories are encountered (all zeros in the
-        one-hot encoding), ``None`` is used to represent this category.
+        """Convert the data back to the original representation. In case unknown
+        categories are encountered (all zeros in the one-hot encoding), ``None`` is used
+        to represent this category.
 
         The return type is the same as the type of the input used by the first
         call to fit on this estimator instance.
@@ -655,9 +617,7 @@ class OrdinalEncoder(BaseEncoder):
         ----------
         categories : 'auto' an cupy.ndarray or a cudf.DataFrame, default='auto'
                      Categories (unique values) per feature:
-
             - 'auto' : Determine categories automatically from the training data.
-
             - DataFrame/ndarray : ``categories[col]`` holds the categories expected
               in the feature col.
         handle_unknown : {'error', 'ignore'}, default='error'
@@ -682,7 +642,6 @@ class OrdinalEncoder(BaseEncoder):
             type. If None, the output type set at the module level
             (`cuml.global_settings.output_type`) will be used. See
             :ref:`output-data-type-configuration` for more info.
-
         """
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
@@ -694,16 +653,11 @@ class OrdinalEncoder(BaseEncoder):
 
         self.input_type = None
 
-    def _unique(self, inp):
-        """Helper function used in fit. Can be overridden in subclasses."""
-
-        # Default implementation passes input through directly since this is
-        # performed in `LabelEncoder.fit()`
-        return inp
-
     @generate_docstring(y=None)
     def fit(self, X, y=None) -> "OrdinalEncoder":
-        """Fit Ordinal to X."""
+        """Fit Ordinal to X.
+
+        """
         self._fit(X, need_drop=False)
         return self
 
@@ -715,7 +669,9 @@ class OrdinalEncoder(BaseEncoder):
         }
     )
     def transform(self, X):
-        """Transform X using ordinal encoding."""
+        """Transform X using ordinal encoding.
+
+        """
         self._check_n_features(X, reset=False)
 
         result = {}
@@ -736,7 +692,9 @@ class OrdinalEncoder(BaseEncoder):
         },
     )
     def fit_transform(self, X, y=None):
-        """Fit OrdinalEncoder to X, then transform X. Equivalent to fit(X).transform(X)."""
+        """Fit OrdinalEncoder to X, then transform X. Equivalent to fit(X).transform(X).
+
+        """
         X = self._check_input(X)
         return self.fit(X).transform(X)
 
@@ -757,7 +715,7 @@ class OrdinalEncoder(BaseEncoder):
 
         result = {}
         for feature in self._features:
-            Xi = X[feature]
+            Xi = _slice_feat(X, feature)
             inv = self._encoders[feature].inverse_transform(Xi)
             result[feature] = inv
 

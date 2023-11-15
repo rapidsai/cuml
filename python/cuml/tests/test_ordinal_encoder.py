@@ -15,20 +15,21 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.preprocessing import OrdinalEncoder as skOrdinalEncoder
+
 from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.preprocessing import OrdinalEncoder
-from sklearn.preprocessing import OrdinalEncoder as skOrdinalEncoder
 
 DataFrame = gpu_only_import_from("cudf", "DataFrame")
 
 
-def test_ordinal_df() -> None:
-    X = DataFrame({"gender": ["M", "F", "F"], "int": [1, 3, 2]})
+def test_ordinal_encoder_df() -> None:
+    X = DataFrame({"cat": ["M", "F", "F"], "num": [1, 3, 2]})
     enc = OrdinalEncoder()
     enc.fit(X)
     Xt = enc.transform(X)
 
-    X_1 = DataFrame({"gender": ["F", "F"], "int": [1, 2]})
+    X_1 = DataFrame({"cat": ["F", "F"], "num": [1, 2]})
     Xt_1 = enc.transform(X_1)
 
     assert Xt_1.iloc[0, 0] == Xt.iloc[1, 0]
@@ -37,11 +38,33 @@ def test_ordinal_df() -> None:
     assert Xt_1.iloc[1, 1] == Xt.iloc[2, 1]
 
     inv_Xt = enc.inverse_transform(Xt)
-
     inv_Xt_1 = enc.inverse_transform(Xt_1)
 
     assert inv_Xt.equals(X)
     assert inv_Xt_1.equals(X_1)
+
+    assert enc.n_features_in_ == 2
+
+
+def test_ordinal_encoder_array() -> None:
+    X = DataFrame({"A": [4, 1, 1], "B": [1, 3, 2]}).values
+    enc = OrdinalEncoder()
+    enc.fit(X)
+    Xt = enc.transform(X)
+
+    X_1 = DataFrame({"A": [1, 1], "B": [1, 2]}).values
+    Xt_1 = enc.transform(X_1)
+
+    assert Xt_1[0, 0] == Xt[1, 0]
+    assert Xt_1[1, 0] == Xt[1, 0]
+    assert Xt_1[0, 1] == Xt[0, 1]
+    assert Xt_1[1, 1] == Xt[2, 1]
+
+    inv_Xt = enc.inverse_transform(Xt)
+    inv_Xt_1 = enc.inverse_transform(Xt_1)
+
+    cp.testing.assert_allclose(X, inv_Xt)
+    cp.testing.assert_allclose(X_1, inv_Xt_1)
 
     assert enc.n_features_in_ == 2
 
@@ -62,7 +85,7 @@ def test_ordinal_array() -> None:
 
 
 def test_output_type() -> None:
-    X = DataFrame({"gender": ["M", "F", "F"], "int": [1, 3, 2]})
+    X = DataFrame({"cat": ["M", "F", "F"], "num": [1, 3, 2]})
     enc = OrdinalEncoder(output_type="cupy").fit(X)
     assert isinstance(enc.transform(X), cp.ndarray)
     enc = OrdinalEncoder(output_type="cudf").fit(X)
@@ -77,14 +100,13 @@ def test_output_type() -> None:
 
 
 def test_feature_names() -> None:
-    X = DataFrame({"gender": ["M", "F", "F"], "int": [1, 3, 2]})
+    X = DataFrame({"cat": ["M", "F", "F"], "num": [1, 3, 2]})
     enc = OrdinalEncoder().fit(X)
-    assert enc.feature_names_in_ == ["gender", "int"]
+    assert enc.feature_names_in_ == ["cat", "num"]
 
 
 @pytest.mark.parametrize("as_array", [True, False], ids=["cupy", "cudf"])
 def test_handle_unknown(as_array: bool) -> None:
-
     X = DataFrame({"data": [0, 1]})
     Y = DataFrame({"data": [3, 1]})
 
