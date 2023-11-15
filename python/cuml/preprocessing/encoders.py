@@ -61,7 +61,8 @@ class CheckFeaturesMixIn:
 
 class BaseEncoder(Base, CheckFeaturesMixIn):
     """Base implementation for encoding categorical values, uses
-    :py:class:`~cuml.preprocessing.LabelEncoder` for obtaining unique values."""
+    :py:class:`~cuml.preprocessing.LabelEncoder` for obtaining unique values.
+    """
 
     def _set_input_type(self, value):
         if self.input_type is None:
@@ -655,9 +656,7 @@ class OrdinalEncoder(BaseEncoder):
 
     @generate_docstring(y=None)
     def fit(self, X, y=None) -> "OrdinalEncoder":
-        """Fit Ordinal to X.
-
-        """
+        """Fit Ordinal to X."""
         self._fit(X, need_drop=False)
         return self
 
@@ -669,9 +668,7 @@ class OrdinalEncoder(BaseEncoder):
         }
     )
     def transform(self, X):
-        """Transform X using ordinal encoding.
-
-        """
+        """Transform X using ordinal encoding."""
         self._check_n_features(X, reset=False)
 
         result = {}
@@ -692,9 +689,7 @@ class OrdinalEncoder(BaseEncoder):
         },
     )
     def fit_transform(self, X, y=None):
-        """Fit OrdinalEncoder to X, then transform X. Equivalent to fit(X).transform(X).
-
-        """
+        """Fit OrdinalEncoder to X, then transform X. Equivalent to fit(X).transform(X)."""
         X = self._check_input(X)
         return self.fit(X).transform(X)
 
