@@ -676,7 +676,7 @@ def test_standardization_basic(
     C=1.0,
     n_classes=2,
 ):
-    X = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], datatype)
+    X = np.array([(10, 2), (10, 3), (20, 1), (30, 1)], datatype)
     y = np.array([1.0, 1.0, 0.0, 0.0], datatype)
     # X[:, 0] *= 1000  # Scale up the first feature by 1000
     X_train_dask, y_train_dask = _prep_training_data(client, X, y, n_parts)
@@ -696,6 +696,11 @@ def test_standardization_basic(
         verbose=True,
     )
     mg.fit(X_train_dask, y_train_dask)
+
+    from sklearn.preprocessing import StandardScaler
+
+    scaler = StandardScaler()
+    scaler.fit(X)
 
 
 @pytest.mark.mg
@@ -738,7 +743,7 @@ def test_standardization_on_normal_dataset(
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("fit_intercept", [False])
+@pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize(
     "regularization",
     [
@@ -763,8 +768,8 @@ def test_standardization_on_scaled_dataset(
     n_info = 2
     n_redundant = 0
     n_parts = 2
-    tol = 1e-10
 
+    from sklearn.linear_model import LogisticRegression as CPULR
     from sklearn.model_selection import train_test_split
     from cuml.dask.linear_model.logistic_regression import (
         LogisticRegression as cumlLBFGS_dask,
@@ -795,30 +800,29 @@ def test_standardization_on_scaled_dataset(
         return (X_train_dask, X_test_dask, y_train_dask, y_test_dask)
 
     # run MG with standardization=True
-    mg = cumlLBFGS_dask(
+    mgon = cumlLBFGS_dask(
         standardization=True,
         solver="qn",
         fit_intercept=fit_intercept,
         penalty=penalty,
         l1_ratio=l1_ratio,
         C=C,
-        tol=tol,
         verbose=6,
     )
     X_train_dask, X_test_dask, y_train_dask, _ = to_dask_data(
         X_train, X_test, y_train, y_test
     )
-    mg.fit(X_train_dask, y_train_dask)
-    mg_preds = mg.predict(X_test_dask, delayed=delayed).compute().to_numpy()
-    mg_accuracy = accuracy_score(y_test, mg_preds)
+    mgon.fit(X_train_dask, y_train_dask)
+    mgon_preds = (
+        mgon.predict(X_test_dask, delayed=delayed).compute().to_numpy()
+    )
+    mgon_accuracy = accuracy_score(y_test, mgon_preds)
 
     # run CPU with StandardScaler
     scaler = StandardScaler()
     scaler.fit(X_train)
     X_train_scaled = scaler.transform(X_train)
     X_test_scaled = scaler.transform(X_test)
-
-    from sklearn.linear_model import LogisticRegression as CPULR
 
     sk_solver = "lbfgs" if penalty == "l2" or penalty == "none" else "saga"
     cpu = CPULR(
@@ -827,7 +831,6 @@ def test_standardization_on_scaled_dataset(
         penalty=penalty,
         l1_ratio=l1_ratio,
         C=C,
-        tol=tol,
     )
     cpu.fit(X_train_scaled, y_train)
     cpu_preds = cpu.predict(X_test_scaled)
@@ -841,7 +844,6 @@ def test_standardization_on_scaled_dataset(
         penalty=penalty,
         l1_ratio=l1_ratio,
         C=C,
-        tol=tol,
         verbose=6,
     )
     X_train_ds, X_test_ds, y_train_dask, _ = to_dask_data(
@@ -853,9 +855,10 @@ def test_standardization_on_scaled_dataset(
     )
     mgoff_accuracy = accuracy_score(y_test, mgoff_preds)
 
-    print(f"GPU_on accuracy: {mg_accuracy}")
-    print(f"GPU_off accuracy: {mgoff_accuracy}")
-    print(f"CPU accuracy: {cpu_accuracy}")
-    assert (mg_accuracy >= cpu_accuracy) | (
-        np.abs(mg_accuracy - cpu_accuracy) < 0.002
+    assert (mgon_accuracy >= cpu_accuracy) | (
+        np.abs(mgon_accuracy - cpu_accuracy) < 1e-3
+    )
+
+    assert (mgon_accuracy >= mgoff_accuracy) | (
+        np.abs(mgon_accuracy - mgoff_accuracy) < 1e-3
     )

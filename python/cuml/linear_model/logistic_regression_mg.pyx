@@ -191,7 +191,6 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         self.is_col_major = False
         order = 'F' if self.is_col_major else 'C'
 
-        print(f"pyx rank {rank} gets input_data {input_data}")
         super().fit(input_data, n_rows, n_cols, parts_rank_size, rank, order=order)
 
     @cuml.internals.api_base_return_any_skipall
