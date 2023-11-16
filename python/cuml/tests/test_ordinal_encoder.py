@@ -23,8 +23,14 @@ from cuml.preprocessing import OrdinalEncoder
 DataFrame = gpu_only_import_from("cudf", "DataFrame")
 
 
-def test_ordinal_encoder_df() -> None:
+@pytest.fixture
+def test_sample():
     X = DataFrame({"cat": ["M", "F", "F"], "num": [1, 3, 2]})
+    return X
+
+
+def test_ordinal_encoder_df(test_sample) -> None:
+    X = test_sample
     enc = OrdinalEncoder()
     enc.fit(X)
     Xt = enc.transform(X)
@@ -84,8 +90,8 @@ def test_ordinal_array() -> None:
     cp.testing.assert_allclose(Xt, Xt_sk)
 
 
-def test_output_type() -> None:
-    X = DataFrame({"cat": ["M", "F", "F"], "num": [1, 3, 2]})
+def test_output_type(test_sample) -> None:
+    X = test_sample
     enc = OrdinalEncoder(output_type="cupy").fit(X)
     assert isinstance(enc.transform(X), cp.ndarray)
     enc = OrdinalEncoder(output_type="cudf").fit(X)
@@ -99,9 +105,8 @@ def test_output_type() -> None:
     assert isinstance(enc.transform(X), DataFrame)
 
 
-def test_feature_names() -> None:
-    X = DataFrame({"cat": ["M", "F", "F"], "num": [1, 3, 2]})
-    enc = OrdinalEncoder().fit(X)
+def test_feature_names(test_sample) -> None:
+    enc = OrdinalEncoder().fit(test_sample)
     assert enc.feature_names_in_ == ["cat", "num"]
 
 
