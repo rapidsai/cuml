@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -110,6 +110,7 @@ std::size_t run(const raft::handle_t& handle,
                 Index_ min_pts,
                 Index_* labels,
                 Index_* core_indices,
+                const Type_f* sample_weight,
                 int algo_vd,
                 int algo_adj,
                 int algo_ccl,
@@ -146,6 +147,8 @@ std::size_t run(const raft::handle_t& handle,
   std::size_t ex_scan_size  = raft::alignTo<std::size_t>(sizeof(Index_) * batch_size, align);
   std::size_t row_cnt_size  = raft::alignTo<std::size_t>(sizeof(Index_) * batch_size, align);
   std::size_t labels_size   = raft::alignTo<std::size_t>(sizeof(Index_) * N, align);
+  std::size_t wght_sum_size =
+    sample_weight != nullptr ? raft::alignTo<std::size_t>(sizeof(Type_f) * batch_size, align) : 0;
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
 
@@ -157,8 +160,8 @@ std::size_t run(const raft::handle_t& handle,
          (unsigned long)batch_size);
 
   if (workspace == NULL) {
-    auto size =
-      adj_size + core_pts_size + m_size + vd_size + ex_scan_size + row_cnt_size + 2 * labels_size;
+    auto size = adj_size + core_pts_size + m_size + vd_size + ex_scan_size + row_cnt_size +
+                2 * labels_size + wght_sum_size;
     return size;
   }
 
@@ -183,6 +186,11 @@ std::size_t run(const raft::handle_t& handle,
   temp += labels_size;
   Index_* work_buffer = (Index_*)temp;
   temp += labels_size;
+  Type_f* wght_sum = nullptr;
+  if (sample_weight != nullptr) {
+    wght_sum = (Type_f*)temp;
+    temp += wght_sum_size;
+  }
 
   // Compute the mask
   // 1. Compute the part owned by this worker (reversed order of batches to
@@ -196,13 +204,31 @@ std::size_t run(const raft::handle_t& handle,
 
     CUML_LOG_DEBUG("--> Computing vertex degrees");
     raft::common::nvtx::push_range("Trace::Dbscan::VertexDeg");
-    VertexDeg::run<Type_f, Index_>(
-      handle, adj, vd, x, eps, N, D, algo_vd, start_vertex_id, n_points, stream, metric);
+    VertexDeg::run<Type_f, Index_>(handle,
+                                   adj,
+                                   vd,
+                                   wght_sum,
+                                   x,
+                                   sample_weight,
+                                   eps,
+                                   N,
+                                   D,
+                                   algo_vd,
+                                   start_vertex_id,
+                                   n_points,
+                                   stream,
+                                   metric);
     raft::common::nvtx::pop_range();
 
     CUML_LOG_DEBUG("--> Computing core point mask");
     raft::common::nvtx::push_range("Trace::Dbscan::CorePoints");
-    CorePoints::compute<Index_>(handle, vd, core_pts, min_pts, start_vertex_id, n_points, stream);
+    if (wght_sum != nullptr) {
+      CorePoints::compute<Type_f, Index_>(
+        handle, wght_sum, core_pts, min_pts, start_vertex_id, n_points, stream);
+    } else {
+      CorePoints::compute<Index_, Index_>(
+        handle, vd, core_pts, min_pts, start_vertex_id, n_points, stream);
+    }
     raft::common::nvtx::pop_range();
   }
   // 2. Exchange with the other workers
@@ -224,8 +250,20 @@ std::size_t run(const raft::handle_t& handle,
     if (i > 0) {
       CUML_LOG_DEBUG("--> Computing vertex degrees");
       raft::common::nvtx::push_range("Trace::Dbscan::VertexDeg");
-      VertexDeg::run<Type_f, Index_>(
-        handle, adj, vd, x, eps, N, D, algo_vd, start_vertex_id, n_points, stream, metric);
+      VertexDeg::run<Type_f, Index_>(handle,
+                                     adj,
+                                     vd,
+                                     nullptr,
+                                     x,
+                                     nullptr,
+                                     eps,
+                                     N,
+                                     D,
+                                     algo_vd,
+                                     start_vertex_id,
+                                     n_points,
+                                     stream,
+                                     metric);
       raft::common::nvtx::pop_range();
     }
     raft::update_host(&curradjlen, vd + n_points, 1, stream);

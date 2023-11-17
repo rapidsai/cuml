@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,10 @@ namespace Dbscan {
  *             indices of each core point. If the number of core points is less
  *             than n_rows, the right will be padded with -1. Setting this to
  *             NULL will prevent calculating the core sample indices
+ * @param[in] sample_weight (size n_rows) input array containing the
+ *            weight of each sample to be taken instead of a plain sum to
+ *            fulfill the min_pts criteria for core points.
+ *            NULL will default to weights of 1 for all samples
  * @param[in] max_bytes_per_batch the maximum number of megabytes to be used for
  *            each batch of the pairwise distance calculation. This enables the
  *            trade off between memory usage and algorithm execution time.
@@ -60,6 +64,7 @@ void fit(const raft::handle_t& handle,
          raft::distance::DistanceType metric,
          int* labels,
          int* core_sample_indices   = nullptr,
+         float* sample_weight       = nullptr,
          size_t max_bytes_per_batch = 0,
          int verbosity              = CUML_LEVEL_INFO,
          bool opg                   = false);
@@ -72,6 +77,7 @@ void fit(const raft::handle_t& handle,
          raft::distance::DistanceType metric,
          int* labels,
          int* core_sample_indices   = nullptr,
+         double* sample_weight      = nullptr,
          size_t max_bytes_per_batch = 0,
          int verbosity              = CUML_LEVEL_INFO,
          bool opg                   = false);
@@ -85,6 +91,7 @@ void fit(const raft::handle_t& handle,
          raft::distance::DistanceType metric,
          int64_t* labels,
          int64_t* core_sample_indices = nullptr,
+         float* sample_weight         = nullptr,
          size_t max_bytes_per_batch   = 0,
          int verbosity                = CUML_LEVEL_INFO,
          bool opg                     = false);
@@ -97,6 +104,7 @@ void fit(const raft::handle_t& handle,
          raft::distance::DistanceType metric,
          int64_t* labels,
          int64_t* core_sample_indices = nullptr,
+         double* sample_weight        = nullptr,
          size_t max_bytes_per_batch   = 0,
          int verbosity                = CUML_LEVEL_INFO,
          bool opg                     = false);

@@ -174,4 +174,11 @@ class LogisticRegression(LinearRegression):
     def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
         inp_X = concatenate([X for X, _ in data])
         inp_y = concatenate([y for _, y in data])
-        return f.fit([(inp_X, inp_y)], n_rows, n_cols, partsToSizes, rank)
+        n_ranks = max([p[0] for p in partsToSizes]) + 1
+        aggregated_partsToSizes = [[i, 0] for i in range(n_ranks)]
+        for p in partsToSizes:
+            aggregated_partsToSizes[p[0]][1] += p[1]
+
+        return f.fit(
+            [(inp_X, inp_y)], n_rows, n_cols, aggregated_partsToSizes, rank
+        )

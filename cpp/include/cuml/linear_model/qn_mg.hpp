@@ -21,11 +21,23 @@
 
 #include <cumlprims/opg/matrix/data.hpp>
 #include <cumlprims/opg/matrix/part_descriptor.hpp>
+#include <vector>
 using namespace MLCommon;
 
 namespace ML {
 namespace GLM {
 namespace opg {
+
+/**
+ * @brief Calculate unique class labels across multiple GPUs in a multi-node environment.
+ * @param[in] handle: the internal cuml handle object
+ * @param[in] input_desc: PartDescriptor object for the input
+ * @param[in] labels: labels data
+ * @returns host vector that stores the distinct labels
+ */
+std::vector<float> getUniquelabelsMG(const raft::handle_t& handle,
+                                     Matrix::PartDescriptor& input_desc,
+                                     std::vector<Matrix::Data<float>*>& labels);
 
 /**
  * @brief performs MNMG fit operation for the logistic regression using quasi newton methods

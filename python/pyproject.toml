@@ -18,8 +18,8 @@ requires = [
     "cuda-python>=11.7.1,<12.0a0",
     "cython>=3.0.0",
     "ninja",
-    "pylibraft==23.10.*",
-    "rmm==23.10.*",
+    "pylibraft==24.2.*",
+    "rmm==24.2.*",
     "scikit-build>=0.13.1",
     "setuptools",
     "treelite==3.9.1",
@@ -48,7 +48,7 @@ filterwarnings = [
 
 [project]
 name = "cuml"
-version = "23.10.00"
+dynamic = ["version"]
 description = "cuML - RAPIDS ML Algorithms"
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [
@@ -57,17 +57,16 @@ authors = [
 license = { text = "Apache 2.0" }
 requires-python = ">=3.9"
 dependencies = [
-    "cudf==23.10.*",
-    "cupy-cuda11x>=12.0.0",
-    "dask-cuda==23.10.*",
-    "dask-cudf==23.10.*",
-    "dask>=2023.7.1",
-    "distributed>=2023.7.1",
+    "cudf==24.2.*",
+    "cupy>=12.0.0",
+    "dask-cuda==24.2.*",
+    "dask-cudf==24.2.*",
     "joblib>=0.11",
     "numba>=0.57",
-    "pylibraft==23.10.*",
-    "raft-dask==23.10.*",
-    "rmm==23.10.*",
+    "pylibraft==24.2.*",
+    "raft-dask==24.2.*",
+    "rapids-dask-dependency==24.2.*",
+    "rmm==24.2.*",
     "scipy>=1.8.0",
     "treelite==3.9.1",
     "treelite_runtime==3.9.1",
@@ -81,7 +80,7 @@ classifiers = [
 
 [project.optional-dependencies]
 test = [
-    "dask-glm @ git+https://github.com/dask/dask-glm@main",
+    "dask-glm==0.3.0",
     "dask-ml",
     "hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master",
     "hypothesis>=6.0,<7",
@@ -105,6 +104,9 @@ Documentation = "https://docs.rapids.ai/api/cuml/stable/"
 
 [tool.setuptools]
 license-files = ["LICENSE"]
+
+[tool.setuptools.dynamic]
+version = {file = "cuml/VERSION"}
 
 [tool.black]
 line-length = 79

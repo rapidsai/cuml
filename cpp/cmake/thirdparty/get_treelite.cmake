@@ -87,7 +87,7 @@ function(find_and_configure_treelite)
 
     # Tell cmake where it can find the generated treelite-config.cmake we wrote.
     include("${rapids-cmake-dir}/export/find_package_root.cmake")
-    rapids_export_find_package_root(BUILD Treelite [=[${CMAKE_CURRENT_LIST_DIR}]=] cuml-exports)
+    rapids_export_find_package_root(BUILD Treelite [=[${CMAKE_CURRENT_LIST_DIR}]=] EXPORT_SET cuml-exports)
 endfunction()
 
 find_and_configure_treelite(VERSION     3.9.1
