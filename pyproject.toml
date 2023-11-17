@@ -17,4 +17,4 @@ ignore = ['E501']
 
 
 [tool.run-clang-tidy]
-ignore = "[.]cu$|_deps|examples/kmeans/"
+ignore = "[.]cu$|include/rapids/|_deps|examples/kmeans/"
