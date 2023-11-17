@@ -12,9 +12,6 @@ if [[ "$(arch)" == "aarch64" ]]; then
     python -m pip install cmake
 fi
 
-# Always install latest dask for testing
-python -m pip install git+https://github.com/dask/dask.git@main git+https://github.com/dask/distributed.git@main git+https://github.com/rapidsai/dask-cuda.git@branch-24.02
-
 # echo to expand wildcard before adding `[extra]` requires for pip
 python -m pip install $(echo ./dist/cuml*.whl)[test]
 
