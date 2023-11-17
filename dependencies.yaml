@@ -175,10 +175,8 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cudf==24.2.*
-          - dask>=2023.9.2
           - dask-cuda==24.2.*
           - dask-cudf==24.2.*
-          - distributed>=2023.9.2
           - joblib>=0.11
           - numba>=0.57
             # TODO: Is scipy really a hard dependency, or should
@@ -186,13 +184,11 @@ dependencies:
             # installation/run_constrained for conda)?
           - scipy>=1.8.0
           - raft-dask==24.2.*
+          - rapids-dask-dependency==24.2.*
           - *treelite
       - output_types: [conda, requirements]
         packages:
           - cupy>=12.0.0
-      - output_types: conda
-        packages:
-          - dask-core>=2023.9.2
       - output_types: pyproject
         packages:
           - *treelite_runtime
