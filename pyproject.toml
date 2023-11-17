@@ -17,4 +17,5 @@ ignore = ['E501']
 
 
 [tool.run-clang-tidy]
-ignore = "[.]cu$|include/rapids/|_deps|examples/kmeans/"
+ignore = "[.]cu$|_deps|examples/kmeans/"
+header-filter = ".*cuml/cpp/(src|include|bench|comms).*|.*include/rapids/.*"

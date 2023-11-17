@@ -70,6 +70,12 @@ def parse_args():
         help="Regex used to select files for checking",
     )
     argparser.add_argument(
+        "-header-filter",
+        type=str,
+        default=None,
+        help="Regex used to filter headers from checking",
+    )
+    argparser.add_argument(
         "-j", type=int, default=-1, help="Number of parallel jobs to launch."
     )
     argparser.add_argument(
@@ -204,10 +210,11 @@ def run_clang_tidy(cmd, args):
     command, is_cuda = get_tidy_args(cmd, args.exe)
     tidy_cmd = [
         args.exe,
-        "-header-filter='.*cuml/cpp/(src|include|bench|comms).*'",
         cmd["file"],
         "--",
     ]
+    if args.header_filter is not None:
+        tidy_cmd.insert(1, f"-header-filter='{args.header_filter}'")
     tidy_cmd.extend(command)
     all_passed = True
     out = []
