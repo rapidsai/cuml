@@ -95,8 +95,9 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - clang==16.0.6
-          - clang-tools==16.0.6
+          # clang 15 required by libcudacxx.
+          - clang==15.0.7
+          - clang-tools==15.0.7
           - ninja
           - tomli
   common_build:
@@ -111,10 +112,10 @@ dependencies:
           - cxx-compiler
           - gmock>=1.13.0
           - gtest>=1.13.0
-          - libcumlprims==23.12.*
-          - libraft==23.12.*
-          - libraft-headers==23.12.*
-          - librmm==23.12.*
+          - libcumlprims==24.2.*
+          - libraft==24.2.*
+          - libraft-headers==24.2.*
+          - librmm==24.2.*
     specific:
       - output_types: conda
         matrices:
@@ -153,8 +154,8 @@ dependencies:
           - scikit-build>=0.13.1
           - cython>=3.0.0
           - &treelite treelite==3.9.1
-          - pylibraft==23.12.*
-          - rmm==23.12.*
+          - pylibraft==24.2.*
+          - rmm==24.2.*
       - output_types: pyproject
         packages:
           - wheel
@@ -174,25 +175,21 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cudf==23.12.*
-          - dask>=2023.9.2
-          - dask-cuda==23.12.*
-          - dask-cudf==23.12.*
-          - distributed>=2023.9.2
+          - cudf==24.2.*
+          - dask-cuda==24.2.*
+          - dask-cudf==24.2.*
           - joblib>=0.11
           - numba>=0.57
             # TODO: Is scipy really a hard dependency, or should
             # we make it optional (i.e. an extra for pip
             # installation/run_constrained for conda)?
           - scipy>=1.8.0
-          - raft-dask==23.12.*
+          - raft-dask==24.2.*
+          - rapids-dask-dependency==24.2.*
           - *treelite
       - output_types: [conda, requirements]
         packages:
           - cupy>=12.0.0
-      - output_types: conda
-        packages:
-          - dask-core>=2023.9.2
       - output_types: pyproject
         packages:
           - *treelite_runtime
@@ -346,15 +343,13 @@ dependencies:
         packages:
           - pip
           - pip:
-              # TODO: Figure out what to do with this dependency
-              # since the repo is now archived.
-              - git+https://github.com/dask/dask-glm@main
+              - dask-glm==0.3.0
           # TODO: remove pin once a release that includes fixes for the error
           # is released: https://github.com/rapidsai/cuml/issues/5514
           - hdbscan<=0.8.30
       - output_types: pyproject
         packages:
-          - dask-glm @ git+https://github.com/dask/dask-glm@main
+          - dask-glm==0.3.0
             # TODO: Can we stop pulling from the master branch now that there was a release in October?
           - hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master
   test_notebooks:

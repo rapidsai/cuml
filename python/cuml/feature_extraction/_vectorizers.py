@@ -598,7 +598,9 @@ class CountVectorizer(_VectorizerMixin):
         if self._fixed_vocabulary:
             self.vocabulary_ = self.vocabulary
         else:
-            self.vocabulary_ = tokenized_df["token"].unique().sort_values()
+            self.vocabulary_ = (
+                tokenized_df["token"].drop_duplicates().sort_values()
+            )
 
         count_df = self._count_vocab(tokenized_df)
 

@@ -38,7 +38,7 @@ example `setup.py --singlegpu`) are:
 
 RAFT's Python and Cython is located in the [RAFT repository](https://github.com/rapidsai/raft/python). It was designed to be included in projects as opposed to be distributed by itself, so at build time, **setup.py creates a symlink from cuML, located in `/python/cuml/raft/` to the Python folder of RAFT**.
 
-For developers that need to modify RAFT code, please refer to the [RAFT Developer Guide](https://github.com/rapidsai/raft/blob/branch-23.04/BUILD.md#developer-guide) for recommendations.
+For developers that need to modify RAFT code, please refer to the [RAFT Developer Guide](https://github.com/rapidsai/raft/blob/branch-24.02/docs/source/build.md) for recommendations.
 
 To configure RAFT at build time:
 
@@ -50,7 +50,7 @@ The RAFT Python code gets included in the cuML build and distributable artifacts
 
 ### Build Requirements
 
-cuML's convenience [development yaml files](https://github.com/rapidsai/cuml/tree/branch-23.04/environments) includes all dependencies required to build cuML.
+cuML's convenience [development yaml files](https://github.com/rapidsai/cuml/tree/branch-24.02/environments) includes all dependencies required to build cuML.
 
 To build cuML's Python package, the following dependencies are required:
 
@@ -70,8 +70,7 @@ Packages required for multigpu algorithms*:
 - ucx-py version matching the cuML version
 - dask-cudf version matching the cuML version
 - nccl>=2.5
-- dask>=2023.9.2
-- distributed>=2023.9.2
+- rapids-dask-dependency version matching the cuML version
 
 * this can be avoided with `--singlegpu` argument flag.
 

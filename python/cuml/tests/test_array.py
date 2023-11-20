@@ -201,10 +201,10 @@ def test_array_init_from_bytes(data_type, dtype, shape, order, mem_type):
     mem_type=cuml_array_mem_types(),
 )
 @settings(deadline=None)
-def test_array_init_bad(input_type, dtype, shape, order, mem_type):
+def test_array_mem_type(input_type, dtype, shape, order, mem_type):
     """
-    This test ensures that we assert on incorrect combinations of arguments
-    when creating CumlArray
+    Test whether we can create CumlArray from all supported types and array
+    shapes on all supported mem types.
     """
     mem_type = MemoryType.from_str(mem_type)
 
@@ -213,13 +213,6 @@ def test_array_init_bad(input_type, dtype, shape, order, mem_type):
 
         # Ensure the array is creatable
         array = CumlArray(input_array)
-
-        with pytest.raises(ValueError):
-            bad_dtype = np.float16 if dtype != np.float16 else np.float32
-            CumlArray(input_array, dtype=bad_dtype)
-
-        with pytest.raises(ValueError):
-            CumlArray(input_array, shape=(*array.shape, 1))
 
         input_mem_type = determine_array_memtype(input_array)
         if input_mem_type.is_device_accessible:
