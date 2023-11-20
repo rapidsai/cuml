@@ -95,8 +95,9 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - clang==16.0.6
-          - clang-tools==16.0.6
+          # clang 15 required by libcudacxx.
+          - clang==15.0.7
+          - clang-tools==15.0.7
           - ninja
           - tomli
   common_build:
