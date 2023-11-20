@@ -8,8 +8,8 @@ channels:
 - nvidia
 dependencies:
 - c-compiler
-- clang-tools==16.0.6
-- clang==16.0.6
+- clang-tools==15.0.7
+- clang==15.0.7
 - cmake>=3.26.4
 - cuda-version=11.8
 - cudatoolkit
