@@ -705,6 +705,9 @@ def test_tsne_pickle(tmpdir):
 def test_svc_pickle(tmpdir, datatype, params, multiclass, sparse):
     result = {}
 
+    if sparse and params["probability"]:
+        pytest.skip("Probabilistic SVC does not support sparse input")
+
     def create_mod():
         model = cuml.svm.SVC(**params)
         iris = load_iris()
