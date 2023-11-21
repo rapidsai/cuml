@@ -171,19 +171,19 @@ class LabelEncoder(Base):
             A fitted instance of itself to allow method chaining
 
         """
-        if _classes is None:
-            y = self._to_cudf_series(y)
-
         self._validate_keywords()
 
-        self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
-        if _classes is not None:
-            self.classes_ = _classes
-        else:
-            self.classes_ = y.drop_duplicates().sort_values(
-                ignore_index=True
+        if _classes is None:
+            y = (
+                self._to_cudf_series(y)
+                .drop_duplicates()
+                .sort_values(ignore_index=True)
             )  # dedupe and sort
+            self.classes_ = y
+        else:
+            self.classes_ = _classes
 
+        self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
         self._fitted = True
         return self
 
