@@ -106,12 +106,13 @@ void standardize_impl(const raft::handle_t& handle,
   raft::linalg::multiplyScalar(mean_vector, mean_vector, weight, D, stream);
   comm.allreduce(mean_vector, mean_vector, D, raft::comms::op_t::SUM, stream);
   comm.sync_stream(stream);
-  // auto log_mean_str = raft::arr2Str(mean_vector, D, "mean_str", handle.get_stream(), 8);
-  // CUML_LOG_DEBUG("rank %d mean vector %s", rank, log_mean_str.c_str());
+  auto log_mean_str = raft::arr2Str(mean_vector, D, "mean_str", handle.get_stream(), 8);
+  CUML_LOG_DEBUG("rank %d mean vector %s", rank, log_mean_str.c_str());
 
-  std::vector<T> cpu_mean(D);
-  raft::copy(cpu_mean.data(), mean_vector, D, stream);
-  CUML_LOG_DEBUG("rank %d cpu_mean vector %0.8f and %0.8f", rank, cpu_mean[0], cpu_mean[1]);
+  // std::vector<T> cpu_mean(D);
+  // raft::copy(cpu_mean.data(), mean_vector, D, stream);
+  // CUML_LOG_DEBUG("rank %d cpu_mean vector %0.8f,%0.8f,%0.8f,%0.8f", rank, cpu_mean[0],
+  // cpu_mean[1], cpu_mean[2], cpu_mean[3]);
 
   raft::stats::vars(stddev_vector, input_data, mean_vector, D, num_rows, false, !col_major, stream);
   weight = T(1) * num_rows / T(input_desc.M);
@@ -120,17 +121,18 @@ void standardize_impl(const raft::handle_t& handle,
   comm.sync_stream(stream);
   // auto log_var_str = raft::arr2Str(stddev_vector, D, "var_str", handle.get_stream(), 8);
   // CUML_LOG_DEBUG("rank %d var vector %s", rank, log_var_str.c_str());
-  std::vector<T> cpu_var(D);
-  raft::copy(cpu_var.data(), stddev_vector, D, stream);
-  CUML_LOG_DEBUG("rank %d cpu_var vector %0.8f and %0.8f", rank, cpu_var[0], cpu_var[1]);
+  // std::vector<T> cpu_var(D);
+  // raft::copy(cpu_var.data(), stddev_vector, D, stream);
+  // CUML_LOG_DEBUG("rank %d cpu_var vector %0.8f,%0.8f,%0.8f", rank, cpu_var[0], cpu_var[1]);
 
   raft::linalg::sqrt(stddev_vector, stddev_vector, D, handle.get_stream());
 
-  // auto log_std_str = raft::arr2Str(stddev_vector, D, "std_str", handle.get_stream(), 8);
-  // CUML_LOG_DEBUG("rank %d std vector %s", rank, log_std_str.c_str());
-  std::vector<T> cpu_std(D);
-  raft::copy(cpu_std.data(), stddev_vector, D, stream);
-  CUML_LOG_DEBUG("rank %d cpu_std vector %0.8f and %0.8f", rank, cpu_std[0], cpu_std[1]);
+  auto log_std_str = raft::arr2Str(stddev_vector, D, "std_str", handle.get_stream(), 8);
+  CUML_LOG_DEBUG("rank %d std vector %s", rank, log_std_str.c_str());
+  // std::vector<T> cpu_std(D);
+  // raft::copy(cpu_std.data(), stddev_vector, D, stream);
+  // CUML_LOG_DEBUG("rank %d cpu_std vector %0.8f,%0.8f,%0.8f", rank, cpu_std[0], cpu_std[1],
+  // cpu_std[2]);
 
   raft::stats::meanCenter(
     input_data, input_data, mean_vector, D, num_rows, !col_major, !col_major, stream);
@@ -145,33 +147,22 @@ void standardize_impl(const raft::handle_t& handle,
 
 template <typename T>
 void undo_standardize_impl(const raft::handle_t& handle,
-                           std::vector<Matrix::Data<T>*>& input_data,
+                           T* input_data,
                            const Matrix::PartDescriptor& input_desc,
                            bool col_major,
                            T* mean_vector,
                            T* stddev_vector)
 {
-  auto n_streams = input_desc.blocksOwnedBy(input_desc.rank).size();
-  cudaStream_t streams[n_streams];
-  for (std::uint32_t i = 0; i < n_streams; i++) {
-    RAFT_CUDA_TRY(cudaStreamCreate(&streams[i]));
-  }
+  int D        = input_desc.N;
+  int rank     = input_desc.rank;
+  int num_rows = input_desc.totalElementsOwnedBy(rank);
+  auto stream  = handle.get_stream();
 
-  int D               = input_desc.N;
-  bool row_major      = col_major ? false : true;
-  bool bcastAlongRows = true;
-  Matrix::Data<T> stddev_data(stddev_vector, D);
-  Matrix::opg::matrixVectorBinaryMult(input_data,
-                                      input_desc,
-                                      stddev_data,
-                                      row_major,
-                                      bcastAlongRows,
-                                      handle.get_comms(),
-                                      streams,
-                                      n_streams);
+  raft::matrix::matrixVectorBinaryMult(
+    input_data, stddev_vector, num_rows, D, !col_major, !col_major, stream);
 
-  Matrix::Data<T> mu_data(mean_vector, D);
-  Stats::opg::mean_add(input_data, input_desc, mu_data, handle.get_comms(), streams, n_streams);
+  raft::stats::meanAdd(
+    input_data, input_data, mean_vector, D, num_rows, !col_major, !col_major, stream);
 }
 
 template <typename T>
@@ -263,7 +254,9 @@ void qnFit_impl(raft::handle_t& handle,
                 input_desc.rank,
                 input_desc.uniqueRanks().size());
 
-  auto log_coef_str = raft::arr2Str(coef, input_desc.N + pams.fit_intercept, "coef", stream, 16);
+  int n_coefs = (n_classes == 2 ? 1 : n_classes);
+  auto log_coef_str =
+    raft::arr2Str(coef, n_coefs * (input_desc.N + pams.fit_intercept), "coef", stream, 16);
   CUML_LOG_DEBUG("rank %d gets coefs %s", input_desc.rank, log_coef_str.c_str());
   if (standardization) {
     // adapt intercepts and coefficients to avoid actual standardization in model inference
@@ -299,17 +292,11 @@ void qnFit_impl(raft::handle_t& handle,
     }
 
     auto log_adaptcoef_str =
-      raft::arr2Str(coef, input_desc.N + pams.fit_intercept, "adaptcoef", stream, 16);
+      raft::arr2Str(coef, n_coefs * (input_desc.N + pams.fit_intercept), "adaptcoef", stream, 16);
     CUML_LOG_DEBUG("rank %d gets adapted coefs %s", input_desc.rank, log_adaptcoef_str.c_str());
     // TODO: undo standardization
     undo_standardize_impl<T>(
-      handle, input_data, input_desc, X_col_major, mean_vec.data(), stddev_vec.data());
-
-    // int num_elements = input_desc.totalElementsOwnedBy(input_desc.rank);
-    // auto log_origindata_str =
-    //   raft::arr2Str(input_data[0]->ptr, num_elements * D, "origin data", stream);
-    // CUML_LOG_DEBUG("rank %d gets returned dataset %s", input_desc.rank,
-    // log_origindata_str.c_str());
+      handle, data_X->ptr, input_desc, X_col_major, mean_vec.data(), stddev_vec.data());
   }
 }
 
