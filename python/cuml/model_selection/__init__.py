@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,25 +33,29 @@ def add_sklearn_documentation(sklearn_method, description):
 hpo_methods = [
     {
         "method_name": "GridSearchCV",
-        "description": "Description for GridSearchCV",
+        "description": "Exhaustive search over specified parameter values for an estimator.",
+    },
+    {
+        "method_name": "HalvingGridSearchCV",
+        "description": "Search over specified parameter values with successive halving.",
+    },
+    {
+        "method_name": "ParameterGrid",
+        "description": "Grid of parameters with a discrete number of values for each.",
+    },
+    {
+        "method_name": "ParameterSampler",
+        "description": "Generator on parameters sampled from given distributions.",
     },
     {
         "method_name": "RandomizedSearchCV",
-        "description": "Description for RandomizedSearchCV",
+        "description": "Randomized search on hyperparameters.",
     },
     {
-        "method_name": "BayesSearchCV",
-        "description": "Description for BayesSearchCV",
+        "method_name": "HalvingRandomSearchCV",
+        "description": "Randomized search on hyperparameters with successive halving.",
     },
-    {
-        "method_name": "OptunaSearchCV",
-        "description": "Description for OptunaSearchCV",
-    },
-    {
-        "method_name": "HyperbandSearchCV",
-        "description": "Description for HyperbandSearchCV",
-    },
-    # Add more methods here with their descriptions, i feel that this would make it easier
+    # You can add more methods here with their descriptions
 ]
 
 # Import and document the HPO methods
@@ -64,8 +68,9 @@ __all__ = [
     "train_test_split",
     "GridSearchCV",
     "StratifiedKFold",
+    "HalvingGridSearchCV",
+    "ParameterGrid",
+    "ParameterSampler",
     "RandomizedSearchCV",
-    "BayesSearchCV",
-    "OptunaSearchCV",
-    "HyperbandSearchCV",
+    "HalvingRandomSearchCV",
 ]
