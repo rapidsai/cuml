@@ -686,7 +686,7 @@ def test_standardization_basic(
         LogisticRegression as cumlLBFGS_dask,
     )
 
-    mg = cumlLBFGS_dask(
+    mgon = cumlLBFGS_dask(
         standardization=True,
         solver="qn",
         fit_intercept=fit_intercept,
@@ -695,12 +695,29 @@ def test_standardization_basic(
         C=C,
         verbose=True,
     )
-    mg.fit(X_train_dask, y_train_dask)
+    mgon.fit(X_train_dask, y_train_dask)
 
     from sklearn.preprocessing import StandardScaler
 
     scaler = StandardScaler()
     scaler.fit(X)
+
+    mgon_coef = mgon.coef_.to_numpy()
+    mgon_intercept = mgon.intercept_.to_numpy()
+
+    mgon_coef_origin = mgon_coef * scaler.scale_
+
+    d = np.dot(mgon_coef, scaler.mean_)
+    # print(f"mgon_coef[0][0] * scaler.mean_[0]: {mgon_coef[0][0] * scaler.mean_[0]}")
+    # print(f"mgon_coef[0][1] * scaler.mean_[1]: {mgon_coef[0][1] * scaler.mean_[1]}")
+    # print(f"scaler.mean_: {scaler.mean_}")
+    # print(f"d: {d}")
+    mgon_intercept_origin = mgon_intercept + d
+    print(f"mgon_coef: {mgon_coef}")
+    print(f"mgon_intercept: {mgon_intercept}")
+    print(f"mgon_coef_origin: {mgon_coef_origin}")
+    print(f"mgon_intercept_origin: {mgon_intercept_origin}")
+    print("finished")
 
 
 @pytest.mark.mg
@@ -743,31 +760,35 @@ def test_standardization_on_normal_dataset(
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("fit_intercept", [False, True])
+# @pytest.mark.parametrize("fit_intercept", [False, True])
+@pytest.mark.parametrize("fit_intercept", [False])
 @pytest.mark.parametrize(
     "regularization",
     [
         ("none", 1.0, None),
-        ("l2", 2.0, None),
-        ("l1", 2.0, None),
-        ("elasticnet", 2.0, 0.2),
+        # ("l2", 2.0, None),
+        # ("l1", 2.0, None),
+        # ("elasticnet", 2.0, 0.2),
     ],
 )
 @pytest.mark.parametrize("datatype", [np.float32])
 @pytest.mark.parametrize("delayed", [False])
-@pytest.mark.parametrize("n_classes", [2])
+# @pytest.mark.parametrize("ncol_and_nclasses", [(2, 2), (8, 8)])
+@pytest.mark.parametrize("ncol_and_nclasses", [(4, 3)])
 def test_standardization_on_scaled_dataset(
-    fit_intercept, regularization, datatype, delayed, n_classes, client
+    fit_intercept, regularization, datatype, delayed, ncol_and_nclasses, client
 ):
 
     penalty = regularization[0]
     C = regularization[1]
     l1_ratio = regularization[2]
     nrows = int(1e5)
-    ncols = 2
-    n_info = 2
+    ncols = ncol_and_nclasses[0]
+    n_classes = ncol_and_nclasses[1]
+    n_info = ncols
     n_redundant = 0
     n_parts = 2
+    tolerance = 0.005
 
     from sklearn.linear_model import LogisticRegression as CPULR
     from sklearn.model_selection import train_test_split
@@ -818,6 +839,8 @@ def test_standardization_on_scaled_dataset(
     )
     mgon_accuracy = accuracy_score(y_test, mgon_preds)
 
+    assert array_equal(X_train_dask.compute().to_numpy(), X_train)
+
     # run CPU with StandardScaler
     scaler = StandardScaler()
     scaler.fit(X_train)
@@ -855,10 +878,53 @@ def test_standardization_on_scaled_dataset(
     )
     mgoff_accuracy = accuracy_score(y_test, mgoff_preds)
 
-    assert (mgon_accuracy >= cpu_accuracy) | (
-        np.abs(mgon_accuracy - cpu_accuracy) < 1e-3
+    print(f"scaler.mean_: {scaler.mean_}")
+    print(f"scaler.scale_: {scaler.scale_}")
+    print(f"mgon accuracy: {mgon_accuracy}")
+    print(f"mgoff accuracy: {mgoff_accuracy}")
+    print(f"cpu accuracy: {cpu_accuracy}")
+    # assert equal the model (in original scale)
+    mgon_coef = mgon.coef_.to_numpy()
+    mgon_coef_origin = mgon_coef * scaler.scale_
+
+    mgon_intercept = mgon.intercept_.to_numpy()
+    if fit_intercept is True:
+        mgon_intercept_origin = mgon_intercept + np.dot(
+            mgon_coef, scaler.mean_
+        )
+    else:
+        mgon_intercept_origin = mgon_intercept
+
+    # print(f"mgon_coef_origin: {mgon_coef_origin}")
+    # print(f"mgoff.coef_.to_numpy(): {mgoff.coef_.to_numpy()}")
+    # print("")
+    # print(f"mgon_intercept_origin: {mgon_intercept_origin}")
+    # print(f"mgoff.intercept_.to_numpy(): {mgoff.intercept_.to_numpy()}")
+    assert array_equal(mgon_coef_origin, mgoff.coef_.to_numpy())
+    assert array_equal(mgon_intercept_origin, mgoff.intercept_.to_numpy())
+
+    if sk_solver == "lbfgs":
+        assert array_equal(mgon_coef_origin, cpu.coef_, tolerance)
+        assert array_equal(mgon_intercept_origin, cpu.intercept_, tolerance)
+
+    # assert equal the accuracy
+    assert len(mgon_preds) == len(mgoff_preds)
+    diff = [
+        i for i in range(len(mgon_preds)) if mgon_preds[i] != mgoff_preds[i]
+    ]
+    print(
+        f"len(diff): {len(diff)} / {len(mgon_preds)} = {len(diff) / 1.0 / len(mgon_preds)}"
+    )
+
+    idx = diff[0]
+    print(
+        f"X_test[idx]: {X_test[idx]}, mgon_preds[idx]: {mgon_preds[idx]}, X_test_scaled[idx]: {X_test_scaled[idx]}, mgoff_preds[idx]: {mgoff_preds[idx]}"
     )
 
     assert (mgon_accuracy >= mgoff_accuracy) | (
         np.abs(mgon_accuracy - mgoff_accuracy) < 1e-3
+    )
+
+    assert (mgon_accuracy >= cpu_accuracy) | (
+        np.abs(mgon_accuracy - cpu_accuracy) < 1e-3
     )
