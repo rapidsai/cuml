@@ -55,10 +55,8 @@ hpo_methods = [
         "method_name": "HalvingRandomSearchCV",
         "description": "Randomized search on hyperparameters with successive halving.",
     },
-    # You can add more methods here with their descriptions
 ]
 
-# Import and document the HPO methods
 for method_info in hpo_methods:
     add_sklearn_documentation(
         method_info["method_name"], method_info["description"]
