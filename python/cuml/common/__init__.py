@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ from cuml.internals.import_utils import check_min_cupy_version, has_scipy
 
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.input_utils import input_to_host_array
+from cuml.internals.input_utils import input_to_host_array_with_sparse_support
 
 from cuml.internals.memory_utils import rmm_cupy_ary
 from cuml.internals.memory_utils import set_global_output_type
@@ -59,6 +60,7 @@ __all__ = [
     "has_scipy",
     "input_to_cuml_array",
     "input_to_host_array",
+    "input_to_host_array_with_sparse_support",
     "rmm_cupy_ary",
     "set_global_output_type",
     "using_device_type",
