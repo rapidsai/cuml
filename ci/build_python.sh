@@ -28,6 +28,7 @@ LIBRAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 1957 cpp)
 RAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 1957 python)
 LIBCUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 14355 cpp)
 CUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 14355 python)
+LIBCUMLPRIMS_MG_CHANNEL=$(rapids-get-pr-conda-artifact cumlprims_mg 160 cpp)
 
 # TODO: Remove `--no-test` flag once importing on a CPU
 # node works correctly
@@ -40,6 +41,7 @@ rapids-conda-retry mambabuild \
   --channel "${RAFT_CHANNEL}" \
   --channel "${LIBCUDF_CHANNEL}" \
   --channel "${CUDF_CHANNEL}" \
+  --channel "${LIBCUMLPRIMS_MG_CHANNEL}" \
   conda/recipes/cuml
 
 # Build cuml-cpu only in CUDA 11 jobs since it only depends on python
