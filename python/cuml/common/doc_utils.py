@@ -94,6 +94,8 @@ _parameters_docstrings = {
     "    Ignored when return_sparse=False.\n"
     "    If True, values in the inverse transform below this parameter\n"
     "    are clipped to 0.",
+    None: "{name} : None\n"
+    "    Ignored. This parameter exists for compatibility only.",
 }
 
 _parameter_possible_values = [
@@ -222,7 +224,6 @@ def generate_docstring(
         if (
             "X" in params or "y" in params or parameters
         ) and not skip_parameters_heading:
-
             func.__doc__ += "\nParameters\n----------\n"
 
         # Check if we want to prepend the parameters
