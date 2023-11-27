@@ -15,6 +15,7 @@
  */
 
 #include "qn/mg/qn_mg.cuh"
+#include "qn/mg/standardization.cuh"
 #include "qn/simple_mat/dense.hpp"
 #include <cuda_runtime.h>
 #include <cuml/common/logger.hpp>
@@ -90,26 +91,25 @@ std::vector<T> distinct_mg(const raft::handle_t& handle, T* y, size_t n)
 template <typename T>
 void standardize_impl(const raft::handle_t& handle,
                       T* input_data,
-                      const Matrix::PartDescriptor& input_desc,
+                      int D,
+                      int num_rows,
+                      int n_samples,
                       bool col_major,
                       bool fit_intercept,
                       T* mean_vector,
                       T* stddev_vector)
 {
-  int D        = input_desc.N;
-  int rank     = input_desc.rank;
-  int num_rows = input_desc.totalElementsOwnedBy(rank);
-  auto stream  = handle.get_stream();
-  auto& comm   = handle.get_comms();
+  auto stream = handle.get_stream();
+  auto& comm  = handle.get_comms();
 
   raft::stats::sum(mean_vector, input_data, D, num_rows, !col_major, stream);
-  T weight = T(1) / T(input_desc.M);
+  T weight = T(1) / T(n_samples);
   raft::linalg::multiplyScalar(mean_vector, mean_vector, weight, D, stream);
   comm.allreduce(mean_vector, mean_vector, D, raft::comms::op_t::SUM, stream);
   comm.sync_stream(stream);
 
   raft::stats::vars(stddev_vector, input_data, mean_vector, D, num_rows, false, !col_major, stream);
-  weight = T(1) * num_rows / T(input_desc.M);
+  weight = T(1) * num_rows / T(n_samples);
   raft::linalg::multiplyScalar(stddev_vector, stddev_vector, weight, D, stream);
   comm.allreduce(stddev_vector, stddev_vector, D, raft::comms::op_t::SUM, stream);
   comm.sync_stream(stream);
@@ -125,6 +125,7 @@ void standardize_impl(const raft::handle_t& handle,
     input_data, stddev_vector, num_rows, D, !col_major, !col_major, stream);
 }
 
+/*
 template <typename T>
 void undo_standardize_impl(const raft::handle_t& handle,
                            T* input_data,
@@ -147,12 +148,13 @@ void undo_standardize_impl(const raft::handle_t& handle,
       input_data, input_data, mean_vector, D, num_rows, !col_major, !col_major, stream);
   }
 }
-
+*/
 template <typename T>
 void qnFit_impl(const raft::handle_t& handle,
                 const qn_params& pams,
                 T* X,
                 bool X_col_major,
+                bool standardization,
                 T* y,
                 size_t N,
                 size_t D,
@@ -166,6 +168,19 @@ void qnFit_impl(const raft::handle_t& handle,
 {
   auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
 
+  auto mean       = SimpleVec<T>(NULL, 0);
+  auto stddev     = SimpleVec<T>(NULL, 0);
+  auto mean_dev   = rmm::device_uvector<T>(D, handle.get_stream());
+  auto stddev_dev = rmm::device_uvector<T>(D, handle.get_stream());
+  if (standardization) {
+    mean.reset(mean_dev.data(), D);
+    stddev.reset(stddev_dev.data(), D);
+    mean_stddev(handle, X_simple, n_samples, mean.data, stddev.data);
+
+    standardize_impl<T>(
+      handle, X, D, N, n_samples, X_col_major, pams.fit_intercept, mean.data, stddev.data);
+  }
+
   ML::GLM::opg::qn_fit_x_mg(handle,
                             pams,
                             X_simple,
@@ -176,7 +191,15 @@ void qnFit_impl(const raft::handle_t& handle,
                             num_iters,
                             n_samples,
                             rank,
-                            n_ranks);  // ignore sample_weight, svr_eps
+                            n_ranks,
+                            &mean,
+                            &stddev);  // ignore sample_weight, svr_eps
+
+  if (standardization) {
+    int n_targets = ML::GLM::detail::qn_is_classification(pams.loss) && C == 2 ? 1 : C;
+    adapt_model_for_standardization(handle, w0, n_targets, D, pams.fit_intercept, mean, stddev);
+  }
+
   return;
 }
 
@@ -206,6 +229,8 @@ void qnFit_impl(raft::handle_t& handle,
   }
 
   auto stream = handle.get_stream();
+
+  /*
   rmm::device_uvector<T> mean_vec(input_desc.N, stream);
   rmm::device_uvector<T> stddev_vec(input_desc.N, stream);
   if (standardization) {
@@ -217,11 +242,13 @@ void qnFit_impl(raft::handle_t& handle,
                         mean_vec.data(),
                         stddev_vec.data());
   }
+  */
 
   qnFit_impl<T>(handle,
                 pams,
                 data_X->ptr,
                 X_col_major,
+                standardization,
                 data_y->ptr,
                 input_desc.totalElementsOwnedBy(input_desc.rank),
                 input_desc.N,
@@ -233,6 +260,7 @@ void qnFit_impl(raft::handle_t& handle,
                 input_desc.rank,
                 input_desc.uniqueRanks().size());
 
+  /*
   if (standardization) {
     // adapt intercepts and coefficients to avoid actual standardization in model inference
 
@@ -274,6 +302,7 @@ void qnFit_impl(raft::handle_t& handle,
                              mean_vec.data(),
                              stddev_vec.data());
   }
+   */
 }
 
 std::vector<float> getUniquelabelsMG(const raft::handle_t& handle,

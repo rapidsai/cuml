@@ -91,6 +91,8 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
   int rank;
   int64_t n_samples;
   int n_ranks;
+  const SimpleVec<T>* mean_p;    // SimpleVec(NULL, 0) if standardization is false
+  const SimpleVec<T>* stddev_p;  // SimpleVec(NULL, 0) if standardization is false
 
   GLMWithDataMG(raft::handle_t const& handle,
                 int rank,
@@ -99,13 +101,17 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
                 GLMObjective* obj,
                 const SimpleMat<T>& X,
                 const SimpleVec<T>& y,
-                SimpleDenseMat<T>& Z)
+                SimpleDenseMat<T>& Z,
+                const SimpleVec<T>* mean_p,
+                const SimpleVec<T>* stddev_p)
     : ML::GLM::detail::GLMWithData<T, GLMObjective>(obj, X, y, Z)
   {
     this->handle_p  = &handle;
     this->rank      = rank;
     this->n_ranks   = n_ranks;
     this->n_samples = n_samples;
+    this->mean_p    = mean_p;
+    this->stddev_p  = stddev_p;
   }
 
   inline T operator()(const SimpleVec<T>& wFlat,
