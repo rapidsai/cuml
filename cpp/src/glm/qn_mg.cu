@@ -92,6 +92,7 @@ void standardize_impl(const raft::handle_t& handle,
                       T* input_data,
                       const Matrix::PartDescriptor& input_desc,
                       bool col_major,
+                      bool fit_intercept,
                       T* mean_vector,
                       T* stddev_vector)
 {
@@ -106,43 +107,22 @@ void standardize_impl(const raft::handle_t& handle,
   raft::linalg::multiplyScalar(mean_vector, mean_vector, weight, D, stream);
   comm.allreduce(mean_vector, mean_vector, D, raft::comms::op_t::SUM, stream);
   comm.sync_stream(stream);
-  auto log_mean_str = raft::arr2Str(mean_vector, D, "mean_str", handle.get_stream(), 8);
-  CUML_LOG_DEBUG("rank %d mean vector %s", rank, log_mean_str.c_str());
-
-  // std::vector<T> cpu_mean(D);
-  // raft::copy(cpu_mean.data(), mean_vector, D, stream);
-  // CUML_LOG_DEBUG("rank %d cpu_mean vector %0.8f,%0.8f,%0.8f,%0.8f", rank, cpu_mean[0],
-  // cpu_mean[1], cpu_mean[2], cpu_mean[3]);
 
   raft::stats::vars(stddev_vector, input_data, mean_vector, D, num_rows, false, !col_major, stream);
   weight = T(1) * num_rows / T(input_desc.M);
   raft::linalg::multiplyScalar(stddev_vector, stddev_vector, weight, D, stream);
   comm.allreduce(stddev_vector, stddev_vector, D, raft::comms::op_t::SUM, stream);
   comm.sync_stream(stream);
-  // auto log_var_str = raft::arr2Str(stddev_vector, D, "var_str", handle.get_stream(), 8);
-  // CUML_LOG_DEBUG("rank %d var vector %s", rank, log_var_str.c_str());
-  // std::vector<T> cpu_var(D);
-  // raft::copy(cpu_var.data(), stddev_vector, D, stream);
-  // CUML_LOG_DEBUG("rank %d cpu_var vector %0.8f,%0.8f,%0.8f", rank, cpu_var[0], cpu_var[1]);
 
   raft::linalg::sqrt(stddev_vector, stddev_vector, D, handle.get_stream());
 
-  auto log_std_str = raft::arr2Str(stddev_vector, D, "std_str", handle.get_stream(), 8);
-  CUML_LOG_DEBUG("rank %d std vector %s", rank, log_std_str.c_str());
-  // std::vector<T> cpu_std(D);
-  // raft::copy(cpu_std.data(), stddev_vector, D, stream);
-  // CUML_LOG_DEBUG("rank %d cpu_std vector %0.8f,%0.8f,%0.8f", rank, cpu_std[0], cpu_std[1],
-  // cpu_std[2]);
-
-  raft::stats::meanCenter(
-    input_data, input_data, mean_vector, D, num_rows, !col_major, !col_major, stream);
-  // auto log_stddata_str = raft::arr2Str(input_data, num_rows * D, "stddata", stream);
-  // CUML_LOG_DEBUG("rank %d stddev vector %s", rank, log_stddata_str.c_str());
+  if (fit_intercept) {
+    raft::stats::meanCenter(
+      input_data, input_data, mean_vector, D, num_rows, !col_major, !col_major, stream);
+  }
 
   raft::matrix::matrixVectorBinaryDivSkipZero(
     input_data, stddev_vector, num_rows, D, !col_major, !col_major, stream);
-  // log_stddata_str = raft::arr2Str(input_data, num_rows * D, "stddata", handle.get_stream());
-  // CUML_LOG_DEBUG("rank %d stddev vector %s", rank, log_stddata_str.c_str());
 }
 
 template <typename T>
@@ -150,6 +130,7 @@ void undo_standardize_impl(const raft::handle_t& handle,
                            T* input_data,
                            const Matrix::PartDescriptor& input_desc,
                            bool col_major,
+                           bool fit_intercept,
                            T* mean_vector,
                            T* stddev_vector)
 {
@@ -161,8 +142,10 @@ void undo_standardize_impl(const raft::handle_t& handle,
   raft::matrix::matrixVectorBinaryMult(
     input_data, stddev_vector, num_rows, D, !col_major, !col_major, stream);
 
-  raft::stats::meanAdd(
-    input_data, input_data, mean_vector, D, num_rows, !col_major, !col_major, stream);
+  if (fit_intercept) {
+    raft::stats::meanAdd(
+      input_data, input_data, mean_vector, D, num_rows, !col_major, !col_major, stream);
+  }
 }
 
 template <typename T>
@@ -217,15 +200,6 @@ void qnFit_impl(raft::handle_t& handle,
   auto data_X = input_data[0];
   auto data_y = labels[0];
 
-  ML::Logger::get().setLevel(pams.verbose);
-  CUML_LOG_DEBUG(
-    "rank %d gets standardization %s", input_desc.rank, standardization ? "true" : "false");
-  // std::cout << "rank " << input_desc.rank << " gets standardization " << standardization <<
-  // std::endl; int num_elements = input_desc.totalElementsOwnedBy(input_desc.rank); auto data_str =
-  // raft::arr2Str(input_data[0]->ptr, num_elements, "data_str", handle.get_stream()); std::cout <<
-  // "rank " << input_desc.rank << " gets c_str " << data_str << std::endl; CUML_LOG_DEBUG("rank %d
-  // gets #elements %d, and data %s", input_desc.rank, num_elements, data_str.c_str());
-
   size_t n_samples = 0;
   for (auto p : input_desc.partsToRanks) {
     n_samples += p->size;
@@ -235,8 +209,13 @@ void qnFit_impl(raft::handle_t& handle,
   rmm::device_uvector<T> mean_vec(input_desc.N, stream);
   rmm::device_uvector<T> stddev_vec(input_desc.N, stream);
   if (standardization) {
-    standardize_impl<T>(
-      handle, data_X->ptr, input_desc, X_col_major, mean_vec.data(), stddev_vec.data());
+    standardize_impl<T>(handle,
+                        data_X->ptr,
+                        input_desc,
+                        X_col_major,
+                        pams.fit_intercept,
+                        mean_vec.data(),
+                        stddev_vec.data());
   }
 
   qnFit_impl<T>(handle,
@@ -254,10 +233,6 @@ void qnFit_impl(raft::handle_t& handle,
                 input_desc.rank,
                 input_desc.uniqueRanks().size());
 
-  int n_coefs = (n_classes == 2 ? 1 : n_classes);
-  auto log_coef_str =
-    raft::arr2Str(coef, n_coefs * (input_desc.N + pams.fit_intercept), "coef", stream, 16);
-  CUML_LOG_DEBUG("rank %d gets coefs %s", input_desc.rank, log_coef_str.c_str());
   if (standardization) {
     // adapt intercepts and coefficients to avoid actual standardization in model inference
 
@@ -291,12 +266,13 @@ void qnFit_impl(raft::handle_t& handle,
       Wbias.assign_gemv(handle, -1, Wweights, false, meanVec, 1, stream);
     }
 
-    auto log_adaptcoef_str =
-      raft::arr2Str(coef, n_coefs * (input_desc.N + pams.fit_intercept), "adaptcoef", stream, 16);
-    CUML_LOG_DEBUG("rank %d gets adapted coefs %s", input_desc.rank, log_adaptcoef_str.c_str());
-    // TODO: undo standardization
-    undo_standardize_impl<T>(
-      handle, data_X->ptr, input_desc, X_col_major, mean_vec.data(), stddev_vec.data());
+    undo_standardize_impl<T>(handle,
+                             data_X->ptr,
+                             input_desc,
+                             X_col_major,
+                             pams.fit_intercept,
+                             mean_vec.data(),
+                             stddev_vec.data());
   }
 }
 
