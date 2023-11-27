@@ -585,9 +585,6 @@ def test_sparse_from_dense(
 
 @pytest.mark.parametrize("dtype", [np.float32])
 def test_sparse_nlp20news(dtype, nlp_20news, client):
-    # sklearn score with max_iter = 10000
-    sklearn_score = 0.878
-    acceptable_score = sklearn_score - 0.01
 
     X, y = nlp_20news
     n_parts = 2  # partitions_per_worker
@@ -615,6 +612,12 @@ def test_sparse_nlp20news(dtype, nlp_20news, client):
     cumg.fit(X_train_da, y_train_da)
 
     preds = cumg.predict(X_test_da).compute()
-
     cuml_score = accuracy_score(y_test, preds.tolist())
-    assert cuml_score >= acceptable_score
+
+    from sklearn.linear_model import LogisticRegression as CPULR
+
+    cpu = CPULR(C=20.0)
+    cpu.fit(X_train, y_train)
+    cpu_preds = cpu.predict(X_test)
+    cpu_score = accuracy_score(y_test, cpu_preds.tolist())
+    assert cuml_score >= cpu_score or np.abs(cuml_score - cpu_score) < 1e-3
