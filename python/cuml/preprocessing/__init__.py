@@ -16,7 +16,7 @@
 from cuml.model_selection import train_test_split
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 from cuml.preprocessing.label import LabelBinarizer, label_binarize
-from cuml.preprocessing.encoders import OneHotEncoder
+from cuml.preprocessing.encoders import OneHotEncoder, OrdinalEncoder
 from cuml.preprocessing.TargetEncoder import TargetEncoder
 from cuml.preprocessing import text
 
@@ -63,6 +63,7 @@ __all__ = [
     "MissingIndicator",
     "Normalizer",
     "OneHotEncoder",
+    "OrdinalEncoder",
     "PolynomialFeatures",
     "PowerTransformer",
     "QuantileTransformer",
