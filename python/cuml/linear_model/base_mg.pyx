@@ -30,6 +30,9 @@ from cuml.common.opg_data_utils_mg cimport *
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.decomposition.utils cimport *
 
+from cuml.common.sparse_utils import is_sparse
+from cuml.internals.array_sparse import SparseCumlArray
+
 
 class MGFitMixin(object):
 
@@ -45,8 +48,10 @@ class MGFitMixin(object):
         :param partsToSizes: array of tuples in the format: [(rank,size)]
         :return: self
         """
+
         self._set_output_type(input_data[0][0])
         self._set_n_features_in(n_cols)
+        sparse_input = is_sparse(input_data[0][0])
 
         X_arys = []
         y_arys = []
@@ -57,8 +62,14 @@ class MGFitMixin(object):
             else:
                 check_dtype = self.dtype
 
-            X_m, _, self.n_cols, _ = \
-                input_to_cuml_array(input_data[i][0], check_dtype=check_dtype, order=order)
+            if sparse_input:
+
+                X_m = SparseCumlArray(input_data[i][0], convert_index=np.int32)
+                _, self.n_cols = X_m.shape
+            else:
+                X_m, _, self.n_cols, _ = \
+                    input_to_cuml_array(input_data[i][0], check_dtype=check_dtype, order=order)
+
             X_arys.append(X_m)
 
             if i == 0:
@@ -81,18 +92,42 @@ class MGFitMixin(object):
                                                              rank_to_sizes,
                                                              rank)
 
-        cdef uintptr_t X_arg = opg.build_data_t(X_arys)
+        cdef uintptr_t X_arg
         cdef uintptr_t y_arg = opg.build_data_t(y_arys)
 
-        # call inheriting class _fit that does all cython pointers and calls
-        self._fit(X=X_arg,
-                  y=y_arg,
-                  coef_ptr=coef_ptr_arg,
-                  input_desc=part_desc)
+        cdef uintptr_t X_cols
+        cdef uintptr_t X_row_ids
+
+        if sparse_input is False:
+
+            X_arg = opg.build_data_t(X_arys)
+
+            # call inheriting class _fit that does all cython pointers and calls
+            self._fit(X=X_arg,
+                      y=y_arg,
+                      coef_ptr=coef_ptr_arg,
+                      input_desc=part_desc)
+
+            opg.free_data_t(X_arg, self.dtype)
+
+        else:
+
+            assert len(X_arys) == 1, "does not support more than one sparse input matrix"
+            X_arg = opg.build_data_t([x.data for x in X_arys])
+            X_cols = X_arys[0].indices.ptr
+            X_row_ids = X_arys[0].indptr.ptr
+            X_nnz = sum([x.nnz for x in X_arys])
+
+            # call inheriting class _fit that does all cython pointers and calls
+            self._fit(X=[X_arg, X_cols, X_row_ids, X_nnz],
+                      y=y_arg,
+                      coef_ptr=coef_ptr_arg,
+                      input_desc=part_desc)
+
+            for ary in X_arys:
+                del ary
 
         opg.free_rank_size_pair(rank_to_sizes)
         opg.free_part_descriptor(part_desc)
-        opg.free_data_t(X_arg, self.dtype)
         opg.free_data_t(y_arg, self.dtype)
-
         return self

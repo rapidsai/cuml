@@ -21,6 +21,7 @@ from cuml.dask.linear_model import LinearRegression
 from raft_dask.common.comms import get_raft_comm_state
 from dask.distributed import get_worker
 
+from cuml.common.sparse_utils import is_sparse, has_scipy
 from cuml.dask.common import parts_to_ranks
 from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
 from raft_dask.common.comms import Comms
@@ -29,7 +30,9 @@ from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
 
 cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
 np = cpu_only_import("numpy")
+scipy = cpu_only_import("scipy")
 
 
 class LogisticRegression(LinearRegression):
@@ -172,7 +175,20 @@ class LogisticRegression(LinearRegression):
 
     @staticmethod
     def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
-        inp_X = concatenate([X for X, _ in data])
+        if is_sparse(data[0][0]) is False:
+            inp_X = concatenate([X for X, _ in data])
+
+        elif has_scipy() and scipy.sparse.isspmatrix(data[0][0]):
+            inp_X = scipy.sparse.vstack([X for X, _ in data])
+
+        elif cupyx.scipy.sparse.isspmatrix(data[0][0]):
+            inp_X = cupyx.scipy.sparse.vstack([X for X, _ in data])
+
+        else:
+            raise ValueError(
+                "input matrix must be dense, scipy sparse, or cupy sparse"
+            )
+
         inp_y = concatenate([y for _, y in data])
         n_ranks = max([p[0] for p in partsToSizes]) + 1
         aggregated_partsToSizes = [[i, 0] for i in range(n_ranks)]
