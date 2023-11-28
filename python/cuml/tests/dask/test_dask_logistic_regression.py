@@ -339,12 +339,12 @@ def test_lbfgs(
         datatype, nrows, ncols, n_info, n_classes=n_classes
     )
 
-    if convert_to_sparse is False:
-        # X_dask and y_dask are dask cudf
-        X_dask, y_dask = _prep_training_data(client, X, y, n_parts)
-    else:
+    if convert_to_sparse:
         # X_dask and y_dask are dask array
         X_dask, y_dask = _prep_training_data_sparse(client, X, y, n_parts)
+    else:
+        # X_dask and y_dask are dask cudf
+        X_dask, y_dask = _prep_training_data(client, X, y, n_parts)
 
     lr = cumlLBFGS_dask(
         solver="qn",
@@ -557,30 +557,48 @@ def test_elasticnet(
         ("elasticnet", 2.0, 0.2),
     ],
 )
-@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("delayed", [True])
 @pytest.mark.parametrize("n_classes", [2, 8])
 def test_sparse_from_dense(
     fit_intercept, regularization, datatype, delayed, n_classes, client
 ):
-    penalty = regularization[0]
-    C = regularization[1]
-    l1_ratio = regularization[2]
+    penalty, C, l1_ratio = regularization
 
-    test_lbfgs(
-        nrows=1e5,
-        ncols=20,
-        n_parts=2,
-        fit_intercept=fit_intercept,
-        datatype=datatype,
-        delayed=delayed,
-        client=client,
-        penalty=penalty,
-        n_classes=n_classes,
-        C=C,
-        l1_ratio=l1_ratio,
-        convert_to_sparse=True,
-    )
+    if datatype == np.float32:
+        test_lbfgs(
+            nrows=1e5,
+            ncols=20,
+            n_parts=2,
+            fit_intercept=fit_intercept,
+            datatype=datatype,
+            delayed=delayed,
+            client=client,
+            penalty=penalty,
+            n_classes=n_classes,
+            C=C,
+            l1_ratio=l1_ratio,
+            convert_to_sparse=True,
+        )
+    else:
+        with pytest.raises(
+            RuntimeError,
+            match="dtypes other than float32 are currently not supported yet. See issue: https://github.com/rapidsai/cuml/issues/5589",
+        ):
+            test_lbfgs(
+                nrows=1e5,
+                ncols=20,
+                n_parts=2,
+                fit_intercept=fit_intercept,
+                datatype=datatype,
+                delayed=delayed,
+                client=client,
+                penalty=penalty,
+                n_classes=n_classes,
+                C=C,
+                l1_ratio=l1_ratio,
+                convert_to_sparse=True,
+            )
 
 
 @pytest.mark.parametrize("dtype", [np.float32])
