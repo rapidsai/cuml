@@ -583,7 +583,7 @@ def test_sparse_from_dense(
     else:
         with pytest.raises(
             RuntimeError,
-            match="dtypes other than float32 are currently not supported yet. See issue: https://github.com/rapidsai/cuml/issues/5589",
+            match="dtypes other than float32 are currently not supported",
         ):
             test_lbfgs(
                 nrows=1e5,
