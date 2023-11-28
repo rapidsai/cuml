@@ -16,6 +16,7 @@
 from cuml.internals.safe_imports import gpu_only_import
 import pytest
 from cuml.dask.common import utils as dask_utils
+from functools import partial
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
@@ -563,8 +564,6 @@ def test_sparse_from_dense(
     fit_intercept, regularization, datatype, n_classes, client
 ):
     penalty, C, l1_ratio = regularization
-
-    from functools import partial
 
     run_test = partial(
         test_lbfgs,
