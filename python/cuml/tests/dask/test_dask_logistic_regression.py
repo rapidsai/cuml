@@ -558,47 +558,38 @@ def test_elasticnet(
     ],
 )
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("delayed", [True])
 @pytest.mark.parametrize("n_classes", [2, 8])
 def test_sparse_from_dense(
-    fit_intercept, regularization, datatype, delayed, n_classes, client
+    fit_intercept, regularization, datatype, n_classes, client
 ):
     penalty, C, l1_ratio = regularization
 
+    from functools import partial
+
+    run_test = partial(
+        test_lbfgs,
+        nrows=1e5,
+        ncols=20,
+        n_parts=2,
+        fit_intercept=fit_intercept,
+        datatype=datatype,
+        delayed=True,
+        client=client,
+        penalty=penalty,
+        n_classes=n_classes,
+        C=C,
+        l1_ratio=l1_ratio,
+        convert_to_sparse=True,
+    )
+
     if datatype == np.float32:
-        test_lbfgs(
-            nrows=1e5,
-            ncols=20,
-            n_parts=2,
-            fit_intercept=fit_intercept,
-            datatype=datatype,
-            delayed=delayed,
-            client=client,
-            penalty=penalty,
-            n_classes=n_classes,
-            C=C,
-            l1_ratio=l1_ratio,
-            convert_to_sparse=True,
-        )
+        run_test()
     else:
         with pytest.raises(
             RuntimeError,
             match="dtypes other than float32 are currently not supported",
         ):
-            test_lbfgs(
-                nrows=1e5,
-                ncols=20,
-                n_parts=2,
-                fit_intercept=fit_intercept,
-                datatype=datatype,
-                delayed=delayed,
-                client=client,
-                penalty=penalty,
-                n_classes=n_classes,
-                C=C,
-                l1_ratio=l1_ratio,
-                convert_to_sparse=True,
-            )
+            run_test()
 
 
 @pytest.mark.parametrize("dtype", [np.float32])
