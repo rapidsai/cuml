@@ -63,7 +63,6 @@ class MGFitMixin(object):
                 check_dtype = self.dtype
 
             if sparse_input:
-
                 X_m = SparseCumlArray(input_data[i][0], convert_index=np.int32)
                 _, self.n_cols = X_m.shape
             else:

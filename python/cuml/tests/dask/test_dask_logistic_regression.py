@@ -16,6 +16,7 @@
 from cuml.internals.safe_imports import gpu_only_import
 import pytest
 from cuml.dask.common import utils as dask_utils
+from functools import partial
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
@@ -339,12 +340,12 @@ def test_lbfgs(
         datatype, nrows, ncols, n_info, n_classes=n_classes
     )
 
-    if convert_to_sparse is False:
-        # X_dask and y_dask are dask cudf
-        X_dask, y_dask = _prep_training_data(client, X, y, n_parts)
-    else:
+    if convert_to_sparse:
         # X_dask and y_dask are dask array
         X_dask, y_dask = _prep_training_data_sparse(client, X, y, n_parts)
+    else:
+        # X_dask and y_dask are dask cudf
+        X_dask, y_dask = _prep_training_data(client, X, y, n_parts)
 
     lr = cumlLBFGS_dask(
         solver="qn",
@@ -557,23 +558,21 @@ def test_elasticnet(
         ("elasticnet", 2.0, 0.2),
     ],
 )
-@pytest.mark.parametrize("datatype", [np.float32])
-@pytest.mark.parametrize("delayed", [True])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("n_classes", [2, 8])
 def test_sparse_from_dense(
-    fit_intercept, regularization, datatype, delayed, n_classes, client
+    fit_intercept, regularization, datatype, n_classes, client
 ):
-    penalty = regularization[0]
-    C = regularization[1]
-    l1_ratio = regularization[2]
+    penalty, C, l1_ratio = regularization
 
-    test_lbfgs(
+    run_test = partial(
+        test_lbfgs,
         nrows=1e5,
         ncols=20,
         n_parts=2,
         fit_intercept=fit_intercept,
         datatype=datatype,
-        delayed=delayed,
+        delayed=True,
         client=client,
         penalty=penalty,
         n_classes=n_classes,
@@ -581,6 +580,15 @@ def test_sparse_from_dense(
         l1_ratio=l1_ratio,
         convert_to_sparse=True,
     )
+
+    if datatype == np.float32:
+        run_test()
+    else:
+        with pytest.raises(
+            RuntimeError,
+            match="dtypes other than float32 are currently not supported",
+        ):
+            run_test()
 
 
 @pytest.mark.parametrize("dtype", [np.float32])
@@ -621,3 +629,27 @@ def test_sparse_nlp20news(dtype, nlp_20news, client):
     cpu_preds = cpu.predict(X_test)
     cpu_score = accuracy_score(y_test, cpu_preds.tolist())
     assert cuml_score >= cpu_score or np.abs(cuml_score - cpu_score) < 1e-3
+
+
+@pytest.mark.parametrize("fit_intercept", [False, True])
+def test_exception_one_label(fit_intercept, client):
+    n_parts = 2
+    datatype = "float32"
+
+    X = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], datatype)
+    y = np.array([1.0, 1.0, 1.0, 1.0], datatype)
+    X_df, y_df = _prep_training_data(client, X, y, n_parts)
+
+    err_msg = "This solver needs samples of at least 2 classes in the data, but the data contains only one class: 1.0"
+
+    from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
+
+    mg = cumlLBFGS_dask(fit_intercept=fit_intercept, verbose=6)
+    with pytest.raises(RuntimeError, match=err_msg):
+        mg.fit(X_df, y_df)
+
+    from sklearn.linear_model import LogisticRegression
+
+    lr = LogisticRegression(fit_intercept=fit_intercept)
+    with pytest.raises(ValueError, match=err_msg):
+        lr.fit(X, y)
