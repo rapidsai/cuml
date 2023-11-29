@@ -170,7 +170,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                              "with softmax (multinomial).")
 
         if solves_classification and not solves_multiclass:
-            self._num_classes_dim = self._num_classes - 1
+            self._num_classes_dim = 1
         else:
             self._num_classes_dim = self._num_classes
 
@@ -185,7 +185,6 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
     def fit(self, input_data, n_rows, n_cols, parts_rank_size, rank, convert_dtype=False):
 
-        self.rank = rank
         assert len(input_data) == 1, f"Currently support only one (X, y) pair in the list. Received {len(input_data)} pairs."
         self.is_col_major = False
         order = 'F' if self.is_col_major else 'C'
@@ -207,11 +206,12 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         self._num_classes = len(self.classes_)
         self.loss = "sigmoid" if self._num_classes <= 2 else "softmax"
         self.prepare_for_fit(self._num_classes)
+
         cdef uintptr_t mat_coef_ptr = self.coef_.ptr
 
         cdef qn_params qnpams = self.solver_model.qnparams.params
 
-        sparse_input = True if isinstance(X, list) else False
+        sparse_input = isinstance(X, list)
 
         if self.dtype == np.float32:
             if sparse_input is False:
