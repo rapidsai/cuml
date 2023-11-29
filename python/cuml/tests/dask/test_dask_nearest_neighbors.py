@@ -30,12 +30,12 @@ dask_cudf = gpu_only_import("dask_cudf")
 pd = cpu_only_import("pandas")
 
 np = cpu_only_import("numpy")
-cp = cpu_only_import("cupy")
+cp = gpu_only_import("cupy")
 
 
 IS_ARM = platform.processor() == "aarch64"
 
-if IS_ARM and cp.cuda.runtime.runtimeGetVersion() <= 11080:
+if IS_ARM and cp.cuda.runtime.runtimeGetVersion() < 11080:
     pytest.skip(
         "Test hang in AARCH64 with CUDA < 11.8.", allow_module_level=True
     )
