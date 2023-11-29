@@ -1147,8 +1147,8 @@ class make_column_selector:
     Examples
     --------
     >>> from cuml.preprocessing import StandardScaler, OneHotEncoder
-    >>> from cuml.preprocessing import make_column_transformer
-    >>> from cuml.preprocessing import make_column_selector
+    >>> from cuml.compose import make_column_transformer
+    >>> from cuml.compose import make_column_selector
     >>> import cupy as cp
     >>> import cudf  # doctest: +SKIP
     >>> X = cudf.DataFrame({'city': ['London', 'London', 'Paris', 'Sallisaw'],
