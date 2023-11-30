@@ -130,8 +130,16 @@ class BatchCache : public raft::cache::Cache<math_t> {
     RAFT_CUDA_TRY(cudaMemsetAsync(tmp_buffer, 0, n_ws * 2 * sizeof(int), stream));
 
     // Init cub buffers
-    cub::DeviceRadixSort::SortKeys(
-      NULL, d_temp_storage_size, tmp_buffer, tmp_buffer, n_ws, 0, sizeof(int) * 8, stream);
+    cub::DeviceRadixSort::SortPairs(NULL,
+                                    d_temp_storage_size,
+                                    tmp_buffer,
+                                    tmp_buffer,
+                                    tmp_buffer,
+                                    tmp_buffer,
+                                    n_ws,
+                                    0,
+                                    sizeof(int) * 8,
+                                    stream);
     d_temp_storage.resize(d_temp_storage_size, stream);
   }
 

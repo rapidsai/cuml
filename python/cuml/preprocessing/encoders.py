@@ -13,31 +13,165 @@
 # limitations under the License.
 #
 import warnings
+from typing import List, Optional, TypeVar
+
 import cuml.internals.logger as logger
-from cuml.internals.safe_imports import gpu_only_import_from
 from cudf import DataFrame, Series
-from cuml.preprocessing import LabelEncoder
 from cuml import Base
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+)
+from cuml.preprocessing import LabelEncoder
 
 np = cpu_only_import("numpy")
+cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
 
 GenericIndex = gpu_only_import_from("cudf", "GenericIndex")
 
 
-class OneHotEncoder(Base):
+class CheckFeaturesMixIn:
+    def _check_n_features(self, X, reset: bool = False):
+        n_features = X.shape[1]
+        if reset:
+            self.n_features_in_ = n_features
+            if hasattr(X, "columns"):
+                self.feature_names_in_ = [str(c) for c in X.columns]
+        else:
+            if not hasattr(self, "n_features_in_"):
+                raise RuntimeError(
+                    "The reset parameter is False but there is no "
+                    "n_features_in_ attribute. Is this estimator fitted?"
+                )
+            if n_features != self.n_features_in_:
+                raise ValueError(
+                    "X has {} features, but this {} is expecting {} features "
+                    "as input.".format(
+                        n_features,
+                        self.__class__.__name__,
+                        self.n_features_in_,
+                    )
+                )
+
+
+class BaseEncoder(Base, CheckFeaturesMixIn):
+    """Base implementation for encoding categorical values, uses
+    :py:class:`~cuml.preprocessing.LabelEncoder` for obtaining unique values.
+
+    Parameters
+    ----------
+
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
+    """
+
+    def _set_input_type(self, value):
+        if self.input_type is None:
+            self.input_type = value
+
+    def _check_input(self, X, is_categories=False):
+        """If input is cupy, convert it to a DataFrame with 0 copies."""
+        if isinstance(X, cp.ndarray):
+            self._set_input_type("array")
+            if is_categories:
+                X = X.transpose()
+            return DataFrame(X)
+        else:
+            self._set_input_type("df")
+            return X
+
+    def _check_input_fit(self, X, is_categories=False):
+        """Helper function used in fit, can be overridden in subclasses."""
+        self._check_n_features(X, reset=True)
+        return self._check_input(X, is_categories=is_categories)
+
+    def _unique(self, inp):
+        """Helper function used in fit. Can be overridden in subclasses."""
+
+        # Default implementation passes input through directly since this is
+        # performed in `LabelEncoder.fit()`
+        return inp
+
+    def _fit(self, X, need_drop: bool):
+        X = self._check_input_fit(X)
+        if type(self.categories) is str and self.categories == "auto":
+            self._features = X.columns
+            self._encoders = {
+                feature: LabelEncoder(
+                    handle=self.handle,
+                    verbose=self.verbose,
+                    output_type=self.output_type,
+                    handle_unknown=self.handle_unknown,
+                ).fit(self._unique(X[feature]))
+                for feature in self._features
+            }
+        else:
+            self.categories = self._check_input_fit(self.categories, True)
+            self._features = self.categories.columns
+            if len(self._features) != X.shape[1]:
+                raise ValueError(
+                    "Shape mismatch: if categories is not 'auto',"
+                    " it has to be of shape (n_features, _)."
+                )
+            self._encoders = dict()
+            for feature in self._features:
+                le = LabelEncoder(
+                    handle=self.handle,
+                    verbose=self.verbose,
+                    output_type=self.output_type,
+                    handle_unknown=self.handle_unknown,
+                )
+
+                self._encoders[feature] = le.fit(self.categories[feature])
+
+                if self.handle_unknown == "error":
+                    if self._has_unknown(
+                        X[feature], self._encoders[feature].classes_
+                    ):
+                        msg = (
+                            "Found unknown categories in column {0}"
+                            " during fit".format(feature)
+                        )
+                        raise KeyError(msg)
+
+        if need_drop:
+            self.drop_idx_ = self._compute_drop_idx()
+        self._fitted = True
+
+    @property
+    def categories_(self):
+        """Returns categories used for the one hot encoding in the correct order."""
+        return [self._encoders[f].classes_ for f in self._features]
+
+
+class OneHotEncoder(BaseEncoder):
     """
     Encode categorical features as a one-hot numeric array.
-    The input to this estimator should be a cuDF.DataFrame or a cupy.ndarray,
-    denoting the unique values taken on by categorical (discrete) features.
-    The features are encoded using a one-hot (aka 'one-of-K' or 'dummy')
-    encoding scheme. This creates a binary column for each category and
-    returns a sparse matrix or dense array (depending on the ``sparse``
-    parameter).
+    The input to this estimator should be a :py:class:`cuDF.DataFrame` or a
+    :py:class:`cupy.ndarray`, denoting the unique values taken on by categorical
+    (discrete) features.  The features are encoded using a one-hot (aka 'one-of-K' or
+    'dummy') encoding scheme. This creates a binary column for each category and returns
+    a sparse matrix or dense array (depending on the ``sparse`` parameter).
+
     By default, the encoder derives the categories based on the unique values
     in each feature. Alternatively, you can also specify the `categories`
     manually.
@@ -105,7 +239,6 @@ class OneHotEncoder(Base):
         ``drop_idx_[i]`` is the index in ``categories_[i]`` of the category to
         be dropped for each feature. None if all the transformed features will
         be retained.
-
     """
 
     def __init__(
@@ -165,7 +298,7 @@ class OneHotEncoder(Base):
             raise NotFittedError(msg)
 
     def _compute_drop_idx(self):
-        """Helper to compute indices to drop from category to drop"""
+        """Helper to compute indices to drop from category to drop."""
         if self.drop is None:
             return None
         elif isinstance(self.drop, str) and self.drop == "first":
@@ -209,141 +342,46 @@ class OneHotEncoder(Base):
             )
             raise ValueError(msg.format(type(self.drop)))
 
-    @property
-    def categories_(self):
-        """
-        Returns categories used for the one hot encoding in the correct order.
-        """
-        return [self._encoders[f].classes_ for f in self._features]
-
-    def _set_input_type(self, value):
-        if self.input_type is None:
-            self.input_type = value
-
-    def _check_input(self, X, is_categories=False):
-        """
-        If input is cupy, convert it to a DataFrame with 0 copies
-        """
-        if isinstance(X, cp.ndarray):
-            self._set_input_type("array")
-            if is_categories:
-                X = X.transpose()
-            return DataFrame(X)
-        else:
-            self._set_input_type("df")
-            return X
-
     def _check_input_fit(self, X, is_categories=False):
         """Helper function used in fit. Can be overridden in subclasses."""
         return self._check_input(X, is_categories=is_categories)
 
-    def _unique(self, inp):
-        """Helper function used in fit. Can be overridden in subclasses."""
-
-        # Default implementation passes input through directly since this is
-        # performed in `LabelEncoder.fit()`
-        return inp
-
     def _has_unknown(self, X_cat, encoder_cat):
-        """Check if X_cat has categories that are not present in encoder_cat"""
+        """Check if X_cat has categories that are not present in encoder_cat."""
         return not X_cat.isin(encoder_cat).all()
 
+    @generate_docstring(y=None)
     def fit(self, X, y=None):
-        """
-        Fit OneHotEncoder to X.
-
-        Parameters
-        ----------
-        X : cuDF.DataFrame or cupy.ndarray, shape = (n_samples, n_features)
-            The data to determine the categories of each feature.
-        y : None
-            Ignored. This parameter exists for compatibility only.
-
-        Returns
-        -------
-        self
-
-        """
+        """Fit OneHotEncoder to X."""
         self._validate_keywords()
-        X = self._check_input_fit(X)
-        if type(self.categories) is str and self.categories == "auto":
-            self._features = X.columns
-            self._encoders = {
-                feature: LabelEncoder(
-                    handle=self.handle,
-                    verbose=self.verbose,
-                    output_type=self.output_type,
-                    handle_unknown=self.handle_unknown,
-                ).fit(self._unique(X[feature]))
-                for feature in self._features
-            }
-        else:
-            self.categories = self._check_input_fit(self.categories, True)
-            self._features = self.categories.columns
-            if len(self._features) != X.shape[1]:
-                raise ValueError(
-                    "Shape mismatch: if categories is not 'auto',"
-                    " it has to be of shape (n_features, _)."
-                )
-            self._encoders = dict()
-            for feature in self._features:
-
-                le = LabelEncoder(
-                    handle=self.handle,
-                    verbose=self.verbose,
-                    output_type=self.output_type,
-                    handle_unknown=self.handle_unknown,
-                )
-
-                self._encoders[feature] = le.fit(self.categories[feature])
-
-                if self.handle_unknown == "error":
-                    if self._has_unknown(
-                        X[feature], self._encoders[feature].classes_
-                    ):
-                        msg = (
-                            "Found unknown categories in column {0}"
-                            " during fit".format(feature)
-                        )
-                        raise KeyError(msg)
-
-        self.drop_idx_ = self._compute_drop_idx()
-        self._fitted = True
+        self._fit(X, True)
         return self
 
+    @generate_docstring(
+        y=None,
+        return_values={
+            "name": "X_out",
+            "description": "Transformed input.",
+            "type": "sparse matrix if sparse=True else a 2-d array",
+        },
+    )
     def fit_transform(self, X, y=None):
         """
-        Fit OneHotEncoder to X, then transform X.
-        Equivalent to fit(X).transform(X).
-
-        Parameters
-        ----------
-        X : cudf.DataFrame or cupy.ndarray, shape = (n_samples, n_features)
-            The data to encode.
-
-        Returns
-        -------
-        X_out : sparse matrix if sparse=True else a 2-d array
-            Transformed input.
+        Fit OneHotEncoder to X, then transform X.  Equivalent to fit(X).transform(X).
 
         """
         X = self._check_input(X)
         return self.fit(X).transform(X)
 
+    @generate_docstring(
+        return_values={
+            "name": "X_out",
+            "description": "Transformed input.",
+            "type": "sparse matrix if sparse=True else a 2-d array",
+        }
+    )
     def transform(self, X):
-        """
-        Transform X using one-hot encoding.
-
-        Parameters
-        ----------
-        X : cudf.DataFrame or cupy.ndarray
-            The data to encode.
-
-        Returns
-        -------
-        X_out : sparse matrix if sparse=True else a 2-d array
-            Transformed input.
-        """
+        """Transform X using one-hot encoding."""
         self._check_is_fitted()
         X = self._check_input(X)
 
@@ -425,10 +463,9 @@ class OneHotEncoder(Base):
             )
 
     def inverse_transform(self, X):
-        """
-        Convert the data back to the original representation.
-        In case unknown categories are encountered (all zeros in the
-        one-hot encoding), ``None`` is used to represent this category.
+        """Convert the data back to the original representation. In case unknown
+        categories are encountered (all zeros in the one-hot encoding), ``None`` is used
+        to represent this category.
 
         The return type is the same as the type of the input used by the first
         call to fit on this estimator instance.
@@ -541,6 +578,168 @@ class OneHotEncoder(Base):
             "categories",
             "drop",
             "sparse",
+            "dtype",
+            "handle_unknown",
+        ]
+
+
+def _slice_feat(X, i):
+    if hasattr(X, "iloc"):
+        return X[i]
+    return X[:, i]
+
+
+def _get_output(
+    output_type: Optional[str],
+    input_type: Optional[str],
+    out: DataFrame,
+    dtype,
+):
+    if output_type == "input":
+        if input_type == "array":
+            output_type = "cupy"
+        elif input_type == "df":
+            output_type = "cudf"
+
+    if output_type is None:
+        output_type = "cupy"
+
+    if output_type == "cudf":
+        return out
+    elif output_type == "cupy":
+        return out.astype(dtype).to_cupy(na_value=np.nan)
+    elif output_type == "numpy":
+        return cp.asnumpy(out.to_cupy(na_value=np.nan, dtype=dtype))
+    elif output_type == "pandas":
+        return out.to_pandas()
+    else:
+        raise ValueError("Unsupported output type.")
+
+
+class OrdinalEncoder(BaseEncoder):
+    def __init__(
+        self,
+        *,
+        categories="auto",
+        dtype=np.float64,
+        handle_unknown="error",
+        handle=None,
+        verbose=False,
+        output_type=None,
+    ) -> None:
+        """Encode categorical features as an integer array.
+
+        The input to this transformer should be an :py:class:`cudf.DataFrame` or a
+        :py:class:`cupy.ndarray`, denoting the unique values taken on by categorical
+        (discrete) features. The features are converted to ordinal integers. This
+        results in a single column of integers (0 to n_categories - 1) per feature.
+
+        Parameters
+        ----------
+        categories : 'auto' an cupy.ndarray or a cudf.DataFrame, default='auto'
+                     Categories (unique values) per feature:
+            - 'auto' : Determine categories automatically from the training data.
+            - DataFrame/ndarray : ``categories[col]`` holds the categories expected
+              in the feature col.
+        handle_unknown : {'error', 'ignore'}, default='error'
+            Whether to raise an error or ignore if an unknown categorical feature is
+            present during transform (default is to raise). When this parameter is set
+            to 'ignore' and an unknown category is encountered during transform, the
+            resulting encoded value would be null when output type is cudf
+            dataframe.
+        handle : cuml.Handle
+            Specifies the cuml.handle that holds internal CUDA state for computations in
+            this model. Most importantly, this specifies the CUDA stream that will be
+            used for the model's computations, so users can run different models
+            concurrently in different streams by creating handles in several streams.
+
+            If it is None, a new one is created.
+        verbose : int or boolean, default=False
+            Sets logging level. It must be one of `cuml.common.logger.level_*`.  See
+            :ref:`verbosity-levels` for more info.
+        output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+            'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+            Return results and set estimator attributes to the indicated output
+            type. If None, the output type set at the module level
+            (`cuml.global_settings.output_type`) will be used. See
+            :ref:`output-data-type-configuration` for more info.
+        """
+        super().__init__(
+            handle=handle, verbose=verbose, output_type=output_type
+        )
+
+        self.categories = categories
+        self.dtype = dtype
+        self.handle_unknown = handle_unknown
+
+        self.input_type = None
+
+    @generate_docstring(y=None)
+    def fit(self, X, y=None) -> "OrdinalEncoder":
+        """Fit Ordinal to X."""
+        self._fit(X, need_drop=False)
+        return self
+
+    @generate_docstring(
+        return_values={
+            "name": "X_out",
+            "description": "Transformed input.",
+            "type": "Type is specified by the `output_type` parameter.",
+        }
+    )
+    def transform(self, X):
+        """Transform X using ordinal encoding."""
+        self._check_n_features(X, reset=False)
+
+        result = {}
+        for feature in self._features:
+            Xi = _slice_feat(X, feature)
+            col_idx = self._encoders[feature].transform(Xi)
+            result[feature] = col_idx
+
+        r = DataFrame(result)
+        return _get_output(self.output_type, self.input_type, r, self.dtype)
+
+    @generate_docstring(
+        y=None,
+        return_values={
+            "name": "X_out",
+            "description": "Transformed input.",
+            "type": "Type is specified by the `output_type` parameter.",
+        },
+    )
+    def fit_transform(self, X, y=None):
+        """Fit OrdinalEncoder to X, then transform X. Equivalent to fit(X).transform(X)."""
+        X = self._check_input(X)
+        return self.fit(X).transform(X)
+
+    def inverse_transform(self, X):
+        """Convert the data back to the original representation.
+
+        Parameters
+        ----------
+        X : array-like or sparse matrix, shape [n_samples, n_encoded_features]
+            The transformed data.
+
+        Returns
+        -------
+        X_tr : Type is specified by the `output_type` parameter.
+            Inverse transformed array.
+        """
+        self._check_n_features(X, reset=False)
+
+        result = {}
+        for feature in self._features:
+            Xi = _slice_feat(X, feature)
+            inv = self._encoders[feature].inverse_transform(Xi)
+            result[feature] = inv
+
+        r = DataFrame(result)
+        return _get_output(self.output_type, self.input_type, r, self.dtype)
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "categories",
             "dtype",
             "handle_unknown",
         ]
