@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import platform
 from cuml.testing.utils import array_equal
 from sklearn.neighbors import KNeighborsClassifier
 from cuml.testing.utils import unit_param, quality_param, stress_param
@@ -29,6 +30,17 @@ dask_cudf = gpu_only_import("dask_cudf")
 pd = cpu_only_import("pandas")
 
 np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
+
+
+IS_ARM = platform.processor() == "aarch64"
+
+if IS_ARM and cp.cuda.runtime.runtimeGetVersion() < 11080:
+    pytest.skip(
+        "Test hang in AARCH64 with CUDA < 11.8: "
+        "https://github.com/rapidsai/cuml/issues/5673",
+        allow_module_level=True,
+    )
 
 
 def predict(neigh_ind, _y, n_neighbors):
