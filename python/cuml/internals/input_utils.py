@@ -497,6 +497,20 @@ def input_to_host_array(
     return out_data._replace(array=out_data.array.to_output("numpy"))
 
 
+def input_to_host_array_with_sparse_support(X):
+    _array_type, is_sparse = determine_array_type_full(X)
+    if is_sparse:
+        if _array_type == "cupy":
+            return SparseCumlArray(X).to_output(output_type="scipy")
+        elif _array_type == "cuml":
+            return X.to_output(output_type="scipy")
+        elif _array_type == "numpy":
+            return X
+        else:
+            raise ValueError(f"Unsupported sparse array type: {_array_type}.")
+    return input_to_host_array(X).array
+
+
 def convert_dtype(X, to_dtype=np.float32, legacy=True, safe_dtype=True):
     """
     Convert X to be of dtype `dtype`, raising a TypeError
