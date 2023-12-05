@@ -84,7 +84,6 @@ done
 
 sed_runner "s|/branch-[^/]*/|/branch-${NEXT_SHORT_TAG}/|g" README.md
 sed_runner "s|/branch-[^/]*/|/branch-${NEXT_SHORT_TAG}/|g" python/README.md
-sed_runner "/- rapids-dask-dependency==/ s/==.*/==${NEXT_SHORT_TAG}\.*/g" python/README.md
 
 # Wheel builds clone cumlprims_mg, update its branch
 sed_runner "s/extra-repo-sha: branch-.*/extra-repo-sha: branch-${NEXT_SHORT_TAG}/g" .github/workflows/*.yaml
