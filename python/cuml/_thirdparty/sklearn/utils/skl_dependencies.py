@@ -15,6 +15,53 @@ from ..utils.validation import check_X_y
 from ....thirdparty_adapters import check_array
 
 
+def _get_feature_names(X):
+    """Get feature names from X.
+
+    Support for other array containers should place its implementation here.
+
+    Parameters
+    ----------
+    X : {ndarray, dataframe} of shape (n_samples, n_features)
+        Array container to extract feature names.
+
+        - dataframe : The columns will be considered to be feature
+          names. If the dataframe contains non-string feature names,
+          `None` is returned.
+        - All array containers will return `None`.
+
+    Returns
+    -------
+    names: ndarray or None
+        Feature names of `X`. Unrecognized array containers will return `None`.
+    """
+    feature_names = None
+
+    # extract feature names for support array containers
+    if hasattr(X, "columns"):
+        feature_names = np.asarray(X.columns, dtype=object)
+
+    if feature_names is None or len(feature_names) == 0:
+        return
+
+    types = sorted(t.__qualname__ for t in set(type(v) for v in feature_names))
+
+    # mixed type of string and non-string is not supported
+    if len(types) > 1 and "str" in types:
+        raise TypeError(
+            "Feature names are only supported if all input features have string names, "
+            f"but your input has {types} as feature name / column name types. "
+            "If you want feature names to be stored and validated, you must convert "
+            "them all to strings, by using X.columns = X.columns.astype(str) for "
+            "example. Otherwise you can remove feature / column names from your input "
+            "data, or convert them all to a non-string data type."
+        )
+
+    # Only feature names of all strings are supported
+    if len(types) == 1 and types[0] == "str":
+        return feature_names
+
+
 class BaseEstimator(Base):
     """Base class for all estimators in scikit-learn
 
