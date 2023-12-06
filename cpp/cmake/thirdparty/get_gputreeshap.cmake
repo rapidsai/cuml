@@ -62,7 +62,7 @@ function(find_and_configure_gputreeshap)
 
     # Tell cmake where it can find the generated gputreeshap-config.cmake we wrote.
     include("${rapids-cmake-dir}/export/find_package_root.cmake")
-    rapids_export_find_package_root(BUILD GPUTreeShap [=[${CMAKE_CURRENT_LIST_DIR}]=] cuml-exports)
+    rapids_export_find_package_root(BUILD GPUTreeShap [=[${CMAKE_CURRENT_LIST_DIR}]=] EXPORT_SET cuml-exports)
 
     set(GPUTreeShap_ADDED ${GPUTreeShap_ADDED} PARENT_SCOPE)
 

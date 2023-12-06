@@ -35,9 +35,10 @@ function sed_runner() {
 }
 
 
-# __init__.py and pyproject.toml versions
-sed_runner "s/__version__ = .*/__version__ = \"${NEXT_FULL_TAG}\"/g" python/cuml/__init__.py
-sed_runner "s/^version = .*/version = \"${NEXT_FULL_TAG}\"/g" python/pyproject.toml
+# Centralized version file update
+echo "${NEXT_FULL_TAG}" > VERSION
+
+# pyproject.toml versions
 sed_runner "s/rmm==.*\",/rmm==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pyproject.toml
 sed_runner "s/cudf==.*\",/cudf==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pyproject.toml
 sed_runner "s/pylibraft==.*\",/pylibraft==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pyproject.toml
@@ -72,6 +73,7 @@ DEPENDENCIES=(
   librmm
   pylibraft
   raft-dask
+  rapids-dask-dependency
   rmm
 )
 for FILE in dependencies.yaml conda/environments/*.yaml; do
@@ -80,19 +82,15 @@ for FILE in dependencies.yaml conda/environments/*.yaml; do
   done
 done
 
-sed_runner "s|/branch-.*?/|/branch-${NEXT_SHORT_TAG}/|g" README.md
-sed_runner "s|/branch-.*?/|/branch-${NEXT_SHORT_TAG}/|g" python/README.md
+sed_runner "s|/branch-[^/]*/|/branch-${NEXT_SHORT_TAG}/|g" README.md
+sed_runner "s|/branch-[^/]*/|/branch-${NEXT_SHORT_TAG}/|g" python/README.md
+sed_runner "/- rapids-dask-dependency==/ s/==.*/==${NEXT_SHORT_TAG}\.*/g" python/README.md
 
 # Wheel builds clone cumlprims_mg, update its branch
 sed_runner "s/extra-repo-sha: branch-.*/extra-repo-sha: branch-${NEXT_SHORT_TAG}/g" .github/workflows/*.yaml
 
-# Wheel builds install dask-cuda from source, update its branch
-for FILE in .github/workflows/*.yaml; do
-  sed_runner "s/dask-cuda.git@branch-[^\"\s]\+/dask-cuda.git@branch-${NEXT_SHORT_TAG}/g" ${FILE};
-done
-
 # CI files
 for FILE in .github/workflows/*.yaml; do
-  sed_runner "/shared-action-workflows/ s/@.*/@branch-${NEXT_SHORT_TAG}/g" "${FILE}"
+  sed_runner "/shared-workflows/ s/@.*/@branch-${NEXT_SHORT_TAG}/g" "${FILE}"
 done
 sed_runner "s/RAPIDS_VERSION_NUMBER=\".*/RAPIDS_VERSION_NUMBER=\"${NEXT_SHORT_TAG}\"/g" ci/build_docs.sh

@@ -1,3 +1,52 @@
+# cuML 23.12.00 (6 Dec 2023)
+
+## 🚨 Breaking Changes
+
+- [LogisticRegressionMG] Support sparse vectors ([#5632](https://github.com/rapidsai/cuml/pull/5632)) [@lijinf2](https://github.com/lijinf2)
+
+## 🐛 Bug Fixes
+
+- Update actions/labeler to v4 ([#5686](https://github.com/rapidsai/cuml/pull/5686)) [@raydouglass](https://github.com/raydouglass)
+- updated docs around `make_column_transformer` change from `.preprocessing` to `.compose` ([#5680](https://github.com/rapidsai/cuml/pull/5680)) [@taureandyernv](https://github.com/taureandyernv)
+- Skip dask pytest NN hang in CUDA 11.4 CI ([#5665](https://github.com/rapidsai/cuml/pull/5665)) [@dantegd](https://github.com/dantegd)
+- Avoid hard import of sklearn in base module. ([#5663](https://github.com/rapidsai/cuml/pull/5663)) [@csadorf](https://github.com/csadorf)
+- CI: Pin clang-tidy to 15.0.7. ([#5661](https://github.com/rapidsai/cuml/pull/5661)) [@csadorf](https://github.com/csadorf)
+- Adjust assumption regarding valid cudf.Series dimensional input. ([#5654](https://github.com/rapidsai/cuml/pull/5654)) [@csadorf](https://github.com/csadorf)
+- Flatten cupy array before feeding to cudf.Series ([#5651](https://github.com/rapidsai/cuml/pull/5651)) [@vyasr](https://github.com/vyasr)
+- CI: Fix expected ValueError and dask-glm incompatibility ([#5644](https://github.com/rapidsai/cuml/pull/5644)) [@csadorf](https://github.com/csadorf)
+- Use drop_duplicates instead of unique for cudf&#39;s pandas compatibility mode ([#5639](https://github.com/rapidsai/cuml/pull/5639)) [@vyasr](https://github.com/vyasr)
+- Temporarily avoid pydata-sphinx-theme version 0.14.2. ([#5629](https://github.com/rapidsai/cuml/pull/5629)) [@csadorf](https://github.com/csadorf)
+- Fix type hint in split function. ([#5625](https://github.com/rapidsai/cuml/pull/5625)) [@trivialfis](https://github.com/trivialfis)
+- Fix trying to get pointer to None in svm/linear.pyx ([#5615](https://github.com/rapidsai/cuml/pull/5615)) [@yosider](https://github.com/yosider)
+- Reduce parallelism to avoid OOMs in wheel tests ([#5611](https://github.com/rapidsai/cuml/pull/5611)) [@vyasr](https://github.com/vyasr)
+
+## 📖 Documentation
+
+- Update interoperability docs ([#5633](https://github.com/rapidsai/cuml/pull/5633)) [@beckernick](https://github.com/beckernick)
+- Update instructions for creating a conda build environment ([#5628](https://github.com/rapidsai/cuml/pull/5628)) [@csadorf](https://github.com/csadorf)
+
+## 🚀 New Features
+
+- Basic implementation of `OrdinalEncoder`. ([#5646](https://github.com/rapidsai/cuml/pull/5646)) [@trivialfis](https://github.com/trivialfis)
+
+## 🛠️ Improvements
+
+- Build concurrency for nightly and merge triggers ([#5658](https://github.com/rapidsai/cuml/pull/5658)) [@bdice](https://github.com/bdice)
+- [LogisticRegressionMG][FEA] Support training when dataset contains only one class ([#5655](https://github.com/rapidsai/cuml/pull/5655)) [@lijinf2](https://github.com/lijinf2)
+- Use new `rapids-dask-dependency` metapackage for managing `dask` versions ([#5649](https://github.com/rapidsai/cuml/pull/5649)) [@galipremsagar](https://github.com/galipremsagar)
+- Simplify some logic in LabelEncoder ([#5648](https://github.com/rapidsai/cuml/pull/5648)) [@vyasr](https://github.com/vyasr)
+- Increase `Nanny` close timeout in `LocalCUDACluster` tests ([#5636](https://github.com/rapidsai/cuml/pull/5636)) [@pentschev](https://github.com/pentschev)
+- [LogisticRegressionMG] Support sparse vectors ([#5632](https://github.com/rapidsai/cuml/pull/5632)) [@lijinf2](https://github.com/lijinf2)
+- Add rich HTML representation to estimators ([#5630](https://github.com/rapidsai/cuml/pull/5630)) [@betatim](https://github.com/betatim)
+- Unpin `dask` and `distributed` for `23.12` development ([#5627](https://github.com/rapidsai/cuml/pull/5627)) [@galipremsagar](https://github.com/galipremsagar)
+- Update `shared-action-workflows` references ([#5621](https://github.com/rapidsai/cuml/pull/5621)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Use branch-23.12 workflows. ([#5618](https://github.com/rapidsai/cuml/pull/5618)) [@bdice](https://github.com/bdice)
+- Update rapids-cmake functions to non-deprecated signatures ([#5616](https://github.com/rapidsai/cuml/pull/5616)) [@robertmaynard](https://github.com/robertmaynard)
+- Allow nightly dependencies and set up consistent nightly versions for conda and pip packages ([#5607](https://github.com/rapidsai/cuml/pull/5607)) [@vyasr](https://github.com/vyasr)
+- Forward-merge branch-23.10 to branch-23.12 ([#5596](https://github.com/rapidsai/cuml/pull/5596)) [@bdice](https://github.com/bdice)
+- Build CUDA 12.0 ARM conda packages. ([#5595](https://github.com/rapidsai/cuml/pull/5595)) [@bdice](https://github.com/bdice)
+- Enable multiclass svm for sparse input ([#5588](https://github.com/rapidsai/cuml/pull/5588)) [@mfoerste4](https://github.com/mfoerste4)
+
 # cuML 23.10.00 (11 Oct 2023)
 
 ## 🚨 Breaking Changes

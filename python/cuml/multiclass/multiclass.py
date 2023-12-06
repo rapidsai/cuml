@@ -20,7 +20,15 @@ from cuml.internals.base import Base
 from cuml.internals.import_utils import has_sklearn
 from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.common import input_to_host_array
+from cuml.common import (
+    input_to_host_array,
+    input_to_host_array_with_sparse_support,
+)
+from cuml.internals.input_utils import (
+    input_to_cupy_array,
+    determine_array_type_full,
+)
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals import _deprecate_pos_args
 
 
@@ -142,7 +150,9 @@ class MulticlassClassifier(Base, ClassifierMixin):
                 + ", must be one of "
                 '{"ovr", "ovo"}'
             )
-        X = input_to_host_array(X).array
+
+        X = input_to_host_array_with_sparse_support(X)
+
         y = input_to_host_array(y).array
         with cuml.internals.exit_internal_api():
             self.multiclass_estimator.fit(X, y)
@@ -160,7 +170,8 @@ class MulticlassClassifier(Base, ClassifierMixin):
         """
         Predict using multi class classifier.
         """
-        X = input_to_host_array(X).array
+        X = input_to_host_array_with_sparse_support(X)
+
         with cuml.internals.exit_internal_api():
             return self.multiclass_estimator.predict(X)
 
@@ -177,7 +188,7 @@ class MulticlassClassifier(Base, ClassifierMixin):
         """
         Calculate the decision function.
         """
-        X = input_to_host_array(X).array
+        X = input_to_host_array_with_sparse_support(X)
         with cuml.internals.exit_internal_api():
             return self.multiclass_estimator.decision_function(X)
 

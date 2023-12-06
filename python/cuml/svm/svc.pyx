@@ -35,7 +35,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.logger import warn
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.interruptible import cuda_interruptible
-from cuml.common import input_to_cuml_array, input_to_host_array
+from cuml.common import input_to_cuml_array, input_to_host_array, input_to_host_array_with_sparse_support
 from cuml.internals.input_utils import input_to_cupy_array, determine_array_type_full
 from cuml.preprocessing import LabelEncoder
 from libcpp cimport nullptr
@@ -449,7 +449,7 @@ class SVC(SVMBase,
 
         # Currently CalibratedClassifierCV expects data on the host, see
         # https://github.com/rapidsai/cuml/issues/2608
-        X = input_to_host_array(X).array
+        X = input_to_host_array_with_sparse_support(X)
         y = input_to_host_array(y).array
 
         if not has_sklearn():
@@ -485,8 +485,6 @@ class SVC(SVMBase,
             return self._fit_proba(X, y, sample_weight)
 
         if self.n_classes_ > 2:
-            if is_sparse:
-                raise ValueError("Multiclass SVM does not support sparse input.")
             return self._fit_multiclass(X, y, sample_weight)
 
         if is_sparse:
@@ -594,7 +592,7 @@ class SVC(SVMBase,
         if self.probability:
             self._check_is_fitted('prob_svc')
 
-            X = input_to_host_array(X).array
+            X = input_to_host_array_with_sparse_support(X)
 
             with cuml.internals.exit_internal_api():
                 preds = self.prob_svc.predict(X)
@@ -628,7 +626,7 @@ class SVC(SVMBase,
         if self.probability:
             self._check_is_fitted('prob_svc')
 
-            X = input_to_host_array(X).array
+            X = input_to_host_array_with_sparse_support(X)
 
             # Exit the internal API when calling sklearn code (forces numpy
             # conversion)

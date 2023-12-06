@@ -28,6 +28,12 @@ from cuml.internals.safe_imports import (
 np = cpu_only_import('numpy')
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
+try:
+    from sklearn.utils import estimator_html_repr
+except ImportError:
+    estimator_html_repr = None
+
+
 import cuml
 import cuml.common
 import cuml.internals.logger as logger
@@ -442,6 +448,13 @@ class Base(TagsMixin,
         if hasattr(self, 'transform') and hasattr(self, 'dtype'):
             return {'preserves_dtype': [self.dtype]}
         return {}
+
+    def _repr_mimebundle_(self, **kwargs):
+        """Prepare representations used by jupyter kernels to display estimator"""
+        if estimator_html_repr is not None:
+            output = {"text/plain": repr(self)}
+            output["text/html"] = estimator_html_repr(self)
+            return output
 
     def set_nvtx_annotations(self):
         for func_name in ['fit', 'transform', 'predict', 'fit_transform',

@@ -41,8 +41,8 @@ cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
 cuda = gpu_only_import_from("numba", "cuda")
 
-
 cudf = gpu_only_import("cudf")
+scipy_sparse = cpu_only_import("scipy.sparse")
 
 IS_ARM = platform.processor() == "aarch64"
 
@@ -176,12 +176,17 @@ def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
 
 
 @pytest.mark.parametrize("params", [{"kernel": "rbf", "C": 1, "gamma": 1}])
+@pytest.mark.parametrize("sparse", [True, False])
 def test_svm_skl_cmp_multiclass(
-    params, dataset="classification2", n_rows=100, n_cols=6
+    params, sparse, dataset="classification2", n_rows=100, n_cols=6
 ):
     X_train, X_test, y_train, y_test = make_dataset(
         dataset, n_rows, n_cols, n_classes=3, n_informative=6
     )
+
+    if sparse:
+        X_train = scipy_sparse.csr_matrix(X_train)
+        X_test = scipy_sparse.csr_matrix(X_test)
 
     # Default to numpy for testing
     with cuml.using_output_type("numpy"):
