@@ -336,7 +336,7 @@ __global__ void sum_of_squares_kernel(const DataT* d_y,
   // Compute log-likelihood and write it to global memory
   if (threadIdx.x == 0) {
     d_loglike[blockIdx.x] =
-      -0.5 * static_cast<DataT>(n_obs) * raft::myLog(ssq / static_cast<DataT>(n_obs - start_sum));
+      -0.5 * static_cast<DataT>(n_obs) * raft::log(ssq / static_cast<DataT>(n_obs - start_sum));
   }
 }
 

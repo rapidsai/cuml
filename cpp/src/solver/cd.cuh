@@ -74,9 +74,9 @@ __global__ void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
   auto r       = coef > l1_alpha ? coef - l1_alpha : (coef < -l1_alpha ? coef + l1_alpha : 0);
   auto squared = *squaredLoc;
   r            = squared > math_t(1e-5) ? r / squared : math_t(0);
-  auto diff    = raft::myAbs(convStateLoc->coef - r);
+  auto diff    = raft::abs(convStateLoc->coef - r);
   if (convStateLoc->diffMax < diff) convStateLoc->diffMax = diff;
-  auto absv = raft::myAbs(r);
+  auto absv = raft::abs(r);
   if (convStateLoc->coefMax < absv) convStateLoc->coefMax = absv;
   convStateLoc->coef = -r;
   *coefLoc           = r;
