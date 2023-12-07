@@ -273,9 +273,7 @@ void meanAbsoluteError(const raft::handle_t& h,
     n_samples,
     false,
     false,
-    [N, WS] __device__(math_t y_p, math_t y, math_t w) {
-      return N * w * raft::abs(y - y_p) / WS;
-    },
+    [N, WS] __device__(math_t y_p, math_t y, math_t w) { return N * w * raft::abs(y - y_p) / WS; },
     stream);
 
   // Average along rows
