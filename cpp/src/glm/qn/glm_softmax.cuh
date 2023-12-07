@@ -25,9 +25,9 @@ namespace ML {
 namespace GLM {
 namespace detail {
 using raft::ceildiv;
-using raft::myExp;
-using raft::myLog;
-using raft::myMax;
+using raft::exp;
+using raft::log;
+using raft::max;
 
 // Input: matrix Z (dims: CxN)
 // Computes softmax cross entropy loss across columns, i.e. normalization
@@ -84,7 +84,7 @@ __global__ void logSoftmaxKernel(
         delta = true;
         eta_y = myEta;
       }
-      etaMax = myMax<T>(myEta, etaMax);
+      etaMax = max<T>(myEta, etaMax);
     }
   }
   T tmpMax = WarpRed(shm.warpStore[threadIdx.y]).Reduce(etaMax, cub::Max());
@@ -100,15 +100,15 @@ __global__ void logSoftmaxKernel(
   // TODO there must be a better way to do this...
   if (C <= BX) {  // this means one block covers a column and myEta is valid
     int idx = threadIdx.x + y * C;
-    if (threadIdx.x < C && idx < len) { lse = myExp<T>(myEta - etaMax); }
+    if (threadIdx.x < C && idx < len) { lse = exp<T>(myEta - etaMax); }
   } else {
     for (int x = threadIdx.x; x < C; x += BX) {
       int idx = x + y * C;
-      if (x < C && idx < len) { lse += myExp<T>(in[idx] - etaMax); }
+      if (x < C && idx < len) { lse += exp<T>(in[idx] - etaMax); }
     }
   }
   T tmpLse = WarpRed(shm.warpStore[threadIdx.y]).Sum(lse);
-  if (threadIdx.x == 0) { shm.sh_val[threadIdx.y] = etaMax + myLog<T>(tmpLse); }
+  if (threadIdx.x == 0) { shm.sh_val[threadIdx.y] = etaMax + log<T>(tmpLse); }
   __syncthreads();
   lse = shm.sh_val[threadIdx.y];
   __syncthreads();
@@ -123,14 +123,14 @@ __global__ void logSoftmaxKernel(
   if (C <= BX) {  // this means one block covers a column and myEta is valid
     int idx = threadIdx.x + y * C;
     if (threadIdx.x < C && idx < len) {
-      dZ[idx] = (myExp<T>(myEta - lse) - (getDerivative ? (threadIdx.x == label) : T(0)));
+      dZ[idx] = (exp<T>(myEta - lse) - (getDerivative ? (threadIdx.x == label) : T(0)));
     }
   } else {
     for (int x = threadIdx.x; x < C; x += BX) {
       int idx = x + y * C;
       if (x < C && idx < len) {
         T logP  = in[idx] - lse;
-        dZ[idx] = (myExp<T>(logP) - (getDerivative ? (x == label) : T(0)));
+        dZ[idx] = (exp<T>(logP) - (getDerivative ? (x == label) : T(0)));
       }
     }
   }
