@@ -29,7 +29,7 @@ requirements:
   host:
     - python x.x
     - setuptools
-    - scikit-build>=0.13.1
+    - scikit-build-core >=0.7.0
     - cython>=3.0.0
   run:
     - python x.x
