@@ -163,6 +163,7 @@ dependencies:
           # pip recognizes the index as a global option for the requirements.txt file
           # This index is needed for cudf and rmm.
           - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
       - output_types: [pyproject, requirements]
         packages:
           - wheel
@@ -217,6 +218,7 @@ dependencies:
           # pip recognizes the index as a global option for the requirements.txt file
           # This index is needed for cudf and rmm.
           - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
       - output_types: [pyproject, requirements]
         packages:
           - *treelite_runtime
