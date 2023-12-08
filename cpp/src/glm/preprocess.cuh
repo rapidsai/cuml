@@ -77,7 +77,7 @@ void preProcessData(const raft::handle_t& handle,
         norm2_input,
         norm2_input,
         n_cols,
-        [] __device__(math_t v) { return raft::mySqrt(v); },
+        [] __device__(math_t v) { return raft::sqrt(v); },
         stream);
       raft::matrix::linewiseOp(
         input,
@@ -105,7 +105,7 @@ void preProcessData(const raft::handle_t& handle,
                               raft::linalg::L2Norm,
                               false,
                               stream,
-                              [] __device__(math_t v) { return raft::mySqrt(v); });
+                              [] __device__(math_t v) { return raft::sqrt(v); });
         raft::matrix::matrixVectorBinaryDivSkipZero(
           input, norm2_input, n_rows, n_cols, false, true, stream, true);
       }

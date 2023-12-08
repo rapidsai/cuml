@@ -57,7 +57,7 @@ struct AbsLoss : GLMBase<T, AbsLoss<T>> {
   typedef GLMBase<T, AbsLoss<T>> Super;
 
   const struct Lz {
-    inline __device__ T operator()(const T y, const T z) const { return raft::myAbs<T>(z - y); }
+    inline __device__ T operator()(const T y, const T z) const { return raft::abs<T>(z - y); }
   } lz;
 
   const struct Dlz {
