@@ -22,16 +22,14 @@ function(find_and_configure_libcudacxx)
   include(${rapids-cmake-dir}/cpm/libcudacxx.cmake)
   rapids_cpm_libcudacxx(BUILD_EXPORT_SET cuml-exports INSTALL_EXPORT_SET cuml-exports)
 
-  if(libcudacxx_SOURCE_DIR)
-    # Store where CMake can find our custom Thrust install
-    include("${rapids-cmake-dir}/export/find_package_root.cmake")
-    rapids_export_find_package_root(
-      INSTALL
-      libcudacxx
-      [=[${CMAKE_CURRENT_LIST_DIR}/../../../include/libcuml/lib/rapids/cmake/libcudacxx]=]
-      cuml-exports
-    )
-  endif()
+  # Store where CMake can find our custom Thrust install
+  include("${rapids-cmake-dir}/export/find_package_root.cmake")
+  rapids_export_find_package_root(
+    INSTALL libcudacxx
+    [=[${CMAKE_CURRENT_LIST_DIR}/../../../include/libcuml/lib/rapids/cmake/libcudacxx]=]
+    EXPORT_SET cuml-exports
+    CONDITION libcudacxx_SOURCE_DIR
+  )
 endfunction()
 
 find_and_configure_libcudacxx()
