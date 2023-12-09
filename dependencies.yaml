@@ -154,9 +154,17 @@ dependencies:
           - scikit-build>=0.13.1
           - cython>=3.0.0
           - &treelite treelite==3.9.1
-          - pylibraft==24.2.*
-          - rmm==24.2.*
-      - output_types: pyproject
+      - output_types: conda
+        packages:
+          - &pylibraft_conda pylibraft==24.2.*
+          - &rmm_conda rmm==24.2.*
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          # This index is needed for cudf and rmm.
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+      - output_types: [pyproject, requirements]
         packages:
           - wheel
           - setuptools
@@ -171,40 +179,81 @@ dependencies:
           - matrix: # All CUDA 11 versions
             packages:
               - &cuda_python11 cuda-python>=11.7.1,<12.0a0
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.0"}
+            packages:
+              - pylibraft-cu12==24.2.*
+              - rmm-cu12==24.2.*
+          - matrix: {cuda: "11.8"}
+            packages: &py_build_packages_cu11
+              - &pylibraft_cu11 pylibraft-cu11==24.2.*
+              - &rmm_cu11 rmm-cu11==24.2.*
+          - {matrix: {cuda: "11.5"}, packages: *py_build_packages_cu11}
+          - {matrix: {cuda: "11.4"}, packages: *py_build_packages_cu11}
+          - {matrix: {cuda: "11.2"}, packages: *py_build_packages_cu11}
+          - {matrix: null, packages: [*pylibraft_conda, *rmm_conda] }
+
   py_run:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cudf==24.2.*
           - dask-cuda==24.2.*
-          - dask-cudf==24.2.*
           - joblib>=0.11
           - numba>=0.57
             # TODO: Is scipy really a hard dependency, or should
             # we make it optional (i.e. an extra for pip
             # installation/run_constrained for conda)?
           - scipy>=1.8.0
-          - raft-dask==24.2.*
           - rapids-dask-dependency==24.2.*
           - *treelite
-      - output_types: [conda, requirements]
+      - output_types: conda
         packages:
-          - cupy>=12.0.0
-      - output_types: pyproject
+          - &cudf_conda cudf==24.2.*
+          - &cupy_conda cupy>=12.0.0
+          - &dask_cudf_conda dask-cudf==24.2.*
+          - &raft_dask_conda raft-dask==24.2.*
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          # This index is needed for cudf and rmm.
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+      - output_types: [pyproject, requirements]
         packages:
           - *treelite_runtime
-          - cupy-cuda11x>=12.0.0
     specific:
-      - output_types: requirements
+      - output_types: [requirements, pyproject]
         matrices:
-          - matrix:
-              arch: x86_64
+          - matrix: {cuda: "12.0"}
             packages:
-              - cupy-cuda115>=12.0.0
-          - matrix:
-              arch: aarch64
+              - cudf-cu12==24.2.*
+              - cupy-cuda12x>=12.0.0
+              - dask-cudf-cu12==24.2.*
+              - pylibraft-cu12==24.2.*
+              - raft-dask-cu12==24.2.*
+              - rmm-cu12==24.2.*
+          # All CUDA 11 versions
+          - matrix: {cuda: "11.8"}
+            packages: &py_run_packages_cu11
+              - cudf-cu11==24.2.*
+              - cupy-cuda11x>=12.0.0
+              - dask-cudf-cu11==24.2.*
+              - *pylibraft_cu11
+              - raft-dask-cu11==24.2.*
+              - *rmm_cu11
+          - {matrix: {cuda: "11.5"}, packages: *py_run_packages_cu11}
+          - {matrix: {cuda: "11.4"}, packages: *py_run_packages_cu11}
+          - {matrix: {cuda: "11.2"}, packages: *py_run_packages_cu11}
+          - matrix: null
             packages:
-              - cupy-cuda11x -f https://pip.cupy.dev/aarch64 # TODO: Verify that this works.
+              - *cudf_conda
+              - *cupy_conda
+              - *dask_cudf_conda
+              - *pylibraft_conda
+              - *raft_dask_conda
+              - *pylibraft_conda
+              - *rmm_conda
   cudatoolkit:
     specific:
       - output_types: conda
