@@ -26,7 +26,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 23.12.00 LANGUAGES CXX CUDA)
+project(CUML VERSION 24.02.00 LANGUAGES CXX CUDA)
 
 # Write the version header
 rapids_cmake_write_version_file(include/cuml/version_config.hpp)
@@ -56,7 +56,7 @@ option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)"
 option(CUDA_ENABLE_KERNEL_INFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
-option(DISABLE_DEPRECATION_WARNINGS "Disable deprecation warnings " OFF)
+option(DISABLE_DEPRECATION_WARNINGS "Disable deprecation warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
@@ -222,6 +222,7 @@ endif()
 
 # thrust before rmm, rmm before raft so we get the right version of thrust/rmm
 include(cmake/thirdparty/get_thrust.cmake)
+include(cmake/thirdparty/get_libcudacxx.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_raft.cmake)
 

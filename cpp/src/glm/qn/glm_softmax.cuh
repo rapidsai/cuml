@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,10 +24,6 @@
 namespace ML {
 namespace GLM {
 namespace detail {
-using raft::ceildiv;
-using raft::myExp;
-using raft::myLog;
-using raft::myMax;
 
 // Input: matrix Z (dims: CxN)
 // Computes softmax cross entropy loss across columns, i.e. normalization
@@ -84,7 +80,7 @@ __global__ void logSoftmaxKernel(
         delta = true;
         eta_y = myEta;
       }
-      etaMax = myMax<T>(myEta, etaMax);
+      etaMax = raft::max<T>(myEta, etaMax);
     }
   }
   T tmpMax = WarpRed(shm.warpStore[threadIdx.y]).Reduce(etaMax, cub::Max());
@@ -100,15 +96,15 @@ __global__ void logSoftmaxKernel(
   // TODO there must be a better way to do this...
   if (C <= BX) {  // this means one block covers a column and myEta is valid
     int idx = threadIdx.x + y * C;
-    if (threadIdx.x < C && idx < len) { lse = myExp<T>(myEta - etaMax); }
+    if (threadIdx.x < C && idx < len) { lse = raft::exp<T>(myEta - etaMax); }
   } else {
     for (int x = threadIdx.x; x < C; x += BX) {
       int idx = x + y * C;
-      if (x < C && idx < len) { lse += myExp<T>(in[idx] - etaMax); }
+      if (x < C && idx < len) { lse += raft::exp<T>(in[idx] - etaMax); }
     }
   }
   T tmpLse = WarpRed(shm.warpStore[threadIdx.y]).Sum(lse);
-  if (threadIdx.x == 0) { shm.sh_val[threadIdx.y] = etaMax + myLog<T>(tmpLse); }
+  if (threadIdx.x == 0) { shm.sh_val[threadIdx.y] = etaMax + raft::log<T>(tmpLse); }
   __syncthreads();
   lse = shm.sh_val[threadIdx.y];
   __syncthreads();
@@ -123,14 +119,14 @@ __global__ void logSoftmaxKernel(
   if (C <= BX) {  // this means one block covers a column and myEta is valid
     int idx = threadIdx.x + y * C;
     if (threadIdx.x < C && idx < len) {
-      dZ[idx] = (myExp<T>(myEta - lse) - (getDerivative ? (threadIdx.x == label) : T(0)));
+      dZ[idx] = (raft::exp<T>(myEta - lse) - (getDerivative ? (threadIdx.x == label) : T(0)));
     }
   } else {
     for (int x = threadIdx.x; x < C; x += BX) {
       int idx = x + y * C;
       if (x < C && idx < len) {
         T logP  = in[idx] - lse;
-        dZ[idx] = (myExp<T>(logP) - (getDerivative ? (x == label) : T(0)));
+        dZ[idx] = (raft::exp<T>(logP) - (getDerivative ? (x == label) : T(0)));
       }
     }
   }
@@ -156,19 +152,19 @@ void launchLogsoftmax(
   raft::interruptible::synchronize(stream);
   if (C <= 4) {
     dim3 bs(4, 64);
-    dim3 gs(ceildiv(N, 64));
+    dim3 gs(raft::ceildiv(N, 64));
     logSoftmaxKernel<T, 4, 64><<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
   } else if (C <= 8) {
     dim3 bs(8, 32);
-    dim3 gs(ceildiv(N, 32));
+    dim3 gs(raft::ceildiv(N, 32));
     logSoftmaxKernel<T, 8, 32><<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
   } else if (C <= 16) {
     dim3 bs(16, 16);
-    dim3 gs(ceildiv(N, 16));
+    dim3 gs(raft::ceildiv(N, 16));
     logSoftmaxKernel<T, 16, 16><<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
   } else {
     dim3 bs(32, 8);
-    dim3 gs(ceildiv(N, 8));
+    dim3 gs(raft::ceildiv(N, 8));
     logSoftmaxKernel<T, 32, 8><<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
   }
   RAFT_CUDA_TRY(cudaPeekAtLastError());

@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
 include(../fetch_rapids.cmake)
 
-set(CUML_VERSION 23.12.00)
+set(CUML_VERSION 24.02.00)
 
 option(CUML_CPU "Build only cuML CPU Python components." OFF)
 set(language_list "C;CXX")
@@ -43,7 +43,6 @@ project(
 # - User Options  --------------------------------------------------------------
 option(CUML_UNIVERSAL "Build all cuML Python components." ON)
 option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
-option(CUML_BUILD_WHEELS "Whether this build is generating a Python wheel." OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 set(CUML_RAFT_CLONE_ON_PIN OFF)
 
@@ -70,19 +69,15 @@ if(FIND_CUML_CPP)
   include(rapids-cpm)
   include(rapids-export)
   rapids_cpm_init()
-  include(../cpp/cmake/thirdparty/get_treelite.cmake)
   find_package(cuml ${CUML_VERSION} REQUIRED)
+  include(../cpp/cmake/thirdparty/get_treelite.cmake)
 else()
   set(cuml_FOUND OFF)
 endif()
 
 include(rapids-cython)
 
-if(CUML_BUILD_WHEELS)
-  set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
-else()
-  set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
-endif()
+set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
 
 if(NOT ${CUML_CPU})
   if(NOT cuml_FOUND)
@@ -93,26 +88,21 @@ if(NOT ${CUML_CPU})
     set(BUILD_CUML_BENCH OFF)
     set(BUILD_CUML_PRIMS_BENCH OFF)
     set(CUML_EXPORT_TREELITE_LINKAGE ON)
+    set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
 
-    set(_exclude_from_all "")
-    if(CUML_BUILD_WHEELS)
-      # Statically link dependencies if building wheels
-      set(CUDA_STATIC_RUNTIME ON)
-      set(CUML_USE_RAFT_STATIC ON)
-      set(CUML_USE_FAISS_STATIC ON)
-      set(CUML_USE_TREELITE_STATIC ON)
-      set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
-      # Don't install the static libs into wheels
-      set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
-      set(RAFT_EXCLUDE_FAISS_FROM_ALL ON)
-      set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
-      set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
+    # Statically link dependencies if building wheels
+    set(CUDA_STATIC_RUNTIME ON)
+    set(CUML_USE_RAFT_STATIC ON)
+    set(CUML_USE_FAISS_STATIC ON)
+    set(CUML_USE_TREELITE_STATIC ON)
+    set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
+    # Don't install the static libs into wheels
+    set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
+    set(RAFT_EXCLUDE_FAISS_FROM_ALL ON)
+    set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
+    set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
 
-      # Don't install the cuML C++ targets into wheels
-      set(_exclude_from_all EXCLUDE_FROM_ALL)
-    endif()
-
-    add_subdirectory(../cpp cuml-cpp ${_exclude_from_all})
+    add_subdirectory(../cpp cuml-cpp EXCLUDE_FROM_ALL)
 
     set(cython_lib_dir cuml)
     install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})

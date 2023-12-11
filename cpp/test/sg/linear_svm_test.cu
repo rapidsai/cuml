@@ -161,7 +161,7 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
       errorBuf.data(),
       params.nRowsTest,
       T(0),
-      [] __device__(const T yOut) { return raft::myAbs<T>(1.0 - yOut); },
+      [] __device__(const T yOut) { return raft::abs<T>(1.0 - yOut); },
       cub::Max(),
       stream,
       yOut.data());
