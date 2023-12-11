@@ -36,6 +36,7 @@ cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
 
 
+dask_cudf = gpu_only_import("dask_cudf")
 dcDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
 
 
@@ -343,7 +344,7 @@ class DelayedParallelFunc(object):
             if output_futures:
                 return self.client.compute(preds)
             else:
-                output = dask.dataframe.from_delayed(preds)
+                output = dask_cudf.from_delayed(preds)
                 return output if delayed else output.persist()
         else:
             raise ValueError(

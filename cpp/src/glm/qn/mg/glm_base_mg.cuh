@@ -16,6 +16,7 @@
 
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/linalg/add.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -112,33 +113,41 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
                       T* dev_scalar,
                       cudaStream_t stream)
   {
+    raft::comms::comms_t const& communicator = raft::resource::get_comms(*(this->handle_p));
     SimpleDenseMat<T> W(wFlat.data, this->C, this->dims);
     SimpleDenseMat<T> G(gradFlat.data, this->C, this->dims);
     SimpleVec<T> lossVal(dev_scalar, 1);
+
+    // Ensure the same coefficients on all GPU
+    communicator.bcast(wFlat.data, this->C * this->dims, 0, stream);
+    communicator.sync_stream(stream);
 
     // apply regularization
     auto regularizer_obj = this->objective;
     auto lossFunc        = regularizer_obj->loss;
     auto reg             = regularizer_obj->reg;
     G.fill(0, stream);
-    float reg_host = 0;
+    T reg_host = 0;
     if (reg->l2_penalty != 0) {
       reg->reg_grad(dev_scalar, G, W, lossFunc->fit_intercept, stream);
       raft::update_host(&reg_host, dev_scalar, 1, stream);
-      // note: avoid syncing here because there's a sync before reg_host is used.
+      raft::resource::sync_stream(*(this->handle_p));
     }
 
     // apply linearFwd, getLossAndDz, linearBwd
     ML::GLM::detail::linearFwd(
       lossFunc->handle, *(this->Z), *(this->X), W);  // linear part: forward pass
 
-    raft::comms::comms_t const& communicator = raft::resource::get_comms(*(this->handle_p));
-
     lossFunc->getLossAndDZ(dev_scalar, *(this->Z), *(this->y), stream);  // loss specific part
 
     // normalize local loss before allreduce sum
     T factor = 1.0 * (*this->y).len / this->n_samples;
     raft::linalg::multiplyScalar(dev_scalar, dev_scalar, factor, 1, stream);
+
+    // GPUs calculates reg_host independently and may get values that show tiny divergence.
+    // Take the averaged reg_host to avoid the divergence.
+    T reg_factor = reg_host / this->n_ranks;
+    raft::linalg::addScalar(dev_scalar, dev_scalar, reg_factor, 1, stream);
 
     communicator.allreduce(dev_scalar, dev_scalar, 1, raft::comms::op_t::SUM, stream);
     communicator.sync_stream(stream);
@@ -154,11 +163,9 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
     communicator.allreduce(G.data, G.data, this->C * this->dims, raft::comms::op_t::SUM, stream);
     communicator.sync_stream(stream);
 
-    float loss_host;
+    T loss_host;
     raft::update_host(&loss_host, dev_scalar, 1, stream);
     raft::resource::sync_stream(*(this->handle_p));
-    loss_host += reg_host;
-    lossVal.fill(loss_host + reg_host, stream);
 
     return loss_host;
   }
