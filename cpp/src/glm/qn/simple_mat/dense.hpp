@@ -303,8 +303,8 @@ inline T squaredNorm(const SimpleVec<T>& u, T* tmp_dev, cudaStream_t stream)
 template <typename T>
 inline T nrmMax(const SimpleVec<T>& u, T* tmp_dev, cudaStream_t stream)
 {
-  auto f = [] __device__(const T x) { return raft::myAbs<T>(x); };
-  auto r = [] __device__(const T x, const T y) { return raft::myMax<T>(x, y); };
+  auto f = [] __device__(const T x) { return raft::abs<T>(x); };
+  auto r = [] __device__(const T x, const T y) { return raft::max<T>(x, y); };
   raft::linalg::mapThenReduce(tmp_dev, u.len, T(0), f, r, stream, u.data);
   T tmp_host;
   raft::update_host(&tmp_host, tmp_dev, 1, stream);

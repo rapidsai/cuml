@@ -119,7 +119,7 @@ void reverseImpl(math_t* out,
  * @param op the device-lambda to perform an optional final unary operation on
  *  each element after the reverse
  */
-template <typename math_t, typename Lambda = raft::Nop<math_t>, int TPB = 256>
+template <typename math_t, typename Lambda = raft::identity_op<math_t>, int TPB = 256>
 void reverse(math_t* out,
              const math_t* in,
              int nrows,
@@ -127,7 +127,7 @@ void reverse(math_t* out,
              bool rowMajor,
              bool alongRows,
              cudaStream_t stream,
-             Lambda op = raft::Nop<math_t>())
+             Lambda op = raft::identity_op<math_t>())
 {
   size_t bytes = (rowMajor ? ncols : nrows) * sizeof(math_t);
   if (16 / sizeof(math_t) && bytes % 16 == 0) {

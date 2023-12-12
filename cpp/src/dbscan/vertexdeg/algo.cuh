@@ -122,7 +122,7 @@ void launcher(const raft::handle_t& handle,
     stream,
     false,
     [] __device__(bool adj_ij, index_t idx) { return static_cast<index_t>(adj_ij); },
-    raft::Sum<index_t>(),
+    raft::add_op(),
     [d_nnz] __device__(index_t degree) {
       atomicAdd(d_nnz, degree);
       return degree;
@@ -143,7 +143,7 @@ void launcher(const raft::handle_t& handle,
       [sample_weight] __device__(bool adj_ij, index_t j) {
         return adj_ij ? sample_weight[j] : (value_t)0;
       },
-      raft::Sum<value_t>());
+      raft::add_op());
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 }

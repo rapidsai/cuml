@@ -144,12 +144,12 @@ __global__ void predictProba(T* out, const T* z, const int nRows, const int nCla
   int j    = threadIdx.x;
   if constexpr (Binary) {
     t      = rowIn[0];
-    maxVal = raft::myMax<T>(t, 0);
+    maxVal = raft::max<T>(t, T{0});
     t      = T(j) * t;  // set z[0] = 0, z[1] = t
   } else {
     for (; j < nClasses; j += BX) {
       t      = rowIn[j];
-      maxVal = raft::myMax<T>(maxVal, t);
+      maxVal = raft::max<T>(maxVal, t);
     }
     j -= BX;
     maxVal = WarpRed(warpStore).Reduce(maxVal, cub::Max());
@@ -164,7 +164,7 @@ __global__ void predictProba(T* out, const T* z, const int nRows, const int nCla
   T et;         // Numerator of the softmax.
   T smSum = 0;  // Denominator of the softmax.
   while (j >= 0) {
-    et = raft::myExp<T>(t - maxVal);
+    et = raft::exp<T>(t - maxVal);
     smSum += et;
     if (j < BX) break;
     j -= BX;
@@ -178,13 +178,13 @@ __global__ void predictProba(T* out, const T* z, const int nRows, const int nCla
   // Traverse in the forward direction again to save the results.
   // Note, no extra memory reads when BX >= nClasses!
   if (j < 0) return;
-  T d = Log ? -maxVal - raft::myLog<T>(smSum) : 1 / smSum;
+  T d = Log ? -maxVal - raft::log<T>(smSum) : 1 / smSum;
   while (j < nClasses) {
     rowOut[j] = Log ? t + d : et * d;
     j += BX;
     if (j >= nClasses) break;
     t = rowIn[j];
-    if constexpr (!Log) et = raft::myExp<T>(t - maxVal);
+    if constexpr (!Log) et = raft::exp<T>(t - maxVal);
   }
 }
 

@@ -33,7 +33,7 @@ struct SVCL1Loss : GLMBase<T, SVCL1Loss<T>> {
     inline __device__ T operator()(const T y, const T z) const
     {
       T s = 2 * y - 1;
-      return raft::myMax<T>(0, 1 - s * z);
+      return raft::max<T>(0, 1 - s * z);
     }
   } lz;
 
@@ -64,7 +64,7 @@ struct SVCL2Loss : GLMBase<T, SVCL2Loss<T>> {
     inline __device__ T operator()(const T y, const T z) const
     {
       T s = 2 * y - 1;
-      T t = raft::myMax<T>(0, 1 - s * z);
+      T t = raft::max<T>(0, 1 - s * z);
       return t * t;
     }
   } lz;
