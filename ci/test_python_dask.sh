@@ -23,7 +23,7 @@ pytest \
 
 # Run tests (UCX-Py only)
 pytest \
-  --run_ucx
+  --run_ucx \
   --cache-clear \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask-ucx.xml" \
   --cov-config=../../../.coveragerc \
@@ -34,7 +34,7 @@ pytest \
 
 # Run tests (UCXX only)
 pytest \
-  --run_ucx
+  --run_ucxx \
   --cache-clear \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask-ucxx.xml" \
   --cov-config=../../../.coveragerc \
