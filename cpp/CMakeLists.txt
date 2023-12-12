@@ -220,7 +220,10 @@ if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   find_package(Threads)
 endif()
 
+# thrust before rmm, rmm before raft so we get the right version of thrust/rmm
+include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_libcudacxx.cmake)
+include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_raft.cmake)
 
 if(LINK_TREELITE)
