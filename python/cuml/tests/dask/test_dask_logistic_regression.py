@@ -766,6 +766,7 @@ def test_standardization_on_scaled_dataset(
         penalty=penalty,
         l1_ratio=l1_ratio,
         C=C,
+        verbose=True,
     )
     X_train_dask, X_test_dask, y_train_dask, _ = to_dask_data(
         X_train, X_test, y_train, y_test
@@ -824,6 +825,7 @@ def test_standardization_on_scaled_dataset(
         penalty=penalty,
         l1_ratio=l1_ratio,
         C=C,
+        verbose=True,
     )
     X_train_ds, X_test_ds, y_train_dask, _ = to_dask_data(
         X_train_scaled, X_test_scaled, y_train, y_test
@@ -839,7 +841,56 @@ def test_standardization_on_scaled_dataset(
     assert (mgon_accuracy >= mgoff_accuracy) | (
         np.abs(mgon_accuracy - mgoff_accuracy) < 1e-3
     )
+
+    print(f"mgon_coef_origin: {mgon_coef_origin}")
+    print(f"mgoff.coef_: {mgoff.coef_.to_numpy()}")
+    print(f"mgon_intercept_origin: {mgon_intercept_origin}")
+    print(f"mgoff.intercept_: {mgoff.intercept_.to_numpy()}")
     assert array_equal(mgon_coef_origin, mgoff.coef_.to_numpy(), tolerance)
     assert array_equal(
         mgon_intercept_origin, mgoff.intercept_.to_numpy(), tolerance
     )
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("fit_intercept", [True])
+@pytest.mark.parametrize(
+    "regularization",
+    [
+        ("none", 1.0, None),
+        # ("l2", 2.0, None),
+        # ("l1", 2.0, None),
+        # ("elasticnet", 2.0, 0.2),
+    ],
+)
+def test_reproduce(fit_intercept, regularization, client):
+    datatype = np.float32
+    n_parts = 2
+    X = np.array([(1000, 2), (1000, 3), (2000, 1), (3000, 1)], datatype)
+
+    y = np.array([1.0, 1.0, 0.0, 0.0], datatype)
+
+    from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
+
+    X_df, y_df = _prep_training_data(client, X, y, n_parts)
+
+    lr = cumlLBFGS_dask(
+        fit_intercept=fit_intercept, standardization=True, verbose=True
+    )
+    lr.fit(X_df, y_df)
+    # print(f"lr.coef_.to_numpy(): {lr.coef_.to_numpy()}")
+    # print(f"lr.intercept_.to_numpy(): {lr.intercept_.to_numpy()}")
+
+    from sklearn.preprocessing import StandardScaler
+
+    scaler = StandardScaler(with_mean=fit_intercept, with_std=True)
+    scaler.fit(X)
+    X_scaled = scaler.transform(X)
+    X_df_scaled, y_df = _prep_training_data(client, X_scaled, y, n_parts)
+
+    lroff = cumlLBFGS_dask(
+        fit_intercept=fit_intercept, standardization=False, verbose=True
+    )
+    lroff.fit(X_df_scaled, y_df)
+    # print(f"lroff.coef_.to_numpy(): {lroff.coef_.to_numpy()}")
+    # print(f"lroff.intercept_.to_numpy(): {lroff.intercept_.to_numpy()}")

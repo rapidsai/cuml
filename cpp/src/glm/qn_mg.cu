@@ -89,67 +89,6 @@ std::vector<T> distinct_mg(const raft::handle_t& handle, T* y, size_t n)
 }
 
 template <typename T>
-void standardize_impl(const raft::handle_t& handle,
-                      T* input_data,
-                      int D,
-                      int num_rows,
-                      int n_samples,
-                      bool col_major,
-                      bool fit_intercept,
-                      T* mean_vector,
-                      T* stddev_vector)
-{
-  auto stream = handle.get_stream();
-  auto& comm  = handle.get_comms();
-
-  raft::stats::sum(mean_vector, input_data, D, num_rows, !col_major, stream);
-  T weight = T(1) / T(n_samples);
-  raft::linalg::multiplyScalar(mean_vector, mean_vector, weight, D, stream);
-  comm.allreduce(mean_vector, mean_vector, D, raft::comms::op_t::SUM, stream);
-  comm.sync_stream(stream);
-
-  raft::stats::vars(stddev_vector, input_data, mean_vector, D, num_rows, false, !col_major, stream);
-  weight = T(1) * num_rows / T(n_samples);
-  raft::linalg::multiplyScalar(stddev_vector, stddev_vector, weight, D, stream);
-  comm.allreduce(stddev_vector, stddev_vector, D, raft::comms::op_t::SUM, stream);
-  comm.sync_stream(stream);
-
-  raft::linalg::sqrt(stddev_vector, stddev_vector, D, handle.get_stream());
-
-  if (fit_intercept) {
-    raft::stats::meanCenter(
-      input_data, input_data, mean_vector, D, num_rows, !col_major, !col_major, stream);
-  }
-
-  raft::matrix::matrixVectorBinaryDivSkipZero(
-    input_data, stddev_vector, num_rows, D, !col_major, !col_major, stream);
-}
-
-/*
-template <typename T>
-void undo_standardize_impl(const raft::handle_t& handle,
-                           T* input_data,
-                           const Matrix::PartDescriptor& input_desc,
-                           bool col_major,
-                           bool fit_intercept,
-                           T* mean_vector,
-                           T* stddev_vector)
-{
-  int D        = input_desc.N;
-  int rank     = input_desc.rank;
-  int num_rows = input_desc.totalElementsOwnedBy(rank);
-  auto stream  = handle.get_stream();
-
-  raft::matrix::matrixVectorBinaryMult(
-    input_data, stddev_vector, num_rows, D, !col_major, !col_major, stream);
-
-  if (fit_intercept) {
-    raft::stats::meanAdd(
-      input_data, input_data, mean_vector, D, num_rows, !col_major, !col_major, stream);
-  }
-}
-*/
-template <typename T>
 void qnFit_impl(const raft::handle_t& handle,
                 const qn_params& pams,
                 T* X,
@@ -176,9 +115,6 @@ void qnFit_impl(const raft::handle_t& handle,
     mean.reset(mean_dev.data(), D);
     stddev.reset(stddev_dev.data(), D);
     mean_stddev(handle, X_simple, n_samples, mean.data, stddev.data);
-
-    standardize_impl<T>(
-      handle, X, D, N, n_samples, X_col_major, pams.fit_intercept, mean.data, stddev.data);
   }
 
   ML::GLM::opg::qn_fit_x_mg(handle,
@@ -197,7 +133,7 @@ void qnFit_impl(const raft::handle_t& handle,
 
   if (standardization) {
     int n_targets = ML::GLM::detail::qn_is_classification(pams.loss) && C == 2 ? 1 : C;
-    adapt_model_for_standardization(handle, w0, n_targets, D, pams.fit_intercept, mean, stddev);
+    scale_model(handle, w0, n_targets, D, pams.fit_intercept, mean, stddev);
   }
 
   return;

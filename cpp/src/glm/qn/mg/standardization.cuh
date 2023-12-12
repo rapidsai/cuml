@@ -14,10 +14,14 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <glm/qn/simple_mat/dense.hpp>
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/core/operators.hpp>
 
+#include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/sqrt.cuh>
 #include <raft/matrix/math.hpp>
@@ -60,13 +64,13 @@ void mean_stddev(const raft::handle_t& handle,
 }
 
 template <typename T>
-void adapt_model_for_standardization(const raft::handle_t& handle,
-                                     T* coef,
-                                     int n_targets,
-                                     int D,
-                                     bool has_bias,
-                                     const SimpleVec<T>& mean,
-                                     const SimpleVec<T>& stddev)
+void scale_model(const raft::handle_t& handle,
+                 T* coef,
+                 int n_targets,
+                 int D,
+                 bool has_bias,
+                 const SimpleVec<T>& mean,
+                 const SimpleVec<T>& stddev)
 {
   // adapt coefficients and intercept to avoid actual data standardization
   SimpleDenseMat<T> W(coef, n_targets, D + has_bias);
@@ -89,10 +93,55 @@ void adapt_model_for_standardization(const raft::handle_t& handle,
 
   if (has_bias) {
     SimpleVec<T> Wbias;
+
     col_ref(W, Wbias, D);
 
     Wbias.assign_gemv(handle, -1, Wweights, false, mean, 1, handle.get_stream());
   }
+}
+
+template <typename T>
+void adapt_gradient_linearBwd(const raft::handle_t& handle,
+                              SimpleDenseMat<T>& G,
+                              const SimpleDenseMat<T>& dZ,
+                              bool has_bias,
+                              int n_samples,
+                              const SimpleVec<T>& mean,
+                              const SimpleVec<T>& stddev)
+{
+  auto stream   = handle.get_stream();
+  int D         = mean.len;
+  int n_targets = dZ.m;
+  auto& comm    = handle.get_comms();
+
+  // calculate scaled mean: mean / stddev
+  rmm::device_uvector<T> scaledMean(D, stream);
+  raft::linalg::binaryOp(
+    scaledMean.data(), mean.data, stddev.data, D, raft::div_checkzero_op(), stream);
+
+  auto log_scaledMean = raft::arr2Str(scaledMean.data(), D, "", stream, 8);
+  CUML_LOG_DEBUG("adapt_gradient::log_scaledMean is %s", log_scaledMean.c_str());
+
+  // calculate adaption
+  rmm::device_uvector<T> avgDz(n_targets, stream);
+  raft::stats::sum(
+    avgDz.data(), dZ.data, n_targets, dZ.n, true, stream);  // sum performs on each row of dZ
+  comm.allreduce(avgDz.data(), avgDz.data(), n_targets, raft::comms::op_t::SUM, stream);
+  // T scalar = T(n_samples);
+  // raft::linalg::divideScalar(avgDz.data(), avgDz.data(), scalar, n_targets, stream);
+
+  auto log_avgDz = raft::arr2Str(avgDz.data(), n_targets, "", stream, 8);
+  CUML_LOG_DEBUG("adapt_gradient::log_avgDz is %s", log_avgDz.c_str());
+
+  SimpleDenseMat<T> Gweights;
+  col_slice(G, Gweights, 0, D);
+  SimpleDenseMat<T> avgDzMat(avgDz.data(), n_targets, 1);
+  SimpleDenseMat<T> scaledMeanMat(scaledMean.data(), 1, D);
+  Gweights.assign_gemm(
+    handle, -1.0 / n_samples, avgDzMat, false, scaledMeanMat, false, 1.0, stream);
+
+  auto log_Gweights = raft::arr2Str(Gweights.data, D * n_targets, "", stream, 8);
+  CUML_LOG_DEBUG("adapt_gradient::log_Gweights is %s", log_Gweights.c_str());
 }
 
 };  // namespace opg

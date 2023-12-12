@@ -20,11 +20,15 @@
 #include <raft/linalg/multiply.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <glm/qn/mg/standardization.cuh>
+
 #include <glm/qn/glm_base.cuh>
 #include <glm/qn/glm_logistic.cuh>
 #include <glm/qn/glm_regularizer.cuh>
 #include <glm/qn/qn_solvers.cuh>
 #include <glm/qn/qn_util.cuh>
+
+#include <vector>
 
 namespace ML {
 namespace GLM {
@@ -37,7 +41,10 @@ inline void linearBwdMG(const raft::handle_t& handle,
                         const SimpleDenseMat<T>& dZ,
                         bool setZero,
                         const int64_t n_samples,
-                        const int n_ranks)
+                        const int n_ranks,
+                        bool standardization,
+                        const SimpleVec<T>* mean_p,
+                        const SimpleVec<T>* stddev_p)
 {
   cudaStream_t stream = handle.get_stream();
   // Backward pass:
@@ -62,10 +69,14 @@ inline void linearBwdMG(const raft::handle_t& handle,
     raft::stats::mean(Gbias.data, dZ.data, dZ.m, dZ.n, false, true, stream);
     T bias_factor = 1.0 * dZ.n / n_samples;
     raft::linalg::multiplyScalar(Gbias.data, Gbias.data, bias_factor, dZ.m, stream);
+    // if (standardization)
+    //   adapt_model_for_standardization(handle, G.data, G.m, X.n, false, *mean_p, *stddev_p);
 
   } else {
     CUML_LOG_DEBUG("has bias not enabled");
     G.assign_gemm(handle, 1.0 / n_samples, dZ, false, X, false, beta / n_ranks, stream);
+    // if (standardization)
+    //   adapt_model_for_standardization(handle, G.data, G.m, X.n, false, *mean_p, *stddev_p);
   }
 }
 
@@ -140,6 +151,15 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
       raft::resource::sync_stream(*(this->handle_p));
     }
 
+    // if standardization is True
+    std::vector<T> wFlatOrigin(this->C * this->dims);
+    if (mean_p->data != NULL) {
+      raft::copy(wFlatOrigin.data(), wFlat.data, this->C * this->dims, stream);
+      scale_model(
+        *handle_p, wFlat.data, this->C, (this->X)->n, (this->X)->n != G.n, *mean_p, *stddev_p);
+      raft::resource::sync_stream(*(this->handle_p));
+    }
+
     // apply linearFwd, getLossAndDz, linearBwd
     ML::GLM::detail::linearFwd(
       lossFunc->handle, *(this->Z), *(this->X), W);  // linear part: forward pass
@@ -164,10 +184,21 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
                 *(this->Z),
                 false,
                 n_samples,
-                n_ranks);  // linear part: backward pass
+                n_ranks,
+                mean_p->data != NULL,
+                mean_p,
+                stddev_p);  // linear part: backward pass
 
     communicator.allreduce(G.data, G.data, this->C * this->dims, raft::comms::op_t::SUM, stream);
     communicator.sync_stream(stream);
+
+    // if standardization is True
+    if (mean_p->data != NULL) {
+      scale_model(*handle_p, G.data, this->C, (this->X)->n, false, *mean_p, *stddev_p);
+      // adapt_gradient_linearBwd(*handle_p, G, *(this->Z), (this->X)->n != G.n, n_samples, *mean_p,
+      // *stddev_p); raft::linalg::add(G.data, G.data, GRegOrigin.data(), G.m * G.n, stream);
+      raft::copy(wFlat.data, wFlatOrigin.data(), this->C * this->dims, stream);
+    }
 
     T loss_host;
     raft::update_host(&loss_host, dev_scalar, 1, stream);
