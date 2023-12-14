@@ -19,7 +19,7 @@ include(../fetch_rapids.cmake)
 set(CUML_VERSION 24.02.00)
 
 option(CUML_CPU "Build only cuML CPU Python components." OFF)
-set(language_list "C;CXX")
+set(language_list "CXX")
 
 if(NOT CUML_CPU)
   # We always need CUDA for cuML GPU because the raft dependency brings in a
@@ -32,11 +32,7 @@ endif()
 project(
   cuml-python
   VERSION ${CUML_VERSION}
-  LANGUAGES # TODO: Building Python extension modules via the python_extension_module requires the C
-            # language to be enabled here. The test project that is built in scikit-build to verify
-            # various linking options for the python library is hardcoded to build with C, so until
-            # that is fixed we need to keep C.
-            ${language_list}
+  LANGUAGES ${language_list}
 )
 
 ################################################################################
@@ -75,7 +71,7 @@ else()
   set(cuml_FOUND OFF)
 endif()
 
-include(rapids-cython)
+include(rapids-cython-core)
 
 set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
 
