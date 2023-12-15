@@ -11,6 +11,8 @@ rapids-dependency-file-generator \
   --file_key test_cpp \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch)" | tee env.yaml
 
+conda config --append channels conda-forge/label/treelite_rc
+
 rapids-mamba-retry env create --force -f env.yaml -n test
 
 # Temporarily allow unbound variables for conda activation.

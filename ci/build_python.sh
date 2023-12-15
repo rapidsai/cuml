@@ -7,6 +7,8 @@ source rapids-env-update
 
 export CMAKE_GENERATOR=Ninja
 
+conda config --append channels conda-forge/label/treelite_rc
+
 rapids-print-env
 
 package_name="cuml"
