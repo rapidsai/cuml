@@ -84,6 +84,20 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         PartDescriptor &input_desc,
         vector[floatData_t*] labels) except+
 
+    cdef void qnFitSparse(
+        handle_t& handle,
+        vector[floatData_t *] input_values,
+        int *input_cols,
+        int *input_row_ids,
+        int X_nnz,
+        PartDescriptor &input_desc,
+        vector[floatData_t *] labels,
+        float *coef,
+        const qn_params& pams,
+        int n_classes,
+        float *f,
+        int *num_iters) except +
+
 
 class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
@@ -156,7 +170,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                              "with softmax (multinomial).")
 
         if solves_classification and not solves_multiclass:
-            self._num_classes_dim = self._num_classes - 1
+            self._num_classes_dim = 1
         else:
             self._num_classes_dim = self._num_classes
 
@@ -192,22 +206,47 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         self._num_classes = len(self.classes_)
         self.loss = "sigmoid" if self._num_classes <= 2 else "softmax"
         self.prepare_for_fit(self._num_classes)
+
         cdef uintptr_t mat_coef_ptr = self.coef_.ptr
 
         cdef qn_params qnpams = self.solver_model.qnparams.params
 
+        sparse_input = isinstance(X, list)
+
         if self.dtype == np.float32:
-            qnFit(
-                handle_[0],
-                deref(<vector[floatData_t*]*><uintptr_t>X),
-                deref(<PartDescriptor*><uintptr_t>input_desc),
-                deref(<vector[floatData_t*]*><uintptr_t>y),
-                <float*>mat_coef_ptr,
-                qnpams,
-                self.is_col_major,
-                self._num_classes,
-                <float*> &objective32,
-                <int*> &num_iters)
+            if sparse_input is False:
+                qnFit(
+                    handle_[0],
+                    deref(<vector[floatData_t*]*><uintptr_t>X),
+                    deref(<PartDescriptor*><uintptr_t>input_desc),
+                    deref(<vector[floatData_t*]*><uintptr_t>y),
+                    <float*>mat_coef_ptr,
+                    qnpams,
+                    self.is_col_major,
+                    self._num_classes,
+                    <float*> &objective32,
+                    <int*> &num_iters)
+
+            else:
+                assert len(X) == 4
+                X_values = X[0]
+                X_cols = X[1]
+                X_row_ids = X[2]
+                X_nnz = X[3]
+
+                qnFitSparse(
+                    handle_[0],
+                    deref(<vector[floatData_t*]*><uintptr_t>X_values),
+                    <int*><uintptr_t>X_cols,
+                    <int*><uintptr_t>X_row_ids,
+                    X_nnz,
+                    deref(<PartDescriptor*><uintptr_t>input_desc),
+                    deref(<vector[floatData_t*]*><uintptr_t>y),
+                    <float*>mat_coef_ptr,
+                    qnpams,
+                    self._num_classes,
+                    <float*> &objective32,
+                    <int*> &num_iters)
 
             self.solver_model.objective = objective32
 

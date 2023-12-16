@@ -29,6 +29,8 @@
 #include <vector>
 using namespace MLCommon;
 
+#include <iostream>
+
 namespace ML {
 namespace GLM {
 namespace opg {
@@ -170,6 +172,77 @@ void qnFit(raft::handle_t& handle,
 {
   qnFit_impl<float>(
     handle, input_data, input_desc, labels, coef, pams, X_col_major, n_classes, f, num_iters);
+}
+
+template <typename T, typename I>
+void qnFitSparse_impl(const raft::handle_t& handle,
+                      const qn_params& pams,
+                      T* X_values,
+                      I* X_cols,
+                      I* X_row_ids,
+                      I X_nnz,
+                      T* y,
+                      size_t N,
+                      size_t D,
+                      size_t C,
+                      T* w0,
+                      T* f,
+                      int* num_iters,
+                      size_t n_samples,
+                      int rank,
+                      int n_ranks)
+{
+  auto X_simple = SimpleSparseMat<T>(X_values, X_cols, X_row_ids, X_nnz, N, D);
+
+  ML::GLM::opg::qn_fit_x_mg(handle,
+                            pams,
+                            X_simple,
+                            y,
+                            C,
+                            w0,
+                            f,
+                            num_iters,
+                            n_samples,
+                            rank,
+                            n_ranks);  // ignore sample_weight, svr_eps
+  return;
+}
+
+void qnFitSparse(raft::handle_t& handle,
+                 std::vector<Matrix::Data<float>*>& input_values,
+                 int* input_cols,
+                 int* input_row_ids,
+                 int X_nnz,
+                 Matrix::PartDescriptor& input_desc,
+                 std::vector<Matrix::Data<float>*>& labels,
+                 float* coef,
+                 const qn_params& pams,
+                 int n_classes,
+                 float* f,
+                 int* num_iters)
+{
+  RAFT_EXPECTS(input_values.size() == 1,
+               "qn_mg.cu currently does not accept more than one input matrix");
+
+  auto data_input_values = input_values[0];
+  auto data_y            = labels[0];
+
+  qnFitSparse_impl<float, int>(handle,
+                               pams,
+                               data_input_values->ptr,
+                               input_cols,
+                               input_row_ids,
+                               X_nnz,
+                               data_y->ptr,
+                               input_desc.totalElementsOwnedBy(input_desc.rank),
+                               input_desc.N,
+                               n_classes,
+                               coef,
+                               f,
+                               num_iters,
+                               input_desc.M,
+                               input_desc.rank,
+                               input_desc.uniqueRanks().size());
 }
 
 };  // namespace opg
