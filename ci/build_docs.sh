@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) 2023, NVIDIA CORPORATION.
 set -euo pipefail
 
 rapids-logger "Create test conda environment"
@@ -18,10 +19,22 @@ rapids-logger "Downloading artifacts from previous jobs"
 
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
+LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1404 cpp)
+RMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1404 python)
+LIBCUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 14576 cpp)
+CUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 14576 python)
+LIBRAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2049 cpp)
+RAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2049 python)
 
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   --channel "${PYTHON_CHANNEL}" \
+  --channel "${LIBRMM_CHANNEL}" \
+  --channel "${RMM_CHANNEL}" \
+  --channel "${LIBCUDF_CHANNEL}" \
+  --channel "${CUDF_CHANNEL}" \
+  --channel "${LIBRAFT_CHANNEL}" \
+  --channel "${RAFT_CHANNEL}" \
   cuml libcuml
 
 export RAPIDS_VERSION_NUMBER="24.02"
