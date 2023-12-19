@@ -130,13 +130,15 @@ void generate_prediction_data(const raft::handle_t& handle,
   prediction_data.set_n_clusters(handle, n_clusters);
 
   // this is to find maximum lambdas of all children under a parent
-  detail::Utils::cub_segmented_reduce(
-    lambdas,
-    prediction_data.get_deaths(),
-    n_clusters,
-    sorted_parents_offsets.data(),
-    stream,
-    cub::DeviceSegmentedReduce::Max<const float*, float*, const int*, const int*>);
+  cudaError_t (*reduce_func)(
+    void*, size_t&, const float*, float*, int, const int*, const int*, cudaStream_t, bool) =
+    cub::DeviceSegmentedReduce::Max<const float*, float*, const int*, const int*>;
+  detail::Utils::cub_segmented_reduce(lambdas,
+                                      prediction_data.get_deaths(),
+                                      n_clusters,
+                                      sorted_parents_offsets.data(),
+                                      stream,
+                                      reduce_func);
 
   rmm::device_uvector<int> is_leaf_cluster(n_clusters, stream);
   thrust::fill(exec_policy, is_leaf_cluster.begin(), is_leaf_cluster.end(), 1);
