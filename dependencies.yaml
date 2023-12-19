@@ -236,7 +236,7 @@ dependencies:
           - matrix: {cuda: "11.8"}
             packages: &py_run_packages_cu11
               - cudf-cu11==24.2.*
-              - cupy-cuda11x>=12.0.0
+              - &cupy_pyproject_cu11 cupy-cuda11x>=12.0.0
               - dask-cudf-cu11==24.2.*
               - *pylibraft_cu11
               - raft-dask-cu11==24.2.*
@@ -247,11 +247,10 @@ dependencies:
           - matrix: null
             packages:
               - *cudf_conda
-              - *cupy_conda
+              - *cupy_pyproject_cu11
               - *dask_cudf_conda
               - *pylibraft_conda
               - *raft_dask_conda
-              - *pylibraft_conda
               - *rmm_conda
   cudatoolkit:
     specific:
