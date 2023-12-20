@@ -100,13 +100,22 @@ void compute_stabilities(const raft::handle_t& handle,
                    thrust::make_counting_iterator(n_edges),
                    births_init_op);
 
-  Utils::cub_segmented_reduce(
-    lambdas,
-    births_parent_min.data() + 1,
-    n_clusters - 1,
-    sorted_parents_offsets.data() + 1,
-    stream,
-    cub::DeviceSegmentedReduce::Min<const value_t*, value_t*, const value_idx*, const value_idx*>);
+  cudaError_t (*reduce_func)(void*,
+                             size_t&,
+                             const value_t*,
+                             value_t*,
+                             int,
+                             const value_idx*,
+                             const value_idx*,
+                             cudaStream_t,
+                             bool) =
+    cub::DeviceSegmentedReduce::Min<const value_t*, value_t*, const value_idx*, const value_idx*>;
+  Utils::cub_segmented_reduce(lambdas,
+                              births_parent_min.data() + 1,
+                              n_clusters - 1,
+                              sorted_parents_offsets.data() + 1,
+                              stream,
+                              reduce_func);
   // finally, we find minimum between initialized births where parent=child
   // and births of parents for their children
   auto births_zip =
