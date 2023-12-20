@@ -56,7 +56,7 @@ license = { text = "Apache 2.0" }
 requires-python = ">=3.9"
 dependencies = [
     "cudf==24.2.*",
-    "cupy>=12.0.0",
+    "cupy-cuda11x>=12.0.0",
     "dask-cuda==24.2.*",
     "dask-cudf==24.2.*",
     "joblib>=0.11",
