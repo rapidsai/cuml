@@ -21,6 +21,45 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 
 
+def _process_generic(gen_type):
+
+    # Check if the type is not a generic. If not, must return "generic" if
+    # subtype is CumlArray otherwise None
+    if not isinstance(gen_type, typing._GenericAlias):
+        if issubclass(gen_type, CumlArray):
+            return "generic"
+
+        # We don't handle SparseCumlArray at this time
+        if issubclass(gen_type, SparseCumlArray):
+            raise NotImplementedError(
+                "Generic return types with SparseCumlArray are not supported "
+                "at this time"
+            )
+
+        # Otherwise None (keep processing)
+        return None
+
+    # Its a generic type by this point. Support Union, Tuple, Dict and List
+    supported_gen_types = [
+        tuple,
+        dict,
+        list,
+        typing.Union,
+    ]
+
+    if gen_type.__origin__ in supported_gen_types:
+        # Check for a CumlArray type in the args
+        for arg in gen_type.__args__:
+            inner_type = _process_generic(arg)
+
+            if inner_type is not None:
+                return inner_type
+    else:
+        raise NotImplementedError("Unknow generic type: {}".format(gen_type))
+
+    return None
+
+
 def _get_base_return_type(class_name, attr):
 
     if (

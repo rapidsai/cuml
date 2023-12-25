@@ -71,13 +71,13 @@ __global__ void symmKernel(DataT* out, const DataT* in, IdxT batchSize, IdxT n, 
  * @param stream cuda stream
  * @param op custom epilogue functor
  */
-template <typename DataT, typename IdxT, typename EpilogueOp = raft::Nop<DataT, IdxT>>
+template <typename DataT, typename IdxT, typename EpilogueOp = raft::identity_op>
 void make_symm(DataT* out,
                const DataT* in,
                IdxT batchSize,
                IdxT n,
                cudaStream_t stream,
-               EpilogueOp op = raft::Nop<DataT, IdxT>())
+               EpilogueOp op = raft::identity_op())
 {
   dim3 blk(TileDim, BlockRows);
   auto nblks = raft::ceildiv<int>(n, TileDim);

@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) 2023, NVIDIA CORPORATION.
 set -euo pipefail
 
 rapids-logger "Create test conda environment"

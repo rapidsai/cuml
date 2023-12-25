@@ -23,6 +23,7 @@ jobs:
       - docs-build
       - wheel-build-cuml
       - wheel-tests-cuml
+      - devcontainer
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-24.02
   checks:
@@ -100,7 +101,7 @@ jobs:
       build_type: pull-request
       script: ci/build_wheel.sh
       extra-repo: rapidsai/cumlprims_mg
-      extra-repo-sha: branch-23.02
+      extra-repo-sha: branch-24.02
       extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
   wheel-tests-cuml:
     needs: wheel-build-cuml
@@ -109,3 +110,12 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
+  devcontainer:
+    secrets: inherit
+    uses: rapidsai/shared-action-workflows/.github/workflows/build-in-devcontainer.yaml@branch-24.02
+    with:
+      extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
+      build_command: |
+        sccache -z;
+        build-all --verbose;
+        sccache -s;
