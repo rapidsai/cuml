@@ -500,7 +500,8 @@ void tl2fil_common(forest_params_t* params,
 
     ASSERT(pred_transform == "max_index" || pred_transform == "identity_multiclass",
            "only max_index and identity_multiclass values of pred_transform "
-           "are supported for multi-class models");
+           "are supported for multi-class models. pred_transform = %s",
+           pred_transform.c_str());
   } else {
     if (model.num_class[0] > 1) {
       params->num_classes = static_cast<int>(model.num_class[0]);

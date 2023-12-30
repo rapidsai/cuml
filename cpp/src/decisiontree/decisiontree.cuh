@@ -162,6 +162,7 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
 
   tl::Tree<T, T> tl_tree;
   tl_tree.Init();
+  tl_tree.AllocNode();  // Allocate the root node
 
   // Track head and tail of bounded "queues" (implemented as vectors for
   // performance)

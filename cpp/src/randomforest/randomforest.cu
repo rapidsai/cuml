@@ -266,7 +266,7 @@ void build_treelite_forest(TreeliteModelHandle* model_handle,
   if constexpr (std::is_integral_v<L>) {
     ASSERT(num_outputs > 1, "More than one variable expected for classification problem.");
     model->task_type     = tl::TaskType::kMultiClf;
-    model->postprocessor = "softmax";
+    model->postprocessor = "identity_multiclass";
   } else {
     ASSERT(num_outputs == 1, "Only one variable expected for regression problem.");
     model->task_type     = tl::TaskType::kRegressor;
