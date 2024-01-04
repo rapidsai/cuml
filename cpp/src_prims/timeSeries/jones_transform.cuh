@@ -39,7 +39,7 @@ namespace TimeSeries {
  */
 template <typename Type>
 struct PAC {
-  HDI Type operator()(Type in) { return raft::myTanh(in * 0.5); }
+  HDI Type operator()(Type in) { return raft::tanh(in * 0.5); }
 };
 
 /**
@@ -137,7 +137,7 @@ inline __device__ void invtransform(DataT* tmp, DataT* myNewParams, bool isAr)
   }
 
   for (int i = 0; i < VALUE; ++i) {
-    myNewParams[i] = 2 * raft::myATanh(myNewParams[i]);
+    myNewParams[i] = 2 * raft::atanh(myNewParams[i]);
   }
 }
 

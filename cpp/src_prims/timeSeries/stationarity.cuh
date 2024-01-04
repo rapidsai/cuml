@@ -241,7 +241,7 @@ static void _kpss_test(const DataT* d_y,
                        stream,
                        false,
                        raft::L2Op<DataT>(),
-                       raft::Sum<DataT>());
+                       raft::add_op());
 
   // From Kwiatkowski et al. referencing Schwert (1989)
   DataT lags_f = ceil(12.0 * pow(n_obs_f / 100.0, 0.25));
@@ -295,7 +295,7 @@ static void _kpss_test(const DataT* d_y,
                        stream,
                        false,
                        raft::L2Op<DataT>(),
-                       raft::Sum<DataT>());
+                       raft::add_op());
 
   /* The following kernel will decide whether each series is stationary based on
    * s^2 and eta */
