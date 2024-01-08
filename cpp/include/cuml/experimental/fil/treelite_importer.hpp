@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -559,7 +559,7 @@ struct treelite_importer {
               int device                               = 0,
               raft_proto::cuda_stream stream           = raft_proto::cuda_stream{})
   {
-    ASSERT(tl_model.num_target == 0, "FIL does not support multi-target model");
+    ASSERT(tl_model.num_target == 1, "FIL does not support multi-target model");
     // Check tree annotation (assignment)
     if (tl_model.task_type == treelite::TaskType::kMultiClf) {
       // Must be either vector leaf or grove-per-class
