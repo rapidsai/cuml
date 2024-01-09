@@ -141,8 +141,10 @@ endif()
 # - compiler options ---------------------------------------------------------
 
 set(_ctk_static_suffix "")
+set(_ctk_fft_static_suffix "")
 if(CUDA_STATIC_RUNTIME)
-  set(_ctk_static_suffix "_static_nocallback")
+  set(_ctk_static_suffix "_static")
+  set(_ctk_fft_static_suffix "_static_nocallback")
 endif()
 
 if (NOT DISABLE_OPENMP)
@@ -612,7 +614,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   list(APPEND _cuml_cpp_private_libs
     raft::raft
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
-    $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix}>
+    $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}>
     ${TREELITE_LIBS}
     ${OpenMP_CXX_LIB_NAMES}
     $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
