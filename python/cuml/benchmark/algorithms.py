@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import treelite_runtime
 import treelite
 from cuml.benchmark.bench_helper_funcs import (
     fit,
@@ -27,7 +26,6 @@ from cuml.benchmark.bench_helper_funcs import (
     _build_fil_classifier,
     _build_gtil_classifier,
     _build_optimized_fil_classifier,
-    _build_treelite_classifier,
     _treelite_fil_accuracy_score,
     _training_data_to_numpy,
     _build_mnmg_umap,
@@ -218,7 +216,7 @@ def _labels_to_int_hook(data):
 def _treelite_format_hook(data):
     """Helper function converting data into treelite format"""
     data = _training_data_to_numpy(data[0], data[1])
-    return treelite_runtime.DMatrix(data[0]), data[1]
+    return data[0], data[1]
 
 
 def _numpy_format_hook(data):
@@ -466,7 +464,7 @@ def all_algorithms():
             ),
             name="FIL",
             accepts_labels=False,
-            setup_cpu_func=_build_treelite_classifier,
+            setup_cpu_func=_build_gtil_classifier,
             setup_cuml_func=_build_fil_classifier,
             cpu_data_prep_hook=_treelite_format_hook,
             accuracy_function=_treelite_fil_accuracy_score,
@@ -497,7 +495,7 @@ def all_algorithms():
             cuml_args=dict(output_class=False),
             name="FILEX",
             accepts_labels=False,
-            setup_cpu_func=_build_treelite_classifier,
+            setup_cpu_func=_build_gtil_classifier,
             setup_cuml_func=_build_fil_classifier,
             cpu_data_prep_hook=_treelite_format_hook,
             accuracy_function=_treelite_fil_accuracy_score,
@@ -516,7 +514,7 @@ def all_algorithms():
             ),
             name="FILEX-Optimized",
             accepts_labels=False,
-            setup_cpu_func=_build_treelite_classifier,
+            setup_cpu_func=_build_gtil_classifier,
             setup_cuml_func=_build_optimized_fil_classifier,
             cpu_data_prep_hook=_treelite_format_hook,
             accuracy_function=_treelite_fil_accuracy_score,
@@ -535,7 +533,7 @@ def all_algorithms():
             ),
             name="FIL-Optimized",
             accepts_labels=False,
-            setup_cpu_func=_build_treelite_classifier,
+            setup_cpu_func=_build_gtil_classifier,
             setup_cuml_func=_build_optimized_fil_classifier,
             cpu_data_prep_hook=_treelite_format_hook,
             accuracy_function=_treelite_fil_accuracy_score,
