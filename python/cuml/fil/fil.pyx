@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -519,7 +519,7 @@ cdef class ForestInference_impl():
             err = TreeliteGetLastError()
             raise RuntimeError(f"Failed to fetch num_class: {err}")
         view = memoryview(MakePyBufferFrameWrapper(frame))
-        self.num_class = np.asarray(view)
+        self.num_class = np.asarray(view).copy()
         if len(self.num_class) > 1:
             raise NotImplementedError("FIL does not support multi-target models")
         return self
