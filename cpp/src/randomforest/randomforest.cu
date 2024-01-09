@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -348,8 +348,6 @@ void compare_trees(tl::Tree<T, L>& tree_from_concatenated_forest,
  */
 TreeliteModelHandle concatenate_trees(std::vector<TreeliteModelHandle> treelite_handles)
 {
-  /* TODO(hcho3): Use treelite::ConcatenateModelObjects(),
-     once https://github.com/dmlc/treelite/issues/474 is fixed. */
   if (treelite_handles.empty()) { return nullptr; }
   std::vector<tl::Model const*> model_objs;
   std::transform(treelite_handles.begin(),
