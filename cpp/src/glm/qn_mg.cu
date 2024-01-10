@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -133,7 +133,7 @@ void qnFit_impl(const raft::handle_t& handle,
 
   if (standardization) {
     int n_targets = ML::GLM::detail::qn_is_classification(pams.loss) && C == 2 ? 1 : C;
-    scale_model(handle, w0, n_targets, D, pams.fit_intercept, mean, stddev);
+    adapt_model_for_linearFwd(handle, w0, n_targets, D, pams.fit_intercept, mean, stddev);
   }
 
   return;
@@ -166,20 +166,6 @@ void qnFit_impl(raft::handle_t& handle,
 
   auto stream = handle.get_stream();
 
-  /*
-  rmm::device_uvector<T> mean_vec(input_desc.N, stream);
-  rmm::device_uvector<T> stddev_vec(input_desc.N, stream);
-  if (standardization) {
-    standardize_impl<T>(handle,
-                        data_X->ptr,
-                        input_desc,
-                        X_col_major,
-                        pams.fit_intercept,
-                        mean_vec.data(),
-                        stddev_vec.data());
-  }
-  */
-
   qnFit_impl<T>(handle,
                 pams,
                 data_X->ptr,
@@ -195,50 +181,6 @@ void qnFit_impl(raft::handle_t& handle,
                 input_desc.M,
                 input_desc.rank,
                 input_desc.uniqueRanks().size());
-
-  /*
-  if (standardization) {
-    // adapt intercepts and coefficients to avoid actual standardization in model inference
-
-    int n_targets =
-      ML::GLM::detail::qn_is_classification(pams.loss) && n_classes == 2 ? 1 : n_classes;
-    int D = input_desc.N;
-    SimpleDenseMat<T> W(coef, n_targets, D + pams.fit_intercept);
-
-    SimpleDenseMat<T> Wweights;
-    col_slice(W, Wweights, 0, D);
-
-    auto div_stddev = [] __device__(const T a, const T b) {
-      if (b == 0.0) return (T)0.0;
-      return a / b;
-    };
-    raft::linalg::matrixVectorOp(Wweights.data,
-                                 Wweights.data,
-                                 stddev_vec.data(),
-                                 Wweights.n,
-                                 Wweights.m,
-                                 false,
-                                 true,
-                                 div_stddev,
-                                 stream);
-
-    if (pams.fit_intercept) {
-      SimpleVec<T> Wbias;
-      col_ref(W, Wbias, D);
-
-      SimpleVec<T> meanVec(mean_vec.data(), mean_vec.size());
-      Wbias.assign_gemv(handle, -1, Wweights, false, meanVec, 1, stream);
-    }
-
-    undo_standardize_impl<T>(handle,
-                             data_X->ptr,
-                             input_desc,
-                             X_col_major,
-                             pams.fit_intercept,
-                             mean_vec.data(),
-                             stddev_vec.data());
-  }
-   */
 }
 
 std::vector<float> getUniquelabelsMG(const raft::handle_t& handle,

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -863,34 +863,61 @@ def test_standardization_on_scaled_dataset(
         # ("elasticnet", 2.0, 0.2),
     ],
 )
-def test_reproduce(fit_intercept, regularization, client):
+def test_standardization_example(fit_intercept, regularization, client):
     datatype = np.float32
     n_parts = 2
-    X = np.array([(1000, 2), (1000, 3), (2000, 1), (3000, 1)], datatype)
+    max_iter = 1000
 
-    y = np.array([1.0, 1.0, 0.0, 0.0], datatype)
+    penalty = regularization[0]
+    C = regularization[1]
+    l1_ratio = regularization[2]
 
-    from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
+    est_params = {
+        "penalty": penalty,
+        "C": C,
+        "l1_ratio": l1_ratio,
+        "fit_intercept": fit_intercept,
+        "max_iter": max_iter,
+        "verbose": True,
+    }
 
-    X_df, y_df = _prep_training_data(client, X, y, n_parts)
-
-    lr = cumlLBFGS_dask(
-        fit_intercept=fit_intercept, standardization=True, verbose=True
+    X = np.array(
+        [
+            [-1.1258, -1.1524, -0.2506, -0.4339, 0.5988],
+            [-1.5551, -0.3414, 1.8530, 0.4681, -0.1577],
+            [1.4437, 0.2660, 1.3894, 1.5863, 0.9463],
+            [-0.8437, 0.9318, 1.2590, 2.0050, 0.0537],
+        ],
+        datatype,
     )
-    lr.fit(X_df, y_df)
-    # print(f"lr.coef_.to_numpy(): {lr.coef_.to_numpy()}")
-    # print(f"lr.intercept_.to_numpy(): {lr.intercept_.to_numpy()}")
+
+    X = np.ascontiguousarray(X.T)
+    y = np.array([0.0, 1.0, 2.0, 0.0, 1.0], datatype)
 
     from sklearn.preprocessing import StandardScaler
 
     scaler = StandardScaler(with_mean=fit_intercept, with_std=True)
     scaler.fit(X)
+    scaler.scale_ = np.sqrt(scaler.var_ * len(X) / (len(X) - 1))
     X_scaled = scaler.transform(X)
-    X_df_scaled, y_df = _prep_training_data(client, X_scaled, y, n_parts)
 
-    lroff = cumlLBFGS_dask(
-        fit_intercept=fit_intercept, standardization=False, verbose=True
-    )
-    lroff.fit(X_df_scaled, y_df)
-    # print(f"lroff.coef_.to_numpy(): {lroff.coef_.to_numpy()}")
-    # print(f"lroff.intercept_.to_numpy(): {lroff.intercept_.to_numpy()}")
+    X_df, y_df = _prep_training_data(client, X, y, n_parts)
+    from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
+
+    lr_on = cumlLBFGS_dask(standardization=True, **est_params)
+    lr_on.fit(X_df, y_df)
+
+    lron_coef_origin = lr_on.coef_.to_numpy() * scaler.scale_
+    if fit_intercept is True:
+        lron_intercept_origin = lr_on.intercept_.to_numpy() + np.dot(
+            lr_on.coef_.to_numpy(), scaler.mean_
+        )
+    else:
+        lron_intercept_origin = lr_on.intercept_.to_numpy()
+
+    X_df_scaled, y_df = _prep_training_data(client, X_scaled, y, n_parts)
+    lr_off = cumlLBFGS_dask(standardization=False, **est_params)
+    lr_off.fit(X_df_scaled, y_df)
+
+    assert array_equal(lron_coef_origin, lr_off.coef_.to_numpy())
+    assert array_equal(lron_intercept_origin, lr_off.intercept_.to_numpy())

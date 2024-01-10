@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,10 +41,7 @@ inline void linearBwdMG(const raft::handle_t& handle,
                         const SimpleDenseMat<T>& dZ,
                         bool setZero,
                         const int64_t n_samples,
-                        const int n_ranks,
-                        bool standardization,
-                        const SimpleVec<T>* mean_p,
-                        const SimpleVec<T>* stddev_p)
+                        const int n_ranks)
 {
   cudaStream_t stream = handle.get_stream();
   // Backward pass:
@@ -69,14 +66,10 @@ inline void linearBwdMG(const raft::handle_t& handle,
     raft::stats::mean(Gbias.data, dZ.data, dZ.m, dZ.n, false, true, stream);
     T bias_factor = 1.0 * dZ.n / n_samples;
     raft::linalg::multiplyScalar(Gbias.data, Gbias.data, bias_factor, dZ.m, stream);
-    // if (standardization)
-    //   adapt_model_for_standardization(handle, G.data, G.m, X.n, false, *mean_p, *stddev_p);
 
   } else {
     CUML_LOG_DEBUG("has bias not enabled");
     G.assign_gemm(handle, 1.0 / n_samples, dZ, false, X, false, beta / n_ranks, stream);
-    // if (standardization)
-    //   adapt_model_for_standardization(handle, G.data, G.m, X.n, false, *mean_p, *stddev_p);
   }
 }
 
@@ -123,6 +116,8 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
     this->n_samples = n_samples;
     this->mean_p    = mean_p;
     this->stddev_p  = stddev_p;
+
+    ML::Logger::get().setLevel(6);
   }
 
   inline T operator()(const SimpleVec<T>& wFlat,
@@ -154,11 +149,15 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
     // if standardization is True
     std::vector<T> wFlatOrigin(this->C * this->dims);
     if (mean_p->data != NULL) {
+      // TODO: adapt reg term to ensure final results correct
       raft::copy(wFlatOrigin.data(), wFlat.data, this->C * this->dims, stream);
-      scale_model(
+      adapt_model_for_linearFwd(
         *handle_p, wFlat.data, this->C, (this->X)->n, (this->X)->n != G.n, *mean_p, *stddev_p);
       raft::resource::sync_stream(*(this->handle_p));
     }
+
+    // auto log_str = raft::arr2Str(wFlat.data, wFlat.m * wFlat.n, "", stream, 8);
+    // CUML_LOG_DEBUG("wFlat after adapt is %s", log_str.c_str());
 
     // apply linearFwd, getLossAndDz, linearBwd
     ML::GLM::detail::linearFwd(
@@ -184,25 +183,28 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
                 *(this->Z),
                 false,
                 n_samples,
-                n_ranks,
-                mean_p->data != NULL,
-                mean_p,
-                stddev_p);  // linear part: backward pass
+                n_ranks);  // linear part: backward pass
 
     communicator.allreduce(G.data, G.data, this->C * this->dims, raft::comms::op_t::SUM, stream);
     communicator.sync_stream(stream);
 
     // if standardization is True
     if (mean_p->data != NULL) {
-      scale_model(*handle_p, G.data, this->C, (this->X)->n, false, *mean_p, *stddev_p);
-      // adapt_gradient_linearBwd(*handle_p, G, *(this->Z), (this->X)->n != G.n, n_samples, *mean_p,
-      // *stddev_p); raft::linalg::add(G.data, G.data, GRegOrigin.data(), G.m * G.n, stream);
+      adapt_gradient_for_linearBwd(
+        *handle_p, G, *(this->Z), (this->X)->n != G.n, n_samples, *mean_p, *stddev_p);
       raft::copy(wFlat.data, wFlatOrigin.data(), this->C * this->dims, stream);
     }
 
     T loss_host;
     raft::update_host(&loss_host, dev_scalar, 1, stream);
     raft::resource::sync_stream(*(this->handle_p));
+
+    // auto log_w = raft::arr2Str(wFlat.data, wFlat.m * wFlat.n, "", stream);
+    // auto log_g = raft::arr2Str(G.data, G.m * G.n, "", stream);
+    // CUML_LOG_DEBUG("rank %d log wFlat is: %s", rank, log_w.c_str());
+    // CUML_LOG_DEBUG("rank %d log G is: %s", rank, log_g.c_str());
+    // CUML_LOG_DEBUG("rank %d loss is reg_host: %f", rank, reg_host);
+    // CUML_LOG_DEBUG("rank %d loss is loss_host: %f", rank, loss_host);
 
     return loss_host;
   }
