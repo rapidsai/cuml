@@ -3,7 +3,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.8", "12.0", "12.2"]
+      cuda: ["11.8", "12.2"]
       arch: [x86_64]
     includes:
       - common_build
@@ -17,7 +17,7 @@ files:
   cpp_all:
     output: conda
     matrix:
-      cuda: ["11.8", "12.0", "12.2"]
+      cuda: ["11.8", "12.2"]
       arch: [x86_64]
     includes:
       - common_build
