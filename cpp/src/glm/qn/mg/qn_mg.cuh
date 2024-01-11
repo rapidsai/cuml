@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #include "glm_base_mg.cuh"
+#include "standardization.cuh"
 
 #include <glm/qn/glm_logistic.cuh>
 #include <glm/qn/glm_regularizer.cuh>
@@ -44,8 +45,7 @@ int qn_fit_mg(const raft::handle_t& handle,
               size_t n_samples,
               int rank,
               int n_ranks,
-              const SimpleVec<T>* mean_p   = NULL,
-              const SimpleVec<T>* stddev_p = NULL)
+              const Standardizer<T>* stder_p = NULL)
 {
   cudaStream_t stream = handle.get_stream();
   LBFGSParam<T> opt_param(pams);
@@ -63,7 +63,7 @@ int qn_fit_mg(const raft::handle_t& handle,
   ML::GLM::detail::RegularizedGLM<T, LossFunction, decltype(reg)> regularizer_obj(&loss, &reg);
 
   auto obj_function =
-    GLMWithDataMG(handle, rank, n_ranks, n_samples, &regularizer_obj, X, y, Z, mean_p, stddev_p);
+    GLMWithDataMG(handle, rank, n_ranks, n_samples, &regularizer_obj, X, y, Z, stder_p);
   return ML::GLM::detail::qn_minimize(
     handle, w0, fx, num_iters, obj_function, l1, opt_param, pams.verbose);
 }
@@ -80,10 +80,9 @@ inline void qn_fit_x_mg(const raft::handle_t& handle,
                         int64_t n_samples,
                         int rank,
                         int n_ranks,
-                        const SimpleVec<T>* mean_p   = NULL,
-                        const SimpleVec<T>* stddev_p = NULL,
-                        T* sample_weight             = nullptr,
-                        T svr_eps                    = 0)
+                        const Standardizer<T>* stder_p = NULL,
+                        T* sample_weight               = nullptr,
+                        T svr_eps                      = 0)
 {
   /*
    NB:
@@ -109,38 +108,14 @@ inline void qn_fit_x_mg(const raft::handle_t& handle,
     case QN_LOSS_LOGISTIC: {
       ASSERT(C > 0, "qn_mg.cuh: logistic loss invalid C");
       ML::GLM::detail::LogisticLoss<T> loss(handle, D, pams.fit_intercept);
-      ML::GLM::opg::qn_fit_mg<T, decltype(loss)>(handle,
-                                                 pams,
-                                                 loss,
-                                                 X,
-                                                 y,
-                                                 Z,
-                                                 w0_data,
-                                                 f,
-                                                 num_iters,
-                                                 n_samples,
-                                                 rank,
-                                                 n_ranks,
-                                                 mean_p,
-                                                 stddev_p);
+      ML::GLM::opg::qn_fit_mg<T, decltype(loss)>(
+        handle, pams, loss, X, y, Z, w0_data, f, num_iters, n_samples, rank, n_ranks, stder_p);
     } break;
     case QN_LOSS_SOFTMAX: {
       ASSERT(C > 2, "qn_mg.cuh: softmax invalid C");
       ML::GLM::detail::Softmax<T> loss(handle, D, C, pams.fit_intercept);
-      ML::GLM::opg::qn_fit_mg<T, decltype(loss)>(handle,
-                                                 pams,
-                                                 loss,
-                                                 X,
-                                                 y,
-                                                 Z,
-                                                 w0_data,
-                                                 f,
-                                                 num_iters,
-                                                 n_samples,
-                                                 rank,
-                                                 n_ranks,
-                                                 mean_p,
-                                                 stddev_p);
+      ML::GLM::opg::qn_fit_mg<T, decltype(loss)>(
+        handle, pams, loss, X, y, Z, w0_data, f, num_iters, n_samples, rank, n_ranks, stder_p);
     } break;
     default: {
       ASSERT(false, "qn_mg.cuh: unknown loss function type (id = %d).", pams.loss);

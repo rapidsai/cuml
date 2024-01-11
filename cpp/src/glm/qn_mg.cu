@@ -107,15 +107,9 @@ void qnFit_impl(const raft::handle_t& handle,
 {
   auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
 
-  auto mean       = SimpleVec<T>(NULL, 0);
-  auto stddev     = SimpleVec<T>(NULL, 0);
-  auto mean_dev   = rmm::device_uvector<T>(D, handle.get_stream());
-  auto stddev_dev = rmm::device_uvector<T>(D, handle.get_stream());
-  if (standardization) {
-    mean.reset(mean_dev.data(), D);
-    stddev.reset(stddev_dev.data(), D);
-    mean_stddev(handle, X_simple, n_samples, mean.data, stddev.data);
-  }
+  rmm::device_uvector<T> mean_std_buff(3 * D, handle.get_stream());
+  Standardizer<T>* stder = NULL;
+  if (standardization) stder = new Standardizer(handle, X_simple, n_samples, mean_std_buff);
 
   ML::GLM::opg::qn_fit_x_mg(handle,
                             pams,
@@ -128,12 +122,12 @@ void qnFit_impl(const raft::handle_t& handle,
                             n_samples,
                             rank,
                             n_ranks,
-                            &mean,
-                            &stddev);  // ignore sample_weight, svr_eps
+                            stder);  // ignore sample_weight, svr_eps
 
   if (standardization) {
     int n_targets = ML::GLM::detail::qn_is_classification(pams.loss) && C == 2 ? 1 : C;
-    adapt_model_for_linearFwd(handle, w0, n_targets, D, pams.fit_intercept, mean, stddev);
+    stder->adapt_model_for_linearFwd(handle, w0, n_targets, D, pams.fit_intercept);
+    delete stder;
   }
 
   return;

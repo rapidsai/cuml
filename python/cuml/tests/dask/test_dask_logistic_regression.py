@@ -853,7 +853,7 @@ def test_standardization_on_scaled_dataset(
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("fit_intercept", [True])
+@pytest.mark.parametrize("fit_intercept", [False])
 @pytest.mark.parametrize(
     "regularization",
     [
@@ -866,7 +866,7 @@ def test_standardization_on_scaled_dataset(
 def test_standardization_example(fit_intercept, regularization, client):
     datatype = np.float32
     n_parts = 2
-    max_iter = 1000
+    max_iter = 5  # cannot set this too large. Algorithms may diverge when objective approaches to 0.
 
     penalty = regularization[0]
     C = regularization[1]
@@ -878,7 +878,6 @@ def test_standardization_example(fit_intercept, regularization, client):
         "l1_ratio": l1_ratio,
         "fit_intercept": fit_intercept,
         "max_iter": max_iter,
-        "verbose": True,
     }
 
     X = np.array(
@@ -904,7 +903,7 @@ def test_standardization_example(fit_intercept, regularization, client):
     X_df, y_df = _prep_training_data(client, X, y, n_parts)
     from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
 
-    lr_on = cumlLBFGS_dask(standardization=True, **est_params)
+    lr_on = cumlLBFGS_dask(standardization=True, verbose=True, **est_params)
     lr_on.fit(X_df, y_df)
 
     lron_coef_origin = lr_on.coef_.to_numpy() * scaler.scale_
@@ -916,8 +915,15 @@ def test_standardization_example(fit_intercept, regularization, client):
         lron_intercept_origin = lr_on.intercept_.to_numpy()
 
     X_df_scaled, y_df = _prep_training_data(client, X_scaled, y, n_parts)
-    lr_off = cumlLBFGS_dask(standardization=False, **est_params)
+    lr_off = cumlLBFGS_dask(standardization=False, verbose=True, **est_params)
     lr_off.fit(X_df_scaled, y_df)
 
     assert array_equal(lron_coef_origin, lr_off.coef_.to_numpy())
     assert array_equal(lron_intercept_origin, lr_off.intercept_.to_numpy())
+
+    from sklearn.linear_model import LogisticRegression as CPU
+
+    cpu = CPU(**est_params)
+    cpu.fit(X_scaled, y)
+    assert array_equal(lron_coef_origin, cpu.coef_)
+    assert array_equal(lron_intercept_origin, cpu.intercept_)

@@ -95,8 +95,7 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
   int rank;
   int64_t n_samples;
   int n_ranks;
-  const SimpleVec<T>* mean_p;    // SimpleVec(NULL, 0) if standardization is false
-  const SimpleVec<T>* stddev_p;  // SimpleVec(NULL, 0) if standardization is false
+  const Standardizer<T>* stder_p;
 
   GLMWithDataMG(raft::handle_t const& handle,
                 int rank,
@@ -106,16 +105,14 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
                 const SimpleMat<T>& X,
                 const SimpleVec<T>& y,
                 SimpleDenseMat<T>& Z,
-                const SimpleVec<T>* mean_p,
-                const SimpleVec<T>* stddev_p)
+                const Standardizer<T>* stder_p = NULL)
     : ML::GLM::detail::GLMWithData<T, GLMObjective>(obj, X, y, Z)
   {
     this->handle_p  = &handle;
     this->rank      = rank;
     this->n_ranks   = n_ranks;
     this->n_samples = n_samples;
-    this->mean_p    = mean_p;
-    this->stddev_p  = stddev_p;
+    this->stder_p   = stder_p;
 
     ML::Logger::get().setLevel(6);
   }
@@ -148,16 +145,13 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
 
     // if standardization is True
     std::vector<T> wFlatOrigin(this->C * this->dims);
-    if (mean_p->data != NULL) {
+    if (stder_p != NULL) {
       // TODO: adapt reg term to ensure final results correct
       raft::copy(wFlatOrigin.data(), wFlat.data, this->C * this->dims, stream);
-      adapt_model_for_linearFwd(
-        *handle_p, wFlat.data, this->C, (this->X)->n, (this->X)->n != G.n, *mean_p, *stddev_p);
+      stder_p->adapt_model_for_linearFwd(
+        *handle_p, wFlat.data, this->C, (this->X)->n, (this->X)->n != G.n);
       raft::resource::sync_stream(*(this->handle_p));
     }
-
-    // auto log_str = raft::arr2Str(wFlat.data, wFlat.m * wFlat.n, "", stream, 8);
-    // CUML_LOG_DEBUG("wFlat after adapt is %s", log_str.c_str());
 
     // apply linearFwd, getLossAndDz, linearBwd
     ML::GLM::detail::linearFwd(
@@ -189,9 +183,9 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
     communicator.sync_stream(stream);
 
     // if standardization is True
-    if (mean_p->data != NULL) {
-      adapt_gradient_for_linearBwd(
-        *handle_p, G, *(this->Z), (this->X)->n != G.n, n_samples, *mean_p, *stddev_p);
+    if (stder_p != NULL) {
+      stder_p->adapt_gradient_for_linearBwd(
+        *handle_p, G, *(this->Z), (this->X)->n != G.n, n_samples);
       raft::copy(wFlat.data, wFlatOrigin.data(), this->C * this->dims, stream);
     }
 
