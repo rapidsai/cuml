@@ -107,7 +107,7 @@ void qnFit_impl(const raft::handle_t& handle,
 {
   auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
 
-  rmm::device_uvector<T> mean_std_buff(3 * D, handle.get_stream());
+  rmm::device_uvector<T> mean_std_buff(4 * D, handle.get_stream());
   Standardizer<T>* stder = NULL;
   if (standardization) stder = new Standardizer(handle, X_simple, n_samples, mean_std_buff);
 

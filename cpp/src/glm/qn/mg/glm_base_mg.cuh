@@ -146,10 +146,21 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
     // if standardization is True
     std::vector<T> wFlatOrigin(this->C * this->dims);
     if (stder_p != NULL) {
-      // TODO: adapt reg term to ensure final results correct
       raft::copy(wFlatOrigin.data(), wFlat.data, this->C * this->dims, stream);
+
       stder_p->adapt_model_for_linearFwd(
         *handle_p, wFlat.data, this->C, (this->X)->n, (this->X)->n != G.n);
+
+      // scale reg part of the gradient for the upcoming adapt_gradient_for_linearBwd
+      raft::linalg::matrixVectorOp(G.data,
+                                   G.data,
+                                   stder_p->std.data,
+                                   stder_p->std.len,
+                                   G.m,
+                                   false,
+                                   true,
+                                   raft::mul_op(),
+                                   stream);
       raft::resource::sync_stream(*(this->handle_p));
     }
 

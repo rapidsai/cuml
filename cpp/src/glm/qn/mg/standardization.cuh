@@ -75,6 +75,7 @@ struct inverse_op {
 template <typename T>
 struct Standardizer {
   SimpleVec<T> mean;
+  SimpleVec<T> std;
   SimpleVec<T> std_inv;
   SimpleVec<T> scaled_mean;
 
@@ -84,17 +85,18 @@ struct Standardizer {
                rmm::device_uvector<T>& mean_std_buff)
   {
     int D = X.n;
-    ASSERT(mean_std_buff.size() == 3 * D, "buff size must be three times the dimension");
+    ASSERT(mean_std_buff.size() == 4 * D, "buff size must be four times the dimension");
 
     auto stream = handle.get_stream();
 
     mean.reset(mean_std_buff.data(), D);
-    std_inv.reset(mean_std_buff.data() + D, D);
-    scaled_mean.reset(mean_std_buff.data() + 2 * D, D);
+    std.reset(mean_std_buff.data() + D, D);
+    std_inv.reset(mean_std_buff.data() + 2 * D, D);
+    scaled_mean.reset(mean_std_buff.data() + 3 * D, D);
 
-    mean_stddev(handle, X, n_samples, mean.data, std_inv.data);
+    mean_stddev(handle, X, n_samples, mean.data, std.data);
 
-    raft::linalg::unaryOp(std_inv.data, std_inv.data, D, inverse_op(), stream);
+    raft::linalg::unaryOp(std_inv.data, std.data, D, inverse_op(), stream);
 
     // scale mean by the standard deviation
     raft::linalg::binaryOp(scaled_mean.data, std_inv.data, mean.data, D, raft::mul_op(), stream);
