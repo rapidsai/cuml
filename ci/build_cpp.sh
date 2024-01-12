@@ -3,7 +3,11 @@
 
 set -euo pipefail
 
-source rapids-env-update
+rapids-configure-conda-channels
+
+source rapids-configure-sccache
+
+source rapids-date-string
 
 export CMAKE_GENERATOR=Ninja
 
