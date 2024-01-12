@@ -69,7 +69,7 @@ dependencies:
 - sphinx<6
 - statsmodels
 - sysroot_linux-64==2.17
-- treelite==4.0.0rc3
+- treelite==4.0.0rc4
 - umap-learn==0.5.3
 - pip:
   - dask-glm==0.3.0
