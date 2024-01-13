@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -31,7 +31,8 @@ rapids-print-env
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   --channel "${PYTHON_CHANNEL}" \
-  libcuml cuml
+  --channel conda-forge/label/treelite_rc \
+  treelite=4.0.0rc4 libcuml cuml
 
 rapids-logger "Check GPU usage"
 nvidia-smi
