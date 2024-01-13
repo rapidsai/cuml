@@ -4,7 +4,6 @@ channels:
 - rapidsai
 - rapidsai-nightly
 - dask/label/dev
-- conda-forge/label/treelite_rc
 - conda-forge
 - nvidia
 dependencies:

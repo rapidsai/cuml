@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -10,8 +10,6 @@ source rapids-configure-sccache
 source rapids-date-string
 
 export CMAKE_GENERATOR=Ninja
-
-conda config --append channels conda-forge/label/treelite_rc
 
 rapids-print-env
 

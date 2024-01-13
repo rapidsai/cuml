@@ -31,8 +31,7 @@ rapids-print-env
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   --channel "${PYTHON_CHANNEL}" \
-  --channel conda-forge/label/treelite_rc \
-  treelite=4.0.0rc4 libcuml cuml
+  libcuml cuml
 
 rapids-logger "Check GPU usage"
 nvidia-smi

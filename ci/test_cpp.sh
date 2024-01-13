@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -10,8 +10,6 @@ rapids-dependency-file-generator \
   --output conda \
   --file_key test_cpp \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch)" | tee env.yaml
-
-conda config --append channels conda-forge/label/treelite_rc
 
 rapids-mamba-retry env create --force -f env.yaml -n test
 
