@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -136,8 +136,18 @@ void launcher(const raft::handle_t& handle,
     eps2 = 2 * data.eps;
 
     if (data.rbc_index != nullptr) {
-      raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<index_t, value_t, index_t>(
-        handle, *data.rbc_index, data.ia, data.ja, data.x + start_vertex_id * k, n, k, sqrtf(eps2));
+      index_t max_k = m / 100;
+      raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<index_t, value_t, index_t, index_t>(
+        handle,
+        *data.rbc_index,
+        data.ia,
+        data.ja,
+        data.vd,
+        data.x + start_vertex_id * k,
+        n,
+        k,
+        sqrtf(eps2),
+        &max_k);
     } else {
       raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
         data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
@@ -164,22 +174,25 @@ void launcher(const raft::handle_t& handle,
     // nullptr)
 
     if (data.rbc_index != nullptr) {
-      raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<index_t, value_t, index_t>(
-        handle, *data.rbc_index, data.ia, data.ja, data.x + start_vertex_id * k, n, k, data.eps);
+      index_t max_k = m / 100;
+      raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<index_t, value_t, index_t, index_t>(
+        handle,
+        *data.rbc_index,
+        data.ia,
+        data.ja,
+        data.vd,
+        data.x + start_vertex_id * k,
+        n,
+        k,
+        data.eps,
+        &max_k);
     } else {
       raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
         data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
     }
   }
 
-  if (data.rbc_index != nullptr) {
-    auto thrust_exec_policy = handle.get_thrust_policy();
-    thrust::transform(thrust_exec_policy,
-                      thrust::make_counting_iterator<index_t>(0),
-                      thrust::make_counting_iterator<index_t>(n + 1),
-                      data.vd,
-                      column_counter(data.ia, n));
-  } else {
+  if (data.rbc_index == nullptr) {
     // Reduction of adj to compute the vertex degrees
     raft::linalg::coalescedReduction<bool, index_t, index_t>(
       data.vd,

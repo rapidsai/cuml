@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -207,8 +207,9 @@ std::size_t run(const raft::handle_t& handle,
   }
 
   // build index for rbc
-  raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_>* rbc_index_ptr = nullptr;
-  raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_> rbc_index(
+  raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_, Index_>* rbc_index_ptr =
+    nullptr;
+  raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_, Index_> rbc_index(
     handle, x, N, D, metric);
 
   if (sparse_rbc_mode) {

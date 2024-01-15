@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ namespace VertexDeg {
 template <typename Type, typename Index_>
 struct Pack {
   /** optional rbc index */
-  raft::neighbors::ball_cover::BallCoverIndex<Index_, Type, Index_>* rbc_index;
+  raft::neighbors::ball_cover::BallCoverIndex<Index_, Type, Index_, Index_>* rbc_index;
   /**
    * vertex degree array
    * Last position is the sum of all elements in this array (excluding it)
