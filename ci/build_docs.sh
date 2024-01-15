@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) 2023, NVIDIA CORPORATION.
 set -euo pipefail
 
 rapids-logger "Create test conda environment"
@@ -24,7 +25,7 @@ rapids-mamba-retry install \
   --channel "${PYTHON_CHANNEL}" \
   cuml libcuml
 
-export RAPIDS_VERSION_NUMBER="23.12"
+export RAPIDS_VERSION_NUMBER="24.02"
 export RAPIDS_DOCS_DIR="$(mktemp -d)"
 
 rapids-logger "Build CPP docs"

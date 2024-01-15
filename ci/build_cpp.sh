@@ -3,14 +3,20 @@
 
 set -euo pipefail
 
-source rapids-env-update
+rapids-configure-conda-channels
+
+source rapids-configure-sccache
+
+source rapids-date-string
 
 export CMAKE_GENERATOR=Ninja
 
 rapids-print-env
 
+version=$(rapids-generate-version)
+
 rapids-logger "Begin cpp build"
 
-rapids-conda-retry mambabuild conda/recipes/libcuml
+RAPIDS_PACKAGE_VERSION=${version} rapids-conda-retry mambabuild conda/recipes/libcuml
 
 rapids-upload-conda-to-s3 cpp

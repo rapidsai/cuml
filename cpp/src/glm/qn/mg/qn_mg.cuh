@@ -101,7 +101,7 @@ inline void qn_fit_x_mg(const raft::handle_t& handle,
 
   switch (pams.loss) {
     case QN_LOSS_LOGISTIC: {
-      ASSERT(C == 2, "qn_mg.cuh: logistic loss invalid C");
+      ASSERT(C > 0, "qn_mg.cuh: logistic loss invalid C");
       ML::GLM::detail::LogisticLoss<T> loss(handle, D, pams.fit_intercept);
       ML::GLM::opg::qn_fit_mg<T, decltype(loss)>(
         handle, pams, loss, X, y, Z, w0_data, f, num_iters, n_samples, rank, n_ranks);
