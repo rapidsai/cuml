@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -11,6 +11,8 @@
 # or implied. See the License for the specific language governing permissions and limitations under
 # the License.
 # =============================================================================
+set(rapids-cmake-repo bdice/rapids-cmake)
+set(rapids-cmake-branch cccl-download)
 if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/CUML_RAPIDS.cmake)
   file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-24.02/RAPIDS.cmake
        ${CMAKE_CURRENT_BINARY_DIR}/CUML_RAPIDS.cmake
