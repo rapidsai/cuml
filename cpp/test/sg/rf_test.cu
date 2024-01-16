@@ -983,8 +983,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     DataT ghd(0);  // gamma half deviance
 
     std::for_each(data.begin(), data.end(), [&](auto& element) {
-      auto log_y = raft::myLog(element ? element : DataT(1.0));
-      ghd += raft::myLog(mean) - log_y + element / mean - 1;
+      auto log_y = raft::log(element ? element : DataT(1.0));
+      ghd += raft::log(mean) - log_y + element / mean - 1;
     });
 
     ghd /= data.size();
@@ -1022,8 +1022,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     auto poisson_half_deviance{DataT(0.0)};
 
     std::for_each(data.begin(), data.end(), [&](auto d) {
-      auto log_y = raft::myLog(d ? d : DataT(1.0));  // we don't want nans
-      poisson_half_deviance += d * (log_y - raft::myLog(mean)) + mean - d;
+      auto log_y = raft::log(d ? d : DataT(1.0));  // we don't want nans
+      poisson_half_deviance += d * (log_y - raft::log(mean)) + mean - d;
     });
 
     poisson_half_deviance /= data.size();
@@ -1061,8 +1061,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
         if (d == DataT(c)) ++sum;
       });
       DataT class_proba = DataT(sum) / data.size();
-      entropy += -class_proba * raft::myLog(class_proba ? class_proba : DataT(1)) /
-                 raft::myLog(DataT(2));  // adding gain
+      entropy += -class_proba * raft::log(class_proba ? class_proba : DataT(1)) /
+                 raft::log(DataT(2));  // adding gain
     }
     return entropy;
   }

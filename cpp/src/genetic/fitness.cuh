@@ -126,8 +126,8 @@ void weightedPearson(const raft::handle_t& h,
     stream,
     false,
     [W] __device__(math_t v, int i) { return v * v * W[i]; },
-    raft::Sum<math_t>(),
-    [] __device__(math_t in) { return raft::mySqrt(in); });
+    raft::add_op(),
+    [] __device__(math_t in) { return raft::sqrt(in); });
   math_t HYstd = y_std.element(0, stream);
 
   // Find x_std
@@ -140,8 +140,8 @@ void weightedPearson(const raft::handle_t& h,
     stream,
     false,
     [W] __device__(math_t v, int i) { return v * v * W[i]; },
-    raft::Sum<math_t>(),
-    [] __device__(math_t in) { return raft::mySqrt(in); });
+    raft::add_op(),
+    [] __device__(math_t in) { return raft::sqrt(in); });
 
   // Cross covariance
   raft::linalg::matrixVectorOp(
@@ -273,9 +273,7 @@ void meanAbsoluteError(const raft::handle_t& h,
     n_samples,
     false,
     false,
-    [N, WS] __device__(math_t y_p, math_t y, math_t w) {
-      return N * w * raft::myAbs(y - y_p) / WS;
-    },
+    [N, WS] __device__(math_t y_p, math_t y, math_t w) { return N * w * raft::abs(y - y_p) / WS; },
     stream);
 
   // Average along rows

@@ -73,7 +73,7 @@ void generate_data(
     stream,
     false,
     [=] __device__(float in, int n) { return in * in; },
-    raft::Sum<float>(),
+    raft::add_op(),
     [=] __device__(float in) { return sqrt(in); });
 
   thrust::device_ptr<float> d_ptr = thrust::device_pointer_cast(out_labels);

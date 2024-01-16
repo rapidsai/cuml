@@ -280,13 +280,15 @@ fi
 
 # Build and (optionally) install the cuml Python package
 if (! hasArg --configure-only) && (completeBuild || hasArg cuml || hasArg pydocs); then
+    # Replace spaces with semicolons in SKBUILD_EXTRA_CMAKE_ARGS
+    SKBUILD_EXTRA_CMAKE_ARGS=$(echo ${SKBUILD_EXTRA_CMAKE_ARGS} | sed 's/ /;/g')
+
     # Append `-DFIND_CUML_CPP=ON` to CUML_EXTRA_CMAKE_ARGS unless a user specified the option.
-    SKBUILD_EXTRA_CMAKE_ARGS="${CUML_EXTRA_CMAKE_ARGS}"
-    if [[ "${CUML_EXTRA_CMAKE_ARGS}" != *"DFIND_CUML_CPP"* ]]; then
-        SKBUILD_EXTRA_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS} -DFIND_CUML_CPP=ON"
+    if [[ "${SKBUILD_EXTRA_CMAKE_ARGS}" != *"DFIND_CUML_CPP"* ]]; then
+        SKBUILD_EXTRA_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS};-DFIND_CUML_CPP=ON"
     fi
 
-    SKBUILD_CONFIGURE_OPTIONS="-DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${SKBUILD_EXTRA_CMAKE_ARGS}" \
+    SKBUILD_CMAKE_ARGS="-DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL};${SKBUILD_EXTRA_CMAKE_ARGS}" \
         SKBUILD_BUILD_OPTIONS="-j${PARALLEL_LEVEL}" \
         python -m pip install --no-build-isolation --no-deps ${REPODIR}/python
 
@@ -297,7 +299,6 @@ if (! hasArg --configure-only) && (completeBuild || hasArg cuml || hasArg pydocs
 fi
 
 if hasArg cuml-cpu; then
-    SKBUILD_CONFIGURE_OPTIONS="-DCUML_CPU=ON -DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE" \
-        SKBUILD_BUILD_OPTIONS="-j${PARALLEL_LEVEL}" \
+    SKBUILD_CMAKE_ARGS="-DCUML_CPU=ON;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE" \
         python -m pip install --no-build-isolation --no-deps -v ${REPODIR}/python
 fi

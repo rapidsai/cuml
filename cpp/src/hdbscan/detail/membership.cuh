@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,13 +76,18 @@ void get_probabilities(const raft::handle_t& handle,
   rmm::device_uvector<value_t> deaths(n_clusters, stream);
   thrust::fill(exec_policy, deaths.begin(), deaths.end(), 0.0f);
 
+  cudaError_t (*reduce_func)(void*,
+                             size_t&,
+                             const value_t*,
+                             value_t*,
+                             int,
+                             const value_idx*,
+                             const value_idx*,
+                             cudaStream_t,
+                             bool) =
+    cub::DeviceSegmentedReduce::Max<const value_t*, value_t*, const value_idx*, const value_idx*>;
   Utils::cub_segmented_reduce(
-    lambdas,
-    deaths.data(),
-    n_clusters,
-    sorted_parents_offsets.data(),
-    stream,
-    cub::DeviceSegmentedReduce::Max<const value_t*, value_t*, const value_idx*, const value_idx*>);
+    lambdas, deaths.data(), n_clusters, sorted_parents_offsets.data(), stream, reduce_func);
 
   // Calculate probability per point
   thrust::fill(exec_policy, probabilities, probabilities + n_leaves, 0.0f);

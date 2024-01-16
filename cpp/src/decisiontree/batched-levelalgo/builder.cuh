@@ -414,8 +414,8 @@ struct Builder {
       // unique samples from 'n' is given by the following equation: log(1 - k/n)/log(1 - 1/n) ref:
       // https://stats.stackexchange.com/questions/296005/the-expected-number-of-unique-elements-drawn-with-replacement
       IdxT n_parallel_samples =
-        std::ceil(raft::myLog(1 - double(dataset.n_sampled_cols) / double(dataset.N)) /
-                  (raft::myLog(1 - 1.f / double(dataset.N))));
+        std::ceil(raft::log(1 - double(dataset.n_sampled_cols) / double(dataset.N)) /
+                  (raft::log(1 - 1.f / double(dataset.N))));
       // maximum sampling work possible by all threads in a block :
       // `max_samples_per_thread * block_thread`
       // dynamically calculated sampling work to be done per block:

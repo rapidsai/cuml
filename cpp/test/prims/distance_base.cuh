@@ -48,7 +48,7 @@ __global__ void naiveDistanceKernel(DataType* dist,
   }
   if (type == raft::distance::DistanceType::L2SqrtExpanded ||
       type == raft::distance::DistanceType::L2SqrtUnexpanded)
-    acc = raft::mySqrt(acc);
+    acc = raft::sqrt(acc);
   int outidx   = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx] = acc;
 }
@@ -100,7 +100,7 @@ __global__ void naiveCosineDistanceKernel(
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
 
   // Use 1.0 - (cosine similarity) to calc the distance
-  dist[outidx] = (DataType)1.0 - acc_ab / (raft::mySqrt(acc_a) * raft::mySqrt(acc_b));
+  dist[outidx] = (DataType)1.0 - acc_ab / (raft::sqrt(acc_a) * raft::sqrt(acc_b));
 }
 
 template <typename DataType>

@@ -280,7 +280,7 @@ __global__ void algo_L_sample_kernel(int* colids,
   IdxT int_uniform_val;
   // fp_uniform_val will have a random value between 0 and 1
   gen.next(fp_uniform_val);
-  double W = raft::myExp(raft::myLog(fp_uniform_val) / k);
+  double W = raft::exp(raft::log(fp_uniform_val) / k);
 
   size_t col(0);
   // initially fill the reservoir array in increasing order of cols till k
@@ -295,14 +295,14 @@ __global__ void algo_L_sample_kernel(int* colids,
   while (col < n) {
     // fp_uniform_val will have a random value between 0 and 1
     gen.next(fp_uniform_val);
-    col += static_cast<int>(raft::myLog(fp_uniform_val) / raft::myLog(1 - W)) + 1;
+    col += static_cast<int>(raft::log(fp_uniform_val) / raft::log(1 - W)) + 1;
     if (col < n) {
       // int_uniform_val will now have a random value between 0...k
       raft::random::custom_next(gen, &int_uniform_val, uniform_int_dist_params, IdxT(0), IdxT(0));
       colids[tid * k + int_uniform_val] = col;  // the bad memory coalescing here is hidden
       // fp_uniform_val will have a random value between 0 and 1
       gen.next(fp_uniform_val);
-      W *= raft::myExp(raft::myLog(fp_uniform_val) / k);
+      W *= raft::exp(raft::log(fp_uniform_val) / k);
     }
   }
 }
