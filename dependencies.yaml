@@ -145,7 +145,6 @@ dependencies:
             packages:
               - nvcc_linux-aarch64=11.8
           - matrix:
-              arch: x86_64
               cuda: "12.*"
             packages:
               - cuda-nvcc
