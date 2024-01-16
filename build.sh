@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 
 # cuml build script
 
@@ -289,7 +289,6 @@ if (! hasArg --configure-only) && (completeBuild || hasArg cuml || hasArg pydocs
     fi
 
     SKBUILD_CMAKE_ARGS="-DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL};${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        SKBUILD_BUILD_OPTIONS="-j${PARALLEL_LEVEL}" \
         python -m pip install --no-build-isolation --no-deps ${REPODIR}/python
 
     if hasArg pydocs; then
