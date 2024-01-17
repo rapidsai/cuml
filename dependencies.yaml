@@ -185,13 +185,10 @@ dependencies:
             packages:
               - pylibraft-cu12==24.2.*
               - rmm-cu12==24.2.*
-          - matrix: {cuda: "11.8"}
-            packages: &py_build_packages_cu11
+          - matrix: {cuda: "11.*"}
+            packages:
               - &pylibraft_cu11 pylibraft-cu11==24.2.*
               - &rmm_cu11 rmm-cu11==24.2.*
-          - {matrix: {cuda: "11.5"}, packages: *py_build_packages_cu11}
-          - {matrix: {cuda: "11.4"}, packages: *py_build_packages_cu11}
-          - {matrix: {cuda: "11.2"}, packages: *py_build_packages_cu11}
           - {matrix: null, packages: [*pylibraft_conda, *rmm_conda] }
 
   py_run:
@@ -233,8 +230,7 @@ dependencies:
               - pylibraft-cu12==24.2.*
               - raft-dask-cu12==24.2.*
               - rmm-cu12==24.2.*
-          # All CUDA 11 versions
-          - matrix: {cuda: "11.8"}
+          - matrix: {cuda: "11.*"}
             packages: &py_run_packages_cu11
               - cudf-cu11==24.2.*
               - &cupy_pyproject_cu11 cupy-cuda11x>=12.0.0
@@ -242,9 +238,6 @@ dependencies:
               - *pylibraft_cu11
               - raft-dask-cu11==24.2.*
               - *rmm_cu11
-          - {matrix: {cuda: "11.5"}, packages: *py_run_packages_cu11}
-          - {matrix: {cuda: "11.4"}, packages: *py_run_packages_cu11}
-          - {matrix: {cuda: "11.2"}, packages: *py_run_packages_cu11}
           - matrix: null
             packages:
               - *cudf_conda
