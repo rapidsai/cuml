@@ -170,7 +170,7 @@ class BaseEstimator(Base):
             return
 
         # validate the feature names against the `feature_names_in_` attribute
-        if len(fitted_feature_names) != len(X_feature_names) or np.any(
+        if len(fitted_feature_names) != len(X_feature_names) or cpu_np.any(
             fitted_feature_names != X_feature_names
         ):
             message = (
