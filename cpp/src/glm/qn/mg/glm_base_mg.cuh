@@ -28,6 +28,7 @@
 #include <glm/qn/qn_solvers.cuh>
 #include <glm/qn/qn_util.cuh>
 
+#include <iostream>
 #include <vector>
 
 namespace ML {
@@ -113,8 +114,6 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
     this->n_ranks   = n_ranks;
     this->n_samples = n_samples;
     this->stder_p   = stder_p;
-
-    ML::Logger::get().setLevel(6);
   }
 
   inline T operator()(const SimpleVec<T>& wFlat,
@@ -193,7 +192,6 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
     communicator.allreduce(G.data, G.data, this->C * this->dims, raft::comms::op_t::SUM, stream);
     communicator.sync_stream(stream);
 
-    // if standardization is True
     if (stder_p != NULL) {
       stder_p->adapt_gradient_for_linearBwd(
         *handle_p, G, *(this->Z), (this->X)->n != G.n, n_samples);
@@ -203,13 +201,6 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
     T loss_host;
     raft::update_host(&loss_host, dev_scalar, 1, stream);
     raft::resource::sync_stream(*(this->handle_p));
-
-    // auto log_w = raft::arr2Str(wFlat.data, wFlat.m * wFlat.n, "", stream);
-    // auto log_g = raft::arr2Str(G.data, G.m * G.n, "", stream);
-    // CUML_LOG_DEBUG("rank %d log wFlat is: %s", rank, log_w.c_str());
-    // CUML_LOG_DEBUG("rank %d log G is: %s", rank, log_g.c_str());
-    // CUML_LOG_DEBUG("rank %d loss is reg_host: %f", rank, reg_host);
-    // CUML_LOG_DEBUG("rank %d loss is loss_host: %f", rank, loss_host);
 
     return loss_host;
   }

@@ -220,6 +220,7 @@ void qnFitSparse_impl(const raft::handle_t& handle,
                       I* X_cols,
                       I* X_row_ids,
                       I X_nnz,
+                      bool standardization,
                       T* y,
                       size_t N,
                       size_t D,
@@ -233,6 +234,10 @@ void qnFitSparse_impl(const raft::handle_t& handle,
 {
   auto X_simple = SimpleSparseMat<T>(X_values, X_cols, X_row_ids, X_nnz, N, D);
 
+  rmm::device_uvector<T> mean_std_buff(4 * D, handle.get_stream());
+  Standardizer<T>* stder = NULL;
+  if (standardization) stder = new Standardizer(handle, X_simple, n_samples, mean_std_buff);
+
   ML::GLM::opg::qn_fit_x_mg(handle,
                             pams,
                             X_simple,
@@ -243,7 +248,15 @@ void qnFitSparse_impl(const raft::handle_t& handle,
                             num_iters,
                             n_samples,
                             rank,
-                            n_ranks);  // ignore sample_weight, svr_eps
+                            n_ranks,
+                            stder);  // ignore sample_weight, svr_eps
+
+  if (standardization) {
+    int n_targets = ML::GLM::detail::qn_is_classification(pams.loss) && C == 2 ? 1 : C;
+    stder->adapt_model_for_linearFwd(handle, w0, n_targets, D, pams.fit_intercept);
+    delete stder;
+  }
+
   return;
 }
 
@@ -256,6 +269,7 @@ void qnFitSparse(raft::handle_t& handle,
                  std::vector<Matrix::Data<float>*>& labels,
                  float* coef,
                  const qn_params& pams,
+                 bool standardization,
                  int n_classes,
                  float* f,
                  int* num_iters)
@@ -272,6 +286,7 @@ void qnFitSparse(raft::handle_t& handle,
                                input_cols,
                                input_row_ids,
                                X_nnz,
+                               standardization,
                                data_y->ptr,
                                input_desc.totalElementsOwnedBy(input_desc.rank),
                                input_desc.N,

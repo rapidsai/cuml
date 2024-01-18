@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -95,6 +95,7 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         vector[floatData_t *] labels,
         float *coef,
         const qn_params& pams,
+        bool standardization,
         int n_classes,
         float *f,
         int *num_iters) except +
@@ -217,9 +218,6 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
         sparse_input = isinstance(X, list)
 
-        if self.standardization:
-            assert not sparse_input, "standardization for sparse vectors is not supported yet"
-
         if self.dtype == np.float32:
             if sparse_input is False:
                 qnFit(
@@ -252,6 +250,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                     deref(<vector[floatData_t*]*><uintptr_t>y),
                     <float*>mat_coef_ptr,
                     qnpams,
+                    self.standardization,
                     self._num_classes,
                     <float*> &objective32,
                     <int*> &num_iters)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,6 +75,7 @@ void qnFit(raft::handle_t& handle,
  * @param[in] input_row_ids: vector holding row pointers of non-zero values of all partitions for
  * that rank
  * @param[in] X_nnz: the number of non-zero values of that rank
+ * @param[in] standardization: whether to standardize the dataset before training
  * @param[in] input_desc: PartDescriptor object for the input
  * @param[in] labels: labels data
  * @param[out] coef: learned coefficients
@@ -92,6 +93,7 @@ void qnFitSparse(raft::handle_t& handle,
                  std::vector<Matrix::Data<float>*>& labels,
                  float* coef,
                  const qn_params& pams,
+                 bool standardization,
                  int n_classes,
                  float* f,
                  int* num_iters);

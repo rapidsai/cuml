@@ -866,7 +866,7 @@ def test_standardization_on_scaled_dataset(
 def test_standardization_example(fit_intercept, regularization, client):
     datatype = np.float32
     n_parts = 2
-    max_iter = 3  # cannot set this too large. Algorithms may diverge when objective approaches to 0.
+    max_iter = 5  # cannot set this too large. Observed GPU-specific coefficients when objective converges at 0.
 
     penalty = regularization[0]
     C = regularization[1]
@@ -920,6 +920,82 @@ def test_standardization_example(fit_intercept, regularization, client):
 
     assert array_equal(lron_coef_origin, lr_off.coef_.to_numpy())
     assert array_equal(lron_intercept_origin, lr_off.intercept_.to_numpy())
+
+    from cuml.linear_model import LogisticRegression as SG
+
+    sg = SG(**est_params)
+    sg.fit(X_scaled, y)
+
+    assert array_equal(lron_coef_origin, sg.coef_)
+    assert array_equal(lron_intercept_origin, sg.intercept_)
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("fit_intercept", [True, False])
+@pytest.mark.parametrize(
+    "regularization",
+    [
+        ("none", 1.0, None),
+        ("l2", 2.0, None),
+        ("l1", 2.0, None),
+        ("elasticnet", 2.0, 0.2),
+    ],
+)
+def test_standardization_sparse_example(fit_intercept, regularization, client):
+    datatype = np.float32
+    n_parts = 2
+    max_iter = 5  # cannot set this too large. Observed GPU-specific coefficients when objective converges at 0.
+
+    penalty = regularization[0]
+    C = regularization[1]
+    l1_ratio = regularization[2]
+
+    est_params = {
+        "penalty": penalty,
+        "C": C,
+        "l1_ratio": l1_ratio,
+        "fit_intercept": fit_intercept,
+        "max_iter": max_iter,
+    }
+
+    X_origin = np.array(
+        [
+            [-1.1258, 0.0000, 0.0000, -0.4339, 0.0000],
+            [-1.5551, -0.3414, 0.0000, 0.0000, 0.0000],
+            [0.0000, 0.2660, 0.0000, 0.0000, 0.9463],
+            [-0.8437, 0.0000, 1.2590, 0.0000, 0.0000],
+        ],
+        datatype,
+    )
+
+    X_origin = np.ascontiguousarray(X_origin.T)
+
+    X = csr_matrix(X_origin)
+    assert X.nnz == 8 and X.shape == (5, 4)
+    y = np.array([0.0, 1.0, 2.0, 0.0, 1.0], datatype)
+
+    from sklearn.preprocessing import StandardScaler
+
+    scaler = StandardScaler(with_mean=fit_intercept, with_std=True)
+    scaler.fit(X_origin)
+    scaler.scale_ = np.sqrt(scaler.var_ * len(X_origin) / (len(X_origin) - 1))
+    X_scaled = scaler.transform(X_origin)
+
+    X_da, y_da = _prep_training_data_sparse(
+        client, X, y, partitions_per_worker=n_parts
+    )
+    from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
+
+    lr_on = cumlLBFGS_dask(standardization=True, verbose=True, **est_params)
+    lr_on.fit(X_da, y_da)
+
+    lron_coef_origin = lr_on.coef_ * scaler.scale_
+    if fit_intercept is True:
+        lron_intercept_origin = lr_on.intercept_ + np.dot(
+            lr_on.coef_, scaler.mean_
+        )
+    else:
+        lron_intercept_origin = lr_on.intercept_
 
     from cuml.linear_model import LogisticRegression as SG
 
