@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -532,6 +532,11 @@ void tl2fil_common(forest_params_t* params,
   params->num_cols = model.num_feature;
 
   ASSERT(model.sigmoid_alpha == 1.0f, "sigmoid_alpha not supported");
+  // Check base_scores
+  for (std::int32_t class_id = 1; class_id < model.num_class[0]; ++class_id) {
+    ASSERT(model.base_scores[0] == model.base_scores[class_id],
+           "base_scores must be identical for all classes");
+  }
   params->global_bias = model.base_scores[0];
   params->output      = output_t::RAW;
   /** output_t::CLASS denotes using a threshold in FIL, when
