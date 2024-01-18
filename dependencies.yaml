@@ -115,10 +115,10 @@ dependencies:
           - cxx-compiler
           - gmock>=1.13.0
           - gtest>=1.13.0
-          - libcumlprims==24.2.*
-          - libraft==24.2.*
-          - libraft-headers==24.2.*
-          - librmm==24.2.*
+          - libcumlprims==24.4.*
+          - libraft==24.4.*
+          - libraft-headers==24.4.*
+          - librmm==24.4.*
     specific:
       - output_types: conda
         matrices:
@@ -199,14 +199,14 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - dask-cuda==24.2.*
+          - dask-cuda==24.4.*
           - joblib>=0.11
           - numba>=0.57
             # TODO: Is scipy really a hard dependency, or should
             # we make it optional (i.e. an extra for pip
             # installation/run_constrained for conda)?
           - scipy>=1.8.0
-          - rapids-dask-dependency==24.2.*
+          - rapids-dask-dependency==24.4.*
           - *treelite
       - output_types: conda
         packages:
