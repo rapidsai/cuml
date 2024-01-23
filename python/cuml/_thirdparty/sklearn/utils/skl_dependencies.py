@@ -8,6 +8,7 @@
 # This code is under BSD 3 clause license.
 # Authors mentioned above do not endorse or promote this production.
 
+import warnings
 
 from cuml.internals.array_sparse import SparseCumlArray
 from ....internals.base import Base
@@ -40,7 +41,7 @@ def _get_feature_names(X):
     """
     feature_names = None
 
-    # extract feature names for support array containers
+    # Extract feature names for supported array containers
     if hasattr(X, "columns"):
         feature_names = cpu_np.asarray(X.columns, dtype=object)
 
