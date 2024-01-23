@@ -42,7 +42,9 @@ def test_feature_names_in_mixed_types():
     X, y = X_cancer.copy(), y_cancer.copy()
     X.columns = [0] + [str(i) for i in range(1, len(X.columns))]
 
-    with pytest.raises(TypeError, match=".*only supported if all input features.*"):
+    with pytest.raises(
+        TypeError, match=".*only supported if all input features.*"
+    ):
         LinearRegression().fit(X, y)
 
 
@@ -54,7 +56,9 @@ def test_feature_names_in_not_in_fit():
 
 def test_feature_names_in_not_in_predict():
     lr = LinearRegression().fit(X_cancer, y_cancer)
-    with pytest.warns(UserWarning, match=".*X does not have valid feature names.*"):
+    with pytest.warns(
+        UserWarning, match=".*X does not have valid feature names.*"
+    ):
         lr.predict(X_cancer.to_numpy())
 
 
