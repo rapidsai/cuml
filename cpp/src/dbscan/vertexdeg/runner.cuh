@@ -23,12 +23,11 @@
 namespace ML {
 namespace Dbscan {
 namespace VertexDeg {
-
 template <typename Type_f, typename Index_ = int>
 void run(const raft::handle_t& handle,
          raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_, Index_>* rbc_index,
          Index_* ia,
-         Index_* ja,
+         rmm::device_uvector<Index_>* ja,
          bool* adj,
          Index_* vd,
          Type_f* wght_sum,

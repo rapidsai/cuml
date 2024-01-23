@@ -129,7 +129,8 @@ std::size_t run(const raft::handle_t& handle,
   } else
     my_rank = 0;
 
-  bool sparse_rbc_mode = (D == 2 || D == 3);
+  // switch compute mode based on feature dimension
+  bool sparse_rbc_mode = algo_vd == 1 && D <= 10;
 
   /**
    * Note on coupling between data types:
@@ -142,7 +143,8 @@ std::size_t run(const raft::handle_t& handle,
    * elements in their neighborhood, so any IdxType can be safely used, so long as N doesn't
    * overflow.
    */
-  std::size_t adj_size      = raft::alignTo<std::size_t>(sizeof(bool) * N * batch_size, align);
+  std::size_t adj_size =
+    sparse_rbc_mode ? 0 : raft::alignTo<std::size_t>(sizeof(bool) * N * batch_size, align);
   std::size_t core_pts_size = raft::alignTo<std::size_t>(sizeof(bool) * N, align);
   std::size_t m_size        = raft::alignTo<std::size_t>(sizeof(bool), align);
   std::size_t vd_size       = raft::alignTo<std::size_t>(sizeof(Index_) * (batch_size + 1), align);
@@ -151,8 +153,6 @@ std::size_t run(const raft::handle_t& handle,
   std::size_t labels_size   = raft::alignTo<std::size_t>(sizeof(Index_) * N, align);
   std::size_t wght_sum_size =
     sample_weight != nullptr ? raft::alignTo<std::size_t>(sizeof(Type_f) * batch_size, align) : 0;
-  std::size_t ia_size =
-    sparse_rbc_mode ? raft::alignTo<std::size_t>(sizeof(Index_) * (batch_size + 1), align) : 0;
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
 
@@ -171,10 +171,9 @@ std::size_t run(const raft::handle_t& handle,
 
   // partition the temporary workspace needed for different stages of dbscan.
 
-  Index_ maxadjlen  = 0;
-  Index_ curradjlen = 0;
-  char* temp        = (char*)workspace;
-  bool* adj         = (bool*)temp;
+  std::vector<Index_> batchadjlen(n_batches);
+  char* temp = (char*)workspace;
+  bool* adj  = sparse_rbc_mode ? nullptr : (bool*)temp;
   temp += adj_size;
   bool* core_pts = (bool*)temp;
   temp += core_pts_size;
@@ -195,16 +194,8 @@ std::size_t run(const raft::handle_t& handle,
     wght_sum = (Type_f*)temp;
     temp += wght_sum_size;
   }
-  Index_* ia_ptr = ex_scan;
-  Index_* ja_ptr = nullptr;
+
   rmm::device_uvector<Index_> adj_graph(0, stream);
-  if (sparse_rbc_mode) {
-    // FIXME: assumption of worst case here not optimal...
-    adj_graph.resize(N * batch_size, stream);
-    ja_ptr                  = adj_graph.data();
-    auto thrust_exec_policy = handle.get_thrust_policy();
-    thrust::fill(thrust_exec_policy, adj, adj + (N * batch_size), true);
-  }
 
   // build index for rbc
   raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_, Index_>* rbc_index_ptr =
@@ -229,10 +220,12 @@ std::size_t run(const raft::handle_t& handle,
 
     CUML_LOG_DEBUG("--> Computing vertex degrees");
     raft::common::nvtx::push_range("Trace::Dbscan::VertexDeg");
+
+    bool need_ja_compute = sparse_rbc_mode && ((i == 0) || (sample_weight != nullptr));
     VertexDeg::run<Type_f, Index_>(handle,
                                    rbc_index_ptr,
-                                   ia_ptr,
-                                   ja_ptr,
+                                   ex_scan,
+                                   need_ja_compute ? &adj_graph : nullptr,
                                    adj,
                                    vd,
                                    wght_sum,
@@ -246,6 +239,16 @@ std::size_t run(const raft::handle_t& handle,
                                    n_points,
                                    stream,
                                    metric);
+
+    if (sparse_rbc_mode && adj_graph.size() > 0) {
+      batchadjlen.at(i) = adj_graph.size();
+    } else {
+      Index_ curradjlen = 0;
+      raft::update_host(&curradjlen, vd + n_points, 1, stream);
+      handle.sync_stream(stream);
+      batchadjlen.at(i) = curradjlen;
+    }
+
     raft::common::nvtx::pop_range();
 
     CUML_LOG_DEBUG("--> Computing core point mask");
@@ -265,6 +268,10 @@ std::size_t run(const raft::handle_t& handle,
   // Compute the labelling for the owned part of the graph
   raft::sparse::WeakCCState state(m);
 
+  Index_ maxadjlen = *std::max_element(batchadjlen.begin(), batchadjlen.end());
+  CUML_LOG_DEBUG("Allocating for %ld elements", (unsigned long)maxadjlen);
+  adj_graph.resize(maxadjlen, stream);
+
   for (int i = 0; i < n_batches; i++) {
     Index_ start_vertex_id = start_row + i * batch_size;
     Index_ n_points        = min(n_owned_rows - i * batch_size, batch_size);
@@ -279,10 +286,10 @@ std::size_t run(const raft::handle_t& handle,
       raft::common::nvtx::push_range("Trace::Dbscan::VertexDeg");
       VertexDeg::run<Type_f, Index_>(handle,
                                      rbc_index_ptr,
-                                     ia_ptr,
-                                     ja_ptr,
+                                     ex_scan,
+                                     &adj_graph,
                                      adj,
-                                     vd,
+                                     sparse_rbc_mode ? nullptr : vd,
                                      nullptr,
                                      x,
                                      nullptr,
@@ -296,21 +303,17 @@ std::size_t run(const raft::handle_t& handle,
                                      metric);
       raft::common::nvtx::pop_range();
     }
-    raft::update_host(&curradjlen, vd + n_points, 1, stream);
-    handle.sync_stream(stream);
 
     if (!sparse_rbc_mode) {
-      CUML_LOG_DEBUG("--> Computing adjacency graph with %ld nnz.", (unsigned long)curradjlen);
+      CUML_LOG_DEBUG("--> Computing adjacency graph with %ld nnz.",
+                     (unsigned long)batchadjlen.at(i));
       raft::common::nvtx::push_range("Trace::Dbscan::AdjGraph");
-      if (curradjlen > maxadjlen || adj_graph.data() == NULL) {
-        maxadjlen = curradjlen;
-        adj_graph.resize(maxadjlen, stream);
-      }
+      handle.sync_stream(stream);
       AdjGraph::run<Index_>(handle,
                             adj,
                             vd,
                             adj_graph.data(),
-                            curradjlen,
+                            batchadjlen.at(i),
                             ex_scan,
                             N,
                             algo_adj,
@@ -327,7 +330,7 @@ std::size_t run(const raft::handle_t& handle,
       i == 0 ? labels : labels_temp,
       ex_scan,
       adj_graph.data(),
-      curradjlen,
+      batchadjlen.at(i),
       N,
       start_vertex_id,
       n_points,

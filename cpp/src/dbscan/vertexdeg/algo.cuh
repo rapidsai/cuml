@@ -84,6 +84,45 @@ static __global__ void accumulateWeights(const index_t* ia,
   if (thread_in_warp == 0 && idx < num_rows && weight_sum > 0) { weight_sums[idx] = weight_sum; }
 }
 
+template <typename value_t, typename index_t = int>
+void eps_nn(const raft::handle_t& handle,
+            Pack<value_t, index_t> data,
+            index_t start_vertex_id,
+            index_t batch_size,
+            cudaStream_t stream,
+            value_t eps)
+{
+  index_t n = min(data.N - start_vertex_id, batch_size);
+  index_t k = data.D;
+
+  raft::neighbors::ball_cover::eps_nn<index_t, value_t, index_t, index_t>(
+    handle,
+    *data.rbc_index,
+    raft::make_device_vector_view<index_t, index_t>(data.ia, n + 1),
+    raft::make_device_vector_view<index_t, index_t>(nullptr, 0),
+    raft::make_device_vector_view<index_t, index_t>(data.vd, n + 1),
+    raft::make_device_matrix_view<const value_t, index_t>(data.x + start_vertex_id * k, n, k),
+    eps);
+
+  if (data.ja != nullptr) {
+    if (data.vd != nullptr) {
+      index_t curradjlen = 0;
+      raft::update_host(&curradjlen, data.vd + n, 1, stream);
+      handle.sync_stream(stream);
+      data.ja->resize(curradjlen, stream);
+    }
+
+    raft::neighbors::ball_cover::eps_nn<index_t, value_t, index_t, index_t>(
+      handle,
+      *data.rbc_index,
+      raft::make_device_vector_view<index_t, index_t>(data.ia, n + 1),
+      raft::make_device_vector_view<index_t, index_t>(data.ja->data(), n * data.N),
+      raft::make_device_vector_view<index_t, index_t>(nullptr, n + 1),
+      raft::make_device_matrix_view<const value_t, index_t>(data.x + start_vertex_id * k, n, k),
+      eps);
+  }
+}
+
 /**
  * Calculates the vertex degree array and the epsilon neighborhood adjacency matrix for the batch.
  */
@@ -95,12 +134,6 @@ void launcher(const raft::handle_t& handle,
               cudaStream_t stream,
               raft::distance::DistanceType metric)
 {
-  // The last position of data.vd is the sum of all elements in this array
-  // (excluding it). Hence, its length is one more than the number of points
-  // Initialize it to zero.
-  index_t* d_nnz = data.vd + batch_size;
-  RAFT_CUDA_TRY(cudaMemsetAsync(d_nnz, 0, sizeof(index_t), stream));
-
   ASSERT(sizeof(index_t) == 4 || sizeof(index_t) == 8, "index_t should be 4 or 8 bytes");
 
   index_t m = data.N;
@@ -138,16 +171,7 @@ void launcher(const raft::handle_t& handle,
     eps2 = 2 * data.eps;
 
     if (data.rbc_index != nullptr) {
-      index_t max_k = m / 100;
-      raft::neighbors::ball_cover::eps_nn<index_t, value_t, index_t, index_t>(
-        handle,
-        *data.rbc_index,
-        raft::make_device_vector_view<index_t, index_t>(data.ia, n + 1),
-        raft::make_device_vector_view<index_t, index_t>(data.ja, max_k * n),
-        raft::make_device_vector_view<index_t, index_t>(data.vd, n + 1),
-        raft::make_device_matrix_view<const value_t, index_t>(data.x + start_vertex_id * k, n, k),
-        sqrtf(eps2),
-        raft::make_host_scalar_view<index_t, index_t>(&max_k));
+      eps_nn(handle, data, start_vertex_id, batch_size, stream, (value_t)sqrtf(eps2));
     } else {
       raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
         data.adj, data.vd, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
@@ -168,22 +192,8 @@ void launcher(const raft::handle_t& handle,
       stream);
   } else {
     eps2 = data.eps * data.eps;
-
-    // 1. The output matrix adj is now an n x m matrix (row-major order)
-    // 2. Do not compute the vertex degree in epsUnexpL2SqNeighborhood (pass a
-    // nullptr)
-
     if (data.rbc_index != nullptr) {
-      index_t max_k = m / 100;
-      raft::neighbors::ball_cover::eps_nn<index_t, value_t, index_t, index_t>(
-        handle,
-        *data.rbc_index,
-        raft::make_device_vector_view<index_t, index_t>(data.ia, n + 1),
-        raft::make_device_vector_view<index_t, index_t>(data.ja, max_k * n),
-        raft::make_device_vector_view<index_t, index_t>(data.vd, n + 1),
-        raft::make_device_matrix_view<const value_t, index_t>(data.x + start_vertex_id * k, n, k),
-        data.eps,
-        raft::make_host_scalar_view<index_t, index_t>(&max_k));
+      eps_nn(handle, data, start_vertex_id, batch_size, stream, data.eps);
     } else {
       raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
         data.adj, data.vd, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
@@ -194,7 +204,7 @@ void launcher(const raft::handle_t& handle,
     if (data.rbc_index != nullptr) {
       accumulateWeights<value_t, index_t, 128, 32>
         <<<raft::ceildiv(n, (index_t)4), 128, 0, stream>>>(
-          data.ia, n, data.ja, data.sample_weight, data.weight_sum);
+          data.ia, n, data.ja->data(), data.sample_weight, data.weight_sum);
       RAFT_CUDA_TRY(cudaPeekAtLastError());
     } else {
       const value_t* sample_weight = data.sample_weight;
