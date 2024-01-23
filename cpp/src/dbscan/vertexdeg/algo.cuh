@@ -22,6 +22,8 @@
 #include <raft/neighbors/epsilon_neighborhood.cuh>
 
 #include "pack.h"
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
@@ -137,20 +139,18 @@ void launcher(const raft::handle_t& handle,
 
     if (data.rbc_index != nullptr) {
       index_t max_k = m / 100;
-      raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<index_t, value_t, index_t, index_t>(
+      raft::neighbors::ball_cover::eps_nn<index_t, value_t, index_t, index_t>(
         handle,
         *data.rbc_index,
-        data.ia,
-        data.ja,
-        data.vd,
-        data.x + start_vertex_id * k,
-        n,
-        k,
+        raft::make_device_vector_view<index_t, index_t>(data.ia, n + 1),
+        raft::make_device_vector_view<index_t, index_t>(data.ja, max_k * n),
+        raft::make_device_vector_view<index_t, index_t>(data.vd, n + 1),
+        raft::make_device_matrix_view<const value_t, index_t>(data.x + start_vertex_id * k, n, k),
         sqrtf(eps2),
-        &max_k);
+        raft::make_host_scalar_view<index_t, index_t>(&max_k));
     } else {
       raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
-        data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
+        data.adj, data.vd, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
     }
 
     /**
@@ -175,40 +175,19 @@ void launcher(const raft::handle_t& handle,
 
     if (data.rbc_index != nullptr) {
       index_t max_k = m / 100;
-      raft::neighbors::ball_cover::epsUnexpL2NeighborhoodRbc<index_t, value_t, index_t, index_t>(
+      raft::neighbors::ball_cover::eps_nn<index_t, value_t, index_t, index_t>(
         handle,
         *data.rbc_index,
-        data.ia,
-        data.ja,
-        data.vd,
-        data.x + start_vertex_id * k,
-        n,
-        k,
+        raft::make_device_vector_view<index_t, index_t>(data.ia, n + 1),
+        raft::make_device_vector_view<index_t, index_t>(data.ja, max_k * n),
+        raft::make_device_vector_view<index_t, index_t>(data.vd, n + 1),
+        raft::make_device_matrix_view<const value_t, index_t>(data.x + start_vertex_id * k, n, k),
         data.eps,
-        &max_k);
+        raft::make_host_scalar_view<index_t, index_t>(&max_k));
     } else {
       raft::neighbors::epsilon_neighborhood::epsUnexpL2SqNeighborhood<value_t, index_t>(
-        data.adj, nullptr, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
+        data.adj, data.vd, data.x + start_vertex_id * k, data.x, n, m, k, eps2, stream);
     }
-  }
-
-  if (data.rbc_index == nullptr) {
-    // Reduction of adj to compute the vertex degrees
-    raft::linalg::coalescedReduction<bool, index_t, index_t>(
-      data.vd,
-      data.adj,
-      data.N,
-      batch_size,
-      (index_t)0,
-      stream,
-      false,
-      [] __device__(bool adj_ij, index_t idx) { return static_cast<index_t>(adj_ij); },
-      raft::add_op(),
-      [d_nnz] __device__(index_t degree) {
-        atomicAdd(d_nnz, degree);
-        return degree;
-      });
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
   if (data.weight_sum != nullptr && data.sample_weight != nullptr) {
