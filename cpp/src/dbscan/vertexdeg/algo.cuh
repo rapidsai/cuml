@@ -105,6 +105,7 @@ void eps_nn(const raft::handle_t& handle,
     eps);
 
   if (data.ja != nullptr) {
+    // no need to re-compute in second batch loop - ja has already been resized
     if (data.vd != nullptr) {
       index_t curradjlen = 0;
       raft::update_host(&curradjlen, data.vd + n, 1, stream);
