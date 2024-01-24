@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1449,6 +1449,7 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
       }
     }
   }
+  raft::interruptible::synchronize(stream);
   RAFT_CUDA_TRY(cudaMemGetInfo(&free2, &total));
   float delta = (free1 - free2);
   EXPECT_EQ(delta, 0);
