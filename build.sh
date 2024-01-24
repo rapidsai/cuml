@@ -224,7 +224,13 @@ if (( ${CLEAN} == 1 )); then
     done
 
     # Clean up python artifacts
-    find ${REPODIR}/python/ | grep -E "(__pycache__|\.pyc|\.pyo|\.so|\_skbuild|\.pytest_cache|\.benchmarks)$"  | xargs rm -rfv
+    find ${REPODIR}/python/ | grep -E "(__pycache__|\.pyc|\.pyo|\.so|\_skbuild)$"  | xargs rm -rf
+
+    # Remove Doxyfile
+    rm -rf ${REPODIR}/cpp/Doxyfile
+
+    # Remove .benchmark dirs and .pytest_cache
+    find ${REPODIR}/ | grep -E "(\.pytest_cache|\.benchmarks)$"  | xargs rm -rf
 fi
 
 
