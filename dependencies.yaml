@@ -145,8 +145,7 @@ dependencies:
             packages:
               - nvcc_linux-aarch64=11.8
           - matrix:
-              arch: x86_64
-              cuda: "12.0"
+              cuda: "12.*"
             packages:
               - cuda-nvcc
   py_build:
@@ -157,8 +156,8 @@ dependencies:
           - &treelite treelite==3.9.1
       - output_types: conda
         packages:
-          - &pylibraft_conda pylibraft==24.2.*
-          - &rmm_conda rmm==24.2.*
+          - &pylibraft_conda pylibraft==24.4.*
+          - &rmm_conda rmm==24.4.*
           - scikit-build-core>=0.7.0
       - output_types: requirements
         packages:
@@ -174,25 +173,22 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         matrices:
           - matrix:
-              cuda: "12.0"
+              cuda: "12.*"
             packages:
-              - &cuda_python12 cuda-python>=12.0,<13.0a0
+              - cuda-python>=12.0,<13.0a0
           - matrix: # All CUDA 11 versions
             packages:
-              - &cuda_python11 cuda-python>=11.7.1,<12.0a0
+              - cuda-python>=11.7.1,<12.0a0
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.0"}
+          - matrix: {cuda: "12.*"}
             packages:
-              - pylibraft-cu12==24.2.*
-              - rmm-cu12==24.2.*
-          - matrix: {cuda: "11.8"}
-            packages: &py_build_packages_cu11
-              - &pylibraft_cu11 pylibraft-cu11==24.2.*
-              - &rmm_cu11 rmm-cu11==24.2.*
-          - {matrix: {cuda: "11.5"}, packages: *py_build_packages_cu11}
-          - {matrix: {cuda: "11.4"}, packages: *py_build_packages_cu11}
-          - {matrix: {cuda: "11.2"}, packages: *py_build_packages_cu11}
+              - pylibraft-cu12==24.4.*
+              - rmm-cu12==24.4.*
+          - matrix: {cuda: "11.*"}
+            packages:
+              - &pylibraft_cu11 pylibraft-cu11==24.4.*
+              - &rmm_cu11 rmm-cu11==24.4.*
           - {matrix: null, packages: [*pylibraft_conda, *rmm_conda] }
 
   py_run:
@@ -210,10 +206,10 @@ dependencies:
           - *treelite
       - output_types: conda
         packages:
-          - &cudf_conda cudf==24.2.*
+          - &cudf_conda cudf==24.4.*
           - &cupy_conda cupy>=12.0.0
-          - &dask_cudf_conda dask-cudf==24.2.*
-          - &raft_dask_conda raft-dask==24.2.*
+          - &dask_cudf_conda dask-cudf==24.4.*
+          - &raft_dask_conda raft-dask==24.4.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -226,26 +222,22 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.0"}
+          - matrix: {cuda: "12.*"}
             packages:
-              - cudf-cu12==24.2.*
+              - cudf-cu12==24.4.*
               - cupy-cuda12x>=12.0.0
-              - dask-cudf-cu12==24.2.*
-              - pylibraft-cu12==24.2.*
-              - raft-dask-cu12==24.2.*
-              - rmm-cu12==24.2.*
-          # All CUDA 11 versions
-          - matrix: {cuda: "11.8"}
+              - dask-cudf-cu12==24.4.*
+              - pylibraft-cu12==24.4.*
+              - raft-dask-cu12==24.4.*
+              - rmm-cu12==24.4.*
+          - matrix: {cuda: "11.*"}
             packages: &py_run_packages_cu11
-              - cudf-cu11==24.2.*
+              - cudf-cu11==24.4.*
               - &cupy_pyproject_cu11 cupy-cuda11x>=12.0.0
-              - dask-cudf-cu11==24.2.*
+              - dask-cudf-cu11==24.4.*
               - *pylibraft_cu11
-              - raft-dask-cu11==24.2.*
+              - raft-dask-cu11==24.4.*
               - *rmm_cu11
-          - {matrix: {cuda: "11.5"}, packages: *py_run_packages_cu11}
-          - {matrix: {cuda: "11.4"}, packages: *py_run_packages_cu11}
-          - {matrix: {cuda: "11.2"}, packages: *py_run_packages_cu11}
           - matrix: null
             packages:
               - *cudf_conda
