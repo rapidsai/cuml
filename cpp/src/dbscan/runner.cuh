@@ -130,7 +130,9 @@ std::size_t run(const raft::handle_t& handle,
     my_rank = 0;
 
   // switch compute mode based on feature dimension
-  bool sparse_rbc_mode = algo_vd == 1 && D <= 10;
+  bool sparse_rbc_mode = algo_vd == 1 && D <= 3 &&
+                         (metric == raft::distance::DistanceType::L2SqrtExpanded ||
+                          metric == raft::distance::DistanceType::L2SqrtUnexpanded);
 
   /**
    * Note on coupling between data types:
