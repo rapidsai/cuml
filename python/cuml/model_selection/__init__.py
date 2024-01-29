@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-from cuml.model_selection._split import train_test_split
-from cuml.model_selection._split import StratifiedKFold
 from cuml.internals.import_utils import has_sklearn
+from cuml.model_selection._split import KFold, StratifiedKFold, train_test_split
+from cuml.model_selection._validation import cross_val_predict
 
 if has_sklearn():
     from sklearn.model_selection import GridSearchCV
@@ -31,4 +31,10 @@ if has_sklearn():
         + GridSearchCV.__doc__
     )
 
-__all__ = ["train_test_split", "GridSearchCV", "StratifiedKFold"]
+__all__ = [
+    "cross_val_predict",
+    "train_test_split",
+    "GridSearchCV",
+    "KFold",
+    "StratifiedKFold",
+]

@@ -253,6 +253,7 @@ class LogisticRegression(UniversalBase,
             tol=self.tol,
             verbose=self.verbose,
             handle=self.handle,
+            output_type=self.output_type,
         )
 
         if logger.should_log_for(logger.level_debug):
