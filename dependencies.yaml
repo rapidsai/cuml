@@ -397,7 +397,7 @@ dependencies:
           - hypothesis>=6.0,<7
           - nltk
           - numpydoc
-          - pytest
+          - pytest==7.*
           - pytest-benchmark
           - pytest-cases
           - pytest-cov
