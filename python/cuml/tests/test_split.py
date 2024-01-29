@@ -13,9 +13,10 @@
 # limitations under the License.
 #
 
-from cuml.model_selection import StratifiedKFold
 import pytest
+from cuml.datasets import make_regression
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.model_selection import KFold, StratifiedKFold
 
 cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")
@@ -64,3 +65,27 @@ def test_invalid_folds(n_splits):
         kf = StratifiedKFold(n_splits=n_splits)
         for train_index, test_index in kf.split(X, y):
             break
+
+
+def test_kfold() -> None:
+    n_samples = 128
+    n_features = 16
+    X, y = make_regression(n_samples, n_features, random_state=1)
+    n_splits = 5
+    kfold = KFold(n_splits=n_splits)
+
+    for tr_idx, te_idx in kfold.split(X, y):
+        assert tr_idx.shape[0] + te_idx.shape[0] == n_samples
+        fold_size = X.shape[0] // n_splits
+        assert te_idx.shape[0] == fold_size or te_idx.shape[0] == fold_size + 1
+        assert cp.all(tr_idx >= 0)
+        assert cp.all(te_idx >= 0)
+        indices = cp.concatenate([tr_idx, te_idx])
+        assert len(indices.shape) == 1
+        assert indices.size == n_samples
+        uniques = cp.unique(indices)
+        sorted_uniques = cp.sort(uniques)
+
+        assert uniques.size == n_samples
+        arr = cp.arange(n_samples)
+        cp.testing.assert_allclose(sorted_uniques, arr)

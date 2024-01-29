@@ -13,7 +13,8 @@
 # limitations under the License.
 #
 
-from typing import Optional, Union, List, Tuple
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Any, Generator, List, Optional, Tuple, Union
 
 from cuml.common import input_to_cuml_array
 from cuml.internals.input_utils import (
@@ -29,10 +30,15 @@ from cuml.internals.safe_imports import (
     gpu_only_import_from,
 )
 
+if TYPE_CHECKING:
+    import cupy as cp
+    import numpy as np
+else:
+    np = cpu_only_import("numpy")
+    cp = gpu_only_import("cupy")
+
 cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
-np = cpu_only_import("numpy")
 
 cuda = gpu_only_import_from("numba", "cuda")
 
@@ -419,7 +425,117 @@ def train_test_split(
         return X_train, X_test
 
 
-class StratifiedKFold:
+def _check_random_state(seed) -> cp.random.RandomState:
+    # int | None
+    if seed is None or isinstance(seed, int):
+        return cp.random.default_rng(seed)
+    # Generator
+    if isinstance(seed, np.random.Generator):
+        s = int(
+            seed.integers(0, np.iinfo(np.int32).max, size=1, dtype=np.int32)
+        )
+        return cp.random.default_rng(s)
+    if isinstance(seed, type(cp.random.default_rng(0))):
+        s = int(
+            seed.integers(0, np.iinfo(np.int32).max, size=1, dtype=np.int32)
+        )
+        return cp.random.RandomState(s)
+    # RandomState
+    if isinstance(seed, np.random.RandomState):
+        s = int(
+            seed.randint(0, np.iinfo(np.int32).max, size=1, dtype=np.int32)
+        )
+        return cp.random.RandomState(s)
+    if isinstance(seed, cp.random.RandomState):
+        return seed
+    raise TypeError(f"Invalid type for random state: {type(seed)}")
+
+
+class KFoldBase(ABC):
+    def __init__(
+        self,
+        n_splits: int = 5,
+        shuffle: bool = False,
+        random_state: Optional[
+            Union[int, np.random.RandomState, cp.random.RandomState]
+        ] = None,
+    ):
+        if n_splits < 2 or not isinstance(n_splits, int):
+            raise ValueError(
+                f"n_splits {n_splits} is not a integer at least 2"
+            )
+
+        if random_state is not None and not isinstance(random_state, int):
+            raise ValueError(f"random_state {random_state} is not an integer")
+
+        self.n_splits = n_splits
+        self.shuffle = shuffle
+        self.seed = random_state
+
+    @abstractmethod
+    def split(self, x, y):
+        raise NotImplementedError()
+
+
+class KFold(KFoldBase):
+    """K-Folds cross-validator implemented in cupy.
+
+    Provides train/test indices to split data into k folds.
+
+    Parameters
+    ----------
+    n_splits :
+        Number of folds. Must be at least 2.
+    shuffle :
+        Whether to shuffle the samples before splitting.
+    random_state :
+        Random seed.
+
+    """
+
+    def __init__(
+        self,
+        n_splits: int = 5,
+        shuffle: bool = False,
+        random_state: Optional[
+            Union[int, np.random.RandomState, cp.random.RandomState]
+        ] = None,
+    ):
+        super().__init__(
+            n_splits=n_splits, shuffle=shuffle, random_state=random_state
+        )
+
+    def split(self, x, y=None) -> Generator[Tuple[Any, Any], None, None]:
+        n_samples = x.shape[0]
+        if y is not None and n_samples != len(y):
+            raise ValueError("Expecting same length of x and y")
+        if n_samples < self.n_splits:
+            raise ValueError(
+                f"n_splits: {self.n_splits} must be smaller than the number of samples: {n_samples}."
+            )
+
+        indices = cp.arange(n_samples)
+
+        if self.shuffle:
+            _check_random_state(self.seed).shuffle(indices)
+
+        fold_sizes = cp.full(
+            self.n_splits, n_samples // self.n_splits, dtype=cp.int64
+        )
+        fold_sizes[: n_samples % self.n_splits] += 1
+
+        current = 0
+        for fold_size in fold_sizes:
+            start, stop = current, current + fold_size
+            test = indices[start:stop]
+            mask = cp.zeros(n_samples, dtype=cp.bool_)
+            mask[test] = True
+            train = indices[cp.logical_not(mask)]
+            yield train, test
+            current = stop
+
+
+class StratifiedKFold(KFoldBase):
     """
     A cudf based implementation of Stratified K-Folds cross-validator.
 
@@ -455,17 +571,9 @@ class StratifiedKFold:
     """
 
     def __init__(self, n_splits=5, shuffle=False, random_state=None):
-        if n_splits < 2 or not isinstance(n_splits, int):
-            raise ValueError(
-                f"n_splits {n_splits} is not a integer at least 2"
-            )
-
-        if random_state is not None and not isinstance(random_state, int):
-            raise ValueError(f"random_state {random_state} is not an integer")
-
-        self.n_splits = n_splits
-        self.shuffle = shuffle
-        self.seed = random_state
+        super().__init__(
+            n_splits=n_splits, shuffle=shuffle, random_state=random_state
+        )
 
     def get_n_splits(self, X=None, y=None):
         return self.n_splits
@@ -480,8 +588,7 @@ class StratifiedKFold:
         ids = cp.arange(y.shape[0])
 
         if self.shuffle:
-            cp.random.seed(self.seed)
-            cp.random.shuffle(ids)
+            _check_random_state(self.seed).shuffle(ids)
             y = y[ids]
 
         df["y"] = y
