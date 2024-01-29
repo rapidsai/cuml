@@ -49,11 +49,11 @@ dependencies:
 - pydata-sphinx-theme!=0.14.2
 - pylibraft==24.2.*
 - pynndescent==0.5.8
-- pytest
 - pytest-benchmark
 - pytest-cases
 - pytest-cov
 - pytest-xdist
+- pytest==7.*
 - python>=3.9,<3.11
 - raft-dask==24.2.*
 - rapids-dask-dependency==24.2.*
