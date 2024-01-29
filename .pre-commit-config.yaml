@@ -43,12 +43,6 @@ repos:
             entry: '(category=|\s)DeprecationWarning[,)]'
             language: pygrep
             types_or: [python, cython]
-          - id: copyright-check
-            name: copyright-check
-            entry: python ./ci/checks/copyright.py --fix-in-place
-            language: python
-            pass_filenames: true
-            additional_dependencies: [gitpython]
           - id: include-check
             name: include-check
             entry: python cpp/scripts/include_checker.py
@@ -70,6 +64,11 @@ repos:
       hooks:
           - id: rapids-dependency-file-generator
             args: ["--clean"]
+    - repo: https://github.com/rapidsai/pre-commit-hooks
+      rev: 62f035a2f238067d07568ea6e04f98601467b3bf
+      hooks:
+        - id: verify-copyright
+          args: [--fix]
 
 default_language_version:
     python: python3
