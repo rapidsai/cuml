@@ -68,7 +68,7 @@ repos:
       rev: v0.0.1
       hooks:
         - id: verify-copyright
-          include: |
+          files: |
             (?x)
                 [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx)$|
                 CMakeLists[.]txt$|
