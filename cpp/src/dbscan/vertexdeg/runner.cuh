@@ -28,6 +28,7 @@ void run(const raft::handle_t& handle,
          raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_, Index_>* rbc_index,
          Index_* ia,
          rmm::device_uvector<Index_>* ja,
+         Index_ max_k,
          bool* adj,
          Index_* vd,
          Type_f* wght_sum,
@@ -42,7 +43,8 @@ void run(const raft::handle_t& handle,
          cudaStream_t stream,
          raft::distance::DistanceType metric)
 {
-  Pack<Type_f, Index_> data = {rbc_index, vd, wght_sum, ia, ja, adj, x, sample_weight, eps, N, D};
+  Pack<Type_f, Index_> data = {
+    rbc_index, vd, wght_sum, ia, ja, max_k, adj, x, sample_weight, eps, N, D};
   switch (algo) {
     case 0:
       ASSERT(

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,8 +55,15 @@ assert_raises = cpu_only_import_from("numpy.testing", "assert_raises")
         stress_param("int32"),
     ],
 )
+@pytest.mark.parametrize("eps_nn_method", ["brute_force", "rbc"])
 def test_dbscan(
-    datatype, use_handle, nrows, ncols, max_mbytes_per_batch, out_dtype
+    datatype,
+    use_handle,
+    nrows,
+    ncols,
+    max_mbytes_per_batch,
+    out_dtype,
+    eps_nn_method,
 ):
     if nrows == 500000 and pytest.max_gpu_memory < 32:
         if pytest.adapt_stress_test:
@@ -87,7 +94,9 @@ def test_dbscan(
         output_type="numpy",
     )
 
-    cu_labels = cuml_dbscan.fit_predict(X, out_dtype=out_dtype)
+    cu_labels = cuml_dbscan.fit_predict(
+        X, out_dtype=out_dtype, method=eps_nn_method
+    )
 
     if nrows < 500000:
         sk_dbscan = skDBSCAN(eps=1, min_samples=2, algorithm="brute")
@@ -434,8 +443,11 @@ def test_core_point_prop3():
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize("out_dtype", ["int32", np.int32, "int64", np.int64])
+@pytest.mark.parametrize("eps_nn_method", ["brute_force", "rbc"])
 @pytest.mark.parametrize("n_samples", [unit_param(500), stress_param(5000)])
-def test_dbscan_propagation(datatype, use_handle, out_dtype, n_samples):
+def test_dbscan_propagation(
+    datatype, use_handle, out_dtype, eps_nn_method, n_samples
+):
     X, y = make_blobs(
         n_samples,
         centers=1,
@@ -450,7 +462,9 @@ def test_dbscan_propagation(datatype, use_handle, out_dtype, n_samples):
     cuml_dbscan = cuDBSCAN(
         handle=handle, eps=eps, min_samples=5, output_type="numpy"
     )
-    cu_labels = cuml_dbscan.fit_predict(X, out_dtype=out_dtype)
+    cu_labels = cuml_dbscan.fit_predict(
+        X, out_dtype=out_dtype, method=eps_nn_method
+    )
 
     sk_dbscan = skDBSCAN(eps=eps, min_samples=5)
     sk_labels = sk_dbscan.fit_predict(X)

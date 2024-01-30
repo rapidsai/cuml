@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ class DBSCANMG(DBSCAN):
         super().__init__(**kwargs)
 
     @generate_docstring(skip_parameters_heading=True)
-    def fit(self, X, out_dtype="int32", sample_weight=None) -> "DBSCANMG":
+    def fit(self, X, out_dtype="int32", sample_weight=None, method="brute_force") -> "DBSCANMG":
         """
         Perform DBSCAN clustering in a multi-node multi-GPU setting.
         Parameters
@@ -41,5 +41,14 @@ class DBSCANMG(DBSCAN):
         out_dtype: dtype Determines the precision of the output labels array.
             default: "int32". Valid values are { "int32", np.int32,
             "int64", np.int64}.
+
+        sample_weight: array-like of shape (n_samples,), default=None
+            Weight of each sample, such that a sample with a weight of at
+            least min_samples is by itself a core sample; a sample with a
+            negative weight may inhibit its eps-neighbor from being core.
+            default: None (which is equivalent to weight 1 for all samples).
+
+        method: string, default = "brute_force"
+            Valid values ["brute_force", "rbc"].
         """
-        return self._fit(X, out_dtype, True, sample_weight)
+        return self._fit(X, out_dtype, True, sample_weight, method)

@@ -37,6 +37,8 @@ struct Pack {
   /** the adjacency matrix */
   Index_* ia;
   rmm::device_uvector<Index_>* ja;
+  /** iff > 0 maximum expected rowlength */
+  Index_ max_k;
   bool* adj;
   /** input dataset */
   const Type* x;

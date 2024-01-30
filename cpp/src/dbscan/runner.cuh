@@ -79,24 +79,25 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream)
 /**
  * Run the DBSCAN algorithm (common code for single-GPU and multi-GPU)
  * @tparam opg Whether we are running in a multi-node multi-GPU context
- * @param[in]  handle       raft handle
- * @param[in]  x            Input data (N*D row-major device array, or N*N for precomputed)
- * @param[in]  N            Number of points
- * @param[in]  D            Dimensionality of the points
- * @param[in]  start_row    Index of the offset for this node
- * @param[in]  n_owned_rows Number of rows (points) owned by this node
- * @param[in]  eps          Epsilon neighborhood criterion
- * @param[in]  min_pts      Core points criterion
- * @param[out] labels       Output labels (device array of length N)
- * @param[out] core_indices If not nullptr, the indices of core points are written in this array
- * @param[in]  algo_vd      Algorithm used for the vertex degrees
- * @param[in]  algo_adj     Algorithm used for the adjacency graph
- * @param[in]  algo_ccl     Algorithm used for the final relabel
- * @param[in]  workspace    Temporary global memory buffer used to store intermediate computations
- *                          If nullptr, then this function will return the workspace size needed.
- *                          It is the responsibility of the user to allocate and free this buffer!
- * @param[in]  batch_size   Batch size
- * @param[in]  stream       The CUDA stream where to launch the kernels
+ * @param[in]  handle        raft handle
+ * @param[in]  x             Input data (N*D row-major device array, or N*N for precomputed)
+ * @param[in]  N             Number of points
+ * @param[in]  D             Dimensionality of the points
+ * @param[in]  start_row     Index of the offset for this node
+ * @param[in]  n_owned_rows  Number of rows (points) owned by this node
+ * @param[in]  eps           Epsilon neighborhood criterion
+ * @param[in]  min_pts       Core points criterion
+ * @param[out] labels        Output labels (device array of length N)
+ * @param[out] core_indices  If not nullptr, the indices of core points are written in this array
+ * @param[in]  algo_vd       Algorithm used for the vertex degrees
+ * @param[in]  algo_adj      Algorithm used for the adjacency graph
+ * @param[in]  algo_ccl      Algorithm used for the final relabel
+ * @param[in]  workspace     Temporary global memory buffer used to store intermediate computations
+ *                           If nullptr, then this function will return the workspace size needed.
+ *                           It is the responsibility of the user to allocate and free this buffer!
+ * @param[in]  batch_size    Batch size
+ * @param[in]  eps_nn_method Determines method for computing epsilon neighborhood.
+ * @param[in]  stream        The CUDA stream where to launch the kernels
  * @return In case the workspace pointer is null, this returns the size needed.
  */
 template <typename Type_f, typename Index_ = int, bool opg = false>
@@ -116,6 +117,7 @@ std::size_t run(const raft::handle_t& handle,
                 int algo_ccl,
                 void* workspace,
                 std::size_t batch_size,
+                EpsNnMethod eps_nn_method,
                 cudaStream_t stream,
                 raft::distance::DistanceType metric)
 {
@@ -130,9 +132,13 @@ std::size_t run(const raft::handle_t& handle,
     my_rank = 0;
 
   // switch compute mode based on feature dimension
-  bool sparse_rbc_mode = algo_vd == 1 && D <= 3 &&
-                         (metric == raft::distance::DistanceType::L2SqrtExpanded ||
-                          metric == raft::distance::DistanceType::L2SqrtUnexpanded);
+  bool sparse_rbc_mode = eps_nn_method == EpsNnMethod::RBC;
+
+  if (sparse_rbc_mode && metric != raft::distance::DistanceType::L2SqrtExpanded &&
+      metric != raft::distance::DistanceType::L2SqrtUnexpanded) {
+    CUML_LOG_WARN("Metric not supported by RBC yet. Falling back to BRUTE_FORCE strategy.");
+    sparse_rbc_mode = false;
+  }
 
   /**
    * Note on coupling between data types:
@@ -145,8 +151,7 @@ std::size_t run(const raft::handle_t& handle,
    * elements in their neighborhood, so any IdxType can be safely used, so long as N doesn't
    * overflow.
    */
-  std::size_t adj_size =
-    sparse_rbc_mode ? 0 : raft::alignTo<std::size_t>(sizeof(bool) * N * batch_size, align);
+  std::size_t adj_size      = raft::alignTo<std::size_t>(sizeof(bool) * N * batch_size, align);
   std::size_t core_pts_size = raft::alignTo<std::size_t>(sizeof(bool) * N, align);
   std::size_t m_size        = raft::alignTo<std::size_t>(sizeof(bool), align);
   std::size_t vd_size       = raft::alignTo<std::size_t>(sizeof(Index_) * (batch_size + 1), align);
@@ -174,8 +179,9 @@ std::size_t run(const raft::handle_t& handle,
   // partition the temporary workspace needed for different stages of dbscan.
 
   std::vector<Index_> batchadjlen(n_batches);
+  std::vector<Index_> maxklen(n_batches);
   char* temp = (char*)workspace;
-  bool* adj  = sparse_rbc_mode ? nullptr : (bool*)temp;
+  bool* adj  = (bool*)temp;
   temp += adj_size;
   bool* core_pts = (bool*)temp;
   temp += core_pts_size;
@@ -228,6 +234,7 @@ std::size_t run(const raft::handle_t& handle,
                                    rbc_index_ptr,
                                    ex_scan,
                                    need_ja_compute ? &adj_graph : nullptr,
+                                   0,
                                    adj,
                                    vd,
                                    wght_sum,
@@ -249,6 +256,16 @@ std::size_t run(const raft::handle_t& handle,
       raft::update_host(&curradjlen, vd + n_points, 1, stream);
       handle.sync_stream(stream);
       batchadjlen.at(i) = curradjlen;
+    }
+
+    // check for maximum row-length (number of connections) in batch
+    // if sufficiently small we can compute neighbors in one pass later
+    if (sparse_rbc_mode) {
+      Index_ max_k = thrust::reduce(
+        handle.get_thrust_policy(), vd, vd + n_points, (Index_)0, thrust::maximum<Index_>());
+      CUML_LOG_DEBUG(
+        "Adjacency matrix (batch %d) maximum row length %ld.", i, (unsigned long)max_k);
+      maxklen.at(i) = max_k;
     }
 
     raft::common::nvtx::pop_range();
@@ -290,6 +307,7 @@ std::size_t run(const raft::handle_t& handle,
                                      rbc_index_ptr,
                                      ex_scan,
                                      &adj_graph,
+                                     maxklen.at(i),
                                      adj,
                                      sparse_rbc_mode ? nullptr : vd,
                                      nullptr,

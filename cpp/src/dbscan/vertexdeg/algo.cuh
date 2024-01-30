@@ -95,24 +95,13 @@ void eps_nn(const raft::handle_t& handle,
   index_t n = min(data.N - start_vertex_id, batch_size);
   index_t k = data.D;
 
-  raft::neighbors::ball_cover::eps_nn<index_t, value_t, index_t, index_t>(
-    handle,
-    *data.rbc_index,
-    raft::make_device_vector_view<index_t, index_t>(data.ia, n + 1),
-    raft::make_device_vector_view<index_t, index_t>(nullptr, 0),
-    raft::make_device_vector_view<index_t, index_t>(data.vd, n + 1),
-    raft::make_device_matrix_view<const value_t, index_t>(data.x + start_vertex_id * k, n, k),
-    eps);
+  index_t spare_elemets_per_row =
+    data.max_k > 0 ? (batch_size * data.N - data.ja->capacity()) / n : 0;
 
-  if (data.ja != nullptr) {
-    // no need to re-compute in second batch loop - ja has already been resized
-    if (data.vd != nullptr) {
-      index_t curradjlen = 0;
-      raft::update_host(&curradjlen, data.vd + n, 1, stream);
-      handle.sync_stream(stream);
-      data.ja->resize(curradjlen, stream);
-    }
+  if (data.max_k > 0 && data.max_k < spare_elemets_per_row) {
+    ASSERT(data.ja != nullptr, "column pointer should be valid");
 
+    index_t max_k = data.max_k;
     raft::neighbors::ball_cover::eps_nn<index_t, value_t, index_t, index_t>(
       handle,
       *data.rbc_index,
@@ -120,7 +109,37 @@ void eps_nn(const raft::handle_t& handle,
       raft::make_device_vector_view<index_t, index_t>(data.ja->data(), n * data.N),
       raft::make_device_vector_view<index_t, index_t>(nullptr, n + 1),
       raft::make_device_matrix_view<const value_t, index_t>(data.x + start_vertex_id * k, n, k),
+      eps,
+      raft::make_host_scalar_view<index_t, index_t>(&max_k));
+    ASSERT(max_k == data.max_k, "given maximum rowsize was not sufficient");
+  } else {
+    raft::neighbors::ball_cover::eps_nn<index_t, value_t, index_t, index_t>(
+      handle,
+      *data.rbc_index,
+      raft::make_device_vector_view<index_t, index_t>(data.ia, n + 1),
+      raft::make_device_vector_view<index_t, index_t>(nullptr, 0),
+      raft::make_device_vector_view<index_t, index_t>(data.vd, n + 1),
+      raft::make_device_matrix_view<const value_t, index_t>(data.x + start_vertex_id * k, n, k),
       eps);
+
+    if (data.ja != nullptr) {
+      // no need to re-compute in second batch loop - ja has already been resized
+      if (data.vd != nullptr) {
+        index_t curradjlen = 0;
+        raft::update_host(&curradjlen, data.vd + n, 1, stream);
+        handle.sync_stream(stream);
+        data.ja->resize(curradjlen, stream);
+      }
+
+      raft::neighbors::ball_cover::eps_nn<index_t, value_t, index_t, index_t>(
+        handle,
+        *data.rbc_index,
+        raft::make_device_vector_view<index_t, index_t>(data.ia, n + 1),
+        raft::make_device_vector_view<index_t, index_t>(data.ja->data(), n * data.N),
+        raft::make_device_vector_view<index_t, index_t>(nullptr, n + 1),
+        raft::make_device_matrix_view<const value_t, index_t>(data.x + start_vertex_id * k, n, k),
+        eps);
+    }
   }
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -212,7 +212,7 @@ struct DBScan2DArrayInputs {
 template <typename T>
 class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
  protected:
-  void basicTest()
+  void basicTest(Dbscan::EpsNnMethod eps_nn_method)
   {
     raft::handle_t handle;
     auto stream = handle.get_stream();
@@ -245,7 +245,9 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
                 raft::distance::L2SqrtUnexpanded,
                 labels.data(),
                 core_sample_indices_d.data(),
-                sample_weight);
+                sample_weight,
+                0,
+                eps_nn_method);
 
     handle.sync_stream(handle.get_stream());
 
@@ -266,7 +268,11 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
                                           stream));
   }
 
-  void SetUp() override { basicTest(); }
+  void SetUp() override
+  {
+    basicTest(Dbscan::EpsNnMethod::BRUTE_FORCE);
+    basicTest(Dbscan::EpsNnMethod::RBC);
+  }
 
  protected:
   DBScan2DArrayInputs<T> params;
