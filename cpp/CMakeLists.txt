@@ -596,11 +596,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   if(CUML_USE_TREELITE_STATIC AND (TARGET treelite::treelite_static))
-    # By default, TREELITE_LIBS will contain both treelite::treelite_static and
-    # treelite::treelite_runtime_static if we are linking statically, but these
-    # two targets have duplicate symbols so we can only link to one of them.
     set(TREELITE_LIBS treelite::treelite_static)
-
     copy_interface_excludes(INCLUDED_TARGET treelite::treelite_static TARGET ${CUML_CPP_TARGET})
   elseif(CUML_EXPORT_TREELITE_LINKAGE)
     list(APPEND _cuml_cpp_public_libs ${TREELITE_LIBS})
@@ -744,18 +740,12 @@ if (TARGET treelite::treelite)
 if (TARGET treelite::treelite AND (NOT TARGET treelite))
     add_library(treelite ALIAS treelite::treelite)
 endif()
-if (TARGET treelite::treelite_runtime AND (NOT TARGET treelite_runtime))
-    add_library(treelite_runtime ALIAS treelite::treelite_runtime)
-endif()
 ]=])
 else()
     string(APPEND code_string
 [=[
 if (TARGET treelite::treelite_static AND (NOT TARGET treelite_static))
     add_library(treelite_static ALIAS treelite::treelite_static)
-endif()
-if (TARGET treelite::treelite_runtime_static AND (NOT TARGET treelite_runtime_static))
-    add_library(treelite_runtime_static ALIAS treelite::treelite_runtime_static)
 endif()
 ]=])
 

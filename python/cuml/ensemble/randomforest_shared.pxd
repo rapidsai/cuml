@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,8 +32,7 @@ from pylibraft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cdef extern from "treelite/c_api.h":
-    ctypedef void* ModelHandle
-    ctypedef void* ModelBuilderHandle
+    ctypedef void* TreeliteModelHandle
     cdef const char* TreeliteGetLastError()
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
@@ -78,7 +77,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     #
     # Treelite handling
     #
-    cdef void build_treelite_forest[T, L](ModelHandle*,
+    cdef void build_treelite_forest[T, L](TreeliteModelHandle*,
                                           RandomForestMetaData[T, L]*,
                                           int
                                           ) except +
@@ -108,7 +107,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                  int,
                                  int) except +
 
-    cdef vector[unsigned char] save_model(ModelHandle)
+    cdef vector[unsigned char] save_model(TreeliteModelHandle)
 
-    cdef ModelHandle concatenate_trees(
-        vector[ModelHandle] &treelite_handles) except +
+    cdef TreeliteModelHandle concatenate_trees(
+        vector[TreeliteModelHandle] &treelite_handles) except +

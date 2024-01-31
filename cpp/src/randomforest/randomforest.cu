@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,17 +20,22 @@
 #include <raft/core/handle.hpp>
 
 #include <treelite/c_api.h>
+#include <treelite/enum/task_type.h>
 #include <treelite/tree.h>
 
 #include <raft/core/error.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <iterator>
+#include <memory>
 #include <string>
 #include <type_traits>
+#include <variant>
 #include <vector>
 
 #include "randomforest.cuh"
@@ -242,13 +247,12 @@ std::string get_rf_json(const RandomForestMetaData<T, L>* forest)
 }
 
 template <class T, class L>
-void build_treelite_forest(ModelHandle* model_handle,
+void build_treelite_forest(TreeliteModelHandle* model_handle,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features)
 {
-  auto parent_model          = tl::Model::Create<T, T>();
-  tl::ModelImpl<T, T>* model = dynamic_cast<tl::ModelImpl<T, T>*>(parent_model.get());
-  ASSERT(model != nullptr, "Invalid downcast to tl::ModelImpl");
+  auto model                          = tl::Model::Create<T, T>();
+  tl::ModelPreset<T, T>& model_preset = std::get<tl::ModelPreset<T, T>>(model->variant_);
 
   // Determine number of outputs
   ASSERT(forest->trees.size() == forest->rf_params.n_trees, "Inconsistent number of trees.");
@@ -261,16 +265,23 @@ void build_treelite_forest(ModelHandle* model_handle,
 
   if constexpr (std::is_integral_v<L>) {
     ASSERT(num_outputs > 1, "More than one variable expected for classification problem.");
-    model->task_type = tl::TaskType::kMultiClfProbDistLeaf;
-    std::strncpy(model->param.pred_transform, "max_index", sizeof(model->param.pred_transform));
+    model->task_type     = tl::TaskType::kMultiClf;
+    model->postprocessor = "identity_multiclass";
   } else {
-    model->task_type = tl::TaskType::kBinaryClfRegr;
+    ASSERT(num_outputs == 1, "Only one variable expected for regression problem.");
+    model->task_type     = tl::TaskType::kRegressor;
+    model->postprocessor = "identity";
   }
 
-  model->task_param = tl::TaskParam{
-    tl::TaskParam::OutputType::kFloat, false, (unsigned int)num_outputs, (unsigned int)num_outputs};
+  model->num_target        = 1;
+  model->num_class         = std::vector<std::int32_t>{static_cast<std::int32_t>(num_outputs)};
+  model->leaf_vector_shape = std::vector<std::int32_t>{1, static_cast<std::int32_t>(num_outputs)};
+  model->target_id         = std::vector<std::int32_t>(forest->rf_params.n_trees, 0);
+  model->class_id =
+    std::vector<std::int32_t>(forest->rf_params.n_trees, (std::is_integral_v<L> ? -1 : 0));
   model->num_feature         = num_features;
   model->average_tree_output = true;
+  model->base_scores         = std::vector<double>(num_outputs, 0.0);
   model->SetTreeLimit(forest->rf_params.n_trees);
 
 #pragma omp parallel for
@@ -278,11 +289,11 @@ void build_treelite_forest(ModelHandle* model_handle,
     auto rf_tree = forest->trees[i];
 
     if (rf_tree->sparsetree.size() != 0) {
-      model->trees[i] = DT::build_treelite_tree<T, L>(*rf_tree, num_outputs);
+      model_preset.trees[i] = DT::build_treelite_tree<T, L>(*rf_tree, num_outputs);
     }
   }
 
-  *model_handle = static_cast<ModelHandle>(parent_model.release());
+  *model_handle = static_cast<TreeliteModelHandle>(model.release());
 }
 
 /**
@@ -328,65 +339,6 @@ void compare_trees(tl::Tree<T, L>& tree_from_concatenated_forest,
 }
 
 /**
- * @brief Compares the concatenated treelite model with the information of the forest
- *   present in the different workers. If there is a difference in the two then an error
- *   statement will be thrown.
- * @param[in] concat_tree_handle: ModelHandle for the concatenated forest.
- * @param[in] treelite_handles: List containing ModelHandles for the forest present in
- *   each worker.
- */
-void compare_concat_forest_to_subforests(ModelHandle concat_tree_handle,
-                                         std::vector<ModelHandle> treelite_handles)
-{
-  size_t concat_forest;
-  size_t total_num_trees = 0;
-  for (std::size_t forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
-    size_t num_trees_each_forest;
-    TREELITE_CHECK_RET(TreeliteQueryNumTree(treelite_handles[forest_idx], &num_trees_each_forest));
-    total_num_trees = total_num_trees + num_trees_each_forest;
-  }
-
-  TREELITE_CHECK_RET(TreeliteQueryNumTree(concat_tree_handle, &concat_forest));
-
-  ASSERT(concat_forest == total_num_trees,
-         "Error! the number of trees in the concatenated forest and the sum "
-         "of the trees present in the forests present in each worker are not equal");
-
-  int concat_mod_tree_num = 0;
-  tl::Model& concat_model = *(tl::Model*)(concat_tree_handle);
-  for (std::size_t forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
-    tl::Model& model = *(tl::Model*)(treelite_handles[forest_idx]);
-
-    ASSERT(concat_model.GetThresholdType() == model.GetThresholdType(),
-           "Error! Concatenated forest does not have the same threshold type as "
-           "the individual forests");
-    ASSERT(concat_model.GetLeafOutputType() == model.GetLeafOutputType(),
-           "Error! Concatenated forest does not have the same leaf output type as "
-           "the individual forests");
-    ASSERT(concat_model.num_feature == model.num_feature,
-           "Error! number of features mismatch between concatenated forest and the"
-           " individual forests");
-    ASSERT(concat_model.task_param.num_class == model.task_param.num_class,
-           "Error! number of classes mismatch between concatenated forest "
-           "and the individual forests ");
-    ASSERT(concat_model.average_tree_output == model.average_tree_output,
-           "Error! average_tree_output flag value mismatch between "
-           "concatenated forest and the individual forests");
-
-    model.Dispatch([&concat_mod_tree_num, &concat_model](auto& model_inner) {
-      // model_inner is of the concrete type tl::ModelImpl<T, L>
-      using model_type         = std::remove_reference_t<decltype(model_inner)>;
-      auto& concat_model_inner = dynamic_cast<model_type&>(concat_model);
-      for (std::size_t indiv_trees = 0; indiv_trees < model_inner.trees.size(); indiv_trees++) {
-        compare_trees(concat_model_inner.trees[concat_mod_tree_num + indiv_trees],
-                      model_inner.trees[indiv_trees]);
-      }
-      concat_mod_tree_num = concat_mod_tree_num + model_inner.trees.size();
-    });
-  }
-}
-
-/**
  * @brief Concatenates the forest information present in different workers to
  *  create a single forest. This concatenated forest is stored in a new treelite model.
  *  The model created is owned by and must be freed by the user.
@@ -394,33 +346,16 @@ void compare_concat_forest_to_subforests(ModelHandle concat_tree_handle,
  * @param[in] treelite_handles: List containing ModelHandles for the forest present in
  *   each worker.
  */
-ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles)
+TreeliteModelHandle concatenate_trees(std::vector<TreeliteModelHandle> treelite_handles)
 {
-  /* TODO(hcho3): Use treelite::ConcatenateModelObjects(),
-     once https://github.com/dmlc/treelite/issues/474 is fixed. */
   if (treelite_handles.empty()) { return nullptr; }
-  tl::Model& first_model  = *static_cast<tl::Model*>(treelite_handles[0]);
-  tl::Model* concat_model = first_model.Dispatch([&treelite_handles](auto& first_model_inner) {
-    // first_model_inner is of the concrete type tl::ModelImpl<T, L>
-    using model_type   = std::remove_reference_t<decltype(first_model_inner)>;
-    auto* concat_model = dynamic_cast<model_type*>(
-      tl::Model::Create(first_model_inner.GetThresholdType(), first_model_inner.GetLeafOutputType())
-        .release());
-    for (std::size_t forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
-      tl::Model& model  = *static_cast<tl::Model*>(treelite_handles[forest_idx]);
-      auto& model_inner = dynamic_cast<model_type&>(model);
-      for (const auto& tree : model_inner.trees) {
-        concat_model->trees.push_back(tree.Clone());
-      }
-    }
-    concat_model->num_feature         = first_model_inner.num_feature;
-    concat_model->task_type           = first_model_inner.task_type;
-    concat_model->task_param          = first_model_inner.task_param;
-    concat_model->average_tree_output = first_model_inner.average_tree_output;
-    concat_model->param               = first_model_inner.param;
-    return static_cast<tl::Model*>(concat_model);
-  });
-  return concat_model;
+  std::vector<tl::Model const*> model_objs;
+  std::transform(treelite_handles.begin(),
+                 treelite_handles.end(),
+                 std::back_inserter(model_objs),
+                 [](TreeliteModelHandle handle) { return static_cast<tl::Model const*>(handle); });
+  std::unique_ptr<tl::Model> concat_model = tl::ConcatenateModelObjects(model_objs);
+  return static_cast<TreeliteModelHandle>(concat_model.release());
 }
 
 /**
@@ -776,15 +711,15 @@ template void delete_rf_metadata<double, int>(RandomForestClassifierD* forest);
 template void delete_rf_metadata<float, float>(RandomForestRegressorF* forest);
 template void delete_rf_metadata<double, double>(RandomForestRegressorD* forest);
 
-template void build_treelite_forest<float, int>(ModelHandle* model,
+template void build_treelite_forest<float, int>(TreeliteModelHandle* model,
                                                 const RandomForestMetaData<float, int>* forest,
                                                 int num_features);
-template void build_treelite_forest<double, int>(ModelHandle* model,
+template void build_treelite_forest<double, int>(TreeliteModelHandle* model,
                                                  const RandomForestMetaData<double, int>* forest,
                                                  int num_features);
-template void build_treelite_forest<float, float>(ModelHandle* model,
+template void build_treelite_forest<float, float>(TreeliteModelHandle* model,
                                                   const RandomForestMetaData<float, float>* forest,
                                                   int num_features);
 template void build_treelite_forest<double, double>(
-  ModelHandle* model, const RandomForestMetaData<double, double>* forest, int num_features);
+  TreeliteModelHandle* model, const RandomForestMetaData<double, double>* forest, int num_features);
 }  // End namespace ML
