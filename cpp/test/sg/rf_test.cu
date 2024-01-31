@@ -168,7 +168,7 @@ auto FilPredict(const raft::handle_t& handle,
                 RandomForestMetaData<DataT, LabelT>* forest)
 {
   auto pred = std::make_shared<thrust::device_vector<float>>(params.n_rows);
-  ModelHandle model;
+  TreeliteModelHandle model;
   std::size_t num_outputs = 1;
   if constexpr (std::is_integral_v<LabelT>) { num_outputs = params.n_labels; }
   build_treelite_forest(&model, forest, params.n_cols);
@@ -195,7 +195,7 @@ auto FilPredictProba(const raft::handle_t& handle,
 {
   std::size_t num_outputs = params.n_labels;
   auto pred = std::make_shared<thrust::device_vector<float>>(params.n_rows * num_outputs);
-  ModelHandle model;
+  TreeliteModelHandle model;
   static_assert(std::is_integral_v<LabelT>, "Must be classification");
   build_treelite_forest(&model, forest, params.n_cols);
   fil::treelite_params_t tl_params{
@@ -555,7 +555,7 @@ TEST(RfTests, IntegerOverflow)
 
   // See if fil overflows
   thrust::device_vector<float> pred(m);
-  ModelHandle model;
+  TreeliteModelHandle model;
   build_treelite_forest(&model, forest_ptr, n);
 
   std::size_t num_outputs = 1;

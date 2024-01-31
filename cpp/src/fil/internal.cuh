@@ -37,7 +37,7 @@ class handle_t;
 // needed for node_traits<...>
 namespace treelite {
 template <typename, typename>
-struct ModelImpl;
+struct ModelPreset;
 }
 
 namespace ML {
@@ -244,7 +244,8 @@ struct node_traits {
   static constexpr storage_type_t storage_type_enum =
     std::is_same_v<sparse_node16<real_type>, node_t> ? SPARSE : SPARSE8;
   template <typename threshold_t, typename leaf_t>
-  static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model);
+  static void check(const treelite::Model& model,
+                    const treelite::ModelPreset<threshold_t, leaf_t>& model_preset);
 };
 
 template <typename real_t>
@@ -254,7 +255,8 @@ struct node_traits<dense_node<real_t>> {
   static const bool IS_DENSE                    = true;
   static const storage_type_t storage_type_enum = DENSE;
   template <typename threshold_t, typename leaf_t>
-  static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model)
+  static void check(const treelite::Model& model,
+                    const treelite::ModelPreset<threshold_t, leaf_t>& model_preset)
   {
   }
 };

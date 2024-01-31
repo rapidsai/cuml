@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,8 +27,11 @@
 #include <queue>
 #include <stack>
 #include <treelite/c_api.h>
+#include <treelite/enum/task_type.h>
+#include <treelite/enum/tree_node_type.h>
+#include <treelite/enum/typeinfo.h>
 #include <treelite/tree.h>
-#include <treelite/typeinfo.h>
+#include <variant>
 
 namespace ML {
 namespace experimental {
@@ -113,13 +116,13 @@ struct treelite_importer {
       return result;
     }
 
-    auto get_categories() { return tree.MatchingCategories(node_id); }
+    auto get_categories() { return tree.CategoryList(node_id); }
 
     auto get_feature() { return tree.SplitIndex(node_id); }
 
     auto is_categorical()
     {
-      return tree.SplitType(node_id) == treelite::SplitFeatureType::kCategorical;
+      return tree.NodeType(node_id) == treelite::TreeNodeType::kCategoricalTestNode;
     }
 
     auto default_distant()
@@ -127,7 +130,7 @@ struct treelite_importer {
       auto result        = false;
       auto default_child = tree.DefaultChild(node_id);
       if (is_categorical()) {
-        if (tree.CategoriesListRightChild(node_id)) {
+        if (tree.CategoryListRightChild(node_id)) {
           result = (default_child == tree.RightChild(node_id));
         } else {
           result = (default_child == tree.LeftChild(node_id));
@@ -147,8 +150,8 @@ struct treelite_importer {
 
     auto categories()
     {
-      auto result = decltype(tree.MatchingCategories(node_id)){};
-      if (is_categorical()) { result = tree.MatchingCategories(node_id); }
+      auto result = decltype(tree.CategoryList(node_id)){};
+      if (is_categorical()) { result = tree.CategoryList(node_id); }
       return result;
     }
 
@@ -192,7 +195,7 @@ struct treelite_importer {
             throw model_import_error("Unrecognized Treelite operator");
           }
         } else {
-          if (tl_tree.CategoriesListRightChild(node_id)) {
+          if (tl_tree.CategoryListRightChild(node_id)) {
             to_be_visited.add(tl_left_id, tl_right_id);
           } else {
             to_be_visited.add(tl_right_id, tl_left_id);
@@ -254,20 +257,25 @@ struct treelite_importer {
   template <typename lambda_t>
   void tree_for_each(treelite::Model const& tl_model, lambda_t&& lambda)
   {
-    tl_model.Dispatch([&lambda](auto&& concrete_tl_model) {
-      std::for_each(std::begin(concrete_tl_model.trees), std::end(concrete_tl_model.trees), lambda);
-    });
+    std::visit(
+      [&lambda](auto&& concrete_tl_model) {
+        std::for_each(
+          std::begin(concrete_tl_model.trees), std::end(concrete_tl_model.trees), lambda);
+      },
+      tl_model.variant_);
   }
 
   template <typename iter_t, typename lambda_t>
   void tree_transform(treelite::Model const& tl_model, iter_t output_iter, lambda_t&& lambda)
   {
-    tl_model.Dispatch([&output_iter, &lambda](auto&& concrete_tl_model) {
-      std::transform(std::begin(concrete_tl_model.trees),
-                     std::end(concrete_tl_model.trees),
-                     output_iter,
-                     lambda);
-    });
+    std::visit(
+      [&output_iter, &lambda](auto&& concrete_tl_model) {
+        std::transform(std::begin(concrete_tl_model.trees),
+                       std::end(concrete_tl_model.trees),
+                       output_iter,
+                       lambda);
+      },
+      tl_model.variant_);
   }
 
   template <typename T, typename lambda_t>
@@ -281,8 +289,8 @@ struct treelite_importer {
   auto num_trees(treelite::Model const& tl_model)
   {
     auto result = index_type{};
-    tl_model.Dispatch(
-      [&result](auto&& concrete_tl_model) { result = concrete_tl_model.trees.size(); });
+    std::visit([&result](auto&& concrete_tl_model) { result = concrete_tl_model.trees.size(); },
+               tl_model.variant_);
     return result;
   }
 
@@ -305,18 +313,12 @@ struct treelite_importer {
 
   auto get_num_class(treelite::Model const& tl_model)
   {
-    auto result = index_type{};
-    tl_model.Dispatch(
-      [&result](auto&& concrete_tl_model) { result = concrete_tl_model.task_param.num_class; });
-    return result;
+    return static_cast<index_type>(tl_model.num_class[0]);
   }
 
   auto get_num_feature(treelite::Model const& tl_model)
   {
-    auto result = index_type{};
-    tl_model.Dispatch(
-      [&result](auto&& concrete_tl_model) { result = concrete_tl_model.num_feature; });
-    return result;
+    return static_cast<index_type>(tl_model.num_feature);
   }
 
   auto get_max_num_categories(treelite::Model const& tl_model)
@@ -353,62 +355,56 @@ struct treelite_importer {
   auto get_average_factor(treelite::Model const& tl_model)
   {
     auto result = double{};
-    tl_model.Dispatch([&result](auto&& concrete_tl_model) {
-      if (concrete_tl_model.average_tree_output) {
-        if (concrete_tl_model.task_type == treelite::TaskType::kMultiClfGrovePerClass) {
-          result = concrete_tl_model.trees.size() / concrete_tl_model.task_param.num_class;
-        } else {
-          result = concrete_tl_model.trees.size();
-        }
+    if (tl_model.average_tree_output) {
+      if (tl_model.task_type == treelite::TaskType::kMultiClf &&
+          tl_model.leaf_vector_shape[1] == 1) {  // grove-per-class
+        result = num_trees(tl_model) / tl_model.num_class[0];
       } else {
-        result = 1.0;
+        result = num_trees(tl_model);
       }
-    });
+    } else {
+      result = 1.0;
+    }
     return result;
   }
 
   auto get_bias(treelite::Model const& tl_model)
   {
-    auto result = double{};
-    tl_model.Dispatch(
-      [&result](auto&& concrete_tl_model) { result = concrete_tl_model.param.global_bias; });
-    return result;
+    return static_cast<double>(tl_model.base_scores[0]);
   }
 
   auto get_postproc_params(treelite::Model const& tl_model)
   {
-    auto result = detail::postproc_params_t{};
-    tl_model.Dispatch([&result](auto&& concrete_tl_model) {
-      auto tl_pred_transform = std::string{concrete_tl_model.param.pred_transform};
-      if (tl_pred_transform == std::string{"identity"} ||
-          tl_pred_transform == std::string{"identity_multiclass"}) {
-        result.element = element_op::disable;
-        result.row     = row_op::disable;
-      } else if (tl_pred_transform == std::string{"signed_square"}) {
-        result.element = element_op::signed_square;
-      } else if (tl_pred_transform == std::string{"hinge"}) {
-        result.element = element_op::hinge;
-      } else if (tl_pred_transform == std::string{"sigmoid"}) {
-        result.constant = concrete_tl_model.param.sigmoid_alpha;
-        result.element  = element_op::sigmoid;
-      } else if (tl_pred_transform == std::string{"exponential"}) {
-        result.element = element_op::exponential;
-      } else if (tl_pred_transform == std::string{"exponential_standard_ratio"}) {
-        result.constant = -concrete_tl_model.param.ratio_c / std::log(2);
-        result.element  = element_op::exponential;
-      } else if (tl_pred_transform == std::string{"logarithm_one_plus_exp"}) {
-        result.element = element_op::logarithm_one_plus_exp;
-      } else if (tl_pred_transform == std::string{"max_index"}) {
-        result.row = row_op::max_index;
-      } else if (tl_pred_transform == std::string{"softmax"}) {
-        result.row = row_op::softmax;
-      } else if (tl_pred_transform == std::string{"multiclass_ova"}) {
-        result.constant = concrete_tl_model.param.sigmoid_alpha;
-        result.element  = element_op::sigmoid;
-      } else {
-        throw model_import_error{"Unrecognized Treelite pred_transform string"};
-      }
-    });
+    auto result            = detail::postproc_params_t{};
+    auto tl_pred_transform = tl_model.postprocessor;
+    if (tl_pred_transform == std::string{"identity"} ||
+        tl_pred_transform == std::string{"identity_multiclass"}) {
+      result.element = element_op::disable;
+      result.row     = row_op::disable;
+    } else if (tl_pred_transform == std::string{"signed_square"}) {
+      result.element = element_op::signed_square;
+    } else if (tl_pred_transform == std::string{"hinge"}) {
+      result.element = element_op::hinge;
+    } else if (tl_pred_transform == std::string{"sigmoid"}) {
+      result.constant = tl_model.sigmoid_alpha;
+      result.element  = element_op::sigmoid;
+    } else if (tl_pred_transform == std::string{"exponential"}) {
+      result.element = element_op::exponential;
+    } else if (tl_pred_transform == std::string{"exponential_standard_ratio"}) {
+      result.constant = -tl_model.ratio_c / std::log(2);
+      result.element  = element_op::exponential;
+    } else if (tl_pred_transform == std::string{"logarithm_one_plus_exp"}) {
+      result.element = element_op::logarithm_one_plus_exp;
+    } else if (tl_pred_transform == std::string{"max_index"}) {
+      result.row = row_op::max_index;
+    } else if (tl_pred_transform == std::string{"softmax"}) {
+      result.row = row_op::softmax;
+    } else if (tl_pred_transform == std::string{"multiclass_ova"}) {
+      result.constant = tl_model.sigmoid_alpha;
+      result.element  = element_op::sigmoid;
+    } else {
+      throw model_import_error{"Unrecognized Treelite pred_transform string"};
+    }
     return result;
   }
 
@@ -563,6 +559,33 @@ struct treelite_importer {
               int device                               = 0,
               raft_proto::cuda_stream stream           = raft_proto::cuda_stream{})
   {
+    ASSERT(tl_model.num_target == 1, "FIL does not support multi-target model");
+    // Check tree annotation (assignment)
+    if (tl_model.task_type == treelite::TaskType::kMultiClf) {
+      // Must be either vector leaf or grove-per-class
+      if (tl_model.leaf_vector_shape[1] > 1) {  // vector-leaf
+        ASSERT(tl_model.leaf_vector_shape[1] == tl_model.num_class[0],
+               "Vector leaf must be equal to num_class = %d",
+               tl_model.num_class[0]);
+        auto tree_count = num_trees(tl_model);
+        for (decltype(tree_count) tree_id = 0; tree_id < tree_count; ++tree_id) {
+          ASSERT(tl_model.class_id[tree_id] == -1, "Tree %d has invalid class assignment", tree_id);
+        }
+      } else {  // grove-per-class
+        auto tree_count = num_trees(tl_model);
+        for (decltype(tree_count) tree_id = 0; tree_id < tree_count; ++tree_id) {
+          ASSERT(tl_model.class_id[tree_id] == tree_id % tl_model.num_class[0],
+                 "Tree %d has invalid class assignment",
+                 tree_id);
+        }
+      }
+    }
+    // Check base_scores
+    for (std::int32_t class_id = 1; class_id < tl_model.num_class[0]; ++class_id) {
+      ASSERT(tl_model.base_scores[0] == tl_model.base_scores[class_id],
+             "base_scores must be identical for all classes");
+    }
+
     auto result                = decision_forest_variant{};
     auto num_feature           = get_num_feature(tl_model);
     auto max_num_categories    = get_max_num_categories(tl_model);
@@ -675,7 +698,7 @@ auto import_from_treelite_model(treelite::Model const& tl_model,
  * @param stream The CUDA stream to use for loading this model (can be
  * omitted for CPU).
  */
-auto import_from_treelite_handle(ModelHandle tl_handle,
+auto import_from_treelite_handle(TreeliteModelHandle tl_handle,
                                  tree_layout layout                       = preferred_tree_layout,
                                  index_type align_bytes                   = index_type{},
                                  std::optional<bool> use_double_precision = std::nullopt,

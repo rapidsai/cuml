@@ -153,7 +153,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cython>=3.0.0
-          - &treelite treelite==3.9.1
+          - &treelite treelite==4.0.0
       - output_types: conda
         packages:
           - &pylibraft_conda pylibraft==24.4.*
@@ -168,7 +168,6 @@ dependencies:
       - output_types: [pyproject, requirements]
         packages:
           - scikit-build-core[pyproject]>=0.7.0
-          - &treelite_runtime treelite_runtime==3.9.1
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
@@ -216,9 +215,6 @@ dependencies:
           # This index is needed for cudf and rmm.
           - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
-      - output_types: [pyproject, requirements]
-        packages:
-          - *treelite_runtime
     specific:
       - output_types: [requirements, pyproject]
         matrices:

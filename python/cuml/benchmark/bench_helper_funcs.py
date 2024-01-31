@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -390,32 +390,6 @@ def _build_gtil_classifier(m, data, args, tmpdir):
     bst.load_model(model_path)
     tl_model = treelite.Model.from_xgboost(bst)
     return GtilWrapper(tl_model, infer_type=infer_type)
-
-
-def _build_treelite_classifier(m, data, args, tmpdir):
-    """Setup function for treelite classification benchmarking"""
-    from cuml.internals.import_utils import has_xgboost
-    import treelite_runtime
-
-    max_depth = args["max_depth"]
-    num_rounds = args["num_rounds"]
-    n_feature = data[0].shape[1]
-    train_size = data[0].shape[0]
-    model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
-    model_path = os.path.join(tmpdir, model_name)
-
-    bst = xgb.Booster()
-    bst.load_model(model_path)
-    tl_model = treelite.Model.from_xgboost(bst)
-    tl_model.export_lib(
-        toolchain="gcc",
-        libpath=os.path.join(tmpdir, "treelite.so"),
-        params={"parallel_comp": 40},
-        verbose=False,
-    )
-    return treelite_runtime.Predictor(
-        os.path.join(tmpdir, "treelite.so"), verbose=False
-    )
 
 
 def _treelite_fil_accuracy_score(y_true, y_pred):
