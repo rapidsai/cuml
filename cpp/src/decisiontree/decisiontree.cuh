@@ -162,6 +162,7 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
 
   tl::Tree<T, T> tl_tree;
   tl_tree.Init();
+  tl_tree.AllocNode();  // Allocate the root node
 
   // Track head and tail of bounded "queues" (implemented as vectors for
   // performance)
@@ -185,18 +186,20 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
       ++cur_front;
 
       if (!q_node.IsLeaf()) {
-        tl_tree.AddChilds(tl_node_id);
+        const int cleft  = tl_tree.AllocNode();
+        const int cright = tl_tree.AllocNode();
+        tl_tree.SetChildren(tl_node_id, cleft, cright);
 
         // Push left child to next_level queue.
-        next_level_queue[next_end] = {q_node.LeftChildId(), tl_tree.LeftChild(tl_node_id)};
+        next_level_queue[next_end] = {q_node.LeftChildId(), cleft};
         ++next_end;
 
         // Push right child to next_level queue.
-        next_level_queue[next_end] = {q_node.RightChildId(), tl_tree.RightChild(tl_node_id)};
+        next_level_queue[next_end] = {q_node.RightChildId(), cright};
         ++next_end;
 
         // Set node from current level as numerical node. Children IDs known.
-        tl_tree.SetNumericalSplit(
+        tl_tree.SetNumericalTest(
           tl_node_id, q_node.ColumnId(), q_node.QueryValue(), true, tl::Operator::kLE);
 
       } else {

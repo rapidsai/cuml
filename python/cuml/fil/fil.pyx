@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,25 +44,68 @@ import treelite.sklearn as tl_skl
 cimport cuml.common.cuda
 
 cdef extern from "treelite/c_api.h":
-    ctypedef void* ModelHandle
-    cdef int TreeliteLoadXGBoostModelEx(const char* filename,
-                                        const char* config_json,
-                                        ModelHandle* out) except +
-    cdef int TreeliteLoadXGBoostJSONEx(const char* filename,
+    cdef struct TreelitePyBufferFrame:
+        void* buf
+        char* format
+        size_t itemsize
+        size_t nitem
+    ctypedef void* TreeliteModelHandle
+    ctypedef void* TreeliteGTILConfigHandle
+    cdef int TreeliteLoadXGBoostModelLegacyBinary(const char* filename,
+                                                  const char* config_json,
+                                                  TreeliteModelHandle* out) except +
+    cdef int TreeliteLoadXGBoostModel(const char* filename,
+                                      const char* config_json,
+                                      TreeliteModelHandle* out) except +
+    cdef int TreeliteFreeModel(TreeliteModelHandle handle) except +
+    cdef int TreeliteQueryNumTree(TreeliteModelHandle handle, size_t* out) except +
+    cdef int TreeliteQueryNumFeature(TreeliteModelHandle handle, int* out) except +
+    cdef int TreeliteLoadLightGBMModel(const char* filename,
                                        const char* config_json,
-                                       ModelHandle* out) except +
-    cdef int TreeliteFreeModel(ModelHandle handle) except +
-    cdef int TreeliteQueryNumTree(ModelHandle handle, size_t* out) except +
-    cdef int TreeliteQueryNumFeature(ModelHandle handle, size_t* out) except +
-    cdef int TreeliteQueryNumClass(ModelHandle handle, size_t* out) except +
-    cdef int TreeliteLoadLightGBMModelEx(const char* filename,
-                                         const char* config_json,
-                                         ModelHandle* out) except +
-    cdef int TreeliteSerializeModel(const char* filename,
-                                    ModelHandle handle) except +
-    cdef int TreeliteDeserializeModel(const char* filename,
-                                      ModelHandle handle) except +
+                                       TreeliteModelHandle* out) except +
+    cdef int TreeliteSerializeModelToFile(TreeliteModelHandle handle,
+                                          const char* filename) except +
+    cdef int TreeliteGetHeaderField(
+            TreeliteModelHandle model, const char * name, TreelitePyBufferFrame* out_frame) except +
     cdef const char* TreeliteGetLastError()
+
+
+cdef class PyBufferFrameWrapper:
+    cdef TreelitePyBufferFrame _handle
+    cdef Py_ssize_t shape[1]
+    cdef Py_ssize_t strides[1]
+
+    def __cinit__(self):
+        pass
+
+    def __dealloc__(self):
+        pass
+
+    def __getbuffer__(self, Py_buffer* buffer, int flags):
+        cdef Py_ssize_t itemsize = self._handle.itemsize
+
+        self.shape[0] = self._handle.nitem
+        self.strides[0] = itemsize
+
+        buffer.buf = self._handle.buf
+        buffer.format = self._handle.format
+        buffer.internal = NULL
+        buffer.itemsize = itemsize
+        buffer.len = self._handle.nitem * itemsize
+        buffer.ndim = 1
+        buffer.obj = self
+        buffer.readonly = 0
+        buffer.shape = self.shape
+        buffer.strides = self.strides
+        buffer.suboffsets = NULL
+
+    def __releasebuffer__(self, Py_buffer *buffer):
+        pass
+
+cdef PyBufferFrameWrapper MakePyBufferFrameWrapper(TreelitePyBufferFrame handle):
+    cdef PyBufferFrameWrapper wrapper = PyBufferFrameWrapper()
+    wrapper._handle = handle
+    return wrapper
 
 
 cdef class TreeliteModel():
@@ -76,22 +119,22 @@ cdef class TreeliteModel():
     Attributes
     ----------
 
-    handle : ModelHandle
+    handle : TreeliteModelHandle
         Opaque pointer to Treelite model
     """
-    cdef ModelHandle handle
+    cdef TreeliteModelHandle handle
     cdef bool owns_handle
 
     def __cinit__(self, owns_handle=True):
         """If owns_handle is True, free the handle's model in destructor.
         Set this to False if another owner will free the model."""
-        self.handle = <ModelHandle>NULL
+        self.handle = <TreeliteModelHandle>NULL
         self.owns_handle = owns_handle
 
-    cdef set_handle(self, ModelHandle new_handle):
+    cdef set_handle(self, TreeliteModelHandle new_handle):
         self.handle = new_handle
 
-    cdef ModelHandle get_handle(self):
+    cdef TreeliteModelHandle get_handle(self):
         return self.handle
 
     @property
@@ -112,14 +155,14 @@ cdef class TreeliteModel():
     @property
     def num_features(self):
         assert self.handle != NULL
-        cdef size_t out
+        cdef int out
         TreeliteQueryNumFeature(self.handle, &out)
         return out
 
     @classmethod
     def free_treelite_model(cls, model_handle):
         cdef uintptr_t model_ptr = <uintptr_t>model_handle
-        TreeliteFreeModel(<ModelHandle> model_ptr)
+        TreeliteFreeModel(<TreeliteModelHandle> model_ptr)
 
     @classmethod
     def from_filename(cls, filename, model_type="xgboost"):
@@ -136,14 +179,14 @@ cdef class TreeliteModel():
         """
         filename_bytes = filename.encode("UTF-8")
         config_bytes = "{}".encode("UTF-8")
-        cdef ModelHandle handle
+        cdef TreeliteModelHandle handle
         if model_type == "xgboost":
-            res = TreeliteLoadXGBoostModelEx(filename_bytes, config_bytes, &handle)
+            res = TreeliteLoadXGBoostModelLegacyBinary(filename_bytes, config_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         elif model_type == "xgboost_json":
-            res = TreeliteLoadXGBoostJSONEx(filename_bytes, config_bytes, &handle)
+            res = TreeliteLoadXGBoostModel(filename_bytes, config_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
@@ -151,7 +194,7 @@ cdef class TreeliteModel():
             logger.warn("Treelite currently does not support float64 model"
                         " parameters. Accuracy may degrade slightly relative"
                         " to native LightGBM invocation.")
-            res = TreeliteLoadLightGBMModelEx(filename_bytes, config_bytes, &handle)
+            res = TreeliteLoadLightGBMModel(filename_bytes, config_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
@@ -172,13 +215,13 @@ cdef class TreeliteModel():
         """
         assert self.handle != NULL
         filename_bytes = filename.encode("UTF-8")
-        TreeliteSerializeModel(filename_bytes, self.handle)
+        TreeliteSerializeModelToFile(self.handle, filename_bytes)
 
     @classmethod
     def from_treelite_model_handle(cls,
                                    treelite_handle,
                                    take_handle_ownership=False):
-        cdef ModelHandle handle = <ModelHandle> <size_t> treelite_handle
+        cdef TreeliteModelHandle handle = <TreeliteModelHandle> <size_t> treelite_handle
         model = TreeliteModel(owns_handle=take_handle_ownership)
         model.set_handle(handle)
         return model
@@ -253,14 +296,14 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
 
     cdef void from_treelite(handle_t& handle,
                             forest_variant*,
-                            ModelHandle,
+                            TreeliteModelHandle,
                             treelite_params_t*) except +
 
 cdef class ForestInference_impl():
 
     cdef object handle
     cdef forest_variant forest_data
-    cdef size_t num_class
+    cdef object num_class
     cdef bool output_class
     cdef char* shape_str
     cdef DeviceMemoryResource mr
@@ -390,10 +433,10 @@ cdef class ForestInference_impl():
         if preds is None:
             shape = (n_rows, )
             if predict_proba:
-                if self.num_class <= 2:
+                if self.num_class[0] <= 2:
                     shape += (2,)
                 else:
-                    shape += (self.num_class,)
+                    shape += (self.num_class[0],)
             preds = CumlArray.empty(shape=shape, dtype=fil_dtype, order='C',
                                     index=X_m.index)
         else:
@@ -467,10 +510,18 @@ cdef class ForestInference_impl():
 
         from_treelite(handle_[0],
                       &self.forest_data,
-                      <ModelHandle> model_ptr,
+                      <TreeliteModelHandle> model_ptr,
                       &treelite_params)
-        TreeliteQueryNumClass(<ModelHandle> model_ptr,
-                              &self.num_class)
+        # Get num_class
+        cdef TreelitePyBufferFrame frame
+        res = TreeliteGetHeaderField(<TreeliteModelHandle> model_ptr, "num_class", &frame)
+        if res < 0:
+            err = TreeliteGetLastError()
+            raise RuntimeError(f"Failed to fetch num_class: {err}")
+        view = memoryview(MakePyBufferFrameWrapper(frame))
+        self.num_class = np.asarray(view).copy()
+        if len(self.num_class) > 1:
+            raise NotImplementedError("FIL does not support multi-target models")
         return self
 
     def __dealloc__(self):
@@ -964,7 +1015,7 @@ class ForestInference(Base,
                                    ):
         """
         Returns a FIL instance by converting a treelite model to
-        FIL model by using the treelite ModelHandle passed.
+        FIL model by using the treelite TreeliteModelHandle passed.
 
         Parameters
         ----------
