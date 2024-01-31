@@ -31,7 +31,7 @@ namespace fil {
 struct Params {
   DatasetParams data;
   RegressionParams blobs;
-  ModelHandle model;
+  TreeliteModelHandle model;
   ML::fil::storage_type_t storage;
   ML::fil::algo_t algo;
   RF_params rf;
@@ -120,7 +120,7 @@ class FIL : public RegressionFixture<float> {
 
  private:
   ML::fil::forest_t<float> forest;
-  ModelHandle model;
+  TreeliteModelHandle model;
   Params p_rest;
 };
 
