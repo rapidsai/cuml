@@ -384,7 +384,7 @@ def test_lbfgs(
     sk_model = skLR(
         solver=sk_solver,
         fit_intercept=fit_intercept,
-        penalty=penalty,
+        penalty=penalty if penalty != "none" else None,
         l1_ratio=l1_ratio,
         C=C,
     )
@@ -712,7 +712,7 @@ def test_standardization_on_normal_dataset(
 )
 @pytest.mark.parametrize("datatype", [np.float32])
 @pytest.mark.parametrize("delayed", [False])
-@pytest.mark.parametrize("ncol_and_nclasses", [(2, 2), (6, 4)])
+@pytest.mark.parametrize("ncol_and_nclasses", [(2, 2), (6, 4), (100, 10)])
 def test_standardization_on_scaled_dataset(
     fit_intercept, regularization, datatype, delayed, ncol_and_nclasses, client
 ):
@@ -791,7 +791,7 @@ def test_standardization_on_scaled_dataset(
     cpu = CPULR(
         solver=sk_solver,
         fit_intercept=fit_intercept,
-        penalty=penalty,
+        penalty=penalty if penalty != "none" else None,
         l1_ratio=l1_ratio,
         C=C,
     )
@@ -864,6 +864,11 @@ def test_standardization_on_scaled_dataset(
     ],
 )
 def test_standardization_example(fit_intercept, regularization, client):
+    n_rows = int(1e5)
+    n_cols = 20
+    n_info = 10
+    n_classes = 4
+
     datatype = np.float32
     n_parts = 2
     max_iter = 5  # cannot set this too large. Observed GPU-specific coefficients when objective converges at 0.
@@ -880,18 +885,9 @@ def test_standardization_example(fit_intercept, regularization, client):
         "max_iter": max_iter,
     }
 
-    X = np.array(
-        [
-            [-1.1258, -1.1524, -0.2506, -0.4339, 0.5988],
-            [-1.5551, -0.3414, 1.8530, 0.4681, -0.1577],
-            [1.4437, 0.2660, 1.3894, 1.5863, 0.9463],
-            [-0.8437, 0.9318, 1.2590, 2.0050, 0.0537],
-        ],
-        datatype,
+    X, y = make_classification_dataset(
+        datatype, n_rows, n_cols, n_info, n_classes=n_classes
     )
-
-    X = np.ascontiguousarray(X.T)
-    y = np.array([0.0, 1.0, 2.0, 0.0, 1.0], datatype)
 
     from sklearn.preprocessing import StandardScaler
 
@@ -941,7 +937,14 @@ def test_standardization_example(fit_intercept, regularization, client):
         ("elasticnet", 2.0, 0.2),
     ],
 )
-def test_standardization_sparse_example(fit_intercept, regularization, client):
+def test_standardization_sparse(fit_intercept, regularization, client):
+    n_rows = int(1e5)
+    n_cols = 25
+    n_info = 15
+    n_classes = 4
+    nnz = int(n_rows * n_cols * 0.3)  # number of non-zero values
+    tolerance = 0.005
+
     datatype = np.float32
     n_parts = 2
     max_iter = 5  # cannot set this too large. Observed GPU-specific coefficients when objective converges at 0.
@@ -958,21 +961,28 @@ def test_standardization_sparse_example(fit_intercept, regularization, client):
         "max_iter": max_iter,
     }
 
-    X_origin = np.array(
-        [
-            [-1.1258, 0.0000, 0.0000, -0.4339, 0.0000],
-            [-1.5551, -0.3414, 0.0000, 0.0000, 0.0000],
-            [0.0000, 0.2660, 0.0000, 0.0000, 0.9463],
-            [-0.8437, 0.0000, 1.2590, 0.0000, 0.0000],
-        ],
-        datatype,
+    def make_classification_with_nnz(
+        datatype, n_rows, n_cols, n_info, n_classes, nnz
+    ):
+        assert n_rows * n_cols >= nnz
+
+        X, y = make_classification_dataset(
+            datatype, n_rows, n_cols, n_info, n_classes=n_classes
+        )
+        X = X.flatten()
+        num_zero = len(X) - nnz
+        zero_indices = np.random.choice(
+            a=range(len(X)), size=num_zero, replace=False
+        )
+        X[zero_indices] = 0
+        X_res = X.reshape(n_rows, n_cols)
+        return X_res, y
+
+    X_origin, y = make_classification_with_nnz(
+        datatype, n_rows, n_cols, n_info, n_classes, nnz
     )
-
-    X_origin = np.ascontiguousarray(X_origin.T)
-
     X = csr_matrix(X_origin)
-    assert X.nnz == 8 and X.shape == (5, 4)
-    y = np.array([0.0, 1.0, 2.0, 0.0, 1.0], datatype)
+    assert X.nnz == nnz and X.shape == (n_rows, n_cols)
 
     from sklearn.preprocessing import StandardScaler
 
@@ -1002,5 +1012,5 @@ def test_standardization_sparse_example(fit_intercept, regularization, client):
     sg = SG(**est_params)
     sg.fit(X_scaled, y)
 
-    assert array_equal(lron_coef_origin, sg.coef_)
-    assert array_equal(lron_intercept_origin, sg.intercept_)
+    assert array_equal(lron_coef_origin, sg.coef_, tolerance)
+    assert array_equal(lron_intercept_origin, sg.intercept_, tolerance)

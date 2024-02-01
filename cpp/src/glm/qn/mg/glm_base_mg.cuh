@@ -160,7 +160,6 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
                                    true,
                                    raft::mul_op(),
                                    stream);
-      raft::resource::sync_stream(*(this->handle_p));
     }
 
     // apply linearFwd, getLossAndDz, linearBwd
