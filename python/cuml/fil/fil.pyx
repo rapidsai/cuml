@@ -881,6 +881,9 @@ class ForestInference(Base,
         logger.warn("Treelite currently does not support float64 model"
                     " parameters. Accuracy may degrade slightly relative to"
                     " native sklearn invocation.")
+        # TODO(hcho3): Remove this check when https://github.com/dmlc/treelite/issues/544 is fixed
+        if isinstance(skl_model, (HistGradientBoostingR, HistGradientBoostingC)):
+            raise NotImplementedError("HistGradientBoosting estimators are not yet supported")
         tl_model = tl_skl.import_model(skl_model)
         cuml_fm.load_from_treelite_model(
             model=tl_model,

@@ -966,6 +966,9 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
+        # TODO(hcho3): Remove this check when https://github.com/dmlc/treelite/issues/544 is fixed
+        if isinstance(skl_model, (HistGradientBoostingR, HistGradientBoostingC)):
+            raise NotImplementedError("HistGradientBoosting estimators are not yet supported")
         tl_model = treelite.sklearn.import_model(skl_model)
         if default_chunk_size is None:
             default_chunk_size = threads_per_tree
