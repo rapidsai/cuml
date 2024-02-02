@@ -128,14 +128,12 @@ template <class T, class L>
 std::string get_rf_json(const RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
-void build_treelite_forest(ModelHandle* model,
+void build_treelite_forest(TreeliteModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features);
 
-ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles);
+TreeliteModelHandle concatenate_trees(std::vector<TreeliteModelHandle> treelite_handles);
 
-void compare_concat_forest_to_subforests(ModelHandle concat_tree_handle,
-                                         std::vector<ModelHandle> treelite_handles);
 // ----------------------------- Classification ----------------------------------- //
 
 typedef RandomForestMetaData<float, int> RandomForestClassifierF;
