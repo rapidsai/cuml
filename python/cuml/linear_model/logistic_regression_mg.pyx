@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,6 +75,7 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         float *coef,
         const qn_params& pams,
         bool X_col_major,
+        bool standardization,
         int n_classes,
         float *f,
         int *num_iters) except +
@@ -94,6 +95,7 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         vector[floatData_t *] labels,
         float *coef,
         const qn_params& pams,
+        bool standardization,
         int n_classes,
         float *f,
         int *num_iters) except +
@@ -101,8 +103,9 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
 
 class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
-    def __init__(self, **kwargs):
+    def __init__(self, *, standardization=False, **kwargs):
         super(LogisticRegressionMG, self).__init__(**kwargs)
+        self.standardization = standardization
 
     @property
     @cuml.internals.api_base_return_array_skipall
@@ -188,10 +191,12 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         assert len(input_data) == 1, f"Currently support only one (X, y) pair in the list. Received {len(input_data)} pairs."
         self.is_col_major = False
         order = 'F' if self.is_col_major else 'C'
+
         super().fit(input_data, n_rows, n_cols, parts_rank_size, rank, order=order)
 
     @cuml.internals.api_base_return_any_skipall
     def _fit(self, X, y, coef_ptr, input_desc):
+
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef float objective32
         cdef int num_iters
@@ -213,6 +218,9 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
         sparse_input = isinstance(X, list)
 
+        if self.standardization:
+            assert not sparse_input, "standardization for sparse vectors is not supported yet"
+
         if self.dtype == np.float32:
             if sparse_input is False:
                 qnFit(
@@ -223,6 +231,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                     <float*>mat_coef_ptr,
                     qnpams,
                     self.is_col_major,
+                    self.standardization,
                     self._num_classes,
                     <float*> &objective32,
                     <int*> &num_iters)
@@ -244,6 +253,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                     deref(<vector[floatData_t*]*><uintptr_t>y),
                     <float*>mat_coef_ptr,
                     qnpams,
+                    self.standardization,
                     self._num_classes,
                     <float*> &objective32,
                     <int*> &num_iters)

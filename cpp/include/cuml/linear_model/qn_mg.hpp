@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ std::vector<float> getUniquelabelsMG(const raft::handle_t& handle,
  * @param[out] coef: learned coefficients
  * @param[in] pams: model parameters
  * @param[in] X_col_major: true if X is stored column-major
+ * @param[in] standardization: whether to standardize the dataset before training
  * @param[in] n_classes: number of outputs (number of classes or `1` for regression)
  * @param[out] f: host pointer holding the final objective value
  * @param[out] num_iters: host pointer holding the actual number of iterations taken
@@ -59,6 +60,7 @@ void qnFit(raft::handle_t& handle,
            float* coef,
            const qn_params& pams,
            bool X_col_major,
+           bool standardization,
            int n_classes,
            float* f,
            int* num_iters);
@@ -73,6 +75,7 @@ void qnFit(raft::handle_t& handle,
  * @param[in] input_row_ids: vector holding row pointers of non-zero values of all partitions for
  * that rank
  * @param[in] X_nnz: the number of non-zero values of that rank
+ * @param[in] standardization: whether to standardize the dataset before training
  * @param[in] input_desc: PartDescriptor object for the input
  * @param[in] labels: labels data
  * @param[out] coef: learned coefficients
@@ -90,6 +93,7 @@ void qnFitSparse(raft::handle_t& handle,
                  std::vector<Matrix::Data<float>*>& labels,
                  float* coef,
                  const qn_params& pams,
+                 bool standardization,
                  int n_classes,
                  float* f,
                  int* num_iters);
