@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import warnings
 from libcpp cimport bool
 from libc.stdint cimport uint32_t, uintptr_t
 
+from cuml.internals.import_utils import has_sklearn
 from cuml.common.device_selection import using_device_type
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.safe_imports import (
@@ -54,7 +55,7 @@ from cuml.internals.safe_imports import (
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
 cdef extern from "treelite/c_api.h":
-    ctypedef void* ModelHandle
+    ctypedef void* TreeliteModelHandle
 
 
 cdef raft_proto_device_t get_device_type(arr):
@@ -94,7 +95,7 @@ cdef extern from "cuml/experimental/fil/forest_model.hpp" namespace "ML::experim
 
 cdef extern from "cuml/experimental/fil/treelite_importer.hpp" namespace "ML::experimental::fil":
     forest_model import_from_treelite_handle(
-        ModelHandle,
+        TreeliteModelHandle,
         fil_tree_layout,
         uint32_t,
         optional[bool],
@@ -160,7 +161,7 @@ cdef class ForestInference_impl():
             tree_layout = fil_tree_layout.depth_first
 
         self.model = import_from_treelite_handle(
-            <ModelHandle><uintptr_t>model_handle,
+            <TreeliteModelHandle><uintptr_t>model_handle,
             tree_layout,
             align_bytes,
             use_double_precision_c,
@@ -966,6 +967,16 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
+        # TODO(hcho3): Remove this check when https://github.com/dmlc/treelite/issues/544 is fixed
+        if has_sklearn():
+            from sklearn.ensemble import (
+                HistGradientBoostingClassifier as HistGradientBoostingC,
+            )
+            from sklearn.ensemble import (
+                HistGradientBoostingRegressor as HistGradientBoostingR,
+            )
+            if isinstance(skl_model, (HistGradientBoostingR, HistGradientBoostingC)):
+                raise NotImplementedError("HistGradientBoosting estimators are not yet supported")
         tl_model = treelite.sklearn.import_model(skl_model)
         if default_chunk_size is None:
             default_chunk_size = threads_per_tree

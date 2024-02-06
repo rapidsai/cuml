@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
 
-GenericIndex = gpu_only_import_from("cudf", "GenericIndex")
+Index = gpu_only_import_from("cudf", "Index")
 
 
 class CheckFeaturesMixIn:
@@ -498,7 +498,7 @@ class OneHotEncoder(BaseEncoder):
                 dropped_class_idx = Series(self.drop_idx_[feature])
                 dropped_class_mask = Series(cats).isin(cats[dropped_class_idx])
                 if len(cats) == 1:
-                    inv = Series(GenericIndex(cats[0]).repeat(X.shape[0]))
+                    inv = Series(Index(cats[0]).repeat(X.shape[0]))
                     result[feature] = inv
                     continue
                 cats = cats[~dropped_class_mask]

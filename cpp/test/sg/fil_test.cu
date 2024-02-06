@@ -31,7 +31,10 @@
 #include <thrust/transform.h>
 
 #include <treelite/c_api.h>
-#include <treelite/frontend.h>
+#include <treelite/enum/operator.h>
+#include <treelite/enum/task_type.h>
+#include <treelite/enum/typeinfo.h>
+#include <treelite/model_builder.h>
 #include <treelite/tree.h>
 
 #include <gtest/gtest.h>
@@ -49,7 +52,7 @@
 namespace ML {
 
 namespace tl  = treelite;
-namespace tlf = treelite::frontend;
+namespace tlm = treelite::model_builder;
 using namespace fil;
 
 struct FilTestParams {
@@ -123,7 +126,7 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps)
      << ", output = " << output2str(ps.output) << ", threshold = " << ps.threshold
      << ", threads_per_tree = " << ps.threads_per_tree << ", n_items = " << ps.n_items
      << ", blocks_per_sm = " << ps.blocks_per_sm << ", algo = " << ps.algo << ", seed = " << ps.seed
-     << ", tolerance = " << ps.tolerance << ", op = " << tl::OpName(ps.op)
+     << ", tolerance = " << ps.tolerance << ", op = " << tl::OperatorToString(ps.op)
      << ", global_bias = " << ps.global_bias << ", leaf_algo = " << ps.leaf_algo
      << ", num_classes = " << ps.num_classes
      << ", node_categorical_prob = " << ps.node_categorical_prob
@@ -200,7 +203,7 @@ __global__ void floats_to_bit_stream_k(uint8_t* dst, real_t* src, std::size_t si
 
 template <typename real_t>
 void adjust_threshold_to_treelite(
-  real_t* pthreshold, int* tl_left, int* tl_right, bool* default_left, tl::Operator comparison_op)
+  real_t* pthreshold, int* left, int* right, bool* default_left, tl::Operator comparison_op)
 {
   // in treelite (take left node if val [op] threshold),
   // the meaning of the condition is reversed compared to FIL;
@@ -208,7 +211,7 @@ void adjust_threshold_to_treelite(
   // https://github.com/dmlc/treelite/blob/master/include/treelite/tree.h#L243
   // TODO(levsnv): remove workaround once confirmed to work with empty category lists in Treelite
   if (isnan(*pthreshold)) {
-    std::swap(*tl_left, *tl_right);
+    std::swap(*left, *right);
     *default_left = !*default_left;
     return;
   }
@@ -224,7 +227,7 @@ void adjust_threshold_to_treelite(
       *pthreshold = std::nextafterf(*pthreshold, -std::numeric_limits<real_t>::infinity());
     case tl::Operator::kGE:
       // swap left and right
-      std::swap(*tl_left, *tl_right);
+      std::swap(*left, *right);
       *default_left = !*default_left;
       break;
     default: ASSERT(false, "only <, >, <= and >= comparisons are supported");
@@ -751,38 +754,34 @@ using PredictSparse8FilTest         = BasePredictFilTest<fil::sparse_node8>;
 template <typename real_t>
 class TreeliteFilTest : public BaseFilTest<real_t> {
  protected:
-  /** adds nodes[node] of tree starting at index root to builder
-      at index at *pkey, increments *pkey,
-      and returns the treelite key of the node */
-  int node_to_treelite(tlf::TreeBuilder* builder, int* pkey, int root, int node)
+  /** adds nodes[node] of tree starting at index root to builder */
+  void node_to_treelite(tlm::ModelBuilder* builder, int root, int node)
   {
-    int key = (*pkey)++;
-    builder->CreateNode(key);
+    builder->StartNode(node);
     const fil::dense_node<real_t>& dense_node = this->nodes[node];
-    std::vector<std::uint32_t> left_categories;
+    std::vector<std::uint32_t> right_categories;
     if (dense_node.is_leaf()) {
       switch (this->ps.leaf_algo) {
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
         case fil::leaf_algo_t::GROVE_PER_CLASS:
           // default is fil::FLOAT_UNARY_BINARY
-          builder->SetLeafNode(key, tlf::Value::Create(dense_node.template output<real_t>()));
+          builder->LeafScalar(dense_node.template output<real_t>());
           break;
         case fil::leaf_algo_t::CATEGORICAL_LEAF: {
-          std::vector<tlf::Value> vec(this->ps.num_classes);
+          std::vector<real_t> vec(this->ps.num_classes);
           for (int i = 0; i < this->ps.num_classes; ++i) {
-            vec[i] =
-              tlf::Value::Create(i == dense_node.template output<int>() ? real_t(1) : real_t(0));
+            vec[i] = (i == dense_node.template output<int>() ? real_t(1) : real_t(0));
           }
-          builder->SetLeafVectorNode(key, vec);
+          builder->LeafVector(vec);
           break;
         }
         case fil::leaf_algo_t::VECTOR_LEAF: {
-          std::vector<tlf::Value> vec(this->ps.num_classes);
+          std::vector<real_t> vec(this->ps.num_classes);
           for (int i = 0; i < this->ps.num_classes; ++i) {
             auto idx = dense_node.template output<int>();
-            vec[i]   = tlf::Value::Create(this->vector_leaf[idx * this->ps.num_classes + i]);
+            vec[i]   = this->vector_leaf[idx * this->ps.num_classes + i];
           }
-          builder->SetLeafVectorNode(key, vec);
+          builder->LeafVector(vec);
           break;
         }
         case fil::leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES:
@@ -803,35 +802,24 @@ class TreeliteFilTest : public BaseFilTest<real_t> {
             byte = this->cat_sets_h.bits[dense_node.set() + category / BITS_PER_BYTE];
           }
           if ((byte & (1 << (category % BITS_PER_BYTE))) != 0) {
-            left_categories.push_back(category);
+            right_categories.push_back(category);
           }
         }
       }
-      int left_key  = node_to_treelite(builder, pkey, root, left);
-      int right_key = node_to_treelite(builder, pkey, root, right);
+      node_to_treelite(builder, root, left);
+      node_to_treelite(builder, root, right);
       // TODO(levsnv): remove workaround once confirmed to work with empty category lists in
       // Treelite
-      if (!left_categories.empty() && dense_node.is_categorical()) {
-        // Treelite builder APIs don't allow to set categorical_split_right_child
-        // (which child the categories pertain to). Only the Tree API allows that.
-        // in FIL, categories always pertain to the right child, and the default in treelite
-        // is left categories in SetCategoricalTestNode
-        std::swap(left_key, right_key);
-        default_left = !default_left;
-        builder->SetCategoricalTestNode(
-          key, dense_node.fid(), left_categories, default_left, left_key, right_key);
+      if (!right_categories.empty() && dense_node.is_categorical()) {
+        // in FIL, categories always pertain to the right child
+        builder->CategoricalTest(
+          dense_node.fid(), default_left, right_categories, true, left, right);
       } else {
-        adjust_threshold_to_treelite(&threshold, &left_key, &right_key, &default_left, this->ps.op);
-        builder->SetNumericalTestNode(key,
-                                      dense_node.fid(),
-                                      this->ps.op,
-                                      tlf::Value::Create(threshold),
-                                      default_left,
-                                      left_key,
-                                      right_key);
+        adjust_threshold_to_treelite(&threshold, &left, &right, &default_left, this->ps.op);
+        builder->NumericalTest(dense_node.fid(), threshold, default_left, this->ps.op, left, right);
       }
     }
-    return key;
+    builder->EndNode();
   }
 
   void init_forest_impl(fil::forest_t<real_t>* pforest, fil::storage_type_t storage_type)
@@ -840,42 +828,71 @@ class TreeliteFilTest : public BaseFilTest<real_t> {
     bool random_forest_flag = (this->ps.output & fil::output_t::AVG) != 0;
     tl::TypeInfo tl_type_info =
       std::is_same_v<real_t, float> ? tl::TypeInfo::kFloat32 : tl::TypeInfo::kFloat64;
-    int treelite_num_classes =
+    std::int32_t treelite_num_classes =
       this->ps.leaf_algo == fil::leaf_algo_t::FLOAT_UNARY_BINARY ? 1 : this->ps.num_classes;
-    std::unique_ptr<tlf::ModelBuilder> model_builder(new tlf::ModelBuilder(
-      this->ps.num_cols, treelite_num_classes, random_forest_flag, tl_type_info, tl_type_info));
+    tl::TaskType task_type;
+    if (this->ps.leaf_algo == fil::leaf_algo_t::FLOAT_UNARY_BINARY) {
+      if (this->ps.num_classes == 1 && (this->ps.output & fil::output_t::SIGMOID) != 0) {
+        task_type = tl::TaskType::kBinaryClf;
+      } else {
+        task_type = tl::TaskType::kRegressor;
+      }
+    } else {
+      task_type = tl::TaskType::kMultiClf;
+    }
+    tlm::Metadata metadata{
+      static_cast<std::int32_t>(this->ps.num_cols),
+      task_type,
+      random_forest_flag,
+      1,
+      {treelite_num_classes},
+      {1, (this->ps.leaf_algo == GROVE_PER_CLASS ? 1 : treelite_num_classes)},
+    };
+    std::vector<std::int32_t> class_id(this->ps.num_trees);
+    // class_id[i]: the class Tree i is associated with
+    if (this->ps.leaf_algo == fil::leaf_algo_t::GROVE_PER_CLASS) {
+      for (int tree_id = 0; tree_id < this->ps.num_trees; ++tree_id) {
+        class_id[tree_id] = tree_id % treelite_num_classes;
+      }
+    } else if (this->ps.leaf_algo == fil::leaf_algo_t::FLOAT_UNARY_BINARY) {
+      for (int tree_id = 0; tree_id < this->ps.num_trees; ++tree_id) {
+        class_id[tree_id] = 0;
+      }
+    } else {  // vector leaf
+      for (int tree_id = 0; tree_id < this->ps.num_trees; ++tree_id) {
+        class_id[tree_id] = -1;
+      }
+    }
+    tlm::TreeAnnotation tree_annotation{
+      this->ps.num_trees, std::vector<std::int32_t>(this->ps.num_trees, 0), class_id};
 
     // prediction transform
+    std::string postprocessor_name;
     if ((this->ps.output & fil::output_t::SIGMOID) != 0) {
-      if (this->ps.num_classes > 2)
-        model_builder->SetModelParam("pred_transform", "multiclass_ova");
-      else
-        model_builder->SetModelParam("pred_transform", "sigmoid");
+      if (this->ps.num_classes > 2) {
+        postprocessor_name = "multiclass_ova";
+      } else {
+        postprocessor_name = "sigmoid";
+      }
     } else if (this->ps.leaf_algo != fil::leaf_algo_t::FLOAT_UNARY_BINARY) {
-      model_builder->SetModelParam("pred_transform", "max_index");
-      this->ps.output = fil::output_t(this->ps.output | fil::output_t::CLASS);
+      postprocessor_name = "softmax";
+      this->ps.output    = fil::output_t(this->ps.output | fil::output_t::SOFTMAX);
     } else if (this->ps.leaf_algo == GROVE_PER_CLASS) {
-      model_builder->SetModelParam("pred_transform", "identity_multiclass");
+      postprocessor_name = "identity_multiclass";
     } else {
-      model_builder->SetModelParam("pred_transform", "identity");
+      postprocessor_name = "identity";
     }
-
-    // global bias
-    char* global_bias_str = nullptr;
-    ASSERT(asprintf(&global_bias_str, "%f", double(this->ps.global_bias)) > 0,
-           "cannot convert global_bias into a string");
-    model_builder->SetModelParam("global_bias", global_bias_str);
-    ::free(global_bias_str);
+    tlm::PostProcessorFunc postprocessor{postprocessor_name};
+    std::vector<double> base_scores(treelite_num_classes, this->ps.global_bias);
+    std::unique_ptr<tlm::ModelBuilder> model_builder = tlm::GetModelBuilder(
+      tl_type_info, tl_type_info, metadata, tree_annotation, postprocessor, base_scores);
 
     // build the trees
     for (int i_tree = 0; i_tree < this->ps.num_trees; ++i_tree) {
-      tlf::TreeBuilder* tree_builder = new tlf::TreeBuilder(tl_type_info, tl_type_info);
-      int key_counter                = 0;
-      int root                       = i_tree * this->tree_num_nodes();
-      int root_key                   = node_to_treelite(tree_builder, &key_counter, root, root);
-      tree_builder->SetRootNode(root_key);
-      // InsertTree() consumes tree_builder
-      TL_CPP_CHECK(model_builder->InsertTree(tree_builder));
+      int root = i_tree * this->tree_num_nodes();
+      model_builder->StartTree();
+      node_to_treelite(model_builder.get(), root, root);
+      model_builder->EndTree();
     }
 
     // commit the model
@@ -894,7 +911,7 @@ class TreeliteFilTest : public BaseFilTest<real_t> {
     params.pforest_shape_str = this->ps.print_forest_shape ? &forest_shape_str : nullptr;
     params.precision         = fil::PRECISION_NATIVE;
     fil::forest_variant forest_variant;
-    fil::from_treelite(this->handle, &forest_variant, (ModelHandle)model.get(), &params);
+    fil::from_treelite(this->handle, &forest_variant, (TreeliteModelHandle)model.get(), &params);
     *pforest = std::get<fil::forest_t<real_t>>(forest_variant);
     this->handle.sync_stream(stream);
     if (this->ps.print_forest_shape) {

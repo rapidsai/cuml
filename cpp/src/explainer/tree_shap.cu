@@ -33,6 +33,9 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/memory.h>
+#include <treelite/enum/operator.h>
+#include <treelite/enum/task_type.h>
+#include <treelite/enum/tree_node_type.h>
 #include <treelite/tree.h>
 #include <type_traits>
 #include <variant>
@@ -109,11 +112,11 @@ template <bool is_device>
 using CatBitField = BitField<CatBitFieldStorageT, is_device>;
 using CatT        = std::uint32_t;
 
-template <typename ThresholdType>
+template <typename ThresholdT>
 struct SplitCondition {
   SplitCondition() = default;
-  SplitCondition(ThresholdType feature_lower_bound,
-                 ThresholdType feature_upper_bound,
+  SplitCondition(ThresholdT feature_lower_bound,
+                 ThresholdT feature_upper_bound,
                  bool is_missing_branch,
                  tl::Operator comparison_op,
                  CatBitField<false> categories)
@@ -134,8 +137,8 @@ struct SplitCondition {
   }
 
   // Lower and upper bounds on feature values flowing down this path
-  ThresholdType feature_lower_bound;
-  ThresholdType feature_upper_bound;
+  ThresholdT feature_lower_bound;
+  ThresholdT feature_upper_bound;
   bool is_missing_branch;
   // Comparison operator used in the test. For now only < (kLT) and <= (kLE)
   // are supported.
@@ -145,16 +148,16 @@ struct SplitCondition {
   CatBitField<true> d_categories;
 
   // Does this instance flow down this path?
-  __host__ __device__ bool EvaluateSplit(ThresholdType x) const
+  __host__ __device__ bool EvaluateSplit(ThresholdT x) const
   {
 #ifdef __CUDA_ARCH__
     constexpr bool is_device = true;
 #else  // __CUDA_ARCH__
     constexpr bool is_device = false;
 #endif
-    static_assert(std::is_floating_point<ThresholdType>::value, "x must be a floating point type");
+    static_assert(std::is_floating_point<ThresholdT>::value, "x must be a floating point type");
     auto max_representable_int =
-      static_cast<ThresholdType>(uint64_t(1) << std::numeric_limits<ThresholdType>::digits);
+      static_cast<ThresholdT>(uint64_t(1) << std::numeric_limits<ThresholdT>::digits);
     if (isnan(x)) { return is_missing_branch; }
     if constexpr (is_device) {
       if (d_categories.Size() != 0) {
@@ -200,12 +203,11 @@ struct SplitCondition {
     is_missing_branch = is_missing_branch && other.is_missing_branch;
   }
 
-  static_assert(std::is_same<ThresholdType, float>::value ||
-                  std::is_same<ThresholdType, double>::value,
-                "ThresholdType must be a float or double");
+  static_assert(std::is_same<ThresholdT, float>::value || std::is_same<ThresholdT, double>::value,
+                "ThresholdT must be a float or double");
 };
 
-template <typename ThresholdType, typename LeafType>
+template <typename ThresholdT, typename LeafT>
 struct CategoricalSplitCounter {
   int n_features;
   std::vector<CatT> n_categories;
@@ -219,12 +221,12 @@ struct CategoricalSplitCounter {
   {
   }
 
-  void node_handler(const tl::Tree<ThresholdType, LeafType>& tree, int, int parent_idx, int, float)
+  void node_handler(const tl::Tree<ThresholdT, LeafT>& tree, int, int parent_idx, int, float)
   {
     const auto split_index = tree.SplitIndex(parent_idx);
-    if (tree.SplitType(parent_idx) == tl::SplitFeatureType::kCategorical) {
+    if (tree.NodeType(parent_idx) == tl::TreeNodeType::kCategoricalTestNode) {
       CatT max_cat = 0;
-      for (CatT cat : tree.MatchingCategories(parent_idx)) {
+      for (CatT cat : tree.CategoryList(parent_idx)) {
         if (cat > max_cat) { max_cat = cat; }
       }
       n_categories[split_index] = std::max(n_categories[split_index], max_cat + 1);
@@ -232,7 +234,7 @@ struct CategoricalSplitCounter {
     feature_id.push_back(split_index);
   }
 
-  void root_handler(const tl::Tree<ThresholdType, LeafType>&, int, int, float)
+  void root_handler(const tl::Tree<ThresholdT, LeafT>&, int, int, float)
   {
     feature_id.push_back(-1);
   }
@@ -240,16 +242,16 @@ struct CategoricalSplitCounter {
   void new_path_handler() {}
 };
 
-template <typename ThresholdType, typename LeafType>
+template <typename ThresholdT, typename LeafT>
 struct PathSegmentExtractor {
-  using PathElementT = gpu_treeshap::PathElement<SplitCondition<ThresholdType>>;
+  using PathElementT = gpu_treeshap::PathElement<SplitCondition<ThresholdT>>;
   std::vector<PathElementT>& path_segments;
   std::size_t& path_idx;
   std::vector<CatBitFieldStorageT>& categorical_bitfields;
   const std::vector<std::size_t>& bitfield_segments;
   std::size_t path_segment_idx;
 
-  static constexpr ThresholdType inf{std::numeric_limits<ThresholdType>::infinity()};
+  static constexpr ThresholdT inf{std::numeric_limits<ThresholdT>::infinity()};
 
   PathSegmentExtractor(std::vector<PathElementT>& path_segments,
                        std::size_t& path_idx,
@@ -263,11 +265,8 @@ struct PathSegmentExtractor {
   {
   }
 
-  void node_handler(const tl::Tree<ThresholdType, LeafType>& tree,
-                    int child_idx,
-                    int parent_idx,
-                    int group_id,
-                    float v)
+  void node_handler(
+    const tl::Tree<ThresholdT, LeafT>& tree, int child_idx, int parent_idx, int group_id, float v)
   {
     double zero_fraction = 1.0;
     bool has_count_info  = false;
@@ -283,11 +282,11 @@ struct PathSegmentExtractor {
     // Encode the range of feature values that flow down this path
     bool is_left_path      = tree.LeftChild(parent_idx) == child_idx;
     bool is_missing_branch = tree.DefaultChild(parent_idx) == child_idx;
-    auto split_type        = tree.SplitType(parent_idx);
-    ThresholdType lower_bound, upper_bound;
+    auto node_type         = tree.NodeType(parent_idx);
+    ThresholdT lower_bound, upper_bound;
     tl::Operator comparison_op;
     CatBitField<false> categories;
-    if (split_type == tl::SplitFeatureType::kCategorical) {
+    if (node_type == tl::TreeNodeType::kCategoricalTestNode) {
       /* Create bit fields to store the list of categories associated with this path.
          The bit fields will be used to quickly decide whether a feature value should
          flow down down this path or not.
@@ -297,13 +296,13 @@ struct PathSegmentExtractor {
       categories = CatBitField<false>(raft::span<CatBitFieldStorageT, false>(
                                         categorical_bitfields.data(), categorical_bitfields.size())
                                         .subspan(bitfield_segments[path_segment_idx], n_bitfields));
-      for (CatT cat : tree.MatchingCategories(parent_idx)) {
+      for (CatT cat : tree.CategoryList(parent_idx)) {
         categories.Set(static_cast<std::size_t>(cat));
       }
       // If this path is not the path that's taken when the categorical test evaluates to be true,
       // then flip all the bits in the bit fields. This step is needed because we first built
       // the bit fields according to the list given in the categorical test.
-      bool use_right = tree.CategoriesListRightChild(parent_idx);
+      bool use_right = tree.CategoryListRightChild(parent_idx);
       if ((use_right && is_left_path) || (!use_right && !is_left_path)) {
         for (std::size_t i = bitfield_segments[path_segment_idx];
              i < bitfield_segments[path_segment_idx + 1];
@@ -315,16 +314,16 @@ struct PathSegmentExtractor {
       upper_bound   = inf;
       comparison_op = tl::Operator::kNone;
     } else {
-      if (split_type != tl::SplitFeatureType::kNumerical) {
+      if (node_type != tl::TreeNodeType::kNumericalTestNode) {
         // Assume: split is either numerical or categorical
-        RAFT_FAIL("Unexpected split type: %d", static_cast<int>(split_type));
+        RAFT_FAIL("Unexpected node type: %d", static_cast<int>(node_type));
       }
       categories    = CatBitField<false>{};
       lower_bound   = is_left_path ? -inf : tree.Threshold(parent_idx);
       upper_bound   = is_left_path ? tree.Threshold(parent_idx) : inf;
       comparison_op = tree.ComparisonOp(parent_idx);
     }
-    path_segments.push_back(gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
+    path_segments.push_back(gpu_treeshap::PathElement<SplitCondition<ThresholdT>>{
       path_idx,
       tree.SplitIndex(parent_idx),
       group_id,
@@ -334,14 +333,11 @@ struct PathSegmentExtractor {
     ++path_segment_idx;
   }
 
-  void root_handler(const tl::Tree<ThresholdType, LeafType>& tree,
-                    int child_idx,
-                    int group_id,
-                    float v)
+  void root_handler(const tl::Tree<ThresholdT, LeafT>& tree, int child_idx, int group_id, float v)
   {
     // Root node has feature -1
     auto comparison_op = tree.ComparisonOp(child_idx);
-    path_segments.push_back(gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
+    path_segments.push_back(gpu_treeshap::PathElement<SplitCondition<ThresholdT>>{
       path_idx, -1, group_id, SplitCondition{-inf, inf, false, comparison_op, {}}, 1.0, v});
     ++path_segment_idx;
   }
@@ -352,23 +348,21 @@ struct PathSegmentExtractor {
 };  // namespace
 namespace ML {
 namespace Explainer {
-template <typename ThresholdType>
+template <typename ThresholdT>
 class TreePathInfo {
  public:
   int num_tree;
   float global_bias;
   std::size_t num_groups = 1;
   tl::TaskType task_type;
-  tl::TaskParam task_param;
   bool average_tree_output;
-  thrust::device_vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> path_segments;
+  thrust::device_vector<gpu_treeshap::PathElement<SplitCondition<ThresholdT>>> path_segments;
   thrust::device_vector<CatBitFieldStorageT> categorical_bitfields;
   // bitfield_segments[I]: cumulative total count of all bit fields for path segments
   //                       0, 1, ..., I-1
 
-  static_assert(std::is_same<ThresholdType, float>::value ||
-                  std::is_same<ThresholdType, double>::value,
-                "ThresholdType must be a float or double");
+  static_assert(std::is_same<ThresholdT, float>::value || std::is_same<ThresholdT, double>::value,
+                "ThresholdT must be a float or double");
 };
 }  // namespace Explainer
 }  // namespace ML
@@ -540,8 +534,8 @@ namespace ML {
 namespace Explainer {
 // Traverse a path from the root node to a leaf node and call the handler functions for each node.
 // The fields group_id and v (leaf value) will be passed to the handler.
-template <typename ThresholdType, typename LeafType, typename PathHandler>
-void traverse_towards_leaf_node(const tl::Tree<ThresholdType, LeafType>& tree,
+template <typename ThresholdT, typename LeafT, typename PathHandler>
+void traverse_towards_leaf_node(const tl::Tree<ThresholdT, LeafT>& tree,
                                 int leaf_node_id,
                                 int group_id,
                                 float v,
@@ -559,8 +553,8 @@ void traverse_towards_leaf_node(const tl::Tree<ThresholdType, LeafType>& tree,
 }
 
 // Visit every path segments in a single tree and call handler functions for each segment.
-template <typename ThresholdType, typename LeafType, typename PathHandler>
-void visit_path_segments_in_tree(const std::vector<tl::Tree<ThresholdType, LeafType>>& tree_list,
+template <typename ThresholdT, typename LeafT, typename PathHandler>
+void visit_path_segments_in_tree(const std::vector<tl::Tree<ThresholdT, LeafT>>& tree_list,
                                  std::size_t tree_idx,
                                  bool use_vector_leaf,
                                  int num_groups,
@@ -568,7 +562,7 @@ void visit_path_segments_in_tree(const std::vector<tl::Tree<ThresholdType, LeafT
 {
   if (num_groups < 1) { RAFT_FAIL("num_groups must be at least 1"); }
 
-  const tl::Tree<ThresholdType, LeafType>& tree = tree_list[tree_idx];
+  const tl::Tree<ThresholdT, LeafT>& tree = tree_list[tree_idx];
 
   // Compute parent ID of each node
   std::vector<int> parent_id(tree.num_nodes, -1);
@@ -606,40 +600,38 @@ void visit_path_segments_in_tree(const std::vector<tl::Tree<ThresholdType, LeafT
 }
 
 // Visit every path segments in the whole tree ensemble model
-template <typename ThresholdType, typename LeafType, typename PathHandler>
-void visit_path_segments_in_model(const tl::ModelImpl<ThresholdType, LeafType>& model,
+template <typename ThresholdT, typename LeafT, typename PathHandler>
+void visit_path_segments_in_model(const tl::Model& model,
+                                  const tl::ModelPreset<ThresholdT, LeafT>& model_preset,
                                   PathHandler& path_handler)
 {
   int num_groups = 1;
   bool use_vector_leaf;
-  if (model.task_param.num_class > 1) { num_groups = model.task_param.num_class; }
-  if (model.task_type == tl::TaskType::kBinaryClfRegr ||
-      model.task_type == tl::TaskType::kMultiClfGrovePerClass) {
+  ASSERT(model.num_target == 1, "TreeExplainer currently does not support multi-target models");
+  if (model.num_class[0] > 1) { num_groups = model.num_class[0]; }
+  if (model.leaf_vector_shape[0] == 1 && model.leaf_vector_shape[1] == 1) {
     use_vector_leaf = false;
-  } else if (model.task_type == tl::TaskType::kMultiClfProbDistLeaf) {
-    use_vector_leaf = true;
   } else {
-    RAFT_FAIL("Unsupported task_type: %d", static_cast<int>(model.task_type));
+    use_vector_leaf = true;
   }
 
-  for (std::size_t tree_idx = 0; tree_idx < model.trees.size(); ++tree_idx) {
-    visit_path_segments_in_tree(model.trees, tree_idx, use_vector_leaf, num_groups, path_handler);
+  for (std::size_t tree_idx = 0; tree_idx < model_preset.trees.size(); ++tree_idx) {
+    visit_path_segments_in_tree(
+      model_preset.trees, tree_idx, use_vector_leaf, num_groups, path_handler);
   }
 }
 
 // Traverse a path from the root node to a leaf node and return the list of the path segments
 // Note: the path segments will have missing values in path_idx, group_id and v (leaf value).
 //       The caller is responsible for filling in these fields.
-template <typename ThresholdType, typename LeafType>
-std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> traverse_towards_leaf_node(
-  const tl::Tree<ThresholdType, LeafType>& tree,
-  int leaf_node_id,
-  const std::vector<int>& parent_id)
+template <typename ThresholdT, typename LeafT>
+std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdT>>> traverse_towards_leaf_node(
+  const tl::Tree<ThresholdT, LeafT>& tree, int leaf_node_id, const std::vector<int>& parent_id)
 {
-  std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> path_segments;
+  std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdT>>> path_segments;
   int child_idx              = leaf_node_id;
   int parent_idx             = parent_id[child_idx];
-  constexpr auto inf         = std::numeric_limits<ThresholdType>::infinity();
+  constexpr auto inf         = std::numeric_limits<ThresholdT>::infinity();
   tl::Operator comparison_op = tl::Operator::kNone;
   while (parent_idx != -1) {
     double zero_fraction = 1.0;
@@ -655,15 +647,15 @@ std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> traverse_t
     if (!has_count_info) { RAFT_FAIL("Tree model doesn't have data count information"); }
     // Encode the range of feature values that flow down this path
     bool is_left_path = tree.LeftChild(parent_idx) == child_idx;
-    if (tree.SplitType(parent_idx) == tl::SplitFeatureType::kCategorical) {
+    if (tree.NodeType(parent_idx) == tl::TreeNodeType::kCategoricalTestNode) {
       RAFT_FAIL(
         "Only trees with numerical splits are supported. "
         "Trees with categorical splits are not supported yet.");
     }
-    ThresholdType lower_bound = is_left_path ? -inf : tree.Threshold(parent_idx);
-    ThresholdType upper_bound = is_left_path ? tree.Threshold(parent_idx) : inf;
-    comparison_op             = tree.ComparisonOp(parent_idx);
-    path_segments.push_back(gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
+    ThresholdT lower_bound = is_left_path ? -inf : tree.Threshold(parent_idx);
+    ThresholdT upper_bound = is_left_path ? tree.Threshold(parent_idx) : inf;
+    comparison_op          = tree.ComparisonOp(parent_idx);
+    path_segments.push_back(gpu_treeshap::PathElement<SplitCondition<ThresholdT>>{
       ~std::size_t(0),
       tree.SplitIndex(parent_idx),
       -1,
@@ -676,31 +668,25 @@ std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> traverse_t
   // Root node has feature -1
   comparison_op = tree.ComparisonOp(child_idx);
   // Build temporary path segments with unknown path_idx, group_id and leaf value
-  path_segments.push_back(gpu_treeshap::PathElement<SplitCondition<ThresholdType>>{
-    ~std::size_t(0),
-    -1,
-    -1,
-    SplitCondition{-inf, inf, comparison_op},
-    1.0,
-    std::numeric_limits<float>::quiet_NaN()});
+  path_segments.push_back(
+    gpu_treeshap::PathElement<SplitCondition<ThresholdT>>{~std::size_t(0),
+                                                          -1,
+                                                          -1,
+                                                          SplitCondition{-inf, inf, comparison_op},
+                                                          1.0,
+                                                          std::numeric_limits<float>::quiet_NaN()});
   return path_segments;
 }
 
-template <typename ThresholdType, typename LeafType>
-TreePathHandle extract_path_info_impl(const tl::ModelImpl<ThresholdType, LeafType>& model)
+template <typename ThresholdT, typename LeafT>
+TreePathHandle extract_path_info_impl(const tl::Model& model,
+                                      const tl::ModelPreset<ThresholdT, LeafT>& model_preset)
 {
-  if (!std::is_same<ThresholdType, LeafType>::value) {
-    RAFT_FAIL("ThresholdType and LeafType must be identical");
-  }
-  if (!std::is_same<ThresholdType, float>::value && !std::is_same<ThresholdType, double>::value) {
-    RAFT_FAIL("ThresholdType must be either float32 or float64");
-  }
-
-  auto path_info = std::make_shared<TreePathInfo<ThresholdType>>();
+  auto path_info = std::make_shared<TreePathInfo<ThresholdT>>();
 
   /* 1. Scan the model for categorical splits and pre-allocate bit fields. */
-  CategoricalSplitCounter<ThresholdType, LeafType> cat_counter{model.num_feature};
-  visit_path_segments_in_model(model, cat_counter);
+  CategoricalSplitCounter<ThresholdT, LeafT> cat_counter{model.num_feature};
+  visit_path_segments_in_model(model, model_preset, cat_counter);
 
   std::size_t n_path_segments = cat_counter.feature_id.size();
   std::vector<std::size_t> n_bitfields(n_path_segments, 0);
@@ -723,10 +709,10 @@ TreePathHandle extract_path_info_impl(const tl::ModelImpl<ThresholdType, LeafTyp
   // Each path segment will have path_idx field, which uniquely identifies the path to which the
   // segment belongs.
   std::size_t path_idx = 0;
-  std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdType>>> path_segments;
-  PathSegmentExtractor<ThresholdType, LeafType> path_extractor{
+  std::vector<gpu_treeshap::PathElement<SplitCondition<ThresholdT>>> path_segments;
+  PathSegmentExtractor<ThresholdT, LeafT> path_extractor{
     path_segments, path_idx, categorical_bitfields, bitfield_segments};
-  visit_path_segments_in_model(model, path_extractor);
+  visit_path_segments_in_model(model, model_preset, path_extractor);
 
   // Marshall bit fields to GPU memory
   path_info->categorical_bitfields = thrust::device_vector<CatBitFieldStorageT>(
@@ -741,26 +727,22 @@ TreePathHandle extract_path_info_impl(const tl::ModelImpl<ThresholdType, LeafTyp
   }
 
   path_info->path_segments       = path_segments;
-  path_info->global_bias         = model.param.global_bias;
+  path_info->global_bias         = model.base_scores[0];
   path_info->task_type           = model.task_type;
-  path_info->task_param          = model.task_param;
   path_info->average_tree_output = model.average_tree_output;
-  path_info->num_tree            = static_cast<int>(model.trees.size());
-  if (path_info->task_param.num_class > 1) {
-    path_info->num_groups = static_cast<std::size_t>(path_info->task_param.num_class);
-  }
+  path_info->num_tree            = static_cast<int>(model_preset.trees.size());
+  path_info->num_groups          = static_cast<std::size_t>(model.num_class[0]);
 
   return path_info;
 }
 
-TreePathHandle extract_path_info(ModelHandle model)
+TreePathHandle extract_path_info(TreeliteModelHandle model)
 {
   const tl::Model& model_ref = *static_cast<tl::Model*>(model);
 
-  return model_ref.Dispatch([&](const auto& model_inner) {
-    // model_inner is of the concrete type tl::ModelImpl<threshold_t, leaf_t>
-    return extract_path_info_impl(model_inner);
-  });
+  return std::visit(
+    [&](auto&& model_preset) { return extract_path_info_impl(model_ref, model_preset); },
+    model_ref.variant_);
 }
 
 template <typename VariantT, typename... Targs>

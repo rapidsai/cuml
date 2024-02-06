@@ -37,7 +37,7 @@ namespace filex {
 struct Params {
   DatasetParams data;
   RegressionParams blobs;
-  ModelHandle model;
+  TreeliteModelHandle model;
   ML::fil::storage_type_t storage;
   bool use_experimental;
   RF_params rf;
@@ -220,7 +220,7 @@ class FILEX : public RegressionFixture<float> {
 
  private:
   ML::fil::forest_t<float> forest;
-  ModelHandle model;
+  TreeliteModelHandle model;
   Params p_rest;
 };
 

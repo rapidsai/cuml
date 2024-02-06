@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,11 +20,16 @@
 #include <raft/linalg/multiply.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <glm/qn/mg/standardization.cuh>
+
 #include <glm/qn/glm_base.cuh>
 #include <glm/qn/glm_logistic.cuh>
 #include <glm/qn/glm_regularizer.cuh>
 #include <glm/qn/qn_solvers.cuh>
 #include <glm/qn/qn_util.cuh>
+
+#include <iostream>
+#include <vector>
 
 namespace ML {
 namespace GLM {
@@ -91,6 +96,7 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
   int rank;
   int64_t n_samples;
   int n_ranks;
+  const Standardizer<T>* stder_p;
 
   GLMWithDataMG(raft::handle_t const& handle,
                 int rank,
@@ -99,13 +105,15 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
                 GLMObjective* obj,
                 const SimpleMat<T>& X,
                 const SimpleVec<T>& y,
-                SimpleDenseMat<T>& Z)
+                SimpleDenseMat<T>& Z,
+                const Standardizer<T>* stder_p = NULL)
     : ML::GLM::detail::GLMWithData<T, GLMObjective>(obj, X, y, Z)
   {
     this->handle_p  = &handle;
     this->rank      = rank;
     this->n_ranks   = n_ranks;
     this->n_samples = n_samples;
+    this->stder_p   = stder_p;
   }
 
   inline T operator()(const SimpleVec<T>& wFlat,
@@ -132,6 +140,26 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
       reg->reg_grad(dev_scalar, G, W, lossFunc->fit_intercept, stream);
       raft::update_host(&reg_host, dev_scalar, 1, stream);
       raft::resource::sync_stream(*(this->handle_p));
+    }
+
+    // if standardization is True
+    std::vector<T> wFlatOrigin(this->C * this->dims);
+    if (stder_p != NULL) {
+      raft::copy(wFlatOrigin.data(), wFlat.data, this->C * this->dims, stream);
+
+      stder_p->adapt_model_for_linearFwd(
+        *handle_p, wFlat.data, this->C, (this->X)->n, (this->X)->n != G.n);
+
+      // scale reg part of the gradient for the upcoming adapt_gradient_for_linearBwd
+      raft::linalg::matrixVectorOp(G.data,
+                                   G.data,
+                                   stder_p->std.data,
+                                   stder_p->std.len,
+                                   G.m,
+                                   false,
+                                   true,
+                                   raft::mul_op(),
+                                   stream);
     }
 
     // apply linearFwd, getLossAndDz, linearBwd
@@ -162,6 +190,12 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
 
     communicator.allreduce(G.data, G.data, this->C * this->dims, raft::comms::op_t::SUM, stream);
     communicator.sync_stream(stream);
+
+    if (stder_p != NULL) {
+      stder_p->adapt_gradient_for_linearBwd(
+        *handle_p, G, *(this->Z), (this->X)->n != G.n, n_samples);
+      raft::copy(wFlat.data, wFlatOrigin.data(), this->C * this->dims, stream);
+    }
 
     T loss_host;
     raft::update_host(&loss_host, dev_scalar, 1, stream);
