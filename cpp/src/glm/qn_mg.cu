@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #include "qn/mg/qn_mg.cuh"
+#include "qn/mg/standardization.cuh"
 #include "qn/simple_mat/dense.hpp"
 #include <cuda_runtime.h>
 #include <cuml/common/logger.hpp>
@@ -25,11 +26,22 @@
 #include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/label/classlabels.cuh>
+#include <raft/linalg/divide.cuh>
+#include <raft/linalg/matrix_vector.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/sqrt.cuh>
+#include <raft/matrix/math.hpp>
+#include <raft/stats/mean_center.cuh>
+#include <raft/stats/stddev.cuh>
+#include <raft/stats/sum.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <vector>
 using namespace MLCommon;
 
-#include <iostream>
+#include <cumlprims/opg/matrix/math.hpp>
+#include <cumlprims/opg/stats/mean.hpp>
+#include <cumlprims/opg/stats/mean_center.hpp>
+#include <cumlprims/opg/stats/stddev.hpp>
 
 namespace ML {
 namespace GLM {
@@ -81,6 +93,7 @@ void qnFit_impl(const raft::handle_t& handle,
                 const qn_params& pams,
                 T* X,
                 bool X_col_major,
+                bool standardization,
                 T* y,
                 size_t N,
                 size_t D,
@@ -94,6 +107,10 @@ void qnFit_impl(const raft::handle_t& handle,
 {
   auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
 
+  rmm::device_uvector<T> mean_std_buff(4 * D, handle.get_stream());
+  Standardizer<T>* stder = NULL;
+  if (standardization) stder = new Standardizer(handle, X_simple, n_samples, mean_std_buff);
+
   ML::GLM::opg::qn_fit_x_mg(handle,
                             pams,
                             X_simple,
@@ -104,7 +121,15 @@ void qnFit_impl(const raft::handle_t& handle,
                             num_iters,
                             n_samples,
                             rank,
-                            n_ranks);  // ignore sample_weight, svr_eps
+                            n_ranks,
+                            stder);  // ignore sample_weight, svr_eps
+
+  if (standardization) {
+    int n_targets = ML::GLM::detail::qn_is_classification(pams.loss) && C == 2 ? 1 : C;
+    stder->adapt_model_for_linearFwd(handle, w0, n_targets, D, pams.fit_intercept);
+    delete stder;
+  }
+
   return;
 }
 
@@ -116,6 +141,7 @@ void qnFit_impl(raft::handle_t& handle,
                 T* coef,
                 const qn_params& pams,
                 bool X_col_major,
+                bool standardization,
                 int n_classes,
                 T* f,
                 int* num_iters)
@@ -132,10 +158,13 @@ void qnFit_impl(raft::handle_t& handle,
     n_samples += p->size;
   }
 
+  auto stream = handle.get_stream();
+
   qnFit_impl<T>(handle,
                 pams,
                 data_X->ptr,
                 X_col_major,
+                standardization,
                 data_y->ptr,
                 input_desc.totalElementsOwnedBy(input_desc.rank),
                 input_desc.N,
@@ -166,12 +195,22 @@ void qnFit(raft::handle_t& handle,
            float* coef,
            const qn_params& pams,
            bool X_col_major,
+           bool standardization,
            int n_classes,
            float* f,
            int* num_iters)
 {
-  qnFit_impl<float>(
-    handle, input_data, input_desc, labels, coef, pams, X_col_major, n_classes, f, num_iters);
+  qnFit_impl<float>(handle,
+                    input_data,
+                    input_desc,
+                    labels,
+                    coef,
+                    pams,
+                    X_col_major,
+                    standardization,
+                    n_classes,
+                    f,
+                    num_iters);
 }
 
 template <typename T, typename I>
@@ -181,6 +220,7 @@ void qnFitSparse_impl(const raft::handle_t& handle,
                       I* X_cols,
                       I* X_row_ids,
                       I X_nnz,
+                      bool standardization,
                       T* y,
                       size_t N,
                       size_t D,
@@ -192,7 +232,12 @@ void qnFitSparse_impl(const raft::handle_t& handle,
                       int rank,
                       int n_ranks)
 {
+  RAFT_EXPECTS(standardization == false, "standardization for sparse vectors is not supported yet");
+
   auto X_simple = SimpleSparseMat<T>(X_values, X_cols, X_row_ids, X_nnz, N, D);
+
+  rmm::device_uvector<T> mean_std_buff(4 * D, handle.get_stream());
+  Standardizer<T>* stder = NULL;
 
   ML::GLM::opg::qn_fit_x_mg(handle,
                             pams,
@@ -204,7 +249,15 @@ void qnFitSparse_impl(const raft::handle_t& handle,
                             num_iters,
                             n_samples,
                             rank,
-                            n_ranks);  // ignore sample_weight, svr_eps
+                            n_ranks,
+                            stder);  // ignore sample_weight, svr_eps
+
+  if (standardization) {
+    int n_targets = ML::GLM::detail::qn_is_classification(pams.loss) && C == 2 ? 1 : C;
+    stder->adapt_model_for_linearFwd(handle, w0, n_targets, D, pams.fit_intercept);
+    delete stder;
+  }
+
   return;
 }
 
@@ -217,6 +270,7 @@ void qnFitSparse(raft::handle_t& handle,
                  std::vector<Matrix::Data<float>*>& labels,
                  float* coef,
                  const qn_params& pams,
+                 bool standardization,
                  int n_classes,
                  float* f,
                  int* num_iters)
@@ -233,6 +287,7 @@ void qnFitSparse(raft::handle_t& handle,
                                input_cols,
                                input_row_ids,
                                X_nnz,
+                               standardization,
                                data_y->ptr,
                                input_desc.totalElementsOwnedBy(input_desc.rank),
                                input_desc.N,
