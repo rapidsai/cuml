@@ -41,7 +41,7 @@ export GTEST_OUTPUT=xml:${RAPIDS_TESTS_DIR}/
 
 pushd $CONDA_PREFIX/bin/gtests/libcuml/
 rapids-logger "Run libcuml gtests"
-ctest -j9 --output-on-failure
+ctest -j9 --output-on-failure --no-tests=error
 popd
 
 rapids-logger "Test script exiting with value: $EXITCODE"
