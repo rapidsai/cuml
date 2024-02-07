@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -787,6 +787,7 @@ class TreeliteFilTest : public BaseFilTest<real_t> {
         case fil::leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES:
         case fil::leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES: break;
       }
+      builder->EndNode();
     } else {
       int left          = root + 2 * (node - root) + 1;
       int right         = root + 2 * (node - root) + 2;
@@ -806,8 +807,6 @@ class TreeliteFilTest : public BaseFilTest<real_t> {
           }
         }
       }
-      node_to_treelite(builder, root, left);
-      node_to_treelite(builder, root, right);
       // TODO(levsnv): remove workaround once confirmed to work with empty category lists in
       // Treelite
       if (!right_categories.empty() && dense_node.is_categorical()) {
@@ -818,8 +817,10 @@ class TreeliteFilTest : public BaseFilTest<real_t> {
         adjust_threshold_to_treelite(&threshold, &left, &right, &default_left, this->ps.op);
         builder->NumericalTest(dense_node.fid(), threshold, default_left, this->ps.op, left, right);
       }
+      builder->EndNode();
+      node_to_treelite(builder, root, left);
+      node_to_treelite(builder, root, right);
     }
-    builder->EndNode();
   }
 
   void init_forest_impl(fil::forest_t<real_t>* pforest, fil::storage_type_t storage_type)
@@ -875,7 +876,7 @@ class TreeliteFilTest : public BaseFilTest<real_t> {
         postprocessor_name = "sigmoid";
       }
     } else if (this->ps.leaf_algo != fil::leaf_algo_t::FLOAT_UNARY_BINARY) {
-      postprocessor_name = "softmax";
+      postprocessor_name = "identity_multiclass";
       this->ps.output    = fil::output_t(this->ps.output | fil::output_t::SOFTMAX);
     } else if (this->ps.leaf_algo == GROVE_PER_CLASS) {
       postprocessor_name = "identity_multiclass";
