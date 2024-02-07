@@ -3,8 +3,7 @@
 
 set -euo pipefail
 
-if [ -d "${INSTALL_PREFIX:-${CONDA_PREFIX:-/usr}}/bin/gtests/libcuml/" ]; then
-    # Support customizing the ctests' install location
-    cd "${INSTALL_PREFIX:-${CONDA_PREFIX:-/usr}}/bin/gtests/libcuml/"
-    ctest --output-on-failure "$@"
-fi
+# Support customizing the ctests' install location
+cd "${INSTALL_PREFIX:-${CONDA_PREFIX:-/usr}}/bin/gtests/libcuml/"
+
+ctest --output-on-failure "$@"
