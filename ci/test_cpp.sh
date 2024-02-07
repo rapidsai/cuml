@@ -1,7 +1,10 @@
 #!/bin/bash
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
+
+# Support invoking test_cpp.sh outside the script directory
+cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
 . /opt/conda/etc/profile.d/conda.sh
 
@@ -32,13 +35,10 @@ rapids-mamba-retry install \
 rapids-logger "Check GPU usage"
 nvidia-smi
 
-EXITCODE=0
-trap "EXITCODE=1" ERR
-set +e
-
-# Run libcuml gtests from libcuml-tests package
 rapids-logger "Run gtests"
-ctest -j9 --output-on-failure
+export GTEST_OUTPUT=xml:${RAPIDS_TESTS_DIR}/
+# Run libcuml gtests from libcuml-tests package
+./ci/run_ctests.sh -j9 && EXITCODE=$? || EXITCODE=$?;
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
