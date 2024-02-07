@@ -160,8 +160,9 @@ def create_csr_matrix_from_count_df(
 
     doc_token_counts = count_df["doc_id"].value_counts().reset_index()
     del count_df
+
     doc_token_counts = doc_token_counts.rename(
-        {"doc_id": "token_counts", "index": "doc_id"}, axis=1
+        {"count": "token_counts"}, axis=1
     ).sort_values(by="doc_id")
 
     token_counts = _insert_zeros(
