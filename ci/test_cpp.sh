@@ -38,7 +38,7 @@ set +e
 
 # Run libcuml gtests from libcuml-tests package
 rapids-logger "Run gtests"
-ctest -j9 --output-on-failure
+ctest -j9 --output-on-failure --no-tests=error
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
