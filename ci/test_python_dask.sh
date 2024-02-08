@@ -17,7 +17,10 @@ rapids-logger "pytest cuml-dask"
   --cov-config=../../../.coveragerc \
   --cov=cuml_dask \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-dask-coverage.xml" \
-  --cov-report=term
+  --cov-report=term \
+  -s \
+  test_dask_aaa_bug.py
+#  .
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}

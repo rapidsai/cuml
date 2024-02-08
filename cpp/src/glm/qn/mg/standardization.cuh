@@ -34,6 +34,13 @@
 #include <glm/qn/simple_mat/sparse.hpp>
 
 #include <vector>
+#include <cuml/common/logger.hpp>
+#include <raft/core/device_mdspan.hpp>
+#include <raft/matrix/init.cuh>
+
+#include <raft/core/device_mdarray.hpp>
+
+#include <raft/util/cudart_utils.hpp>
 
 namespace ML {
 namespace GLM {
@@ -64,6 +71,101 @@ void mean_stddev(const raft::handle_t& handle,
   raft::linalg::multiplyScalar(stddev_vector, stddev_vector, weight, D, stream);
   comm.allreduce(stddev_vector, stddev_vector, D, raft::comms::op_t::SUM, stream);
   comm.sync_stream(stream);
+
+  raft::linalg::sqrt(stddev_vector, stddev_vector, D, handle.get_stream());
+}
+
+template <typename T>
+void mean_stddev(const raft::handle_t& handle,
+                 const SimpleSparseMat<T>& X,
+                 int n_samples,
+                 T* mean_vector,
+                 T* stddev_vector)
+{
+  cudaDeviceSynchronize();
+  int D        = X.n;
+  int num_rows = X.m;
+  auto stream  = handle.get_stream();
+  auto& comm   = handle.get_comms();
+  SimpleDenseMat<T> mean_mat(mean_vector, 1, D);
+
+  // calculate mean
+  rmm::device_uvector<T> ones(num_rows, stream);
+  auto ones_view = raft::make_device_vector_view(ones.data(), num_rows);
+  raft::matrix::fill(handle, ones_view, T(1.0));
+  cudaDeviceSynchronize();
+
+  SimpleDenseMat<T> ones_mat(ones.data(), 1, num_rows);
+  X.gemmb(handle, 1., ones_mat, false, false, 0., mean_mat, stream);
+
+  T weight = T(1) / T(n_samples);
+  raft::linalg::multiplyScalar(mean_vector, mean_vector, weight, D, stream);
+  comm.allreduce(mean_vector, mean_vector, D, raft::comms::op_t::SUM, stream);
+  comm.sync_stream(stream);
+  cudaDeviceSynchronize();
+
+  // calculate stdev.S
+  SimpleDenseMat<T> stddev_mat(stddev_vector, 1, D);
+
+  ML::Logger::get().setLevel(6);
+  rmm::device_uvector<T> values_copy(X.nnz, stream);
+  cudaDeviceSynchronize();
+
+  CUML_LOG_DEBUG("sparkdebug start copying X.values %p to values_copy %p with X.nnz: %d",
+                 X.values,
+                 values_copy.data(),
+                 X.nnz);
+  raft::copy(values_copy.data(), X.values, X.nnz, stream);
+  cudaDeviceSynchronize();
+  CUML_LOG_DEBUG("sparkdebug finished copying X.values with X.nnz: %d", X.nnz);
+
+  cudaMemset(stddev_vector, T(0.), D);
+  auto log_stddev_vector = raft::arr2Str(stddev_vector, D, "", stream);
+  cudaDeviceSynchronize();
+  CUML_LOG_DEBUG("sparkdebug memsets and gets stddev_vector: %s", log_stddev_vector.c_str());
+
+  auto square_op = [] __device__(const T a) { return a * a; };
+  raft::linalg::unaryOp(X.values, X.values, X.nnz, square_op, stream);
+  cudaDeviceSynchronize();
+  CUML_LOG_DEBUG("sparkdebug finished unaryOp with X.nnz: %d", X.nnz);
+
+  CUML_LOG_DEBUG("sparkdebug starts X.gemmb with X.m: %d and X.n: %d", X.m, X.n);
+  X.gemmb(handle, T(1.), ones_mat, false, false, T(0.), stddev_mat, stream);
+  cudaDeviceSynchronize();
+  CUML_LOG_DEBUG("sparkdebug finished X.gemmb with X.nnz: %d", X.nnz);
+
+  log_stddev_vector = raft::arr2Str(stddev_vector, D, "", stream);
+  cudaDeviceSynchronize();
+  CUML_LOG_DEBUG("sparkdebug gets stddev_vector: %s", log_stddev_vector.c_str());
+
+  CUML_LOG_DEBUG(
+    "sparkdebug finished copying back to X.values %p from values_copy %p with X.nnz: %d",
+    X.values,
+    values_copy.data(),
+    X.nnz);
+  raft::copy(X.values, values_copy.data(), X.nnz, stream);
+  cudaDeviceSynchronize();
+  CUML_LOG_DEBUG("sparkdebug finished copying back to X.values with X.nnz: %d", X.nnz);
+
+  weight = n_samples < 1 ? T(0) : T(1) / T(n_samples - 1);
+
+  log_stddev_vector = raft::arr2Str(stddev_vector, D, "", stream);
+  CUML_LOG_DEBUG("sparkdebug starts aggregating stddev: %s", log_stddev_vector.c_str());
+
+  raft::linalg::multiplyScalar(stddev_vector, stddev_vector, weight, D, stream);
+  cudaDeviceSynchronize();
+  log_stddev_vector = raft::arr2Str(stddev_vector, D, "", stream);
+  CUML_LOG_DEBUG("sparkdebug finished multiplyScalar stddev: %s", log_stddev_vector.c_str());
+
+  comm.allreduce(stddev_vector, stddev_vector, D, raft::comms::op_t::SUM, stream);
+  comm.sync_stream(stream);
+  cudaDeviceSynchronize();
+  log_stddev_vector = raft::arr2Str(stddev_vector, D, "", stream);
+  CUML_LOG_DEBUG("sparkdebug finished allreduce stddev_Vector: %s", log_stddev_vector.c_str());
+
+  weight          = n_samples * weight;
+  auto submean_op = [weight] __device__(const T a, const T b) { return a - b * b * weight; };
+  raft::linalg::binaryOp(stddev_vector, stddev_vector, mean_vector, D, submean_op, stream);
 
   raft::linalg::sqrt(stddev_vector, stddev_vector, D, handle.get_stream());
 }
@@ -100,6 +202,28 @@ struct Standardizer {
 
     mean_stddev(handle, X, n_samples, mean.data, std.data);
 
+    raft::linalg::unaryOp(std_inv.data, std.data, D, inverse_op(), stream);
+
+    // scale mean by the standard deviation
+    raft::linalg::binaryOp(scaled_mean.data, std_inv.data, mean.data, D, raft::mul_op(), stream);
+  }
+
+  Standardizer(const raft::handle_t& handle,
+               const SimpleSparseMat<T>& X,
+               int n_samples,
+               rmm::device_uvector<T>& mean_std_buff)
+  {
+    int D = X.n;
+    ASSERT(mean_std_buff.size() == 4 * D, "buff size must be four times the dimension");
+
+    auto stream = handle.get_stream();
+
+    mean.reset(mean_std_buff.data(), D);
+    std.reset(mean_std_buff.data() + D, D);
+    std_inv.reset(mean_std_buff.data() + 2 * D, D);
+    scaled_mean.reset(mean_std_buff.data() + 3 * D, D);
+
+    mean_stddev(handle, X, n_samples, mean.data, std.data);
     raft::linalg::unaryOp(std_inv.data, std.data, D, inverse_op(), stream);
 
     // scale mean by the standard deviation

@@ -238,12 +238,12 @@ void qnFitSparse_impl(const raft::handle_t& handle,
                       int rank,
                       int n_ranks)
 {
-  RAFT_EXPECTS(standardization == false, "standardization for sparse vectors is not supported yet");
-
   auto X_simple = SimpleSparseMat<T>(X_values, X_cols, X_row_ids, X_nnz, N, D);
 
   rmm::device_uvector<T> mean_std_buff(4 * D, handle.get_stream());
   Standardizer<T>* stder = NULL;
+
+  if (standardization) stder = new Standardizer(handle, X_simple, n_samples, mean_std_buff);
 
   ML::GLM::opg::qn_fit_x_mg(handle,
                             pams,
