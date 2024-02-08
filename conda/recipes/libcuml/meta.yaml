@@ -86,12 +86,18 @@ outputs:
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }}
+        {% else %}
+        - {{ compiler('cuda') }}
+        - cuda-cudart-dev
         {% endif %}
     requirements:
       build:
         - cmake {{ cmake_version }}
       host:
         - cuda-version ={{ cuda_version }}
+        {% if cuda_major != "11" %}
+        - cuda-cudart-dev
+        {% endif %}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
@@ -102,6 +108,7 @@ outputs:
         - libcusolver {{ cuda11_libcusolver_run_version }}
         - libcusparse {{ cuda11_libcusparse_run_version }}
         {% else %}
+        - cuda-cudart
         - libcublas
         - libcufft
         - libcurand
@@ -125,14 +132,24 @@ outputs:
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }}
+        {% else %}
+        - {{ compiler('cuda') }}
+        - cuda-cudart-dev
         {% endif %}
     requirements:
       build:
         - cmake {{ cmake_version }}
+      host:
+        - cuda-version ={{ cuda_version }}
+        {% if cuda_major != "11" %}
+        - cuda-cudart-dev
+        {% endif %}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
+        {% else %}
+        - cuda-cudart
         {% endif %}
         - {{ pin_subpackage('libcuml', exact=True) }}
         - gtest {{ gtest_version }}

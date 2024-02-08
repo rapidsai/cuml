@@ -35,6 +35,9 @@ build:
   ignore_run_exports_from:
     {% if cuda_major == "11" %}
     - {{ compiler('cuda11') }}
+    {% else %}
+    - {{ compiler('cuda') }}
+    - cuda-cudart-dev
     {% endif %}
 
 requirements:
@@ -53,9 +56,10 @@ requirements:
   host:
     - cuda-version ={{ cuda_version }}
     {% if cuda_major == "11" %}
-    - cuda-python >=11.7.1,<12.0a0
     - cudatoolkit
+    - cuda-python >=11.7.1,<12.0a0
     {% else %}
+    - cuda-cudart-dev
     - cuda-python >=12.0,<13.0a0
     {% endif %}
     - cudf ={{ minor_version }}
@@ -72,6 +76,8 @@ requirements:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
     - cudatoolkit
+    {% else %}
+    - cuda-cudart
     {% endif %}
     - cudf ={{ minor_version }}
     - cupy >=12.0.0
