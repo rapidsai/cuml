@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,17 +25,19 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <cuml/common/utils.hpp>
+
 #include "hw_utils.cuh"
 
 // optimize, maybe im2col ?
 // https://github.com/rapidsai/cuml/issues/891
 template <typename Dtype>
-__global__ void conv1d_kernel(const Dtype* input,
-                              int batch_size,
-                              const Dtype* filter,
-                              int filter_size,
-                              Dtype* output,
-                              int output_size)
+CUML_KERNEL void conv1d_kernel(const Dtype* input,
+                               int batch_size,
+                               const Dtype* filter,
+                               int filter_size,
+                               Dtype* output,
+                               int output_size)
 {
   const int tid = GET_TID;
   if (tid < batch_size) {
@@ -67,13 +69,13 @@ void conv1d(const raft::handle_t& handle,
 
 // https://github.com/rapidsai/cuml/issues/891
 template <typename Dtype>
-__global__ void season_mean_kernel(const Dtype* season,
-                                   int len,
-                                   int batch_size,
-                                   Dtype* start_season,
-                                   int frequency,
-                                   int half_filter_size,
-                                   bool ADDITIVE_KERNEL)
+CUML_KERNEL void season_mean_kernel(const Dtype* season,
+                                    int len,
+                                    int batch_size,
+                                    Dtype* start_season,
+                                    int frequency,
+                                    int half_filter_size,
+                                    bool ADDITIVE_KERNEL)
 {
   int tid = GET_TID;
   if (tid < batch_size) {
@@ -119,7 +121,7 @@ void season_mean(const raft::handle_t& handle,
 }
 
 template <typename Dtype>
-__global__ void RinvKernel(const Dtype* A, Dtype* Rinv, int trend_len)
+CUML_KERNEL void RinvKernel(const Dtype* A, Dtype* Rinv, int trend_len)
 {
   // Inverse of R (2x2 upper triangular matrix)
   int tid = GET_TID;
@@ -134,7 +136,7 @@ __global__ void RinvKernel(const Dtype* A, Dtype* Rinv, int trend_len)
 }
 
 template <typename Dtype>
-__global__ void batched_ls_solver_kernel(
+CUML_KERNEL void batched_ls_solver_kernel(
   const Dtype* B, const Dtype* rq, int batch_size, int len, Dtype* level, Dtype* trend)
 {
   int tid = GET_TID;

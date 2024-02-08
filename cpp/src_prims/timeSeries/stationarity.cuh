@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,13 +89,13 @@ static inline dim3 choose_block_dims(IdxT batch_size)
  * @param[in]   coeff_b      Part of the calculation for w(k)=a*k+b
  */
 template <typename DataT, typename IdxT>
-static __global__ void s2B_accumulation_kernel(DataT* accumulator,
-                                               const DataT* data,
-                                               IdxT lags,
-                                               IdxT batch_size,
-                                               IdxT n_obs,
-                                               DataT coeff_a,
-                                               DataT coeff_b)
+CUML_KERNEL void s2B_accumulation_kernel(DataT* accumulator,
+                                         const DataT* data,
+                                         IdxT lags,
+                                         IdxT batch_size,
+                                         IdxT n_obs,
+                                         DataT coeff_a,
+                                         DataT coeff_b)
 {
   IdxT sample_idx = blockIdx.x * blockDim.x + threadIdx.x;
   IdxT batch_idx  = blockIdx.y * blockDim.y + threadIdx.y;
@@ -129,13 +129,13 @@ static __global__ void s2B_accumulation_kernel(DataT* accumulator,
  *                              considered stationary
  */
 template <typename DataT, typename IdxT>
-static __global__ void kpss_stationarity_check_kernel(bool* results,
-                                                      const DataT* s2A,
-                                                      const DataT* s2B,
-                                                      const DataT* eta,
-                                                      IdxT batch_size,
-                                                      DataT n_obs_f,
-                                                      DataT pval_threshold)
+CUML_KERNEL void kpss_stationarity_check_kernel(bool* results,
+                                                const DataT* s2A,
+                                                const DataT* s2B,
+                                                const DataT* eta,
+                                                IdxT batch_size,
+                                                DataT n_obs_f,
+                                                DataT pval_threshold)
 {
   // Table 1, Kwiatkowski 1992
   const DataT crit_vals[4] = {0.347, 0.463, 0.574, 0.739};

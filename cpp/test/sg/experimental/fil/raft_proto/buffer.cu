@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #include <cuda_runtime_api.h>
+#include <cuml/common/utils.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/cuda_check.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
@@ -25,7 +26,7 @@
 
 namespace raft_proto {
 
-__global__ void check_buffer_access(int* buf)
+CUML_KERNEL void check_buffer_access(int* buf)
 {
   if (buf[0] == 1) { buf[0] = 4; }
   if (buf[1] == 2) { buf[1] = 5; }

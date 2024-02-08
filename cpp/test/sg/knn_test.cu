@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,8 +27,8 @@
 
 #include <cuml/datasets/make_blobs.hpp>
 
+#include <cuml/common/utils.hpp>
 #include <cuml/neighbors/knn.hpp>
-
 namespace ML {
 
 using namespace raft::random;
@@ -96,14 +96,14 @@ void create_index_parts(raft::handle_t& handle,
   }
 }
 
-__global__ void to_float(float* out, int* in, int size)
+CUML_KERNEL void to_float(float* out, int* in, int size)
 {
   int element = threadIdx.x + blockDim.x * blockIdx.x;
   if (element >= size) return;
   out[element] = float(in[element]);
 }
 
-__global__ void build_actual_output(
+CUML_KERNEL void build_actual_output(
   int* output, int n_rows, int k, const int* idx_labels, const int64_t* indices)
 {
   int element = threadIdx.x + blockDim.x * blockIdx.x;
@@ -113,7 +113,7 @@ __global__ void build_actual_output(
   output[element] = idx_labels[ind];
 }
 
-__global__ void build_expected_output(int* output, int n_rows, int k, const int* labels)
+CUML_KERNEL void build_expected_output(int* output, int n_rows, int k, const int* labels)
 {
   int row = threadIdx.x + blockDim.x * blockIdx.x;
   if (row >= n_rows) return;

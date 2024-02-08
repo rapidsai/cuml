@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 
 #include <common/nvtx.hpp>
 #include <cublas_v2.h>
+#include <cuml/common/utils.hpp>
 #include <cuml/linear_model/glm.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
@@ -60,7 +61,7 @@ inline int narrowDown(std::size_t n)
 
 /** The cuda kernel for classification. Call it via PredictClass::run(..). */
 template <typename T, int BX = 32, int BY = 8>
-__global__ void predictClass(
+CUML_KERNEL void predictClass(
   T* out, const T* z, const T* classes, const int nRows, const int coefCols)
 {
   const int i = threadIdx.y + blockIdx.y * BY;
@@ -127,7 +128,7 @@ struct PredictClass {
 
 /**  The cuda kernel for classification. Call it via PredictProba::run(..). */
 template <typename T, bool Log, bool Binary, int BX = 32, int BY = 8>
-__global__ void predictProba(T* out, const T* z, const int nRows, const int nClasses)
+CUML_KERNEL void predictProba(T* out, const T* z, const int nRows, const int nClasses)
 {
   typedef cub::WarpReduce<T, BX> WarpRed;
   __shared__ typename WarpRed::TempStorage shm[BY];

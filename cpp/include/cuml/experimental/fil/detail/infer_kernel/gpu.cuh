@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 #pragma once
 #include <cstddef>
+#include <cuml/common/utils.hpp>
 #include <cuml/experimental/fil/detail/evaluate_tree.hpp>
 #include <cuml/experimental/fil/detail/gpu_introspection.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -78,7 +79,7 @@ template <bool has_categorical_nodes,
           typename forest_t,
           typename vector_output_t    = std::nullptr_t,
           typename categorical_data_t = std::nullptr_t>
-__global__ void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_SM) infer_kernel(
+CUML_KERNEL void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_SM) infer_kernel(
   forest_t forest,
   postprocessor<typename forest_t::io_type> postproc,
   typename forest_t::io_type* output,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ DI DataT _select_read(const DataT* src0, int size0, const DataT* src1, int idx)
  * @param[in]  stream   CUDA stream
  */
 template <typename T>
-__global__ void _future_diff_kernel(
+CUML_KERNEL void _future_diff_kernel(
   const T* in_past, const T* in_fut, T* out, int n_past, int n_fut, int period = 1)
 {
   const T* b_in_past = in_past + n_past * blockIdx.x;
@@ -106,13 +106,13 @@ __global__ void _future_diff_kernel(
  * @param[in]  stream   CUDA stream
  */
 template <typename T>
-__global__ void _future_second_diff_kernel(const T* in_past,
-                                           const T* in_fut,
-                                           T* out,
-                                           int n_past,
-                                           int n_fut,
-                                           int period1 = 1,
-                                           int period2 = 1)
+CUML_KERNEL void _future_second_diff_kernel(const T* in_past,
+                                            const T* in_fut,
+                                            T* out,
+                                            int n_past,
+                                            int n_fut,
+                                            int period1 = 1,
+                                            int period2 = 1)
 {
   const T* b_in_past = in_past + n_past * blockIdx.x;
   const T* b_in_fut  = in_fut + n_fut * blockIdx.x;
@@ -142,14 +142,14 @@ __global__ void _future_second_diff_kernel(const T* in_past,
  * @param[in]    s1          2nd differencing period if relevant
  */
 template <bool double_diff, typename DataT>
-__global__ void _undiff_kernel(DataT* d_fc,
-                               const DataT* d_in,
-                               int num_steps,
-                               int batch_size,
-                               int in_ld,
-                               int n_in,
-                               int s0,
-                               int s1 = 0)
+CUML_KERNEL void _undiff_kernel(DataT* d_fc,
+                                const DataT* d_in,
+                                int num_steps,
+                                int batch_size,
+                                int in_ld,
+                                int n_in,
+                                int s0,
+                                int s1 = 0)
 {
   int bid = blockIdx.x * blockDim.x + threadIdx.x;
   if (bid < batch_size) {

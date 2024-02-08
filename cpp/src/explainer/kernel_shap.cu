@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuml/common/utils.hpp>
 #include <cuml/explainer/kernel_shap.hpp>
 
 #include <curand.h>
@@ -46,13 +47,13 @@ namespace Explainer {
 */
 
 template <typename DataT, typename IdxT>
-__global__ void exact_rows_kernel(float* X,
-                                  IdxT nrows_X,
-                                  IdxT ncols,
-                                  DataT* background,
-                                  IdxT nrows_background,
-                                  DataT* dataset,
-                                  DataT* observation)
+CUML_KERNEL void exact_rows_kernel(float* X,
+                                   IdxT nrows_X,
+                                   IdxT ncols,
+                                   DataT* background,
+                                   IdxT nrows_background,
+                                   DataT* dataset,
+                                   DataT* observation)
 {
   // Each block processes one row of X. Columns are iterated over by blockDim.x at a time to ensure
   // data coelescing
@@ -104,15 +105,15 @@ __global__ void exact_rows_kernel(float* X,
 *
 */
 template <typename DataT, typename IdxT>
-__global__ void sampled_rows_kernel(IdxT* nsamples,
-                                    float* X,
-                                    IdxT nrows_X,
-                                    IdxT ncols,
-                                    DataT* background,
-                                    IdxT nrows_background,
-                                    DataT* dataset,
-                                    DataT* observation,
-                                    uint64_t seed)
+CUML_KERNEL void sampled_rows_kernel(IdxT* nsamples,
+                                     float* X,
+                                     IdxT nrows_X,
+                                     IdxT ncols,
+                                     DataT* background,
+                                     IdxT nrows_background,
+                                     DataT* dataset,
+                                     DataT* observation,
+                                     uint64_t seed)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   // see what k this block will generate

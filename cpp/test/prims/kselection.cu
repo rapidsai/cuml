@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ namespace MLCommon {
 namespace Selection {
 
 template <typename TypeV, typename TypeK, int N, int TPB, bool Greater>
-__global__ void sortTestKernel(TypeK* key)
+CUML_KERNEL void sortTestKernel(TypeK* key)
 {
   KVArray<TypeV, TypeK, N, Greater> arr;
 #pragma unroll

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuml/common/utils.hpp>
 #include <limits>
 #include <raft/util/cuda_utils.cuh>
 #include <stdlib.h>
@@ -300,7 +301,7 @@ struct KVArray {
 
 ///@todo: specialize this for k=1
 template <typename TypeV, typename TypeK, int N, int TPB, bool Greater, bool Sort>
-__global__ void warpTopKkernel(
+CUML_KERNEL void warpTopKkernel(
   TypeV* outV, TypeK* outK, const TypeV* arr, int k, int rows, int cols, TypeV iV, TypeK iK)
 {
   // static_assert(Sort==false, "warpTopK: Sort=true is not yet supported!");

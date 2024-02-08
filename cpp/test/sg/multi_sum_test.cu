@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #include <test_utils.h>
 
+#include <cuml/common/utils.hpp>
 #include <cuml/fil/multi_sum.cuh>
 #include <raft/core/handle.hpp>
 
@@ -75,7 +76,7 @@ __device__ void test_single_radix(multi_sum_test_shmem<T>& s,
 }
 
 template <typename T>
-__global__ void test_multi_sum_k(T* data, MultiSumTestParams* params, int* error_flags)
+CUML_KERNEL void test_multi_sum_k(T* data, MultiSumTestParams* params, int* error_flags)
 {
   __shared__ multi_sum_test_shmem<T> s;
   MultiSumTestParams p = params[blockIdx.x];
