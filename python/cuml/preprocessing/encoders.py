@@ -498,7 +498,7 @@ class OneHotEncoder(BaseEncoder):
                 dropped_class_idx = Series(self.drop_idx_[feature])
                 dropped_class_mask = Series(cats).isin(cats[dropped_class_idx])
                 if len(cats) == 1:
-                    inv = Series(Index(cats[0]).repeat(X.shape[0]))
+                    inv = Series(Index([cats[0]]).repeat(X.shape[0]))
                     result[feature] = inv
                     continue
                 cats = cats[~dropped_class_mask]
