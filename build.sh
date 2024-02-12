@@ -58,7 +58,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    CUML_EXTRA_CMAKE_ARGS  - Extra arguments to pass directly to cmake. Values listed in environment
                             variable will override existing arguments. Example:
                             CUML_EXTRA_CMAKE_ARGS=\"-DBUILD_CUML_C_LIBRARY=OFF\" ./build.sh
-   CUML_EXTRA_PYTHON_ARGS - Extra argument to pass directly to python setup.py
+   CUML_EXTRA_PYTHON_ARGS - Extra arguments to pass directly to pip install
 "
 LIBCUML_BUILD_DIR=${LIBCUML_BUILD_DIR:=${REPODIR}/cpp/build}
 CUML_BUILD_DIR=${REPODIR}/python/build
@@ -223,9 +223,14 @@ if (( ${CLEAN} == 1 )); then
         fi
     done
 
-    cd ${REPODIR}/python
-    python setup.py clean --all
-    cd ${REPODIR}
+    # Clean up python artifacts
+    find ${REPODIR}/python/ | grep -E "(__pycache__|\.pyc|\.pyo|\.so|\_skbuild)$"  | xargs rm -rf
+
+    # Remove Doxyfile
+    rm -rf ${REPODIR}/cpp/Doxyfile
+
+    # Remove .benchmark dirs and .pytest_cache
+    find ${REPODIR}/ | grep -E "(\.pytest_cache|\.benchmarks)$"  | xargs rm -rf
 fi
 
 
