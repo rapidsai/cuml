@@ -168,7 +168,7 @@ auto FilPredict(const raft::handle_t& handle,
                 RandomForestMetaData<DataT, LabelT>* forest)
 {
   auto pred = std::make_shared<thrust::device_vector<float>>(params.n_rows);
-  ModelHandle model;
+  TreeliteModelHandle model;
   std::size_t num_outputs = 1;
   if constexpr (std::is_integral_v<LabelT>) { num_outputs = params.n_labels; }
   build_treelite_forest(&model, forest, params.n_cols);
@@ -195,7 +195,7 @@ auto FilPredictProba(const raft::handle_t& handle,
 {
   std::size_t num_outputs = params.n_labels;
   auto pred = std::make_shared<thrust::device_vector<float>>(params.n_rows * num_outputs);
-  ModelHandle model;
+  TreeliteModelHandle model;
   static_assert(std::is_integral_v<LabelT>, "Must be classification");
   build_treelite_forest(&model, forest, params.n_cols);
   fil::treelite_params_t tl_params{
@@ -555,7 +555,7 @@ TEST(RfTests, IntegerOverflow)
 
   // See if fil overflows
   thrust::device_vector<float> pred(m);
-  ModelHandle model;
+  TreeliteModelHandle model;
   build_treelite_forest(&model, forest_ptr, n);
 
   std::size_t num_outputs = 1;
@@ -983,8 +983,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     DataT ghd(0);  // gamma half deviance
 
     std::for_each(data.begin(), data.end(), [&](auto& element) {
-      auto log_y = raft::myLog(element ? element : DataT(1.0));
-      ghd += raft::myLog(mean) - log_y + element / mean - 1;
+      auto log_y = raft::log(element ? element : DataT(1.0));
+      ghd += raft::log(mean) - log_y + element / mean - 1;
     });
 
     ghd /= data.size();
@@ -1022,8 +1022,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     auto poisson_half_deviance{DataT(0.0)};
 
     std::for_each(data.begin(), data.end(), [&](auto d) {
-      auto log_y = raft::myLog(d ? d : DataT(1.0));  // we don't want nans
-      poisson_half_deviance += d * (log_y - raft::myLog(mean)) + mean - d;
+      auto log_y = raft::log(d ? d : DataT(1.0));  // we don't want nans
+      poisson_half_deviance += d * (log_y - raft::log(mean)) + mean - d;
     });
 
     poisson_half_deviance /= data.size();
@@ -1061,8 +1061,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
         if (d == DataT(c)) ++sum;
       });
       DataT class_proba = DataT(sum) / data.size();
-      entropy += -class_proba * raft::myLog(class_proba ? class_proba : DataT(1)) /
-                 raft::myLog(DataT(2));  // adding gain
+      entropy += -class_proba * raft::log(class_proba ? class_proba : DataT(1)) /
+                 raft::log(DataT(2));  // adding gain
     }
     return entropy;
   }

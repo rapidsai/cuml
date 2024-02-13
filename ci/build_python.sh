@@ -3,7 +3,11 @@
 
 set -euo pipefail
 
-source rapids-env-update
+rapids-configure-conda-channels
+
+source rapids-configure-sccache
+
+source rapids-date-string
 
 export CMAKE_GENERATOR=Ninja
 
@@ -14,7 +18,7 @@ package_dir="python"
 
 version=$(rapids-generate-version)
 git_commit=$(git rev-parse HEAD)
-export RAPIDS_PACKAGE_VERSION=${version} 
+export RAPIDS_PACKAGE_VERSION=${version}
 
 echo "${version}" > VERSION
 sed -i "/^__git_commit__/ s/= .*/= \"${git_commit}\"/g" "${package_dir}/${package_name}/_version.py"

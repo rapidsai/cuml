@@ -26,6 +26,7 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <cuda/functional>
 #include <ml_cuda_utils.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
@@ -241,7 +242,8 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
     minClusterDistance.view(),
     workspace,
     clusterCost.view(),
-    [] __device__(const DataT& a, const DataT& b) { return a + b; });
+    cuda::proclaim_return_type<DataT>(
+      [] __device__(const DataT& a, const DataT& b) { return a + b; }));
 
   // compute total cluster cost by accumulating the partial cost from all the
   // ranks
@@ -291,7 +293,8 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
       minClusterDistance.view(),
       workspace,
       clusterCost.view(),
-      [] __device__(const DataT& a, const DataT& b) { return a + b; });
+      cuda::proclaim_return_type<DataT>(
+        [] __device__(const DataT& a, const DataT& b) { return a + b; }));
     comm.allreduce(
       clusterCost.data_handle(), clusterCost.data_handle(), 1, raft::comms::op_t::SUM, stream);
     raft::copy(&psi, clusterCost.data_handle(), 1, stream);
@@ -481,7 +484,7 @@ void checkWeights(const raft::handle_t& handle,
       weight.data_handle(),
       weight.data_handle(),
       weight.size(),
-      [=] __device__(const DataT& wt) { return wt * scale; },
+      cuda::proclaim_return_type<DataT>([=] __device__(const DataT& wt) { return wt * scale; }),
       stream);
   }
 }
@@ -621,12 +624,12 @@ void fit(const raft::handle_t& handle,
       newCentroids.extent(0),
       true,
       false,
-      [=] __device__(DataT mat, DataT vec) {
+      cuda::proclaim_return_type<DataT>([=] __device__(DataT mat, DataT vec) {
         if (vec == 0)
           return DataT(0);
         else
           return mat / vec;
-      },
+      }),
       stream);
 
     // copy the centroids[i] to newCentroids[i] when wtInCluster[i] is 0
@@ -639,16 +642,18 @@ void fit(const raft::handle_t& handle,
       itr_wt,
       wtInCluster.extent(0),
       newCentroids.data_handle(),
-      [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // predicate
-        // copy when the # of samples in the cluster is 0
-        if (map.value == 0)
-          return true;
-        else
-          return false;
-      },
-      [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // map
-        return map.key;
-      },
+      cuda::proclaim_return_type<bool>(
+        [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // predicate
+          // copy when the # of samples in the cluster is 0
+          if (map.value == 0)
+            return true;
+          else
+            return false;
+        }),
+      cuda::proclaim_return_type<ptrdiff_t>(
+        [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // map
+          return map.key;
+        }),
       stream);
 
     // compute the squared norm between the newCentroids and the original
@@ -657,10 +662,10 @@ void fit(const raft::handle_t& handle,
     raft::linalg::mapThenSumReduce(
       sqrdNorm.data_handle(),
       newCentroids.size(),
-      [=] __device__(const DataT a, const DataT b) {
+      cuda::proclaim_return_type<DataT>([=] __device__(const DataT a, const DataT b) {
         DataT diff = a - b;
         return diff * diff;
-      },
+      }),
       stream,
       centroids.data_handle(),
       newCentroids.data_handle());
@@ -680,13 +685,14 @@ void fit(const raft::handle_t& handle,
         minClusterAndDistance.view(),
         workspace,
         raft::make_device_scalar_view(clusterCostD.data()),
-        [] __device__(const raft::KeyValuePair<IndexT, DataT>& a,
-                      const raft::KeyValuePair<IndexT, DataT>& b) {
-          raft::KeyValuePair<IndexT, DataT> res;
-          res.key   = 0;
-          res.value = a.value + b.value;
-          return res;
-        });
+        cuda::proclaim_return_type<raft::KeyValuePair<IndexT, DataT>>(
+          [] __device__(const raft::KeyValuePair<IndexT, DataT>& a,
+                        const raft::KeyValuePair<IndexT, DataT>& b) {
+            raft::KeyValuePair<IndexT, DataT> res;
+            res.key   = 0;
+            res.value = a.value + b.value;
+            return res;
+          }));
 
       // Cluster cost phi_x(C) from all ranks
       comm.allreduce(&(clusterCostD.data()->value),

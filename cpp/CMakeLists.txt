@@ -26,7 +26,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 23.12.00 LANGUAGES CXX CUDA)
+project(CUML VERSION 24.02.00 LANGUAGES CXX CUDA)
 
 # Write the version header
 rapids_cmake_write_version_file(include/cuml/version_config.hpp)
@@ -56,7 +56,7 @@ option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)"
 option(CUDA_ENABLE_KERNEL_INFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
-option(DISABLE_DEPRECATION_WARNINGS "Disable deprecation warnings " OFF)
+option(DISABLE_DEPRECATION_WARNINGS "Disable deprecation warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
@@ -141,8 +141,10 @@ endif()
 # - compiler options ---------------------------------------------------------
 
 set(_ctk_static_suffix "")
+set(_ctk_fft_static_suffix "")
 if(CUDA_STATIC_RUNTIME)
-  set(_ctk_static_suffix "_static_nocallback")
+  set(_ctk_static_suffix "_static")
+  set(_ctk_fft_static_suffix "_static_nocallback")
 endif()
 
 if (NOT DISABLE_OPENMP)
@@ -220,6 +222,9 @@ if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   find_package(Threads)
 endif()
 
+# CCCL before RMM, and RMM before RAFT
+include(cmake/thirdparty/get_cccl.cmake)
+include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_raft.cmake)
 
 if(LINK_TREELITE)
@@ -591,11 +596,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   if(CUML_USE_TREELITE_STATIC AND (TARGET treelite::treelite_static))
-    # By default, TREELITE_LIBS will contain both treelite::treelite_static and
-    # treelite::treelite_runtime_static if we are linking statically, but these
-    # two targets have duplicate symbols so we can only link to one of them.
     set(TREELITE_LIBS treelite::treelite_static)
-
     copy_interface_excludes(INCLUDED_TARGET treelite::treelite_static TARGET ${CUML_CPP_TARGET})
   elseif(CUML_EXPORT_TREELITE_LINKAGE)
     list(APPEND _cuml_cpp_public_libs ${TREELITE_LIBS})
@@ -609,7 +610,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   list(APPEND _cuml_cpp_private_libs
     raft::raft
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
-    $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix}>
+    $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}>
     ${TREELITE_LIBS}
     ${OpenMP_CXX_LIB_NAMES}
     $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
@@ -739,18 +740,12 @@ if (TARGET treelite::treelite)
 if (TARGET treelite::treelite AND (NOT TARGET treelite))
     add_library(treelite ALIAS treelite::treelite)
 endif()
-if (TARGET treelite::treelite_runtime AND (NOT TARGET treelite_runtime))
-    add_library(treelite_runtime ALIAS treelite::treelite_runtime)
-endif()
 ]=])
 else()
     string(APPEND code_string
 [=[
 if (TARGET treelite::treelite_static AND (NOT TARGET treelite_static))
     add_library(treelite_static ALIAS treelite::treelite_static)
-endif()
-if (TARGET treelite::treelite_runtime_static AND (NOT TARGET treelite_runtime_static))
-    add_library(treelite_runtime_static ALIAS treelite::treelite_runtime_static)
 endif()
 ]=])
 

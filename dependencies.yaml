@@ -7,7 +7,8 @@ files:
       arch: [x86_64]
     includes:
       - common_build
-      - cudatoolkit
+      - cuda
+      - cuda_version
       - docs
       - py_build
       - py_run
@@ -20,7 +21,8 @@ files:
       arch: [x86_64]
     includes:
       - common_build
-      - cudatoolkit
+      - cuda
+      - cuda_version
   checks:
     output: none
     includes:
@@ -34,28 +36,29 @@ files:
     includes:
       - clang_tidy
       - common_build
-      - cudatoolkit
+      - cuda
+      - cuda_version
   docs:
     output: none
     includes:
-      - cudatoolkit
+      - cuda_version
       - docs
       - py_version
   test_cpp:
     output: none
     includes:
-      - cudatoolkit
+      - cuda_version
       - test_cpp
   test_python:
     output: none
     includes:
-      - cudatoolkit
+      - cuda_version
       - py_version
       - test_python
   test_notebooks:
     output: none
     includes:
-      - cudatoolkit
+      - cuda_version
       - py_run
       - py_version
       - test_notebooks
@@ -112,10 +115,10 @@ dependencies:
           - cxx-compiler
           - gmock>=1.13.0
           - gtest>=1.13.0
-          - libcumlprims==23.12.*
-          - libraft==23.12.*
-          - libraft-headers==23.12.*
-          - librmm==23.12.*
+          - libcumlprims==24.2.*
+          - libraft==24.2.*
+          - libraft-headers==24.2.*
+          - librmm==24.2.*
     specific:
       - output_types: conda
         matrices:
@@ -146,21 +149,26 @@ dependencies:
               cuda: "12.0"
             packages:
               - cuda-nvcc
-              - cuda-version=12.0
   py_build:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - scikit-build>=0.13.1
           - cython>=3.0.0
-          - &treelite treelite==3.9.1
-          - pylibraft==23.12.*
-          - rmm==23.12.*
-      - output_types: pyproject
+          - &treelite treelite==4.0.0
+      - output_types: conda
         packages:
-          - wheel
-          - setuptools
-          - &treelite_runtime treelite_runtime==3.9.1
+          - &pylibraft_conda pylibraft==24.2.*
+          - &rmm_conda rmm==24.2.*
+          - scikit-build-core>=0.7.0
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          # This index is needed for cudf and rmm.
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+      - output_types: [pyproject, requirements]
+        packages:
+          - scikit-build-core[pyproject]>=0.7.0
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
@@ -171,48 +179,108 @@ dependencies:
           - matrix: # All CUDA 11 versions
             packages:
               - &cuda_python11 cuda-python>=11.7.1,<12.0a0
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.0"}
+            packages:
+              - pylibraft-cu12==24.2.*
+              - rmm-cu12==24.2.*
+          - matrix: {cuda: "11.8"}
+            packages: &py_build_packages_cu11
+              - &pylibraft_cu11 pylibraft-cu11==24.2.*
+              - &rmm_cu11 rmm-cu11==24.2.*
+          - {matrix: {cuda: "11.5"}, packages: *py_build_packages_cu11}
+          - {matrix: {cuda: "11.4"}, packages: *py_build_packages_cu11}
+          - {matrix: {cuda: "11.2"}, packages: *py_build_packages_cu11}
+          - {matrix: null, packages: [*pylibraft_conda, *rmm_conda] }
+
   py_run:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cudf==23.12.*
-          - dask-cuda==23.12.*
-          - dask-cudf==23.12.*
+          - dask-cuda==24.2.*
           - joblib>=0.11
           - numba>=0.57
             # TODO: Is scipy really a hard dependency, or should
             # we make it optional (i.e. an extra for pip
             # installation/run_constrained for conda)?
           - scipy>=1.8.0
-          - raft-dask==23.12.*
-          - rapids-dask-dependency==23.12.*
+          - rapids-dask-dependency==24.2.*
           - *treelite
-      - output_types: [conda, requirements]
+      - output_types: conda
         packages:
-          - cupy>=12.0.0
-      - output_types: pyproject
-        packages:
-          - *treelite_runtime
-          - cupy-cuda11x>=12.0.0
-    specific:
+          - &cudf_conda cudf==24.2.*
+          - &cupy_conda cupy>=12.0.0
+          - &dask_cudf_conda dask-cudf==24.2.*
+          - &raft_dask_conda raft-dask==24.2.*
       - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          # This index is needed for cudf and rmm.
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
         matrices:
-          - matrix:
-              arch: x86_64
+          - matrix: {cuda: "12.0"}
             packages:
-              - cupy-cuda115>=12.0.0
-          - matrix:
-              arch: aarch64
+              - cudf-cu12==24.2.*
+              - cupy-cuda12x>=12.0.0
+              - dask-cudf-cu12==24.2.*
+              - pylibraft-cu12==24.2.*
+              - raft-dask-cu12==24.2.*
+              - rmm-cu12==24.2.*
+          # All CUDA 11 versions
+          - matrix: {cuda: "11.8"}
+            packages: &py_run_packages_cu11
+              - cudf-cu11==24.2.*
+              - &cupy_pyproject_cu11 cupy-cuda11x>=12.0.0
+              - dask-cudf-cu11==24.2.*
+              - *pylibraft_cu11
+              - raft-dask-cu11==24.2.*
+              - *rmm_cu11
+          - {matrix: {cuda: "11.5"}, packages: *py_run_packages_cu11}
+          - {matrix: {cuda: "11.4"}, packages: *py_run_packages_cu11}
+          - {matrix: {cuda: "11.2"}, packages: *py_run_packages_cu11}
+          - matrix: null
             packages:
-              - cupy-cuda11x -f https://pip.cupy.dev/aarch64 # TODO: Verify that this works.
-  cudatoolkit:
+              - *cudf_conda
+              - *cupy_pyproject_cu11
+              - *dask_cudf_conda
+              - *pylibraft_conda
+              - *raft_dask_conda
+              - *rmm_conda
+  cuda_version:
     specific:
       - output_types: conda
         matrices:
           - matrix:
+              cuda: "11.2"
+            packages:
+              - cuda-version=11.2
+          - matrix:
+              cuda: "11.4"
+            packages:
+              - cuda-version=11.4
+          - matrix:
+              cuda: "11.5"
+            packages:
+              - cuda-version=11.5
+          - matrix:
+              cuda: "11.8"
+            packages:
+              - cuda-version=11.8
+          - matrix:
               cuda: "12.0"
             packages:
               - cuda-version=12.0
+  cuda:
+    specific:
+      - output_types: conda
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
               - cuda-cudart-dev
               - cuda-profiler-api
               - libcublas-dev
@@ -223,7 +291,6 @@ dependencies:
           - matrix:
               cuda: "11.8"
             packages:
-              - cuda-version=11.8
               - cudatoolkit
               - libcublas-dev=11.11.3.6
               - libcublas=11.11.3.6
@@ -238,7 +305,6 @@ dependencies:
           - matrix:
               cuda: "11.5"
             packages:
-              - cuda-version=11.5
               - cudatoolkit
               - libcublas-dev>=11.7.3.1,<=11.7.4.6
               - libcublas>=11.7.3.1,<=11.7.4.6
@@ -253,7 +319,6 @@ dependencies:
           - matrix:
               cuda: "11.4"
             packages:
-              - cuda-version=11.4
               - cudatoolkit
               - &libcublas_dev114 libcublas-dev>=11.5.2.43,<=11.6.5.2
               - &libcublas114 libcublas>=11.5.2.43,<=11.6.5.2
@@ -268,7 +333,6 @@ dependencies:
           - matrix:
               cuda: "11.2"
             packages:
-              - cuda-version=11.2
               - cudatoolkit
               # The NVIDIA channel doesn't publish pkgs older than 11.4 for these libs,
               # so 11.2 uses 11.4 packages (the oldest available).
@@ -329,7 +393,7 @@ dependencies:
           - hypothesis>=6.0,<7
           - nltk
           - numpydoc
-          - pytest
+          - pytest==7.*
           - pytest-benchmark
           - pytest-cases
           - pytest-cov
