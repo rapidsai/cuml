@@ -55,7 +55,7 @@ assert_raises = cpu_only_import_from("numpy.testing", "assert_raises")
         stress_param("int32"),
     ],
 )
-@pytest.mark.parametrize("eps_nn_method", ["brute_force", "rbc"])
+@pytest.mark.parametrize("algorithm", ["brute", "rbc"])
 def test_dbscan(
     datatype,
     use_handle,
@@ -63,7 +63,7 @@ def test_dbscan(
     ncols,
     max_mbytes_per_batch,
     out_dtype,
-    eps_nn_method,
+    algorithm,
 ):
     if nrows == 500000 and pytest.max_gpu_memory < 32:
         if pytest.adapt_stress_test:
@@ -90,13 +90,12 @@ def test_dbscan(
         handle=handle,
         eps=eps,
         min_samples=2,
+        algorithm=algorithm,
         max_mbytes_per_batch=max_mbytes_per_batch,
         output_type="numpy",
     )
 
-    cu_labels = cuml_dbscan.fit_predict(
-        X, out_dtype=out_dtype, method=eps_nn_method
-    )
+    cu_labels = cuml_dbscan.fit_predict(X, out_dtype=out_dtype)
 
     if nrows < 500000:
         sk_dbscan = skDBSCAN(eps=1, min_samples=2, algorithm="brute")
@@ -443,10 +442,10 @@ def test_core_point_prop3():
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize("out_dtype", ["int32", np.int32, "int64", np.int64])
-@pytest.mark.parametrize("eps_nn_method", ["brute_force", "rbc"])
+@pytest.mark.parametrize("algorithm", ["brute", "rbc"])
 @pytest.mark.parametrize("n_samples", [unit_param(500), stress_param(5000)])
 def test_dbscan_propagation(
-    datatype, use_handle, out_dtype, eps_nn_method, n_samples
+    datatype, use_handle, out_dtype, algorithm, n_samples
 ):
     X, y = make_blobs(
         n_samples,
@@ -460,11 +459,13 @@ def test_dbscan_propagation(
     handle, stream = get_handle(use_handle)
     eps = 0.5
     cuml_dbscan = cuDBSCAN(
-        handle=handle, eps=eps, min_samples=5, output_type="numpy"
+        handle=handle,
+        eps=eps,
+        min_samples=5,
+        algorithm=algorithm,
+        output_type="numpy",
     )
-    cu_labels = cuml_dbscan.fit_predict(
-        X, out_dtype=out_dtype, method=eps_nn_method
-    )
+    cu_labels = cuml_dbscan.fit_predict(X, out_dtype=out_dtype)
 
     sk_dbscan = skDBSCAN(eps=eps, min_samples=5)
     sk_labels = sk_dbscan.fit_predict(X)

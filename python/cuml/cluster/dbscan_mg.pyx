@@ -33,7 +33,7 @@ class DBSCANMG(DBSCAN):
         super().__init__(**kwargs)
 
     @generate_docstring(skip_parameters_heading=True)
-    def fit(self, X, out_dtype="int32", sample_weight=None, method="brute_force") -> "DBSCANMG":
+    def fit(self, X, out_dtype="int32", sample_weight=None) -> "DBSCANMG":
         """
         Perform DBSCAN clustering in a multi-node multi-GPU setting.
         Parameters
@@ -47,8 +47,5 @@ class DBSCANMG(DBSCAN):
             least min_samples is by itself a core sample; a sample with a
             negative weight may inhibit its eps-neighbor from being core.
             default: None (which is equivalent to weight 1 for all samples).
-
-        method: string, default = "brute_force"
-            Valid values ["brute_force", "rbc"].
         """
-        return self._fit(X, out_dtype, True, sample_weight, method)
+        return self._fit(X, out_dtype, True, sample_weight)

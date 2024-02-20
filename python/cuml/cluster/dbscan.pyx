@@ -166,6 +166,8 @@ class DBSCAN(Base,
         The input will be modified temporarily when cosine distance is used
         and the restored input matrix might not match completely
         due to numerical rounding.
+    algorithm: {'brute', 'rbc'}, default = 'brute'
+        The algorithm to be used by for nearest neighbor computations.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -229,6 +231,7 @@ class DBSCAN(Base,
                  handle=None,
                  min_samples=5,
                  metric='euclidean',
+                 algorithm='brute',
                  verbose=False,
                  max_mbytes_per_batch=None,
                  output_type=None,
@@ -241,6 +244,7 @@ class DBSCAN(Base,
         self.max_mbytes_per_batch = max_mbytes_per_batch
         self.calc_core_sample_indices = calc_core_sample_indices
         self.metric = metric
+        self.algorithm = algorithm
 
         # internal array attributes
         self.labels_ = None
@@ -252,7 +256,7 @@ class DBSCAN(Base,
         if self.max_mbytes_per_batch is None:
             self.max_mbytes_per_batch = 0
 
-    def _fit(self, X, out_dtype, opg, sample_weight, method) -> "DBSCAN":
+    def _fit(self, X, out_dtype, opg, sample_weight) -> "DBSCAN":
         """
         Protected auxiliary function for `fit`. Takes an additional parameter
         opg that is set to `False` for SG, `True` for OPG (multi-GPU)
@@ -301,16 +305,16 @@ class DBSCAN(Base,
                 raise ValueError("Invalid value for metric: {}"
                                  .format(self.metric))
 
-            # method
-            method_parsing = {
-                "brute_force": EpsNnMethod.BRUTE_FORCE,
+            # algo
+            algo_parsing = {
+                "brute": EpsNnMethod.BRUTE_FORCE,
                 "rbc": EpsNnMethod.RBC
             }
-            if method in method_parsing:
-                method = method_parsing[method.lower()]
+            if self.algorithm in algo_parsing:
+                algorithm = algo_parsing[self.algorithm.lower()]
             else:
-                raise ValueError("Invalid value for method: {}"
-                                 .format(method))
+                raise ValueError("Invalid value for algorithm: {}"
+                                 .format(self.algorithm))
 
             # Create the output core_sample_indices only if needed
             if self.calc_core_sample_indices:
@@ -331,7 +335,7 @@ class DBSCAN(Base,
                         <int*> core_sample_indices_ptr,
                         <float*> sample_weight_ptr,
                         <size_t>self.max_mbytes_per_batch,
-                        <EpsNnMethod> method,
+                        <EpsNnMethod> algorithm,
                         <int> self.verbose,
                         <bool> opg)
                 else:
@@ -346,7 +350,7 @@ class DBSCAN(Base,
                         <int64_t*> core_sample_indices_ptr,
                         <float*> sample_weight_ptr,
                         <size_t>self.max_mbytes_per_batch,
-                        <EpsNnMethod> method,
+                        <EpsNnMethod> algorithm,
                         <int> self.verbose,
                         <bool> opg)
 
@@ -363,7 +367,7 @@ class DBSCAN(Base,
                         <int*> core_sample_indices_ptr,
                         <double*> sample_weight_ptr,
                         <size_t> self.max_mbytes_per_batch,
-                        <EpsNnMethod> method,
+                        <EpsNnMethod> algorithm,
                         <int> self.verbose,
                         <bool> opg)
                 else:
@@ -378,7 +382,7 @@ class DBSCAN(Base,
                         <int64_t*> core_sample_indices_ptr,
                         <double*> sample_weight_ptr,
                         <size_t> self.max_mbytes_per_batch,
-                        <EpsNnMethod> method,
+                        <EpsNnMethod> algorithm,
                         <int> self.verbose,
                         <bool> opg)
 
@@ -407,7 +411,7 @@ class DBSCAN(Base,
 
     @generate_docstring(skip_parameters_heading=True)
     @enable_device_interop
-    def fit(self, X, out_dtype="int32", sample_weight=None, method="brute_force") -> "DBSCAN":
+    def fit(self, X, out_dtype="int32", sample_weight=None) -> "DBSCAN":
         """
         Perform DBSCAN clustering from features.
 
@@ -422,12 +426,8 @@ class DBSCAN(Base,
             least min_samples is by itself a core sample; a sample with a
             negative weight may inhibit its eps-neighbor from being core.
             default: None (which is equivalent to weight 1 for all samples).
-
-        method: string, default = "brute_force"
-            Valid values ["brute_force", "rbc"].
-
         """
-        return self._fit(X, out_dtype, False, sample_weight, method)
+        return self._fit(X, out_dtype, False, sample_weight)
 
     @generate_docstring(skip_parameters_heading=True,
                         return_values={'name': 'preds',
@@ -435,7 +435,7 @@ class DBSCAN(Base,
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
     @enable_device_interop
-    def fit_predict(self, X, out_dtype="int32", sample_weight=None, method="brute_force") -> CumlArray:
+    def fit_predict(self, X, out_dtype="int32", sample_weight=None) -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.
 
@@ -450,12 +450,8 @@ class DBSCAN(Base,
             least min_samples is by itself a core sample; a sample with a
             negative weight may inhibit its eps-neighbor from being core.
             default: None (which is equivalent to weight 1 for all samples).
-
-        method: string, default = "brute_force"
-            Valid values ["brute_force", "rbc"].
-
         """
-        self.fit(X, out_dtype, sample_weight, method)
+        self.fit(X, out_dtype, sample_weight)
         return self.labels_
 
     def get_param_names(self):
