@@ -1,7 +1,5 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 
-# Usage:
-#   conda build . -c conda-forge -c numba -c rapidsai -c pytorch
 {% set version = environ['RAPIDS_PACKAGE_VERSION'].lstrip('v')  + environ.get('VERSION_SUFFIX', '') %}
 {% set py_version = environ['CONDA_PY'] %}
 {% set date_string = environ['RAPIDS_DATE_STRING'] %}
@@ -45,7 +43,7 @@ tests:                                 # [linux64]
     - cuml                             # [linux64]
 
 about:
-  home: http://rapids.ai/
+  home: https://rapids.ai/
   license: Apache-2.0
   # license_file: LICENSE
   summary: cuML-CPU library

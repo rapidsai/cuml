@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -37,8 +37,12 @@ trap "EXITCODE=1" ERR
 set +e
 
 # Run libcuml gtests from libcuml-tests package
-rapids-logger "Run gtests"
-ctest -j9 --output-on-failure
+export GTEST_OUTPUT=xml:${RAPIDS_TESTS_DIR}/
+
+pushd $CONDA_PREFIX/bin/gtests/libcuml/
+rapids-logger "Run libcuml gtests"
+ctest -j9 --output-on-failure --no-tests=error
+popd
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
