@@ -82,7 +82,7 @@ test = [
     "hypothesis>=6.0,<7",
     "nltk",
     "numpydoc",
-    "pyarrow==14.0.2.*", # Need to pin pyarrow version matching with `cudf` for `cuml` installs to happen successfully
+    "pyarrow==14.0.2.*",
     "pynndescent==0.5.8",
     "pytest-benchmark",
     "pytest-cases",

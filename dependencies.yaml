@@ -412,6 +412,7 @@ dependencies:
           - dask-glm==0.3.0
             # TODO: Can we stop pulling from the master branch now that there was a release in October?
           - hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master
+          - pyarrow==14.0.2.* # Need to pin pyarrow version matching with `cudf` for `cuml` installs to happen successfully
   test_notebooks:
     common:
       - output_types: [conda, requirements]
