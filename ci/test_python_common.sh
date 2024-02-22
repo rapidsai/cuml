@@ -20,6 +20,7 @@ name: cuml
 channels:
   - ${CPP_CHANNEL}
   - ${PYTHON_CHANNEL}
+  - rapidsai
 dependencies:
   - libcuml
   - cuml

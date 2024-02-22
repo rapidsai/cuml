@@ -18,6 +18,7 @@ cat <<EOF | tee cuml.yaml
 name: cuml
 channels:
   - ${CPP_CHANNEL}
+  - rapidsai
 dependencies:
   - libcuml
   - libcuml-tests
