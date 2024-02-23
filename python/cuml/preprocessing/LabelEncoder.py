@@ -14,16 +14,26 @@
 # limitations under the License.
 #
 
-from cuml.common.exceptions import NotFittedError
-from cuml.internals.safe_imports import cpu_only_import_from
-from cuml import Base
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
+from typing import TYPE_CHECKING
 
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-pdSeries = cpu_only_import_from("pandas", "Series")
+from cuml import Base
+from cuml.common.exceptions import NotFittedError
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    cpu_only_import_from,
+    gpu_only_import,
+)
+
+if TYPE_CHECKING:
+    import cudf
+    import cupy as cp
+    import numpy as np
+    from pandas import Series as pdSeries
+else:
+    cudf = gpu_only_import("cudf")
+    cp = gpu_only_import("cupy")
+    np = cpu_only_import("numpy")
+    pdSeries = cpu_only_import_from("pandas", "Series")
 
 
 class LabelEncoder(Base):
@@ -125,7 +135,7 @@ class LabelEncoder(Base):
         handle=None,
         verbose=False,
         output_type=None,
-    ):
+    ) -> None:
 
         super().__init__(
             handle=handle, verbose=verbose, output_type=output_type
@@ -137,7 +147,7 @@ class LabelEncoder(Base):
         self.handle_unknown = handle_unknown
 
     def _check_is_fitted(self):
-        if not self._fitted:
+        if self.classes_ is None:
             msg = (
                 "This LabelEncoder instance is not fitted yet. Call 'fit' "
                 "with appropriate arguments before using this estimator."
@@ -175,7 +185,7 @@ class LabelEncoder(Base):
 
         if _classes is None:
             y = (
-                self._to_cudf_series(y)
+                cudf.Series(y)
                 .drop_duplicates()
                 .sort_values(ignore_index=True)
             )  # dedupe and sort
@@ -184,7 +194,6 @@ class LabelEncoder(Base):
             self.classes_ = _classes
 
         self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
-        self._fitted = True
         return self
 
     def transform(self, y) -> cudf.Series:
@@ -211,7 +220,7 @@ class LabelEncoder(Base):
         KeyError
             if a category appears that was not seen in `fit`
         """
-        y = self._to_cudf_series(y)
+        y = cudf.Series(y)
 
         self._check_is_fitted()
 
@@ -233,13 +242,12 @@ class LabelEncoder(Base):
         `LabelEncoder().fit(y).transform(y)`
         """
 
-        y = self._to_cudf_series(y)
+        y = cudf.Series(y)
         self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
 
         y = y.astype("category")
         self.classes_ = y._column.categories
 
-        self._fitted = True
         return cudf.Series(y._column.codes, index=y.index)
 
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
@@ -260,7 +268,7 @@ class LabelEncoder(Base):
         # check LabelEncoder is fitted
         self._check_is_fitted()
         # check input type is cudf.Series
-        y = self._to_cudf_series(y)
+        y = cudf.Series(y)
 
         # check if ord_label out of bound
         ord_label = y.unique()
@@ -285,20 +293,3 @@ class LabelEncoder(Base):
         return super().get_param_names() + [
             "handle_unknown",
         ]
-
-    def _to_cudf_series(self, y):
-        if isinstance(y, pdSeries):
-            y = cudf.from_pandas(y)
-        elif isinstance(y, cp.ndarray):
-            y = cudf.Series(y)
-        elif isinstance(y, np.ndarray):
-            y = cudf.Series(y)
-        elif not isinstance(y, cudf.Series):
-            msg = (
-                "input should be either 'cupy.ndarray'"
-                " or 'numpy.ndarray' or 'pandas.Series',"
-                " or 'cudf.Series'"
-                "got {0}.".format(type(y))
-            )
-            raise TypeError(msg)
-        return y

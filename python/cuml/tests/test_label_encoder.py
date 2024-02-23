@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from cuml.common.exceptions import NotFittedError
 import pytest
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.preprocessing.LabelEncoder import LabelEncoder
-from cuml.internals.safe_imports import gpu_only_import
 
+from cuml.common.exceptions import NotFittedError
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.preprocessing.LabelEncoder import LabelEncoder
+
+pd = cpu_only_import("pandas")
 cudf = gpu_only_import("cudf")
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
@@ -187,12 +188,14 @@ def _array_to_similarity_mat(x):
 
 @pytest.mark.parametrize("length", [10, 1000])
 @pytest.mark.parametrize("cardinality", [5, 10, 50])
-@pytest.mark.parametrize("dtype", ["cupy", "numpy"])
-def test_labelencoder_fit_transform_cupy_numpy(length, cardinality, dtype):
+@pytest.mark.parametrize("dtype", ["cupy", "numpy", "pd"])
+def test_labelencoder_fit_transform_cupy_numpy_pd(length, cardinality, dtype):
     """Try encoding the cupy array"""
     x = cp.random.choice(cardinality, (length,))
     if dtype == "numpy":
         x = x.get()
+    elif dtype == "pd":
+        x = pd.Series(x.get())
     encoded = LabelEncoder().fit_transform(x)
 
     x_arr = _array_to_similarity_mat(x)
