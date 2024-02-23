@@ -5,28 +5,15 @@ set -euo pipefail
 
 . /opt/conda/etc/profile.d/conda.sh
 
+rapids-logger "Downloading artifacts from previous jobs"
+CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
+
 rapids-logger "Generate C++ testing dependencies"
 rapids-dependency-file-generator \
   --output conda \
   --file_key test_cpp \
-  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch)" | tee test.yaml
-
-rapids-logger "Downloading artifacts from previous jobs"
-CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
-
-cat <<EOF | tee cuml.yaml
-name: cuml
-channels:
-  - ${CPP_CHANNEL}
-  - rapidsai
-dependencies:
-  - libcuml
-  - libcuml-tests
-EOF
-
-# TODO: install conda-merge in the CI images
-pip install conda-merge
-conda-merge test.yaml cuml.yaml > env.yaml
+  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch)" \
+  --prepend-channels "${CPP_CHANNEL}" | tee env.yaml
 
 rapids-mamba-retry env create --force -f env.yaml -n test
 
