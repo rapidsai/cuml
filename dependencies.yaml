@@ -63,6 +63,7 @@ files:
       - cuda_version
       - py_run
       - py_version
+      - test_cuml
       - test_notebooks
   py_build:
     output: pyproject
