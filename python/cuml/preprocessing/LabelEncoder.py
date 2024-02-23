@@ -184,11 +184,8 @@ class LabelEncoder(Base):
         self._validate_keywords()
 
         if _classes is None:
-            y = (
-                cudf.Series(y)
-                .drop_duplicates()
-                .sort_values(ignore_index=True)
-            )  # dedupe and sort
+            # dedupe and sort
+            y = cudf.Series(y).drop_duplicates().sort_values(ignore_index=True)
             self.classes_ = y
         else:
             self.classes_ = _classes
