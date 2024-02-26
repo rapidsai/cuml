@@ -17,6 +17,7 @@
 from typing import TYPE_CHECKING
 
 from cuml import Base
+from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.safe_imports import (
     cpu_only_import,
@@ -146,13 +147,8 @@ class LabelEncoder(Base):
         self._fitted: bool = False
         self.handle_unknown = handle_unknown
 
-    def _check_is_fitted(self):
-        if self.classes_ is None:
-            msg = (
-                "This LabelEncoder instance is not fitted yet. Call 'fit' "
-                "with appropriate arguments before using this estimator."
-            )
-            raise NotFittedError(msg)
+    def __sklearn_is_fitted__(self) -> bool:
+        return self.classes_ is not None
 
     def _validate_keywords(self):
         if self.handle_unknown not in ("error", "ignore"):
@@ -217,11 +213,9 @@ class LabelEncoder(Base):
         KeyError
             if a category appears that was not seen in `fit`
         """
-        y = cudf.Series(y)
+        check_is_fitted(self)
 
-        self._check_is_fitted()
-
-        y = y.astype("category")
+        y = cudf.Series(y, dtype="category")
 
         encoded = y.cat.set_categories(self.classes_)._column.codes
         encoded = cudf.Series(encoded, index=y.index)
@@ -263,7 +257,7 @@ class LabelEncoder(Base):
             Reverted labels
         """
         # check LabelEncoder is fitted
-        self._check_is_fitted()
+        check_is_fitted(self)
         # check input type is cudf.Series
         y = cudf.Series(y)
 
