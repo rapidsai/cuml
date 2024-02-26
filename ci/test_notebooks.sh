@@ -1,14 +1,19 @@
 #!/bin/bash
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 set -euo pipefail
 
 . /opt/conda/etc/profile.d/conda.sh
+
+rapids-logger "Downloading artifacts from previous jobs"
+CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
+PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
 
 rapids-logger "Generate Notebook testing dependencies"
 rapids-dependency-file-generator \
   --output conda \
   --file_key test_notebooks \
-  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" | tee env.yaml
+  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" \
+  --prepend-channels "${CPP_CHANNEL};${PYTHON_CHANNEL}" | tee env.yaml
 
 rapids-mamba-retry env create --force -f env.yaml -n test
 
@@ -17,16 +22,7 @@ set +u
 conda activate test
 set -u
 
-rapids-logger "Downloading artifacts from previous jobs"
-CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
-PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
-
 rapids-print-env
-
-rapids-mamba-retry install \
-  --channel "${CPP_CHANNEL}" \
-  --channel "${PYTHON_CHANNEL}" \
-  libcuml cuml
 
 rapids-logger "Check GPU usage"
 nvidia-smi
