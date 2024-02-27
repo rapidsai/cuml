@@ -3,6 +3,9 @@
 
 set -euo pipefail
 
+# Support invoking test_cpp.sh outside the script directory
+cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
+
 . /opt/conda/etc/profile.d/conda.sh
 
 rapids-logger "Downloading artifacts from previous jobs"
@@ -30,17 +33,10 @@ mkdir -p "${RAPIDS_TESTS_DIR}"
 rapids-logger "Check GPU usage"
 nvidia-smi
 
-EXITCODE=0
-trap "EXITCODE=1" ERR
-set +e
-
-# Run libcuml gtests from libcuml-tests package
+rapids-logger "Run gtests"
 export GTEST_OUTPUT=xml:${RAPIDS_TESTS_DIR}/
-
-pushd $CONDA_PREFIX/bin/gtests/libcuml/
-rapids-logger "Run libcuml gtests"
-ctest -j9 --output-on-failure --no-tests=error
-popd
+# Run libcuml gtests from libcuml-tests package
+./ci/run_ctests.sh -j9 && EXITCODE=$? || EXITCODE=$?;
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
