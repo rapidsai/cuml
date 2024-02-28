@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include <cuda_runtime_api.h>
+
 #include <cuml/experimental/fil/constants.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/gpu_introspection.hpp>
@@ -24,7 +24,11 @@
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 #include <cuml/experimental/fil/detail/specializations/device_initialization_macros.hpp>
+
+#include <cuda_runtime_api.h>
+
 #include <type_traits>
+
 namespace ML {
 namespace experimental {
 namespace fil {

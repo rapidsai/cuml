@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,12 @@
 
 #pragma once
 
+#include "utils.cuh"
+
+#include <cuml/manifold/common.hpp>
 #include <cuml/neighbors/knn_sparse.hpp>
+
+#include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/eltwise.cuh>
@@ -24,19 +29,14 @@
 #include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/sparse/selection/knn.cuh>
 #include <raft/util/cudart_utils.hpp>
-#include <selection/knn.cuh>
-
-#include <cuml/manifold/common.hpp>
-
-#include <raft/core/error.hpp>
-
-#include "utils.cuh"
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
 #include <thrust/functional.h>
 #include <thrust/transform_reduce.h>
+
+#include <selection/knn.cuh>
 
 namespace ML {
 namespace TSNE {

@@ -16,15 +16,11 @@
 
 #pragma once
 
-#include <vector>
-
-#include <glm/qn/simple_mat/dense.hpp>
-#include <glm/qn/simple_mat/sparse.hpp>
+#include <cuml/common/logger.hpp>
 
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/operators.hpp>
-
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/multiply.cuh>
@@ -34,7 +30,10 @@
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>
 
-#include <cuml/common/logger.hpp>
+#include <glm/qn/simple_mat/dense.hpp>
+#include <glm/qn/simple_mat/sparse.hpp>
+
+#include <vector>
 
 namespace ML {
 namespace GLM {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #include <cuml/experimental/fil/detail/raft_proto/detail/owning_buffer/base.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
+
 #include <memory>
 #include <type_traits>
 

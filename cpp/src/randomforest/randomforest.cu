@@ -14,16 +14,18 @@
  * limitations under the License.
  */
 
+#include "randomforest.cuh"
+
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <cuml/tree/flatnode.h>
+
+#include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
 
 #include <treelite/c_api.h>
 #include <treelite/enum/task_type.h>
 #include <treelite/tree.h>
-
-#include <raft/core/error.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -37,8 +39,6 @@
 #include <type_traits>
 #include <variant>
 #include <vector>
-
-#include "randomforest.cuh"
 
 namespace ML {
 

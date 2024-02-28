@@ -17,15 +17,16 @@
 #include "glm_base_mg.cuh"
 #include "standardization.cuh"
 
+#include <cuml/linear_model/qn.h>
+
+#include <rmm/device_uvector.hpp>
+
 #include <glm/qn/glm_logistic.cuh>
 #include <glm/qn/glm_regularizer.cuh>
 #include <glm/qn/glm_softmax.cuh>
 #include <glm/qn/glm_svm.cuh>
 #include <glm/qn/qn_solvers.cuh>
 #include <glm/qn/qn_util.cuh>
-
-#include <cuml/linear_model/qn.h>
-#include <rmm/device_uvector.hpp>
 
 namespace ML {
 namespace GLM {

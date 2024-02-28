@@ -28,12 +28,11 @@
 #include <raft/core/handle.hpp>        // for handle_t
 #include <raft/util/cudart_utils.hpp>  // for RAFT_CUDA_TRY
 
+#include <omp.h>                           // for omp
 #include <treelite/c_api.h>                // for TreeliteModelHandle
 #include <treelite/enum/operator.h>        // for Operator
 #include <treelite/enum/tree_node_type.h>  // for TreeNodeType
 #include <treelite/tree.h>                 // for Tree, Model, ModelPreset
-
-#include <omp.h>  // for omp
 
 #include <algorithm>    // for std::max
 #include <bitset>       // for std::bitset

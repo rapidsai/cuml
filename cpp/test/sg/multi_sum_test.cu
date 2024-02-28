@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-#include <test_utils.h>
-
 #include <cuml/fil/multi_sum.cuh>
-#include <raft/core/handle.hpp>
 
+#include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -28,6 +26,7 @@
 #include <thrust/host_vector.h>
 
 #include <gtest/gtest.h>
+#include <test_utils.h>
 
 #include <cstddef>
 

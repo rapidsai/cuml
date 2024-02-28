@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,10 @@
 
 #include "cd.cuh"
 #include "sgd.cuh"
+
 #include <cuml/solvers/params.hpp>
 #include <cuml/solvers/solver.hpp>
+
 #include <raft/core/handle.hpp>
 
 namespace ML {

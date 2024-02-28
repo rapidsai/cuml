@@ -16,28 +16,26 @@
 
 #include "../../src/fil/internal.cuh"
 
-#include <test_utils.h>
-
 #include <cuml/fil/fil.h>
 
 #include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
-#include <test_utils.h>
+
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/transform.h>
 
+#include <gtest/gtest.h>
+#include <test_utils.h>
 #include <treelite/c_api.h>
 #include <treelite/enum/operator.h>
 #include <treelite/enum/task_type.h>
 #include <treelite/enum/typeinfo.h>
 #include <treelite/model_builder.h>
 #include <treelite/tree.h>
-
-#include <gtest/gtest.h>
 
 #include <cmath>
 #include <cstdio>
