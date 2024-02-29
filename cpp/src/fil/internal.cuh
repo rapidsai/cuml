@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,20 @@
 /** @file internal.cuh cuML-internal interface to Forest Inference Library. */
 
 #pragma once
-#include <bitset>
-#include <cstdint>
 #include <cuml/fil/fil.h>
-#include <iostream>
-#include <numeric>
+
 #include <raft/core/error.hpp>
 #include <raft/util/cuda_utils.cuh>
+
 #include <rmm/device_uvector.hpp>
+
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
+
+#include <bitset>
+#include <cstdint>
+#include <iostream>
+#include <numeric>
 #include <utility>
 #include <vector>
 

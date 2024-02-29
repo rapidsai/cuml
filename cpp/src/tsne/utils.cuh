@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,31 +15,31 @@
  */
 
 #pragma once
+#include <cuml/common/logger.hpp>
+
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/random/rng.cuh>
+#include <raft/stats/sum.cuh>
+#include <raft/util/device_atomics.cuh>
+
+#include <rmm/exec_policy.hpp>
+
+#include <cuda_runtime.h>
+#include <thrust/device_ptr.h>
+#include <thrust/reduce.h>
+#include <thrust/transform.h>
+
 #include <assert.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
-
-#include <cuml/common/logger.hpp>
-#include <raft/linalg/eltwise.cuh>
-#include <raft/linalg/norm.cuh>
-
-#include <cuda_runtime.h>
-
-#include <thrust/device_ptr.h>
-#include <thrust/reduce.h>
-#include <thrust/transform.h>
-
-#include <raft/random/rng.cuh>
-#include <raft/stats/sum.cuh>
 #include <sys/time.h>
+#include <unistd.h>
 
 #include <chrono>
 #include <iostream>
-#include <unistd.h>
-
-#include <raft/util/device_atomics.cuh>
 
 /**
  * @brief Performs P + P.T.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION. *
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION. *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,14 +13,18 @@
  * limitations under the License.
  */
 #include "test_utils.h"
-#include <algorithm>
-#include <gtest/gtest.h>
-#include <iostream>
+
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
-#include <random>
+
 #include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
 #include <timeSeries/jones_transform.cuh>
+
+#include <algorithm>
+#include <iostream>
+#include <random>
 
 namespace MLCommon {
 namespace TimeSeries {

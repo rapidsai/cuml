@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,19 @@
  */
 
 #include "test_utils.h"
-#include <gtest/gtest.h>
-#include <iostream>
+
 #include <raft/label/classlabels.cuh>
 #include <raft/random/make_blobs.cuh>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
 #include <selection/knn.cuh>
+
+#include <iostream>
 #include <vector>
 
 namespace MLCommon {

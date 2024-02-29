@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,14 @@
  */
 
 #pragma once
+
+#include "utils.cuh"
+
+#include <raft/util/cudart_utils.hpp>
+#include <raft/util/device_atomics.cuh>
+
+#include <cfloat>
+
 #define restrict __restrict__
 
 #define THREADS1 512
@@ -32,10 +40,6 @@
 #define FACTOR5 2
 #define FACTOR6 2
 #define FACTOR7 1
-
-#include <float.h>
-#include <raft/util/cudart_utils.hpp>
-#include <raft/util/device_atomics.cuh>
 
 namespace ML {
 namespace TSNE {

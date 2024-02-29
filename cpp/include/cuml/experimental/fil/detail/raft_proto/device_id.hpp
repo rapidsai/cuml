@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include <cuml/experimental/fil/detail/raft_proto/detail/device_id/gpu.hpp>
 #endif
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
+
 #include <variant>
 
 namespace raft_proto {

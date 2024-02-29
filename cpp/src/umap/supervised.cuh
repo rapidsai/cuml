@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,27 @@
 
 #pragma once
 
-#include "optimize.cuh"
-#include <cuml/common/logger.hpp>
-#include <cuml/manifold/umapparams.h>
-#include <cuml/neighbors/knn.hpp>
-#include <raft/core/handle.hpp>
-
 #include "fuzzy_simpl_set/runner.cuh"
 #include "init_embed/runner.cuh"
 #include "knn_graph/runner.cuh"
+#include "optimize.cuh"
 #include "simpl_set_embed/runner.cuh"
+
+#include <cuml/common/logger.hpp>
+#include <cuml/manifold/umapparams.h>
+#include <cuml/neighbors/knn.hpp>
+
+#include <raft/core/handle.hpp>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/coo.hpp>
+#include <raft/sparse/linalg/add.cuh>
+#include <raft/sparse/linalg/norm.cuh>
+#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/op/filter.cuh>
+#include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuda_runtime.h>
 #include <thrust/count.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -35,17 +44,6 @@
 #include <thrust/reduce.h>
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
-
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/coo.hpp>
-#include <raft/sparse/linalg/add.cuh>
-#include <raft/sparse/linalg/norm.cuh>
-#include <raft/sparse/linalg/symmetrize.cuh>
-#include <raft/sparse/op/filter.cuh>
-
-#include <raft/util/cuda_utils.cuh>
-
-#include <cuda_runtime.h>
 
 namespace UMAPAlgo {
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 #include <cuml/common/logger.hpp>
+
 #include <raft/cluster/kmeans.cuh>
 #include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/device_mdarray.hpp>
@@ -23,16 +24,18 @@
 #include <raft/core/host_mdarray.hpp>
 #include <raft/matrix/gather.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <cuda/functional>
-#include <ml_cuda_utils.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
 #include <thrust/scan.h>
 #include <thrust/transform.h>
+
+#include <ml_cuda_utils.h>
 
 #include <cstdint>
 

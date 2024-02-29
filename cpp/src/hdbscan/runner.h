@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,24 +16,23 @@
 
 #pragma once
 
-#include <raft/core/resource/thrust_policy.hpp>
-#include <raft/util/cudart_utils.hpp>
-
-#include <raft/core/handle.hpp>
-#include <raft/core/kvp.hpp>
-#include <rmm/device_uvector.hpp>
-
-#include <cuml/common/logger.hpp>
-
-#include <raft/cluster/detail/agglomerative.cuh>
-#include <raft/cluster/detail/mst.cuh>
-#include <raft/sparse/coo.hpp>
-
 #include "detail/condense.cuh"
 #include "detail/extract.cuh"
 #include "detail/reachability.cuh"
 #include "detail/soft_clustering.cuh"
+
 #include <cuml/cluster/hdbscan.hpp>
+#include <cuml/common/logger.hpp>
+
+#include <raft/cluster/detail/agglomerative.cuh>
+#include <raft/cluster/detail/mst.cuh>
+#include <raft/core/handle.hpp>
+#include <raft/core/kvp.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
+#include <raft/sparse/coo.hpp>
+#include <raft/util/cudart_utils.hpp>
+
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>

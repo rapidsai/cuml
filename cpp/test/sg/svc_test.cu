@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-#include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <cuml/svm/svr.hpp>
-#include <gtest/gtest.h>
-#include <iostream>
+
 #include <raft/core/math.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/linalg/add.cuh>
@@ -31,12 +29,10 @@
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
-#include <string>
-#include <svm/smoblocksolve.cuh>
-#include <svm/smosolver.cuh>
-#include <svm/workingset.cuh>
-#include <test_utils.h>
+
+#include <cub/cub.cuh>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
@@ -44,6 +40,15 @@
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
+
+#include <gtest/gtest.h>
+#include <svm/smoblocksolve.cuh>
+#include <svm/smosolver.cuh>
+#include <svm/workingset.cuh>
+#include <test_utils.h>
+
+#include <iostream>
+#include <string>
 #include <type_traits>
 #include <vector>
 

@@ -20,11 +20,10 @@
 #include <raft/linalg/multiply.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <glm/qn/mg/standardization.cuh>
-
 #include <glm/qn/glm_base.cuh>
 #include <glm/qn/glm_logistic.cuh>
 #include <glm/qn/glm_regularizer.cuh>
+#include <glm/qn/mg/standardization.cuh>
 #include <glm/qn/qn_solvers.cuh>
 #include <glm/qn/qn_util.cuh>
 
