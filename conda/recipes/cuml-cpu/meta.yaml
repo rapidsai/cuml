@@ -31,7 +31,7 @@ requirements:
     - cython>=3.0.0
   run:
     - python x.x
-    - numpy
+    - numpy>=1.23
     - pandas
     - scikit-learn=1.2
     - hdbscan<=0.8.30
