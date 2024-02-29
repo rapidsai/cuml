@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -595,28 +595,28 @@ __device__ ML::OptimCriterion holtwinters_bfgs_optim_device(
 }
 
 template <typename Dtype>
-__global__ void holtwinters_optim_gpu_shared_kernel(const Dtype* ts,
-                                                    int n,
-                                                    int batch_size,
-                                                    int frequency,
-                                                    const Dtype* start_level,
-                                                    const Dtype* start_trend,
-                                                    const Dtype* start_season,
-                                                    Dtype* alpha,
-                                                    bool optim_alpha,
-                                                    Dtype* beta,
-                                                    bool optim_beta,
-                                                    Dtype* gamma,
-                                                    bool optim_gamma,
-                                                    Dtype* level,
-                                                    Dtype* trend,
-                                                    Dtype* season,
-                                                    Dtype* xhat,
-                                                    Dtype* error,
-                                                    ML::OptimCriterion* optim_result,
-                                                    const ML::OptimParams<Dtype> optim_params,
-                                                    bool ADDITIVE_KERNEL,
-                                                    bool single_param)
+CUML_KERNEL void holtwinters_optim_gpu_shared_kernel(const Dtype* ts,
+                                                     int n,
+                                                     int batch_size,
+                                                     int frequency,
+                                                     const Dtype* start_level,
+                                                     const Dtype* start_trend,
+                                                     const Dtype* start_season,
+                                                     Dtype* alpha,
+                                                     bool optim_alpha,
+                                                     Dtype* beta,
+                                                     bool optim_beta,
+                                                     Dtype* gamma,
+                                                     bool optim_gamma,
+                                                     Dtype* level,
+                                                     Dtype* trend,
+                                                     Dtype* season,
+                                                     Dtype* xhat,
+                                                     Dtype* error,
+                                                     ML::OptimCriterion* optim_result,
+                                                     const ML::OptimParams<Dtype> optim_params,
+                                                     bool ADDITIVE_KERNEL,
+                                                     bool single_param)
 {
   int tid = GET_TID;
   extern __shared__ __align__(sizeof(Dtype)) unsigned char pseason_[];
@@ -718,29 +718,29 @@ __global__ void holtwinters_optim_gpu_shared_kernel(const Dtype* ts,
 }
 
 template <typename Dtype>
-__global__ void holtwinters_optim_gpu_global_kernel(const Dtype* ts,
-                                                    int n,
-                                                    int batch_size,
-                                                    int frequency,
-                                                    const Dtype* start_level,
-                                                    const Dtype* start_trend,
-                                                    const Dtype* start_season,
-                                                    Dtype* pseason,
-                                                    Dtype* alpha,
-                                                    bool optim_alpha,
-                                                    Dtype* beta,
-                                                    bool optim_beta,
-                                                    Dtype* gamma,
-                                                    bool optim_gamma,
-                                                    Dtype* level,
-                                                    Dtype* trend,
-                                                    Dtype* season,
-                                                    Dtype* xhat,
-                                                    Dtype* error,
-                                                    ML::OptimCriterion* optim_result,
-                                                    const ML::OptimParams<Dtype> optim_params,
-                                                    bool ADDITIVE_KERNEL,
-                                                    bool single_param)
+CUML_KERNEL void holtwinters_optim_gpu_global_kernel(const Dtype* ts,
+                                                     int n,
+                                                     int batch_size,
+                                                     int frequency,
+                                                     const Dtype* start_level,
+                                                     const Dtype* start_trend,
+                                                     const Dtype* start_season,
+                                                     Dtype* pseason,
+                                                     Dtype* alpha,
+                                                     bool optim_alpha,
+                                                     Dtype* beta,
+                                                     bool optim_beta,
+                                                     Dtype* gamma,
+                                                     bool optim_gamma,
+                                                     Dtype* level,
+                                                     Dtype* trend,
+                                                     Dtype* season,
+                                                     Dtype* xhat,
+                                                     Dtype* error,
+                                                     ML::OptimCriterion* optim_result,
+                                                     const ML::OptimParams<Dtype> optim_params,
+                                                     bool ADDITIVE_KERNEL,
+                                                     bool single_param)
 {
   int tid = GET_TID;
   if (tid < batch_size) {

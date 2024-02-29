@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,14 +23,14 @@ namespace MLCommon {
 namespace Matrix {
 
 template <typename math_t, int veclen_, typename Lambda>
-__global__ void reverseKernel(math_t* out,
-                              const math_t* in,
-                              int nrows,
-                              int ncols,
-                              bool rowMajor,
-                              bool alongRows,
-                              int len,
-                              Lambda op)
+CUML_KERNEL void reverseKernel(math_t* out,
+                               const math_t* in,
+                               int nrows,
+                               int ncols,
+                               bool rowMajor,
+                               bool alongRows,
+                               int len,
+                               Lambda op)
 {
   typedef raft::TxN_t<math_t, veclen_> VecType;
   int idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * VecType::Ratio;

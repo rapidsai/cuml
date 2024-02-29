@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,11 +30,11 @@ namespace TSNE {
 namespace FFT {
 
 template <typename value_idx, typename value_t>
-__global__ void compute_chargesQij(volatile value_t* __restrict__ chargesQij,
-                                   const value_t* __restrict__ xs,
-                                   const value_t* __restrict__ ys,
-                                   const value_idx num_points,
-                                   const value_idx n_terms)
+CUML_KERNEL void compute_chargesQij(volatile value_t* __restrict__ chargesQij,
+                                    const value_t* __restrict__ xs,
+                                    const value_t* __restrict__ ys,
+                                    const value_idx num_points,
+                                    const value_idx n_terms)
 {
   int TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= num_points) return;
@@ -49,12 +49,12 @@ __global__ void compute_chargesQij(volatile value_t* __restrict__ chargesQij,
 }
 
 template <typename value_idx, typename value_t>
-__global__ void compute_bounds(volatile value_t* __restrict__ box_lower_bounds,
-                               const value_t box_width,
-                               const value_t x_min,
-                               const value_t y_min,
-                               const value_idx n_boxes,
-                               const value_idx n_total_boxes)
+CUML_KERNEL void compute_bounds(volatile value_t* __restrict__ box_lower_bounds,
+                                const value_t box_width,
+                                const value_t x_min,
+                                const value_t y_min,
+                                const value_idx n_boxes,
+                                const value_idx n_total_boxes)
 {
   const int TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= n_boxes * n_boxes) return;
@@ -76,12 +76,12 @@ HDI value_t squared_cauchy_2d(value_t x1, value_t x2, value_t y1, value_t y2)
 }
 
 template <typename value_idx, typename value_t>
-__global__ void compute_kernel_tilde(volatile value_t* __restrict__ kernel_tilde,
-                                     const value_t x_min,
-                                     const value_t y_min,
-                                     const value_t h,
-                                     const value_idx n_interpolation_points_1d,
-                                     const value_idx n_fft_coeffs)
+CUML_KERNEL void compute_kernel_tilde(volatile value_t* __restrict__ kernel_tilde,
+                                      const value_t x_min,
+                                      const value_t y_min,
+                                      const value_t h,
+                                      const value_idx n_interpolation_points_1d,
+                                      const value_idx n_fft_coeffs)
 {
   const int TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= n_interpolation_points_1d * n_interpolation_points_1d) return;
@@ -104,17 +104,17 @@ __global__ void compute_kernel_tilde(volatile value_t* __restrict__ kernel_tilde
 }
 
 template <typename value_idx, typename value_t>
-__global__ void compute_point_box_idx(volatile value_idx* __restrict__ point_box_idx,
-                                      volatile value_t* __restrict__ x_in_box,
-                                      volatile value_t* __restrict__ y_in_box,
-                                      const value_t* const xs,
-                                      const value_t* const ys,
-                                      const value_t* const box_lower_bounds,
-                                      const value_t min_coord,
-                                      const value_t box_width,
-                                      const value_idx n_boxes,
-                                      const value_idx n_total_boxes,
-                                      const value_idx N)
+CUML_KERNEL void compute_point_box_idx(volatile value_idx* __restrict__ point_box_idx,
+                                       volatile value_t* __restrict__ x_in_box,
+                                       volatile value_t* __restrict__ y_in_box,
+                                       const value_t* const xs,
+                                       const value_t* const ys,
+                                       const value_t* const box_lower_bounds,
+                                       const value_t min_coord,
+                                       const value_t box_width,
+                                       const value_idx n_boxes,
+                                       const value_idx n_total_boxes,
+                                       const value_idx N)
 {
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= N) return;
@@ -136,12 +136,12 @@ __global__ void compute_point_box_idx(volatile value_idx* __restrict__ point_box
 }
 
 template <typename value_idx, typename value_t>
-__global__ void interpolate_device(volatile value_t* __restrict__ interpolated_values,
-                                   const value_t* const y_in_box,
-                                   const value_t* const y_tilde_spacings,
-                                   const value_t* const denominator,
-                                   const value_idx n_interpolation_points,
-                                   const value_idx N)
+CUML_KERNEL void interpolate_device(volatile value_t* __restrict__ interpolated_values,
+                                    const value_t* const y_in_box,
+                                    const value_t* const y_tilde_spacings,
+                                    const value_t* const denominator,
+                                    const value_idx n_interpolation_points,
+                                    const value_idx N)
 {
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= N * n_interpolation_points) return;
@@ -160,15 +160,15 @@ __global__ void interpolate_device(volatile value_t* __restrict__ interpolated_v
 }
 
 template <typename value_idx, typename value_t>
-__global__ void compute_interpolated_indices(value_t* __restrict__ w_coefficients_device,
-                                             const value_idx* const point_box_indices,
-                                             const value_t* const chargesQij,
-                                             const value_t* const x_interpolated_values,
-                                             const value_t* const y_interpolated_values,
-                                             const value_idx N,
-                                             const value_idx n_interpolation_points,
-                                             const value_idx n_boxes,
-                                             const value_idx n_terms)
+CUML_KERNEL void compute_interpolated_indices(value_t* __restrict__ w_coefficients_device,
+                                              const value_idx* const point_box_indices,
+                                              const value_t* const chargesQij,
+                                              const value_t* const x_interpolated_values,
+                                              const value_t* const y_interpolated_values,
+                                              const value_idx N,
+                                              const value_idx n_interpolation_points,
+                                              const value_idx n_boxes,
+                                              const value_idx n_terms)
 {
   value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= n_terms * n_interpolation_points * n_interpolation_points * N) return;
@@ -190,11 +190,11 @@ __global__ void compute_interpolated_indices(value_t* __restrict__ w_coefficient
 }
 
 template <typename value_idx, typename value_t>
-__global__ void copy_to_fft_input(volatile value_t* __restrict__ fft_input,
-                                  const value_t* w_coefficients_device,
-                                  const value_idx n_fft_coeffs,
-                                  const value_idx n_fft_coeffs_half,
-                                  const value_idx n_terms)
+CUML_KERNEL void copy_to_fft_input(volatile value_t* __restrict__ fft_input,
+                                   const value_t* w_coefficients_device,
+                                   const value_idx n_fft_coeffs,
+                                   const value_idx n_fft_coeffs_half,
+                                   const value_idx n_terms)
 {
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= n_terms * n_fft_coeffs_half * n_fft_coeffs_half) return;
@@ -210,11 +210,11 @@ __global__ void copy_to_fft_input(volatile value_t* __restrict__ fft_input,
 }
 
 template <typename value_idx, typename value_t>
-__global__ void copy_from_fft_output(volatile value_t* __restrict__ y_tilde_values,
-                                     const value_t* fft_output,
-                                     const value_idx n_fft_coeffs,
-                                     const value_idx n_fft_coeffs_half,
-                                     const value_idx n_terms)
+CUML_KERNEL void copy_from_fft_output(volatile value_t* __restrict__ y_tilde_values,
+                                      const value_t* fft_output,
+                                      const value_idx n_fft_coeffs,
+                                      const value_idx n_fft_coeffs_half,
+                                      const value_idx n_terms)
 {
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= n_terms * n_fft_coeffs_half * n_fft_coeffs_half) return;
@@ -232,13 +232,13 @@ __global__ void copy_from_fft_output(volatile value_t* __restrict__ y_tilde_valu
 
 // Template so that division is by compile-time divisors.
 template <typename value_idx, typename value_t, int n_terms, int n_interpolation_points>
-__global__ void compute_potential_indices(value_t* __restrict__ potentialsQij,
-                                          const value_idx* const point_box_indices,
-                                          const value_t* const y_tilde_values,
-                                          const value_t* const x_interpolated_values,
-                                          const value_t* const y_interpolated_values,
-                                          const value_idx N,
-                                          const value_idx n_boxes)
+CUML_KERNEL void compute_potential_indices(value_t* __restrict__ potentialsQij,
+                                           const value_idx* const point_box_indices,
+                                           const value_t* const y_tilde_values,
+                                           const value_t* const x_interpolated_values,
+                                           const value_t* const y_interpolated_values,
+                                           const value_idx N,
+                                           const value_idx n_boxes)
 {
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= n_terms * n_interpolation_points * n_interpolation_points * N) return;
@@ -263,10 +263,10 @@ __global__ void compute_potential_indices(value_t* __restrict__ potentialsQij,
 }
 
 template <typename value_idx>
-__global__ void broadcast_column_vector(cuComplex* __restrict__ mat,
-                                        cuComplex* __restrict__ vec,
-                                        value_idx n,
-                                        value_idx m)
+CUML_KERNEL void broadcast_column_vector(cuComplex* __restrict__ mat,
+                                         cuComplex* __restrict__ vec,
+                                         value_idx n,
+                                         value_idx m)
 {
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   const value_idx i   = TID % n;
@@ -278,7 +278,7 @@ __global__ void broadcast_column_vector(cuComplex* __restrict__ mat,
 }
 
 template <typename value_idx, typename value_t>
-__global__ void compute_repulsive_forces_kernel(
+CUML_KERNEL void compute_repulsive_forces_kernel(
   volatile value_t* __restrict__ repulsive_forces_device,
   volatile value_t* __restrict__ normalization_vec_device,
   const value_t* const xs,
@@ -306,15 +306,15 @@ __global__ void compute_repulsive_forces_kernel(
 }
 
 template <typename value_idx, typename value_t>
-__global__ void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
-                                         value_t* __restrict__ Qs,
-                                         const value_t* __restrict__ pij,
-                                         const value_idx* __restrict__ coo_rows,
-                                         const value_idx* __restrict__ coo_cols,
-                                         const value_t* __restrict__ points,
-                                         const value_idx num_points,
-                                         const value_idx num_nonzero,
-                                         const value_t dof)
+CUML_KERNEL void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
+                                          value_t* __restrict__ Qs,
+                                          const value_t* __restrict__ pij,
+                                          const value_idx* __restrict__ coo_rows,
+                                          const value_idx* __restrict__ coo_cols,
+                                          const value_t* __restrict__ points,
+                                          const value_idx num_points,
+                                          const value_idx num_nonzero,
+                                          const value_t dof)
 {
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= num_nonzero) return;
@@ -344,16 +344,16 @@ __global__ void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
 }
 
 template <typename value_idx, typename value_t>
-__global__ void IntegrationKernel(volatile value_t* __restrict__ points,
-                                  volatile value_t* __restrict__ attr_forces,
-                                  volatile value_t* __restrict__ rep_forces,
-                                  volatile value_t* __restrict__ gains,
-                                  volatile value_t* __restrict__ old_forces,
-                                  const value_t eta,
-                                  const value_t normalization,
-                                  const value_t momentum,
-                                  const value_t exaggeration,
-                                  const value_idx num_points)
+CUML_KERNEL void IntegrationKernel(volatile value_t* __restrict__ points,
+                                   volatile value_t* __restrict__ attr_forces,
+                                   volatile value_t* __restrict__ rep_forces,
+                                   volatile value_t* __restrict__ gains,
+                                   volatile value_t* __restrict__ old_forces,
+                                   const value_t eta,
+                                   const value_t normalization,
+                                   const value_t momentum,
+                                   const value_t exaggeration,
+                                   const value_idx num_points)
 {
   // iterate over all bodies assigned to thread
   const value_idx inc = blockDim.x * gridDim.x;

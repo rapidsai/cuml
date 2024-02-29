@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,10 +73,10 @@ struct FillnaOp {
 };
 
 template <bool forward, typename T>
-__global__ void fillna_interpolate_kernel(T* data,
-                                          int n_elem,
-                                          FillnaTemp* d_indices_fwd,
-                                          FillnaTemp* d_indices_bwd)
+CUML_KERNEL void fillna_interpolate_kernel(T* data,
+                                           int n_elem,
+                                           FillnaTemp* d_indices_fwd,
+                                           FillnaTemp* d_indices_bwd)
 {
   for (int index = blockIdx.x * blockDim.x + threadIdx.x; index < n_elem;
        index += gridDim.x * blockDim.x) {

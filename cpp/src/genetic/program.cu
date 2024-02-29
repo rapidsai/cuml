@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 #include <cuml/genetic/node.h>
 #include <cuml/genetic/program.h>
 #include <raft/linalg/unary_op.cuh>
@@ -39,10 +40,10 @@ namespace genetic {
  * is stored in column major format.
  */
 template <int MaxSize = MAX_STACK_SIZE>
-__global__ void execute_kernel(const program_t d_progs,
-                               const float* data,
-                               float* y_pred,
-                               const uint64_t n_rows)
+CUML_KERNEL void execute_kernel(const program_t d_progs,
+                                const float* data,
+                                float* y_pred,
+                                const uint64_t n_rows)
 {
   uint64_t pid    = blockIdx.y;                             // current program
   uint64_t row_id = blockIdx.x * blockDim.x + threadIdx.x;  // current dataset row

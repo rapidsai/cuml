@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <cuml/common/utils.hpp>
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/handle.hpp>
@@ -331,12 +332,12 @@ raft::device_csr_matrix_view<math_t, int, int, int> getMatrixBatch(
 }
 
 template <typename math_t>
-static __global__ void extractDenseRowsFromCSR(math_t* out,
-                                               const int* indptr,
-                                               const int* indices,
-                                               const math_t* data,
-                                               const int* row_indices,
-                                               const int num_indices)
+CUML_KERNEL void extractDenseRowsFromCSR(math_t* out,
+                                         const int* indptr,
+                                         const int* indices,
+                                         const math_t* data,
+                                         const int* row_indices,
+                                         const int num_indices)
 {
   assert(gridDim.y == 1 && gridDim.z == 1);
   // all threads in x-direction are responsible for one line of csr
@@ -354,14 +355,14 @@ static __global__ void extractDenseRowsFromCSR(math_t* out,
 }
 
 template <typename math_t>
-static __global__ void extractCSRRowsFromCSR(int* indptr_out,  // already holds end positions
-                                             int* indices_out,
-                                             math_t* data_out,
-                                             const int* indptr_in,
-                                             const int* indices_in,
-                                             const math_t* data_in,
-                                             const int* row_indices,
-                                             const int num_indices)
+CUML_KERNEL void extractCSRRowsFromCSR(int* indptr_out,  // already holds end positions
+                                       int* indices_out,
+                                       math_t* data_out,
+                                       const int* indptr_in,
+                                       const int* indices_in,
+                                       const math_t* data_in,
+                                       const int* row_indices,
+                                       const int num_indices)
 {
   assert(gridDim.y == 1 && gridDim.z == 1);
   // all threads in x-direction are responsible for one line of csr

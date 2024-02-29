@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ namespace {  // unnamed namespace to avoid multiple definition error
  * @param [in] n_ws_perm array with indices of vectors in the working set, size [n_ws]
  * @param [out] out array with workspace idx to column idx mapping, size [n_ws]
  */
-__global__ void mapColumnIndicesToSVRSpace(
+CUML_KERNEL void mapColumnIndicesToSVRSpace(
   const int* ws, int n_ws, int n_rows, const int* n_ws_perm, int* out)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;

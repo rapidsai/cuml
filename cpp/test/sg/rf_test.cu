@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,8 @@
 #include <test_utils.h>
 
 #include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
-#include <decisiontree/batched-levelalgo/quantiles.cuh>
+#include <decisiontree/batched-levelalgo/quantiles.h>
+
 #include <raft/core/handle.hpp>
 
 #include <cuml/datasets/make_blobs.hpp>
@@ -53,6 +54,26 @@
 #include <type_traits>
 
 namespace ML {
+
+namespace DT {
+
+template <typename T>
+using ReturnValue = std::tuple<ML::DT::Quantiles<T, int>,
+                               std::shared_ptr<rmm::device_uvector<T>>,
+                               std::shared_ptr<rmm::device_uvector<int>>>;
+
+template <typename T>
+ReturnValue<T> computeQuantiles(
+  const raft::handle_t& handle, const T* data, int max_n_bins, int n_rows, int n_cols);
+
+template <>
+ReturnValue<float> computeQuantiles<float>(
+  const raft::handle_t& handle, const float* data, int max_n_bins, int n_rows, int n_cols);
+
+template <>
+ReturnValue<double> computeQuantiles<double>(
+  const raft::handle_t& handle, const double* data, int max_n_bins, int n_rows, int n_cols);
+}  // namespace DT
 
 // Utils for changing tuple into struct
 namespace detail {

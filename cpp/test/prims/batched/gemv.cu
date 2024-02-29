@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ template <typename T, typename IdxType = int>
 }
 
 template <typename Type>
-__global__ void naiveBatchGemvKernel(Type* y, const Type* A, const Type* x, int m, int n)
+CUML_KERNEL void naiveBatchGemvKernel(Type* y, const Type* A, const Type* x, int m, int n)
 {
   int batch = blockIdx.y;
   int row   = blockIdx.x;

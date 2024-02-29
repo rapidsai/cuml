@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -475,13 +475,13 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
  * @param[in] n_labels number of labels to write (batch_size * n_outputs)
  */
 template <int TPB_X, typename ind_t, typename out_t>
-__global__ void copy_label_outputs_from_index_parts_kernel(out_t* out,
-                                                           ind_t* knn_indices,
-                                                           out_t** parts,
-                                                           uint64_t* offsets,
-                                                           size_t cur_batch_size,
-                                                           int n_parts,
-                                                           int n_labels)
+CUML_KERNEL void copy_label_outputs_from_index_parts_kernel(out_t* out,
+                                                            ind_t* knn_indices,
+                                                            out_t** parts,
+                                                            uint64_t* offsets,
+                                                            size_t cur_batch_size,
+                                                            int n_parts,
+                                                            int n_labels)
 {
   uint64_t i = (blockIdx.x * TPB_X) + threadIdx.x;
   if (i >= n_labels) return;
@@ -791,17 +791,17 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
  * @param[in] n_ranks number of index ranks
  */
 template <int TPB_X, typename dist_t, typename out_t>
-__global__ void merge_labels_kernel(out_t* outputs,
-                                    dist_t* knn_indices,
-                                    out_t* unmerged_outputs,
-                                    dist_t* unmerged_knn_indices,
-                                    size_t* offsets,
-                                    int* parts_to_ranks,
-                                    int nearest_neighbors,
-                                    int n_outputs,
-                                    int n_labels,
-                                    int n_parts,
-                                    int n_ranks)
+CUML_KERNEL void merge_labels_kernel(out_t* outputs,
+                                     dist_t* knn_indices,
+                                     out_t* unmerged_outputs,
+                                     dist_t* unmerged_knn_indices,
+                                     size_t* offsets,
+                                     int* parts_to_ranks,
+                                     int nearest_neighbors,
+                                     int n_outputs,
+                                     int n_labels,
+                                     int n_parts,
+                                     int n_ranks)
 {
   uint64_t i = (blockIdx.x * TPB_X) + threadIdx.x;
   if (i >= n_labels) return;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ namespace ML {
 namespace SVM {
 
 template <typename math_t, typename Lambda>
-__global__ void set_flag(bool* flag, const math_t* alpha, int n, Lambda op)
+CUML_KERNEL void set_flag(bool* flag, const math_t* alpha, int n, Lambda op)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) flag[tid] = op(alpha[tid]);

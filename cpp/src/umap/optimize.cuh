@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 #include <cuml/manifold/umapparams.h>
 
 #include <raft/linalg/add.cuh>
@@ -37,7 +38,7 @@ namespace Optimize {
 using namespace ML;
 
 template <typename T, int TPB_X, typename Lambda>
-__global__ void map_kernel(T* output, T* X, int n_rows, T* coef, Lambda grad)
+CUML_KERNEL void map_kernel(T* output, T* X, int n_rows, T* coef, Lambda grad)
 {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < n_rows) {

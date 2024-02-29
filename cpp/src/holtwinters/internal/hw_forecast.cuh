@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,14 @@
 #include "hw_utils.cuh"
 
 template <typename Dtype>
-__global__ void holtwinters_seasonal_forecast_kernel(Dtype* forecast,
-                                                     int h,
-                                                     int batch_size,
-                                                     int frequency,
-                                                     const Dtype* level_coef,
-                                                     const Dtype* trend_coef,
-                                                     const Dtype* season_coef,
-                                                     bool additive)
+CUML_KERNEL void holtwinters_seasonal_forecast_kernel(Dtype* forecast,
+                                                      int h,
+                                                      int batch_size,
+                                                      int frequency,
+                                                      const Dtype* level_coef,
+                                                      const Dtype* trend_coef,
+                                                      const Dtype* season_coef,
+                                                      bool additive)
 {
   int tid = GET_TID;
   if (tid < batch_size) {
@@ -42,7 +42,7 @@ __global__ void holtwinters_seasonal_forecast_kernel(Dtype* forecast,
 }
 
 template <typename Dtype>
-__global__ void holtwinters_nonseasonal_forecast_kernel(
+CUML_KERNEL void holtwinters_nonseasonal_forecast_kernel(
   Dtype* forecast, int h, int batch_size, const Dtype* level_coef, const Dtype* trend_coef)
 {
   int tid = GET_TID;
@@ -55,10 +55,10 @@ __global__ void holtwinters_nonseasonal_forecast_kernel(
 }
 
 template <typename Dtype>
-__global__ void holtwinters_level_forecast_kernel(Dtype* forecast,
-                                                  int h,
-                                                  int batch_size,
-                                                  const Dtype* level_coef)
+CUML_KERNEL void holtwinters_level_forecast_kernel(Dtype* forecast,
+                                                   int h,
+                                                   int batch_size,
+                                                   const Dtype* level_coef)
 {
   int tid = GET_TID;
   if (tid < batch_size) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 
 #include <raft/core/nvtx.hpp>
 
@@ -50,7 +51,7 @@ static const int TPB = 256;
  * 2. Subtract 1 from all other labels.
  */
 template <typename Index_ = int>
-__global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL)
+CUML_KERNEL void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL)
 {
   Index_ tid = threadIdx.x + blockDim.x * blockIdx.x;
   if (tid < N) {

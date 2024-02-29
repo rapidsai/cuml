@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,14 +27,14 @@ namespace MLCommon {
 namespace Distance {
 
 template <typename DataType>
-__global__ void naiveDistanceKernel(DataType* dist,
-                                    const DataType* x,
-                                    const DataType* y,
-                                    int m,
-                                    int n,
-                                    int k,
-                                    raft::distance::DistanceType type,
-                                    bool isRowMajor)
+CUML_KERNEL void naiveDistanceKernel(DataType* dist,
+                                     const DataType* x,
+                                     const DataType* y,
+                                     int m,
+                                     int n,
+                                     int k,
+                                     raft::distance::DistanceType type,
+                                     bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
@@ -54,7 +54,7 @@ __global__ void naiveDistanceKernel(DataType* dist,
 }
 
 template <typename DataType>
-__global__ void naiveL1DistanceKernel(
+CUML_KERNEL void naiveL1DistanceKernel(
   DataType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -76,7 +76,7 @@ __global__ void naiveL1DistanceKernel(
 }
 
 template <typename DataType>
-__global__ void naiveCosineDistanceKernel(
+CUML_KERNEL void naiveCosineDistanceKernel(
   DataType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;

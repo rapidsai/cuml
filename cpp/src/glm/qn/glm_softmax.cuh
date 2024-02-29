@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@
 #include <raft/linalg/add.cuh>
 #include <raft/util/cuda_utils.cuh>
 
+#include <cuml/common/utils.hpp>
+
 namespace ML {
 namespace GLM {
 namespace detail {
@@ -38,7 +40,7 @@ namespace detail {
 //     coalesced reduce, i.e. blocks should take care of columns
 // TODO split into two kernels for small and large case?
 template <typename T, int BX = 32, int BY = 8>
-__global__ void logSoftmaxKernel(
+CUML_KERNEL void logSoftmaxKernel(
   T* out, T* dZ, const T* in, const T* labels, int C, int N, bool getDerivative = true)
 {
   typedef cub::WarpReduce<T, BX> WarpRed;

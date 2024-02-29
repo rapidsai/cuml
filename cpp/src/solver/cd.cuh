@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include "shuffle.h"
+#include <cuml/common/utils.hpp>
 #include <cuml/solvers/params.hpp>
 #include <functions/linearReg.cuh>
 #include <functions/penalty.cuh>
@@ -65,10 +66,10 @@ struct ConvState {
  * @param[in] l1_alpha L1 regularization coef
  */
 template <typename math_t>
-__global__ void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
-                                                           const math_t* squaredLoc,
-                                                           ConvState<math_t>* convStateLoc,
-                                                           const math_t l1_alpha)
+CUML_KERNEL void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
+                                                            const math_t* squaredLoc,
+                                                            ConvState<math_t>* convStateLoc,
+                                                            const math_t l1_alpha)
 {
   auto coef    = *coefLoc;
   auto r       = coef > l1_alpha ? coef - l1_alpha : (coef < -l1_alpha ? coef + l1_alpha : 0);
