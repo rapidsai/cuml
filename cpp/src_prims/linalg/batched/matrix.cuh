@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <cuml/common/utils.hpp>
-
 #include <common/fast_int_div.cuh>
+
+#include <cuml/common/utils.hpp>
 
 #include <raft/linalg/add.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -26,6 +26,7 @@
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/unary_op.cuh>
+
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/execution_policy.h>

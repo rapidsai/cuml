@@ -17,10 +17,11 @@
 #include "qn/mg/qn_mg.cuh"
 #include "qn/mg/standardization.cuh"
 #include "qn/simple_mat/dense.hpp"
-#include <cuda_runtime.h>
+
 #include <cuml/common/logger.hpp>
 #include <cuml/linear_model/qn.h>
 #include <cuml/linear_model/qn_mg.hpp>
+
 #include <raft/core/comms.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
@@ -35,6 +36,9 @@
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <cuda_runtime.h>
+
 #include <vector>
 using namespace MLCommon;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-#include <cuml/fil/fil.h>
-
 #include "benchmark.cuh"
+
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>
+#include <cuml/fil/fil.h>
 #include <cuml/tree/algo_helper.h>
+
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
+
 #include <utility>
 
 namespace ML {

@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 #pragma once
-#include <cmath>
-#include <cstddef>
 #include <cuml/experimental/fil/constants.hpp>
 #include <cuml/experimental/fil/decision_forest.hpp>
 #include <cuml/experimental/fil/detail/decision_forest_builder.hpp>
@@ -24,13 +22,17 @@
 #include <cuml/experimental/fil/forest_model.hpp>
 #include <cuml/experimental/fil/postproc_ops.hpp>
 #include <cuml/experimental/fil/tree_layout.hpp>
-#include <queue>
-#include <stack>
+
 #include <treelite/c_api.h>
 #include <treelite/enum/task_type.h>
 #include <treelite/enum/tree_node_type.h>
 #include <treelite/enum/typeinfo.h>
 #include <treelite/tree.h>
+
+#include <cmath>
+#include <cstddef>
+#include <queue>
+#include <stack>
 #include <variant>
 
 namespace ML {

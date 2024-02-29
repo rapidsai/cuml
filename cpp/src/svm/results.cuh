@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,11 @@
 
 #pragma once
 
-#include <iostream>
-#include <limits>
-#include <math.h>
-#include <memory>
-
 #include "sparse_util.cuh"
 #include "ws_util.cuh"
-#include <cub/device/device_select.cuh>
+
 #include <cuml/svm/svm_model.h>
+
 #include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/init.cuh>
@@ -32,8 +28,17 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
+
+#include <cub/device/device_select.cuh>
+
+#include <math.h>
+
+#include <iostream>
+#include <limits>
+#include <memory>
 
 namespace ML {
 namespace SVM {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#include <raft/stats/trustworthiness_score.cuh>
-
 #include <cuml/metrics/metrics.hpp>
-#include <raft/core/handle.hpp>
 
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance.cuh>
+#include <raft/stats/trustworthiness_score.cuh>
 
 namespace ML {
 namespace Metrics {

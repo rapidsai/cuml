@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,8 @@
 #include <cumlprims/opg/stats/mean.hpp>
 #include <cumlprims/opg/stats/mean_center.hpp>
 #include <cumlprims/opg/stats/stddev.hpp>
-#include <raft/core/handle.hpp>
-
 #include <raft/core/comms.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/stats/mean_center.cuh>

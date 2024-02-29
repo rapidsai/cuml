@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,23 +15,22 @@
  */
 #pragma once
 
-#include <iostream>
-#include <vector>
-
 #include "base.hpp"
-#include <raft/core/handle.hpp>
-#include <raft/linalg/ternary_op.cuh>
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/cudart_utils.hpp>
 
+#include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/linalg/ternary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/detail/cusparse_wrappers.h>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
 
-#include <raft/sparse/detail/cusparse_wrappers.h>
+#include <iostream>
+#include <vector>
 
 namespace ML {
 

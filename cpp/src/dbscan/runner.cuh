@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,15 +22,15 @@
 #include "mergelabels/runner.cuh"
 #include "mergelabels/tree_reduction.cuh"
 #include "vertexdeg/runner.cuh"
+
 #include <common/nvtx.hpp>
-#include <raft/core/nvtx.hpp>
-#include <raft/label/classlabels.cuh>
-#include <raft/sparse/csr.hpp>
-#include <raft/util/cudart_utils.hpp>
 
 #include <cuml/common/logger.hpp>
 
 #include <raft/core/nvtx.hpp>
+#include <raft/label/classlabels.cuh>
+#include <raft/sparse/csr.hpp>
+#include <raft/util/cudart_utils.hpp>
 
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
