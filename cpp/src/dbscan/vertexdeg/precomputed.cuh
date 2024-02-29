@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,18 @@
 
 #pragma once
 
-#include <cub/cub.cuh>
-#include <cuda_runtime.h>
-#include <math.h>
+#include "pack.h"
+
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 #include <raft/util/device_atomics.cuh>
 
-#include "pack.h"
+#include <cub/cub.cuh>
+#include <cuda_runtime.h>
+
+#include <math.h>
 
 namespace ML {
 namespace Dbscan {

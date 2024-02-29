@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,16 +19,16 @@
 #include <cuml/manifold/common.hpp>
 #include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn_sparse.hpp>
-#include <iostream>
+
+#include <raft/core/error.hpp>
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/selection/knn.cuh>
-
 #include <raft/spatial/knn/knn.cuh>
-
 #include <raft/util/cudart_utils.hpp>
 
-#include <raft/core/error.hpp>
+#include <iostream>
 
 namespace UMAPAlgo {
 namespace kNNGraph {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,12 @@
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 // #TODO: Replace with public header when ready
+#include "hw_utils.cuh"
+
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-
-#include "hw_utils.cuh"
 
 // optimize, maybe im2col ?
 // https://github.com/rapidsai/cuml/issues/891

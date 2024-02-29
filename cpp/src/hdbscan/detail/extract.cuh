@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,9 @@
 #include "stabilities.cuh"
 #include "utils.h"
 
-#include <raft/label/classlabels.cuh>
-
 #include <cuml/cluster/hdbscan.hpp>
 
+#include <raft/label/classlabels.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/op/sort.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -32,6 +31,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
+#include <cub/cub.cuh>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/extrema.h>
@@ -39,8 +39,6 @@
 #include <thrust/reduce.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
-
-#include <cub/cub.cuh>
 
 #include <algorithm>
 #include <cstddef>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,18 @@
  */
 
 #include "test_opg_utils.h"
+
 #include <cuml/common/logger.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
+
 #include <cumlprims/opg/linalg/gemm.hpp>
 #include <cumlprims/opg/matrix/matrix_utils.hpp>
-#include <gtest/gtest.h>
+#include <raft/comms/mpi_comms.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
-#include <test_utils.h>
 
-#include <raft/comms/mpi_comms.hpp>
+#include <gtest/gtest.h>
+#include <test_utils.h>
 
 namespace MLCommon {
 namespace Test {

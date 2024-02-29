@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,11 @@
 #pragma once
 
 #include "smo_sets.cuh"
+
 #include <cuml/svm/svm_parameter.h>
+
 #include <raft/util/cuda_utils.cuh>
+
 #include <selection/kselection.cuh>
 #include <stdlib.h>
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,10 @@
  */
 
 #include "tsne_runner.cuh"
-#include <cuml/manifold/tsne.h>
-#include <raft/core/handle.hpp>
 
+#include <cuml/manifold/tsne.h>
+
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 
 namespace ML {

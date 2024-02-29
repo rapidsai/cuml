@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,17 @@
 
 #pragma once
 
+#include "batched-levelalgo/builder.cuh"
+#include "batched-levelalgo/quantiles.cuh"
+#include "treelite_util.h"
+
 #include <cuml/common/logger.hpp>
 #include <cuml/tree/flatnode.h>
 
 #include <raft/core/handle.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/util/cudart_utils.hpp>
 
-#include "treelite_util.h"
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 
@@ -32,12 +36,8 @@
 #include <locale>
 #include <map>
 #include <numeric>
-#include <raft/core/nvtx.hpp>
 #include <random>
 #include <vector>
-
-#include "batched-levelalgo/builder.cuh"
-#include "batched-levelalgo/quantiles.cuh"
 
 /** check for treelite runtime API errors and assert accordingly */
 

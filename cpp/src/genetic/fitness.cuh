@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <raft/core/handle.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/strided_reduction.cuh>
@@ -24,9 +25,11 @@
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>
 #include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <thrust/adjacent_difference.h>
 #include <thrust/copy.h>
@@ -39,8 +42,6 @@
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
-
-#include <raft/util/cudart_utils.hpp>
 
 namespace cuml {
 namespace genetic {

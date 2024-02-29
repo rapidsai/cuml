@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,15 @@
 
 #pragma once
 
-#include <float.h>
-#include <math.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/reduce.h>
+
+#include <float.h>
+#include <math.h>
 
 #define restrict __restrict__
 
