@@ -48,12 +48,14 @@ files:
     output: none
     includes:
       - cuda_version
+      - test_libcuml
       - test_cpp
   test_python:
     output: none
     includes:
       - cuda_version
       - py_version
+      - test_cuml
       - test_python
   test_notebooks:
     output: none
@@ -61,6 +63,7 @@ files:
       - cuda_version
       - py_run
       - py_version
+      - test_cuml
       - test_notebooks
   py_build:
     output: pyproject
@@ -376,6 +379,18 @@ dependencies:
           - matrix:
             packages:
               - python>=3.9,<3.11
+  test_libcuml:
+    common:
+      - output_types: conda
+        packages:
+          - libcuml==24.4.*
+          - libcuml-tests==24.4.*
+  test_cuml:
+    common:
+      - output_types: conda
+        packages:
+          - libcuml==24.4.*
+          - cuml==24.4.*
   test_cpp:
     common:
       - output_types: conda
