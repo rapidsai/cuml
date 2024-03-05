@@ -12,7 +12,7 @@ dependencies:
 - cuda-cudart-dev
 - cuda-nvcc
 - cuda-profiler-api
-- cuda-version=12.0
+- cuda-version=12.2
 - cxx-compiler
 - gcc_linux-64=11.*
 - gmock>=1.13.0
@@ -28,4 +28,4 @@ dependencies:
 - librmm==24.4.*
 - ninja
 - sysroot_linux-64==2.17
-name: cpp_all_cuda-120_arch-x86_64
+name: cpp_all_cuda-122_arch-x86_64

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,44 +19,38 @@
 #include <cuml/common/logger.hpp>
 
 // #TODO: Replace with public header when ready
+#include "kernelcache.cuh"
+#include "results.cuh"
+#include "smo_sets.cuh"
+#include "smoblocksolve.cuh"
+#include "workingset.cuh"
+#include "ws_util.cuh"
+
+#include <raft/core/handle.hpp>
+#include <raft/distance/distance_types.hpp>
+#include <raft/distance/kernels.cuh>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/gemv.cuh>
 #include <raft/linalg/unary_op.cuh>
-
-#include <iostream>
-#include <limits>
-#include <raft/core/handle.hpp>
+#include <raft/sparse/linalg/norm.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
-#include <string>
+
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/sequence.h>
-#include <type_traits>
 
-#include "kernelcache.cuh"
-#include "smo_sets.cuh"
-#include "smoblocksolve.cuh"
-#include "workingset.cuh"
-#include "ws_util.cuh"
-#include <raft/distance/distance_types.hpp>
-#include <raft/distance/kernels.cuh>
-#include <raft/linalg/gemv.cuh>
-#include <raft/linalg/unary_op.cuh>
-#include <raft/sparse/linalg/norm.cuh>
-
-#include "results.cuh"
 #include <cassert>
-#include <sstream>
-#include <string>
-
 #include <chrono>
 #include <cstdlib>
-#include <thrust/copy.h>
-#include <thrust/device_ptr.h>
+#include <iostream>
+#include <limits>
+#include <sstream>
+#include <string>
+#include <type_traits>
 
 namespace ML {
 namespace SVM {

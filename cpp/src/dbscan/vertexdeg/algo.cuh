@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,19 @@
 #pragma once
 
 #include "pack.h"
-#include <cuda_runtime.h>
-#include <math.h>
-#include <raft/neighbors/epsilon_neighborhood.cuh>
 
-#include "pack.h"
+#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/neighbors/epsilon_neighborhood.cuh>
 #include <raft/util/device_atomics.cuh>
+
 #include <rmm/device_uvector.hpp>
+
+#include <cuda_runtime.h>
+
+#include <math.h>
 
 namespace ML {
 namespace Dbscan {

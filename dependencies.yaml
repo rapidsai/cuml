@@ -3,7 +3,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.8", "12.0"]
+      cuda: ["11.8", "12.2"]
       arch: [x86_64]
     includes:
       - common_build
@@ -17,7 +17,7 @@ files:
   cpp_all:
     output: conda
     matrix:
-      cuda: ["11.8", "12.0"]
+      cuda: ["11.8", "12.2"]
       arch: [x86_64]
     includes:
       - common_build
@@ -48,12 +48,14 @@ files:
     output: none
     includes:
       - cuda_version
+      - test_libcuml
       - test_cpp
   test_python:
     output: none
     includes:
       - cuda_version
       - py_version
+      - test_cuml
       - test_python
   test_notebooks:
     output: none
@@ -61,6 +63,7 @@ files:
       - cuda_version
       - py_run
       - py_version
+      - test_cuml
       - test_notebooks
   py_build:
     output: pyproject
@@ -266,6 +269,10 @@ dependencies:
               cuda: "12.0"
             packages:
               - cuda-version=12.0
+          - matrix:
+              cuda: "12.2"
+            packages:
+              - cuda-version=12.2
   cuda:
     specific:
       - output_types: conda
@@ -370,8 +377,24 @@ dependencies:
             packages:
               - python=3.10
           - matrix:
+              py: "3.11"
             packages:
-              - python>=3.9,<3.11
+              - python=3.11
+          - matrix:
+            packages:
+              - python>=3.9,<3.12
+  test_libcuml:
+    common:
+      - output_types: conda
+        packages:
+          - libcuml==24.4.*
+          - libcuml-tests==24.4.*
+  test_cuml:
+    common:
+      - output_types: conda
+        packages:
+          - libcuml==24.4.*
+          - cuml==24.4.*
   test_cpp:
     common:
       - output_types: conda

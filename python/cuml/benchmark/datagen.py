@@ -73,7 +73,7 @@ def _gen_data_regression(
     )
 
     X_df = cudf.DataFrame(X_arr)
-    y_df = cudf.Series(y_arr)
+    y_df = cudf.Series(np.squeeze(y_arr))
 
     return X_df, y_df
 

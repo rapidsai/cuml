@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #include <raft/core/handle.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/linalg/subtract.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/stats/mean.cuh>
@@ -27,6 +28,7 @@
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/weighted_mean.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,11 @@
 
 #pragma once
 
-#include <decisiontree/batched-levelalgo/quantiles.cuh>
-#include <decisiontree/decisiontree.cuh>
-#include <decisiontree/treelite_util.h>
-
-#include <raft/random/permute.cuh>
+#include <cuml/ensemble/randomforest.hpp>
 
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/stats/accuracy.cuh>
 #include <raft/stats/regression_metrics.cuh>
@@ -31,6 +28,10 @@
 
 #include <thrust/execution_policy.h>
 #include <thrust/sequence.h>
+
+#include <decisiontree/batched-levelalgo/quantiles.cuh>
+#include <decisiontree/decisiontree.cuh>
+#include <decisiontree/treelite_util.h>
 
 #ifdef _OPENMP
 #include <omp.h>

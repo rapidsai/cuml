@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,24 @@
  * limitations under the License.
  */
 
-#include <cmath>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/datasets/make_regression.hpp>
 #include <cuml/svm/linear.hpp>
-#include <raft/core/handle.hpp>
 
-#include <gtest/gtest.h>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
 #include <test_utils.h>
+
+#include <cmath>
 
 namespace ML {
 namespace SVM {

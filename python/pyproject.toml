@@ -72,6 +72,7 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
 ]
 
 [project.optional-dependencies]
@@ -127,6 +128,7 @@ build-dir = "build/{wheel_tag}"
 cmake.build-type = "Release"
 cmake.minimum-version = "3.26.4"
 ninja.make-fallback = true
+sdist.exclude = ["*tests*"]
 sdist.reproducible = true
 wheel.packages = ["cuml"]
 

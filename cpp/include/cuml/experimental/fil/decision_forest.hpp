@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 #pragma once
-#include <algorithm>
-#include <cstddef>
 #include <cuml/experimental/fil/constants.hpp>
 #include <cuml/experimental/fil/detail/device_initialization.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
@@ -30,10 +28,14 @@
 #include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/postproc_ops.hpp>
 #include <cuml/experimental/fil/tree_layout.hpp>
-#include <limits>
-#include <optional>
+
 #include <stddef.h>
 #include <stdint.h>
+
+#include <algorithm>
+#include <cstddef>
+#include <limits>
+#include <optional>
 #include <variant>
 
 namespace ML {

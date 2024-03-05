@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -98,7 +98,9 @@ def test_standard_datasets(dataset):
 
 
 @given(split_datasets(standard_datasets()))
-@settings(suppress_health_check=[HealthCheck.too_slow])
+@settings(
+    suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large]
+)
 def test_split_datasets(split_dataset):
     X_train, X_test, y_train, y_test = split_dataset
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,12 @@
 
 #pragma once
 
+#include <cuml/common/log_levels.hpp>
+
 #include <raft/distance/distance_types.hpp>
 
-#include <cuml/common/log_levels.hpp>
+#include <cstddef>
+#include <cstdint>
 
 namespace raft {
 class handle_t;

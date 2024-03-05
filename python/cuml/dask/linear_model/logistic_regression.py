@@ -140,8 +140,9 @@ class LogisticRegression(LinearRegression):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, *, standardization=False, **kwargs):
         super().__init__(**kwargs)
+        self.kwargs["standardization"] = standardization
 
     def fit(self, X, y):
         """

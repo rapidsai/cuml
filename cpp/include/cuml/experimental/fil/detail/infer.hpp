@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,24 @@
  * limitations under the License.
  */
 #pragma once
-#include <cstddef>
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/infer/cpu.hpp>
-#include <cuml/experimental/fil/infer_kind.hpp>
-#include <iostream>
-#include <optional>
-#include <type_traits>
-#ifdef CUML_ENABLE_GPU
-#include <cuml/experimental/fil/detail/infer/gpu.hpp>
-#endif
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_id.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/exceptions.hpp>
+#include <cuml/experimental/fil/infer_kind.hpp>
+
+#include <cstddef>
+#include <iostream>
+#include <optional>
+#include <type_traits>
+
+#ifdef CUML_ENABLE_GPU
+#include <cuml/experimental/fil/detail/infer/gpu.hpp>
+#endif
+
 namespace ML {
 namespace experimental {
 namespace fil {

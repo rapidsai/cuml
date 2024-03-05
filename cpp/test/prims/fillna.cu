@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-
-#include <random>
-#include <vector>
+#include "test_utils.h"
 
 #include <raft/core/handle.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
 
-#include "test_utils.h"
-
+#include <gtest/gtest.h>
 #include <timeSeries/fillna.cuh>
+
+#include <random>
+#include <vector>
 
 namespace MLCommon {
 namespace TimeSeries {

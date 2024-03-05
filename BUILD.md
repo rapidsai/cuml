@@ -18,7 +18,7 @@ To install cuML from source, ensure the following dependencies are met:
 It is recommended to use conda for environment/package management. If doing so, development environment .yaml files are located in `conda/environments/all_*.yaml`. These files contains most of the dependencies mentioned above (notable exceptions are `gcc` and `zlib`). To create a development environment named `cuml_dev`, you can use the follow commands:
 
 ```bash
-conda create -n cuml_dev python=3.10
+conda create -n cuml_dev python=3.11
 conda env update -n cuml_dev --file=conda/environments/all_cuda-118_arch-x86_64.yaml
 conda activate cuml_dev
 ```

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 ########################
 # cuML Version Updater #
 ########################
@@ -65,8 +65,11 @@ sed_runner "s/branch-.*/branch-${NEXT_SHORT_TAG}/g" ci/test_wheel.sh
 
 DEPENDENCIES=(
   cudf
+  cuml
   dask-cuda
   dask-cudf
+  libcuml
+  libcuml-tests
   libcumlprims
   libraft-headers
   libraft
