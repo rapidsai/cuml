@@ -15,6 +15,10 @@ fi
 # echo to expand wildcard before adding `[extra]` requires for pip
 python -m pip install $(echo ./dist/cuml*.whl)[test]
 
+EXITCODE=0
+trap "EXITCODE=1" ERR
+set +e
+
 # Run smoke tests for aarch64 pull requests
 if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
     python ci/wheel_smoke_test_cuml.py
@@ -35,3 +39,6 @@ else
     ./ci/run_cuml_dask_pytests.sh \
       --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask.xml"
 fi
+
+rapids-logger "Test script exiting with value: $EXITCODE"
+exit ${EXITCODE}
