@@ -14,6 +14,7 @@ set +e
 rapids-logger "pytest cuml single GPU..."
 ./ci/run_cuml_singlegpu_pytests.sh \
   --numprocesses=8 \
+  --dist=worksteal \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml" \
   --cov-config=../../.coveragerc \
   --cov=cuml \
