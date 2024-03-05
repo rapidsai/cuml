@@ -25,7 +25,7 @@ rapids-mamba-retry install \
   --channel "${PYTHON_CHANNEL}" \
   cuml libcuml
 
-export RAPIDS_VERSION_NUMBER="$(sed -E -e 's/^([0-9]{2})\.([0-9]{2})\.([0-9]{2})$/\1.\2/' VERSION)"
+export RAPIDS_VERSION_NUMBER="$(sed -E -e 's/^([0-9]{2})\.([0-9]{2})\.([0-9]{2})/\1.\2/' VERSION)"
 export RAPIDS_DOCS_DIR="$(mktemp -d)"
 
 rapids-logger "Build CPP docs"
