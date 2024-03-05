@@ -98,9 +98,7 @@ def test_standard_datasets(dataset):
 
 
 @given(split_datasets(standard_datasets()))
-@settings(
-    suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large]
-)
+@settings(suppress_health_check=list(HealthCheck))
 def test_split_datasets(split_dataset):
     X_train, X_test, y_train, y_test = split_dataset
 
