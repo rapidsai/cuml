@@ -21,7 +21,7 @@ rapids-logger "pytest cuml single GPU"
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml" \
   --cov-report=term
 
-rapids-logger "memory leak pytests..."
+rapids-logger "memory leak pytests"
 
 ./ci/run_cuml_singlegpu_memleak_pytests.sh \
   --numprocesses=1 \
