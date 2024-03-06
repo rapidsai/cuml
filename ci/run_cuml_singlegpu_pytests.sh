@@ -4,4 +4,4 @@
 # Support invoking run_cuml_singlegpu_pytests.sh outside the script directory
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../python/cuml/tests
 
-pytest --cache-clear --ignore=dask -m "not memleak" "$@" .
+python -m pytest --cache-clear --ignore=dask -m "not memleak" "$@" .
