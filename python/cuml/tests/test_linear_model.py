@@ -779,6 +779,7 @@ def test_logistic_regression_input_type_consistency(constructor, dtype):
     else:
         assert isinstance(clf.predict(X), type(X))
 
+
 @pytest.mark.parametrize("train_dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("test_dtype", [np.float64, np.float32])
 def test_linreg_predict_convert_dtype(train_dtype, test_dtype):
