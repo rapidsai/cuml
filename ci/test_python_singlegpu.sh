@@ -11,16 +11,17 @@ EXITCODE=0
 trap "EXITCODE=1" ERR
 set +e
 
-rapids-logger "pytest cuml single GPU..."
+rapids-logger "pytest cuml single GPU"
 ./ci/run_cuml_singlegpu_pytests.sh \
   --numprocesses=8 \
+  --dist=worksteal \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml" \
   --cov-config=../../.coveragerc \
   --cov=cuml \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml" \
-  --cov-report=term \
+  --cov-report=term
 
-rapids-logger "memory leak pytests..."
+rapids-logger "memory leak pytests"
 
 ./ci/run_cuml_singlegpu_memleak_pytests.sh \
   --numprocesses=1 \
@@ -29,7 +30,7 @@ rapids-logger "memory leak pytests..."
   --cov=cuml \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-memleak-coverage.xml" \
   --cov-report=term \
-  -m "memleak" \
+  -m "memleak"
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
