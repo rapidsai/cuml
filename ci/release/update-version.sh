@@ -44,12 +44,6 @@ sed_runner "s/cudf==.*\",/cudf==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pyprojec
 sed_runner "s/pylibraft==.*\",/pylibraft==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pyproject.toml
 sed_runner "s/raft-dask==.*\",/raft-dask==${NEXT_SHORT_TAG_PEP440}.*\",/g" python/pyproject.toml
 
-# Update project_number (RAPIDS_VERSION) in the CPP doxygen file
-sed_runner "s/\(PROJECT_NUMBER.*=\).*/\1 \"${NEXT_SHORT_TAG}\"/g" cpp/Doxyfile.in
-
-# Wheel testing script
-sed_runner "s/branch-.*/branch-${NEXT_SHORT_TAG}/g" ci/test_wheel.sh
-
 DEPENDENCIES=(
   cudf
   cuml
