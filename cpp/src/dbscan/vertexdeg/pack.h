@@ -34,11 +34,12 @@ struct Pack {
   Index_* vd;
   /** weighted vertex degree */
   Type* weight_sum;
-  /** the adjacency matrix */
+  /** the CSR adjacency matrix */
   Index_* ia;
   rmm::device_uvector<Index_>* ja;
   /** iff > 0 maximum expected rowlength */
   Index_ max_k;
+  /** the dense adjacency matrix */
   bool* adj;
   /** input dataset */
   const Type* x;
