@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
-#include <raft/core/handle.hpp>
-
 #include <cuml/metrics/metrics.hpp>
+
 #include <raft/core/handle.hpp>
 #include <raft/stats/rand_index.cuh>
 

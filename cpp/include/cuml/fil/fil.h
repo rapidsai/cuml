@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@
 
 #pragma once
 
+#include <cuml/ensemble/treelite_defs.hpp>
+
 #include <stddef.h>
 
 #include <variant>  // for std::get<>, std::variant<>
-
-#include <cuml/ensemble/treelite_defs.hpp>
 
 namespace raft {
 class handle_t;

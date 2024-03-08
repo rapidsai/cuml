@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,7 @@
 
 #include "test_utils.h"
 
-#include <gtest/gtest.h>
-
 #include <raft/label/classlabels.cuh>
-
 #include <raft/linalg/reduce.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/spatial/knn/knn.cuh>
@@ -28,11 +25,12 @@
 
 #include <rmm/device_uvector.hpp>
 
-#include <selection/knn.cuh>
-
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/extrema.h>
+
+#include <gtest/gtest.h>
+#include <selection/knn.cuh>
 
 #include <iostream>
 #include <vector>

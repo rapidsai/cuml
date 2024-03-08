@@ -17,23 +17,26 @@
 #pragma once
 
 #include "pack.h"
-#include <cuda_runtime.h>
-#include <math.h>
-#include <raft/neighbors/epsilon_neighborhood.cuh>
 
-#include "pack.h"
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/coalesced_reduction.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/neighbors/epsilon_neighborhood.cuh>
 #include <raft/util/device_atomics.cuh>
+
 #include <rmm/device_uvector.hpp>
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/transform.h>
+
+#include <cuda_runtime.h>
+
+#include <math.h>
 
 namespace ML {
 namespace Dbscan {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,33 +14,32 @@
  * limitations under the License.
  */
 
+#include "../prims/test_utils.h"
 #include "hdbscan_inputs.hpp"
-#include <raft/core/handle.hpp>
-
-#include <gtest/gtest.h>
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/cudart_utils.hpp>
-#include <vector>
 
 #include <cuml/cluster/hdbscan.hpp>
-#include <hdbscan/detail/condense.cuh>
-#include <hdbscan/detail/extract.cuh>
-#include <hdbscan/detail/reachability.cuh>
-
-#include <raft/stats/adjusted_rand_index.cuh>
 
 #include <raft/cluster/detail/agglomerative.cuh>
-
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/sort.cuh>
+#include <raft/stats/adjusted_rand_index.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/execution_policy.h>
 #include <thrust/transform.h>
 
-#include "../prims/test_utils.h"
+#include <gtest/gtest.h>
+#include <hdbscan/detail/condense.cuh>
+#include <hdbscan/detail/extract.cuh>
+#include <hdbscan/detail/reachability.cuh>
+
+#include <vector>
 
 namespace ML {
 namespace HDBSCAN {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,27 +14,29 @@
  * limitations under the License.
  */
 
+#include <cuml/common/logger.hpp>
 #include <cuml/manifold/tsne.h>
 #include <cuml/metrics/metrics.hpp>
+
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/map.cuh>
+#include <raft/util/cudart_utils.hpp>
 
-#include <cuml/common/logger.hpp>
+#include <thrust/reduce.h>
+
 #include <datasets/boston.h>
 #include <datasets/breast_cancer.h>
 #include <datasets/diabetes.h>
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
-#include <iostream>
-#include <raft/core/handle.hpp>
-
-#include <raft/util/cudart_utils.hpp>
 #include <stdio.h>
 #include <stdlib.h>
-#include <thrust/reduce.h>
 #include <tsne/distances.cuh>
 #include <tsne/tsne_runner.cuh>
 #include <tsne/utils.cuh>
+
+#include <iostream>
 #include <vector>
 
 using namespace MLCommon;

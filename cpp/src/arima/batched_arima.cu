@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,20 @@
  * limitations under the License.
  */
 
-#include <algorithm>
-#include <cmath>
-#include <iostream>
-#include <vector>
+#include <common/nvtx.hpp>
+
+#include <cuml/tsa/batched_arima.hpp>
+#include <cuml/tsa/batched_kalman.hpp>
+
+#include <raft/core/handle.hpp>
+#include <raft/core/nvtx.hpp>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/stats/information_criterion.cuh>
+#include <raft/stats/stats_types.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -26,21 +36,14 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/logical.h>
 
-#include <cuml/tsa/batched_arima.hpp>
-#include <cuml/tsa/batched_kalman.hpp>
-
-#include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
-#include <raft/core/handle.hpp>
-#include <raft/core/nvtx.hpp>
-#include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/stats/information_criterion.cuh>
-#include <raft/stats/stats_types.hpp>
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/cudart_utils.hpp>
-#include <rmm/device_uvector.hpp>
 #include <timeSeries/arima_helpers.cuh>
 #include <timeSeries/fillna.cuh>
+
+#include <algorithm>
+#include <cmath>
+#include <iostream>
+#include <vector>
 
 namespace ML {
 

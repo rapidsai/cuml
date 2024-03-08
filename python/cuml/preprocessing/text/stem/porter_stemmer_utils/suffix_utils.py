@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ def get_str_replacement_series(replacement, bool_mask):
     Get replacement series with replacement at
     Places marked by bool mask and empty other wise
     """
-    word_ser = cudf.Series(cudf.core.column.full(len(bool_mask), ""))
+    word_ser = cudf.Series([""] * len(bool_mask))
     word_ser.iloc[bool_mask] = replacement
 
     return word_ser

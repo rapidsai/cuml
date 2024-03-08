@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+#include "dbscan.cuh"
+
 #include <cuml/cluster/dbscan.hpp>
 
-#include "dbscan.cuh"
 #include <raft/util/cudart_utils.hpp>
 
 namespace ML {

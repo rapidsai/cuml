@@ -13,19 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <cuml/cluster/dbscan.hpp>
+
+#include <raft/core/handle.hpp>
+
+#include <cuda_runtime.h>
+
 #include <algorithm>
 #include <cmath>
-#include <cuda_runtime.h>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <vector>
-
-#include <raft/core/handle.hpp>
-
-#include <cuml/cluster/dbscan.hpp>
 
 #ifndef CUDA_RT_CALL
 #define CUDA_RT_CALL(call)                                                    \

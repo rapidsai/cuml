@@ -225,6 +225,8 @@ def check_is_fitted(estimator, attributes=None, *, msg=None, all_or_any=all):
         if not isinstance(attributes, (list, tuple)):
             attributes = [attributes]
         attrs = all_or_any([hasattr(estimator, attr) for attr in attributes])
+    elif hasattr(estimator, "__sklearn_is_fitted__"):
+        attrs = estimator.__sklearn_is_fitted__()
     else:
         attrs = [v for v in vars(estimator)
                  if v.endswith("_") and not v.startswith("__")]

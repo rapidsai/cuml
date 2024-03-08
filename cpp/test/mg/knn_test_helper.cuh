@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,18 @@
 
 #include "../prims/test_utils.h"
 #include "test_opg_utils.h"
+
 #include <cuml/neighbors/knn_mg.hpp>
-#include <gtest/gtest.h>
-#include <memory>
-#include <raft/random/make_blobs.cuh>
 
 #include <raft/comms/mpi_comms.hpp>
-
 #include <raft/linalg/reduce_rows_by_key.cuh>
+#include <raft/random/make_blobs.cuh>
+#include <raft/util/cuda_utils.cuh>
+
+#include <gtest/gtest.h>
 #include <selection/knn.cuh>
 
-#include <raft/util/cuda_utils.cuh>
+#include <memory>
 
 namespace ML {
 namespace KNN {
