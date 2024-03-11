@@ -31,7 +31,7 @@ import dask.dataframe as dd
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
 from cuml.internals.safe_imports import gpu_only_import_from
 
-DataFrame = gpu_only_import_from("cudf.core.dataframe", "DataFrame")
+DataFrame = gpu_only_import_from("cudf", "DataFrame")
 np = cpu_only_import("numpy")
 cudf = gpu_only_import("cudf")
 
