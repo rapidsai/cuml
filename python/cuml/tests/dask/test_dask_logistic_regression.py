@@ -784,6 +784,7 @@ def test_standardization_on_scaled_dataset(
     # if fit_intercept is false, scale the dataset without mean center
     scaler = StandardScaler(with_mean=fit_intercept, with_std=True)
     scaler.fit(X_train)
+    scaler.scale_ = np.sqrt(scaler.var_ * len(X_train) / (len(X_train) - 1))
     X_train_scaled = scaler.transform(X_train)
     X_test_scaled = scaler.transform(X_test)
 
@@ -842,10 +843,6 @@ def test_standardization_on_scaled_dataset(
         np.abs(mgon_accuracy - mgoff_accuracy) < 1e-3
     )
 
-    print(f"mgon_coef_origin: {mgon_coef_origin}")
-    print(f"mgoff.coef_: {mgoff.coef_.to_numpy()}")
-    print(f"mgon_intercept_origin: {mgon_intercept_origin}")
-    print(f"mgoff.intercept_: {mgoff.intercept_.to_numpy()}")
     assert array_equal(mgon_coef_origin, mgoff.coef_.to_numpy(), tolerance)
     assert array_equal(
         mgon_intercept_origin, mgoff.intercept_.to_numpy(), tolerance
