@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,9 +23,12 @@
 namespace ML {
 namespace Dbscan {
 namespace VertexDeg {
-
 template <typename Type_f, typename Index_ = int>
 void run(const raft::handle_t& handle,
+         raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_, Index_>* rbc_index,
+         Index_* ia,
+         rmm::device_uvector<Index_>* ja,
+         Index_ max_k,
          bool* adj,
          Index_* vd,
          Type_f* wght_sum,
@@ -40,7 +43,8 @@ void run(const raft::handle_t& handle,
          cudaStream_t stream,
          raft::distance::DistanceType metric)
 {
-  Pack<Type_f, Index_> data = {vd, wght_sum, adj, x, sample_weight, eps, N, D};
+  Pack<Type_f, Index_> data = {
+    rbc_index, vd, wght_sum, ia, ja, max_k, adj, x, sample_weight, eps, N, D};
   switch (algo) {
     case 0:
       ASSERT(
@@ -49,6 +53,7 @@ void run(const raft::handle_t& handle,
       Algo::launcher<Type_f, Index_>(handle, data, start_vertex_id, batch_size, stream, metric);
       break;
     case 2:
+      ASSERT(rbc_index == nullptr, "Current rbc implementation does not support algo '%d'!", algo);
       Precomputed::launcher<Type_f, Index_>(handle, data, start_vertex_id, batch_size, stream);
       break;
     default: ASSERT(false, "Incorrect algo passed! '%d'", algo);

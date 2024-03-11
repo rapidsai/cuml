@@ -63,7 +63,7 @@ def test_kmeans_input(input_type):
         assert isinstance(summary[0], np.ndarray)
     elif input_type == "cudf-series":
         cp.testing.assert_array_equal(summary[0].values.tolist(), [23.0, 52.0])
-        assert isinstance(summary[0], cudf.core.series.Series)
+        assert isinstance(summary[0], cudf.Series)
     elif input_type == "pandas-series":
         cp.testing.assert_array_equal(
             summary[0].to_numpy().flatten(), [23.0, 52.0]

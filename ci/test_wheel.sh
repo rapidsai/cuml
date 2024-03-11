@@ -15,9 +15,30 @@ fi
 # echo to expand wildcard before adding `[extra]` requires for pip
 python -m pip install $(echo ./dist/cuml*.whl)[test]
 
+EXITCODE=0
+trap "EXITCODE=1" ERR
+set +e
+
 # Run smoke tests for aarch64 pull requests
 if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
     python ci/wheel_smoke_test_cuml.py
 else
-    python -m pytest ./python/cuml/tests -k 'not test_sparse_pca_inputs' -n 4 --ignore=python/cuml/tests/dask && python -m pytest ./python/cuml/tests -k 'test_sparse_pca_inputs' && python -m pytest ./python/cuml/tests/dask
+    rapids-logger "pytest cuml single GPU"
+    ./ci/run_cuml_singlegpu_pytests.sh \
+      --numprocesses=8 \
+      --dist=worksteal \
+      -k 'not test_sparse_pca_inputs' \
+      --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml"
+
+    # Run test_sparse_pca_inputs separately
+    ./ci/run_cuml_singlegpu_pytests.sh \
+      -k 'test_sparse_pca_inputs' \
+      --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-sparse-pca.xml"
+
+    rapids-logger "pytest cuml-dask"
+    ./ci/run_cuml_dask_pytests.sh \
+      --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask.xml"
 fi
+
+rapids-logger "Test script exiting with value: $EXITCODE"
+exit ${EXITCODE}

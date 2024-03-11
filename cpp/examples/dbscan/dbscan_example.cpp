@@ -208,6 +208,7 @@ int main(int argc, char* argv[])
                   nullptr,
                   nullptr,
                   max_bytes_per_batch,
+                  ML::Dbscan::EpsNnMethod::BRUTE_FORCE,
                   false);
   CUDA_RT_CALL(cudaMemcpyAsync(
     h_labels.data(), d_labels, nRows * sizeof(int), cudaMemcpyDeviceToHost, stream));

@@ -30,6 +30,8 @@ class handle_t;
 namespace ML {
 namespace Dbscan {
 
+enum EpsNnMethod { BRUTE_FORCE, RBC };
+
 /**
  * @defgroup DbscanCpp C++ implementation of Dbscan algo
  * @brief Fits a DBSCAN model on an input feature matrix and outputs the labels
@@ -53,6 +55,7 @@ namespace Dbscan {
  * @param[in] max_bytes_per_batch the maximum number of megabytes to be used for
  *            each batch of the pairwise distance calculation. This enables the
  *            trade off between memory usage and algorithm execution time.
+ * @param[in] eps_nn_method method for computing epsilon neighborhood
  * @param[in] verbosity verbosity level for logging messages during execution
  * @param[in] opg whether we are running in a multi-node multi-GPU context
  * @{
@@ -69,6 +72,7 @@ void fit(const raft::handle_t& handle,
          int* core_sample_indices   = nullptr,
          float* sample_weight       = nullptr,
          size_t max_bytes_per_batch = 0,
+         EpsNnMethod eps_nn_method  = BRUTE_FORCE,
          int verbosity              = CUML_LEVEL_INFO,
          bool opg                   = false);
 void fit(const raft::handle_t& handle,
@@ -82,6 +86,7 @@ void fit(const raft::handle_t& handle,
          int* core_sample_indices   = nullptr,
          double* sample_weight      = nullptr,
          size_t max_bytes_per_batch = 0,
+         EpsNnMethod eps_nn_method  = BRUTE_FORCE,
          int verbosity              = CUML_LEVEL_INFO,
          bool opg                   = false);
 
@@ -96,6 +101,7 @@ void fit(const raft::handle_t& handle,
          int64_t* core_sample_indices = nullptr,
          float* sample_weight         = nullptr,
          size_t max_bytes_per_batch   = 0,
+         EpsNnMethod eps_nn_method    = BRUTE_FORCE,
          int verbosity                = CUML_LEVEL_INFO,
          bool opg                     = false);
 void fit(const raft::handle_t& handle,
@@ -109,6 +115,7 @@ void fit(const raft::handle_t& handle,
          int64_t* core_sample_indices = nullptr,
          double* sample_weight        = nullptr,
          size_t max_bytes_per_batch   = 0,
+         EpsNnMethod eps_nn_method    = BRUTE_FORCE,
          int verbosity                = CUML_LEVEL_INFO,
          bool opg                     = false);
 

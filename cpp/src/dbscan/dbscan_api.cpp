@@ -49,6 +49,7 @@ cumlError_t cumlSpDbscanFit(cumlHandle_t handle,
                       core_sample_indices,
                       NULL,
                       max_bytes_per_batch,
+                      ML::Dbscan::EpsNnMethod::BRUTE_FORCE,
                       verbosity);
     }
     // TODO: Implement this
@@ -91,6 +92,7 @@ cumlError_t cumlDpDbscanFit(cumlHandle_t handle,
                       core_sample_indices,
                       NULL,
                       max_bytes_per_batch,
+                      ML::Dbscan::EpsNnMethod::BRUTE_FORCE,
                       verbosity);
     }
     // TODO: Implement this
