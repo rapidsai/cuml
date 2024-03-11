@@ -106,6 +106,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
                    Index_* core_sample_indices,
                    T* sample_weight,
                    size_t max_mbytes_per_batch,
+                   EpsNnMethod eps_nn_method,
                    cudaStream_t stream,
                    int verbosity)
 {
@@ -184,6 +185,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
                                                      algo_ccl,
                                                      NULL,
                                                      batch_size,
+                                                     eps_nn_method,
                                                      stream,
                                                      metric);
 
@@ -206,6 +208,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
                               algo_ccl,
                               workspace.data(),
                               batch_size,
+                              eps_nn_method,
                               stream,
                               metric);
 }
