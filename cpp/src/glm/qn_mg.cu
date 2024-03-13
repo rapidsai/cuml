@@ -240,10 +240,12 @@ void qnFitSparse_impl(const raft::handle_t& handle,
 {
   auto X_simple = SimpleSparseMat<T>(X_values, X_cols, X_row_ids, X_nnz, N, D);
 
-  rmm::device_uvector<T> mean_std_buff(4 * D, handle.get_stream());
+  size_t vec_size = raft::alignTo<size_t>(sizeof(T) * D, ML::GLM::detail::qn_align);
+  rmm::device_uvector<T> mean_std_buff(4 * vec_size, handle.get_stream());
   Standardizer<T>* stder = NULL;
 
-  if (standardization) stder = new Standardizer(handle, X_simple, n_samples, mean_std_buff);
+  if (standardization)
+    stder = new Standardizer(handle, X_simple, n_samples, mean_std_buff, vec_size);
 
   ML::GLM::opg::qn_fit_x_mg(handle,
                             pams,

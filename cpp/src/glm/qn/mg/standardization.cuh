@@ -189,17 +189,26 @@ struct Standardizer {
   Standardizer(const raft::handle_t& handle,
                const SimpleSparseMat<T>& X,
                int n_samples,
-               rmm::device_uvector<T>& mean_std_buff)
+               rmm::device_uvector<T>& mean_std_buff,
+               size_t vec_size)
   {
     int D = X.n;
-    ASSERT(mean_std_buff.size() == 4 * D, "buff size must be four times the dimension");
+    ASSERT(mean_std_buff.size() == 4 * vec_size, "buff size must be four times the aligned size");
 
     auto stream = handle.get_stream();
 
-    mean.reset(mean_std_buff.data(), D);
-    std.reset(mean_std_buff.data() + D, D);
-    std_inv.reset(mean_std_buff.data() + 2 * D, D);
-    scaled_mean.reset(mean_std_buff.data() + 3 * D, D);
+    T* p_ws = mean_std_buff.data();
+
+    mean.reset(p_ws, D);
+    p_ws += vec_size;
+
+    std.reset(p_ws, D);
+    p_ws += vec_size;
+
+    std_inv.reset(p_ws, D);
+    p_ws += vec_size;
+
+    scaled_mean.reset(p_ws, D);
 
     mean_stddev(handle, X, n_samples, mean.data, std.data);
     raft::linalg::unaryOp(std_inv.data, std.data, D, inverse_op(), stream);
