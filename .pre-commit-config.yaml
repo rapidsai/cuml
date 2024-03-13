@@ -43,12 +43,6 @@ repos:
             entry: '(category=|\s)DeprecationWarning[,)]'
             language: pygrep
             types_or: [python, cython]
-          - id: copyright-check
-            name: copyright-check
-            entry: python ./ci/checks/copyright.py --fix-in-place
-            language: python
-            pass_filenames: true
-            additional_dependencies: [gitpython]
           - id: include-check
             name: include-check
             entry: python cpp/scripts/include_checker.py
@@ -70,6 +64,21 @@ repos:
       hooks:
           - id: rapids-dependency-file-generator
             args: ["--clean"]
+    - repo: https://github.com/rapidsai/pre-commit-hooks
+      rev: v0.0.1
+      hooks:
+        - id: verify-copyright
+          files: |
+            (?x)
+                [.](cmake|cpp|cu|cuh|h|hpp|sh|pxd|py|pyx)$|
+                CMakeLists[.]txt$|
+                CMakeLists_standalone[.]txt$|
+                [.]flake8[.]cython$|
+                meta[.]yaml$|
+                setup[.]cfg$
+          exclude: |
+            (?x)
+                cpp/src/tsne/cannylab/bh[.]cu$
 
 default_language_version:
     python: python3

@@ -34,6 +34,7 @@ void fit(const raft::handle_t& handle,
          int* core_sample_indices,
          float* sample_weight,
          size_t max_bytes_per_batch,
+         EpsNnMethod eps_nn_method,
          int verbosity,
          bool opg)
 {
@@ -49,6 +50,7 @@ void fit(const raft::handle_t& handle,
                                     core_sample_indices,
                                     sample_weight,
                                     max_bytes_per_batch,
+                                    eps_nn_method,
                                     handle.get_stream(),
                                     verbosity);
   else
@@ -63,6 +65,7 @@ void fit(const raft::handle_t& handle,
                                      core_sample_indices,
                                      sample_weight,
                                      max_bytes_per_batch,
+                                     eps_nn_method,
                                      handle.get_stream(),
                                      verbosity);
 }
@@ -78,6 +81,7 @@ void fit(const raft::handle_t& handle,
          int* core_sample_indices,
          double* sample_weight,
          size_t max_bytes_per_batch,
+         EpsNnMethod eps_nn_method,
          int verbosity,
          bool opg)
 {
@@ -93,6 +97,7 @@ void fit(const raft::handle_t& handle,
                                      core_sample_indices,
                                      sample_weight,
                                      max_bytes_per_batch,
+                                     eps_nn_method,
                                      handle.get_stream(),
                                      verbosity);
   else
@@ -107,6 +112,7 @@ void fit(const raft::handle_t& handle,
                                       core_sample_indices,
                                       sample_weight,
                                       max_bytes_per_batch,
+                                      eps_nn_method,
                                       handle.get_stream(),
                                       verbosity);
 }
@@ -122,6 +128,7 @@ void fit(const raft::handle_t& handle,
          int64_t* core_sample_indices,
          float* sample_weight,
          size_t max_bytes_per_batch,
+         EpsNnMethod eps_nn_method,
          int verbosity,
          bool opg)
 {
@@ -137,6 +144,7 @@ void fit(const raft::handle_t& handle,
                                         core_sample_indices,
                                         sample_weight,
                                         max_bytes_per_batch,
+                                        eps_nn_method,
                                         handle.get_stream(),
                                         verbosity);
   else
@@ -151,6 +159,7 @@ void fit(const raft::handle_t& handle,
                                          core_sample_indices,
                                          sample_weight,
                                          max_bytes_per_batch,
+                                         eps_nn_method,
                                          handle.get_stream(),
                                          verbosity);
 }
@@ -166,6 +175,7 @@ void fit(const raft::handle_t& handle,
          int64_t* core_sample_indices,
          double* sample_weight,
          size_t max_bytes_per_batch,
+         EpsNnMethod eps_nn_method,
          int verbosity,
          bool opg)
 {
@@ -181,6 +191,7 @@ void fit(const raft::handle_t& handle,
                                          core_sample_indices,
                                          sample_weight,
                                          max_bytes_per_batch,
+                                         eps_nn_method,
                                          handle.get_stream(),
                                          verbosity);
   else
@@ -195,6 +206,7 @@ void fit(const raft::handle_t& handle,
                                           core_sample_indices,
                                           sample_weight,
                                           max_bytes_per_batch,
+                                          eps_nn_method,
                                           handle.get_stream(),
                                           verbosity);
 }

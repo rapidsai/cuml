@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ function(add_doxygen_target)
     cmake_parse_arguments(dox "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     configure_file(${dox_IN_DOXYFILE} ${dox_OUT_DOXYFILE} @ONLY)
     add_custom_target(docs_cuml
+      ${CMAKE_COMMAND} -E env "RAPIDS_VERSION=${RAPIDS_VERSION}" "RAPIDS_VERSION_MAJOR_MINOR=${RAPIDS_VERSION_MAJOR_MINOR}"
       ${DOXYGEN_EXECUTABLE} ${dox_OUT_DOXYFILE}
       WORKING_DIRECTORY ${dox_CWD}
       VERBATIM

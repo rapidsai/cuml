@@ -480,8 +480,6 @@ class SVC(SVMBase,
         _array_type, is_sparse = determine_array_type_full(X)
 
         if self.probability:
-            if is_sparse:
-                raise ValueError("Probabilistic SVM does not support sparse input.")
             return self._fit_proba(X, y, sample_weight)
 
         if self.n_classes_ > 2:
