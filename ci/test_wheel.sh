@@ -24,7 +24,7 @@ if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; the
     python ci/wheel_smoke_test_cuml.py
 else
     # python -m pytest ./python/cuml/tests -k 'not test_sparse_pca_inputs' -n 4 --ignore=python/cuml/tests/dask && python -m pytest ./python/cuml/tests -k 'test_sparse_pca_inputs' && python -m pytest ./python/cuml/tests/dask
-    python -m pytest -s ./python/cuml/tests/dask/test_dask_aaa_bug.py
+    python -m pytest -s ./python/cuml/tests/dask/test_dask_logistic_regression.py
 fi
 
 rapids-logger "Test script exiting with value: $EXITCODE"
