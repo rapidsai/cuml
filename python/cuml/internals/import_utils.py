@@ -17,7 +17,7 @@
 import platform
 
 from cuml.internals.safe_imports import gpu_only_import, UnavailableError
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 
 numba = gpu_only_import("numba")
@@ -123,14 +123,14 @@ def check_min_dask_version(version):
     try:
         import dask
 
-        return LooseVersion(dask.__version__) >= LooseVersion(version)
+        return Version(dask.__version__) >= Version(version)
     except ImportError:
         return False
 
 
 def check_min_numba_version(version):
     try:
-        return LooseVersion(str(numba.__version__)) >= LooseVersion(version)
+        return Version(str(numba.__version__)) >= Version(version)
     except UnavailableError:
         return False
 
@@ -139,7 +139,7 @@ def check_min_cupy_version(version):
     if has_cupy():
         import cupy
 
-        return LooseVersion(str(cupy.__version__)) >= LooseVersion(version)
+        return Version(str(cupy.__version__)) >= Version(version)
     else:
         return False
 
@@ -186,7 +186,7 @@ def has_shap(min_version="0.37"):
         if min_version is None:
             return True
         else:
-            return LooseVersion(str(shap.__version__)) >= LooseVersion(
+            return Version(str(shap.__version__)) >= Version(
                 min_version
             )
     except ImportError:
@@ -200,7 +200,7 @@ def has_daskglm(min_version=None):
         if min_version is None:
             return True
         else:
-            return LooseVersion(str(dask_glm.__version__)) >= LooseVersion(
+            return Version(str(dask_glm.__version__)) >= Version(
                 min_version
             )
     except ImportError:

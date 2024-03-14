@@ -38,7 +38,8 @@ markers = [
 testpaths = "cuml/tests"
 
 filterwarnings = [
-  "error::FutureWarning:cuml[.*]", # Catch uses of deprecated positional args in testing
+  "error::FutureWarning",
+  "error::DeprecationWarning",
   "error:::cudf",
   "ignore:[^.]*ABCs[^.]*:DeprecationWarning:patsy[.*]",
   "ignore:(.*)alias(.*):DeprecationWarning:hdbscan[.*]",

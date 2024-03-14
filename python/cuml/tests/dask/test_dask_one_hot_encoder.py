@@ -42,7 +42,7 @@ def test_onehot_vs_skonehot(client):
     X = dask_cudf.from_cudf(X, npartitions=2)
 
     enc = OneHotEncoder(sparse=False)
-    skohe = SkOneHotEncoder(sparse=False)
+    skohe = SkOneHotEncoder(sparse_output=False)
 
     ohe = enc.fit_transform(X)
     ref = skohe.fit_transform(skX)
@@ -141,7 +141,7 @@ def test_onehot_random_inputs(client, drop, as_array, sparse, n_samples):
         dX = dask_cudf.from_cudf(X, npartitions=1)
 
     enc = OneHotEncoder(sparse=sparse, drop=drop, categories="auto")
-    sk_enc = SkOneHotEncoder(sparse=sparse, drop=drop, categories="auto")
+    sk_enc = SkOneHotEncoder(sparse_output=sparse, drop=drop, categories="auto")
     ohe = enc.fit_transform(dX)
     ref = sk_enc.fit_transform(ary)
     if sparse:
@@ -160,7 +160,7 @@ def test_onehot_drop_idx_first(client):
     ddf = dask_cudf.from_cudf(X, npartitions=2)
 
     enc = OneHotEncoder(sparse=False, drop="first")
-    sk_enc = SkOneHotEncoder(sparse=False, drop="first")
+    sk_enc = SkOneHotEncoder(sparse_output=False, drop="first")
     ohe = enc.fit_transform(ddf)
     ref = sk_enc.fit_transform(X_ary)
     cp.testing.assert_array_equal(ohe.compute(), ref)
@@ -178,7 +178,7 @@ def test_onehot_drop_one_of_each(client):
 
     drop = dict({"chars": "b", "int": 2, "letters": "b"})
     enc = OneHotEncoder(sparse=False, drop=drop)
-    sk_enc = SkOneHotEncoder(sparse=False, drop=["b", 2, "b"])
+    sk_enc = SkOneHotEncoder(sparse_output=False, drop=["b", 2, "b"])
     ohe = enc.fit_transform(ddf)
     ref = sk_enc.fit_transform(X_ary)
     cp.testing.assert_array_equal(ohe.compute(), ref)
