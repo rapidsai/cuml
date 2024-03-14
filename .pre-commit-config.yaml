@@ -78,7 +78,9 @@ repos:
                 setup[.]cfg$
           exclude: |
             (?x)
-                cpp/src/tsne/cannylab/bh[.]cu$
+                cpp/src/tsne/cannylab/bh[.]cu$|
+                python/cuml/_thirdparty/sklearn/preprocessing/_column_transformer.py$|
+                python/cuml/_thirdparty/sklearn/utils/__init__.py$
 
 default_language_version:
     python: python3
