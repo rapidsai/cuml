@@ -34,7 +34,7 @@ pushd rapids-build-backend
 python -m pip wheel . --no-deps
 popd
 
-PIP_FIND_LINKS="$PWD/rapids-build-backend" SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=/root/cumlprims_mg/" \
+PIP_FIND_LINKS="$PWD/rapids-build-backend" SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/" \
   python -m pip wheel . \
     -w dist \
     -vvv \
