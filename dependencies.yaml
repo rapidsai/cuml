@@ -13,6 +13,7 @@ files:
       - py_build
       - py_run
       - py_version
+      - rapids_build_backend
       - test_python
   cpp_all:
     output: conda
@@ -70,6 +71,13 @@ files:
     extras:
       table: build-system
     includes:
+      - rapids_build_backend
+  py_rapids_build:
+    output: pyproject
+    extras:
+      table: tool.rapids-build-backend
+      key: requires
+    includes:
       - common_build
       - py_build
   py_run:
@@ -92,6 +100,16 @@ channels:
   - conda-forge
   - nvidia
 dependencies:
+  rapids_build_backend:
+    common:
+      - output_types: conda
+        packages:
+          # TODO: Enable once packages are available
+          #- rapids-build-backend
+          - scikit-build-core>=0.7.0
+      - output_types: pyproject # TODO: Enable requirements once packages are available
+        packages:
+          - rapids-build-backend[scikit-build-core]
   checks:
     common:
       - output_types: [conda, requirements]
@@ -161,16 +179,12 @@ dependencies:
         packages:
           - &pylibraft_conda pylibraft==24.4.*
           - &rmm_conda rmm==24.4.*
-          - scikit-build-core>=0.7.0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
           # This index is needed for cudf and rmm.
           - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
-      - output_types: [pyproject, requirements]
-        packages:
-          - scikit-build-core[pyproject]>=0.7.0
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
@@ -224,7 +238,7 @@ dependencies:
           - matrix: {cuda: "12.*"}
             packages:
               - cudf-cu12==24.4.*
-              - cupy-cuda12x>=12.0.0
+              - cupy>=12.0.0
               - dask-cudf-cu12==24.4.*
               - pylibraft-cu12==24.4.*
               - raft-dask-cu12==24.4.*
@@ -232,7 +246,7 @@ dependencies:
           - matrix: {cuda: "11.*"}
             packages: &py_run_packages_cu11
               - cudf-cu11==24.4.*
-              - &cupy_pyproject_cu11 cupy-cuda11x>=12.0.0
+              - &cupy_pyproject_cu11 cupy>=12.0.0
               - dask-cudf-cu11==24.4.*
               - *pylibraft_cu11
               - raft-dask-cu11==24.4.*

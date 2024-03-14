@@ -60,7 +60,7 @@ repos:
             pass_filenames: false
             language: python
     - repo: https://github.com/rapidsai/dependency-file-generator
-      rev: v1.8.0
+      rev: v1.10.0
       hooks:
           - id: rapids-dependency-file-generator
             args: ["--clean"]
