@@ -121,7 +121,7 @@ jobs:
         # For testing, will be removed when the package is released
         git clone https://github.com/rapidsai/rapids-build-backend.git
         pushd rapids-build-backend
-        python -m pip wheel .
+        python -m pip install .
         popd
         export PIP_FIND_LINKS="file://${PWD}/rapids-build-backend"
 
