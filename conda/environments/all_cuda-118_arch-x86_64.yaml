@@ -60,7 +60,6 @@ dependencies:
 - pytest==7.*
 - python>=3.9,<3.12
 - raft-dask==24.4.*
-- rapids-build-backend
 - rapids-dask-dependency==24.4.*
 - recommonmark
 - rmm==24.4.*
