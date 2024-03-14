@@ -17,6 +17,9 @@ RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 # everywhere except in the final wheel name.
 PACKAGE_CUDA_SUFFIX="-${RAPIDS_PY_CUDA_SUFFIX}"
 
+# Patch project metadata files to include the CUDA version suffix and version override.
+pyproject_file="${package_dir}/pyproject.toml"
+
 echo "${version}" > VERSION
 
 if [[ $PACKAGE_CUDA_SUFFIX == "-cu12" ]]; then
