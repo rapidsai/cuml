@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -141,7 +141,9 @@ def test_onehot_random_inputs(client, drop, as_array, sparse, n_samples):
         dX = dask_cudf.from_cudf(X, npartitions=1)
 
     enc = OneHotEncoder(sparse=sparse, drop=drop, categories="auto")
-    sk_enc = SkOneHotEncoder(sparse_output=sparse, drop=drop, categories="auto")
+    sk_enc = SkOneHotEncoder(
+        sparse_output=sparse, drop=drop, categories="auto"
+    )
     ohe = enc.fit_transform(dX)
     ref = sk_enc.fit_transform(ary)
     if sparse:
