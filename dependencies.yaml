@@ -105,7 +105,10 @@ dependencies:
       - output_types: [pyproject] # TODO: Enable requirements once packages are available
         packages:
           - rapids-build-backend
-      - output_types: [requirements, pyproject, conda]
+      - output_types: [requirements, pyproject]
+        packages:
+          - scikit-build-core[pyproject]>=0.7.0
+      - output_types: [conda]
         packages:
           - scikit-build-core>=0.7.0
   checks:
