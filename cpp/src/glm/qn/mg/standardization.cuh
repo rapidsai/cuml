@@ -68,6 +68,56 @@ void mean_stddev(const raft::handle_t& handle,
   raft::linalg::sqrt(stddev_vector, stddev_vector, D, handle.get_stream());
 }
 
+template <typename T>
+void mean_stddev(const raft::handle_t& handle,
+                 const SimpleSparseMat<T>& X,
+                 int n_samples,
+                 T* mean_vector,
+                 T* stddev_vector)
+{
+  int D        = X.n;
+  int num_rows = X.m;
+  auto stream  = handle.get_stream();
+  auto& comm   = handle.get_comms();
+  SimpleDenseMat<T> mean_mat(mean_vector, 1, D);
+
+  // calculate mean
+  rmm::device_uvector<T> ones(num_rows, stream);
+  SimpleVec<T> ones_vec(ones.data(), num_rows);
+  ones_vec.fill(1.0, stream);
+
+  SimpleDenseMat<T> ones_mat(ones.data(), 1, num_rows);
+  X.gemmb(handle, 1., ones_mat, false, false, 0., mean_mat, stream);
+
+  T weight = T(1) / T(n_samples);
+  raft::linalg::multiplyScalar(mean_vector, mean_vector, weight, D, stream);
+  comm.allreduce(mean_vector, mean_vector, D, raft::comms::op_t::SUM, stream);
+  comm.sync_stream(stream);
+
+  // calculate stdev.S
+  SimpleDenseMat<T> stddev_mat(stddev_vector, 1, D);
+
+  rmm::device_uvector<T> X_values_squared(X.nnz, stream);
+  raft::copy(X_values_squared.data(), X.values, X.nnz, stream);
+  auto square_op = [] __device__(const T a) { return a * a; };
+  raft::linalg::unaryOp(X_values_squared.data(), X_values_squared.data(), X.nnz, square_op, stream);
+
+  auto X_squared =
+    SimpleSparseMat<T>(X_values_squared.data(), X.cols, X.row_ids, X.nnz, num_rows, D);
+  X_squared.gemmb(handle, T(1.), ones_mat, false, false, T(0.), stddev_mat, stream);
+
+  weight = n_samples < 1 ? T(0) : T(1) / T(n_samples - 1);
+  raft::linalg::multiplyScalar(stddev_vector, stddev_vector, weight, D, stream);
+  comm.allreduce(stddev_vector, stddev_vector, D, raft::comms::op_t::SUM, stream);
+  comm.sync_stream(stream);
+
+  weight          = n_samples * weight;
+  auto submean_op = [weight] __device__(const T a, const T b) { return a - b * b * weight; };
+  raft::linalg::binaryOp(stddev_vector, stddev_vector, mean_vector, D, submean_op, stream);
+
+  raft::linalg::sqrt(stddev_vector, stddev_vector, D, handle.get_stream());
+}
+
 struct inverse_op {
   template <typename T>
   constexpr RAFT_INLINE_FUNCTION auto operator()(const T& a) const
@@ -100,6 +150,37 @@ struct Standardizer {
 
     mean_stddev(handle, X, n_samples, mean.data, std.data);
 
+    raft::linalg::unaryOp(std_inv.data, std.data, D, inverse_op(), stream);
+
+    // scale mean by the standard deviation
+    raft::linalg::binaryOp(scaled_mean.data, std_inv.data, mean.data, D, raft::mul_op(), stream);
+  }
+
+  Standardizer(const raft::handle_t& handle,
+               const SimpleSparseMat<T>& X,
+               int n_samples,
+               rmm::device_uvector<T>& mean_std_buff,
+               size_t vec_size)
+  {
+    int D = X.n;
+    ASSERT(mean_std_buff.size() == 4 * vec_size, "buff size must be four times the aligned size");
+
+    auto stream = handle.get_stream();
+
+    T* p_ws = mean_std_buff.data();
+
+    mean.reset(p_ws, D);
+    p_ws += vec_size;
+
+    std.reset(p_ws, D);
+    p_ws += vec_size;
+
+    std_inv.reset(p_ws, D);
+    p_ws += vec_size;
+
+    scaled_mean.reset(p_ws, D);
+
+    mean_stddev(handle, X, n_samples, mean.data, std.data);
     raft::linalg::unaryOp(std_inv.data, std.data, D, inverse_op(), stream);
 
     // scale mean by the standard deviation
