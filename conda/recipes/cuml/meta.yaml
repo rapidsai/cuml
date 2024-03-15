@@ -72,6 +72,12 @@ requirements:
     - scikit-build-core >=0.7.0
     - setuptools
     - treelite {{ treelite_version }}
+    # TODO: Add rapids-build-backend once the package exists. Then we can remove dependencies up to the next TODO.
+    #- rapids-build-backend
+    - tomli
+    - tomli-w
+    - packaging
+    # TODO: Remove above dependencies after rapids-build-backend packages exist
   run:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
