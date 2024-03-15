@@ -29,6 +29,12 @@ requirements:
     - setuptools
     - scikit-build-core >=0.7.0
     - cython>=3.0.0
+    # TODO: Add rapids-build-backend once the package exists. Then we can remove dependencies up to the next TODO.
+    #- rapids-build-backend
+    - tomli
+    - tomli-w
+    - packaging
+    # TODO: Remove above dependencies after rapids-build-backend packages exist
   run:
     - python x.x
     - numpy>=1.23
