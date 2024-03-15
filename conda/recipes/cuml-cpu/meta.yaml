@@ -37,7 +37,7 @@ requirements:
     # TODO: Remove above dependencies after rapids-build-backend packages exist
   run:
     - python x.x
-    - numpy>=1.23
+    - numpy>=1.23,<2.0a0
     - pandas
     - scikit-learn=1.2
     - hdbscan<=0.8.30
