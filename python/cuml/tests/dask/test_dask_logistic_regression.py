@@ -720,9 +720,9 @@ def test_standardization_on_scaled_dataset(
     penalty = regularization[0]
     C = regularization[1]
     l1_ratio = regularization[2]
-    nrows = int(1e5)
-    ncols = ncol_and_nclasses[0]
     n_classes = ncol_and_nclasses[1]
+    nrows = int(1e5) if n_classes < 5 else int(2e5)
+    ncols = ncol_and_nclasses[0]
     n_info = ncols
     n_redundant = 0
     n_parts = 2
