@@ -27,7 +27,7 @@ rapids-mamba-retry install \
 
 export RAPIDS_VERSION="$(rapids-version)"
 export RAPIDS_VERSION_MAJOR_MINOR="$(rapids-version-major-minor)"
-export RAPIDS_VERSION_NUMBER="$RAPIDS_VERSION_MAJOR_MINOR"
+export RAPIDS_VERSION_NUMBER="24.06"
 export RAPIDS_DOCS_DIR="$(mktemp -d)"
 
 rapids-logger "Build CPP docs"
