@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ def get_data_consistency_test():
 
 @pytest.fixture
 def random_state():
-    random_state = random.randint(0, 1e6)
+    random_state = random.randint(0, 10**6)
     with logger.set_level(logger.level_debug):
         logger.debug("Random seed: {}".format(random_state))
     return random_state
@@ -127,7 +127,9 @@ def test_traditional_kmeans_plus_plus_init(
     cuml_kmeans.fit(X)
     cu_score = cuml_kmeans.score(X)
 
-    kmeans = cluster.KMeans(random_state=random_state, n_clusters=nclusters)
+    kmeans = cluster.KMeans(
+        n_init=10, random_state=random_state, n_clusters=nclusters
+    )
     kmeans.fit(cp.asnumpy(X))
     sk_score = kmeans.score(cp.asnumpy(X))
 
@@ -167,7 +169,9 @@ def test_weighted_kmeans(nrows, ncols, nclusters, max_weight, random_state):
     cuml_kmeans.fit(X, sample_weight=wt)
     cu_score = cuml_kmeans.score(X)
 
-    sk_kmeans = cluster.KMeans(random_state=random_state, n_clusters=nclusters)
+    sk_kmeans = cluster.KMeans(
+        n_init=10, random_state=random_state, n_clusters=nclusters
+    )
     sk_kmeans.fit(cp.asnumpy(X), sample_weight=wt)
     sk_score = sk_kmeans.score(cp.asnumpy(X))
 
@@ -236,7 +240,7 @@ def test_kmeans_sklearn_comparison(name, nrows, random_state):
     cu_y_pred = cuml_kmeans.fit_predict(X)
     cu_score = adjusted_rand_score(cu_y_pred, y)
     kmeans = cluster.KMeans(
-        random_state=random_state, n_clusters=params["n_clusters"]
+        n_init=10, random_state=random_state, n_clusters=params["n_clusters"]
     )
     sk_y_pred = kmeans.fit_predict(X)
     sk_score = adjusted_rand_score(sk_y_pred, y)
@@ -278,7 +282,7 @@ def test_kmeans_sklearn_comparison_default(name, nrows, random_state):
     cu_y_pred = cuml_kmeans.fit_predict(X)
     cu_score = adjusted_rand_score(cu_y_pred, y)
     kmeans = cluster.KMeans(
-        random_state=random_state, n_clusters=params["n_clusters"]
+        n_init=10, random_state=random_state, n_clusters=params["n_clusters"]
     )
     sk_y_pred = kmeans.fit_predict(X)
     sk_score = adjusted_rand_score(sk_y_pred, y)
@@ -410,7 +414,9 @@ def test_fit_transform_weighted_kmeans(
     cuml_transf = cuml_kmeans.fit_transform(X, sample_weight=wt)
     cu_score = cuml_kmeans.score(X)
 
-    sk_kmeans = cluster.KMeans(random_state=random_state, n_clusters=nclusters)
+    sk_kmeans = cluster.KMeans(
+        n_init=10, random_state=random_state, n_clusters=nclusters
+    )
     sk_transf = sk_kmeans.fit_transform(cp.asnumpy(X), sample_weight=wt)
     sk_score = sk_kmeans.score(cp.asnumpy(X))
 

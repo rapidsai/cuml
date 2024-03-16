@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,7 +68,9 @@ def test_blobs_cluster(nrows, n_feats):
     embedding = cuUMAP().fit_transform(data, convert_dtype=True)
 
     if nrows < 500000:
-        score = adjusted_rand_score(labels, KMeans(5).fit_predict(embedding))
+        score = adjusted_rand_score(
+            labels, KMeans(5, n_init=10).fit_predict(embedding)
+        )
         assert score == 1.0
 
 
@@ -101,9 +103,11 @@ def test_umap_fit_transform_score(nrows, n_feats):
 
     if nrows < 500000:
         cuml_score = adjusted_rand_score(
-            labels, KMeans(10).fit_predict(cuml_embedding)
+            labels, KMeans(10, n_init=10).fit_predict(cuml_embedding)
         )
-        score = adjusted_rand_score(labels, KMeans(10).fit_predict(embedding))
+        score = adjusted_rand_score(
+            labels, KMeans(10, n_init=10).fit_predict(embedding)
+        )
 
         assert array_equal(score, cuml_score, 1e-2, with_sign=True)
 
@@ -345,9 +349,11 @@ def test_umap_fit_transform_score_default(target_metric):
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
 
     cuml_score = adjusted_rand_score(
-        labels, KMeans(10).fit_predict(cuml_embedding)
+        labels, KMeans(10, n_init=10).fit_predict(cuml_embedding)
     )
-    score = adjusted_rand_score(labels, KMeans(10).fit_predict(embedding))
+    score = adjusted_rand_score(
+        labels, KMeans(10, n_init=10).fit_predict(embedding)
+    )
 
     assert array_equal(score, cuml_score, 1e-2, with_sign=True)
 

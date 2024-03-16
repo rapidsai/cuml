@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -229,7 +229,7 @@ def make_classification(
     cuml.internals.set_api_output_type("cupy")
 
     generator = _create_rs_generator(random_state)
-    np_seed = int(generator.randint(n_samples, size=1))
+    np_seed = int(generator.randint(n_samples, size=1)[0])
     np.random.seed(np_seed)
 
     # Count features, clusters and samples

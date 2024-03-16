@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -94,6 +94,7 @@ def test_lars_model(datatype, nrows, column_info, precompute, normalize):
 
     if nrows < 500000:
         # sklearn model initialization, fit and predict
+        params.pop("normalize")
         sklars = skLars(**params)
         sklars.fit(X_train, y_train)
         # Set tolerance to include the 95% confidence interval around
