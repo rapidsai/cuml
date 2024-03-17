@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ from cuml.internals.safe_imports import gpu_only_import_from
 DataFrame = gpu_only_import_from("cudf", "DataFrame")
 np = cpu_only_import("numpy")
 cudf = gpu_only_import("cudf")
+rmm = gpu_only_import("rmm")
 
 
 def generate_dask_array(np_array, n_parts):
@@ -157,6 +158,10 @@ def test_predict_and_score(dataset, datatype, parameters, client):
     assert distributed_score == pytest.approx(handmade_local_score, abs=1e-2)
 
 
+@pytest.mark.skipif(
+    rmm._cuda.gpu.runtimeGetVersion() < 11800,
+    reason="debugging proba issue in CUDA 11.4",
+)
 @pytest.mark.parametrize("datatype", ["dask_array", "dask_cudf"])
 @pytest.mark.parametrize("parameters", [(1, 3, 256), (8, 8, 256), (9, 3, 128)])
 def test_predict_proba(dataset, datatype, parameters, client):

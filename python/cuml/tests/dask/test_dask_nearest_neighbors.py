@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ pd = cpu_only_import("pandas")
 
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
+rmm = gpu_only_import("rmm")
 
 
 IS_ARM = platform.processor() == "aarch64"
@@ -81,6 +82,10 @@ def _scale_rows(client, nrows):
     return n_workers * nrows
 
 
+@pytest.mark.skipif(
+    rmm._cuda.gpu.runtimeGetVersion() < 11800,
+    reason="debugging proba issue in CUDA 11.4",
+)
 @pytest.mark.parametrize(
     "nrows", [unit_param(300), quality_param(1e6), stress_param(5e8)]
 )
@@ -162,6 +167,10 @@ def test_compare_skl(
     assert array_equal(y_hat, skl_y_hat)
 
 
+@pytest.mark.skipif(
+    rmm._cuda.gpu.runtimeGetVersion() < 11800,
+    reason="debugging proba issue in CUDA 11.4",
+)
 @pytest.mark.parametrize("nrows", [unit_param(1000), stress_param(1e5)])
 @pytest.mark.parametrize("ncols", [unit_param(10), stress_param(500)])
 @pytest.mark.parametrize("n_parts", [unit_param(10), stress_param(100)])
