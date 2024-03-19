@@ -65,14 +65,14 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-24.04
     with:
       build_type: pull-request
-      test_script: "ci/test_python_singlegpu.sh"
+      script: "ci/test_python_singlegpu.sh"
   conda-python-tests-dask:
     needs: conda-python-build
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-24.04
     with:
       build_type: pull-request
-      test_script: "ci/test_python_dask.sh"
+      script: "ci/test_python_dask.sh"
   conda-notebook-tests:
     needs: conda-python-build
     secrets: inherit
