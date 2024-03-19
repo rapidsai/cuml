@@ -229,12 +229,6 @@ if (( ${CLEAN} == 1 )); then
 fi
 
 
-# For testing, will be removed when the package is released
-git clone https://github.com/rapidsai/rapids-build-backend.git
-pushd rapids-build-backend
-python -m pip install .
-popd
-
 ################################################################################
 # Configure for building all C++ targets
 if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs || hasArg cpp-mgtests; then

@@ -118,13 +118,6 @@ jobs:
       cuda: '["12.2"]'
       extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
       build_command: |
-        # For testing, will be removed when the package is released
-        git clone https://github.com/rapidsai/rapids-build-backend.git
-        pushd rapids-build-backend
-        python -m pip install .
-        popd
-        export PIP_FIND_LINKS="file://${PWD}/rapids-build-backend"
-
         sccache -z;
         build-all --verbose;
         sccache -s;
