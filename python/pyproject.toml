@@ -50,6 +50,7 @@ filterwarnings = [
   "error:::cudf",
   "ignore:[^.]*ABCs[^.]*:DeprecationWarning:patsy[.*]",
   "ignore:(.*)alias(.*):DeprecationWarning:hdbscan[.*]",
+  "ignore:The --rsyncdir command line argument:DeprecationWarning",
 ]
 
 [project]
