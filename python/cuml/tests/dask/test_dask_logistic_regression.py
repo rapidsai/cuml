@@ -870,7 +870,7 @@ def test_standardization_on_scaled_dataset(
     assert (mgon_accuracy >= mgoff_accuracy) | (
         np.abs(mgon_accuracy - mgoff_accuracy) < 1e-3
     )
-    
+
     assert array_equal(
         mgon_coef_origin,
         mgoff.coef_.to_numpy(),
