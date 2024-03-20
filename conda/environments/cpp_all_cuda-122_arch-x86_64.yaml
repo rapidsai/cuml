@@ -19,13 +19,13 @@ dependencies:
 - gtest>=1.13.0
 - libcublas-dev
 - libcufft-dev
-- libcumlprims==24.4.*
+- libcumlprims==24.6.*
 - libcurand-dev
 - libcusolver-dev
 - libcusparse-dev
-- libraft-headers==24.4.*
-- libraft==24.4.*
-- librmm==24.4.*
+- libraft-headers==24.6.*
+- libraft==24.6.*
+- librmm==24.6.*
 - ninja
 - sysroot_linux-64==2.17
 name: cpp_all_cuda-122_arch-x86_64
