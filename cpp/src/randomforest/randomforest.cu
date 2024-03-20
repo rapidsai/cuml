@@ -264,7 +264,8 @@ void build_treelite_forest(TreeliteModelHandle* model_handle,
   }
 
   if constexpr (std::is_integral_v<L>) {
-    ASSERT(num_outputs > 1, "More than one variable expected for classification problem.");
+    num_outputs = std::max(num_outputs, 2);
+    // Ensure that num_outputs is at least 2
     model->task_type     = tl::TaskType::kMultiClf;
     model->postprocessor = "identity_multiclass";
   } else {
