@@ -723,3 +723,10 @@ class UniversalBase(Base):
 
             # return function result
             return res
+
+
+def is_classifier(estimator: Base) -> bool:
+    """Return True if the estimator has inherited from the
+    :py:class`~cuml.internals.mixins.ClassifierMixIn`.
+    """
+    return getattr(estimator, "_estimator_type", None) == "classifier"
