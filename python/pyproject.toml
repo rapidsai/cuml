@@ -50,7 +50,14 @@ filterwarnings = [
   "error:::cudf",
   "ignore:[^.]*ABCs[^.]*:DeprecationWarning:patsy[.*]",
   "ignore:(.*)alias(.*):DeprecationWarning:hdbscan[.*]",
+  # https://github.com/pytest-dev/pytest-cov/issues/557
   "ignore:The --rsyncdir command line argument:DeprecationWarning",
+  # Removable when scikit-learn minimum version 1.2.1
+  # https://github.com/scikit-learn/scikit-learn/pull/25157
+  "ignore:.* is deprecated. Use files:DeprecationWarning",
+  "ignore:open_text is deprecated:DeprecationWarning",
+  "ignore:read_text is deprecated:DeprecationWarning",
+  "ignore:`product` is deprecated as of NumPy 1.25.0:DeprecationWarning:sklearn",
 ]
 
 [project]

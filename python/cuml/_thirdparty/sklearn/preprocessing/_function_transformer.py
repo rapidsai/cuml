@@ -63,7 +63,7 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
     --------
     >>> import cupy as cp
     >>> from cuml.preprocessing import FunctionTransformer
-    >>> transformer = FunctionTransformer(cp.log1p)
+    >>> transformer = FunctionTransformer(func=cp.log1p)
     >>> X = cp.array([[0, 1], [2, 3]])
     >>> transformer.transform(X)
     array([[0.       , 0.6931...],
