@@ -69,6 +69,7 @@ std::vector<T> distinct_mg(const raft::handle_t& handle, T* y, size_t n)
 
   std::vector<size_t> recv_counts_host(n_ranks);
   raft::copy(recv_counts_host.data(), recv_counts.data(), n_ranks, stream);
+  raft::resource::sync_stream(handle);
 
   std::vector<size_t> displs(n_ranks);
   size_t pos = 0;
@@ -88,6 +89,7 @@ std::vector<T> distinct_mg(const raft::handle_t& handle, T* y, size_t n)
 
   std::vector<T> global_unique_y_host(global_unique_y.size());
   raft::copy(global_unique_y_host.data(), global_unique_y.data(), global_unique_y.size(), stream);
+  raft::resource::sync_stream(handle);
 
   return global_unique_y_host;
 }
