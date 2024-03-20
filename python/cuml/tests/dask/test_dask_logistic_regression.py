@@ -720,9 +720,9 @@ def test_standardization_on_scaled_dataset(
     penalty = regularization[0]
     C = regularization[1]
     l1_ratio = regularization[2]
-    nrows = int(1e5)
-    ncols = ncol_and_nclasses[0]
     n_classes = ncol_and_nclasses[1]
+    nrows = int(1e5) if n_classes < 5 else int(2e5)
+    ncols = ncol_and_nclasses[0]
     n_info = ncols
     n_redundant = 0
     n_parts = 2
@@ -784,6 +784,7 @@ def test_standardization_on_scaled_dataset(
     # if fit_intercept is false, scale the dataset without mean center
     scaler = StandardScaler(with_mean=fit_intercept, with_std=True)
     scaler.fit(X_train)
+    scaler.scale_ = np.sqrt(scaler.var_ * len(X_train) / (len(X_train) - 1))
     X_train_scaled = scaler.transform(X_train)
     X_test_scaled = scaler.transform(X_test)
 
@@ -842,10 +843,6 @@ def test_standardization_on_scaled_dataset(
         np.abs(mgon_accuracy - mgoff_accuracy) < 1e-3
     )
 
-    print(f"mgon_coef_origin: {mgon_coef_origin}")
-    print(f"mgoff.coef_: {mgoff.coef_.to_numpy()}")
-    print(f"mgon_intercept_origin: {mgon_intercept_origin}")
-    print(f"mgoff.intercept_: {mgoff.intercept_.to_numpy()}")
     assert array_equal(mgon_coef_origin, mgoff.coef_.to_numpy(), tolerance)
     assert array_equal(
         mgon_intercept_origin, mgoff.intercept_.to_numpy(), tolerance
