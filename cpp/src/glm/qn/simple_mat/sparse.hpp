@@ -99,6 +99,7 @@ struct SimpleSparseMat : SimpleMat<T> {
     RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatednmat(
       &descrC, C.n, C.m, order == CUSPARSE_ORDER_COL ? C.n : C.m, C.data, order));
 
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     /*
       The matrix A must have the same order as the matrix C in the input
       of function cusparseSpMM (i.e. swapped order w.r.t. original C).
@@ -123,6 +124,7 @@ struct SimpleSparseMat : SimpleMat<T> {
                                                                 A.ord == COL_MAJOR ? A.m : A.n,
                                                                 A.data,
                                                                 order));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     auto opA =
       transA ^ (C.ord == A.ord) ? CUSPARSE_OPERATION_NON_TRANSPOSE : CUSPARSE_OPERATION_TRANSPOSE;
 
@@ -130,6 +132,7 @@ struct SimpleSparseMat : SimpleMat<T> {
     RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsecreatecsr(
       &descrB, B.m, B.n, B.nnz, B.row_ids, B.cols, B.values));
     auto opB = transB ? CUSPARSE_OPERATION_NON_TRANSPOSE : CUSPARSE_OPERATION_TRANSPOSE;
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     auto alg = order == CUSPARSE_ORDER_COL ? CUSPARSE_SPMM_CSR_ALG1 : CUSPARSE_SPMM_CSR_ALG2;
 
@@ -145,6 +148,7 @@ struct SimpleSparseMat : SimpleMat<T> {
                                                                     alg,
                                                                     &bufferSize,
                                                                     stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     raft::interruptible::synchronize(stream);
     rmm::device_uvector<T> tmp(bufferSize, stream);
@@ -160,6 +164,7 @@ struct SimpleSparseMat : SimpleMat<T> {
                                                          alg,
                                                          tmp.data(),
                                                          stream));
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     RAFT_CUSPARSE_TRY(cusparseDestroyDnMat(descrA));
     RAFT_CUSPARSE_TRY(cusparseDestroySpMat(descrB));
