@@ -399,7 +399,7 @@ def test_rf_classification_unorder(
     [
         (1.0, 16),
         (1.0, 11),
-        ("auto", 128),
+        (1.0, 128),
         ("log2", 100),
         ("sqrt", 100),
         (1.0, 17),
@@ -682,7 +682,7 @@ def test_rf_classification_multi_class(mclass_clf, datatype, array_type):
 
 @pytest.mark.parametrize("datatype", [(np.float32, np.float64)])
 @pytest.mark.parametrize("max_samples", [unit_param(1.0), stress_param(0.95)])
-@pytest.mark.parametrize("max_features", [1.0, "auto", "log2", "sqrt"])
+@pytest.mark.parametrize("max_features", [1.0, "log2", "sqrt"])
 def test_rf_classification_proba(
     small_clf, datatype, max_samples, max_features
 ):

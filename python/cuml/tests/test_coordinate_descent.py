@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -192,7 +192,7 @@ def test_elastic_net(datatype, X_type, alpha, algorithm, nrows, column_info):
     )
 
     elastic_cu = cuElasticNet(
-        alpha=np.array([alpha]),
+        alpha=alpha,
         fit_intercept=True,
         max_iter=1000,
         selection=algorithm,
