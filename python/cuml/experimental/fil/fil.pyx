@@ -22,7 +22,6 @@ import warnings
 from libcpp cimport bool
 from libc.stdint cimport uint32_t, uintptr_t
 
-from cuml.internals.import_utils import has_sklearn
 from cuml.common.device_selection import using_device_type
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.safe_imports import (
@@ -967,16 +966,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             For GPU execution, the RAFT handle containing the stream or stream
             pool to use during loading and inference.
         """
-        # TODO(hcho3): Remove this check when https://github.com/dmlc/treelite/issues/544 is fixed
-        if has_sklearn():
-            from sklearn.ensemble import (
-                HistGradientBoostingClassifier as HistGradientBoostingC,
-            )
-            from sklearn.ensemble import (
-                HistGradientBoostingRegressor as HistGradientBoostingR,
-            )
-            if isinstance(skl_model, (HistGradientBoostingR, HistGradientBoostingC)):
-                raise NotImplementedError("HistGradientBoosting estimators are not yet supported")
         tl_model = treelite.sklearn.import_model(skl_model)
         if default_chunk_size is None:
             default_chunk_size = threads_per_tree
