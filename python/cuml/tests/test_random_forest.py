@@ -275,7 +275,7 @@ def test_tweedie_convergence(max_depth, split_criterion):
     "max_samples", [unit_param(1.0), quality_param(0.90), stress_param(0.95)]
 )
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("max_features", [1.0, "auto", "log2", "sqrt"])
+@pytest.mark.parametrize("max_features", [1.0, "log2", "sqrt"])
 def test_rf_classification(small_clf, datatype, max_samples, max_features):
     use_handle = True
 

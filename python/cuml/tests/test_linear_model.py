@@ -42,7 +42,7 @@ from hypothesis import assume, example, given, note
 from hypothesis import strategies as st
 from hypothesis import target
 from hypothesis.extra.numpy import floating_dtypes
-from packaging import Version
+from packaging.version import Version
 from sklearn.datasets import (
     load_breast_cancer,
     load_digits,
