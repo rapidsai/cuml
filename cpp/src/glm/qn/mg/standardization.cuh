@@ -42,7 +42,7 @@ namespace opg {
 template <typename T>
 void mean_stddev(const raft::handle_t& handle,
                  const SimpleDenseMat<T>& X,
-                 int n_samples,
+                 size_t n_samples,
                  T* mean_vector,
                  T* stddev_vector)
 {
@@ -65,13 +65,24 @@ void mean_stddev(const raft::handle_t& handle,
   comm.allreduce(stddev_vector, stddev_vector, D, raft::comms::op_t::SUM, stream);
   comm.sync_stream(stream);
 
+  // avoid negative variance that is due to precision loss of floating point arithmetic
+  weight         = n_samples < 1 ? T(0) : T(1) / T(n_samples - 1);
+  weight         = n_samples * weight;
+  auto no_neg_op = [weight] __device__(const T a, const T b) -> T {
+    if (a >= 0) return a;
+
+    return a + weight * b * b;
+  };
+
+  raft::linalg::binaryOp(stddev_vector, stddev_vector, mean_vector, D, no_neg_op, stream);
+
   raft::linalg::sqrt(stddev_vector, stddev_vector, D, handle.get_stream());
 }
 
 template <typename T>
 void mean_stddev(const raft::handle_t& handle,
                  const SimpleSparseMat<T>& X,
-                 int n_samples,
+                 size_t n_samples,
                  T* mean_vector,
                  T* stddev_vector)
 {
@@ -111,11 +122,25 @@ void mean_stddev(const raft::handle_t& handle,
   comm.allreduce(stddev_vector, stddev_vector, D, raft::comms::op_t::SUM, stream);
   comm.sync_stream(stream);
 
-  weight          = n_samples * weight;
-  auto submean_op = [weight] __device__(const T a, const T b) { return a - b * b * weight; };
-  raft::linalg::binaryOp(stddev_vector, stddev_vector, mean_vector, D, submean_op, stream);
+  weight                 = n_samples * weight;
+  auto submean_no_neg_op = [weight] __device__(const T a, const T b) -> T {
+    T res = a - b * b * weight;
+    if (res < 0) {
+      // return sum(x^2) / (n - 1) if negative variance (due to precision loss of floating point
+      // arithmetic)
+      res = a;
+    }
+    return res;
+  };
+  raft::linalg::binaryOp(stddev_vector, stddev_vector, mean_vector, D, submean_no_neg_op, stream);
 
   raft::linalg::sqrt(stddev_vector, stddev_vector, D, handle.get_stream());
+
+  ML::Logger::get().setLevel(6);
+  auto log_mean = raft::arr2Str(mean_vector, D, "", stream);
+  CUML_LOG_DEBUG("log_mean: %s", log_mean.c_str());
+  auto log_stddev = raft::arr2Str(stddev_vector, D, "", stream);
+  CUML_LOG_DEBUG("log_stddev: %s", log_stddev.c_str());
 }
 
 struct inverse_op {
@@ -135,7 +160,7 @@ struct Standardizer {
 
   Standardizer(const raft::handle_t& handle,
                const SimpleDenseMat<T>& X,
-               int n_samples,
+               size_t n_samples,
                rmm::device_uvector<T>& mean_std_buff)
   {
     int D = X.n;
@@ -158,7 +183,7 @@ struct Standardizer {
 
   Standardizer(const raft::handle_t& handle,
                const SimpleSparseMat<T>& X,
-               int n_samples,
+               size_t n_samples,
                rmm::device_uvector<T>& mean_std_buff,
                size_t vec_size)
   {
@@ -220,8 +245,7 @@ struct Standardizer {
   void adapt_gradient_for_linearBwd(const raft::handle_t& handle,
                                     SimpleDenseMat<T>& G,
                                     const SimpleDenseMat<T>& dZ,
-                                    bool has_bias,
-                                    int n_samples) const
+                                    bool has_bias) const
   {
     auto stream   = handle.get_stream();
     int D         = mean.len;
