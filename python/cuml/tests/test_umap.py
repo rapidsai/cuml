@@ -673,7 +673,7 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
     ref_fss_graph = model.graph_
 
     cu_fss_graph = cu_fss_graph.todense()
-    ref_fss_graph = cp.sparse.coo_matrix(ref_fss_graph).todense()
+    ref_fss_graph = cupyx.scipy.sparse.coo_matrix(ref_fss_graph).todense()
     assert correctness_sparse(
         ref_fss_graph, cu_fss_graph, atol=0.1, rtol=0.2, threshold=0.95
     )

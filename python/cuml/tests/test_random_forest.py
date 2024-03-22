@@ -473,7 +473,7 @@ def test_rf_classification_seed(small_clf, datatype):
     )
 
     for i in range(8):
-        seed = random.randint(100, 1e5)
+        seed = random.randint(100, 10**5)
         # Initialize, fit and predict using cuML's
         # random forest classification model
         cu_class = curfc(random_state=seed, n_streams=1)

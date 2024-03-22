@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 
 from cuml.manifold.umap_utils cimport *
 from cuml.manifold.umap_utils import GraphHolder, find_ab_params, \
@@ -350,8 +351,8 @@ def simplicial_set_embedding(
 
     graph = graph.tocoo()
     graph.sum_duplicates()
-    if not isinstance(graph, cp.sparse.coo_matrix):
-        graph = cp.sparse.coo_matrix(graph)
+    if not isinstance(graph, cupyx.scipy.sparse.coo_matrix):
+        graph = cupyx.scipy.sparse.coo_matrix(graph)
 
     handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()

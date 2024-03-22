@@ -513,11 +513,12 @@ def test_logistic_regression(
     )
     culog.fit(X_train, y_train)
 
+    sk_penalty = penalty if penalty != "none" else None
     # Only solver=saga supports elasticnet in scikit
     if penalty in ["elasticnet", "l1"]:
         if sk_check:
             sklog = skLog(
-                penalty=penalty,
+                penalty=sk_penalty,
                 l1_ratio=l1_ratio,
                 solver="saga",
                 C=C,
@@ -526,7 +527,7 @@ def test_logistic_regression(
             )
         else:
             sklog = skLog(
-                penalty=penalty,
+                penalty=sk_penalty,
                 solver="saga",
                 C=C,
                 fit_intercept=fit_intercept,
@@ -534,7 +535,7 @@ def test_logistic_regression(
             )
     else:
         sklog = skLog(
-            penalty=penalty,
+            penalty=sk_penalty,
             solver="lbfgs",
             C=C,
             fit_intercept=fit_intercept,
