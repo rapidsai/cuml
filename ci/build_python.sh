@@ -27,6 +27,7 @@ rapids-logger "Begin py build"
 
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
+conda config --set path_conflict prevent
 # TODO: Remove `--no-test` flag once importing on a CPU
 # node works correctly
 rapids-conda-retry mambabuild \

@@ -16,6 +16,7 @@ rapids-print-env
 version=$(rapids-generate-version)
 
 rapids-logger "Begin cpp build"
+conda config --set path_conflict prevent
 
 RAPIDS_PACKAGE_VERSION=${version} rapids-conda-retry mambabuild conda/recipes/libcuml
 
