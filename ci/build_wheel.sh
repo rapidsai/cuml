@@ -29,7 +29,7 @@ fi
 cd ${package_dir}
 
 # For testing, will be removed when the package is released
-git clone https://github.com/rapidsai/rapids-build-backend.git
+git clone -b use-dfg https://github.com/KyleFromNVIDIA/rapids-build-backend.git
 pushd rapids-build-backend
 python -m pip wheel . --no-deps
 popd
