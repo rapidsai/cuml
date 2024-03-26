@@ -72,7 +72,6 @@ requirements:
     - scikit-build-core >=0.7.0
     - setuptools
     - treelite {{ treelite_version }}
-    - rapids-build-backend
   run:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
