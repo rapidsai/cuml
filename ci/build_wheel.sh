@@ -22,10 +22,6 @@ pyproject_file="${package_dir}/pyproject.toml"
 
 echo "${version}" > VERSION
 
-if [[ $PACKAGE_CUDA_SUFFIX == "-cu12" ]]; then
-    sed -i "s/cuda-python[<=>\.,0-9]*/cuda-python>=12.0,<13.0/g" ${pyproject_file}
-fi
-
 cd ${package_dir}
 
 # For testing, will be removed when the package is released
