@@ -103,7 +103,6 @@ void mean_stddev(const raft::handle_t& handle,
   T weight = T(1) / T(n_samples);
   raft::linalg::multiplyScalar(mean_vector, mean_vector, weight, D, stream);
   comm.allreduce(mean_vector, mean_vector, D, raft::comms::op_t::SUM, stream);
-  comm.sync_stream(stream);
 
   // calculate stdev.S
   SimpleDenseMat<T> stddev_mat(stddev_vector, 1, D);
@@ -135,12 +134,6 @@ void mean_stddev(const raft::handle_t& handle,
   raft::linalg::binaryOp(stddev_vector, stddev_vector, mean_vector, D, submean_no_neg_op, stream);
 
   raft::linalg::sqrt(stddev_vector, stddev_vector, D, handle.get_stream());
-
-  ML::Logger::get().setLevel(6);
-  auto log_mean = raft::arr2Str(mean_vector, D, "", stream);
-  CUML_LOG_DEBUG("log_mean: %s", log_mean.c_str());
-  auto log_stddev = raft::arr2Str(stddev_vector, D, "", stream);
-  CUML_LOG_DEBUG("log_stddev: %s", log_stddev.c_str());
 }
 
 struct inverse_op {
@@ -164,7 +157,7 @@ struct Standardizer {
                rmm::device_uvector<T>& mean_std_buff)
   {
     int D = X.n;
-    ASSERT(mean_std_buff.size() == 4 * D, "buff size must be four times the dimension");
+    ASSERT(mean_std_buff.size() == 4 * D, "mean_std_buff size must be four times the dimension");
 
     auto stream = handle.get_stream();
 
@@ -188,7 +181,8 @@ struct Standardizer {
                size_t vec_size)
   {
     int D = X.n;
-    ASSERT(mean_std_buff.size() == 4 * vec_size, "buff size must be four times the aligned size");
+    ASSERT(mean_std_buff.size() == 4 * vec_size,
+           "mean_std_buff size must be four times the aligned size");
 
     auto stream = handle.get_stream();
 
