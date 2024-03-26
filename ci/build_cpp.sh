@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -16,6 +16,7 @@ rapids-print-env
 version=$(rapids-generate-version)
 
 rapids-logger "Begin cpp build"
+conda config --set path_conflict prevent
 
 RAPIDS_PACKAGE_VERSION=${version} rapids-conda-retry mambabuild conda/recipes/libcuml
 
