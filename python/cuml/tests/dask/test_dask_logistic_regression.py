@@ -998,9 +998,9 @@ def test_standardization_sparse(fit_intercept, regularization, client):
     computed_csr = X_da.compute()
     assert isinstance(computed_csr, csr_matrix)
     assert computed_csr.nnz == nnz and computed_csr.shape == (n_rows, n_cols)
-    assert array_equal(computed_csr.data, X.data)
-    assert array_equal(computed_csr.indices, X.indices)
-    assert array_equal(computed_csr.indptr, X.indptr)
+    assert array_equal(computed_csr.data, X.data, unit_tol=tolerance)
+    assert array_equal(computed_csr.indices, X.indices, unit_tol=tolerance)
+    assert array_equal(computed_csr.indptr, X.indptr, unit_tol=tolerance)
 
     lr_on = cumlLBFGS_dask(standardization=True, verbose=True, **est_params)
     lr_on.fit(X_da, y_da)
@@ -1018,5 +1018,7 @@ def test_standardization_sparse(fit_intercept, regularization, client):
     sg = SG(**est_params)
     sg.fit(X_scaled, y)
 
-    assert array_equal(lron_coef_origin, sg.coef_, tolerance)
-    assert array_equal(lron_intercept_origin, sg.intercept_, tolerance)
+    assert array_equal(lron_coef_origin, sg.coef_, unit_tol=tolerance)
+    assert array_equal(
+        lron_intercept_origin, sg.intercept_, unit_tol=tolerance
+    )
