@@ -203,12 +203,12 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - pylibraft-cu12==24.6.*
-              - rmm-cu12==24.6.*
+              - pylibraft-cu12==24.6.*,>=0.0.0a0
+              - rmm-cu12==24.6.*,>=0.0.0a0
           - matrix: {cuda: "11.*"}
             packages:
-              - &pylibraft_cu11 pylibraft-cu11==24.6.*
-              - &rmm_cu11 rmm-cu11==24.6.*
+              - &pylibraft_cu11 pylibraft-cu11==24.6.*,>=0.0.0a0
+              - &rmm_cu11 rmm-cu11==24.6.*,>=0.0.0a0
           - matrix:
             packages:
 
@@ -242,19 +242,19 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - cudf-cu12==24.6.*
+              - cudf-cu12==24.6.*,>=0.0.0a0
               - cupy-cuda12x>=12.0.0
-              - dask-cudf-cu12==24.6.*
-              - pylibraft-cu12==24.6.*
-              - raft-dask-cu12==24.6.*
+              - dask-cudf-cu12==24.6.*,>=0.0.0a0
+              - pylibraft-cu12==24.6.*,>=0.0.0a0
+              - raft-dask-cu12==24.6.*,>=0.0.0a0
               - rmm-cu12==24.6.*
           - matrix: {cuda: "11.*"}
             packages: &py_run_packages_cu11
-              - cudf-cu11==24.6.*
-              - &cupy_pyproject_cu11 cupy-cuda11x>=12.0.0
-              - dask-cudf-cu11==24.6.*
+              - cudf-cu11==24.6.*,>=0.0.0a0
+              - &cupy_pyproject_cu11 cupy-cuda11x>=12.0.0,>=0.0.0a0
+              - dask-cudf-cu11==24.6.*,>=0.0.0a0
               - *pylibraft_cu11
-              - raft-dask-cu11==24.6.*
+              - raft-dask-cu11==24.6.*,>=0.0.0a0
               - *rmm_cu11
           - matrix:
             packages:
