@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -18,6 +18,10 @@ python -m pip install $(echo ./dist/cuml*.whl)[test]
 EXITCODE=0
 trap "EXITCODE=1" ERR
 set +e
+
+# TODO: Enable dask query planning (by default) once some bugs are fixed.
+# xref: https://github.com/rapidsai/cudf/issues/15027
+export DASK_DATAFRAME__QUERY_PLANNING=False
 
 # Run smoke tests for aarch64 pull requests
 if [[ "$(arch)" == "aarch64" && "${RAPIDS_BUILD_TYPE}" == "pull-request" ]]; then
