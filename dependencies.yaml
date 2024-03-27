@@ -216,7 +216,6 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - dask-cuda==24.6.*
           - joblib>=0.11
           - numba>=0.57
             # TODO: Is scipy really a hard dependency, or should
@@ -227,6 +226,7 @@ dependencies:
           - *treelite
       - output_types: conda
         packages:
+          - dask-cuda==24.6.*
           - &cudf_conda cudf==24.6.*
           - &cupy_conda cupy>=12.0.0
           - &dask_cudf_conda dask-cudf==24.6.*
@@ -237,6 +237,9 @@ dependencies:
           # This index is needed for cudf and rmm.
           - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+      - output_types: [requirements, pyproject]
+        packages:
+          - dask-cuda==24.6.*,>=0.0.0a0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
