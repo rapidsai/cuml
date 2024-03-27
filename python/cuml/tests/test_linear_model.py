@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 from contextlib import nullcontext
-from distutils.version import LooseVersion
 from functools import lru_cache
 
 import pytest
@@ -43,6 +42,7 @@ from hypothesis import assume, example, given, note
 from hypothesis import strategies as st
 from hypothesis import target
 from hypothesis.extra.numpy import floating_dtypes
+from packaging.version import Version
 from sklearn.datasets import (
     load_breast_cancer,
     load_digits,
@@ -488,7 +488,7 @@ def test_logistic_regression(
 ):
     ncols, n_info = column_info
     # Checking sklearn >= 0.21 for testing elasticnet
-    sk_check = LooseVersion(str(sklearn.__version__)) >= LooseVersion("0.21.0")
+    sk_check = Version(str(sklearn.__version__)) >= Version("0.21.0")
     if not sk_check and penalty == "elasticnet":
         pytest.skip(
             "Need sklearn > 0.21 for testing logistic with" "elastic net."
@@ -513,11 +513,12 @@ def test_logistic_regression(
     )
     culog.fit(X_train, y_train)
 
+    sk_penalty = penalty if penalty != "none" else None
     # Only solver=saga supports elasticnet in scikit
     if penalty in ["elasticnet", "l1"]:
         if sk_check:
             sklog = skLog(
-                penalty=penalty,
+                penalty=sk_penalty,
                 l1_ratio=l1_ratio,
                 solver="saga",
                 C=C,
@@ -526,7 +527,7 @@ def test_logistic_regression(
             )
         else:
             sklog = skLog(
-                penalty=penalty,
+                penalty=sk_penalty,
                 solver="saga",
                 C=C,
                 fit_intercept=fit_intercept,
@@ -534,7 +535,7 @@ def test_logistic_regression(
             )
     else:
         sklog = skLog(
-            penalty=penalty,
+            penalty=sk_penalty,
             solver="lbfgs",
             C=C,
             fit_intercept=fit_intercept,

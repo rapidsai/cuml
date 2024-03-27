@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -209,7 +209,7 @@ def make_blobs(
         proba_samples_per_center = np.array(n_samples_per_center) / np.sum(
             n_samples_per_center
         )
-        np_seed = int(generator.randint(n_samples, size=1))
+        np_seed = int(generator.randint(n_samples, size=1)[0])
         np.random.seed(np_seed)
         shuffled_sample_indices = cp.array(
             np.random.choice(

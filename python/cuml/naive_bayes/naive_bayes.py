@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1879,8 +1879,8 @@ class CategoricalNB(_BaseDiscreteNB):
             # feature_log_prob_. This can be created on the fly during
             # the prediction without using as much memory.
             features = self.category_count_.row % self.n_features_
-            cupyx.scatter_max(
-                highest_feature, features, self.category_count_.col
+            highest_feature[features] = cp.maximum(
+                highest_feature[features], self.category_count_.col
             )
             highest_feature = (highest_feature + 1) * alpha
 
@@ -1897,7 +1897,9 @@ class CategoricalNB(_BaseDiscreteNB):
             self.smoothed_class_count = cp.log(smoothed_class_count)
         else:
             indices = self.category_count_.nonzero()
-            cupyx.scatter_max(highest_feature, indices[0], indices[2])
+            highest_feature[indices[0]] = cp.maximum(
+                highest_feature[indices[0]], indices[2]
+            )
             highest_feature = (highest_feature + 1) * alpha
 
             smoothed_class_count = (

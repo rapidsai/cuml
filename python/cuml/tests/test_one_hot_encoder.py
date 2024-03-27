@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ def test_onehot_vs_skonehot(as_array):
         skX = cp.asnumpy(X)
 
     enc = OneHotEncoder(sparse=True)
-    skohe = SkOneHotEncoder(sparse=True)
+    skohe = SkOneHotEncoder(sparse_output=True)
 
     ohe = enc.fit_transform(X)
     ref = skohe.fit_transform(skX)
@@ -164,7 +164,9 @@ def test_onehot_random_inputs(drop, sparse, n_samples, as_array):
     )
 
     enc = OneHotEncoder(sparse=sparse, drop=drop, categories="auto")
-    sk_enc = SkOneHotEncoder(sparse=sparse, drop=drop, categories="auto")
+    sk_enc = SkOneHotEncoder(
+        sparse_output=sparse, drop=drop, categories="auto"
+    )
     ohe = enc.fit_transform(X)
     ref = sk_enc.fit_transform(ary)
     if sparse:
@@ -184,7 +186,9 @@ def test_onehot_drop_idx_first(as_array):
         X_ary = cp.asnumpy(X)
 
     enc = OneHotEncoder(sparse=False, drop="first", categories="auto")
-    sk_enc = SkOneHotEncoder(sparse=False, drop="first", categories="auto")
+    sk_enc = SkOneHotEncoder(
+        sparse_output=False, drop="first", categories="auto"
+    )
     ohe = enc.fit_transform(X)
     ref = sk_enc.fit_transform(X_ary)
     cp.testing.assert_array_equal(ohe, ref)
@@ -207,7 +211,7 @@ def test_onehot_drop_one_of_each(as_array):
     ohe = enc.fit_transform(X)
     print(ohe.dtype)
     ref = SkOneHotEncoder(
-        sparse=False, drop=drop_ary, categories="auto"
+        sparse_output=False, drop=drop_ary, categories="auto"
     ).fit_transform(X_ary)
     cp.testing.assert_array_equal(ohe, ref)
     inv = enc.inverse_transform(ohe)
@@ -271,7 +275,9 @@ def test_onehot_sparse_drop(as_array):
         drop = drop_ary = _convert_drop(drop)
 
     enc = OneHotEncoder(sparse=True, drop=drop, categories="auto")
-    sk_enc = SkOneHotEncoder(sparse=True, drop=drop_ary, categories="auto")
+    sk_enc = SkOneHotEncoder(
+        sparse_output=True, drop=drop_ary, categories="auto"
+    )
     ohe = enc.fit_transform(X)
     ref = sk_enc.fit_transform(ary)
     cp.testing.assert_array_equal(ohe.toarray(), ref.toarray())

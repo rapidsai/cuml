@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -206,7 +206,7 @@ def make_regression(
         coef_ptr = coefs.ptr
 
     if random_state is None:
-        random_state = randint(0, 1e18)
+        random_state = randint(0, 10**18)
 
     if dtype == np.float32:
         cpp_make_regression(handle_[0], <float*> out_ptr,

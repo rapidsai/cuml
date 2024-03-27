@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ def test_duplicate_distances(connectivity):
     )
 
     sk_agg = cluster.AgglomerativeClustering(
-        n_clusters=2, affinity="euclidean", linkage="single"
+        n_clusters=2, metric="euclidean", linkage="single"
     )
 
     cuml_agg.fit(X)
@@ -73,7 +73,7 @@ def test_single_linkage_sklearn_compare(
     cuml_agg.fit(X)
 
     sk_agg = cluster.AgglomerativeClustering(
-        n_clusters=nclusters, affinity="euclidean", linkage="single"
+        n_clusters=nclusters, metric="euclidean", linkage="single"
     )
     sk_agg.fit(cp.asnumpy(X))
 

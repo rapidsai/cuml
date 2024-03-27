@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ np = cpu_only_import("numpy")
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("X_type", ["ndarray"])
 @pytest.mark.parametrize("alpha", [0.1, 0.001])
 @pytest.mark.parametrize("algorithm", ["cyclic", "random"])
 @pytest.mark.parametrize(
@@ -42,7 +41,7 @@ np = cpu_only_import("numpy")
     ],
 )
 @pytest.mark.filterwarnings("ignore:Objective did not converge::sklearn[.*]")
-def test_lasso(datatype, X_type, alpha, algorithm, nrows, column_info):
+def test_lasso(datatype, alpha, algorithm, nrows, column_info):
     ncols, n_info = column_info
     X, y = make_regression(
         n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0
@@ -53,7 +52,7 @@ def test_lasso(datatype, X_type, alpha, algorithm, nrows, column_info):
         X, y, train_size=0.8, random_state=0
     )
     cu_lasso = cuLasso(
-        alpha=np.array([alpha]),
+        alpha=alpha,
         fit_intercept=True,
         max_iter=1000,
         selection=algorithm,
@@ -165,7 +164,6 @@ def test_weighted_cd(datatype, model, fit_intercept, distribution):
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("X_type", ["ndarray"])
 @pytest.mark.parametrize("alpha", [0.2, 0.7])
 @pytest.mark.parametrize("algorithm", ["cyclic", "random"])
 @pytest.mark.parametrize(
@@ -180,7 +178,7 @@ def test_weighted_cd(datatype, model, fit_intercept, distribution):
     ],
 )
 @pytest.mark.filterwarnings("ignore:Objective did not converge::sklearn[.*]")
-def test_elastic_net(datatype, X_type, alpha, algorithm, nrows, column_info):
+def test_elastic_net(datatype, alpha, algorithm, nrows, column_info):
     ncols, n_info = column_info
     X, y = make_regression(
         n_samples=nrows, n_features=ncols, n_informative=n_info, random_state=0
@@ -192,7 +190,7 @@ def test_elastic_net(datatype, X_type, alpha, algorithm, nrows, column_info):
     )
 
     elastic_cu = cuElasticNet(
-        alpha=np.array([alpha]),
+        alpha=alpha,
         fit_intercept=True,
         max_iter=1000,
         selection=algorithm,

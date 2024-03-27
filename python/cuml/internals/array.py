@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -447,7 +447,7 @@ class CumlArray:
     @cached_property
     def size(self):
         return (
-            host_xpy.product(self._array_interface["shape"])
+            host_xpy.prod(self._array_interface["shape"])
             * host_xpy.dtype(self._array_interface["typestr"]).itemsize
         )
 
