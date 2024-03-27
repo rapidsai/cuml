@@ -77,6 +77,7 @@ requirements:
     - tomli
     - tomli-w
     - packaging
+    - rapids-dependency-file-generator
     # TODO: Remove above dependencies after rapids-build-backend packages exist
   run:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}

@@ -34,6 +34,7 @@ requirements:
     - tomli
     - tomli-w
     - packaging
+    - rapids-dependency-file-generator
     # TODO: Remove above dependencies after rapids-build-backend packages exist
   run:
     - python x.x
