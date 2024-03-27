@@ -61,6 +61,7 @@ dependencies:
 - python>=3.9,<3.12
 - raft-dask==24.6.*
 - rapids-dask-dependency==24.6.*
+- rapids-dependency-file-generator>=1.11.0
 - recommonmark
 - rmm==24.6.*
 - scikit-build-core>=0.7.0

@@ -111,6 +111,8 @@ dependencies:
       - output_types: [conda]
         packages:
           - scikit-build-core>=0.7.0
+          # TODO Remove once rbb package is available
+          - rapids-dependency-file-generator>=1.11.0
   checks:
     common:
       - output_types: [conda, requirements]
