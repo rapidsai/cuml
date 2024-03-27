@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -299,7 +299,7 @@ def test_ivfpq_pred(
         if metric in cuml.neighbors.VALID_METRICS[algo]
     ],
 )
-def test_ann_distances_metrics(algo, metric):
+def test_ann_distances_metrics(algo, metric, request):
     X, y = make_blobs(n_samples=500, centers=2, n_features=128, random_state=0)
 
     cu_knn = cuKNN(algorithm=algo, metric=metric)
@@ -316,8 +316,13 @@ def test_ann_distances_metrics(algo, metric):
     sk_dist, sk_ind = sk_knn.kneighbors(
         X, n_neighbors=10, return_distance=True
     )
-
-    return array_equal(sk_dist, cu_dist)
+    request.applymarker(
+        pytest.mark.xfail(
+            not (algo == "brute" and metric in ("cosine", "correlation")),
+            reason=f"arrays not equal with {algo=} and {metric=}",
+        )
+    )
+    assert bool(array_equal(sk_dist, cu_dist))
 
 
 def test_return_dists():
