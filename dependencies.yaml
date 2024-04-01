@@ -156,7 +156,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cython>=3.0.0
-          - &treelite treelite==4.0.0
+          - &treelite treelite==4.1.2
       - output_types: conda
         packages:
           - &pylibraft_conda pylibraft==24.6.*

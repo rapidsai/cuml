@@ -1327,7 +1327,7 @@ def test_rf_regressor_gtil_integration(tmpdir):
     X, y = X.astype(np.float32), y.astype(np.float32)
     clf = curfr(max_depth=3, random_state=0, n_estimators=10)
     clf.fit(X, y)
-    expected_pred = clf.predict(X).reshape((-1, 1))
+    expected_pred = clf.predict(X).reshape((-1, 1, 1))
 
     checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
     clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
@@ -1342,7 +1342,7 @@ def test_rf_binary_classifier_gtil_integration(tmpdir):
     X, y = X.astype(np.float32), y.astype(np.int32)
     clf = curfc(max_depth=3, random_state=0, n_estimators=10)
     clf.fit(X, y)
-    expected_pred = clf.predict_proba(X)
+    expected_pred = clf.predict_proba(X).reshape((-1, 1, 2))
 
     checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
     clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
@@ -1357,7 +1357,7 @@ def test_rf_multiclass_classifier_gtil_integration(tmpdir):
     X, y = X.astype(np.float32), y.astype(np.int32)
     clf = curfc(max_depth=3, random_state=0, n_estimators=10)
     clf.fit(X, y)
-    expected_prob = clf.predict_proba(X)
+    expected_prob = clf.predict_proba(X).reshape((X.shape[0], 1, -1))
 
     checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
     clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)

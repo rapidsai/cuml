@@ -17,4 +17,4 @@ sysroot_version:
   - "=2.17"
 
 treelite_version:
-  - "=4.0.0"
+  - "=4.1.2"
