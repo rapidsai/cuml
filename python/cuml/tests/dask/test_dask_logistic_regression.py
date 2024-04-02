@@ -483,8 +483,9 @@ def test_n_classes_small(client):
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("n_classes", [8])
 def test_n_classes(n_parts, fit_intercept, n_classes, client):
+    nrows = int(1e5) if n_classes < 5 else int(2e5)
     lr = test_lbfgs(
-        nrows=1e5,
+        nrows=nrows,
         ncols=20,
         n_parts=n_parts,
         fit_intercept=fit_intercept,
@@ -505,8 +506,9 @@ def test_n_classes(n_parts, fit_intercept, n_classes, client):
 @pytest.mark.parametrize("n_classes", [2, 8])
 @pytest.mark.parametrize("C", [1.0, 10.0])
 def test_l1(fit_intercept, datatype, delayed, n_classes, C, client):
+    nrows = int(1e5) if n_classes < 5 else int(2e5)
     lr = test_lbfgs(
-        nrows=1e5,
+        nrows=nrows,
         ncols=20,
         n_parts=2,
         fit_intercept=fit_intercept,
@@ -532,8 +534,9 @@ def test_l1(fit_intercept, datatype, delayed, n_classes, C, client):
 def test_elasticnet(
     fit_intercept, datatype, delayed, n_classes, l1_ratio, client
 ):
+    nrows = int(1e5) if n_classes < 5 else int(2e5)
     lr = test_lbfgs(
-        nrows=1e5,
+        nrows=nrows,
         ncols=20,
         n_parts=2,
         fit_intercept=fit_intercept,
@@ -570,9 +573,10 @@ def test_sparse_from_dense(
 ):
     penalty, C, l1_ratio = regularization
 
+    nrows = int(1e5) if n_classes < 5 else int(2e5)
     run_test = partial(
         test_lbfgs,
-        nrows=1e5,
+        nrows=nrows,
         ncols=20,
         n_parts=2,
         fit_intercept=fit_intercept,
@@ -682,9 +686,11 @@ def test_standardization_on_normal_dataset(
     C = regularization[1]
     l1_ratio = regularization[2]
 
+    nrows = int(1e5) if n_classes < 5 else int(2e5)
+
     # test correctness compared with scikit-learn
     test_lbfgs(
-        nrows=1e5,
+        nrows=nrows,
         ncols=20,
         n_parts=2,
         fit_intercept=fit_intercept,
