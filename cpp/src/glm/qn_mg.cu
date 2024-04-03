@@ -114,8 +114,8 @@ void qnFit_impl(const raft::handle_t& handle,
   auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
 
   rmm::device_uvector<T> mean_std_buff(4 * D, handle.get_stream());
-  Standardizer<T>* stder = NULL;
-  if (standardization) stder = new Standardizer(handle, X_simple, n_samples, mean_std_buff);
+  Standardizer<T>* std_obj = NULL;
+  if (standardization) std_obj = new Standardizer(handle, X_simple, n_samples, mean_std_buff);
 
   ML::GLM::opg::qn_fit_x_mg(handle,
                             pams,
@@ -128,12 +128,12 @@ void qnFit_impl(const raft::handle_t& handle,
                             n_samples,
                             rank,
                             n_ranks,
-                            stder);  // ignore sample_weight, svr_eps
+                            std_obj);  // ignore sample_weight, svr_eps
 
   if (standardization) {
     int n_targets = ML::GLM::detail::qn_is_classification(pams.loss) && C == 2 ? 1 : C;
-    stder->adapt_model_for_linearFwd(handle, w0, n_targets, D, pams.fit_intercept);
-    delete stder;
+    std_obj->adapt_model_for_linearFwd(handle, w0, n_targets, D, pams.fit_intercept);
+    delete std_obj;
   }
 
   return;
@@ -238,12 +238,14 @@ void qnFitSparse_impl(const raft::handle_t& handle,
                       int rank,
                       int n_ranks)
 {
-  RAFT_EXPECTS(standardization == false, "standardization for sparse vectors is not supported yet");
-
   auto X_simple = SimpleSparseMat<T>(X_values, X_cols, X_row_ids, X_nnz, N, D);
 
-  rmm::device_uvector<T> mean_std_buff(4 * D, handle.get_stream());
-  Standardizer<T>* stder = NULL;
+  size_t vec_size = raft::alignTo<size_t>(sizeof(T) * D, ML::GLM::detail::qn_align);
+  rmm::device_uvector<T> mean_std_buff(4 * vec_size, handle.get_stream());
+  Standardizer<T>* std_obj = NULL;
+
+  if (standardization)
+    std_obj = new Standardizer(handle, X_simple, n_samples, mean_std_buff, vec_size);
 
   ML::GLM::opg::qn_fit_x_mg(handle,
                             pams,
@@ -256,12 +258,12 @@ void qnFitSparse_impl(const raft::handle_t& handle,
                             n_samples,
                             rank,
                             n_ranks,
-                            stder);  // ignore sample_weight, svr_eps
+                            std_obj);  // ignore sample_weight, svr_eps
 
   if (standardization) {
     int n_targets = ML::GLM::detail::qn_is_classification(pams.loss) && C == 2 ? 1 : C;
-    stder->adapt_model_for_linearFwd(handle, w0, n_targets, D, pams.fit_intercept);
-    delete stder;
+    std_obj->adapt_model_for_linearFwd(handle, w0, n_targets, D, pams.fit_intercept);
+    delete std_obj;
   }
 
   return;
