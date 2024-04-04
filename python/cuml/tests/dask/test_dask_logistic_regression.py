@@ -325,10 +325,7 @@ def test_lbfgs(
     n_classes=2,
     convert_to_sparse=False,
 ):
-    if convert_to_sparse is True:
-        tolerance = 0.01
-    else:
-        tolerance = 0.005
+    tolerance = 0.01 if convert_to_sparse else 0.005
 
     def imp():
         import cuml.comm.serialize  # NOQA
