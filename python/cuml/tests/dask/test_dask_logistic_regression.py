@@ -978,6 +978,7 @@ def test_standardization_example(fit_intercept, regularization, client):
         sg.intercept_,
         unit_tol=tolerance,
         total_tol=tolerance,
+    )
 
 
 @pytest.mark.mg
