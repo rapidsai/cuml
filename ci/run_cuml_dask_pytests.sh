@@ -5,3 +5,5 @@
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../python/cuml/tests/dask
 
 python -m pytest --cache-clear "$@" .
+
+# test
