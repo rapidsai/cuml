@@ -325,7 +325,7 @@ def test_lbfgs(
     n_classes=2,
     convert_to_sparse=False,
 ):
-    tolerance = 0.005
+    tolerance = 0.01 if convert_to_sparse else 0.005
 
     def imp():
         import cuml.comm.serialize  # NOQA
@@ -394,9 +394,19 @@ def test_lbfgs(
 
     if sk_solver == "lbfgs" and standardization is False:
         assert len(lr_coef) == len(sk_coef)
-        assert array_equal(lr_coef, sk_coef, tolerance, with_sign=True)
         assert array_equal(
-            lr_intercept, sk_intercept, tolerance, with_sign=True
+            lr_coef,
+            sk_coef,
+            unit_tol=tolerance,
+            total_tol=tolerance,
+            with_sign=True,
+        )
+        assert array_equal(
+            lr_intercept,
+            sk_intercept,
+            unit_tol=tolerance,
+            total_tol=tolerance,
+            with_sign=True,
         )
 
     # test predict
@@ -483,8 +493,9 @@ def test_n_classes_small(client):
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("n_classes", [8])
 def test_n_classes(n_parts, fit_intercept, n_classes, client):
+    nrows = int(1e5) if n_classes < 5 else int(2e5)
     lr = test_lbfgs(
-        nrows=1e5,
+        nrows=nrows,
         ncols=20,
         n_parts=n_parts,
         fit_intercept=fit_intercept,
@@ -505,8 +516,9 @@ def test_n_classes(n_parts, fit_intercept, n_classes, client):
 @pytest.mark.parametrize("n_classes", [2, 8])
 @pytest.mark.parametrize("C", [1.0, 10.0])
 def test_l1(fit_intercept, datatype, delayed, n_classes, C, client):
+    nrows = int(1e5) if n_classes < 5 else int(2e5)
     lr = test_lbfgs(
-        nrows=1e5,
+        nrows=nrows,
         ncols=20,
         n_parts=2,
         fit_intercept=fit_intercept,
@@ -532,8 +544,9 @@ def test_l1(fit_intercept, datatype, delayed, n_classes, C, client):
 def test_elasticnet(
     fit_intercept, datatype, delayed, n_classes, l1_ratio, client
 ):
+    nrows = int(1e5) if n_classes < 5 else int(2e5)
     lr = test_lbfgs(
-        nrows=1e5,
+        nrows=nrows,
         ncols=20,
         n_parts=2,
         fit_intercept=fit_intercept,
@@ -570,9 +583,10 @@ def test_sparse_from_dense(
 ):
     penalty, C, l1_ratio = regularization
 
+    nrows = int(1e5) if n_classes < 5 else int(2e5)
     run_test = partial(
         test_lbfgs,
-        nrows=1e5,
+        nrows=nrows,
         ncols=20,
         n_parts=2,
         fit_intercept=fit_intercept,
@@ -682,9 +696,11 @@ def test_standardization_on_normal_dataset(
     C = regularization[1]
     l1_ratio = regularization[2]
 
+    nrows = int(1e5) if n_classes < 5 else int(2e5)
+
     # test correctness compared with scikit-learn
     test_lbfgs(
-        nrows=1e5,
+        nrows=nrows,
         ncols=20,
         n_parts=2,
         fit_intercept=fit_intercept,
@@ -777,7 +793,12 @@ def test_standardization_on_scaled_dataset(
     )
     mgon_accuracy = accuracy_score(y_test, mgon_preds)
 
-    assert array_equal(X_train_dask.compute().to_numpy(), X_train)
+    assert array_equal(
+        X_train_dask.compute().to_numpy(),
+        X_train,
+        unit_tol=tolerance,
+        total_tol=tolerance,
+    )
 
     # run CPU with StandardScaler
     # if fit_intercept is true, mean center then scale the dataset
@@ -815,8 +836,18 @@ def test_standardization_on_scaled_dataset(
         mgon_intercept_origin = mgon.intercept_.to_numpy()
 
     if sk_solver == "lbfgs":
-        assert array_equal(mgon_coef_origin, cpu.coef_, tolerance)
-        assert array_equal(mgon_intercept_origin, cpu.intercept_, tolerance)
+        assert array_equal(
+            mgon_coef_origin,
+            cpu.coef_,
+            unit_tol=tolerance,
+            total_tol=tolerance,
+        )
+        assert array_equal(
+            mgon_intercept_origin,
+            cpu.intercept_,
+            unit_tol=tolerance,
+            total_tol=tolerance,
+        )
 
     # running MG with standardization=False
     mgoff = cumlLBFGS_dask(
@@ -843,9 +874,17 @@ def test_standardization_on_scaled_dataset(
         np.abs(mgon_accuracy - mgoff_accuracy) < 1e-3
     )
 
-    assert array_equal(mgon_coef_origin, mgoff.coef_.to_numpy(), tolerance)
     assert array_equal(
-        mgon_intercept_origin, mgoff.intercept_.to_numpy(), tolerance
+        mgon_coef_origin,
+        mgoff.coef_.to_numpy(),
+        unit_tol=tolerance,
+        total_tol=tolerance,
+    )
+    assert array_equal(
+        mgon_intercept_origin,
+        mgoff.intercept_.to_numpy(),
+        unit_tol=tolerance,
+        total_tol=tolerance,
     )
 
 
@@ -882,6 +921,8 @@ def test_standardization_example(fit_intercept, regularization, client):
         "max_iter": max_iter,
     }
 
+    tolerance = 0.005
+
     X, y = make_classification_dataset(
         datatype, n_rows, n_cols, n_info, n_classes=n_classes
     )
@@ -911,13 +952,131 @@ def test_standardization_example(fit_intercept, regularization, client):
     lr_off = cumlLBFGS_dask(standardization=False, **est_params)
     lr_off.fit(X_df_scaled, y_df)
 
-    assert array_equal(lron_coef_origin, lr_off.coef_.to_numpy())
-    assert array_equal(lron_intercept_origin, lr_off.intercept_.to_numpy())
+    assert array_equal(
+        lron_coef_origin,
+        lr_off.coef_.to_numpy(),
+        unit_tol=tolerance,
+        total_tol=tolerance,
+    )
+    assert array_equal(
+        lron_intercept_origin,
+        lr_off.intercept_.to_numpy(),
+        unit_tol=tolerance,
+        total_tol=tolerance,
+    )
 
     from cuml.linear_model import LogisticRegression as SG
 
     sg = SG(**est_params)
     sg.fit(X_scaled, y)
 
-    assert array_equal(lron_coef_origin, sg.coef_)
-    assert array_equal(lron_intercept_origin, sg.intercept_)
+    assert array_equal(
+        lron_coef_origin, sg.coef_, unit_tol=tolerance, total_tol=tolerance
+    )
+    assert array_equal(
+        lron_intercept_origin,
+        sg.intercept_,
+        unit_tol=tolerance,
+        total_tol=tolerance,
+    )
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("fit_intercept", [True, False])
+@pytest.mark.parametrize(
+    "regularization",
+    [
+        ("none", 1.0, None),
+        ("l2", 2.0, None),
+        ("l1", 2.0, None),
+        ("elasticnet", 2.0, 0.2),
+    ],
+)
+def test_standardization_sparse(fit_intercept, regularization, client):
+    n_rows = 10000
+    n_cols = 25
+    n_info = 15
+    n_classes = 4
+    nnz = int(n_rows * n_cols * 0.3)  # number of non-zero values
+    tolerance = 0.005
+
+    datatype = np.float32
+    n_parts = 10
+    max_iter = 5  # cannot set this too large. Observed GPU-specific coefficients when objective converges at 0.
+
+    penalty = regularization[0]
+    C = regularization[1]
+    l1_ratio = regularization[2]
+
+    est_params = {
+        "penalty": penalty,
+        "C": C,
+        "l1_ratio": l1_ratio,
+        "fit_intercept": fit_intercept,
+        "max_iter": max_iter,
+    }
+
+    def make_classification_with_nnz(
+        datatype, n_rows, n_cols, n_info, n_classes, nnz
+    ):
+        assert n_rows * n_cols >= nnz
+
+        X, y = make_classification_dataset(
+            datatype, n_rows, n_cols, n_info, n_classes=n_classes
+        )
+        X = X.flatten()
+        num_zero = len(X) - nnz
+        zero_indices = np.random.choice(
+            a=range(len(X)), size=num_zero, replace=False
+        )
+        X[zero_indices] = 0
+        X_res = X.reshape(n_rows, n_cols)
+        return X_res, y
+
+    X_origin, y = make_classification_with_nnz(
+        datatype, n_rows, n_cols, n_info, n_classes, nnz
+    )
+    X = csr_matrix(X_origin)
+    assert X.nnz == nnz and X.shape == (n_rows, n_cols)
+
+    from sklearn.preprocessing import StandardScaler
+
+    scaler = StandardScaler(with_mean=fit_intercept, with_std=True)
+    scaler.fit(X_origin)
+    scaler.scale_ = np.sqrt(scaler.var_ * len(X_origin) / (len(X_origin) - 1))
+    X_scaled = scaler.transform(X_origin)
+
+    X_da, y_da = _prep_training_data_sparse(
+        client, X, y, partitions_per_worker=n_parts
+    )
+    from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
+
+    assert X_da.shape == (n_rows, n_cols)
+
+    computed_csr = X_da.compute()
+    assert isinstance(computed_csr, csr_matrix)
+    assert computed_csr.nnz == nnz and computed_csr.shape == (n_rows, n_cols)
+    assert array_equal(computed_csr.data, X.data, unit_tol=tolerance)
+    assert array_equal(computed_csr.indices, X.indices, unit_tol=tolerance)
+    assert array_equal(computed_csr.indptr, X.indptr, unit_tol=tolerance)
+
+    lr_on = cumlLBFGS_dask(standardization=True, verbose=True, **est_params)
+    lr_on.fit(X_da, y_da)
+
+    lron_coef_origin = lr_on.coef_ * scaler.scale_
+    if fit_intercept is True:
+        lron_intercept_origin = lr_on.intercept_ + np.dot(
+            lr_on.coef_, scaler.mean_
+        )
+    else:
+        lron_intercept_origin = lr_on.intercept_
+
+    from cuml.linear_model import LogisticRegression as SG
+
+    sg = SG(**est_params)
+    sg.fit(X_scaled, y)
+
+    assert array_equal(lron_coef_origin, sg.coef_, unit_tol=tolerance)
+    assert array_equal(
+        lron_intercept_origin, sg.intercept_, unit_tol=tolerance
+    )

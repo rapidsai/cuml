@@ -18,7 +18,7 @@ rapids-dependency-file-generator \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch)" \
   --prepend-channels "${CPP_CHANNEL}" | tee env.yaml
 
-rapids-mamba-retry env create --force -f env.yaml -n test
+rapids-mamba-retry env create --yes -f env.yaml -n test
 
 # Temporarily allow unbound variables for conda activation.
 set +u
