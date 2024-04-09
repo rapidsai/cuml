@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include <cuml/explainer/permutation_shap.hpp>
+
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
-
-#include <cuml/explainer/permutation_shap.hpp>
 
 namespace ML {
 namespace Explainer {

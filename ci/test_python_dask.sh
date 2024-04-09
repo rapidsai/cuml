@@ -1,30 +1,29 @@
 #!/bin/bash
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+
+# Support invoking test_python_dask.sh outside the script directory
+cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
 # Common setup steps shared by Python test jobs
-source "$(dirname "$0")/test_python_common.sh"
+source ./ci/test_python_common.sh
 
 EXITCODE=0
 trap "EXITCODE=1" ERR
 set +e
 
 rapids-logger "pytest cuml-dask"
-cd python/cuml/tests/dask
 
 # Run tests (no UCX-Py/UCXX)
-pytest \
-  --cache-clear \
+./ci/run_cuml_dask_pytests.sh \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask.xml" \
   --cov-config=../../../.coveragerc \
   --cov=cuml_dask \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-dask-coverage.xml" \
-  --cov-report=term \
-  .
+  --cov-report=term
 
 # Run tests (UCX-Py only)
-pytest \
+./ci/run_cuml_dask_pytests.sh \
   --run_ucx \
-  --cache-clear \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask-ucx.xml" \
   --cov-config=../../../.coveragerc \
   --cov=cuml_dask \
@@ -33,9 +32,8 @@ pytest \
   .
 
 # Run tests (UCXX only)
-pytest \
+./ci/run_cuml_dask_pytests.sh \
   --run_ucxx \
-  --cache-clear \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask-ucxx.xml" \
   --cov-config=../../../.coveragerc \
   --cov=cuml_dask \

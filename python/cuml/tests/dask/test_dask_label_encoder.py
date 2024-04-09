@@ -11,12 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from cuml.common.exceptions import NotFittedError
 import pytest
-from cuml.internals.safe_imports import cpu_only_import
+
 import cuml
+from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
+from cuml.common.exceptions import NotFittedError
 from cuml.dask.preprocessing.LabelEncoder import LabelEncoder
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
 cudf = gpu_only_import("cudf")
 np = cpu_only_import("numpy")
@@ -51,7 +52,7 @@ def test_labelencoder_transform(length, cardinality, client):
     tmp = cudf.Series(np.random.choice(cardinality, (length,)))
     df = dask_cudf.from_cudf(tmp, npartitions=len(client.has_what()))
     le = LabelEncoder().fit(df)
-    assert le._fitted
+    check_is_fitted(le)
 
     encoded = le.transform(df)
 
@@ -69,7 +70,7 @@ def test_labelencoder_unseen(client):
         npartitions=len(client.has_what()),
     )
     le = LabelEncoder().fit(df)
-    assert le._fitted
+    check_is_fitted(le)
 
     with pytest.raises(KeyError):
         tmp = dask_cudf.from_cudf(
@@ -141,7 +142,7 @@ def test_inverse_transform(
         le.fit_transform(orig_label)
     else:
         le.fit(orig_label)
-    assert le._fitted is True
+    check_is_fitted(le)
 
     # test if inverse_transform is correct
     reverted = le.inverse_transform(ord_label)
@@ -175,7 +176,7 @@ def test_empty_input(empty, ord_label, client):
     ord_label = dask_cudf.from_cudf(ord_label, npartitions=n_workers)
     le = LabelEncoder()
     le.fit(empty)
-    assert le._fitted is True
+    check_is_fitted(le)
 
     # test if correctly raies ValueError
     with pytest.raises(ValueError, match="y contains previously unseen label"):
@@ -184,7 +185,7 @@ def test_empty_input(empty, ord_label, client):
     # check fit_transform()
     le = LabelEncoder()
     transformed = le.fit_transform(empty).compute()
-    assert le._fitted is True
+    check_is_fitted(le)
     assert len(transformed) == 0
 
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,8 +55,15 @@ assert_raises = cpu_only_import_from("numpy.testing", "assert_raises")
         stress_param("int32"),
     ],
 )
+@pytest.mark.parametrize("algorithm", ["brute", "rbc"])
 def test_dbscan(
-    datatype, use_handle, nrows, ncols, max_mbytes_per_batch, out_dtype
+    datatype,
+    use_handle,
+    nrows,
+    ncols,
+    max_mbytes_per_batch,
+    out_dtype,
+    algorithm,
 ):
     if nrows == 500000 and pytest.max_gpu_memory < 32:
         if pytest.adapt_stress_test:
@@ -83,6 +90,7 @@ def test_dbscan(
         handle=handle,
         eps=eps,
         min_samples=2,
+        algorithm=algorithm,
         max_mbytes_per_batch=max_mbytes_per_batch,
         output_type="numpy",
     )
@@ -434,8 +442,11 @@ def test_core_point_prop3():
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize("out_dtype", ["int32", np.int32, "int64", np.int64])
+@pytest.mark.parametrize("algorithm", ["brute", "rbc"])
 @pytest.mark.parametrize("n_samples", [unit_param(500), stress_param(5000)])
-def test_dbscan_propagation(datatype, use_handle, out_dtype, n_samples):
+def test_dbscan_propagation(
+    datatype, use_handle, out_dtype, algorithm, n_samples
+):
     X, y = make_blobs(
         n_samples,
         centers=1,
@@ -448,7 +459,11 @@ def test_dbscan_propagation(datatype, use_handle, out_dtype, n_samples):
     handle, stream = get_handle(use_handle)
     eps = 0.5
     cuml_dbscan = cuDBSCAN(
-        handle=handle, eps=eps, min_samples=5, output_type="numpy"
+        handle=handle,
+        eps=eps,
+        min_samples=5,
+        algorithm=algorithm,
+        output_type="numpy",
     )
     cu_labels = cuml_dbscan.fit_predict(X, out_dtype=out_dtype)
 

@@ -39,6 +39,7 @@ Emerald Edition, pp. 75-92. January 2011.
 */
 
 #include <cuda.h>
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -48,7 +48,7 @@ def test_split_dataframe(train_size, shuffle):
     assert all(X_test.index.to_pandas() == y_test.index.to_pandas())
 
     X_reconstructed = cudf.concat([X_train, X_test]).sort_values(by=["x"])
-    y_reconstructed = y_train.append(y_test).sort_values()
+    y_reconstructed = cudf.concat([y_train, y_test]).sort_values()
 
     assert all(X_reconstructed.reset_index(drop=True) == X)
     out = y_reconstructed.reset_index(drop=True).values_host == y.values_host
@@ -96,7 +96,7 @@ def test_split_column():
     )
 
     X_reconstructed = cudf.concat([X_train, X_test]).sort_values(by=["x"])
-    y_reconstructed = y_train.append(y_test).sort_values()
+    y_reconstructed = cudf.concat([y_train, y_test]).sort_values()
 
     assert all(
         data

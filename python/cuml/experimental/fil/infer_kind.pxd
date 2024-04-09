@@ -15,7 +15,7 @@
 #
 
 cdef extern from "treelite/c_api.h":
-    ctypedef void* ModelHandle
+    ctypedef void* TreeliteModelHandle
 
 cdef extern from "cuml/experimental/fil/infer_kind.hpp" namespace "ML::experimental::fil":
     # TODO(hcho3): Switch to new syntax for scoped enum when we adopt Cython 3.0

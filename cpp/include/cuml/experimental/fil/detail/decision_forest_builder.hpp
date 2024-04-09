@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 #pragma once
-#include <algorithm>
-#include <cmath>
-#include <cstddef>
 #include <cuml/experimental/fil/detail/bitset.hpp>
 #include <cuml/experimental/fil/detail/forest.hpp>
 #include <cuml/experimental/fil/detail/index_type.hpp>
@@ -26,9 +23,14 @@
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/exceptions.hpp>
 #include <cuml/experimental/fil/postproc_ops.hpp>
+
+#include <stdint.h>
+
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
 #include <numeric>
 #include <optional>
-#include <stdint.h>
 #include <vector>
 
 namespace ML {

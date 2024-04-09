@@ -1,3 +1,39 @@
+# cuML 24.02.00 (12 Feb 2024)
+
+## 🚨 Breaking Changes
+
+- Update to CCCL 2.2.0. ([#5702](https://github.com/rapidsai/cuml/pull/5702)) [@bdice](https://github.com/bdice)
+- Switch to scikit-build-core ([#5693](https://github.com/rapidsai/cuml/pull/5693)) [@vyasr](https://github.com/vyasr)
+
+## 🐛 Bug Fixes
+
+- [Hotfix] Fix FIL gtest ([#5755](https://github.com/rapidsai/cuml/pull/5755)) [@hcho3](https://github.com/hcho3)
+- Exclude tests from builds ([#5754](https://github.com/rapidsai/cuml/pull/5754)) [@vyasr](https://github.com/vyasr)
+- Fix ctest directory to ensure tests are executed ([#5753](https://github.com/rapidsai/cuml/pull/5753)) [@bdice](https://github.com/bdice)
+- Synchronize stream in SVC memory test ([#5729](https://github.com/rapidsai/cuml/pull/5729)) [@wphicks](https://github.com/wphicks)
+- Fix shared-workflows repo name ([#5723](https://github.com/rapidsai/cuml/pull/5723)) [@raydouglass](https://github.com/raydouglass)
+- Fix cupy dependency in pyproject.toml ([#5705](https://github.com/rapidsai/cuml/pull/5705)) [@vyasr](https://github.com/vyasr)
+- Only cufft offers a static_nocallback version of the library ([#5703](https://github.com/rapidsai/cuml/pull/5703)) [@robertmaynard](https://github.com/robertmaynard)
+
+## 🛠️ Improvements
+
+- [Hotfix] Update GPUTreeSHAP to fix ARM build ([#5747](https://github.com/rapidsai/cuml/pull/5747)) [@hcho3](https://github.com/hcho3)
+- Disable HistGradientBoosting support for now ([#5744](https://github.com/rapidsai/cuml/pull/5744)) [@hcho3](https://github.com/hcho3)
+- Disable hnswlib feature in RAFT; pin pytest ([#5733](https://github.com/rapidsai/cuml/pull/5733)) [@hcho3](https://github.com/hcho3)
+- [LogisticRegressionMG] Support standardization with no data modification ([#5724](https://github.com/rapidsai/cuml/pull/5724)) [@lijinf2](https://github.com/lijinf2)
+- Remove usages of rapids-env-update ([#5716](https://github.com/rapidsai/cuml/pull/5716)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Remove extraneous SKBUILD_BUILD_OPTIONS ([#5714](https://github.com/rapidsai/cuml/pull/5714)) [@vyasr](https://github.com/vyasr)
+- refactor CUDA versions in dependencies.yaml ([#5712](https://github.com/rapidsai/cuml/pull/5712)) [@jameslamb](https://github.com/jameslamb)
+- Update to CCCL 2.2.0. ([#5702](https://github.com/rapidsai/cuml/pull/5702)) [@bdice](https://github.com/bdice)
+- Migrate to Treelite 4.0 ([#5701](https://github.com/rapidsai/cuml/pull/5701)) [@hcho3](https://github.com/hcho3)
+- Use cuda::proclaim_return_type on device lambdas. ([#5696](https://github.com/rapidsai/cuml/pull/5696)) [@bdice](https://github.com/bdice)
+- move _process_generic to base_return_types, avoid circular import ([#5695](https://github.com/rapidsai/cuml/pull/5695)) [@dcolinmorgan](https://github.com/dcolinmorgan)
+- Switch to scikit-build-core ([#5693](https://github.com/rapidsai/cuml/pull/5693)) [@vyasr](https://github.com/vyasr)
+- Fix all deprecated function calls in TUs where warnings are errors ([#5692](https://github.com/rapidsai/cuml/pull/5692)) [@vyasr](https://github.com/vyasr)
+- Remove CUML_BUILD_WHEELS and standardize Python builds ([#5689](https://github.com/rapidsai/cuml/pull/5689)) [@vyasr](https://github.com/vyasr)
+- Forward-merge branch-23.12 to branch-24.02 ([#5657](https://github.com/rapidsai/cuml/pull/5657)) [@bdice](https://github.com/bdice)
+- Add cuML devcontainers ([#5568](https://github.com/rapidsai/cuml/pull/5568)) [@trxcllnt](https://github.com/trxcllnt)
+
 # cuML 23.12.00 (6 Dec 2023)
 
 ## 🚨 Breaking Changes

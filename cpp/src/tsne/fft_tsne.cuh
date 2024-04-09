@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,12 +25,13 @@
 
 #include "fft_kernels.cuh"
 #include "utils.cuh"
-#include <cmath>
+
 #include <common/device_utils.cuh>
-#include <cufft_utils.h>
+
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/init.cuh>
 #include <raft/stats/sum.cuh>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -39,6 +40,10 @@
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
+
+#include <cufft_utils.h>
+
+#include <cmath>
 
 namespace ML {
 namespace TSNE {
