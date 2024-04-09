@@ -14,7 +14,6 @@
 #
 from cuml.preprocessing import LabelEncoder as LE
 from cuml.common.exceptions import NotFittedError
-from dask_cudf import Series as daskSeries
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedInverseTransformMixin
@@ -25,6 +24,7 @@ from collections.abc import Sequence
 from cuml.internals.safe_imports import gpu_only_import_from
 
 dcDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
+dcSeries = gpu_only_import_from("dask_cudf", "Series")
 
 
 class LabelEncoder(
@@ -148,7 +148,7 @@ class LabelEncoder(
         _classes = y.unique().compute().sort_values(ignore_index=True)
         el = first(y) if isinstance(y, Sequence) else y
         self.datatype = (
-            "cudf" if isinstance(el, (dcDataFrame, daskSeries)) else "cupy"
+            "cudf" if isinstance(el, (dcDataFrame, dcSeries)) else "cupy"
         )
         self._set_internal_model(LE(**self.kwargs).fit(y, _classes=_classes))
         return self
