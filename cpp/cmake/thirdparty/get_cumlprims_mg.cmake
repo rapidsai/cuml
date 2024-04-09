@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ endfunction()
 ###
 find_and_configure_cumlprims_mg(VERSION          ${CUML_MIN_VERSION_cumlprims_mg}
                                 FORK       rapidsai
-                                PINNED_TAG branch-${CUML_BRANCH_VERSION_cumlprims_mg}
+                                PINNED_TAG pull-request/186
                                 BUILD_STATIC     ${CUML_USE_CUMLPRIMS_MG_STATIC}
                                 EXCLUDE_FROM_ALL ${CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL}
                                 # When PINNED_TAG above doesn't match cuml,
