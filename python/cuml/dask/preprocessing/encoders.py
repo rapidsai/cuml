@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,11 +21,11 @@ from cuml.dask.common.base import (
     DelayedTransformMixin,
 )
 from cuml.internals.safe_imports import gpu_only_import_from, gpu_only_import
-from dask_cudf.core import Series as daskSeries
+from dask_cudf import Series as daskSeries
 from toolz import first
 
 dask_cudf = gpu_only_import("dask_cudf")
-dcDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
+dcDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
 
 
 class DelayedFitTransformMixin:
