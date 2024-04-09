@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -35,7 +35,6 @@ else
       -k 'test_sparse_pca_inputs' \
       --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-sparse-pca.xml"
 
-    rapids-logger "pytest cuml-dask"
     ./ci/run_cuml_dask_pytests.sh \
       --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask.xml"
 fi
