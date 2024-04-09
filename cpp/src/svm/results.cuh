@@ -31,6 +31,7 @@
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cub/device/device_select.cuh>
 
@@ -297,7 +298,7 @@ class Results {
     return n_selected;
   }
 
-  rmm::mr::device_memory_resource* rmm_alloc;
+  rmm::device_async_resource_ref rmm_alloc;
 
  private:
   const raft::handle_t& handle;

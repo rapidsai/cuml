@@ -19,6 +19,7 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cuda_runtime.h>
 #include <thrust/execution_policy.h>
@@ -79,7 +80,7 @@ struct ARIMAParams {
    */
   void allocate(const ARIMAOrder& order, int batch_size, cudaStream_t stream, bool tr = false)
   {
-    rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
+    rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource();
     if (order.k && !tr) mu = (DataT*)rmm_alloc->allocate(batch_size * sizeof(DataT), stream);
     if (order.n_exog && !tr)
       beta = (DataT*)rmm_alloc->allocate(order.n_exog * batch_size * sizeof(DataT), stream);
@@ -101,7 +102,7 @@ struct ARIMAParams {
    */
   void deallocate(const ARIMAOrder& order, int batch_size, cudaStream_t stream, bool tr = false)
   {
-    rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
+    rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource();
     if (order.k && !tr) rmm_alloc->deallocate(mu, batch_size * sizeof(DataT), stream);
     if (order.n_exog && !tr)
       rmm_alloc->deallocate(beta, order.n_exog * batch_size * sizeof(DataT), stream);
