@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
-#include <random>
-#include <type_traits>
-
 #include <common/nvtx.hpp>
-#include <cublas_v2.h>
+
 #include <cuml/common/utils.hpp>
 #include <cuml/linear_model/glm.hpp>
+#include <cuml/svm/linear.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
-#include <omp.h>
+
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/distance/kernels.cuh>
@@ -35,8 +33,10 @@
 #include <raft/linalg/transpose.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
+
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
+
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -44,7 +44,11 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/tuple.h>
 
-#include <cuml/svm/linear.hpp>
+#include <cublas_v2.h>
+#include <omp.h>
+
+#include <random>
+#include <type_traits>
 
 namespace ML {
 namespace SVM {

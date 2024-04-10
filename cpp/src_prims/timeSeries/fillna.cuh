@@ -16,17 +16,21 @@
 
 #pragma once
 
-#include <cub/cub.cuh>
-#include <cuda_runtime.h>
-
 #include "jones_transform.cuh"
+
 #include <cuml/tsa/arima_common.h>
-#include <linalg/batched/matrix.cuh>
+
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
+
+#include <cub/cub.cuh>
+#include <cuda_runtime.h>
+
+#include <linalg/batched/matrix.cuh>
 
 // Auxiliary functions in anonymous namespace
 namespace {

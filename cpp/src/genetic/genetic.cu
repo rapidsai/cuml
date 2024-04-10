@@ -16,6 +16,7 @@
 
 #include "constants.h"
 #include "node.cuh"
+
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/genetic/common.h>
@@ -28,14 +29,15 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
+
+#include <device_launch_parameters.h>
+
 #include <algorithm>
 #include <numeric>
 #include <random>
 #include <stack>
-
-#include <device_launch_parameters.h>
-#include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
 
 namespace cuml {
 namespace genetic {

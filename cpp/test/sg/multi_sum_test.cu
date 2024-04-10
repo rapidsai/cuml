@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 
-#include <test_utils.h>
-
 #include <cuml/common/utils.hpp>
 #include <cuml/fil/multi_sum.cuh>
-#include <raft/core/handle.hpp>
 
+#include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -29,6 +27,7 @@
 #include <thrust/host_vector.h>
 
 #include <gtest/gtest.h>
+#include <test_utils.h>
 
 #include <cstddef>
 

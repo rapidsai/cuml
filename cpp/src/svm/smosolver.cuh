@@ -19,9 +19,22 @@
 #include "smosolver.h"
 
 // #TODO: Replace with public header when ready
+#include "kernelcache.cuh"
+#include "results.cuh"
+#include "smo_sets.cuh"
+#include "smoblocksolve.cuh"
+#include "workingset.cuh"
+#include "ws_util.cuh"
+
+#include <raft/core/handle.hpp>
+#include <raft/distance/distance_types.hpp>
+#include <raft/distance/kernels.cuh>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/gemv.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/sparse/linalg/norm.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
@@ -30,18 +43,14 @@
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/sequence.h>
 
-#include "kernelcache.cuh"
-#include "results.cuh"
-#include "smo_sets.cuh"
-#include "smoblocksolve.cuh"
-#include "workingset.cuh"
-#include "ws_util.cuh"
-
-#include <raft/distance/distance_types.hpp>
-#include <raft/distance/kernels.cuh>
-#include <raft/linalg/gemv.cuh>
-#include <raft/linalg/unary_op.cuh>
-#include <raft/sparse/linalg/norm.cuh>
+#include <cassert>
+#include <chrono>
+#include <cstdlib>
+#include <iostream>
+#include <limits>
+#include <sstream>
+#include <string>
+#include <type_traits>
 
 namespace ML {
 namespace SVM {

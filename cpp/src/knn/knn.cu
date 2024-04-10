@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,20 @@
  * limitations under the License.
  */
 
-#include <cuda_runtime.h>
+#include <cuml/common/logger.hpp>
+#include <cuml/neighbors/knn.hpp>
+
 #include <raft/core/handle.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/spatial/knn/ann.cuh>
 #include <raft/spatial/knn/ball_cover.cuh>
+#include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cuda_utils.cuh>
 
-#include <raft/spatial/knn/knn.cuh>
 #include <rmm/device_uvector.hpp>
 
-#include <cuml/common/logger.hpp>
-#include <cuml/neighbors/knn.hpp>
+#include <cuda_runtime.h>
+
 #include <ml_mg_utils.cuh>
 #include <selection/knn.cuh>
 

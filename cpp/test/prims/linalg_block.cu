@@ -14,21 +14,21 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
+#include "test_utils.h"
 
-#include <random>
-#include <vector>
+#include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 
 #include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include "test_utils.h"
-#include <cuml/common/logger.hpp>
-#include <cuml/common/utils.hpp>
-
+#include <gtest/gtest.h>
 #include <linalg/block.cuh>
+
+#include <random>
+#include <vector>
 
 namespace MLCommon {
 namespace LinAlg {

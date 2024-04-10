@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
-#include <cuda_runtime_api.h>
 #include <cuml/common/utils.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/cuda_check.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
+
+#include <cuda_runtime_api.h>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
 #include <iostream>
 
 namespace raft_proto {

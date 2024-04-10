@@ -16,14 +16,15 @@
 
 #pragma once
 
-#include <float.h>
-#include <math.h>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/reduce.h>
+
+#include <float.h>
+#include <math.h>
 
 #define restrict __restrict__
 

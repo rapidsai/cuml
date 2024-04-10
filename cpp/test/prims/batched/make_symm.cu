@@ -15,11 +15,14 @@
  */
 
 #include "../test_utils.h"
-#include <gtest/gtest.h>
-#include <linalg/batched/make_symm.cuh>
+
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
+#include <linalg/batched/make_symm.cuh>
 #include <test_utils.h>
 
 namespace MLCommon {

@@ -16,13 +16,16 @@
 
 #pragma once
 #include <cuml/common/utils.hpp>
+
 #include <raft/core/device_csr_matrix.hpp>
 #include <raft/core/device_resources.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
+
 #include <rmm/device_uvector.hpp>
+
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/iterator/constant_iterator.h>

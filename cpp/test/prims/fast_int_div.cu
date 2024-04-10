@@ -15,11 +15,16 @@
  */
 
 #include "test_utils.h"
+
 #include <common/fast_int_div.cuh>
+
 #include <cuml/common/utils.hpp>
-#include <gtest/gtest.h>
+
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 

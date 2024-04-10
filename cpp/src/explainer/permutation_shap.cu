@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
+#include <cuml/common/utils.hpp>
+#include <cuml/explainer/permutation_shap.hpp>
+
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
-
-#include <cuml/common/utils.hpp>
-
-#include <cuml/explainer/permutation_shap.hpp>
 
 namespace ML {
 namespace Explainer {

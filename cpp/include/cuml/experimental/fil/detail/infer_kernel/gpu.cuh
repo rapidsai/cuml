@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #pragma once
-#include <cstddef>
 #include <cuml/common/utils.hpp>
 #include <cuml/experimental/fil/detail/evaluate_tree.hpp>
 #include <cuml/experimental/fil/detail/gpu_introspection.hpp>
@@ -24,7 +23,10 @@
 #include <cuml/experimental/fil/detail/raft_proto/ceildiv.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/padding.hpp>
 #include <cuml/experimental/fil/infer_kind.hpp>
+
 #include <stddef.h>
+
+#include <cstddef>
 
 namespace ML {
 namespace experimental {

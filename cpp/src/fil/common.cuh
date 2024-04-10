@@ -17,16 +17,19 @@
 /** @file common.cuh Common GPU functionality */
 #pragma once
 
-#include <cub/cub.cuh>
-#include <stdexcept>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string>
+#include "internal.cuh"
 
 #include <cuml/fil/fil.h>
+
 #include <raft/util/cuda_utils.cuh>
 
-#include "internal.cuh"
+#include <cub/cub.cuh>
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <stdexcept>
+#include <string>
 
 namespace ML {
 namespace fil {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,17 +19,9 @@
 #include "kernels/soft_clustering.cuh"
 #include "select.cuh"
 #include "utils.h"
-#include <cuml/common/logger.hpp>
-
-#include <cub/cub.cuh>
-
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/cudart_utils.hpp>
-
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/op/sort.cuh>
 
 #include <cuml/cluster/hdbscan.hpp>
+#include <cuml/common/logger.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/distance/distance.cuh>
@@ -38,17 +30,22 @@
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/matrix/argmax.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/op/sort.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 #include <raft/util/fast_int_div.cuh>
+
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
+
+#include <cub/cub.cuh>
+#include <thrust/execution_policy.h>
+#include <thrust/transform.h>
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
-
-#include <thrust/execution_policy.h>
-#include <thrust/transform.h>
-
-#include <rmm/device_uvector.hpp>
-#include <rmm/exec_policy.hpp>
 
 namespace ML {
 namespace HDBSCAN {

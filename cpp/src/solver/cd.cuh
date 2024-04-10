@@ -17,12 +17,10 @@
 #pragma once
 
 #include "shuffle.h"
+
 #include <cuml/common/utils.hpp>
 #include <cuml/solvers/params.hpp>
-#include <functions/linearReg.cuh>
-#include <functions/penalty.cuh>
-#include <functions/softThres.cuh>
-#include <glm/preprocess.cuh>
+
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/linalg/add.cuh>
@@ -41,6 +39,11 @@
 #include <raft/stats/sum.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <functions/linearReg.cuh>
+#include <functions/penalty.cuh>
+#include <functions/softThres.cuh>
+#include <glm/preprocess.cuh>
 
 namespace ML {
 namespace Solver {

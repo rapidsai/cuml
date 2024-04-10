@@ -17,10 +17,11 @@
 #include "qn/mg/qn_mg.cuh"
 #include "qn/mg/standardization.cuh"
 #include "qn/simple_mat/dense.hpp"
-#include <cuda_runtime.h>
+
 #include <cuml/common/logger.hpp>
 #include <cuml/linear_model/qn.h>
 #include <cuml/linear_model/qn_mg.hpp>
+
 #include <raft/core/comms.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
@@ -35,6 +36,9 @@
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <cuda_runtime.h>
+
 #include <vector>
 using namespace MLCommon;
 
@@ -65,6 +69,7 @@ std::vector<T> distinct_mg(const raft::handle_t& handle, T* y, size_t n)
 
   std::vector<size_t> recv_counts_host(n_ranks);
   raft::copy(recv_counts_host.data(), recv_counts.data(), n_ranks, stream);
+  raft::resource::sync_stream(handle);
 
   std::vector<size_t> displs(n_ranks);
   size_t pos = 0;
@@ -84,6 +89,7 @@ std::vector<T> distinct_mg(const raft::handle_t& handle, T* y, size_t n)
 
   std::vector<T> global_unique_y_host(global_unique_y.size());
   raft::copy(global_unique_y_host.data(), global_unique_y.data(), global_unique_y.size(), stream);
+  raft::resource::sync_stream(handle);
 
   return global_unique_y_host;
 }
@@ -108,8 +114,8 @@ void qnFit_impl(const raft::handle_t& handle,
   auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
 
   rmm::device_uvector<T> mean_std_buff(4 * D, handle.get_stream());
-  Standardizer<T>* stder = NULL;
-  if (standardization) stder = new Standardizer(handle, X_simple, n_samples, mean_std_buff);
+  Standardizer<T>* std_obj = NULL;
+  if (standardization) std_obj = new Standardizer(handle, X_simple, n_samples, mean_std_buff);
 
   ML::GLM::opg::qn_fit_x_mg(handle,
                             pams,
@@ -122,12 +128,12 @@ void qnFit_impl(const raft::handle_t& handle,
                             n_samples,
                             rank,
                             n_ranks,
-                            stder);  // ignore sample_weight, svr_eps
+                            std_obj);  // ignore sample_weight, svr_eps
 
   if (standardization) {
     int n_targets = ML::GLM::detail::qn_is_classification(pams.loss) && C == 2 ? 1 : C;
-    stder->adapt_model_for_linearFwd(handle, w0, n_targets, D, pams.fit_intercept);
-    delete stder;
+    std_obj->adapt_model_for_linearFwd(handle, w0, n_targets, D, pams.fit_intercept);
+    delete std_obj;
   }
 
   return;
@@ -232,12 +238,14 @@ void qnFitSparse_impl(const raft::handle_t& handle,
                       int rank,
                       int n_ranks)
 {
-  RAFT_EXPECTS(standardization == false, "standardization for sparse vectors is not supported yet");
-
   auto X_simple = SimpleSparseMat<T>(X_values, X_cols, X_row_ids, X_nnz, N, D);
 
-  rmm::device_uvector<T> mean_std_buff(4 * D, handle.get_stream());
-  Standardizer<T>* stder = NULL;
+  size_t vec_size = raft::alignTo<size_t>(sizeof(T) * D, ML::GLM::detail::qn_align);
+  rmm::device_uvector<T> mean_std_buff(4 * vec_size, handle.get_stream());
+  Standardizer<T>* std_obj = NULL;
+
+  if (standardization)
+    std_obj = new Standardizer(handle, X_simple, n_samples, mean_std_buff, vec_size);
 
   ML::GLM::opg::qn_fit_x_mg(handle,
                             pams,
@@ -250,12 +258,12 @@ void qnFitSparse_impl(const raft::handle_t& handle,
                             n_samples,
                             rank,
                             n_ranks,
-                            stder);  // ignore sample_weight, svr_eps
+                            std_obj);  // ignore sample_weight, svr_eps
 
   if (standardization) {
     int n_targets = ML::GLM::detail::qn_is_classification(pams.loss) && C == 2 ? 1 : C;
-    stder->adapt_model_for_linearFwd(handle, w0, n_targets, D, pams.fit_intercept);
-    delete stder;
+    std_obj->adapt_model_for_linearFwd(handle, w0, n_targets, D, pams.fit_intercept);
+    delete std_obj;
   }
 
   return;

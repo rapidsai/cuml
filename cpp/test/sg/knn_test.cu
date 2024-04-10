@@ -14,21 +14,23 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <iostream>
-#include <raft/core/handle.hpp>
+#include <cuml/common/utils.hpp>
+#include <cuml/datasets/make_blobs.hpp>
+#include <cuml/neighbors/knn.hpp>
 
+#include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
 #include <test_utils.h>
+
+#include <iostream>
 #include <vector>
 
-#include <cuml/datasets/make_blobs.hpp>
-
-#include <cuml/common/utils.hpp>
-#include <cuml/neighbors/knn.hpp>
 namespace ML {
 
 using namespace raft::random;

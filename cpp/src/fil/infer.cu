@@ -15,7 +15,6 @@
  */
 
 #include "common.cuh"
-
 #include "internal.cuh"
 
 #include <cuml/common/utils.hpp>

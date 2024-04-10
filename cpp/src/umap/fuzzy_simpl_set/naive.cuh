@@ -17,20 +17,21 @@
 #pragma once
 
 #include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 #include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn.hpp>
-
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/cudart_utils.hpp>
 
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/sparse/op/sort.cuh>
 #include <raft/stats/mean.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <cuda_runtime.h>
 
 #include <stdio.h>
+
 #include <string>
 
 namespace UMAPAlgo {

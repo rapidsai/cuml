@@ -29,7 +29,6 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free
 
 import cuml.internals
-from cuml.internals.import_utils import has_sklearn
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
@@ -882,16 +881,6 @@ class ForestInference(Base,
         logger.warn("Treelite currently does not support float64 model"
                     " parameters. Accuracy may degrade slightly relative to"
                     " native sklearn invocation.")
-        # TODO(hcho3): Remove this check when https://github.com/dmlc/treelite/issues/544 is fixed
-        if has_sklearn():
-            from sklearn.ensemble import (
-                HistGradientBoostingClassifier as HistGradientBoostingC,
-            )
-            from sklearn.ensemble import (
-                HistGradientBoostingRegressor as HistGradientBoostingR,
-            )
-            if isinstance(skl_model, (HistGradientBoostingR, HistGradientBoostingC)):
-                raise NotImplementedError("HistGradientBoosting estimators are not yet supported")
         tl_model = tl_skl.import_model(skl_model)
         cuml_fm.load_from_treelite_model(
             model=tl_model,

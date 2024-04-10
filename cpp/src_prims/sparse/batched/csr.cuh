@@ -28,14 +28,16 @@
 
 #include <cuml/common/utils.hpp>
 
-#include <linalg/batched/matrix.cuh>
 #include <raft/core/cusolver_macros.hpp>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
+
+#include <linalg/batched/matrix.cuh>
 
 #include <algorithm>
 #include <cstddef>

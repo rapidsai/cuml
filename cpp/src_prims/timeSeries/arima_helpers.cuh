@@ -16,15 +16,18 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
-
 #include "jones_transform.cuh"
+
 #include <cuml/tsa/arima_common.h>
-#include <linalg/batched/matrix.cuh>
+
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <cuda_runtime.h>
+
+#include <linalg/batched/matrix.cuh>
 
 // Private helper functions and kernels in the anonymous namespace
 namespace {

@@ -15,13 +15,16 @@
  */
 
 #include "test_utils.h"
+
 #include <cuml/common/utils.hpp>
+
+#include <raft/core/interruptible.hpp>
+#include <raft/util/cudart_utils.hpp>
+
+#include <rmm/device_uvector.hpp>
 
 #include <decoupled_lookback.cuh>
 #include <gtest/gtest.h>
-#include <raft/core/interruptible.hpp>
-#include <raft/util/cudart_utils.hpp>
-#include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
 

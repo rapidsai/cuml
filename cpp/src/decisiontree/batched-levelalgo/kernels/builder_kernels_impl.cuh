@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,16 @@
  */
 #pragma once
 
-#include <cstdio>
+#include "builder_kernels.cuh"
 
 #include <common/grid_sync.cuh>
-#include <cub/cub.cuh>
+
 #include <raft/util/cuda_utils.cuh>
+
+#include <cub/cub.cuh>
 #include <thrust/binary_search.h>
 
-#include "builder_kernels.cuh"
+#include <cstdio>
 
 namespace ML {
 namespace DT {
@@ -86,6 +88,7 @@ DI void partitionSamples(const Dataset<DataT, LabelT, IdxT>& dataset,
   }
 }
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
+__attribute__((visibility("hidden")))
 __global__ void nodeSplitKernel(const IdxT max_depth,
                                 const IdxT min_samples_leaf,
                                 const IdxT min_samples_split,
@@ -106,6 +109,7 @@ __global__ void nodeSplitKernel(const IdxT max_depth,
 }
 
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
+__attribute__((visibility("hidden")))
 __global__ void leafKernel(ObjectiveT objective,
                            DatasetT dataset,
                            const NodeT* tree,
@@ -171,6 +175,7 @@ template <typename DataT,
           int TPB,
           typename ObjectiveT,
           typename BinT>
+__attribute__((visibility("hidden")))
 __global__ void computeSplitKernel(BinT* histograms,
                                    IdxT max_n_bins,
                                    IdxT max_depth,

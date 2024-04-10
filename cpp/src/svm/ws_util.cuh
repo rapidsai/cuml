@@ -15,6 +15,9 @@
  */
 
 #pragma once
+
+#include <cuml/common/utils.hpp>
+
 #include "smo_sets.cuh"
 
 namespace ML {
@@ -27,10 +30,14 @@ namespace SVM {
  * \param [in] idx list of indices already selected, size [n_selected]
  * \param [in] n_selected number of elements in the idx list
  */
-__attribute__((visibility("hidden"))) __global__ void set_unavailable(bool* available,
-                                                                      int n_rows,
-                                                                      const int* idx,
-                                                                      int n_selected);
+CUML_KERNEL void set_unavailable(bool* available,
+                                 int n_rows,
+                                 const int* idx,
+                                 int n_selected)
+{
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < n_selected) { available[idx[tid]] = false; }
+}
 
 /** Set availability to true for elements in the upper set, otherwise false.
  * @param [out] available size [n]
@@ -74,11 +81,21 @@ CUML_KERNEL void set_lower(
  * @param [in] idx indices in the old working set, size [n_ws]
  * @param [in] priority of elements in the old working set, size [n_ws]
  */
-__attribute__((visibility("hidden"))) __global__ void update_priority(int* new_priority,
-                                                                      int n_selected,
-                                                                      const int* new_idx,
-                                                                      int n_ws,
-                                                                      const int* idx,
-                                                                      const int* priority);
+CUML_KERNEL void update_priority(int* new_priority,
+                                 int n_selected,
+                                 const int* new_idx,
+                                 int n_ws,
+                                 const int* idx,
+                                 const int* priority)
+{
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < n_selected) {
+    int my_new_idx = new_idx[tid];
+    // The working set size is limited (~1024 elements) so we just loop through it
+    for (int i = 0; i < n_ws; i++) {
+      if (idx[i] == my_new_idx) new_priority[tid] = priority[i] + 1;
+    }
+  }
+}
 }  // namespace SVM
 }  // namespace ML

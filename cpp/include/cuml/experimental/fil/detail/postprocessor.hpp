@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,19 @@
  * limitations under the License.
  */
 #pragma once
-#ifndef __CUDACC__
-#include <math.h>
-#endif
+
 #include <cuml/experimental/fil/detail/index_type.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/gpu_support.hpp>
 #include <cuml/experimental/fil/postproc_ops.hpp>
-#include <limits>
+
 #include <stddef.h>
+
+#include <limits>
 #include <type_traits>
+
+#ifndef __CUDACC__
+#include <math.h>
+#endif
 
 namespace ML {
 namespace experimental {

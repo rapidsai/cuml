@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-#include <cuda_runtime.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/linear_model/qn.h>
-#include <raft/core/comms.hpp>
 
 #include <cumlprims/opg/matrix/data.hpp>
 #include <cumlprims/opg/matrix/part_descriptor.hpp>
+#include <raft/core/comms.hpp>
+
+#include <cuda_runtime.h>
+
 #include <vector>
 using namespace MLCommon;
 

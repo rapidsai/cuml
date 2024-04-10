@@ -19,16 +19,15 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn_mg.hpp>
 
-#include <selection/knn.cuh>
-
 #include <cumlprims/opg/matrix/data.hpp>
 #include <cumlprims/opg/matrix/part_descriptor.hpp>
-
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <selection/knn.cuh>
 
 #include <cstddef>
 #include <memory>

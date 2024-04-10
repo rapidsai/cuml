@@ -16,18 +16,19 @@
 
 #pragma once
 
+#include <cuml/common/utils.hpp>
+
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 // #TODO: Replace with public header when ready
+#include "hw_utils.cuh"
+
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-
-#include <cuml/common/utils.hpp>
-
-#include "hw_utils.cuh"
 
 // optimize, maybe im2col ?
 // https://github.com/rapidsai/cuml/issues/891

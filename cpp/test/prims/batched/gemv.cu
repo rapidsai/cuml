@@ -15,10 +15,12 @@
  */
 
 #include "../test_utils.h"
-#include <gtest/gtest.h>
-#include <linalg/batched/gemv.cuh>
+
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <gtest/gtest.h>
+#include <linalg/batched/gemv.cuh>
 #include <test_utils.h>
 
 namespace MLCommon {

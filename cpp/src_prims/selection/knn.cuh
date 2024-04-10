@@ -16,15 +16,13 @@
 
 #pragma once
 
-#include <raft/label/classlabels.cuh>
-
 #include <cuml/common/utils.hpp>
-
 #include <cuml/neighbors/knn.hpp>
-#include <raft/core/handle.hpp>
 
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
+#include <raft/label/classlabels.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
