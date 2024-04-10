@@ -15,6 +15,9 @@ fi
 # echo to expand wildcard before adding `[extra]` requires for pip
 python -m pip install $(echo ./dist/cuml*.whl)[test]
 
+RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
+mkdir -p "${RAPIDS_TESTS_DIR}"
+
 EXITCODE=0
 trap "EXITCODE=1" ERR
 set +e
