@@ -27,8 +27,7 @@ else
     ./ci/run_cuml_singlegpu_pytests.sh \
       --numprocesses=8 \
       --dist=worksteal \
-      -k 'not test_sparse_pca_inputs' \
-      --ignore-glob='*test_fil_skl_classification*' \
+      -k 'not test_sparse_pca_inputs and not test_fil_skl_classification' \
       --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml"
 
     # Run test_sparse_pca_inputs separately
