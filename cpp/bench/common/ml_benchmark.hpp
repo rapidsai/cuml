@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,18 @@
 
 #pragma once
 
-#include <benchmark/benchmark.h>
-#include <cuda_runtime.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
-#include <memory>
+
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/mr/device/per_device_resource.hpp>
+
+#include <cuda_runtime.h>
+
+#include <benchmark/benchmark.h>
+
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>

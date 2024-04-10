@@ -1,3 +1,45 @@
+# cuML 24.04.00 (10 Apr 2024)
+
+## 🐛 Bug Fixes
+
+- Update pre-commit-hooks to v0.0.3 ([#5816](https://github.com/rapidsai/cuml/pull/5816)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Correct and adjust tolerances of mnmg logreg pytests ([#5812](https://github.com/rapidsai/cuml/pull/5812)) [@dantegd](https://github.com/dantegd)
+- Remove use of cudf.core.column.full. ([#5794](https://github.com/rapidsai/cuml/pull/5794)) [@bdice](https://github.com/bdice)
+- Suppress all HealthChecks on test_split_datasets. ([#5791](https://github.com/rapidsai/cuml/pull/5791)) [@bdice](https://github.com/bdice)
+- Suppress a hypothesis HealthCheck on test_split_datasets that fails in nightly CI. ([#5790](https://github.com/rapidsai/cuml/pull/5790)) [@bdice](https://github.com/bdice)
+- [BUG] Fix `MAX_THREADS_PER_SM` on sm 89. ([#5785](https://github.com/rapidsai/cuml/pull/5785)) [@trivialfis](https://github.com/trivialfis)
+- fix device to host copy not sync stream in logistic regression mg ([#5766](https://github.com/rapidsai/cuml/pull/5766)) [@lijinf2](https://github.com/lijinf2)
+- Use cudf.Index instead of cudf.GenericIndex. ([#5738](https://github.com/rapidsai/cuml/pull/5738)) [@bdice](https://github.com/bdice)
+- update RAPIDS dependencies to 24.4, refactor dependencies.yaml ([#5726](https://github.com/rapidsai/cuml/pull/5726)) [@jameslamb](https://github.com/jameslamb)
+
+## 🚀 New Features
+
+- Support CUDA 12.2 ([#5711](https://github.com/rapidsai/cuml/pull/5711)) [@jameslamb](https://github.com/jameslamb)
+
+## 🛠️ Improvements
+
+- Use `conda env create --yes` instead of `--force` ([#5822](https://github.com/rapidsai/cuml/pull/5822)) [@bdice](https://github.com/bdice)
+- Bump Treelite to 4.1.2 ([#5814](https://github.com/rapidsai/cuml/pull/5814)) [@hcho3](https://github.com/hcho3)
+- Support standardization for sparse vectors in logistic regression MG ([#5806](https://github.com/rapidsai/cuml/pull/5806)) [@lijinf2](https://github.com/lijinf2)
+- Update script input name ([#5802](https://github.com/rapidsai/cuml/pull/5802)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Add upper bound to prevent usage of NumPy 2 ([#5797](https://github.com/rapidsai/cuml/pull/5797)) [@bdice](https://github.com/bdice)
+- Enable pytest failures on warnings from cudf ([#5796](https://github.com/rapidsai/cuml/pull/5796)) [@mroeschke](https://github.com/mroeschke)
+- Use public cudf APIs where possible ([#5795](https://github.com/rapidsai/cuml/pull/5795)) [@mroeschke](https://github.com/mroeschke)
+- Remove hard-coding of RAPIDS version where possible ([#5793](https://github.com/rapidsai/cuml/pull/5793)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Switch `pytest-xdist` algorithm to `worksteal` ([#5792](https://github.com/rapidsai/cuml/pull/5792)) [@bdice](https://github.com/bdice)
+- Automate C++ include file grouping and ordering using clang-format ([#5787](https://github.com/rapidsai/cuml/pull/5787)) [@harrism](https://github.com/harrism)
+- Add support for Python 3.11, require NumPy 1.23+ ([#5786](https://github.com/rapidsai/cuml/pull/5786)) [@jameslamb](https://github.com/jameslamb)
+- [ENH] Let cuDF handle input types for label encoder. ([#5783](https://github.com/rapidsai/cuml/pull/5783)) [@trivialfis](https://github.com/trivialfis)
+- Install test dependencies at the same time as cuml packages. ([#5781](https://github.com/rapidsai/cuml/pull/5781)) [@bdice](https://github.com/bdice)
+- Update devcontainers to CUDA Toolkit 12.2 ([#5778](https://github.com/rapidsai/cuml/pull/5778)) [@trxcllnt](https://github.com/trxcllnt)
+- target branch-24.04 for GitHub Actions workflows ([#5776](https://github.com/rapidsai/cuml/pull/5776)) [@jameslamb](https://github.com/jameslamb)
+- Add environment-agnostic scripts for running ctests and pytests ([#5761](https://github.com/rapidsai/cuml/pull/5761)) [@trxcllnt](https://github.com/trxcllnt)
+- Pandas 2.x support ([#5758](https://github.com/rapidsai/cuml/pull/5758)) [@dantegd](https://github.com/dantegd)
+- Update ops-bot.yaml ([#5752](https://github.com/rapidsai/cuml/pull/5752)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Forward-merge branch-24.02 to branch-24.04 ([#5735](https://github.com/rapidsai/cuml/pull/5735)) [@bdice](https://github.com/bdice)
+- Replace local copyright check with pre-commit-hooks verify-copyright ([#5732](https://github.com/rapidsai/cuml/pull/5732)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- DBSCAN utilize rbc eps_neighbors ([#5728](https://github.com/rapidsai/cuml/pull/5728)) [@mfoerste4](https://github.com/mfoerste4)
+
 # cuML 24.02.00 (12 Feb 2024)
 
 ## 🚨 Breaking Changes

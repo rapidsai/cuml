@@ -20,11 +20,10 @@
 #include <raft/linalg/multiply.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <glm/qn/mg/standardization.cuh>
-
 #include <glm/qn/glm_base.cuh>
 #include <glm/qn/glm_logistic.cuh>
 #include <glm/qn/glm_regularizer.cuh>
+#include <glm/qn/mg/standardization.cuh>
 #include <glm/qn/qn_solvers.cuh>
 #include <glm/qn/qn_util.cuh>
 
@@ -192,8 +191,7 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
     communicator.sync_stream(stream);
 
     if (stder_p != NULL) {
-      stder_p->adapt_gradient_for_linearBwd(
-        *handle_p, G, *(this->Z), (this->X)->n != G.n, n_samples);
+      stder_p->adapt_gradient_for_linearBwd(*handle_p, G, *(this->Z), (this->X)->n != G.n);
       raft::copy(wFlat.data, wFlatOrigin.data(), this->C * this->dims, stream);
     }
 

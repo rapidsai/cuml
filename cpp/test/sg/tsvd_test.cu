@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,15 @@
  */
 
 #include <cuml/decomposition/params.hpp>
-#include <gtest/gtest.h>
+
 #include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <gtest/gtest.h>
 #include <test_utils.h>
 #include <tsvd/tsvd.cuh>
+
 #include <vector>
 
 namespace ML {

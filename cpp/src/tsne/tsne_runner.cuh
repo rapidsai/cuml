@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,21 +15,23 @@
  */
 
 #pragma once
+#include "barnes_hut_tsne.cuh"
 #include "distances.cuh"
 #include "exact_kernels.cuh"
+#include "exact_tsne.cuh"
+#include "fft_tsne.cuh"
 #include "utils.cuh"
+
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/common.hpp>
+
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/transform.h>
-
-#include "barnes_hut_tsne.cuh"
-#include "exact_tsne.cuh"
-#include "fft_tsne.cuh"
 
 namespace ML {
 

@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from cuml.common.exceptions import NotFittedError
 import pytest
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.preprocessing.LabelEncoder import LabelEncoder
-from cuml.internals.safe_imports import gpu_only_import
 
+from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
+from cuml.common.exceptions import NotFittedError
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.preprocessing.LabelEncoder import LabelEncoder
+
+pd = cpu_only_import("pandas")
 cudf = gpu_only_import("cudf")
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
@@ -46,7 +48,7 @@ def test_labelencoder_transform(length, cardinality):
     """Try fitting and then encoding a small subset of the df"""
     df = cudf.Series(np.random.choice(cardinality, (length,)))
     le = LabelEncoder().fit(df)
-    assert le._fitted
+    check_is_fitted(le)
 
     subset = df.iloc[0 : df.shape[0] // 2]
     encoded = le.transform(subset)
@@ -62,7 +64,7 @@ def test_labelencoder_unseen():
     """Try encoding a value that was not present during fitting"""
     df = cudf.Series(np.random.choice(10, (10,)))
     le = LabelEncoder().fit(df)
-    assert le._fitted
+    check_is_fitted(le)
 
     with pytest.raises(KeyError):
         le.transform(cudf.Series([-1]))
@@ -72,7 +74,7 @@ def test_labelencoder_unfitted():
     """Try calling `.transform()` without fitting first"""
     df = cudf.Series(np.random.choice(10, (10,)))
     le = LabelEncoder()
-    assert not le._fitted
+    assert not le.__sklearn_is_fitted__()
 
     with pytest.raises(NotFittedError):
         le.transform(df)
@@ -117,7 +119,7 @@ def test_inverse_transform(
         le.fit_transform(orig_label)
     else:
         le.fit(orig_label)
-    assert le._fitted is True
+    check_is_fitted(le)
 
     # test if inverse_transform is correct
     reverted = le.inverse_transform(ord_label)
@@ -132,7 +134,7 @@ def test_unfitted_inverse_transform():
     """Try calling `.inverse_transform()` without fitting first"""
     df = cudf.Series(np.random.choice(10, (10,)))
     le = LabelEncoder()
-    assert not le._fitted
+    assert not le.__sklearn_is_fitted__()
 
     with pytest.raises(NotFittedError):
         le.transform(df)
@@ -145,7 +147,7 @@ def test_empty_input(empty, ord_label):
     # prepare LabelEncoder
     le = LabelEncoder()
     le.fit(empty)
-    assert le._fitted is True
+    check_is_fitted(le)
 
     # test if correctly raies ValueError
     with pytest.raises(ValueError, match="y contains previously unseen label"):
@@ -154,7 +156,7 @@ def test_empty_input(empty, ord_label):
     # check fit_transform()
     le = LabelEncoder()
     transformed = le.fit_transform(empty)
-    assert le._fitted is True
+    check_is_fitted(le)
     assert len(transformed) == 0
 
 
@@ -187,18 +189,29 @@ def _array_to_similarity_mat(x):
 
 @pytest.mark.parametrize("length", [10, 1000])
 @pytest.mark.parametrize("cardinality", [5, 10, 50])
-@pytest.mark.parametrize("dtype", ["cupy", "numpy"])
-def test_labelencoder_fit_transform_cupy_numpy(length, cardinality, dtype):
-    """Try encoding the cupy array"""
+@pytest.mark.parametrize("dtype", ["cupy", "numpy", "pd"])
+def test_labelencoder_fit_transform_cupy_numpy_pd(length, cardinality, dtype):
+    """Try encoding with various types"""
     x = cp.random.choice(cardinality, (length,))
+    # to series
     if dtype == "numpy":
         x = x.get()
+    elif dtype == "pd":
+        x = pd.Series(x.get())
     encoded = LabelEncoder().fit_transform(x)
 
-    x_arr = _array_to_similarity_mat(x)
+    if dtype == "pd":
+        x_arr = _df_to_similarity_mat(x)
+    else:
+        x_arr = _array_to_similarity_mat(x)
+
     encoded_arr = _array_to_similarity_mat(encoded.values)
-    if dtype == "numpy":
+
+    # to array
+    if dtype == "numpy" or dtype == "pd":
         encoded_arr = encoded_arr.get()
+    if dtype == "pd":
+        x = x.to_numpy()
     assert ((encoded_arr == encoded_arr.T) == (x == x_arr.T)).all()
 
 
@@ -229,7 +242,7 @@ def test_inverse_transform_cupy_numpy(
         le.fit_transform(orig_label)
     else:
         le.fit(orig_label)
-    assert le._fitted is True
+    check_is_fitted(le)
 
     # test if inverse_transform is correct
     reverted = le.inverse_transform(ord_label)

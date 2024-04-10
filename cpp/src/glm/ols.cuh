@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "preprocess.cuh"
+
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemv.cuh>
 #include <raft/linalg/lstsq.cuh>
@@ -29,9 +31,8 @@
 #include <raft/stats/mean_center.cuh>
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>
-#include <rmm/device_uvector.hpp>
 
-#include "preprocess.cuh"
+#include <rmm/device_uvector.hpp>
 
 namespace ML {
 namespace GLM {

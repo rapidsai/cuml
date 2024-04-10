@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 #pragma once
 
 #include <cuml/experimental/fil/detail/device_initialization/cpu.hpp>
+
 #include <variant>
 #ifdef CUML_ENABLE_GPU
 #include <cuml/experimental/fil/detail/device_initialization/gpu.hpp>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,11 @@
 
 #pragma once
 
-#include <cusparse_v2.h>
-
 #include <cuml/neighbors/knn.hpp>
+
 #include <raft/distance/distance_types.hpp>
+
+#include <cusparse_v2.h>
 
 namespace raft {
 class handle_t;
