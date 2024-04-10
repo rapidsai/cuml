@@ -9,6 +9,7 @@ files:
       - common_build
       - cuda
       - cuda_version
+      - depends_on_distributed_ucxx
       - docs
       - py_build
       - py_run
@@ -54,6 +55,7 @@ files:
     output: none
     includes:
       - cuda_version
+      - depends_on_distributed_ucxx
       - py_version
       - test_cuml
       - test_python
@@ -84,6 +86,7 @@ files:
       table: project.optional-dependencies
       key: test
     includes:
+      - depends_on_distributed_ucxx
       - test_python
 channels:
   - rapidsai
@@ -442,3 +445,25 @@ dependencies:
           - pandas
           - *scikit_learn
           - seaborn
+  depends_on_distributed_ucxx:
+    common:
+      - output_types: conda
+        packages:
+          # UCXX is not currently a hard-dependency thus only installed during tests,
+          # this will change in the future.
+          - &distributed_ucxx_conda distributed-ucxx==0.38.*
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.nvidia.com
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {cuda: "12.*"}
+            packages:
+              - distributed-ucxx-cu12==0.38.*
+          - matrix: {cuda: "11.*"}
+            packages:
+              - distributed-ucxx-cu11==0.38.*
+          - {matrix: null, packages: [*distributed_ucxx_conda]}

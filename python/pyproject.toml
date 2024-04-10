@@ -82,6 +82,7 @@ classifiers = [
 test = [
     "dask-glm==0.3.0",
     "dask-ml",
+    "distributed-ucxx==0.38.*",
     "hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master",
     "hypothesis>=6.0,<7",
     "nltk",
