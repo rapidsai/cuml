@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/common/utils.hpp>
+
 #include <raft/util/cuda_utils.cuh>
 
 namespace MLCommon {

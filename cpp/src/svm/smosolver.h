@@ -20,8 +20,10 @@
 #include <cuml/svm/svm_model.h>
 
 #include <raft/core/handle.hpp>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+
 #include <thrust/device_ptr.h>
 
 #include <cassert>

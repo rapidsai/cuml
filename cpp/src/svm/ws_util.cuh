@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <cuml/common/utils.hpp>
-
 #include "smo_sets.cuh"
+
+#include <cuml/common/utils.hpp>
 
 namespace ML {
 namespace SVM {
@@ -30,10 +30,7 @@ namespace SVM {
  * \param [in] idx list of indices already selected, size [n_selected]
  * \param [in] n_selected number of elements in the idx list
  */
-CUML_KERNEL void set_unavailable(bool* available,
-                                 int n_rows,
-                                 const int* idx,
-                                 int n_selected)
+CUML_KERNEL void set_unavailable(bool* available, int n_rows, const int* idx, int n_selected)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n_selected) { available[idx[tid]] = false; }
