@@ -2,31 +2,33 @@
 # Copyright (c) 2023-2025, NVIDIA CORPORATION.
 set -euo pipefail
 
-rapids-logger "Downloading artifacts from previous jobs"
-CPP_CHANNEL=$(rapids-download-conda-from-github cpp)
-PYTHON_CHANNEL=$(rapids-download-conda-from-github python)
-
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
 
-RAPIDS_VERSION_MAJOR_MINOR="$(rapids-version-major-minor)"
-export RAPIDS_VERSION_MAJOR_MINOR
-
 rapids-dependency-file-generator \
   --output conda \
-  --file-key docs \
-  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" \
-  --prepend-channel "${CPP_CHANNEL}" \
-  --prepend-channel "${PYTHON_CHANNEL}" \
-  | tee env.yaml
+  --file_key docs \
+  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n docs
 conda activate docs
 
 rapids-print-env
 
-RAPIDS_DOCS_DIR="$(mktemp -d)"
-export RAPIDS_DOCS_DIR
+rapids-logger "Downloading artifacts from previous jobs"
+
+CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
+PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
+
+rapids-mamba-retry install \
+  --channel "${CPP_CHANNEL}" \
+  --channel "${PYTHON_CHANNEL}" \
+  cuml libcuml
+
+export RAPIDS_VERSION="$(rapids-version)"
+export RAPIDS_VERSION_MAJOR_MINOR="$(rapids-version-major-minor)"
+export RAPIDS_VERSION_NUMBER="24.04"
+export RAPIDS_DOCS_DIR="$(mktemp -d)"
 
 rapids-logger "Build CPP docs"
 pushd cpp
@@ -38,8 +40,10 @@ popd
 rapids-logger "Build Python docs"
 pushd docs
 sphinx-build -b dirhtml ./source _html -W
-mkdir -p "${RAPIDS_DOCS_DIR}/cuml/html"
+sphinx-build -b text ./source _text -W
+mkdir -p "${RAPIDS_DOCS_DIR}/cuml/"{html,txt}
 mv _html/* "${RAPIDS_DOCS_DIR}/cuml/html"
+mv _text/* "${RAPIDS_DOCS_DIR}/cuml/txt"
 popd
 
-RAPIDS_VERSION_NUMBER="${RAPIDS_VERSION_MAJOR_MINOR}" rapids-upload-docs
+rapids-upload-docs
