@@ -76,4 +76,5 @@ dependencies:
 - umap-learn==0.5.3
 - pip:
   - dask-glm==0.3.0
+  - sphinx-gallery
 name: all_cuda-118_arch-x86_64

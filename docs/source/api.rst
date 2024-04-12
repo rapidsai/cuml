@@ -52,7 +52,7 @@ cuML provides experimental support for running selected estimators and operators
    * - Regression and Classification
      - Ridge
 
-If a CUDA-enabled GPU is available on the system, cuML will default to using it. Users can configure CPU or GPU execution for supported operators via context managers or global configuration. 
+If a CUDA-enabled GPU is available on the system, cuML will default to using it. Users can configure CPU or GPU execution for supported operators via context managers or global configuration.
 
 .. code-block:: python
 
@@ -150,6 +150,7 @@ Feature Scaling and Normalization (Single-GPU)
     :members:
 .. autoclass:: cuml.preprocessing.StandardScaler
     :members:
+.. include:: modules/generated/cuml.preprocessing.StandardScaler.examples
 .. autofunction:: cuml.preprocessing.maxabs_scale
 .. autofunction:: cuml.preprocessing.minmax_scale
 .. autofunction:: cuml.preprocessing.normalize
@@ -455,11 +456,15 @@ K-Means Clustering
 .. autoclass:: cuml.KMeans
     :members:
 
+.. include:: modules/generated/cuml.KMeans.examples
+
 DBSCAN
 ------
 
 .. autoclass:: cuml.DBSCAN
     :members:
+
+.. include:: modules/generated/cuml.DBSCAN.examples
 
 Agglomerative Clustering
 ------------------------

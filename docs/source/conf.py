@@ -51,8 +51,20 @@ extensions = [
     "nbsphinx",
     "recommonmark",
     "sphinx_markdown_tables",
-    "sphinx_copybutton"
+    "sphinx_copybutton",
+    "sphinx_gallery.gen_gallery",
 ]
+
+sphinx_gallery_conf = {
+     'examples_dirs': ['../../examples'],
+     'gallery_dirs': ['auto_examples'],
+     "doc_module": "cuml",
+     "backreferences_dir": os.path.join("modules", "generated"),
+     'reference_url': {
+         # The module you locally document uses None
+        'cuml': None,
+    },
+}
 
 ipython_mplbackend = "str"
 
@@ -93,10 +105,10 @@ release = f"{CUML_VERSION.major:02}.{CUML_VERSION.minor:02}.{CUML_VERSION.micro:
 # Usually you set "language" from the command line for these cases.
 language = 'en'
 
-# List of patterns, relative to source directory, that match files and
-# directories to ignore when looking for source files.
-# This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = []
+# sphinx-gallery generates several files per example, need to ignore
+# the notebook and ".md" files (which in reality are ".md5" files)
+# because Markdown and notebooks are valid document sources
+exclude_patterns = ["auto_examples/**/*.md", "auto_examples/**/*.ipynb"]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'

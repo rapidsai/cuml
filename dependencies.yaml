@@ -361,6 +361,8 @@ dependencies:
           - sphinx<6
           - sphinx-copybutton
           - sphinx-markdown-tables
+          - pip:
+              - sphinx-gallery
       - output_types: conda
         packages:
           - doxygen=1.9.1
