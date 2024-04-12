@@ -218,9 +218,6 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
         sparse_input = isinstance(X, list)
 
-        if self.standardization:
-            assert not sparse_input, "standardization for sparse vectors is not supported yet"
-
         if self.dtype == np.float32:
             if sparse_input is False:
                 qnFit(
