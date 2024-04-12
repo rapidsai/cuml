@@ -204,7 +204,7 @@ class WorkingSet {
    *     DOI: 10.1080/10556780500140714
    *
    * @param [in] alpha device vector of dual coefficients, size [n_train]
-   * @param [in] C_vec penalty parameter
+   * @param [in] C penalty parameter
    * @param [in] nc number of elements to select
    */
   int PrioritySelect(math_t* alpha, const math_t* C, int nc);
