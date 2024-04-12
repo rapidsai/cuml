@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,27 +17,27 @@
 #pragma once
 
 #include "sparse_util.cuh"
+
+#include <cuml/common/logger.hpp>
 #include <cuml/svm/svm_parameter.h>
+
 #include <raft/core/handle.hpp>
 #include <raft/distance/kernels.cuh>
+#include <raft/linalg/gemm.cuh>
 #include <raft/linalg/init.cuh>
 #include <raft/util/cache.cuh>
 #include <raft/util/cache_util.cuh>
-
-#include <raft/linalg/gemm.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <cub/cub.cuh>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/reverse.h>
-
-#include <cuml/common/logger.hpp>
-
-#include <cub/cub.cuh>
 
 #include <algorithm>
 #include <cstddef>

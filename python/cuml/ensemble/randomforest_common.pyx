@@ -208,12 +208,12 @@ class BaseRandomForestModel(Base):
             raise NotFittedError(
                     "Attempting to create treelite from un-fit forest.")
 
-        cdef ModelHandle tl_handle = NULL
+        cdef TreeliteModelHandle tl_handle = NULL
         if self.treelite_handle:
             return self.treelite_handle  # Use cached version
 
         elif self.treelite_serialized_model:  # bytes -> Treelite
-            tl_handle = <ModelHandle><uintptr_t>treelite_deserialize(
+            tl_handle = <TreeliteModelHandle><uintptr_t>treelite_deserialize(
                 self.treelite_serialized_model)
 
         else:
@@ -317,14 +317,14 @@ class BaseRandomForestModel(Base):
         return treelite_deserialize(treelite_serialized_model)
 
     def _concatenate_treelite_handle(self, treelite_handle):
-        cdef ModelHandle concat_model_handle = NULL
-        cdef vector[ModelHandle] *model_handles \
-            = new vector[ModelHandle]()
+        cdef TreeliteModelHandle concat_model_handle = NULL
+        cdef vector[TreeliteModelHandle] *model_handles \
+            = new vector[TreeliteModelHandle]()
         cdef uintptr_t mod_ptr
         for i in treelite_handle:
             mod_ptr = <uintptr_t>i
             model_handles.push_back((
-                <ModelHandle> mod_ptr))
+                <TreeliteModelHandle> mod_ptr))
 
         self._reset_forest_data()
         concat_model_handle = concatenate_trees(deref(model_handles))

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-#include <cuml/fil/fil.h>
-
 #include "benchmark.cuh"
+
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>
+#include <cuml/fil/fil.h>
 #include <cuml/tree/algo_helper.h>
+
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
+
 #include <utility>
 
 namespace ML {
@@ -31,7 +33,7 @@ namespace fil {
 struct Params {
   DatasetParams data;
   RegressionParams blobs;
-  ModelHandle model;
+  TreeliteModelHandle model;
   ML::fil::storage_type_t storage;
   ML::fil::algo_t algo;
   RF_params rf;
@@ -120,7 +122,7 @@ class FIL : public RegressionFixture<float> {
 
  private:
   ML::fil::forest_t<float> forest;
-  ModelHandle model;
+  TreeliteModelHandle model;
   Params p_rest;
 };
 

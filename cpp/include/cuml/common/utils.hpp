@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,16 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
-#include <execinfo.h>
-#include <raft/util/cudart_utils.hpp>
-
-#include <cstdio>
+#include "logger.hpp"
 
 #include <raft/core/error.hpp>
+#include <raft/util/cudart_utils.hpp>
+
+#include <cuda_runtime.h>
+
+#include <execinfo.h>
+
+#include <cstdio>
 #include <sstream>
 #include <stdexcept>
 #include <string>
-
-#include "logger.hpp"

@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 
 from distributed.client import Future
 from functools import wraps
-from dask_cudf.core import Series as dcSeries
+from dask_cudf import Series as dcSeries
 from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.internals.base import Base
 from cuml.internals import BaseMetaClass
@@ -37,7 +37,7 @@ np = cpu_only_import("numpy")
 
 
 dask_cudf = gpu_only_import("dask_cudf")
-dcDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
+dcDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
 
 
 class BaseEstimator(object, metaclass=BaseMetaClass):

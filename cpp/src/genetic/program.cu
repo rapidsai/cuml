@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +14,24 @@
  * limitations under the License.
  */
 
+#include "constants.h"
+#include "fitness.cuh"
+#include "node.cuh"
+#include "reg_stack.cuh"
+
 #include <cuml/common/logger.hpp>
 #include <cuml/genetic/node.h>
 #include <cuml/genetic/program.h>
+
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
 
 #include <algorithm>
 #include <numeric>
 #include <random>
 #include <stack>
-
-#include "constants.h"
-#include "fitness.cuh"
-#include "node.cuh"
-#include "reg_stack.cuh"
 
 namespace cuml {
 namespace genetic {

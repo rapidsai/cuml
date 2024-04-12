@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,18 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
-
 #include "jones_transform.cuh"
+
 #include <cuml/tsa/arima_common.h>
-#include <linalg/batched/matrix.cuh>
+
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <cuda_runtime.h>
+
+#include <linalg/batched/matrix.cuh>
 
 // Private helper functions and kernels in the anonymous namespace
 namespace {

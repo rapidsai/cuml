@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,22 @@
  * limitations under the License.
  */
 
+#include "benchmark.cuh"
+
+#include <cuml/common/logger.hpp>
+#include <cuml/ensemble/randomforest.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/infer_kind.hpp>
 #include <cuml/experimental/fil/tree_layout.hpp>
 #include <cuml/experimental/fil/treelite_importer.hpp>
 #include <cuml/fil/fil.h>
-
-#include "benchmark.cuh"
-#include <chrono>
-#include <cstdint>
-#include <cuml/common/logger.hpp>
-#include <cuml/ensemble/randomforest.hpp>
 #include <cuml/tree/algo_helper.h>
+
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
+
+#include <chrono>
+#include <cstdint>
 #include <utility>
 
 namespace ML {
@@ -37,7 +39,7 @@ namespace filex {
 struct Params {
   DatasetParams data;
   RegressionParams blobs;
-  ModelHandle model;
+  TreeliteModelHandle model;
   ML::fil::storage_type_t storage;
   bool use_experimental;
   RF_params rf;
@@ -220,7 +222,7 @@ class FILEX : public RegressionFixture<float> {
 
  private:
   ML::fil::forest_t<float> forest;
-  ModelHandle model;
+  TreeliteModelHandle model;
   Params p_rest;
 };
 

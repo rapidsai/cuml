@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,6 +41,10 @@ IF GPUBUILD == 1:
     cdef extern from "cuml/cluster/dbscan.hpp" \
             namespace "ML::Dbscan":
 
+        ctypedef enum EpsNnMethod:
+            BRUTE_FORCE "ML::Dbscan::EpsNnMethod::BRUTE_FORCE"
+            RBC "ML::Dbscan::EpsNnMethod::RBC"
+
         cdef void fit(handle_t& handle,
                       float *input,
                       int n_rows,
@@ -52,6 +56,7 @@ IF GPUBUILD == 1:
                       int *core_sample_indices,
                       float* sample_weight,
                       size_t max_mbytes_per_batch,
+                      EpsNnMethod eps_nn_method,
                       int verbosity,
                       bool opg) except +
 
@@ -66,6 +71,7 @@ IF GPUBUILD == 1:
                       int *core_sample_indices,
                       double* sample_weight,
                       size_t max_mbytes_per_batch,
+                      EpsNnMethod eps_nn_method,
                       int verbosity,
                       bool opg) except +
 
@@ -80,6 +86,7 @@ IF GPUBUILD == 1:
                       int64_t *core_sample_indices,
                       float* sample_weight,
                       size_t max_mbytes_per_batch,
+                      EpsNnMethod eps_nn_method,
                       int verbosity,
                       bool opg) except +
 
@@ -94,6 +101,7 @@ IF GPUBUILD == 1:
                       int64_t *core_sample_indices,
                       double* sample_weight,
                       size_t max_mbytes_per_batch,
+                      EpsNnMethod eps_nn_method,
                       int verbosity,
                       bool opg) except +
 
@@ -158,6 +166,8 @@ class DBSCAN(Base,
         The input will be modified temporarily when cosine distance is used
         and the restored input matrix might not match completely
         due to numerical rounding.
+    algorithm: {'brute', 'rbc'}, default = 'brute'
+        The algorithm to be used by for nearest neighbor computations.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -221,6 +231,7 @@ class DBSCAN(Base,
                  handle=None,
                  min_samples=5,
                  metric='euclidean',
+                 algorithm='brute',
                  verbose=False,
                  max_mbytes_per_batch=None,
                  output_type=None,
@@ -233,6 +244,7 @@ class DBSCAN(Base,
         self.max_mbytes_per_batch = max_mbytes_per_batch
         self.calc_core_sample_indices = calc_core_sample_indices
         self.metric = metric
+        self.algorithm = algorithm
 
         # internal array attributes
         self.labels_ = None
@@ -292,6 +304,18 @@ class DBSCAN(Base,
             else:
                 raise ValueError("Invalid value for metric: {}"
                                  .format(self.metric))
+
+            # algo
+            algo_parsing = {
+                "brute": EpsNnMethod.BRUTE_FORCE,
+                "rbc": EpsNnMethod.RBC
+            }
+            if self.algorithm in algo_parsing:
+                algorithm = algo_parsing[self.algorithm.lower()]
+            else:
+                raise ValueError("Invalid value for algorithm: {}"
+                                 .format(self.algorithm))
+
             # Create the output core_sample_indices only if needed
             if self.calc_core_sample_indices:
                 self.core_sample_indices_ = \
@@ -311,6 +335,7 @@ class DBSCAN(Base,
                         <int*> core_sample_indices_ptr,
                         <float*> sample_weight_ptr,
                         <size_t>self.max_mbytes_per_batch,
+                        <EpsNnMethod> algorithm,
                         <int> self.verbose,
                         <bool> opg)
                 else:
@@ -325,6 +350,7 @@ class DBSCAN(Base,
                         <int64_t*> core_sample_indices_ptr,
                         <float*> sample_weight_ptr,
                         <size_t>self.max_mbytes_per_batch,
+                        <EpsNnMethod> algorithm,
                         <int> self.verbose,
                         <bool> opg)
 
@@ -341,6 +367,7 @@ class DBSCAN(Base,
                         <int*> core_sample_indices_ptr,
                         <double*> sample_weight_ptr,
                         <size_t> self.max_mbytes_per_batch,
+                        <EpsNnMethod> algorithm,
                         <int> self.verbose,
                         <bool> opg)
                 else:
@@ -355,6 +382,7 @@ class DBSCAN(Base,
                         <int64_t*> core_sample_indices_ptr,
                         <double*> sample_weight_ptr,
                         <size_t> self.max_mbytes_per_batch,
+                        <EpsNnMethod> algorithm,
                         <int> self.verbose,
                         <bool> opg)
 
@@ -398,7 +426,6 @@ class DBSCAN(Base,
             least min_samples is by itself a core sample; a sample with a
             negative weight may inhibit its eps-neighbor from being core.
             default: None (which is equivalent to weight 1 for all samples).
-
         """
         return self._fit(X, out_dtype, False, sample_weight)
 
@@ -423,7 +450,6 @@ class DBSCAN(Base,
             least min_samples is by itself a core sample; a sample with a
             negative weight may inhibit its eps-neighbor from being core.
             default: None (which is equivalent to weight 1 for all samples).
-
         """
         self.fit(X, out_dtype, sample_weight)
         return self.labels_
@@ -435,4 +461,5 @@ class DBSCAN(Base,
             "max_mbytes_per_batch",
             "calc_core_sample_indices",
             "metric",
+            "algorithm",
         ]

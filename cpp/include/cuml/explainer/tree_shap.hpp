@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,10 @@
 
 #pragma once
 
+#include <cuml/ensemble/treelite_defs.hpp>
+
 #include <cstddef>
 #include <cstdint>
-#include <cuml/ensemble/treelite_defs.hpp>
 #include <memory>
 #include <variant>
 
@@ -33,7 +34,7 @@ using TreePathHandle =
 
 using FloatPointer = std::variant<float*, double*>;
 
-TreePathHandle extract_path_info(ModelHandle model);
+TreePathHandle extract_path_info(TreeliteModelHandle model);
 
 void gpu_treeshap(TreePathHandle path_info,
                   const FloatPointer data,

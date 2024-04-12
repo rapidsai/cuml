@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,14 @@
  * limitations under the License.
  */
 #include <cuml/common/logger.hpp>
-#include <test_utils.h>
-
-#include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
-#include <decisiontree/batched-levelalgo/quantiles.cuh>
-#include <raft/core/handle.hpp>
-
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <cuml/fil/fil.h>
 #include <cuml/tree/algo_helper.h>
-#include <raft/random/rng.cuh>
 
 #include <raft/core/handle.hpp>
 #include <raft/linalg/transpose.cuh>
+#include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -44,7 +38,10 @@
 #include <thrust/shuffle.h>
 #include <thrust/transform.h>
 
+#include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
+#include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <gtest/gtest.h>
+#include <test_utils.h>
 
 #include <cstddef>
 #include <memory>
@@ -168,7 +165,7 @@ auto FilPredict(const raft::handle_t& handle,
                 RandomForestMetaData<DataT, LabelT>* forest)
 {
   auto pred = std::make_shared<thrust::device_vector<float>>(params.n_rows);
-  ModelHandle model;
+  TreeliteModelHandle model;
   std::size_t num_outputs = 1;
   if constexpr (std::is_integral_v<LabelT>) { num_outputs = params.n_labels; }
   build_treelite_forest(&model, forest, params.n_cols);
@@ -195,7 +192,7 @@ auto FilPredictProba(const raft::handle_t& handle,
 {
   std::size_t num_outputs = params.n_labels;
   auto pred = std::make_shared<thrust::device_vector<float>>(params.n_rows * num_outputs);
-  ModelHandle model;
+  TreeliteModelHandle model;
   static_assert(std::is_integral_v<LabelT>, "Must be classification");
   build_treelite_forest(&model, forest, params.n_cols);
   fil::treelite_params_t tl_params{
@@ -555,7 +552,7 @@ TEST(RfTests, IntegerOverflow)
 
   // See if fil overflows
   thrust::device_vector<float> pred(m);
-  ModelHandle model;
+  TreeliteModelHandle model;
   build_treelite_forest(&model, forest_ptr, n);
 
   std::size_t num_outputs = 1;

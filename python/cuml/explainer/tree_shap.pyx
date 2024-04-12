@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,10 +36,14 @@ else:
     sklrfc = object
 
 cdef extern from "treelite/c_api.h":
-    ctypedef void * ModelHandle
-    cdef int TreeliteQueryNumClass(ModelHandle handle, size_t * out)
-
-cdef extern from "treelite/c_api_common.h":
+    cdef struct TreelitePyBufferFrame:
+        void* buf
+        char* format
+        size_t itemsize
+        size_t nitem
+    ctypedef void * TreeliteModelHandle
+    cdef int TreeliteGetHeaderField(
+            TreeliteModelHandle model, const char * name, TreelitePyBufferFrame* out_frame) except +
     cdef const char * TreeliteGetLastError()
 
 cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
@@ -49,7 +53,7 @@ cdef extern from "cuml/explainer/tree_shap.hpp" namespace "ML::Explainer":
     cdef cppclass FloatPointer:
         pass
 
-    cdef TreePathHandle extract_path_info(ModelHandle model) except +
+    cdef TreePathHandle extract_path_info(TreeliteModelHandle model) except +
     cdef void gpu_treeshap(TreePathHandle  path_info,
                            const FloatPointer data,
                            size_t n_rows,
@@ -89,6 +93,43 @@ cdef FloatPointer type_erase_float_ptr(array):
     else:
         raise ValueError("Unsupported dtype")
     return ptr
+
+cdef class PyBufferFrameWrapper:
+    cdef TreelitePyBufferFrame _handle
+    cdef Py_ssize_t shape[1]
+    cdef Py_ssize_t strides[1]
+
+    def __cinit__(self):
+        pass
+
+    def __dealloc__(self):
+        pass
+
+    def __getbuffer__(self, Py_buffer* buffer, int flags):
+        cdef Py_ssize_t itemsize = self._handle.itemsize
+
+        self.shape[0] = self._handle.nitem
+        self.strides[0] = itemsize
+
+        buffer.buf = self._handle.buf
+        buffer.format = self._handle.format
+        buffer.internal = NULL
+        buffer.itemsize = itemsize
+        buffer.len = self._handle.nitem * itemsize
+        buffer.ndim = 1
+        buffer.obj = self
+        buffer.readonly = 0
+        buffer.shape = self.shape
+        buffer.strides = self.strides
+        buffer.suboffsets = NULL
+
+    def __releasebuffer__(self, Py_buffer *buffer):
+        pass
+
+cdef PyBufferFrameWrapper MakePyBufferFrameWrapper(TreelitePyBufferFrame handle):
+    cdef PyBufferFrameWrapper wrapper = PyBufferFrameWrapper()
+    wrapper._handle = handle
+    return wrapper
 
 cdef class TreeExplainer:
     """
@@ -164,7 +205,7 @@ cdef class TreeExplainer:
     """
     cdef public object expected_value
     cdef TreePathHandle path_info
-    cdef size_t num_class
+    cdef object num_class
     cdef object data
 
     def __init__(self, *, model, data=None):
@@ -205,12 +246,19 @@ cdef class TreeExplainer:
         else:
             raise ValueError('Unrecognized model object type')
 
-        cdef ModelHandle model_ptr = <ModelHandle > <uintptr_t > handle
-        self.num_class = 0
-        if TreeliteQueryNumClass(model_ptr, & self.num_class) != 0:
-            raise RuntimeError('Treelite error: {}'.format(
-                TreeliteGetLastError()))
+        cdef TreeliteModelHandle model_ptr = <TreeliteModelHandle > <uintptr_t > handle
+        # Get num_class
+        cdef TreelitePyBufferFrame frame
+        res = TreeliteGetHeaderField(<TreeliteModelHandle> model_ptr, "num_class", &frame)
+        if res < 0:
+            err = TreeliteGetLastError()
+            raise RuntimeError(f"Failed to fetch num_class: {err}")
+        view = memoryview(MakePyBufferFrameWrapper(frame))
+        self.num_class = np.asarray(view)
         self.path_info = extract_path_info(model_ptr)
+
+        if len(self.num_class) > 1:
+            raise NotImplementedError("TreeExplainer does not support multi-target models")
 
     def _prepare_input(self, X):
         try:
@@ -252,7 +300,7 @@ cdef class TreeExplainer:
         # Storing a C-order 3D array in a CumlArray leads to cryptic error
         # ValueError: len(shape) != len(strides)
         # So we use 2D array here
-        pred_shape = (n_rows, self.num_class * (n_cols + 1))
+        pred_shape = (n_rows, self.num_class[0] * (n_cols + 1))
         preds = CumlArray.empty(
             shape=pred_shape, dtype=dtype, order='C')
 
@@ -278,14 +326,14 @@ cdef class TreeExplainer:
         # 2. Transpose SHAP values in dimension (group_id, row_id, feature_id)
         preds = preds.to_output(
             output_type=self._determine_output_type(X))
-        if self.num_class > 1:
+        if self.num_class[0] > 1:
             preds = preds.reshape(
-                (n_rows, self.num_class, n_cols + 1))
+                (n_rows, self.num_class[0], n_cols + 1))
             preds = preds.transpose((1, 0, 2))
             self.expected_value = preds[:, 0, -1]
             return preds[:, :, :-1]
         else:
-            assert self.num_class == 1
+            assert self.num_class[0] == 1
             self.expected_value = preds[0, -1]
             return preds[:, :-1]
 
@@ -320,7 +368,7 @@ cdef class TreeExplainer:
         # Storing a C-order 3D array in a CumlArray leads to cryptic error
         # ValueError: len(shape) != len(strides)
         # So we use 2D array here
-        pred_shape = (n_rows, self.num_class * (n_cols + 1)**2)
+        pred_shape = (n_rows, self.num_class[0] * (n_cols + 1)**2)
         preds = CumlArray.empty(
             shape=pred_shape, dtype=dtype, order='C')
 
@@ -345,14 +393,14 @@ cdef class TreeExplainer:
 
         preds = preds.to_output(
             output_type=self._determine_output_type(X))
-        if self.num_class > 1:
+        if self.num_class[0] > 1:
             preds = preds.reshape(
-                (n_rows, self.num_class, n_cols + 1, n_cols + 1))
+                (n_rows, self.num_class[0], n_cols + 1, n_cols + 1))
             preds = preds.transpose((1, 0, 2, 3))
             self.expected_value = preds[:, 0, -1, -1]
             return preds[:, :, :-1, :-1]
         else:
-            assert self.num_class == 1
+            assert self.num_class[0] == 1
             preds = preds.reshape(
                 (n_rows,  n_cols + 1, n_cols + 1))
             self.expected_value = preds[0, -1, -1]

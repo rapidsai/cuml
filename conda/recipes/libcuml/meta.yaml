@@ -1,10 +1,9 @@
-# Copyright (c) 2018-2023, NVIDIA CORPORATION.
+# Copyright (c) 2018-2024, NVIDIA CORPORATION.
 
 {% set version = environ['RAPIDS_PACKAGE_VERSION'].lstrip('v') %}
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set cuda_version = '.'.join(environ['RAPIDS_CUDA_VERSION'].split('.')[:2]) %}
 {% set cuda_major = cuda_version.split('.')[0] %}
-{% set cuda_spec = ">=" + cuda_major ~ ",<" + (cuda_major | int + 1) ~ ".0a0" %} # i.e. >=11,<12.0a0
 {% set date_string = environ['RAPIDS_DATE_STRING'] %}
 
 package:
@@ -87,12 +86,18 @@ outputs:
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }}
+        {% else %}
+        - {{ compiler('cuda') }}
+        - cuda-cudart-dev
         {% endif %}
     requirements:
       build:
         - cmake {{ cmake_version }}
       host:
         - cuda-version ={{ cuda_version }}
+        {% if cuda_major != "11" %}
+        - cuda-cudart-dev
+        {% endif %}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
@@ -103,6 +108,7 @@ outputs:
         - libcusolver {{ cuda11_libcusolver_run_version }}
         - libcusparse {{ cuda11_libcusparse_run_version }}
         {% else %}
+        - cuda-cudart
         - libcublas
         - libcufft
         - libcurand
@@ -126,14 +132,24 @@ outputs:
       ignore_run_exports_from:
         {% if cuda_major == "11" %}
         - {{ compiler('cuda11') }}
+        {% else %}
+        - {{ compiler('cuda') }}
+        - cuda-cudart-dev
         {% endif %}
     requirements:
       build:
         - cmake {{ cmake_version }}
+      host:
+        - cuda-version ={{ cuda_version }}
+        {% if cuda_major != "11" %}
+        - cuda-cudart-dev
+        {% endif %}
       run:
         - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
         {% if cuda_major == "11" %}
         - cudatoolkit
+        {% else %}
+        - cuda-cudart
         {% endif %}
         - {{ pin_subpackage('libcuml', exact=True) }}
         - gtest {{ gtest_version }}

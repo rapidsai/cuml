@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,21 +15,37 @@
  */
 
 #include "qn/mg/qn_mg.cuh"
+#include "qn/mg/standardization.cuh"
 #include "qn/simple_mat/dense.hpp"
-#include <cuda_runtime.h>
+
 #include <cuml/common/logger.hpp>
 #include <cuml/linear_model/qn.h>
 #include <cuml/linear_model/qn_mg.hpp>
+
 #include <raft/core/comms.hpp>
 #include <raft/core/device_mdarray.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/label/classlabels.cuh>
+#include <raft/linalg/divide.cuh>
+#include <raft/linalg/matrix_vector.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/sqrt.cuh>
+#include <raft/matrix/math.hpp>
+#include <raft/stats/mean_center.cuh>
+#include <raft/stats/stddev.cuh>
+#include <raft/stats/sum.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <cuda_runtime.h>
+
 #include <vector>
 using namespace MLCommon;
 
-#include <iostream>
+#include <cumlprims/opg/matrix/math.hpp>
+#include <cumlprims/opg/stats/mean.hpp>
+#include <cumlprims/opg/stats/mean_center.hpp>
+#include <cumlprims/opg/stats/stddev.hpp>
 
 namespace ML {
 namespace GLM {
@@ -53,6 +69,7 @@ std::vector<T> distinct_mg(const raft::handle_t& handle, T* y, size_t n)
 
   std::vector<size_t> recv_counts_host(n_ranks);
   raft::copy(recv_counts_host.data(), recv_counts.data(), n_ranks, stream);
+  raft::resource::sync_stream(handle);
 
   std::vector<size_t> displs(n_ranks);
   size_t pos = 0;
@@ -72,6 +89,7 @@ std::vector<T> distinct_mg(const raft::handle_t& handle, T* y, size_t n)
 
   std::vector<T> global_unique_y_host(global_unique_y.size());
   raft::copy(global_unique_y_host.data(), global_unique_y.data(), global_unique_y.size(), stream);
+  raft::resource::sync_stream(handle);
 
   return global_unique_y_host;
 }
@@ -81,6 +99,7 @@ void qnFit_impl(const raft::handle_t& handle,
                 const qn_params& pams,
                 T* X,
                 bool X_col_major,
+                bool standardization,
                 T* y,
                 size_t N,
                 size_t D,
@@ -94,6 +113,10 @@ void qnFit_impl(const raft::handle_t& handle,
 {
   auto X_simple = SimpleDenseMat<T>(X, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
 
+  rmm::device_uvector<T> mean_std_buff(4 * D, handle.get_stream());
+  Standardizer<T>* std_obj = NULL;
+  if (standardization) std_obj = new Standardizer(handle, X_simple, n_samples, mean_std_buff);
+
   ML::GLM::opg::qn_fit_x_mg(handle,
                             pams,
                             X_simple,
@@ -104,7 +127,15 @@ void qnFit_impl(const raft::handle_t& handle,
                             num_iters,
                             n_samples,
                             rank,
-                            n_ranks);  // ignore sample_weight, svr_eps
+                            n_ranks,
+                            std_obj);  // ignore sample_weight, svr_eps
+
+  if (standardization) {
+    int n_targets = ML::GLM::detail::qn_is_classification(pams.loss) && C == 2 ? 1 : C;
+    std_obj->adapt_model_for_linearFwd(handle, w0, n_targets, D, pams.fit_intercept);
+    delete std_obj;
+  }
+
   return;
 }
 
@@ -116,6 +147,7 @@ void qnFit_impl(raft::handle_t& handle,
                 T* coef,
                 const qn_params& pams,
                 bool X_col_major,
+                bool standardization,
                 int n_classes,
                 T* f,
                 int* num_iters)
@@ -132,10 +164,13 @@ void qnFit_impl(raft::handle_t& handle,
     n_samples += p->size;
   }
 
+  auto stream = handle.get_stream();
+
   qnFit_impl<T>(handle,
                 pams,
                 data_X->ptr,
                 X_col_major,
+                standardization,
                 data_y->ptr,
                 input_desc.totalElementsOwnedBy(input_desc.rank),
                 input_desc.N,
@@ -166,12 +201,22 @@ void qnFit(raft::handle_t& handle,
            float* coef,
            const qn_params& pams,
            bool X_col_major,
+           bool standardization,
            int n_classes,
            float* f,
            int* num_iters)
 {
-  qnFit_impl<float>(
-    handle, input_data, input_desc, labels, coef, pams, X_col_major, n_classes, f, num_iters);
+  qnFit_impl<float>(handle,
+                    input_data,
+                    input_desc,
+                    labels,
+                    coef,
+                    pams,
+                    X_col_major,
+                    standardization,
+                    n_classes,
+                    f,
+                    num_iters);
 }
 
 template <typename T, typename I>
@@ -181,6 +226,7 @@ void qnFitSparse_impl(const raft::handle_t& handle,
                       I* X_cols,
                       I* X_row_ids,
                       I X_nnz,
+                      bool standardization,
                       T* y,
                       size_t N,
                       size_t D,
@@ -194,6 +240,13 @@ void qnFitSparse_impl(const raft::handle_t& handle,
 {
   auto X_simple = SimpleSparseMat<T>(X_values, X_cols, X_row_ids, X_nnz, N, D);
 
+  size_t vec_size = raft::alignTo<size_t>(sizeof(T) * D, ML::GLM::detail::qn_align);
+  rmm::device_uvector<T> mean_std_buff(4 * vec_size, handle.get_stream());
+  Standardizer<T>* std_obj = NULL;
+
+  if (standardization)
+    std_obj = new Standardizer(handle, X_simple, n_samples, mean_std_buff, vec_size);
+
   ML::GLM::opg::qn_fit_x_mg(handle,
                             pams,
                             X_simple,
@@ -204,7 +257,15 @@ void qnFitSparse_impl(const raft::handle_t& handle,
                             num_iters,
                             n_samples,
                             rank,
-                            n_ranks);  // ignore sample_weight, svr_eps
+                            n_ranks,
+                            std_obj);  // ignore sample_weight, svr_eps
+
+  if (standardization) {
+    int n_targets = ML::GLM::detail::qn_is_classification(pams.loss) && C == 2 ? 1 : C;
+    std_obj->adapt_model_for_linearFwd(handle, w0, n_targets, D, pams.fit_intercept);
+    delete std_obj;
+  }
+
   return;
 }
 
@@ -217,6 +278,7 @@ void qnFitSparse(raft::handle_t& handle,
                  std::vector<Matrix::Data<float>*>& labels,
                  float* coef,
                  const qn_params& pams,
+                 bool standardization,
                  int n_classes,
                  float* f,
                  int* num_iters)
@@ -233,6 +295,7 @@ void qnFitSparse(raft::handle_t& handle,
                                input_cols,
                                input_row_ids,
                                X_nnz,
+                               standardization,
                                data_y->ptr,
                                input_desc.totalElementsOwnedBy(input_desc.rank),
                                input_desc.N,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <cuml/cluster/dbscan.hpp>
+
+#include <raft/core/handle.hpp>
+
+#include <cuda_runtime.h>
+
 #include <algorithm>
 #include <cmath>
-#include <cuda_runtime.h>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <vector>
-
-#include <raft/core/handle.hpp>
-
-#include <cuml/cluster/dbscan.hpp>
 
 #ifndef CUDA_RT_CALL
 #define CUDA_RT_CALL(call)                                                    \
@@ -207,6 +208,7 @@ int main(int argc, char* argv[])
                   nullptr,
                   nullptr,
                   max_bytes_per_batch,
+                  ML::Dbscan::EpsNnMethod::BRUTE_FORCE,
                   false);
   CUDA_RT_CALL(cudaMemcpyAsync(
     h_labels.data(), d_labels, nRows * sizeof(int), cudaMemcpyDeviceToHost, stream));

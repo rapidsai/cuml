@@ -769,18 +769,13 @@ def test_logistic_regression_predict_proba(
 @pytest.mark.parametrize("constructor", [np.array, cp.array, cudf.DataFrame])
 @pytest.mark.parametrize("dtype", ["float32", "float64"])
 def test_logistic_regression_input_type_consistency(constructor, dtype):
-    from cudf.core.frame import Frame
-
     X = constructor([[5, 10], [3, 1], [7, 8]]).astype(dtype)
     y = constructor([0, 1, 1]).astype(dtype)
     clf = cuLog().fit(X, y, convert_dtype=True)
 
-    original_type = type(X)
-    if constructor == cudf.DataFrame:
-        original_type = Frame
-
-    assert isinstance(clf.predict_proba(X), original_type)
-    assert isinstance(clf.predict(X), original_type)
+    assert isinstance(clf.predict_proba(X), type(X))
+    expected_type = cudf.Series if constructor == cudf.DataFrame else type(X)
+    assert isinstance(clf.predict(X), expected_type)
 
 
 @pytest.mark.parametrize("train_dtype", [np.float32, np.float64])

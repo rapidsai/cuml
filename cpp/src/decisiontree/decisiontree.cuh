@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,17 @@
 
 #pragma once
 
+#include "batched-levelalgo/builder.cuh"
+#include "batched-levelalgo/quantiles.cuh"
+#include "treelite_util.h"
+
 #include <cuml/common/logger.hpp>
 #include <cuml/tree/flatnode.h>
 
 #include <raft/core/handle.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/util/cudart_utils.hpp>
 
-#include "treelite_util.h"
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 
@@ -32,12 +36,8 @@
 #include <locale>
 #include <map>
 #include <numeric>
-#include <raft/core/nvtx.hpp>
 #include <random>
 #include <vector>
-
-#include "batched-levelalgo/builder.cuh"
-#include "batched-levelalgo/quantiles.cuh"
 
 /** check for treelite runtime API errors and assert accordingly */
 
@@ -162,6 +162,7 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
 
   tl::Tree<T, T> tl_tree;
   tl_tree.Init();
+  tl_tree.AllocNode();  // Allocate the root node
 
   // Track head and tail of bounded "queues" (implemented as vectors for
   // performance)
@@ -185,18 +186,20 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
       ++cur_front;
 
       if (!q_node.IsLeaf()) {
-        tl_tree.AddChilds(tl_node_id);
+        const int cleft  = tl_tree.AllocNode();
+        const int cright = tl_tree.AllocNode();
+        tl_tree.SetChildren(tl_node_id, cleft, cright);
 
         // Push left child to next_level queue.
-        next_level_queue[next_end] = {q_node.LeftChildId(), tl_tree.LeftChild(tl_node_id)};
+        next_level_queue[next_end] = {q_node.LeftChildId(), cleft};
         ++next_end;
 
         // Push right child to next_level queue.
-        next_level_queue[next_end] = {q_node.RightChildId(), tl_tree.RightChild(tl_node_id)};
+        next_level_queue[next_end] = {q_node.RightChildId(), cright};
         ++next_end;
 
         // Set node from current level as numerical node. Children IDs known.
-        tl_tree.SetNumericalSplit(
+        tl_tree.SetNumericalTest(
           tl_node_id, q_node.ColumnId(), q_node.QueryValue(), true, tl::Operator::kLE);
 
       } else {

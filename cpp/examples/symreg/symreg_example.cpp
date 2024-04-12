@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,17 @@
  * limitations under the License.
  */
 
+#include <cuml/common/logger.hpp>
+#include <cuml/genetic/common.h>
+#include <cuml/genetic/genetic.h>
+#include <cuml/genetic/program.h>
+
+#include <raft/util/cudart_utils.hpp>
+
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
+
 #include <algorithm>
 #include <cmath>
 #include <fstream>
@@ -22,16 +33,6 @@
 #include <iterator>
 #include <sstream>
 #include <vector>
-
-#include <cuml/common/logger.hpp>
-#include <cuml/genetic/common.h>
-#include <cuml/genetic/genetic.h>
-#include <cuml/genetic/program.h>
-
-#include <raft/util/cudart_utils.hpp>
-#include <rmm/device_scalar.hpp>
-#include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
 
 // Namespace alias
 namespace cg = cuml::genetic;
