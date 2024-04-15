@@ -478,6 +478,8 @@ HDBSCAN
 .. autoclass:: cuml.cluster.hdbscan.HDBSCAN
     :members:
 
+.. include:: modules/generated/cuml.HDBSCAN.examples
+
 .. autofunction:: cuml.cluster.hdbscan.all_points_membership_vectors
 
 .. autofunction:: cuml.cluster.hdbscan.membership_vector
