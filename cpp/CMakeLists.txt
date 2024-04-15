@@ -245,12 +245,13 @@ if(ENABLE_CUMLPRIMS_MG)
 endif()
 
 if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
-  include(cmake/thirdparty/get_gtest.cmake)
+  include(${rapids-cmake-dir}/cpm/gtest.cmake)
+  rapids_cpm_gtest(BUILD_STATIC)
 endif()
 
 if(BUILD_CUML_BENCH)
   include(${rapids-cmake-dir}/cpm/gbench.cmake)
-  rapids_cpm_gbench()
+  rapids_cpm_gbench(BUILD_STATIC)
 endif()
 
 ##############################################################################
