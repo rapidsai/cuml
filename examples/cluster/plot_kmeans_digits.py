@@ -3,10 +3,10 @@
 A demo of K-Means clustering on the handwritten digits data
 ===========================================================
 
-Example adapted from `the scikit-learn gallery <https://scikit-learn.org/stable/auto_examples/cluster/plot_kmeans_digits.html>`_.
-
 In this example we compare the various initialization strategies for K-means in
 terms of runtime and quality of the results.
+
+.. note:: Example adapted from `the scikit-learn gallery <https://scikit-learn.org/stable/auto_examples/cluster/plot_kmeans_digits.html>`_.
 
 As the ground truth is known here, we also apply different cluster quality
 metrics to judge the goodness of fit of the cluster labels to the ground truth.

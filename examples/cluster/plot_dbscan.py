@@ -3,11 +3,11 @@
 Demo of DBSCAN clustering algorithm
 ===================================
 
-Example adapted from `the scikit-learn gallery <https://scikit-learn.org/stable/auto_examples/cluster/plot_dbscan.html>`_.
-
 DBSCAN (Density-Based Spatial Clustering of Applications with Noise) finds core
 samples in regions of high density and expands clusters from them. This
 algorithm is good for data which contains clusters of similar density.
+
+.. note:: Example adapted from `the scikit-learn gallery <https://scikit-learn.org/stable/auto_examples/cluster/plot_dbscan.html>`_.
 
 """
 
