@@ -497,8 +497,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       PRIVATE
         src/svm/svc.cu
         src/svm/svr.cu
-        src/svm/linear.cu
-        src/svm/ws_util.cu)
+        src/svm/linear.cu)
   endif()
 
   if(all_algo OR autoarima_algo)

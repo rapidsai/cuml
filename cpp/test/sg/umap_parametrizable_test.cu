@@ -44,7 +44,7 @@ using namespace MLCommon;
 using namespace MLCommon::Datasets::Digits;
 
 template <typename T>
-__global__ void has_nan_kernel(T* data, size_t len, bool* answer)
+CUML_KERNEL void has_nan_kernel(T* data, size_t len, bool* answer)
 {
   static_assert(std::is_floating_point<T>());
   std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -65,7 +65,7 @@ bool has_nan(T* data, size_t len, cudaStream_t stream)
 }
 
 template <typename T>
-__global__ void are_equal_kernel(T* embedding1, T* embedding2, size_t len, double* diff)
+CUML_KERNEL void are_equal_kernel(T* embedding1, T* embedding2, size_t len, double* diff)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= len) return;

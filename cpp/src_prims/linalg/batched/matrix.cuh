@@ -56,7 +56,7 @@ namespace Batched {
  * @param[in]   m  Number of rows/columns of matrix
  */
 template <typename T>
-__global__ void identity_matrix_kernel(T* I, int m)
+CUML_KERNEL void identity_matrix_kernel(T* I, int m)
 {
   T* I_b     = I + blockIdx.x * m * m;
   int stride = (m + 1);
@@ -79,7 +79,7 @@ __global__ void identity_matrix_kernel(T* I, int m)
  * @param[in]  period  Period of the difference
  */
 template <typename T>
-__global__ void batched_diff_kernel(const T* in, T* out, int n_elem, int period = 1)
+CUML_KERNEL void batched_diff_kernel(const T* in, T* out, int n_elem, int period = 1)
 {
   const T* batch_in = in + n_elem * blockIdx.x;
   T* batch_out      = out + (n_elem - period) * blockIdx.x;
@@ -103,7 +103,7 @@ __global__ void batched_diff_kernel(const T* in, T* out, int n_elem, int period 
  * @param[in]  period2  Period for the 2nd difference
  */
 template <typename T>
-__global__ void batched_second_diff_kernel(
+CUML_KERNEL void batched_second_diff_kernel(
   const T* in, T* out, int n_elem, int period1 = 1, int period2 = 1)
 {
   const T* batch_in = in + n_elem * blockIdx.x;
@@ -126,7 +126,7 @@ __global__ void batched_second_diff_kernel(
  * @param[in]  n           Number of columns of each matrix
  */
 template <typename T>
-__global__ void fill_strided_pointers_kernel(T* A_dense, T** A_array, int batch_size, int m, int n)
+CUML_KERNEL void fill_strided_pointers_kernel(T* A_dense, T** A_array, int batch_size, int m, int n)
 {
   int bid = blockIdx.x * blockDim.x + threadIdx.x;
   if (bid < batch_size) { A_array[bid] = A_dense + bid * m * n; }
@@ -513,7 +513,7 @@ class Matrix {
  * @param[in]  alpha Multiplying coefficient
  */
 template <typename T>
-__global__ void kronecker_product_kernel(
+CUML_KERNEL void kronecker_product_kernel(
   const T* A, int m, int n, const T* B, int p, int q, T* AkB, int k_m, int k_n, T alpha)
 {
   const T* A_b = A + blockIdx.x * m * n;
@@ -886,15 +886,15 @@ Matrix<T> b_kron(const Matrix<T>& A, const Matrix<T>& B)
  * @param[in]  s                Seasonality of the lags
  */
 template <typename T>
-__global__ void lagged_mat_kernel(const T* vec,
-                                  T* mat,
-                                  int lags,
-                                  int lagged_height,
-                                  int vec_offset,
-                                  int ld,
-                                  int mat_offset,
-                                  int ls_batch_stride,
-                                  int s = 1)
+CUML_KERNEL void lagged_mat_kernel(const T* vec,
+                                   T* mat,
+                                   int lags,
+                                   int lagged_height,
+                                   int vec_offset,
+                                   int ld,
+                                   int mat_offset,
+                                   int ls_batch_stride,
+                                   int s = 1)
 {
   const T* batch_in = vec + blockIdx.x * ld + vec_offset;
   T* batch_out      = mat + blockIdx.x * ls_batch_stride + mat_offset;
@@ -1004,18 +1004,18 @@ Matrix<T> b_lagged_mat(const Matrix<T>& vec, int lags)
  * @param[in]  out_cols          Number of columns in the output matrix
  */
 template <typename T>
-static __global__ void batched_2dcopy_kernel(const T* in,
-                                             T* out,
-                                             int in_starting_row,
-                                             int in_starting_col,
-                                             int in_rows,
-                                             int in_cols,
-                                             MLCommon::FastIntDiv copy_rows,
-                                             int n_copy,
-                                             int out_starting_row,
-                                             int out_starting_col,
-                                             int out_rows,
-                                             int out_cols)
+CUML_KERNEL void batched_2dcopy_kernel(const T* in,
+                                       T* out,
+                                       int in_starting_row,
+                                       int in_starting_col,
+                                       int in_rows,
+                                       int in_cols,
+                                       MLCommon::FastIntDiv copy_rows,
+                                       int n_copy,
+                                       int out_starting_row,
+                                       int out_starting_col,
+                                       int out_rows,
+                                       int out_cols)
 {
   const T* in_ = in + blockIdx.x * in_rows * in_cols + in_starting_col * in_rows + in_starting_row;
   T* out_ = out + blockIdx.x * out_rows * out_cols + out_starting_col * out_rows + out_starting_row;
@@ -1183,7 +1183,7 @@ DI void generate_householder_vector(T* d_uk, const T* d_xk, T* shared_mem, int m
  * @param[in]    n    Matrix dimensions
  */
 template <typename T>
-__global__ void hessenberg_reduction_kernel(T* d_U, T* d_H, T* d_hh, int n)
+CUML_KERNEL void hessenberg_reduction_kernel(T* d_U, T* d_H, T* d_hh, int n)
 {
   int ib = blockIdx.x;
 
@@ -1388,7 +1388,7 @@ DI bool ahues_tisseur(const T* d_M, int i, int n)
  * @param[in]     n    Matrix dimension
  */
 template <typename T>
-__global__ void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n)
+CUML_KERNEL void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n)
 {
   int ib = blockIdx.x;
 
@@ -1688,7 +1688,7 @@ DI void quasi_triangular_solver(T* d_scratch, T* d_x, int n, T* shared_mem)
  * @param[in]  n           Matrix dimension
  */
 template <typename T>
-__global__ void trsyl_kernel(
+CUML_KERNEL void trsyl_kernel(
   const T* d_R, const T* d_R2, const T* d_S, const T* d_F, T* d_Y, T* d_scratch, int n)
 {
   int ib                = blockIdx.x;
