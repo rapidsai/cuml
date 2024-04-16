@@ -178,11 +178,12 @@ cdef class TreeliteModel():
             bytes representing a serialized Treelite model
         """
         cdef TreeliteModelHandle handle
-        res = TreeliteDeserializeModelFromBytes(bytes_seq, len(bytes_seq), &handle)
+        cdef int res = TreeliteDeserializeModelFromBytes(bytes_seq, len(bytes_seq), &handle)
+        cdef const char* err
         if res < 0:
             err = TreeliteGetLastError()
             raise RuntimeError("Failed to load Treelite model from bytes (%s)" % (err))
-        model = TreeliteModel()
+        cdef TreeliteModel model = TreeliteModel()
         model.set_handle(handle)
         return model
 
@@ -202,6 +203,8 @@ cdef class TreeliteModel():
         filename_bytes = filename.encode("UTF-8")
         config_bytes = "{}".encode("UTF-8")
         cdef TreeliteModelHandle handle
+        cdef int res
+        cdef const char* err
         if model_type == "xgboost":
             res = TreeliteLoadXGBoostModelLegacyBinary(filename_bytes, config_bytes, &handle)
             if res < 0:
@@ -222,7 +225,7 @@ cdef class TreeliteModel():
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
         else:
             raise ValueError("Unknown model type %s" % model_type)
-        model = TreeliteModel()
+        cdef TreeliteModel model = TreeliteModel()
         model.set_handle(handle)
         return model
 
@@ -237,7 +240,11 @@ cdef class TreeliteModel():
         """
         assert self.handle != NULL
         filename_bytes = filename.encode("UTF-8")
-        TreeliteSerializeModelToFile(self.handle, filename_bytes)
+        cdef int res = TreeliteSerializeModelToFile(self.handle, filename_bytes)
+        cdef const char* err
+        if res < 0:
+            err = TreeliteGetLastError()
+            raise RuntimeError("Failed to serialize Treelite model (%s)" % (err))
 
     @classmethod
     def from_treelite_model_handle(cls,
@@ -908,7 +915,7 @@ class ForestInference(Base,
         # to get around C++ ABI incompatibilities (due to different compilers
         # being used to build cuML pip wheel vs. Treelite pip wheel)
         cdef bytes bytes_seq = tl_model.serialize_bytes()
-        tl_model2 = TreeliteModel.from_treelite_bytes(bytes_seq)
+        cdef TreeliteModel tl_model2 = TreeliteModel.from_treelite_bytes(bytes_seq)
         cuml_fm.load_from_treelite_model(
             model=tl_model2,
             output_class=output_class,
