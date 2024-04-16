@@ -65,6 +65,8 @@ cdef extern from "treelite/c_api.h":
                                        TreeliteModelHandle* out) except +
     cdef int TreeliteSerializeModelToFile(TreeliteModelHandle handle,
                                           const char* filename) except +
+    cdef int TreeliteDeserializeModelFromBytes(const char* bytes_seq, size_t len,
+                                               TreeliteModelHandle* out) except +
     cdef int TreeliteGetHeaderField(
             TreeliteModelHandle model, const char * name, TreelitePyBufferFrame* out_frame) except +
     cdef const char* TreeliteGetLastError()
@@ -163,6 +165,26 @@ cdef class TreeliteModel():
     def free_treelite_model(cls, model_handle):
         cdef uintptr_t model_ptr = <uintptr_t>model_handle
         TreeliteFreeModel(<TreeliteModelHandle> model_ptr)
+
+    @classmethod
+    def from_treelite_bytes(cls, bytes_seq):
+        """
+        Returns a TreeliteModel object loaded from bytes representing a
+        serialized Treelite model object.
+
+        Parameters
+        ----------
+        bytes_seq: bytes
+            bytes representing a serialized Treelite model
+        """
+        cdef TreeliteModelHandle handle
+        res = TreeliteDeserializeModelFromBytes(bytes_seq, len(bytes_seq), &handle)
+        if res < 0:
+            err = TreeliteGetLastError()
+            raise RuntimeError("Failed to load Treelite model from bytes (%s)" % (err))
+        model = TreeliteModel()
+        model.set_handle(handle)
+        return model
 
     @classmethod
     def from_filename(cls, filename, model_type="xgboost"):
@@ -882,8 +904,13 @@ class ForestInference(Base,
                     " parameters. Accuracy may degrade slightly relative to"
                     " native sklearn invocation.")
         tl_model = tl_skl.import_model(skl_model)
+        # Serialize Treelite model object and de-serialize again,
+        # to get around C++ ABI incompatibilities (due to different compilers
+        # being used to build cuML pip wheel vs. Treelite pip wheel)
+        bytes_seq = tl_model.serialize_bytes()
+        tl_model2 = TreeliteModel.from_treelite_bytes(bytes_seq)
         cuml_fm.load_from_treelite_model(
-            model=tl_model,
+            model=tl_model2,
             output_class=output_class,
             threshold=threshold,
             algo=algo,
