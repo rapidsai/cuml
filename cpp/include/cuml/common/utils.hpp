@@ -29,3 +29,9 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+
+#ifdef __CUDACC__
+#define CUML_KERNEL __global__ static
+#else
+#define CUML_KERNEL static
+#endif

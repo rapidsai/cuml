@@ -18,6 +18,7 @@
 
 #include "shuffle.h"
 
+#include <cuml/common/utils.hpp>
 #include <cuml/solvers/params.hpp>
 
 #include <raft/core/handle.hpp>
@@ -68,10 +69,10 @@ struct ConvState {
  * @param[in] l1_alpha L1 regularization coef
  */
 template <typename math_t>
-__global__ void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
-                                                           const math_t* squaredLoc,
-                                                           ConvState<math_t>* convStateLoc,
-                                                           const math_t l1_alpha)
+CUML_KERNEL void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
+                                                            const math_t* squaredLoc,
+                                                            ConvState<math_t>* convStateLoc,
+                                                            const math_t l1_alpha)
 {
   auto coef    = *coefLoc;
   auto r       = coef > l1_alpha ? coef - l1_alpha : (coef < -l1_alpha ? coef + l1_alpha : 0);

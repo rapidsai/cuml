@@ -38,6 +38,7 @@
 #include <thrust/fill.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
+#include <thrust/sequence.h>
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
 
@@ -1284,7 +1285,7 @@ std::ostream& operator<<(std::ostream& os, const blobInput& b)
 
 // until there is progress with Issue #935
 template <typename inType, typename outType>
-__global__ void cast(outType* out, int n, inType* in)
+CUML_KERNEL void cast(outType* out, int n, inType* in)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) out[tid] = in[tid];

@@ -20,6 +20,7 @@ creation and prediction (the main inference kernel is defined in infer.cu). */
 #include "common.cuh"    // for predict_params, storage, storage
 #include "internal.cuh"  // for cat_sets_device_owner, categorical_sets, output_t,
 
+#include <cuml/common/utils.hpp>
 #include <cuml/fil/fil.h>  // for algo_t,
 
 #include <raft/core/error.hpp>         // for ASSERT
@@ -49,13 +50,13 @@ __host__ __device__ real_t sigmoid(real_t x)
     sigmoid and applying threshold. in case of complement_proba,
     fills in the complement probability */
 template <typename real_t>
-__global__ void transform_k(real_t* preds,
-                            size_t n,
-                            output_t output,
-                            real_t inv_num_trees,
-                            real_t threshold,
-                            real_t global_bias,
-                            bool complement_proba)
+CUML_KERNEL void transform_k(real_t* preds,
+                             size_t n,
+                             output_t output,
+                             real_t inv_num_trees,
+                             real_t threshold,
+                             real_t global_bias,
+                             bool complement_proba)
 {
   size_t i = threadIdx.x + size_t(blockIdx.x) * blockDim.x;
   if (i >= n) return;

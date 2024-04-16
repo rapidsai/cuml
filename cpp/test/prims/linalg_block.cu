@@ -17,6 +17,7 @@
 #include "test_utils.h"
 
 #include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 
 #include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
@@ -53,7 +54,7 @@ template <typename T>
 }
 
 template <typename Policy, typename T>
-__global__ void block_gemm_test_kernel(
+CUML_KERNEL void block_gemm_test_kernel(
   bool transa, bool transb, int m, int n, int k, T alpha, const T* a, const T* b, T* c)
 {
   __shared__ MLCommon::LinAlg::GemmStorage<Policy, T> gemm_storage;
@@ -268,7 +269,7 @@ template <typename T>
 }
 
 template <typename Policy, typename T>
-__global__ void block_gemv_test_kernel(
+CUML_KERNEL void block_gemv_test_kernel(
   int m, int n, T alpha, const T* a, const T* x, T* y, bool preload)
 {
   __shared__ MLCommon::LinAlg::GemvStorage<Policy, T> gemv_storage;
@@ -420,7 +421,7 @@ template <typename T>
 }
 
 template <int BlockSize, bool Broadcast, typename T>
-__global__ void block_dot_test_kernel(int n, const T* x, const T* y, T* d_dot)
+CUML_KERNEL void block_dot_test_kernel(int n, const T* x, const T* y, T* d_dot)
 {
   __shared__ ReductionStorage<BlockSize, T> reduction_storage;
 
@@ -535,7 +536,7 @@ template <typename T>
 }
 
 template <int BlockSize, bool Broadcast, typename T>
-__global__ void block_xAxt_test_kernel(int n, const T* x, const T* A, T* d_res, bool preload)
+CUML_KERNEL void block_xAxt_test_kernel(int n, const T* x, const T* A, T* d_res, bool preload)
 {
   extern __shared__ char dyna_shared_mem[];
   T* shared_vec = (T*)dyna_shared_mem;
@@ -669,7 +670,7 @@ template <typename T>
 }
 
 template <typename T>
-__global__ void block_ax_test_kernel(int n, T alpha, const T* x, T* y)
+CUML_KERNEL void block_ax_test_kernel(int n, T alpha, const T* x, T* y)
 {
   _block_ax(n, alpha, x + n * blockIdx.x, y + n * blockIdx.x);
 }
@@ -765,7 +766,7 @@ template <typename T>
 }
 
 template <typename CovPolicy, typename T>
-__global__ void block_cov_stability_test_kernel(int n, const T* in, T* out)
+CUML_KERNEL void block_cov_stability_test_kernel(int n, const T* in, T* out)
 {
   __shared__ CovStabilityStorage<CovPolicy, T> cov_stability_storage;
   _block_covariance_stability<CovPolicy>(

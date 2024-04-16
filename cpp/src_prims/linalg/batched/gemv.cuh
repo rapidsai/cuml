@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 #pragma once
+
+#include <cuml/common/utils.hpp>
 
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/vectorized.cuh>
@@ -58,15 +60,15 @@ dotProduct(const DataT (&x)[VecLen], const DataT (&y)[VecLen], char* smem, bool 
 }
 
 template <typename DataT, typename IdxT, int VecLenAx, int VecLenY, typename EpilogueOp>
-__global__ void gemvKernel(DataT* y,
-                           const DataT* A,
-                           const DataT* x,
-                           const DataT* z,
-                           DataT alpha,
-                           DataT beta,
-                           IdxT m,
-                           IdxT n,
-                           EpilogueOp op)
+CUML_KERNEL void gemvKernel(DataT* y,
+                            const DataT* A,
+                            const DataT* x,
+                            const DataT* z,
+                            DataT alpha,
+                            DataT beta,
+                            IdxT m,
+                            IdxT n,
+                            EpilogueOp op)
 {
   typedef raft::TxN_t<DataT, VecLenAx> VecTypeAx;
   typedef raft::TxN_t<DataT, VecLenY> VecTypeY;

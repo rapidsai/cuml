@@ -44,7 +44,7 @@ namespace ML {
 namespace SVM {
 
 template <typename math_t, typename Lambda>
-__global__ void set_flag(bool* flag, const math_t* alpha, int n, Lambda op)
+CUML_KERNEL void set_flag(bool* flag, const math_t* alpha, int n, Lambda op)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) flag[tid] = op(alpha[tid]);

@@ -27,14 +27,14 @@ namespace MLCommon {
 namespace Distance {
 
 template <typename DataType>
-__global__ void naiveDistanceAdjKernel(bool* dist,
-                                       const DataType* x,
-                                       const DataType* y,
-                                       int m,
-                                       int n,
-                                       int k,
-                                       DataType eps,
-                                       bool isRowMajor)
+CUML_KERNEL void naiveDistanceAdjKernel(bool* dist,
+                                        const DataType* x,
+                                        const DataType* y,
+                                        int m,
+                                        int n,
+                                        int k,
+                                        DataType eps,
+                                        bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;

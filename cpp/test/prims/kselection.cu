@@ -28,7 +28,7 @@ namespace MLCommon {
 namespace Selection {
 
 template <typename TypeV, typename TypeK, int N, int TPB, bool Greater>
-__global__ void sortTestKernel(TypeK* key)
+CUML_KERNEL void sortTestKernel(TypeK* key)
 {
   KVArray<TypeV, TypeK, N, Greater> arr;
 #pragma unroll
