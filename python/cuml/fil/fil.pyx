@@ -167,7 +167,7 @@ cdef class TreeliteModel():
         TreeliteFreeModel(<TreeliteModelHandle> model_ptr)
 
     @classmethod
-    def from_treelite_bytes(cls, bytes_seq):
+    def from_treelite_bytes(cls, bytes bytes_seq):
         """
         Returns a TreeliteModel object loaded from bytes representing a
         serialized Treelite model object.
@@ -907,7 +907,7 @@ class ForestInference(Base,
         # Serialize Treelite model object and de-serialize again,
         # to get around C++ ABI incompatibilities (due to different compilers
         # being used to build cuML pip wheel vs. Treelite pip wheel)
-        bytes_seq = tl_model.serialize_bytes()
+        cdef bytes bytes_seq = tl_model.serialize_bytes()
         tl_model2 = TreeliteModel.from_treelite_bytes(bytes_seq)
         cuml_fm.load_from_treelite_model(
             model=tl_model2,
