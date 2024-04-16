@@ -18,6 +18,7 @@
 #include "node.cuh"
 
 #include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 #include <cuml/genetic/common.h>
 #include <cuml/genetic/genetic.h>
 #include <cuml/genetic/program.h>
@@ -55,14 +56,14 @@ namespace genetic {
  * @param criterion     Selection criterion for choices(min/max)
  * @param parsimony     Parsimony coefficient to account for bloat
  */
-__global__ void batched_tournament_kernel(const program_t progs,
-                                          int* win_indices,
-                                          const int* seeds,
-                                          const int n_progs,
-                                          const int n_tours,
-                                          const int tour_size,
-                                          const int criterion,
-                                          const float parsimony)
+CUML_KERNEL void batched_tournament_kernel(const program_t progs,
+                                           int* win_indices,
+                                           const int* seeds,
+                                           const int n_progs,
+                                           const int n_tours,
+                                           const int tour_size,
+                                           const int criterion,
+                                           const float parsimony)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= n_tours) return;

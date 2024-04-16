@@ -18,6 +18,8 @@
 
 #include <common/device_utils.cuh>
 
+#include <cuml/common/utils.hpp>
+
 #include <raft/core/interruptible.hpp>
 #include <raft/util/cudart_utils.hpp>
 
@@ -43,7 +45,7 @@ namespace MLCommon {
  */
 
 template <int NThreads>
-__global__ void batchedBlockReduceTestKernel(int* out)
+CUML_KERNEL void batchedBlockReduceTestKernel(int* out)
 {
   extern __shared__ char smem[];
   int val = threadIdx.x;

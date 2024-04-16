@@ -41,7 +41,7 @@ template <typename T, typename IdxType = int>
 }
 
 template <typename Type>
-__global__ void naiveBatchGemvKernel(Type* y, const Type* A, const Type* x, int m, int n)
+CUML_KERNEL void naiveBatchGemvKernel(Type* y, const Type* A, const Type* x, int m, int n)
 {
   int batch = blockIdx.y;
   int row   = blockIdx.x;

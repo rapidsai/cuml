@@ -17,6 +17,7 @@
 #include "common.cuh"
 #include "internal.cuh"
 
+#include <cuml/common/utils.hpp>
 #include <cuml/fil/multi_sum.cuh>
 
 #include <raft/util/cuda_utils.cuh>
@@ -793,7 +794,7 @@ template <int NITEMS,
           bool cols_in_shmem,
           bool CATS_SUPPORTED,
           class storage_type>
-__global__ void infer_k(storage_type forest, predict_params params)
+CUML_KERNEL void infer_k(storage_type forest, predict_params params)
 {
   using real_t = typename storage_type::real_type;
   extern __shared__ char smem[];
