@@ -1950,7 +1950,7 @@ class CategoricalNB(_BaseDiscreteNB):
                     jll_data[cp.where(jll_data == 0)] += cp.log(self.alpha)
                     jll_zeros[cp.where(jll_zeros == 0)] += cp.log(self.alpha)
                 jll_data -= jll_zeros
-                cupyx.scatter_add(jll[:, i], X.row, jll_data)
+                jll[:, i] = cp.add(X.row, jll_data)
 
         else:
             col_indices = cp.indices(X.shape)[1].flatten()
