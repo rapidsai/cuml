@@ -179,10 +179,10 @@ cdef class TreeliteModel():
         """
         cdef TreeliteModelHandle handle
         cdef int res = TreeliteDeserializeModelFromBytes(bytes_seq, len(bytes_seq), &handle)
-        cdef const char* err
+        cdef str err_msg
         if res < 0:
-            err = TreeliteGetLastError()
-            raise RuntimeError("Failed to load Treelite model from bytes (%s)" % (err))
+            err_msg = TreeliteGetLastError().decode("UTF-8")
+            raise RuntimeError(f"Failed to load Treelite model from bytes ({err_msg})")
         cdef TreeliteModel model = TreeliteModel()
         model.set_handle(handle)
         return model
@@ -200,31 +200,31 @@ cdef class TreeliteModel():
         model_type : string
             Type of model: 'xgboost', 'xgboost_json', or 'lightgbm'
         """
-        filename_bytes = filename.encode("UTF-8")
-        config_bytes = "{}".encode("UTF-8")
+        cdef bytes filename_bytes = filename.encode("UTF-8")
+        cdef bytes config_bytes = b"{}"
         cdef TreeliteModelHandle handle
         cdef int res
-        cdef const char* err
+        cdef str err_msg
         if model_type == "xgboost":
             res = TreeliteLoadXGBoostModelLegacyBinary(filename_bytes, config_bytes, &handle)
             if res < 0:
-                err = TreeliteGetLastError()
-                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
+                err_msg = TreeliteGetLastError().decode("UTF-8")
+                raise RuntimeError(f"Failed to load {filename} ({err_msg})")
         elif model_type == "xgboost_json":
             res = TreeliteLoadXGBoostModel(filename_bytes, config_bytes, &handle)
             if res < 0:
-                err = TreeliteGetLastError()
-                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
+                err_msg = TreeliteGetLastError().decode("UTF-8")
+                raise RuntimeError(f"Failed to load {filename} ({err_msg})")
         elif model_type == "lightgbm":
             logger.warn("Treelite currently does not support float64 model"
                         " parameters. Accuracy may degrade slightly relative"
                         " to native LightGBM invocation.")
             res = TreeliteLoadLightGBMModel(filename_bytes, config_bytes, &handle)
             if res < 0:
-                err = TreeliteGetLastError()
-                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
+                err_msg = TreeliteGetLastError().decode("UTF-8")
+                raise RuntimeError(f"Failed to load {filename} ({err_msg})")
         else:
-            raise ValueError("Unknown model type %s" % model_type)
+            raise ValueError(f"Unknown model type {model_type}")
         cdef TreeliteModel model = TreeliteModel()
         model.set_handle(handle)
         return model
@@ -241,10 +241,10 @@ cdef class TreeliteModel():
         assert self.handle != NULL
         filename_bytes = filename.encode("UTF-8")
         cdef int res = TreeliteSerializeModelToFile(self.handle, filename_bytes)
-        cdef const char* err
+        cdef str err_msg
         if res < 0:
-            err = TreeliteGetLastError()
-            raise RuntimeError("Failed to serialize Treelite model (%s)" % (err))
+            err_msg = TreeliteGetLastError().decode("UTF-8")
+            raise RuntimeError("Failed to serialize Treelite model (%s)" % (err_msg))
 
     @classmethod
     def from_treelite_model_handle(cls,
@@ -543,10 +543,11 @@ cdef class ForestInference_impl():
                       &treelite_params)
         # Get num_class
         cdef TreelitePyBufferFrame frame
-        res = TreeliteGetHeaderField(<TreeliteModelHandle> model_ptr, "num_class", &frame)
+        cdef int res = TreeliteGetHeaderField(<TreeliteModelHandle> model_ptr, "num_class", &frame)
+        cdef str err_msg
         if res < 0:
-            err = TreeliteGetLastError()
-            raise RuntimeError(f"Failed to fetch num_class: {err}")
+            err_msg = TreeliteGetLastError().decode("UTF-8")
+            raise RuntimeError(f"Failed to fetch num_class: {err_msg}")
         view = memoryview(MakePyBufferFrameWrapper(frame))
         self.num_class = np.asarray(view).copy()
         if len(self.num_class) > 1:
