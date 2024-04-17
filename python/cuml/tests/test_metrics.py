@@ -199,7 +199,7 @@ def test_sklearn_search():
     gdf_train = cudf.DataFrame(dict(train=y_train))
 
     sk_cu_grid.fit(gdf_data, gdf_train.train)
-    assert sk_cu_grid.best_params_ == {"alpha": 0.1}
+    assert_almost_equal(sk_cu_grid.best_params_["alpha"], 0.1)
 
 
 @pytest.mark.parametrize(
