@@ -244,7 +244,7 @@ cdef class TreeliteModel():
         cdef str err_msg
         if res < 0:
             err_msg = TreeliteGetLastError().decode("UTF-8")
-            raise RuntimeError("Failed to serialize Treelite model (%s)" % (err_msg))
+            raise RuntimeError(f"Failed to serialize Treelite model ({err_msg})")
 
     @classmethod
     def from_treelite_model_handle(cls,
