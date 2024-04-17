@@ -203,11 +203,15 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
           tl_node_id, q_node.ColumnId(), q_node.QueryValue(), true, tl::Operator::kLE);
 
       } else {
-        auto leaf_begin = rf_tree.vector_leaf.begin() + cuml_node_id * num_class;
+        auto leaf_begin = rf_tree.vector_leaf.begin() + cuml_node_id * rf_tree.num_outputs;
         if (num_class == 1) {
           tl_tree.SetLeaf(tl_node_id, *leaf_begin);
         } else {
-          std::vector<T> leaf_vector(leaf_begin, leaf_begin + num_class);
+          // if rf_tree.num_outputs < num_class, fill the remainder with zero
+          // Most likely this happens when a binary classifier is fit with all-0 labels
+          ASSERT(rf_tree.num_outputs <= num_class, "num_class too small");
+          std::vector<T> leaf_vector(num_class, T(0));
+          std::copy(leaf_begin, leaf_begin + rf_tree.num_outputs, leaf_vector.begin());
           tl_tree.SetLeafVector(tl_node_id, leaf_vector);
         }
       }

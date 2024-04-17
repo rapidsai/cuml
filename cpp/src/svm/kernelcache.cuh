@@ -60,7 +60,7 @@ namespace {  // unnamed namespace to avoid multiple definition error
  * @param [in] n_ws_perm array with indices of vectors in the working set, size [n_ws]
  * @param [out] out array with workspace idx to column idx mapping, size [n_ws]
  */
-__global__ void mapColumnIndicesToSVRSpace(
+CUML_KERNEL void mapColumnIndicesToSVRSpace(
   const int* ws, int n_ws, int n_rows, const int* n_ws_perm, int* out)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;

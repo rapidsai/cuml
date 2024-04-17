@@ -128,25 +128,25 @@ DI void numerical_stability(double* A)
  * @param[out] d_F_fc          Batched variance of forecast errors   (fc_steps)
  */
 template <int rd>
-__global__ void batched_kalman_loop_kernel(const double* ys,
-                                           int nobs,
-                                           const double* T,
-                                           const double* Z,
-                                           const double* RQR,
-                                           const double* P,
-                                           const double* alpha,
-                                           bool intercept,
-                                           const double* d_mu,
-                                           int batch_size,
-                                           const double* d_obs_inter,
-                                           const double* d_obs_inter_fut,
-                                           double* d_pred,
-                                           double* d_loglike,
-                                           int n_diff,
-                                           int fc_steps   = 0,
-                                           double* d_fc   = nullptr,
-                                           bool conf_int  = false,
-                                           double* d_F_fc = nullptr)
+CUML_KERNEL void batched_kalman_loop_kernel(const double* ys,
+                                            int nobs,
+                                            const double* T,
+                                            const double* Z,
+                                            const double* RQR,
+                                            const double* P,
+                                            const double* alpha,
+                                            bool intercept,
+                                            const double* d_mu,
+                                            int batch_size,
+                                            const double* d_obs_inter,
+                                            const double* d_obs_inter_fut,
+                                            double* d_pred,
+                                            double* d_loglike,
+                                            int n_diff,
+                                            int fc_steps   = 0,
+                                            double* d_fc   = nullptr,
+                                            bool conf_int  = false,
+                                            double* d_F_fc = nullptr)
 {
   constexpr int rd2 = rd * rd;
   double l_RQR[rd2];
@@ -384,28 +384,28 @@ union KalmanLoopSharedMemory {
  * @param[out] d_F_fc          Batched variance of forecast errors   (fc_steps)
  */
 template <typename GemmPolicy, typename GemvPolicy, typename CovPolicy>
-__global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
-                                                         int batch_size,
-                                                         int n_obs,
-                                                         const double* d_T,
-                                                         const double* d_Z,
-                                                         const double* d_RQR,
-                                                         double* d_P,
-                                                         double* d_alpha,
-                                                         double* d_m_tmp,
-                                                         double* d_TP,
-                                                         bool intercept,
-                                                         const double* d_mu,
-                                                         int rd,
-                                                         const double* d_obs_inter,
-                                                         const double* d_obs_inter_fut,
-                                                         double* d_pred,
-                                                         double* d_loglike,
-                                                         int n_diff,
-                                                         int fc_steps,
-                                                         double* d_fc,
-                                                         bool conf_int,
-                                                         double* d_F_fc)
+CUML_KERNEL void _batched_kalman_device_loop_large_kernel(const double* d_ys,
+                                                          int batch_size,
+                                                          int n_obs,
+                                                          const double* d_T,
+                                                          const double* d_Z,
+                                                          const double* d_RQR,
+                                                          double* d_P,
+                                                          double* d_alpha,
+                                                          double* d_m_tmp,
+                                                          double* d_TP,
+                                                          bool intercept,
+                                                          const double* d_mu,
+                                                          int rd,
+                                                          const double* d_obs_inter,
+                                                          const double* d_obs_inter_fut,
+                                                          double* d_pred,
+                                                          double* d_loglike,
+                                                          int n_diff,
+                                                          int fc_steps,
+                                                          double* d_fc,
+                                                          bool conf_int,
+                                                          double* d_F_fc)
 {
   int rd2 = rd * rd;
 
@@ -1128,7 +1128,7 @@ void batched_kalman_loop(raft::handle_t& handle,
  * @param[in]    n_elem     Total number of elements (fc_steps * batch_size)
  * @param[in]    multiplier Coefficient associated with the confidence level
  */
-__global__ void confidence_intervals(
+CUML_KERNEL void confidence_intervals(
   const double* d_fc, double* d_lower, double* d_upper, int n_elem, double multiplier)
 {
   for (int idx = threadIdx.x; idx < n_elem; idx += blockDim.x * gridDim.x) {

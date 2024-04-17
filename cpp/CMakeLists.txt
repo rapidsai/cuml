@@ -245,12 +245,13 @@ if(ENABLE_CUMLPRIMS_MG)
 endif()
 
 if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
-  include(cmake/thirdparty/get_gtest.cmake)
+  include(${rapids-cmake-dir}/cpm/gtest.cmake)
+  rapids_cpm_gtest(BUILD_STATIC)
 endif()
 
 if(BUILD_CUML_BENCH)
   include(${rapids-cmake-dir}/cpm/gbench.cmake)
-  rapids_cpm_gbench()
+  rapids_cpm_gbench(BUILD_STATIC)
 endif()
 
 ##############################################################################
@@ -497,8 +498,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       PRIVATE
         src/svm/svc.cu
         src/svm/svr.cu
-        src/svm/linear.cu
-        src/svm/ws_util.cu)
+        src/svm/linear.cu)
   endif()
 
   if(all_algo OR autoarima_algo)

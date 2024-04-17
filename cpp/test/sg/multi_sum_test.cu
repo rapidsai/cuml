@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuml/common/utils.hpp>
 #include <cuml/fil/multi_sum.cuh>
 
 #include <raft/core/handle.hpp>
@@ -74,7 +75,7 @@ __device__ void test_single_radix(multi_sum_test_shmem<T>& s,
 }
 
 template <typename T>
-__global__ void test_multi_sum_k(T* data, MultiSumTestParams* params, int* error_flags)
+CUML_KERNEL void test_multi_sum_k(T* data, MultiSumTestParams* params, int* error_flags)
 {
   __shared__ multi_sum_test_shmem<T> s;
   MultiSumTestParams p = params[blockIdx.x];

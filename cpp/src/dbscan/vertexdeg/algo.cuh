@@ -18,6 +18,8 @@
 
 #include "pack.h"
 
+#include <cuml/common/utils.hpp>
+
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/host_mdspan.hpp>
 #include <raft/distance/distance_types.hpp>
@@ -57,11 +59,11 @@ struct column_counter : public thrust::unary_function<index_t, index_t> {
 };
 
 template <typename math_t, typename index_t = int, int tpb = 128, int warpsize = 32>
-static __global__ void accumulateWeights(const index_t* ia,
-                                         const index_t num_rows,
-                                         const index_t* ja,
-                                         const math_t* col_weights,
-                                         math_t* weight_sums)
+CUML_KERNEL void accumulateWeights(const index_t* ia,
+                                   const index_t num_rows,
+                                   const index_t* ja,
+                                   const math_t* col_weights,
+                                   math_t* weight_sums)
 {
   constexpr int warps_per_block = tpb / warpsize;
 

@@ -35,11 +35,16 @@ namespace ML {
 namespace DT {
 
 template <typename T>
-__global__ void computeQuantilesKernel(
+__attribute__((visibility("hidden"))) __global__ void computeQuantilesKernel(
   T* quantiles, int* n_bins, const T* sorted_data, const int max_n_bins, const int n_rows);
 
 template <typename T>
-auto computeQuantiles(
+using QuantileReturnValue = std::tuple<ML::DT::Quantiles<T, int>,
+                                       std::shared_ptr<rmm::device_uvector<T>>,
+                                       std::shared_ptr<rmm::device_uvector<int>>>;
+
+template <typename T>
+QuantileReturnValue<T> computeQuantiles(
   const raft::handle_t& handle, const T* data, int max_n_bins, int n_rows, int n_cols)
 {
   raft::common::nvtx::push_range("computeQuantiles");

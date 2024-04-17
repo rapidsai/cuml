@@ -18,6 +18,8 @@
 
 #include <common/fast_int_div.cuh>
 
+#include <cuml/common/utils.hpp>
+
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
@@ -57,7 +59,7 @@ TEST(FastIntDiv, CpuTest)
   }
 }
 
-__global__ void fastIntDivTestKernel(
+CUML_KERNEL void fastIntDivTestKernel(
   int* computed, int* correct, const int* in, FastIntDiv fid, int divisor, int len)
 {
   auto tid = threadIdx.x + blockIdx.x * blockDim.x;

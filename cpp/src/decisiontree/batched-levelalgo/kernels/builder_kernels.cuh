@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
 #include "../bins.cuh"
 #include "../objectives.cuh"
 #include "../quantiles.h"
+
+#include <cuml/common/utils.hpp>
 
 #include <raft/random/rng.cuh>
 
@@ -72,21 +74,23 @@ DI OutT* alignPointer(InT dataset)
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-__global__ void nodeSplitKernel(const IdxT max_depth,
-                                const IdxT min_samples_leaf,
-                                const IdxT min_samples_split,
-                                const IdxT max_leaves,
-                                const DataT min_impurity_decrease,
-                                const Dataset<DataT, LabelT, IdxT> dataset,
-                                const NodeWorkItem* work_items,
-                                const Split<DataT, IdxT>* splits);
+__attribute__((visibility("hidden"))) __global__ void nodeSplitKernel(
+  const IdxT max_depth,
+  const IdxT min_samples_leaf,
+  const IdxT min_samples_split,
+  const IdxT max_leaves,
+  const DataT min_impurity_decrease,
+  const Dataset<DataT, LabelT, IdxT> dataset,
+  const NodeWorkItem* work_items,
+  const Split<DataT, IdxT>* splits);
 
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
-__global__ void leafKernel(ObjectiveT objective,
-                           DatasetT dataset,
-                           const NodeT* tree,
-                           const InstanceRange* instance_ranges,
-                           DataT* leaves);
+__attribute__((visibility("hidden"))) __global__ void leafKernel(
+  ObjectiveT objective,
+  DatasetT dataset,
+  const NodeT* tree,
+  const InstanceRange* instance_ranges,
+  DataT* leaves);
 // 32-bit FNV1a hash
 // Reference: http://www.isthe.com/chongo/tech/comp/fnv/index.html
 const uint32_t fnv1a32_prime = uint32_t(16777619);
@@ -142,7 +146,7 @@ struct CustomDifference {
  * at least 'k' uniques.
  */
 template <typename IdxT, int MAX_SAMPLES_PER_THREAD, int BLOCK_THREADS = 128>
-__global__ void excess_sample_with_replacement_kernel(
+CUML_KERNEL void excess_sample_with_replacement_kernel(
   IdxT* colids,
   const NodeWorkItem* work_items,
   size_t work_items_size,
@@ -258,13 +262,13 @@ __global__ void excess_sample_with_replacement_kernel(
  * https://en.wikipedia.org/wiki/Reservoir_sampling#An_optimal_algorithm
  */
 template <typename IdxT>
-__global__ void algo_L_sample_kernel(int* colids,
-                                     const NodeWorkItem* work_items,
-                                     size_t work_items_size,
-                                     IdxT treeid,
-                                     uint64_t seed,
-                                     size_t n /* total cols to sample from*/,
-                                     size_t k /* cols to sample */)
+CUML_KERNEL void algo_L_sample_kernel(int* colids,
+                                      const NodeWorkItem* work_items,
+                                      size_t work_items_size,
+                                      IdxT treeid,
+                                      uint64_t seed,
+                                      size_t n /* total cols to sample from*/,
+                                      size_t k /* cols to sample */)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= work_items_size) return;
@@ -308,13 +312,13 @@ __global__ void algo_L_sample_kernel(int* colids,
 }
 
 template <typename IdxT>
-__global__ void adaptive_sample_kernel(int* colids,
-                                       const NodeWorkItem* work_items,
-                                       size_t work_items_size,
-                                       IdxT treeid,
-                                       uint64_t seed,
-                                       int N,
-                                       int M)
+CUML_KERNEL void adaptive_sample_kernel(int* colids,
+                                        const NodeWorkItem* work_items,
+                                        size_t work_items_size,
+                                        IdxT treeid,
+                                        uint64_t seed,
+                                        int N,
+                                        int M)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= work_items_size) return;
@@ -344,23 +348,24 @@ template <typename DataT,
           int TPB,
           typename ObjectiveT,
           typename BinT>
-__global__ void computeSplitKernel(BinT* histograms,
-                                   IdxT n_bins,
-                                   IdxT max_depth,
-                                   IdxT min_samples_split,
-                                   IdxT max_leaves,
-                                   const Dataset<DataT, LabelT, IdxT> dataset,
-                                   const Quantiles<DataT, IdxT> quantiles,
-                                   const NodeWorkItem* work_items,
-                                   IdxT colStart,
-                                   const IdxT* colids,
-                                   int* done_count,
-                                   int* mutex,
-                                   volatile Split<DataT, IdxT>* splits,
-                                   ObjectiveT objective,
-                                   IdxT treeid,
-                                   const WorkloadInfo<IdxT>* workload_info,
-                                   uint64_t seed);
+__attribute__((visibility("hidden"))) __global__ void computeSplitKernel(
+  BinT* histograms,
+  IdxT n_bins,
+  IdxT max_depth,
+  IdxT min_samples_split,
+  IdxT max_leaves,
+  const Dataset<DataT, LabelT, IdxT> dataset,
+  const Quantiles<DataT, IdxT> quantiles,
+  const NodeWorkItem* work_items,
+  IdxT colStart,
+  const IdxT* colids,
+  int* done_count,
+  int* mutex,
+  volatile Split<DataT, IdxT>* splits,
+  ObjectiveT objective,
+  IdxT treeid,
+  const WorkloadInfo<IdxT>* workload_info,
+  uint64_t seed);
 
 }  // namespace DT
 }  // namespace ML

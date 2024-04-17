@@ -35,14 +35,14 @@ namespace TSNE {
 /* Finds the best Gaussian bandwidth for
     each row in the dataset             */
 template <typename value_idx, typename value_t>
-__global__ void sigmas_kernel(const value_t* restrict distances,
-                              value_t* restrict P,
-                              const float perplexity,
-                              const float desired_entropy,
-                              const int epochs,
-                              const float tol,
-                              const value_idx n,
-                              const int k)
+CUML_KERNEL void sigmas_kernel(const value_t* restrict distances,
+                               value_t* restrict P,
+                               const float perplexity,
+                               const float desired_entropy,
+                               const int epochs,
+                               const float tol,
+                               const value_idx n,
+                               const int k)
 {
   // For every item in row
   const auto i = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -94,13 +94,13 @@ __global__ void sigmas_kernel(const value_t* restrict distances,
 /* Finds the best Gaussian bandwidth for
     each row in the dataset             */
 template <typename value_idx, typename value_t>
-__global__ void sigmas_kernel_2d(const value_t* restrict distances,
-                                 value_t* restrict P,
-                                 const float perplexity,
-                                 const float desired_entropy,
-                                 const int epochs,
-                                 const float tol,
-                                 const value_idx n)
+CUML_KERNEL void sigmas_kernel_2d(const value_t* restrict distances,
+                                  value_t* restrict P,
+                                  const float perplexity,
+                                  const float desired_entropy,
+                                  const int epochs,
+                                  const float tol,
+                                  const value_idx n)
 {
   // For every item in row
   const auto i = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -171,17 +171,17 @@ void perplexity_search(const value_t* restrict distances,
 /* Compute attractive forces in O(uN) time.
     Uses only nearest neighbors         */
 template <typename value_idx, typename value_t>
-__global__ void attractive_kernel(const value_t* restrict VAL,
-                                  const value_idx* restrict COL,
-                                  const value_idx* restrict ROW,
-                                  const value_t* restrict Y,
-                                  const value_t* restrict norm,
-                                  value_t* restrict attract,
-                                  value_t* restrict Qs,
-                                  const value_idx NNZ,
-                                  const value_idx n,
-                                  const value_idx dim,
-                                  const value_t dof)
+CUML_KERNEL void attractive_kernel(const value_t* restrict VAL,
+                                   const value_idx* restrict COL,
+                                   const value_idx* restrict ROW,
+                                   const value_t* restrict Y,
+                                   const value_t* restrict norm,
+                                   value_t* restrict attract,
+                                   value_t* restrict Qs,
+                                   const value_idx NNZ,
+                                   const value_idx n,
+                                   const value_idx dim,
+                                   const value_t dof)
 {
   const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= NNZ) return;
@@ -213,17 +213,17 @@ __global__ void attractive_kernel(const value_t* restrict VAL,
 /* Special case when dim == 2. Can speed
     up many calculations up             */
 template <typename value_idx, typename value_t>
-__global__ void attractive_kernel_2d(const value_t* restrict VAL,
-                                     const value_idx* restrict COL,
-                                     const value_idx* restrict ROW,
-                                     const value_t* restrict Y1,
-                                     const value_t* restrict Y2,
-                                     const value_t* restrict norm,
-                                     value_t* restrict attract1,
-                                     value_t* restrict attract2,
-                                     value_t* restrict Qs,
-                                     const value_idx NNZ,
-                                     const value_t dof)
+CUML_KERNEL void attractive_kernel_2d(const value_t* restrict VAL,
+                                      const value_idx* restrict COL,
+                                      const value_idx* restrict ROW,
+                                      const value_t* restrict Y1,
+                                      const value_t* restrict Y2,
+                                      const value_t* restrict norm,
+                                      value_t* restrict attract1,
+                                      value_t* restrict attract2,
+                                      value_t* restrict Qs,
+                                      const value_idx NNZ,
+                                      const value_t dof)
 {
   const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= NNZ) return;
@@ -284,15 +284,15 @@ void attractive_forces(const value_t* restrict VAL,
     time where many of the math ops are
     made considerably faster.           */
 template <typename value_idx, typename value_t>
-__global__ void repulsive_kernel(const value_t* restrict Y,
-                                 value_t* restrict repel,
-                                 const value_t* restrict norm,
-                                 value_t* restrict Z_sum1,
-                                 value_t* restrict Z_sum2,
-                                 const value_idx n,
-                                 const value_idx dim,
-                                 const value_t df_power,  // -(df + 1)/2)
-                                 const value_t recp_df)   // 1 / df
+CUML_KERNEL void repulsive_kernel(const value_t* restrict Y,
+                                  value_t* restrict repel,
+                                  const value_t* restrict norm,
+                                  value_t* restrict Z_sum1,
+                                  value_t* restrict Z_sum2,
+                                  const value_idx n,
+                                  const value_idx dim,
+                                  const value_t df_power,  // -(df + 1)/2)
+                                  const value_t recp_df)   // 1 / df
 {
   const auto j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const auto i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
@@ -327,14 +327,14 @@ __global__ void repulsive_kernel(const value_t* restrict Y,
 /* Special case when dim == 2. Much faster
     since calculations are streamlined. */
 template <typename value_idx, typename value_t>
-__global__ void repulsive_kernel_2d(const value_t* restrict Y1,
-                                    const value_t* restrict Y2,
-                                    value_t* restrict repel1,
-                                    value_t* restrict repel2,
-                                    const value_t* restrict norm,
-                                    value_t* restrict Z_sum1,
-                                    value_t* restrict Z_sum2,
-                                    const value_idx n)
+CUML_KERNEL void repulsive_kernel_2d(const value_t* restrict Y1,
+                                     const value_t* restrict Y2,
+                                     value_t* restrict repel1,
+                                     value_t* restrict repel2,
+                                     const value_t* restrict norm,
+                                     value_t* restrict Z_sum1,
+                                     value_t* restrict Z_sum2,
+                                     const value_idx n)
 {
   const auto j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const auto i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
@@ -405,22 +405,22 @@ value_t repulsive_forces(const value_t* restrict Y,
     more gains and constrains the output
     for output stability                */
 template <typename value_idx, typename value_t>
-__global__ void apply_kernel(value_t* restrict Y,
-                             value_t* restrict velocity,
-                             const value_t* restrict attract,
-                             const value_t* restrict repel,
-                             value_t* restrict means,
-                             value_t* restrict gains,
-                             const float Z,  // sum(Q)
-                             const float learning_rate,
-                             const float C,  // constant from T-Dist Degrees of Freedom
-                             const float exaggeration,
-                             const float momentum,
-                             const value_idx SIZE,  // SIZE = n*dim
-                             const value_idx n,
-                             const float min_gain,
-                             value_t* restrict gradient,
-                             const bool check_convergence)
+CUML_KERNEL void apply_kernel(value_t* restrict Y,
+                              value_t* restrict velocity,
+                              const value_t* restrict attract,
+                              const value_t* restrict repel,
+                              value_t* restrict means,
+                              value_t* restrict gains,
+                              const float Z,  // sum(Q)
+                              const float learning_rate,
+                              const float C,  // constant from T-Dist Degrees of Freedom
+                              const float exaggeration,
+                              const float momentum,
+                              const value_idx SIZE,  // SIZE = n*dim
+                              const value_idx n,
+                              const float min_gain,
+                              value_t* restrict gradient,
+                              const bool check_convergence)
 {
   const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= SIZE) return;

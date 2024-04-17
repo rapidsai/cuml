@@ -16,6 +16,7 @@
 
 #include "../../src/fil/internal.cuh"
 
+#include <cuml/common/utils.hpp>
 #include <cuml/fil/fil.h>
 
 #include <raft/core/handle.hpp>
@@ -135,7 +136,7 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps)
 }
 
 template <typename real_t>
-__global__ void nan_kernel(real_t* data, const bool* mask, int len, real_t nan)
+CUML_KERNEL void nan_kernel(real_t* data, const bool* mask, int len, real_t nan)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= len) return;
@@ -188,7 +189,7 @@ struct replace_some_floating_with_categorical {
 };
 
 template <typename real_t>
-__global__ void floats_to_bit_stream_k(uint8_t* dst, real_t* src, std::size_t size)
+CUML_KERNEL void floats_to_bit_stream_k(uint8_t* dst, real_t* src, std::size_t size)
 {
   std::size_t idx = std::size_t(blockIdx.x) * blockDim.x + threadIdx.x;
   if (idx >= size) return;

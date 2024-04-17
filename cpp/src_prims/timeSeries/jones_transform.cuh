@@ -21,6 +21,8 @@
 
 #pragma once
 
+#include <cuml/common/utils.hpp>
+
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -158,7 +160,7 @@ inline __device__ void invtransform(DataT* tmp, DataT* myNewParams, bool isAr)
  * @param clamp: whether to clamp transformed params between -1 and 1
  */
 template <typename DataT, int VALUE, typename IdxT, int BLOCK_DIM_X, int BLOCK_DIM_Y>
-__global__ void jones_transform_kernel(
+CUML_KERNEL void jones_transform_kernel(
   DataT* newParams, const DataT* params, IdxT batchSize, bool isAr, bool isInv, bool clamp)
 {
   // calculating the index of the model that the coefficients belong to
