@@ -57,6 +57,7 @@ cdef extern from "treelite/c_api.h":
     ctypedef void* TreeliteModelHandle
     cdef int TreeliteDeserializeModelFromBytes(const char* bytes_seq, size_t len,
                                                TreeliteModelHandle* out) except +
+    cdef int TreeliteFreeModel(TreeliteModelHandle handle) except +
     cdef const char* TreeliteGetLastError()
 
 
@@ -174,6 +175,8 @@ cdef class ForestInference_impl():
             device_id,
             self.raft_proto_handle.get_next_usable_stream()
         )
+
+        TreeliteFreeModel(model_handle)
 
     def get_dtype(self):
         return [np.float32, np.float64][self.model.is_double_precision()]
