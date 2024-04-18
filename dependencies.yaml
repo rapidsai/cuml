@@ -116,8 +116,6 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - gmock>=1.13.0
-          - gtest>=1.13.0
           - libcumlprims==24.6.*
           - libraft==24.6.*
           - libraft-headers==24.6.*
