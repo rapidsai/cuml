@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,14 +22,14 @@ namespace detail {
 namespace Predict {
 
 template <typename value_idx, typename value_t>
-__global__ void min_mutual_reachability_kernel(value_t* input_core_dists,
-                                               value_t* prediction_core_dists,
-                                               value_t* pairwise_dists,
-                                               value_idx* neighbor_indices,
-                                               size_t n_prediction_points,
-                                               value_idx neighborhood,
-                                               value_t* min_mr_dists,
-                                               value_idx* min_mr_indices)
+CUML_KERNEL void min_mutual_reachability_kernel(value_t* input_core_dists,
+                                                value_t* prediction_core_dists,
+                                                value_t* pairwise_dists,
+                                                value_idx* neighbor_indices,
+                                                size_t n_prediction_points,
+                                                value_idx neighborhood,
+                                                value_t* min_mr_dists,
+                                                value_idx* min_mr_indices)
 {
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < value_idx(n_prediction_points)) {
@@ -55,18 +55,18 @@ __global__ void min_mutual_reachability_kernel(value_t* input_core_dists,
 }
 
 template <typename value_idx, typename value_t>
-__global__ void cluster_probability_kernel(value_idx* min_mr_indices,
-                                           value_t* prediction_lambdas,
-                                           value_idx* index_into_children,
-                                           value_idx* labels,
-                                           value_t* deaths,
-                                           value_idx* selected_clusters,
-                                           value_idx* parents,
-                                           value_t* lambdas,
-                                           value_idx n_leaves,
-                                           size_t n_prediction_points,
-                                           value_idx* predicted_labels,
-                                           value_t* cluster_probabilities)
+CUML_KERNEL void cluster_probability_kernel(value_idx* min_mr_indices,
+                                            value_t* prediction_lambdas,
+                                            value_idx* index_into_children,
+                                            value_idx* labels,
+                                            value_t* deaths,
+                                            value_idx* selected_clusters,
+                                            value_idx* parents,
+                                            value_t* lambdas,
+                                            value_idx n_leaves,
+                                            size_t n_prediction_points,
+                                            value_idx* predicted_labels,
+                                            value_t* cluster_probabilities)
 {
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < value_idx(n_prediction_points)) {

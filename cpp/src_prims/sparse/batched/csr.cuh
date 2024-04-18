@@ -66,14 +66,14 @@ namespace Batched {
  * @param[in]  nnz        Number of non-zero elements in each matrix
  */
 template <typename T>
-static __global__ void dense_to_csr_kernel(const T* dense,
-                                           const int* col_index,
-                                           const int* row_index,
-                                           T* values,
-                                           int batch_size,
-                                           int m,
-                                           int n,
-                                           int nnz)
+CUML_KERNEL void dense_to_csr_kernel(const T* dense,
+                                     const int* col_index,
+                                     const int* row_index,
+                                     T* values,
+                                     int batch_size,
+                                     int m,
+                                     int n,
+                                     int nnz)
 {
   int bid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -104,14 +104,14 @@ static __global__ void dense_to_csr_kernel(const T* dense,
  * @param[in]  nnz        Number of non-zero elements in each matrix
  */
 template <typename T>
-static __global__ void csr_to_dense_kernel(T* dense,
-                                           const int* col_index,
-                                           const int* row_index,
-                                           const T* values,
-                                           int batch_size,
-                                           int m,
-                                           int n,
-                                           int nnz)
+CUML_KERNEL void csr_to_dense_kernel(T* dense,
+                                     const int* col_index,
+                                     const int* row_index,
+                                     const T* values,
+                                     int batch_size,
+                                     int m,
+                                     int n,
+                                     int nnz)
 {
   int bid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -439,16 +439,16 @@ class CSR {
  * @param[in]     batch_size   Number of individual matrices in the batch
  */
 template <typename T>
-__global__ void batched_spmv_kernel(T alpha,
-                                    const int* A_col_index,
-                                    const int* A_row_index,
-                                    const T* A_values,
-                                    const T* x,
-                                    T beta,
-                                    T* y,
-                                    int m,
-                                    int n,
-                                    int batch_size)
+CUML_KERNEL void batched_spmv_kernel(T alpha,
+                                     const int* A_col_index,
+                                     const int* A_row_index,
+                                     const T* A_values,
+                                     const T* x,
+                                     T beta,
+                                     T* y,
+                                     int m,
+                                     int n,
+                                     int batch_size)
 {
   int bid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -534,18 +534,18 @@ void b_spmv(T alpha,
  * @param[in]     threads_per_bid Number of threads per batch index
  */
 template <typename T>
-__global__ void batched_spmm_kernel(T alpha,
-                                    const int* A_col_index,
-                                    const int* A_row_index,
-                                    const T* A_values,
-                                    const T* B,
-                                    T beta,
-                                    T* C,
-                                    int m,
-                                    int k,
-                                    int n,
-                                    int batch_size,
-                                    int threads_per_bid)
+CUML_KERNEL void batched_spmm_kernel(T alpha,
+                                     const int* A_col_index,
+                                     const int* A_row_index,
+                                     const T* A_values,
+                                     const T* B,
+                                     T beta,
+                                     T* C,
+                                     int m,
+                                     int k,
+                                     int n,
+                                     int batch_size,
+                                     int threads_per_bid)
 {
   int thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   int bid        = thread_idx / threads_per_bid;
@@ -588,17 +588,17 @@ __global__ void batched_spmm_kernel(T alpha,
  * @param[in]     nnz             Number of non-zero elements per matrix
  */
 template <typename T>
-__global__ void batched_spmm_kernel_shared_mem(T alpha,
-                                               const int* A_col_index,
-                                               const int* A_row_index,
-                                               const T* A_values,
-                                               const T* B,
-                                               T beta,
-                                               T* C,
-                                               int m,
-                                               int k,
-                                               int n,
-                                               int nnz)
+CUML_KERNEL void batched_spmm_kernel_shared_mem(T alpha,
+                                                const int* A_col_index,
+                                                const int* A_row_index,
+                                                const T* A_values,
+                                                const T* B,
+                                                T beta,
+                                                T* C,
+                                                int m,
+                                                int k,
+                                                int n,
+                                                int nnz)
 {
   int bid = blockIdx.x;
   int j   = threadIdx.x;

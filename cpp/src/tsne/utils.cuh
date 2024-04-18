@@ -16,6 +16,7 @@
 
 #pragma once
 #include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/norm.cuh>
@@ -147,7 +148,7 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0, PerplexityTime 
   }
 
 template <typename value_t, typename value_idx, int TPB = 256>
-__global__ void min_max_kernel(
+CUML_KERNEL void min_max_kernel(
   const value_t* Y, const value_idx n, value_t* min, value_t* max, bool find_min = true)
 {
   auto tid = threadIdx.x + blockDim.x * blockIdx.x;
@@ -182,10 +183,10 @@ __global__ void min_max_kernel(
  * CUDA kernel to compute KL divergence
  */
 template <typename value_idx, typename value_t>
-__global__ void compute_kl_div_k(const value_t* Ps,
-                                 const value_t* Qs,
-                                 value_t* __restrict__ KL_divs,
-                                 const value_idx NNZ)
+CUML_KERNEL void compute_kl_div_k(const value_t* Ps,
+                                  const value_t* Qs,
+                                  value_t* __restrict__ KL_divs,
+                                  const value_idx NNZ)
 {
   const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= NNZ) return;
