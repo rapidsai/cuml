@@ -16,6 +16,8 @@
 
 #include "test_utils.h"
 
+#include <cuml/common/utils.hpp>
+
 #include <raft/core/interruptible.hpp>
 #include <raft/util/cudart_utils.hpp>
 
@@ -27,7 +29,7 @@
 namespace MLCommon {
 
 template <int TPB>
-__global__ void dlbTestKernel(void* workspace, int len, int* out)
+CUML_KERNEL void dlbTestKernel(void* workspace, int len, int* out)
 {
   DecoupledLookBack<int> dlb(workspace);
   int count   = threadIdx.x == blockDim.x - 1 ? 1 : 0;

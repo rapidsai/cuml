@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,26 +97,26 @@ DI T truncate_gradient(T const rounding_factor, T const x)
 }
 
 template <typename T, int TPB_X, int n_components>
-__global__ void optimize_batch_kernel_reg(T const* head_embedding,
-                                          T* head_buffer,
-                                          int head_n,
-                                          T const* tail_embedding,
-                                          T* tail_buffer,
-                                          const MLCommon::FastIntDiv tail_n,
-                                          const int* head,
-                                          const int* tail,
-                                          int nnz,
-                                          T const* epochs_per_sample,
-                                          T* epoch_of_next_negative_sample,
-                                          T* epoch_of_next_sample,
-                                          T alpha,
-                                          int epoch,
-                                          T gamma,
-                                          uint64_t seed,
-                                          bool move_other,
-                                          UMAPParams params,
-                                          T nsr_inv,
-                                          T rounding)
+CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
+                                           T* head_buffer,
+                                           int head_n,
+                                           T const* tail_embedding,
+                                           T* tail_buffer,
+                                           const MLCommon::FastIntDiv tail_n,
+                                           const int* head,
+                                           const int* tail,
+                                           int nnz,
+                                           T const* epochs_per_sample,
+                                           T* epoch_of_next_negative_sample,
+                                           T* epoch_of_next_sample,
+                                           T alpha,
+                                           int epoch,
+                                           T gamma,
+                                           uint64_t seed,
+                                           bool move_other,
+                                           UMAPParams params,
+                                           T nsr_inv,
+                                           T rounding)
 {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row >= nnz) return;
@@ -211,26 +211,26 @@ __global__ void optimize_batch_kernel_reg(T const* head_embedding,
 }
 
 template <typename T, int TPB_X, bool use_shared_mem>
-__global__ void optimize_batch_kernel(T const* head_embedding,
-                                      T* head_buffer,
-                                      int head_n,
-                                      T const* tail_embedding,
-                                      T* tail_buffer,
-                                      const MLCommon::FastIntDiv tail_n,
-                                      const int* head,
-                                      const int* tail,
-                                      int nnz,
-                                      T const* epochs_per_sample,
-                                      T* epoch_of_next_negative_sample,
-                                      T* epoch_of_next_sample,
-                                      T alpha,
-                                      int epoch,
-                                      T gamma,
-                                      uint64_t seed,
-                                      bool move_other,
-                                      UMAPParams params,
-                                      T nsr_inv,
-                                      T rounding)
+CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
+                                       T* head_buffer,
+                                       int head_n,
+                                       T const* tail_embedding,
+                                       T* tail_buffer,
+                                       const MLCommon::FastIntDiv tail_n,
+                                       const int* head,
+                                       const int* tail,
+                                       int nnz,
+                                       T const* epochs_per_sample,
+                                       T* epoch_of_next_negative_sample,
+                                       T* epoch_of_next_sample,
+                                       T alpha,
+                                       int epoch,
+                                       T gamma,
+                                       uint64_t seed,
+                                       bool move_other,
+                                       UMAPParams params,
+                                       T nsr_inv,
+                                       T rounding)
 {
   extern __shared__ T embedding_shared_mem_updates[];
   int row = (blockIdx.x * TPB_X) + threadIdx.x;

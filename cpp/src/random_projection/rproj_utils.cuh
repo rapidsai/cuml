@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuml/common/utils.hpp>
 #include <cuml/random_projection/rproj_c.h>
 
 #include <raft/random/rng.cuh>
@@ -55,7 +56,7 @@ inline void sample_without_replacement(size_t n_population,
   }
 }
 
-__global__ void sum_bools(bool* in_bools, int n, int* out_val)
+CUML_KERNEL void sum_bools(bool* in_bools, int n, int* out_val)
 {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < n) {

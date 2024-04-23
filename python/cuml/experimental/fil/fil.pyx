@@ -55,6 +55,10 @@ nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* TreeliteModelHandle
+    cdef int TreeliteDeserializeModelFromBytes(const char* bytes_seq, size_t len,
+                                               TreeliteModelHandle* out) except +
+    cdef int TreeliteFreeModel(TreeliteModelHandle handle) except +
+    cdef const char* TreeliteGetLastError()
 
 
 cdef raft_proto_device_t get_device_type(arr):
@@ -137,16 +141,19 @@ cdef class ForestInference_impl():
             use_double_precision_bool = use_double_precision
             use_double_precision_c = use_double_precision_bool
 
-        try:
-            model_handle = tl_model.handle.value
-        except AttributeError:
-            try:
-                model_handle = tl_model.handle
-            except AttributeError:
-                try:
-                    model_handle = tl_model.value
-                except AttributeError:
-                    model_handle = tl_model
+        if not isinstance(tl_model, treelite.Model):
+            raise ValueError("tl_model must be a treelite.Model object")
+        # Serialize Treelite model object and de-serialize again,
+        # to get around C++ ABI incompatibilities (due to different compilers
+        # being used to build cuML pip wheel vs. Treelite pip wheel)
+        bytes_seq = tl_model.serialize_bytes()
+        cdef TreeliteModelHandle model_handle = NULL
+        cdef int res = TreeliteDeserializeModelFromBytes(bytes_seq, len(bytes_seq),
+                                                         &model_handle)
+        cdef str err_msg
+        if res < 0:
+            err_msg = TreeliteGetLastError().decode("UTF-8")
+            raise RuntimeError(f"Failed to load Treelite model from bytes ({err_msg})")
 
         cdef raft_proto_device_t dev_type
         if mem_type.is_device_accessible:
@@ -168,6 +175,8 @@ cdef class ForestInference_impl():
             device_id,
             self.raft_proto_handle.get_next_usable_stream()
         )
+
+        TreeliteFreeModel(model_handle)
 
     def get_dtype(self):
         return [np.float32, np.float64][self.model.is_double_precision()]

@@ -27,6 +27,7 @@
 
 #include <cuml/cluster/dbscan.hpp>
 #include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 
 #include <raft/core/nvtx.hpp>
 #include <raft/label/classlabels.cuh>
@@ -51,7 +52,7 @@ static const int TPB = 256;
  * 2. Subtract 1 from all other labels.
  */
 template <typename Index_ = int>
-__global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL)
+CUML_KERNEL void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL)
 {
   Index_ tid = threadIdx.x + blockDim.x * blockIdx.x;
   if (tid < N) {
