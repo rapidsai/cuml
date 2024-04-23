@@ -31,6 +31,7 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cub/cub.cuh>
 #include <thrust/device_ptr.h>
@@ -501,9 +502,12 @@ class GetResultsTest : public ::testing::Test {
  protected:
   void FreeDenseSupport()
   {
-    rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
-    auto stream                                = this->handle.get_stream();
-    rmm_alloc->deallocate(support_matrix.data, n_coefs * n_cols * sizeof(math_t), stream);
+    rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource();
+    auto stream                              = this->handle.get_stream();
+    rmm_alloc.deallocate_async(support_matrix.data,
+                               n_coefs * n_cols * sizeof(math_t),
+                               rmm::CUDA_ALLOCATION_ALIGNMENT,
+                               stream);
     support_matrix.data = nullptr;
   }
 
