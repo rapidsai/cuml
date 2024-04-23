@@ -15,8 +15,6 @@ dependencies:
 - cuda-version=12.2
 - cxx-compiler
 - gcc_linux-64=11.*
-- gmock>=1.13.0
-- gtest>=1.13.0
 - libcublas-dev
 - libcufft-dev
 - libcumlprims==24.6.*

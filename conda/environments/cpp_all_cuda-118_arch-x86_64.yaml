@@ -13,8 +13,6 @@ dependencies:
 - cudatoolkit
 - cxx-compiler
 - gcc_linux-64=11.*
-- gmock>=1.13.0
-- gtest>=1.13.0
 - libcublas-dev=11.11.3.6
 - libcublas=11.11.3.6
 - libcufft-dev=10.9.0.58
