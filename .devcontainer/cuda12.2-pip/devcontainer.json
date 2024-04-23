@@ -16,7 +16,7 @@
   "hostRequirements": {"gpu": "optional"},
   "features": {
     "ghcr.io/rapidsai/devcontainers/features/ucx:24.6": {
-      "version": "1.14.1"
+      "version": "1.15.0"
     },
     "ghcr.io/rapidsai/devcontainers/features/cuda:24.6": {
       "version": "12.2",
