@@ -24,6 +24,7 @@ cd ${package_dir}
 # For testing, will be removed when the package is released
 git clone -b use-dfg https://github.com/KyleFromNVIDIA/rapids-build-backend.git
 pushd rapids-build-backend
+sed -e 's/^version =.*/version = "0.0.2"/' -i pyproject.toml
 python -m pip wheel . --no-deps
 popd
 
