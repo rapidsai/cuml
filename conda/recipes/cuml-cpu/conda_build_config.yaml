@@ -7,5 +7,5 @@ cxx_compiler_version:
 cmake_version:
   - ">=3.26.4"
 
-sysroot_version:
+c_stdlib_version:
   - "=2.17"
