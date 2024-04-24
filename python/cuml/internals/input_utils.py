@@ -33,7 +33,6 @@ from cuml.internals.safe_imports import (
 )
 
 cudf = gpu_only_import("cudf")
-gpu_only_import("cudf.pandas._wrappers")
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
 global_settings = GlobalSettings()
@@ -165,8 +164,11 @@ def get_supported_input_type(X):
         return CudfDataFrame
 
     # A cudf.pandas wrapped Numpy array defines `__cuda_array_interface__`
-    # which means without this we'd always return a cupy array
-    if isinstance(X, cudf.pandas._wrappers.numpy.ndarray):
+    # which means without this we'd always return a cupy array. We don't want
+    # to match wrapped cupy arrays, they get dealt with later
+    if hasattr(X, "_fsproxy_fast_type") and X.__class__.__module__.endswith(
+        ".numpy"
+    ):
         return np.ndarray
 
     try:
