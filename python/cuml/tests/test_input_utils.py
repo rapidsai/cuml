@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-import os
 import numpy as np
 from pandas import Series as pdSeries
 from cuml.manifold import umap
