@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ from cuml.internals.safe_imports import (
 )
 
 cudf = gpu_only_import("cudf")
+gpu_only_import("cudf.pandas._wrappers")
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
 global_settings = GlobalSettings()
@@ -162,6 +163,11 @@ def get_supported_input_type(X):
 
     if isinstance(X, CudfDataFrame):
         return CudfDataFrame
+
+    # A cudf.pandas wrapped Numpy array defines `__cuda_array_interface__`
+    # which means without this we'd always return a cupy array
+    if isinstance(X, cudf.pandas._wrappers.numpy.ndarray):
+        return np.ndarray
 
     try:
         if numba_cuda.devicearray.is_cuda_ndarray(X):
