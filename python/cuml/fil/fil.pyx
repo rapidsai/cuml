@@ -29,7 +29,6 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free
 
 import cuml.internals
-from cuml.internals.import_utils import has_sklearn
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
@@ -66,6 +65,8 @@ cdef extern from "treelite/c_api.h":
                                        TreeliteModelHandle* out) except +
     cdef int TreeliteSerializeModelToFile(TreeliteModelHandle handle,
                                           const char* filename) except +
+    cdef int TreeliteDeserializeModelFromBytes(const char* bytes_seq, size_t len,
+                                               TreeliteModelHandle* out) except +
     cdef int TreeliteGetHeaderField(
             TreeliteModelHandle model, const char * name, TreelitePyBufferFrame* out_frame) except +
     cdef const char* TreeliteGetLastError()
@@ -166,6 +167,27 @@ cdef class TreeliteModel():
         TreeliteFreeModel(<TreeliteModelHandle> model_ptr)
 
     @classmethod
+    def from_treelite_bytes(cls, bytes bytes_seq):
+        """
+        Returns a TreeliteModel object loaded from bytes representing a
+        serialized Treelite model object.
+
+        Parameters
+        ----------
+        bytes_seq: bytes
+            bytes representing a serialized Treelite model
+        """
+        cdef TreeliteModelHandle handle
+        cdef int res = TreeliteDeserializeModelFromBytes(bytes_seq, len(bytes_seq), &handle)
+        cdef str err_msg
+        if res < 0:
+            err_msg = TreeliteGetLastError().decode("UTF-8")
+            raise RuntimeError(f"Failed to load Treelite model from bytes ({err_msg})")
+        cdef TreeliteModel model = TreeliteModel()
+        model.set_handle(handle)
+        return model
+
+    @classmethod
     def from_filename(cls, filename, model_type="xgboost"):
         """
         Returns a TreeliteModel object loaded from `filename`
@@ -178,30 +200,32 @@ cdef class TreeliteModel():
         model_type : string
             Type of model: 'xgboost', 'xgboost_json', or 'lightgbm'
         """
-        filename_bytes = filename.encode("UTF-8")
-        config_bytes = "{}".encode("UTF-8")
+        cdef bytes filename_bytes = filename.encode("UTF-8")
+        cdef bytes config_bytes = b"{}"
         cdef TreeliteModelHandle handle
+        cdef int res
+        cdef str err_msg
         if model_type == "xgboost":
             res = TreeliteLoadXGBoostModelLegacyBinary(filename_bytes, config_bytes, &handle)
             if res < 0:
-                err = TreeliteGetLastError()
-                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
+                err_msg = TreeliteGetLastError().decode("UTF-8")
+                raise RuntimeError(f"Failed to load {filename} ({err_msg})")
         elif model_type == "xgboost_json":
             res = TreeliteLoadXGBoostModel(filename_bytes, config_bytes, &handle)
             if res < 0:
-                err = TreeliteGetLastError()
-                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
+                err_msg = TreeliteGetLastError().decode("UTF-8")
+                raise RuntimeError(f"Failed to load {filename} ({err_msg})")
         elif model_type == "lightgbm":
             logger.warn("Treelite currently does not support float64 model"
                         " parameters. Accuracy may degrade slightly relative"
                         " to native LightGBM invocation.")
             res = TreeliteLoadLightGBMModel(filename_bytes, config_bytes, &handle)
             if res < 0:
-                err = TreeliteGetLastError()
-                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
+                err_msg = TreeliteGetLastError().decode("UTF-8")
+                raise RuntimeError(f"Failed to load {filename} ({err_msg})")
         else:
-            raise ValueError("Unknown model type %s" % model_type)
-        model = TreeliteModel()
+            raise ValueError(f"Unknown model type {model_type}")
+        cdef TreeliteModel model = TreeliteModel()
         model.set_handle(handle)
         return model
 
@@ -216,7 +240,11 @@ cdef class TreeliteModel():
         """
         assert self.handle != NULL
         filename_bytes = filename.encode("UTF-8")
-        TreeliteSerializeModelToFile(self.handle, filename_bytes)
+        cdef int res = TreeliteSerializeModelToFile(self.handle, filename_bytes)
+        cdef str err_msg
+        if res < 0:
+            err_msg = TreeliteGetLastError().decode("UTF-8")
+            raise RuntimeError(f"Failed to serialize Treelite model ({err_msg})")
 
     @classmethod
     def from_treelite_model_handle(cls,
@@ -515,10 +543,11 @@ cdef class ForestInference_impl():
                       &treelite_params)
         # Get num_class
         cdef TreelitePyBufferFrame frame
-        res = TreeliteGetHeaderField(<TreeliteModelHandle> model_ptr, "num_class", &frame)
+        cdef int res = TreeliteGetHeaderField(<TreeliteModelHandle> model_ptr, "num_class", &frame)
+        cdef str err_msg
         if res < 0:
-            err = TreeliteGetLastError()
-            raise RuntimeError(f"Failed to fetch num_class: {err}")
+            err_msg = TreeliteGetLastError().decode("UTF-8")
+            raise RuntimeError(f"Failed to fetch num_class: {err_msg}")
         view = memoryview(MakePyBufferFrameWrapper(frame))
         self.num_class = np.asarray(view).copy()
         if len(self.num_class) > 1:
@@ -882,19 +911,14 @@ class ForestInference(Base,
         logger.warn("Treelite currently does not support float64 model"
                     " parameters. Accuracy may degrade slightly relative to"
                     " native sklearn invocation.")
-        # TODO(hcho3): Remove this check when https://github.com/dmlc/treelite/issues/544 is fixed
-        if has_sklearn():
-            from sklearn.ensemble import (
-                HistGradientBoostingClassifier as HistGradientBoostingC,
-            )
-            from sklearn.ensemble import (
-                HistGradientBoostingRegressor as HistGradientBoostingR,
-            )
-            if isinstance(skl_model, (HistGradientBoostingR, HistGradientBoostingC)):
-                raise NotImplementedError("HistGradientBoosting estimators are not yet supported")
         tl_model = tl_skl.import_model(skl_model)
+        # Serialize Treelite model object and de-serialize again,
+        # to get around C++ ABI incompatibilities (due to different compilers
+        # being used to build cuML pip wheel vs. Treelite pip wheel)
+        cdef bytes bytes_seq = tl_model.serialize_bytes()
+        cdef TreeliteModel tl_model2 = TreeliteModel.from_treelite_bytes(bytes_seq)
         cuml_fm.load_from_treelite_model(
-            model=tl_model,
+            model=tl_model2,
             output_class=output_class,
             threshold=threshold,
             algo=algo,

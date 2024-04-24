@@ -191,8 +191,7 @@ struct GLMWithDataMG : ML::GLM::detail::GLMWithData<T, GLMObjective> {
     communicator.sync_stream(stream);
 
     if (stder_p != NULL) {
-      stder_p->adapt_gradient_for_linearBwd(
-        *handle_p, G, *(this->Z), (this->X)->n != G.n, n_samples);
+      stder_p->adapt_gradient_for_linearBwd(*handle_p, G, *(this->Z), (this->X)->n != G.n);
       raft::copy(wFlat.data, wFlatOrigin.data(), this->C * this->dims, stream);
     }
 

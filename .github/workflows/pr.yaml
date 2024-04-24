@@ -16,6 +16,7 @@ jobs:
       - clang-tidy
       - conda-cpp-build
       - conda-cpp-tests
+      - conda-cpp-checks
       - conda-python-build
       - conda-python-tests-singlegpu
       - conda-python-tests-dask
@@ -53,6 +54,14 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@branch-24.06
     with:
       build_type: pull-request
+  conda-cpp-checks:
+    needs: conda-cpp-build
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@branch-24.06
+    with:
+      build_type: pull-request
+      enable_check_symbols: true
+      symbol_exclusions: raft_cutlass
   conda-python-build:
     needs: conda-cpp-build
     secrets: inherit

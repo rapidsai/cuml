@@ -18,6 +18,8 @@
 
 #include <common/grid_sync.cuh>
 
+#include <cuml/common/utils.hpp>
+
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
@@ -26,7 +28,7 @@
 
 namespace MLCommon {
 
-__global__ void gridSyncTestKernel(void* workspace, int* out, SyncType type)
+CUML_KERNEL void gridSyncTestKernel(void* workspace, int* out, SyncType type)
 {
   GridSync gs(workspace, type, true);
   bool master;

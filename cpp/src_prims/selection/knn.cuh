@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuml/common/utils.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include <raft/core/handle.hpp>
@@ -47,12 +48,12 @@ inline __device__ T get_lbls(const T* labels, const int64_t* knn_indices, int64_
 }
 
 template <typename OutType = float, bool precomp_lbls = false>
-__global__ void class_probs_kernel(OutType* out,
-                                   const int64_t* knn_indices,
-                                   const int* labels,
-                                   int n_uniq_labels,
-                                   std::size_t n_samples,
-                                   int n_neighbors)
+CUML_KERNEL void class_probs_kernel(OutType* out,
+                                    const int64_t* knn_indices,
+                                    const int* labels,
+                                    int n_uniq_labels,
+                                    std::size_t n_samples,
+                                    int n_neighbors)
 {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i   = row * n_neighbors;
@@ -69,14 +70,14 @@ __global__ void class_probs_kernel(OutType* out,
 }
 
 template <typename OutType = int>
-__global__ void class_vote_kernel(OutType* out,
-                                  const float* class_proba,
-                                  int* unique_labels,
-                                  int n_uniq_labels,
-                                  std::size_t n_samples,
-                                  int n_outputs,
-                                  int output_offset,
-                                  bool use_shared_mem)
+CUML_KERNEL void class_vote_kernel(OutType* out,
+                                   const float* class_proba,
+                                   int* unique_labels,
+                                   int n_uniq_labels,
+                                   std::size_t n_samples,
+                                   int n_outputs,
+                                   int output_offset,
+                                   bool use_shared_mem)
 {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i   = row * n_uniq_labels;
@@ -107,13 +108,13 @@ __global__ void class_vote_kernel(OutType* out,
 }
 
 template <typename LabelType, bool precomp_lbls = false>
-__global__ void regress_avg_kernel(LabelType* out,
-                                   const int64_t* knn_indices,
-                                   const LabelType* labels,
-                                   std::size_t n_samples,
-                                   int n_neighbors,
-                                   int n_outputs,
-                                   int output_offset)
+CUML_KERNEL void regress_avg_kernel(LabelType* out,
+                                    const int64_t* knn_indices,
+                                    const LabelType* labels,
+                                    std::size_t n_samples,
+                                    int n_neighbors,
+                                    int n_outputs,
+                                    int output_offset)
 {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
   int i   = row * n_neighbors;

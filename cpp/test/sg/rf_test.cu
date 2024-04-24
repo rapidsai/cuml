@@ -51,6 +51,26 @@
 
 namespace ML {
 
+namespace DT {
+
+template <typename T>
+using ReturnValue = std::tuple<ML::DT::Quantiles<T, int>,
+                               std::shared_ptr<rmm::device_uvector<T>>,
+                               std::shared_ptr<rmm::device_uvector<int>>>;
+
+template <typename T>
+ReturnValue<T> computeQuantiles(
+  const raft::handle_t& handle, const T* data, int max_n_bins, int n_rows, int n_cols);
+
+template <>
+ReturnValue<float> computeQuantiles<float>(
+  const raft::handle_t& handle, const float* data, int max_n_bins, int n_rows, int n_cols);
+
+template <>
+ReturnValue<double> computeQuantiles<double>(
+  const raft::handle_t& handle, const double* data, int max_n_bins, int n_rows, int n_cols);
+}  // namespace DT
+
 // Utils for changing tuple into struct
 namespace detail {
 template <typename result_type, typename... types, std::size_t... indices>

@@ -34,7 +34,7 @@ struct Params {
 };
 
 template <typename OutT, typename InT, typename IdxT>
-__global__ void castKernel(OutT* out, const InT* in, IdxT len)
+CUML_KERNEL void castKernel(OutT* out, const InT* in, IdxT len)
 {
   auto tid = IdxT(blockIdx.x) * blockDim.x + IdxT(threadIdx.x);
   if (tid < len) { out[tid] = OutT(in[tid]); }

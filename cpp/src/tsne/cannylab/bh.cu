@@ -72,7 +72,7 @@ __device__ volatile float radiusd;
 /*** initialize memory ********************************************************/
 /******************************************************************************/
 
-__global__ void InitializationKernel()
+CUML_KERNEL void InitializationKernel()
 {
   stepd   = -1;
   blkcntd = 0;
@@ -82,14 +82,14 @@ __global__ void InitializationKernel()
 /*** compute center and radius ************************************************/
 /******************************************************************************/
 
-__global__ __launch_bounds__(THREADS1,
-                             FACTOR1) void BoundingBoxKernel(const int nnodesd,
-                                                             const int nbodiesd,
-                                                             int* const __restrict__ startd,
-                                                             int* const __restrict__ childd,
-                                                             float4* const __restrict__ posMassd,
-                                                             float3* const __restrict__ maxd,
-                                                             float3* const __restrict__ mind)
+CUML_KERNEL __launch_bounds__(THREADS1,
+                              FACTOR1) void BoundingBoxKernel(const int nnodesd,
+                                                              const int nbodiesd,
+                                                              int* const __restrict__ startd,
+                                                              int* const __restrict__ childd,
+                                                              float4* const __restrict__ posMassd,
+                                                              float3* const __restrict__ maxd,
+                                                              float3* const __restrict__ mind)
 {
   int i, j, k, inc;
   float val;
@@ -189,9 +189,9 @@ __global__ __launch_bounds__(THREADS1,
 /*** build tree ***************************************************************/
 /******************************************************************************/
 
-__global__ __launch_bounds__(1024, 1) void ClearKernel1(const int nnodesd,
-                                                        const int nbodiesd,
-                                                        int* const __restrict__ childd)
+CUML_KERNEL __launch_bounds__(1024, 1) void ClearKernel1(const int nnodesd,
+                                                         const int nbodiesd,
+                                                         int* const __restrict__ childd)
 {
   int k, inc, top, bottom;
 
@@ -208,7 +208,7 @@ __global__ __launch_bounds__(1024, 1) void ClearKernel1(const int nnodesd,
   }
 }
 
-__global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
+CUML_KERNEL __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
   const int nnodesd,
   const int nbodiesd,
   volatile int* const __restrict__ childd,
@@ -355,9 +355,9 @@ __global__ __launch_bounds__(THREADS2, FACTOR2) void TreeBuildingKernel(
   }
 }
 
-__global__ __launch_bounds__(1024, 1) void ClearKernel2(const int nnodesd,
-                                                        int* const __restrict__ startd,
-                                                        float4* const __restrict__ posMassd)
+CUML_KERNEL __launch_bounds__(1024, 1) void ClearKernel2(const int nnodesd,
+                                                         int* const __restrict__ startd,
+                                                         float4* const __restrict__ posMassd)
 {
   int k, inc, bottom;
 
@@ -378,7 +378,7 @@ __global__ __launch_bounds__(1024, 1) void ClearKernel2(const int nnodesd,
 /*** compute center of mass ***************************************************/
 /******************************************************************************/
 
-__global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
+CUML_KERNEL __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
   const int nnodesd,
   const int nbodiesd,
   volatile int* const __restrict__ countd,
@@ -524,13 +524,13 @@ __global__ __launch_bounds__(THREADS3, FACTOR3) void SummarizationKernel(
 /*** sort bodies **************************************************************/
 /******************************************************************************/
 
-__global__ __launch_bounds__(THREADS4,
-                             FACTOR4) void SortKernel(const int nnodesd,
-                                                      const int nbodiesd,
-                                                      int* const __restrict__ sortd,
-                                                      const int* const __restrict__ countd,
-                                                      volatile int* const __restrict__ startd,
-                                                      int* const __restrict__ childd)
+CUML_KERNEL __launch_bounds__(THREADS4,
+                              FACTOR4) void SortKernel(const int nnodesd,
+                                                       const int nbodiesd,
+                                                       int* const __restrict__ sortd,
+                                                       const int* const __restrict__ countd,
+                                                       volatile int* const __restrict__ startd,
+                                                       int* const __restrict__ childd)
 {
   int i, j, k, ch, dec, start, bottom;
 
@@ -573,7 +573,7 @@ __global__ __launch_bounds__(THREADS4,
 /*** compute force ************************************************************/
 /******************************************************************************/
 
-__global__ __launch_bounds__(THREADS5, FACTOR5) void ForceCalculationKernel(
+CUML_KERNEL __launch_bounds__(THREADS5, FACTOR5) void ForceCalculationKernel(
   const int nnodesd,
   const int nbodiesd,
   const float dthfd,
@@ -692,13 +692,13 @@ __global__ __launch_bounds__(THREADS5, FACTOR5) void ForceCalculationKernel(
 /*** advance bodies ***********************************************************/
 /******************************************************************************/
 
-__global__ __launch_bounds__(THREADS6,
-                             FACTOR6) void IntegrationKernel(const int nbodiesd,
-                                                             const float dtimed,
-                                                             const float dthfd,
-                                                             float4* const __restrict__ posMass,
-                                                             float2* const __restrict__ veld,
-                                                             float4* const __restrict__ accVeld)
+CUML_KERNEL __launch_bounds__(THREADS6,
+                              FACTOR6) void IntegrationKernel(const int nbodiesd,
+                                                              const float dtimed,
+                                                              const float dthfd,
+                                                              float4* const __restrict__ posMass,
+                                                              float2* const __restrict__ veld,
+                                                              float4* const __restrict__ accVeld)
 {
   int i, inc;
   float dvelx, dvely, dvelz;
