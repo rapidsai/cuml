@@ -61,6 +61,7 @@ dependencies = [
     "dask-cudf==24.6.*",
     "joblib>=0.11",
     "numba>=0.57",
+    "packaging",
     "pylibraft==24.6.*",
     "raft-dask==24.6.*",
     "rapids-dask-dependency==24.6.*",
