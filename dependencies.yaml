@@ -220,6 +220,7 @@ dependencies:
             # we make it optional (i.e. an extra for pip
             # installation/run_constrained for conda)?
           - scipy>=1.8.0
+          - packaging
           - *treelite
       - output_types: conda
         packages:
