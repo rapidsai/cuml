@@ -202,6 +202,7 @@ dependencies:
             # we make it optional (i.e. an extra for pip
             # installation/run_constrained for conda)?
           - scipy>=1.8.0
+          - packaging
           - rapids-dask-dependency==24.6.*
           - *treelite
       - output_types: conda

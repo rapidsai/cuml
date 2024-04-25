@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -135,7 +135,7 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     cdef uintptr_t out_ptr = <uintptr_t> out.ptr
 
     if random_state is None:
-        random_state = randint(0, 1e18)
+        random_state = randint(0, 10**18)
 
     if dtype == np.float32:
         cpp_make_arima(handle_[0], <float*> out_ptr, <int> batch_size,

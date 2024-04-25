@@ -47,6 +47,7 @@ dependencies:
 - numba>=0.57
 - numpydoc
 - nvcc_linux-64=11.8
+- packaging
 - pip
 - pydata-sphinx-theme!=0.14.2
 - pylibraft==24.6.*

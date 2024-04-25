@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -120,7 +120,7 @@ def make_classification(
         [-0.8817671  -0.84549576  0.1845096   0.02556021]]
 
         >>> print(y)
-        [0 1 0 1 1 0 0 1 0 0]
+        [1 0 1 1 1 1 1 1 1 0]
 
     Parameters
     ----------
@@ -229,8 +229,6 @@ def make_classification(
     cuml.internals.set_api_output_type("cupy")
 
     generator = _create_rs_generator(random_state)
-    np_seed = int(generator.randint(n_samples, size=1))
-    np.random.seed(np_seed)
 
     # Count features, clusters and samples
     if n_informative + n_redundant + n_repeated > n_features:
@@ -307,13 +305,8 @@ def make_classification(
         proba_samples_per_cluster = np.array(n_samples_per_cluster) / np.sum(
             n_samples_per_cluster
         )
-        shuffled_sample_indices = cp.array(
-            np.random.choice(
-                n_clusters,
-                n_samples,
-                replace=True,
-                p=proba_samples_per_cluster,
-            )
+        shuffled_sample_indices = generator.choice(
+            n_clusters, n_samples, replace=True, p=proba_samples_per_cluster
         )
         for k, centroid in enumerate(centroids):
             centroid_indices = cp.where(shuffled_sample_indices == k)

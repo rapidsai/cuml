@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -340,7 +340,7 @@ class KernelExplainer(SHAPBase):
         x_ptr = get_cai_ptr(self._mask)
 
         if self.random_state is None:
-            self.random_state = randint(0, 1e18)
+            self.random_state = randint(0, 10**18)
 
         # we default to float32 unless self.dtype is specifically np.float64
         if self.dtype == np.float64:

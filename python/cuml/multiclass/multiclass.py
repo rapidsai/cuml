@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ class MulticlassClassifier(Base, ClassifierMixin):
         >>> cls.fit(X,y)
         MulticlassClassifier()
         >>> cls.predict(X)
-        array([2, 0, 2, 2, 2, 1, 1, 0, 1, 1])
+        array([1, 1, 1, 1, 1, 1, 2, 1, 1, 2])
 
     Parameters
     ----------
@@ -228,7 +228,7 @@ class OneVsRestClassifier(MulticlassClassifier):
         >>> cls.fit(X,y)
         OneVsRestClassifier()
         >>> cls.predict(X)
-        array([2, 0, 2, 2, 2, 1, 1, 0, 1, 1])
+        array([1, 1, 1, 1, 1, 1, 2, 1, 1, 2])
 
 
     Parameters
@@ -303,7 +303,7 @@ class OneVsOneClassifier(MulticlassClassifier):
         >>> cls.fit(X,y)
         OneVsOneClassifier()
         >>> cls.predict(X)
-        array([2, 0, 2, 2, 2, 1, 1, 0, 1, 1])
+        array([1, 1, 1, 1, 1, 1, 2, 1, 1, 2])
 
     Parameters
     ----------
