@@ -8,13 +8,19 @@ set -euo pipefail
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
+LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1544 cpp)
+RMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1544 python)
+LIBRAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2279 cpp)
+RAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2279 python)
+LIBCUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 15603 cpp)
+CUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 15603 python)
 
 rapids-logger "Generate Python testing dependencies"
 rapids-dependency-file-generator \
   --output conda \
   --file_key test_python \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" \
-  --prepend-channels "${CPP_CHANNEL};${PYTHON_CHANNEL}" | tee env.yaml
+  --prepend-channels "${CPP_CHANNEL};${PYTHON_CHANNEL};${LIBRMM_CHANNEL};${RMM_CHANNEL};${LIBRAFT_CHANNEL};${LIBCUDF_CHANNEL};${CUDF_CHANNEL}" | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
 

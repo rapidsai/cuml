@@ -16,6 +16,9 @@ sysroot_version:
 cmake_version:
   - ">=3.26.4"
 
+spdlog_version:
+  - ">=1.13.0,<1.14"
+
 treelite_version:
   - "=4.1.2"
 
