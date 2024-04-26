@@ -22,7 +22,7 @@ requirements:
     - cmake {{ cmake_version }}
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
-    - sysroot_{{ target_platform }} {{ sysroot_version }}
+    - {{ stdlib("c") }}
     - ninja
   host:
     - python x.x
