@@ -38,31 +38,31 @@ cuda = gpu_only_import_from("numba", "cuda")
 
 
 def _compute_stratify_split_indices(
-    # X: CumlArray,
     indices: cp.ndarray,
     stratify: CumlArray,
-    # labels: CumlArray,
     n_train: int,
     n_test: int,
     random_state: cp.random.RandomState,
 ) -> Tuple[cp.ndarray]:
     """
-    Function to perform a stratified split based on stratify column.
+    Compute the indices for stratified split based on stratify keys.
     Based on scikit-learn stratified split implementation.
 
     Parameters
     ----------
-    X, labels: Shuffled input data and labels
-    stratify: column to be stratified on.
+    indices: cupy array
+        Indices used to shuffle input data
+    stratify: CumlArray
+        Keys used for stratification
     n_train: Number of samples in train set
     n_test: number of samples in test set
+    random_state: cupy RandomState
+        Random state used for shuffling stratify keys
 
     Returns
     -------
-    X_train, X_test: Data X divided into train and test sets
-    y_train, y_test: Labels divided into train and test sets
-    train_indices, test_indices: Indices of X and labels with which
-        train and test sets are gathered
+    train_indices, test_indices:
+        Indices of inputs from which train and test sets are gathered
     """
 
     if indices.ndim != 1:
@@ -121,16 +121,6 @@ def _compute_stratify_split_indices(
 
     train_indices = cp.concatenate(train_indices_partials, axis=0)
     test_indices = cp.concatenate(test_indices_partials, axis=0)
-
-    # X_train = X[train_indices]
-    # X_test = X[test_indices]
-    # y_train = labels[train_indices]
-    # y_test = labels[test_indices]
-
-    # X_train = CumlArray.from_input(X_train, order=X.order)
-    # X_test = CumlArray.from_input(X_test, order=X.order)
-    # y_train = CumlArray.from_input(y_train, order=labels.order)
-    # y_test = CumlArray.from_input(y_test, order=labels.order)
 
     return indices[train_indices], indices[test_indices]
 
@@ -380,7 +370,7 @@ def train_test_split(
         y_train = y_arr[train_indices]
         y_test = y_arr[test_indices]
 
-    # Coerce output to origin input type
+    # Coerce output to original input type
     if ty := determine_df_obj_type(X):
         x_type = ty
     else:
