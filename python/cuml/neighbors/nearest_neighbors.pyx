@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -253,11 +253,11 @@ class NearestNeighbors(UniversalBase,
         >>> # print results
         >>> print(indices)
         0  1  2
-        0  0  1  3
-        1  1  0  2
+        0  0  3  1
+        1  1  3  0
         2  2  4  0
-        3  3  0  2
-        4  4  2  3
+        3  3  0  1
+        4  4  2  0
         >>> print(distances) # doctest: +SKIP
                 0          1          2
         0  0.007812  24.786566  26.399996

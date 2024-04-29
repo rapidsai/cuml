@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ def test_serialize_mnmg_model(client):
     X, y = make_regression(n_samples=1000, n_features=20, random_state=0)
     X, y = da.from_array(X), da.from_array(y)
 
-    model = LinearRegression(client)
+    model = LinearRegression(client=client)
     model.fit(X, y)
 
     pickled_model = pickle.dumps(model)
