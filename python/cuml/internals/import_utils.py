@@ -16,8 +16,9 @@
 
 import platform
 
-from cuml.internals.safe_imports import gpu_only_import, UnavailableError
 from packaging.version import Version
+
+from cuml.internals.safe_imports import gpu_only_import, UnavailableError
 
 
 numba = gpu_only_import("numba")

@@ -15,6 +15,7 @@
 from contextlib import nullcontext
 from functools import lru_cache
 
+from packaging.version import Version
 import pytest
 import sklearn
 from cuml.internals.array import elements_in_representable_range

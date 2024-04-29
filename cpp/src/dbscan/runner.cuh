@@ -178,6 +178,15 @@ std::size_t run(const raft::handle_t& handle,
     return size;
   }
 
+  if (sparse_rbc_mode && (std::size_t)D > static_cast<std::size_t>(MAX_LABEL / N)) {
+    CUML_LOG_WARN(
+      "You are using an index type of size (%d bytes) which is not sufficient "
+      "to represent the input dimensions in the RBC index. "
+      "Consider using a larger index type. Falling back to BRUTE_FORCE strategy.",
+      (int)sizeof(Index_));
+    sparse_rbc_mode = false;
+  }
+
   // partition the temporary workspace needed for different stages of dbscan.
 
   std::vector<Index_> batchadjlen(n_batches);
@@ -211,7 +220,7 @@ std::size_t run(const raft::handle_t& handle,
   raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_, Index_>* rbc_index_ptr =
     nullptr;
   raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_, Index_> rbc_index(
-    handle, x, N, D, metric);
+    handle, x, sparse_rbc_mode ? N : 0, sparse_rbc_mode ? D : 0, metric);
 
   if (sparse_rbc_mode) {
     raft::neighbors::ball_cover::build_index(handle, rbc_index);
