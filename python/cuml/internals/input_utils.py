@@ -608,8 +608,8 @@ def output_to_df_obj_like(
 ):
     """Cast CumlArray `X_out` to the dataframe / series type as `X_in`
     `CumlArray` abstracts away the dataframe / series metadata, when API
-    methods needs to return a dataframe / object matching original input
-    metadata, this function can be used to copy input metadata to output.
+    methods needs to return a dataframe / series matching original input
+    metadata, this function can copy input metadata to output.
     """
 
     if output_type not in ["series", "dataframe"]:
