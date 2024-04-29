@@ -425,8 +425,6 @@ def test_lbfgs(
         np.abs(accuracy_cuml - accuracy_sk) < 1e-3
     )
 
-    return lr
-
 
 @pytest.mark.parametrize("fit_intercept", [False, True])
 def test_noreg(fit_intercept, client):
