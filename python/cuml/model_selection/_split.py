@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 from cuml.common import input_to_cuml_array
 from cuml.internals.input_utils import (
@@ -38,13 +38,13 @@ cuda = gpu_only_import_from("numba", "cuda")
 
 def _stratify_split(
     X: CumlArray,
-    stratify,
-    labels,
-    n_train,
-    n_test,
-    x_numba,
-    y_numba,
-    random_state,
+    stratify: CumlArray,
+    labels: CumlArray,
+    n_train: int,
+    n_test: int,
+    random_state: Optional[
+        Union[int, cp.random.RandomState, np.random.RandomState]
+    ],
 ):
     """
     Function to perform a stratified split based on stratify column.
@@ -56,55 +56,28 @@ def _stratify_split(
     stratify: column to be stratified on.
     n_train: Number of samples in train set
     n_test: number of samples in test set
-    x_numba: Determines whether the data should be converted to numba
-    y_numba: Determines whether the labales should be converted to numba
 
     Returns
     -------
     X_train, X_test: Data X divided into train and test sets
     y_train, y_test: Labels divided into train and test sets
+    train_indices, test_indices: Indices of X and labels with which
+        train and test sets are gathered
     """
-    x_cudf = False
-    labels_cudf = False
 
-    if isinstance(X, cudf.DataFrame):
-        x_cudf = True
-    elif hasattr(X, "__cuda_array_interface__"):
-        X = cp.asarray(X)
-    x_order = array_to_memory_order(X)
-
-    # labels and stratify will be only cp arrays
-    if isinstance(labels, cudf.Series):
-        labels_cudf = True
-        labels = labels.values
-    elif hasattr(labels, "__cuda_array_interface__"):
-        labels = cp.asarray(labels)
-    elif isinstance(stratify, cudf.DataFrame):
-        # ensuring it has just one column
-        if labels.shape[1] != 1:
-            raise ValueError(
-                "Expected one column for labels, but found df"
-                "with shape = %d" % (labels.shape)
-            )
-        labels_cudf = True
-        labels = labels[0].values
-
-    labels_order = array_to_memory_order(labels)
+    if labels.ndim != 1:
+        raise ValueError(
+            "Expected one dimension for labels, but found array"
+            "with shape = %d" % (labels.shape)
+        )
+    if stratify.ndim != 1:
+        raise ValueError(
+            "Expected one one dimension for stratify, but found array"
+            "with shape = %d" % (stratify.shape)
+        )
 
     # Converting to cupy array removes the need to add an if-else block
     # for startify column
-    if isinstance(stratify, cudf.Series):
-        stratify = stratify.values
-    elif hasattr(stratify, "__cuda_array_interface__"):
-        stratify = cp.asarray(stratify)
-    elif isinstance(stratify, cudf.DataFrame):
-        # ensuring it has just one column
-        if stratify.shape[1] != 1:
-            raise ValueError(
-                "Expected one column, but found column"
-                "with shape = %d" % (stratify.shape)
-            )
-        stratify = stratify[0].values
 
     classes, stratify_indices = cp.unique(stratify, return_inverse=True)
 
@@ -124,11 +97,10 @@ def _stratify_split(
             "equal to the number of classes = %d" % (n_train, n_classes)
         )
 
-    class_indices = cp.split(
+    # List of length n_classes. Each element contains indices of that class.
+    class_indices: List[cp.ndarray] = cp.split(
         cp.argsort(stratify_indices), cp.cumsum(class_counts)[:-1].tolist()
     )
-
-    X_train = None
 
     # random_state won't be None or int, that's handled earlier
     if isinstance(random_state, np.random.RandomState):
@@ -139,69 +111,31 @@ def _stratify_split(
     class_counts_remaining = class_counts - n_i
     t_i = _approximate_mode(class_counts_remaining, n_test, random_state)
 
+    train_indices_partials = []
+    test_indices_partials = []
     for i in range(n_classes):
         permutation = random_state.permutation(class_counts[i].item())
         perm_indices_class_i = class_indices[i].take(permutation)
 
-        y_train_i = cp.array(
-            labels[perm_indices_class_i[: n_i[i]]], order=labels_order
+        train_indices_partials.append(perm_indices_class_i[: n_i[i]])
+        test_indices_partials.append(
+            perm_indices_class_i[n_i[i] : n_i[i] + t_i[i]]
         )
-        y_test_i = cp.array(
-            labels[perm_indices_class_i[n_i[i] : n_i[i] + t_i[i]]],
-            order=labels_order,
-        )
-        if hasattr(X, "__cuda_array_interface__") or isinstance(
-            X, cupyx.scipy.sparse.csr_matrix
-        ):
-            X_train_i = cp.array(
-                X[perm_indices_class_i[: n_i[i]]], order=x_order
-            )
-            X_test_i = cp.array(
-                X[perm_indices_class_i[n_i[i] : n_i[i] + t_i[i]]],
-                order=x_order,
-            )
 
-            if X_train is None:
-                X_train = cp.array(X_train_i, order=x_order)
-                y_train = cp.array(y_train_i, order=labels_order)
-                X_test = cp.array(X_test_i, order=x_order)
-                y_test = cp.array(y_test_i, order=labels_order)
-            else:
-                X_train = cp.concatenate([X_train, X_train_i], axis=0)
-                X_test = cp.concatenate([X_test, X_test_i], axis=0)
-                y_train = cp.concatenate([y_train, y_train_i], axis=0)
-                y_test = cp.concatenate([y_test, y_test_i], axis=0)
+    train_indices = cp.concatenate(train_indices_partials, axis=0)
+    test_indices = cp.concatenate(test_indices_partials, axis=0)
 
-        elif x_cudf:
-            X_train_i = X.iloc[perm_indices_class_i[: n_i[i]]]
-            X_test_i = X.iloc[perm_indices_class_i[n_i[i] : n_i[i] + t_i[i]]]
+    X_train = X[train_indices]
+    X_test = X[test_indices]
+    y_train = labels[train_indices]
+    y_test = labels[test_indices]
 
-            if X_train is None:
-                X_train = X_train_i
-                y_train = y_train_i
-                X_test = X_test_i
-                y_test = y_test_i
-            else:
-                X_train = cudf.concat([X_train, X_train_i], ignore_index=False)
-                X_test = cudf.concat([X_test, X_test_i], ignore_index=False)
-                y_train = cp.concatenate([y_train, y_train_i], axis=0)
-                y_test = cp.concatenate([y_test, y_test_i], axis=0)
+    X_train = CumlArray.from_input(X_train, order=X.order)
+    X_test = CumlArray.from_input(X_test, order=X.order)
+    y_train = CumlArray.from_input(y_train, order=labels.order)
+    y_test = CumlArray.from_input(y_test, order=labels.order)
 
-    if x_numba:
-        X_train = cuda.as_cuda_array(X_train)
-        X_test = cuda.as_cuda_array(X_test)
-    elif x_cudf:
-        X_train = cudf.DataFrame(X_train)
-        X_test = cudf.DataFrame(X_test)
-
-    if y_numba:
-        y_train = cuda.as_cuda_array(y_train)
-        y_test = cuda.as_cuda_array(y_test)
-    elif labels_cudf:
-        y_train = cudf.Series(y_train)
-        y_test = cudf.Series(y_test)
-
-    return X_train, X_test, y_train, y_test
+    return X_train, X_test, y_train, y_test, train_indices, test_indices
 
 
 def _approximate_mode(class_counts, n_draws, rng):
@@ -383,9 +317,6 @@ def train_test_split(
                 "first dimension of X (found {})".format(test_size)
             )
 
-    x_numba = cuda.devicearray.is_cuda_ndarray(X)
-    y_numba = cuda.devicearray.is_cuda_ndarray(y)
-
     # Determining sizes of splits
     if isinstance(train_size, float):
         train_size = int(X_row * train_size)
@@ -433,26 +364,62 @@ def train_test_split(
             stratify, *_ = input_to_cuml_array(stratify)
             stratify = stratify[idxs]
 
-            split_return = _stratify_split(
-                X,
+            (
+                X_train,
+                X_test,
+                y_train,
+                y_test,
+                train_indices,
+                test_indices,
+            ) = _stratify_split(
+                X_arr,
                 stratify,
-                y,
+                y_arr,
                 train_size,
                 test_size,
-                x_numba,
-                y_numba,
                 random_state,
             )
-            return split_return
+
+            if ty := determine_df_obj_type(X):
+                x_type = ty
+            else:
+                x_type = determine_array_type(X)
+
+            if ty := determine_df_obj_type(y):
+                y_type = ty
+            else:
+                y_type = determine_array_type(y)
+
+            if x_type in ("series", "dataframe"):
+                X_train = output_to_df_obj_like(X_train, X, x_type)
+                X_test = output_to_df_obj_like(X_test, X, x_type)
+
+                X_train.index = X.index[idxs][train_indices]
+                X_test.index = X.index[idxs][test_indices]
+            else:
+                X_train = X_train.to_output(x_type)
+                X_test = X_test.to_output(x_type)
+
+            if y_type in ("series", "dataframe"):
+                y_train = output_to_df_obj_like(y_train, y, y_type)
+                y_test = output_to_df_obj_like(y_test, y, y_type)
+
+                y_train.index = y.index[idxs][train_indices]
+                y_test.index = y.index[idxs][test_indices]
+            elif y_type is not None:
+                y_train = y_train.to_output(y_type)
+                y_test = y_test.to_output(y_type)
+
+            return X_train, X_test, y_train, y_test
 
     # If not stratified, perform train_test_split splicing
-
     X_train = X_arr[0:train_size]
     X_test = X_arr[-1 * test_size :]
     if y is not None:
         y_train = y_arr[0:train_size]
         y_test = y_arr[-1 * test_size :]
 
+    # Coerce output to origin input type
     if ty := determine_df_obj_type(X):
         x_type = ty
     else:
