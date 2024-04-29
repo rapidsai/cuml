@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,12 @@
 from typing import Optional, Union
 
 from cuml.common import input_to_cuml_array
-from cuml.internals.array import array_to_memory_order
+from cuml.internals.input_utils import (
+    determine_array_type,
+    determine_df_obj_type,
+    output_to_df_obj_like,
+)
+from cuml.internals.array import array_to_memory_order, CumlArray
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import,
@@ -32,7 +37,14 @@ cuda = gpu_only_import_from("numba", "cuda")
 
 
 def _stratify_split(
-    X, stratify, labels, n_train, n_test, x_numba, y_numba, random_state
+    X: CumlArray,
+    stratify,
+    labels,
+    n_train,
+    n_test,
+    x_numba,
+    y_numba,
+    random_state,
 ):
     """
     Function to perform a stratified split based on stratify column.
@@ -40,7 +52,7 @@ def _stratify_split(
 
     Parameters
     ----------
-    X, y: Shuffled input data and labels
+    X, labels: Shuffled input data and labels
     stratify: column to be stratified on.
     n_train: Number of samples in train set
     n_test: number of samples in test set
@@ -332,38 +344,15 @@ def train_test_split(
                              string"
             )
 
-    # todo: this check will be replaced with upcoming improvements
-    # to input_utils
-    #
+    x_order = array_to_memory_order(X)
+    X_arr, X_row, X_col, X_dtype = input_to_cuml_array(X, order=x_order)
     if y is not None:
-        if not hasattr(X, "__cuda_array_interface__") and not isinstance(
-            X, cudf.DataFrame
-        ):
-            raise TypeError(
-                "X needs to be either a cuDF DataFrame, Series or \
-                            a cuda_array_interface compliant array."
-            )
-
-        if not hasattr(y, "__cuda_array_interface__") and not isinstance(
-            y, cudf.DataFrame
-        ):
-            raise TypeError(
-                "y needs to be either a cuDF DataFrame, Series or \
-                            a cuda_array_interface compliant array."
-            )
-
-        if X.shape[0] != y.shape[0]:
+        y_order = array_to_memory_order(y)
+        y_arr, y_row, y_col, y_dtype = input_to_cuml_array(y, order=y_order)
+        if X_row != y_row:
             raise ValueError(
                 "X and y must have the same first dimension"
-                "(found {} and {})".format(X.shape[0], y.shape[0])
-            )
-    else:
-        if not hasattr(X, "__cuda_array_interface__") and not isinstance(
-            X, cudf.DataFrame
-        ):
-            raise TypeError(
-                "X needs to be either a cuDF DataFrame, Series or \
-                            a cuda_array_interface compliant object."
+                "(found {} and {})".format(X_row, y_row)
             )
 
     if isinstance(train_size, float):
@@ -374,7 +363,7 @@ def train_test_split(
             )
 
     if isinstance(train_size, int):
-        if not 0 <= train_size <= X.shape[0]:
+        if not 0 <= train_size <= X_row:
             raise ValueError(
                 "Number of instances train_size should be between 0 and the"
                 "first dimension of X (found {})".format(train_size)
@@ -388,7 +377,7 @@ def train_test_split(
             )
 
     if isinstance(test_size, int):
-        if not 0 <= test_size <= X.shape[0]:
+        if not 0 <= test_size <= X_row:
             raise ValueError(
                 "Number of instances test_size should be between 0 and the"
                 "first dimension of X (found {})".format(test_size)
@@ -399,34 +388,34 @@ def train_test_split(
 
     # Determining sizes of splits
     if isinstance(train_size, float):
-        train_size = int(X.shape[0] * train_size)
+        train_size = int(X_row * train_size)
 
     if test_size is None:
         if train_size is None:
-            train_size = int(X.shape[0] * 0.75)
+            train_size = int(X_row * 0.75)
 
-        test_size = X.shape[0] - train_size
+        test_size = X_row - train_size
 
     if isinstance(test_size, float):
-        test_size = int(X.shape[0] * test_size)
+        test_size = int(X_row * test_size)
         if train_size is None:
-            train_size = X.shape[0] - test_size
+            train_size = X_row - test_size
 
     elif isinstance(test_size, int):
         if train_size is None:
-            train_size = X.shape[0] - test_size
+            train_size = X_row - test_size
 
     if shuffle:
         # Shuffle the data
         if random_state is None or isinstance(random_state, int):
-            idxs = cp.arange(X.shape[0])
+            idxs = cp.arange(X_row)
             random_state = cp.random.RandomState(seed=random_state)
 
         elif isinstance(random_state, cp.random.RandomState):
-            idxs = cp.arange(X.shape[0])
+            idxs = cp.arange(X_row)
 
         elif isinstance(random_state, np.random.RandomState):
-            idxs = np.arange(X.shape[0])
+            idxs = np.arange(X_row)
 
         else:
             raise TypeError(
@@ -436,28 +425,13 @@ def train_test_split(
 
         random_state.shuffle(idxs)
 
-        if isinstance(X, cudf.DataFrame) or isinstance(X, cudf.Series):
-            X = X.iloc[idxs]
-
-        elif hasattr(X, "__cuda_array_interface__"):
-            # numba (and therefore rmm device_array) does not support
-            # fancy indexing
-            X = cp.asarray(X)[idxs]
-
-        if isinstance(y, cudf.DataFrame) or isinstance(y, cudf.Series):
-            y = y.iloc[idxs]
-
-        elif hasattr(y, "__cuda_array_interface__"):
-            y = cp.asarray(y)[idxs]
+        X_arr = X_arr[idxs]
+        if y is not None:
+            y_arr = y_arr[idxs]
 
         if stratify is not None:
-            if isinstance(stratify, cudf.DataFrame) or isinstance(
-                stratify, cudf.Series
-            ):
-                stratify = stratify.iloc[idxs]
-
-            elif hasattr(stratify, "__cuda_array_interface__"):
-                stratify = cp.asarray(stratify)[idxs]
+            stratify, *_ = input_to_cuml_array(stratify)
+            stratify = stratify[idxs]
 
             split_return = _stratify_split(
                 X,
@@ -472,41 +446,42 @@ def train_test_split(
             return split_return
 
     # If not stratified, perform train_test_split splicing
-    x_order = array_to_memory_order(X)
 
-    if y is None:
-        y_order = None
+    X_train = X_arr[0:train_size]
+    X_test = X_arr[-1 * test_size :]
+    if y is not None:
+        y_train = y_arr[0:train_size]
+        y_test = y_arr[-1 * test_size :]
+
+    if ty := determine_df_obj_type(X):
+        x_type = ty
     else:
-        y_order = array_to_memory_order(y)
+        x_type = determine_array_type(X)
 
-    if hasattr(X, "__cuda_array_interface__") or isinstance(
-        X, cupyx.scipy.sparse.csr_matrix
-    ):
-        X_train = cp.array(X[0:train_size], order=x_order)
-        X_test = cp.array(X[-1 * test_size :], order=x_order)
-        if y is not None:
-            y_train = cp.array(y[0:train_size], order=y_order)
-            y_test = cp.array(y[-1 * test_size :], order=y_order)
-    elif isinstance(X, cudf.DataFrame):
-        X_train = X.iloc[0:train_size]
-        X_test = X.iloc[-1 * test_size :]
-        if y is not None:
-            if isinstance(y, cudf.Series):
-                y_train = y.iloc[0:train_size]
-                y_test = y.iloc[-1 * test_size :]
-            elif hasattr(y, "__cuda_array_interface__") or isinstance(
-                y, cupyx.scipy.sparse.csr_matrix
-            ):
-                y_train = cp.array(y[0:train_size], order=y_order)
-                y_test = cp.array(y[-1 * test_size :], order=y_order)
+    if ty := determine_df_obj_type(y):
+        y_type = ty
+    else:
+        y_type = determine_array_type(y)
 
-    if x_numba:
-        X_train = cuda.as_cuda_array(X_train)
-        X_test = cuda.as_cuda_array(X_test)
+    if x_type in ("series", "dataframe"):
+        X_train = output_to_df_obj_like(X_train, X, x_type)
+        X_test = output_to_df_obj_like(X_test, X, x_type)
 
-    if y_numba:
-        y_train = cuda.as_cuda_array(y_train)
-        y_test = cuda.as_cuda_array(y_test)
+        X_train.index = X.index[0:train_size]
+        X_test.index = X.index[-1 * test_size :]
+    else:
+        X_train = X_train.to_output(x_type)
+        X_test = X_test.to_output(x_type)
+
+    if y_type in ("series", "dataframe"):
+        y_train = output_to_df_obj_like(y_train, y, y_type)
+        y_test = output_to_df_obj_like(y_test, y, y_type)
+
+        y_train.index = y.index[0:train_size]
+        y_test.index = y.index[-1 * test_size :]
+    elif y_type is not None:
+        y_train = y_train.to_output(y_type)
+        y_test = y_test.to_output(y_type)
 
     if y is not None:
         return X_train, X_test, y_train, y_test

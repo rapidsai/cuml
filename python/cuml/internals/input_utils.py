@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 #
 
 from collections import namedtuple
+from typing import Literal
 
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
@@ -78,8 +79,8 @@ _input_type_to_str = {
 
 try:
     _input_type_to_str[cp_ndarray] = "cupy"
-    _input_type_to_str[CudfSeries] = "cudf"
-    _input_type_to_str[CudfDataFrame] = "cudf"
+    _input_type_to_str[CudfSeries] = "cudf_series"
+    _input_type_to_str[CudfDataFrame] = "cudf_dataframe"
     _input_type_to_str[NumbaDeviceNDArrayBase] = "numba"
 except UnavailableError:
     pass
@@ -203,6 +204,21 @@ def determine_array_type(X):
     gen_type = get_supported_input_type(X)
 
     return _input_type_to_str.get(gen_type, None)
+
+
+def determine_df_obj_type(X):
+    if X is None:
+        return None
+
+    # Get the generic type
+    gen_type = get_supported_input_type(X)
+
+    if gen_type in (CudfDataFrame, PandasDataFrame):
+        return "dataframe"
+    elif gen_type in (CudfSeries, PandasSeries):
+        return "series"
+
+    return None
 
 
 def determine_array_dtype(X):
@@ -575,3 +591,27 @@ def sparse_scipy_to_cp(sp, dtype):
     v = cp.asarray(values, dtype=dtype)
 
     return cupyx.scipy.sparse.coo_matrix((v, (r, c)), sp.shape)
+
+
+def output_to_df_obj_like(
+    X_out: CumlArray, X_in, output_type: Literal["series", "dataframe"]
+):
+    """Cast CumlArray `X_out` to the dataframe / series type as `X_in`
+    `CumlArray` abstracts away the dataframe / series metadata, when API
+    methods needs to return a dataframe / object matching original input
+    metadata, this function can be used to copy input metadata to output.
+    """
+
+    if output_type not in ["series", "dataframe"]:
+        raise ValueError(
+            f'output_type must be either "series" or "dataframe" : {output_type}'
+        )
+
+    out = None
+    if output_type == "series":
+        out = X_out.to_output("series")
+        out.name = X_in.name
+    elif output_type == "dataframe":
+        out = X_out.to_output("dataframe")
+        out.columns = X_in.columns
+    return out

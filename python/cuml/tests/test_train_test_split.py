@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,10 +23,11 @@ from cuml.internals.safe_imports import gpu_only_import
 cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
+pd = cpu_only_import("pandas")
 
 cuda = gpu_only_import_from("numba", "cuda")
 
-test_array_input_types = ["numba", "cupy"]
+test_array_input_types = ["numba", "cupy", "cudf", "pandas"]
 
 test_seeds = ["int", "cupy", "numpy"]
 
@@ -169,6 +170,14 @@ def test_array_split(type, test_size, train_size, shuffle):
         X = cuda.to_device(X)
         y = cuda.to_device(y)
 
+    if type == "cudf":
+        X = cudf.DataFrame(X)
+        y = cudf.DataFrame(y)
+
+    if type == "pandas":
+        X = pd.DataFrame(X)
+        y = pd.DataFrame(y)
+
     X_train, X_test, y_train, y_test = train_test_split(
         X,
         y,
@@ -262,6 +271,13 @@ def test_split_array_single_argument(type, test_size, train_size, shuffle):
 
     if type == "numba":
         X = cuda.to_device(X)
+
+    if type == "cudf":
+        X = cudf.DataFrame(X)
+
+    if type == "pandas":
+        X = pd.DataFrame(X)
+
     X_train, X_test = train_test_split(
         X,
         train_size=train_size,
