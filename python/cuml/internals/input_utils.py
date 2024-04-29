@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,8 +46,8 @@ scipy_sparse = safe_import(
 cp_ndarray = gpu_only_import_from("cupy", "ndarray")
 CudfSeries = gpu_only_import_from("cudf", "Series")
 CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
-DaskCudfSeries = gpu_only_import_from("dask_cudf.core", "Series")
-DaskCudfDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
+DaskCudfSeries = gpu_only_import_from("dask_cudf", "Series")
+DaskCudfDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
 np_ndarray = cpu_only_import_from("numpy", "ndarray")
 numba_devicearray = gpu_only_import_from("numba.cuda", "devicearray")
 try:
