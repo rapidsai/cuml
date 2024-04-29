@@ -47,6 +47,7 @@ scipy_sparse = safe_import(
 cp_ndarray = gpu_only_import_from("cupy", "ndarray")
 CudfSeries = gpu_only_import_from("cudf", "Series")
 CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
+CudfIndex = gpu_only_import_from("cudf", "Index")
 DaskCudfSeries = gpu_only_import_from("dask_cudf.core", "Series")
 DaskCudfDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
 np_ndarray = cpu_only_import_from("numpy", "ndarray")
@@ -65,6 +66,7 @@ cupyx_isspmatrix = gpu_only_import_from(
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 PandasSeries = cpu_only_import_from("pandas", "Series")
 PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
+PandasIndex = cpu_only_import_from("pandas", "Index")
 
 cuml_array = namedtuple("cuml_array", "array n_rows n_cols dtype")
 
@@ -74,13 +76,15 @@ _input_type_to_str = {
     np_ndarray: "numpy",
     PandasSeries: "pandas",
     PandasDataFrame: "pandas",
+    PandasIndex: "pandas",
 }
 
 
 try:
     _input_type_to_str[cp_ndarray] = "cupy"
-    _input_type_to_str[CudfSeries] = "cudf_series"
-    _input_type_to_str[CudfDataFrame] = "cudf_dataframe"
+    _input_type_to_str[CudfSeries] = "cudf"
+    _input_type_to_str[CudfDataFrame] = "cudf"
+    _input_type_to_str[CudfIndex] = "cudf"
     _input_type_to_str[NumbaDeviceNDArrayBase] = "numba"
 except UnavailableError:
     pass
@@ -161,8 +165,14 @@ def get_supported_input_type(X):
     if isinstance(X, PandasSeries):
         return PandasSeries
 
+    if isinstance(X, PandasIndex):
+        return PandasIndex
+
     if isinstance(X, CudfDataFrame):
         return CudfDataFrame
+
+    if isinstance(X, CudfIndex):
+        return CudfIndex
 
     try:
         if numba_cuda.devicearray.is_cuda_ndarray(X):

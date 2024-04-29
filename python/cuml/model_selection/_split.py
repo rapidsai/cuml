@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Tuple
 
 from cuml.common import input_to_cuml_array
 from cuml.internals.input_utils import (
@@ -21,6 +21,7 @@ from cuml.internals.input_utils import (
     determine_df_obj_type,
     output_to_df_obj_like,
 )
+from cuml.internals.mem_type import MemoryType
 from cuml.internals.array import array_to_memory_order, CumlArray
 from cuml.internals.safe_imports import (
     cpu_only_import,
@@ -36,16 +37,15 @@ np = cpu_only_import("numpy")
 cuda = gpu_only_import_from("numba", "cuda")
 
 
-def _stratify_split(
-    X: CumlArray,
+def _compute_stratify_split_indices(
+    # X: CumlArray,
+    indices: cp.ndarray,
     stratify: CumlArray,
-    labels: CumlArray,
+    # labels: CumlArray,
     n_train: int,
     n_test: int,
-    random_state: Optional[
-        Union[int, cp.random.RandomState, np.random.RandomState]
-    ],
-):
+    random_state: cp.random.RandomState,
+) -> Tuple[cp.ndarray]:
     """
     Function to perform a stratified split based on stratify column.
     Based on scikit-learn stratified split implementation.
@@ -65,11 +65,12 @@ def _stratify_split(
         train and test sets are gathered
     """
 
-    if labels.ndim != 1:
+    if indices.ndim != 1:
         raise ValueError(
-            "Expected one dimension for labels, but found array"
-            "with shape = %d" % (labels.shape)
+            "Expected one one dimension for indices, but found array"
+            "with shape = %d" % (indices.shape)
         )
+
     if stratify.ndim != 1:
         raise ValueError(
             "Expected one one dimension for stratify, but found array"
@@ -102,10 +103,6 @@ def _stratify_split(
         cp.argsort(stratify_indices), cp.cumsum(class_counts)[:-1].tolist()
     )
 
-    # random_state won't be None or int, that's handled earlier
-    if isinstance(random_state, np.random.RandomState):
-        random_state = cp.random.RandomState(seed=random_state.get_state()[1])
-
     # Break ties
     n_i = _approximate_mode(class_counts, n_train, random_state)
     class_counts_remaining = class_counts - n_i
@@ -125,17 +122,17 @@ def _stratify_split(
     train_indices = cp.concatenate(train_indices_partials, axis=0)
     test_indices = cp.concatenate(test_indices_partials, axis=0)
 
-    X_train = X[train_indices]
-    X_test = X[test_indices]
-    y_train = labels[train_indices]
-    y_test = labels[test_indices]
+    # X_train = X[train_indices]
+    # X_test = X[test_indices]
+    # y_train = labels[train_indices]
+    # y_test = labels[test_indices]
 
-    X_train = CumlArray.from_input(X_train, order=X.order)
-    X_test = CumlArray.from_input(X_test, order=X.order)
-    y_train = CumlArray.from_input(y_train, order=labels.order)
-    y_test = CumlArray.from_input(y_test, order=labels.order)
+    # X_train = CumlArray.from_input(X_train, order=X.order)
+    # X_test = CumlArray.from_input(X_test, order=X.order)
+    # y_train = CumlArray.from_input(y_train, order=labels.order)
+    # y_test = CumlArray.from_input(y_test, order=labels.order)
 
-    return X_train, X_test, y_train, y_test, train_indices, test_indices
+    return indices[train_indices], indices[test_indices]
 
 
 def _approximate_mode(class_counts, n_draws, rng):
@@ -336,19 +333,20 @@ def train_test_split(
         if train_size is None:
             train_size = X_row - test_size
 
+    # Compute training set and test set indices
     if shuffle:
-        # Shuffle the data
+        idxs = cp.arange(X_row)
+
+        # Compute shuffle indices
         if random_state is None or isinstance(random_state, int):
-            idxs = cp.arange(X_row)
             random_state = cp.random.RandomState(seed=random_state)
 
-        elif isinstance(random_state, cp.random.RandomState):
-            idxs = cp.arange(X_row)
-
         elif isinstance(random_state, np.random.RandomState):
-            idxs = np.arange(X_row)
+            random_state = cp.random.RandomState(
+                seed=random_state.get_state()[1]
+            )
 
-        else:
+        elif not isinstance(random_state, cp.random.RandomState):
             raise TypeError(
                 "`random_state` must be an int, NumPy RandomState \
                              or CuPy RandomState."
@@ -356,68 +354,31 @@ def train_test_split(
 
         random_state.shuffle(idxs)
 
-        X_arr = X_arr[idxs]
-        if y is not None:
-            y_arr = y_arr[idxs]
-
         if stratify is not None:
             stratify, *_ = input_to_cuml_array(stratify)
             stratify = stratify[idxs]
 
-            (
-                X_train,
-                X_test,
-                y_train,
-                y_test,
-                train_indices,
-                test_indices,
-            ) = _stratify_split(
-                X_arr,
+            (train_indices, test_indices,) = _compute_stratify_split_indices(
+                idxs,
                 stratify,
-                y_arr,
                 train_size,
                 test_size,
                 random_state,
             )
 
-            if ty := determine_df_obj_type(X):
-                x_type = ty
-            else:
-                x_type = determine_array_type(X)
+        else:
+            train_indices = idxs[:train_size]
+            test_indices = idxs[-1 * test_size :]
+    else:
+        train_indices = range(0, train_size)
+        test_indices = range(-1 * test_size, 0)
 
-            if ty := determine_df_obj_type(y):
-                y_type = ty
-            else:
-                y_type = determine_array_type(y)
-
-            if x_type in ("series", "dataframe"):
-                X_train = output_to_df_obj_like(X_train, X, x_type)
-                X_test = output_to_df_obj_like(X_test, X, x_type)
-
-                X_train.index = X.index[idxs][train_indices]
-                X_test.index = X.index[idxs][test_indices]
-            else:
-                X_train = X_train.to_output(x_type)
-                X_test = X_test.to_output(x_type)
-
-            if y_type in ("series", "dataframe"):
-                y_train = output_to_df_obj_like(y_train, y, y_type)
-                y_test = output_to_df_obj_like(y_test, y, y_type)
-
-                y_train.index = y.index[idxs][train_indices]
-                y_test.index = y.index[idxs][test_indices]
-            elif y_type is not None:
-                y_train = y_train.to_output(y_type)
-                y_test = y_test.to_output(y_type)
-
-            return X_train, X_test, y_train, y_test
-
-    # If not stratified, perform train_test_split splicing
-    X_train = X_arr[0:train_size]
-    X_test = X_arr[-1 * test_size :]
+    # Gather from indices
+    X_train = X_arr[train_indices]
+    X_test = X_arr[test_indices]
     if y is not None:
-        y_train = y_arr[0:train_size]
-        y_test = y_arr[-1 * test_size :]
+        y_train = y_arr[train_indices]
+        y_test = y_arr[test_indices]
 
     # Coerce output to origin input type
     if ty := determine_df_obj_type(X):
@@ -434,8 +395,14 @@ def train_test_split(
         X_train = output_to_df_obj_like(X_train, X, x_type)
         X_test = output_to_df_obj_like(X_test, X, x_type)
 
-        X_train.index = X.index[0:train_size]
-        X_test.index = X.index[-1 * test_size :]
+        if determine_array_type(X.index) == "pandas":
+            if isinstance(train_indices, cp.ndarray):
+                train_indices = train_indices.get()
+            if isinstance(test_indices, cp.ndarray):
+                test_indices = test_indices.get()
+
+        X_train.index = X.index[train_indices]
+        X_test.index = X.index[test_indices]
     else:
         X_train = X_train.to_output(x_type)
         X_test = X_test.to_output(x_type)
@@ -444,8 +411,14 @@ def train_test_split(
         y_train = output_to_df_obj_like(y_train, y, y_type)
         y_test = output_to_df_obj_like(y_test, y, y_type)
 
-        y_train.index = y.index[0:train_size]
-        y_test.index = y.index[-1 * test_size :]
+        if determine_array_type(y.index) == "pandas":
+            if isinstance(train_indices, cp.ndarray):
+                train_indices = train_indices.get()
+            if isinstance(test_indices, cp.ndarray):
+                test_indices = test_indices.get()
+
+        y_train.index = y.index[train_indices]
+        y_test.index = y.index[test_indices]
     elif y_type is not None:
         y_train = y_train.to_output(y_type)
         y_test = y_test.to_output(y_type)
