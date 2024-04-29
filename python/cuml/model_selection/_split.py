@@ -266,42 +266,42 @@ def train_test_split(
             )
 
     x_order = array_to_memory_order(X)
-    X_arr, X_row, X_col, X_dtype = input_to_cuml_array(X, order=x_order)
+    X_arr, X_row, *_ = input_to_cuml_array(X, order=x_order)
     if y is not None:
         y_order = array_to_memory_order(y)
-        y_arr, y_row, y_col, y_dtype = input_to_cuml_array(y, order=y_order)
+        y_arr, y_row, *_ = input_to_cuml_array(y, order=y_order)
         if X_row != y_row:
             raise ValueError(
                 "X and y must have the same first dimension"
-                "(found {} and {})".format(X_row, y_row)
+                f"(found {X_row} and {y_row})"
             )
 
     if isinstance(train_size, float):
         if not 0 <= train_size <= 1:
             raise ValueError(
                 "proportion train_size should be between"
-                "0 and 1 (found {})".format(train_size)
+                f"0 and 1 (found {train_size})"
             )
 
     if isinstance(train_size, int):
         if not 0 <= train_size <= X_row:
             raise ValueError(
                 "Number of instances train_size should be between 0 and the"
-                "first dimension of X (found {})".format(train_size)
+                f"first dimension of X (found {train_size})"
             )
 
     if isinstance(test_size, float):
         if not 0 <= test_size <= 1:
             raise ValueError(
                 "proportion test_size should be between"
-                "0 and 1 (found {})".format(train_size)
+                f"0 and 1 (found {train_size})"
             )
 
     if isinstance(test_size, int):
         if not 0 <= test_size <= X_row:
             raise ValueError(
                 "Number of instances test_size should be between 0 and the"
-                "first dimension of X (found {})".format(test_size)
+                f"first dimension of X (found {test_size})"
             )
 
     # Determining sizes of splits
