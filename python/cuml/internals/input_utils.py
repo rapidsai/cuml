@@ -15,6 +15,7 @@
 #
 
 from collections import namedtuple
+from typing import Literal
 
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
@@ -46,6 +47,7 @@ scipy_sparse = safe_import(
 cp_ndarray = gpu_only_import_from("cupy", "ndarray")
 CudfSeries = gpu_only_import_from("cudf", "Series")
 CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
+CudfIndex = gpu_only_import_from("cudf", "Index")
 DaskCudfSeries = gpu_only_import_from("dask_cudf", "Series")
 DaskCudfDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
 np_ndarray = cpu_only_import_from("numpy", "ndarray")
@@ -64,6 +66,7 @@ cupyx_isspmatrix = gpu_only_import_from(
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 PandasSeries = cpu_only_import_from("pandas", "Series")
 PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
+PandasIndex = cpu_only_import_from("pandas", "Index")
 
 cuml_array = namedtuple("cuml_array", "array n_rows n_cols dtype")
 
@@ -73,6 +76,7 @@ _input_type_to_str = {
     np_ndarray: "numpy",
     PandasSeries: "pandas",
     PandasDataFrame: "pandas",
+    PandasIndex: "pandas",
 }
 
 
@@ -80,6 +84,7 @@ try:
     _input_type_to_str[cp_ndarray] = "cupy"
     _input_type_to_str[CudfSeries] = "cudf"
     _input_type_to_str[CudfDataFrame] = "cudf"
+    _input_type_to_str[CudfIndex] = "cudf"
     _input_type_to_str[NumbaDeviceNDArrayBase] = "numba"
 except UnavailableError:
     pass
@@ -160,8 +165,14 @@ def get_supported_input_type(X):
     if isinstance(X, PandasSeries):
         return PandasSeries
 
+    if isinstance(X, PandasIndex):
+        return PandasIndex
+
     if isinstance(X, CudfDataFrame):
         return CudfDataFrame
+
+    if isinstance(X, CudfIndex):
+        return CudfIndex
 
     try:
         if numba_cuda.devicearray.is_cuda_ndarray(X):
@@ -203,6 +214,21 @@ def determine_array_type(X):
     gen_type = get_supported_input_type(X)
 
     return _input_type_to_str.get(gen_type, None)
+
+
+def determine_df_obj_type(X):
+    if X is None:
+        return None
+
+    # Get the generic type
+    gen_type = get_supported_input_type(X)
+
+    if gen_type in (CudfDataFrame, PandasDataFrame):
+        return "dataframe"
+    elif gen_type in (CudfSeries, PandasSeries):
+        return "series"
+
+    return None
 
 
 def determine_array_dtype(X):
@@ -575,3 +601,27 @@ def sparse_scipy_to_cp(sp, dtype):
     v = cp.asarray(values, dtype=dtype)
 
     return cupyx.scipy.sparse.coo_matrix((v, (r, c)), sp.shape)
+
+
+def output_to_df_obj_like(
+    X_out: CumlArray, X_in, output_type: Literal["series", "dataframe"]
+):
+    """Cast CumlArray `X_out` to the dataframe / series type as `X_in`
+    `CumlArray` abstracts away the dataframe / series metadata, when API
+    methods needs to return a dataframe / series matching original input
+    metadata, this function can copy input metadata to output.
+    """
+
+    if output_type not in ["series", "dataframe"]:
+        raise ValueError(
+            f'output_type must be either "series" or "dataframe" : {output_type}'
+        )
+
+    out = None
+    if output_type == "series":
+        out = X_out.to_output("series")
+        out.name = X_in.name
+    elif output_type == "dataframe":
+        out = X_out.to_output("dataframe")
+        out.columns = X_in.columns
+    return out
