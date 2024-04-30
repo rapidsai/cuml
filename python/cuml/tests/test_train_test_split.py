@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,12 +23,32 @@ from cuml.internals.safe_imports import gpu_only_import
 cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
+pd = cpu_only_import("pandas")
 
 cuda = gpu_only_import_from("numba", "cuda")
 
-test_array_input_types = ["numba", "cupy"]
-
 test_seeds = ["int", "cupy", "numpy"]
+
+
+@pytest.fixture(
+    params=[cuda.to_device, cp.asarray, cudf, pd],
+    ids=["to_numba", "to_cupy", "to_cudf", "to_pandas"],
+)
+def convert_to_type(request):
+    if request.param in (cudf, pd):
+
+        def ctor(X):
+            if isinstance(X, cp.ndarray) and request.param == pd:
+                X = X.get()
+
+            if X.ndim > 1:
+                return request.param.DataFrame(X)
+            else:
+                return request.param.Series(X)
+
+        return ctor
+
+    return request.param
 
 
 @pytest.mark.parametrize("train_size", [0.2, 0.6, 0.8])
@@ -153,21 +173,23 @@ def test_random_state(seed_type):
         assert y_test.equals(y_test2)
 
 
-@pytest.mark.parametrize("type", test_array_input_types)
+@pytest.mark.parametrize(
+    "X, y",
+    [
+        (np.arange(-100, 0), np.arange(100)),
+        (
+            np.zeros((100, 10)) + np.arange(100).reshape(100, 1),
+            np.arange(100).reshape(100, 1),
+        ),
+    ],
+)
 @pytest.mark.parametrize("test_size", [0.2, 0.4, None])
 @pytest.mark.parametrize("train_size", [0.6, 0.8, None])
 @pytest.mark.parametrize("shuffle", [True, False])
-def test_array_split(type, test_size, train_size, shuffle):
-    X = np.zeros((100, 10)) + np.arange(100).reshape(100, 1)
-    y = np.arange(100).reshape(100, 1)
+def test_array_split(X, y, convert_to_type, test_size, train_size, shuffle):
 
-    if type == "cupy":
-        X = cp.asarray(X)
-        y = cp.asarray(y)
-
-    if type == "numba":
-        X = cuda.to_device(X)
-        y = cuda.to_device(y)
+    X = convert_to_type(X)
+    y = convert_to_type(y)
 
     X_train, X_test, y_train, y_test = train_test_split(
         X,
@@ -251,17 +273,19 @@ def test_split_df_single_argument(test_size, train_size, shuffle):
         assert X_test.shape[0] == (int)(X.shape[0] * test_size)
 
 
-@pytest.mark.parametrize("type", test_array_input_types)
+@pytest.mark.parametrize(
+    "X",
+    [np.arange(-100, 0), np.zeros((100, 10)) + np.arange(100).reshape(100, 1)],
+)
 @pytest.mark.parametrize("test_size", [0.2, 0.4, None])
 @pytest.mark.parametrize("train_size", [0.6, 0.8, None])
 @pytest.mark.parametrize("shuffle", [True, False])
-def test_split_array_single_argument(type, test_size, train_size, shuffle):
-    X = np.zeros((100, 10)) + np.arange(100).reshape(100, 1)
-    if type == "cupy":
-        X = cp.asarray(X)
+def test_split_array_single_argument(
+    X, convert_to_type, test_size, train_size, shuffle
+):
 
-    if type == "numba":
-        X = cuda.to_device(X)
+    X = convert_to_type(X)
+
     X_train, X_test = train_test_split(
         X,
         train_size=train_size,
@@ -293,20 +317,14 @@ def test_split_array_single_argument(type, test_size, train_size, shuffle):
         assert X_rec == X
 
 
-@pytest.mark.parametrize("type", test_array_input_types)
 @pytest.mark.parametrize("test_size", [0.2, 0.4, None])
 @pytest.mark.parametrize("train_size", [0.6, 0.8, None])
-def test_stratified_split(type, test_size, train_size):
+def test_stratified_split(convert_to_type, test_size, train_size):
     # For more tolerance and reliable estimates
     X, y = make_classification(n_samples=10000)
 
-    if type == "cupy":
-        X = cp.asarray(X)
-        y = cp.asarray(y)
-
-    if type == "numba":
-        X = cuda.to_device(X)
-        y = cuda.to_device(y)
+    X = convert_to_type(X)
+    y = convert_to_type(y)
 
     def counts(y):
         _, y_indices = cp.unique(y, return_inverse=True)

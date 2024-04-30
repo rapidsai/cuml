@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,9 @@
 
 # distutils: language = c++
 
+from cpython.buffer cimport PyObject_GetBuffer, PyBuffer_Release, PyBUF_FULL_RO
+
 from libcpp.vector cimport vector
-from cpython.object cimport PyObject
 from libc.stdint cimport uintptr_t
 from libcpp.memory cimport unique_ptr
 from typing import Dict, List, Union
@@ -36,9 +37,6 @@ cdef extern from "treelite/tree.h" namespace "treelite":
         vector[TreelitePyBufferFrame] SerializeToPyBuffer() except +
         @staticmethod
         unique_ptr[Model] DeserializeFromPyBuffer(const vector[TreelitePyBufferFrame] &) except +
-
-cdef extern from "Python.h":
-    Py_buffer* PyMemoryView_GET_BUFFER(PyObject* mview)
 
 cdef class PyBufferFrameWrapper:
     cdef TreelitePyBufferFrame _handle
@@ -92,18 +90,25 @@ def get_frames(model: uintptr_t) -> List[memoryview]:
 def init_from_frames(frames: List[np.ndarray],
                      format_str: List[str], itemsize: List[int]) -> uintptr_t:
     cdef vector[TreelitePyBufferFrame] cpp_frames
+    # Need to keep track of the buffers to release them later.
+    cdef vector[Py_buffer] buffers
     cdef Py_buffer* buf
     cdef TreelitePyBufferFrame cpp_frame
     format_bytes = [s.encode('utf-8') for s in format_str]
     for i, frame in enumerate(frames):
-        x = memoryview(frame)
-        buf = PyMemoryView_GET_BUFFER(<PyObject*>x)
+        buffers.emplace_back()
+        buf = &buffers.back()
+        PyObject_GetBuffer(frame, buf, PyBUF_FULL_RO)
         cpp_frame.buf = buf.buf
         cpp_frame.format = format_bytes[i]
         cpp_frame.itemsize = itemsize[i]
         cpp_frame.nitem = buf.len // itemsize[i]
         cpp_frames.push_back(cpp_frame)
-    return <uintptr_t> _init_from_frames(cpp_frames)
+    output = <uintptr_t> _init_from_frames(cpp_frames)
+    cdef int j
+    for j in range(buffers.size()):
+        PyBuffer_Release(&buffers[j])
+    return output
 
 
 def treelite_serialize(
