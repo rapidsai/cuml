@@ -422,6 +422,7 @@ def _test_lbfgs(
 
 
 @pytest.mark.mg
+@pytest.mark.parametrize("n_parts", [2, 23])
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("delayed", [True, False])
 def test_lbfgs(n_parts, fit_intercept, delayed, client):
