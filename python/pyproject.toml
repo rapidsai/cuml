@@ -35,13 +35,42 @@ markers = [
   "no_bad_cuml_array_check: Test that should not check for bad CumlArray uses",
 ]
 
-testpaths = "cuml/tests"
+testpaths = [
+  "cuml/tests",
+  "cuml/tests/dask",
+  "cuml/tests/experimental",
+  "cuml/tests/explainer",
+  "cuml/tests/stemmer_tests",
+]
 
 filterwarnings = [
-  "error::FutureWarning:cuml[.*]", # Catch uses of deprecated positional args in testing
+  "error::FutureWarning",
+  "error::DeprecationWarning",
   "error:::cudf",
   "ignore:[^.]*ABCs[^.]*:DeprecationWarning:patsy[.*]",
   "ignore:(.*)alias(.*):DeprecationWarning:hdbscan[.*]",
+  # TODO: https://github.com/rapidsai/cuml/issues/5878
+  "ignore:.*ndarray.scatter_[(max|add)].* is deprecated:DeprecationWarning:cupyx",
+  # TODO: https://github.com/rapidsai/cuml/issues/5879
+  "ignore::FutureWarning:sklearn",
+  "ignore::DeprecationWarning:sklearn",
+  # https://github.com/pytest-dev/pytest-cov/issues/557
+  "ignore:The --rsyncdir command line argument:DeprecationWarning",
+  # https://github.com/scikit-learn/scikit-learn/pull/25157
+  "ignore:.* is deprecated. Use files:DeprecationWarning",
+  # https://github.com/scikit-learn/scikit-learn/pull/25741
+  "ignore:`product` is deprecated as of NumPy 1.25.0:DeprecationWarning",
+  # https://github.com/scikit-learn-contrib/hdbscan/pull/612
+  "ignore:`alltrue` is deprecated as of NumPy 1.25.0:DeprecationWarning",
+  # https://github.com/scikit-learn/scikit-learn/pull/26287
+  "ignore:is_sparse is deprecated and will be removed:DeprecationWarning",
+  # From dask-glm
+  "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
+  "ignore:Deprecated call to `pkg_resources.declare_namespace:DeprecationWarning",
+  "ignore:`rcond` parameter will change to the default:FutureWarning",
+  "ignore:Dask configuration key 'fuse_ave_width':FutureWarning",
+  # From hdbscan
+  "ignore:Conversion of an array with ndim > 0:DeprecationWarning",
 ]
 
 [project]
