@@ -52,7 +52,7 @@ requirements:
     - cuda-version ={{ cuda_version }}
     - cmake {{ cmake_version }}
     - ninja
-    - sysroot_{{ target_platform }} {{ sysroot_version }}
+    - {{ stdlib("c") }}
   host:
     - cuda-version ={{ cuda_version }}
     {% if cuda_major == "11" %}
