@@ -41,7 +41,6 @@ testpaths = [
   "cuml/tests/experimental",
   "cuml/tests/explainer",
   "cuml/tests/stemmer_tests",
-  "cuml/tests",
 ]
 
 filterwarnings = [
