@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,9 @@
 # limitations under the License.
 #
 
+import numpy as np
 from pandas import Series as pdSeries
+from cuml.manifold import umap
 from cuml.internals.safe_imports import cpu_only_import_from
 from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.internals.input_utils import convert_dtype
@@ -24,6 +26,7 @@ from cuml.common import input_to_host_array
 from cuml.common import input_to_cuml_array, CumlArray
 from cuml.internals.safe_imports import cpu_only_import
 import pytest
+import pandas as pd
 
 from cuml.internals.safe_imports import gpu_only_import
 
@@ -442,3 +445,18 @@ def test_tocupy_missing_values_handling():
         array, n_rows, n_cols, dtype = input_to_cupy_array(
             df, fail_on_null=True
         )
+
+
+@pytest.mark.cudf_pandas
+def test_numpy_output():
+    # Check that a Numpy array is used as output when a cudf.pandas wrapped
+    # Numpy array is passed in.
+    # Non regression test for issue #5784
+    df = pd.DataFrame({"a": range(5), "b": range(5)})
+    X = df.values
+
+    reducer = umap.UMAP()
+
+    # Check that this is a cudf.pandas wrapped array
+    assert hasattr(X, "_fsproxy_fast_type")
+    assert isinstance(reducer.fit_transform(X), np.ndarray)
