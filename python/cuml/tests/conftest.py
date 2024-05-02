@@ -30,6 +30,7 @@ import pytest
 import os
 import subprocess
 import pandas as pd
+import cudf.pandas
 
 from cuml.internals.safe_imports import cpu_only_import
 
@@ -196,9 +197,7 @@ def pytest_pyfunc_call(pyfuncitem):
     Tests marked with `@pytest.mark.cudf_pandas` will only be run if the
     cudf.pandas accelerator is enabled via the `cudf.pandas` plugin.
     """
-    cudf_pandas_enabled = "ModuleAccelerator" in str(pd)
-
-    if "cudf_pandas" in pyfuncitem.keywords and not cudf_pandas_enabled:
+    if "cudf_pandas" in pyfuncitem.keywords and not cudf.pandas.LOADED:
         pytest.skip("Test requires cudf.pandas accelerator")
 
 
