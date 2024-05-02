@@ -43,6 +43,7 @@ dependencies:
 - nltk
 - numba>=0.57
 - numpydoc
+- packaging
 - pip
 - pydata-sphinx-theme!=0.14.2
 - pylibraft==24.6.*

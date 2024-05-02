@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
+cupyx = gpu_only_import('cupyx')
 
 
 cdef class GraphHolder:
@@ -102,7 +103,7 @@ cdef class GraphHolder:
         rows = create_nonowning_cp_array(self.rows(), np.int32)
         cols = create_nonowning_cp_array(self.cols(), np.int32)
 
-        return cp.sparse.coo_matrix(((vals, (rows, cols))))
+        return cupyx.scipy.sparse.coo_matrix(((vals, (rows, cols))))
 
     def __dealloc__(self):
         self.c_graph.reset(NULL)

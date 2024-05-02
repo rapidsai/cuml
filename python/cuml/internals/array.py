@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,8 +48,8 @@ CudfBuffer = gpu_only_import_from("cudf.core.buffer", "Buffer")
 CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
 CudfIndex = gpu_only_import_from("cudf", "Index")
 CudfSeries = gpu_only_import_from("cudf", "Series")
-DaskCudfDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
-DaskCudfSeries = gpu_only_import_from("dask_cudf.core", "Series")
+DaskCudfDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
+DaskCudfSeries = gpu_only_import_from("dask_cudf", "Series")
 DaskDataFrame = gpu_only_import_from("dask.dataframe", "DataFrame")
 DaskSeries = gpu_only_import_from("dask.dataframe", "Series")
 DeviceBuffer = gpu_only_import_from("rmm", "DeviceBuffer")
@@ -447,7 +447,7 @@ class CumlArray:
     @cached_property
     def size(self):
         return (
-            host_xpy.product(self._array_interface["shape"])
+            host_xpy.prod(self._array_interface["shape"])
             * host_xpy.dtype(self._array_interface["typestr"]).itemsize
         )
 
@@ -793,7 +793,7 @@ class CumlArray:
 
         if header["desc"]["shape"] != ary._array_interface["shape"]:
             raise ValueError(
-                f"Received a `Buffer` with the wrong size."
+                "Received a `Buffer` with the wrong size."
                 f" Expected {header['desc']['shape']}, "
                 f"but got {ary._array_interface['shape']}"
             )

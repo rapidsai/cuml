@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ from cuml.internals.safe_imports import cpu_only_import
 
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
 
 
 IS_ARM = platform.processor() == "aarch64"
@@ -111,7 +112,7 @@ def test_fuzzy_simplicial_set(
         )[0].tocoo()
 
     cu_fss_graph = cu_fss_graph.todense()
-    ref_fss_graph = cp.sparse.coo_matrix(ref_fss_graph).todense()
+    ref_fss_graph = cupyx.scipy.sparse.coo_matrix(ref_fss_graph).todense()
     assert correctness_sparse(
         ref_fss_graph, cu_fss_graph, atol=0.1, rtol=0.2, threshold=0.95
     )
