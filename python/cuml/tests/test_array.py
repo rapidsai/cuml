@@ -251,8 +251,8 @@ def test_get_set_item(inp, indices, mem_type):
         _assert_equal(inp_view, ary[indices])
 
         # Check equality after assigning to array slice.
-        ary[indices] = 1.0
-        inp[indices] = 1.0
+        ary[indices] = inp.dtype.type(1.0)
+        inp[indices] = inp.dtype.type(1.0)
 
         # We need to assume that inp is not a cudf.Series here, otherwise
         # ary.to_output("cupy") called by equal() will trigger a
