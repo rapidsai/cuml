@@ -83,7 +83,6 @@ jobs:
     with:
       build_type: pull-request
       script: "ci/test_python_integration.sh"
-      continue-on-error: true
   conda-python-tests-dask:
     needs: conda-python-build
     secrets: inherit
