@@ -19,7 +19,7 @@ jobs:
       - conda-cpp-checks
       - conda-python-build
       - conda-python-tests-singlegpu
-      - conda-python-tests-integration
+      - conda-python-tests-cudf-pandas-integration
       - conda-python-tests-dask
       - conda-notebook-tests
       - docs-build
@@ -30,9 +30,11 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-24.06
   checks:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@branch-24.06
+    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@test-ignored-jobs
     with:
       enable_check_generated_files: false
+      ignored_pr_jobs: >-
+        conda-python-tests-cudf-pandas-integration
   clang-tidy:
     needs: checks
     secrets: inherit
@@ -76,7 +78,7 @@ jobs:
     with:
       build_type: pull-request
       script: "ci/test_python_singlegpu.sh"
-  conda-python-tests-integration:
+  conda-python-tests-cudf-pandas-integration:
     needs: conda-python-build
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-24.06
