@@ -29,9 +29,11 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-24.06
   checks:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@test-ignored-jobs
+    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@branch-24.06
     with:
       enable_check_generated_files: false
+      ignored_pr_jobs: >-
+        conda-python-tests-cudf-pandas-integration
   clang-tidy:
     needs: checks
     secrets: inherit
