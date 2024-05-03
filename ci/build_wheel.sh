@@ -14,6 +14,8 @@ git_commit=$(git rev-parse HEAD)
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
+raft_dask_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact raft-dask 1983 python)
+
 # This is the version of the suffix with a preceding hyphen. It's used
 # everywhere except in the final wheel name.
 PACKAGE_CUDA_SUFFIX="-${RAPIDS_PY_CUDA_SUFFIX}"
@@ -54,7 +56,8 @@ SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DDISABLE_DEPRECATION_WARNINGS=ON;-DC
     -w dist \
     -vvv \
     --no-deps \
-    --disable-pip-version-check
+    --disable-pip-version-check \
+    --find-links ${raft_dask_wheelhouse}
 
 mkdir -p final_dist
 python -m auditwheel repair -w final_dist dist/*
