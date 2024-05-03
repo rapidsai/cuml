@@ -49,10 +49,10 @@ namespace BH {
  * Initializes the states of objects. This speeds the overall kernel up.
  */
 template <typename value_idx, typename value_t>
-__global__ void InitializationKernel(/*int *restrict errd, */
-                                     unsigned* restrict limiter,
-                                     value_idx* restrict maxdepthd,
-                                     value_t* restrict radiusd)
+CUML_KERNEL void InitializationKernel(/*int *restrict errd, */
+                                      unsigned* restrict limiter,
+                                      value_idx* restrict maxdepthd,
+                                      value_t* restrict radiusd)
 {
   // errd[0] = 0;
   maxdepthd[0] = 1;
@@ -64,11 +64,11 @@ __global__ void InitializationKernel(/*int *restrict errd, */
  * Reset normalization back to 0.
  */
 template <typename value_idx, typename value_t>
-__global__ void Reset_Normalization(value_t* restrict Z_norm,
-                                    value_t* restrict radiusd_squared,
-                                    value_idx* restrict bottomd,
-                                    const value_idx NNODES,
-                                    const value_t* restrict radiusd)
+CUML_KERNEL void Reset_Normalization(value_t* restrict Z_norm,
+                                     value_t* restrict radiusd_squared,
+                                     value_idx* restrict bottomd,
+                                     const value_idx NNODES,
+                                     const value_t* restrict radiusd)
 {
   Z_norm[0]          = 0.0f;
   radiusd_squared[0] = radiusd[0] * radiusd[0];
@@ -80,7 +80,7 @@ __global__ void Reset_Normalization(value_t* restrict Z_norm,
  * Find 1/Z
  */
 template <typename value_idx, typename value_t>
-__global__ void Find_Normalization(value_t* restrict Z_norm, const value_idx N)
+CUML_KERNEL void Find_Normalization(value_t* restrict Z_norm, const value_idx N)
 {
   Z_norm[0] = 1.0f / (Z_norm[0] - N);
 }
@@ -89,20 +89,20 @@ __global__ void Find_Normalization(value_t* restrict Z_norm, const value_idx N)
  * Figures the bounding boxes for every point in the embedding.
  */
 template <typename value_idx, typename value_t>
-__global__ __launch_bounds__(THREADS1) void BoundingBoxKernel(value_idx* restrict startd,
-                                                              value_idx* restrict childd,
-                                                              value_t* restrict massd,
-                                                              value_t* restrict posxd,
-                                                              value_t* restrict posyd,
-                                                              value_t* restrict maxxd,
-                                                              value_t* restrict maxyd,
-                                                              value_t* restrict minxd,
-                                                              value_t* restrict minyd,
-                                                              const value_idx FOUR_NNODES,
-                                                              const value_idx NNODES,
-                                                              const value_idx N,
-                                                              unsigned* restrict limiter,
-                                                              value_t* restrict radiusd)
+CUML_KERNEL __launch_bounds__(THREADS1) void BoundingBoxKernel(value_idx* restrict startd,
+                                                               value_idx* restrict childd,
+                                                               value_t* restrict massd,
+                                                               value_t* restrict posxd,
+                                                               value_t* restrict posyd,
+                                                               value_t* restrict maxxd,
+                                                               value_t* restrict maxyd,
+                                                               value_t* restrict minxd,
+                                                               value_t* restrict minyd,
+                                                               const value_idx FOUR_NNODES,
+                                                               const value_idx NNODES,
+                                                               const value_idx N,
+                                                               unsigned* restrict limiter,
+                                                               value_t* restrict radiusd)
 {
   value_t val, minx, maxx, miny, maxy;
   __shared__ value_t sminx[THREADS1], smaxx[THREADS1], sminy[THREADS1], smaxy[THREADS1];
@@ -181,9 +181,9 @@ __global__ __launch_bounds__(THREADS1) void BoundingBoxKernel(value_idx* restric
  * Clear some of the state vectors up.
  */
 template <typename value_idx>
-__global__ __launch_bounds__(1024, 1) void ClearKernel1(value_idx* restrict childd,
-                                                        const value_idx FOUR_NNODES,
-                                                        const value_idx FOUR_N)
+CUML_KERNEL __launch_bounds__(1024, 1) void ClearKernel1(value_idx* restrict childd,
+                                                         const value_idx FOUR_NNODES,
+                                                         const value_idx FOUR_N)
 {
   const auto inc = blockDim.x * gridDim.x;
   value_idx k    = (FOUR_N & -32) + threadIdx.x + blockIdx.x * blockDim.x;
@@ -200,15 +200,15 @@ __global__ __launch_bounds__(1024, 1) void ClearKernel1(value_idx* restrict chil
  * See: https://iss.oden.utexas.edu/Publications/Papers/burtscher11.pdf
  */
 template <typename value_idx, typename value_t>
-__global__ __launch_bounds__(THREADS2) void TreeBuildingKernel(/* int *restrict errd, */
-                                                               value_idx* restrict childd,
-                                                               const value_t* restrict posxd,
-                                                               const value_t* restrict posyd,
-                                                               const value_idx NNODES,
-                                                               const value_idx N,
-                                                               value_idx* restrict maxdepthd,
-                                                               value_idx* restrict bottomd,
-                                                               const value_t* restrict radiusd)
+CUML_KERNEL __launch_bounds__(THREADS2) void TreeBuildingKernel(/* int *restrict errd, */
+                                                                value_idx* restrict childd,
+                                                                const value_t* restrict posxd,
+                                                                const value_t* restrict posyd,
+                                                                const value_idx NNODES,
+                                                                const value_idx N,
+                                                                value_idx* restrict maxdepthd,
+                                                                value_idx* restrict bottomd,
+                                                                const value_t* restrict radiusd)
 {
   value_idx j, depth;
   value_t x, y, r;
@@ -337,10 +337,10 @@ __global__ __launch_bounds__(THREADS2) void TreeBuildingKernel(/* int *restrict 
  * Clean more state vectors.
  */
 template <typename value_idx, typename value_t>
-__global__ __launch_bounds__(1024, 1) void ClearKernel2(value_idx* restrict startd,
-                                                        value_t* restrict massd,
-                                                        const value_idx NNODES,
-                                                        const value_idx* restrict bottomd)
+CUML_KERNEL __launch_bounds__(1024, 1) void ClearKernel2(value_idx* restrict startd,
+                                                         value_t* restrict massd,
+                                                         const value_idx NNODES,
+                                                         const value_idx* restrict bottomd)
 {
   const auto bottom = bottomd[0];
   const auto inc    = blockDim.x * gridDim.x;
@@ -359,15 +359,15 @@ __global__ __launch_bounds__(1024, 1) void ClearKernel2(value_idx* restrict star
  * Summarize the KD Tree via cell gathering
  */
 template <typename value_idx, typename value_t>
-__global__ __launch_bounds__(THREADS3,
-                             FACTOR3) void SummarizationKernel(value_idx* restrict countd,
-                                                               const value_idx* restrict childd,
-                                                               volatile value_t* restrict massd,
-                                                               value_t* restrict posxd,
-                                                               value_t* restrict posyd,
-                                                               const value_idx NNODES,
-                                                               const value_idx N,
-                                                               const value_idx* restrict bottomd)
+CUML_KERNEL __launch_bounds__(THREADS3,
+                              FACTOR3) void SummarizationKernel(value_idx* restrict countd,
+                                                                const value_idx* restrict childd,
+                                                                volatile value_t* restrict massd,
+                                                                value_t* restrict posxd,
+                                                                value_t* restrict posyd,
+                                                                const value_idx NNODES,
+                                                                const value_idx N,
+                                                                const value_idx* restrict bottomd)
 {
   bool flag = 0;
   value_t cm, px, py;
@@ -495,13 +495,14 @@ __global__ __launch_bounds__(THREADS3,
  * Sort the cells
  */
 template <typename value_idx>
-__global__ __launch_bounds__(THREADS4, FACTOR4) void SortKernel(value_idx* restrict sortd,
-                                                                const value_idx* restrict countd,
-                                                                volatile value_idx* restrict startd,
-                                                                value_idx* restrict childd,
-                                                                const value_idx NNODES,
-                                                                const value_idx N,
-                                                                const value_idx* restrict bottomd)
+CUML_KERNEL __launch_bounds__(THREADS4,
+                              FACTOR4) void SortKernel(value_idx* restrict sortd,
+                                                       const value_idx* restrict countd,
+                                                       volatile value_idx* restrict startd,
+                                                       value_idx* restrict childd,
+                                                       const value_idx NNODES,
+                                                       const value_idx N,
+                                                       const value_idx* restrict bottomd)
 {
   const value_idx bottom = bottomd[0];
   const value_idx dec    = blockDim.x * gridDim.x;
@@ -545,7 +546,7 @@ __global__ __launch_bounds__(THREADS4, FACTOR4) void SortKernel(value_idx* restr
  * Calculate the repulsive forces using the KD Tree
  */
 template <typename value_idx, typename value_t>
-__global__ __launch_bounds__(
+CUML_KERNEL __launch_bounds__(
   THREADS5, 1) void RepulsionKernel(/* int *restrict errd, */
                                     const float theta,
                                     const float epssqd,  // correction for zero distance
@@ -678,16 +679,16 @@ __global__ __launch_bounds__(
  * Fast attractive kernel. Uses COO matrix.
  */
 template <typename value_idx, typename value_t>
-__global__ void attractive_kernel_bh(const value_t* restrict VAL,
-                                     const value_idx* restrict COL,
-                                     const value_idx* restrict ROW,
-                                     const value_t* restrict Y1,
-                                     const value_t* restrict Y2,
-                                     value_t* restrict attract1,
-                                     value_t* restrict attract2,
-                                     value_t* restrict Qs,
-                                     const value_idx NNZ,
-                                     const value_t dof)
+CUML_KERNEL void attractive_kernel_bh(const value_t* restrict VAL,
+                                      const value_idx* restrict COL,
+                                      const value_idx* restrict ROW,
+                                      const value_t* restrict Y1,
+                                      const value_t* restrict Y2,
+                                      value_t* restrict attract1,
+                                      value_t* restrict attract2,
+                                      value_t* restrict Qs,
+                                      const value_idx NNZ,
+                                      const value_t dof)
 {
   const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (index >= NNZ) return;
@@ -720,21 +721,21 @@ __global__ void attractive_kernel_bh(const value_t* restrict VAL,
  * Apply gradient updates.
  */
 template <typename value_idx, typename value_t>
-__global__ __launch_bounds__(THREADS6, 1) void IntegrationKernel(const float eta,
-                                                                 const float momentum,
-                                                                 const float exaggeration,
-                                                                 value_t* restrict Y1,
-                                                                 value_t* restrict Y2,
-                                                                 const value_t* restrict attract1,
-                                                                 const value_t* restrict attract2,
-                                                                 const value_t* restrict repel1,
-                                                                 const value_t* restrict repel2,
-                                                                 value_t* restrict gains1,
-                                                                 value_t* restrict gains2,
-                                                                 value_t* restrict old_forces1,
-                                                                 value_t* restrict old_forces2,
-                                                                 const value_t* restrict Z,
-                                                                 const value_idx N)
+CUML_KERNEL __launch_bounds__(THREADS6, 1) void IntegrationKernel(const float eta,
+                                                                  const float momentum,
+                                                                  const float exaggeration,
+                                                                  value_t* restrict Y1,
+                                                                  value_t* restrict Y2,
+                                                                  const value_t* restrict attract1,
+                                                                  const value_t* restrict attract2,
+                                                                  const value_t* restrict repel1,
+                                                                  const value_t* restrict repel2,
+                                                                  value_t* restrict gains1,
+                                                                  value_t* restrict gains2,
+                                                                  value_t* restrict old_forces1,
+                                                                  value_t* restrict old_forces2,
+                                                                  const value_t* restrict Z,
+                                                                  const value_idx N)
 {
   value_t ux, uy, gx, gy;
 

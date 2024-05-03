@@ -22,9 +22,7 @@ dependencies:
 - distributed-ucxx==0.38.*
 - doxygen=1.9.1
 - gcc_linux-64=11.*
-- gmock>=1.13.0
 - graphviz
-- gtest>=1.13.0
 - hdbscan<=0.8.30
 - hypothesis>=6.0,<7
 - ipykernel
@@ -50,6 +48,7 @@ dependencies:
 - numba>=0.57
 - numpydoc
 - nvcc_linux-64=11.8
+- packaging
 - pip
 - pydata-sphinx-theme!=0.14.2
 - pylibraft==24.6.*

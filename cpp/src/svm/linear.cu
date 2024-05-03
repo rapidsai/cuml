@@ -16,6 +16,7 @@
 
 #include <common/nvtx.hpp>
 
+#include <cuml/common/utils.hpp>
 #include <cuml/linear_model/glm.hpp>
 #include <cuml/svm/linear.hpp>
 #include <cuml/svm/svm_model.h>
@@ -64,7 +65,7 @@ inline int narrowDown(std::size_t n)
 
 /** The cuda kernel for classification. Call it via PredictClass::run(..). */
 template <typename T, int BX = 32, int BY = 8>
-__global__ void predictClass(
+CUML_KERNEL void predictClass(
   T* out, const T* z, const T* classes, const int nRows, const int coefCols)
 {
   const int i = threadIdx.y + blockIdx.y * BY;
@@ -131,7 +132,7 @@ struct PredictClass {
 
 /**  The cuda kernel for classification. Call it via PredictProba::run(..). */
 template <typename T, bool Log, bool Binary, int BX = 32, int BY = 8>
-__global__ void predictProba(T* out, const T* z, const int nRows, const int nClasses)
+CUML_KERNEL void predictProba(T* out, const T* z, const int nRows, const int nClasses)
 {
   typedef cub::WarpReduce<T, BX> WarpRed;
   __shared__ typename WarpRed::TempStorage shm[BY];

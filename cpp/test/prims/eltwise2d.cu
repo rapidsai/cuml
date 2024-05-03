@@ -26,14 +26,14 @@ namespace MLCommon {
 namespace LinAlg {
 
 template <typename Type>
-__global__ void naiveEltwise2DAddKernel(int rows,
-                                        int cols,
-                                        const Type* aPtr,
-                                        const Type* bPtr,
-                                        const Type* cPtr,
-                                        Type* dPtr,
-                                        Type alpha,
-                                        Type beta)
+CUML_KERNEL void naiveEltwise2DAddKernel(int rows,
+                                         int cols,
+                                         const Type* aPtr,
+                                         const Type* bPtr,
+                                         const Type* cPtr,
+                                         Type* dPtr,
+                                         Type alpha,
+                                         Type beta)
 {
   auto tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid < cols * rows) {

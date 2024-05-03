@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,14 +23,14 @@ namespace detail {
 namespace Predict {
 
 template <typename value_idx, typename value_t, int tpb = 256>
-__global__ void merge_height_kernel(value_t* heights,
-                                    value_t* lambdas,
-                                    value_idx* index_into_children,
-                                    value_idx* parents,
-                                    size_t m,
-                                    value_idx n_selected_clusters,
-                                    raft::util::FastIntDiv n,
-                                    value_idx* selected_clusters)
+CUML_KERNEL void merge_height_kernel(value_t* heights,
+                                     value_t* lambdas,
+                                     value_idx* index_into_children,
+                                     value_idx* parents,
+                                     size_t m,
+                                     value_idx n_selected_clusters,
+                                     raft::util::FastIntDiv n,
+                                     value_idx* selected_clusters)
 {
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < value_idx(m * n_selected_clusters)) {
@@ -65,16 +65,16 @@ __global__ void merge_height_kernel(value_t* heights,
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>
-__global__ void merge_height_kernel(value_t* heights,
-                                    value_t* lambdas,
-                                    value_t* prediction_lambdas,
-                                    value_idx* min_mr_indices,
-                                    value_idx* index_into_children,
-                                    value_idx* parents,
-                                    size_t n_prediction_points,
-                                    value_idx n_selected_clusters,
-                                    raft::util::FastIntDiv n,
-                                    value_idx* selected_clusters)
+CUML_KERNEL void merge_height_kernel(value_t* heights,
+                                     value_t* lambdas,
+                                     value_t* prediction_lambdas,
+                                     value_idx* min_mr_indices,
+                                     value_idx* index_into_children,
+                                     value_idx* parents,
+                                     size_t n_prediction_points,
+                                     value_idx n_selected_clusters,
+                                     raft::util::FastIntDiv n,
+                                     value_idx* selected_clusters)
 {
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
   if (idx < value_idx(n_prediction_points * n_selected_clusters)) {

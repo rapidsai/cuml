@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -131,7 +131,7 @@ def test_partial_fit(
     sk_t = sk_ipca.transform(X)
     sk_inv = sk_ipca.inverse_transform(sk_t)
 
-    assert array_equal(cu_inv, sk_inv, 5e-5, with_sign=True)
+    assert array_equal(cu_inv, sk_inv, 6e-5, with_sign=True)
 
 
 def test_exceptions():

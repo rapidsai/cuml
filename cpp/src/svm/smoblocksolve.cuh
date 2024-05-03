@@ -145,19 +145,19 @@ namespace SVM {
  * @param [in] svmType type of the SVM problem to solve
  */
 template <typename math_t, int WSIZE>
-__global__ __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
-                                                       int n_train,
-                                                       math_t* alpha,
-                                                       int n_ws,
-                                                       math_t* delta_alpha,
-                                                       math_t* f_array,
-                                                       const math_t* kernel,
-                                                       const int* ws_idx,
-                                                       const math_t* C_vec,
-                                                       math_t eps,
-                                                       math_t* return_buff,
-                                                       int max_iter    = 10000,
-                                                       SvmType svmType = C_SVC)
+CUML_KERNEL __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
+                                                        int n_train,
+                                                        math_t* alpha,
+                                                        int n_ws,
+                                                        math_t* delta_alpha,
+                                                        math_t* f_array,
+                                                        const math_t* kernel,
+                                                        const int* ws_idx,
+                                                        const math_t* C_vec,
+                                                        math_t eps,
+                                                        math_t* return_buff,
+                                                        int max_iter    = 10000,
+                                                        SvmType svmType = C_SVC)
 {
   typedef MLCommon::Selection::KVPair<math_t, int> Pair;
   typedef cub::BlockReduce<Pair, WSIZE> BlockReduce;
