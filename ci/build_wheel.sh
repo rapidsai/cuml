@@ -1,7 +1,7 @@
 #!/bin/bash
 # Copyright (c) 2023-2024, NVIDIA CORPORATION.
 
-set -euo pipefail
+set -xeuo pipefail
 
 package_name="cuml"
 package_dir="python"
