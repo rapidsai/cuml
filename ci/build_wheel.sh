@@ -14,7 +14,7 @@ git_commit=$(git rev-parse HEAD)
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
-raft_dask_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact raft-dask 1983 python)
+raft_dask_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="raft_dask_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact raft 1983 python)
 
 # This is the version of the suffix with a preceding hyphen. It's used
 # everywhere except in the final wheel name.

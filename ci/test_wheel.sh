@@ -6,7 +6,7 @@ set -euo pipefail
 mkdir -p ./dist
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 RAPIDS_PY_WHEEL_NAME="cuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./dist
-raft_dask_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="raft_dask_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact raft-dask 1983 python)
+raft_dask_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="raft_dask_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact raft 1983 python)
 
 # On arm also need to install CMake because treelite needs to be compiled (no wheels available for arm).
 if [[ "$(arch)" == "aarch64" ]]; then
