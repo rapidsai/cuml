@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2023, NVIDIA CORPORATION.
+# Copyright (c) 2018-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import pytest
 import os
 import subprocess
 import pandas as pd
+import cudf.pandas
 
 from cuml.internals.safe_imports import cpu_only_import
 
@@ -169,6 +170,10 @@ def pytest_collection_modifyitems(config, items):
 
 
 def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "cudf_pandas: mark test as requiring the cudf.pandas wrapper",
+    )
     cp.cuda.set_allocator(None)
     # max_gpu_memory: Capacity of the GPU memory in GB
     pytest.max_gpu_memory = get_gpu_memory()
@@ -184,6 +189,16 @@ def pytest_configure(config):
         hypothesis.settings.load_profile("quality")
     else:
         hypothesis.settings.load_profile("unit")
+
+
+def pytest_pyfunc_call(pyfuncitem):
+    """Skip tests that require the cudf.pandas accelerator
+
+    Tests marked with `@pytest.mark.cudf_pandas` will only be run if the
+    cudf.pandas accelerator is enabled via the `cudf.pandas` plugin.
+    """
+    if "cudf_pandas" in pyfuncitem.keywords and not cudf.pandas.LOADED:
+        pytest.skip("Test requires cudf.pandas accelerator")
 
 
 @pytest.fixture(scope="module")
