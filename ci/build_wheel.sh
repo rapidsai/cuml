@@ -54,7 +54,7 @@ SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DDISABLE_DEPRECATION_WARNINGS=ON;-DC
     -w dist \
     -vvv \
     --no-deps \
-    --disable-pip-version-check \
+    --disable-pip-version-check
 
 mkdir -p final_dist
 python -m auditwheel repair -w final_dist dist/*
