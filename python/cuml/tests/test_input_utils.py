@@ -284,8 +284,13 @@ def test_convert_input_dtype(
     else:
         np.testing.assert_equal(converted_data.copy_to_host(), real_data)
 
-    if from_dtype == to_dtype:
-        check_ptr(converted_data, input_data, input_type)
+    # we cannot guarantee that with wrapped dataframes,
+    # such as with cudf.pandas the returned pointer is the same
+    if not hasattr(input_data, "_fsproxy_slow_type") and not hasattr(
+        input_data, "_fsproxy_fast_type"
+    ):
+        if from_dtype == to_dtype:
+            check_ptr(converted_data, input_data, input_type)
 
 
 @pytest.mark.parametrize("dtype", test_dtypes_acceptable)
