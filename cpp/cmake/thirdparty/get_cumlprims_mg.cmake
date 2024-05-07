@@ -64,7 +64,7 @@ endfunction()
 ###
 find_and_configure_cumlprims_mg(VERSION          ${CUML_MIN_VERSION_cumlprims_mg}
                                 FORK       rapidsai
-                                PINNED_TAG pull-request/186
+                                PINNED_TAG branch-${CUML_BRANCH_VERSION_cumlprims_mg}
                                 BUILD_STATIC     ${CUML_USE_CUMLPRIMS_MG_STATIC}
                                 EXCLUDE_FROM_ALL ${CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL}
                                 # When PINNED_TAG above doesn't match cuml,

@@ -6,7 +6,6 @@ set -euo pipefail
 mkdir -p ./dist
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 RAPIDS_PY_WHEEL_NAME="cuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./dist
-raft_dask_wheelhouse=$(RAPIDS_PY_WHEEL_NAME="raft_dask_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact raft 1983 python)
 
 # On arm also need to install CMake because treelite needs to be compiled (no wheels available for arm).
 if [[ "$(arch)" == "aarch64" ]]; then
@@ -14,7 +13,7 @@ if [[ "$(arch)" == "aarch64" ]]; then
 fi
 
 # echo to expand wildcard before adding `[extra]` requires for pip
-python -m pip install $(echo ./dist/cuml*.whl)[test] --find-links dist/ --find-link "${raft_dask_wheelhouse}"
+python -m pip install $(echo ./dist/cuml*.whl)[test] --find-links dist/
 
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
 mkdir -p "${RAPIDS_TESTS_DIR}"
