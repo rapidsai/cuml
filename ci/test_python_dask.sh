@@ -11,7 +11,7 @@ EXITCODE=0
 trap "EXITCODE=1" ERR
 set +e
 
-# Run tests (no UCX-Py/UCXX)
+# Run tests
 ./ci/run_cuml_dask_pytests.sh \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask.xml" \
   --cov-config=../../../.coveragerc \
