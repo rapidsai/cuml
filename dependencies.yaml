@@ -197,6 +197,7 @@ dependencies:
               - cuda-python>=11.7.1,<12.0a0
           - matrix:
             packages:
+              - cuda-python
       - output_types: [requirements, pyproject]
         matrices:
           - matrix: {cuda: "12.*"}
@@ -209,6 +210,8 @@ dependencies:
               - &rmm_cu11 rmm-cu11==24.6.*,>=0.0.0a0
           - matrix:
             packages:
+              - pylibraft==24.6.*,>=0.0.0a0
+              - rmm==24.6.*,>=0.0.0a0
 
   py_run:
     common:
@@ -257,6 +260,12 @@ dependencies:
               - *rmm_cu11
           - matrix:
             packages:
+              - *cudf_conda
+              - *cupy_pyproject_cu11
+              - *dask_cudf_conda
+              - *pylibraft_conda
+              - *raft_dask_conda
+              - *rmm_conda
   cuda_version:
     specific:
       - output_types: conda
