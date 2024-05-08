@@ -220,7 +220,7 @@ void excess_of_mass(const raft::handle_t& handle,
         exec_policy,
         children + indptr_h[node],
         children + indptr_h[node + 1],
-        [=] __device__(value_idx a) { return stability[a]; },
+        [=] __device__(value_idx a) -> value_t { return stability[a]; },
         0.0,
         thrust::plus<value_t>());
     }
