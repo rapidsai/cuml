@@ -151,7 +151,6 @@ jobs:
           -j$(nproc --ignore=1) -v \
           -DBUILD_CUML_BENCH=ON \
           -DBUILD_CUML_TESTS=ON \
-          -DBUILD_CUML_MG_TESTS=ON \
           -DBUILD_PRIMS_TESTS=ON \
           -DCMAKE_CXX_FLAGS="-ftemplate-backtrace-limit=0" \
           -DCMAKE_CUDA_FLAGS="-ftemplate-backtrace-limit=0" \
