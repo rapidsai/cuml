@@ -21,14 +21,7 @@ echo "${version}" > VERSION
 
 cd ${package_dir}
 
-# For testing, will be removed when the package is released
-git clone -b main https://github.com/rapidsai/rapids-build-backend.git
-pushd rapids-build-backend
-sed -e 's/^version =.*/version = "0.0.2"/' -i pyproject.toml
-python -m pip wheel . --no-deps
-popd
-
-PIP_FIND_LINKS="$PWD/rapids-build-backend" SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/" \
+SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/" \
   python -m pip wheel . \
     -w dist \
     -vvv \
