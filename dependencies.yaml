@@ -108,7 +108,6 @@ dependencies:
           - scikit-build-core[pyproject]>=0.7.0
       - output_types: [conda]
         packages:
-          - rapids-build-backend
           - scikit-build-core>=0.7.0
   checks:
     common:
