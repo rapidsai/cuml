@@ -21,7 +21,6 @@ dependencies:
 - dask-cuda==24.6.*
 - dask-cudf==24.6.*
 - dask-ml
-- distributed-ucxx==0.38.*
 - doxygen=1.9.1
 - gcc_linux-64=11.*
 - graphviz
