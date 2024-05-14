@@ -5,10 +5,10 @@
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../python/cuml/tests/dask
 
 rapids-logger "pytest cuml-dask (No UCX-Py/UCXX)"
-python -m pytest --cache-clear "$@" .
+timeout 2h python -m pytest --cache-clear "$@" .
 
 rapids-logger "pytest cuml-dask (UCX-Py only)"
-python -m pytest --cache-clear --run_ucx "$@" .
+timeout 5m python -m pytest --cache-clear --run_ucx "$@" .
 
 rapids-logger "pytest cuml-dask (UCXX only)"
-python -m pytest --cache-clear --run_ucxx "$@" .
+timeout 5m python -m pytest --cache-clear --run_ucxx "$@" .
