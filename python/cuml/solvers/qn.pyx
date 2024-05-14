@@ -470,7 +470,11 @@ class QN(Base,
         # Handle dense inputs
         else:
             X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
-                X, check_dtype=[np.float32, np.float64], order='K'
+                X,
+                convert_to_dtype=(np.float32 if convert_dtype
+                                  else None),
+                check_dtype=[np.float32, np.float64],
+                order='K'
             )
 
         y_m, _, _, _ = input_to_cuml_array(

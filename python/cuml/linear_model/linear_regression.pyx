@@ -331,6 +331,8 @@ class LinearRegression(LinearPredictMixin,
 
         X_m, n_rows, self.n_features_in_, self.dtype = \
             input_to_cuml_array(X,
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None),
                                 check_dtype=[np.float32, np.float64],
                                 deepcopy=need_explicit_copy)
         _X_ptr = X_m.ptr
