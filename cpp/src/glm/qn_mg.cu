@@ -183,16 +183,25 @@ void qnFit_impl(raft::handle_t& handle,
                 input_desc.uniqueRanks().size());
 }
 
-std::vector<float> getUniquelabelsMG(const raft::handle_t& handle,
+template<typename T>
+std::vector<T> getUniquelabelsMG(const raft::handle_t& handle,
                                      Matrix::PartDescriptor& input_desc,
-                                     std::vector<Matrix::Data<float>*>& labels)
+                                     std::vector<Matrix::Data<T>*>& labels)
 {
   RAFT_EXPECTS(labels.size() == 1,
                "getUniqueLabelsMG currently does not accept more than one data chunk");
-  Matrix::Data<float>* data_y = labels[0];
-  int n_rows                  = input_desc.totalElementsOwnedBy(input_desc.rank);
-  return distinct_mg<float>(handle, data_y->ptr, n_rows);
+  Matrix::Data<T>* data_y = labels[0];
+  size_t n_rows                  = input_desc.totalElementsOwnedBy(input_desc.rank);
+  return distinct_mg<T>(handle, data_y->ptr, n_rows);
 }
+
+template std::vector<float> getUniquelabelsMG(const raft::handle_t& handle,
+                                     Matrix::PartDescriptor& input_desc,
+                                     std::vector<Matrix::Data<float>*>& labels);
+
+template std::vector<double> getUniquelabelsMG(const raft::handle_t& handle,
+                                     Matrix::PartDescriptor& input_desc,
+                                     std::vector<Matrix::Data<double>*>& labels);
 
 void qnFit(raft::handle_t& handle,
            std::vector<Matrix::Data<float>*>& input_data,

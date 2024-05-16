@@ -37,9 +37,10 @@ namespace opg {
  * @param[in] labels: labels data
  * @returns host vector that stores the distinct labels
  */
-std::vector<float> getUniquelabelsMG(const raft::handle_t& handle,
+template<typename T>
+std::vector<T> getUniquelabelsMG(const raft::handle_t& handle,
                                      Matrix::PartDescriptor& input_desc,
-                                     std::vector<Matrix::Data<float>*>& labels);
+                                     std::vector<Matrix::Data<T>*>& labels);
 
 /**
  * @brief performs MNMG fit operation for the logistic regression using quasi newton methods

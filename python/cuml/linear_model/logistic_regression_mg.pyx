@@ -80,6 +80,11 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         float *f,
         int *num_iters) except +
 
+    cdef vector[double] getUniquelabelsMG(
+        const handle_t& handle,
+        PartDescriptor &input_desc,
+        vector[doubleData_t*] labels) except+
+
     cdef vector[float] getUniquelabelsMG(
         const handle_t& handle,
         PartDescriptor &input_desc,
@@ -99,6 +104,7 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         int n_classes,
         float *f,
         int *num_iters) except +
+
 
 
 class LogisticRegressionMG(MGFitMixin, LogisticRegression):
@@ -202,11 +208,20 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         cdef int num_iters
 
         cdef vector[float] c_classes_
-        c_classes_ = getUniquelabelsMG(
-            handle_[0],
-            deref(<PartDescriptor*><uintptr_t>input_desc),
-            deref(<vector[floatData_t*]*><uintptr_t>y))
-        self.classes_ = np.sort(list(c_classes_)).astype('float32')
+        cdef vector[double] c_classes_64
+        if self.dtype == np.float32:
+            c_classes_ = getUniquelabelsMG(
+                handle_[0],
+                deref(<PartDescriptor*><uintptr_t>input_desc),
+                deref(<vector[floatData_t*]*><uintptr_t>y))
+            self.classes_ = np.sort(list(c_classes_)).astype(np.float32)
+        else:
+            c_classes_64 = getUniquelabelsMG(
+                handle_[0],
+                deref(<PartDescriptor*><uintptr_t>input_desc),
+                deref(<vector[doubleData_t*]*><uintptr_t>y))
+            self.classes_ = np.sort(list(c_classes_))
+
 
         self._num_classes = len(self.classes_)
         self.loss = "sigmoid" if self._num_classes <= 2 else "softmax"
