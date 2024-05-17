@@ -278,10 +278,8 @@ def _test_batch_size(nrows, ncols, n_parts, batch_size, dask_client, request):
 
     from sklearn.datasets import make_blobs
 
-    print("_scale_rows", flush=True)
     nrows = _scale_rows(client, nrows)
 
-    print("make_blobs", flush=True)
     X, y = make_blobs(
         n_samples=int(nrows),
         n_features=ncols,
@@ -291,27 +289,20 @@ def _test_batch_size(nrows, ncols, n_parts, batch_size, dask_client, request):
 
     X = X.astype(np.float32)
 
-    print("_prep_training_data", flush=True)
     X_cudf = _prep_training_data(client, X, n_parts)
 
-    print("daskNN", flush=True)
     cumlModel = daskNN(
         n_neighbors=n_neighbors, batch_size=batch_size, streams_per_handle=5
     )
 
-    print("fit", flush=True)
     cumlModel.fit(X_cudf)
 
-    print("kneighbors", flush=True)
     out_d, out_i = cumlModel.kneighbors(X_cudf)
 
-    print("to_numpy", flush=True)
     local_i = out_i.compute().to_numpy()
 
-    print("predict", flush=True)
     y_hat, _ = predict(local_i, y, n_neighbors)
 
-    print("assert", flush=True)
     assert array_equal(y_hat, y)
 
 
