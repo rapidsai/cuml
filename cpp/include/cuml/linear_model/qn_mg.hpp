@@ -56,7 +56,6 @@ std::vector<T> getUniquelabelsMG(const raft::handle_t& handle,
  * @param[out] f: host pointer holding the final objective value
  * @param[out] num_iters: host pointer holding the actual number of iterations taken
  */
-
 template<typename T>
 void qnFit(raft::handle_t& handle,
            std::vector<Matrix::Data<T>*>& input_data,
@@ -69,32 +68,6 @@ void qnFit(raft::handle_t& handle,
            int n_classes,
            T* f,
            int* num_iters);
-
-/*
-void qnFit(raft::handle_t& handle,
-           std::vector<Matrix::Data<float>*>& input_data,
-           Matrix::PartDescriptor& input_desc,
-           std::vector<Matrix::Data<float>*>& labels,
-           float* coef,
-           const qn_params& pams,
-           bool X_col_major,
-           bool standardization,
-           int n_classes,
-           float* f,
-           int* num_iters);
-
-void qnFit(raft::handle_t& handle,
-           std::vector<Matrix::Data<double>*>& input_data,
-           Matrix::PartDescriptor& input_desc,
-           std::vector<Matrix::Data<double>*>& labels,
-           double* coef,
-           const qn_params& pams,
-           bool X_col_major,
-           bool standardization,
-           int n_classes,
-           double* f,
-           int* num_iters);
-*/
 
 /**
  * @brief support sparse vectors (Compressed Sparse Row format) for MNMG logistic regression fit
@@ -115,18 +88,19 @@ void qnFit(raft::handle_t& handle,
  * @param[out] f: host pointer holding the final objective value
  * @param[out] num_iters: host pointer holding the actual number of iterations taken
  */
+template<typename T>
 void qnFitSparse(raft::handle_t& handle,
-                 std::vector<Matrix::Data<float>*>& input_values,
+                 std::vector<Matrix::Data<T>*>& input_values,
                  int* input_cols,
                  int* input_row_ids,
                  int X_nnz,
                  Matrix::PartDescriptor& input_desc,
-                 std::vector<Matrix::Data<float>*>& labels,
-                 float* coef,
+                 std::vector<Matrix::Data<T>*>& labels,
+                 T* coef,
                  const qn_params& pams,
                  bool standardization,
                  int n_classes,
-                 float* f,
+                 T* f,
                  int* num_iters);
 
 };  // namespace opg

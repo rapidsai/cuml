@@ -93,15 +93,15 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         double *f,
         int *num_iters) except +
 
-    cdef vector[double] getUniquelabelsMG(
-        const handle_t& handle,
-        PartDescriptor &input_desc,
-        vector[doubleData_t*] labels) except+
-
     cdef vector[float] getUniquelabelsMG(
         const handle_t& handle,
         PartDescriptor &input_desc,
         vector[floatData_t*] labels) except+
+
+    cdef vector[double] getUniquelabelsMG(
+        const handle_t& handle,
+        PartDescriptor &input_desc,
+        vector[doubleData_t*] labels) except+
 
     cdef void qnFitSparse(
         handle_t& handle,
@@ -116,6 +116,21 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         bool standardization,
         int n_classes,
         float *f,
+        int *num_iters) except +
+
+    cdef void qnFitSparse(
+        handle_t& handle,
+        vector[doubleData_t *] input_values,
+        int *input_cols,
+        int *input_row_ids,
+        int X_nnz,
+        PartDescriptor &input_desc,
+        vector[doubleData_t *] labels,
+        double *coef,
+        const qn_params& pams,
+        bool standardization,
+        int n_classes,
+        double *f,
         int *num_iters) except +
 
 
@@ -277,13 +292,13 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                     deref(<vector[floatData_t*]*><uintptr_t>X_values),
                     <int*><uintptr_t>X_cols,
                     <int*><uintptr_t>X_row_ids,
-                    X_nnz,
+                    <int> X_nnz,
                     deref(<PartDescriptor*><uintptr_t>input_desc),
                     deref(<vector[floatData_t*]*><uintptr_t>y),
                     <float*>mat_coef_ptr,
                     qnpams,
-                    self.standardization,
-                    self._num_classes,
+                    <bool> self.standardization,
+                    <int> self._num_classes,
                     <float*> &objective32,
                     <int*> &num_iters)
 
@@ -306,7 +321,26 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                     <int*> &num_iters)
                  
             else:
-                assert False, "sparse not supported"
+                assert len(X) == 4
+                X_values = X[0]
+                X_cols = X[1]
+                X_row_ids = X[2]
+                X_nnz = X[3]
+
+                qnFitSparse(
+                    handle_[0],
+                    deref(<vector[doubleData_t*]*><uintptr_t>X_values),
+                    <int*><uintptr_t>X_cols,
+                    <int*><uintptr_t>X_row_ids,
+                    <int> X_nnz,
+                    deref(<PartDescriptor*><uintptr_t>input_desc),
+                    deref(<vector[doubleData_t*]*><uintptr_t>y),
+                    <double*>mat_coef_ptr,
+                    qnpams,
+                    <bool> self.standardization,
+                    <int> self._num_classes,
+                    <double*> &objective32,
+                    <int*> &num_iters)
 
             self.solver_model.objective = objective64
 

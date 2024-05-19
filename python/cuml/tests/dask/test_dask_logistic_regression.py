@@ -568,20 +568,20 @@ def test_elasticnet(
 @pytest.mark.mg
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize(
-    "regularization",
+    "reg_dtype",
     [
-        ("none", 1.0, None),
-        ("l2", 2.0, None),
-        ("l1", 2.0, None),
-        ("elasticnet", 2.0, 0.2),
+        (("none", 1.0, None), np.float32),
+        (("l2", 2.0, None), np.float64),
+        (("l1", 2.0, None), np.float32),
+        (("elasticnet", 2.0, 0.2), np.float64),
     ],
 )
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("n_classes", [2, 8])
 def test_sparse_from_dense(
-    fit_intercept, regularization, datatype, n_classes, client
+    fit_intercept, reg_dtype, n_classes, client
 ):
-    penalty, C, l1_ratio = regularization
+    penalty, C, l1_ratio = reg_dtype[0]
+    datatype = reg_dtype[1]
 
     nrows = int(1e5) if n_classes < 5 else int(2e5)
     run_test = partial(
@@ -600,17 +600,11 @@ def test_sparse_from_dense(
         convert_to_sparse=True,
     )
 
-    if datatype == np.float32:
-        run_test()
-    else:
-        with pytest.raises(
-            RuntimeError,
-            match="dtypes other than float32 are currently not supported",
-        ):
-            run_test()
+    lr = run_test()
+    assert lr.dtype == datatype
 
 
-@pytest.mark.parametrize("dtype", [np.float32])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_sparse_nlp20news(dtype, nlp_20news, client):
 
     X, y = nlp_20news

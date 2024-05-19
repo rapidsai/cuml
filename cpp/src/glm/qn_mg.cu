@@ -305,18 +305,19 @@ void qnFitSparse_impl(const raft::handle_t& handle,
   return;
 }
 
+template<typename T>
 void qnFitSparse(raft::handle_t& handle,
-                 std::vector<Matrix::Data<float>*>& input_values,
+                 std::vector<Matrix::Data<T>*>& input_values,
                  int* input_cols,
                  int* input_row_ids,
                  int X_nnz,
                  Matrix::PartDescriptor& input_desc,
-                 std::vector<Matrix::Data<float>*>& labels,
-                 float* coef,
+                 std::vector<Matrix::Data<T>*>& labels,
+                 T* coef,
                  const qn_params& pams,
                  bool standardization,
                  int n_classes,
-                 float* f,
+                 T* f,
                  int* num_iters)
 {
   RAFT_EXPECTS(input_values.size() == 1,
@@ -325,7 +326,7 @@ void qnFitSparse(raft::handle_t& handle,
   auto data_input_values = input_values[0];
   auto data_y            = labels[0];
 
-  qnFitSparse_impl<float, int>(handle,
+  qnFitSparse_impl<T, int>(handle,
                                pams,
                                data_input_values->ptr,
                                input_cols,
@@ -343,6 +344,34 @@ void qnFitSparse(raft::handle_t& handle,
                                input_desc.rank,
                                input_desc.uniqueRanks().size());
 }
+
+template void qnFitSparse(raft::handle_t& handle,
+                 std::vector<Matrix::Data<float>*>& input_values,
+                 int* input_cols,
+                 int* input_row_ids,
+                 int X_nnz,
+                 Matrix::PartDescriptor& input_desc,
+                 std::vector<Matrix::Data<float>*>& labels,
+                 float* coef,
+                 const qn_params& pams,
+                 bool standardization,
+                 int n_classes,
+                 float* f,
+                 int* num_iters);
+
+template void qnFitSparse(raft::handle_t& handle,
+                 std::vector<Matrix::Data<double>*>& input_values,
+                 int* input_cols,
+                 int* input_row_ids,
+                 int X_nnz,
+                 Matrix::PartDescriptor& input_desc,
+                 std::vector<Matrix::Data<double>*>& labels,
+                 double* coef,
+                 const qn_params& pams,
+                 bool standardization,
+                 int n_classes,
+                 double* f,
+                 int* num_iters);
 
 };  // namespace opg
 };  // namespace GLM
