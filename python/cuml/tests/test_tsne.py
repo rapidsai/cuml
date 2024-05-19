@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -205,6 +205,7 @@ def test_tsne(test_datasets, method):
         method=method,
         min_grad_norm=1e-12,
         perplexity=DEFAULT_PERPLEXITY,
+        init="pca",
     )
 
     Y = tsne.fit_transform(X)

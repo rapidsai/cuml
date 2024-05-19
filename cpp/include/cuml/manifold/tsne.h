@@ -94,8 +94,10 @@ struct TSNEParams {
   // verbosity level for logging messages during execution
   int verbosity = CUML_LEVEL_INFO;
 
-  // Whether to overwrite the current Y vector with random noise.
-  bool initialize_embeddings = true;
+  // Embedding initializer algorithm
+  // 0 = random layout
+  // 1 = pca layout
+  int init = 1;
 
   // When this is set to true, the distances from the knn graph will
   // always be squared before computing conditional probabilities, even if

@@ -33,7 +33,15 @@
 
 #include <thrust/transform.h>
 
+#include <pca/pca.cuh>
+
 namespace ML {
+
+template <class T, template <class> class U>
+inline constexpr bool is_instance_of = std::false_type{};
+
+template <template <class> class U, class V>
+inline constexpr bool is_instance_of<U<V>, U> = std::true_type{};
 
 template <typename tsne_input, typename value_idx, typename value_t>
 class TSNE_runner {
@@ -78,6 +86,44 @@ class TSNE_runner {
       CUML_LOG_WARN(
         "# of Nearest Neighbors should be at least 3 * perplexity. Your results"
         " might be a bit strange...");
+
+    auto stream         = handle_.get_stream();
+    const value_idx dim = params.dim;
+
+    if (params.init == 0) {
+      random_vector(Y, -0.0001f, 0.0001f, n * dim, stream, params.random_state);
+    } else if (params.init == 1) {
+      rmm::device_uvector<float> components(p * dim, stream);
+      rmm::device_uvector<float> explained_var(dim, stream);
+      rmm::device_uvector<float> explained_var_ratio(dim, stream);
+      rmm::device_uvector<float> singular_vals(dim, stream);
+      rmm::device_uvector<float> mu(p, stream);
+      rmm::device_scalar<float> noise_vars(stream);
+
+      paramsPCA prms;
+      prms.n_cols       = p;
+      prms.n_rows       = n;
+      prms.n_components = dim;
+      prms.whiten       = true;
+      prms.algorithm    = solver::COV_EIG_DQ;
+
+      if constexpr (!is_instance_of<tsne_input, manifold_dense_inputs_t>) {
+        throw std::runtime_error("The TSNE input must be of type manifold_dense_inputs_t");
+      } else {
+        pcaFitTransform(handle,
+                        input.X,
+                        Y,
+                        components.data(),
+                        explained_var.data(),
+                        explained_var_ratio.data(),
+                        singular_vals.data(),
+                        mu.data(),
+                        noise_vars.data(),
+                        prms,
+                        stream);
+        handle.sync_stream(stream);
+      }
+    }
   }
 
   value_t run()
