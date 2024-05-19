@@ -80,6 +80,19 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         float *f,
         int *num_iters) except +
 
+    cdef void qnFit(
+        handle_t& handle,
+        vector[doubleData_t *] input_data,
+        PartDescriptor &input_desc,
+        vector[doubleData_t *] labels,
+        double *coef,
+        const qn_params& pams,
+        bool X_col_major,
+        bool standardization,
+        int n_classes,
+        double *f,
+        int *num_iters) except +
+
     cdef vector[double] getUniquelabelsMG(
         const handle_t& handle,
         PartDescriptor &input_desc,
@@ -205,6 +218,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef float objective32
+        cdef float objective64
         cdef int num_iters
 
         cdef vector[float] c_classes_
@@ -215,13 +229,15 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                 deref(<PartDescriptor*><uintptr_t>input_desc),
                 deref(<vector[floatData_t*]*><uintptr_t>y))
             self.classes_ = np.sort(list(c_classes_)).astype(np.float32)
-        else:
+        elif self.dtype == np.float64:
+            print(f"debug entering getUniqueLabelMG double")
             c_classes_64 = getUniquelabelsMG(
                 handle_[0],
                 deref(<PartDescriptor*><uintptr_t>input_desc),
                 deref(<vector[doubleData_t*]*><uintptr_t>y))
-            self.classes_ = np.sort(list(c_classes_))
-
+            self.classes_ = np.sort(list(c_classes_64))
+        else:
+            assert False, "dtypes other than float32 and float64 are currently not supported yet."
 
         self._num_classes = len(self.classes_)
         self.loss = "sigmoid" if self._num_classes <= 2 else "softmax"
@@ -235,6 +251,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
         if self.dtype == np.float32:
             if sparse_input is False:
+
                 qnFit(
                     handle_[0],
                     deref(<vector[floatData_t*]*><uintptr_t>X),
@@ -242,9 +259,9 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                     deref(<vector[floatData_t*]*><uintptr_t>y),
                     <float*>mat_coef_ptr,
                     qnpams,
-                    self.is_col_major,
-                    self.standardization,
-                    self._num_classes,
+                    <bool>self.is_col_major,
+                    <bool>self.standardization,
+                    <int>self._num_classes,
                     <float*> &objective32,
                     <int*> &num_iters)
 
@@ -272,8 +289,29 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
             self.solver_model.objective = objective32
 
+        elif self.dtype == np.float64:
+            if sparse_input is False:
+
+                qnFit(
+                    handle_[0],
+                    deref(<vector[doubleData_t*]*><uintptr_t>X),
+                    deref(<PartDescriptor*><uintptr_t>input_desc),
+                    deref(<vector[doubleData_t*]*><uintptr_t>y),
+                    <double*>mat_coef_ptr,
+                    qnpams,
+                    <bool> self.is_col_major,
+                    <bool> self.standardization,
+                    <int> self._num_classes,
+                    <double*> &objective64,
+                    <int*> &num_iters)
+                 
+            else:
+                assert False, "sparse not supported"
+
+            self.solver_model.objective = objective64
+
         else:
-            assert False, "dtypes other than float32 are currently not supported yet. See issue: https://github.com/rapidsai/cuml/issues/5589"
+            assert False, "dtypes other than float32 and float64 are currently not supported yet."
 
         self.solver_model.num_iters = num_iters
 

@@ -187,7 +187,7 @@ def test_lr_fit_predict_score(
 
 @pytest.mark.mg
 @pytest.mark.parametrize("n_parts", [2])
-@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 def test_lbfgs_toy(n_parts, datatype, client):
     def imp():
         import cuml.comm.serialize  # NOQA
@@ -217,16 +217,7 @@ def test_lbfgs_toy(n_parts, datatype, client):
     from numpy.testing import assert_array_equal
 
     assert_array_equal(preds, y, strict=True)
-
-    # assert error on float64
-    X = X.astype(np.float64)
-    y = y.astype(np.float64)
-    X_df, y_df = _prep_training_data(client, X, y, n_parts)
-    with pytest.raises(
-        RuntimeError,
-        match="dtypes other than float32 are currently not supported yet. See issue: https://github.com/rapidsai/cuml/issues/5589",
-    ):
-        lr.fit(X_df, y_df)
+    assert lr.dtype == datatype
 
 
 def test_lbfgs_init(client):
