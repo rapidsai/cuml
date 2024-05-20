@@ -43,6 +43,7 @@ from cuml.preprocessing import (
     quantile_transform as cu_quantile_transform,
     robust_scale as cu_robust_scale,
     scale as cu_scale,
+    label_binarize as cu_label_binarize,
 )
 from sklearn.preprocessing import (
     Binarizer as skBinarizer,
@@ -68,6 +69,7 @@ from sklearn.preprocessing import (
     quantile_transform as sk_quantile_transform,
     robust_scale as sk_robust_scale,
     scale as sk_scale,
+    label_binarize as sk_label_binarize,
 )
 from sklearn.impute import (
     MissingIndicator as skMissingIndicator,
@@ -1134,6 +1136,23 @@ def test_kernel_centerer():
 
     assert_allclose(sk_t_X, t_X)
 
+
+def test_label_binarize():
+    cu_bin = cu_label_binarize(cp.array([1, 0, 1, 1]), classes=cp.array([0, 1]))
+    sk_bin = sk_label_binarize([1, 0, 1, 1], classes=[0, 1])
+    assert_allclose(cu_bin, sk_bin)
+
+    cu_bin_sparse = cu_label_binarize(cp.array([1, 0, 1, 1]), classes=cp.array([0, 1]), sparse_output=True)
+    sk_bin_sparse = sk_label_binarize([1, 0, 1, 1], classes=[0, 1], sparse_output=True)
+    assert_allclose(cu_bin_sparse, sk_bin_sparse)
+    
+    cu_multi = cu_label_binarize(cp.array([1, 6, 3]), classes=cp.array([1, 3, 4, 6]))
+    sk_multi = sk_label_binarize([1, 6, 3], classes=[1, 3, 4, 6])
+    assert_allclose(cu_multi, sk_multi)
+    
+    cu_multi_sparse = cu_label_binarize(cp.array([1, 6, 3]), classes=cp.array([1, 3, 4, 6]), sparse_output=True)
+    sk_multi_sparse = sk_label_binarize([1, 6, 3], classes=[1, 3, 4, 6], sparse_output=True)
+    assert_allclose(cu_multi_sparse, sk_multi_sparse)
 
 def test__repr__():
     assert cuBinarizer().__repr__() == "Binarizer()"
