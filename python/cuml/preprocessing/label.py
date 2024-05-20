@@ -64,14 +64,19 @@ def label_binarize(
 
     cp.cuda.Stream.null.synchronize()
 
+    is_binary = True if classes.shape[0] == 2 else False
+    
     if sparse_output:
         sp = sp.tocsr()
+        if is_binary:
+            sp = sp.getcol(1)   # getcol does not support -1 indexing
         return sp
     else:
 
         arr = sp.toarray().astype(y.dtype)
         arr[arr == 0] = neg_label
-
+        if is_binary:
+            arr = arr[:, -1].reshape((-1, 1))
         return arr
 
 
