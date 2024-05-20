@@ -577,9 +577,7 @@ def test_elasticnet(
     ],
 )
 @pytest.mark.parametrize("n_classes", [2, 8])
-def test_sparse_from_dense(
-    fit_intercept, reg_dtype, n_classes, client
-):
+def test_sparse_from_dense(fit_intercept, reg_dtype, n_classes, client):
     penalty, C, l1_ratio = reg_dtype[0]
     datatype = reg_dtype[1]
 
@@ -671,21 +669,22 @@ def test_exception_one_label(fit_intercept, client):
 @pytest.mark.mg
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize(
-    "regularization",
+    "reg_dtype",
     [
-        ("none", 1.0, None),
-        ("l2", 2.0, None),
-        ("l1", 2.0, None),
-        ("elasticnet", 2.0, 0.2),
+        (("none", 1.0, None), np.float64),
+        (("l2", 2.0, None), np.float32),
+        (("l1", 2.0, None), np.float64),
+        (("elasticnet", 2.0, 0.2), np.float32),
     ],
 )
-@pytest.mark.parametrize("datatype", [np.float32])
 @pytest.mark.parametrize("delayed", [False])
 @pytest.mark.parametrize("n_classes", [2, 8])
 def test_standardization_on_normal_dataset(
-    fit_intercept, regularization, datatype, delayed, n_classes, client
+    fit_intercept, reg_dtype, delayed, n_classes, client
 ):
 
+    regularization = reg_dtype[0]
+    datatype = reg_dtype[1]
     penalty = regularization[0]
     C = regularization[1]
     l1_ratio = regularization[2]
@@ -693,7 +692,7 @@ def test_standardization_on_normal_dataset(
     nrows = int(1e5) if n_classes < 5 else int(2e5)
 
     # test correctness compared with scikit-learn
-    _test_lbfgs(
+    lr = _test_lbfgs(
         nrows=nrows,
         ncols=20,
         n_parts=2,
@@ -707,25 +706,28 @@ def test_standardization_on_normal_dataset(
         l1_ratio=l1_ratio,
         standardization=True,
     )
+    assert lr.dtype == datatype
 
 
 @pytest.mark.mg
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize(
-    "regularization",
+    "reg_dtype",
     [
-        ("none", 1.0, None),
-        ("l2", 2.0, None),
-        ("l1", 2.0, None),
-        ("elasticnet", 2.0, 0.2),
+        (("none", 1.0, None), np.float32),
+        (("l2", 2.0, None), np.float32),
+        (("l1", 2.0, None), np.float64),
+        (("elasticnet", 2.0, 0.2), np.float64),
     ],
 )
-@pytest.mark.parametrize("datatype", [np.float32])
 @pytest.mark.parametrize("delayed", [False])
 @pytest.mark.parametrize("ncol_and_nclasses", [(2, 2), (6, 4), (100, 10)])
 def test_standardization_on_scaled_dataset(
-    fit_intercept, regularization, datatype, delayed, ncol_and_nclasses, client
+    fit_intercept, reg_dtype, delayed, ncol_and_nclasses, client
 ):
+
+    regularization = reg_dtype[0]
+    datatype = reg_dtype[1]
 
     penalty = regularization[0]
     C = regularization[1]
@@ -881,6 +883,9 @@ def test_standardization_on_scaled_dataset(
         total_tol=tolerance,
     )
 
+    assert mgon.dtype == datatype
+    assert mgoff.dtype == datatype
+
 
 @pytest.mark.mg
 @pytest.mark.parametrize("fit_intercept", [True, False])
@@ -978,15 +983,18 @@ def test_standardization_example(fit_intercept, regularization, client):
 @pytest.mark.mg
 @pytest.mark.parametrize("fit_intercept", [True, False])
 @pytest.mark.parametrize(
-    "regularization",
+    "reg_dtype",
     [
-        ("none", 1.0, None),
-        ("l2", 2.0, None),
-        ("l1", 2.0, None),
-        ("elasticnet", 2.0, 0.2),
+        (("none", 1.0, None), np.float64),
+        (("l2", 2.0, None), np.float32),
+        (("l1", 2.0, None), np.float64),
+        (("elasticnet", 2.0, 0.2), np.float32),
     ],
 )
-def test_standardization_sparse(fit_intercept, regularization, client):
+def test_standardization_sparse(fit_intercept, reg_dtype, client):
+    regularization = reg_dtype[0]
+    datatype = reg_dtype[1]
+
     n_rows = 10000
     n_cols = 25
     n_info = 15
@@ -994,7 +1002,6 @@ def test_standardization_sparse(fit_intercept, regularization, client):
     nnz = int(n_rows * n_cols * 0.3)  # number of non-zero values
     tolerance = 0.005
 
-    datatype = np.float32
     n_parts = 10
     max_iter = 5  # cannot set this too large. Observed GPU-specific coefficients when objective converges at 0.
 
@@ -1074,3 +1081,5 @@ def test_standardization_sparse(fit_intercept, regularization, client):
     assert array_equal(
         lron_intercept_origin, sg.intercept_, unit_tol=tolerance
     )
+
+    assert lr_on.dtype == datatype
