@@ -134,7 +134,6 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         int *num_iters) except +
 
 
-
 class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
     def __init__(self, *, standardization=False, **kwargs):
@@ -245,7 +244,6 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                 deref(<vector[floatData_t*]*><uintptr_t>y))
             self.classes_ = np.sort(list(c_classes_)).astype(np.float32)
         elif self.dtype == np.float64:
-            print(f"debug entering getUniqueLabelMG double")
             c_classes_64 = getUniquelabelsMG(
                 handle_[0],
                 deref(<PartDescriptor*><uintptr_t>input_desc),
@@ -319,7 +317,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                     <int> self._num_classes,
                     <double*> &objective64,
                     <int*> &num_iters)
-                 
+
             else:
                 assert len(X) == 4
                 X_values = X[0]
