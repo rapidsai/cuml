@@ -64,7 +64,7 @@ def label_binarize(
 
     cp.cuda.Stream.null.synchronize()
 
-    is_binary = True if classes.shape[0] == 2 else False
+    is_binary = classes.shape[0] == 2
     
     if sparse_output:
         sp = sp.tocsr()
