@@ -26,7 +26,6 @@ requirements:
     - ninja
   host:
     - python x.x
-    - setuptools
     - scikit-build-core >=0.7.0
     - cython>=3.0.0
   run:
