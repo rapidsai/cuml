@@ -174,6 +174,12 @@ def get_supported_input_type(X):
     if isinstance(X, CudfIndex):
         return CudfIndex
 
+    # A cudf.pandas wrapped Numpy array defines `__cuda_array_interface__`
+    # which means without this we'd always return a cupy array. We don't want
+    # to match wrapped cupy arrays, they get dealt with later
+    if getattr(X, "_fsproxy_slow_type", None) is np.ndarray:
+        return np.ndarray
+
     try:
         if numba_cuda.devicearray.is_cuda_ndarray(X):
             return numba_cuda.devicearray.DeviceNDArrayBase
