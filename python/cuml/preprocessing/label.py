@@ -65,11 +65,11 @@ def label_binarize(
     cp.cuda.Stream.null.synchronize()
 
     is_binary = classes.shape[0] == 2
-    
+
     if sparse_output:
         sp = sp.tocsr()
         if is_binary:
-            sp = sp.getcol(1)   # getcol does not support -1 indexing
+            sp = sp.getcol(1)  # getcol does not support -1 indexing
         return sp
     else:
 
