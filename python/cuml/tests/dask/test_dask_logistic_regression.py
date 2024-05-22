@@ -187,7 +187,7 @@ def test_lr_fit_predict_score(
 
 @pytest.mark.mg
 @pytest.mark.parametrize("n_parts", [2])
-@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 def test_lbfgs_toy(n_parts, datatype, client):
     def imp():
         import cuml.comm.serialize  # NOQA
@@ -217,16 +217,7 @@ def test_lbfgs_toy(n_parts, datatype, client):
     from numpy.testing import assert_array_equal
 
     assert_array_equal(preds, y, strict=True)
-
-    # assert error on float64
-    X = X.astype(np.float64)
-    y = y.astype(np.float64)
-    X_df, y_df = _prep_training_data(client, X, y, n_parts)
-    with pytest.raises(
-        RuntimeError,
-        match="dtypes other than float32 are currently not supported yet. See issue: https://github.com/rapidsai/cuml/issues/5589",
-    ):
-        lr.fit(X_df, y_df)
+    assert lr.dtype == datatype
 
 
 def test_lbfgs_init(client):
@@ -426,25 +417,30 @@ def _test_lbfgs(
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("delayed", [True, False])
 def test_lbfgs(n_parts, fit_intercept, delayed, client):
-    _test_lbfgs(
+    datatype = np.float32 if fit_intercept else np.float64
+
+    lr = _test_lbfgs(
         nrows=1e5,
         ncols=20,
         n_parts=n_parts,
         fit_intercept=fit_intercept,
-        datatype=np.float32,
+        datatype=datatype,
         delayed=delayed,
         client=client,
     )
 
+    assert lr.dtype == datatype
+
 
 @pytest.mark.parametrize("fit_intercept", [False, True])
 def test_noreg(fit_intercept, client):
+    datatype = np.float64 if fit_intercept else np.float32
     lr = _test_lbfgs(
         nrows=1e5,
         ncols=20,
         n_parts=23,
         fit_intercept=fit_intercept,
-        datatype=np.float32,
+        datatype=datatype,
         delayed=True,
         client=client,
         penalty="none",
@@ -457,6 +453,8 @@ def test_noreg(fit_intercept, client):
     l1_strength, l2_strength = lr._get_qn_params()
     assert l1_strength == 0.0
     assert l2_strength == 0.0
+
+    assert lr.dtype == datatype
 
 
 def test_n_classes_small(client):
@@ -502,13 +500,14 @@ def test_n_classes_small(client):
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("n_classes", [8])
 def test_n_classes(n_parts, fit_intercept, n_classes, client):
+    datatype = np.float32 if fit_intercept else np.float64
     nrows = int(1e5) if n_classes < 5 else int(2e5)
     lr = _test_lbfgs(
         nrows=nrows,
         ncols=20,
         n_parts=n_parts,
         fit_intercept=fit_intercept,
-        datatype=np.float32,
+        datatype=datatype,
         delayed=True,
         client=client,
         penalty="l2",
@@ -516,15 +515,16 @@ def test_n_classes(n_parts, fit_intercept, n_classes, client):
     )
 
     assert lr._num_classes == n_classes
+    assert lr.dtype == datatype
 
 
 @pytest.mark.mg
 @pytest.mark.parametrize("fit_intercept", [False, True])
-@pytest.mark.parametrize("datatype", [np.float32])
 @pytest.mark.parametrize("delayed", [True])
 @pytest.mark.parametrize("n_classes", [2, 8])
 @pytest.mark.parametrize("C", [1.0, 10.0])
-def test_l1(fit_intercept, datatype, delayed, n_classes, C, client):
+def test_l1(fit_intercept, delayed, n_classes, C, client):
+    datatype = np.float64 if fit_intercept else np.float32
     nrows = int(1e5) if n_classes < 5 else int(2e5)
     lr = _test_lbfgs(
         nrows=nrows,
@@ -543,16 +543,20 @@ def test_l1(fit_intercept, datatype, delayed, n_classes, C, client):
     assert l1_strength == 1.0 / lr.C
     assert l2_strength == 0.0
 
+    assert lr.dtype == datatype
+
 
 @pytest.mark.mg
 @pytest.mark.parametrize("fit_intercept", [False, True])
-@pytest.mark.parametrize("datatype", [np.float32])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("delayed", [True])
 @pytest.mark.parametrize("n_classes", [2, 8])
 @pytest.mark.parametrize("l1_ratio", [0.2, 0.8])
 def test_elasticnet(
     fit_intercept, datatype, delayed, n_classes, l1_ratio, client
 ):
+    datatype = np.float32 if fit_intercept else np.float64
+
     nrows = int(1e5) if n_classes < 5 else int(2e5)
     lr = _test_lbfgs(
         nrows=nrows,
@@ -573,24 +577,24 @@ def test_elasticnet(
     assert l1_strength == lr.l1_ratio * strength
     assert l2_strength == (1.0 - lr.l1_ratio) * strength
 
+    assert lr.dtype == datatype
+
 
 @pytest.mark.mg
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize(
-    "regularization",
+    "reg_dtype",
     [
-        ("none", 1.0, None),
-        ("l2", 2.0, None),
-        ("l1", 2.0, None),
-        ("elasticnet", 2.0, 0.2),
+        (("none", 1.0, None), np.float32),
+        (("l2", 2.0, None), np.float64),
+        (("l1", 2.0, None), np.float32),
+        (("elasticnet", 2.0, 0.2), np.float64),
     ],
 )
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("n_classes", [2, 8])
-def test_sparse_from_dense(
-    fit_intercept, regularization, datatype, n_classes, client
-):
-    penalty, C, l1_ratio = regularization
+def test_sparse_from_dense(fit_intercept, reg_dtype, n_classes, client):
+    penalty, C, l1_ratio = reg_dtype[0]
+    datatype = reg_dtype[1]
 
     nrows = int(1e5) if n_classes < 5 else int(2e5)
     run_test = partial(
@@ -609,17 +613,11 @@ def test_sparse_from_dense(
         convert_to_sparse=True,
     )
 
-    if datatype == np.float32:
-        run_test()
-    else:
-        with pytest.raises(
-            RuntimeError,
-            match="dtypes other than float32 are currently not supported",
-        ):
-            run_test()
+    lr = run_test()
+    assert lr.dtype == datatype
 
 
-@pytest.mark.parametrize("dtype", [np.float32])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_sparse_nlp20news(dtype, nlp_20news, client):
 
     X, y = nlp_20news
@@ -686,21 +684,22 @@ def test_exception_one_label(fit_intercept, client):
 @pytest.mark.mg
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize(
-    "regularization",
+    "reg_dtype",
     [
-        ("none", 1.0, None),
-        ("l2", 2.0, None),
-        ("l1", 2.0, None),
-        ("elasticnet", 2.0, 0.2),
+        (("none", 1.0, None), np.float64),
+        (("l2", 2.0, None), np.float32),
+        (("l1", 2.0, None), np.float64),
+        (("elasticnet", 2.0, 0.2), np.float32),
     ],
 )
-@pytest.mark.parametrize("datatype", [np.float32])
 @pytest.mark.parametrize("delayed", [False])
 @pytest.mark.parametrize("n_classes", [2, 8])
 def test_standardization_on_normal_dataset(
-    fit_intercept, regularization, datatype, delayed, n_classes, client
+    fit_intercept, reg_dtype, delayed, n_classes, client
 ):
 
+    regularization = reg_dtype[0]
+    datatype = reg_dtype[1]
     penalty = regularization[0]
     C = regularization[1]
     l1_ratio = regularization[2]
@@ -708,7 +707,7 @@ def test_standardization_on_normal_dataset(
     nrows = int(1e5) if n_classes < 5 else int(2e5)
 
     # test correctness compared with scikit-learn
-    _test_lbfgs(
+    lr = _test_lbfgs(
         nrows=nrows,
         ncols=20,
         n_parts=2,
@@ -722,25 +721,28 @@ def test_standardization_on_normal_dataset(
         l1_ratio=l1_ratio,
         standardization=True,
     )
+    assert lr.dtype == datatype
 
 
 @pytest.mark.mg
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize(
-    "regularization",
+    "reg_dtype",
     [
-        ("none", 1.0, None),
-        ("l2", 2.0, None),
-        ("l1", 2.0, None),
-        ("elasticnet", 2.0, 0.2),
+        (("none", 1.0, None), np.float32),
+        (("l2", 2.0, None), np.float32),
+        (("l1", 2.0, None), np.float64),
+        (("elasticnet", 2.0, 0.2), np.float64),
     ],
 )
-@pytest.mark.parametrize("datatype", [np.float32])
 @pytest.mark.parametrize("delayed", [False])
 @pytest.mark.parametrize("ncol_and_nclasses", [(2, 2), (6, 4), (100, 10)])
 def test_standardization_on_scaled_dataset(
-    fit_intercept, regularization, datatype, delayed, ncol_and_nclasses, client
+    fit_intercept, reg_dtype, delayed, ncol_and_nclasses, client
 ):
+
+    regularization = reg_dtype[0]
+    datatype = reg_dtype[1]
 
     penalty = regularization[0]
     C = regularization[1]
@@ -896,25 +898,30 @@ def test_standardization_on_scaled_dataset(
         total_tol=tolerance,
     )
 
+    assert mgon.dtype == datatype
+    assert mgoff.dtype == datatype
+
 
 @pytest.mark.mg
 @pytest.mark.parametrize("fit_intercept", [True, False])
 @pytest.mark.parametrize(
-    "regularization",
+    "reg_dtype",
     [
-        ("none", 1.0, None),
-        ("l2", 2.0, None),
-        ("l1", 2.0, None),
-        ("elasticnet", 2.0, 0.2),
+        (("none", 1.0, None), np.float64),
+        (("l2", 2.0, None), np.float64),
+        (("l1", 2.0, None), np.float32),
+        (("elasticnet", 2.0, 0.2), np.float32),
     ],
 )
-def test_standardization_example(fit_intercept, regularization, client):
+def test_standardization_example(fit_intercept, reg_dtype, client):
+    regularization = reg_dtype[0]
+    datatype = reg_dtype[1]
+
     n_rows = int(1e5)
     n_cols = 20
     n_info = 10
     n_classes = 4
 
-    datatype = np.float32
     n_parts = 2
     max_iter = 5  # cannot set this too large. Observed GPU-specific coefficients when objective converges at 0.
 
@@ -989,19 +996,25 @@ def test_standardization_example(fit_intercept, regularization, client):
         total_tol=tolerance,
     )
 
+    assert lr_on.dtype == datatype
+    assert lr_off.dtype == datatype
+
 
 @pytest.mark.mg
 @pytest.mark.parametrize("fit_intercept", [True, False])
 @pytest.mark.parametrize(
-    "regularization",
+    "reg_dtype",
     [
-        ("none", 1.0, None),
-        ("l2", 2.0, None),
-        ("l1", 2.0, None),
-        ("elasticnet", 2.0, 0.2),
+        (("none", 1.0, None), np.float64),
+        (("l2", 2.0, None), np.float32),
+        (("l1", 2.0, None), np.float64),
+        (("elasticnet", 2.0, 0.2), np.float32),
     ],
 )
-def test_standardization_sparse(fit_intercept, regularization, client):
+def test_standardization_sparse(fit_intercept, reg_dtype, client):
+    regularization = reg_dtype[0]
+    datatype = reg_dtype[1]
+
     n_rows = 10000
     n_cols = 25
     n_info = 15
@@ -1009,7 +1022,6 @@ def test_standardization_sparse(fit_intercept, regularization, client):
     nnz = int(n_rows * n_cols * 0.3)  # number of non-zero values
     tolerance = 0.005
 
-    datatype = np.float32
     n_parts = 10
     max_iter = 5  # cannot set this too large. Observed GPU-specific coefficients when objective converges at 0.
 
@@ -1089,3 +1101,5 @@ def test_standardization_sparse(fit_intercept, regularization, client):
     assert array_equal(
         lron_intercept_origin, sg.intercept_, unit_tol=tolerance
     )
+
+    assert lr_on.dtype == datatype
