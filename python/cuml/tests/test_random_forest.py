@@ -1387,6 +1387,6 @@ def test_rf_min_samples_split_with_small_float(estimator, make_data):
 def test_rf_predict_returns_int():
 
     X, y = make_classification()
-    clf = cuml.ensemble.RandomForestClassifier().fit(X,y)
+    clf = cuml.ensemble.RandomForestClassifier().fit(X, y)
     pred = clf.predict(X)
     assert pred.dtype == np.int64
