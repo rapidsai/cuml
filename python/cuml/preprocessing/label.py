@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,14 +64,19 @@ def label_binarize(
 
     cp.cuda.Stream.null.synchronize()
 
+    is_binary = classes.shape[0] == 2
+
     if sparse_output:
         sp = sp.tocsr()
+        if is_binary:
+            sp = sp.getcol(1)  # getcol does not support -1 indexing
         return sp
     else:
 
         arr = sp.toarray().astype(y.dtype)
         arr[arr == 0] = neg_label
-
+        if is_binary:
+            arr = arr[:, -1].reshape((-1, 1))
         return arr
 
 
