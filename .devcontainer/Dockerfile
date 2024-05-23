@@ -9,7 +9,7 @@ ENV DEFAULT_VIRTUAL_ENV=rapids
 
 RUN apt update -y \
  && DEBIAN_FRONTEND=noninteractive apt install -y \
-    libblas-dev liblapack-dev libopenmpi-dev \
+    libblas-dev liblapack-dev \
  && rm -rf /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*;
 
 FROM ${BASE} as conda-base
