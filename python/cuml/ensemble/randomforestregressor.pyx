@@ -165,6 +165,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         is not supported.\n
         .. note:: This default differs from scikit-learn's
           random forest, which defaults to unlimited depth.
+
     max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited,
         If ``-1``.
@@ -178,6 +179,7 @@ class RandomForestRegressor(BaseRandomForestModel,
          * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
         .. versionchanged:: 24.06
             The default of `max_features` changed from `"auto"` to 1.0.
+
     n_bins : int (default = 128)
         Maximum number of bins used by the split algorithm per feature.
         For large problems, particularly those with highly-skewed input data,
