@@ -177,8 +177,9 @@ class RandomForestRegressor(BaseRandomForestModel,
          * If type ``float`` then ``max_features`` is used as a fraction.
          * If ``'sqrt'`` then ``max_features=1/sqrt(n_features)``.
          * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
+
         .. versionchanged:: 24.06
-            The default of `max_features` changed from `"auto"` to 1.0.
+          The default of `max_features` changed from `"auto"` to 1.0.
 
     n_bins : int (default = 128)
         Maximum number of bins used by the split algorithm per feature.

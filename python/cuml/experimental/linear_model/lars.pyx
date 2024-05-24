@@ -90,8 +90,10 @@ class Lars(Base, RegressorMixin):
         If True, the predictors in X will be normalized by removing its mean
         and dividing by it's variance. If False, then the solver expects that
         the data is already normalized.
+
         .. versionchanged:: 24.06
             The default of `normalize` changed from `True` to `False`.
+
     copy_X : boolean (default = True)
         The solver permutes the columns of X. Set `copy_X` to True to prevent
         changing the input data.
