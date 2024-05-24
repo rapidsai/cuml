@@ -1400,3 +1400,11 @@ def test_random_forest_max_features_deprecation(Estimator):
 
     with pytest.warns(FutureWarning, match=error_msg):
         est.fit(X, y)
+
+
+def test_rf_predict_returns_int():
+
+    X, y = make_classification()
+    clf = cuml.ensemble.RandomForestClassifier().fit(X, y)
+    pred = clf.predict(X)
+    assert pred.dtype == np.int64

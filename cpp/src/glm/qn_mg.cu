@@ -183,41 +183,75 @@ void qnFit_impl(raft::handle_t& handle,
                 input_desc.uniqueRanks().size());
 }
 
-std::vector<float> getUniquelabelsMG(const raft::handle_t& handle,
-                                     Matrix::PartDescriptor& input_desc,
-                                     std::vector<Matrix::Data<float>*>& labels)
+template <typename T>
+std::vector<T> getUniquelabelsMG(const raft::handle_t& handle,
+                                 Matrix::PartDescriptor& input_desc,
+                                 std::vector<Matrix::Data<T>*>& labels)
 {
   RAFT_EXPECTS(labels.size() == 1,
                "getUniqueLabelsMG currently does not accept more than one data chunk");
-  Matrix::Data<float>* data_y = labels[0];
-  int n_rows                  = input_desc.totalElementsOwnedBy(input_desc.rank);
-  return distinct_mg<float>(handle, data_y->ptr, n_rows);
+  Matrix::Data<T>* data_y = labels[0];
+  size_t n_rows           = input_desc.totalElementsOwnedBy(input_desc.rank);
+  return distinct_mg<T>(handle, data_y->ptr, n_rows);
 }
 
+template std::vector<float> getUniquelabelsMG(const raft::handle_t& handle,
+                                              Matrix::PartDescriptor& input_desc,
+                                              std::vector<Matrix::Data<float>*>& labels);
+
+template std::vector<double> getUniquelabelsMG(const raft::handle_t& handle,
+                                               Matrix::PartDescriptor& input_desc,
+                                               std::vector<Matrix::Data<double>*>& labels);
+
+template <typename T>
 void qnFit(raft::handle_t& handle,
-           std::vector<Matrix::Data<float>*>& input_data,
+           std::vector<Matrix::Data<T>*>& input_data,
            Matrix::PartDescriptor& input_desc,
-           std::vector<Matrix::Data<float>*>& labels,
-           float* coef,
+           std::vector<Matrix::Data<T>*>& labels,
+           T* coef,
            const qn_params& pams,
            bool X_col_major,
            bool standardization,
            int n_classes,
-           float* f,
+           T* f,
            int* num_iters)
 {
-  qnFit_impl<float>(handle,
-                    input_data,
-                    input_desc,
-                    labels,
-                    coef,
-                    pams,
-                    X_col_major,
-                    standardization,
-                    n_classes,
-                    f,
-                    num_iters);
+  qnFit_impl<T>(handle,
+                input_data,
+                input_desc,
+                labels,
+                coef,
+                pams,
+                X_col_major,
+                standardization,
+                n_classes,
+                f,
+                num_iters);
 }
+
+template void qnFit(raft::handle_t& handle,
+                    std::vector<Matrix::Data<float>*>& input_data,
+                    Matrix::PartDescriptor& input_desc,
+                    std::vector<Matrix::Data<float>*>& labels,
+                    float* coef,
+                    const qn_params& pams,
+                    bool X_col_major,
+                    bool standardization,
+                    int n_classes,
+                    float* f,
+                    int* num_iters);
+
+template void qnFit(raft::handle_t& handle,
+                    std::vector<Matrix::Data<double>*>& input_data,
+                    Matrix::PartDescriptor& input_desc,
+                    std::vector<Matrix::Data<double>*>& labels,
+                    double* coef,
+                    const qn_params& pams,
+                    bool X_col_major,
+                    bool standardization,
+                    int n_classes,
+                    double* f,
+                    int* num_iters);
 
 template <typename T, typename I>
 void qnFitSparse_impl(const raft::handle_t& handle,
@@ -269,18 +303,19 @@ void qnFitSparse_impl(const raft::handle_t& handle,
   return;
 }
 
+template <typename T>
 void qnFitSparse(raft::handle_t& handle,
-                 std::vector<Matrix::Data<float>*>& input_values,
+                 std::vector<Matrix::Data<T>*>& input_values,
                  int* input_cols,
                  int* input_row_ids,
                  int X_nnz,
                  Matrix::PartDescriptor& input_desc,
-                 std::vector<Matrix::Data<float>*>& labels,
-                 float* coef,
+                 std::vector<Matrix::Data<T>*>& labels,
+                 T* coef,
                  const qn_params& pams,
                  bool standardization,
                  int n_classes,
-                 float* f,
+                 T* f,
                  int* num_iters)
 {
   RAFT_EXPECTS(input_values.size() == 1,
@@ -289,24 +324,52 @@ void qnFitSparse(raft::handle_t& handle,
   auto data_input_values = input_values[0];
   auto data_y            = labels[0];
 
-  qnFitSparse_impl<float, int>(handle,
-                               pams,
-                               data_input_values->ptr,
-                               input_cols,
-                               input_row_ids,
-                               X_nnz,
-                               standardization,
-                               data_y->ptr,
-                               input_desc.totalElementsOwnedBy(input_desc.rank),
-                               input_desc.N,
-                               n_classes,
-                               coef,
-                               f,
-                               num_iters,
-                               input_desc.M,
-                               input_desc.rank,
-                               input_desc.uniqueRanks().size());
+  qnFitSparse_impl<T, int>(handle,
+                           pams,
+                           data_input_values->ptr,
+                           input_cols,
+                           input_row_ids,
+                           X_nnz,
+                           standardization,
+                           data_y->ptr,
+                           input_desc.totalElementsOwnedBy(input_desc.rank),
+                           input_desc.N,
+                           n_classes,
+                           coef,
+                           f,
+                           num_iters,
+                           input_desc.M,
+                           input_desc.rank,
+                           input_desc.uniqueRanks().size());
 }
+
+template void qnFitSparse(raft::handle_t& handle,
+                          std::vector<Matrix::Data<float>*>& input_values,
+                          int* input_cols,
+                          int* input_row_ids,
+                          int X_nnz,
+                          Matrix::PartDescriptor& input_desc,
+                          std::vector<Matrix::Data<float>*>& labels,
+                          float* coef,
+                          const qn_params& pams,
+                          bool standardization,
+                          int n_classes,
+                          float* f,
+                          int* num_iters);
+
+template void qnFitSparse(raft::handle_t& handle,
+                          std::vector<Matrix::Data<double>*>& input_values,
+                          int* input_cols,
+                          int* input_row_ids,
+                          int X_nnz,
+                          Matrix::PartDescriptor& input_desc,
+                          std::vector<Matrix::Data<double>*>& labels,
+                          double* coef,
+                          const qn_params& pams,
+                          bool standardization,
+                          int n_classes,
+                          double* f,
+                          int* num_iters);
 
 };  // namespace opg
 };  // namespace GLM
