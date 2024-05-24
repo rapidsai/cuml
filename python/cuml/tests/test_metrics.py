@@ -960,9 +960,12 @@ def test_log_loss_random(n_samples, dtype):
         lambda rng: rng.randint(0, 10, n_samples).astype(dtype)
     )
 
-    y_pred, _, _, _ = generate_random_labels(
+    _, _, y_pred, _ = generate_random_labels(
         lambda rng: rng.rand(n_samples, 10)
     )
+    # Make sure the probabilities sum to 1 per sample
+    y_pred /= y_pred.sum(axis=1)[:, None]
+    y_pred = cuda.to_device(y_pred)
 
     assert_almost_equal(
         log_loss(y_true, y_pred), sklearn_log_loss(y_true, y_pred)
