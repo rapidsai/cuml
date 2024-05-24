@@ -70,7 +70,6 @@ requirements:
     - python x.x
     - raft-dask ={{ minor_version }}
     - scikit-build-core >=0.7.0
-    - setuptools
     - treelite {{ treelite_version }}
     - rapids-build-backend>=0.3.0,<0.4.0.dev0
   run:
