@@ -22,7 +22,6 @@ dependencies:
 - doxygen=1.9.1
 - gcc_linux-64=11.*
 - graphviz
-- hdbscan<=0.8.30
 - hypothesis>=6.0,<7
 - ipykernel
 - ipython
@@ -75,4 +74,5 @@ dependencies:
 - umap-learn==0.5.3
 - pip:
   - dask-glm==0.3.0
+  - hdbscan==0.8.36
 name: all_cuda-118_arch-x86_64

@@ -112,7 +112,7 @@ classifiers = [
 test = [
     "dask-glm==0.3.0",
     "dask-ml",
-    "hdbscan<=0.8.30",
+    "hdbscan==0.8.36",
     "hypothesis>=6.0,<7",
     "nltk",
     "numpydoc",

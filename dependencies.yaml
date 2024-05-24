@@ -422,13 +422,12 @@ dependencies:
           - pip
           - pip:
               - dask-glm==0.3.0
-          # TODO: remove pin once a release that includes fixes for the error
-          # is released: https://github.com/rapidsai/cuml/issues/5514
-          - hdbscan<=0.8.30
+              # TODO: Install from conda-forge when available
+              - hdbscan==0.8.36
       - output_types: pyproject
         packages:
           - dask-glm==0.3.0
-          - hdbscan<=0.8.30
+          - hdbscan==0.8.36
   test_notebooks:
     common:
       - output_types: [conda, requirements]
