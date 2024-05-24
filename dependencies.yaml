@@ -428,8 +428,7 @@ dependencies:
       - output_types: pyproject
         packages:
           - dask-glm==0.3.0
-            # TODO: Can we stop pulling from the master branch now that there was a release in October?
-          - hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master
+          - hdbscan<=0.8.30
   test_notebooks:
     common:
       - output_types: [conda, requirements]
