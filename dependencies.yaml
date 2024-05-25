@@ -404,6 +404,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - dask-ml
+          - hdbscan==0.8.36
           - hypothesis>=6.0,<7
           - nltk
           - numpydoc
@@ -422,12 +423,9 @@ dependencies:
           - pip
           - pip:
               - dask-glm==0.3.0
-              # TODO: Install from conda-forge when available
-              - hdbscan==0.8.36
       - output_types: pyproject
         packages:
           - dask-glm==0.3.0
-          - hdbscan==0.8.36
   test_notebooks:
     common:
       - output_types: [conda, requirements]
