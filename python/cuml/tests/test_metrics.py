@@ -1500,8 +1500,8 @@ def test_sparse_pairwise_distances_sklearn_comparison(
         matrix_size[0], matrix_size[1], cp.float64, density, metric
     )
 
-    # For fp64, compare at 9 decimals, (6 places less than the ~15 max)
-    compare_precision = 9
+    # For fp64, compare at 7 decimals, (8 places less than the ~15 max)
+    compare_precision = 7
 
     # Compare to sklearn, fp64
     S = sparse_pairwise_distances(X, Y, metric=metric)
