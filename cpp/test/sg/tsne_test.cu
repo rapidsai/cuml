@@ -21,6 +21,7 @@
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/map.cuh>
+#include <raft/linalg/transpose.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <thrust/reduce.h>
@@ -128,6 +129,13 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     // Allocate memory
     rmm::device_uvector<float> X_d(n * p, stream);
     raft::update_device(X_d.data(), dataset.data(), n * p, stream);
+
+    rmm::device_uvector<float> Xtranspose(n * p, stream);
+
+    raft::update_device(Xtranspose.data(), X_d.data(), n * p, stream);
+    raft::linalg::transpose(handle, Xtranspose.data(), X_d.data(), p, n, stream);
+    handle.sync_stream(stream);
+
     rmm::device_uvector<float> Y_d(n * model_params.dim, stream);
     rmm::device_uvector<int64_t> input_indices(0, stream);
     rmm::device_uvector<float> input_dists(0, stream);
@@ -182,6 +190,10 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     raft::update_device(Y_d.data(), C_contiguous_embedding, n * model_params.dim, stream);
     handle.sync_stream(stream);
     free(embeddings_h);
+
+    raft::update_device(Xtranspose.data(), X_d.data(), n * p, stream);
+    raft::linalg::transpose(handle, Xtranspose.data(), X_d.data(), n, p, stream);
+    handle.sync_stream(stream);
 
     // Produce trustworthiness score
     results.trustworthiness =

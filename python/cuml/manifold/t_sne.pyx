@@ -56,6 +56,10 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         BARNES_HUT = 1,
         FFT = 2
 
+    enum TSNE_INIT:
+        RANDOM = 0,
+        PCA = 1
+
     cdef cppclass TSNEParams:
         int dim,
         int n_neighbors,
@@ -76,7 +80,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         float post_momentum,
         long long random_state,
         int verbosity,
-        int init,
+        TSNE_INIT init,
         bool square_distances,
         DistanceType metric,
         float p,
@@ -156,7 +160,7 @@ class TSNE(Base,
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'minkowski',
         'chebyshev', 'cosine', 'correlation']
-    init : str 'random' or 'pca' (default 'pca')
+    init : str 'random' or 'pca' (default 'random')
         Currently supports random or pca initialization.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -319,7 +323,7 @@ class TSNE(Base,
                           "results. Set it higher.".format(n_iter))
         if init.lower() != 'random' and init.lower() != 'pca':
             raise ValueError("TSNE does not support {} but only random and pca "
-                            "initialization.".format(init))
+                             "initialization.".format(init))
         if angle < 0 or angle > 1:
             raise ValueError("angle = {} should be ≥ 0 and ≤ 1".format(angle))
         if n_neighbors < 0:
@@ -362,7 +366,7 @@ class TSNE(Base,
         self.min_grad_norm = min_grad_norm
         self.metric = metric
         self.metric_params = metric_params
-        self.init = init
+        self.init = init.lower()
         self.random_state = random_state
         self.method = method
         self.angle = angle
@@ -435,7 +439,7 @@ class TSNE(Base,
         # Handle dense inputs
         else:
             self.X_m, n, p, _ = \
-                input_to_cuml_array(X, order='C', check_dtype=np.float32,
+                input_to_cuml_array(X, order='F', check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
                                                       else None))
@@ -600,12 +604,10 @@ class TSNE(Base,
         params.square_distances = <bool> self.square_distances
         params.algorithm = algo
 
-        init_parsing = {
-            "random": 0,
-            "pca": 1
-        }
-
-        params.init = <int> init_parsing[self.init.lower()]
+        if self.init == 'random':
+            params.init = TSNE_INIT.RANDOM
+        elif self.init == 'pca':
+            params.init = TSNE_INIT.PCA
 
         # metric
         metric_parsing = {

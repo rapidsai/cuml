@@ -28,6 +28,8 @@ namespace ML {
 
 enum TSNE_ALGORITHM { EXACT, BARNES_HUT, FFT };
 
+enum TSNE_INIT { RANDOM, PCA };
+
 struct TSNEParams {
   // Number of output dimensions for embeddings Y.
   int dim = 2;
@@ -95,9 +97,7 @@ struct TSNEParams {
   int verbosity = CUML_LEVEL_INFO;
 
   // Embedding initializer algorithm
-  // 0 = random layout
-  // 1 = pca layout
-  int init = 1;
+  TSNE_INIT init = TSNE_INIT::RANDOM;
 
   // When this is set to true, the distances from the knn graph will
   // always be squared before computing conditional probabilities, even if

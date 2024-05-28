@@ -127,8 +127,12 @@ value_t Barnes_Hut(value_t* VAL,
 
   rmm::device_uvector<value_t> YY((nnodes + 1) * 2, stream);
 
-  raft::copy(YY.data(), Y, n, stream);
-  raft::copy(YY.data() + nnodes + 1, Y + n, n, stream);
+  if (params.init == TSNE_INIT::RANDOM) {
+    random_vector(YY.data(), -0.0001f, 0.0001f, (nnodes + 1) * 2, stream, params.random_state);
+  } else {
+    raft::copy(YY.data(), Y, n, stream);
+    raft::copy(YY.data() + nnodes + 1, Y + n, n, stream);
+  }
 
   rmm::device_uvector<value_t> tmp(NNZ, stream);
   value_t* Qs      = tmp.data();

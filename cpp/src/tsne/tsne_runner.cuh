@@ -27,6 +27,9 @@
 
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/divide.cuh>
+#include <raft/linalg/multiply.cuh>
+#include <raft/stats/stddev.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
@@ -90,9 +93,9 @@ class TSNE_runner {
     auto stream         = handle_.get_stream();
     const value_idx dim = params.dim;
 
-    if (params.init == 0) {
+    if (params.init == TSNE_INIT::RANDOM) {
       random_vector(Y, -0.0001f, 0.0001f, n * dim, stream, params.random_state);
-    } else if (params.init == 1) {
+    } else if (params.init == TSNE_INIT::PCA) {
       rmm::device_uvector<float> components(p * dim, stream);
       rmm::device_uvector<float> explained_var(dim, stream);
       rmm::device_uvector<float> explained_var_ratio(dim, stream);
@@ -104,7 +107,7 @@ class TSNE_runner {
       prms.n_cols       = p;
       prms.n_rows       = n;
       prms.n_components = dim;
-      prms.whiten       = true;
+      prms.whiten       = false;
       prms.algorithm    = solver::COV_EIG_DQ;
 
       if constexpr (!is_instance_of<tsne_input, manifold_dense_inputs_t>) {
@@ -122,6 +125,22 @@ class TSNE_runner {
                         prms,
                         stream);
         handle.sync_stream(stream);
+
+        rmm::device_uvector<float> mean_result(dim, stream);
+        rmm::device_uvector<float> std_result(dim, stream);
+
+        raft::stats::mean(mean_result.data(), Y, dim, n, false, false, stream);
+
+        raft::stats::stddev(std_result.data(), Y, mean_result.data(), dim, n, true, false, stream);
+
+        float multiplier = 1e-4;
+
+        std::vector<float> host_stddev(dim);
+        raft::update_host(host_stddev.data(), std_result.data(), dim, stream);
+        handle.sync_stream(stream);
+
+        raft::linalg::divideScalar(Y, Y, host_stddev[0], n * dim, stream);
+        raft::linalg::multiplyScalar(Y, Y, multiplier, n * dim, stream);
       }
     }
   }
