@@ -111,7 +111,7 @@ class TSNE_runner {
       prms.algorithm    = solver::COV_EIG_DQ;
 
       if constexpr (!is_instance_of<tsne_input, manifold_dense_inputs_t>) {
-        throw std::runtime_error("The TSNE input must be of type manifold_dense_inputs_t");
+        throw std::runtime_error("The tsne_input must be of type manifold_dense_inputs_t");
       } else {
         pcaFitTransform(handle,
                         input.X,
@@ -128,18 +128,16 @@ class TSNE_runner {
 
         rmm::device_uvector<float> mean_result(dim, stream);
         rmm::device_uvector<float> std_result(dim, stream);
-
-        raft::stats::mean(mean_result.data(), Y, dim, n, false, false, stream);
-
-        raft::stats::stddev(std_result.data(), Y, mean_result.data(), dim, n, true, false, stream);
-
+        std::vector<float> h_std_result(dim);
         float multiplier = 1e-4;
 
-        std::vector<float> host_stddev(dim);
-        raft::update_host(host_stddev.data(), std_result.data(), dim, stream);
+        raft::stats::mean(mean_result.data(), Y, dim, n, false, false, stream);
+        raft::stats::stddev(std_result.data(), Y, mean_result.data(), dim, n, true, false, stream);
+
+        raft::update_host(h_std_result.data(), std_result.data(), dim, stream);
         handle.sync_stream(stream);
 
-        raft::linalg::divideScalar(Y, Y, host_stddev[0], n * dim, stream);
+        raft::linalg::divideScalar(Y, Y, h_std_result[0], n * dim, stream);
         raft::linalg::multiplyScalar(Y, Y, multiplier, n * dim, stream);
       }
     }
