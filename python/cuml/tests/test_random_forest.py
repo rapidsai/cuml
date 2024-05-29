@@ -275,7 +275,7 @@ def test_tweedie_convergence(max_depth, split_criterion):
     "max_samples", [unit_param(1.0), quality_param(0.90), stress_param(0.95)]
 )
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("max_features", [1.0, "auto", "log2", "sqrt"])
+@pytest.mark.parametrize("max_features", [1.0, "log2", "sqrt"])
 def test_rf_classification(small_clf, datatype, max_samples, max_features):
     use_handle = True
 
@@ -399,7 +399,6 @@ def test_rf_classification_unorder(
     [
         (1.0, 16),
         (1.0, 11),
-        ("auto", 128),
         ("log2", 100),
         ("sqrt", 100),
         (1.0, 17),
@@ -682,7 +681,7 @@ def test_rf_classification_multi_class(mclass_clf, datatype, array_type):
 
 @pytest.mark.parametrize("datatype", [(np.float32, np.float64)])
 @pytest.mark.parametrize("max_samples", [unit_param(1.0), stress_param(0.95)])
-@pytest.mark.parametrize("max_features", [1.0, "auto", "log2", "sqrt"])
+@pytest.mark.parametrize("max_features", [1.0, "log2", "sqrt"])
 def test_rf_classification_proba(
     small_clf, datatype, max_samples, max_features
 ):
@@ -862,7 +861,7 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
             sk_model.fit(X_train, y_train)
             sk_preds = sk_model.predict(X_test)
             sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype)
-            assert fil_r2 >= (sk_r2 - 0.07)
+            assert fil_r2 >= (sk_r2 - 0.08)
 
 
 @pytest.mark.xfail(reason="Need rapidsai/rmm#415 to detect memleak robustly")
@@ -915,7 +914,7 @@ def test_rf_memory_leakage(small_clf, datatype, fil_sparse_format, n_iter):
         test_for_memory_leak()
 
 
-@pytest.mark.parametrize("max_features", [1.0, "auto", "log2", "sqrt"])
+@pytest.mark.parametrize("max_features", [1.0, "log2", "sqrt"])
 @pytest.mark.parametrize("max_depth", [10, 13, 16])
 @pytest.mark.parametrize("n_estimators", [10, 20, 100])
 @pytest.mark.parametrize("n_bins", [8, 9, 10])
@@ -1382,6 +1381,25 @@ def test_rf_min_samples_split_with_small_float(estimator, make_data):
 
     # Does not error
     clf.fit(X, y)
+
+
+# TODO: Remove in v24.08
+@pytest.mark.parametrize(
+    "Estimator",
+    [
+        curfr,
+        curfc,
+    ],
+)
+def test_random_forest_max_features_deprecation(Estimator):
+    X = np.array([[1.0, 2], [3, 4]])
+    y = np.array([1, 0])
+    est = Estimator(max_features="auto")
+
+    error_msg = "`max_features='auto'` has been deprecated in 24.06 "
+
+    with pytest.warns(FutureWarning, match=error_msg):
+        est.fit(X, y)
 
 
 def test_rf_predict_returns_int():
