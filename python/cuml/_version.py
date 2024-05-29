@@ -23,4 +23,4 @@ try:
 except FileNotFoundError:
     __git_commit__ = ""
 
-__all__ = ["__version__", "__git_commit__"]
+__all__ = ["__git_commit__", "__version__"]
