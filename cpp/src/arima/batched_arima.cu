@@ -84,7 +84,7 @@ struct is_missing {
   typedef T argument_type;
   typedef T result_type;
 
-  __thrust_exec_check_disable__ __device__ const T operator()(const T& x) const { return isnan(x); }
+  __device__ const T operator()(const T& x) const { return isnan(x); }
 };  // end is_missing
 
 bool detect_missing(raft::handle_t& handle, const double* d_y, int n_elem)

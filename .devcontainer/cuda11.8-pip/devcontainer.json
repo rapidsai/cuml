@@ -5,19 +5,16 @@
     "args": {
       "CUDA": "11.8",
       "PYTHON_PACKAGE_MANAGER": "pip",
-      "BASE": "rapidsai/devcontainers:24.06-cpp-cuda11.8-ubuntu22.04"
+      "BASE": "rapidsai/devcontainers:24.06-cpp-cuda11.8-ucx1.15.0-openmpi-ubuntu22.04"
     }
   },
   "runArgs": [
     "--rm",
     "--name",
-    "${localEnv:USER}-rapids-${localWorkspaceFolderBasename}-24.06-cuda11.8-pip"
+    "${localEnv:USER:anon}-rapids-${localWorkspaceFolderBasename}-24.06-cuda11.8-pip"
   ],
   "hostRequirements": {"gpu": "optional"},
   "features": {
-    "ghcr.io/rapidsai/devcontainers/features/ucx:24.6": {
-      "version": "1.15.0"
-    },
     "ghcr.io/rapidsai/devcontainers/features/cuda:24.6": {
       "version": "11.8",
       "installcuBLAS": true,
@@ -28,7 +25,6 @@
     "ghcr.io/rapidsai/devcontainers/features/rapids-build-utils:24.6": {}
   },
   "overrideFeatureInstallOrder": [
-    "ghcr.io/rapidsai/devcontainers/features/ucx",
     "ghcr.io/rapidsai/devcontainers/features/cuda",
     "ghcr.io/rapidsai/devcontainers/features/rapids-build-utils"
   ],
