@@ -10,13 +10,15 @@ cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
+LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1544 cpp)
+LIBRAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2279 cpp)
 
 rapids-logger "Generate C++ testing dependencies"
 rapids-dependency-file-generator \
   --output conda \
   --file_key test_cpp \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch)" \
-  --prepend-channels "${CPP_CHANNEL}" | tee env.yaml
+  --prepend-channels "${CPP_CHANNEL};${LIBRMM_CHANNEL};${LIBRAFT_CHANNEL}" | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
 
