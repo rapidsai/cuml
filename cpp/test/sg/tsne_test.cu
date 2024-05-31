@@ -131,10 +131,8 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     raft::update_device(X_d.data(), dataset.data(), n * p, stream);
 
     rmm::device_uvector<float> Xtranspose(n * p, stream);
-
-    raft::update_device(Xtranspose.data(), X_d.data(), n * p, stream);
+    raft::copy_async(Xtranspose.data(), X_d.data(), n * p, stream);
     raft::linalg::transpose(handle, Xtranspose.data(), X_d.data(), p, n, stream);
-    handle.sync_stream(stream);
 
     rmm::device_uvector<float> Y_d(n * model_params.dim, stream);
     rmm::device_uvector<int64_t> input_indices(0, stream);
@@ -191,9 +189,8 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     handle.sync_stream(stream);
     free(embeddings_h);
 
-    raft::update_device(Xtranspose.data(), X_d.data(), n * p, stream);
+    raft::copy_async(Xtranspose.data(), X_d.data(), n * p, stream);
     raft::linalg::transpose(handle, Xtranspose.data(), X_d.data(), n, p, stream);
-    handle.sync_stream(stream);
 
     // Produce trustworthiness score
     results.trustworthiness =

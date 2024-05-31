@@ -25,10 +25,16 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/common.hpp>
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/core/host_mdspan.hpp>
+#include <raft/core/mdspan.hpp>
+#include <raft/core/mdspan_types.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/multiply.cuh>
+#include <raft/stats/mean.cuh>
 #include <raft/stats/stddev.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -124,21 +130,31 @@ class TSNE_runner {
                         noise_vars.data(),
                         prms,
                         stream);
-        handle.sync_stream(stream);
 
         rmm::device_uvector<float> mean_result(dim, stream);
         rmm::device_uvector<float> std_result(dim, stream);
         std::vector<float> h_std_result(dim);
-        float multiplier = 1e-4;
+        const float multiplier = 1e-4;
 
-        raft::stats::mean(mean_result.data(), Y, dim, n, false, false, stream);
-        raft::stats::stddev(std_result.data(), Y, mean_result.data(), dim, n, true, false, stream);
+        auto Y_view       = raft::make_device_matrix_view<float, int>(Y, n, dim);
+        auto Y_view_const = raft::make_device_matrix_view<const float, int>(Y, n, dim);
+
+        auto mean_result_view = raft::make_device_vector_view<float, int>(mean_result.data(), dim);
+        auto mean_result_view_const =
+          raft::make_device_vector_view<const float, int>(mean_result.data(), dim);
+
+        auto std_result_view = raft::make_device_vector_view<float, int>(std_result.data(), dim);
+
+        auto h_multiplier_view_const = raft::make_host_scalar_view<const float>(&multiplier);
+        auto h_std_result_view_const = raft::make_host_scalar_view<const float>(&h_std_result[0]);
+
+        raft::stats::mean(handle_, Y_view_const, mean_result_view, false);
+        raft::stats::stddev(handle_, Y_view_const, mean_result_view_const, std_result_view, false);
 
         raft::update_host(h_std_result.data(), std_result.data(), dim, stream);
-        handle.sync_stream(stream);
 
-        raft::linalg::divideScalar(Y, Y, h_std_result[0], n * dim, stream);
-        raft::linalg::multiplyScalar(Y, Y, multiplier, n * dim, stream);
+        raft::linalg::divide_scalar(handle_, Y_view_const, Y_view, h_std_result_view_const);
+        raft::linalg::multiply_scalar(handle_, Y_view_const, Y_view, h_multiplier_view_const);
       }
     }
   }
