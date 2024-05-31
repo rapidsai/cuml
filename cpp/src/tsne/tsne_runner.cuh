@@ -25,17 +25,10 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/common.hpp>
 
-#include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/core/host_mdspan.hpp>
-#include <raft/core/mdspan.hpp>
-#include <raft/core/mdspan_types.hpp>
-#include <raft/core/resources.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/multiply.cuh>
-#include <raft/stats/mean.cuh>
-#include <raft/stats/stddev.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
