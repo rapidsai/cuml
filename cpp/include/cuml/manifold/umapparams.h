@@ -31,7 +31,7 @@ using nn_index_params = raft::neighbors::experimental::nn_descent::index_params;
 class UMAPParams {
  public:
   enum MetricType { EUCLIDEAN, CATEGORICAL };
-  enum graph_build_algo {BRUTE_FORCE_KNN, NN_DESCENT};
+  enum graph_build_algo { BRUTE_FORCE_KNN, NN_DESCENT };
 
   /**
    *  The number of neighbors to use to approximate geodesic distance.
