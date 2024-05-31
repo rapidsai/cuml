@@ -27,8 +27,10 @@ from sklearn.datasets import make_blobs
 from sklearn.cluster import KMeans
 from sklearn.neighbors import NearestNeighbors
 from sklearn import datasets
+from cuml.datasets import make_blobs as cu_make_blobs
 from cuml.internals import logger
 from cuml.metrics import pairwise_distances
+from cuml.metrics import trustworthiness as cu_trustworthiness
 from cuml.testing.utils import (
     array_equal,
     unit_param,
@@ -790,3 +792,37 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
 
     if umap_learn_supported:
         assert array_equal(umap_trust, cuml_trust, 0.05, with_sign=True)
+
+
+def test_umap_nn_descent():
+    X_blobs, y_blobs = cu_make_blobs(n_samples = 1000,
+                               cluster_std = 0.1,
+                               n_features = 100,
+                               random_state = 0,
+                               dtype=np.float32)
+    
+    # Dense
+    trained_UMAP_bf = cuUMAP(n_neighbors = 16).fit(X_blobs)
+    X_embedded_bf = trained_UMAP_bf.transform(X_blobs)
+    cu_score_bf = cu_trustworthiness(X_blobs, X_embedded_bf)
+    
+    trained_UMAP_nnd = cuUMAP(n_neighbors = 16, build_algo="nn_descent").fit(X_blobs)
+    X_embedded_nnd = trained_UMAP_nnd.transform(X_blobs)
+    cu_score_nnd = cu_trustworthiness(X_blobs, X_embedded_nnd)
+    
+    score_diff = np.abs(cu_score_bf - cu_score_nnd)
+    assert score_diff < 0.1
+    
+    # Sparse
+    X_blobs_sparse = cupyx.scipy.sparse.csr_matrix(X_blobs)
+    
+    trained_UMAP_bf = cuUMAP(n_neighbors = 10).fit(X_blobs_sparse)
+    X_embedded_bf = trained_UMAP_bf.transform(X_blobs_sparse)
+    cu_score_bf = cu_trustworthiness(X_blobs, X_embedded_bf)
+    
+    trained_UMAP_nnd = cuUMAP(n_neighbors = 16, build_algo="nn_descent").fit(X_blobs_sparse)
+    X_embedded_nnd = trained_UMAP_nnd.transform(X_blobs_sparse)
+    cu_score_nnd = cu_trustworthiness(X_blobs, X_embedded_nnd)
+    
+    score_diff = np.abs(cu_score_bf - cu_score_nnd)
+    assert score_diff < 0.1
