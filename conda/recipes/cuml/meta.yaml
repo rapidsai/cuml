@@ -70,7 +70,6 @@ requirements:
     - python x.x
     - raft-dask ={{ minor_version }}
     - scikit-build-core >=0.7.0
-    - setuptools
     - treelite {{ treelite_version }}
   run:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
