@@ -348,7 +348,13 @@ class UMAP(UniversalBase,
                  callback=None,
                  handle=None,
                  verbose=False,
-                 output_type=None):
+                 output_type=None,
+                 build_algo="brute_force_knn",
+                 nnd_graph_degree=64,
+                 nnd_intermediate_graph_degree=128,
+                 nnd_max_iterations=20,
+                 nnd_termination_threshold=0.0001,
+                 nnd_return_distances=0):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -419,6 +425,17 @@ class UMAP(UniversalBase,
 
         self.precomputed_knn = extract_knn_infos(precomputed_knn,
                                                  n_neighbors)
+    
+        if build_algo == "brute_force_knn" or build_algo == "nn_descent":
+            self.build_algo = build_algo
+        else:
+            raise Exception("Invalid build algo: {}. Only support brute_force_knn and nn_descent" % build_algo)
+    
+        self.nnd_graph_degree = nnd_graph_degree
+        self.nnd_intermediate_graph_degree = nnd_intermediate_graph_degree
+        self.nnd_max_iterations = nnd_max_iterations
+        self.nnd_termination_threshold = nnd_termination_threshold
+        self.nnd_return_distances = nnd_return_distances
 
     def validate_hyperparams(self):
 
@@ -452,6 +469,15 @@ class UMAP(UniversalBase,
                 umap_params.target_metric = MetricType.EUCLIDEAN
             else:  # self.target_metric == "categorical"
                 umap_params.target_metric = MetricType.CATEGORICAL
+            if cls.build_algo == "brute_force_knn":
+                umap_params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
+            else:  # self.init == "nn_descent"
+                umap_params.build_algo = graph_build_algo.NN_DESCENT
+                umap_params.nn_descent_params.graph_degree = <uint64_t> cls.nnd_graph_degree
+                umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> cls.nnd_intermediate_graph_degree
+                umap_params.nn_descent_params.max_iterations = <uint64_t> cls.nnd_max_iterations
+                umap_params.nn_descent_params.termination_threshold = <float> cls.nnd_termination_threshold
+                umap_params.nn_descent_params.return_distances = <int> 1
             umap_params.target_weight = <float> cls.target_weight
             umap_params.random_state = <uint64_t> cls.random_state
             umap_params.deterministic = <bool> cls.deterministic
@@ -804,3 +830,4 @@ class UMAP(UniversalBase,
 
     def get_attr_names(self):
         return ['_raw_data', 'embedding_', '_input_hash', '_small_data']
+        
