@@ -830,4 +830,3 @@ class UMAP(UniversalBase,
 
     def get_attr_names(self):
         return ['_raw_data', 'embedding_', '_input_hash', '_small_data']
-        

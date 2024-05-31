@@ -103,4 +103,3 @@ cdef class GraphHolder:
     cdef uintptr_t rows(GraphHolder self)
     cdef uintptr_t cols(GraphHolder self)
     cdef uint64_t get_nnz(GraphHolder self)
-    
