@@ -354,7 +354,7 @@ class UMAP(UniversalBase,
                  nnd_intermediate_graph_degree=128,
                  nnd_max_iterations=20,
                  nnd_termination_threshold=0.0001,
-                 nnd_return_distances=0):
+                 nnd_return_distances=False):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -477,7 +477,7 @@ class UMAP(UniversalBase,
                 umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> cls.nnd_intermediate_graph_degree
                 umap_params.nn_descent_params.max_iterations = <uint64_t> cls.nnd_max_iterations
                 umap_params.nn_descent_params.termination_threshold = <float> cls.nnd_termination_threshold
-                umap_params.nn_descent_params.return_distances = <int> 1
+                umap_params.nn_descent_params.return_distances = <bool> True
             umap_params.target_weight = <float> cls.target_weight
             umap_params.random_state = <uint64_t> cls.random_state
             umap_params.deterministic = <bool> cls.deterministic

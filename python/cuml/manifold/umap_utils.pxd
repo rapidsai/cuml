@@ -44,7 +44,7 @@ cdef extern from "raft/neighbors/nn_descent_types.hpp" namespace "raft::neighbor
         int64_t intermediate_graph_degree,
         int64_t max_iterations,
         float termination_threshold,
-        int return_distances
+        bool return_distances
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
 
