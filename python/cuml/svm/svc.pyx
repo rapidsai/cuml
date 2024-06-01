@@ -461,7 +461,7 @@ class SVC(SVMBase,
                                                method='sigmoid')
 
         with cuml.internals.exit_internal_api():
-            self.prob_svc.fit(X, y)
+            self.prob_svc.fit(X, y, sample_weight=sample_weight)
         self._fit_status_ = 0
         return self
 
