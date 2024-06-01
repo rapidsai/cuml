@@ -83,7 +83,7 @@ inline void launcher(const raft::handle_t& handle,
                                         params->metric,
                                         params->p);
   } else {  // nn_descent
-    // n_neightbors should be smaller than the graph degree computed by nn descent
+    // n_neighbors should be smaller than the graph degree computed by nn descent
     assert(n_neighbors <= params->nn_descent_params.graph_degree);
     auto dataset =
       raft::make_host_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d);
@@ -147,7 +147,7 @@ inline void launcher(const raft::handle_t& handle,
                                              params->metric,
                                              params->p);
   } else {  // nn_descent
-    // n_neightbors should be smaller than the graph degree computed by nn descent
+    // n_neighbors should be smaller than the graph degree computed by nn descent
     assert(n_neighbors <= params->nn_descent_params.graph_degree);
     auto dataset =
       raft::make_host_matrix_view<const float, int64_t>(inputsA.data, inputsA.n, inputsA.d);
