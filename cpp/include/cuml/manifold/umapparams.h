@@ -22,8 +22,6 @@
 #include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/nn_descent_types.hpp>
 
-// namespace NNDescent = raft::neighbors::experimental::nn_descent;
-
 namespace ML {
 
 using nn_index_params = raft::neighbors::experimental::nn_descent::index_params;
