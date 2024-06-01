@@ -440,7 +440,7 @@ class SVC(SVMBase,
         self._fit_status_ = 0
         return self
 
-    def _fit_proba(self, X, y, samle_weight) -> "SVC":
+    def _fit_proba(self, X, y, sample_weight) -> "SVC":
         params = self.get_params()
         params["probability"] = False
 
