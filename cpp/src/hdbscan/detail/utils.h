@@ -114,7 +114,7 @@ Common::CondensedHierarchy<value_idx, value_t> make_cluster_tree(
     thrust_policy,
     sizes,
     sizes + condensed_tree.get_n_edges(),
-    [=] __device__(value_idx a) { return a > 1; },
+    cuda::proclaim_return_type<bool>([=] __device__(value_idx a) -> bool { return a > 1; }),
     0,
     thrust::plus<value_idx>());
 

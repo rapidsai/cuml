@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -165,18 +165,22 @@ class RandomForestRegressor(BaseRandomForestModel,
         is not supported.\n
         .. note:: This default differs from scikit-learn's
           random forest, which defaults to unlimited depth.
+
     max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited,
         If ``-1``.
-    max_features : int, float, or string (default = 'auto')
+    max_features : int, float, or string (default = 1.0)
         Ratio of number of features (columns) to consider
         per node split.\n
          * If type ``int`` then ``max_features`` is the absolute count of
            features to be used.
          * If type ``float`` then ``max_features`` is used as a fraction.
-         * If ``'auto'`` then ``max_features=1.0``.
          * If ``'sqrt'`` then ``max_features=1/sqrt(n_features)``.
          * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
+
+        .. versionchanged:: 24.06
+          The default of `max_features` changed from `"auto"` to 1.0.
+
     n_bins : int (default = 128)
         Maximum number of bins used by the split algorithm per feature.
         For large problems, particularly those with highly-skewed input data,
