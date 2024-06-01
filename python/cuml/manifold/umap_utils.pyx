@@ -150,7 +150,8 @@ metric_parsing = {
     "hellinger": DistanceType.HellingerExpanded,
     "hamming": DistanceType.HammingUnexpanded,
     "jaccard": DistanceType.JaccardExpanded,
-    "canberra": DistanceType.Canberra
+    "canberra": DistanceType.Canberra,
+    "dice": DistanceType.DiceExpanded,
 }
 
 
@@ -166,6 +167,7 @@ DENSE_SUPPORTED_METRICS = [
     DistanceType.L2Unexpanded,
     DistanceType.Linf,
     DistanceType.LpUnexpanded,
+    DistanceType.DiceExpanded,
 ]
 
 
@@ -181,4 +183,5 @@ SPARSE_SUPPORTED_METRICS = [
     DistanceType.L2Unexpanded,
     DistanceType.Linf,
     DistanceType.LpUnexpanded,
+    DistanceType.DiceExpanded,
 ]
