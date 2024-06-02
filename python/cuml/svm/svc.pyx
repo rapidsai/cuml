@@ -460,8 +460,14 @@ class SVC(SVMBase,
                                                cv=5,
                                                method='sigmoid')
 
+        # Apply class weights to sample weights, necessary so it doesn't crash when sample_weight is None
+        # could also be done in .fit()
+        sample_weight = apply_class_weight(self.handle, sample_weight, self.class_weight, y, self.verbose,
+                                           self.output_type, self.dtype)
+
         with cuml.internals.exit_internal_api():
-            self.prob_svc.fit(X, y, sample_weight=sample_weight)
+            # .get() is necessary because sklearn requires explicit conversion to np array
+            self.prob_svc.fit(X, y, sample_weight=sample_weight.get())
         self._fit_status_ = 0
         return self
 
