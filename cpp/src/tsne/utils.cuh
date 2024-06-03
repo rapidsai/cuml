@@ -39,6 +39,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include <cfloat>
 #include <chrono>
 #include <iostream>
 

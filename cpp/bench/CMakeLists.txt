@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,6 +61,10 @@ if(BUILD_CUML_BENCH)
   set_target_properties(
     ${CUML_CPP_BENCH_TARGET}
     PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+               CXX_STANDARD                      17
+               CXX_STANDARD_REQUIRED             ON
+               CUDA_STANDARD                     17
+               CUDA_STANDARD_REQUIRED            ON
   )
 
   install(

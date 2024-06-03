@@ -14,6 +14,19 @@
 # This code is under BSD 3 clause license.
 # Authors mentioned above do not endorse or promote this production.
 
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 from ....internals.memory_utils import using_output_type
 from ....internals import _deprecate_pos_args
@@ -32,6 +45,7 @@ from ..utils.validation import (check_is_fitted, FLOAT_DTYPES,
 from ..utils.extmath import _incremental_mean_and_var
 from ..utils.extmath import row_norms
 from ....thirdparty_adapters import check_array
+from sklearn.utils._indexing import resample
 from cuml.internals.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
     StatelessTagMixin
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
@@ -2284,17 +2298,14 @@ class QuantileTransformer(TransformerMixin,
         n_samples, n_features = X.shape
         references = np.asnumpy(self.references_ * 100)
 
-        self.quantiles_ = []
-        for col in X.T:
-            if self.subsample < n_samples:
-                subsample_idx = random_state.choice(n_samples,
-                                                    size=self.subsample,
-                                                    replace=False)
-                col = col.take(subsample_idx)
-            self.quantiles_.append(
-                cpu_np.nanpercentile(np.asnumpy(col), references)
+        X = np.asnumpy(X)
+        if self.subsample is not None and self.subsample < n_samples:
+            # Take a subsample of `X`
+            X = resample(
+                X, replace=False, n_samples=self.subsample, random_state=random_state
             )
-        self.quantiles_ = cpu_np.transpose(self.quantiles_)
+
+        self.quantiles_ = cpu_np.nanpercentile(X, references, axis=0)
         # Due to floating-point precision error in `np.nanpercentile`,
         # make sure that quantiles are monotonically increasing.
         # Upstream issue in numpy:
