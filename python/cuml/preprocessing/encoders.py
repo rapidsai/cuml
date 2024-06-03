@@ -203,10 +203,21 @@ class OneHotEncoder(BaseEncoder):
         - dict/list : ``drop[col]`` is the category in feature col that
           should be dropped.
 
-    sparse : bool, default=True
+    sparse_output : bool, default=True
         This feature is not fully supported by cupy
         yet, causing incorrect values when computing one hot encodings.
         See https://github.com/cupy/cupy/issues/3223
+
+        .. versionadded:: 24.06
+           `sparse` was renamed to `sparse_output`
+
+    sparse : bool, default=True
+        Will return sparse matrix if set True else will return an array.
+
+        .. deprecated:: 24.06
+           `sparse` is deprecated in 24.06 and will be removed in 25.08. Use
+           `sparse_output` instead.
+
     dtype : number type, default=np.float
         Desired datatype of transform's output.
     handle_unknown : {'error', 'ignore'}, default='error'
@@ -246,7 +257,8 @@ class OneHotEncoder(BaseEncoder):
         *,
         categories="auto",
         drop=None,
-        sparse=True,
+        sparse="deprecated",
+        sparse_output=True,
         dtype=np.float32,
         handle_unknown="error",
         handle=None,
@@ -257,7 +269,9 @@ class OneHotEncoder(BaseEncoder):
             handle=handle, verbose=verbose, output_type=output_type
         )
         self.categories = categories
+        # TODO(24.08): Remove self.sparse
         self.sparse = sparse
+        self.sparse_output = sparse_output
         self.dtype = dtype
         self.handle_unknown = handle_unknown
         self.drop = drop
@@ -266,10 +280,14 @@ class OneHotEncoder(BaseEncoder):
         self._features = None
         self._encoders = None
         self.input_type = None
-        if sparse and np.dtype(dtype) not in ["f", "d", "F", "D"]:
+        # This parameter validation should be performed in `fit` instead
+        # of in the constructor. Hence the awkwark `if` clause
+        if ((sparse != "deprecated" and sparse) or sparse_output) and np.dtype(
+            dtype
+        ) not in ["f", "d", "F", "D"]:
             raise ValueError(
                 "Only float32, float64, complex64 and complex128 "
-                "are supported when using sparse"
+                "are supported when using sparse_output"
             )
 
     def _validate_keywords(self):
@@ -288,6 +306,17 @@ class OneHotEncoder(BaseEncoder):
                 "specified, as both would create categories that are all "
                 "zero."
             )
+
+        if self.sparse != "deprecated":
+            warnings.warn(
+                (
+                    "`sparse` was renamed to `sparse_output` in version 24.06"
+                    " and will be removed in 25.08. `sparse_output` is ignored"
+                    " unless you leave `sparse` set to its default value."
+                ),
+                FutureWarning,
+            )
+            self.sparse_output = self.sparse
 
     def _check_is_fitted(self):
         if not self._fitted:
@@ -440,7 +469,7 @@ class OneHotEncoder(BaseEncoder):
                 (val, (rows, cols)), shape=(len(X), j), dtype=self.dtype
             )
 
-            if not self.sparse:
+            if not self.sparse_output:
                 ohe = ohe.toarray()
 
             return ohe
@@ -578,6 +607,7 @@ class OneHotEncoder(BaseEncoder):
             "categories",
             "drop",
             "sparse",
+            "sparse_output",
             "dtype",
             "handle_unknown",
         ]

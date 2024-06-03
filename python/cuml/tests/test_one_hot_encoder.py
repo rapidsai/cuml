@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,8 +57,8 @@ def test_onehot_vs_skonehot(as_array):
         X = _from_df_to_cupy(X)
         skX = cp.asnumpy(X)
 
-    enc = OneHotEncoder(sparse=True)
-    skohe = SkOneHotEncoder(sparse=True)
+    enc = OneHotEncoder(sparse_output=True)
+    skohe = SkOneHotEncoder(sparse_output=True)
 
     ohe = enc.fit_transform(X)
     ref = skohe.fit_transform(skX)
@@ -89,7 +89,7 @@ def test_onehot_categories(as_array):
         X = _from_df_to_cupy(X)
         categories = _from_df_to_cupy(categories).transpose()
 
-    enc = OneHotEncoder(categories=categories, sparse=False)
+    enc = OneHotEncoder(categories=categories, sparse_output=False)
     ref = cp.array(
         [[1.0, 0.0, 0.0, 1.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0, 1.0]]
     )
@@ -124,12 +124,12 @@ def test_onehot_transform_handle_unknown(as_array):
         X = _from_df_to_cupy(X)
         Y = _from_df_to_cupy(Y)
 
-    enc = OneHotEncoder(handle_unknown="error", sparse=False)
+    enc = OneHotEncoder(handle_unknown="error", sparse_output=False)
     enc = enc.fit(X)
     with pytest.raises(KeyError):
         enc.transform(Y)
 
-    enc = OneHotEncoder(handle_unknown="ignore", sparse=False)
+    enc = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
     enc = enc.fit(X)
     ohe = enc.transform(Y)
     ref = cp.array([[0.0, 0.0, 1.0, 0.0], [0.0, 1.0, 0.0, 1.0]])
@@ -163,8 +163,10 @@ def test_onehot_random_inputs(drop, sparse, n_samples, as_array):
         n_samples=n_samples, as_array=as_array
     )
 
-    enc = OneHotEncoder(sparse=sparse, drop=drop, categories="auto")
-    sk_enc = SkOneHotEncoder(sparse=sparse, drop=drop, categories="auto")
+    enc = OneHotEncoder(sparse_output=sparse, drop=drop, categories="auto")
+    sk_enc = SkOneHotEncoder(
+        sparse_output=sparse, drop=drop, categories="auto"
+    )
     ohe = enc.fit_transform(X)
     ref = sk_enc.fit_transform(ary)
     if sparse:
@@ -183,8 +185,10 @@ def test_onehot_drop_idx_first(as_array):
         X = _from_df_to_cupy(X)
         X_ary = cp.asnumpy(X)
 
-    enc = OneHotEncoder(sparse=False, drop="first", categories="auto")
-    sk_enc = SkOneHotEncoder(sparse=False, drop="first", categories="auto")
+    enc = OneHotEncoder(sparse_output=False, drop="first", categories="auto")
+    sk_enc = SkOneHotEncoder(
+        sparse_output=False, drop="first", categories="auto"
+    )
     ohe = enc.fit_transform(X)
     ref = sk_enc.fit_transform(X_ary)
     cp.testing.assert_array_equal(ohe, ref)
@@ -203,11 +207,11 @@ def test_onehot_drop_one_of_each(as_array):
         X_ary = cp.asnumpy(X)
         drop = drop_ary = _convert_drop(drop)
 
-    enc = OneHotEncoder(sparse=False, drop=drop, categories="auto")
+    enc = OneHotEncoder(sparse_output=False, drop=drop, categories="auto")
     ohe = enc.fit_transform(X)
     print(ohe.dtype)
     ref = SkOneHotEncoder(
-        sparse=False, drop=drop_ary, categories="auto"
+        sparse_output=False, drop=drop_ary, categories="auto"
     ).fit_transform(X_ary)
     cp.testing.assert_array_equal(ohe, ref)
     inv = enc.inverse_transform(ohe)
@@ -240,7 +244,7 @@ def test_onehot_drop_exceptions(drop, pattern, as_array):
         drop = _convert_drop(drop) if not isinstance(drop, DataFrame) else drop
 
     with pytest.raises(ValueError, match=pattern):
-        OneHotEncoder(sparse=False, drop=drop).fit(X)
+        OneHotEncoder(sparse_output=False, drop=drop).fit(X)
 
 
 @pytest.mark.parametrize("as_array", [True, False], ids=["cupy", "cudf"])
@@ -270,8 +274,10 @@ def test_onehot_sparse_drop(as_array):
         ary = cp.asnumpy(X)
         drop = drop_ary = _convert_drop(drop)
 
-    enc = OneHotEncoder(sparse=True, drop=drop, categories="auto")
-    sk_enc = SkOneHotEncoder(sparse=True, drop=drop_ary, categories="auto")
+    enc = OneHotEncoder(sparse_output=True, drop=drop, categories="auto")
+    sk_enc = SkOneHotEncoder(
+        sparse_output=True, drop=drop_ary, categories="auto"
+    )
     ohe = enc.fit_transform(X)
     ref = sk_enc.fit_transform(ary)
     cp.testing.assert_array_equal(ohe.toarray(), ref.toarray())
@@ -286,21 +292,21 @@ def test_onehot_categories_shape_mismatch(as_array):
         categories = _from_df_to_cupy(categories).transpose()
 
     with pytest.raises(ValueError):
-        OneHotEncoder(categories=categories, sparse=False).fit(X)
+        OneHotEncoder(categories=categories, sparse_output=False).fit(X)
 
 
 def test_onehot_category_specific_cases():
     # See this for reasoning: https://github.com/rapidsai/cuml/issues/2690
 
-    # All of these cases use sparse=False, where
-    # test_onehot_category_class_count uses sparse=True
+    # All of these cases use sparse_output=False, where
+    # test_onehot_category_class_count uses sparse_output=True
 
     # ==== 2 Rows (Low before High) ====
     example_df = DataFrame()
     example_df["low_cardinality_column"] = ["A"] * 200 + ["B"] * 56
     example_df["high_cardinality_column"] = cp.linspace(0, 255, 256)
 
-    encoder = OneHotEncoder(handle_unknown="ignore", sparse=False)
+    encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
     encoder.fit_transform(example_df)
 
     # ==== 2 Rows (High before Low, used to fail) ====
@@ -308,7 +314,7 @@ def test_onehot_category_specific_cases():
     example_df["high_cardinality_column"] = cp.linspace(0, 255, 256)
     example_df["low_cardinality_column"] = ["A"] * 200 + ["B"] * 56
 
-    encoder = OneHotEncoder(handle_unknown="ignore", sparse=False)
+    encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
     encoder.fit_transform(example_df)
 
 
@@ -319,9 +325,9 @@ def test_onehot_category_specific_cases():
 )
 def test_onehot_category_class_count(total_classes: int):
     # See this for reasoning: https://github.com/rapidsai/cuml/issues/2690
-    # All tests use sparse=True to avoid memory errors
+    # All tests use sparse_output=True to avoid memory errors
 
-    encoder = OneHotEncoder(handle_unknown="ignore", sparse=True)
+    encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=True)
 
     # ==== 2 Rows ====
     example_df = DataFrame()
@@ -388,3 +394,14 @@ def test_onehot_get_feature_names(as_array):
     ]
     feature_names = enc.get_feature_names(["fruit", "size"])
     assert np.array_equal(feature_names, feature_names_ref)
+
+
+# TODO(24.08): remove this test
+def test_sparse_deprecation():
+    X = cp.array([[33, 1], [34, 3], [34, 2]])
+    oh = OneHotEncoder(sparse=True)
+
+    with pytest.warns(
+        FutureWarning, match="`sparse` was renamed to `sparse_output`"
+    ):
+        oh.fit(X)
