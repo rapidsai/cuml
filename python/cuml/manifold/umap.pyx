@@ -289,6 +289,11 @@ class UMAP(UniversalBase,
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
+    build_algo: string (default='brute_force_knn')
+        How to build the knn graph. Supported build algorithms are ['brute_force_knn',
+        'nn_descent']
+    metric_kwds: dict (optional, default=None)
+        Build algorithm argument
 
     Notes
     -----
@@ -350,11 +355,8 @@ class UMAP(UniversalBase,
                  verbose=False,
                  output_type=None,
                  build_algo="brute_force_knn",
-                 nnd_graph_degree=64,
-                 nnd_intermediate_graph_degree=128,
-                 nnd_max_iterations=20,
-                 nnd_termination_threshold=0.0001,
-                 nnd_return_distances=False):
+                 build_kwds=None):
+                
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -430,12 +432,8 @@ class UMAP(UniversalBase,
             self.build_algo = build_algo
         else:
             raise Exception("Invalid build algo: {}. Only support brute_force_knn and nn_descent" % build_algo)
-    
-        self.nnd_graph_degree = nnd_graph_degree
-        self.nnd_intermediate_graph_degree = nnd_intermediate_graph_degree
-        self.nnd_max_iterations = nnd_max_iterations
-        self.nnd_termination_threshold = nnd_termination_threshold
-        self.nnd_return_distances = nnd_return_distances
+
+        self.build_kwds = build_kwds
 
     def validate_hyperparams(self):
 
@@ -473,11 +471,18 @@ class UMAP(UniversalBase,
                 umap_params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
             else:  # self.init == "nn_descent"
                 umap_params.build_algo = graph_build_algo.NN_DESCENT
-                umap_params.nn_descent_params.graph_degree = <uint64_t> cls.nnd_graph_degree
-                umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> cls.nnd_intermediate_graph_degree
-                umap_params.nn_descent_params.max_iterations = <uint64_t> cls.nnd_max_iterations
-                umap_params.nn_descent_params.termination_threshold = <float> cls.nnd_termination_threshold
-                umap_params.nn_descent_params.return_distances = <bool> True
+                if cls.build_kwds is None:
+                    umap_params.nn_descent_params.graph_degree = <uint64_t> 64
+                    umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> 128
+                    umap_params.nn_descent_params.max_iterations = <uint64_t> 20
+                    umap_params.nn_descent_params.termination_threshold = <float> 0.0001
+                    umap_params.nn_descent_params.return_distances = <bool> True
+                else:
+                    umap_params.nn_descent_params.graph_degree = <uint64_t> cls.build_kwds.get("nnd_graph_degree", 64)
+                    umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> cls.build_kwds.get("nnd_intermediate_graph_degree", 128)
+                    umap_params.nn_descent_params.max_iterations = <uint64_t> cls.build_kwds.get("nnd_max_iterations", 20)
+                    umap_params.nn_descent_params.termination_threshold = <float> cls.build_kwds.get("nnd_termination_threshold", 0.0001)
+                    umap_params.nn_descent_params.return_distances = <bool> True
             umap_params.target_weight = <float> cls.target_weight
             umap_params.random_state = <uint64_t> cls.random_state
             umap_params.deterministic = <bool> cls.deterministic
