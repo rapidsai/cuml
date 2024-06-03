@@ -89,7 +89,7 @@ class TSNE_runner {
         "# of Nearest Neighbors should be at least 3 * perplexity. Your results"
         " might be a bit strange...");
 
-    auto stream         = handle_.get_stream();
+    auto stream         = handle.get_stream();
     const value_idx dim = params.dim;
 
     if (params.init == TSNE_INIT::RANDOM) {
@@ -145,8 +145,8 @@ class TSNE_runner {
 
         raft::update_host(h_std_result.data(), std_result.data_handle(), dim, stream);
 
-        raft::linalg::divide_scalar(handle_, Y_view_const, Y_view, h_std_result_view_const);
-        raft::linalg::multiply_scalar(handle_, Y_view_const, Y_view, h_multiplier_view_const);
+        raft::linalg::divide_scalar(handle, Y_view_const, Y_view, h_std_result_view_const);
+        raft::linalg::multiply_scalar(handle, Y_view_const, Y_view, h_multiplier_view_const);
       }
     }
   }
