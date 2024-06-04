@@ -45,7 +45,6 @@ from ..utils.validation import (check_is_fitted, FLOAT_DTYPES,
 from ..utils.extmath import _incremental_mean_and_var
 from ..utils.extmath import row_norms
 from ....thirdparty_adapters import check_array
-from sklearn.utils._indexing import resample
 from cuml.internals.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
     StatelessTagMixin
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
@@ -62,6 +61,7 @@ from itertools import combinations_with_replacement as combinations_w_r
 from cuml.internals.safe_imports import cpu_only_import
 cpu_np = cpu_only_import('numpy')
 np = gpu_only_import('cupy')
+resample = cpu_only_import_from('sklearn.utils._indexing', 'resample')
 sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
 stats = cpu_only_import_from('scipy', 'stats')
 
