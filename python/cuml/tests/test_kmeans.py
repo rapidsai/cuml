@@ -236,7 +236,9 @@ def test_kmeans_sklearn_comparison(name, nrows, random_state):
     cu_y_pred = cuml_kmeans.fit_predict(X)
     cu_score = adjusted_rand_score(cu_y_pred, y)
     kmeans = cluster.KMeans(
-        random_state=random_state, n_clusters=params["n_clusters"]
+        random_state=random_state,
+        n_clusters=params["n_clusters"],
+        n_init=10,
     )
     sk_y_pred = kmeans.fit_predict(X)
     sk_score = adjusted_rand_score(sk_y_pred, y)
@@ -278,7 +280,9 @@ def test_kmeans_sklearn_comparison_default(name, nrows, random_state):
     cu_y_pred = cuml_kmeans.fit_predict(X)
     cu_score = adjusted_rand_score(cu_y_pred, y)
     kmeans = cluster.KMeans(
-        random_state=random_state, n_clusters=params["n_clusters"]
+        random_state=random_state,
+        n_clusters=params["n_clusters"],
+        n_init=10,
     )
     sk_y_pred = kmeans.fit_predict(X)
     sk_score = adjusted_rand_score(sk_y_pred, y)
