@@ -84,8 +84,8 @@ inline void launcher(const raft::handle_t& handle,
                                         params->metric,
                                         params->p);
   } else {  // nn_descent
-    CUML_LOG_DEBUG("n_neighbors should be smaller than the graph degree computed by nn descent");
-    assert(n_neighbors <= params->nn_descent_params.graph_degree);
+    RAFT_EXPECTS(static_cast<size_t>(n_neighbors) <= params->nn_descent_params.graph_degree, "n_neighbors should be smaller than the graph degree computed by nn descent");
+
     auto dataset =
       raft::make_host_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d);
     auto graph =
@@ -148,8 +148,8 @@ inline void launcher(const raft::handle_t& handle,
                                              params->metric,
                                              params->p);
   } else {  // nn_descent
-    CUML_LOG_DEBUG("n_neighbors should be smaller than the graph degree computed by nn descent");
-    assert(n_neighbors <= params->nn_descent_params.graph_degree);
+    RAFT_EXPECTS(static_cast<size_t>(n_neighbors) <= params->nn_descent_params.graph_degree, "n_neighbors should be smaller than the graph degree computed by nn descent");
+
     auto dataset =
       raft::make_host_matrix_view<const float, int64_t>(inputsA.data, inputsA.n, inputsA.d);
     auto graph = NNDescent::detail::build<float, int>(handle, params->nn_descent_params, dataset);
