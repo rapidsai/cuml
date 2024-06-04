@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include "cuml/common/logger.hpp"
 #include <cuml/manifold/common.hpp>
 #include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn_sparse.hpp>
