@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,14 +33,14 @@ def test_duplicate_distances(connectivity):
 
     cuml_agg = AgglomerativeClustering(
         n_clusters=2,
-        affinity="euclidean",
+        metric="euclidean",
         linkage="single",
         n_neighbors=3,
         connectivity=connectivity,
     )
 
     sk_agg = cluster.AgglomerativeClustering(
-        n_clusters=2, affinity="euclidean", linkage="single"
+        n_clusters=2, metric="euclidean", linkage="single"
     )
 
     cuml_agg.fit(X)
@@ -64,7 +64,7 @@ def test_single_linkage_sklearn_compare(
 
     cuml_agg = AgglomerativeClustering(
         n_clusters=nclusters,
-        affinity="euclidean",
+        metric="euclidean",
         linkage="single",
         n_neighbors=k,
         connectivity=connectivity,
@@ -73,7 +73,7 @@ def test_single_linkage_sklearn_compare(
     cuml_agg.fit(X)
 
     sk_agg = cluster.AgglomerativeClustering(
-        n_clusters=nclusters, affinity="euclidean", linkage="single"
+        n_clusters=nclusters, metric="euclidean", linkage="single"
     )
     sk_agg.fit(cp.asnumpy(X))
 
@@ -87,9 +87,9 @@ def test_single_linkage_sklearn_compare(
 
 def test_invalid_inputs():
 
-    # Test bad affinity
+    # Test bad metric
     with pytest.raises(ValueError):
-        AgglomerativeClustering(affinity="doesntexist")
+        AgglomerativeClustering(metric="doesntexist")
 
     with pytest.raises(ValueError):
         AgglomerativeClustering(linkage="doesntexist")
@@ -108,3 +108,23 @@ def test_invalid_inputs():
 
     with pytest.raises(ValueError):
         AgglomerativeClustering(n_clusters=500).fit(cp.ones((2, 5)))
+
+
+def test_affinity_deprecation():
+    X = cp.array([[1.0, 2], [3, 4]])
+    y = cp.array([1, 0])
+
+    agg = AgglomerativeClustering(affinity="euclidean")
+    with pytest.warns(
+        FutureWarning,
+        match="Attribute `affinity` was deprecated in version 24.06",
+    ):
+        agg.fit(X, y)
+
+    # don't provide both
+    agg = AgglomerativeClustering(affinity="euclidean", metric="euclidean")
+    with pytest.raises(
+        ValueError,
+        match="Both `affinity` and `metric` attributes were set",
+    ):
+        agg.fit(X, y)
