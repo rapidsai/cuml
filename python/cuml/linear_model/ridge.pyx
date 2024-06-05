@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -101,7 +101,7 @@ class Ridge(UniversalBase,
         >>> from cuml import Ridge
         >>> from cuml.linear_model import Ridge
 
-        >>> alpha = cp.array([1e-5])
+        >>> alpha = 1e-5
         >>> ridge = Ridge(alpha=alpha, fit_intercept=True, normalize=False,
         ...               solver="eig")
 

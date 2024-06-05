@@ -41,7 +41,6 @@ option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 set(CUML_RAFT_CLONE_ON_PIN OFF)
 
 
-
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
 # https://github.com/rapidsai/cuml/issues/4843
 message(VERBOSE "CUML_PY: Build only cuML CPU Python components.: ${CUML_CPU}")

@@ -1,3 +1,5 @@
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+
 # This code originates from the Scikit-Learn library,
 # it was since modified to allow GPU acceleration.
 # This code is under BSD 3 clause license.
@@ -63,7 +65,7 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
     --------
     >>> import cupy as cp
     >>> from cuml.preprocessing import FunctionTransformer
-    >>> transformer = FunctionTransformer(cp.log1p)
+    >>> transformer = FunctionTransformer(func=cp.log1p)
     >>> X = cp.array([[0, 1], [2, 3]])
     >>> transformer.transform(X)
     array([[0.       , 0.6931...],

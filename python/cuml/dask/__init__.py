@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from dask import config
 
 from cuml.dask import cluster
 from cuml.dask import common
@@ -26,6 +27,9 @@ from cuml.dask import naive_bayes
 from cuml.dask import neighbors
 from cuml.dask import preprocessing
 from cuml.dask import solvers
+
+# Avoid "p2p" shuffling in dask for now
+config.set({"dataframe.shuffle.method": "tasks"})
 
 __all__ = [
     "cluster",

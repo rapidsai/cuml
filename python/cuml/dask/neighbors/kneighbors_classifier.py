@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -111,9 +111,14 @@ class KNeighborsClassifier(NearestNeighbors):
             if isinstance(y, DaskSeries):
                 uniq_labels.append(y.unique())
             else:
-                n_targets = len(y.columns)
+                # Dask-expr does not support numerical column names
+                # See: https://github.com/dask/dask-expr/issues/1015
+                _y = y
+                if hasattr(y, "to_legacy_dataframe"):
+                    _y = y.to_legacy_dataframe()
+                n_targets = len(_y.columns)
                 for i in range(n_targets):
-                    uniq_labels.append(y.iloc[:, i].unique())
+                    uniq_labels.append(_y.iloc[:, i].unique())
 
         uniq_labels = da.compute(uniq_labels)[0]
         if hasattr(uniq_labels[0], "values_host"):  # for cuDF Series

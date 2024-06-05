@@ -314,7 +314,8 @@ template <int NITEMS,
           bool cols_in_shmem,
           bool CATS_SUPPORTED,
           class storage_type>
-__global__ void infer_k(storage_type forest, predict_params params);
+__attribute__((visibility("hidden"))) __global__ void infer_k(storage_type forest,
+                                                              predict_params params);
 
 // infer() calls the inference kernel with the parameters on the stream
 template <typename storage_type>

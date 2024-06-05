@@ -52,7 +52,7 @@ namespace Supervised {
 using namespace ML;
 
 template <int TPB_X, typename T>
-__global__ void fast_intersection_kernel(
+CUML_KERNEL void fast_intersection_kernel(
   int* rows, int* cols, T* vals, int nnz, T* target, float unknown_dist = 1.0, float far_dist = 5.0)
 {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
@@ -119,22 +119,22 @@ void categorical_simplicial_set_intersection(raft::sparse::COO<value_t>* graph_c
 }
 
 template <typename value_t, int TPB_X>
-__global__ void sset_intersection_kernel(int* row_ind1,
-                                         int* cols1,
-                                         value_t* vals1,
-                                         int nnz1,
-                                         int* row_ind2,
-                                         int* cols2,
-                                         value_t* vals2,
-                                         int nnz2,
-                                         int* result_ind,
-                                         int* result_cols,
-                                         value_t* result_vals,
-                                         int nnz,
-                                         value_t left_min,
-                                         value_t right_min,
-                                         int m,
-                                         float mix_weight = 0.5)
+CUML_KERNEL void sset_intersection_kernel(int* row_ind1,
+                                          int* cols1,
+                                          value_t* vals1,
+                                          int nnz1,
+                                          int* row_ind2,
+                                          int* cols2,
+                                          value_t* vals2,
+                                          int nnz2,
+                                          int* result_ind,
+                                          int* result_cols,
+                                          value_t* result_vals,
+                                          int nnz,
+                                          value_t left_min,
+                                          value_t right_min,
+                                          int m,
+                                          float mix_weight = 0.5)
 {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
 

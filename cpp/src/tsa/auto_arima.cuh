@@ -18,6 +18,8 @@
 
 #include <common/fast_int_div.cuh>
 
+#include <cuml/common/utils.hpp>
+
 #include <raft/core/interruptible.hpp>
 #include <raft/util/cudart_utils.hpp>
 
@@ -123,12 +125,12 @@ inline int divide_by_mask_build_index(const bool* d_mask,
  * @param[in]  n_obs      Number of data points per series
  */
 template <typename DataT>
-__global__ void divide_by_mask_kernel(const DataT* d_in,
-                                      const bool* d_mask,
-                                      const int* d_index,
-                                      DataT* d_out0,
-                                      DataT* d_out1,
-                                      int n_obs)
+CUML_KERNEL void divide_by_mask_kernel(const DataT* d_in,
+                                       const bool* d_mask,
+                                       const int* d_index,
+                                       DataT* d_out0,
+                                       DataT* d_out1,
+                                       int n_obs)
 {
   const DataT* b_in = d_in + n_obs * blockIdx.x;
   DataT* b_out      = (d_mask[blockIdx.x] ? d_out1 : d_out0) + n_obs * d_index[blockIdx.x];
@@ -262,7 +264,7 @@ inline void divide_by_min_build_index(const DataT* d_matrix,
  * @param[in]  n_obs      Number of data points per series
  */
 template <typename DataT>
-__global__ void divide_by_min_kernel(
+CUML_KERNEL void divide_by_min_kernel(
   const DataT* d_in, const int* d_batch, const int* d_index, DataT** d_out, int n_obs)
 {
   const DataT* b_in = d_in + n_obs * blockIdx.x;
@@ -325,10 +327,10 @@ inline void divide_by_min_execute(const DataT* d_in,
  * @param[out] d_id_to_model Array associating each member with its
  *                           sub-batch
  */
-__global__ void build_division_map_kernel(const int* const* d_id,
-                                          const int* d_size,
-                                          int* d_id_to_pos,
-                                          int* d_id_to_model)
+CUML_KERNEL void build_division_map_kernel(const int* const* d_id,
+                                           const int* d_size,
+                                           int* d_id_to_pos,
+                                           int* d_id_to_model)
 {
   const int* b_id = d_id[blockIdx.x];
   int b_size      = d_size[blockIdx.x];
@@ -391,7 +393,7 @@ inline void build_division_map(const int* const* hd_id,
  * @param[in]  n_obs       Number of observations (or forecasts) per series
  */
 template <typename DataT>
-__global__ void merge_series_kernel(
+CUML_KERNEL void merge_series_kernel(
   const DataT* const* d_in, const int* d_id_to_pos, const int* d_id_to_sub, DataT* d_out, int n_obs)
 {
   const DataT* b_in = d_in[d_id_to_sub[blockIdx.x]] + n_obs * d_id_to_pos[blockIdx.x];

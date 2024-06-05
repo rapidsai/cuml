@@ -45,7 +45,7 @@ requirements:
     - cuda-version ={{ cuda_version }}
     - cmake {{ cmake_version }}
     - ninja
-    - sysroot_{{ target_platform }} {{ sysroot_version }}
+    - {{ stdlib("c") }}
   host:
     - cuda-version ={{ cuda_version }}
     {% if cuda_major == "11" %}
@@ -68,8 +68,6 @@ requirements:
     - libcusolver-dev
     - libcusparse-dev
     {% endif %}
-    - gmock {{ gtest_version }}
-    - gtest {{ gtest_version }}
     - libcumlprims ={{ minor_version }}
     - libraft ={{ minor_version }}
     - libraft-headers ={{ minor_version }}
@@ -152,8 +150,6 @@ outputs:
         - cuda-cudart
         {% endif %}
         - {{ pin_subpackage('libcuml', exact=True) }}
-        - gtest {{ gtest_version }}
-        - gmock {{ gtest_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0

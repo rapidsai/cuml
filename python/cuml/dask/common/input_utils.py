@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ from cuml.dask.common.part_utils import _extract_partitions
 from cuml.dask.common.dask_arr_utils import validate_dask_array
 from cuml.dask.common.dask_df_utils import to_dask_cudf
 from cuml.dask.common.utils import get_client
-from dask_cudf.core import Series as dcSeries
+from dask_cudf import Series as dcSeries
 from dask.dataframe import Series as daskSeries
 from dask.dataframe import DataFrame as daskDataFrame
 from cudf import Series
@@ -43,7 +43,7 @@ np = cpu_only_import("numpy")
 
 
 DataFrame = gpu_only_import_from("cudf", "DataFrame")
-dcDataFrame = gpu_only_import_from("dask_cudf.core", "DataFrame")
+dcDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
 
 
 class DistributedDataHandler:

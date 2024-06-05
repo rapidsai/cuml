@@ -84,7 +84,7 @@ struct is_missing {
   typedef T argument_type;
   typedef T result_type;
 
-  __thrust_exec_check_disable__ __device__ const T operator()(const T& x) const { return isnan(x); }
+  __device__ const T operator()(const T& x) const { return isnan(x); }
 };  // end is_missing
 
 bool detect_missing(raft::handle_t& handle, const double* d_y, int n_elem)
@@ -277,25 +277,25 @@ void predict(raft::handle_t& handle,
  * @param[in]  start_v    First used v index (residual)
  */
 template <typename DataT>
-__global__ void sum_of_squares_kernel(const DataT* d_y,
-                                      const DataT* d_mu,
-                                      const DataT* d_ar,
-                                      const DataT* d_ma,
-                                      const DataT* d_sar,
-                                      const DataT* d_sma,
-                                      DataT* d_loglike,
-                                      int n_obs,
-                                      int n_phi,
-                                      int n_theta,
-                                      int p,
-                                      int q,
-                                      int P,
-                                      int Q,
-                                      int s,
-                                      int k,
-                                      int start_sum,
-                                      int start_y,
-                                      int start_v)
+CUML_KERNEL void sum_of_squares_kernel(const DataT* d_y,
+                                       const DataT* d_mu,
+                                       const DataT* d_ar,
+                                       const DataT* d_ma,
+                                       const DataT* d_sar,
+                                       const DataT* d_sma,
+                                       DataT* d_loglike,
+                                       int n_obs,
+                                       int n_phi,
+                                       int n_theta,
+                                       int p,
+                                       int q,
+                                       int P,
+                                       int Q,
+                                       int s,
+                                       int k,
+                                       int start_sum,
+                                       int start_y,
+                                       int start_v)
 {
   // Load phi, theta and mu to registers
   DataT phi, theta;

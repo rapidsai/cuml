@@ -51,20 +51,20 @@ namespace Random {
  * @param[in]  k          Parameter k
  */
 template <typename DataT>
-__global__ void make_arima_kernel(DataT* d_diff,
-                                  const DataT* d_res,
-                                  const DataT* d_mu,
-                                  const DataT* d_ar,
-                                  const DataT* d_ma,
-                                  const DataT* d_sar,
-                                  const DataT* d_sma,
-                                  int n_obs_diff,
-                                  int p,
-                                  int q,
-                                  int P,
-                                  int Q,
-                                  int s,
-                                  int k)
+CUML_KERNEL void make_arima_kernel(DataT* d_diff,
+                                   const DataT* d_res,
+                                   const DataT* d_mu,
+                                   const DataT* d_ar,
+                                   const DataT* d_ma,
+                                   const DataT* d_sar,
+                                   const DataT* d_sma,
+                                   int n_obs_diff,
+                                   int p,
+                                   int q,
+                                   int P,
+                                   int Q,
+                                   int s,
+                                   int k)
 {
   int n_phi   = p + s * P;
   int n_theta = q + s * Q;

@@ -58,14 +58,14 @@ namespace SimplSetEmbedImpl = SimplSetEmbed::Algo;
 using namespace ML;
 
 template <int TPB_X, typename T>
-__global__ void init_transform(int* indices,
-                               T* weights,
-                               int n,
-                               const T* embeddings,
-                               int embeddings_n,
-                               int n_components,
-                               T* result,
-                               int n_neighbors)
+CUML_KERNEL void init_transform(int* indices,
+                                T* weights,
+                                int n,
+                                const T* embeddings,
+                                int embeddings_n,
+                                int n_components,
+                                T* result,
+                                int n_neighbors)
 {
   // row-based matrix 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;

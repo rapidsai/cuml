@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 #include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn.hpp>
 
@@ -79,15 +80,15 @@ static const float MIN_K_DIST_SCALE   = 1e-3;
  *
  */
 template <int TPB_X, typename value_t>
-__global__ void smooth_knn_dist_kernel(const value_t* knn_dists,
-                                       int n,
-                                       float mean_dist,
-                                       value_t* sigmas,
-                                       value_t* rhos,  // Size of n, iniitalized to zeros
-                                       int n_neighbors,
-                                       float local_connectivity = 1.0,
-                                       int n_iter               = 64,
-                                       float bandwidth          = 1.0)
+CUML_KERNEL void smooth_knn_dist_kernel(const value_t* knn_dists,
+                                        int n,
+                                        float mean_dist,
+                                        value_t* sigmas,
+                                        value_t* rhos,  // Size of n, iniitalized to zeros
+                                        int n_neighbors,
+                                        float local_connectivity = 1.0,
+                                        int n_iter               = 64,
+                                        float bandwidth          = 1.0)
 {
   // row-based matrix 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
@@ -190,7 +191,7 @@ __global__ void smooth_knn_dist_kernel(const value_t* knn_dists,
  * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
  */
 template <int TPB_X, typename value_idx, typename value_t>
-__global__ void compute_membership_strength_kernel(
+CUML_KERNEL void compute_membership_strength_kernel(
   const value_idx* knn_indices,
   const float* knn_dists,  // nn outputs
   const value_t* sigmas,

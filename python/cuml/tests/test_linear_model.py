@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 # limitations under the License.
 #
 from contextlib import nullcontext
-from distutils.version import LooseVersion
 from functools import lru_cache
 
+from packaging.version import Version
 import pytest
 import sklearn
 from cuml.internals.array import elements_in_representable_range
@@ -142,6 +142,15 @@ def cuml_compatible_dataset(X_train, X_test, y_train, _=None):
 _ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
 
 algorithms = st.sampled_from(_ALGORITHMS)
+
+
+# TODO(24.08): remove this test
+def test_logreg_penalty_deprecation():
+    with pytest.warns(
+        FutureWarning,
+        match="The 'none' option was deprecated in version 24.06",
+    ):
+        cuLog(penalty="none")
 
 
 @pytest.mark.parametrize("ntargets", [1, 2])
@@ -457,11 +466,11 @@ def test_weighted_ridge(datatype, algorithm, fit_intercept, distribution):
     "num_classes, dtype, penalty, l1_ratio, fit_intercept, C, tol",
     [
         # L-BFGS Solver
-        (2, np.float32, "none", 1.0, True, 1.0, 1e-3),
+        (2, np.float32, None, 1.0, True, 1.0, 1e-3),
         (2, np.float64, "l2", 1.0, True, 1.0, 1e-8),
         (10, np.float32, "elasticnet", 0.0, True, 1.0, 1e-3),
-        (10, np.float32, "none", 1.0, False, 1.0, 1e-8),
-        (10, np.float32, "none", 1.0, False, 2.0, 1e-3),
+        (10, np.float32, None, 1.0, False, 1.0, 1e-8),
+        (10, np.float32, None, 1.0, False, 2.0, 1e-3),
         # OWL-QN Solver
         (2, np.float32, "l1", 1.0, True, 1.0, 1e-3),
         (2, np.float64, "elasticnet", 1.0, True, 1.0, 1e-8),
@@ -488,7 +497,7 @@ def test_logistic_regression(
 ):
     ncols, n_info = column_info
     # Checking sklearn >= 0.21 for testing elasticnet
-    sk_check = LooseVersion(str(sklearn.__version__)) >= LooseVersion("0.21.0")
+    sk_check = Version(str(sklearn.__version__)) >= Version("0.21.0")
     if not sk_check and penalty == "elasticnet":
         pytest.skip(
             "Need sklearn > 0.21 for testing logistic with" "elastic net."
@@ -567,7 +576,7 @@ def test_logistic_regression(
 
 @given(
     dtype=floating_dtypes(sizes=(32, 64)),
-    penalty=st.sampled_from(("none", "l1", "l2", "elasticnet")),
+    penalty=st.sampled_from((None, "l1", "l2", "elasticnet")),
     l1_ratio=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0)),
 )
 def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
@@ -624,7 +633,7 @@ def test_logistic_regression_model_default(dtype):
     order=st.sampled_from(("C", "F")),
     sparse_input=st.booleans(),
     fit_intercept=st.booleans(),
-    penalty=st.sampled_from(("none", "l1", "l2")),
+    penalty=st.sampled_from((None, "l1", "l2")),
 )
 def test_logistic_regression_model_digits(
     dtype, order, sparse_input, fit_intercept, penalty
@@ -927,8 +936,8 @@ def test_linear_models_set_params(algo):
     coef_before = model.coef_
 
     if algo == cuLog:
-        params = {"penalty": "none", "C": 1, "max_iter": 30}
-        model = algo(penalty="none", C=1, max_iter=30)
+        params = {"penalty": None, "C": 1, "max_iter": 30}
+        model = algo(penalty=None, C=1, max_iter=30)
     else:
         model = algo(solver="svd", alpha=0.1)
         params = {"solver": "svd", "alpha": 0.1}

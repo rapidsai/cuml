@@ -10,7 +10,10 @@ cuda_compiler:
 cuda11_compiler:
   - nvcc
 
-sysroot_version:
+c_stdlib:
+  - sysroot
+
+c_stdlib_version:
   - "=2.17"
 
 cmake_version:
@@ -18,9 +21,6 @@ cmake_version:
 
 treelite_version:
   - "=4.1.2"
-
-gtest_version:
-  - ">=1.13.0"
 
 # The CTK libraries below are missing from the conda-forge::cudatoolkit package
 # for CUDA 11. The "*_host_*" version specifiers correspond to `11.8` packages

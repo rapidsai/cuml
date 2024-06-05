@@ -43,7 +43,7 @@ template <typename T, typename IdxType = int>
 }
 
 template <typename Type>
-__global__ void naiveBatchMakeSymmKernel(Type* y, const Type* x, int n)
+CUML_KERNEL void naiveBatchMakeSymmKernel(Type* y, const Type* x, int n)
 {
   int batch = blockIdx.z;
   int row   = threadIdx.y + blockDim.y * blockIdx.y;

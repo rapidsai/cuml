@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuml/common/utils.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/buffer.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/cuda_check.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/cuda_stream.hpp>
@@ -28,7 +29,7 @@
 
 namespace raft_proto {
 
-__global__ void check_buffer_access(int* buf)
+CUML_KERNEL void check_buffer_access(int* buf)
 {
   if (buf[0] == 1) { buf[0] = 4; }
   if (buf[1] == 2) { buf[1] = 5; }
