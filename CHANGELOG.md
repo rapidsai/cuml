@@ -1,3 +1,57 @@
+# cuml 24.06.00 (5 Jun 2024)
+
+## 🐛 Bug Fixes
+
+- [HOTFIX] Fix import of sklearn by using cpu_only_import ([#5914](https://github.com/rapidsai/cuml/pull/5914)) [@dantegd](https://github.com/dantegd)
+- Fix label binarize for binary class ([#5900](https://github.com/rapidsai/cuml/pull/5900)) [@jinsolp](https://github.com/jinsolp)
+- Fix RandomForestClassifier return type ([#5896](https://github.com/rapidsai/cuml/pull/5896)) [@jinsolp](https://github.com/jinsolp)
+- Fix nightly CI: remove deprecated creation of columns by using explicit dtype ([#5880](https://github.com/rapidsai/cuml/pull/5880)) [@dantegd](https://github.com/dantegd)
+- Fix DBSCAN allocates rbc index even if deactivated ([#5859](https://github.com/rapidsai/cuml/pull/5859)) [@mfoerste4](https://github.com/mfoerste4)
+- Remove gtest from dependencies.yaml ([#5854](https://github.com/rapidsai/cuml/pull/5854)) [@robertmaynard](https://github.com/robertmaynard)
+- Support expression-based Dask Dataframe API ([#5835](https://github.com/rapidsai/cuml/pull/5835)) [@rjzamora](https://github.com/rjzamora)
+- Mark all kernels with internal linkage ([#5764](https://github.com/rapidsai/cuml/pull/5764)) [@robertmaynard](https://github.com/robertmaynard)
+- Fix build.sh clean command ([#5730](https://github.com/rapidsai/cuml/pull/5730)) [@csadorf](https://github.com/csadorf)
+
+## 📖 Documentation
+
+- Update the developer&#39;s guide with new copyright hook ([#5848](https://github.com/rapidsai/cuml/pull/5848)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+
+## 🚀 New Features
+
+- Always use a static gtest and gbench ([#5847](https://github.com/rapidsai/cuml/pull/5847)) [@robertmaynard](https://github.com/robertmaynard)
+
+## 🛠️ Improvements
+
+- Support double precision in MNMG Logistic Regression ([#5898](https://github.com/rapidsai/cuml/pull/5898)) [@lijinf2](https://github.com/lijinf2)
+- Reduce and rename cudf.pandas integrations jobs ([#5890](https://github.com/rapidsai/cuml/pull/5890)) [@dantegd](https://github.com/dantegd)
+- Fix building cuml with CCCL main ([#5886](https://github.com/rapidsai/cuml/pull/5886)) [@trxcllnt](https://github.com/trxcllnt)
+- Add optional CI job for integration tests with cudf.pandas ([#5881](https://github.com/rapidsai/cuml/pull/5881)) [@dantegd](https://github.com/dantegd)
+- Enable pytest failures on FutureWarnings/DeprecationWarnings ([#5877](https://github.com/rapidsai/cuml/pull/5877)) [@mroeschke](https://github.com/mroeschke)
+- Remove return in test_lbfgs ([#5875](https://github.com/rapidsai/cuml/pull/5875)) [@mroeschke](https://github.com/mroeschke)
+- Avoid dask_cudf.core imports ([#5874](https://github.com/rapidsai/cuml/pull/5874)) [@bdice](https://github.com/bdice)
+- Support CPU object for `train_test_split` ([#5873](https://github.com/rapidsai/cuml/pull/5873)) [@isVoid](https://github.com/isVoid)
+- Only use functions in the limited API ([#5871](https://github.com/rapidsai/cuml/pull/5871)) [@vyasr](https://github.com/vyasr)
+- Replace deprecated disutils.version with packaging.version ([#5868](https://github.com/rapidsai/cuml/pull/5868)) [@mroeschke](https://github.com/mroeschke)
+- Adjust deprecated cupy.sparse usage ([#5867](https://github.com/rapidsai/cuml/pull/5867)) [@mroeschke](https://github.com/mroeschke)
+- Fix numpy 2.0 deprecations ([#5866](https://github.com/rapidsai/cuml/pull/5866)) [@mroeschke](https://github.com/mroeschke)
+- Fix deprecated positional arg usage ([#5865](https://github.com/rapidsai/cuml/pull/5865)) [@mroeschke](https://github.com/mroeschke)
+- Use int instead of float in random.randint ([#5864](https://github.com/rapidsai/cuml/pull/5864)) [@mroeschke](https://github.com/mroeschke)
+- Migrate to `{{ stdlib(&quot;c&quot;) }}` ([#5863](https://github.com/rapidsai/cuml/pull/5863)) [@hcho3](https://github.com/hcho3)
+- Avoid deprecated API in notebook ([#5862](https://github.com/rapidsai/cuml/pull/5862)) [@rjzamora](https://github.com/rjzamora)
+- Add dedicated handling for cudf.pandas wrapped Numpy arrays ([#5861](https://github.com/rapidsai/cuml/pull/5861)) [@betatim](https://github.com/betatim)
+- Prepend devcontainer name with the username ([#5860](https://github.com/rapidsai/cuml/pull/5860)) [@trxcllnt](https://github.com/trxcllnt)
+- add --rm and --name to devcontainer run args ([#5857](https://github.com/rapidsai/cuml/pull/5857)) [@trxcllnt](https://github.com/trxcllnt)
+- Update pip devcontainers to UCX v1.15.0 ([#5856](https://github.com/rapidsai/cuml/pull/5856)) [@trxcllnt](https://github.com/trxcllnt)
+- Replace rmm::mr::device_memory_resource* with rmm::device_async_resource_ref ([#5853](https://github.com/rapidsai/cuml/pull/5853)) [@harrism](https://github.com/harrism)
+- Update scikit-learn to 1.4 ([#5851](https://github.com/rapidsai/cuml/pull/5851)) [@betatim](https://github.com/betatim)
+- Prevent undefined behavior when passing handle from Treelite to cuML FIL ([#5849](https://github.com/rapidsai/cuml/pull/5849)) [@hcho3](https://github.com/hcho3)
+- Adds missing files to `update-version.sh` ([#5830](https://github.com/rapidsai/cuml/pull/5830)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Enable all tests for `arm` arch ([#5824](https://github.com/rapidsai/cuml/pull/5824)) [@galipremsagar](https://github.com/galipremsagar)
+- Address PytestReturnNotNoneWarning in cuml tests ([#5819](https://github.com/rapidsai/cuml/pull/5819)) [@mroeschke](https://github.com/mroeschke)
+- Handle binary classifier with all-0 labels ([#5810](https://github.com/rapidsai/cuml/pull/5810)) [@hcho3](https://github.com/hcho3)
+- Use pytest_cases.fixture to fix warnings. ([#5798](https://github.com/rapidsai/cuml/pull/5798)) [@bdice](https://github.com/bdice)
+- Enable Dask tests with UCX-Py/UCXX in CI ([#5697](https://github.com/rapidsai/cuml/pull/5697)) [@pentschev](https://github.com/pentschev)
+
 # cuML 24.04.00 (10 Apr 2024)
 
 ## 🐛 Bug Fixes
