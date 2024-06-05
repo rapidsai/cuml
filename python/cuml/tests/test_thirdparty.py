@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -88,8 +88,8 @@ def test_check_X_y():
 def test_row_norms(failure_logger, sparse_random_dataset, square):
     X_np, X, X_sparse_np, X_sparse = sparse_random_dataset
 
-    cu_norms = cu_row_norms(X_np, squared=square)
-    sk_norms = sk_row_norms(X, squared=square)
+    cu_norms = cu_row_norms(X, squared=square)
+    sk_norms = sk_row_norms(X_np, squared=square)
     assert_allclose(cu_norms, sk_norms)
 
     cu_norms = cu_row_norms(X_sparse, squared=square)

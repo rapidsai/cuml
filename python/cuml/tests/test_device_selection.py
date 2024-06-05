@@ -236,7 +236,7 @@ def linreg_test_data(request):
     **fixture_generation_helper(
         {
             "input_type": ["numpy", "dataframe", "cupy", "cudf", "numba"],
-            "penalty": ["none", "l2"],
+            "penalty": [None, "l2"],
             "fit_intercept": [False, True],
         }
     )

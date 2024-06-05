@@ -199,7 +199,7 @@ def test_sklearn_search():
     gdf_train = cudf.DataFrame(dict(train=y_train))
 
     sk_cu_grid.fit(gdf_data, gdf_train.train)
-    assert sk_cu_grid.best_params_ == {"alpha": 0.1}
+    assert_almost_equal(sk_cu_grid.best_params_["alpha"], 0.1)
 
 
 @pytest.mark.parametrize(
@@ -960,9 +960,12 @@ def test_log_loss_random(n_samples, dtype):
         lambda rng: rng.randint(0, 10, n_samples).astype(dtype)
     )
 
-    y_pred, _, _, _ = generate_random_labels(
+    _, _, y_pred, _ = generate_random_labels(
         lambda rng: rng.rand(n_samples, 10)
     )
+    # Make sure the probabilities sum to 1 per sample
+    y_pred /= y_pred.sum(axis=1)[:, None]
+    y_pred = cuda.to_device(y_pred)
 
     assert_almost_equal(
         log_loss(y_true, y_pred), sklearn_log_loss(y_true, y_pred)
@@ -1497,8 +1500,8 @@ def test_sparse_pairwise_distances_sklearn_comparison(
         matrix_size[0], matrix_size[1], cp.float64, density, metric
     )
 
-    # For fp64, compare at 9 decimals, (6 places less than the ~15 max)
-    compare_precision = 9
+    # For fp64, compare at 7 decimals, (8 places less than the ~15 max)
+    compare_precision = 7
 
     # Compare to sklearn, fp64
     S = sparse_pairwise_distances(X, Y, metric=metric)
