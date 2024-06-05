@@ -45,7 +45,6 @@ from ..utils.validation import (check_is_fitted, FLOAT_DTYPES,
 from ..utils.extmath import _incremental_mean_and_var
 from ..utils.extmath import row_norms
 from ....thirdparty_adapters import check_array
-from sklearn.utils._indexing import resample
 from cuml.internals.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
     StatelessTagMixin
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
