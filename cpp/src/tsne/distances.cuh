@@ -33,6 +33,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
+#include <cuda/functional>
 #include <thrust/functional.h>
 #include <thrust/transform_reduce.h>
 
@@ -162,7 +163,8 @@ void get_distances(const raft::handle_t& handle,
 template <typename value_t>
 void normalize_distances(value_t* distances, const size_t total_nn, cudaStream_t stream)
 {
-  auto abs_f      = [] __device__(const value_t& x) { return abs(x); };
+  auto abs_f = cuda::proclaim_return_type<value_t>(
+    [] __device__(const value_t& x) -> value_t { return abs(x); });
   value_t maxNorm = thrust::transform_reduce(rmm::exec_policy(stream),
                                              distances,
                                              distances + total_nn,
