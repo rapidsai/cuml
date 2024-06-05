@@ -71,6 +71,7 @@ requirements:
     - raft-dask ={{ minor_version }}
     - scikit-build-core >=0.7.0
     - treelite {{ treelite_version }}
+    - rapids-build-backend>=0.3.0,<0.4.0.dev0
   run:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
