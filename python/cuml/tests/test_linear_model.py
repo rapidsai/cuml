@@ -144,6 +144,15 @@ _ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
 algorithms = st.sampled_from(_ALGORITHMS)
 
 
+# TODO(24.08): remove this test
+def test_logreg_penalty_deprecation():
+    with pytest.warns(
+        FutureWarning,
+        match="The 'none' option was deprecated in version 24.06",
+    ):
+        cuLog(penalty="none")
+
+
 @pytest.mark.parametrize("ntargets", [1, 2])
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
@@ -457,11 +466,11 @@ def test_weighted_ridge(datatype, algorithm, fit_intercept, distribution):
     "num_classes, dtype, penalty, l1_ratio, fit_intercept, C, tol",
     [
         # L-BFGS Solver
-        (2, np.float32, "none", 1.0, True, 1.0, 1e-3),
+        (2, np.float32, None, 1.0, True, 1.0, 1e-3),
         (2, np.float64, "l2", 1.0, True, 1.0, 1e-8),
         (10, np.float32, "elasticnet", 0.0, True, 1.0, 1e-3),
-        (10, np.float32, "none", 1.0, False, 1.0, 1e-8),
-        (10, np.float32, "none", 1.0, False, 2.0, 1e-3),
+        (10, np.float32, None, 1.0, False, 1.0, 1e-8),
+        (10, np.float32, None, 1.0, False, 2.0, 1e-3),
         # OWL-QN Solver
         (2, np.float32, "l1", 1.0, True, 1.0, 1e-3),
         (2, np.float64, "elasticnet", 1.0, True, 1.0, 1e-8),
@@ -567,7 +576,7 @@ def test_logistic_regression(
 
 @given(
     dtype=floating_dtypes(sizes=(32, 64)),
-    penalty=st.sampled_from(("none", "l1", "l2", "elasticnet")),
+    penalty=st.sampled_from((None, "l1", "l2", "elasticnet")),
     l1_ratio=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0)),
 )
 def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
@@ -624,7 +633,7 @@ def test_logistic_regression_model_default(dtype):
     order=st.sampled_from(("C", "F")),
     sparse_input=st.booleans(),
     fit_intercept=st.booleans(),
-    penalty=st.sampled_from(("none", "l1", "l2")),
+    penalty=st.sampled_from((None, "l1", "l2")),
 )
 def test_logistic_regression_model_digits(
     dtype, order, sparse_input, fit_intercept, penalty
@@ -927,8 +936,8 @@ def test_linear_models_set_params(algo):
     coef_before = model.coef_
 
     if algo == cuLog:
-        params = {"penalty": "none", "C": 1, "max_iter": 30}
-        model = algo(penalty="none", C=1, max_iter=30)
+        params = {"penalty": None, "C": 1, "max_iter": 30}
+        model = algo(penalty=None, C=1, max_iter=30)
     else:
         model = algo(solver="svd", alpha=0.1)
         params = {"solver": "svd", "alpha": 0.1}

@@ -294,7 +294,7 @@ if (! hasArg --configure-only) && (completeBuild || hasArg cuml || hasArg pydocs
     fi
 
     SKBUILD_CMAKE_ARGS="-DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL};${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps ${REPODIR}/python
+        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true ${REPODIR}/python
 
     if hasArg pydocs; then
         cd ${REPODIR}/docs
@@ -304,5 +304,5 @@ fi
 
 if hasArg cuml-cpu; then
     SKBUILD_CMAKE_ARGS="-DCUML_CPU=ON;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE" \
-        python -m pip install --no-build-isolation --no-deps -v ${REPODIR}/python
+        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true ${REPODIR}/python
 fi

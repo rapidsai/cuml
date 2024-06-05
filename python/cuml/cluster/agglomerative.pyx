@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 #
 
 # distutils: language = c++
+
+import warnings
 
 from libc.stdint cimport uintptr_t
 
@@ -103,6 +105,17 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         Metric used to compute the linkage. Can be "euclidean", "l1",
         "l2", "manhattan", or "cosine". If connectivity is "knn" only
         "euclidean" is accepted.
+
+        .. deprecated:: 24.06
+            `affinity` was deprecated in version 24.06 and will be renamed to
+            `metric` in 25.08.
+
+    metric : str, default=None
+        Metric used to compute the linkage. Can be "euclidean", "l1",
+        "l2", "manhattan", or "cosine". If set to `None` then "euclidean"
+        is used. If connectivity is "knn" only "euclidean" is accepted.
+        .. versionadded:: 24.06
+
     linkage : {"single"}, default="single"
         Which linkage criterion to use. The linkage criterion determines
         which distance to use between sets of observations. The algorithm
@@ -136,9 +149,9 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
     labels_ = CumlArrayDescriptor()
     children_ = CumlArrayDescriptor()
 
-    def __init__(self, *, n_clusters=2, affinity="euclidean", linkage="single",
-                 handle=None, verbose=False, connectivity='knn',
-                 n_neighbors=10, output_type=None):
+    def __init__(self, *, n_clusters=2, affinity="deprecated", metric=None,
+                 linkage="single", handle=None, verbose=False,
+                 connectivity='knn', n_neighbors=10, output_type=None):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -159,11 +172,12 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
             raise ValueError("'n_neighbors' must be a positive number "
                              "between 2 and 1023")
 
-        if affinity not in _metrics_mapping:
-            raise ValueError("'affinity' %s is not supported." % affinity)
+        if metric is not None and metric not in _metrics_mapping:
+            raise ValueError("Metric '%s' is not supported." % affinity)
 
         self.n_clusters = n_clusters
         self.affinity = affinity
+        self.metric = metric
         self.linkage = linkage
         self.n_neighbors = n_neighbors
         self.connectivity = connectivity
@@ -178,6 +192,26 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         """
         Fit the hierarchical clustering from features.
         """
+        if self.affinity != "deprecated":
+            if self.metric is not None:
+                raise ValueError(
+                    "Both `affinity` and `metric` attributes were set. Attribute"
+                    " `affinity` was deprecated in version 24.06 and will be removed in"
+                    " 25.08. To avoid this error, only set the `metric` attribute."
+                )
+            warnings.warn(
+                (
+                    "Attribute `affinity` was deprecated in version 24.06 and will be"
+                    " removed in 25.08. Use `metric` instead."
+                ),
+                FutureWarning,
+            )
+            metric_name = self.affinity
+        else:
+            if self.metric is None:
+                metric_name = "euclidean"
+            else:
+                metric_name = self.metric
 
         X_m, n_rows, n_cols, self.dtype = \
             input_to_cuml_array(X, order='C',
@@ -209,10 +243,10 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         linkage_output.labels = <int*>labels_ptr
 
         cdef DistanceType metric
-        if self.affinity in _metrics_mapping:
-            metric = _metrics_mapping[self.affinity]
+        if metric_name in _metrics_mapping:
+            metric = _metrics_mapping[metric_name]
         else:
-            raise ValueError("'affinity' %s not supported." % self.affinity)
+            raise ValueError("Metric '%s' not supported." % metric_name)
 
         if self.connectivity == 'knn':
             single_linkage_neighbors(
@@ -249,6 +283,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         return super().get_param_names() + [
             "n_clusters",
             "affinity",
+            "metric",
             "linkage",
             "connectivity",
             "n_neighbors"

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -85,11 +85,15 @@ class Lars(Base, RegressorMixin):
     fit_intercept : boolean (default = True)
         If True, Lars tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    normalize : boolean (default = True)
+    normalize : boolean (default = False)
         This parameter is ignored when `fit_intercept` is set to False.
         If True, the predictors in X will be normalized by removing its mean
         and dividing by it's variance. If False, then the solver expects that
         the data is already normalized.
+
+        .. versionchanged:: 24.06
+            The default of `normalize` changed from `True` to `False`.
+
     copy_X : boolean (default = True)
         The solver permutes the columns of X. Set `copy_X` to True to prevent
         changing the input data.

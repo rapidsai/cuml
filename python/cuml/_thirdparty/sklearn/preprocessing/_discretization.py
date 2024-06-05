@@ -10,6 +10,20 @@
 # This code is under BSD 3 clause license.
 # Authors mentioned above do not endorse or promote this production.
 
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 from ....internals import _deprecate_pos_args
 from ....internals.memory_utils import using_output_type
@@ -240,7 +254,7 @@ class KBinsDiscretizer(TransformerMixin,
         if 'onehot' in self.encode:
             self._encoder = OneHotEncoder(
                 categories=np.array([np.arange(i) for i in self.n_bins_]),
-                sparse=self.encode == 'onehot', output_type='cupy')
+                sparse_output=self.encode == 'onehot', output_type='cupy')
             # Fit the OneHotEncoder with toy datasets
             # so that it's ready for use after the KBinsDiscretizer is fitted
             self._encoder.fit(np.zeros((1, len(self.n_bins_)), dtype=int))
