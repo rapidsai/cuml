@@ -61,7 +61,6 @@ from itertools import combinations_with_replacement as combinations_w_r
 from cuml.internals.safe_imports import cpu_only_import
 cpu_np = cpu_only_import('numpy')
 np = gpu_only_import('cupy')
-resample = cpu_only_import_from('sklearn.utils._indexing', 'resample')
 sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
 stats = cpu_only_import_from('scipy', 'stats')
 
@@ -2301,6 +2300,8 @@ class QuantileTransformer(TransformerMixin,
         X = np.asnumpy(X)
         if self.subsample is not None and self.subsample < n_samples:
             # Take a subsample of `X`
+            resample = \
+                cpu_only_import_from('sklearn.utils._indexing', 'resample')
             X = resample(
                 X, replace=False, n_samples=self.subsample, random_state=random_state
             )

@@ -17,7 +17,7 @@
 
 from packaging.version import Version
 
-MIN_SKLEARN_VERSION = Version(1.5)
+MIN_SKLEARN_VERSION = Version('1.5')
 
 
 try:
@@ -26,13 +26,13 @@ try:
     CPU_ENABLED = True
 
     if(Version(sklearn.__version__) >= MIN_SKLEARN_VERSION):
-        MIN_SKLEARN_PRESENT = True
+        MIN_SKLEARN_PRESENT = (True, None, None)
     else:
-        MIN_SKLEARN_PRESENT = False
+        MIN_SKLEARN_PRESENT = (False, sklearn.__version__, MIN_SKLEARN_VERSION)
 
 except ImportError:
     CPU_ENABLED = False
-    MIN_SKLEARN_PRESENT = False
+    MIN_SKLEARN_PRESENT = (False, None, None)
 
 IF GPUBUILD == 1:
     GPU_ENABLED = True
