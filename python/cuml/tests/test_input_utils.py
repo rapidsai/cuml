@@ -127,6 +127,9 @@ def test_convert_matrix_order_cuml_array(
         input_type, 10, 10, dtype, order=from_order
     )
 
+    if input_type in ["cudf", "pandas"]:
+        from_order = "F"
+
     # conv_data = np.array(real_data, order=to_order, copy=True)
     if from_order == to_order or to_order == "K":
         conv_data, *_ = input_to_cuml_array(
@@ -148,10 +151,8 @@ def test_convert_matrix_order_cuml_array(
             )
 
     if to_order == "K":
-        if input_type in ["cudf"]:
+        if input_type in ["cudf", "pandas"]:
             assert conv_data.order == "F"
-        elif input_type in ["pandas"]:
-            assert conv_data.order == "C"
         else:
             assert conv_data.order == from_order
     else:
