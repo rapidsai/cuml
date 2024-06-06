@@ -460,14 +460,24 @@ class SVC(SVMBase,
                                                cv=5,
                                                method='sigmoid')
 
-        # Apply class weights to sample weights, necessary so it doesn't crash when sample_weight is None
-        # could also be done in .fit()
+        # Apply class weights to sample weights, necessary, so it doesn't crash when sample_weight is None
         sample_weight = apply_class_weight(self.handle, sample_weight, self.class_weight, y, self.verbose,
                                            self.output_type, self.dtype)
 
+        # If sample_weight is not None, it is a cupy array, and we need to convert it to a numpy array for sklearn
+        if sample_weight is not None:
+            # Currently, fitting a probabilistic SVC with class weights requires at least 3 classes, otherwise the following,
+            # ambiguous error is raised: ValueError: Buffer dtype mismatch, expected 'const float' but got 'double'
+            if len(set(y)) < 3:
+                raise ValueError("At least 3 classes are required to use probabilistic SVC with class weights.")
+
+            # Convert cupy array to numpy array
+            sample_weight = sample_weight.get()
+
         with cuml.internals.exit_internal_api():
-            # .get() is necessary because sklearn requires explicit conversion to np array
-            self.prob_svc.fit(X, y, sample_weight=sample_weight.get())
+            # Fit the model, sample_weight is either None or a numpy array
+            self.prob_svc.fit(X, y, sample_weight=sample_weight)
+
         self._fit_status_ = 0
         return self
 
