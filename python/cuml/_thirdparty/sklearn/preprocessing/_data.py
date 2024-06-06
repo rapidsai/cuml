@@ -61,6 +61,7 @@ from itertools import combinations_with_replacement as combinations_w_r
 from cuml.internals.safe_imports import cpu_only_import
 cpu_np = cpu_only_import('numpy')
 np = gpu_only_import('cupy')
+resample = cpu_only_import_from('sklearn.utils._indexing', 'resample')
 sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
 stats = cpu_only_import_from('scipy', 'stats')
 
