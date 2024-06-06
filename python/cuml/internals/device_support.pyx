@@ -15,11 +15,25 @@
 #
 
 
+from packaging.version import Version
+
+MIN_SKLEARN_VERSION = Version(1.5)
+
+
+
 try:
     import sklearn  # noqa: F401  # no-cython-lint
+
     CPU_ENABLED = True
+
+    if(Version(dask.__version__) >= MIN_SKLEARN_VERSION):
+        MIN_SKLEARN_PRESENT = True
+    else:
+        MIN_SKLEARN_PRESENT = False
+
 except ImportError:
     CPU_ENABLED = False
+    MIN_SKLEARN_PRESENT = False
 
 IF GPUBUILD == 1:
     GPU_ENABLED = True

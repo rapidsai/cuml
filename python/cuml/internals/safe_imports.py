@@ -19,7 +19,11 @@ import importlib
 import traceback
 
 from contextlib import contextmanager
-from cuml.internals.device_support import CPU_ENABLED, GPU_ENABLED
+from cuml.internals.device_support import (
+    CPU_ENABLED,
+    GPU_ENABLED,
+    MIN_SKLEARN_PRESENT,
+)
 from cuml.internals import logger
 
 
@@ -430,7 +434,13 @@ def cpu_only_import(module, *, alt=None):
         UnavailableMeta.
     """
     if CPU_ENABLED:
-        return importlib.import_module(module)
+        if "sklearn" not in module or MIN_SKLEARN_PRESENT:
+            return importlib.import_module(module)
+        else:
+            try:
+                return importlib.import_module(module)
+            except (ModuleNotFoundError, ImportError):
+                return alt
     else:
         return safe_import(
             module,
