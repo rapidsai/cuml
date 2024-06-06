@@ -26,7 +26,7 @@ try:
 
     CPU_ENABLED = True
 
-    if(Version(dask.__version__) >= MIN_SKLEARN_VERSION):
+    if(Version(sklearn.__version__) >= MIN_SKLEARN_VERSION):
         MIN_SKLEARN_PRESENT = True
     else:
         MIN_SKLEARN_PRESENT = False
