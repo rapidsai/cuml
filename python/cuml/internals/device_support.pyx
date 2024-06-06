@@ -20,7 +20,6 @@ from packaging.version import Version
 MIN_SKLEARN_VERSION = Version(1.5)
 
 
-
 try:
     import sklearn  # noqa: F401  # no-cython-lint
 
