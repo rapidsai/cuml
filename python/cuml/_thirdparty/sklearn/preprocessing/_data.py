@@ -2301,8 +2301,6 @@ class QuantileTransformer(TransformerMixin,
         X = np.asnumpy(X)
         if self.subsample is not None and self.subsample < n_samples:
             # Take a subsample of `X`
-            resample = \
-                cpu_only_import_from('sklearn.utils._indexing', 'resample')
             X = resample(
                 X, replace=False, n_samples=self.subsample, random_state=random_state
             )
