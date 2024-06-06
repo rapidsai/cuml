@@ -440,13 +440,15 @@ def cpu_only_import(module, *, alt=None):
 
     else:
         if CPU_ENABLED:
-            err_msg = "Installed version of Scikit-learn {} "
-                      "is lower than the latest tested and supported "
-                      "version {}. This can affect the functionality "
-                      "of some CPU components of cuML, GPU estimators "
-                      "are unaffected.".format(
-                          MIN_SKLEARN_PRESENT[1], MIN_SKLEARN_PRESENT[2]
-                      )
+            err_msg = (
+                "Installed version of Scikit-learn {} "
+                "is lower than the latest tested and supported "
+                "version {}. This can affect the functionality "
+                "of some CPU components of cuML, GPU estimators "
+                "are unaffected.".format(
+                    MIN_SKLEARN_PRESENT[1], MIN_SKLEARN_PRESENT[2]
+                )
+            )
         else:
             err_msg = f"{module} is not installed in GPU-only installations"
         return safe_import(
@@ -489,16 +491,20 @@ def cpu_only_import_from(module, symbol, *, alt=None):
         return getattr(imported_module, symbol)
     else:
         if CPU_ENABLED:
-            err_msg = "Installed version of Scikit-learn {} "
-                      "is lower than the latest tested and supported "
-                      "version {}. This can affect the functionality "
-                      "of some CPU components of cuML, GPU estimators "
-                      "are unaffected.".format(
-                          MIN_SKLEARN_PRESENT[1], MIN_SKLEARN_PRESENT[2]
-                      )
+            err_msg = (
+                "Installed version of Scikit-learn {} "
+                "is lower than the latest tested and supported "
+                "version {}. This can affect the functionality "
+                "of some CPU components of cuML, GPU estimators "
+                "are unaffected.".format(
+                    MIN_SKLEARN_PRESENT[1], MIN_SKLEARN_PRESENT[2]
+                )
+            )
         else:
-            err_msg = f"{module}.{symbol} is not installed in GPU-only "
-                      "installations"
+            err_msg = (
+                f"{module}.{symbol} is not installed in GPU-only "
+                "installations"
+            )
 
         return safe_import_from(
             module,
