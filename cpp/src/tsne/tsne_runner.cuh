@@ -124,13 +124,13 @@ class TSNE_runner {
                         prms,
                         stream);
 
-        auto mean_result = raft::make_device_vector<float, int>(handle, dim);
-        auto std_result  = raft::make_device_vector<float, int>(handle, dim);
-        std::vector<float> h_std_result(dim);
+        auto mean_result       = raft::make_device_vector<float, int>(handle, dim);
+        auto std_result        = raft::make_device_vector<float, int>(handle, dim);
         const float multiplier = 1e-4;
 
-        auto Y_view       = raft::make_device_matrix_view<float, int>(Y, n, dim);
-        auto Y_view_const = raft::make_device_matrix_view<const float, int>(Y, n, dim);
+        auto Y_view = raft::make_device_matrix_view<float, int>(Y, n, dim);
+        auto Y_view_const =
+          raft::make_device_matrix_view<const float, int, raft::col_major>(Y, n, dim);
 
         auto mean_result_view       = mean_result.view();
         auto mean_result_view_const = raft::make_const_mdspan(mean_result.view());
@@ -138,17 +138,26 @@ class TSNE_runner {
         auto std_result_view = std_result.view();
 
         auto h_multiplier_view_const = raft::make_host_scalar_view<const float>(&multiplier);
-        auto h_std_result_view_const = raft::make_host_scalar_view<const float>(&h_std_result[0]);
 
         raft::stats::mean(handle, Y_view_const, mean_result_view, false);
         raft::stats::stddev(handle, Y_view_const, mean_result_view_const, std_result_view, false);
 
-        raft::update_host(h_std_result.data(), std_result.data_handle(), dim, stream);
-
-        raft::linalg::divide_scalar(handle, Y_view_const, Y_view, h_std_result_view_const);
+        divide_scalar_device(Y_view, std_result);
         raft::linalg::multiply_scalar(handle, Y_view_const, Y_view, h_multiplier_view_const);
       }
     }
+  }
+
+  void divide_scalar_device(raft::device_matrix_view<float, int>& Y_view,
+                            raft::device_vector<float, int>& std_result)
+  {
+    thrust::transform(
+      handle.get_thrust_policy(),
+      Y_view.data_handle(),
+      Y_view.data_handle(),
+      Y_view.data_handle() + Y_view.size(),
+      cuda::proclaim_return_type<float>([device_scalar = std_result.data_handle()] __device__(
+                                          auto y) { return y / *device_scalar; }));
   }
 
   value_t run()
