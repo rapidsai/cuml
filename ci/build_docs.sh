@@ -40,7 +40,7 @@ popd
 rapids-logger "Build Python docs"
 pushd docs
 sphinx-build -b dirhtml ./source _html -W
-mkdir -p "${RAPIDS_DOCS_DIR}/cuml/"html
+mkdir -p "${RAPIDS_DOCS_DIR}/cuml/html"
 mv _html/* "${RAPIDS_DOCS_DIR}/cuml/html"
 popd
 
