@@ -1104,6 +1104,11 @@ class CumlArray:
             X = X.to_cupy(copy=False)
         elif isinstance(X, (PandasDataFrame, PandasSeries)):
             X = X.to_numpy(copy=False)
+            # by default pandas converts to numpy 'C' major, which
+            # does not keep the original order
+            if order == "K":
+                X = X.reshape(X.shape, order="F")
+                order = "F"
         elif hasattr(X, "__dataframe__"):
             # temporarily use this codepath to avoid errors, substitute
             # usage of dataframe interchange protocol once ready.
