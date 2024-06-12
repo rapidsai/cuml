@@ -216,13 +216,14 @@ void excess_of_mass(const raft::handle_t& handle,
     value_t subtree_stability = 0.0;
 
     if (indptr_h[node + 1] - indptr_h[node] > 0) {
-      subtree_stability = thrust::transform_reduce(
-        exec_policy,
-        children + indptr_h[node],
-        children + indptr_h[node + 1],
-        [=] __device__(value_idx a) { return stability[a]; },
-        0.0,
-        thrust::plus<value_t>());
+      subtree_stability =
+        thrust::transform_reduce(exec_policy,
+                                 children + indptr_h[node],
+                                 children + indptr_h[node + 1],
+                                 cuda::proclaim_return_type<value_t>(
+                                   [=] __device__(value_idx a) -> value_t { return stability[a]; }),
+                                 0.0,
+                                 thrust::plus<value_t>());
     }
 
     if (subtree_stability > node_stability || cluster_sizes_h[node] > max_cluster_size) {

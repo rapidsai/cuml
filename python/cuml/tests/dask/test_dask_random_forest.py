@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 #
 
 
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -170,7 +170,7 @@ def test_rf_regression_dask_fil(partitions_per_worker, dtype, client):
     cuml_mod_predict = cuml_mod.predict(X_test_df)
     cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict.compute()))
 
-    acc_score = r2_score(cuml_mod_predict, y_test)
+    acc_score = r2_score(y_test, cuml_mod_predict)
 
     assert acc_score >= 0.59
 
@@ -256,7 +256,7 @@ def test_rf_regression_dask_cpu(partitions_per_worker, client):
 
     cuml_mod_predict = cuml_mod.predict(X_test, predict_model="CPU")
 
-    acc_score = r2_score(cuml_mod_predict, y_test)
+    acc_score = r2_score(y_test, cuml_mod_predict)
 
     assert acc_score >= 0.67
 
@@ -711,7 +711,7 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
 
         cuml_mod_predict = cuml_mod_predict.compute()
         cuml_mod_predict = cp.asnumpy(cuml_mod_predict)
-        acc_score = r2_score(cuml_mod_predict, y_test)
+        acc_score = r2_score(y_test, cuml_mod_predict)
         assert acc_score >= 0.72
 
     if transform_broadcast:

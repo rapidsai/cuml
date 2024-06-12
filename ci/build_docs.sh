@@ -27,7 +27,7 @@ rapids-mamba-retry install \
 
 export RAPIDS_VERSION="$(rapids-version)"
 export RAPIDS_VERSION_MAJOR_MINOR="$(rapids-version-major-minor)"
-export RAPIDS_VERSION_NUMBER="24.06"
+export RAPIDS_VERSION_NUMBER="24.08"
 export RAPIDS_DOCS_DIR="$(mktemp -d)"
 
 rapids-logger "Build CPP docs"
@@ -40,10 +40,8 @@ popd
 rapids-logger "Build Python docs"
 pushd docs
 sphinx-build -b dirhtml ./source _html -W
-sphinx-build -b text ./source _text -W
-mkdir -p "${RAPIDS_DOCS_DIR}/cuml/"{html,txt}
+mkdir -p "${RAPIDS_DOCS_DIR}/cuml/html"
 mv _html/* "${RAPIDS_DOCS_DIR}/cuml/html"
-mv _text/* "${RAPIDS_DOCS_DIR}/cuml/txt"
 popd
 
 rapids-upload-docs
