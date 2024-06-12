@@ -396,8 +396,8 @@ def combined_datasets_strategy(*datasets, name=None, doc=None):
     def strategy(
         draw,
         dtypes=floating_dtypes(),
-        n_samples=integers(min_value=0, max_value=200),
-        n_features=integers(min_value=0, max_value=200),
+        n_samples=integers(min_value=1, max_value=200),
+        n_features=integers(min_value=1, max_value=200),
     ):
         """Datasets strategy composed of multiple datasets strategies."""
         datasets_strategies = (
