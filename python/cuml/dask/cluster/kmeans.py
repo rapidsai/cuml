@@ -176,6 +176,10 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         comms.destroy()
 
+        _results = [res.result() for res in kmeans_fit]
+        _labels = [model.labels_ for model in _results]
+        self.labels_ = cp.concatenate(_labels)
+
         self._set_internal_model(kmeans_fit[0])
 
         return self
