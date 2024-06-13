@@ -366,7 +366,7 @@ class TSNE(Base,
         self.min_grad_norm = min_grad_norm
         self.metric = metric
         self.metric_params = metric_params
-        self.init = init.lower()
+        self.init = init
         self.random_state = random_state
         self.method = method
         self.angle = angle
@@ -604,9 +604,9 @@ class TSNE(Base,
         params.square_distances = <bool> self.square_distances
         params.algorithm = algo
 
-        if self.init == 'random':
+        if self.init.lower() == 'random':
             params.init = TSNE_INIT.RANDOM
-        elif self.init == 'pca':
+        elif self.init.lower() == 'pca':
             params.init = TSNE_INIT.PCA
 
         # metric
