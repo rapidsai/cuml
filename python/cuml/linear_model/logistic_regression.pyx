@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 #
 
 # distutils: language = c++
+
+import warnings
 
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
@@ -36,7 +38,7 @@ cp = gpu_only_import('cupy')
 np = cpu_only_import('numpy')
 
 
-supported_penalties = ["l1", "l2", "none", "elasticnet"]
+supported_penalties = ["l1", "l2", None, "none", "elasticnet"]
 
 supported_solvers = ["qn"]
 
@@ -210,7 +212,7 @@ class LogisticRegression(UniversalBase,
                          output_type=output_type)
 
         if penalty not in supported_penalties:
-            raise ValueError("`penalty` " + str(penalty) + "not supported.")
+            raise ValueError("`penalty` " + str(penalty) + " not supported.")
 
         if solver not in supported_solvers:
             raise ValueError("Only quasi-newton `qn` solver is "
@@ -218,7 +220,16 @@ class LogisticRegression(UniversalBase,
         self.solver = solver
 
         self.C = C
+
+        if penalty == "none":
+            warnings.warn(
+                "The 'none' option was deprecated in version 24.06, and will "
+                "be removed in 25.08. Use None instead.",
+                FutureWarning
+            )
+            penalty = None
         self.penalty = penalty
+
         self.tol = tol
         self.fit_intercept = fit_intercept
         self.max_iter = max_iter
@@ -452,7 +463,7 @@ class LogisticRegression(UniversalBase,
         return proba
 
     def _get_qn_params(self):
-        if self.penalty == "none":
+        if self.penalty is None:
             l1_strength = 0.0
             l2_strength = 0.0
 

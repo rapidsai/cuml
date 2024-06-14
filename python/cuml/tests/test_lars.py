@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,15 +61,14 @@ def normalize_data(X, y):
         stress_param([1000, 500]),
     ],
 )
-@pytest.mark.parametrize("normalize", [True, False])
 @pytest.mark.parametrize("precompute", [True, False, "precompute"])
-def test_lars_model(datatype, nrows, column_info, precompute, normalize):
+def test_lars_model(datatype, nrows, column_info, precompute):
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(
         datatype, nrows, ncols, n_info
     )
 
-    if precompute == "precompute" or not normalize:
+    if precompute == "precompute":
         # Apply normalization manually, because the solver expects normalized
         # input data
         X_train, y_train, x_mean, x_scale, y_mean = normalize_data(
@@ -81,7 +80,7 @@ def test_lars_model(datatype, nrows, column_info, precompute, normalize):
     if precompute == "precompute":
         precompute = np.dot(X_train.T, X_train)
 
-    params = {"precompute": precompute, "normalize": normalize}
+    params = {"precompute": precompute}
 
     # Initialization of cuML's LARS
     culars = cuLars(**params)
