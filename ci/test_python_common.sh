@@ -12,9 +12,10 @@ PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
 rapids-logger "Generate Python testing dependencies"
 rapids-dependency-file-generator \
   --output conda \
-  --file_key test_python \
+  --file-key test_python \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" \
-  --prepend-channels "${CPP_CHANNEL};${PYTHON_CHANNEL}" | tee env.yaml
+  --prepend-channel "${CPP_CHANNEL}" \
+  --prepend-channel "${PYTHON_CHANNEL}" | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
 
