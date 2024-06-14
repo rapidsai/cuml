@@ -447,11 +447,10 @@ dependencies:
           # TODO: remove pin once a release that includes fixes for the error
           # is released: https://github.com/rapidsai/cuml/issues/5514
           - hdbscan<=0.8.30
-      - output_types: pyproject
+      - output_types: [requirements, pyproject]
         packages:
           - dask-glm==0.3.0
-            # TODO: Can we stop pulling from the master branch now that there was a release in October?
-          - hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master
+          - hdbscan>=0.8.36
   test_notebooks:
     common:
       - output_types: [conda, requirements]
