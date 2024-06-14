@@ -356,7 +356,6 @@ class UMAP(UniversalBase,
                  output_type=None,
                  build_algo="brute_force_knn",
                  build_kwds=None):
-                
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -427,7 +426,7 @@ class UMAP(UniversalBase,
 
         self.precomputed_knn = extract_knn_infos(precomputed_knn,
                                                  n_neighbors)
-    
+
         if build_algo == "brute_force_knn" or build_algo == "nn_descent":
             self.build_algo = build_algo
         else:
@@ -769,6 +768,9 @@ class UMAP(UniversalBase,
             cdef UMAPParams* umap_params = \
                 <UMAPParams*> <size_t> UMAP._build_umap_params(self,
                                                                self.sparse_fit)
+            # NN Descent doesn't support transform yet
+            umap_params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
+
             cdef handle_t * handle_ = \
                 <handle_t*> <size_t> self.handle.getHandle()
             if self.sparse_fit:

@@ -35,6 +35,12 @@
 
 namespace NNDescent = raft::neighbors::experimental::nn_descent;
 
+//  Functor to post-process distances as L2Sqrt*
+template <typename value_idx, typename value_t = float>
+struct DistancePostProcessSqrt {
+  DI value_t operator()(value_t value, value_idx row, value_idx col) const { return sqrtf(value); }
+};
+
 namespace UMAPAlgo {
 namespace kNNGraph {
 namespace Algo {
@@ -83,22 +89,36 @@ inline void launcher(const raft::handle_t& handle,
                                         params->metric,
                                         params->p);
   } else {  // nn_descent
-    RAFT_EXPECTS(static_cast<size_t>(n_neighbors) <= params->nn_descent_params.graph_degree, "n_neighbors should be smaller than the graph degree computed by nn descent");
+    RAFT_EXPECTS(static_cast<size_t>(n_neighbors) <= params->nn_descent_params.graph_degree,
+                 "n_neighbors should be smaller than the graph degree computed by nn descent");
+
+    auto epilogue = DistancePostProcessSqrt<int64_t, float>{};
 
     auto dataset =
       raft::make_host_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d);
-    auto graph =
-      NNDescent::detail::build<float, int64_t>(handle, params->nn_descent_params, dataset);
+    auto graph = NNDescent::detail::build<float, int64_t>(
+      handle, params->nn_descent_params, dataset, epilogue);
 
-    for (int i = 0; i < inputsA.n; i++) {
-      raft::copy(out.knn_dists + i * n_neighbors,
-                 graph.distances().data_handle() + i * params->nn_descent_params.graph_degree,
-                 n_neighbors,
-                 handle.get_stream());
-      raft::copy(out.knn_indices + i * n_neighbors,
+    for (int i = 0; i < inputsB.n; i++) {
+      if (graph.distances().has_value()) {
+        raft::copy(
+          out.knn_dists + i * n_neighbors + 1,
+          graph.distances().value().data_handle() + i * params->nn_descent_params.graph_degree,
+          n_neighbors - 1,
+          handle.get_stream());
+        thrust::fill(thrust::device.on(stream),
+                     out.knn_dists + i * n_neighbors,
+                     out.knn_dists + i * n_neighbors + 1,
+                     0.0);
+      }
+      raft::copy(out.knn_indices + i * n_neighbors + 1,
                  graph.graph().data_handle() + i * params->nn_descent_params.graph_degree,
-                 n_neighbors,
+                 n_neighbors - 1,
                  handle.get_stream());
+      thrust::fill(thrust::device.on(stream),
+                   out.knn_indices + i * n_neighbors,
+                   out.knn_indices + i * n_neighbors + 1,
+                   i);
     }
   }
 }
@@ -125,45 +145,28 @@ inline void launcher(const raft::handle_t& handle,
                      const ML::UMAPParams* params,
                      cudaStream_t stream)
 {
-  if (params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN) {  // brute_force_knn
-    raft::sparse::selection::brute_force_knn(inputsA.indptr,
-                                             inputsA.indices,
-                                             inputsA.data,
-                                             inputsA.nnz,
-                                             inputsA.n,
-                                             inputsA.d,
-                                             inputsB.indptr,
-                                             inputsB.indices,
-                                             inputsB.data,
-                                             inputsB.nnz,
-                                             inputsB.n,
-                                             inputsB.d,
-                                             out.knn_indices,
-                                             out.knn_dists,
-                                             n_neighbors,
-                                             handle,
-                                             ML::Sparse::DEFAULT_BATCH_SIZE,
-                                             ML::Sparse::DEFAULT_BATCH_SIZE,
-                                             params->metric,
-                                             params->p);
-  } else {  // nn_descent
-    RAFT_EXPECTS(static_cast<size_t>(n_neighbors) <= params->nn_descent_params.graph_degree, "n_neighbors should be smaller than the graph degree computed by nn descent");
-
-    auto dataset =
-      raft::make_host_matrix_view<const float, int64_t>(inputsA.data, inputsA.n, inputsA.d);
-    auto graph = NNDescent::detail::build<float, int>(handle, params->nn_descent_params, dataset);
-
-    for (int i = 0; i < inputsA.n; i++) {
-      raft::copy(out.knn_dists + i * n_neighbors,
-                 graph.distances().data_handle() + i * params->nn_descent_params.graph_degree,
-                 n_neighbors,
-                 handle.get_stream());
-      raft::copy(out.knn_indices + i * n_neighbors,
-                 graph.graph().data_handle() + i * params->nn_descent_params.graph_degree,
-                 n_neighbors,
-                 handle.get_stream());
-    }
-  }
+  RAFT_EXPECTS(params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN,
+               "nn_descent does not support sparse inputs");
+  raft::sparse::selection::brute_force_knn(inputsA.indptr,
+                                           inputsA.indices,
+                                           inputsA.data,
+                                           inputsA.nnz,
+                                           inputsA.n,
+                                           inputsA.d,
+                                           inputsB.indptr,
+                                           inputsB.indices,
+                                           inputsB.data,
+                                           inputsB.nnz,
+                                           inputsB.n,
+                                           inputsB.d,
+                                           out.knn_indices,
+                                           out.knn_dists,
+                                           n_neighbors,
+                                           handle,
+                                           ML::Sparse::DEFAULT_BATCH_SIZE,
+                                           ML::Sparse::DEFAULT_BATCH_SIZE,
+                                           params->metric,
+                                           params->p);
 }
 
 template <>
