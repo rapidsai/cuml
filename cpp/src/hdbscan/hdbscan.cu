@@ -152,16 +152,18 @@ void out_of_sample_predict(const raft::handle_t& handle,
 
 namespace HDBSCAN::HELPER {
 
-void compute_core_dists(const raft::handle_t& handle,
-                        const float* X,
-                        float* core_dists,
-                        size_t m,
-                        size_t n,
-                        raft::distance::DistanceType metric,
-                        int min_samples)
+void compute_core_dists(
+  const raft::handle_t& handle,
+  const float* X,
+  float* core_dists,
+  size_t m,
+  size_t n,
+  raft::distance::DistanceType metric,
+  int min_samples,
+  HDBSCAN::Common::GRAPH_BUILD_ALGO build_algo = HDBSCAN::Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN)
 {
   HDBSCAN::detail::Reachability::_compute_core_dists<int, float>(
-    handle, X, core_dists, m, n, metric, min_samples);
+    handle, X, core_dists, m, n, metric, min_samples, build_algo);
 }
 
 void compute_inverse_label_map(const raft::handle_t& handle,

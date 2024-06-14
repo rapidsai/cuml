@@ -18,6 +18,7 @@
 
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/nn_descent_types.hpp>
 
 #include <rmm/device_uvector.hpp>
 
@@ -26,6 +27,8 @@
 namespace ML {
 namespace HDBSCAN {
 namespace Common {
+
+using nn_index_params = raft::neighbors::experimental::nn_descent::index_params;
 
 /**
  * The Condensed hierarchicy is represented by an edge list with
@@ -134,6 +137,7 @@ class CondensedHierarchy {
 };
 
 enum CLUSTER_SELECTION_METHOD { EOM = 0, LEAF = 1 };
+enum GRAPH_BUILD_ALGO { BRUTE_FORCE_KNN = 0, NN_DESCENT = 1 };
 
 class RobustSingleLinkageParams {
  public:
@@ -151,6 +155,8 @@ class RobustSingleLinkageParams {
 class HDBSCANParams : public RobustSingleLinkageParams {
  public:
   CLUSTER_SELECTION_METHOD cluster_selection_method = CLUSTER_SELECTION_METHOD::EOM;
+  GRAPH_BUILD_ALGO build_algo                       = GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN;
+  nn_index_params nn_descent_params                 = {};
 };
 
 /**
@@ -502,7 +508,8 @@ void compute_core_dists(const raft::handle_t& handle,
                         size_t m,
                         size_t n,
                         raft::distance::DistanceType metric,
-                        int min_samples);
+                        int min_samples,
+                        HDBSCAN::Common::GRAPH_BUILD_ALGO build_algo);
 
 /**
  * @brief Compute the map from final, normalize labels to the labels in the CondensedHierarchy
