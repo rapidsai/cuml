@@ -77,7 +77,10 @@ void core_distances(
 //  Functor to post-process distances into reachability space
 template <typename value_idx, typename value_t = float>
 struct DistancePostProcessSqrt {
-  DI value_t operator()(value_t value, value_idx row, value_idx col) const { return sqrtf(value); }
+  DI value_t operator()(value_t value, value_idx row, value_idx col) const
+  {
+    return powf(fabsf(value), 0.5);
+  }
 };
 
 /**
@@ -139,8 +142,6 @@ void compute_knn(const raft::handle_t& handle,
                     true,
                     metric);
   } else {  // NN_DESCENT
-    // [JS] TODO: add check for graph degree
-    // [JS] TODO: pass params
     auto epilogue                 = DistancePostProcessSqrt<value_idx, float>{};
     build_params.return_distances = true;
     RAFT_EXPECTS(static_cast<size_t>(k) <= build_params.graph_degree,
@@ -149,7 +150,7 @@ void compute_knn(const raft::handle_t& handle,
     auto dataset = raft::make_host_matrix_view<const float, int64_t>(X, m, n);
     auto graph = NNDescent::detail::build<float, int64_t>(handle, build_params, dataset, epilogue);
 
-    for (int i = 0; i < n_search_items; i++) {
+    for (size_t i = 0; i < n_search_items; i++) {
       if (graph.distances().has_value()) {
         raft::copy(dists + i * k + 1,
                    graph.distances().value().data_handle() + i * build_params.graph_degree,
@@ -248,9 +249,8 @@ template <typename value_idx, typename value_t = float>
 struct ReachabilityPostProcessSqrt {
   DI value_t operator()(value_t value, value_idx row, value_idx col) const
   {
-    return max(core_dists[col], max(core_dists[row], sqrtf(alpha * value)));
+    return max(core_dists[col], max(core_dists[row], powf(fabsf(alpha * value), 0.5)));
   }
-
   const value_t* core_dists;
   value_t alpha;
 };
@@ -307,7 +307,6 @@ void mutual_reachability_knn_l2(
       std::nullopt,
       epilogue);
   } else {
-    // [JS] TODO: add check for graph degree
     auto epilogue = ReachabilityPostProcessSqrt<value_idx, value_t>{core_dists, alpha};
     // NNDescent::index_params params = {};
     build_params.return_distances = true;
@@ -329,8 +328,7 @@ void mutual_reachability_knn_l2(
                    graph.distances().value().data_handle() + i * build_params.graph_degree,
                    k - 1,
                    handle.get_stream());
-        thrust::fill(
-          thrust::device.on(handle.get_stream()), out_dists + i * k, out_dists + i * k + 1, 0.0);
+        raft::copy(out_dists + i * k, core_dists + i, 1, handle.get_stream());
       }
       // raft::copy(out_dists + i * k,
       //            graph.distances().data_handle() + i * build_params.graph_degree,
@@ -430,8 +428,8 @@ void mutual_reachability_graph(
               metric,
               build_algo,
               build_params);
-  raft::print_device_vector("indices", inds.data(), min_samples, std::cout);
-  raft::print_device_vector("distances", dists.data(), min_samples, std::cout);
+  // raft::print_device_vector("indices", inds.data(), 20, std::cout);
+  // raft::print_device_vector("distances", dists.data(), 20, std::cout);
   // Slice core distances (distances to kth nearest neighbor)
   core_distances<value_idx>(dists.data(), min_samples, min_samples, m, core_dists, stream);
   // raft::print_device_vector("core dists", core_dists, 20, std::cout);
@@ -456,8 +454,8 @@ void mutual_reachability_graph(
                              (value_t)1.0 / alpha,
                              build_algo,
                              build_params);
-  raft::print_device_vector("indices after knnl2", inds.data(), min_samples, std::cout);
-  raft::print_device_vector("distances after knnl2", dists.data(), min_samples, std::cout);
+  // raft::print_device_vector("indices after knnl2", inds.data(), 20, std::cout);
+  // raft::print_device_vector("distances after knnl2", dists.data(), 20, std::cout);
   // self-loops get max distance
   auto coo_rows_counting_itr = thrust::make_counting_iterator<value_idx>(0);
   thrust::transform(exec_policy,
