@@ -167,31 +167,6 @@ void compute_knn(const raft::handle_t& handle,
                    int64_indices.data() + i * k + 1,
                    i);
     }
-    // NNDescent::index_params params = {};
-    // params.return_distances = true;
-    // size_t graph_degree = align32::roundUp(static_cast<size_t>(k * 3.0));
-    // params.graph_degree = graph_degree;
-    // params.intermediate_graph_degree = align32::roundUp(static_cast<size_t>(graph_degree * 1.3));
-    // params.max_iterations = 50;
-
-    // RAFT_EXPECTS(static_cast<size_t>(k) <= build_params.graph_degree, "n_neighbors should be
-    // smaller than the graph degree computed by nn descent");
-
-    // auto dataset =
-    //   raft::make_host_matrix_view<const float, int64_t>(X, m, n);
-    // auto graph =
-    //   NNDescent::detail::build<float, int64_t>(handle, build_params, dataset, epilogue);
-
-    // for (int i = 0; i < n_search_items; i++) {
-    //   raft::copy(dists + i * k,
-    //              graph.distances().data_handle() + i * build_params.graph_degree,
-    //              k,
-    //              stream);
-    //   raft::copy(int64_indices.data() + i * k,
-    //              graph.graph().data_handle() + i * build_params.graph_degree,
-    //              k,
-    //              stream);
-    // }
   }
 
   // convert from current knn's 64-bit to 32-bit.
@@ -308,17 +283,11 @@ void mutual_reachability_knn_l2(
       epilogue);
   } else {
     auto epilogue = ReachabilityPostProcessSqrt<value_idx, value_t>{core_dists, alpha};
-    // NNDescent::index_params params = {};
     build_params.return_distances = true;
-    // size_t graph_degree = align32::roundUp(static_cast<size_t>(k * 3.0));
-    // params.graph_degree = graph_degree;
-    // params.intermediate_graph_degree = align32::roundUp(static_cast<size_t>(graph_degree * 1.3));
-    // params.max_iterations = 50;
     RAFT_EXPECTS(static_cast<size_t>(k) <= build_params.graph_degree,
                  "n_neighbors should be smaller than the graph degree computed by nn descent");
 
     auto dataset = raft::make_host_matrix_view<const value_t, int64_t>(X, m, n);
-    // [JS] TODO: add distance epilogue here
     auto graph =
       NNDescent::detail::build<value_t, value_idx>(handle, build_params, dataset, epilogue);
 
@@ -330,20 +299,12 @@ void mutual_reachability_knn_l2(
                    handle.get_stream());
         raft::copy(out_dists + i * k, core_dists + i, 1, handle.get_stream());
       }
-      // raft::copy(out_dists + i * k,
-      //            graph.distances().data_handle() + i * build_params.graph_degree,
-      //            k,
-      //            handle.get_stream());
       raft::copy(out_inds + i * k + 1,
                  graph.graph().data_handle() + i * build_params.graph_degree,
                  k - 1,
                  handle.get_stream());
       thrust::fill(
         thrust::device.on(handle.get_stream()), out_inds + i * k, out_inds + i * k + 1, i);
-      // raft::copy(out_inds + i * k,
-      //            graph.graph().data_handle() + i * build_params.graph_degree,
-      //            k,
-      //            handle.get_stream());
     }
   }
 }
