@@ -37,7 +37,6 @@
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
 
-using align32       = raft::Pow2<32>;
 namespace NNDescent = raft::neighbors::experimental::nn_descent;
 
 namespace ML {
@@ -74,7 +73,8 @@ void core_distances(
   });
 }
 
-//  Functor to post-process distances into reachability space
+// Functor to post-process distances by sqrt
+// For usage with NN Descent which internally supports L2Expanded only
 template <typename value_idx, typename value_t = float>
 struct DistancePostProcessSqrt {
   DI value_t operator()(value_t value, value_idx row, value_idx col) const
@@ -124,9 +124,6 @@ void compute_knn(const raft::handle_t& handle,
 
     std::vector<int> sizes;
     sizes.push_back(m);
-    // // This is temporary. Once faiss is updated, we should be able to
-    // // pass value_idx through to knn.
-    // rmm::device_uvector<int64_t> int64_indices(k * n_search_items, stream);
 
     // perform knn
     brute_force_knn(handle,
@@ -231,7 +228,8 @@ struct ReachabilityPostProcess {
   value_t alpha;
 };
 
-//  Functor to post-process distances into reachability space
+// Functor to post-process distances into reachability space (Sqrt)
+// For usage with NN Descent which internally supports L2Expanded only
 template <typename value_idx, typename value_t = float>
 struct ReachabilityPostProcessSqrt {
   DI value_t operator()(value_t value, value_idx row, value_idx col) const
@@ -387,7 +385,6 @@ void mutual_reachability_graph(
   rmm::device_uvector<value_idx> inds(min_samples * m, stream);
   rmm::device_uvector<value_t> dists(min_samples * m, stream);
 
-  // printf("[JS] min samples: %d\n", min_samples);
   // perform knn
   compute_knn(handle,
               X,
@@ -401,18 +398,10 @@ void mutual_reachability_graph(
               metric,
               build_algo,
               build_params);
-  // raft::print_device_vector("indices", inds.data(), 20, std::cout);
-  // raft::print_device_vector("distances", dists.data(), 20, std::cout);
+
   // Slice core distances (distances to kth nearest neighbor)
   core_distances<value_idx>(dists.data(), min_samples, min_samples, m, core_dists, stream);
-  // raft::print_device_vector("core dists", core_dists, 20, std::cout);
 
-  // raft::print_device_vector("dists for 4:", dists.data() + min_samples * 4, min_samples,
-  // std::cout); raft::print_device_vector("dists for 5:", dists.data() + min_samples * 5,
-  // min_samples, std::cout); raft::print_device_vector("dists for 14:", dists.data() + min_samples
-  // * 14, min_samples, std::cout); raft::print_device_vector("dists for 15:", dists.data() +
-  // min_samples * 15, min_samples, std::cout); raft::print_device_vector("dists for 16:",
-  // dists.data() + min_samples * 16, min_samples, std::cout);
   /**
    * Compute L2 norm
    */
@@ -427,8 +416,7 @@ void mutual_reachability_graph(
                              (value_t)1.0 / alpha,
                              build_algo,
                              build_params);
-  // raft::print_device_vector("indices after knnl2", inds.data(), 20, std::cout);
-  // raft::print_device_vector("distances after knnl2", dists.data(), 20, std::cout);
+
   // self-loops get max distance
   auto coo_rows_counting_itr = thrust::make_counting_iterator<value_idx>(0);
   thrust::transform(exec_policy,
