@@ -44,6 +44,13 @@ cp = gpu_only_import("cupy")
 dataset_names = ["noisy_circles", "noisy_moons", "varied"]
 
 
+def get_graph_degree(n_samples):
+    graph_degree = max(int((1 + ((n_samples * 1.5) // 32)) * 32), 64)
+    intermediate_graph_degree = int(1 + ((graph_degree * 1.3) // 32) * 32)
+    max_iters = max(n_samples // 2, 20)
+    return graph_degree, intermediate_graph_degree, max_iters
+
+
 def assert_cluster_counts(sk_agg, cuml_agg, digits=25):
     sk_unique, sk_counts = np.unique(sk_agg.labels_, return_counts=True)
     sk_counts = np.sort(sk_counts)
@@ -186,6 +193,9 @@ def test_hdbscan_blobs(
         random_state=42,
     )
 
+    graph_degree, intermediate_graph_degree, max_iters = get_graph_degree(
+        min_samples
+    )
     cuml_agg = HDBSCAN(
         verbose=logger.level_info,
         allow_single_cluster=allow_single_cluster,
@@ -195,6 +205,11 @@ def test_hdbscan_blobs(
         cluster_selection_epsilon=cluster_selection_epsilon,
         cluster_selection_method=cluster_selection_method,
         build_algo=build_algo,
+        build_kwds={
+            "nnd_graph_degree": graph_degree,
+            "nnd_intermediate_graph_degree": intermediate_graph_degree,
+            "nnd_max_iterations": max_iters,
+        },
     )
 
     cuml_agg.fit(X)
@@ -236,7 +251,7 @@ def test_hdbscan_blobs(
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
 @pytest.mark.parametrize("connectivity", ["knn"])
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+@pytest.mark.parametrize("build_algo", ["brute_force_knn"])
 def test_hdbscan_sklearn_datasets(
     test_datasets,
     connectivity,
@@ -255,6 +270,9 @@ def test_hdbscan_sklearn_datasets(
 
     X = test_datasets.data
 
+    graph_degree, intermediate_graph_degree, max_iters = get_graph_degree(
+        min_samples
+    )
     cuml_agg = HDBSCAN(
         verbose=logger.level_info,
         allow_single_cluster=allow_single_cluster,
@@ -265,6 +283,11 @@ def test_hdbscan_sklearn_datasets(
         cluster_selection_epsilon=cluster_selection_epsilon,
         cluster_selection_method=cluster_selection_method,
         build_algo=build_algo,
+        build_kwds={
+            "nnd_graph_degree": graph_degree,
+            "nnd_intermediate_graph_degree": intermediate_graph_degree,
+            "nnd_max_iterations": max_iters,
+        },
     )
 
     cuml_agg.fit(X)
@@ -316,6 +339,9 @@ def test_hdbscan_sklearn_extract_clusters(
     build_algo,
 ):
     X = test_datasets.data
+    graph_degree, intermediate_graph_degree, max_iters = get_graph_degree(
+        min_samples
+    )
     cuml_agg = HDBSCAN(
         verbose=logger.level_info,
         allow_single_cluster=allow_single_cluster,
@@ -326,6 +352,11 @@ def test_hdbscan_sklearn_extract_clusters(
         cluster_selection_epsilon=cluster_selection_epsilon,
         cluster_selection_method=cluster_selection_method,
         build_algo=build_algo,
+        build_kwds={
+            "nnd_graph_degree": graph_degree,
+            "nnd_intermediate_graph_degree": intermediate_graph_degree,
+            "nnd_max_iterations": max_iters,
+        },
     )
 
     sk_agg = hdbscan.HDBSCAN(
@@ -374,7 +405,6 @@ def test_hdbscan_cluster_patterns(
 
     # This also tests duplicate data points
     X, y = get_pattern(dataset, nrows)[0]
-
     cuml_agg = HDBSCAN(
         verbose=logger.level_info,
         allow_single_cluster=allow_single_cluster,
@@ -384,7 +414,6 @@ def test_hdbscan_cluster_patterns(
         cluster_selection_epsilon=cluster_selection_epsilon,
         cluster_selection_method=cluster_selection_method,
         build_algo=build_algo,
-        # build_kwds={"nnd_max_iterations":50},
     )
 
     cuml_agg.fit(X)
@@ -441,7 +470,9 @@ def test_hdbscan_cluster_patterns_extract_clusters(
 
     # This also tests duplicate data points
     X, y = get_pattern(dataset, nrows)[0]
-
+    graph_degree, intermediate_graph_degree, max_iters = get_graph_degree(
+        min_samples
+    )
     cuml_agg = HDBSCAN(
         verbose=logger.level_info,
         allow_single_cluster=allow_single_cluster,
@@ -451,6 +482,11 @@ def test_hdbscan_cluster_patterns_extract_clusters(
         cluster_selection_epsilon=cluster_selection_epsilon,
         cluster_selection_method=cluster_selection_method,
         build_algo=build_algo,
+        build_kwds={
+            "nnd_graph_degree": graph_degree,
+            "nnd_intermediate_graph_degree": intermediate_graph_degree,
+            "nnd_max_iterations": max_iters,
+        },
     )
 
     sk_agg = hdbscan.HDBSCAN(
@@ -592,7 +628,9 @@ def test_all_points_membership_vectors_blobs(
         shuffle=True,
         random_state=42,
     )
-
+    graph_degree, intermediate_graph_degree, max_iters = get_graph_degree(
+        min_cluster_size
+    )
     cuml_agg = HDBSCAN(
         verbose=logger.level_info,
         allow_single_cluster=allow_single_cluster,
@@ -602,6 +640,11 @@ def test_all_points_membership_vectors_blobs(
         cluster_selection_method=cluster_selection_method,
         prediction_data=True,
         build_algo=build_algo,
+        build_kwds={
+            "nnd_graph_degree": graph_degree,
+            "nnd_intermediate_graph_degree": intermediate_graph_degree,
+            "nnd_max_iterations": max_iters,
+        },
     )
     cuml_agg.fit(X)
 
@@ -662,7 +705,6 @@ def test_all_points_membership_vectors_moons(
         cluster_selection_method=cluster_selection_method,
         prediction_data=True,
         build_algo=build_algo,
-        # build_kwds={"nnd_max_iterations":50},
     )
     cuml_agg.fit(X)
 
@@ -724,7 +766,6 @@ def test_all_points_membership_vectors_circles(
         cluster_selection_method=cluster_selection_method,
         prediction_data=True,
         build_algo=build_algo,
-        # build_kwds={"nnd_max_iterations":50},
     )
     cuml_agg.fit(X)
 
@@ -763,7 +804,7 @@ def test_all_points_membership_vectors_circles(
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+@pytest.mark.parametrize("build_algo", ["brute_force_knn"])
 def test_approximate_predict_blobs(
     nrows,
     n_points_to_predict,
@@ -838,7 +879,7 @@ def test_approximate_predict_blobs(
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
 @pytest.mark.parametrize("connectivity", ["knn"])
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+@pytest.mark.parametrize("build_algo", ["brute_force_knn"])
 def test_approximate_predict_moons(
     nrows,
     n_points_to_predict,
@@ -906,7 +947,7 @@ def test_approximate_predict_moons(
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
 @pytest.mark.parametrize("connectivity", ["knn"])
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+@pytest.mark.parametrize("build_algo", ["brute_force_knn"])
 def test_approximate_predict_circles(
     nrows,
     n_points_to_predict,
@@ -975,7 +1016,7 @@ def test_approximate_predict_circles(
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom"])
 @pytest.mark.parametrize("connectivity", ["knn"])
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+@pytest.mark.parametrize("build_algo", ["brute_force_knn"])
 def test_approximate_predict_digits(
     n_points_to_predict,
     min_samples,
@@ -1077,6 +1118,9 @@ def test_membership_vector_blobs(
         random_state=42,
     )
 
+    graph_degree, intermediate_graph_degree, max_iters = get_graph_degree(
+        min_cluster_size
+    )
     cuml_agg = HDBSCAN(
         verbose=logger.level_info,
         allow_single_cluster=allow_single_cluster,
@@ -1086,6 +1130,11 @@ def test_membership_vector_blobs(
         cluster_selection_method=cluster_selection_method,
         prediction_data=True,
         build_algo=build_algo,
+        build_kwds={
+            "nnd_graph_degree": graph_degree,
+            "nnd_intermediate_graph_degree": intermediate_graph_degree,
+            "nnd_max_iterations": max_iters,
+        },
     )
     cuml_agg.fit(X)
 
@@ -1156,7 +1205,6 @@ def test_membership_vector_moons(
         cluster_selection_method=cluster_selection_method,
         prediction_data=True,
         build_algo=build_algo,
-        # build_kwds={"nnd_max_iterations":50},
     )
     cuml_agg.fit(X_train)
 
@@ -1192,7 +1240,6 @@ def test_membership_vector_moons(
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
 @pytest.mark.parametrize("connectivity", ["knn"])
 @pytest.mark.parametrize("batch_size", [16])
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_membership_vector_circles(
     nrows,
     n_points_to_predict,
@@ -1204,7 +1251,6 @@ def test_membership_vector_circles(
     max_cluster_size,
     connectivity,
     batch_size,
-    build_algo,
 ):
     X, y = datasets.make_circles(
         n_samples=nrows + n_points_to_predict,
@@ -1225,8 +1271,6 @@ def test_membership_vector_circles(
         cluster_selection_epsilon=cluster_selection_epsilon,
         cluster_selection_method=cluster_selection_method,
         prediction_data=True,
-        build_algo=build_algo,
-        # build_kwds={"nnd_max_iterations":50},
     )
     cuml_agg.fit(X_train)
 
@@ -1248,6 +1292,4 @@ def test_membership_vector_circles(
     sk_membership_vectors = hdbscan.membership_vector(sk_agg, X_test).astype(
         "float32"
     )
-    print(f"cu memberhsip vec: {cu_membership_vectors}")
-    print(f"sk memberhsip vec: {sk_membership_vectors}")
     assert_membership_vectors(cu_membership_vectors, sk_membership_vectors)

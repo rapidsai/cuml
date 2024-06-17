@@ -166,7 +166,8 @@ IF GPUBUILD == 1:
                                 size_t n,
                                 DistanceType metric,
                                 int min_samples,
-                                GRAPH_BUILD_ALGO build_algo)
+                                GRAPH_BUILD_ALGO build_algo,
+                                index_params build_params)
 
         void compute_inverse_label_map(const handle_t& handle,
                                        CondensedHierarchy[int, float]&
@@ -1112,10 +1113,23 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
             cdef uintptr_t core_dists_ptr = self.core_dists.ptr
 
             cdef GRAPH_BUILD_ALGO build_algo
+            cdef index_params build_params
             if self.build_algo == 'brute_force_knn':
                 build_algo = GRAPH_BUILD_ALGO.BRUTE_FORCE_KNN
             elif self.build_algo == 'nn_descent':
                 build_algo = GRAPH_BUILD_ALGO.NN_DESCENT
+                if self.build_kwds is None:
+                    build_params.graph_degree = <size_t> 64
+                    build_params.intermediate_graph_degree = <size_t> 128
+                    build_params.max_iterations = <size_t> 20
+                    build_params.termination_threshold = <float> 0.0001
+                    build_params.return_distances = <bool> True
+                else:
+                    build_params.graph_degree = <size_t> self.build_kwds.get("nnd_graph_degree", 64)
+                    build_params.intermediate_graph_degree = <size_t> self.build_kwds.get("nnd_intermediate_graph_degree", 128)
+                    build_params.max_iterations = <size_t> self.build_kwds.get("nnd_max_iterations", 20)
+                    build_params.termination_threshold = <float> self.build_kwds.get("nnd_termination_threshold", 0.0001)
+                    build_params.return_distances = <bool> True
 
             compute_core_dists(handle_[0],
                                <float*> X_ptr,
@@ -1124,7 +1138,8 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                                <size_t> self.n_cols,
                                <DistanceType> metric,
                                <int> self.min_samples,
-                               <GRAPH_BUILD_ALGO> build_algo)
+                               <GRAPH_BUILD_ALGO> build_algo,
+                               build_params)
 
             cdef device_uvector[int] *inverse_label_map = \
                 new device_uvector[int](0, handle_[0].get_stream())

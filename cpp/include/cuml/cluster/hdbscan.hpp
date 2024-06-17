@@ -502,14 +502,16 @@ namespace HDBSCAN::HELPER {
  * @param metric distance metric to use
  * @param min_samples minimum number of samples to use for computing core distances
  */
-void compute_core_dists(const raft::handle_t& handle,
-                        const float* X,
-                        float* core_dists,
-                        size_t m,
-                        size_t n,
-                        raft::distance::DistanceType metric,
-                        int min_samples,
-                        HDBSCAN::Common::GRAPH_BUILD_ALGO build_algo);
+void compute_core_dists(
+  const raft::handle_t& handle,
+  const float* X,
+  float* core_dists,
+  size_t m,
+  size_t n,
+  raft::distance::DistanceType metric,
+  int min_samples,
+  HDBSCAN::Common::GRAPH_BUILD_ALGO build_algo = HDBSCAN::Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN,
+  HDBSCAN::Common::nn_index_params build_params = Common::nn_index_params{});
 
 /**
  * @brief Compute the map from final, normalize labels to the labels in the CondensedHierarchy

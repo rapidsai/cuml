@@ -190,7 +190,8 @@ void _compute_core_dists(
   size_t n,
   raft::distance::DistanceType metric,
   int min_samples,
-  Common::GRAPH_BUILD_ALGO build_algo = Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN)
+  Common::GRAPH_BUILD_ALGO build_algo  = Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN,
+  Common::nn_index_params build_params = Common::nn_index_params{})
 {
   RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
@@ -201,7 +202,18 @@ void _compute_core_dists(
   rmm::device_uvector<value_t> dists(min_samples * m, stream);
 
   // perform knn
-  compute_knn(handle, X, inds.data(), dists.data(), m, n, X, m, min_samples, metric, build_algo);
+  compute_knn(handle,
+              X,
+              inds.data(),
+              dists.data(),
+              m,
+              n,
+              X,
+              m,
+              min_samples,
+              metric,
+              build_algo,
+              build_params);
 
   // Slice core distances (distances to kth nearest neighbor)
   core_distances<value_idx>(dists.data(), min_samples, min_samples, m, core_dists, stream);
