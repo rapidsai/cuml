@@ -35,10 +35,14 @@
 
 namespace NNDescent = raft::neighbors::experimental::nn_descent;
 
-//  Functor to post-process distances as L2Sqrt*
+// Functor to post-process distances by sqrt
+// For usage with NN Descent which internally supports L2Expanded only
 template <typename value_idx, typename value_t = float>
 struct DistancePostProcessSqrt {
-  DI value_t operator()(value_t value, value_idx row, value_idx col) const { return sqrtf(value); }
+  DI value_t operator()(value_t value, value_idx row, value_idx col) const
+  {
+    return powf(fabsf(value), 0.5);
+  }
 };
 
 namespace UMAPAlgo {
