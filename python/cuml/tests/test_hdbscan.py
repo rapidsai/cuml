@@ -149,14 +149,19 @@ def assert_membership_vectors(cu_vecs, sk_vecs):
         cu_labels_sorted = np.argsort(cu_vecs)[::-1]
         sk_labels_sorted = np.argsort(sk_vecs)[::-1]
 
-        k = min(sk_vecs.shape[1], 10)
-        for i in range(k):
+        if len(sk_vecs.shape) == 1:
             assert (
-                adjusted_rand_score(
-                    cu_labels_sorted[:, i], sk_labels_sorted[:, i]
-                )
-                >= 0.90
+                adjusted_rand_score(cu_labels_sorted, sk_labels_sorted) >= 0.9
             )
+        else:
+            k = min(sk_vecs.shape[1], 10)
+            for i in range(k):
+                assert (
+                    adjusted_rand_score(
+                        cu_labels_sorted[:, i], sk_labels_sorted[:, i]
+                    )
+                    >= 0.9
+                )
 
 
 @pytest.mark.parametrize("nrows", [500])
@@ -804,7 +809,7 @@ def test_all_points_membership_vectors_circles(
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("allow_single_cluster", [True, False])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-@pytest.mark.parametrize("build_algo", ["brute_force_knn"])
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_approximate_predict_blobs(
     nrows,
     n_points_to_predict,
@@ -844,6 +849,11 @@ def test_approximate_predict_blobs(
         cluster_selection_method=cluster_selection_method,
         prediction_data=True,
         build_algo=build_algo,
+        build_kwds={
+            "nnd_max_iterations": 100,
+            "nnd_graph_degree": 96,
+            "nnd_intermediate_graph_degree": 128,
+        },
     )
     cuml_agg.fit(X)
 
@@ -864,10 +874,13 @@ def test_approximate_predict_blobs(
     sk_labels, sk_probs = hdbscan.approximate_predict(
         sk_agg, points_to_predict
     )
-    # print(f"cu labels: {cu_labels}\ncu probs: {cu_probs}")
-    # print(f"sk labels: {sk_labels}\ncu probs: {sk_probs}")
-    assert adjusted_rand_score(cu_labels, sk_labels) >= 0.95
-    assert np.allclose(cu_probs, sk_probs, atol=0.05)
+
+    if build_algo == "brute_force_knn":
+        assert adjusted_rand_score(cu_labels, sk_labels) >= 0.95
+        assert np.allclose(cu_probs, sk_probs, atol=0.05)
+    else:
+        # this test case is not so stable for nn descent at this moment
+        assert adjusted_rand_score(cu_labels, sk_labels) >= 0.9
 
 
 @pytest.mark.parametrize("nrows", [1000])
@@ -879,7 +892,7 @@ def test_approximate_predict_blobs(
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
 @pytest.mark.parametrize("connectivity", ["knn"])
-@pytest.mark.parametrize("build_algo", ["brute_force_knn"])
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_approximate_predict_moons(
     nrows,
     n_points_to_predict,
@@ -934,8 +947,15 @@ def test_approximate_predict_moons(
     sk_unique = np.unique(sk_labels)
     cu_unique = np.unique(cu_labels)
     if len(sk_unique) == len(cu_unique):
-        assert adjusted_rand_score(cu_labels, sk_labels) >= 0.99
-        assert array_equal(cu_probs, sk_probs, unit_tol=0.05, total_tol=0.005)
+        if build_algo == "brute_force_knn":
+            assert adjusted_rand_score(cu_labels, sk_labels) >= 0.99
+            assert array_equal(
+                cu_probs, sk_probs, unit_tol=0.05, total_tol=0.005
+            )
+        else:
+            # this test case is not so stable for nn descent at this moment
+            # a few configs result in scores around 0.85
+            assert adjusted_rand_score(cu_labels, sk_labels) >= 0.8
 
 
 @pytest.mark.parametrize("nrows", [1000])
@@ -947,7 +967,7 @@ def test_approximate_predict_moons(
 @pytest.mark.parametrize("max_cluster_size", [0])
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
 @pytest.mark.parametrize("connectivity", ["knn"])
-@pytest.mark.parametrize("build_algo", ["brute_force_knn"])
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_approximate_predict_circles(
     nrows,
     n_points_to_predict,
@@ -1293,3 +1313,73 @@ def test_membership_vector_circles(
         "float32"
     )
     assert_membership_vectors(cu_membership_vectors, sk_membership_vectors)
+
+
+@pytest.mark.parametrize("nrows", [1000])
+@pytest.mark.parametrize("n_points_to_predict", [1000])
+@pytest.mark.parametrize("min_samples", [20, 30])
+@pytest.mark.parametrize("min_cluster_size", [100, 150])
+@pytest.mark.parametrize("cluster_selection_epsilon", [0.0, 0.5])
+@pytest.mark.parametrize("allow_single_cluster", [True, False])
+@pytest.mark.parametrize("max_cluster_size", [0])
+@pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
+@pytest.mark.parametrize("connectivity", ["knn"])
+@pytest.mark.parametrize("batch_size", [16])
+@pytest.mark.parametrize("build_algo", ["nn_descent"])
+def test_membership_vector_circles_nnd(
+    nrows,
+    n_points_to_predict,
+    min_samples,
+    cluster_selection_epsilon,
+    cluster_selection_method,
+    min_cluster_size,
+    allow_single_cluster,
+    max_cluster_size,
+    connectivity,
+    batch_size,
+    build_algo,
+):
+    X, y = datasets.make_circles(
+        n_samples=nrows + n_points_to_predict,
+        factor=0.8,
+        noise=0.05,
+        random_state=42,
+    )
+
+    X_train = X[:nrows]
+    X_test = X[nrows:]
+
+    cuml_agg_nnd = HDBSCAN(
+        verbose=logger.level_info,
+        min_samples=min_samples,
+        allow_single_cluster=allow_single_cluster,
+        max_cluster_size=max_cluster_size,
+        min_cluster_size=min_cluster_size,
+        cluster_selection_epsilon=cluster_selection_epsilon,
+        cluster_selection_method=cluster_selection_method,
+        prediction_data=True,
+        build_algo=build_algo,
+    )
+    cuml_agg_nnd.fit(X_train)
+
+    cuml_agg_bf = HDBSCAN(
+        verbose=logger.level_info,
+        min_samples=min_samples,
+        allow_single_cluster=allow_single_cluster,
+        max_cluster_size=max_cluster_size,
+        min_cluster_size=min_cluster_size,
+        cluster_selection_epsilon=cluster_selection_epsilon,
+        cluster_selection_method=cluster_selection_method,
+        prediction_data=True,
+    )
+    cuml_agg_bf.fit(X_train)
+
+    cu_membership_vectors_nnd = membership_vector(
+        cuml_agg_nnd, X_test, batch_size
+    )
+    cu_membership_vectors_bf = membership_vector(
+        cuml_agg_bf, X_test, batch_size
+    )
+    assert_membership_vectors(
+        cu_membership_vectors_nnd, cu_membership_vectors_bf
+    )

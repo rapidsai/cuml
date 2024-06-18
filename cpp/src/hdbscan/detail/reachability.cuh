@@ -24,6 +24,7 @@
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/neighbors/detail/nn_descent.cuh>
 #include <raft/neighbors/nn_descent_types.hpp>
+#include <raft/neighbors/refine-inl.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -139,31 +140,46 @@ void compute_knn(const raft::handle_t& handle,
                     true,
                     metric);
   } else {  // NN_DESCENT
-    auto epilogue                 = DistancePostProcessSqrt<value_idx, float>{};
-    build_params.return_distances = true;
     RAFT_EXPECTS(static_cast<size_t>(k) <= build_params.graph_degree,
                  "n_neighbors should be smaller than the graph degree computed by nn descent");
 
     auto dataset = raft::make_host_matrix_view<const float, int64_t>(X, m, n);
-    auto graph = NNDescent::detail::build<float, int64_t>(handle, build_params, dataset, epilogue);
+    auto graph   = NNDescent::detail::build<float, int64_t>(handle, build_params, dataset);
 
+    // NN Descent build does not include itself in nearest neighbors
     for (size_t i = 0; i < n_search_items; i++) {
-      if (graph.distances().has_value()) {
-        raft::copy(dists + i * k + 1,
-                   graph.distances().value().data_handle() + i * build_params.graph_degree,
-                   k - 1,
-                   handle.get_stream());
-        thrust::fill(thrust::device.on(stream), dists + i * k, dists + i * k + 1, 0.0);
+      for (size_t j = k - 1; j >= 1; j--) {
+        graph.graph().data_handle()[i * build_params.graph_degree + j] =
+          graph.graph().data_handle()[i * build_params.graph_degree + j - 1];
       }
-      raft::copy(int64_indices.data() + i * k + 1,
-                 graph.graph().data_handle() + i * build_params.graph_degree,
-                 k - 1,
-                 handle.get_stream());
-      thrust::fill(thrust::device.on(stream),
-                   int64_indices.data() + i * k,
-                   int64_indices.data() + i * k + 1,
-                   i);
+      graph.graph().data_handle()[i * build_params.graph_degree] = i;
     }
+
+    auto dataset_dev = raft::make_device_matrix<float, int64_t, raft::row_major>(handle, m, n);
+    raft::copy(dataset_dev.data_handle(), dataset.data_handle(), m * n, handle.get_stream());
+    auto dataset_dev_view = raft::make_device_matrix_view<const float, int64_t, raft::row_major>(
+      dataset_dev.data_handle(), m, n);
+
+    auto neighbor_candidates = raft::make_device_matrix<int64_t, int64_t, raft::row_major>(
+      handle, m, build_params.graph_degree);
+    raft::copy(neighbor_candidates.data_handle(),
+               graph.graph().data_handle(),
+               m * build_params.graph_degree,
+               handle.get_stream());
+    auto neighbor_candidates_view =
+      raft::make_device_matrix_view<const int64_t, int64_t, raft::row_major>(
+        neighbor_candidates.data_handle(), m, build_params.graph_degree);
+
+    auto indices =
+      raft::make_device_matrix_view<int64_t, int64_t>(int64_indices.data(), n_search_items, k);
+    auto distances = raft::make_device_matrix_view<float, int64_t>(dists, n_search_items, k);
+    raft::neighbors::refine(handle,
+                            dataset_dev_view,
+                            dataset_dev_view,
+                            neighbor_candidates_view,
+                            indices,
+                            distances,
+                            metric);
   }
 
   // convert from current knn's 64-bit to 32-bit.
@@ -274,49 +290,22 @@ void mutual_reachability_knn_l2(
   // enclosing parent function (and any parent classes) of an extended __device__
   // or __host__ __device__ lambda`
 
-  if (build_algo == Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN) {
-    auto epilogue = ReachabilityPostProcess<value_idx, value_t>{core_dists, alpha};
-    auto X_view   = raft::make_device_matrix_view(X, m, n);
-    std::vector<raft::device_matrix_view<const value_t, size_t>> index = {X_view};
+  auto epilogue = ReachabilityPostProcess<value_idx, value_t>{core_dists, alpha};
+  auto X_view   = raft::make_device_matrix_view(X, m, n);
+  std::vector<raft::device_matrix_view<const value_t, size_t>> index = {X_view};
 
-    raft::neighbors::brute_force::knn<value_idx, value_t>(
-      handle,
-      index,
-      X_view,
-      raft::make_device_matrix_view(out_inds, m, static_cast<size_t>(k)),
-      raft::make_device_matrix_view(out_dists, m, static_cast<size_t>(k)),
-      // TODO: expand distance metrics to support more than just L2 distance
-      // https://github.com/rapidsai/cuml/issues/5301
-      raft::distance::DistanceType::L2SqrtExpanded,
-      std::make_optional<float>(2.0f),
-      std::nullopt,
-      epilogue);
-  } else {
-    auto epilogue = ReachabilityPostProcessSqrt<value_idx, value_t>{core_dists, alpha};
-    build_params.return_distances = true;
-    RAFT_EXPECTS(static_cast<size_t>(k) <= build_params.graph_degree,
-                 "n_neighbors should be smaller than the graph degree computed by nn descent");
-
-    auto dataset = raft::make_host_matrix_view<const value_t, int64_t>(X, m, n);
-    auto graph =
-      NNDescent::detail::build<value_t, value_idx>(handle, build_params, dataset, epilogue);
-
-    for (size_t i = 0; i < m; i++) {
-      if (graph.distances().has_value()) {
-        raft::copy(out_dists + i * k + 1,
-                   graph.distances().value().data_handle() + i * build_params.graph_degree,
-                   k - 1,
-                   handle.get_stream());
-        raft::copy(out_dists + i * k, core_dists + i, 1, handle.get_stream());
-      }
-      raft::copy(out_inds + i * k + 1,
-                 graph.graph().data_handle() + i * build_params.graph_degree,
-                 k - 1,
-                 handle.get_stream());
-      thrust::fill(
-        thrust::device.on(handle.get_stream()), out_inds + i * k, out_inds + i * k + 1, i);
-    }
-  }
+  raft::neighbors::brute_force::knn<value_idx, value_t>(
+    handle,
+    index,
+    X_view,
+    raft::make_device_matrix_view(out_inds, m, static_cast<size_t>(k)),
+    raft::make_device_matrix_view(out_dists, m, static_cast<size_t>(k)),
+    // TODO: expand distance metrics to support more than just L2 distance
+    // https://github.com/rapidsai/cuml/issues/5301
+    raft::distance::DistanceType::L2SqrtExpanded,
+    std::make_optional<float>(2.0f),
+    std::nullopt,
+    epilogue);
 }
 
 /**
