@@ -48,6 +48,7 @@ using namespace ML::Metrics;
 struct TSNEInput {
   int n, p;
   std::vector<float> dataset;
+  TSNE_INIT init;
   double trustworthiness_threshold;
 };
 
@@ -224,6 +225,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     p                         = params.p;
     dataset                   = params.dataset;
     trustworthiness_threshold = params.trustworthiness_threshold;
+    model_params.init         = params.init;
     basicTest();
   }
 
@@ -251,10 +253,22 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
 };
 
 const std::vector<TSNEInput> inputs = {
-  {Digits::n_samples, Digits::n_features, Digits::digits, 0.98},
-  {Boston::n_samples, Boston::n_features, Boston::boston, 0.98},
-  {BreastCancer::n_samples, BreastCancer::n_features, BreastCancer::breast_cancer, 0.98},
-  {Diabetes::n_samples, Diabetes::n_features, Diabetes::diabetes, 0.90}};
+  {Digits::n_samples, Digits::n_features, Digits::digits, TSNE_INIT::RANDOM, 0.98},
+  {Boston::n_samples, Boston::n_features, Boston::boston, TSNE_INIT::RANDOM, 0.98},
+  {BreastCancer::n_samples,
+   BreastCancer::n_features,
+   BreastCancer::breast_cancer,
+   TSNE_INIT::RANDOM,
+   0.98},
+  {Diabetes::n_samples, Diabetes::n_features, Diabetes::diabetes, TSNE_INIT::RANDOM, 0.90},
+  {Digits::n_samples, Digits::n_features, Digits::digits, TSNE_INIT::PCA, 0.98},
+  {Boston::n_samples, Boston::n_features, Boston::boston, TSNE_INIT::PCA, 0.98},
+  {BreastCancer::n_samples,
+   BreastCancer::n_features,
+   BreastCancer::breast_cancer,
+   TSNE_INIT::PCA,
+   0.98},
+  {Diabetes::n_samples, Diabetes::n_features, Diabetes::diabetes, TSNE_INIT::PCA, 0.90}};
 
 typedef TSNETest TSNETestF;
 TEST_P(TSNETestF, Result)

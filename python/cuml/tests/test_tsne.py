@@ -184,8 +184,9 @@ def test_tsne_precomputed_knn(precomputed_type, sparse_input):
     assert trust >= 0.92
 
 
+@pytest.mark.parametrize("init", ["random", "pca"])
 @pytest.mark.parametrize("method", ["fft", "barnes_hut"])
-def test_tsne(test_datasets, method):
+def test_tsne(test_datasets, method, init):
     """
     This tests how TSNE handles a lot of input data across time.
     (1) Numpy arrays are passed in
@@ -205,7 +206,7 @@ def test_tsne(test_datasets, method):
         method=method,
         min_grad_norm=1e-12,
         perplexity=DEFAULT_PERPLEXITY,
-        init="pca",
+        init=init,
     )
 
     Y = tsne.fit_transform(X)
