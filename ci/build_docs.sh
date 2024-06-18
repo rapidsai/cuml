@@ -7,7 +7,7 @@ rapids-logger "Create test conda environment"
 
 rapids-dependency-file-generator \
   --output conda \
-  --file_key docs \
+  --file-key docs \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n docs
@@ -40,10 +40,8 @@ popd
 rapids-logger "Build Python docs"
 pushd docs
 sphinx-build -b dirhtml ./source _html -W
-sphinx-build -b text ./source _text -W
-mkdir -p "${RAPIDS_DOCS_DIR}/cuml/"{html,txt}
+mkdir -p "${RAPIDS_DOCS_DIR}/cuml/html"
 mv _html/* "${RAPIDS_DOCS_DIR}/cuml/html"
-mv _text/* "${RAPIDS_DOCS_DIR}/cuml/txt"
 popd
 
 rapids-upload-docs

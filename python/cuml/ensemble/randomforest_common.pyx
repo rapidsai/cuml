@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ class BaseRandomForestModel(Base):
     classes_ = CumlArrayDescriptor()
 
     def __init__(self, *, split_criterion, n_streams=4, n_estimators=100,
-                 max_depth=16, handle=None, max_features='auto', n_bins=128,
+                 max_depth=16, handle=None, max_features='sqrt', n_bins=128,
                  bootstrap=True,
                  verbose=False, min_samples_leaf=1, min_samples_split=2,
                  max_samples=1.0, max_leaves=-1, accuracy_metric=None,
@@ -166,8 +166,22 @@ class BaseRandomForestModel(Base):
             return math.log2(self.n_cols)/self.n_cols
         elif self.max_features == 'auto':
             if self.RF_type == CLASSIFICATION:
+                warnings.warn(
+                    "`max_features='auto'` has been deprecated in 24.06 "
+                    "and will be removed in 25.08. To keep the past behaviour "
+                    "and silence this warning, explicitly set "
+                    "`max_features='sqrt'`.",
+                    FutureWarning
+                )
                 return 1/np.sqrt(self.n_cols)
             else:
+                warnings.warn(
+                    "`max_features='auto'` has been deprecated in 24.06 "
+                    "and will be removed in 25.08. To keep the past behaviour "
+                    "and silence this warning, explicitly set "
+                    "`max_features=1.0`.",
+                    FutureWarning
+                )
                 return 1.0
         else:
             raise ValueError(

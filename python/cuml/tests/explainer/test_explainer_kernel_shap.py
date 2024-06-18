@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -522,24 +522,24 @@ golden_classification_result = [
 housing_regression_result = np.array(
     [
         [
-            -0.73860609,
-            0.00557072,
-            -0.05829297,
-            -0.01582018,
-            -0.01010366,
-            -0.23167623,
-            -0.470639,
-            -0.07584473,
+            -0.00182223,
+            -0.01232004,
+            -0.4782278,
+            0.04781425,
+            -0.01337761,
+            -0.34830606,
+            -0.4682865,
+            -0.20812261,
         ],
         [
-            -0.6410764,
-            0.01369913,
-            -0.09492759,
-            0.02654463,
-            -0.00911134,
-            -0.05953105,
-            -0.51266433,
-            -0.0853608,
+            -0.0013606,
+            0.0110372,
+            -0.445176,
+            -0.08268094,
+            0.00406259,
+            -0.02185595,
+            -0.47673094,
+            -0.13557231,
         ],
     ],
     dtype=np.float32,

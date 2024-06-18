@@ -907,7 +907,7 @@ def test_standardization_on_scaled_dataset(
 @pytest.mark.parametrize(
     "reg_dtype",
     [
-        (("none", 1.0, None), np.float64),
+        ((None, 1.0, None), np.float64),
         (("l2", 2.0, None), np.float64),
         (("l1", 2.0, None), np.float32),
         (("elasticnet", 2.0, 0.2), np.float32),
@@ -1005,7 +1005,7 @@ def test_standardization_example(fit_intercept, reg_dtype, client):
 @pytest.mark.parametrize(
     "reg_dtype",
     [
-        (("none", 1.0, None), np.float64),
+        ((None, 1.0, None), np.float64),
         (("l2", 2.0, None), np.float32),
         (("l1", 2.0, None), np.float64),
         (("elasticnet", 2.0, 0.2), np.float32),
