@@ -19,6 +19,7 @@
 #include "pairwise_distance_chebyshev.cuh"
 #include "pairwise_distance_correlation.cuh"
 #include "pairwise_distance_cosine.cuh"
+#include "pairwise_distance_dice.cuh"
 #include "pairwise_distance_euclidean.cuh"
 #include "pairwise_distance_hamming.cuh"
 #include "pairwise_distance_hellinger.cuh"
@@ -88,6 +89,9 @@ void pairwise_distance(const raft::handle_t& handle,
     case raft::distance::DistanceType::RusselRaoExpanded:
       pairwise_distance_russell_rao(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
       break;
+    case raft::distance::DistanceType::DiceExpanded:
+      pairwise_distance_dice(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
+      break;
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   };
 }
@@ -142,6 +146,9 @@ void pairwise_distance(const raft::handle_t& handle,
       break;
     case raft::distance::DistanceType::RusselRaoExpanded:
       pairwise_distance_russell_rao(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::DiceExpanded:
+      pairwise_distance_dice(handle, x, y, dist, m, n, k, isRowMajor, metric_arg);
       break;
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   };

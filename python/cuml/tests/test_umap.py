@@ -676,7 +676,6 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
 @pytest.mark.parametrize(
     "metric,supported",
     [
-        ("dice", True), # not supported for dense yet in raft
         ("l2", True),
         ("euclidean", True),
         ("sqeuclidean", True),
@@ -686,6 +685,7 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
         ("chebyshev", True),
         ("cosine", True),
         ("correlation", True),
+        ("dice", True),
         ("jaccard", False),
         ("hamming", True),
         ("canberra", True),
@@ -730,7 +730,6 @@ def test_umap_distance_metrics_fit_transform_trust(metric, supported):
 @pytest.mark.parametrize(
     "metric,supported,umap_learn_supported",
     [
-        ("dice", True, True),
         ("l2", True, False),
         ("euclidean", True, True),
         ("sqeuclidean", True, False),
@@ -740,6 +739,7 @@ def test_umap_distance_metrics_fit_transform_trust(metric, supported):
         ("chebyshev", True, True),
         ("cosine", True, True),
         ("correlation", True, True),
+        ("dice", True, True),
         ("jaccard", True, True),
         ("hamming", True, True),
         ("canberra", True, True),
