@@ -114,41 +114,45 @@ def test_umap_fit_transform_score(nrows, n_feats, build_algo):
         assert array_equal(score, cuml_score, 1e-2, with_sign=True)
 
 
-def test_supervised_umap_trustworthiness_on_iris():
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+def test_supervised_umap_trustworthiness_on_iris(build_algo):
     iris = datasets.load_iris()
     data = iris.data
     embedding = cuUMAP(
-        n_neighbors=10, random_state=0, min_dist=0.01
+        n_neighbors=10, random_state=0, min_dist=0.01, build_algo=build_algo
     ).fit_transform(data, iris.target, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
 
-def test_semisupervised_umap_trustworthiness_on_iris():
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+def test_semisupervised_umap_trustworthiness_on_iris(build_algo):
     iris = datasets.load_iris()
     data = iris.data
     target = iris.target.copy()
     target[25:75] = -1
     embedding = cuUMAP(
-        n_neighbors=10, random_state=0, min_dist=0.01
+        n_neighbors=10, random_state=0, min_dist=0.01, build_algo=build_algo
     ).fit_transform(data, target, convert_dtype=True)
 
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
 
-def test_umap_trustworthiness_on_iris():
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+def test_umap_trustworthiness_on_iris(build_algo):
     iris = datasets.load_iris()
     data = iris.data
     embedding = cuUMAP(
-        n_neighbors=10, min_dist=0.01, random_state=0
+        n_neighbors=10, min_dist=0.01, random_state=0, build_algo=build_algo
     ).fit_transform(data, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
 
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
-def test_umap_transform_on_iris(target_metric):
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+def test_umap_transform_on_iris(target_metric, build_algo):
 
     iris = datasets.load_iris()
 
@@ -164,6 +168,7 @@ def test_umap_transform_on_iris(target_metric):
         min_dist=0.01,
         random_state=42,
         target_metric=target_metric,
+        build_algo=build_algo,
     )
     fitter.fit(data, convert_dtype=True)
     new_data = iris.data[~iris_selection]
@@ -266,6 +271,7 @@ def test_umap_transform_on_digits(target_metric, build_algo):
         ("digits", "brute_force_knn"),
         ("wine", "brute_force_knn"),
         ("blobs", "brute_force_knn"),
+        ("iris", "nn_descent"),
         ("digits", "nn_descent"),
         ("wine", "nn_descent"),
         ("blobs", "nn_descent"),
@@ -528,18 +534,26 @@ def test_umap_transform_reproducibility(n_components, random_state):
         assert mean_diff > 0.5
 
 
-def test_umap_fit_transform_trustworthiness_with_consistency_enabled():
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+def test_umap_fit_transform_trustworthiness_with_consistency_enabled(
+    build_algo,
+):
     iris = datasets.load_iris()
     data = iris.data
     algo = cuUMAP(
-        n_neighbors=10, min_dist=0.01, init="random", random_state=42
+        n_neighbors=10,
+        min_dist=0.01,
+        init="random",
+        random_state=42,
+        build_algo=build_algo,
     )
     embedding = algo.fit_transform(data, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
 
-def test_umap_transform_trustworthiness_with_consistency_enabled():
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+def test_umap_transform_trustworthiness_with_consistency_enabled(build_algo):
     iris = datasets.load_iris()
     data = iris.data
     selection = np.random.RandomState(42).choice(
@@ -548,7 +562,11 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
     fit_data = data[selection]
     transform_data = data[~selection]
     model = cuUMAP(
-        n_neighbors=10, min_dist=0.01, init="random", random_state=42
+        n_neighbors=10,
+        min_dist=0.01,
+        init="random",
+        random_state=42,
+        build_algo=build_algo,
     )
     model.fit(fit_data, convert_dtype=True)
     embedding = model.transform(transform_data, convert_dtype=True)
@@ -755,13 +773,10 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors, build_algo):
         ("canberra", True),
     ],
 )
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 @pytest.mark.skipif(
     IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
 )
-def test_umap_distance_metrics_fit_transform_trust(
-    metric, supported, build_algo
-):
+def test_umap_distance_metrics_fit_transform_trust(metric, supported):
     data, labels = make_blobs(
         n_samples=1000, n_features=64, centers=5, random_state=42
     )
@@ -777,7 +792,6 @@ def test_umap_distance_metrics_fit_transform_trust(
         min_dist=0.01,
         metric=metric,
         init="random",
-        build_algo=build_algo,
     )
     if not supported:
         with pytest.raises(NotImplementedError):

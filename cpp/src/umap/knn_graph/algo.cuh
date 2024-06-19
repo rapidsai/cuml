@@ -1,3 +1,5 @@
+
+
 /*
  * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
@@ -27,6 +29,7 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/neighbors/detail/nn_descent.cuh>
 #include <raft/neighbors/nn_descent_types.hpp>
+#include <raft/neighbors/refine-inl.cuh>
 #include <raft/sparse/selection/knn.cuh>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -34,16 +37,6 @@
 #include <iostream>
 
 namespace NNDescent = raft::neighbors::experimental::nn_descent;
-
-// Functor to post-process distances by sqrt
-// For usage with NN Descent which internally supports L2Expanded only
-template <typename value_idx, typename value_t = float>
-struct DistancePostProcessSqrt {
-  DI value_t operator()(value_t value, value_idx row, value_idx col) const
-  {
-    return powf(fabsf(value), 0.5);
-  }
-};
 
 namespace UMAPAlgo {
 namespace kNNGraph {
@@ -96,34 +89,47 @@ inline void launcher(const raft::handle_t& handle,
     RAFT_EXPECTS(static_cast<size_t>(n_neighbors) <= params->nn_descent_params.graph_degree,
                  "n_neighbors should be smaller than the graph degree computed by nn descent");
 
-    auto epilogue = DistancePostProcessSqrt<int64_t, float>{};
-
     auto dataset =
       raft::make_host_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d);
-    auto graph = NNDescent::detail::build<float, int64_t>(
-      handle, params->nn_descent_params, dataset, epilogue);
+    auto graph =
+      NNDescent::detail::build<float, int64_t>(handle, params->nn_descent_params, dataset);
 
     for (int i = 0; i < inputsB.n; i++) {
-      if (graph.distances().has_value()) {
-        raft::copy(
-          out.knn_dists + i * n_neighbors + 1,
-          graph.distances().value().data_handle() + i * params->nn_descent_params.graph_degree,
-          n_neighbors - 1,
-          handle.get_stream());
-        thrust::fill(thrust::device.on(stream),
-                     out.knn_dists + i * n_neighbors,
-                     out.knn_dists + i * n_neighbors + 1,
-                     0.0);
+      for (size_t j = n_neighbors - 1; j >= 1; j--) {
+        graph.graph().data_handle()[i * params->nn_descent_params.graph_degree + j] =
+          graph.graph().data_handle()[i * params->nn_descent_params.graph_degree + j - 1];
       }
-      raft::copy(out.knn_indices + i * n_neighbors + 1,
-                 graph.graph().data_handle() + i * params->nn_descent_params.graph_degree,
-                 n_neighbors - 1,
-                 handle.get_stream());
-      thrust::fill(thrust::device.on(stream),
-                   out.knn_indices + i * n_neighbors,
-                   out.knn_indices + i * n_neighbors + 1,
-                   i);
+      graph.graph().data_handle()[i * params->nn_descent_params.graph_degree] = i;
     }
+
+    auto dataset_dev =
+      raft::make_device_matrix<float, int64_t, raft::row_major>(handle, inputsB.n, inputsA.d);
+    raft::copy(
+      dataset_dev.data_handle(), dataset.data_handle(), inputsB.n * inputsA.d, handle.get_stream());
+    auto dataset_dev_view = raft::make_device_matrix_view<const float, int64_t, raft::row_major>(
+      dataset_dev.data_handle(), inputsB.n, inputsA.d);
+
+    auto neighbor_candidates = raft::make_device_matrix<int64_t, int64_t, raft::row_major>(
+      handle, inputsB.n, params->nn_descent_params.graph_degree);
+    raft::copy(neighbor_candidates.data_handle(),
+               graph.graph().data_handle(),
+               inputsB.n * params->nn_descent_params.graph_degree,
+               handle.get_stream());
+    auto neighbor_candidates_view =
+      raft::make_device_matrix_view<const int64_t, int64_t, raft::row_major>(
+        neighbor_candidates.data_handle(), inputsB.n, params->nn_descent_params.graph_degree);
+
+    auto indices =
+      raft::make_device_matrix_view<int64_t, int64_t>(out.knn_indices, inputsB.n, n_neighbors);
+    auto distances =
+      raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsB.n, n_neighbors);
+    raft::neighbors::refine(handle,
+                            dataset_dev_view,
+                            dataset_dev_view,
+                            neighbor_candidates_view,
+                            indices,
+                            distances,
+                            params->metric);
   }
 }
 

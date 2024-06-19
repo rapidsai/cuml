@@ -475,13 +475,13 @@ class UMAP(UniversalBase,
                     umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> 128
                     umap_params.nn_descent_params.max_iterations = <uint64_t> 20
                     umap_params.nn_descent_params.termination_threshold = <float> 0.0001
-                    umap_params.nn_descent_params.return_distances = <bool> True
+                    umap_params.nn_descent_params.return_distances = <bool> False
                 else:
                     umap_params.nn_descent_params.graph_degree = <uint64_t> cls.build_kwds.get("nnd_graph_degree", 64)
                     umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> cls.build_kwds.get("nnd_intermediate_graph_degree", 128)
                     umap_params.nn_descent_params.max_iterations = <uint64_t> cls.build_kwds.get("nnd_max_iterations", 20)
                     umap_params.nn_descent_params.termination_threshold = <float> cls.build_kwds.get("nnd_termination_threshold", 0.0001)
-                    umap_params.nn_descent_params.return_distances = <bool> True
+                    umap_params.nn_descent_params.return_distances = <bool> cls.build_kwds.get("nnd_return_distances", False)
             umap_params.target_weight = <float> cls.target_weight
             umap_params.random_state = <uint64_t> cls.random_state
             umap_params.deterministic = <bool> cls.deterministic
