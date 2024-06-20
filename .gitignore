@@ -39,6 +39,11 @@ docs/source/*.model
 docs/source/*.pkl
 docs/source/*.tl
 
+# Example gallery related files
+docs/source/sg_execution_times.rst
+docs/source/modules/generated/
+docs/source/auto_examples/
+
 ## eclipse
 .project
 .cproject
