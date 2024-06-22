@@ -832,7 +832,9 @@ class UMAP(UniversalBase,
             "callback",
             "metric",
             "metric_kwds",
-            "precomputed_knn"
+            "precomputed_knn",
+            "build_algo",
+            "build_kwds"
         ]
 
     def get_attr_names(self):
