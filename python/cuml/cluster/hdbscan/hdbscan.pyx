@@ -1183,7 +1183,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
             "connectivity",
             "alpha",
             "gen_min_span_tree",
-            "prediction_data"
+            "prediction_data",
+            "build_algo",
+            "build_kwds"
         ]
 
     def get_attr_names(self):
