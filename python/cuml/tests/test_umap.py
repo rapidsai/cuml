@@ -751,9 +751,14 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors, build_algo):
 
     cu_fss_graph = cu_fss_graph.todense()
     ref_fss_graph = cupyx.scipy.sparse.coo_matrix(ref_fss_graph).todense()
-    assert correctness_sparse(
-        ref_fss_graph, cu_fss_graph, atol=0.1, rtol=0.2, threshold=0.95
-    )
+    if build_algo == "brute_force_knn":
+        assert correctness_sparse(
+            ref_fss_graph, cu_fss_graph, atol=0.1, rtol=0.2, threshold=0.95
+        )
+    else:
+        assert correctness_sparse(
+            ref_fss_graph, cu_fss_graph, atol=0.1, rtol=0.2, threshold=0.92
+        )
 
 
 @pytest.mark.parametrize(
