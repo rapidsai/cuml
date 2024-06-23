@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <cuml/matrix/kernelparams.h>
 
 #include <cstdint>
 
@@ -78,8 +79,19 @@ class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
   bool whiten = false;
 };
 
+template <typename enum_solver = solver, typename enum_kernel = MLCommon::Matrix::KernelParams>
+class paramsKPCATemplate : public paramsTSVDTemplate<enum_solver> {
+ public:
+  enum_kernel kernel; // KernelParams
+  bool copy = true;  // TODO unused
+  bool remove_zero_eig = false; // TODO unused
+  bool fit_inverse_transform = false; // TODO unused
+};
+
+
 typedef paramsTSVDTemplate<> paramsTSVD;
 typedef paramsPCATemplate<> paramsPCA;
+typedef paramsKPCATemplate<> paramsKPCA;
 
 enum class mg_solver { COV_EIG_DQ, COV_EIG_JACOBI, QR };
 

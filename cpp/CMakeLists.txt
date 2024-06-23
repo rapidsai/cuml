@@ -467,6 +467,12 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/pca/pca.cu)
   endif()
 
+  if(all_algo OR kpca_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/kpca/kpca.cu)
+  endif()
+
   if(all_algo OR randomforest_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE

@@ -169,6 +169,10 @@ if(all_algo OR pca_algo)
   ConfigureTest(PREFIX SG NAME PCA_TEST  sg/pca_test.cu ML_INCLUDE)
 endif()
 
+if(all_algo OR kpca_algo)
+  ConfigureTest(PREFIX SG NAME PCA_TEST  sg/kpca_test.cu ML_INCLUDE)
+endif()
+
 if(all_algo OR randomforest_algo)
   ConfigureTest(PREFIX SG NAME RF_TEST  sg/rf_test.cu ML_INCLUDE)
 endif()
