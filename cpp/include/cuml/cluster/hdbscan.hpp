@@ -501,6 +501,8 @@ namespace HDBSCAN::HELPER {
  * @param n number of columns in X
  * @param metric distance metric to use
  * @param min_samples minimum number of samples to use for computing core distances
+ * @param build_algo build algo for building the knn graph (default: brute_force_knn)
+ * @param build_params build parameters for build_algo
  */
 void compute_core_dists(
   const raft::handle_t& handle,
