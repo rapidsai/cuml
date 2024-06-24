@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,29 +14,11 @@
 # limitations under the License.
 #
 
-from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.testing.data import g_rosenbrock, rosenbrock
+from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 
 np = cpu_only_import("numpy")
-
-
-def rosenbrock(x, a=1, b=100):
-    """Famous Rosenbrock example"""
-
-    return (a - x[0]) ** 2 + b * (x[1] - x[0] ** 2) ** 2
-
-
-def g_rosenbrock(x, a=1, b=100):
-    """Gradietn of rosenbrock example"""
-
-    g = np.array(
-        [
-            -2 * a - 4 * b * x[0] * (-x[0] ** 2 + x[1]) + 2 * x[0],
-            b * (-2 * x[0] ** 2 + 2 * x[1]),
-        ]
-    )
-
-    return g
 
 
 def batched_rosenbrock(
@@ -109,7 +91,3 @@ def test_batched_lbfgs_rosenbrock():
     )
 
     np.testing.assert_allclose(res_xk, res_true, rtol=1e-5)
-
-
-if __name__ == "__main__":
-    test_batched_lbfgs_rosenbrock()
