@@ -20,12 +20,16 @@
 #include <cuml/common/logger.hpp>
 
 #include <raft/distance/distance_types.hpp>
+#include <raft/neighbors/nn_descent_types.hpp>
 
 namespace ML {
+
+using nn_index_params = raft::neighbors::experimental::nn_descent::index_params;
 
 class UMAPParams {
  public:
   enum MetricType { EUCLIDEAN, CATEGORICAL };
+  enum graph_build_algo { BRUTE_FORCE_KNN, NN_DESCENT };
 
   /**
    *  The number of neighbors to use to approximate geodesic distance.
@@ -139,6 +143,13 @@ class UMAPParams {
    * 1 = spectral layout
    */
   int init = 1;
+
+  /**
+   * KNN graph build algorithm
+   */
+  graph_build_algo build_algo = graph_build_algo::BRUTE_FORCE_KNN;
+
+  nn_index_params nn_descent_params = {};
 
   /**
    * The number of nearest neighbors to use to construct the target simplicial

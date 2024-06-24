@@ -1,3 +1,5 @@
+
+
 /*
  * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
@@ -22,13 +24,19 @@
 
 #include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/core/host_mdspan.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/neighbors/detail/nn_descent.cuh>
+#include <raft/neighbors/nn_descent_types.hpp>
+#include <raft/neighbors/refine-inl.cuh>
 #include <raft/sparse/selection/knn.cuh>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <iostream>
+
+namespace NNDescent = raft::neighbors::experimental::nn_descent;
 
 namespace UMAPAlgo {
 namespace kNNGraph {
@@ -47,6 +55,12 @@ void launcher(const raft::handle_t& handle,
               const ML::UMAPParams* params,
               cudaStream_t stream);
 
+//  Functor to post-process distances as L2Sqrt*
+template <typename value_idx, typename value_t = float>
+struct DistancePostProcessSqrt {
+  DI value_t operator()(value_t value, value_idx row, value_idx col) const { return sqrtf(value); }
+};
+
 // Instantiation for dense inputs, int64_t indices
 template <>
 inline void launcher(const raft::handle_t& handle,
@@ -57,25 +71,59 @@ inline void launcher(const raft::handle_t& handle,
                      const ML::UMAPParams* params,
                      cudaStream_t stream)
 {
-  std::vector<float*> ptrs(1);
-  std::vector<int> sizes(1);
-  ptrs[0]  = inputsA.X;
-  sizes[0] = inputsA.n;
+  if (params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN) {
+    std::vector<float*> ptrs(1);
+    std::vector<int> sizes(1);
+    ptrs[0]  = inputsA.X;
+    sizes[0] = inputsA.n;
 
-  raft::spatial::knn::brute_force_knn(handle,
-                                      ptrs,
-                                      sizes,
-                                      inputsA.d,
-                                      inputsB.X,
-                                      inputsB.n,
-                                      out.knn_indices,
-                                      out.knn_dists,
-                                      n_neighbors,
-                                      true,
-                                      true,
-                                      static_cast<std::vector<int64_t>*>(nullptr),
-                                      params->metric,
-                                      params->p);
+    raft::spatial::knn::brute_force_knn(handle,
+                                        ptrs,
+                                        sizes,
+                                        inputsA.d,
+                                        inputsB.X,
+                                        inputsB.n,
+                                        out.knn_indices,
+                                        out.knn_dists,
+                                        n_neighbors,
+                                        true,
+                                        true,
+                                        static_cast<std::vector<int64_t>*>(nullptr),
+                                        params->metric,
+                                        params->p);
+  } else {  // nn_descent
+    RAFT_EXPECTS(static_cast<size_t>(n_neighbors) <= params->nn_descent_params.graph_degree,
+                 "n_neighbors should be smaller than the graph degree computed by nn descent");
+    auto epilogue = DistancePostProcessSqrt<int64_t, float>{};
+
+    auto dataset =
+      raft::make_host_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d);
+    auto graph = NNDescent::detail::build<float, int64_t>(
+      handle, params->nn_descent_params, dataset, epilogue);
+
+    // nn descent does not include itself as its closest neighbor
+    for (int i = 0; i < inputsB.n; i++) {
+      if (graph.distances().has_value()) {
+        raft::copy(
+          out.knn_dists + i * n_neighbors + 1,
+          graph.distances().value().data_handle() + i * params->nn_descent_params.graph_degree,
+          n_neighbors - 1,
+          handle.get_stream());
+        thrust::fill(thrust::device.on(stream),
+                     out.knn_dists + i * n_neighbors,
+                     out.knn_dists + i * n_neighbors + 1,
+                     0.0);
+      }
+      raft::copy(out.knn_indices + i * n_neighbors + 1,
+                 graph.graph().data_handle() + i * params->nn_descent_params.graph_degree,
+                 n_neighbors - 1,
+                 handle.get_stream());
+      thrust::fill(thrust::device.on(stream),
+                   out.knn_indices + i * n_neighbors,
+                   out.knn_indices + i * n_neighbors + 1,
+                   i);
+    }
+  }
 }
 
 // Instantiation for dense inputs, int indices
@@ -100,6 +148,8 @@ inline void launcher(const raft::handle_t& handle,
                      const ML::UMAPParams* params,
                      cudaStream_t stream)
 {
+  RAFT_EXPECTS(params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN,
+               "nn_descent does not support sparse inputs");
   raft::sparse::selection::brute_force_knn(inputsA.indptr,
                                            inputsA.indices,
                                            inputsA.data,

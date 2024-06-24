@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,10 +30,21 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":
     enum MetricType:
         EUCLIDEAN = 0,
         CATEGORICAL = 1
+    enum graph_build_algo:
+        BRUTE_FORCE_KNN = 0,
+        NN_DESCENT = 1
 
 cdef extern from "cuml/common/callback.hpp" namespace "ML::Internals":
 
     cdef cppclass GraphBasedDimRedCallback
+
+cdef extern from "raft/neighbors/nn_descent_types.hpp" namespace "raft::neighbors::experimental::nn_descent":
+    cdef struct index_params:
+        int64_t graph_degree,
+        int64_t intermediate_graph_degree,
+        int64_t max_iterations,
+        float termination_threshold,
+        bool return_distances
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
 
@@ -54,6 +65,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         float b,
         float initial_alpha,
         int init,
+        graph_build_algo build_algo,
         int target_n_neighbors,
         MetricType target_metric,
         float target_weight,
@@ -61,7 +73,8 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         bool deterministic,
         DistanceType metric,
         float p,
-        GraphBasedDimRedCallback * callback
+        GraphBasedDimRedCallback * callback,
+        index_params nn_descent_params
 
 cdef extern from "raft/sparse/coo.hpp":
     cdef cppclass COO "raft::sparse::COO<float, int>":
