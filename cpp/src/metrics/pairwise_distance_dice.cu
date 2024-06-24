@@ -35,7 +35,6 @@ void pairwise_distance_dice(const raft::handle_t& handle,
                             bool isRowMajor,
                             double metric_arg)
 {
-  // Call the distance function
   raft::distance::distance<raft::distance::DistanceType::DiceExpanded, double, double, double, int>(
     handle, x, y, dist, m, n, k, isRowMajor);
 }
@@ -50,7 +49,6 @@ void pairwise_distance_dice(const raft::handle_t& handle,
                             bool isRowMajor,
                             float metric_arg)
 {
-  // Call the distance function
   raft::distance::distance<raft::distance::DistanceType::DiceExpanded, float, float, float, int>(
     handle, x, y, dist, m, n, k, isRowMajor);
 }
