@@ -21,6 +21,7 @@ np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
 
 import joblib
+import warnings
 
 from cuml.internals.safe_imports import gpu_only_import
 cupy = gpu_only_import('cupy')
@@ -475,13 +476,13 @@ class UMAP(UniversalBase,
                     umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> 128
                     umap_params.nn_descent_params.max_iterations = <uint64_t> 20
                     umap_params.nn_descent_params.termination_threshold = <float> 0.0001
-                    umap_params.nn_descent_params.return_distances = <bool> False
+                    umap_params.nn_descent_params.return_distances = <bool> True
                 else:
                     umap_params.nn_descent_params.graph_degree = <uint64_t> cls.build_kwds.get("nnd_graph_degree", 64)
                     umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> cls.build_kwds.get("nnd_intermediate_graph_degree", 128)
                     umap_params.nn_descent_params.max_iterations = <uint64_t> cls.build_kwds.get("nnd_max_iterations", 20)
                     umap_params.nn_descent_params.termination_threshold = <float> cls.build_kwds.get("nnd_termination_threshold", 0.0001)
-                    umap_params.nn_descent_params.return_distances = <bool> cls.build_kwds.get("nnd_return_distances", False)
+                    umap_params.nn_descent_params.return_distances = <bool> cls.build_kwds.get("nnd_return_distances", True)
             umap_params.target_weight = <float> cls.target_weight
             umap_params.random_state = <uint64_t> cls.random_state
             umap_params.deterministic = <bool> cls.deterministic
@@ -568,6 +569,9 @@ class UMAP(UniversalBase,
         if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
+        if self.build_algo == "nn_descent" and self.n_rows < 150:
+            # https://github.com/rapidsai/cuvs/issues/184
+            warnings.warn("using nn_descent as build_algo on a small dataset (< 150 samples) is unstable")
 
         cdef uintptr_t _knn_dists_ptr = 0
         cdef uintptr_t _knn_indices_ptr = 0
