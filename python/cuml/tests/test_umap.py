@@ -579,7 +579,6 @@ def test_umap_transform_trustworthiness_with_consistency_enabled_digits(
         random_state=42,
         build_algo=build_algo,
     )
-    print(fit_data.shape)
     model.fit(fit_data, convert_dtype=True)
     embedding = model.transform(transform_data, convert_dtype=True)
     trust = trustworthiness(transform_data, embedding, n_neighbors=10)
@@ -647,7 +646,6 @@ def test_umap_knn_graph(n_neighbors, build_algo):
 
     def test_equality(e1, e2):
         mean_diff = np.mean(np.abs(e1 - e2))
-        print("mean diff: %s" % mean_diff)
         assert mean_diff < 1.0
 
     neigh = NearestNeighbors(n_neighbors=n_neighbors)
