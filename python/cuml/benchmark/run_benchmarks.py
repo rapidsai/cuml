@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,9 +49,18 @@ def extract_param_overrides(params_to_sweep):
     single_param_lists = []
     for p in params_to_sweep:
         key, val_string = p.split("=")
-        vals = json.loads(val_string)
+        vals = val_string.split(",")
+
         if not isinstance(vals, list):
             vals = [vals]  # Handle single-element sweep cleanly
+
+        # use json loads to convert to correct data type
+        for idx, val in enumerate(vals):
+            try:
+                vals[idx] = json.loads(val)
+            except ValueError:
+                pass
+
         single_param_lists.append([(key, val) for val in vals])
 
     # Create dicts with the cartesian product of all arg-based lists
