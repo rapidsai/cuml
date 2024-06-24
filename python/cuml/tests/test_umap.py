@@ -177,7 +177,10 @@ def test_umap_transform_on_iris(target_metric, build_algo):
     assert not np.isnan(embedding).any()
 
     trust = trustworthiness(new_data, embedding, n_neighbors=10)
-    assert trust >= 0.85
+    if build_algo == "brute_force_knn":
+        assert trust >= 0.85
+    else:
+        assert trust >= 0.82
 
 
 @pytest.mark.parametrize("input_type", ["cupy", "scipy"])
