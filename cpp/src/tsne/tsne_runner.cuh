@@ -144,7 +144,7 @@ class TSNE_runner {
         raft::stats::stddev(
           handle, Y_view_const, mean_result_view_const, stddev_result_view, false);
 
-        divide_scalar_device(Y_view, Y_view_const, stddev_result);
+        divide_scalar_device(Y_view, Y_view_const, stddev_result_view);
         raft::linalg::multiply_scalar(handle, Y_view_const, Y_view, h_multiplier_view_const);
       }
     }
@@ -153,12 +153,12 @@ class TSNE_runner {
   void divide_scalar_device(
     raft::device_matrix_view<float, int, raft::col_major>& Y_view,
     raft::device_matrix_view<const float, int, raft::col_major>& Y_view_const,
-    raft::device_vector<float, int>& stddev_result)
+    raft::device_vector_view<float, int>& stddev_result_view)
   {
     raft::linalg::unary_op(handle,
                            Y_view_const,
                            Y_view,
-                           [device_scalar = stddev_result.data_handle()] __device__(auto y) {
+                           [device_scalar = stddev_result_view.data_handle()] __device__(auto y) {
                              return y / *device_scalar;
                            });
   }
