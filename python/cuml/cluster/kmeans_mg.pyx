@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -214,7 +214,7 @@ class KMeansMG(KMeans):
 
         self.handle.sync()
 
-        self.labels_, _, _, _ = input_to_cuml_array(self.predict(X,
+        self.labels_, _, _, _ = input_to_cuml_array(self.predict(X_m,
                                                     sample_weight=sample_weight), order='C',
                                                     convert_to_dtype=self.dtype)
 
