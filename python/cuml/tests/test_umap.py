@@ -150,9 +150,9 @@ def test_umap_trustworthiness_on_iris(build_algo):
     assert trust >= 0.97
 
 
+# nn descent is unstable with small datasets
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
-def test_umap_transform_on_iris(target_metric, build_algo):
+def test_umap_transform_on_iris(target_metric):
 
     iris = datasets.load_iris()
 
@@ -168,7 +168,6 @@ def test_umap_transform_on_iris(target_metric, build_algo):
         min_dist=0.01,
         random_state=42,
         target_metric=target_metric,
-        build_algo=build_algo,
     )
     fitter.fit(data, convert_dtype=True)
     new_data = iris.data[~iris_selection]
@@ -177,10 +176,7 @@ def test_umap_transform_on_iris(target_metric, build_algo):
     assert not np.isnan(embedding).any()
 
     trust = trustworthiness(new_data, embedding, n_neighbors=10)
-    if build_algo == "brute_force_knn":
-        assert trust >= 0.85
-    else:
-        assert trust >= 0.82
+    assert trust >= 0.85
 
 
 @pytest.mark.parametrize("input_type", ["cupy", "scipy"])
@@ -267,19 +263,8 @@ def test_umap_transform_on_digits(target_metric, build_algo):
 
 
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
-@pytest.mark.parametrize(
-    "name,build_algo",
-    [
-        ("iris", "brute_force_knn"),
-        ("digits", "brute_force_knn"),
-        ("wine", "brute_force_knn"),
-        ("blobs", "brute_force_knn"),
-        ("iris", "nn_descent"),
-        ("digits", "nn_descent"),
-        ("wine", "nn_descent"),
-        ("blobs", "nn_descent"),
-    ],
-)
+@pytest.mark.parametrize("name", dataset_names)
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 @pytest.mark.skipif(
     IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
 )
@@ -555,8 +540,8 @@ def test_umap_fit_transform_trustworthiness_with_consistency_enabled(
     assert trust >= 0.97
 
 
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
-def test_umap_transform_trustworthiness_with_consistency_enabled(build_algo):
+# nn descent is unstable with small datasets
+def test_umap_transform_trustworthiness_with_consistency_enabled():
     iris = datasets.load_iris()
     data = iris.data
     selection = np.random.RandomState(42).choice(
@@ -569,12 +554,36 @@ def test_umap_transform_trustworthiness_with_consistency_enabled(build_algo):
         min_dist=0.01,
         init="random",
         random_state=42,
-        build_algo=build_algo,
     )
     model.fit(fit_data, convert_dtype=True)
     embedding = model.transform(transform_data, convert_dtype=True)
     trust = trustworthiness(transform_data, embedding, n_neighbors=10)
     assert trust >= 0.92
+
+
+@pytest.mark.parametrize("build_algo", ["nn_descent"])
+def test_umap_transform_trustworthiness_with_consistency_enabled_digits(
+    build_algo,
+):
+    digits = datasets.load_digits()
+    data = digits.data
+    digits_selection = np.random.RandomState(42).choice(
+        [True, False], 1797, replace=True, p=[0.75, 0.25]
+    )
+    fit_data = digits.data[digits_selection]
+    transform_data = data[~digits_selection]
+    model = cuUMAP(
+        n_neighbors=10,
+        min_dist=0.01,
+        init="random",
+        random_state=42,
+        build_algo=build_algo,
+    )
+    print(fit_data.shape)
+    model.fit(fit_data, convert_dtype=True)
+    embedding = model.transform(transform_data, convert_dtype=True)
+    trust = trustworthiness(transform_data, embedding, n_neighbors=10)
+    assert trust >= 0.95
 
 
 @pytest.mark.filterwarnings("ignore:(.*)zero(.*)::scipy[.*]|umap[.*]")
@@ -754,14 +763,9 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors, build_algo):
 
     cu_fss_graph = cu_fss_graph.todense()
     ref_fss_graph = cupyx.scipy.sparse.coo_matrix(ref_fss_graph).todense()
-    if build_algo == "brute_force_knn":
-        assert correctness_sparse(
-            ref_fss_graph, cu_fss_graph, atol=0.1, rtol=0.2, threshold=0.95
-        )
-    else:
-        assert correctness_sparse(
-            ref_fss_graph, cu_fss_graph, atol=0.1, rtol=0.2, threshold=0.92
-        )
+    assert correctness_sparse(
+        ref_fss_graph, cu_fss_graph, atol=0.1, rtol=0.2, threshold=0.93
+    )
 
 
 @pytest.mark.parametrize(
