@@ -14,6 +14,7 @@ export CMAKE_GENERATOR=Ninja
 rapids-print-env
 
 rapids-logger "Begin cpp build"
+conda config --set path_conflict prevent
 
 RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild conda/recipes/libcuml
 
