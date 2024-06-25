@@ -20,23 +20,22 @@
 #include <thrust/device_ptr.h>
 #include <cuml/matrix/kernelparams.h>
 #include <cuml/decomposition/params.hpp>
-#include <matrix/kernelfactory.cuh>
-#include <matrix/kernelmatrices.cuh>
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/handle.hpp>
+#include <cuml/common/logger.hpp>
+#include <raft/distance/kernels.cuh>
+#include <raft/linalg/detail/cublas_wrappers.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 #include <tsvd/tsvd.cuh>
 #include <common/device_utils.cuh>
 #include <rmm/device_vector.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
+
 
 namespace ML {
 
@@ -53,9 +52,10 @@ template <typename value_t, typename enum_solver = ML::solver>
 void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *alphas,
              value_t *lambdas, const ML::paramsKPCA &prms, cudaStream_t stream) {
   auto cublas_handle = handle.get_cublas_handle();
-  auto allocator = handle.get_device_allocator();
   auto thrust_policy = rmm::exec_policy(stream);
-
+  CUML_LOG_INFO("kpcaFit with n_rows = %d, n_cols = %d, n_components = %d, kernel = %d, algorithm = %d",
+            prms.n_rows, prms.n_cols, prms.n_components, prms.kernel, prms.algorithm);
+  raft::print_device_vector("input", input, prms.n_rows * prms.n_cols, std::cout);
   //  TODO: defer assertions to python layer
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
@@ -65,16 +65,30 @@ void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *alphas,
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
 
-  int n_components = prms.n_components;
+  size_t n_components = prms.n_components;
   if (n_components > prms.n_rows) n_components = prms.n_rows;
-
-  MLCommon::Matrix::GramMatrixBase<value_t> *kernel =
-    MLCommon::Matrix::KernelFactory<value_t>::create(prms.kernel, cublas_handle);
-  
+  raft::distance::kernels::GramMatrixBase<value_t> *kernel =
+  raft::distance::kernels::KernelFactory<value_t>::create(prms.kernel);
+  raft::device_matrix_view<const value_t, int, raft::layout_f_contiguous> X_view =
+    raft::make_device_strided_matrix_view<const value_t, int, raft::layout_f_contiguous>(input, prms.n_rows, prms.n_cols, 0);
+  raft::device_matrix_view<const value_t, int, raft::layout_f_contiguous> Y_view =
+    raft::make_device_strided_matrix_view<const value_t, int, raft::layout_f_contiguous>(input, prms.n_rows, prms.n_cols, 0);
+  CUML_LOG_INFO("X_view.stride(0) = %d, X_view.stride(1) = %d", X_view.stride(0), X_view.stride(1));
+  CUML_LOG_INFO("X_view.extent(0) = %d, X_view.extent(1) = %d", X_view.extent(0), X_view.extent(1));
   rmm::device_uvector<value_t> kernel_mat(prms.n_rows * prms.n_rows, stream);
-  kernel->evaluate(input, prms.n_rows, prms.n_cols, input, prms.n_rows,
-         kernel_mat.data(), false, stream, prms.n_rows, prms.n_rows, prms.n_rows);
+  raft::device_matrix_view<value_t, int, raft::layout_f_contiguous> kernel_input =
+    raft::make_device_strided_matrix_view<value_t, int, raft::layout_f_contiguous>(kernel_mat.data(), prms.n_rows, prms.n_rows, 0);
+  CUML_LOG_INFO("kernel_input.stride(0) = %d, kernel_input.stride(1) = %d", kernel_input.stride(0), kernel_input.stride(1));
+  CUML_LOG_INFO("kernel_input.extent(0) = %d, kernel_input.extent(1) = %d", kernel_input.extent(0), kernel_input.extent(1));
+  raft::print_device_vector("kernel_mat", kernel_mat.data(), prms.n_rows * prms.n_rows, std::cout);
+  // Evaluate kernel matrix
+  kernel->evaluate(handle, X_view, Y_view, kernel_input, (value_t*) nullptr, (value_t*) nullptr);
+  raft::print_device_vector("kernel_mat2", kernel_mat.data(), prms.n_rows * prms.n_rows, std::cout);
 
+
+  // raft::print_device_vector("kernel_mat", kernel_mat.data(), prms.n_rows * prms.n_rows, std::cout);
+  // kernel->evaluate(handle, X_view, X_view, kernel_input, (value_t*) nullptr, (value_t*) nullptr);
+  // raft::print_device_vector("kernel_mat2", kernel_mat.data(), prms.n_rows * prms.n_rows, std::cout);
   //  create centering matrix (I - 1/nrows)
   rmm::device_uvector<value_t> i_mat(prms.n_rows * prms.n_rows, stream);
   rmm::device_uvector<value_t> diag(prms.n_rows, stream);
@@ -85,6 +99,7 @@ void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *alphas,
   raft::linalg::subtractScalar(centering_mat.data(), i_mat.data(), inv_n_rows, prms.n_rows * prms.n_rows, stream);
   i_mat.release();
   diag.release();
+  raft::print_device_vector("centering_mat", centering_mat.data(), prms.n_rows * prms.n_rows, std::cout);
 
   //  center the kernel matrix: K' = (I - 1/nrows) K (I - 1/nrows)
   rmm::device_uvector<value_t> temp_mat(prms.n_rows * prms.n_rows, stream);
@@ -96,7 +111,7 @@ void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *alphas,
                      , true, true, true, stream);
   temp_mat.release();
   centering_mat.release();
-
+  raft::print_device_vector("kernel_mat_centered", kernel_mat.data(), prms.n_rows * prms.n_rows, std::cout);
   //  either Jacobi (iterative power method) or DnC eigendecomp
   if (prms.algorithm == enum_solver::COV_EIG_JACOBI) {
     raft::linalg::eigJacobi(handle, kernel_mat.data(), prms.n_rows, prms.n_rows, alphas,
@@ -107,10 +122,13 @@ void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *alphas,
                             lambdas, stream);
   }
 
+  raft::print_device_vector("alphas", alphas, prms.n_rows * prms.n_rows, std::cout);
+  raft::print_device_vector("lambdas", lambdas, prms.n_rows, std::cout);
   raft::matrix::colReverse(alphas, prms.n_rows, prms.n_rows, stream);
-  raft::matrix::rowReverse(lambdas, prms.n_rows, 1, stream);
-  ML::signFlip(lambdas, prms.n_rows, prms.n_rows, alphas, prms.n_rows,
-           allocator, stream);
+  raft::matrix::rowReverse(lambdas, prms.n_rows, std::size_t(1), stream);
+  ML::signFlip(lambdas, prms.n_rows, prms.n_rows, alphas, prms.n_rows, stream);
+  raft::print_device_vector("col reversed alphas", alphas, prms.n_rows * prms.n_rows, std::cout);
+  raft::print_device_vector("row reversed lambdas", lambdas, prms.n_components, std::cout);
 }
 
 /**
@@ -136,11 +154,17 @@ void kpcaTransform(const raft::handle_t &handle, value_t *input,
   ASSERT(
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
+  raft::print_device_vector("input lambdas", lambdas, prms.n_components, std::cout);
+  raft::print_device_vector("input alphas", alphas, prms.n_rows * prms.n_rows, std::cout);
 
   rmm::device_uvector<value_t> sqrt_vals(prms.n_components, stream);
   raft::matrix::seqRoot(lambdas, sqrt_vals.data(), prms.n_components, stream);
   raft::matrix::copy(alphas, trans_input, prms.n_components, prms.n_rows, stream);
   raft::matrix::matrixVectorBinaryMult(trans_input, sqrt_vals.data(), prms.n_rows, prms.n_components, 
                                          false, true, stream);
+  raft::print_device_vector("sqrt_vals", sqrt_vals.data(),  prms.n_components, std::cout);
+  raft::print_device_vector("final lambdas", lambdas, prms.n_components, std::cout);
+  raft::print_device_vector("final alphas", alphas, prms.n_rows * prms.n_rows, std::cout);
+  raft::print_device_vector("final trans_input", trans_input,  prms.n_components * prms.n_rows, std::cout);
 }
 }
