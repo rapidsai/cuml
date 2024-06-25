@@ -65,15 +65,13 @@ void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *alphas,
   if (n_components > prms.n_rows) n_components = prms.n_rows;
   raft::distance::kernels::GramMatrixBase<value_t> *kernel =
   raft::distance::kernels::KernelFactory<value_t>::create(prms.kernel);
-  raft::device_matrix_view<const value_t, int, raft::layout_f_contiguous> X_view =
-    raft::make_device_strided_matrix_view<const value_t, int, raft::layout_f_contiguous>(input, prms.n_rows, prms.n_cols, 0);
-  raft::device_matrix_view<const value_t, int, raft::layout_f_contiguous> Y_view =
+  raft::device_matrix_view<const value_t, int, raft::layout_f_contiguous> input_view =
     raft::make_device_strided_matrix_view<const value_t, int, raft::layout_f_contiguous>(input, prms.n_rows, prms.n_cols, 0);
   rmm::device_uvector<value_t> kernel_mat(prms.n_rows * prms.n_rows, stream);
-  raft::device_matrix_view<value_t, int, raft::layout_f_contiguous> kernel_input =
+  raft::device_matrix_view<value_t, int, raft::layout_f_contiguous> kernel_view =
     raft::make_device_strided_matrix_view<value_t, int, raft::layout_f_contiguous>(kernel_mat.data(), prms.n_rows, prms.n_rows, 0);
   // Evaluate kernel matrix
-  kernel->evaluate(handle, X_view, Y_view, kernel_input, (value_t*) nullptr, (value_t*) nullptr);
+  kernel->evaluate(handle, input_view, input_view, kernel_view, (value_t*) nullptr, (value_t*) nullptr);
 
 
   //  create centering matrix (I - 1/nrows)
