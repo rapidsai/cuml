@@ -81,7 +81,7 @@ PAIRWISE_DISTANCE_METRICS = {
     "kldivergence": DistanceType.KLDivergence,
     "russellrao": DistanceType.RusselRaoExpanded,
     "nan_euclidean": DistanceType.L2Expanded,
-    "dice": DistanceType.DiceExpanded
+    "dice": DistanceType.DiceExpanded,
 }
 
 PAIRWISE_DISTANCE_SPARSE_METRICS = {
@@ -98,7 +98,7 @@ PAIRWISE_DISTANCE_SPARSE_METRICS = {
     "jaccard": DistanceType.JaccardExpanded,
     "hellinger": DistanceType.HellingerExpanded,
     "chebyshev": DistanceType.Linf,
-    "dice": DistanceType.DiceExpanded
+    "dice": DistanceType.DiceExpanded,
 }
 
 
@@ -345,7 +345,7 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     if metric in ['nan_euclidean']:
         return nan_euclidean_distances(X, Y, **kwds)
 
-    if metric in ['russellrao', 'dice'] and not np.all(X.data == 1.):
+    if metric in {'russellrao', 'dice'} and not np.all(X.data == 1.):
         warnings.warn("X was converted to boolean for metric {}"
                       .format(metric))
         X = np.where(X != 0., 1.0, 0.0)
@@ -368,7 +368,7 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         if (n_samples_x == 1 or n_features_x == 1):
             input_order = "K"
 
-        if metric in ['russellrao', 'dice'] and not np.all(Y.data == 1.):
+        if metric in {'russellrao', 'dice'} and not np.all(Y.data == 1.):
             warnings.warn("Y was converted to boolean for metric {}"
                           .format(metric))
             Y = np.where(Y != 0., 1.0, 0.0)

@@ -135,23 +135,23 @@ def find_ab_params(spread, min_dist):
 
 
 metric_parsing = {
-    "l2": DistanceType.L2SqrtUnexpanded,
-    "euclidean": DistanceType.L2SqrtUnexpanded,
-    "sqeuclidean": DistanceType.L2Unexpanded,
-    "cityblock": DistanceType.L1,
-    "l1": DistanceType.L1,
-    "manhattan": DistanceType.L1,
-    "taxicab": DistanceType.L1,
-    "minkowski": DistanceType.LpUnexpanded,
+    "canberra": DistanceType.Canberra,
     "chebyshev": DistanceType.Linf,
-    "linf": DistanceType.Linf,
+    "cityblock": DistanceType.L1,
     "cosine": DistanceType.CosineExpanded,
     "correlation": DistanceType.CorrelationExpanded,
-    "hellinger": DistanceType.HellingerExpanded,
-    "hamming": DistanceType.HammingUnexpanded,
-    "jaccard": DistanceType.JaccardExpanded,
-    "canberra": DistanceType.Canberra,
     "dice": DistanceType.DiceExpanded,
+    "euclidean": DistanceType.L2SqrtUnexpanded,
+    "hamming": DistanceType.HammingUnexpanded,
+    "hellinger": DistanceType.HellingerExpanded,
+    "jaccard": DistanceType.JaccardExpanded,
+    "l1": DistanceType.L1,
+    "l2": DistanceType.L2SqrtUnexpanded,
+    "linf": DistanceType.Linf,
+    "manhattan": DistanceType.L1,
+    "minkowski": DistanceType.LpUnexpanded,
+    "sqeuclidean": DistanceType.L2Unexpanded,
+    "taxicab": DistanceType.L1,
 }
 
 
@@ -159,6 +159,7 @@ DENSE_SUPPORTED_METRICS = [
     DistanceType.Canberra,
     DistanceType.CorrelationExpanded,
     DistanceType.CosineExpanded,
+    DistanceType.DiceExpanded,
     DistanceType.HammingUnexpanded,
     DistanceType.HellingerExpanded,
     # DistanceType.JaccardExpanded,  # not supported
@@ -167,7 +168,6 @@ DENSE_SUPPORTED_METRICS = [
     DistanceType.L2Unexpanded,
     DistanceType.Linf,
     DistanceType.LpUnexpanded,
-    DistanceType.DiceExpanded,
 ]
 
 
@@ -175,6 +175,7 @@ SPARSE_SUPPORTED_METRICS = [
     DistanceType.Canberra,
     DistanceType.CorrelationExpanded,
     DistanceType.CosineExpanded,
+    DistanceType.DiceExpanded,
     DistanceType.HammingUnexpanded,
     DistanceType.HellingerExpanded,
     DistanceType.JaccardExpanded,
@@ -183,5 +184,4 @@ SPARSE_SUPPORTED_METRICS = [
     DistanceType.L2Unexpanded,
     DistanceType.Linf,
     DistanceType.LpUnexpanded,
-    DistanceType.DiceExpanded,
 ]
