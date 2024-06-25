@@ -340,10 +340,6 @@ value_t FFT_TSNE(value_t* VAL,
   value_t learning_rate = params.pre_learning_rate;
   value_t exaggeration  = params.early_exaggeration;
 
-  if (params.initialize_embeddings) {
-    random_vector(Y, 0.0000f, 0.0001f, n * 2, stream, params.random_state);
-  }
-
   value_t kl_div = 0;
   for (int iter = 0; iter < params.max_iter; iter++) {
     // Compute charges Q_ij

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,6 +56,10 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         BARNES_HUT = 1,
         FFT = 2
 
+    enum TSNE_INIT:
+        RANDOM = 0,
+        PCA = 1
+
     cdef cppclass TSNEParams:
         int dim,
         int n_neighbors,
@@ -76,7 +80,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         float post_momentum,
         long long random_state,
         int verbosity,
-        bool initialize_embeddings,
+        TSNE_INIT init,
         bool square_distances,
         DistanceType metric,
         float p,
@@ -156,8 +160,8 @@ class TSNE(Base,
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'minkowski',
         'chebyshev', 'cosine', 'correlation']
-    init : str 'random' (default 'random')
-        Currently supports random initialization.
+    init : str 'random' or 'pca' (default 'random')
+        Currently supports random or pca initialization.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -317,11 +321,9 @@ class TSNE(Base,
         if n_iter <= 100:
             warnings.warn("n_iter = {} might cause TSNE to output wrong "
                           "results. Set it higher.".format(n_iter))
-        if init.lower() != 'random':
-            # TODO https://github.com/rapidsai/cuml/issues/3458
-            warnings.warn("TSNE does not support {} but only random "
-                          "initialization.".format(init))
-            init = 'random'
+        if init.lower() != 'random' and init.lower() != 'pca':
+            raise ValueError("TSNE does not support {} but only random and pca "
+                             "initialization.".format(init))
         if angle < 0 or angle > 1:
             raise ValueError("angle = {} should be ≥ 0 and ≤ 1".format(angle))
         if n_neighbors < 0:
@@ -437,7 +439,7 @@ class TSNE(Base,
         # Handle dense inputs
         else:
             self.X_m, n, p, _ = \
-                input_to_cuml_array(X, order='C', check_dtype=np.float32,
+                input_to_cuml_array(X, order='F', check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
                                                       else None))
@@ -599,9 +601,13 @@ class TSNE(Base,
         params.post_momentum = <float> self.post_momentum
         params.random_state = <long long> seed
         params.verbosity = <int> self.verbose
-        params.initialize_embeddings = <bool> True
         params.square_distances = <bool> self.square_distances
         params.algorithm = algo
+
+        if self.init.lower() == 'random':
+            params.init = TSNE_INIT.RANDOM
+        elif self.init.lower() == 'pca':
+            params.init = TSNE_INIT.PCA
 
         # metric
         metric_parsing = {
