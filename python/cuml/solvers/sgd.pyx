@@ -320,7 +320,10 @@ class SGD(Base,
 
         """
         X_m, n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+            input_to_cuml_array(X,
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None),
+                                check_dtype=[np.float32, np.float64])
 
         y_m, _, _, _ = \
             input_to_cuml_array(y, check_dtype=self.dtype,

@@ -323,7 +323,10 @@ class TruncatedSVD(UniversalBase,
 
         """
         X_m, self.n_rows, self.n_features_in_, self.dtype = \
-            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+            input_to_cuml_array(X,
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None),
+                                check_dtype=[np.float32, np.float64])
         cdef uintptr_t _input_ptr = X_m.ptr
 
         self._initialize_arrays(self.n_components, self.n_rows,

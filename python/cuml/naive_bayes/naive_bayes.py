@@ -196,7 +196,11 @@ class _BaseNB(Base, ClassifierMixin):
             index = None
         else:
             X = input_to_cuml_array(
-                X, order="K", check_dtype=[cp.float32, cp.float64, cp.int32]
+                X,
+                order="K",
+                convert_to_dtype=(np.float32 if convert_dtype
+                                  else None),
+                check_dtype=[cp.float32, cp.float64, cp.int32]
             )
             index = X.index
             # todo: improve index management for cupy based codebases
@@ -242,7 +246,11 @@ class _BaseNB(Base, ClassifierMixin):
             index = None
         else:
             X = input_to_cuml_array(
-                X, order="K", check_dtype=[cp.float32, cp.float64, cp.int32]
+                X,
+                order="K",
+                convert_to_dtype=(np.float32 if convert_dtype
+                                  else None),
+                check_dtype=[cp.float32, cp.float64, cp.int32]
             )
             index = X.index
             # todo: improve index management for cupy based codebases
