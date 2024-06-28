@@ -444,6 +444,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/metrics/pairwise_distance_chebyshev.cu
         src/metrics/pairwise_distance_correlation.cu
         src/metrics/pairwise_distance_cosine.cu
+        src/metrics/pairwise_distance_dice.cu
         src/metrics/pairwise_distance_euclidean.cu
         src/metrics/pairwise_distance_hamming.cu
         src/metrics/pairwise_distance_hellinger.cu
