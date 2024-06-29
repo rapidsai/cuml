@@ -22,7 +22,7 @@ from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.testing.utils import array_equal
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, load_npz, save_npz
 
 pd = cpu_only_import("pandas")
 np = cpu_only_import("numpy")
@@ -51,6 +51,7 @@ def _prep_training_data(c, X_train, y_train, partitions_per_worker):
 
 
 def _prep_training_data_sparse(c, X_train, y_train, partitions_per_worker):
+    assert isinstance(X_train, csr_matrix)
     "The implementation follows test_dask_tfidf.create_cp_sparse_dask_array"
     import dask.array as da
 
@@ -329,6 +330,7 @@ def _test_lbfgs(
     )
 
     if convert_to_sparse:
+        X = csr_matrix(X)
         # X_dask and y_dask are dask array
         X_dask, y_dask = _prep_training_data_sparse(client, X, y, n_parts)
     else:
@@ -1103,3 +1105,133 @@ def test_standardization_sparse(fit_intercept, reg_dtype, client):
     )
 
     assert lr_on.dtype == datatype
+
+def test_sparse_nnz_int64(client):
+    fit_intercept = True
+    n_classes = 8
+    nrows = int(1e8) # 1e7
+    ncols = 30 # 30
+
+    penalty, C, l1_ratio = ("none", 1.0, None)
+    datatype = np.float32
+
+    run_test = partial(
+        _test_lbfgs,
+        nrows=nrows,
+        ncols=ncols,
+        n_parts=2,
+        fit_intercept=fit_intercept,
+        datatype=datatype,
+        delayed=True,
+        client=client,
+        penalty=penalty,
+        n_classes=n_classes,
+        C=C,
+        l1_ratio=l1_ratio,
+        convert_to_sparse=True,
+    )
+
+    lr = run_test()
+    assert lr.dtype == datatype
+
+
+def run_sk_lr(X, y, **algo_params):
+    from sklearn.linear_model import LogisticRegression as CPULR
+
+    cpu_lr = CPULR(**algo_params)
+    cpu_lr.fit(X, y)
+
+    pred = cpu_lr.predict(X)
+
+    return accuracy_score(y, pred)
+
+def test_sparse_nnz_int64_gen():
+
+    datatype=np.float32
+    nrows = int(1e8)
+    ncols = int(22)
+    ninfo = 18
+    nclasses = 8
+    csr_file_name = f"/raid/spark-team/jinfengl/nr{nrows}_nc{ncols}.npz"
+    y_file_name = f"/raid/spark-team/jinfengl/nr{nrows}_nc{ncols}.npy"
+
+    import os
+    import time
+    start = time.time()
+    if os.path.exists(csr_file_name):
+        assert os.path.exists(y_file_name) 
+        X_csr = load_npz(csr_file_name)
+        y = np.load(y_file_name)
+        end = time.time()
+        print(f"loading csr_matrix and y took: {end - start}")
+
+    else:
+        X, y = make_classification_dataset(
+            datatype, nrows, ncols, ninfo, n_classes=nclasses
+        )
+
+        end = time.time()
+        print(f"make_classification took: {end - start}")
+
+        start = end
+        X_csr = csr_matrix(X)
+    
+        end = time.time()
+        print(f"create csr_matrix took: {end - start}")
+
+        start = end
+        save_npz(csr_file_name, X_csr)
+        np.save(y_file_name, y)
+
+        end = time.time()
+        print(f"save csr_matrix took: {end - start}")
+
+    print(f"csr_matrix shape is: {X_csr.shape}")
+    print(f"y shape is: {y.shape}")
+
+
+def test_sparse_nnz_int64():
+    datatype=np.float32
+    nrows = int(1e8)
+    ncols = int(22)
+    fit_intercept = True
+    verbose = True
+
+    csr_file_name = f"/raid/spark-team/jinfengl/nr{nrows}_nc{ncols}.npz"
+    y_file_name = f"/raid/spark-team/jinfengl/nr{nrows}_nc{ncols}.npy"
+
+    import time
+    start = time.time()
+    X_csr = load_npz(csr_file_name)
+    y = np.load(y_file_name)
+    print(f"loading X_csr and y took {time.time() - start} secs")
+    print(f"X_csr.nnz: {X_csr.nnz}")
+    print(f"X_csr.indptr.dtype: {X_csr.indptr.dtype}")
+    print(f"X_csr.indices.dtype: {X_csr.indices.dtype}")
+
+    #from cupyx.scipy.sparse import csr_matrix as cupyx_csr_matrix
+    #start = time.time()
+    #X_csr_gpu = cupyx_csr_matrix(X_csr)
+    #print(f"constructing gpu csr_matrix took {time.time() - start} secs")
+    #print(f"X_csr_gpu.nnz: {X_csr_gpu.nnz}")
+    #print(f"X_csr_gpu.indptr.dtype: {X_csr_gpu.indptr.dtype}")
+    #print(f"X_csr_gpu.indices.dtype: {X_csr_gpu.indices.dtype}")
+
+    from cuml.internals.array_sparse import SparseCumlArray
+    start = time.time()
+    X_m = SparseCumlArray(X_csr, convert_index=False)
+    print(f"create X_m sparse cuml array took {time.time() - start} secs")
+    print(f"X_m.shape: {X_m.shape}, and X_m.nnz: {X_m.nnz}")
+    print(f"X_m.indptr.dtype: {X_m.indptr.dtype}")
+    print(f"X_m.indices.dtype: {X_m.indices.dtype}")
+
+    #start = time.time()
+    #accuracy = run_sk_lr(X_csr, y, fit_intercept=fit_intercept)
+    #print(f"run sk lr took {time.time() - start} secs, accuracy {accuracy}")
+
+
+    # from cuml.linear_model import LogisticRegression as SG
+    # sg = SG(fit_intercept=fit_intercept, verbose=verbose)
+    # sg.fit(X, y)
+    
+
