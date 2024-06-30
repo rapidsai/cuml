@@ -73,6 +73,9 @@ class MGFitMixin(object):
 
             if i == 0:
                 self.dtype = X_m.dtype
+                if sparse_input:
+                    self.index_dtype = X_m.indptr.dtype
+
 
             y_m, *_ = input_to_cuml_array(input_data[i][1],
                                           check_dtype=self.dtype)

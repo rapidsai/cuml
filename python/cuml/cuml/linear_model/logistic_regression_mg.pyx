@@ -300,20 +300,38 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                 X_row_ids = X[2]
                 X_nnz = X[3]
 
-                qnFitSparse(
-                    handle_[0],
-                    deref(<vector[floatData_t*]*><uintptr_t>X_values),
-                    <int*><uintptr_t>X_cols,
-                    <int*><uintptr_t>X_row_ids,
-                    <int> X_nnz,
-                    deref(<PartDescriptor*><uintptr_t>input_desc),
-                    deref(<vector[floatData_t*]*><uintptr_t>y),
-                    <float*>mat_coef_ptr,
-                    qnpams,
-                    <bool> self.standardization,
-                    <int> self._num_classes,
-                    <float*> &objective32,
-                    <int*> &num_iters)
+                if self.index_dtype == np.int32:
+                    qnFitSparse(
+                        handle_[0],
+                        deref(<vector[floatData_t*]*><uintptr_t>X_values),
+                        <int*><uintptr_t>X_cols,
+                        <int*><uintptr_t>X_row_ids,
+                        <int> X_nnz,
+                        deref(<PartDescriptor*><uintptr_t>input_desc),
+                        deref(<vector[floatData_t*]*><uintptr_t>y),
+                        <float*>mat_coef_ptr,
+                        qnpams,
+                        <bool> self.standardization,
+                        <int> self._num_classes,
+                        <float*> &objective32,
+                        <int*> &num_iters)
+
+                else:
+                    assert self.index_dtype == np.int64, f"unsupported index dtype: {self.index_dtype}"
+                    qnFitSparse(
+                        handle_[0],
+                        deref(<vector[floatData_t*]*><uintptr_t>X_values),
+                        <int64_t *><uintptr_t>X_cols,
+                        <int64_t *><uintptr_t>X_row_ids,
+                        <int64_t> X_nnz,
+                        deref(<PartDescriptor*><uintptr_t>input_desc),
+                        deref(<vector[floatData_t*]*><uintptr_t>y),
+                        <float*>mat_coef_ptr,
+                        qnpams,
+                        <bool> self.standardization,
+                        <int> self._num_classes,
+                        <float*> &objective32,
+                        <int*> &num_iters)
 
             self.solver_model.objective = objective32
 
