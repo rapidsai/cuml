@@ -133,20 +133,20 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         double *f,
         int *num_iters) except +
 
-    #cdef void qnFitSparse(
-    #    handle_t& handle,
-    #    vector[floatData_t *] input_values,
-    #    int64_t *input_cols,
-    #    int64_t *input_row_ids,
-    #    int64_t X_nnz,
-    #    PartDescriptor &input_desc,
-    #    vector[floatData_t *] labels,
-    #    float *coef,
-    #    const qn_params& pams,
-    #    bool standardization,
-    #    int n_classes,
-    #    float *f,
-    #    int *num_iters) except +
+    cdef void qnFitSparse(
+        handle_t& handle,
+        vector[floatData_t *] input_values,
+        int64_t *input_cols,
+        int64_t *input_row_ids,
+        int64_t X_nnz,
+        PartDescriptor &input_desc,
+        vector[floatData_t *] labels,
+        float *coef,
+        const qn_params& pams,
+        bool standardization,
+        int n_classes,
+        float *f,
+        int *num_iters) except +
 
 
 class LogisticRegressionMG(MGFitMixin, LogisticRegression):

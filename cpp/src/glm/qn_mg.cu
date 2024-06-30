@@ -371,7 +371,6 @@ template void qnFitSparse<double, int>(raft::handle_t& handle,
                           double* f,
                           int* num_iters);
 
-/*
 template void qnFitSparse<float, int64_t>(raft::handle_t& handle,
                           std::vector<Matrix::Data<float>*>& input_values,
                           int64_t* input_cols,
@@ -385,7 +384,6 @@ template void qnFitSparse<float, int64_t>(raft::handle_t& handle,
                           int n_classes,
                           float* f,
                           int* num_iters);
-                          */
 
 };  // namespace opg
 };  // namespace GLM
