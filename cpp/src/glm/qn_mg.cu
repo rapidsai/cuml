@@ -272,7 +272,7 @@ void qnFitSparse_impl(const raft::handle_t& handle,
                       int rank,
                       int n_ranks)
 {
-  auto X_simple = SimpleSparseMat<T>(X_values, X_cols, X_row_ids, X_nnz, N, D);
+  auto X_simple = SimpleSparseMat<T, I>(X_values, X_cols, X_row_ids, X_nnz, N, D);
 
   size_t vec_size = raft::alignTo<size_t>(sizeof(T) * D, ML::GLM::detail::qn_align);
   rmm::device_uvector<T> mean_std_buff(4 * vec_size, handle.get_stream());
@@ -303,12 +303,12 @@ void qnFitSparse_impl(const raft::handle_t& handle,
   return;
 }
 
-template <typename T>
+template <typename T, typename I=int>
 void qnFitSparse(raft::handle_t& handle,
                  std::vector<Matrix::Data<T>*>& input_values,
-                 int* input_cols,
-                 int* input_row_ids,
-                 int X_nnz,
+                 I* input_cols,
+                 I* input_row_ids,
+                 I X_nnz,
                  Matrix::PartDescriptor& input_desc,
                  std::vector<Matrix::Data<T>*>& labels,
                  T* coef,
@@ -324,7 +324,7 @@ void qnFitSparse(raft::handle_t& handle,
   auto data_input_values = input_values[0];
   auto data_y            = labels[0];
 
-  qnFitSparse_impl<T, int>(handle,
+  qnFitSparse_impl(handle,
                            pams,
                            data_input_values->ptr,
                            input_cols,
@@ -343,7 +343,7 @@ void qnFitSparse(raft::handle_t& handle,
                            input_desc.uniqueRanks().size());
 }
 
-template void qnFitSparse(raft::handle_t& handle,
+template void qnFitSparse<float, int>(raft::handle_t& handle,
                           std::vector<Matrix::Data<float>*>& input_values,
                           int* input_cols,
                           int* input_row_ids,
@@ -357,7 +357,7 @@ template void qnFitSparse(raft::handle_t& handle,
                           float* f,
                           int* num_iters);
 
-template void qnFitSparse(raft::handle_t& handle,
+template void qnFitSparse<double, int>(raft::handle_t& handle,
                           std::vector<Matrix::Data<double>*>& input_values,
                           int* input_cols,
                           int* input_row_ids,
@@ -370,6 +370,22 @@ template void qnFitSparse(raft::handle_t& handle,
                           int n_classes,
                           double* f,
                           int* num_iters);
+
+/*
+template void qnFitSparse<float, int64_t>(raft::handle_t& handle,
+                          std::vector<Matrix::Data<float>*>& input_values,
+                          int64_t* input_cols,
+                          int64_t* input_row_ids,
+                          int64_t X_nnz,
+                          Matrix::PartDescriptor& input_desc,
+                          std::vector<Matrix::Data<float>*>& labels,
+                          float* coef,
+                          const qn_params& pams,
+                          bool standardization,
+                          int n_classes,
+                          float* f,
+                          int* num_iters);
+                          */
 
 };  // namespace opg
 };  // namespace GLM
