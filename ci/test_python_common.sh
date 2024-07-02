@@ -28,7 +28,7 @@ set -u
 # exception=ImportError('/opt/conda/envs/test/lib/python3.10/site-packages/cuml/internals/../../../.././libgomp.so.1: cannot allocate memory in static TLS block')>)
 # this should avoid that/opt/conda/lib
 if [[ "$(arch)" == "aarch64" ]]; then
-  export LD_PRELOAD=/opt/conda/lib/libgomp.so.1
+  export LD_PRELOAD=/opt/conda/envs/test/lib/libgomp.so.1
 fi
 
 rapids-print-env
