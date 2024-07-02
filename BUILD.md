@@ -91,7 +91,7 @@ $ pytest --ignore=cuml/tests/dask --ignore=cuml/tests/test_nccl.py
 
 If you want a list of the available Python tests:
 ```bash
-$ pytest cuML/tests --collect-only
+$ pytest cuml/tests --collect-only
 ```
 
 ### Manual Process

@@ -58,6 +58,7 @@ def test_pca_fit(datatype, input_type, name, use_handle):
             allow_unlabeled=False,
             random_state=1,
         )
+    X = X.astype(datatype)
 
     skpca = skPCA(n_components=2)
     skpca.fit(X)

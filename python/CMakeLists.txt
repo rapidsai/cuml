@@ -108,6 +108,7 @@ if(CUML_CPU)
 
   set(CUML_ALGORITHMS "linearregression")
   list(APPEND CUML_ALGORITHMS "pca")
+  list(APPEND CUML_ALGORITHMS "kpca")
   list(APPEND CUML_ALGORITHMS "tsvd")
   list(APPEND CUML_ALGORITHMS "elasticnet")
   list(APPEND CUML_ALGORITHMS "logisticregression")
@@ -178,6 +179,7 @@ add_subdirectory(cuml/svm)
 add_subdirectory(cuml/tsa)
 
 add_subdirectory(cuml/experimental/linear_model)
+add_subdirectory(cuml/experimental/decomposition)
 
 if(DEFINED cython_lib_dir)
   rapids_cython_add_rpath_entries(TARGET cuml PATHS "${cython_lib_dir}")

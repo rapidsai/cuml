@@ -52,6 +52,7 @@ else()
     if(decomposition_algo)
       set(pca_algo ON)
       set(tsvd_algo ON)
+      set(kpca_algo ON)
     endif()
 
     if(ensemble_algo)

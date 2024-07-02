@@ -79,10 +79,11 @@ class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
   bool whiten = false;
 };
 
-template <typename enum_solver = solver, typename enum_kernel = MLCommon::Matrix::KernelParams>
+template <typename enum_solver = solver>
 class paramsKPCATemplate : public paramsTSVDTemplate<enum_solver> {
  public:
-  enum_kernel kernel; // KernelParams
+  MLCommon::Matrix::KernelParams kernel;
+  size_t n_training_samples = 0;
   bool copy = true;  // TODO unused
   bool remove_zero_eig = false; // TODO unused
   bool fit_inverse_transform = false; // TODO unused

@@ -38,4 +38,16 @@ void kpcaTransform(raft::handle_t &handle, double *input, double *alphas, double
   kpcaTransform(handle, input, alphas, lambdas, trans_input, prms, handle.get_stream());
 }
 
+void kpcaTransform2(const raft::handle_t &handle, float *fit_input, float *input,
+                   float *eigenvectors, float *eigenvalues,
+                   float *trans_input, const ML::paramsKPCA &prms) {
+  kpcaTransform2(handle, fit_input, input, eigenvectors, eigenvalues, trans_input, prms, handle.get_stream());
+}
+
+void kpcaTransform2(const raft::handle_t &handle, double *fit_input, double *input,
+                   double *eigenvectors, double *eigenvalues,
+                   double *trans_input, const ML::paramsKPCA &prms) {
+  kpcaTransform2(handle, fit_input, input, eigenvectors, eigenvalues, trans_input, prms, handle.get_stream());
+}
+
 }
