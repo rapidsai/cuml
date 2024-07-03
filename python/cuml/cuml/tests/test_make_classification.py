@@ -117,6 +117,9 @@ def test_make_classification_informative_features():
             signs = np.sign(cp.asnumpy(X))
             signs = signs.view(dtype="|S{0}".format(signs.strides[0]))
             unique_signs, cluster_index = np.unique(signs, return_inverse=True)
+            # NumPy 2 has a behavior change (maybe regression) for the inverse shape
+            # https://github.com/numpy/numpy/issues/26738. This always works:
+            cluster_index = cluster_index.reshape(-1)
 
             assert (
                 len(unique_signs) == n_clusters
