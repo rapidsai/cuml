@@ -214,7 +214,7 @@ def _sparse_min_or_max(X, axis, min_or_max):
         if np.isnan(m):
             if 'nan' in min_or_max:
                 m = 0
-        elif X.nnz != cpu_np.product(X.shape):
+        elif X.nnz != cpu_np.prod(X.shape):
             if 'min' in min_or_max:
                 m = m if m <= 0 else 0
             else:
