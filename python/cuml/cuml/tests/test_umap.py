@@ -420,9 +420,9 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
         )
         return reducer.fit_transform(data, convert_dtype=True)
 
-    state = copy.copy(random_state)
+    state = copy.deepcopy(random_state)
     cuml_embedding1 = get_embedding(n_components, state)
-    state = copy.copy(random_state)
+    state = copy.deepcopy(random_state)
     cuml_embedding2 = get_embedding(n_components, state)
 
     assert not np.isnan(cuml_embedding1).any()
@@ -475,9 +475,9 @@ def test_umap_transform_reproducibility(n_components, random_state):
         reducer.fit(fit_data, convert_dtype=True)
         return reducer.transform(transform_data, convert_dtype=True)
 
-    state = copy.copy(random_state)
+    state = copy.deepcopy(random_state)
     cuml_embedding1 = get_embedding(n_components, state)
-    state = copy.copy(random_state)
+    state = copy.deepcopy(random_state)
     cuml_embedding2 = get_embedding(n_components, state)
 
     assert not np.isnan(cuml_embedding1).any()
