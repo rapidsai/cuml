@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 #pragma once
+
+#include <stdint.h>
 
 namespace raft {
 class handle_t;
@@ -47,6 +49,37 @@ void fit_embedding(const raft::handle_t& handle,
                    int n_components,
                    float* out,
                    unsigned long long seed = 1234567);
+
+struct SpectralParams {};
+
+/**
+ * @brief Dimensionality reduction via TSNE using Barnes-Hut, Fourier Interpolation, or naive
+ * methods. or brute force O(N^2).
+ *
+ * @param[in]  handle              The GPU handle.
+ * @param[in]  X                   The row-major dataset in device memory.
+ * @param[out] Y                   The column-major final embedding in device memory
+ * @param[in]  n                   Number of rows in data X.
+ * @param[in]  p                   Number of columns in data X.
+ * @param[in]  knn_indices         Array containing nearest neighbors indices.
+ * @param[in]  knn_dists           Array containing nearest neighbors distances.
+ * @param[in]  params              Parameters for TSNE model
+ * @param[out] kl_div              (optional) KL divergence output
+ *
+ * The CUDA implementation is derived from the excellent CannyLabs open source
+ * implementation here: https://github.com/CannyLab/tsne-cuda/. The CannyLabs
+ * code is licensed according to the conditions in
+ * cuml/cpp/src/tsne/cannylabs_tsne_license.txt. A full description of their
+ * approach is available in their article t-SNE-CUDA: GPU-Accelerated t-SNE and
+ * its Applications to Modern Data (https://arxiv.org/abs/1807.11824).
+ */
+void spectral_fit(const raft::handle_t& handle,
+                  float* X,
+                  float* Y,
+                  int n,
+                  int p,
+                  int* knn_indices,
+                  float* knn_dists);
 
 }  // namespace Spectral
 }  // namespace ML

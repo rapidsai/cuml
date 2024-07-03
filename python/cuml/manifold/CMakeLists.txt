@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -18,6 +18,8 @@ set(cython_sources "")
 add_module_gpu_default("simpl_set.pyx" ${simpl_set_algo} ${manifold_algo})
 add_module_gpu_default("t_sne.pyx" ${t_sne_algo} ${manifold_algo})
 add_module_gpu_default("umap.pyx" ${umap_algo} ${manifold_algo})
+add_module_gpu_default("spectral.pyx" ${spectral_algo} ${manifold_algo})
+
 add_module_gpu_default("umap_utils.pyx")
 
 rapids_cython_create_modules(

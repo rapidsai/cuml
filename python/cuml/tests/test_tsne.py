@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -209,6 +209,35 @@ def test_tsne(test_datasets, method):
 
     Y = tsne.fit_transform(X)
     validate_embedding(X, Y)
+
+
+def test_spectral():
+    from sklearn.manifold import SpectralEmbedding
+    from cuml.manifold import SpectralEmbedding as cuSpectralEmbedding
+    from sklearn.datasets import load_digits
+
+    from cuml.manifold.umap import UMAP
+
+    X, _ = load_digits(return_X_y=True)
+    X = X[:1000]
+    print("")
+    print(X.shape)
+    print("")
+    print(X)
+
+    s = cuSpectralEmbedding(n_components=2, n_neighbors=90, random_state=1234)
+    Y = s.fit_transform(X)
+    print(Y)
+    print(Y.shape)
+
+    validate_embedding(X, Y)
+
+    # cuml_model = UMAP(
+    #     n_neighbors=10, min_dist=0.01, metric="euclidean", init="spectral"
+    # )
+    # e1 = cuml_model.fit_transform(X)
+    # print(e1)
+    # print(e1.shape)
 
 
 @pytest.mark.parametrize("nrows", [stress_param(2400000)])
