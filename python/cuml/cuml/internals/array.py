@@ -1169,8 +1169,8 @@ class CumlArray:
 
         make_copy = force_contiguous and not arr.is_contiguous
         if not make_copy:
-           # NumPy now interprets False as never copy, so must use None
-           make_copy = None
+            # NumPy now interprets False as never copy, so must use None
+            make_copy = None
 
         if (
             not fail_on_order and order != arr.order and order != "K"
