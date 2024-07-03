@@ -38,155 +38,155 @@ cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
 
 
-# @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-# @pytest.mark.parametrize("input_type", ["ndarray"])
-# @pytest.mark.parametrize("use_handle", [True, False])
-# @pytest.mark.parametrize(
-#     "name", [unit_param(None), quality_param("digits"), stress_param("blobs")]
-# )
-# @pytest.mark.parametrize("kernel", ["linear", "poly", "rbf", "sigmoid"])
-# def test_kpca_fit(datatype, input_type, name, use_handle, kernel):
-#     if name == "blobs":
-#         pytest.skip("fails when using blobs dataset")
-#         X, y = make_blobs(n_samples=500000, n_features=1000, random_state=0)
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("input_type", ["ndarray"])
+@pytest.mark.parametrize("use_handle", [True, False])
+@pytest.mark.parametrize(
+    "name", [unit_param(None), quality_param("digits"), stress_param("blobs")]
+)
+@pytest.mark.parametrize("kernel", ["linear", "poly", "rbf", "sigmoid"])
+def test_kpca_fit(datatype, input_type, name, use_handle, kernel):
+    if name == "blobs":
+        pytest.skip("fails when using blobs dataset")
+        X, y = make_blobs(n_samples=500000, n_features=1000, random_state=0)
 
-#     elif name == "digits":
-#         X, _ = datasets.load_digits(return_X_y=True)
+    elif name == "digits":
+        X, _ = datasets.load_digits(return_X_y=True)
 
-#     else:
-#         X, Y = make_multilabel_classification(
-#             n_samples=500,
-#             n_classes=2,
-#             n_labels=1,
-#             allow_unlabeled=False,
-#             random_state=1,
-#         )
+    else:
+        X, Y = make_multilabel_classification(
+            n_samples=500,
+            n_classes=2,
+            n_labels=1,
+            allow_unlabeled=False,
+            random_state=1,
+        )
 
-#     X = X.astype(datatype)
-#     kernel = 'linear'
-#     skpca = skKernelPCA(n_components=4, kernel=kernel)
-#     skpca.fit(X)
+    X = X.astype(datatype)
+    kernel = 'linear'
+    skpca = skKernelPCA(n_components=4, kernel=kernel)
+    skpca.fit(X)
 
-#     handle, stream = get_handle(use_handle)
-#     cupca = cuKernelPCA(n_components=4, handle=handle, kernel=kernel)
-#     cupca.fit(X)
-#     cupca.handle.sync()
+    handle, stream = get_handle(use_handle)
+    cupca = cuKernelPCA(n_components=4, handle=handle, kernel=kernel)
+    cupca.fit(X)
+    cupca.handle.sync()
 
-#     for attr in [
-#         "eigenvectors_",
-#         "eigenvalues_",
-#     ]:
-#         # with_sign = False if attr in ["components_"] else True TODO(TOMAS)
-#         cuml_res = getattr(cupca, attr)
+    for attr in [
+        "eigenvectors_",
+        "eigenvalues_",
+    ]:
+        # with_sign = False if attr in ["components_"] else True TODO(TOMAS)
+        cuml_res = getattr(cupca, attr)
 
-#         skl_res = getattr(skpca, attr)
-#         assert array_equal(cuml_res, skl_res, 1e-1, total_tol=1e-1, with_sign=True)
+        skl_res = getattr(skpca, attr)
+        assert array_equal(cuml_res, skl_res, 1e-1, total_tol=1e-1, with_sign=True)
 
-# @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-# @pytest.mark.parametrize("input_type", ["ndarray"])
-# @pytest.mark.parametrize("use_handle", [True, False])
-# @pytest.mark.parametrize(
-#     "name", [unit_param(None), quality_param("iris"), stress_param("blobs")]
-# )
-# @pytest.mark.parametrize("kernel", ["linear", "poly", "rbf", "sigmoid"])
-# def test_kpca_fit_then_transform(datatype, input_type, name, use_handle, kernel):
-#     blobs_n_samples = 500000
-#     if name == "blobs" and pytest.max_gpu_memory < 32:
-#         if pytest.adapt_stress_test:
-#             blobs_n_samples = int(blobs_n_samples * pytest.max_gpu_memory / 32)
-#         else:
-#             pytest.skip(
-#                 "Insufficient GPU memory for this test."
-#                 "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'"
-#             )
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("input_type", ["ndarray"])
+@pytest.mark.parametrize("use_handle", [True, False])
+@pytest.mark.parametrize(
+    "name", [unit_param(None), quality_param("iris"), stress_param("blobs")]
+)
+@pytest.mark.parametrize("kernel", ["linear", "poly", "rbf", "sigmoid"])
+def test_kpca_fit_then_transform(datatype, input_type, name, use_handle, kernel):
+    blobs_n_samples = 500000
+    if name == "blobs" and pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            blobs_n_samples = int(blobs_n_samples * pytest.max_gpu_memory / 32)
+        else:
+            pytest.skip(
+                "Insufficient GPU memory for this test."
+                "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'"
+            )
 
-#     if name == "blobs":
-#         X, y = make_blobs(
-#             n_samples=blobs_n_samples, n_features=1000, random_state=0
-#         )
+    if name == "blobs":
+        X, y = make_blobs(
+            n_samples=blobs_n_samples, n_features=1000, random_state=0
+        )
 
-#     elif name == "iris":
-#         iris = datasets.load_iris()
-#         X = iris.data
+    elif name == "iris":
+        iris = datasets.load_iris()
+        X = iris.data
 
-#     else:
-#         X, Y = make_multilabel_classification(
-#             n_samples=500,
-#             n_classes=2,
-#             n_labels=1,
-#             allow_unlabeled=False,
-#             random_state=1,
-#         )
+    else:
+        X, Y = make_multilabel_classification(
+            n_samples=500,
+            n_classes=2,
+            n_labels=1,
+            allow_unlabeled=False,
+            random_state=1,
+        )
 
-#     X = X.astype(datatype)
-#     if name != "blobs":
-#         skpca = skKernelPCA(n_components=2, kernel=kernel)
-#         skpca.fit(X)
-#         X_sk = skpca.transform(X)
+    X = X.astype(datatype)
+    if name != "blobs":
+        skpca = skKernelPCA(n_components=2, kernel=kernel)
+        skpca.fit(X)
+        X_sk = skpca.transform(X)
 
-#     handle, stream = get_handle(use_handle)
-#     cupca = cuKernelPCA(n_components=2, handle=handle, kernel=kernel)
+    handle, stream = get_handle(use_handle)
+    cupca = cuKernelPCA(n_components=2, handle=handle, kernel=kernel)
 
-#     cupca.fit(X)
-#     X_cu = cupca.transform(X)
-#     cupca.handle.sync()
+    cupca.fit(X)
+    X_cu = cupca.transform(X)
+    cupca.handle.sync()
 
-#     if name != "blobs":
-#         assert array_equal(X_cu, X_sk, 1e-1, total_tol=1e-1, with_sign=True)
-#         assert X_sk.shape[0] == X_cu.shape[0]
-#         assert X_sk.shape[1] == X_cu.shape[1]
+    if name != "blobs":
+        assert array_equal(X_cu, X_sk, 1e-1, total_tol=1e-1, with_sign=True)
+        assert X_sk.shape[0] == X_cu.shape[0]
+        assert X_sk.shape[1] == X_cu.shape[1]
 
-# @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-# @pytest.mark.parametrize("input_type", ["ndarray"])
-# @pytest.mark.parametrize("use_handle", [True, False])
-# @pytest.mark.parametrize(
-#     "name", [unit_param(None), quality_param("iris"), stress_param("blobs")]
-# )
-# @pytest.mark.parametrize("kernel", ["linear", "poly", "rbf", "sigmoid"])
-# def test_kpca_fit_transform(datatype, input_type, name, use_handle, kernel):
-#     blobs_n_samples = 500000
-#     if name == "blobs" and pytest.max_gpu_memory < 32:
-#         if pytest.adapt_stress_test:
-#             blobs_n_samples = int(blobs_n_samples * pytest.max_gpu_memory / 32)
-#         else:
-#             pytest.skip(
-#                 "Insufficient GPU memory for this test."
-#                 "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'"
-#             )
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("input_type", ["ndarray"])
+@pytest.mark.parametrize("use_handle", [True, False])
+@pytest.mark.parametrize(
+    "name", [unit_param(None), quality_param("iris"), stress_param("blobs")]
+)
+@pytest.mark.parametrize("kernel", ["linear", "poly", "rbf", "sigmoid"])
+def test_kpca_fit_transform(datatype, input_type, name, use_handle, kernel):
+    blobs_n_samples = 500000
+    if name == "blobs" and pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            blobs_n_samples = int(blobs_n_samples * pytest.max_gpu_memory / 32)
+        else:
+            pytest.skip(
+                "Insufficient GPU memory for this test."
+                "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'"
+            )
 
-#     if name == "blobs":
-#         X, y = make_blobs(
-#             n_samples=blobs_n_samples, n_features=1000, random_state=0
-#         )
+    if name == "blobs":
+        X, y = make_blobs(
+            n_samples=blobs_n_samples, n_features=1000, random_state=0
+        )
 
-#     elif name == "iris":
-#         iris = datasets.load_iris()
-#         X = iris.data
+    elif name == "iris":
+        iris = datasets.load_iris()
+        X = iris.data
 
-#     else:
-#         X, Y = make_multilabel_classification(
-#             n_samples=500,
-#             n_classes=2,
-#             n_labels=1,
-#             allow_unlabeled=False,
-#             random_state=1,
-#         )
+    else:
+        X, Y = make_multilabel_classification(
+            n_samples=500,
+            n_classes=2,
+            n_labels=1,
+            allow_unlabeled=False,
+            random_state=1,
+        )
 
-#     X = X.astype(datatype)
-#     if name != "blobs":
-#         skpca = skKernelPCA(n_components=2, kernel=kernel)
-#         X_sk = skpca.fit_transform(X)
+    X = X.astype(datatype)
+    if name != "blobs":
+        skpca = skKernelPCA(n_components=2, kernel=kernel)
+        X_sk = skpca.fit_transform(X)
 
-#     handle, stream = get_handle(use_handle)
-#     cupca = cuKernelPCA(n_components=2, handle=handle, kernel=kernel)
+    handle, stream = get_handle(use_handle)
+    cupca = cuKernelPCA(n_components=2, handle=handle, kernel=kernel)
 
-#     X_cu = cupca.fit_transform(X)
-#     cupca.handle.sync()
+    X_cu = cupca.fit_transform(X)
+    cupca.handle.sync()
 
-#     if name != "blobs":
-#         assert array_equal(X_cu, X_sk, 1e-1, total_tol=1e-1, with_sign=True)
-#         assert X_sk.shape[0] == X_cu.shape[0]
-#         assert X_sk.shape[1] == X_cu.shape[1]
+    if name != "blobs":
+        assert array_equal(X_cu, X_sk, 1e-1, total_tol=1e-1, with_sign=True)
+        assert X_sk.shape[0] == X_cu.shape[0]
+        assert X_sk.shape[1] == X_cu.shape[1]
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("input_type", ["ndarray"])
