@@ -153,7 +153,7 @@ versioneer\.py |
 [tool.rapids-build-backend]
 build-backend = "scikit_build_core.build"
 requires = [
-    "cmake>=3.26.4",
+    "cmake>=3.26.4,!=3.30.0",
     "cuda-python",
     "cython>=3.0.0",
     "ninja",
