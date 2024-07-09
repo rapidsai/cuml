@@ -234,13 +234,13 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
             self.solver_model._coef_ = CumlArray.zeros(
                 coef_size, dtype=self.dtype, order='C')
 
-    def fit(self, input_data, n_rows, n_cols, parts_rank_size, rank, convert_dtype=False):
+    def fit(self, input_data, n_rows, n_cols, parts_rank_size, rank, convert_dtype=False, convert_index=False):
 
         assert len(input_data) == 1, f"Currently support only one (X, y) pair in the list. Received {len(input_data)} pairs."
         self.is_col_major = False
         order = 'F' if self.is_col_major else 'C'
 
-        super().fit(input_data, n_rows, n_cols, parts_rank_size, rank, order=order, convert_index=False)
+        super().fit(input_data, n_rows, n_cols, parts_rank_size, rank, order=order, convert_index=convert_index)
 
     @cuml.internals.api_base_return_any_skipall
     def _fit(self, X, y, coef_ptr, input_desc):
