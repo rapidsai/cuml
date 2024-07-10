@@ -85,11 +85,12 @@ if(NOT ${CUML_CPU})
 
     # Statically link dependencies if building wheels
     set(CUDA_STATIC_RUNTIME ON)
-    set(CUDA_STATIC_MATH_LIBRARIES ON)
     set(CUML_USE_RAFT_STATIC ON)
     set(CUML_USE_FAISS_STATIC ON)
     set(CUML_USE_TREELITE_STATIC ON)
     set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
+    # Use the CUDA library wheels
+    set(CUDA_STATIC_MATH_LIBRARIES OFF)
     # Don't install the static libs into wheels
     set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
     set(RAFT_EXCLUDE_FAISS_FROM_ALL ON)
@@ -97,6 +98,15 @@ if(NOT ${CUML_CPU})
     set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
 
     add_subdirectory(../cpp cuml-cpp EXCLUDE_FROM_ALL)
+
+    set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH
+      "$ORIGIN/../nvidia/cublas/lib"
+      "$ORIGIN/../nvidia/cufft/lib"
+      "$ORIGIN/../nvidia/curand/lib"
+      "$ORIGIN/../nvidia/cusolver/lib"
+      "$ORIGIN/../nvidia/cusparse/lib"
+      "$ORIGIN/../nvidia/nvjitlink/lib"
+    )
 
     set(cython_lib_dir cuml)
     install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
