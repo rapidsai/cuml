@@ -80,12 +80,12 @@ void mean_stddev(const raft::handle_t& handle,
   raft::linalg::sqrt(stddev_vector, stddev_vector, D, handle.get_stream());
 }
 
-template <typename T, typename I=int>
+template <typename T, typename I = int>
 SimpleSparseMat<T, I> get_sub_mat(const raft::handle_t& handle,
-                               SimpleSparseMat<T, I> mat,
-                               int start,
-                               int end,
-                               rmm::device_uvector<I>& buff_row_ids)
+                                  SimpleSparseMat<T, I> mat,
+                                  int start,
+                                  int end,
+                                  rmm::device_uvector<I>& buff_row_ids)
 {
   end         = end <= mat.m ? end : mat.m;
   int n_rows  = end - start;
@@ -113,7 +113,7 @@ SimpleSparseMat<T, I> get_sub_mat(const raft::handle_t& handle,
   return res;
 }
 
-template <typename T, typename I=int>
+template <typename T, typename I = int>
 void mean(const raft::handle_t& handle,
           const SimpleSparseMat<T, I>& X,
           size_t n_samples,
@@ -153,7 +153,7 @@ void mean(const raft::handle_t& handle,
   comm.sync_stream(stream);
 }
 
-template <typename T, typename I=int>
+template <typename T, typename I = int>
 void mean_stddev(const raft::handle_t& handle,
                  const SimpleSparseMat<T, I>& X,
                  size_t n_samples,
@@ -170,7 +170,8 @@ void mean_stddev(const raft::handle_t& handle,
   auto square_op = [] __device__(const T a) { return a * a; };
   raft::linalg::unaryOp(X_values_squared.data(), X_values_squared.data(), X.nnz, square_op, stream);
 
-  auto X_squared = SimpleSparseMat<T, I>(X_values_squared.data(), X.cols, X.row_ids, X.nnz, X.m, X.n);
+  auto X_squared =
+    SimpleSparseMat<T, I>(X_values_squared.data(), X.cols, X.row_ids, X.nnz, X.m, X.n);
 
   mean(handle, X_squared, n_samples, stddev_vector);
 
@@ -227,7 +228,7 @@ struct Standardizer {
     raft::linalg::binaryOp(scaled_mean.data, std_inv.data, mean.data, D, raft::mul_op(), stream);
   }
 
-  template<typename I=int>
+  template <typename I = int>
   Standardizer(const raft::handle_t& handle,
                const SimpleSparseMat<T, I>& X,
                size_t n_samples,

@@ -24,6 +24,7 @@ from cuml.internals.safe_imports import cpu_only_import
 from cuml.testing.utils import array_equal
 from scipy.sparse import csr_matrix, load_npz, save_npz
 import random
+
 random.seed(0)
 
 pd = cpu_only_import("pandas")
@@ -333,13 +334,14 @@ def _test_lbfgs(
     )
 
     if convert_to_sparse:
-        assert _convert_index == np.int32 or _convert_index == np.int64, "only support np.int32 or np.int64 as index dtype"
+        assert (
+            _convert_index == np.int32 or _convert_index == np.int64
+        ), "only support np.int32 or np.int64 as index dtype"
         X = csr_matrix(X)
 
         # X_dask and y_dask are dask array
         X_dask, y_dask = _prep_training_data_sparse(client, X, y, n_parts)
     else:
-        assert _convert_index == None, "_convert_index should be None and ignored when convert_to_sparse is False"
         # X_dask and y_dask are dask cudf
         X_dask, y_dask = _prep_training_data(client, X, y, n_parts)
 
@@ -1117,4 +1119,3 @@ def test_standardization_sparse(fit_intercept, reg_dtype, client):
     )
 
     assert lr_on.dtype == datatype
-

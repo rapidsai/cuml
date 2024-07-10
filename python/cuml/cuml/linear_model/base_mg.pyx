@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,7 +75,6 @@ class MGFitMixin(object):
                 self.dtype = X_m.dtype
                 if sparse_input:
                     self.index_dtype = X_m.indptr.dtype
-
 
             y_m, *_ = input_to_cuml_array(input_data[i][1],
                                           check_dtype=self.dtype)

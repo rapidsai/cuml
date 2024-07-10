@@ -44,7 +44,7 @@ namespace ML {
  *
  * However, when the data comes from the outside, we cannot guarantee that.
  */
-template <typename T, typename I=int>
+template <typename T, typename I = int>
 struct SimpleSparseMat : SimpleMat<T> {
   typedef SimpleMat<T> Super;
   T* values;
@@ -74,8 +74,8 @@ struct SimpleSparseMat : SimpleMat<T> {
                     cudaStream_t stream) const override
   {
     const SimpleSparseMat<T, I>& B = *this;
-    int kA                      = A.n;
-    int kB                      = B.m;
+    int kA                         = A.n;
+    int kB                         = B.m;
 
     if (transA) {
       ASSERT(A.n == C.m, "GEMM invalid dims: m");
@@ -167,7 +167,7 @@ struct SimpleSparseMat : SimpleMat<T> {
   }
 };
 
-template <typename T, typename I=int>
+template <typename T, typename I = int>
 inline void check_csr(const SimpleSparseMat<T, I>& mat, cudaStream_t stream)
 {
   I row_ids_nnz;
@@ -178,7 +178,7 @@ inline void check_csr(const SimpleSparseMat<T, I>& mat, cudaStream_t stream)
          "the last element must be equal nnz.");
 }
 
-template <typename T, typename I=int>
+template <typename T, typename I = int>
 std::ostream& operator<<(std::ostream& os, const SimpleSparseMat<T, I>& mat)
 {
   check_csr(mat, 0);
