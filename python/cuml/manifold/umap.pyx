@@ -293,8 +293,8 @@ class UMAP(UniversalBase,
     build_algo: string (default='brute_force_knn')
         How to build the knn graph. Supported build algorithms are ['brute_force_knn',
         'nn_descent']
-    metric_kwds: dict (optional, default=None)
-        Build algorithm argument
+    build_kwds: dict (optional, default=None)
+        Build algorithm argument {'nnd_graph_degree': 64, 'nnd_intermediate_graph_degree': 128, 'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_return_distances': True}
 
     Notes
     -----
@@ -354,9 +354,9 @@ class UMAP(UniversalBase,
                  callback=None,
                  handle=None,
                  verbose=False,
-                 output_type=None,
                  build_algo="brute_force_knn",
-                 build_kwds=None):
+                 build_kwds=None
+                 output_type=None,):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -774,6 +774,7 @@ class UMAP(UniversalBase,
                                                                self.sparse_fit)
             # NN Descent doesn't support transform yet
             umap_params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
+            logger.warn("NN Descent does not support transform. Using Brute force instead.")
 
             cdef handle_t * handle_ = \
                 <handle_t*> <size_t> self.handle.getHandle()
