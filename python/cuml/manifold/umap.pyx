@@ -294,7 +294,8 @@ class UMAP(UniversalBase,
         How to build the knn graph. Supported build algorithms are ['brute_force_knn',
         'nn_descent']
     build_kwds: dict (optional, default=None)
-        Build algorithm argument {'nnd_graph_degree': 64, 'nnd_intermediate_graph_degree': 128, 'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_return_distances': True}
+        Build algorithm argument {'nnd_graph_degree': 64, 'nnd_intermediate_graph_degree': 128,
+        'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_return_distances': True}
 
     Notes
     -----
