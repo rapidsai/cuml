@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <cuml/common/utils.hpp>
 #include <cuml/manifold/common.hpp>
 #include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn_sparse.hpp>
@@ -61,6 +62,17 @@ struct DistancePostProcessSqrt {
   DI value_t operator()(value_t value, value_idx row, value_idx col) const { return sqrtf(value); }
 };
 
+template <typename T>
+CUML_KERNEL void copy_first_k_cols(T* out, T* in, size_t out_k, size_t in_k, size_t nrows)
+{
+  size_t row = blockIdx.x * blockDim.x + threadIdx.x;
+  if (row < nrows) {
+    for (size_t i = 0; i < out_k; i++) {
+      out[row * out_k + i] = in[row * in_k + i];
+    }
+  }
+}
+
 // Instantiation for dense inputs, int64_t indices
 template <>
 inline void launcher(const raft::handle_t& handle,
@@ -101,28 +113,30 @@ inline void launcher(const raft::handle_t& handle,
     auto graph = NNDescent::detail::build<float, int64_t>(
       handle, params->nn_descent_params, dataset, epilogue);
 
-    // nn descent does not include itself as its closest neighbor
-    for (int i = 0; i < inputsB.n; i++) {
-      if (graph.distances().has_value()) {
-        raft::copy(
-          out.knn_dists + i * n_neighbors + 1,
-          graph.distances().value().data_handle() + i * params->nn_descent_params.graph_degree,
-          n_neighbors - 1,
-          handle.get_stream());
-        thrust::fill(thrust::device.on(stream),
-                     out.knn_dists + i * n_neighbors,
-                     out.knn_dists + i * n_neighbors + 1,
-                     0.0);
-      }
-      raft::copy(out.knn_indices + i * n_neighbors + 1,
-                 graph.graph().data_handle() + i * params->nn_descent_params.graph_degree,
-                 n_neighbors - 1,
-                 handle.get_stream());
-      thrust::fill(thrust::device.on(stream),
-                   out.knn_indices + i * n_neighbors,
-                   out.knn_indices + i * n_neighbors + 1,
-                   i);
+    auto indices_d = raft::make_device_matrix<int64_t, int64_t>(
+      handle, inputsA.n, params->nn_descent_params.graph_degree);
+
+    raft::copy(indices_d.data_handle(),
+               graph.graph().data_handle(),
+               inputsA.n * params->nn_descent_params.graph_degree,
+               stream);
+
+    size_t TPB        = 256;
+    size_t num_blocks = static_cast<size_t>((inputsA.n + TPB) / TPB);
+    if (graph.distances().has_value()) {
+      copy_first_k_cols<float>
+        <<<num_blocks, TPB, 0, stream>>>(out.knn_dists,
+                                         graph.distances().value().data_handle(),
+                                         static_cast<size_t>(n_neighbors),
+                                         params->nn_descent_params.graph_degree,
+                                         inputsA.n);
     }
+    copy_first_k_cols<int64_t>
+      <<<num_blocks, TPB, 0, stream>>>(out.knn_indices,
+                                       indices_d.data_handle(),
+                                       static_cast<size_t>(n_neighbors),
+                                       params->nn_descent_params.graph_degree,
+                                       inputsA.n);
   }
 }
 
