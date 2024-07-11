@@ -356,8 +356,8 @@ class UMAP(UniversalBase,
                  handle=None,
                  verbose=False,
                  build_algo="brute_force_knn",
-                 build_kwds=None
-                 output_type=None,):
+                 build_kwds=None,
+                 output_type=None):
 
         super().__init__(handle=handle,
                          verbose=verbose,
