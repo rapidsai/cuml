@@ -126,7 +126,8 @@ value_t Barnes_Hut(value_t* VAL,
   RAFT_CUDA_TRY(cudaMemsetAsync(old_forces.data(), 0, sizeof(value_t) * n * 2, stream));
 
   rmm::device_uvector<value_t> YY((nnodes + 1) * 2, stream);
-  if (params.initialize_embeddings) {
+
+  if (params.init == TSNE_INIT::RANDOM) {
     random_vector(YY.data(), -0.0001f, 0.0001f, (nnodes + 1) * 2, stream, params.random_state);
   } else {
     raft::copy(YY.data(), Y, n, stream);

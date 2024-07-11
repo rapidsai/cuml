@@ -10,7 +10,7 @@ dependencies:
 - c-compiler
 - clang-tools==15.0.7
 - clang==15.0.7
-- cmake>=3.26.4
+- cmake>=3.26.4,!=3.30.0
 - cuda-version=11.8
 - cudatoolkit
 - cxx-compiler
