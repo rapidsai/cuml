@@ -558,6 +558,8 @@ class UMAP(UniversalBase,
                                              convert_format=False)
             self.n_rows, self.n_dims = self._raw_data.shape
             self.sparse_fit = True
+            if self.build_algo == "nn_descent":
+                raise ValueError("NN Descent does not support sparse inputs")
 
         # Handle dense inputs
         else:
