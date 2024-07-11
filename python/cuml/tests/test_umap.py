@@ -114,37 +114,34 @@ def test_umap_fit_transform_score(nrows, n_feats, build_algo):
         assert array_equal(score, cuml_score, 1e-2, with_sign=True)
 
 
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
-def test_supervised_umap_trustworthiness_on_iris(build_algo):
+def test_supervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
     embedding = cuUMAP(
-        n_neighbors=10, random_state=0, min_dist=0.01, build_algo=build_algo
+        n_neighbors=10, random_state=0, min_dist=0.01
     ).fit_transform(data, iris.target, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
 
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
-def test_semisupervised_umap_trustworthiness_on_iris(build_algo):
+def test_semisupervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
     target = iris.target.copy()
     target[25:75] = -1
     embedding = cuUMAP(
-        n_neighbors=10, random_state=0, min_dist=0.01, build_algo=build_algo
+        n_neighbors=10, random_state=0, min_dist=0.01
     ).fit_transform(data, target, convert_dtype=True)
 
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
 
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
-def test_umap_trustworthiness_on_iris(build_algo):
+def test_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
     embedding = cuUMAP(
-        n_neighbors=10, min_dist=0.01, random_state=0, build_algo=build_algo
+        n_neighbors=10, min_dist=0.01, random_state=0
     ).fit_transform(data, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
@@ -231,8 +228,7 @@ def test_umap_transform_on_digits_sparse(
 
 
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
-def test_umap_transform_on_digits(target_metric, build_algo):
+def test_umap_transform_on_digits(target_metric):
 
     digits = datasets.load_digits()
 
@@ -249,7 +245,6 @@ def test_umap_transform_on_digits(target_metric, build_algo):
         min_dist=0.01,
         random_state=42,
         target_metric=target_metric,
-        build_algo=build_algo,
     )
     fitter.fit(data, convert_dtype=True)
 
@@ -264,11 +259,10 @@ def test_umap_transform_on_digits(target_metric, build_algo):
 
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
 @pytest.mark.parametrize("name", dataset_names)
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 @pytest.mark.skipif(
     IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
 )
-def test_umap_fit_transform_trust(name, target_metric, build_algo):
+def test_umap_fit_transform_trust(name, target_metric):
 
     if name == "iris":
         iris = datasets.load_iris()
@@ -296,7 +290,6 @@ def test_umap_fit_transform_trust(name, target_metric, build_algo):
         n_neighbors=10,
         min_dist=0.01,
         target_metric=target_metric,
-        build_algo=build_algo,
     )
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
@@ -522,10 +515,7 @@ def test_umap_transform_reproducibility(n_components, random_state):
         assert mean_diff > 0.5
 
 
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
-def test_umap_fit_transform_trustworthiness_with_consistency_enabled(
-    build_algo,
-):
+def test_umap_fit_transform_trustworthiness_with_consistency_enabled():
     iris = datasets.load_iris()
     data = iris.data
     algo = cuUMAP(
@@ -533,14 +523,12 @@ def test_umap_fit_transform_trustworthiness_with_consistency_enabled(
         min_dist=0.01,
         init="random",
         random_state=42,
-        build_algo=build_algo,
     )
     embedding = algo.fit_transform(data, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
 
-# nn descent is unstable with small datasets
 def test_umap_transform_trustworthiness_with_consistency_enabled():
     iris = datasets.load_iris()
     data = iris.data
@@ -559,30 +547,6 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
     embedding = model.transform(transform_data, convert_dtype=True)
     trust = trustworthiness(transform_data, embedding, n_neighbors=10)
     assert trust >= 0.92
-
-
-@pytest.mark.parametrize("build_algo", ["nn_descent"])
-def test_umap_transform_trustworthiness_with_consistency_enabled_digits(
-    build_algo,
-):
-    digits = datasets.load_digits()
-    data = digits.data
-    digits_selection = np.random.RandomState(42).choice(
-        [True, False], 1797, replace=True, p=[0.75, 0.25]
-    )
-    fit_data = digits.data[digits_selection]
-    transform_data = data[~digits_selection]
-    model = cuUMAP(
-        n_neighbors=10,
-        min_dist=0.01,
-        init="random",
-        random_state=42,
-        build_algo=build_algo,
-    )
-    model.fit(fit_data, convert_dtype=True)
-    embedding = model.transform(transform_data, convert_dtype=True)
-    trust = trustworthiness(transform_data, embedding, n_neighbors=10)
-    assert trust >= 0.95
 
 
 @pytest.mark.filterwarnings("ignore:(.*)zero(.*)::scipy[.*]|umap[.*]")
@@ -736,8 +700,7 @@ def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
 @pytest.mark.skipif(
     IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
 )
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
-def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors, build_algo):
+def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
     n_clusters = 30
     random_state = 42
 
@@ -750,7 +713,6 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors, build_algo):
 
     model = cuUMAP(
         n_neighbors=n_neighbors,
-        build_algo=build_algo,
     )
     model.fit(X)
     cu_fss_graph = model.graph_
