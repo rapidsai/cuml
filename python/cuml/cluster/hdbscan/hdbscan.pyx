@@ -861,11 +861,13 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                     params.nn_descent_params.intermediate_graph_degree = <size_t> 128
                     params.nn_descent_params.max_iterations = <size_t> 20
                     params.nn_descent_params.termination_threshold = <float> 0.0001
+                    params.nn_descent_params.return_distances = <bool> True
                 else:
                     params.nn_descent_params.graph_degree = <size_t> self.build_kwds.get("nnd_graph_degree", 64)
                     params.nn_descent_params.intermediate_graph_degree = <size_t> self.build_kwds.get("nnd_intermediate_graph_degree", 128)
                     params.nn_descent_params.max_iterations = <size_t> self.build_kwds.get("nnd_max_iterations", 20)
                     params.nn_descent_params.termination_threshold = <float> self.build_kwds.get("nnd_termination_threshold", 0.0001)
+                    params.nn_descent_params.return_distances = <bool> self.build_kwds.get("nnd_return_distances", True)
             else:
                 raise ValueError("Build algo not supported. "
                                  "Must one of {'brute_force_knn', 'nn_descent'}")
