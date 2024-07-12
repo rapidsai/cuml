@@ -251,7 +251,6 @@ def test_hdbscan_sklearn_datasets(
     cluster_selection_method,
     min_samples_cluster_size_bounds,
     allow_single_cluster,
-    build_algo,
 ):
 
     (
