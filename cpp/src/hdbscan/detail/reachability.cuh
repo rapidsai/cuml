@@ -17,14 +17,15 @@
 #pragma once
 
 #include <cuml/cluster/hdbscan.hpp>
+#include <cuml/common/utils.hpp>
 #include <cuml/neighbors/knn.hpp>
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/neighbors/brute_force.cuh>
 #include <raft/neighbors/detail/nn_descent.cuh>
 #include <raft/neighbors/nn_descent_types.hpp>
-#include <raft/neighbors/refine-inl.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -84,6 +85,45 @@ struct DistancePostProcessSqrt {
   }
 };
 
+template <typename T>
+CUML_KERNEL void copy_first_k_cols_shift_self(
+  T* out, T* in, size_t out_k, size_t in_k, size_t nrows)
+{
+  size_t row = blockIdx.x * blockDim.x + threadIdx.x;
+  if (row < nrows) {
+    for (size_t i = 1; i < out_k; i++) {
+      out[row * out_k + i] = in[row * in_k + i - 1];
+    }
+    out[row * out_k] = row;
+  }
+}
+
+template <typename T>
+CUML_KERNEL void copy_first_k_cols_shift_zero(
+  T* out, T* in, size_t out_k, size_t in_k, size_t nrows)
+{
+  size_t row = blockIdx.x * blockDim.x + threadIdx.x;
+  if (row < nrows) {
+    for (size_t i = 1; i < out_k; i++) {
+      out[row * out_k + i] = in[row * in_k + i - 1];
+    }
+    out[row * out_k] = static_cast<T>(0);
+  }
+}
+
+template <typename T>
+CUML_KERNEL void copy_first_k_cols_shift_core_dists(
+  T* out, T* in, T* core_dists, size_t out_k, size_t in_k, size_t nrows)
+{
+  size_t row = blockIdx.x * blockDim.x + threadIdx.x;
+  if (row < nrows) {
+    for (size_t i = 1; i < out_k; i++) {
+      out[row * out_k + i] = in[row * in_k + i - 1];
+    }
+    out[row * out_k] = static_cast<T>(core_dists[row]);
+  }
+}
+
 /**
  * Wraps the brute force knn API, to be used for both training and prediction
  * @tparam value_idx data type for integrals
@@ -140,46 +180,37 @@ void compute_knn(const raft::handle_t& handle,
                     true,
                     metric);
   } else {  // NN_DESCENT
+    auto epilogue                 = DistancePostProcessSqrt<value_idx, float>{};
+    build_params.return_distances = true;
     RAFT_EXPECTS(static_cast<size_t>(k) <= build_params.graph_degree,
                  "n_neighbors should be smaller than the graph degree computed by nn descent");
 
     auto dataset = raft::make_host_matrix_view<const float, int64_t>(X, m, n);
-    auto graph   = NNDescent::detail::build<float, int64_t>(handle, build_params, dataset);
 
-    // NN Descent build does not include itself in nearest neighbors
-    for (size_t i = 0; i < n_search_items; i++) {
-      for (size_t j = k - 1; j >= 1; j--) {
-        graph.graph().data_handle()[i * build_params.graph_degree + j] =
-          graph.graph().data_handle()[i * build_params.graph_degree + j - 1];
-      }
-      graph.graph().data_handle()[i * build_params.graph_degree] = i;
+    auto graph = NNDescent::detail::build<float, int64_t>(handle, build_params, dataset, epilogue);
+
+    size_t TPB        = 256;
+    size_t num_blocks = static_cast<size_t>((m + TPB) / TPB);
+
+    auto indices_d =
+      raft::make_device_matrix<int64_t, int64_t>(handle, m, build_params.graph_degree);
+
+    raft::copy(
+      indices_d.data_handle(), graph.graph().data_handle(), m * build_params.graph_degree, stream);
+
+    if (graph.distances().has_value()) {
+      copy_first_k_cols_shift_zero<float>
+        <<<num_blocks, TPB, 0, stream>>>(dists,
+                                         graph.distances().value().data_handle(),
+                                         static_cast<size_t>(k),
+                                         build_params.graph_degree,
+                                         m);
     }
-
-    auto dataset_dev = raft::make_device_matrix<float, int64_t, raft::row_major>(handle, m, n);
-    raft::copy(dataset_dev.data_handle(), dataset.data_handle(), m * n, handle.get_stream());
-    auto dataset_dev_view = raft::make_device_matrix_view<const float, int64_t, raft::row_major>(
-      dataset_dev.data_handle(), m, n);
-
-    auto neighbor_candidates = raft::make_device_matrix<int64_t, int64_t, raft::row_major>(
-      handle, m, build_params.graph_degree);
-    raft::copy(neighbor_candidates.data_handle(),
-               graph.graph().data_handle(),
-               m * build_params.graph_degree,
-               handle.get_stream());
-    auto neighbor_candidates_view =
-      raft::make_device_matrix_view<const int64_t, int64_t, raft::row_major>(
-        neighbor_candidates.data_handle(), m, build_params.graph_degree);
-
-    auto indices =
-      raft::make_device_matrix_view<int64_t, int64_t>(int64_indices.data(), n_search_items, k);
-    auto distances = raft::make_device_matrix_view<float, int64_t>(dists, n_search_items, k);
-    raft::neighbors::refine(handle,
-                            dataset_dev_view,
-                            dataset_dev_view,
-                            neighbor_candidates_view,
-                            indices,
-                            distances,
-                            metric);
+    copy_first_k_cols_shift_self<int64_t><<<num_blocks, TPB, 0, stream>>>(int64_indices.data(),
+                                                                          indices_d.data_handle(),
+                                                                          static_cast<size_t>(k),
+                                                                          build_params.graph_degree,
+                                                                          m);
   }
 
   // convert from current knn's 64-bit to 32-bit.
@@ -290,22 +321,56 @@ void mutual_reachability_knn_l2(
   // enclosing parent function (and any parent classes) of an extended __device__
   // or __host__ __device__ lambda`
 
-  auto epilogue = ReachabilityPostProcess<value_idx, value_t>{core_dists, alpha};
-  auto X_view   = raft::make_device_matrix_view(X, m, n);
-  std::vector<raft::device_matrix_view<const value_t, size_t>> index = {X_view};
+  if (build_algo == Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN) {
+    auto epilogue = ReachabilityPostProcess<value_idx, value_t>{core_dists, alpha};
+    auto X_view   = raft::make_device_matrix_view(X, m, n);
+    std::vector<raft::device_matrix_view<const value_t, size_t>> index = {X_view};
 
-  raft::neighbors::brute_force::knn<value_idx, value_t>(
-    handle,
-    index,
-    X_view,
-    raft::make_device_matrix_view(out_inds, m, static_cast<size_t>(k)),
-    raft::make_device_matrix_view(out_dists, m, static_cast<size_t>(k)),
-    // TODO: expand distance metrics to support more than just L2 distance
-    // https://github.com/rapidsai/cuml/issues/5301
-    raft::distance::DistanceType::L2SqrtExpanded,
-    std::make_optional<float>(2.0f),
-    std::nullopt,
-    epilogue);
+    raft::neighbors::brute_force::knn<value_idx, value_t>(
+      handle,
+      index,
+      X_view,
+      raft::make_device_matrix_view(out_inds, m, static_cast<size_t>(k)),
+      raft::make_device_matrix_view(out_dists, m, static_cast<size_t>(k)),
+      // TODO: expand distance metrics to support more than just L2 distance
+      // https://github.com/rapidsai/cuml/issues/5301
+      raft::distance::DistanceType::L2SqrtExpanded,
+      std::make_optional<float>(2.0f),
+      std::nullopt,
+      epilogue);
+  } else {
+    auto epilogue = ReachabilityPostProcessSqrt<value_idx, value_t>{core_dists, alpha};
+    build_params.return_distances = true;
+    RAFT_EXPECTS(static_cast<size_t>(k) <= build_params.graph_degree,
+                 "n_neighbors should be smaller than the graph degree computed by nn descent");
+
+    auto dataset = raft::make_host_matrix_view<const value_t, int64_t>(X, m, n);
+    auto graph =
+      NNDescent::detail::build<value_t, value_idx>(handle, build_params, dataset, epilogue);
+
+    size_t TPB        = 256;
+    size_t num_blocks = static_cast<size_t>((m + TPB) / TPB);
+
+    auto indices_d =
+      raft::make_device_matrix<value_idx, value_idx>(handle, m, build_params.graph_degree);
+
+    raft::copy(indices_d.data_handle(),
+               graph.graph().data_handle(),
+               m * build_params.graph_degree,
+               handle.get_stream());
+
+    if (graph.distances().has_value()) {
+      copy_first_k_cols_shift_core_dists<float>
+        <<<num_blocks, TPB, 0, handle.get_stream()>>>(out_dists,
+                                                      graph.distances().value().data_handle(),
+                                                      core_dists,
+                                                      static_cast<size_t>(k),
+                                                      build_params.graph_degree,
+                                                      m);
+    }
+    copy_first_k_cols_shift_self<value_idx><<<num_blocks, TPB, 0, handle.get_stream()>>>(
+      out_inds, indices_d.data_handle(), static_cast<size_t>(k), build_params.graph_degree, m);
+  }
 }
 
 /**
