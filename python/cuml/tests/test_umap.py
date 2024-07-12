@@ -27,10 +27,8 @@ from sklearn.datasets import make_blobs
 from sklearn.cluster import KMeans
 from sklearn.neighbors import NearestNeighbors
 from sklearn import datasets
-from cuml.datasets import make_blobs as cu_make_blobs
 from cuml.internals import logger
 from cuml.metrics import pairwise_distances
-from cuml.metrics import trustworthiness as cu_trustworthiness
 from cuml.testing.utils import (
     array_equal,
     unit_param,
@@ -147,7 +145,6 @@ def test_umap_trustworthiness_on_iris():
     assert trust >= 0.97
 
 
-# nn descent is unstable with small datasets
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
 def test_umap_transform_on_iris(target_metric):
 
@@ -287,9 +284,7 @@ def test_umap_fit_transform_trust(name, target_metric):
         n_neighbors=10, min_dist=0.01, target_metric=target_metric
     )
     cuml_model = cuUMAP(
-        n_neighbors=10,
-        min_dist=0.01,
-        target_metric=target_metric,
+        n_neighbors=10, min_dist=0.01, target_metric=target_metric
     )
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
@@ -711,9 +706,7 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
         random_state=random_state,
     )
 
-    model = cuUMAP(
-        n_neighbors=n_neighbors,
-    )
+    model = cuUMAP(n_neighbors=n_neighbors)
     model.fit(X)
     cu_fss_graph = model.graph_
 
@@ -724,7 +717,7 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
     cu_fss_graph = cu_fss_graph.todense()
     ref_fss_graph = cupyx.scipy.sparse.coo_matrix(ref_fss_graph).todense()
     assert correctness_sparse(
-        ref_fss_graph, cu_fss_graph, atol=0.1, rtol=0.2, threshold=0.93
+        ref_fss_graph, cu_fss_graph, atol=0.1, rtol=0.2, threshold=0.95
     )
 
 
@@ -760,10 +753,7 @@ def test_umap_distance_metrics_fit_transform_trust(metric, supported):
         n_neighbors=10, min_dist=0.01, metric=metric, init="random"
     )
     cuml_model = cuUMAP(
-        n_neighbors=10,
-        min_dist=0.01,
-        metric=metric,
-        init="random",
+        n_neighbors=10, min_dist=0.01, metric=metric, init="random"
     )
     if not supported:
         with pytest.raises(NotImplementedError):

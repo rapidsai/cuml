@@ -1,5 +1,3 @@
-
-
 /*
  * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
@@ -30,7 +28,6 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/neighbors/detail/nn_descent.cuh>
 #include <raft/neighbors/nn_descent_types.hpp>
-#include <raft/neighbors/refine-inl.cuh>
 #include <raft/sparse/selection/knn.cuh>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cudart_utils.hpp>
