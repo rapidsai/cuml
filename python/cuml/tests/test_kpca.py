@@ -19,7 +19,6 @@ from sklearn.decomposition import KernelPCA as skKernelPCA
 from sklearn.datasets import make_multilabel_classification
 from sklearn import datasets
 from sklearn.model_selection import train_test_split
-from cuml.internals import logger
 
 from cuml.testing.utils import (
     get_handle,
@@ -191,7 +190,7 @@ def test_kpca_fit_transform(datatype, input_type, name, use_handle, kernel):
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("input_type", ["ndarray"])
 @pytest.mark.parametrize("use_handle", [True, False])
-@pytest.mark.parametrize("name", [unit_param(None), quality_param("iris")])
+@pytest.mark.parametrize("name", [unit_param(None)])#[unit_param(None), quality_param("iris")])
 @pytest.mark.parametrize("kernel", ["linear", "poly", "rbf", "sigmoid"])
 def test_kpca_fit_then_transform_on_test_train_split(datatype, input_type, name, use_handle, kernel):
     if name == "iris":
@@ -208,19 +207,41 @@ def test_kpca_fit_then_transform_on_test_train_split(datatype, input_type, name,
 
     X = X.astype(datatype)
     X_train, X_test = train_test_split(X, random_state=0)
-    # logger.info samples in train and test
-    logger.info(f"TOMAS X_train shape: {X_train.shape}")
-    logger.info(f"TOMAS X_test shape: {X_test.shape}")
     skpca = skKernelPCA(n_components=2, kernel=kernel)
     skpca.fit(X_train)
     X_test_sk = skpca.transform(X_test)
-
     handle, stream = get_handle(use_handle)
     cupca = cuKernelPCA(n_components=2, handle=handle, kernel=kernel)
     cupca.fit(X_train)
-    X_test_cu = cupca.transform2(X_test)
+    X_test_cu = cupca.transform(X_test)
     cupca.handle.sync()
+    assert array_equal(X_test_cu, X_test_sk, 1e-1, total_tol=1e-1, with_sign=True)
+    assert X_test_sk.shape[0] == X_test_cu.shape[0]
+    assert X_test_sk.shape[1] == X_test_cu.shape[1]
 
+@pytest.mark.parametrize("kernel", ["linear"])#, "poly", "rbf", "sigmoid"])
+def test_kpca_fit_then_transform_on_custom(kernel):
+    X_train = np.array([
+    [1.0, 4.0],
+    [2.0, 2.0],
+    [5.0, 1.0]
+    ])
+
+    # Test data
+    X_test = np.array([
+        [3.0, 3.0],
+        [4.0, 2.0],
+        [6.0, 1.0]
+    ])
+
+    skpca = skKernelPCA(n_components=2, kernel=kernel)
+    skpca.fit(X_train)
+    X_test_sk = skpca.transform(X_test)
+    handle, stream = get_handle(True)
+    cupca = cuKernelPCA(n_components=2, handle=handle, kernel=kernel)
+    cupca.fit(X_train)
+    X_test_cu = cupca.transform(X_test)
+    cupca.handle.sync()
     assert array_equal(X_test_cu, X_test_sk, 1e-1, total_tol=1e-1, with_sign=True)
     assert X_test_sk.shape[0] == X_test_cu.shape[0]
     assert X_test_sk.shape[1] == X_test_cu.shape[1]

@@ -43,12 +43,6 @@ struct KPcaInputs {
 };
 
 template <typename T>
-::std::ostream& operator<<(::std::ostream& os, const KPcaInputs<T>& dims) {
-  return os;
-}
-
-
-template <typename T>
 class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
  public:
     KPcaTest()
@@ -63,6 +57,7 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
       eigenvalues_ref(params.n_rows, stream)
       {
         basicTest();
+        fitTransformTest();
       }
  protected:
   void basicTest() {
@@ -73,6 +68,7 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
 
     paramsKPCA prms;
     prms.n_rows = params.n_rows;
+    prms.n_training_samples = params.n_rows;
     prms.n_cols = params.n_cols;
     prms.n_components = params.n_components;
     prms.kernel = params.kernel;
@@ -82,7 +78,27 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
       prms.algorithm = solver::COV_EIG_JACOBI;
 
     kpcaFit(handle, data.data(), eigenvectors.data(), eigenvalues.data(), prms, stream);
-    kpcaTransform(handle, data.data(), eigenvectors.data(), eigenvalues.data(), trans_data.data(), prms, stream);
+    kpcaTransform(handle, data.data(), data.data(), eigenvectors.data(), eigenvalues.data(), trans_data.data(), prms, stream);
+  }
+
+  void fitTransformTest() {
+    raft::update_device(data.data(), params.data_h.data(), params.n_rows * params.n_cols, stream);
+    raft::update_device(trans_data_ref.data(), params.trans_data_ref_h.data(), params.n_rows * params.n_rows, stream);
+    raft::update_device(eigenvalues_ref.data(), params.eigenvalues_ref_h.data(), params.n_rows, stream);
+    raft::update_device(eigenvectors_ref.data(), params.eigenvectors_ref_h.data(), params.n_rows * params.n_rows, stream);
+
+    paramsKPCA prms;
+    prms.n_rows = params.n_rows;
+    prms.n_training_samples = params.n_rows;
+    prms.n_cols = params.n_cols;
+    prms.n_components = params.n_components;
+    prms.kernel = params.kernel;
+    if (params.algo == 0)
+      prms.algorithm = solver::COV_EIG_DQ;
+    else
+      prms.algorithm = solver::COV_EIG_JACOBI;
+
+    kpcaFitTransform(handle, data.data(), eigenvectors.data(), eigenvalues.data(), trans_data.data(), prms, stream);
   }
 
  protected:
@@ -125,7 +141,6 @@ KPcaInputs<float> rbf_inputs = {tolerance, n_rows, n_cols, n_components, algo, r
                               , data_h, rbf_eigenvectors_ref_h, rbf_eigenvalues_ref_h, rbf_trans_data_ref_h};
 
 const std::vector<KPcaInputs<float>> inputs_f = {linear_inputs, poly_inputs, rbf_inputs};
-
 
 typedef KPcaTest<float> KPcaTestEigenvaluesF;
 TEST_P(KPcaTestEigenvaluesF, Result) {

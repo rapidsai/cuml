@@ -47,20 +47,6 @@ IF GPUBUILD == 1:
                          const paramsKPCA &prms) except +
 
         cdef void kpcaTransform(handle_t& handle,
-                         float *input,
-                         float *eigenvectors,
-                         float *eigenvalues,
-                         float *trans_input,
-                         const paramsKPCA &prms) except +
-
-        cdef void kpcaTransform(handle_t& handle,
-                         double *input,
-                         double *eigenvectors,
-                         double *eigenvalues,
-                         double *trans_input,
-                         const paramsKPCA &prms) except +
-
-        cdef void kpcaTransform2(handle_t& handle,
                          float *fit_input,
                          float *input,
                          float *eigenvectors,
@@ -68,12 +54,26 @@ IF GPUBUILD == 1:
                          float *trans_input,
                          const paramsKPCA &prms) except +
         
-        cdef void kpcaTransform2(handle_t& handle,
+        cdef void kpcaTransform(handle_t& handle,
                             double *fit_input,
                             double *input,
                             double *eigenvectors,
                             double *eigenvalues,
                             double *trans_input,
+                         const paramsKPCA &prms) except +
+
+        cdef void kpcaFitTransform(handle_t& handle,
+                         float *input,
+                         float *eigenvectors,
+                         float *eigenvalues,
+                         float *trans_input,
+                         const paramsKPCA &prms) except +
+
+        cdef void kpcaFitTransform(handle_t& handle,
+                         double *input,
+                         double *eigenvectors,
+                         double *eigenvalues,
+                         double *trans_input,
                          const paramsKPCA &prms) except +
 
     class Solver(IntEnum):
@@ -358,8 +358,6 @@ class KernelPCA(UniversalBase,
                                            dtype=self.dtype)
         self.eigenvectors_ = CumlArray.zeros((n_rows, n_components),
                                            dtype=self.dtype)
-        self.trans_input_ = CumlArray.zeros((n_rows, n_components),
-                                           dtype=self.dtype)
 
 
     @generate_docstring(X='dense')
@@ -422,17 +420,59 @@ class KernelPCA(UniversalBase,
     @enable_device_interop
     def fit_transform(self, X, y=None) -> CumlArray:
         """
-        Fit the model with X and apply the dimensionality reduction on X.
+        Apply dimensionality reduction to X.
+
+        X is projected on the first principal components previously extracted
+        from a training set.
 
         """
+        cuml.internals.set_api_output_type("cupy")
+        if self.copy_X:
+            self.X_fit_ = X.copy()
+        self.X_m, self.n_samples_, self.n_features_in_, self.dtype = \
+            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+        cdef uintptr_t _input_ptr = self.X_m.ptr
+        self.feature_names_in_ = self.X_m.index
+        IF GPUBUILD == 1:
+            cdef paramsKPCA *params = <paramsKPCA*><size_t> \
+                self._build_params(self.n_samples_, self.n_features_in_)
 
-        return self.fit(X).transform(X)
+            # Calling _initialize_arrays, guarantees everything is CumlArray
+            self._initialize_arrays(params.n_components,
+                                    params.n_rows, params.n_cols)
 
-    @generate_docstring(X='dense',
-                        return_values={'name': 'trans',
-                                       'type': 'dense',
-                                       'description': 'Transformed values',
-                                       'shape': '(n_samples, n_components)'})
+            cdef uintptr_t eigenvectors_ptr = self.eigenvectors_.ptr
+
+            cdef uintptr_t eigenvalues_ptr = \
+                self.eigenvalues_.ptr
+
+
+            t_input_data = \
+                CumlArray.zeros((params.n_rows, params.n_components),
+                                dtype=self.dtype.type, index=self.X_m.index)
+            cdef uintptr_t _trans_input_ptr = t_input_data.ptr
+
+            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+            if self.dtype.type == np.float32:
+                kpcaFitTransform(handle_[0],
+                             <float*> _input_ptr,
+                             <float*> eigenvectors_ptr,
+                             <float*> eigenvalues_ptr,
+                             <float*> _trans_input_ptr,
+                             deref(params))
+            else:
+                kpcaFitTransform(handle_[0],
+                             <double*> _input_ptr,
+                             <double*> eigenvectors_ptr,
+                             <double*> eigenvalues_ptr,
+                             <double*> _trans_input_ptr,
+                             deref(params))
+            # make sure the previously scheduled gpu tasks are complete before the
+            # following transfers start
+            self.handle.sync()
+
+            return t_input_data
+    
     @enable_device_interop
     def transform(self, X, convert_dtype=False) -> CumlArray:
         """
@@ -443,75 +483,17 @@ class KernelPCA(UniversalBase,
 
         """
         self._check_is_fitted('eigenvectors_')
-
-        dtype = self.eigenvectors_.dtype
-
-        X_m, _n_rows, _n_cols, dtype = \
-            input_to_cuml_array(X, check_dtype=dtype,
-                                convert_to_dtype=(dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_features_in_)
-
-        cdef uintptr_t _input_ptr = X_m.ptr
-
-        IF GPUBUILD == 1:
-            cdef paramsKPCA params
-            params.n_training_samples = self.n_samples_
-            params.n_components = self.n_components_
-            params.n_rows = _n_rows
-            params.n_cols = _n_cols
-            t_input_data = \
-                CumlArray.zeros((params.n_rows, params.n_components),
-                                dtype=dtype.type, index=X_m.index)
-
-            cdef uintptr_t _trans_input_ptr = t_input_data.ptr
-            cdef uintptr_t eigenvalues_ptr = self.eigenvalues_.ptr
-            cdef uintptr_t eigenvectors_ptr = \
-                self.eigenvectors_.ptr
-
-            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-            if dtype.type == np.float32:
-                kpcaTransform(handle_[0],
-                             <float*> _input_ptr,
-                             <float*> eigenvectors_ptr,
-                             <float*> eigenvalues_ptr,
-                             <float*> _trans_input_ptr,
-                             params)
-            else:
-                kpcaTransform(handle_[0],
-                             <double*> _input_ptr,
-                             <double*> eigenvectors_ptr,
-                             <double*> eigenvalues_ptr,
-                             <double*> _trans_input_ptr,
-                             params)
-
-            # make sure the previously scheduled gpu tasks are complete before the
-            # following transfers start
-            self.handle.sync()
-
-            return t_input_data
-
-    @enable_device_interop
-    def transform2(self, X, convert_dtype=False) -> CumlArray:
-        """
-        Apply dimensionality reduction to X.
-
-        X is projected on the first principal components previously extracted
-        from a training set.
-
-        """
-        self._check_is_fitted('eigenvectors_')
-
-        dtype = self.eigenvectors_.dtype
-
-        X_m, _n_rows, _n_cols, dtype = \
-            input_to_cuml_array(X, check_dtype=dtype,
-                                convert_to_dtype=(dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_features_in_)
-
-        cdef uintptr_t _input_ptr = X_m.ptr
         cdef uintptr_t _fit_input_ptr = self.X_m.ptr
+
+        dtype = self.eigenvectors_.dtype
+
+        X_m, _n_rows, _n_cols, dtype = \
+            input_to_cuml_array(X, check_dtype=dtype,
+                                convert_to_dtype=(dtype if convert_dtype
+                                                  else None),
+                                check_cols=self.n_features_in_)
+
+        cdef uintptr_t _input_ptr = X_m.ptr
 
         IF GPUBUILD == 1:
             cdef paramsKPCA params
@@ -531,7 +513,7 @@ class KernelPCA(UniversalBase,
 
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
             if dtype.type == np.float32:
-                kpcaTransform2(handle_[0],
+                kpcaTransform(handle_[0],
                              <float*> _fit_input_ptr,
                              <float*> _input_ptr,
                              <float*> eigenvectors_ptr,
@@ -539,7 +521,7 @@ class KernelPCA(UniversalBase,
                              <float*> _trans_input_ptr,
                              params)
             else:
-                kpcaTransform2(handle_[0],
+                kpcaTransform(handle_[0],
                              <double*> _fit_input_ptr,
                              <double*> _input_ptr,
                              <double*> eigenvectors_ptr,

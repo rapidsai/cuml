@@ -29,17 +29,17 @@ void kpcaFit(raft::handle_t &handle, float *input, float *eigenvectors, float *e
 void kpcaFit(raft::handle_t &handle, double *input, double *eigenvectors,
              double *eigenvalues, const paramsKPCA &prms);
 
-void kpcaTransform(raft::handle_t &handle, float *input, float *eigenvectors, float *eigenvalues,
+void kpcaTransform(const raft::handle_t &handle, float *fit_input, float *input,
+                   float *eigenvectors, float *eigenvalues,
                    float *trans_input, const paramsKPCA &prms);
 
-void kpcaTransform(raft::handle_t &handle, double *input, double *eigenvectors, double *eigenvalues,
+void kpcaTransform(const raft::handle_t &handle, double *fit_input, double *input,
+                   double *eigenvectors, double *eigenvalues,
                    double *trans_input, const paramsKPCA &prms);
 
-void kpcaTransform2(const raft::handle_t &handle, float *fit_input, float *input,
-                   float *eigenvectors, float *eigenvalues,
-                   float *trans_input, const ML::paramsKPCA &prms);
+void kpcaFitTransform(raft::handle_t &handle, float *input, float *eigenvectors, float *eigenvalues,
+                   float *trans_input, const paramsKPCA &prms);
 
-void kpcaTransform2(const raft::handle_t &handle, double *fit_input, double *input,
-                   double *eigenvectors, double *eigenvalues,
-                   double *trans_input, const ML::paramsKPCA &prms);
+void kpcaFitTransform(raft::handle_t &handle, double *input, double *eigenvectors, double *eigenvalues,
+                   double *trans_input, const paramsKPCA &prms);
 };  // end namespace ML
