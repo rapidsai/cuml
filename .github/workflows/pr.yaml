@@ -137,8 +137,6 @@ jobs:
       cuda: '["12.2"]'
       extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
       build_command: |
-        sudo yq -i '.repos[7].python[0].sub_dir = "python/cuml"' /opt/rapids-build-utils/manifest.yaml;
-        rapids-generate-scripts;
         sccache -z;
         build-all --verbose;
         sccache -s;
