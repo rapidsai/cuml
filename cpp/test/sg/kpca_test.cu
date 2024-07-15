@@ -170,4 +170,57 @@ INSTANTIATE_TEST_CASE_P(KPcaTests, KPcaTestEigenvectorsF,
 INSTANTIATE_TEST_CASE_P(KPcaTests, KPcaTestTransDataF,
                         ::testing::ValuesIn(inputs_f));
 
+// Adding double type test cases
+
+double tolerance_d = 0.01;
+std::vector<double> data_hd = {1.0, 2.0, 5.0, 4.0, 2.0, 1.0};
+
+std::vector<double> lin_eigenvectors_ref_hd = {-0.6525, -0.0987, 0.7513, -0.4907, 0.8105, -0.3197};
+std::vector<double> lin_eigenvalues_ref_hd = {12.6759, 0.6574};
+std::vector<double> lin_trans_data_ref_hd = {-2.32318647,-0.35170213, 2.6748886, -0.39794495, 0.65716145,-0.25921649};
+KPcaInputs<double> linear_inputs_d = {tolerance_d, n_rows, n_cols, n_components, algo, lin_kern
+                                  , data_hd, lin_eigenvectors_ref_hd, lin_eigenvalues_ref_hd, lin_trans_data_ref_hd};
+
+std::vector<double> poly_eigenvectors_ref_hd = {-0.5430, -0.2565, 0.7995, -0.6097, 0.7751, -0.1653};
+std::vector<double> poly_eigenvalues_ref_hd = {1790.3207, 210.3639};
+std::vector<double> poly_trans_data_ref_hd = {-22.9760, -10.8554, 33.8314, -8.8438, 11.2426, -2.3987};
+KPcaInputs<double> poly_inputs_d = {tolerance_d, n_rows, n_cols, n_components, algo, poly_kern
+                              , data_hd, poly_eigenvectors_ref_hd, poly_eigenvalues_ref_hd, poly_trans_data_ref_hd};
+
+std::vector<double> rbf_eigenvectors_ref_hd = {-0.4341, -0.3818, 0.8159, -0.6915, 0.7217, -0.0301};
+std::vector<double> rbf_eigenvalues_ref_hd = {1.0230, 0.9177};
+std::vector<double> rbf_trans_data_ref_hd = {-0.4391, -0.3862, 0.8253, -0.6624, 0.6914, -0.0289};
+KPcaInputs<double> rbf_inputs_d = {tolerance_d, n_rows, n_cols, n_components, algo, rbf_kern
+                              , data_hd, rbf_eigenvectors_ref_hd, rbf_eigenvalues_ref_hd, rbf_trans_data_ref_hd};
+
+const std::vector<KPcaInputs<double>> inputs_d = {linear_inputs_d, poly_inputs_d, rbf_inputs_d};
+
+typedef KPcaTest<double> KPcaTestEigenvaluesD;
+TEST_P(KPcaTestEigenvaluesD, Result) {
+  ASSERT_TRUE(MLCommon::devArrMatch(eigenvalues.data(), eigenvalues_ref.data(), params.n_cols,
+                          MLCommon::CompareApproxAbs<double>(params.tolerance)));
+}
+
+typedef KPcaTest<double> KPcaTestEigenvectorsD;
+TEST_P(KPcaTestEigenvectorsD, Result) {
+  ASSERT_TRUE(MLCommon::devArrMatch(eigenvectors.data(), eigenvectors_ref.data(),
+                          (params.n_rows * params.n_cols),
+                          MLCommon::CompareApproxAbs<double>(params.tolerance)));
+}
+
+typedef KPcaTest<double> KPcaTestTransDataD;
+TEST_P(KPcaTestTransDataD, Result) {
+  ASSERT_TRUE(MLCommon::devArrMatch(trans_data.data(), trans_data_ref.data(),
+                          (params.n_rows * params.n_cols),
+                          MLCommon::CompareApproxAbs<double>(params.tolerance)));
+}
+
+INSTANTIATE_TEST_CASE_P(KPcaTests, KPcaTestEigenvaluesD, ::testing::ValuesIn(inputs_d));
+
+INSTANTIATE_TEST_CASE_P(KPcaTests, KPcaTestEigenvectorsD,
+                        ::testing::ValuesIn(inputs_d));
+
+INSTANTIATE_TEST_CASE_P(KPcaTests, KPcaTestTransDataD,
+                        ::testing::ValuesIn(inputs_d));
+
 }  // end namespace ML
