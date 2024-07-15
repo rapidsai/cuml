@@ -85,6 +85,7 @@ if(NOT ${CUML_CPU})
 
     # Statically link dependencies if building wheels
     set(CUDA_STATIC_RUNTIME ON)
+    set(CUDA_STATIC_MATH_LIBRARIES ON)
     set(CUML_USE_RAFT_STATIC ON)
     set(CUML_USE_FAISS_STATIC ON)
     set(CUML_USE_TREELITE_STATIC ON)
