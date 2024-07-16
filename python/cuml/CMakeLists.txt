@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-include(../rapids_config.cmake)
+include(../../rapids_config.cmake)
 
 option(CUML_CPU "Build only cuML CPU Python components." OFF)
 set(language_list "CXX")
@@ -50,7 +50,7 @@ message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${S
 set(CUML_ALGORITHMS "ALL" CACHE STRING "Choose which algorithms are built cuML. Can specify individual algorithms or groups in a semicolon-separated list.")
 
 set(CUML_CPP_TARGET "cuml++")
-set(CUML_CPP_SRC "../cpp")
+set(CUML_CPP_SRC "../../cpp")
 
 ################################################################################
 # - Process User Options  ------------------------------------------------------
@@ -63,7 +63,7 @@ if(FIND_CUML_CPP)
   include(rapids-export)
   rapids_cpm_init()
   find_package(cuml ${CUML_VERSION} REQUIRED)
-  include(../cpp/cmake/thirdparty/get_treelite.cmake)
+  include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
 else()
   set(cuml_FOUND OFF)
 endif()
@@ -96,7 +96,7 @@ if(NOT ${CUML_CPU})
     set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
     set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
 
-    add_subdirectory(../cpp cuml-cpp EXCLUDE_FROM_ALL)
+    add_subdirectory(${CUML_CPP_SRC} cuml-cpp EXCLUDE_FROM_ALL)
 
     set(cython_lib_dir cuml)
     install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
