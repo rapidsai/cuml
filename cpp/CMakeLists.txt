@@ -226,6 +226,7 @@ endif()
 include(cmake/thirdparty/get_cccl.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_raft.cmake)
+include(cmake/thirdparty/get_cuvs.cmake)
 
 if(LINK_TREELITE)
   include(cmake/thirdparty/get_treelite.cmake)
@@ -440,18 +441,6 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/metrics/kl_divergence.cu
         src/metrics/mutual_info_score.cu
         src/metrics/pairwise_distance.cu
-        src/metrics/pairwise_distance_canberra.cu
-        src/metrics/pairwise_distance_chebyshev.cu
-        src/metrics/pairwise_distance_correlation.cu
-        src/metrics/pairwise_distance_cosine.cu
-        src/metrics/pairwise_distance_euclidean.cu
-        src/metrics/pairwise_distance_hamming.cu
-        src/metrics/pairwise_distance_hellinger.cu
-        src/metrics/pairwise_distance_jensen_shannon.cu
-        src/metrics/pairwise_distance_kl_divergence.cu
-        src/metrics/pairwise_distance_l1.cu
-        src/metrics/pairwise_distance_minkowski.cu
-        src/metrics/pairwise_distance_russell_rao.cu
         src/metrics/r2_score.cu
         src/metrics/rand_index.cu
         src/metrics/silhouette_score.cu
@@ -609,6 +598,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   # These are always private:
   list(APPEND _cuml_cpp_private_libs
     raft::raft
+    cuvs::cuvs
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}>
     ${TREELITE_LIBS}

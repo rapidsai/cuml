@@ -24,6 +24,7 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <cuvs/neighbors/brute_force.hpp>
 #include <gtest/gtest.h>
 #include <selection/knn.cuh>
 
@@ -73,20 +74,18 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
     auto n_classes =
       raft::label::getUniquelabels(unique_labels, train_labels.data(), params.rows, stream);
 
-    std::vector<float*> ptrs(1);
-    std::vector<int> sizes(1);
-    ptrs[0]  = train_samples.data();
-    sizes[0] = params.rows;
+    auto train_view = raft::make_device_matrix_view<const float, int64_t>(
+      train_samples.data(), params.rows, params.cols);
+    auto idx = cuvs::neighbors::brute_force::build(
+      handle, train_view, cuvs::distance::DistanceType::L2Unexpanded);
 
-    raft::spatial::knn::brute_force_knn(handle,
-                                        ptrs,
-                                        sizes,
-                                        params.cols,
-                                        train_samples.data(),
-                                        params.rows,
-                                        knn_indices.data(),
-                                        knn_dists.data(),
-                                        params.k);
+    cuvs::neighbors::brute_force::search(
+      handle,
+      idx,
+      train_view,
+      raft::make_device_matrix_view<int64_t, int64_t>(knn_indices.data(), params.rows, params.k),
+      raft::make_device_matrix_view<float, int64_t>(knn_dists.data(), params.rows, params.k),
+      std::nullopt);
 
     std::vector<int*> y;
     y.push_back(train_labels.data());

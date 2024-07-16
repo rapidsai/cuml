@@ -37,13 +37,14 @@
 #include <thrust/functional.h>
 #include <thrust/transform_reduce.h>
 
+#include <cuvs/neighbors/brute_force.hpp>
 #include <selection/knn.cuh>
 
 namespace ML {
 namespace TSNE {
 
 /**
- * @brief Uses FAISS's KNN to find the top n_neighbors. This speeds up the attractive forces.
+ * @brief Uses CUVS's KNN to find the top n_neighbors. This speeds up the attractive forces.
  * @param[in] input: dense/sparse manifold input
  * @param[out] indices: The output indices from KNN.
  * @param[out] distances: The output sorted distances from KNN.
@@ -70,32 +71,18 @@ void get_distances(const raft::handle_t& handle,
 {
   // TODO: for TSNE transform first fit some points then transform with 1/(1+d^2)
   // #861
+  auto k      = k_graph.n_neighbors;
+  auto X_view = raft::make_device_matrix_view<const float, int64_t>(input.X, input.n, input.d);
+  auto idx    = cuvs::neighbors::brute_force::build(
+    handle, X_view, static_cast<cuvs::distance::DistanceType>(metric), p);
 
-  std::vector<float*> input_vec = {input.X};
-  std::vector<int> sizes_vec    = {input.n};
-
-  /**
- * std::vector<float *> &input, std::vector<int> &sizes,
-                     IntType D, float *search_items, IntType n, int64_t *res_I,
-                     float *res_D, IntType k,
-                     std::shared_ptr<deviceAllocator> allocator,
-                     cudaStream_t userStream,
- */
-
-  raft::spatial::knn::brute_force_knn<int64_t, float, int>(handle,
-                                                           input_vec,
-                                                           sizes_vec,
-                                                           input.d,
-                                                           input.X,
-                                                           input.n,
-                                                           k_graph.knn_indices,
-                                                           k_graph.knn_dists,
-                                                           k_graph.n_neighbors,
-                                                           true,
-                                                           true,
-                                                           nullptr,
-                                                           metric,
-                                                           p);
+  cuvs::neighbors::brute_force::search(
+    handle,
+    idx,
+    X_view,
+    raft::make_device_matrix_view<int64_t, int64_t>(k_graph.knn_indices, input.n, k),
+    raft::make_device_matrix_view<float, int64_t>(k_graph.knn_dists, input.n, k),
+    std::nullopt);
 }
 
 // dense, int32 indices

@@ -28,6 +28,8 @@
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuvs/neighbors/brute_force.hpp>
+
 #include <iostream>
 
 namespace UMAPAlgo {
@@ -57,25 +59,19 @@ inline void launcher(const raft::handle_t& handle,
                      const ML::UMAPParams* params,
                      cudaStream_t stream)
 {
-  std::vector<float*> ptrs(1);
-  std::vector<int> sizes(1);
-  ptrs[0]  = inputsA.X;
-  sizes[0] = inputsA.n;
+  auto idx = cuvs::neighbors::brute_force::build(
+    handle,
+    raft::make_device_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d),
+    static_cast<cuvs::distance::DistanceType>(params->metric),
+    params->p);
 
-  raft::spatial::knn::brute_force_knn(handle,
-                                      ptrs,
-                                      sizes,
-                                      inputsA.d,
-                                      inputsB.X,
-                                      inputsB.n,
-                                      out.knn_indices,
-                                      out.knn_dists,
-                                      n_neighbors,
-                                      true,
-                                      true,
-                                      static_cast<std::vector<int64_t>*>(nullptr),
-                                      params->metric,
-                                      params->p);
+  cuvs::neighbors::brute_force::search(
+    handle,
+    idx,
+    raft::make_device_matrix_view<const float, int64_t>(inputsB.X, inputsB.n, inputsB.d),
+    raft::make_device_matrix_view<int64_t, int64_t>(out.knn_indices, inputsB.n, n_neighbors),
+    raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsB.n, n_neighbors),
+    std::nullopt);
 }
 
 // Instantiation for dense inputs, int indices

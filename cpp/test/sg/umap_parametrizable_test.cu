@@ -126,20 +126,18 @@ class UMAPParametrizableTest : public ::testing::Test {
       knn_indices   = knn_indices_b->data();
       knn_dists     = knn_dists_b->data();
 
-      std::vector<float*> ptrs(1);
-      std::vector<int> sizes(1);
-      ptrs[0]  = X;
-      sizes[0] = n_samples;
+      auto X_view = raft::make_device_matrix_view<const float, int64_t>(X, n_samples, n_features);
+      auto idx    = cuvs::neighbors::brute_force::build(
+        handle, X_view, cuvs::distance::DistanceType::L2Unexpanded);
 
-      raft::spatial::knn::brute_force_knn<long, float, int>(handle,
-                                                            ptrs,
-                                                            sizes,
-                                                            n_features,
-                                                            X,
-                                                            n_samples,
-                                                            knn_indices,
-                                                            knn_dists,
-                                                            umap_params.n_neighbors);
+      cuvs::neighbors::brute_force::search(handle,
+                                           idx,
+                                           X_view,
+                                           raft::make_device_matrix_view<int64_t, int64_t>(
+                                             knn_indices, n_samples, umap_params.n_neighbors),
+                                           raft::make_device_matrix_view<float, int64_t>(
+                                             knn_dists, n_samples, umap_params.n_neighbors),
+                                           std::nullopt);
 
       handle.sync_stream(stream);
     }
