@@ -68,12 +68,14 @@ files:
       - test_notebooks
   py_build:
     output: pyproject
+    pyproject_dir: python/cuml
     extras:
       table: build-system
     includes:
       - rapids_build_backend
   py_rapids_build:
     output: pyproject
+    pyproject_dir: python/cuml
     extras:
       table: tool.rapids-build-backend
       key: requires
@@ -82,6 +84,7 @@ files:
       - py_build
   py_run:
     output: pyproject
+    pyproject_dir: python/cuml
     extras:
       table: project
     includes:
@@ -89,6 +92,7 @@ files:
       - cuda
   py_test:
     output: pyproject
+    pyproject_dir: python/cuml
     extras:
       table: project.optional-dependencies
       key: test
