@@ -25,6 +25,7 @@ if(NOT CUML_CPU)
   include(rapids-cuda)
   rapids_cuda_init_architectures(cuml-python)
   list(APPEND language_list "CUDA")
+  find_package(CUDAToolkit REQUIRED)
 endif()
 
 project(
@@ -72,7 +73,7 @@ include(rapids-cython-core)
 
 set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
 
-if(NOT ${CUML_CPU})
+if(NOT CUML_CPU)
   if(NOT cuml_FOUND)
     set(BUILD_CUML_TESTS OFF)
     set(BUILD_PRIMS_TESTS OFF)
@@ -89,8 +90,12 @@ if(NOT ${CUML_CPU})
     set(CUML_USE_FAISS_STATIC ON)
     set(CUML_USE_TREELITE_STATIC ON)
     set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
-    # Use the CUDA library wheels
-    set(CUDA_STATIC_MATH_LIBRARIES OFF)
+    # Use the CUDA library wheels if possible
+    if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
+      set(CUDA_STATIC_MATH_LIBRARIES OFF)
+    else()
+      set(CUDA_STATIC_MATH_LIBRARIES ON)
+    endif()
     # Don't install the static libs into wheels
     set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
     set(RAFT_EXCLUDE_FAISS_FROM_ALL ON)
@@ -99,14 +104,16 @@ if(NOT ${CUML_CPU})
 
     add_subdirectory(${CUML_CPP_SRC} cuml-cpp EXCLUDE_FROM_ALL)
 
-    set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH
-      "$ORIGIN/../nvidia/cublas/lib"
-      "$ORIGIN/../nvidia/cufft/lib"
-      "$ORIGIN/../nvidia/curand/lib"
-      "$ORIGIN/../nvidia/cusolver/lib"
-      "$ORIGIN/../nvidia/cusparse/lib"
-      "$ORIGIN/../nvidia/nvjitlink/lib"
-    )
+    if(NOT CUDA_STATIC_MATH_LIBRARIES)
+      set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH
+        "$ORIGIN/../nvidia/cublas/lib"
+        "$ORIGIN/../nvidia/cufft/lib"
+        "$ORIGIN/../nvidia/curand/lib"
+        "$ORIGIN/../nvidia/cusolver/lib"
+        "$ORIGIN/../nvidia/cusparse/lib"
+        "$ORIGIN/../nvidia/nvjitlink/lib"
+      )
+    endif()
 
     set(cython_lib_dir cuml)
     install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
