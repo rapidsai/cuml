@@ -25,7 +25,6 @@ if(NOT CUML_CPU)
   include(rapids-cuda)
   rapids_cuda_init_architectures(cuml-python)
   list(APPEND language_list "CUDA")
-  find_package(CUDAToolkit REQUIRED)
 endif()
 
 project(
@@ -75,6 +74,8 @@ set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
 
 if(NOT CUML_CPU)
   if(NOT cuml_FOUND)
+    find_package(CUDAToolkit REQUIRED)
+
     set(BUILD_CUML_TESTS OFF)
     set(BUILD_PRIMS_TESTS OFF)
     set(BUILD_CUML_C_LIBRARY OFF)
