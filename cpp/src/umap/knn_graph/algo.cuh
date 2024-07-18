@@ -21,9 +21,12 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/neighbors/knn_sparse.hpp>
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/host_mdspan.hpp>
+#include <raft/core/mdspan.hpp>
+#include <raft/core/mdspan_types.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/neighbors/detail/nn_descent.cuh>
@@ -58,17 +61,6 @@ template <typename value_idx, typename value_t = float>
 struct DistancePostProcessSqrt {
   DI value_t operator()(value_t value, value_idx row, value_idx col) const { return sqrtf(value); }
 };
-
-template <typename T>
-CUML_KERNEL void copy_first_k_cols(T* out, T* in, size_t out_k, size_t in_k, size_t nrows)
-{
-  size_t row = blockIdx.x * blockDim.x + threadIdx.x;
-  if (row < nrows) {
-    for (size_t i = 0; i < out_k; i++) {
-      out[row * out_k + i] = in[row * in_k + i];
-    }
-  }
-}
 
 // Instantiation for dense inputs, int64_t indices
 template <>
@@ -118,22 +110,21 @@ inline void launcher(const raft::handle_t& handle,
                inputsA.n * params->nn_descent_params.graph_degree,
                stream);
 
-    size_t TPB        = 256;
-    size_t num_blocks = static_cast<size_t>((inputsA.n + TPB) / TPB);
+    raft::matrix::slice_coordinates coords{static_cast<int64_t>(0),
+                                           static_cast<int64_t>(0),
+                                           static_cast<int64_t>(inputsA.n),
+                                           static_cast<int64_t>(n_neighbors)};
+
     if (graph.distances().has_value()) {
-      copy_first_k_cols<float>
-        <<<num_blocks, TPB, 0, stream>>>(out.knn_dists,
-                                         graph.distances().value().data_handle(),
-                                         static_cast<size_t>(n_neighbors),
-                                         params->nn_descent_params.graph_degree,
-                                         inputsA.n);
+      auto out_knn_dists_view =
+        raft::make_device_matrix_view(out.knn_dists, inputsA.n, n_neighbors);
+      raft::matrix::slice<float, int64_t, raft::row_major>(
+        handle, raft::make_const_mdspan(graph.distances().value()), out_knn_dists_view, coords);
     }
-    copy_first_k_cols<int64_t>
-      <<<num_blocks, TPB, 0, stream>>>(out.knn_indices,
-                                       indices_d.data_handle(),
-                                       static_cast<size_t>(n_neighbors),
-                                       params->nn_descent_params.graph_degree,
-                                       inputsA.n);
+    auto out_knn_indices_view =
+      raft::make_device_matrix_view(out.knn_indices, inputsA.n, n_neighbors);
+    raft::matrix::slice<int64_t, int64_t, raft::row_major>(
+      handle, raft::make_const_mdspan(indices_d.view()), out_knn_indices_view, coords);
   }
 }
 
