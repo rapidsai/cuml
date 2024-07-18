@@ -29,7 +29,8 @@
 #include <raft/core/mdspan_types.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/neighbors/detail/nn_descent.cuh>
+#include <raft/matrix/slice.cuh>
+#include <raft/neighbors/nn_descent.cuh>
 #include <raft/neighbors/nn_descent_types.hpp>
 #include <raft/sparse/selection/knn.cuh>
 #include <raft/spatial/knn/knn.cuh>
@@ -98,9 +99,9 @@ inline void launcher(const raft::handle_t& handle,
     auto epilogue = DistancePostProcessSqrt<int64_t, float>{};
 
     auto dataset =
-      raft::make_host_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d);
-    auto graph = NNDescent::detail::build<float, int64_t>(
-      handle, params->nn_descent_params, dataset, epilogue);
+      raft::make_device_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d);
+    auto graph =
+      NNDescent::build<float, int64_t>(handle, params->nn_descent_params, dataset, epilogue);
 
     auto indices_d = raft::make_device_matrix<int64_t, int64_t>(
       handle, inputsA.n, params->nn_descent_params.graph_degree);
