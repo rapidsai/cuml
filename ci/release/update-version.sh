@@ -38,10 +38,10 @@ function sed_runner() {
 echo "${NEXT_FULL_TAG}" > VERSION
 
 # pyproject.toml versions
-sed_runner "s/rmm==.*\",/rmm==${NEXT_SHORT_TAG_PEP440}.*,>=0.0.0a0\",/g" python/pyproject.toml
-sed_runner "s/cudf==.*\",/cudf==${NEXT_SHORT_TAG_PEP440}.*,>=0.0.0a0\",/g" python/pyproject.toml
-sed_runner "s/pylibraft==.*\",/pylibraft==${NEXT_SHORT_TAG_PEP440}.*,>=0.0.0a0\",/g" python/pyproject.toml
-sed_runner "s/raft-dask==.*\",/raft-dask==${NEXT_SHORT_TAG_PEP440}.*,>=0.0.0a0\",/g" python/pyproject.toml
+sed_runner "s/rmm==.*\",/rmm==${NEXT_SHORT_TAG_PEP440}.*,>=0.0.0a0\",/g" python/cuml/pyproject.toml
+sed_runner "s/cudf==.*\",/cudf==${NEXT_SHORT_TAG_PEP440}.*,>=0.0.0a0\",/g" python/cuml/pyproject.toml
+sed_runner "s/pylibraft==.*\",/pylibraft==${NEXT_SHORT_TAG_PEP440}.*,>=0.0.0a0\",/g" python/cuml/pyproject.toml
+sed_runner "s/raft-dask==.*\",/raft-dask==${NEXT_SHORT_TAG_PEP440}.*,>=0.0.0a0\",/g" python/cuml/pyproject.toml
 
 DEPENDENCIES=(
   cudf
@@ -66,7 +66,7 @@ for FILE in dependencies.yaml conda/environments/*.yaml; do
 done
 
 sed_runner "s|/branch-[^/]*/|/branch-${NEXT_SHORT_TAG}/|g" README.md
-sed_runner "s|/branch-[^/]*/|/branch-${NEXT_SHORT_TAG}/|g" python/README.md
+sed_runner "s|/branch-[^/]*/|/branch-${NEXT_SHORT_TAG}/|g" python/cuml/README.md
 
 
 # CI files
