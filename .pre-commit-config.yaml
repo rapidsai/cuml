@@ -74,7 +74,7 @@ repos:
           exclude: |
             (?x)
                 cpp/src/tsne/cannylab/bh[.]cu$|
-                python/cuml/_thirdparty
+                python/cuml/cuml/_thirdparty
         - id: verify-alpha-spec
     - repo: https://github.com/rapidsai/dependency-file-generator
       rev: v1.13.11
