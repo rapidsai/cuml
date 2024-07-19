@@ -54,9 +54,6 @@ value_t Exact_TSNE(value_t* VAL,
   value_t kl_div      = 0;
   const value_idx dim = params.dim;
 
-  if (params.initialize_embeddings)
-    random_vector(Y, -0.0001f, 0.0001f, n * dim, stream, params.random_state);
-
   // Allocate space
   //---------------------------------------------------
   CUML_LOG_DEBUG("Now allocating memory for TSNE.");
