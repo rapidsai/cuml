@@ -28,7 +28,7 @@ concurrency:
 jobs:
   cpp-build:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-24.10
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -38,7 +38,7 @@ jobs:
     if: github.ref_type == 'branch'
     needs: [python-build]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@branch-24.10
     with:
       arch: "amd64"
       branch: ${{ inputs.branch }}
@@ -51,7 +51,7 @@ jobs:
   python-build:
     needs: [cpp-build]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@branch-24.10
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -60,7 +60,7 @@ jobs:
   upload-conda:
     needs: [cpp-build, python-build]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-upload-packages.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-upload-packages.yaml@branch-24.10
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -68,7 +68,7 @@ jobs:
       sha: ${{ inputs.sha }}
   wheel-build-cuml:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.10
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -79,12 +79,12 @@ jobs:
       # the CMake variables in get_cumlprims_mg.cmake since CMake will just use
       # the clone as is.
       extra-repo: rapidsai/cumlprims_mg
-      extra-repo-sha: branch-24.08
+      extra-repo-sha: branch-24.10
       extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
   wheel-publish-cuml:
     needs: wheel-build-cuml
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@branch-24.10
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}

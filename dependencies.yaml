@@ -139,10 +139,10 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - libcumlprims==24.8.*,>=0.0.0a0
-          - libraft==24.8.*,>=0.0.0a0
-          - libraft-headers==24.8.*,>=0.0.0a0
-          - librmm==24.8.*,>=0.0.0a0
+          - libcumlprims==24.10.*,>=0.0.0a0
+          - libraft==24.10.*,>=0.0.0a0
+          - libraft-headers==24.10.*,>=0.0.0a0
+          - librmm==24.10.*,>=0.0.0a0
     specific:
       - output_types: conda
         matrices:
@@ -180,8 +180,8 @@ dependencies:
           - &treelite treelite==4.2.1
       - output_types: conda
         packages:
-          - &pylibraft_conda pylibraft==24.8.*,>=0.0.0a0
-          - &rmm_conda rmm==24.8.*,>=0.0.0a0
+          - &pylibraft_conda pylibraft==24.10.*,>=0.0.0a0
+          - &rmm_conda rmm==24.10.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -206,22 +206,22 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - pylibraft-cu12==24.8.*,>=0.0.0a0
-              - rmm-cu12==24.8.*,>=0.0.0a0
+              - pylibraft-cu12==24.10.*,>=0.0.0a0
+              - rmm-cu12==24.10.*,>=0.0.0a0
           - matrix: {cuda: "11.*"}
             packages:
-              - &pylibraft_cu11 pylibraft-cu11==24.8.*,>=0.0.0a0
-              - &rmm_cu11 rmm-cu11==24.8.*,>=0.0.0a0
+              - &pylibraft_cu11 pylibraft-cu11==24.10.*,>=0.0.0a0
+              - &rmm_cu11 rmm-cu11==24.10.*,>=0.0.0a0
           - matrix:
             packages:
-              - pylibraft==24.8.*,>=0.0.0a0
-              - rmm==24.8.*,>=0.0.0a0
+              - pylibraft==24.10.*,>=0.0.0a0
+              - rmm==24.10.*,>=0.0.0a0
 
   py_run:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - dask-cuda==24.8.*,>=0.0.0a0
+          - dask-cuda==24.10.*,>=0.0.0a0
           - joblib>=0.11
           - numba>=0.57
             # TODO: Is scipy really a hard dependency, or should
@@ -229,14 +229,14 @@ dependencies:
             # installation/run_constrained for conda)?
           - scipy>=1.8.0
           - packaging
-          - rapids-dask-dependency==24.8.*,>=0.0.0a0
+          - rapids-dask-dependency==24.10.*,>=0.0.0a0
           - *treelite
       - output_types: conda
         packages:
-          - &cudf_conda cudf==24.8.*,>=0.0.0a0
+          - &cudf_conda cudf==24.10.*,>=0.0.0a0
           - &cupy_conda cupy>=12.0.0
-          - &dask_cudf_conda dask-cudf==24.8.*,>=0.0.0a0
-          - &raft_dask_conda raft-dask==24.8.*,>=0.0.0a0
+          - &dask_cudf_conda dask-cudf==24.10.*,>=0.0.0a0
+          - &raft_dask_conda raft-dask==24.10.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -248,19 +248,19 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
-              - cudf-cu12==24.8.*,>=0.0.0a0
+              - cudf-cu12==24.10.*,>=0.0.0a0
               - cupy-cuda12x>=12.0.0
-              - dask-cudf-cu12==24.8.*,>=0.0.0a0
-              - pylibraft-cu12==24.8.*,>=0.0.0a0
-              - raft-dask-cu12==24.8.*,>=0.0.0a0
-              - rmm-cu12==24.8.*,>=0.0.0a0
+              - dask-cudf-cu12==24.10.*,>=0.0.0a0
+              - pylibraft-cu12==24.10.*,>=0.0.0a0
+              - raft-dask-cu12==24.10.*,>=0.0.0a0
+              - rmm-cu12==24.10.*,>=0.0.0a0
           - matrix: {cuda: "11.*"}
             packages: &py_run_packages_cu11
-              - cudf-cu11==24.8.*,>=0.0.0a0
+              - cudf-cu11==24.10.*,>=0.0.0a0
               - &cupy_pyproject_cu11 cupy-cuda11x>=12.0.0
-              - dask-cudf-cu11==24.8.*,>=0.0.0a0
+              - dask-cudf-cu11==24.10.*,>=0.0.0a0
               - *pylibraft_cu11
-              - raft-dask-cu11==24.8.*,>=0.0.0a0
+              - raft-dask-cu11==24.10.*,>=0.0.0a0
               - *rmm_cu11
           - matrix:
             packages:
@@ -416,14 +416,14 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - libcuml==24.8.*,>=0.0.0a0
-          - libcuml-tests==24.8.*,>=0.0.0a0
+          - libcuml==24.10.*,>=0.0.0a0
+          - libcuml-tests==24.10.*,>=0.0.0a0
   test_cuml:
     common:
       - output_types: conda
         packages:
-          - libcuml==24.8.*,>=0.0.0a0
-          - cuml==24.8.*,>=0.0.0a0
+          - libcuml==24.10.*,>=0.0.0a0
+          - cuml==24.10.*,>=0.0.0a0
   test_cpp:
     common:
       - output_types: conda
