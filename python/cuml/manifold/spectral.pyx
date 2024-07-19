@@ -119,7 +119,16 @@ cdef extern from "cuml/cluster/spectral.hpp" namespace "ML::Spectral":
         int n,
         int p,
         int* knn_indices,
-        float* knn_dists);
+        int* knn_rows,
+        float* knn_dists,
+        int* a_knn_indices,
+        int* a_knn_rows,
+        float* a_knn_dists,
+        int num_neighbors,
+        int* rows,
+        int* cols,
+        float* vals,
+        int nnz);
 
 
 class SpectralEmbedding(Base,
@@ -272,6 +281,13 @@ class SpectralEmbedding(Base,
 
     X_m = CumlArrayDescriptor()
     embedding_ = CumlArrayDescriptor()
+    knn_dists = CumlArrayDescriptor()
+    knn_indices = CumlArrayDescriptor()
+    knn_rows = CumlArrayDescriptor()
+
+    a_knn_dists = CumlArrayDescriptor()
+    a_knn_indices = CumlArrayDescriptor()
+    a_knn_rows = CumlArrayDescriptor()
 
     def __init__(self, *,
                  n_components=2,
@@ -298,7 +314,11 @@ class SpectralEmbedding(Base,
                  square_distances=True,
                  precomputed_knn=None,
                  handle=None,
-                 output_type=None):
+                 output_type=None,
+                 rows=None,
+                 cols=None,
+                 vals=None,
+                 nnz=None):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -380,6 +400,7 @@ class SpectralEmbedding(Base,
         self.method = method
         self.angle = angle
         self.n_neighbors = n_neighbors
+        self.nnz = nnz
         self.perplexity_max_iter = perplexity_max_iter
         self.exaggeration_iter = exaggeration_iter
         self.pre_momentum = pre_momentum
@@ -404,7 +425,31 @@ class SpectralEmbedding(Base,
         self.square_distances = square_distances
 
         self.X_m = None
+        self.rows = None
+        self.cols = None
+        self.vals = None
+
+        self.rows, n, p, _ = \
+                input_to_cuml_array(rows, order='C', check_dtype=np.int32,
+                                    convert_to_dtype=(np.int32))
+        
+        self.cols, n, p, _ = \
+                input_to_cuml_array(cols, order='C', check_dtype=np.int32,
+                                    convert_to_dtype=(np.int32))
+
+        self.vals, n, p, _ = \
+                input_to_cuml_array(vals, order='C', check_dtype=np.float32,
+                                    convert_to_dtype=(np.float32))
+
+
         self.embedding_ = None
+        self.knn_dists = None
+        self.knn_indices = None
+        self.knn_rows = None
+
+        self.a_knn_dists = None
+        self.a_knn_indices = None
+        self.a_knn_rows = None
 
         self.sparse_fit = False
 
@@ -465,6 +510,18 @@ class SpectralEmbedding(Base,
 
         cdef uintptr_t knn_dists_ptr = 0
         cdef uintptr_t knn_indices_ptr = 0
+        cdef uintptr_t knn_rows_ptr = 0
+
+        cdef uintptr_t a_knn_dists_ptr = 0
+        cdef uintptr_t a_knn_indices_ptr = 0
+        cdef uintptr_t a_knn_rows_ptr = 0
+
+        cdef uintptr_t rows_ptr = 0
+        cdef uintptr_t cols_ptr = 0
+        cdef uintptr_t vals_ptr = 0
+
+
+        
         if knn_graph is not None or self.precomputed_knn is not None:
             if knn_graph is not None:
                 knn_indices, knn_dists = extract_knn_infos(knn_graph,
@@ -479,6 +536,49 @@ class SpectralEmbedding(Base,
             knn_dists_ptr = knn_dists.ptr
             knn_indices_ptr = knn_indices.ptr
 
+        print(n)
+        print(self.n_neighbors)
+        print(self.nnz)
+
+        self.knn_dists = CumlArray.zeros(
+            (n * self.n_neighbors*2),
+            order="F",
+            dtype=np.float32)
+        self.knn_indices = CumlArray.zeros(
+            (n * self.n_neighbors*2),
+            order="F",
+            dtype=np.int32)
+        self.knn_rows = CumlArray.zeros(
+            (n * self.n_neighbors*2),
+            order="F",
+            dtype=np.int32)
+
+        self.a_knn_dists = CumlArray.zeros(
+            (n * self.n_neighbors*2),
+            order="F",
+            dtype=np.float32)
+        self.a_knn_indices = CumlArray.zeros(
+            (n * self.n_neighbors*2),
+            order="F",
+            dtype=np.int32)
+        self.a_knn_rows = CumlArray.zeros(
+            (n * self.n_neighbors*2),
+            order="F",
+            dtype=np.int32)
+
+        knn_dists_ptr = self.knn_dists.ptr
+        knn_indices_ptr = self.knn_indices.ptr
+        knn_rows_ptr = self.knn_rows.ptr
+
+        a_knn_dists_ptr = self.a_knn_dists.ptr
+        a_knn_indices_ptr = self.a_knn_indices.ptr
+        a_knn_rows_ptr = self.a_knn_rows.ptr
+
+        rows_ptr = self.rows.ptr
+        cols_ptr = self.cols.ptr
+        vals_ptr = self.vals.ptr
+
+
         # Prepare output embeddings
         self.embedding_ = CumlArray.zeros(
             (n, self.n_components),
@@ -487,30 +587,6 @@ class SpectralEmbedding(Base,
             index=self.X_m.index)
 
         cdef uintptr_t embed_ptr = self.embedding_.ptr
-
-        # Find best params if learning rate method is adaptive
-        if self.learning_rate_method=='adaptive' and (self.method=="barnes_hut"
-                                                      or self.method=='fft'):
-            logger.debug("Learning rate is adaptive. In TSNE paper, "
-                         "it has been shown that as n->inf, "
-                         "Barnes Hut works well if n_neighbors->30, "
-                         "learning_rate->20000, early_exaggeration->24.")
-            logger.debug("cuML uses an adpative method."
-                         "n_neighbors decreases to 30 as n->inf. "
-                         "Likewise for the other params.")
-            if n <= 2000:
-                self.n_neighbors = min(max(self.n_neighbors, 90), n)
-            else:
-                # A linear trend from (n=2000, neigh=100) to (n=60000,neigh=30)
-                self.n_neighbors = max(int(102 - 0.0012 * n), 30)
-            self.pre_learning_rate = max(n / 3.0, 1)
-            self.post_learning_rate = self.pre_learning_rate
-            self.early_exaggeration = 24.0 if n > 10000 else 12.0
-            if logger.should_log_for(logger.level_debug):
-                logger.debug("New n_neighbors = {}, learning_rate = {}, "
-                             "exaggeration = {}"
-                             .format(self.n_neighbors, self.pre_learning_rate,
-                                     self.early_exaggeration))
 
         if self.method == 'barnes_hut':
             algo = TSNE_ALGORITHM.BARNES_HUT
@@ -554,6 +630,7 @@ class SpectralEmbedding(Base,
             #          <float*> knn_dists_ptr,
             #          <TSNEParams&> deref(params),
             #          &kl_divergence)
+            print(self.n_neighbors)
             spectral_fit(
                 handle_[0],
                 <float*><uintptr_t> self.X_m.ptr,
@@ -561,7 +638,16 @@ class SpectralEmbedding(Base,
                 <int> n,
                 <int> p,
                 <int*> knn_indices_ptr,
-                <float*> knn_dists_ptr);
+                <int*> knn_rows_ptr,
+                <float*> knn_dists_ptr,
+                <int*> a_knn_indices_ptr,
+                <int*> a_knn_rows_ptr,
+                <float*> a_knn_dists_ptr,
+                <int> self.n_neighbors,
+                <int*> rows_ptr,
+                <int*> cols_ptr,
+                <float*> vals_ptr,
+                <int> self.nnz);
 
         self.handle.sync()
         free(params)

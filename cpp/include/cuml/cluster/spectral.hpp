@@ -50,6 +50,37 @@ void fit_embedding(const raft::handle_t& handle,
                    float* out,
                    unsigned long long seed = 1234567);
 
+/**
+ * Given a COO formatted (symmetric) knn graph, this function
+ * computes the spectral embeddings (lowest n_components
+ * eigenvectors), using Lanczos min cut algorithm.
+ * @param handle cuml handle
+ * @param rows source vertices of knn graph (size nnz)
+ * @param cols destination vertices of knn graph (size nnz)
+ * @param vals edge weights connecting vertices of knn graph (size nnz)
+ * @param nnz size of rows/cols/vals
+ * @param n number of samples in X
+ * @param n_components the number of components to project the X into
+ * @param out output array for embedding (size n*n_comonents)
+ * @param seed random seed to use in both the lanczos solver and k-means
+ */
+template <typename T>
+void lanczos_solver(const raft::handle_t& handle,
+                    int* rows,
+                    int* cols,
+                    T* vals,
+                    int nnz,
+                    int n,
+                    int n_components,
+                    T* eigenvectors,
+                    T* eigenvalues,
+                    int* eig_iters,
+                    unsigned long long seed = 1234567,
+                    int maxiter             = 4000,
+                    float tol               = 0.01,
+                    int conv_n_iters        = 5,
+                    float conv_eps          = 0.001);
+
 struct SpectralParams {};
 
 /**
@@ -79,7 +110,16 @@ void spectral_fit(const raft::handle_t& handle,
                   int n,
                   int p,
                   int* knn_indices,
-                  float* knn_dists);
+                  int* knn_rows,
+                  float* knn_dists,
+                  int* a_knn_indices,
+                  int* a_knn_rows,
+                  float* a_knn_dists,
+                  int num_neighbors,
+                  int* rows,
+                  int* cols,
+                  float* vals,
+                  int nnz);
 
 }  // namespace Spectral
 }  // namespace ML
