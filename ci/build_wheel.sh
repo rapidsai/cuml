@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-package_dir="python"
+package_dir="python/cuml"
 
 source rapids-configure-sccache
 source rapids-date-string
