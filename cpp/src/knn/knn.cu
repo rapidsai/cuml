@@ -17,6 +17,7 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
 
+#include <raft/core/device_resources.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/spatial/knn/ann.cuh>
@@ -28,6 +29,7 @@
 
 #include <cuda_runtime.h>
 
+#include <cuvs/neighbors/brute_force.hpp>
 #include <ml_mg_utils.cuh>
 #include <selection/knn.cuh>
 
@@ -36,7 +38,6 @@
 #include <vector>
 
 namespace ML {
-
 void brute_force_knn(const raft::handle_t& handle,
                      std::vector<float*>& input,
                      std::vector<int>& sizes,
@@ -49,24 +50,110 @@ void brute_force_knn(const raft::handle_t& handle,
                      bool rowMajorIndex,
                      bool rowMajorQuery,
                      raft::distance::DistanceType metric,
-                     float metric_arg)
+                     float metric_arg,
+                     std::vector<int64_t>* translations)
 {
   ASSERT(input.size() == sizes.size(), "input and sizes vectors must be the same size");
 
-  raft::spatial::knn::brute_force_knn<int64_t, float, int>(handle,
-                                                           input,
-                                                           sizes,
-                                                           D,
-                                                           search_items,
-                                                           n,
-                                                           res_I,
-                                                           res_D,
-                                                           k,
-                                                           rowMajorIndex,
-                                                           rowMajorQuery,
-                                                           nullptr,
-                                                           metric,
-                                                           metric_arg);
+  // The cuvs api doesn't support having multiple input values to search against.
+  auto userStream = raft::resource::get_cuda_stream(handle);
+
+  ASSERT(input.size() == sizes.size(), "input and sizes vectors should be the same size");
+
+  std::vector<int64_t>* id_ranges;
+  if (translations == nullptr) {
+    // If we don't have explicit translations
+    // for offsets of the indices, build them
+    // from the local partitions
+    id_ranges       = new std::vector<int64_t>();
+    int64_t total_n = 0;
+    for (size_t i = 0; i < input.size(); i++) {
+      id_ranges->push_back(total_n);
+      total_n += sizes[i];
+    }
+  } else {
+    // otherwise, use the given translations
+    id_ranges = translations;
+  }
+
+  rmm::device_uvector<int64_t> trans(id_ranges->size(), userStream);
+  raft::update_device(trans.data(), id_ranges->data(), id_ranges->size(), userStream);
+
+  rmm::device_uvector<float> all_D(0, userStream);
+  rmm::device_uvector<int64_t> all_I(0, userStream);
+
+  float* out_D   = res_D;
+  int64_t* out_I = res_I;
+
+  if (input.size() > 1) {
+    all_D.resize(input.size() * k * n, userStream);
+    all_I.resize(input.size() * k * n, userStream);
+
+    out_D = all_D.data();
+    out_I = all_I.data();
+  }
+
+  // Make other streams from pool wait on main stream
+  raft::resource::wait_stream_pool_on_stream(handle);
+
+  for (size_t i = 0; i < input.size(); i++) {
+    float* out_d_ptr   = out_D + (i * k * n);
+    int64_t* out_i_ptr = out_I + (i * k * n);
+
+    auto stream         = raft::resource::get_next_usable_stream(handle, i);
+    auto current_handle = raft::device_resources(stream);
+
+    // build the brute_force index (precalculates norms etc)
+    std::optional<cuvs::neighbors::brute_force::index<float>> idx;
+    if (rowMajorIndex) {
+      idx = cuvs::neighbors::brute_force::build(
+        current_handle,
+        raft::make_device_matrix_view<const float, int64_t, raft::row_major>(input[i], sizes[i], D),
+        static_cast<cuvs::distance::DistanceType>(metric),
+        metric_arg);
+
+    } else {
+      idx = cuvs::neighbors::brute_force::build(
+        current_handle,
+        raft::make_device_matrix_view<const float, int64_t, raft::col_major>(input[i], sizes[i], D),
+        static_cast<cuvs::distance::DistanceType>(metric),
+        metric_arg);
+    }
+
+    // query the index
+    if (rowMajorQuery) {
+      cuvs::neighbors::brute_force::search(
+        current_handle,
+        *idx,
+        raft::make_device_matrix_view<const float, int64_t, raft::row_major>(search_items, n, D),
+        raft::make_device_matrix_view<int64_t, int64_t>(out_i_ptr, n, k),
+        raft::make_device_matrix_view<float, int64_t>(out_d_ptr, n, k),
+        std::nullopt);
+    } else {
+      cuvs::neighbors::brute_force::search(
+        current_handle,
+        *idx,
+        raft::make_device_matrix_view<const float, int64_t, raft::row_major>(search_items, n, D),
+        raft::make_device_matrix_view<int64_t, int64_t>(out_i_ptr, n, k),
+        raft::make_device_matrix_view<float, int64_t>(out_d_ptr, n, k),
+        std::nullopt);
+    }
+  }
+
+  // Sync internal streams if used. We don't need to
+  // sync the user stream because we'll already have
+  // fully serial execution.
+  raft::resource::sync_stream_pool(handle);
+
+  if (input.size() > 1 || translations != nullptr) {
+    // This is necessary for proper index translations. If there are
+    // no translations or partitions to combine, it can be skipped.
+    // TODO: sort out where this knn_merge_parts should live
+    raft::spatial::knn::knn_merge_parts(
+      out_D, out_I, res_D, res_I, n, input.size(), k, userStream, trans.data());
+  }
+
+  if (translations == nullptr) delete id_ranges;
 }
 
 void rbc_build_index(const raft::handle_t& handle,

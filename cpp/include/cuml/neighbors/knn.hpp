@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +46,8 @@ namespace ML {
  *            default
  * @param[in] metric_arg the value of `p` for Minkowski (l-p) distances. This
  *            is ignored if the metric_type is not Minkowski.
+ * @param[in] translations translation ids for indices when index rows represent
+ *        non-contiguous partitions
  */
 void brute_force_knn(const raft::handle_t& handle,
                      std::vector<float*>& input,
@@ -59,7 +61,8 @@ void brute_force_knn(const raft::handle_t& handle,
                      bool rowMajorIndex                  = false,
                      bool rowMajorQuery                  = false,
                      raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
-                     float metric_arg                    = 2.0f);
+                     float metric_arg                    = 2.0f,
+                     std::vector<int64_t>* translations  = nullptr);
 
 void rbc_build_index(const raft::handle_t& handle,
                      raft::spatial::knn::BallCoverIndex<int64_t, float, uint32_t>& index);
