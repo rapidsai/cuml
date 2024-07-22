@@ -22,12 +22,12 @@
 
 #include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/selection/knn.cuh>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuvs/distance/distance.hpp>
 #include <cuvs/neighbors/brute_force.hpp>
 
 #include <iostream>
@@ -62,7 +62,7 @@ inline void launcher(const raft::handle_t& handle,
   auto idx = cuvs::neighbors::brute_force::build(
     handle,
     raft::make_device_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d),
-    static_cast<cuvs::distance::DistanceType>(params->metric),
+    params->metric,
     params->p);
 
   cuvs::neighbors::brute_force::search(
@@ -96,26 +96,27 @@ inline void launcher(const raft::handle_t& handle,
                      const ML::UMAPParams* params,
                      cudaStream_t stream)
 {
-  raft::sparse::selection::brute_force_knn(inputsA.indptr,
-                                           inputsA.indices,
-                                           inputsA.data,
-                                           inputsA.nnz,
-                                           inputsA.n,
-                                           inputsA.d,
-                                           inputsB.indptr,
-                                           inputsB.indices,
-                                           inputsB.data,
-                                           inputsB.nnz,
-                                           inputsB.n,
-                                           inputsB.d,
-                                           out.knn_indices,
-                                           out.knn_dists,
-                                           n_neighbors,
-                                           handle,
-                                           ML::Sparse::DEFAULT_BATCH_SIZE,
-                                           ML::Sparse::DEFAULT_BATCH_SIZE,
-                                           params->metric,
-                                           params->p);
+  raft::sparse::selection::brute_force_knn(
+    inputsA.indptr,
+    inputsA.indices,
+    inputsA.data,
+    inputsA.nnz,
+    inputsA.n,
+    inputsA.d,
+    inputsB.indptr,
+    inputsB.indices,
+    inputsB.data,
+    inputsB.nnz,
+    inputsB.n,
+    inputsB.d,
+    out.knn_indices,
+    out.knn_dists,
+    n_neighbors,
+    handle,
+    ML::Sparse::DEFAULT_BATCH_SIZE,
+    ML::Sparse::DEFAULT_BATCH_SIZE,
+    static_cast<raft::distance::DistanceType>(params->metric),
+    params->p);
 }
 
 template <>

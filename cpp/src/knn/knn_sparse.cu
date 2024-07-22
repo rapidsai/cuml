@@ -40,7 +40,7 @@ void brute_force_knn(raft::handle_t& handle,
                      int k,
                      size_t batch_size_index,  // approx 1M
                      size_t batch_size_query,
-                     raft::distance::DistanceType metric,
+                     cuvs::distance::DistanceType metric,
                      float metricArg)
 {
   raft::sparse::selection::brute_force_knn(idx_indptr,
@@ -61,7 +61,7 @@ void brute_force_knn(raft::handle_t& handle,
                                            handle,
                                            batch_size_index,
                                            batch_size_query,
-                                           metric,
+                                           static_cast<raft::distance::DistanceType>(metric),
                                            metricArg);
 }
 };  // namespace Sparse

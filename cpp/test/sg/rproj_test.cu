@@ -18,11 +18,11 @@
 #include <cuml/random_projection/rproj_c.h>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuvs/distance/distance.hpp>
 #include <gtest/gtest.h>
 #include <test_utils.h>
 
@@ -147,7 +147,7 @@ class RPROJTest : public ::testing::Test {
   void epsilon_check()
   {
     int D                        = johnson_lindenstrauss_min_dim(N, epsilon);
-    constexpr auto distance_type = raft::distance::DistanceType::L2SqrtUnexpanded;
+    constexpr auto distance_type = cuvs::distance::DistanceType::L2SqrtUnexpanded;
 
     rmm::device_uvector<T> d_pdist(N * N, stream);
     ML::Metrics::pairwise_distance(

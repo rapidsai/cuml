@@ -21,12 +21,12 @@
 #include <cuml/neighbors/knn.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance.cuh>
 #include <raft/linalg/reduce_rows_by_key.cuh>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuvs/distance/distance.hpp>
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>

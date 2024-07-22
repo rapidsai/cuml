@@ -17,8 +17,9 @@
 #pragma once
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance_types.hpp>
 #include <raft/sparse/hierarchy/common.h>
+
+#include <cuvs/distance/distance.hpp>
 
 namespace raft {
 class handle_t;
@@ -46,7 +47,7 @@ void single_linkage_pairwise(const raft::handle_t& handle,
                              size_t m,
                              size_t n,
                              raft::hierarchy::linkage_output<int>* out,
-                             raft::distance::DistanceType metric,
+                             cuvs::distance::DistanceType metric,
                              int n_clusters = 5);
 
 /**
@@ -74,7 +75,7 @@ void single_linkage_neighbors(
   size_t m,
   size_t n,
   raft::hierarchy::linkage_output<int>* out,
-  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded,
+  cuvs::distance::DistanceType metric = cuvs::distance::DistanceType::L2Unexpanded,
   int c                               = 15,
   int n_clusters                      = 5);
 
@@ -83,7 +84,7 @@ void single_linkage_pairwise(const raft::handle_t& handle,
                              size_t m,
                              size_t n,
                              raft::hierarchy::linkage_output<int64_t>* out,
-                             raft::distance::DistanceType metric,
+                             cuvs::distance::DistanceType metric,
                              int n_clusters = 5);
 
 };  // namespace ML

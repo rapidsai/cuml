@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,27 +14,27 @@
 # limitations under the License.
 #
 
-cdef extern from "raft/distance/distance_types.hpp" namespace "raft::distance":
+cdef extern from "cuvs/distance/distance.hpp" namespace "cuvs::distance":
 
     ctypedef enum DistanceType:
-        L2Expanded "raft::distance::DistanceType::L2Expanded"
-        L2SqrtExpanded "raft::distance::DistanceType::L2SqrtExpanded"
-        CosineExpanded "raft::distance::DistanceType::CosineExpanded"
-        L1 "raft::distance::DistanceType::L1"
-        L2Unexpanded "raft::distance::DistanceType::L2Unexpanded"
-        L2SqrtUnexpanded "raft::distance::DistanceType::L2SqrtUnexpanded"
-        InnerProduct "raft::distance::DistanceType::InnerProduct"
-        Linf "raft::distance::DistanceType::Linf"
-        Canberra "raft::distance::DistanceType::Canberra"
-        LpUnexpanded "raft::distance::DistanceType::LpUnexpanded"
-        CorrelationExpanded "raft::distance::DistanceType::CorrelationExpanded"
-        JaccardExpanded "raft::distance::DistanceType::JaccardExpanded"
-        HellingerExpanded "raft::distance::DistanceType::HellingerExpanded"
-        Haversine "raft::distance::DistanceType::Haversine"
-        BrayCurtis "raft::distance::DistanceType::BrayCurtis"
-        JensenShannon "raft::distance::DistanceType::JensenShannon"
-        HammingUnexpanded "raft::distance::DistanceType::HammingUnexpanded"
-        KLDivergence "raft::distance::DistanceType::KLDivergence"
-        RusselRaoExpanded "raft::distance::DistanceType::RusselRaoExpanded"
-        DiceExpanded "raft::distance::DistanceType::DiceExpanded"
-        Precomputed "raft::distance::DistanceType::Precomputed"
+        L2Expanded "cuvs::distance::DistanceType::L2Expanded"
+        L2SqrtExpanded "cuvs::distance::DistanceType::L2SqrtExpanded"
+        CosineExpanded "cuvs::distance::DistanceType::CosineExpanded"
+        L1 "cuvs::distance::DistanceType::L1"
+        L2Unexpanded "cuvs::distance::DistanceType::L2Unexpanded"
+        L2SqrtUnexpanded "cuvs::distance::DistanceType::L2SqrtUnexpanded"
+        InnerProduct "cuvs::distance::DistanceType::InnerProduct"
+        Linf "cuvs::distance::DistanceType::Linf"
+        Canberra "cuvs::distance::DistanceType::Canberra"
+        LpUnexpanded "cuvs::distance::DistanceType::LpUnexpanded"
+        CorrelationExpanded "cuvs::distance::DistanceType::CorrelationExpanded"
+        JaccardExpanded "cuvs::distance::DistanceType::JaccardExpanded"
+        HellingerExpanded "cuvs::distance::DistanceType::HellingerExpanded"
+        Haversine "cuvs::distance::DistanceType::Haversine"
+        BrayCurtis "cuvs::distance::DistanceType::BrayCurtis"
+        JensenShannon "cuvs::distance::DistanceType::JensenShannon"
+        HammingUnexpanded "cuvs::distance::DistanceType::HammingUnexpanded"
+        KLDivergence "cuvs::distance::DistanceType::KLDivergence"
+        RusselRaoExpanded "cuvs::distance::DistanceType::RusselRaoExpanded"
+        DiceExpanded "cuvs::distance::DistanceType::DiceExpanded"
+        Precomputed "cuvs::distance::DistanceType::Precomputed"

@@ -19,8 +19,9 @@
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/common/logger.hpp>
 
-#include <raft/distance/distance_types.hpp>
 #include <raft/sparse/hierarchy/common.h>
+
+#include <cuvs/distance/distance.hpp>
 
 #include <utility>
 
@@ -55,7 +56,7 @@ class Linkage : public BlobsFixture<D> {
                                    this->params.nrows,
                                    this->params.ncols,
                                    &out_arrs,
-                                   raft::distance::DistanceType::L2Unexpanded,
+                                   cuvs::distance::DistanceType::L2Unexpanded,
                                    15,
                                    50);
     });

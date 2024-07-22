@@ -57,7 +57,7 @@ class Dbscan : public BlobsFixture<D, int> {
                       this->params.ncols,
                       D(dParams.eps),
                       dParams.min_pts,
-                      raft::distance::L2SqrtUnexpanded,
+                      raft::distance::DistanceType::L2SqrtUnexpanded,
                       this->data.y.data(),
                       this->core_sample_indices,
                       nullptr,

@@ -49,7 +49,7 @@ void brute_force_knn(const raft::handle_t& handle,
                      int k,
                      bool rowMajorIndex,
                      bool rowMajorQuery,
-                     raft::distance::DistanceType metric,
+                     cuvs::distance::DistanceType metric,
                      float metric_arg,
                      std::vector<int64_t>* translations)
 {
@@ -109,14 +109,14 @@ void brute_force_knn(const raft::handle_t& handle,
       idx = cuvs::neighbors::brute_force::build(
         current_handle,
         raft::make_device_matrix_view<const float, int64_t, raft::row_major>(input[i], sizes[i], D),
-        static_cast<cuvs::distance::DistanceType>(metric),
+        metric,
         metric_arg);
 
     } else {
       idx = cuvs::neighbors::brute_force::build(
         current_handle,
         raft::make_device_matrix_view<const float, int64_t, raft::col_major>(input[i], sizes[i], D),
-        static_cast<cuvs::distance::DistanceType>(metric),
+        metric,
         metric_arg);
     }
 
@@ -177,14 +177,20 @@ void rbc_knn_query(const raft::handle_t& handle,
 void approx_knn_build_index(raft::handle_t& handle,
                             raft::spatial::knn::knnIndex* index,
                             raft::spatial::knn::knnIndexParam* params,
-                            raft::distance::DistanceType metric,
+                            cuvs::distance::DistanceType metric,
                             float metricArg,
                             float* index_array,
                             int n,
                             int D)
 {
-  raft::spatial::knn::approx_knn_build_index(
-    handle, index, params, metric, metricArg, index_array, n, D);
+  raft::spatial::knn::approx_knn_build_index(handle,
+                                             index,
+                                             params,
+                                             static_cast<raft::distance::DistanceType>(metric),
+                                             metricArg,
+                                             index_array,
+                                             n,
+                                             D);
 }
 
 void approx_knn_search(raft::handle_t& handle,

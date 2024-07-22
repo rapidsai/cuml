@@ -20,14 +20,14 @@
 #include <cuml/neighbors/knn.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance.cuh>
-#include <raft/distance/distance_types.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
+
+#include <cuvs/distance/distance.hpp>
 
 #include <cstddef>
 #include <iostream>

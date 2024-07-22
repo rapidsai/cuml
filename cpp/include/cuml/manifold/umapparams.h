@@ -19,7 +19,7 @@
 #include <cuml/common/callback.hpp>
 #include <cuml/common/logger.hpp>
 
-#include <raft/distance/distance_types.hpp>
+#include <cuvs/distance/distance.hpp>
 
 namespace ML {
 
@@ -159,7 +159,7 @@ class UMAPParams {
    */
   bool deterministic = true;
 
-  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded;
+  cuvs::distance::DistanceType metric = cuvs::distance::DistanceType::L2SqrtExpanded;
 
   float p = 2.0;
 

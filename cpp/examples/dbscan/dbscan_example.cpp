@@ -203,7 +203,7 @@ int main(int argc, char* argv[])
                   nCols,
                   eps,
                   minPts,
-                  raft::distance::L2SqrtUnexpanded,
+                  raft::distance::DistanceType::L2SqrtUnexpanded,
                   d_labels,
                   nullptr,
                   nullptr,

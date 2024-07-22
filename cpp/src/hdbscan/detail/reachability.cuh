@@ -119,7 +119,7 @@ void compute_knn(const raft::handle_t& handle,
                   k,
                   true,
                   true,
-                  metric);
+                  static_cast<cuvs::distance::DistanceType>(metric));
 
   // convert from current knn's 64-bit to 32-bit.
   thrust::transform(exec_policy,

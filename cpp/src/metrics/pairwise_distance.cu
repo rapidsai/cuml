@@ -18,7 +18,6 @@
 #include <cuml/metrics/metrics.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance.cuh>
 #include <raft/sparse/distance/distance.cuh>
 
 #include <cuvs/distance/distance.hpp>
@@ -33,7 +32,7 @@ void pairwise_distance(const raft::handle_t& handle,
                        int m,
                        int n,
                        int k,
-                       raft::distance::DistanceType metric,
+                       cuvs::distance::DistanceType metric,
                        bool isRowMajor,
                        double metric_arg)
 {
@@ -43,7 +42,7 @@ void pairwise_distance(const raft::handle_t& handle,
       raft::make_device_matrix_view<const double, int64_t, raft::row_major>(x, m, k),
       raft::make_device_matrix_view<const double, int64_t, raft::row_major>(y, n, k),
       raft::make_device_matrix_view<double, int64_t, raft::row_major>(dist, m, n),
-      static_cast<cuvs::distance::DistanceType>(metric),
+      metric,
       metric_arg);
   } else {
     cuvs::distance::pairwise_distance(
@@ -51,7 +50,7 @@ void pairwise_distance(const raft::handle_t& handle,
       raft::make_device_matrix_view<const double, int64_t, raft::col_major>(x, m, k),
       raft::make_device_matrix_view<const double, int64_t, raft::col_major>(y, n, k),
       raft::make_device_matrix_view<double, int64_t, raft::col_major>(dist, m, n),
-      static_cast<cuvs::distance::DistanceType>(metric),
+      metric,
       metric_arg);
   }
 }
@@ -63,7 +62,7 @@ void pairwise_distance(const raft::handle_t& handle,
                        int m,
                        int n,
                        int k,
-                       raft::distance::DistanceType metric,
+                       cuvs::distance::DistanceType metric,
                        bool isRowMajor,
                        float metric_arg)
 {
@@ -73,7 +72,7 @@ void pairwise_distance(const raft::handle_t& handle,
       raft::make_device_matrix_view<const float, int64_t, raft::row_major>(x, m, k),
       raft::make_device_matrix_view<const float, int64_t, raft::row_major>(y, n, k),
       raft::make_device_matrix_view<float, int64_t, raft::row_major>(dist, m, n),
-      static_cast<cuvs::distance::DistanceType>(metric),
+      metric,
       metric_arg);
   } else {
     cuvs::distance::pairwise_distance(
@@ -81,7 +80,7 @@ void pairwise_distance(const raft::handle_t& handle,
       raft::make_device_matrix_view<const float, int64_t, raft::col_major>(x, m, k),
       raft::make_device_matrix_view<const float, int64_t, raft::col_major>(y, n, k),
       raft::make_device_matrix_view<float, int64_t, raft::col_major>(dist, m, n),
-      static_cast<cuvs::distance::DistanceType>(metric),
+      metric,
       metric_arg);
   }
 }
@@ -100,7 +99,7 @@ void pairwiseDistance_sparse(const raft::handle_t& handle,
                              value_idx* y_indptr,
                              value_idx* x_indices,
                              value_idx* y_indices,
-                             raft::distance::DistanceType metric,
+                             cuvs::distance::DistanceType metric,
                              float metric_arg)
 {
   auto out = raft::make_device_matrix_view<value_t, value_idx>(dist, y_nrows, x_nrows);
@@ -113,8 +112,12 @@ void pairwiseDistance_sparse(const raft::handle_t& handle,
     y_indptr, y_indices, y_nrows, n_cols, y_nnz);
   auto y_csr_view = raft::make_device_csr_matrix_view<const value_t>(y, y_structure);
 
-  raft::sparse::distance::pairwise_distance(
-    handle, y_csr_view, x_csr_view, out, metric, metric_arg);
+  raft::sparse::distance::pairwise_distance(handle,
+                                            y_csr_view,
+                                            x_csr_view,
+                                            out,
+                                            static_cast<raft::distance::DistanceType>(metric),
+                                            metric_arg);
 }
 
 void pairwiseDistance_sparse(const raft::handle_t& handle,
@@ -130,7 +133,7 @@ void pairwiseDistance_sparse(const raft::handle_t& handle,
                              int* y_indptr,
                              int* x_indices,
                              int* y_indices,
-                             raft::distance::DistanceType metric,
+                             cuvs::distance::DistanceType metric,
                              float metric_arg)
 {
   pairwiseDistance_sparse<int, float>(handle,
@@ -163,7 +166,7 @@ void pairwiseDistance_sparse(const raft::handle_t& handle,
                              int* y_indptr,
                              int* x_indices,
                              int* y_indices,
-                             raft::distance::DistanceType metric,
+                             cuvs::distance::DistanceType metric,
                              float metric_arg)
 {
   pairwiseDistance_sparse<int, double>(handle,

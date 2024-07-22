@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 #pragma once
 
 #include <raft/distance/distance_types.hpp>
+
+#include <cuvs/distance/distance.hpp>
 
 #include <cstdint>
 
@@ -105,7 +107,7 @@ double silhouette_score(const raft::handle_t& handle,
                         int* labels,
                         int nLabels,
                         double* silScores,
-                        raft::distance::DistanceType metric);
+                        cuvs::distance::DistanceType metric);
 
 namespace Batched {
 /**
@@ -138,7 +140,7 @@ float silhouette_score(const raft::handle_t& handle,
                        int n_labels,
                        float* scores,
                        int chunk,
-                       raft::distance::DistanceType metric);
+                       cuvs::distance::DistanceType metric);
 double silhouette_score(const raft::handle_t& handle,
                         double* X,
                         int n_rows,
@@ -147,7 +149,7 @@ double silhouette_score(const raft::handle_t& handle,
                         int n_labels,
                         double* scores,
                         int chunk,
-                        raft::distance::DistanceType metric);
+                        cuvs::distance::DistanceType metric);
 
 }  // namespace Batched
 /**
@@ -349,7 +351,7 @@ void pairwise_distance(const raft::handle_t& handle,
                        int m,
                        int n,
                        int k,
-                       raft::distance::DistanceType metric,
+                       cuvs::distance::DistanceType metric,
                        bool isRowMajor   = true,
                        double metric_arg = 2.0);
 
@@ -376,7 +378,7 @@ void pairwise_distance(const raft::handle_t& handle,
                        int m,
                        int n,
                        int k,
-                       raft::distance::DistanceType metric,
+                       cuvs::distance::DistanceType metric,
                        bool isRowMajor  = true,
                        float metric_arg = 2.0f);
 
@@ -393,7 +395,7 @@ void pairwiseDistance_sparse(const raft::handle_t& handle,
                              int* y_indptr,
                              int* x_indices,
                              int* y_indices,
-                             raft::distance::DistanceType metric,
+                             cuvs::distance::DistanceType metric,
                              float metric_arg);
 void pairwiseDistance_sparse(const raft::handle_t& handle,
                              float* x,
@@ -408,7 +410,7 @@ void pairwiseDistance_sparse(const raft::handle_t& handle,
                              int* y_indptr,
                              int* x_indices,
                              int* y_indices,
-                             raft::distance::DistanceType metric,
+                             cuvs::distance::DistanceType metric,
                              float metric_arg);
 
 /**
