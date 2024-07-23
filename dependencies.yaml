@@ -206,14 +206,17 @@ dependencies:
         matrices:
           - matrix: {cuda: "12.*"}
             packages:
+              - librmm-cu12==24.10.*,>=0.0.0a0
               - pylibraft-cu12==24.10.*,>=0.0.0a0
               - rmm-cu12==24.10.*,>=0.0.0a0
           - matrix: {cuda: "11.*"}
             packages:
+              - &librmm_cu11 librmm-cu11==24.10.*,>=0.0.0a0
               - &pylibraft_cu11 pylibraft-cu11==24.10.*,>=0.0.0a0
               - &rmm_cu11 rmm-cu11==24.10.*,>=0.0.0a0
           - matrix:
             packages:
+              - librmm==24.10.*,>=0.0.0a0
               - pylibraft==24.10.*,>=0.0.0a0
               - rmm==24.10.*,>=0.0.0a0
 
