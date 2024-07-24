@@ -79,7 +79,8 @@ void lanczos_solver(const raft::handle_t& handle,
                     int maxiter             = 4000,
                     float tol               = 0.01,
                     int conv_n_iters        = 5,
-                    float conv_eps          = 0.001);
+                    float conv_eps          = 0.001,
+                    int restartiter = 15);
 
 struct SpectralParams {};
 

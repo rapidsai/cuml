@@ -197,7 +197,8 @@ void lanczos_solver(const raft::handle_t& handle,
                     int maxiter             = 4000,
                     float tol               = 0.01,
                     int conv_n_iters        = 5,
-                    float conv_eps          = 0.001)
+                    float conv_eps          = 0.001,
+                    int restartiter = 15)
 {
   auto stream = raft::resource::get_cuda_stream(handle);
   rmm::device_uvector<int> src_offsets(n + 1, stream);
@@ -225,7 +226,7 @@ void lanczos_solver(const raft::handle_t& handle,
   index_type neigvs = n_components;  // DO NOT USE + 1 here
   // index_type maxiter      = 4000;  // default reset value (when set to 0);
   // value_type tol          = 0.01;
-  index_type restart_iter = 2 + neigvs;  // what cugraph is using //FIXME:
+  index_type restart_iter = restartiter + neigvs;  // what cugraph is using //FIXME:
   // int conv_n_iters = 5;
   // float conv_eps = 0.001;
 
@@ -278,7 +279,8 @@ void lanczos_solver(const raft::handle_t& handle,
                     int maxiter             = 4000,
                     float tol               = 0.01,
                     int conv_n_iters        = 5,
-                    float conv_eps          = 0.001)
+                    float conv_eps          = 0.001,
+                    int restartiter = 15)
 {
   lanczos_solver<float>(handle,
                         rows,
@@ -294,7 +296,8 @@ void lanczos_solver(const raft::handle_t& handle,
                         maxiter,
                         tol,
                         conv_n_iters,
-                        conv_eps);
+                        conv_eps,
+                        restartiter);
 }
 
 void lanczos_solver(const raft::handle_t& handle,
@@ -311,7 +314,8 @@ void lanczos_solver(const raft::handle_t& handle,
                     int maxiter             = 4000,
                     float tol               = 0.01,
                     int conv_n_iters        = 5,
-                    float conv_eps          = 0.001)
+                    float conv_eps          = 0.001,
+                    int restartiter = 15)
 {
   lanczos_solver<double>(handle,
                          rows,
@@ -327,7 +331,8 @@ void lanczos_solver(const raft::handle_t& handle,
                          maxiter,
                          tol,
                          conv_n_iters,
-                         conv_eps);
+                         conv_eps,
+                         restartiter);
 }
 
 /**

@@ -64,7 +64,8 @@ cdef extern from "cuml/cluster/spectral.hpp" namespace "ML::Spectral":
         int maxiter,
         float tol,
         int conv_n_iters,
-        float conv_eps) except +
+        float conv_eps,
+        int restartiter) except +
 
     cdef void lanczos_solver(
         const handle_t& handle,
@@ -81,7 +82,8 @@ cdef extern from "cuml/cluster/spectral.hpp" namespace "ML::Spectral":
         int maxiter,
         float tol,
         int conv_n_iters,
-        float conv_eps) except +
+        float conv_eps,
+        int restartiter) except +
 
 
 @cuml.internals.api_return_array(get_output_type=True)
@@ -142,7 +144,7 @@ def lanczos(A, n_components, seed, handle):
 # no laplacian computed
 
 # @cuml.internals.api_return_array(get_output_type=True)
-def eig_lanczos(A, n_components, seed, dtype, maxiter=4000, tol=0.01, conv_n_iters = 5, conv_eps = 0.001, handle=Handle()):
+def eig_lanczos(A, n_components, seed, dtype, maxiter=4000, tol=0.01, conv_n_iters = 5, conv_eps = 0.001, restartiter=15, handle=Handle()):
 
     # rows = CumlArrayDescriptor()
     # cols = CumlArrayDescriptor()
@@ -207,6 +209,7 @@ def eig_lanczos(A, n_components, seed, dtype, maxiter=4000, tol=0.01, conv_n_ite
             <float> tol,
             <int> conv_n_iters,
             <float> conv_eps,
+            <int> restartiter,
         );
     elif dtype == np.float64:
         lanczos_solver(
@@ -225,6 +228,7 @@ def eig_lanczos(A, n_components, seed, dtype, maxiter=4000, tol=0.01, conv_n_ite
             <float> tol,
             <int> conv_n_iters,
             <float> conv_eps,
+            <int> restartiter,
         );
 
     return cupy.asnumpy(eigenvalues), cupy.asnumpy(eigenvectors), eig_iters

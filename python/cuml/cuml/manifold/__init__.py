@@ -19,4 +19,4 @@ from cuml.manifold.umap import UMAP
 
 if is_cuda_available():
     from cuml.manifold.t_sne import TSNE
-    from cuml.manifold.spectral import SpectralEmbedding
+    # from cuml.manifold.spectral import SpectralEmbedding
