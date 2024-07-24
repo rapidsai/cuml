@@ -23,6 +23,7 @@ from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 from warnings import warn
 
+from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.common.doc_utils import generate_docstring
@@ -518,7 +519,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                  connectivity='knn',
                  output_type=None,
                  prediction_data=False,
-                 build_algo='brute_force_knn',
+                 build_algo='auto',
                  build_kwds=None):
 
         super().__init__(handle=handle,
@@ -852,6 +853,15 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                 raise ValueError("Cluster selection method not supported. "
                                  "Must one of {'eom', 'leaf'}")
 
+            if self.build_algo == "auto":
+                if self.n_rows <= 50000:
+                    # brute force is faster for small datasets
+                    logger.warn("Building knn graph using brute force")
+                    self.build_algo = "brute_force_knn"
+                else:
+                    logger.warn("Building knn graph using nn descent")
+                    self.build_algo = "nn_descent"
+
             if self.build_algo == 'brute_force_knn':
                 params.build_algo = GRAPH_BUILD_ALGO.BRUTE_FORCE_KNN
             elif self.build_algo == 'nn_descent':
@@ -1114,6 +1124,16 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
             cdef GRAPH_BUILD_ALGO build_algo
             cdef index_params build_params
+
+            if self.build_algo == "auto":
+                if self.n_rows <= 50000:
+                    # brute force is faster for small datasets
+                    logger.warn("Building knn graph using brute force")
+                    self.build_algo = "brute_force_knn"
+                else:
+                    logger.warn("Building knn graph using nn descent")
+                    self.build_algo = "nn_descent"
+
             if self.build_algo == 'brute_force_knn':
                 build_algo = GRAPH_BUILD_ALGO.BRUTE_FORCE_KNN
             elif self.build_algo == 'nn_descent':
