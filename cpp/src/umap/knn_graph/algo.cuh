@@ -63,6 +63,24 @@ struct DistancePostProcessSqrt {
   DI value_t operator()(value_t value, value_idx row, value_idx col) const { return sqrtf(value); }
 };
 
+auto get_graph_nnd(const raft::handle_t& handle,
+                   const ML::manifold_dense_inputs_t<float>& inputs,
+                   const ML::UMAPParams* params)
+{
+  auto epilogue = DistancePostProcessSqrt<int64_t, float>{};
+  cudaPointerAttributes attr;
+  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, inputs.X));
+  float* ptr = reinterpret_cast<float*>(attr.devicePointer);
+  if (ptr != nullptr) {
+    auto dataset =
+      raft::make_device_matrix_view<const float, int64_t>(inputs.X, inputs.n, inputs.d);
+    return NNDescent::build<float, int64_t>(handle, params->nn_descent_params, dataset, epilogue);
+  } else {
+    auto dataset = raft::make_host_matrix_view<const float, int64_t>(inputs.X, inputs.n, inputs.d);
+    return NNDescent::build<float, int64_t>(handle, params->nn_descent_params, dataset, epilogue);
+  }
+}
+
 // Instantiation for dense inputs, int64_t indices
 template <>
 inline void launcher(const raft::handle_t& handle,
@@ -96,12 +114,8 @@ inline void launcher(const raft::handle_t& handle,
   } else {  // nn_descent
     RAFT_EXPECTS(static_cast<size_t>(n_neighbors) <= params->nn_descent_params.graph_degree,
                  "n_neighbors should be smaller than the graph degree computed by nn descent");
-    auto epilogue = DistancePostProcessSqrt<int64_t, float>{};
 
-    auto dataset =
-      raft::make_device_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d);
-    auto graph =
-      NNDescent::build<float, int64_t>(handle, params->nn_descent_params, dataset, epilogue);
+    auto graph = get_graph_nnd(handle, inputsA, params);
 
     auto indices_d = raft::make_device_matrix<int64_t, int64_t>(
       handle, inputsA.n, params->nn_descent_params.graph_degree);

@@ -41,6 +41,7 @@ from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
 
@@ -290,9 +291,9 @@ class UMAP(UniversalBase,
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    build_algo: string (default='brute_force_knn')
-        How to build the knn graph. Supported build algorithms are ['brute_force_knn',
-        'nn_descent']
+    build_algo: string (default='auto')
+        How to build the knn graph. Supported build algorithms are ['auto', 'brute_force_knn',
+        'nn_descent']. 'auto' chooses to run with brute force knn or nn descent based on the dataset size.
     build_kwds: dict (optional, default=None)
         Build algorithm argument {'nnd_graph_degree': 64, 'nnd_intermediate_graph_degree': 128,
         'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_return_distances': True}
@@ -355,7 +356,7 @@ class UMAP(UniversalBase,
                  callback=None,
                  handle=None,
                  verbose=False,
-                 build_algo="brute_force_knn",
+                 build_algo="auto",
                  build_kwds=None,
                  output_type=None):
 
@@ -429,10 +430,10 @@ class UMAP(UniversalBase,
         self.precomputed_knn = extract_knn_infos(precomputed_knn,
                                                  n_neighbors)
 
-        if build_algo == "brute_force_knn" or build_algo == "nn_descent":
+        if build_algo == "auto" or build_algo == "brute_force_knn" or build_algo == "nn_descent":
             self.build_algo = build_algo
         else:
-            raise Exception("Invalid build algo: {}. Only support brute_force_knn and nn_descent" % build_algo)
+            raise Exception("Invalid build algo: {}. Only support auto, brute_force_knn and nn_descent" % build_algo)
 
         self.build_kwds = build_kwds
 
@@ -527,7 +528,7 @@ class UMAP(UniversalBase,
                         skip_parameters_heading=True)
     @enable_device_interop
     def fit(self, X, y=None, convert_dtype=True,
-            knn_graph=None) -> "UMAP":
+            knn_graph=None, data_on_host=False) -> "UMAP":
         """
         Fit X into an embedded space.
 
@@ -563,11 +564,29 @@ class UMAP(UniversalBase,
 
         # Handle dense inputs
         else:
+            if data_on_host:
+                convert_to_mem_type = MemoryType.host
+            else:
+                convert_to_mem_type = MemoryType.device
+
             self._raw_data, self.n_rows, self.n_dims, _ = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
-                                                      else None))
+                                                      else None),
+                                    convert_to_mem_type=convert_to_mem_type)
+
+        if self.build_algo == "auto":
+            if self.n_rows * self.n_dims < 45000000 or self.sparse_fit:
+                # brute force is faster for small datasets
+                logger.warn("Building knn graph using brute force")
+                self.build_algo = "brute_force_knn"
+            else:
+                logger.warn("Building knn graph using nn descent")
+                self.build_algo = "nn_descent"
+
+        if self.build_algo == "brute_force_knn" and data_on_host:
+            raise ValueError("Data cannot be on host for building with brute force knn")
 
         if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
@@ -667,7 +686,7 @@ class UMAP(UniversalBase,
     @cuml.internals.api_base_fit_transform()
     @enable_device_interop
     def fit_transform(self, X, y=None, convert_dtype=True,
-                      knn_graph=None) -> CumlArray:
+                      knn_graph=None, data_on_host=False) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed
         output.
@@ -700,7 +719,7 @@ class UMAP(UniversalBase,
             CSR/COO preferred other formats will go through conversion to CSR
 
         """
-        self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph)
+        self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph, data_on_host=data_on_host)
 
         return self.embedding_
 
@@ -771,14 +790,15 @@ class UMAP(UniversalBase,
 
         cdef uintptr_t _embed_ptr = self.embedding_.ptr
 
+        # NN Descent doesn't support transform yet
+        if self.build_algo == "nn_descent" or self.build_algo == "auto":
+            self.build_algo = "brute_force_knn"
+            logger.warn("Transform can only be run with brute force. Using brute force.")
+
         IF GPUBUILD == 1:
             cdef UMAPParams* umap_params = \
                 <UMAPParams*> <size_t> UMAP._build_umap_params(self,
                                                                self.sparse_fit)
-            # NN Descent doesn't support transform yet
-            umap_params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
-            logger.warn("NN Descent does not support transform. Using Brute force instead.")
-
             cdef handle_t * handle_ = \
                 <handle_t*> <size_t> self.handle.getHandle()
             if self.sparse_fit:
