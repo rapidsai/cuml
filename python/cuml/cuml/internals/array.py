@@ -19,7 +19,7 @@ import operator
 import pickle
 
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.logger import debug
+from cuml.internals.logger import debug, info
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
 from cuml.internals.memory_utils import class_with_cupy_rmm, with_cupy_rmm
 from cuml.internals.safe_imports import (
@@ -1172,6 +1172,11 @@ class CumlArray:
         if (
             not fail_on_order and order != arr.order and order != "K"
         ) or make_copy:
+            info(
+                f"Expected {order} major order but got something else."
+                " Converting data; this will result in additional memory"
+                " utilization."
+            )
             arr = cls(
                 arr.mem_type.xpy.array(
                     arr.to_output("array"), order=order, copy=make_copy
