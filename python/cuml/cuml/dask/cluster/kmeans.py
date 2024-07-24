@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -175,6 +175,10 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         wait_and_raise_from_futures(kmeans_fit)
 
         comms.destroy()
+
+        _results = [res.result() for res in kmeans_fit]
+        _labels = [model.labels_ for model in _results]
+        self.labels_ = cp.concatenate(_labels)
 
         self._set_internal_model(kmeans_fit[0])
 
