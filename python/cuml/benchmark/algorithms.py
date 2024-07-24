@@ -248,7 +248,7 @@ def all_algorithms():
         AlgorithmPair(
             sklearn.decomposition.KernelPCA,
             cuml.experimental.KernelPCA,
-            shared_args=dict(kernel="poly")
+            shared_args=dict(kernel="poly"),
             name="KernelPCA",
             accepts_labels=False,
         ),
