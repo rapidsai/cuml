@@ -577,7 +577,7 @@ class UMAP(UniversalBase,
                                     convert_to_mem_type=convert_to_mem_type)
 
         if self.build_algo == "auto":
-            if self.n_rows * self.n_dims < 45000000 or self.sparse_fit:
+            if self.n_rows <= 50000 or self.sparse_fit:
                 # brute force is faster for small datasets
                 logger.warn("Building knn graph using brute force")
                 self.build_algo = "brute_force_knn"
