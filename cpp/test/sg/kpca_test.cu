@@ -76,8 +76,8 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
       prms.algorithm = solver::COV_EIG_DQ;
     else
       prms.algorithm = solver::COV_EIG_JACOBI;
-
-    kpcaFit(handle, data.data(), eigenvectors.data(), eigenvalues.data(), prms, stream);
+    int *n_components = (int *)malloc(sizeof(int));
+    kpcaFit(handle, data.data(), eigenvectors.data(), eigenvalues.data(), n_components, prms, stream);
     kpcaTransform(handle, data.data(), data.data(), eigenvectors.data(), eigenvalues.data(), trans_data.data(), prms, stream);
   }
 
@@ -98,7 +98,8 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
     else
       prms.algorithm = solver::COV_EIG_JACOBI;
 
-    kpcaFitTransform(handle, data.data(), eigenvectors.data(), eigenvalues.data(), trans_data.data(), prms, stream);
+    int *n_components = (int *)malloc(sizeof(int));
+    kpcaFitTransform(handle, data.data(), eigenvectors.data(), eigenvalues.data(), trans_data.data(), n_components, prms, stream);
   }
 
  protected:

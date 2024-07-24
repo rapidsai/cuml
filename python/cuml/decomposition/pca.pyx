@@ -253,18 +253,20 @@ class PCA(UniversalBase,
 
     Notes
     -----
-    PCA considers linear combinations of features, specifically those that
-    maximize global variance structure. This means PCA is fantastic for global
-    structure analyses, but weak for local relationships. Consider UMAP or
-    T-SNE for a locally important embedding.
+    KernelPCA (KPCA) is a non-linear extension of PCA, which allows for the capture
+    of complex, non-linear structures in the data. This makes KPCA suitable for datasets
+    where linear assumptions are insufficient to capture the underlying patterns.
+    It employs kernel methods to project data into a higher-dimensional space where
+    it becomes linearly separable, thus retaining more meaningful structure.
 
-    **Applications of PCA**
+    **Applications of KernelPCA**
 
-        PCA is used extensively in practice for data visualization and data
-        compression. It has been used to visualize extremely large word
-        embeddings like Word2Vec and GloVe in 2 or 3 dimensions, large
-        datasets of everyday objects and images, and used to distinguish
-        between cancerous cells from healthy cells.
+        KernelPCA is widely used for feature extraction and dimensionality reduction
+        in various domains. It is particularly effective for data that exhibits
+        non-linear relationships, such as in image denoising, pattern recognition,
+        and pre-processing data for machine learning algorithms. It has been applied
+        to gene expression data to uncover complex biological patterns, and in
+        image processing to improve the performance of object recognition systems.
 
 
     For additional docs, see `scikitlearn's PCA

@@ -25,7 +25,7 @@ from cuml.common.exceptions import NotFittedError
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
-
+from cuml.internals import logger
 
 IF GPUBUILD == 1:
     from enum import IntEnum
@@ -38,12 +38,31 @@ IF GPUBUILD == 1:
                          float *input,
                          float *eigenvectors,
                          float *eigenvalues,
+                         int *n_components,
                          const paramsKPCA &prms) except +
 
         cdef void kpcaFit(handle_t& handle,
                          double *input,
                          double *eigenvectors,
                          double *eigenvalues,
+                         int *n_components,
+                         const paramsKPCA &prms) except +
+
+
+        cdef void kpcaFitTransform(handle_t& handle,
+                         float *input,
+                         float *eigenvectors,
+                         float *eigenvalues,
+                         float *trans_input,
+                         int *n_components,
+                         const paramsKPCA &prms) except +
+
+        cdef void kpcaFitTransform(handle_t& handle,
+                         double *input,
+                         double *eigenvectors,
+                         double *eigenvalues,
+                         double *trans_input,
+                         int *n_components,
                          const paramsKPCA &prms) except +
 
         cdef void kpcaTransform(handle_t& handle,
@@ -55,26 +74,12 @@ IF GPUBUILD == 1:
                          const paramsKPCA &prms) except +
         
         cdef void kpcaTransform(handle_t& handle,
-                            double *fit_input,
-                            double *input,
-                            double *eigenvectors,
-                            double *eigenvalues,
-                            double *trans_input,
-                         const paramsKPCA &prms) except +
-
-        cdef void kpcaFitTransform(handle_t& handle,
-                         float *input,
-                         float *eigenvectors,
-                         float *eigenvalues,
-                         float *trans_input,
-                         const paramsKPCA &prms) except +
-
-        cdef void kpcaFitTransform(handle_t& handle,
-                         double *input,
-                         double *eigenvectors,
-                         double *eigenvalues,
-                         double *trans_input,
-                         const paramsKPCA &prms) except +
+                        double *fit_input,
+                        double *input,
+                        double *eigenvectors,
+                        double *eigenvalues,
+                        double *trans_input,
+                        const paramsKPCA &prms) except +
 
     class Solver(IntEnum):
         COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
@@ -85,164 +90,116 @@ class KernelPCA(UniversalBase,
           FMajorInputTagMixin):
 
     """
-    =======
-    TODO(TOMAS) rewrite
-    =======
+    KernelPCA (Kernel Principal Component Analysis) is an extension of PCA
+    that allows for non-linear dimensionality reduction through the use of
+    kernel methods. It projects the data into a higher-dimensional space
+    where it becomes linearly separable, and then applies PCA to capture the
+    most variance in the data.
 
-    
-    PCA (Principal Component Analysis) is a fundamental dimensionality
-    reduction technique used to combine features in X in linear combinations
-    such that each new component captures the most information or variance of
-    the data. N_components is usually small, say at 3, where it can be used for
-    data visualization, data compression and exploratory analysis.
-
-    cuML's PCA expects an array-like object or cuDF DataFrame, and provides 2
-    algorithms Full and Jacobi. Full (default) uses a full eigendecomposition
-    then selects the top K eigenvectors. The Jacobi algorithm is much faster
-    as it iteratively tries to correct the top K eigenvectors, but might be
-    less accurate.
+    cuML's KernelPCA expects an array-like object or cuDF DataFrame, and
+    supports various kernels such as linear, polynomial, RBF, and sigmoid.
 
     Examples
     --------
-
     .. code-block:: python
 
-        >>> # Both import methods supported
-        >>> from cuml import PCA
-        >>> from cuml.decomposition import PCA
+        >>> # Importing KernelPCA
+        >>> from cuml import KernelPCA
 
         >>> import cudf
         >>> import cupy as cp
 
         >>> gdf_float = cudf.DataFrame()
-        >>> gdf_float['0'] = cp.asarray([1.0,2.0,5.0], dtype = cp.float32)
-        >>> gdf_float['1'] = cp.asarray([4.0,2.0,1.0], dtype = cp.float32)
-        >>> gdf_float['2'] = cp.asarray([4.0,2.0,1.0], dtype = cp.float32)
+        >>> gdf_float['0'] = cp.asarray([1.0, 2.0, 5.0], dtype=cp.float32)
+        >>> gdf_float['1'] = cp.asarray([4.0, 2.0, 1.0], dtype=cp.float32)
+        >>> gdf_float['2'] = cp.asarray([4.0, 2.0, 1.0], dtype=cp.float32)
 
-        >>> pca_float = PCA(n_components = 2)
-        >>> pca_float.fit(gdf_float)
-        PCA()
+        >>> kpca_float = KernelPCA(n_components=2, kernel='rbf', gamma=15)
+        >>> kpca_float.fit(gdf_float)
+        KernelPCA()
 
-        >>> print(f'components: {pca_float.components_}') # doctest: +SKIP
-        components: 0           1           2
-        0  0.69225764  -0.5102837 -0.51028395
-        1 -0.72165036 -0.48949987  -0.4895003
-        >>> print(f'explained variance: {pca_float.explained_variance_}')
-        explained variance: 0   8.510...
-        1 0.489...
-        dtype: float32
-        >>> exp_var = pca_float.explained_variance_ratio_
-        >>> print(f'explained variance ratio: {exp_var}')
-        explained variance ratio: 0   0.9456...
-        1 0.054...
-        dtype: float32
+        >>> print(f'components: {kpca_float.eigenvalues}') # doctest: +SKIP
+        components: [[...], [...]]
+        >>> print(f'eigen vectors: {kpca_float.eigenvectors}') # doctest: +SKIP
+        eigen vectors: [...]
 
-        >>> print(f'singular values: {pca_float.singular_values_}')
-        singular values: 0 4.125...
-        1 0.989...
-        dtype: float32
-        >>> print(f'mean: {pca_float.mean_}')
-        mean: 0 2.666...
-        1 2.333...
-        2 2.333...
-        dtype: float32
-        >>> print(f'noise variance: {pca_float.noise_variance_}')
-        noise variance: 0  0.0
-        dtype: float32
-        >>> trans_gdf_float = pca_float.transform(gdf_float)
-        >>> print(f'Inverse: {trans_gdf_float}') # doctest: +SKIP
-        Inverse: 0           1
-        0   -2.8547091 -0.42891636
-        1 -0.121316016  0.80743366
-        2    2.9760244 -0.37851727
-        >>> input_gdf_float = pca_float.inverse_transform(trans_gdf_float)
-        >>> print(f'Input: {input_gdf_float}') # doctest: +SKIP
-        Input: 0         1         2
-        0 1.0 4.0 4.0
-        1 2.0 2.0 2.0
-        2 5.0 1.0 1.0
+        >>> trans_gdf_float = kpca_float.transform(gdf_float)
+        >>> print(f'Transformed: {trans_gdf_float}') # doctest: +SKIP
+        Transformed: [[...], [...]]
 
     Parameters
     ----------
-    copy : boolean (default = True)
-        If True, then copies data then removes mean from data. False might
-        cause data to be overwritten with its mean centered version.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
-    iterated_power : int (default = 15)
-        Used in Jacobi solver. The more iterations, the more accurate, but
-        slower.
-    n_components : int (default = None)
-        The number of top K singular vectors / values you want.
-        Must be <= number(columns). If n_components is not set, then all
-        components are kept:
-
-            ``n_components = min(n_samples, n_features)``
-
-    random_state : int / None (default = None)
-        If you want results to be the same when you restart Python, select a
-        state.
-    eigen_solver : 'full' or 'jacobi' or 'auto' (default = 'full')
-        Full uses a eigendecomposition of the covariance matrix then discards
-        components.
-        Jacobi is much faster as it iteratively corrects, but is less accurate.
-    tol : float (default = 1e-7)
-        Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
-        but but will slow down the algorithm's convergence.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
-    whiten : boolean (default = False)
-        If True, de-correlates the components. This is done by dividing them by
-        the corresponding singular values then multiplying by sqrt(n_samples).
-        Whitening allows each component to have unit variance and removes
-        multi-collinearity. It might be beneficial for downstream
-        tasks like LinearRegression where correlated features cause problems.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
-        Return results and set estimator attributes to the indicated output
-        type. If None, the output type set at the module level
-        (`cuml.global_settings.output_type`) will be used. See
-        :ref:`output-data-type-configuration` for more info.
+    n_components : int, optional (default=None)
+        The number of components to keep. If None, all non zero eigenvalues are kept.
+    kernel : {'linear', 'poly', 'rbf', 'sigmoid'}, optional (default='linear')
+        Kernel to be used in the algorithm.
+    gamma : float, optional (default=None)
+        Kernel coefficient for 'rbf', 'poly', and 'sigmoid'. If None, 1/n_features is used.
+    degree : int, optional (default=3)
+        Degree for the polynomial kernel. Ignored by other kernels.
+    coef0 : float, optional (default=1)
+        Independent term in kernel function. It is only significant in 'poly' and 'sigmoid'.
+    kernel_params : dict, optional (default=None)
+        Parameters (keyword arguments) and values for kernel passed as callable object.
+    alpha : float, optional (default=1.0)
+        Hyperparameter of the ridge regression that learns the inverse transform. Inverse transform not supported in cuML.
+    fit_inverse_transform : bool, optional (default=False)
+        Not supported in cuML.
+    eigen_solver : {'auto', 'full', 'jacobi'}, optional (default='auto')
+        Select eigensolver to use.
+    tol : float, optional (default=0)
+        Convergence tolerance for arpack.
+    max_iter : int, optional (default=None)
+        Not supported in available eigen solvers.
+    remove_zero_eig : bool, optional (default=False)
+        If True, then all components with zero eigenvalues are removed
+    random_state : int or None, optional (default=None)
+        Seed for the random number generator. Not supported in available eigen solvers.
+    copy_X : bool, optional (default=True)
+        If True, input X is copied and stored. Otherwise, X may be overwritten.
+    verbose : int or bool, optional (default=False)
+        Enable verbose output. If True, output is printed. If False, no output.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', 'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, optional (default=None)
+        Return results and set estimator attributes to the indicated output type. If None, the output type set at the module level (`cuml.global_settings.output_type`) will be used.
 
     Attributes
     ----------
-    components_ : array
-        The top K components (VT.T[:,:n_components]) in U, S, VT = svd(X)
-    explained_variance_ : array
-        How much each component explains the variance in the data given by S**2
-    explained_variance_ratio_ : array
-        How much in % the variance is explained given by S**2/sum(S**2)
-    singular_values_ : array
-        The top K singular values. Remember all singular values >= 0
-    mean_ : array
-        The column wise mean of X. Used to mean - center the data first.
-    noise_variance_ : float
-        From Bishop 1999's Textbook. Used in later tasks like calculating the
-        estimated covariance of X.
+    eigenvectors_ : array
+        Eigenvectors in the transformed space.
+    eigenvalues_ : array
+        Eigenvalues in the transformed space.
+    X_fit_ : array
+        Data used for fitting.
+    gamma_ : float
+        Kernel coefficient for 'rbf', 'poly', and 'sigmoid'.
+    n_features_in_ : int
+        Number of features in the input data.
+    n_samples_ : int
+        Number of samples in the input data.
+    feature_names_in_ : list
+        Names of the features in the input data.
+    n_components_ : int
+        Number of components to keep. If None, all non zero eigenvalues are kept.
 
     Notes
     -----
-    PCA considers linear combinations of features, specifically those that
-    maximize global variance structure. This means PCA is fantastic for global
-    structure analyses, but weak for local relationships. Consider UMAP or
-    T-SNE for a locally important embedding.
+    KernelPCA (KPCA) is a non-linear extension of PCA, which allows for the capture
+    of complex, non-linear structures in the data. This makes KPCA suitable for datasets
+    where linear assumptions are insufficient to capture the underlying patterns.
+    It employs kernel methods to project data into a higher-dimensional space where
+    it becomes linearly separable, thus retaining more meaningful structure.
 
-    **Applications of PCA**
+    **Applications of KernelPCA**
 
-        PCA is used extensively in practice for data visualization and data
-        compression. It has been used to visualize extremely large word
-        embeddings like Word2Vec and GloVe in 2 or 3 dimensions, large
-        datasets of everyday objects and images, and used to distinguish
-        between cancerous cells from healthy cells.
+        KernelPCA is widely used for feature extraction and dimensionality reduction
+        in various domains. It is particularly effective for data that exhibits
+        non-linear relationships, such as in image denoising, pattern recognition,
+        and pre-processing data for machine learning algorithms. It has been applied
+        to gene expression data to uncover complex biological patterns, and in
+        image processing to improve the performance of object recognition systems.
 
 
-    For additional docs, see `scikitlearn's KernelPCA
+    For additional docs, see `scikit-learn's KernelPCA
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.KernelPCA.html>`_.
     """
 
@@ -251,37 +208,30 @@ class KernelPCA(UniversalBase,
     eigenvectors_ = CumlArrayDescriptor(order='F')
     trans_input_ = CumlArrayDescriptor(order='F')
 
-    # n_components=None
-    # kernel='linear' # 'linear', 'poly', 'rbf', 'sigmoid' (tanh)
-    # gamma=None
-    # degree=3
-    # coef0=1
-    # kernel_params=None # used for custom kernels
-    # alpha=1.0 # not supported? For inverse
-    # fit_inverse_transform=False # not supported
-    # eigen_solver='auto' # full', 'jacobi' or 'auto' (default = 'full')
-    # tol=0 # supported for jacobi
-    # max_iter=None # supported for jacobi
-    # iterated_power='auto' # not supported since it's just used for 'random' solver
-    # remove_zero_eig=False # todo look into it
-    # random_state=None # not supported, is only relevant for eigen_solver == ‘arpack’ or ‘randomized’.
-    # copy_X=True # todo look into it. Probably support it 
-    # n_jobs=None # not relevant?
-    
     @device_interop_preparation
     def __init__(self, *, handle=None, n_components=None, kernel='linear', gamma=None,
                 degree=3, coef0=1, kernel_params=None, alpha=1.0,
                 fit_inverse_transform=False, eigen_solver='auto', tol=0,
-                max_iter=None, iterated_power=15, remove_zero_eig=False,
+                max_iter=None, iterated_power=15, remove_zero_eig=False, n_jobs=None,
                 random_state=None, copy_X=True, verbose=False, output_type=None):
-        # parameters
+        if fit_inverse_transform:
+            raise NotImplementedError("Inverse transform is not supported")
+        if random_state is not None:
+            raise NotImplementedError("Random state is not supported in available eigen solvers")
+        if n_jobs is not None and n_jobs != -1:
+            raise NotImplementedError("n_jobs does not apply to this algorithm")
+        if max_iter is not None:
+            raise NotImplementedError("max_iter is not supported in available eigen solvers. Use iterated_power for Jacobi solver")
         super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
+                        verbose=verbose,
+                        output_type=output_type)
         self.copy_X = copy_X
         self.max_iter = max_iter
         self.iterated_power = iterated_power
         self.n_components_ = n_components
+        self.remove_zero_eig = remove_zero_eig
+        if remove_zero_eig:
+            self.n_components = None
         self.random_state = random_state
         self.eigen_solver = eigen_solver
         self.tol = tol
@@ -293,17 +243,10 @@ class KernelPCA(UniversalBase,
         self.coef0 = coef0
         self.alpha = alpha
         self.fit_inverse_transform = fit_inverse_transform
-        self.remove_zero_eig = remove_zero_eig
 
-        # internal array attributes
         self.trans_input_ = None
         self.eigenvectors_ = None
         self.eigenvalues_ = None
-
-        # This variable controls whether a sparse model was fit
-        # This can be removed once there is more inter-operability
-        # between cuml.array and cupy.ndarray
-        self._sparse_model = None
 
     def _get_c_kernel(self, kernel):
         """
@@ -325,8 +268,6 @@ class KernelPCA(UniversalBase,
             algo_map = {
                 'full': Solver.COV_EIG_DQ,
                 'auto': Solver.COV_EIG_DQ,
-                # 'arpack': NOT_SUPPORTED,
-                # 'randomized': NOT_SUPPORTED,
                 'jacobi': Solver.COV_EIG_JACOBI
             }
             if algorithm not in algo_map:
@@ -338,7 +279,7 @@ class KernelPCA(UniversalBase,
     def _build_params(self, n_rows, n_cols):
         IF GPUBUILD == 1:
             cdef paramsKPCA *params = new paramsKPCA()
-            params.n_components = self.n_components_ or -1
+            params.n_components = min(self.n_components_ or n_rows, n_rows)
             params.n_training_samples = n_rows
             params.n_rows = n_rows
             params.n_cols = n_cols
@@ -369,18 +310,18 @@ class KernelPCA(UniversalBase,
         """
         if self.copy_X:
             self.X_fit_ = X.copy()
+        else:
+            self.X_fit_ = X
         self.X_m, self.n_samples_, self.n_features_in_, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+        if self.n_samples_ < 2: raise ValueError('n_samples must be greater than 1')
+        if self.n_features_in_ < 1: raise ValueError('n_features_in_ must be greater than 0')
         cdef uintptr_t _input_ptr = self.X_m.ptr
         self.feature_names_in_ = self.X_m.index
-
         IF GPUBUILD == 1:
             cdef paramsKPCA *params = <paramsKPCA*><size_t> \
                 self._build_params(self.n_samples_, self.n_features_in_)
 
-            # if params.n_components > self.n_features_in_:
-            #     raise ValueError('Number of components should not be greater than'
-            #                      'the number of columns in the data')
 
             # Calling _initialize_arrays, guarantees everything is CumlArray
             self._initialize_arrays(params.n_components,
@@ -390,25 +331,29 @@ class KernelPCA(UniversalBase,
 
             cdef uintptr_t eigenvalues_ptr = \
                 self.eigenvalues_.ptr
-
+            cdef int components = <int>(self.n_components_ or -1)
+            cdef int* component_ptr = &components
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
             if self.dtype == np.float32:
                 kpcaFit(handle_[0],
                        <float*> _input_ptr,
                        <float*> eigenvectors_ptr,
                        <float*> eigenvalues_ptr,
+                       component_ptr,
                        deref(params))
             else:
                 kpcaFit(handle_[0],
                        <double*> _input_ptr,
                        <double*> eigenvectors_ptr,
                        <double*> eigenvalues_ptr,
+                       component_ptr,
                        deref(params))
-
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
         self.handle.sync()
-
+        self.n_components_ = components
+        self.eigenvalues_ = self.eigenvalues_[:components]
+        self.eigenvectors_ = self.eigenvectors_[:, :components]
         return self
 
     @generate_docstring(X='dense',
@@ -429,6 +374,8 @@ class KernelPCA(UniversalBase,
         cuml.internals.set_api_output_type("cupy")
         if self.copy_X:
             self.X_fit_ = X.copy()
+        else:
+            self.X_fit_ = X
         self.X_m, self.n_samples_, self.n_features_in_, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
         cdef uintptr_t _input_ptr = self.X_m.ptr
@@ -445,8 +392,9 @@ class KernelPCA(UniversalBase,
 
             cdef uintptr_t eigenvalues_ptr = \
                 self.eigenvalues_.ptr
-
-
+            
+            cdef int components = <int>(self.n_components_ or -1)
+            cdef int* component_ptr = &components
             t_input_data = \
                 CumlArray.zeros((params.n_rows, params.n_components),
                                 dtype=self.dtype.type, index=self.X_m.index)
@@ -459,6 +407,7 @@ class KernelPCA(UniversalBase,
                              <float*> eigenvectors_ptr,
                              <float*> eigenvalues_ptr,
                              <float*> _trans_input_ptr,
+                             component_ptr,
                              deref(params))
             else:
                 kpcaFitTransform(handle_[0],
@@ -466,11 +415,11 @@ class KernelPCA(UniversalBase,
                              <double*> eigenvectors_ptr,
                              <double*> eigenvalues_ptr,
                              <double*> _trans_input_ptr,
+                             component_ptr,
                              deref(params))
             # make sure the previously scheduled gpu tasks are complete before the
             # following transfers start
             self.handle.sync()
-
             return t_input_data
     
     @enable_device_interop
@@ -492,13 +441,17 @@ class KernelPCA(UniversalBase,
                                 convert_to_dtype=(dtype if convert_dtype
                                                   else None),
                                 check_cols=self.n_features_in_)
-
+        if _n_cols != self.n_features_in_:
+            raise ValueError("Number of columns in input must match the "
+                             "number of columns in the training data")
+        if _n_rows < 1:
+            raise ValueError("Number of rows in input must be greater than 0")
         cdef uintptr_t _input_ptr = X_m.ptr
 
         IF GPUBUILD == 1:
             cdef paramsKPCA params
             params.n_training_samples = self.n_samples_
-            params.n_components = self.n_components_
+            params.n_components = len(self.eigenvalues_)
             params.n_rows = _n_rows
             params.n_cols = _n_cols
             params.kernel = self._get_kernel_params(_n_cols)
