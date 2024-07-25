@@ -277,7 +277,7 @@ void tsvdFitTransform(const raft::handle_t& handle,
                     mu_trans.data(),
                     prms.n_components,
                     prms.n_rows,
-                    true,
+                    false,
                     false,
                     stream);
 
@@ -285,7 +285,7 @@ void tsvdFitTransform(const raft::handle_t& handle,
   rmm::device_uvector<math_t> vars(prms.n_cols, stream);
 
   raft::stats::mean(mu.data(), input, prms.n_cols, prms.n_rows, false, false, stream);
-  raft::stats::vars(vars.data(), input, mu.data(), prms.n_cols, prms.n_rows, true, false, stream);
+  raft::stats::vars(vars.data(), input, mu.data(), prms.n_cols, prms.n_rows, false, false, stream);
 
   rmm::device_scalar<math_t> total_vars(stream);
   raft::stats::sum(total_vars.data(), vars.data(), std::size_t(1), prms.n_cols, false, stream);
