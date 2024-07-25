@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace raft {
 class handle_t;
 }

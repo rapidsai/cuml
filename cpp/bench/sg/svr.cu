@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-#if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
 #include "benchmark.cuh"
-#include <cmath>
+
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <cuml/svm/svr.hpp>
+
 #include <raft/distance/kernels.cuh>
+
+#include <cmath>
 #include <utility>
 
 namespace ML {

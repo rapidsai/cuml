@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,23 +15,36 @@
  */
 
 #pragma once
+#include "barnes_hut_tsne.cuh"
 #include "distances.cuh"
 #include "exact_kernels.cuh"
+#include "exact_tsne.cuh"
+#include "fft_tsne.cuh"
 #include "utils.cuh"
+
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/common.hpp>
+
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
+#include <raft/linalg/divide.cuh>
+#include <raft/linalg/multiply.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
 
 #include <thrust/transform.h>
 
-#include "barnes_hut_tsne.cuh"
-#include "exact_tsne.cuh"
-#include "fft_tsne.cuh"
+#include <pca/pca.cuh>
 
 namespace ML {
+
+template <class T, template <class> class U>
+inline constexpr bool is_instance_of = std::false_type{};
+
+template <template <class> class U, class V>
+inline constexpr bool is_instance_of<U<V>, U> = std::true_type{};
 
 template <typename tsne_input, typename value_idx, typename value_t>
 class TSNE_runner {
@@ -76,6 +89,78 @@ class TSNE_runner {
       CUML_LOG_WARN(
         "# of Nearest Neighbors should be at least 3 * perplexity. Your results"
         " might be a bit strange...");
+
+    auto stream         = handle.get_stream();
+    const value_idx dim = params.dim;
+
+    if (params.init == TSNE_INIT::RANDOM) {
+      random_vector(Y, -0.0001f, 0.0001f, n * dim, stream, params.random_state);
+    } else if (params.init == TSNE_INIT::PCA) {
+      auto components          = raft::make_device_matrix<float>(handle, p, dim);
+      auto explained_var       = raft::make_device_vector<float>(handle, dim);
+      auto explained_var_ratio = raft::make_device_vector<float>(handle, dim);
+      auto singular_vals       = raft::make_device_vector<float>(handle, dim);
+      auto mu                  = raft::make_device_vector<float>(handle, p);
+      auto noise_vars          = raft::make_device_scalar<float>(handle, 0);
+
+      paramsPCA prms;
+      prms.n_cols       = p;
+      prms.n_rows       = n;
+      prms.n_components = dim;
+      prms.whiten       = false;
+      prms.algorithm    = solver::COV_EIG_DQ;
+
+      if constexpr (!is_instance_of<tsne_input, manifold_dense_inputs_t>) {
+        throw std::runtime_error("The tsne_input must be of type manifold_dense_inputs_t");
+      } else {
+        pcaFitTransform(handle,
+                        input.X,
+                        Y,
+                        components.data_handle(),
+                        explained_var.data_handle(),
+                        explained_var_ratio.data_handle(),
+                        singular_vals.data_handle(),
+                        mu.data_handle(),
+                        noise_vars.data_handle(),
+                        prms,
+                        stream);
+
+        auto mean_result       = raft::make_device_vector<float, int>(handle, dim);
+        auto stddev_result     = raft::make_device_vector<float, int>(handle, dim);
+        const float multiplier = 1e-4;
+
+        auto Y_view = raft::make_device_matrix_view<float, int, raft::col_major>(Y, n, dim);
+        auto Y_view_const =
+          raft::make_device_matrix_view<const float, int, raft::col_major>(Y, n, dim);
+
+        auto mean_result_view       = mean_result.view();
+        auto mean_result_view_const = raft::make_const_mdspan(mean_result.view());
+
+        auto stddev_result_view = stddev_result.view();
+
+        auto h_multiplier_view_const = raft::make_host_scalar_view<const float>(&multiplier);
+
+        raft::stats::mean(handle, Y_view_const, mean_result_view, false);
+        raft::stats::stddev(
+          handle, Y_view_const, mean_result_view_const, stddev_result_view, false);
+
+        divide_scalar_device(Y_view, Y_view_const, stddev_result_view);
+        raft::linalg::multiply_scalar(handle, Y_view_const, Y_view, h_multiplier_view_const);
+      }
+    }
+  }
+
+  void divide_scalar_device(
+    raft::device_matrix_view<float, int, raft::col_major>& Y_view,
+    raft::device_matrix_view<const float, int, raft::col_major>& Y_view_const,
+    raft::device_vector_view<float, int>& stddev_result_view)
+  {
+    raft::linalg::unary_op(handle,
+                           Y_view_const,
+                           Y_view,
+                           [device_scalar = stddev_result_view.data_handle()] __device__(auto y) {
+                             return y / *device_scalar;
+                           });
   }
 
   value_t run()
@@ -120,7 +205,6 @@ class TSNE_runner {
 
       k_graph.knn_indices = indices.data();
       k_graph.knn_dists   = distances.data();
-
       TSNE::get_distances(handle, input, k_graph, stream, params.metric, params.p);
     }
 

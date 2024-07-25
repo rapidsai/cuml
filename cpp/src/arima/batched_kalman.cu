@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,27 +14,28 @@
  * limitations under the License.
  */
 
-#include <algorithm>
-#include <vector>
-
 #include <cuml/tsa/batched_kalman.hpp>
+
+#include <raft/core/handle.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <cub/cub.cuh>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
-#include <raft/core/handle.hpp>
-#include <raft/linalg/add.cuh>
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/cudart_utils.hpp>
+#include <algorithm>
+#include <vector>
 // #TODO: Replace with public header when ready
+#include <raft/core/nvtx.hpp>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
+
 #include <rmm/device_uvector.hpp>
 
 #include <linalg/batched/matrix.cuh>
 #include <linalg/block.cuh>
-#include <raft/core/nvtx.hpp>
 #include <timeSeries/arima_helpers.cuh>
 
 namespace ML {
@@ -127,25 +128,25 @@ DI void numerical_stability(double* A)
  * @param[out] d_F_fc          Batched variance of forecast errors   (fc_steps)
  */
 template <int rd>
-__global__ void batched_kalman_loop_kernel(const double* ys,
-                                           int nobs,
-                                           const double* T,
-                                           const double* Z,
-                                           const double* RQR,
-                                           const double* P,
-                                           const double* alpha,
-                                           bool intercept,
-                                           const double* d_mu,
-                                           int batch_size,
-                                           const double* d_obs_inter,
-                                           const double* d_obs_inter_fut,
-                                           double* d_pred,
-                                           double* d_loglike,
-                                           int n_diff,
-                                           int fc_steps   = 0,
-                                           double* d_fc   = nullptr,
-                                           bool conf_int  = false,
-                                           double* d_F_fc = nullptr)
+CUML_KERNEL void batched_kalman_loop_kernel(const double* ys,
+                                            int nobs,
+                                            const double* T,
+                                            const double* Z,
+                                            const double* RQR,
+                                            const double* P,
+                                            const double* alpha,
+                                            bool intercept,
+                                            const double* d_mu,
+                                            int batch_size,
+                                            const double* d_obs_inter,
+                                            const double* d_obs_inter_fut,
+                                            double* d_pred,
+                                            double* d_loglike,
+                                            int n_diff,
+                                            int fc_steps   = 0,
+                                            double* d_fc   = nullptr,
+                                            bool conf_int  = false,
+                                            double* d_F_fc = nullptr)
 {
   constexpr int rd2 = rd * rd;
   double l_RQR[rd2];
@@ -383,28 +384,28 @@ union KalmanLoopSharedMemory {
  * @param[out] d_F_fc          Batched variance of forecast errors   (fc_steps)
  */
 template <typename GemmPolicy, typename GemvPolicy, typename CovPolicy>
-__global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
-                                                         int batch_size,
-                                                         int n_obs,
-                                                         const double* d_T,
-                                                         const double* d_Z,
-                                                         const double* d_RQR,
-                                                         double* d_P,
-                                                         double* d_alpha,
-                                                         double* d_m_tmp,
-                                                         double* d_TP,
-                                                         bool intercept,
-                                                         const double* d_mu,
-                                                         int rd,
-                                                         const double* d_obs_inter,
-                                                         const double* d_obs_inter_fut,
-                                                         double* d_pred,
-                                                         double* d_loglike,
-                                                         int n_diff,
-                                                         int fc_steps,
-                                                         double* d_fc,
-                                                         bool conf_int,
-                                                         double* d_F_fc)
+CUML_KERNEL void _batched_kalman_device_loop_large_kernel(const double* d_ys,
+                                                          int batch_size,
+                                                          int n_obs,
+                                                          const double* d_T,
+                                                          const double* d_Z,
+                                                          const double* d_RQR,
+                                                          double* d_P,
+                                                          double* d_alpha,
+                                                          double* d_m_tmp,
+                                                          double* d_TP,
+                                                          bool intercept,
+                                                          const double* d_mu,
+                                                          int rd,
+                                                          const double* d_obs_inter,
+                                                          const double* d_obs_inter_fut,
+                                                          double* d_pred,
+                                                          double* d_loglike,
+                                                          int n_diff,
+                                                          int fc_steps,
+                                                          double* d_fc,
+                                                          bool conf_int,
+                                                          double* d_F_fc)
 {
   int rd2 = rd * rd;
 
@@ -1127,7 +1128,7 @@ void batched_kalman_loop(raft::handle_t& handle,
  * @param[in]    n_elem     Total number of elements (fc_steps * batch_size)
  * @param[in]    multiplier Coefficient associated with the confidence level
  */
-__global__ void confidence_intervals(
+CUML_KERNEL void confidence_intervals(
   const double* d_fc, double* d_lower, double* d_upper, int n_elem, double multiplier)
 {
   for (int idx = threadIdx.x; idx < n_elem; idx += blockDim.x * gridDim.x) {
@@ -1624,12 +1625,12 @@ void batched_jones_transform(raft::handle_t& handle,
   double* d_params            = arima_mem.d_params;
   double* d_Tparams           = arima_mem.d_Tparams;
   ARIMAParams<double> params  = {arima_mem.params_mu,
-                                arima_mem.params_beta,
-                                arima_mem.params_ar,
-                                arima_mem.params_ma,
-                                arima_mem.params_sar,
-                                arima_mem.params_sma,
-                                arima_mem.params_sigma2};
+                                 arima_mem.params_beta,
+                                 arima_mem.params_ar,
+                                 arima_mem.params_ma,
+                                 arima_mem.params_sar,
+                                 arima_mem.params_sma,
+                                 arima_mem.params_sigma2};
   ARIMAParams<double> Tparams = {params.mu,
                                  params.beta,
                                  arima_mem.Tparams_ar,

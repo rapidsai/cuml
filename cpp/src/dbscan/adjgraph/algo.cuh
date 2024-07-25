@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,17 @@
 
 #pragma once
 
-#include <cooperative_groups.h>
-#include <thrust/device_ptr.h>
-#include <thrust/scan.h>
-
 #include "pack.h"
 
 #include <raft/core/handle.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/util/cuda_utils.cuh>
+
 #include <rmm/device_uvector.hpp>
+
+#include <cooperative_groups.h>
+#include <thrust/device_ptr.h>
+#include <thrust/scan.h>
 
 namespace ML {
 namespace Dbscan {

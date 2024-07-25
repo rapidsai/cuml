@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,20 @@
  * limitations under the License.
  */
 
-#include <thrust/execution_policy.h>
-#include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
+#include "benchmark.cuh"
 
 #include <cuml/tsa/arima_common.h>
 #include <cuml/tsa/batched_arima.hpp>
+
 #include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
+#include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
 
-#include "benchmark.cuh"
-#include <raft/util/cudart_utils.hpp>
+#include <thrust/execution_policy.h>
+#include <thrust/for_each.h>
+#include <thrust/iterator/counting_iterator.h>
 
 namespace ML {
 namespace Bench {

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 
 # cuml build script
 
@@ -18,8 +18,8 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
-VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov --ccache -h --help "
+VALIDTARGETS="clean libcuml cuml cuml-cpu cpp-mgtests prims bench prims-bench cppdocs pydocs"
+VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov --ccache --configure-only -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
@@ -27,6 +27,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    libcuml           - build the cuml C++ code only. Also builds the C-wrapper library
                        around the C++ code.
    cuml              - build the cuml Python package
+   cuml-cpu          - build the cuml CPU Python package
    cpp-mgtests       - build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
    prims             - build the ml-prims tests
    bench             - build the libcuml C++ benchmark
@@ -46,8 +47,8 @@ HELP="$0 [<target> ...] [<flag> ...]
    --codecov         - Enable code coverage support by compiling with Cython linetracing
                        and profiling enabled (WARNING: Impacts performance)
    --ccache          - Use ccache to cache previous compilations
+   --configure-only  - Invoke CMake without actually building
    --nocloneraft     - CMake will clone RAFT even if it is in the environment, use this flag to disable that behavior
-   --static-faiss    - Force CMake to use the FAISS static libs, cloning and building them if necessary
    --static-treelite - Force CMake to use the Treelite static libs, cloning and building them if necessary
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
@@ -57,10 +58,10 @@ HELP="$0 [<target> ...] [<flag> ...]
    CUML_EXTRA_CMAKE_ARGS  - Extra arguments to pass directly to cmake. Values listed in environment
                             variable will override existing arguments. Example:
                             CUML_EXTRA_CMAKE_ARGS=\"-DBUILD_CUML_C_LIBRARY=OFF\" ./build.sh
-   CUML_EXTRA_PYTHON_ARGS - Extra argument to pass directly to python setup.py
+   CUML_EXTRA_PYTHON_ARGS - Extra arguments to pass directly to pip install
 "
 LIBCUML_BUILD_DIR=${LIBCUML_BUILD_DIR:=${REPODIR}/cpp/build}
-CUML_BUILD_DIR=${REPODIR}/python/build
+CUML_BUILD_DIR=${REPODIR}/python/cuml/build
 PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
 BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 
@@ -78,15 +79,12 @@ BUILD_DISABLE_DEPRECATION_WARNINGS=ON
 BUILD_CUML_STD_COMMS=ON
 BUILD_CUML_TESTS=ON
 BUILD_CUML_MG_TESTS=OFF
-BUILD_STATIC_FAISS=OFF
 BUILD_STATIC_TREELITE=OFF
 CMAKE_LOG_LEVEL=WARNING
 
 # Set defaults for vars that may not have been defined externally
-#  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
-#         CONDA_PREFIX, but there is no fallback from there!
-INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX}}}
-PARALLEL_LEVEL=${PARALLEL_LEVEL:=""}
+INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX:=$LIBCUML_BUILD_DIR/install}}}
+PARALLEL_LEVEL=${PARALLEL_LEVEL:=`nproc`}
 
 # Default to Ninja if generator is not specified
 export CMAKE_GENERATOR="${CMAKE_GENERATOR:=Ninja}"
@@ -137,6 +135,7 @@ LONG_ARGUMENT_LIST=(
     "ccache"
     "nolibcumltest"
     "nocloneraft"
+    "configure-only"
 )
 
 # Short arguments
@@ -199,9 +198,6 @@ while true; do
         --nocloneraft )
             DISABLE_FORCE_CLONE_RAFT=ON
             ;;
-        --static-faiss )
-            BUILD_STATIC_FAISS=ON
-            ;;
         --static-treelite )
             BUILD_STATIC_TREELITE=ON
             ;;
@@ -227,9 +223,14 @@ if (( ${CLEAN} == 1 )); then
         fi
     done
 
-    cd ${REPODIR}/python
-    python setup.py clean --all
-    cd ${REPODIR}
+    # Clean up python artifacts
+    find ${REPODIR}/python/ | grep -E "(__pycache__|\.pyc|\.pyo|\.so|\_skbuild)$"  | xargs rm -rf
+
+    # Remove Doxyfile
+    rm -rf ${REPODIR}/cpp/Doxyfile
+
+    # Remove .benchmark dirs and .pytest_cache
+    find ${REPODIR}/ | grep -E "(\.pytest_cache|\.benchmarks)$"  | xargs rm -rf
 fi
 
 
@@ -256,7 +257,6 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DBUILD_CUML_TESTS=${BUILD_CUML_TESTS} \
           -DBUILD_CUML_MPI_COMMS=${BUILD_CUML_MG_TESTS} \
           -DBUILD_CUML_MG_TESTS=${BUILD_CUML_MG_TESTS} \
-          -DCUML_USE_FAISS_STATIC=${BUILD_STATIC_FAISS} \
           -DCUML_USE_TREELITE_STATIC=${BUILD_STATIC_TREELITE} \
           -DNVTX=${NVTX} \
           -DUSE_CCACHE=${CCACHE} \
@@ -268,7 +268,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
 fi
 
 # If `./build.sh cuml` is called, don't build C/C++ components
-if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests; then
+if (! hasArg --configure-only) && (completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests); then
     cd ${LIBCUML_BUILD_DIR}
     if [ -n "${INSTALL_TARGET}" ]; then
       cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} --target ${INSTALL_TARGET} ${VERBOSE_FLAG}
@@ -277,28 +277,32 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp
     fi
 fi
 
-if hasArg cppdocs; then
+if (! hasArg --configure-only) && hasArg cppdocs; then
     cd ${LIBCUML_BUILD_DIR}
     cmake --build ${LIBCUML_BUILD_DIR} --target docs_cuml
 fi
 
 
 # Build and (optionally) install the cuml Python package
-if completeBuild || hasArg cuml || hasArg pydocs; then
+if (! hasArg --configure-only) && (completeBuild || hasArg cuml || hasArg pydocs); then
+    # Replace spaces with semicolons in SKBUILD_EXTRA_CMAKE_ARGS
+    SKBUILD_EXTRA_CMAKE_ARGS=$(echo ${SKBUILD_EXTRA_CMAKE_ARGS} | sed 's/ /;/g')
+
     # Append `-DFIND_CUML_CPP=ON` to CUML_EXTRA_CMAKE_ARGS unless a user specified the option.
-    if [[ "${CUML_EXTRA_CMAKE_ARGS}" != *"DFIND_CUML_CPP"* ]]; then
-        CUML_EXTRA_CMAKE_ARGS="${CUML_EXTRA_CMAKE_ARGS} -DFIND_CUML_CPP=ON"
+    if [[ "${SKBUILD_EXTRA_CMAKE_ARGS}" != *"DFIND_CUML_CPP"* ]]; then
+        SKBUILD_EXTRA_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS};-DFIND_CUML_CPP=ON"
     fi
 
-    cd ${REPODIR}/python
-
-    python setup.py build_ext --inplace -- -DCMAKE_LIBRARY_PATH=${LIBCUML_BUILD_DIR} -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${CUML_EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
-    if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py install --single-version-externally-managed --record=record.txt  -- -DCMAKE_LIBRARY_PATH=${LIBCUML_BUILD_DIR} -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} ${CUML_EXTRA_CMAKE_ARGS} -- -j${PARALLEL_LEVEL:-1}
-    fi
+    SKBUILD_CMAKE_ARGS="-DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL};${SKBUILD_EXTRA_CMAKE_ARGS}" \
+        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true ${REPODIR}/python/cuml
 
     if hasArg pydocs; then
         cd ${REPODIR}/docs
         make html
     fi
+fi
+
+if hasArg cuml-cpu; then
+    SKBUILD_CMAKE_ARGS="-DCUML_CPU=ON;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE" \
+        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true ${REPODIR}/python/cuml
 fi

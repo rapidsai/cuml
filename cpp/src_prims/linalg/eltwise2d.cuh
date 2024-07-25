@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,19 +16,21 @@
 
 #pragma once
 
+#include <cuml/common/utils.hpp>
+
 namespace MLCommon {
 namespace LinAlg {
 
 template <typename Type, typename Lambda>
-__global__ void eltwise2DKernel(int rows,  // m
-                                int cols,  // n
-                                const Type* dotA,
-                                const Type* dotB,
-                                const Type* pC,
-                                Type* pD,
-                                Type alpha,
-                                Type beta,
-                                Lambda op)
+CUML_KERNEL void eltwise2DKernel(int rows,  // m
+                                 int cols,  // n
+                                 const Type* dotA,
+                                 const Type* dotB,
+                                 const Type* pC,
+                                 Type* pD,
+                                 Type alpha,
+                                 Type beta,
+                                 Lambda op)
 {
   auto tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid < cols * rows) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <cuml/cluster/dbscan_api.h>
-
 #include <common/cumlHandle.hpp>
+
 #include <cuml/cluster/dbscan.hpp>
+#include <cuml/cluster/dbscan_api.h>
 #include <cuml/cuml_api.h>
 
 extern "C" {
@@ -47,7 +47,9 @@ cumlError_t cumlSpDbscanFit(cumlHandle_t handle,
                       raft::distance::L2SqrtUnexpanded,
                       labels,
                       core_sample_indices,
+                      NULL,
                       max_bytes_per_batch,
+                      ML::Dbscan::EpsNnMethod::BRUTE_FORCE,
                       verbosity);
     }
     // TODO: Implement this
@@ -88,7 +90,9 @@ cumlError_t cumlDpDbscanFit(cumlHandle_t handle,
                       raft::distance::L2SqrtUnexpanded,
                       labels,
                       core_sample_indices,
+                      NULL,
                       max_bytes_per_batch,
+                      ML::Dbscan::EpsNnMethod::BRUTE_FORCE,
                       verbosity);
     }
     // TODO: Implement this

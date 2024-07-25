@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ enum SyncType {
  * know the list of supported synchronization 'modes'.
  *
  * @code{.cu}
- * __global__ void kernel(void* workspace, SyncType type, ...) {
+ * CUML_KERNEL void kernel(void* workspace, SyncType type, ...) {
  *   GridSync gs(workspace, type);
  *   // do pre-sync work here
  *   // ...
@@ -70,7 +70,7 @@ enum SyncType {
  * usage is discouraged. Example follows:
  *
  * @code{.cu}
- * __global__ void kernelMultiple(void* workspace, SyncType type, ...) {
+ * CUML_KERNEL void kernelMultiple(void* workspace, SyncType type, ...) {
  *   GridSync gs(workspace, type, true);
  *   ////// Part1 //////
  *   // do pre-sync work here

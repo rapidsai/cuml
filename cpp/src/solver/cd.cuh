@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,10 @@
 #pragma once
 
 #include "shuffle.h"
+
+#include <cuml/common/utils.hpp>
 #include <cuml/solvers/params.hpp>
-#include <functions/linearReg.cuh>
-#include <functions/penalty.cuh>
-#include <functions/softThres.cuh>
-#include <glm/preprocess.cuh>
+
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/linalg/add.cuh>
@@ -40,6 +39,11 @@
 #include <raft/stats/sum.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <functions/linearReg.cuh>
+#include <functions/penalty.cuh>
+#include <functions/softThres.cuh>
+#include <glm/preprocess.cuh>
 
 namespace ML {
 namespace Solver {
@@ -65,18 +69,18 @@ struct ConvState {
  * @param[in] l1_alpha L1 regularization coef
  */
 template <typename math_t>
-__global__ void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
-                                                           const math_t* squaredLoc,
-                                                           ConvState<math_t>* convStateLoc,
-                                                           const math_t l1_alpha)
+CUML_KERNEL void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
+                                                            const math_t* squaredLoc,
+                                                            ConvState<math_t>* convStateLoc,
+                                                            const math_t l1_alpha)
 {
   auto coef    = *coefLoc;
   auto r       = coef > l1_alpha ? coef - l1_alpha : (coef < -l1_alpha ? coef + l1_alpha : 0);
   auto squared = *squaredLoc;
   r            = squared > math_t(1e-5) ? r / squared : math_t(0);
-  auto diff    = raft::myAbs(convStateLoc->coef - r);
+  auto diff    = raft::abs(convStateLoc->coef - r);
   if (convStateLoc->diffMax < diff) convStateLoc->diffMax = diff;
-  auto absv = raft::myAbs(r);
+  auto absv = raft::abs(r);
   if (convStateLoc->coefMax < absv) convStateLoc->coefMax = absv;
   convStateLoc->coef = -r;
   *coefLoc           = r;

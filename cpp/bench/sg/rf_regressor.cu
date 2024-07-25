@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,10 @@
  */
 
 #include "benchmark.cuh"
-#include <cmath>
+
 #include <cuml/ensemble/randomforest.hpp>
+
+#include <cmath>
 #include <utility>
 
 namespace ML {
@@ -30,8 +32,7 @@ struct RegParams {
 };
 
 template <typename D>
-struct RFRegressorModel {
-};
+struct RFRegressorModel {};
 
 template <>
 struct RFRegressorModel<float> {
@@ -86,11 +87,11 @@ std::vector<RegParams> getInputs()
   RegParams p;
   p.data.rowMajor = false;
   p.regression    = {.shuffle        = true,  // Better to shuffle when n_informative < ncols
-                  .effective_rank = -1,    // dataset generation will be faster
-                  .bias           = 4.5,
-                  .tail_strength  = 0.5,  // unused when effective_rank = -1
-                  .noise          = 1.0,
-                  .seed           = 12345ULL};
+                     .effective_rank = -1,    // dataset generation will be faster
+                     .bias           = 4.5,
+                     .tail_strength  = 0.5,  // unused when effective_rank = -1
+                     .noise          = 1.0,
+                     .seed           = 12345ULL};
 
   p.rf                          = set_rf_params(10,                 /*max_depth */
                        (1 << 20),          /* max_leaves */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,28 +16,35 @@
 
 #pragma once
 
-#include <cub/cub.cuh>
-#include <iostream>
-#include <memory>
+#include "quantiles.h"
+
 #include <raft/core/handle.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/util/cuda_utils.cuh>
+
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
+
+#include <cub/cub.cuh>
 #include <thrust/fill.h>
 
-#include <raft/core/nvtx.hpp>
-
-#include "quantiles.h"
+#include <iostream>
+#include <memory>
 
 namespace ML {
 namespace DT {
 
 template <typename T>
-__global__ void computeQuantilesKernel(
+__attribute__((visibility("hidden"))) __global__ void computeQuantilesKernel(
   T* quantiles, int* n_bins, const T* sorted_data, const int max_n_bins, const int n_rows);
 
 template <typename T>
-auto computeQuantiles(
+using QuantileReturnValue = std::tuple<ML::DT::Quantiles<T, int>,
+                                       std::shared_ptr<rmm::device_uvector<T>>,
+                                       std::shared_ptr<rmm::device_uvector<int>>>;
+
+template <typename T>
+QuantileReturnValue<T> computeQuantiles(
   const raft::handle_t& handle, const T* data, int max_n_bins, int n_rows, int n_cols)
 {
   raft::common::nvtx::push_range("computeQuantiles");

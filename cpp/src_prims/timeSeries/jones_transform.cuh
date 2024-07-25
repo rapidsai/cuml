@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,13 @@
 
 #pragma once
 
-#include <math.h>
+#include <cuml/common/utils.hpp>
+
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <math.h>
 
 namespace MLCommon {
 
@@ -39,7 +42,7 @@ namespace TimeSeries {
  */
 template <typename Type>
 struct PAC {
-  HDI Type operator()(Type in) { return raft::myTanh(in * 0.5); }
+  HDI Type operator()(Type in) { return raft::tanh(in * 0.5); }
 };
 
 /**
@@ -137,7 +140,7 @@ inline __device__ void invtransform(DataT* tmp, DataT* myNewParams, bool isAr)
   }
 
   for (int i = 0; i < VALUE; ++i) {
-    myNewParams[i] = 2 * raft::myATanh(myNewParams[i]);
+    myNewParams[i] = 2 * raft::atanh(myNewParams[i]);
   }
 }
 
@@ -157,7 +160,7 @@ inline __device__ void invtransform(DataT* tmp, DataT* myNewParams, bool isAr)
  * @param clamp: whether to clamp transformed params between -1 and 1
  */
 template <typename DataT, int VALUE, typename IdxT, int BLOCK_DIM_X, int BLOCK_DIM_Y>
-__global__ void jones_transform_kernel(
+CUML_KERNEL void jones_transform_kernel(
   DataT* newParams, const DataT* params, IdxT batchSize, bool isAr, bool isInv, bool clamp)
 {
   // calculating the index of the model that the coefficients belong to

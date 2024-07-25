@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
+#include "dbscan.cuh"
+
 #include <cuml/cluster/dbscan.hpp>
 
-#include "dbscan.cuh"
 #include <raft/util/cudart_utils.hpp>
 
 namespace ML {
@@ -31,7 +32,9 @@ void fit(const raft::handle_t& handle,
          raft::distance::DistanceType metric,
          int* labels,
          int* core_sample_indices,
+         float* sample_weight,
          size_t max_bytes_per_batch,
+         EpsNnMethod eps_nn_method,
          int verbosity,
          bool opg)
 {
@@ -45,7 +48,9 @@ void fit(const raft::handle_t& handle,
                                     metric,
                                     labels,
                                     core_sample_indices,
+                                    sample_weight,
                                     max_bytes_per_batch,
+                                    eps_nn_method,
                                     handle.get_stream(),
                                     verbosity);
   else
@@ -58,7 +63,9 @@ void fit(const raft::handle_t& handle,
                                      metric,
                                      labels,
                                      core_sample_indices,
+                                     sample_weight,
                                      max_bytes_per_batch,
+                                     eps_nn_method,
                                      handle.get_stream(),
                                      verbosity);
 }
@@ -72,7 +79,9 @@ void fit(const raft::handle_t& handle,
          raft::distance::DistanceType metric,
          int* labels,
          int* core_sample_indices,
+         double* sample_weight,
          size_t max_bytes_per_batch,
+         EpsNnMethod eps_nn_method,
          int verbosity,
          bool opg)
 {
@@ -86,7 +95,9 @@ void fit(const raft::handle_t& handle,
                                      metric,
                                      labels,
                                      core_sample_indices,
+                                     sample_weight,
                                      max_bytes_per_batch,
+                                     eps_nn_method,
                                      handle.get_stream(),
                                      verbosity);
   else
@@ -99,7 +110,9 @@ void fit(const raft::handle_t& handle,
                                       metric,
                                       labels,
                                       core_sample_indices,
+                                      sample_weight,
                                       max_bytes_per_batch,
+                                      eps_nn_method,
                                       handle.get_stream(),
                                       verbosity);
 }
@@ -113,7 +126,9 @@ void fit(const raft::handle_t& handle,
          raft::distance::DistanceType metric,
          int64_t* labels,
          int64_t* core_sample_indices,
+         float* sample_weight,
          size_t max_bytes_per_batch,
+         EpsNnMethod eps_nn_method,
          int verbosity,
          bool opg)
 {
@@ -127,7 +142,9 @@ void fit(const raft::handle_t& handle,
                                         metric,
                                         labels,
                                         core_sample_indices,
+                                        sample_weight,
                                         max_bytes_per_batch,
+                                        eps_nn_method,
                                         handle.get_stream(),
                                         verbosity);
   else
@@ -140,7 +157,9 @@ void fit(const raft::handle_t& handle,
                                          metric,
                                          labels,
                                          core_sample_indices,
+                                         sample_weight,
                                          max_bytes_per_batch,
+                                         eps_nn_method,
                                          handle.get_stream(),
                                          verbosity);
 }
@@ -154,7 +173,9 @@ void fit(const raft::handle_t& handle,
          raft::distance::DistanceType metric,
          int64_t* labels,
          int64_t* core_sample_indices,
+         double* sample_weight,
          size_t max_bytes_per_batch,
+         EpsNnMethod eps_nn_method,
          int verbosity,
          bool opg)
 {
@@ -168,7 +189,9 @@ void fit(const raft::handle_t& handle,
                                          metric,
                                          labels,
                                          core_sample_indices,
+                                         sample_weight,
                                          max_bytes_per_batch,
+                                         eps_nn_method,
                                          handle.get_stream(),
                                          verbosity);
   else
@@ -181,7 +204,9 @@ void fit(const raft::handle_t& handle,
                                           metric,
                                           labels,
                                           core_sample_indices,
+                                          sample_weight,
                                           max_bytes_per_batch,
+                                          eps_nn_method,
                                           handle.get_stream(),
                                           verbosity);
 }

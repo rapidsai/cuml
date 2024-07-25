@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,20 @@
 /** @file internal.cuh cuML-internal interface to Forest Inference Library. */
 
 #pragma once
-#include <bitset>
-#include <cstdint>
 #include <cuml/fil/fil.h>
-#include <iostream>
-#include <numeric>
+
 #include <raft/core/error.hpp>
 #include <raft/util/cuda_utils.cuh>
+
 #include <rmm/device_uvector.hpp>
+
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
+
+#include <bitset>
+#include <cstdint>
+#include <iostream>
+#include <numeric>
 #include <utility>
 #include <vector>
 
@@ -37,7 +41,7 @@ class handle_t;
 // needed for node_traits<...>
 namespace treelite {
 template <typename, typename>
-struct ModelImpl;
+struct ModelPreset;
 }
 
 namespace ML {
@@ -244,7 +248,8 @@ struct node_traits {
   static constexpr storage_type_t storage_type_enum =
     std::is_same_v<sparse_node16<real_type>, node_t> ? SPARSE : SPARSE8;
   template <typename threshold_t, typename leaf_t>
-  static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model);
+  static void check(const treelite::Model& model,
+                    const treelite::ModelPreset<threshold_t, leaf_t>& model_preset);
 };
 
 template <typename real_t>
@@ -254,7 +259,8 @@ struct node_traits<dense_node<real_t>> {
   static const bool IS_DENSE                    = true;
   static const storage_type_t storage_type_enum = DENSE;
   template <typename threshold_t, typename leaf_t>
-  static void check(const treelite::ModelImpl<threshold_t, leaf_t>& model)
+  static void check(const treelite::Model& model,
+                    const treelite::ModelPreset<threshold_t, leaf_t>& model_preset)
   {
   }
 };
@@ -299,8 +305,7 @@ template <typename node_t>
 struct tree;
 
 template <leaf_algo_t leaf_algo, typename real_t>
-struct leaf_output_t {
-};
+struct leaf_output_t {};
 template <typename real_t>
 struct leaf_output_t<leaf_algo_t::FLOAT_UNARY_BINARY, real_t> {
   typedef real_t T;
@@ -423,7 +428,7 @@ struct categorical_sets {
   }
 };
 
-// lets any tree determine a child index for a node in a generic fasion
+// lets any tree determine a child index for a node in a generic fashion
 // used in fil_test.cu fot its child_index() in CPU predicting
 struct tree_base {
   categorical_sets cat_sets;
@@ -554,7 +559,7 @@ struct cat_sets_device_owner {
  *    must be sparse_node16, sparse_node8 or dense_node
  *  @param h cuML handle used by this function
  *  @param pf pointer to where to store the newly created forest
- *  @param trees for sparse forests, indices of tree roots in the nodes arrray, of length
+ *  @param trees for sparse forests, indices of tree roots in the nodes array, of length
  params->ntrees; ignored for dense forests
  *  @param nodes nodes for the forest, of length params->num_nodes for sparse
       or (2**(params->depth + 1) - 1) * params->ntrees for dense forests

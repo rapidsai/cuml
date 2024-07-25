@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,14 @@
  * limitations under the License.
  */
 #include <cuml/common/logger.hpp>
-#include <test_utils.h>
-
-#include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
-#include <decisiontree/batched-levelalgo/quantiles.cuh>
-#include <raft/core/handle.hpp>
-
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <cuml/fil/fil.h>
 #include <cuml/tree/algo_helper.h>
-#include <raft/random/rng.cuh>
 
 #include <raft/core/handle.hpp>
 #include <raft/linalg/transpose.cuh>
+#include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -44,7 +38,10 @@
 #include <thrust/shuffle.h>
 #include <thrust/transform.h>
 
+#include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
+#include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <gtest/gtest.h>
+#include <test_utils.h>
 
 #include <cstddef>
 #include <memory>
@@ -53,6 +50,26 @@
 #include <type_traits>
 
 namespace ML {
+
+namespace DT {
+
+template <typename T>
+using ReturnValue = std::tuple<ML::DT::Quantiles<T, int>,
+                               std::shared_ptr<rmm::device_uvector<T>>,
+                               std::shared_ptr<rmm::device_uvector<int>>>;
+
+template <typename T>
+ReturnValue<T> computeQuantiles(
+  const raft::handle_t& handle, const T* data, int max_n_bins, int n_rows, int n_cols);
+
+template <>
+ReturnValue<float> computeQuantiles<float>(
+  const raft::handle_t& handle, const float* data, int max_n_bins, int n_rows, int n_cols);
+
+template <>
+ReturnValue<double> computeQuantiles<double>(
+  const raft::handle_t& handle, const double* data, int max_n_bins, int n_rows, int n_cols);
+}  // namespace DT
 
 // Utils for changing tuple into struct
 namespace detail {
@@ -168,7 +185,7 @@ auto FilPredict(const raft::handle_t& handle,
                 RandomForestMetaData<DataT, LabelT>* forest)
 {
   auto pred = std::make_shared<thrust::device_vector<float>>(params.n_rows);
-  ModelHandle model;
+  TreeliteModelHandle model;
   std::size_t num_outputs = 1;
   if constexpr (std::is_integral_v<LabelT>) { num_outputs = params.n_labels; }
   build_treelite_forest(&model, forest, params.n_cols);
@@ -195,7 +212,7 @@ auto FilPredictProba(const raft::handle_t& handle,
 {
   std::size_t num_outputs = params.n_labels;
   auto pred = std::make_shared<thrust::device_vector<float>>(params.n_rows * num_outputs);
-  ModelHandle model;
+  TreeliteModelHandle model;
   static_assert(std::is_integral_v<LabelT>, "Must be classification");
   build_treelite_forest(&model, forest, params.n_cols);
   fil::treelite_params_t tl_params{
@@ -499,11 +516,11 @@ std::vector<int> min_samples_split       = {2, 10};
 std::vector<float> min_impurity_decrease = {0.0f, 1.0f, 10.0f};
 std::vector<int> n_streams               = {1, 2, 10};
 std::vector<CRITERION> split_criterion   = {CRITERION::INVERSE_GAUSSIAN,
-                                          CRITERION::GAMMA,
-                                          CRITERION::POISSON,
-                                          CRITERION::MSE,
-                                          CRITERION::GINI,
-                                          CRITERION::ENTROPY};
+                                            CRITERION::GAMMA,
+                                            CRITERION::POISSON,
+                                            CRITERION::MSE,
+                                            CRITERION::GINI,
+                                            CRITERION::ENTROPY};
 std::vector<int> seed                    = {0, 17};
 std::vector<int> n_labels                = {2, 10, 20};
 std::vector<bool> double_precision       = {false, true};
@@ -555,7 +572,7 @@ TEST(RfTests, IntegerOverflow)
 
   // See if fil overflows
   thrust::device_vector<float> pred(m);
-  ModelHandle model;
+  TreeliteModelHandle model;
   build_treelite_forest(&model, forest_ptr, n);
 
   std::size_t num_outputs = 1;
@@ -692,7 +709,7 @@ class RFQuantileVariableBinsTest : public ::testing::TestWithParam<QuantileTestP
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
     thrust::device_vector<T> data(params.n_rows);
 
-    // n_uniques gauranteed to be non-zero and smaller than `max_n_bins`
+    // n_uniques guaranteed to be non-zero and smaller than `max_n_bins`
     int n_uniques;
     while ((n_uniques = rand() % params.max_n_bins) == 0) {}
 
@@ -983,8 +1000,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     DataT ghd(0);  // gamma half deviance
 
     std::for_each(data.begin(), data.end(), [&](auto& element) {
-      auto log_y = raft::myLog(element ? element : DataT(1.0));
-      ghd += raft::myLog(mean) - log_y + element / mean - 1;
+      auto log_y = raft::log(element ? element : DataT(1.0));
+      ghd += raft::log(mean) - log_y + element / mean - 1;
     });
 
     ghd /= data.size();
@@ -1022,8 +1039,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     auto poisson_half_deviance{DataT(0.0)};
 
     std::for_each(data.begin(), data.end(), [&](auto d) {
-      auto log_y = raft::myLog(d ? d : DataT(1.0));  // we don't want nans
-      poisson_half_deviance += d * (log_y - raft::myLog(mean)) + mean - d;
+      auto log_y = raft::log(d ? d : DataT(1.0));  // we don't want nans
+      poisson_half_deviance += d * (log_y - raft::log(mean)) + mean - d;
     });
 
     poisson_half_deviance /= data.size();
@@ -1061,8 +1078,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
         if (d == DataT(c)) ++sum;
       });
       DataT class_proba = DataT(sum) / data.size();
-      entropy += -class_proba * raft::myLog(class_proba ? class_proba : DataT(1)) /
-                 raft::myLog(DataT(2));  // adding gain
+      entropy += -class_proba * raft::log(class_proba ? class_proba : DataT(1)) /
+                 raft::log(DataT(2));  // adding gain
     }
     return entropy;
   }

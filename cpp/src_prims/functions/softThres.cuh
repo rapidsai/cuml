@@ -30,9 +30,9 @@ void softThres(
     in,
     len,
     [thres] __device__(math_t in) {
-      if (in > math_t(0) && thres < raft::myAbs(in))
+      if (in > math_t(0) && thres < raft::abs(in))
         return in - thres;
-      else if (in < math_t(0) && thres < raft::myAbs(in))
+      else if (in < math_t(0) && thres < raft::abs(in))
         return in + thres;
       else
         return math_t(0);

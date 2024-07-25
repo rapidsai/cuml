@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,15 @@
 
 #include "detail/utils.h"
 
+#include <cuml/cluster/hdbscan.hpp>
+
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/op/sort.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <cuml/cluster/hdbscan.hpp>
-
-#include <raft/matrix/math.cuh>
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/op/sort.cuh>
-
-#include <algorithm>
-#include <cmath>
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <thrust/copy.h>
 #include <thrust/count.h>
@@ -36,8 +34,8 @@
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 
-#include <rmm/device_uvector.hpp>
-#include <rmm/exec_policy.hpp>
+#include <algorithm>
+#include <cmath>
 namespace ML {
 namespace HDBSCAN {
 namespace Common {
@@ -131,13 +129,15 @@ void generate_prediction_data(const raft::handle_t& handle,
   prediction_data.set_n_clusters(handle, n_clusters);
 
   // this is to find maximum lambdas of all children under a parent
-  detail::Utils::cub_segmented_reduce(
-    lambdas,
-    prediction_data.get_deaths(),
-    n_clusters,
-    sorted_parents_offsets.data(),
-    stream,
-    cub::DeviceSegmentedReduce::Max<const float*, float*, const int*, const int*>);
+  cudaError_t (*reduce_func)(
+    void*, size_t&, const float*, float*, int, const int*, const int*, cudaStream_t, bool) =
+    cub::DeviceSegmentedReduce::Max<const float*, float*, const int*, const int*>;
+  detail::Utils::cub_segmented_reduce(lambdas,
+                                      prediction_data.get_deaths(),
+                                      n_clusters,
+                                      sorted_parents_offsets.data(),
+                                      stream,
+                                      reduce_func);
 
   rmm::device_uvector<int> is_leaf_cluster(n_clusters, stream);
   thrust::fill(exec_policy, is_leaf_cluster.begin(), is_leaf_cluster.end(), 1);
@@ -153,7 +153,6 @@ void generate_prediction_data(const raft::handle_t& handle,
   rmm::device_uvector<int> is_exemplar(n_leaves, stream);
   rmm::device_uvector<int> exemplar_idx(n_leaves, stream);
   rmm::device_uvector<int> exemplar_label_offsets(n_selected_clusters + 1, stream);
-  rmm::device_uvector<int> selected_clusters(n_selected_clusters, stream);
 
   // classify whether or not a point is an exemplar point using the death values
   auto exemplar_op = [is_exemplar = is_exemplar.data(),

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "preprocess.cuh"
+
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/map.cuh>
@@ -23,18 +25,17 @@
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/svd.cuh>
 #include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>
 #include <raft/util/cudart_utils.hpp>
-#include <rmm/device_uvector.hpp>
 
-#include "preprocess.cuh"
+#include <rmm/device_uvector.hpp>
 
 namespace ML {
 namespace GLM {
+namespace detail {
 
 template <typename math_t>
 void ridgeSolve(const raft::handle_t& handle,
@@ -162,10 +163,10 @@ void ridgeFit(const raft::handle_t& handle,
               math_t* intercept,
               bool fit_intercept,
               bool normalize,
-              cudaStream_t stream,
               int algo              = 0,
               math_t* sample_weight = nullptr)
 {
+  cudaStream_t stream  = handle.get_stream();
   auto cublas_handle   = handle.get_cublas_handle();
   auto cusolver_handle = handle.get_cusolver_dn_handle();
 
@@ -246,6 +247,6 @@ void ridgeFit(const raft::handle_t& handle,
     *intercept = math_t(0);
   }
 }
-
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML

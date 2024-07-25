@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 
 #include "runner.cuh"
 
-#include <raft/core/nvtx.hpp>
-
 #include <cuml/cluster/dbscan.hpp>
 #include <cuml/common/logger.hpp>
+
+#include <raft/core/nvtx.hpp>
 
 #include <algorithm>
 #include <cstddef>
@@ -104,7 +104,9 @@ void dbscanFitImpl(const raft::handle_t& handle,
                    raft::distance::DistanceType metric,
                    Index_* labels,
                    Index_* core_sample_indices,
+                   T* sample_weight,
                    size_t max_mbytes_per_batch,
+                   EpsNnMethod eps_nn_method,
                    cudaStream_t stream,
                    int verbosity)
 {
@@ -177,11 +179,13 @@ void dbscanFitImpl(const raft::handle_t& handle,
                                                      min_pts,
                                                      labels,
                                                      core_sample_indices,
+                                                     sample_weight,
                                                      algo_vd,
                                                      algo_adj,
                                                      algo_ccl,
                                                      NULL,
                                                      batch_size,
+                                                     eps_nn_method,
                                                      stream,
                                                      metric);
 
@@ -198,11 +202,13 @@ void dbscanFitImpl(const raft::handle_t& handle,
                               min_pts,
                               labels,
                               core_sample_indices,
+                              sample_weight,
                               algo_vd,
                               algo_adj,
                               algo_ccl,
                               workspace.data(),
                               batch_size,
+                              eps_nn_method,
                               stream,
                               metric);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,22 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <iomanip>
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
+
+#include <gtest/gtest.h>
+
+#include <iomanip>
 // #TODO: Replace with public header when ready
 #include <raft/linalg/detail/cusolver_wrappers.hpp>
 #include <raft/random/rng.cuh>
+
 #include <rmm/device_uvector.hpp>
+
 #include <solver/lars_impl.cuh>
-#include <sstream>
 #include <test_utils.h>
+
+#include <sstream>
 #include <vector>
 
 namespace ML {
@@ -140,7 +145,7 @@ class LarsTest : public ::testing::Test {
     // reference solution.
     raft::copy(GU, G, n_cols * n_cols, stream);
     if (!copy_G) {
-      // zero the new colum of G
+      // zero the new column of G
       RAFT_CUDA_TRY(
         cudaMemsetAsync(GU + (n_active - 1) * n_cols, 0, n_cols * sizeof(math_t), stream));
     }
@@ -663,15 +668,15 @@ class LarsTestFitPredict : public ::testing::Test {
                           3.70155968e-02,
                           0.0740366429090};
   math_t pred_exp[10]  = {-121.32409183,
-                         -170.25278892,
-                         19.26177047,
-                         89.73931476,
-                         100.07545046,
-                         83.71217894,
-                         40.59397899,
-                         -109.19137223,
-                         -72.89633962,
-                         140.28189898};
+                          -170.25278892,
+                          19.26177047,
+                          89.73931476,
+                          100.07545046,
+                          83.71217894,
+                          40.59397899,
+                          -109.19137223,
+                          -72.89633962,
+                          140.28189898};
   int indices_exp[5]   = {2, 1, 3, 4, 0};
 
   rmm::device_uvector<math_t> X;

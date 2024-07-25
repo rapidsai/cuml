@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,24 +14,25 @@
  * limitations under the License.
  */
 
+#include <cuml/common/utils.hpp>
+#include <cuml/explainer/permutation_shap.hpp>
+
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
-
-#include <cuml/explainer/permutation_shap.hpp>
 
 namespace ML {
 namespace Explainer {
 
 template <typename DataT, typename IdxT>
-__global__ void _fused_tile_scatter_pe(DataT* dataset,
-                                       const DataT* background,
-                                       IdxT nrows_dataset,
-                                       IdxT ncols,
-                                       const DataT* obs,
-                                       IdxT* idx,
-                                       IdxT nrows_background,
-                                       IdxT sc_size,
-                                       bool row_major)
+CUML_KERNEL void _fused_tile_scatter_pe(DataT* dataset,
+                                        const DataT* background,
+                                        IdxT nrows_dataset,
+                                        IdxT ncols,
+                                        const DataT* obs,
+                                        IdxT* idx,
+                                        IdxT nrows_background,
+                                        IdxT sc_size,
+                                        bool row_major)
 {
   // kernel that actually does the scattering as described in the
   // descriptions of `permutation_dataset` and `shap_main_effect_dataset`
@@ -53,7 +54,7 @@ __global__ void _fused_tile_scatter_pe(DataT* dataset,
       start = ((tid % ncols) + 1) * nrows_background;
 
       // each entry of the dataset will be input the same number of times
-      // to the matrix, controled by the sc_size parameter
+      // to the matrix, controlled by the sc_size parameter
       end = start + sc_size * nrows_background;
 
       // now we just need to check if this thread is between start and end
@@ -191,10 +192,10 @@ void shap_main_effect_dataset(const raft::handle_t& handle,
 }
 
 template <typename DataT, typename IdxT>
-__global__ void update_perm_shap_values_kernel(DataT* output,
-                                               const DataT* input,
-                                               const IdxT ncols,
-                                               const IdxT* idx)
+CUML_KERNEL void update_perm_shap_values_kernel(DataT* output,
+                                                const DataT* input,
+                                                const IdxT ncols,
+                                                const IdxT* idx)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/common/logger.hpp>
+
 #include <raft/distance/distance_types.hpp>
 
 namespace raft {
@@ -26,6 +27,8 @@ class handle_t;
 namespace ML {
 
 enum TSNE_ALGORITHM { EXACT, BARNES_HUT, FFT };
+
+enum TSNE_INIT { RANDOM, PCA };
 
 struct TSNEParams {
   // Number of output dimensions for embeddings Y.
@@ -93,8 +96,8 @@ struct TSNEParams {
   // verbosity level for logging messages during execution
   int verbosity = CUML_LEVEL_INFO;
 
-  // Whether to overwrite the current Y vector with random noise.
-  bool initialize_embeddings = true;
+  // Embedding initializer algorithm
+  TSNE_INIT init = TSNE_INIT::RANDOM;
 
   // When this is set to true, the distances from the knn graph will
   // always be squared before computing conditional probabilities, even if
@@ -121,8 +124,8 @@ struct TSNEParams {
  * @param[out] Y                   The column-major final embedding in device memory
  * @param[in]  n                   Number of rows in data X.
  * @param[in]  p                   Number of columns in data X.
- * @param[in]  knn_indices         Array containing nearest neighors indices.
- * @param[in]  knn_dists           Array containing nearest neighors distances.
+ * @param[in]  knn_indices         Array containing nearest neighbors indices.
+ * @param[in]  knn_dists           Array containing nearest neighbors distances.
  * @param[in]  params              Parameters for TSNE model
  * @param[out] kl_div              (optional) KL divergence output
  *
@@ -155,8 +158,8 @@ void TSNE_fit(const raft::handle_t& handle,
  * @param[in]  nnz                 The number of non-zero entries in the CSR.
  * @param[in]  n                   Number of rows in data X.
  * @param[in]  p                   Number of columns in data X.
- * @param[in]  knn_indices         Array containing nearest neighors indices.
- * @param[in]  knn_dists           Array containing nearest neighors distances.
+ * @param[in]  knn_indices         Array containing nearest neighbors indices.
+ * @param[in]  knn_dists           Array containing nearest neighbors distances.
  * @param[in]  params              Parameters for TSNE model
  * @param[out] kl_div              (optional) KL divergence output
  *

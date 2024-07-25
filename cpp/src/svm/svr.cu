@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,19 @@
  * limitations under the License.
  */
 
-#include <iostream>
-
-#if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 #include "svr_impl.cuh"
+
 #include <cuml/svm/svc.hpp>
+
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/unary_op.cuh>
+
+#include <iostream>
 
 namespace ML {
 namespace SVM {
@@ -55,6 +53,32 @@ template void svrFit<double>(const raft::handle_t& handle,
                              KernelParams& kernel_params,
                              SvmModel<double>& model,
                              const double* sample_weight);
+
+template void svrFitSparse<float>(const raft::handle_t& handle,
+                                  int* indptr,
+                                  int* indices,
+                                  float* data,
+                                  int n_rows,
+                                  int n_cols,
+                                  int nnz,
+                                  float* y,
+                                  const SvmParameter& param,
+                                  KernelParams& kernel_params,
+                                  SvmModel<float>& model,
+                                  const float* sample_weight);
+
+template void svrFitSparse<double>(const raft::handle_t& handle,
+                                   int* indptr,
+                                   int* indices,
+                                   double* data,
+                                   int n_rows,
+                                   int n_cols,
+                                   int nnz,
+                                   double* y,
+                                   const SvmParameter& param,
+                                   KernelParams& kernel_params,
+                                   SvmModel<double>& model,
+                                   const double* sample_weight);
 
 };  // namespace SVM
 };  // end namespace ML

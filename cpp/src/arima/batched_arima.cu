@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,20 @@
  * limitations under the License.
  */
 
-#include <algorithm>
-#include <cmath>
-#include <iostream>
-#include <vector>
+#include <common/nvtx.hpp>
+
+#include <cuml/tsa/batched_arima.hpp>
+#include <cuml/tsa/batched_kalman.hpp>
+
+#include <raft/core/handle.hpp>
+#include <raft/core/nvtx.hpp>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/stats/information_criterion.cuh>
+#include <raft/stats/stats_types.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -26,21 +36,14 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/logical.h>
 
-#include <cuml/tsa/batched_arima.hpp>
-#include <cuml/tsa/batched_kalman.hpp>
-
-#include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
-#include <raft/core/handle.hpp>
-#include <raft/core/nvtx.hpp>
-#include <raft/linalg/matrix_vector_op.cuh>
-#include <raft/stats/information_criterion.cuh>
-#include <raft/stats/stats_types.hpp>
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/cudart_utils.hpp>
-#include <rmm/device_uvector.hpp>
 #include <timeSeries/arima_helpers.cuh>
 #include <timeSeries/fillna.cuh>
+
+#include <algorithm>
+#include <cmath>
+#include <iostream>
+#include <vector>
 
 namespace ML {
 
@@ -81,7 +84,7 @@ struct is_missing {
   typedef T argument_type;
   typedef T result_type;
 
-  __thrust_exec_check_disable__ __device__ const T operator()(const T& x) const { return isnan(x); }
+  __device__ const T operator()(const T& x) const { return isnan(x); }
 };  // end is_missing
 
 bool detect_missing(raft::handle_t& handle, const double* d_y, int n_elem)
@@ -274,25 +277,25 @@ void predict(raft::handle_t& handle,
  * @param[in]  start_v    First used v index (residual)
  */
 template <typename DataT>
-__global__ void sum_of_squares_kernel(const DataT* d_y,
-                                      const DataT* d_mu,
-                                      const DataT* d_ar,
-                                      const DataT* d_ma,
-                                      const DataT* d_sar,
-                                      const DataT* d_sma,
-                                      DataT* d_loglike,
-                                      int n_obs,
-                                      int n_phi,
-                                      int n_theta,
-                                      int p,
-                                      int q,
-                                      int P,
-                                      int Q,
-                                      int s,
-                                      int k,
-                                      int start_sum,
-                                      int start_y,
-                                      int start_v)
+CUML_KERNEL void sum_of_squares_kernel(const DataT* d_y,
+                                       const DataT* d_mu,
+                                       const DataT* d_ar,
+                                       const DataT* d_ma,
+                                       const DataT* d_sar,
+                                       const DataT* d_sma,
+                                       DataT* d_loglike,
+                                       int n_obs,
+                                       int n_phi,
+                                       int n_theta,
+                                       int p,
+                                       int q,
+                                       int P,
+                                       int Q,
+                                       int s,
+                                       int k,
+                                       int start_sum,
+                                       int start_y,
+                                       int start_v)
 {
   // Load phi, theta and mu to registers
   DataT phi, theta;
@@ -336,7 +339,7 @@ __global__ void sum_of_squares_kernel(const DataT* d_y,
   // Compute log-likelihood and write it to global memory
   if (threadIdx.x == 0) {
     d_loglike[blockIdx.x] =
-      -0.5 * static_cast<DataT>(n_obs) * raft::myLog(ssq / static_cast<DataT>(n_obs - start_sum));
+      -0.5 * static_cast<DataT>(n_obs) * raft::log(ssq / static_cast<DataT>(n_obs - start_sum));
   }
 }
 
@@ -469,7 +472,7 @@ void batched_loglike(raft::handle_t& handle,
   }
 
   if (host_loglike) {
-    /* Tranfer log-likelihood device -> host */
+    /* Transfer log-likelihood device -> host */
     raft::update_host(loglike, d_loglike, batch_size, stream);
   }
 }
@@ -931,7 +934,7 @@ void _start_params(raft::handle_t& handle,
                         order.k,
                         params.mu);
 
-  // Estimate a seasonal ARMA fit independantly
+  // Estimate a seasonal ARMA fit independently
   if (order.P + order.Q)
     _arma_least_squares(handle,
                         params.sar,

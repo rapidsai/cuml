@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,14 +23,14 @@ namespace MLCommon {
 namespace Matrix {
 
 template <typename math_t, int veclen_, typename Lambda>
-__global__ void reverseKernel(math_t* out,
-                              const math_t* in,
-                              int nrows,
-                              int ncols,
-                              bool rowMajor,
-                              bool alongRows,
-                              int len,
-                              Lambda op)
+CUML_KERNEL void reverseKernel(math_t* out,
+                               const math_t* in,
+                               int nrows,
+                               int ncols,
+                               bool rowMajor,
+                               bool alongRows,
+                               int len,
+                               Lambda op)
 {
   typedef raft::TxN_t<math_t, veclen_> VecType;
   int idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * VecType::Ratio;
@@ -119,7 +119,7 @@ void reverseImpl(math_t* out,
  * @param op the device-lambda to perform an optional final unary operation on
  *  each element after the reverse
  */
-template <typename math_t, typename Lambda = raft::Nop<math_t>, int TPB = 256>
+template <typename math_t, typename Lambda = raft::identity_op<math_t>, int TPB = 256>
 void reverse(math_t* out,
              const math_t* in,
              int nrows,
@@ -127,7 +127,7 @@ void reverse(math_t* out,
              bool rowMajor,
              bool alongRows,
              cudaStream_t stream,
-             Lambda op = raft::Nop<math_t>())
+             Lambda op = raft::identity_op<math_t>())
 {
   size_t bytes = (rowMajor ? ncols : nrows) * sizeof(math_t);
   if (16 / sizeof(math_t) && bytes % 16 == 0) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,23 +14,27 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <nccl.h>
-#include <raft/comms/std_comms.hpp>
-#include <raft/core/handle.hpp>
-#include <raft/util/cuda_utils.cuh>
-#include <raft/util/cudart_utils.hpp>
-#include <rmm/device_uvector.hpp>
-#include <stdio.h>
-#include <test_utils.h>
-#include <vector>
-
 #include <cuml/cluster/kmeans.hpp>
 #include <cuml/cluster/kmeans_mg.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
+
+#include <raft/comms/std_comms.hpp>
+#include <raft/core/handle.hpp>
+#include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
+
+#include <rmm/device_uvector.hpp>
+
 #include <thrust/fill.h>
+
+#include <gtest/gtest.h>
+#include <nccl.h>
+#include <stdio.h>
+#include <test_utils.h>
+
+#include <vector>
 
 #define NCCLCHECK(cmd)                                                                        \
   do {                                                                                        \

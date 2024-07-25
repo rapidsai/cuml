@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,12 +33,12 @@ namespace Select {
  * @param[in] n_clusters number of clusters
  */
 template <typename value_idx>
-__global__ void propagate_cluster_negation_kernel(const value_idx* indptr,
-                                                  const value_idx* children,
-                                                  int* frontier,
-                                                  int* next_frontier,
-                                                  int* is_cluster,
-                                                  int n_clusters)
+CUML_KERNEL void propagate_cluster_negation_kernel(const value_idx* indptr,
+                                                   const value_idx* children,
+                                                   int* frontier,
+                                                   int* next_frontier,
+                                                   int* is_cluster,
+                                                   int n_clusters)
 {
   int cluster = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -56,17 +56,17 @@ __global__ void propagate_cluster_negation_kernel(const value_idx* indptr,
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>
-__global__ void cluster_epsilon_search_kernel(const int* selected_clusters,
-                                              const int n_selected_clusters,
-                                              const value_idx* parents,
-                                              const value_idx* children,
-                                              const value_t* lambdas,
-                                              const value_idx cluster_tree_edges,
-                                              int* is_cluster,
-                                              int* frontier,
-                                              const int n_clusters,
-                                              const value_t cluster_selection_epsilon,
-                                              const bool allow_single_cluster)
+CUML_KERNEL void cluster_epsilon_search_kernel(const int* selected_clusters,
+                                               const int n_selected_clusters,
+                                               const value_idx* parents,
+                                               const value_idx* children,
+                                               const value_t* lambdas,
+                                               const value_idx cluster_tree_edges,
+                                               int* is_cluster,
+                                               int* frontier,
+                                               const int n_clusters,
+                                               const value_t cluster_selection_epsilon,
+                                               const bool allow_single_cluster)
 {
   auto selected_cluster_idx = threadIdx.x + blockDim.x * blockIdx.x;
 

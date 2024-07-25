@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,14 @@
  */
 #pragma once
 
+#include <cuml/common/log_levels.hpp>
+
 #include <stdarg.h>
 
 #include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
-
-#include <cuml/common/log_levels.hpp>
 
 namespace spdlog {
 class logger;

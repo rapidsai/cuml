@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,8 @@
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/solvers/cd_mg.hpp>
 
-#include <functions/softThres.cuh>
-
 #include <cumlprims/opg/linalg/mv_aTb.hpp>
 #include <cumlprims/opg/linalg/norm.hpp>
-
-#include "shuffle.h"
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
@@ -36,6 +32,8 @@
 #include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <functions/softThres.cuh>
 
 #include <cstddef>
 

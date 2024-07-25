@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,16 @@
 
 #pragma once
 
+#include <cuml/common/logger.hpp>
 #include <cuml/linear_model/qn.h>
 
-#include <cuml/common/logger.hpp>
-#include <limits>
 #include <raft/util/cuda_utils.cuh>
+
+#include <limits>
 
 namespace ML {
 namespace GLM {
+namespace detail {
 
 enum LINE_SEARCH_ALGORITHM {
   LBFGS_LS_BT_ARMIJO       = 1,
@@ -268,6 +270,6 @@ struct op_pseudo_grad {
 
   HDI T operator()(const T x, const T dlossx) const { return get_pseudo_grad(x, dlossx, l1); }
 };
-
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML

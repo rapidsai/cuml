@@ -6,27 +6,21 @@ To install cuML from source, ensure the following dependencies are met:
 
 1. [cuDF](https://github.com/rapidsai/cudf) (Same as cuML Version)
 2. zlib
-3. cmake (>= 3.23.1)
+3. cmake (>= 3.26.4)
 4. CUDA (>= 11+)
 5. Cython (>= 0.29)
 6. gcc (>= 9.0)
 7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
-8. clang-format (= 11.1.0) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=8` and `clang-tools=8` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
+8. clang-format (= 16.0.6) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=16` and `clang-tools=16` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
 9. NCCL (>=2.4)
 10. UCX [optional] (>= 1.7) - enables point-to-point messaging in the cuML standard communicator. This is necessary for many multi-node multi-GPU cuML algorithms to function.
 
 It is recommended to use conda for environment/package management. If doing so, development environment .yaml files are located in `conda/environments/all_*.yaml`. These files contains most of the dependencies mentioned above (notable exceptions are `gcc` and `zlib`). To create a development environment named `cuml_dev`, you can use the follow commands:
 
 ```bash
-conda create -n cuml_dev python=3.8
+conda create -n cuml_dev python=3.11
+conda env update -n cuml_dev --file=conda/environments/all_cuda-118_arch-x86_64.yaml
 conda activate cuml_dev
-conda env update --file=conda/environments/all_cuda-115_arch-x86_64.yaml
-```
-
-These conda environments are based on the general RAPIDS meta packages that install common dependencies for RAPIDS projects. To install different versions of packages contained in those meta packages after creating the environment, it is recommended to remove those meta packages (without removing the actual packages contained in the environment) with the following command (having the environment active):
-
-```bash
-conda remove --force rapids-build-env rapids-notebook-env rapids-doc-env
 ```
 
 ## Installing from Source:
@@ -61,7 +55,7 @@ $ ./build.sh cuml --singlegpu          # build the cuML python package without M
 $ ./build.sh --ccache                  # use ccache to cache compilations, speeding up subsequent builds
 ```
 
-By default, Ninja is used as the cmake generator. To override this and use (e.g.) `make`, define the `CMAKE_GENERATOR` environment variable accodingly:
+By default, Ninja is used as the cmake generator. To override this and use (e.g.) `make`, define the `CMAKE_GENERATOR` environment variable accordingly:
 ```bash
 CMAKE_GENERATOR='Unix Makefiles' ./build.sh
 ```
@@ -123,7 +117,7 @@ If using a conda environment (recommended), then cmake can be configured appropr
 $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
 ```
 
-Note: The following warning message is dependent upon the version of cmake and the `CMAKE_INSTALL_PREFIX` used. If this warning is displayed, the build should still run succesfully. We are currently working to resolve this open issue. You can silence this warning by adding `-DCMAKE_IGNORE_PATH=$CONDA_PREFIX/lib` to your `cmake` command.
+Note: The following warning message is dependent upon the version of cmake and the `CMAKE_INSTALL_PREFIX` used. If this warning is displayed, the build should still run successfully. We are currently working to resolve this open issue. You can silence this warning by adding `-DCMAKE_IGNORE_PATH=$CONDA_PREFIX/lib` to your `cmake` command.
 ```
 Cannot generate a safe runtime search path for target ml_test because files
 in some directories may conflict with libraries in implicit directories:

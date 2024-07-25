@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,19 +19,17 @@
 #include "kernels/stabilities.cuh"
 #include "utils.h"
 
-#include <cub/cub.cuh>
-
-#include <raft/util/cudart_utils.hpp>
-
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/op/sort.cuh>
-
 #include <cuml/cluster/hdbscan.hpp>
 
 #include <raft/label/classlabels.cuh>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/op/sort.cuh>
+#include <raft/util/cudart_utils.hpp>
 
-#include <algorithm>
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
+#include <cub/cub.cuh>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
@@ -42,8 +40,7 @@
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
 
-#include <rmm/device_uvector.hpp>
-#include <rmm/exec_policy.hpp>
+#include <algorithm>
 
 namespace ML {
 namespace HDBSCAN {
@@ -100,15 +97,24 @@ void compute_stabilities(const raft::handle_t& handle,
                    thrust::make_counting_iterator(n_edges),
                    births_init_op);
 
-  Utils::cub_segmented_reduce(
-    lambdas,
-    births_parent_min.data() + 1,
-    n_clusters - 1,
-    sorted_parents_offsets.data() + 1,
-    stream,
-    cub::DeviceSegmentedReduce::Min<const value_t*, value_t*, const value_idx*, const value_idx*>);
+  cudaError_t (*reduce_func)(void*,
+                             size_t&,
+                             const value_t*,
+                             value_t*,
+                             int,
+                             const value_idx*,
+                             const value_idx*,
+                             cudaStream_t,
+                             bool) =
+    cub::DeviceSegmentedReduce::Min<const value_t*, value_t*, const value_idx*, const value_idx*>;
+  Utils::cub_segmented_reduce(lambdas,
+                              births_parent_min.data() + 1,
+                              n_clusters - 1,
+                              sorted_parents_offsets.data() + 1,
+                              stream,
+                              reduce_func);
   // finally, we find minimum between initialized births where parent=child
-  // and births of parents for their childrens
+  // and births of parents for their children
   auto births_zip =
     thrust::make_zip_iterator(thrust::make_tuple(births.data(), births_parent_min.data()));
   auto min_op = [] __device__(const thrust::tuple<value_t, value_t>& birth_pair) {

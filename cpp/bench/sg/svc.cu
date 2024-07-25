@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-#if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
 #include "benchmark.cuh"
-#include <cmath>
+
 #include <cuml/svm/svc.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
+
 #include <raft/distance/kernels.cuh>
+
+#include <cmath>
 #include <sstream>
 #include <utility>
 
@@ -102,7 +101,7 @@ std::vector<SvcParams<D>> getInputs()
 
   // SvmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity})
   p.svm_param = ML::SVM::SvmParameter{1, 200, 100, 100, 1e-3, CUML_LEVEL_INFO, 0, ML::SVM::C_SVC};
-  p.model     = ML::SVM::SvmModel<D>{0, 0, 0, nullptr, nullptr, nullptr, 0, nullptr};
+  p.model     = ML::SVM::SvmModel<D>{0, 0, 0, nullptr, {}, nullptr, 0, nullptr};
 
   std::vector<Triplets> rowcols = {{50000, 2, 2}, {2048, 100000, 2}, {50000, 1000, 2}};
 

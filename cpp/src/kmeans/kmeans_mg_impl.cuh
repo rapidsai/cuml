@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 #include <cuml/common/logger.hpp>
+
 #include <raft/cluster/kmeans.cuh>
 #include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/device_mdarray.hpp>
@@ -23,15 +24,18 @@
 #include <raft/core/host_mdarray.hpp>
 #include <raft/matrix/gather.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <ml_cuda_utils.h>
+#include <cuda/functional>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
 #include <thrust/scan.h>
 #include <thrust/transform.h>
+
+#include <ml_cuda_utils.h>
 
 #include <cstdint>
 
@@ -241,7 +245,8 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
     minClusterDistance.view(),
     workspace,
     clusterCost.view(),
-    [] __device__(const DataT& a, const DataT& b) { return a + b; });
+    cuda::proclaim_return_type<DataT>(
+      [] __device__(const DataT& a, const DataT& b) { return a + b; }));
 
   // compute total cluster cost by accumulating the partial cost from all the
   // ranks
@@ -291,7 +296,8 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
       minClusterDistance.view(),
       workspace,
       clusterCost.view(),
-      [] __device__(const DataT& a, const DataT& b) { return a + b; });
+      cuda::proclaim_return_type<DataT>(
+        [] __device__(const DataT& a, const DataT& b) { return a + b; }));
     comm.allreduce(
       clusterCost.data_handle(), clusterCost.data_handle(), 1, raft::comms::op_t::SUM, stream);
     raft::copy(&psi, clusterCost.data_handle(), 1, stream);
@@ -481,7 +487,7 @@ void checkWeights(const raft::handle_t& handle,
       weight.data_handle(),
       weight.data_handle(),
       weight.size(),
-      [=] __device__(const DataT& wt) { return wt * scale; },
+      cuda::proclaim_return_type<DataT>([=] __device__(const DataT& wt) { return wt * scale; }),
       stream);
   }
 }
@@ -621,12 +627,12 @@ void fit(const raft::handle_t& handle,
       newCentroids.extent(0),
       true,
       false,
-      [=] __device__(DataT mat, DataT vec) {
+      cuda::proclaim_return_type<DataT>([=] __device__(DataT mat, DataT vec) {
         if (vec == 0)
           return DataT(0);
         else
           return mat / vec;
-      },
+      }),
       stream);
 
     // copy the centroids[i] to newCentroids[i] when wtInCluster[i] is 0
@@ -639,16 +645,18 @@ void fit(const raft::handle_t& handle,
       itr_wt,
       wtInCluster.extent(0),
       newCentroids.data_handle(),
-      [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // predicate
-        // copy when the # of samples in the cluster is 0
-        if (map.value == 0)
-          return true;
-        else
-          return false;
-      },
-      [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // map
-        return map.key;
-      },
+      cuda::proclaim_return_type<bool>(
+        [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // predicate
+          // copy when the # of samples in the cluster is 0
+          if (map.value == 0)
+            return true;
+          else
+            return false;
+        }),
+      cuda::proclaim_return_type<ptrdiff_t>(
+        [=] __device__(raft::KeyValuePair<ptrdiff_t, DataT> map) {  // map
+          return map.key;
+        }),
       stream);
 
     // compute the squared norm between the newCentroids and the original
@@ -657,10 +665,10 @@ void fit(const raft::handle_t& handle,
     raft::linalg::mapThenSumReduce(
       sqrdNorm.data_handle(),
       newCentroids.size(),
-      [=] __device__(const DataT a, const DataT b) {
+      cuda::proclaim_return_type<DataT>([=] __device__(const DataT a, const DataT b) {
         DataT diff = a - b;
         return diff * diff;
-      },
+      }),
       stream,
       centroids.data_handle(),
       newCentroids.data_handle());
@@ -680,13 +688,14 @@ void fit(const raft::handle_t& handle,
         minClusterAndDistance.view(),
         workspace,
         raft::make_device_scalar_view(clusterCostD.data()),
-        [] __device__(const raft::KeyValuePair<IndexT, DataT>& a,
-                      const raft::KeyValuePair<IndexT, DataT>& b) {
-          raft::KeyValuePair<IndexT, DataT> res;
-          res.key   = 0;
-          res.value = a.value + b.value;
-          return res;
-        });
+        cuda::proclaim_return_type<raft::KeyValuePair<IndexT, DataT>>(
+          [] __device__(const raft::KeyValuePair<IndexT, DataT>& a,
+                        const raft::KeyValuePair<IndexT, DataT>& b) {
+            raft::KeyValuePair<IndexT, DataT> res;
+            res.key   = 0;
+            res.value = a.value + b.value;
+            return res;
+          }));
 
       // Cluster cost phi_x(C) from all ranks
       comm.allreduce(&(clusterCostD.data()->value),
@@ -702,7 +711,7 @@ void fit(const raft::handle_t& handle,
              "An error occurred in the distributed operation. This can result "
              "from a failed rank");
       ASSERT(curClusteringCost != (DataT)0.0,
-             "Too few points and centriods being found is getting 0 cost from "
+             "Too few points and centroids being found is getting 0 cost from "
              "centers\n");
 
       if (n_iter[0] > 0) {
@@ -755,7 +764,7 @@ void fit(const raft::handle_t& handle,
   // underlying expandable storage that holds centroids data
   auto centroidsRawData = raft::make_device_matrix<DataT, IndexT>(handle, n_clusters, n_features);
 
-  // Device-accessible allocation of expandable storage used as temorary buffers
+  // Device-accessible allocation of expandable storage used as temporary buffers
   rmm::device_uvector<char> workspace(0, stream);
 
   // check if weights sum up to n_samples
@@ -774,7 +783,7 @@ void fit(const raft::handle_t& handle,
   } else if (params.init == raft::cluster::kmeans::KMeansParams::InitMethod::Array) {
     CUML_LOG_KMEANS(handle,
                     "KMeans.fit: initialize cluster centers from the ndarray array input "
-                    "passed to init arguement.\n");
+                    "passed to init argument.\n");
 
     ASSERT(centroids != nullptr,
            "centroids array is null (require a valid array of centroids for "

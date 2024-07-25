@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,8 @@
 
 #pragma once
 
-#include <raft/label/merge_labels.cuh>
-
 #include <raft/core/handle.hpp>
+#include <raft/label/merge_labels.cuh>
 namespace ML {
 namespace Dbscan {
 namespace MergeLabels {

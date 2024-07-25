@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,12 +25,13 @@
 
 #include "fft_kernels.cuh"
 #include "utils.cuh"
-#include <cmath>
+
 #include <common/device_utils.cuh>
-#include <cufft_utils.h>
+
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/init.cuh>
 #include <raft/stats/sum.cuh>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -39,6 +40,10 @@
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
 #include <thrust/transform.h>
+
+#include <cufft_utils.h>
+
+#include <cmath>
 
 namespace ML {
 namespace TSNE {
@@ -169,7 +174,7 @@ value_t FFT_TSNE(value_t* VAL,
   auto stream        = handle.get_stream();
   auto thrust_policy = handle.get_thrust_policy();
 
-  // Get device properites
+  // Get device properties
   //---------------------------------------------------
   const int mp_count          = raft::getMultiProcessorCount();
   const int dev_major_version = MLCommon::getDeviceCapability().first;
@@ -334,10 +339,6 @@ value_t FFT_TSNE(value_t* VAL,
   value_t momentum      = params.pre_momentum;
   value_t learning_rate = params.pre_learning_rate;
   value_t exaggeration  = params.early_exaggeration;
-
-  if (params.initialize_embeddings) {
-    random_vector(Y, 0.0000f, 0.0001f, n * 2, stream, params.random_state);
-  }
 
   value_t kl_div = 0;
   for (int iter = 0; iter < params.max_iter; iter++) {
@@ -580,7 +581,7 @@ value_t FFT_TSNE(value_t* VAL,
                         attractive_forces_device.size();
 
     if (grad_norm <= params.min_grad_norm) {
-      CUML_LOG_DEBUG("Breaking early as `min_grad_norm` was satisifed, after %d iterations", iter);
+      CUML_LOG_DEBUG("Breaking early as `min_grad_norm` was satisfied, after %d iterations", iter);
       break;
     }
   }

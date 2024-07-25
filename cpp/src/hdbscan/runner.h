@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,26 +16,28 @@
 
 #pragma once
 
-#include <raft/util/cudart_utils.hpp>
-
-#include <raft/core/handle.hpp>
-#include <raft/core/kvp.hpp>
-#include <rmm/device_uvector.hpp>
-
-#include <cuml/common/logger.hpp>
-
-#include <raft/cluster/detail/agglomerative.cuh>
-#include <raft/cluster/detail/mst.cuh>
-#include <raft/sparse/coo.hpp>
-
 #include "detail/condense.cuh"
 #include "detail/extract.cuh"
 #include "detail/reachability.cuh"
 #include "detail/soft_clustering.cuh"
+
 #include <cuml/cluster/hdbscan.hpp>
+#include <cuml/common/logger.hpp>
+
+#include <raft/cluster/detail/agglomerative.cuh>
+#include <raft/cluster/detail/mst.cuh>
+#include <raft/core/handle.hpp>
+#include <raft/core/kvp.hpp>
+#include <raft/core/resource/thrust_policy.hpp>
+#include <raft/sparse/coo.hpp>
+#include <raft/util/cudart_utils.hpp>
+
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/extrema.h>
+#include <thrust/gather.h>
+#include <thrust/scatter.h>
 #include <thrust/transform.h>
 
 namespace ML {
@@ -50,18 +52,17 @@ namespace HDBSCAN {
  */
 template <typename value_idx, typename value_t>
 struct FixConnectivitiesRedOp {
-  value_idx* colors;
   value_t* core_dists;
   value_idx m;
 
-  FixConnectivitiesRedOp(value_idx* colors_, value_t* core_dists_, value_idx m_)
-    : colors(colors_), core_dists(core_dists_), m(m_){};
+  DI FixConnectivitiesRedOp() : m(0) {}
+
+  FixConnectivitiesRedOp(value_t* core_dists_, value_idx m_) : core_dists(core_dists_), m(m_){};
 
   typedef typename raft::KeyValuePair<value_idx, value_t> KVP;
-  DI void operator()(value_idx rit, KVP* out, const KVP& other)
+  DI void operator()(value_idx rit, KVP* out, const KVP& other) const
   {
-    if (rit < m && other.value < std::numeric_limits<value_t>::max() &&
-        colors[rit] != colors[other.key]) {
+    if (rit < m && other.value < std::numeric_limits<value_t>::max()) {
       value_t core_dist_rit   = core_dists[rit];
       value_t core_dist_other = max(core_dist_rit, max(core_dists[other.key], other.value));
 
@@ -78,9 +79,9 @@ struct FixConnectivitiesRedOp {
     }
   }
 
-  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b)
+  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b) const
   {
-    if (rit < m && a.key > -1 && colors[rit] != colors[a.key]) {
+    if (rit < m && a.key > -1) {
       value_t core_dist_rit = core_dists[rit];
       value_t core_dist_a   = max(core_dist_rit, max(core_dists[a.key], a.value));
 
@@ -97,11 +98,41 @@ struct FixConnectivitiesRedOp {
     return b;
   }
 
-  DI void init(value_t* out, value_t maxVal) { *out = maxVal; }
-  DI void init(KVP* out, value_t maxVal)
+  DI void init(value_t* out, value_t maxVal) const { *out = maxVal; }
+  DI void init(KVP* out, value_t maxVal) const
   {
     out->key   = -1;
     out->value = maxVal;
+  }
+
+  DI void init_key(value_t& out, value_idx idx) const { return; }
+  DI void init_key(KVP& out, value_idx idx) const { out.key = idx; }
+
+  DI value_t get_value(KVP& out) const { return out.value; }
+  DI value_t get_value(value_t& out) const { return out; }
+
+  void gather(const raft::resources& handle, value_idx* map)
+  {
+    auto tmp_core_dists = raft::make_device_vector<value_t>(handle, m);
+    thrust::gather(raft::resource::get_thrust_policy(handle),
+                   map,
+                   map + m,
+                   core_dists,
+                   tmp_core_dists.data_handle());
+    raft::copy_async(
+      core_dists, tmp_core_dists.data_handle(), m, raft::resource::get_cuda_stream(handle));
+  }
+
+  void scatter(const raft::resources& handle, value_idx* map)
+  {
+    auto tmp_core_dists = raft::make_device_vector<value_t>(handle, m);
+    thrust::scatter(raft::resource::get_thrust_policy(handle),
+                    core_dists,
+                    core_dists + m,
+                    map,
+                    tmp_core_dists.data_handle());
+    raft::copy_async(
+      core_dists, tmp_core_dists.data_handle(), m, raft::resource::get_cuda_stream(handle));
   }
 };
 
@@ -159,7 +190,7 @@ void build_linkage(const raft::handle_t& handle,
    */
 
   rmm::device_uvector<value_idx> color(m, stream);
-  FixConnectivitiesRedOp<value_idx, value_t> red_op(color.data(), core_dists, m);
+  FixConnectivitiesRedOp<value_idx, value_t> red_op(core_dists, m);
   // during knn graph connection
   raft::cluster::detail::build_sorted_mst(handle,
                                           X,

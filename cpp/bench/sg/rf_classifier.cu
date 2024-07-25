@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,10 @@
  */
 
 #include "benchmark.cuh"
-#include <cmath>
+
 #include <cuml/ensemble/randomforest.hpp>
+
+#include <cmath>
 #include <utility>
 
 namespace ML {
@@ -30,8 +32,7 @@ struct Params {
 };
 
 template <typename D>
-struct RFClassifierModel {
-};
+struct RFClassifierModel {};
 
 template <>
 struct RFClassifierModel<float> {
@@ -87,10 +88,10 @@ std::vector<Params> getInputs()
   Params p;
   p.data.rowMajor = false;
   p.blobs         = {10.0,         // cluster_std
-             false,        // shuffle
-             -10.0,        // center_box_min
-             10.0,         // center_box_max
-             2152953ULL};  // seed
+                     false,        // shuffle
+                     -10.0,        // center_box_min
+                     10.0,         // center_box_max
+                     2152953ULL};  // seed
 
   p.rf = set_rf_params(10,                  /*max_depth */
                        (1 << 20),           /* max_leaves */

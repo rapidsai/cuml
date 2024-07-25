@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,13 @@
 
 #pragma once
 
+#include <cuml/common/utils.hpp>
 #include <cuml/random_projection/rproj_c.h>
 
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -54,7 +56,7 @@ inline void sample_without_replacement(size_t n_population,
   }
 }
 
-__global__ void sum_bools(bool* in_bools, int n, int* out_val)
+CUML_KERNEL void sum_bools(bool* in_bools, int n, int* out_val)
 {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < n) {

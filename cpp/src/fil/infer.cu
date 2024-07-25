@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
  */
 
 #include "common.cuh"
-
 #include "internal.cuh"
 
+#include <cuml/common/utils.hpp>
 #include <cuml/fil/multi_sum.cuh>
 
 #include <raft/util/cuda_utils.cuh>
@@ -571,7 +571,7 @@ template <int NITEMS, typename real_t>
 struct tree_aggregator_t<NITEMS, real_t, VECTOR_LEAF> {
   // per_class_margin is a row-major matrix
   // of size num_threads_per_class * num_classes
-  // used to acccumulate class values
+  // used to accumulate class values
   vec<NITEMS, real_t>* per_class_margin;
   vec<NITEMS, int>* vector_leaf_indices;
   int* thread_num_rows;
@@ -794,7 +794,7 @@ template <int NITEMS,
           bool cols_in_shmem,
           bool CATS_SUPPORTED,
           class storage_type>
-__global__ void infer_k(storage_type forest, predict_params params)
+CUML_KERNEL void infer_k(storage_type forest, predict_params params)
 {
   using real_t = typename storage_type::real_type;
   extern __shared__ char smem[];

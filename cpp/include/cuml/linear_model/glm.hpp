@@ -149,7 +149,9 @@ void gemmPredict(const raft::handle_t& handle,
  *                      overwritten by final result.
  * @param f             host pointer holding the final objective value
  * @param num_iters     host pointer holding the actual number of iterations taken
- * @param sample_weight
+ * @param sample_weight device pointer to sample weight vector of length n_rows (nullptr
+   for uniform weights)
+ * @param svr_eps       epsilon parameter for svr
  */
 template <typename T, typename I = int>
 void qnFit(const raft::handle_t& cuml_handle,
@@ -163,7 +165,8 @@ void qnFit(const raft::handle_t& cuml_handle,
            T* w0,
            T* f,
            int* num_iters,
-           T* sample_weight = nullptr);
+           T* sample_weight = nullptr,
+           T svr_eps        = 0);
 
 /**
  * @brief Fit a GLM using quasi newton methods.
@@ -183,7 +186,9 @@ void qnFit(const raft::handle_t& cuml_handle,
  *                      overwritten by final result.
  * @param f             host pointer holding the final objective value
  * @param num_iters     host pointer holding the actual number of iterations taken
- * @param sample_weight
+ * @param sample_weight device pointer to sample weight vector of length n_rows (nullptr
+   for uniform weights)
+ * @param svr_eps       epsilon parameter for svr
  */
 template <typename T, typename I = int>
 void qnFitSparse(const raft::handle_t& cuml_handle,
@@ -199,7 +204,8 @@ void qnFitSparse(const raft::handle_t& cuml_handle,
                  T* w0,
                  T* f,
                  int* num_iters,
-                 T* sample_weight = nullptr);
+                 T* sample_weight = nullptr,
+                 T svr_eps        = 0);
 
 /**
  * @brief Obtain the confidence scores of samples

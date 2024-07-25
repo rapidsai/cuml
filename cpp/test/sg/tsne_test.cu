@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,31 +14,30 @@
  * limitations under the License.
  */
 
+#include <cuml/common/logger.hpp>
 #include <cuml/manifold/tsne.h>
 #include <cuml/metrics/metrics.hpp>
+
+#include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/map.cuh>
+#include <raft/linalg/transpose.cuh>
+#include <raft/util/cudart_utils.hpp>
 
-#include <cuml/common/logger.hpp>
+#include <thrust/reduce.h>
+
 #include <datasets/boston.h>
 #include <datasets/breast_cancer.h>
 #include <datasets/diabetes.h>
 #include <datasets/digits.h>
 #include <gtest/gtest.h>
-#include <iostream>
-#include <raft/core/handle.hpp>
-
-#if defined RAFT_DISTANCE_COMPILED
-#include <raft/spatial/knn/specializations.cuh>
-#endif
-
-#include <raft/util/cudart_utils.hpp>
 #include <stdio.h>
 #include <stdlib.h>
-#include <thrust/reduce.h>
 #include <tsne/distances.cuh>
 #include <tsne/tsne_runner.cuh>
 #include <tsne/utils.cuh>
+
+#include <iostream>
 #include <vector>
 
 using namespace MLCommon;
@@ -49,6 +48,7 @@ using namespace ML::Metrics;
 struct TSNEInput {
   int n, p;
   std::vector<float> dataset;
+  TSNE_INIT init;
   double trustworthiness_threshold;
 };
 
@@ -125,10 +125,16 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     model_params.n_neighbors   = 90;
     model_params.min_grad_norm = 1e-12;
     model_params.verbosity     = CUML_LEVEL_DEBUG;
+    model_params.metric        = DEFAULT_DISTANCE_METRIC;
 
     // Allocate memory
     rmm::device_uvector<float> X_d(n * p, stream);
     raft::update_device(X_d.data(), dataset.data(), n * p, stream);
+
+    rmm::device_uvector<float> Xtranspose(n * p, stream);
+    raft::copy_async(Xtranspose.data(), X_d.data(), n * p, stream);
+    raft::linalg::transpose(handle, Xtranspose.data(), X_d.data(), p, n, stream);
+
     rmm::device_uvector<float> Y_d(n * model_params.dim, stream);
     rmm::device_uvector<int64_t> input_indices(0, stream);
     rmm::device_uvector<float> input_dists(0, stream);
@@ -162,7 +168,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
                       false);
     handle.sync_stream(stream);
 
-    // Compute theorical KL div
+    // Compute theoretical KL div
     results.kl_div_ref =
       get_kl_div(model_params, runner.COO_Matrix, pw_emb_dists.data(), n, stream);
 
@@ -183,6 +189,9 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     raft::update_device(Y_d.data(), C_contiguous_embedding, n * model_params.dim, stream);
     handle.sync_stream(stream);
     free(embeddings_h);
+
+    raft::copy_async(Xtranspose.data(), X_d.data(), n * p, stream);
+    raft::linalg::transpose(handle, Xtranspose.data(), X_d.data(), n, p, stream);
 
     // Produce trustworthiness score
     results.trustworthiness =
@@ -216,6 +225,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     p                         = params.p;
     dataset                   = params.dataset;
     trustworthiness_threshold = params.trustworthiness_threshold;
+    model_params.init         = params.init;
     basicTest();
   }
 
@@ -243,10 +253,22 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
 };
 
 const std::vector<TSNEInput> inputs = {
-  {Digits::n_samples, Digits::n_features, Digits::digits, 0.98},
-  {Boston::n_samples, Boston::n_features, Boston::boston, 0.98},
-  {BreastCancer::n_samples, BreastCancer::n_features, BreastCancer::breast_cancer, 0.98},
-  {Diabetes::n_samples, Diabetes::n_features, Diabetes::diabetes, 0.90}};
+  {Digits::n_samples, Digits::n_features, Digits::digits, TSNE_INIT::RANDOM, 0.98},
+  {Boston::n_samples, Boston::n_features, Boston::boston, TSNE_INIT::RANDOM, 0.98},
+  {BreastCancer::n_samples,
+   BreastCancer::n_features,
+   BreastCancer::breast_cancer,
+   TSNE_INIT::RANDOM,
+   0.98},
+  {Diabetes::n_samples, Diabetes::n_features, Diabetes::diabetes, TSNE_INIT::RANDOM, 0.90},
+  {Digits::n_samples, Digits::n_features, Digits::digits, TSNE_INIT::PCA, 0.98},
+  {Boston::n_samples, Boston::n_features, Boston::boston, TSNE_INIT::PCA, 0.98},
+  {BreastCancer::n_samples,
+   BreastCancer::n_features,
+   BreastCancer::breast_cancer,
+   TSNE_INIT::PCA,
+   0.98},
+  {Diabetes::n_samples, Diabetes::n_features, Diabetes::diabetes, TSNE_INIT::PCA, 0.90}};
 
 typedef TSNETest TSNETestF;
 TEST_P(TSNETestF, Result)

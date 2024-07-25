@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,35 +16,43 @@
 
 #pragma once
 
-#include <iostream>
-#include <limits>
-#include <math.h>
-#include <memory>
-
+#include "sparse_util.cuh"
 #include "ws_util.cuh"
-#include <cub/device/device_select.cuh>
+
+#include <cuml/svm/svm_model.h>
+
 #include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <rmm/aligned.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/resource_ref.hpp>
+
+#include <cub/device/device_select.cuh>
+
+#include <math.h>
+
+#include <iostream>
+#include <limits>
+#include <memory>
 
 namespace ML {
 namespace SVM {
 
 template <typename math_t, typename Lambda>
-__global__ void set_flag(bool* flag, const math_t* alpha, int n, Lambda op)
+CUML_KERNEL void set_flag(bool* flag, const math_t* alpha, int n, Lambda op)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) flag[tid] = op(alpha[tid]);
 }
 
-template <typename math_t>
+template <typename math_t, typename MatrixViewType>
 class Results {
  public:
   /*
@@ -52,17 +60,17 @@ class Results {
    * fitted using SMO.
    *
    * @param handle cuML handle implementation
-   * @param x training vectors in column major format, size [n_rows x n_cols]
+   * @param matrix training vectors in matrix format
    * @param y target labels (values +/-1), size [n_train]
    * @param n_rows number of training vectors
    * @param n_cols number of features
    * @param C penalty parameter
    */
   Results(const raft::handle_t& handle,
-          const math_t* x,
-          const math_t* y,
+          MatrixViewType matrix,
           int n_rows,
           int n_cols,
+          const math_t* y,
           const math_t* C,
           SvmType svmType)
     : rmm_alloc(rmm::mr::get_current_device_resource()),
@@ -70,7 +78,7 @@ class Results {
       handle(handle),
       n_rows(n_rows),
       n_cols(n_cols),
-      x(x),
+      matrix(matrix),
       y(y),
       C(C),
       svmType(svmType),
@@ -104,7 +112,7 @@ class Results {
    * @param [out] dual_coefs size [n_support]
    * @param [out] n_support number of support vectors
    * @param [out] idx the original training set indices of the support vectors, size [n_support]
-   * @param [out] x_support support vectors in column major format, size [n_support, n_cols]
+   * @param [out] x_support support vector matrix, size [n_support, n_cols]
    * @param [out] b scalar constant in the decision function
    */
   void Get(const math_t* alpha,
@@ -112,39 +120,53 @@ class Results {
            math_t** dual_coefs,
            int* n_support,
            int** idx,
-           math_t** x_support,
+           SupportStorage<math_t>* support_matrix,
            math_t* b)
   {
     CombineCoefs(alpha, val_tmp.data());
     GetDualCoefs(val_tmp.data(), dual_coefs, n_support);
     *b = CalcB(alpha, f, *n_support);
     if (*n_support > 0) {
-      *idx       = GetSupportVectorIndices(val_tmp.data(), *n_support);
-      *x_support = CollectSupportVectors(*idx, *n_support);
+      *idx            = GetSupportVectorIndices(val_tmp.data(), *n_support);
+      *support_matrix = CollectSupportVectorMatrix(*idx, *n_support);
     } else {
-      *dual_coefs = nullptr;
-      *idx        = nullptr;
-      *x_support  = nullptr;
+      *dual_coefs     = nullptr;
+      *idx            = nullptr;
+      *support_matrix = {};
     }
     // Make sure that all pending GPU calculations finished before we return
     handle.sync_stream(stream);
   }
 
   /**
-   * Collect support vectors into a contiguous buffer
+   * Collect support vectors into a matrix storage
    *
    * @param [in] idx indices of support vectors, size [n_support]
    * @param [in] n_support number of support vectors
    * @return pointer to a newly allocated device buffer that stores the support
    *   vectors, size [n_suppor*n_cols]
    */
-  math_t* CollectSupportVectors(const int* idx, int n_support)
+  SupportStorage<math_t> CollectSupportVectorMatrix(const int* idx, int n_support)
   {
-    math_t* x_support = (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
-    // Collect support vectors into a contiguous block
-    raft::matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support, stream);
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
-    return x_support;
+    SupportStorage<math_t> support_matrix;
+    // allow ~1GB dense support matrix
+    if (isDenseType<MatrixViewType>() ||
+        ((size_t)n_support * n_cols * sizeof(math_t) < (1 << 30))) {
+      support_matrix.data = (math_t*)rmm_alloc.allocate_async(
+        n_support * n_cols * sizeof(math_t), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
+      ML::SVM::extractRows<math_t>(matrix, support_matrix.data, idx, n_support, handle);
+    } else {
+      ML::SVM::extractRows<math_t>(matrix,
+                                   &(support_matrix.indptr),
+                                   &(support_matrix.indices),
+                                   &(support_matrix.data),
+                                   &(support_matrix.nnz),
+                                   idx,
+                                   n_support,
+                                   handle);
+    }
+
+    return support_matrix;
   }
 
   /**
@@ -179,7 +201,7 @@ class Results {
   /** Return non zero dual coefficients.
    *
    * @param [in] val_tmp device pointer with dual coefficients
-   * @param [out] dual_coefs device pointer of non-zero dual coefficiens,
+   * @param [out] dual_coefs device pointer of non-zero dual coefficients,
    *   unallocated on entry, on exit size [n_support]
    * @param [out] n_support number of support vectors
    */
@@ -188,7 +210,8 @@ class Results {
     // Return only the non-zero coefficients
     auto select_op = [] __device__(math_t a) { return 0 != a; };
     *n_support     = SelectByCoef(val_tmp, n_rows, val_tmp, select_op, val_selected.data());
-    *dual_coefs    = (math_t*)rmm_alloc->allocate(*n_support * sizeof(math_t), stream);
+    *dual_coefs    = (math_t*)rmm_alloc.allocate_async(
+      *n_support * sizeof(math_t), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
     raft::copy(*dual_coefs, val_selected.data(), *n_support, stream);
     handle.sync_stream(stream);
   }
@@ -205,7 +228,8 @@ class Results {
   {
     auto select_op = [] __device__(math_t a) -> bool { return 0 != a; };
     SelectByCoef(coef, n_rows, f_idx.data(), select_op, idx_selected.data());
-    int* idx = (int*)rmm_alloc->allocate(n_support * sizeof(int), stream);
+    int* idx = (int*)rmm_alloc.allocate_async(
+      n_support * sizeof(int), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
     raft::copy(idx, idx_selected.data(), n_support, stream);
     return idx;
   }
@@ -277,19 +301,19 @@ class Results {
     return n_selected;
   }
 
-  rmm::mr::device_memory_resource* rmm_alloc;
+  rmm::device_async_resource_ref rmm_alloc;
 
  private:
   const raft::handle_t& handle;
   cudaStream_t stream;
 
-  int n_rows;       //!< number of rows in the training vector matrix
-  int n_cols;       //!< number of features
-  const math_t* x;  //!< training vectors
-  const math_t* y;  //!< labels
-  const math_t* C;  //!< penalty parameter
-  SvmType svmType;  //!< SVM problem type: SVC or SVR
-  int n_train;      //!< number of training vectors (including duplicates for SVR)
+  int n_rows;             //!< number of rows in the training vector matrix
+  int n_cols;             //!< number of features
+  MatrixViewType matrix;  //!< training vector matrix
+  const math_t* y;        //!< labels
+  const math_t* C;        //!< penalty parameter
+  SvmType svmType;        //!< SVM problem type: SVC or SVR
+  int n_train;            //!< number of training vectors (including duplicates for SVR)
 
   const int TPB = 256;  // threads per block
   // Temporary variables used by cub in GetResults
@@ -297,7 +321,6 @@ class Results {
   rmm::device_scalar<math_t> d_val_reduced;
   rmm::device_uvector<char> cub_storage;
   size_t cub_bytes = 0;
-
   // Helper arrays for collecting the results
   rmm::device_uvector<int> f_idx;
   rmm::device_uvector<int> idx_selected;

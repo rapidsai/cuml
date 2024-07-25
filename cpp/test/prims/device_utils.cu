@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,17 @@
  */
 
 #include "test_utils.h"
+
 #include <common/device_utils.cuh>
-#include <gtest/gtest.h>
+
+#include <cuml/common/utils.hpp>
+
 #include <raft/core/interruptible.hpp>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 
@@ -39,7 +45,7 @@ namespace MLCommon {
  */
 
 template <int NThreads>
-__global__ void batchedBlockReduceTestKernel(int* out)
+CUML_KERNEL void batchedBlockReduceTestKernel(int* out)
 {
   extern __shared__ char smem[];
   int val = threadIdx.x;

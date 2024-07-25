@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <cuml/common/utils.hpp>
+
 #include <raft/util/cuda_utils.cuh>
 
 namespace MLCommon {
@@ -28,7 +30,7 @@ static constexpr int BlockRows = 8;
 // Ref: https://devblogs.nvidia.com/efficient-matrix-transpose-cuda-cc/
 ///@todo: special-case for blockIdx.x == blockIdx.y to reduce gmem traffic
 template <typename DataT, typename IdxT, typename EpilogueOp>
-__global__ void symmKernel(DataT* out, const DataT* in, IdxT batchSize, IdxT n, EpilogueOp op)
+CUML_KERNEL void symmKernel(DataT* out, const DataT* in, IdxT batchSize, IdxT n, EpilogueOp op)
 {
   __shared__ DataT smem[TileDim][TileDim + 1];  // +1 to avoid bank conflicts
   IdxT batchOffset = blockIdx.z * n * n;
@@ -71,13 +73,13 @@ __global__ void symmKernel(DataT* out, const DataT* in, IdxT batchSize, IdxT n, 
  * @param stream cuda stream
  * @param op custom epilogue functor
  */
-template <typename DataT, typename IdxT, typename EpilogueOp = raft::Nop<DataT, IdxT>>
+template <typename DataT, typename IdxT, typename EpilogueOp = raft::identity_op>
 void make_symm(DataT* out,
                const DataT* in,
                IdxT batchSize,
                IdxT n,
                cudaStream_t stream,
-               EpilogueOp op = raft::Nop<DataT, IdxT>())
+               EpilogueOp op = raft::identity_op())
 {
   dim3 blk(TileDim, BlockRows);
   auto nblks = raft::ceildiv<int>(n, TileDim);

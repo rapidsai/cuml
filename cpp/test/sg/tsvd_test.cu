@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,15 @@
  */
 
 #include <cuml/decomposition/params.hpp>
-#include <gtest/gtest.h>
+
 #include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <gtest/gtest.h>
 #include <test_utils.h>
 #include <tsvd/tsvd.cuh>
+
 #include <vector>
 
 namespace ML {
@@ -117,11 +120,11 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     int informative_len  = params.n_row2 * informative_cols;
 
     r.uniform(data2.data(), informative_len, T(-1.0), T(1.0), stream);
-    CUDA_CHECK(cudaMemcpyAsync(data2.data() + informative_len,
-                               data2.data(),
-                               redundant_len * sizeof(T),
-                               cudaMemcpyDeviceToDevice,
-                               stream));
+    RAFT_CUDA_TRY(cudaMemcpyAsync(data2.data() + informative_len,
+                                  data2.data(),
+                                  redundant_len * sizeof(T),
+                                  cudaMemcpyDeviceToDevice,
+                                  stream));
     rmm::device_uvector<T> data2_trans(prms.n_rows * prms.n_components, stream);
 
     int len_comp = params.n_col2 * prms.n_components;

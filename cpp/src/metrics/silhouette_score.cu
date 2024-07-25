@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,9 @@
  */
 
 #include <cuml/metrics/metrics.hpp>
+
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
-#ifdef RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
 #include <raft/stats/silhouette_score.cuh>
 
 namespace ML {

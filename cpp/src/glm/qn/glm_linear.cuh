@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,13 @@
 
 #include "glm_base.cuh"
 #include "simple_mat.cuh"
+
 #include <raft/linalg/add.cuh>
 #include <raft/util/cuda_utils.cuh>
 
 namespace ML {
 namespace GLM {
+namespace detail {
 
 template <typename T>
 struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
@@ -56,7 +58,7 @@ struct AbsLoss : GLMBase<T, AbsLoss<T>> {
   typedef GLMBase<T, AbsLoss<T>> Super;
 
   const struct Lz {
-    inline __device__ T operator()(const T y, const T z) const { return raft::myAbs<T>(z - y); }
+    inline __device__ T operator()(const T y, const T z) const { return raft::abs<T>(z - y); }
   } lz;
 
   const struct Dlz {
@@ -76,6 +78,6 @@ struct AbsLoss : GLMBase<T, AbsLoss<T>> {
     return nrm1(grad, dev_scalar, stream);
   }
 };
-
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML

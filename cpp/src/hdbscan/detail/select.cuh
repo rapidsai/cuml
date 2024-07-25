@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,19 +19,17 @@
 #include "kernels/select.cuh"
 #include "utils.h"
 
-#include <cub/cub.cuh>
-
-#include <raft/util/cudart_utils.hpp>
-
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/op/sort.cuh>
-
 #include <cuml/cluster/hdbscan.hpp>
 
 #include <raft/label/classlabels.cuh>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/op/sort.cuh>
+#include <raft/util/cudart_utils.hpp>
 
-#include <algorithm>
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
+#include <cub/cub.cuh>
 #include <thrust/copy.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
@@ -45,8 +43,7 @@
 #include <thrust/transform_reduce.h>
 #include <thrust/tuple.h>
 
-#include <rmm/device_uvector.hpp>
-#include <rmm/exec_policy.hpp>
+#include <algorithm>
 
 namespace ML {
 namespace HDBSCAN {
@@ -219,13 +216,14 @@ void excess_of_mass(const raft::handle_t& handle,
     value_t subtree_stability = 0.0;
 
     if (indptr_h[node + 1] - indptr_h[node] > 0) {
-      subtree_stability = thrust::transform_reduce(
-        exec_policy,
-        children + indptr_h[node],
-        children + indptr_h[node + 1],
-        [=] __device__(value_idx a) { return stability[a]; },
-        0.0,
-        thrust::plus<value_t>());
+      subtree_stability =
+        thrust::transform_reduce(exec_policy,
+                                 children + indptr_h[node],
+                                 children + indptr_h[node + 1],
+                                 cuda::proclaim_return_type<value_t>(
+                                   [=] __device__(value_idx a) -> value_t { return stability[a]; }),
+                                 0.0,
+                                 thrust::plus<value_t>());
     }
 
     if (subtree_stability > node_stability || cluster_sizes_h[node] > max_cluster_size) {
@@ -302,7 +300,7 @@ void leaf(const raft::handle_t& handle,
  * @param[in] n_clusters number of clusters in cluster tree
  * @param[in] cluster_selection_epsilon distance threshold
  * @param[in] allow_single_cluster allows a single cluster with noisy datasets
- * @param[in] n_selected_clusters numnber of cluster selections in is_cluster
+ * @param[in] n_selected_clusters number of cluster selections in is_cluster
  */
 template <typename value_idx, typename value_t, int tpb = 256>
 void cluster_epsilon_search(const raft::handle_t& handle,
@@ -421,7 +419,7 @@ void select_clusters(const raft::handle_t& handle,
   auto epsilon_search = true;
 
   if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::LEAF) {
-    // TODO: reenable to match reference implementation
+    // TODO: re-enable to match reference implementation
     // It's a confirmed bug https://github.com/scikit-learn-contrib/hdbscan/issues/476
 
     // if no cluster leaves were found, declare root as cluster

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 #include <cuml/manifold/umapparams.h>
 
 #include <raft/linalg/add.cuh>
@@ -24,9 +25,9 @@
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/power.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/math.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
 
 #include <cuda_runtime.h>
@@ -38,7 +39,7 @@ namespace Optimize {
 using namespace ML;
 
 template <typename T, int TPB_X, typename Lambda>
-__global__ void map_kernel(T* output, T* X, int n_rows, T* coef, Lambda grad)
+CUML_KERNEL void map_kernel(T* output, T* X, int n_rows, T* coef, Lambda grad)
 {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < n_rows) {
@@ -164,7 +165,7 @@ void optimize_params(T* input,
 
     num_iters += 1;
 
-    delete grads_h;
+    free(grads_h);
 
   } while (tol_grads < 2 && num_iters < max_epochs);
 }

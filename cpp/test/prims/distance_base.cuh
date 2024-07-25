@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,26 +15,28 @@
  */
 
 #include "test_utils.h"
-#include <distance/distance.cuh>
-#include <gtest/gtest.h>
+
 #include <raft/core/resource/cuda_stream.hpp>
 #include <raft/core/resources.hpp>
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <distance/distance.cuh>
+#include <gtest/gtest.h>
+
 namespace MLCommon {
 namespace Distance {
 
 template <typename DataType>
-__global__ void naiveDistanceKernel(DataType* dist,
-                                    const DataType* x,
-                                    const DataType* y,
-                                    int m,
-                                    int n,
-                                    int k,
-                                    raft::distance::DistanceType type,
-                                    bool isRowMajor)
+CUML_KERNEL void naiveDistanceKernel(DataType* dist,
+                                     const DataType* x,
+                                     const DataType* y,
+                                     int m,
+                                     int n,
+                                     int k,
+                                     raft::distance::DistanceType type,
+                                     bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
@@ -48,13 +50,13 @@ __global__ void naiveDistanceKernel(DataType* dist,
   }
   if (type == raft::distance::DistanceType::L2SqrtExpanded ||
       type == raft::distance::DistanceType::L2SqrtUnexpanded)
-    acc = raft::mySqrt(acc);
+    acc = raft::sqrt(acc);
   int outidx   = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx] = acc;
 }
 
 template <typename DataType>
-__global__ void naiveL1DistanceKernel(
+CUML_KERNEL void naiveL1DistanceKernel(
   DataType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -76,7 +78,7 @@ __global__ void naiveL1DistanceKernel(
 }
 
 template <typename DataType>
-__global__ void naiveCosineDistanceKernel(
+CUML_KERNEL void naiveCosineDistanceKernel(
   DataType* dist, const DataType* x, const DataType* y, int m, int n, int k, bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -100,7 +102,7 @@ __global__ void naiveCosineDistanceKernel(
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
 
   // Use 1.0 - (cosine similarity) to calc the distance
-  dist[outidx] = (DataType)1.0 - acc_ab / (raft::mySqrt(acc_a) * raft::mySqrt(acc_b));
+  dist[outidx] = (DataType)1.0 - acc_ab / (raft::sqrt(acc_a) * raft::sqrt(acc_b));
 }
 
 template <typename DataType>

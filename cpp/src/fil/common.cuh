@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,19 @@
 /** @file common.cuh Common GPU functionality */
 #pragma once
 
-#include <cub/cub.cuh>
-#include <stdexcept>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string>
+#include "internal.cuh"
 
 #include <cuml/fil/fil.h>
+
 #include <raft/util/cuda_utils.cuh>
 
-#include "internal.cuh"
+#include <cub/cub.cuh>
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <stdexcept>
+#include <string>
 
 namespace ML {
 namespace fil {
@@ -311,7 +314,8 @@ template <int NITEMS,
           bool cols_in_shmem,
           bool CATS_SUPPORTED,
           class storage_type>
-__global__ void infer_k(storage_type forest, predict_params params);
+__attribute__((visibility("hidden"))) __global__ void infer_k(storage_type forest,
+                                                              predict_params params);
 
 // infer() calls the inference kernel with the parameters on the stream
 template <typename storage_type>

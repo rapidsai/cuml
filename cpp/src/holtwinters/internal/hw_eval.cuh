@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -105,22 +105,22 @@ __device__ Dtype holtwinters_eval_device(int tid,
 }
 
 template <typename Dtype>
-__global__ void holtwinters_eval_gpu_shared_kernel(const Dtype* ts,
-                                                   int n,
-                                                   int batch_size,
-                                                   int frequency,
-                                                   const Dtype* start_level,
-                                                   const Dtype* start_trend,
-                                                   const Dtype* start_season,
-                                                   const Dtype* alpha,
-                                                   const Dtype* beta,
-                                                   const Dtype* gamma,
-                                                   Dtype* level,
-                                                   Dtype* trend,
-                                                   Dtype* season,
-                                                   Dtype* xhat,
-                                                   Dtype* error,
-                                                   bool additive_seasonal)
+CUML_KERNEL void holtwinters_eval_gpu_shared_kernel(const Dtype* ts,
+                                                    int n,
+                                                    int batch_size,
+                                                    int frequency,
+                                                    const Dtype* start_level,
+                                                    const Dtype* start_trend,
+                                                    const Dtype* start_season,
+                                                    const Dtype* alpha,
+                                                    const Dtype* beta,
+                                                    const Dtype* gamma,
+                                                    Dtype* level,
+                                                    Dtype* trend,
+                                                    Dtype* season,
+                                                    Dtype* xhat,
+                                                    Dtype* error,
+                                                    bool additive_seasonal)
 {
   int tid = GET_TID;
   extern __shared__ __align__(sizeof(Dtype)) unsigned char pseason_[];
@@ -167,23 +167,23 @@ __global__ void holtwinters_eval_gpu_shared_kernel(const Dtype* ts,
 }
 
 template <typename Dtype>
-__global__ void holtwinters_eval_gpu_global_kernel(const Dtype* ts,
-                                                   int n,
-                                                   int batch_size,
-                                                   int frequency,
-                                                   const Dtype* start_level,
-                                                   const Dtype* start_trend,
-                                                   const Dtype* start_season,
-                                                   Dtype* pseason,
-                                                   const Dtype* alpha,
-                                                   const Dtype* beta,
-                                                   const Dtype* gamma,
-                                                   Dtype* level,
-                                                   Dtype* trend,
-                                                   Dtype* season,
-                                                   Dtype* xhat,
-                                                   Dtype* error,
-                                                   bool additive_seasonal)
+CUML_KERNEL void holtwinters_eval_gpu_global_kernel(const Dtype* ts,
+                                                    int n,
+                                                    int batch_size,
+                                                    int frequency,
+                                                    const Dtype* start_level,
+                                                    const Dtype* start_trend,
+                                                    const Dtype* start_season,
+                                                    Dtype* pseason,
+                                                    const Dtype* alpha,
+                                                    const Dtype* beta,
+                                                    const Dtype* gamma,
+                                                    Dtype* level,
+                                                    Dtype* trend,
+                                                    Dtype* season,
+                                                    Dtype* xhat,
+                                                    Dtype* error,
+                                                    bool additive_seasonal)
 {
   int tid = GET_TID;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,16 +19,15 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn_mg.hpp>
 
-#include <selection/knn.cuh>
-
 #include <cumlprims/opg/matrix/data.hpp>
 #include <cumlprims/opg/matrix/part_descriptor.hpp>
-
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <selection/knn.cuh>
 
 #include <cstddef>
 #include <memory>
@@ -229,7 +228,7 @@ struct opg_knn_work {
 
 /*!
  Main function, computes distributed KNN operation
- @param[in] params Parameters for distrbuted KNN operation
+ @param[in] params Parameters for distributed KNN operation
  @param[in] handle RAFT handle
  */
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
@@ -368,8 +367,8 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params, raft::handle_t& 
 };
 
 /*!
- Broadcast query batch accross all the workers
- @param[in] params Parameters for distrbuted KNN operation
+ Broadcast query batch across all the workers
+ @param[in] params Parameters for distributed KNN operation
  @param[in] handle RAFT handle
  @param[in] part_rank Rank of currently processed query batch
  @param[in] broadcast Pointer to broadcast
@@ -413,7 +412,7 @@ void broadcast_query(opg_knn_work<in_t, ind_t, dist_t, out_t>& work,
 
 /*!
  Perform a local KNN search for a given query batch
- @param[in] params Parameters for distrbuted KNN operation
+ @param[in] params Parameters for distributed KNN operation
  @param[in] work Current work for distributed KNN
  @param[in] handle RAFT handle
  @param[in] query Pointer to query
@@ -475,13 +474,13 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
  * @param[in] n_labels number of labels to write (batch_size * n_outputs)
  */
 template <int TPB_X, typename ind_t, typename out_t>
-__global__ void copy_label_outputs_from_index_parts_kernel(out_t* out,
-                                                           ind_t* knn_indices,
-                                                           out_t** parts,
-                                                           uint64_t* offsets,
-                                                           size_t cur_batch_size,
-                                                           int n_parts,
-                                                           int n_labels)
+CUML_KERNEL void copy_label_outputs_from_index_parts_kernel(out_t* out,
+                                                            ind_t* knn_indices,
+                                                            out_t** parts,
+                                                            uint64_t* offsets,
+                                                            size_t cur_batch_size,
+                                                            int n_parts,
+                                                            int n_labels)
 {
   uint64_t i = (blockIdx.x * TPB_X) + threadIdx.x;
   if (i >= n_labels) return;
@@ -495,7 +494,7 @@ __global__ void copy_label_outputs_from_index_parts_kernel(out_t* out,
 
 /*!
  Get the right labels for indices obtained after a KNN merge
- @param[in] params Parameters for distrbuted KNN operation
+ @param[in] params Parameters for distributed KNN operation
  @param[in] work Current work for distributed KNN
  @param[in] handle RAFT handle
  @param[in] batch_size Batch size
@@ -546,7 +545,7 @@ void copy_label_outputs_from_index_parts(opg_knn_param<in_t, ind_t, dist_t, out_
  Exchange results of local KNN search and operation for a given query batch
  All non-root index ranks send the results for the current
  query batch to the root rank for the batch.
- @param[in] params Parameters for distrbuted KNN operation
+ @param[in] params Parameters for distributed KNN operation
  @param[in] work Current work for distributed KNN
  @param[in] handle RAFT handle
  @param[in] part_rank Rank of currently processed query batch
@@ -682,7 +681,7 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
 
 /*!
  Reduce all local results to a global result for a given query batch
- @param[in] params Parameters for distrbuted KNN operation
+ @param[in] params Parameters for distributed KNN operation
  @param[in] work Current work for distributed KNN
  @param[in] handle RAFT handle
  @param[in] part_idx Partition index of query batch
@@ -791,17 +790,17 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
  * @param[in] n_ranks number of index ranks
  */
 template <int TPB_X, typename dist_t, typename out_t>
-__global__ void merge_labels_kernel(out_t* outputs,
-                                    dist_t* knn_indices,
-                                    out_t* unmerged_outputs,
-                                    dist_t* unmerged_knn_indices,
-                                    size_t* offsets,
-                                    int* parts_to_ranks,
-                                    int nearest_neighbors,
-                                    int n_outputs,
-                                    int n_labels,
-                                    int n_parts,
-                                    int n_ranks)
+CUML_KERNEL void merge_labels_kernel(out_t* outputs,
+                                     dist_t* knn_indices,
+                                     out_t* unmerged_outputs,
+                                     dist_t* unmerged_knn_indices,
+                                     size_t* offsets,
+                                     int* parts_to_ranks,
+                                     int nearest_neighbors,
+                                     int n_outputs,
+                                     int n_labels,
+                                     int n_parts,
+                                     int n_ranks)
 {
   uint64_t i = (blockIdx.x * TPB_X) + threadIdx.x;
   if (i >= n_labels) return;
@@ -824,7 +823,7 @@ __global__ void merge_labels_kernel(out_t* outputs,
 
 /*!
  Get the right labels for indices obtained after local KNN searches
- @param[in] params Parameters for distrbuted KNN operation
+ @param[in] params Parameters for distributed KNN operation
  @param[in] work Current work for distributed KNN
  @param[in] handle RAFT handle
  @param[out] output KNN outputs output array
@@ -884,7 +883,7 @@ void merge_labels(opg_knn_param_t& params,
 
 /*!
  Perform final classification, regression or class-proba operation for a given query batch
- @param[in] params Parameters for distrbuted KNN operation
+ @param[in] params Parameters for distributed KNN operation
  @param[in] work Current work for distributed KNN
  @param[in] handle RAFT handle
  @param[out] outputs KNN outputs output array
@@ -917,7 +916,7 @@ void perform_local_operation(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
 
 /*!
  Perform final classification, regression or class-proba operation for a given query batch
- @param[in] params Parameters for distrbuted KNN operation
+ @param[in] params Parameters for distributed KNN operation
  @param[in] work Current work for distributed KNN
  @param[in] handle RAFT handle
  @param[out] outputs KNN outputs output array

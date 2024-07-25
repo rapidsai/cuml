@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@
 
 #pragma once
 
+#include "random_algo.cuh"
+#include "spectral_algo.cuh"
+
 #include <cuml/manifold/umapparams.h>
 
 #include <raft/sparse/coo.hpp>
-
-#include "random_algo.cuh"
-#include "spectral_algo.cuh"
 
 namespace UMAPAlgo {
 

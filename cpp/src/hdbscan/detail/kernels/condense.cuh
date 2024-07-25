@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 #pragma once
+
+#include <cuml/common/utils.hpp>
 
 namespace ML {
 namespace HDBSCAN {
@@ -82,19 +84,19 @@ __device__ inline value_t get_lambda(value_idx node, value_idx num_points, const
  * @param out_count children cluster sizes of output dendrogram.
  */
 template <typename value_idx, typename value_t>
-__global__ void condense_hierarchy_kernel(bool* frontier,
-                                          bool* next_frontier,
-                                          value_t* ignore,
-                                          value_idx* relabel,
-                                          const value_idx* children,
-                                          const value_t* deltas,
-                                          const value_idx* sizes,
-                                          int n_leaves,
-                                          int min_cluster_size,
-                                          value_idx* out_parent,
-                                          value_idx* out_child,
-                                          value_t* out_lambda,
-                                          value_idx* out_count)
+CUML_KERNEL void condense_hierarchy_kernel(bool* frontier,
+                                           bool* next_frontier,
+                                           value_t* ignore,
+                                           value_idx* relabel,
+                                           const value_idx* children,
+                                           const value_t* deltas,
+                                           const value_idx* sizes,
+                                           int n_leaves,
+                                           int min_cluster_size,
+                                           value_idx* out_parent,
+                                           value_idx* out_child,
+                                           value_t* out_lambda,
+                                           value_idx* out_count)
 {
   int node = blockDim.x * blockIdx.x + threadIdx.x;
 

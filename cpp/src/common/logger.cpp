@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 #define SPDLOG_HEADER_ONLY
+#include <cuml/common/callbackSink.hpp>
+#include <cuml/common/logger.hpp>
+
 #include <spdlog/sinks/stdout_color_sinks.h>  // NOLINT
 #include <spdlog/spdlog.h>                    // NOLINT
 
 #include <algorithm>
-#include <cuml/common/callbackSink.hpp>
-#include <cuml/common/logger.hpp>
 #include <memory>
 
 namespace ML {

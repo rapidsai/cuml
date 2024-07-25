@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,23 +15,25 @@
  */
 
 #include "test_utils.h"
-#include <gtest/gtest.h>
-#include <linalg/eltwise2d.cuh>
+
 #include <raft/random/rng.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <gtest/gtest.h>
+#include <linalg/eltwise2d.cuh>
 
 namespace MLCommon {
 namespace LinAlg {
 
 template <typename Type>
-__global__ void naiveEltwise2DAddKernel(int rows,
-                                        int cols,
-                                        const Type* aPtr,
-                                        const Type* bPtr,
-                                        const Type* cPtr,
-                                        Type* dPtr,
-                                        Type alpha,
-                                        Type beta)
+CUML_KERNEL void naiveEltwise2DAddKernel(int rows,
+                                         int cols,
+                                         const Type* aPtr,
+                                         const Type* bPtr,
+                                         const Type* cPtr,
+                                         Type* dPtr,
+                                         Type alpha,
+                                         Type beta)
 {
   auto tid = blockIdx.x * blockDim.x + threadIdx.x;
   if (tid < cols * rows) {

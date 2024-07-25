@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,23 +16,24 @@
 
 #pragma once
 
-#include <cub/cub.cuh>
+#include "../condensed_hierarchy.cu"
 
-#include <raft/util/cudart_utils.hpp>
-
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/op/sort.cuh>
+#include <common/fast_int_div.cuh>
 
 #include <cuml/cluster/hdbscan.hpp>
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/norm.cuh>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/op/sort.cuh>
+#include <raft/util/cudart_utils.hpp>
 
-#include <algorithm>
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
-#include "../condensed_hierarchy.cu"
-
+#include <cub/cub.cuh>
 #include <thrust/copy.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
@@ -44,8 +45,7 @@
 #include <thrust/transform_reduce.h>
 #include <thrust/tuple.h>
 
-#include <rmm/device_uvector.hpp>
-#include <rmm/exec_policy.hpp>
+#include <algorithm>
 
 namespace ML {
 namespace HDBSCAN {
@@ -114,7 +114,7 @@ Common::CondensedHierarchy<value_idx, value_t> make_cluster_tree(
     thrust_policy,
     sizes,
     sizes + condensed_tree.get_n_edges(),
-    [=] __device__(value_idx a) { return a > 1; },
+    cuda::proclaim_return_type<bool>([=] __device__(value_idx a) -> bool { return a > 1; }),
     0,
     thrust::plus<value_idx>());
 
@@ -210,6 +210,44 @@ void normalize(value_t* data, value_idx n, size_t m, cudaStream_t stream)
     false,
     [] __device__(value_t mat_in, value_t vec_in) { return mat_in / vec_in; },
     stream);
+}
+
+/**
+ * Computes softmax (unnormalized). The input is modified in-place. For numerical stability, the
+ * maximum value of a row is subtracted from the exponent.
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] data input matrix (size m * n)
+ * @param[in] n number of columns
+ * @param[out] m number of rows
+ */
+template <typename value_idx, typename value_t>
+void softmax(const raft::handle_t& handle, value_t* data, value_idx n, size_t m)
+{
+  rmm::device_uvector<value_t> linf_norm(m, handle.get_stream());
+
+  auto data_const_view =
+    raft::make_device_matrix_view<const value_t, value_idx, raft::row_major>(data, (int)m, n);
+  auto data_view =
+    raft::make_device_matrix_view<value_t, value_idx, raft::row_major>(data, (int)m, n);
+  auto linf_norm_const_view =
+    raft::make_device_vector_view<const value_t, value_idx>(linf_norm.data(), (int)m);
+  auto linf_norm_view = raft::make_device_vector_view<value_t, value_idx>(linf_norm.data(), (int)m);
+
+  raft::linalg::norm(handle,
+                     data_const_view,
+                     linf_norm_view,
+                     raft::linalg::LinfNorm,
+                     raft::linalg::Apply::ALONG_ROWS);
+
+  raft::linalg::matrix_vector_op(
+    handle,
+    data_const_view,
+    linf_norm_const_view,
+    data_view,
+    raft::linalg::Apply::ALONG_COLUMNS,
+    [] __device__(value_t mat_in, value_t vec_in) { return exp(mat_in - vec_in); });
 }
 
 };  // namespace Utils

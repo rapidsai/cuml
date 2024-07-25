@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -62,10 +62,10 @@ function(find_and_configure_gputreeshap)
 
     # Tell cmake where it can find the generated gputreeshap-config.cmake we wrote.
     include("${rapids-cmake-dir}/export/find_package_root.cmake")
-    rapids_export_find_package_root(BUILD GPUTreeShap [=[${CMAKE_CURRENT_LIST_DIR}]=] cuml-exports)
+    rapids_export_find_package_root(BUILD GPUTreeShap [=[${CMAKE_CURRENT_LIST_DIR}]=] EXPORT_SET cuml-exports)
 
     set(GPUTreeShap_ADDED ${GPUTreeShap_ADDED} PARENT_SCOPE)
 
 endfunction()
 
-find_and_configure_gputreeshap(PINNED_TAG 78e3548cda5e7c263d125e8c10e733ebf2c4ebbd)
+find_and_configure_gputreeshap(PINNED_TAG 9d32df85f822f186b5fbf53a9a1fa0251d0cd755)

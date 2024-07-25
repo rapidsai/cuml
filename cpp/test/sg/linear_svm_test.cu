@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,25 +14,24 @@
  * limitations under the License.
  */
 
-#if defined RAFT_DISTANCE_COMPILED
-#include <raft/distance/specializations.cuh>
-#endif
-
-#include <cmath>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/datasets/make_regression.hpp>
 #include <cuml/svm/linear.hpp>
-#include <raft/core/handle.hpp>
 
-#include <gtest/gtest.h>
+#include <raft/core/handle.hpp>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
+
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+
+#include <gtest/gtest.h>
 #include <test_utils.h>
+
+#include <cmath>
 
 namespace ML {
 namespace SVM {
@@ -165,7 +164,7 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
       errorBuf.data(),
       params.nRowsTest,
       T(0),
-      [] __device__(const T yOut) { return raft::myAbs<T>(1.0 - yOut); },
+      [] __device__(const T yOut) { return raft::abs<T>(1.0 - yOut); },
       cub::Max(),
       stream,
       yOut.data());
@@ -469,8 +468,8 @@ struct TestRegTargets {
     mp.loss          = std::get<0>(ps);
     mp.penalty       = std::get<1>(ps);
     mp.fit_intercept = std::get<2>(ps);
-    // The regularization parameter strongly affects the model perfomance in some cases,
-    // a larger-than-default value of C seems to always yeild better scores on this generated
+    // The regularization parameter strongly affects the model performance in some cases,
+    // a larger-than-default value of C seems to always yield better scores on this generated
     // dataset.
     mp.C       = 100.0;
     mp.epsilon = std::get<5>(ps);

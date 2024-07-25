@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <cuml/neighbors/knn_api.h>
-
 #include <common/cumlHandle.hpp>
+
 #include <cuml/neighbors/knn.hpp>
+#include <cuml/neighbors/knn_api.h>
 
 #include <vector>
 

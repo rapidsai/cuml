@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-#include <raft/label/classlabels.cuh>
-
-#include <cub/cub.cuh>
-
+#include <cuml/cluster/hdbscan.hpp>
 #include <cuml/common/logger.hpp>
+
+#include <raft/label/classlabels.cuh>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/op/sort.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include <raft/sparse/convert/csr.cuh>
-#include <raft/sparse/op/sort.cuh>
-
+#include <cub/cub.cuh>
+#include <cuda/functional>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -38,8 +38,6 @@
 #include <thrust/transform.h>
 #include <thrust/transform_reduce.h>
 #include <thrust/tuple.h>
-
-#include <cuml/cluster/hdbscan.hpp>
 
 namespace ML {
 namespace HDBSCAN {
@@ -159,7 +157,7 @@ void CondensedHierarchy<value_idx, value_t>::condense(value_idx* full_parents,
     thrust::cuda::par.on(stream),
     full_sizes,
     full_sizes + size,
-    [=] __device__(value_idx a) { return a != -1; },
+    cuda::proclaim_return_type<bool>([=] __device__(value_idx a) -> bool { return a != -1; }),
     0,
     thrust::plus<value_idx>());
 

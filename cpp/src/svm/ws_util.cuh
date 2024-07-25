@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,10 @@
  */
 
 #pragma once
+
 #include "smo_sets.cuh"
+
+#include <cuml/common/utils.hpp>
 
 namespace ML {
 namespace SVM {
@@ -27,7 +30,11 @@ namespace SVM {
  * \param [in] idx list of indices already selected, size [n_selected]
  * \param [in] n_selected number of elements in the idx list
  */
-__global__ void set_unavailable(bool* available, int n_rows, const int* idx, int n_selected);
+CUML_KERNEL void set_unavailable(bool* available, int n_rows, const int* idx, int n_selected)
+{
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < n_selected) { available[idx[tid]] = false; }
+}
 
 /** Set availability to true for elements in the upper set, otherwise false.
  * @param [out] available size [n]
@@ -37,7 +44,7 @@ __global__ void set_unavailable(bool* available, int n_rows, const int* idx, int
  * @param [in] C penalty factor
  */
 template <typename math_t>
-__global__ void set_upper(
+CUML_KERNEL void set_upper(
   bool* available, int n, const math_t* alpha, const math_t* y, const math_t* C)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -52,7 +59,7 @@ __global__ void set_upper(
  * @param [in] C penalty factor
  */
 template <typename math_t>
-__global__ void set_lower(
+CUML_KERNEL void set_lower(
   bool* available, int n, const math_t* alpha, const math_t* y, const math_t* C)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -71,11 +78,21 @@ __global__ void set_lower(
  * @param [in] idx indices in the old working set, size [n_ws]
  * @param [in] priority of elements in the old working set, size [n_ws]
  */
-__global__ void update_priority(int* new_priority,
-                                int n_selected,
-                                const int* new_idx,
-                                int n_ws,
-                                const int* idx,
-                                const int* priority);
+CUML_KERNEL void update_priority(int* new_priority,
+                                 int n_selected,
+                                 const int* new_idx,
+                                 int n_ws,
+                                 const int* idx,
+                                 const int* priority)
+{
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < n_selected) {
+    int my_new_idx = new_idx[tid];
+    // The working set size is limited (~1024 elements) so we just loop through it
+    for (int i = 0; i < n_ws; i++) {
+      if (idx[i] == my_new_idx) new_priority[tid] = priority[i] + 1;
+    }
+  }
+}
 }  // namespace SVM
 }  // namespace ML

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,9 @@
 
 #include "dataset.h"
 #include "split.cuh"
+
 #include <cub/cub.cuh>
+
 #include <limits>
 
 namespace ML {
@@ -143,7 +145,7 @@ class EntropyObjectiveFunction {
         auto lval_i = hist[n_bins * c + i].x;
         if (lval_i != 0) {
           auto lval = DataT(lval_i);
-          gain += raft::myLog(lval * invLeft) / raft::myLog(DataT(2)) * lval * invLen;
+          gain += raft::log(lval * invLeft) / raft::log(DataT(2)) * lval * invLen;
         }
 
         val_i += lval_i;
@@ -151,13 +153,13 @@ class EntropyObjectiveFunction {
         auto rval_i    = total_sum - lval_i;
         if (rval_i != 0) {
           auto rval = DataT(rval_i);
-          gain += raft::myLog(rval * invRight) / raft::myLog(DataT(2)) * rval * invLen;
+          gain += raft::log(rval * invRight) / raft::log(DataT(2)) * rval * invLen;
         }
 
         val_i += rval_i;
         if (val_i != 0) {
           auto val = DataT(val_i) * invLen;
-          gain -= val * raft::myLog(val) / raft::myLog(DataT(2));
+          gain -= val * raft::log(val) / raft::log(DataT(2));
         }
       }
 
@@ -313,9 +315,9 @@ class PoissonObjectiveFunction {
       return -std::numeric_limits<DataT>::max();
 
     // compute the gain to be
-    DataT parent_obj = -label_sum * raft::myLog(label_sum * invLen);
-    DataT left_obj   = -left_label_sum * raft::myLog(left_label_sum / nLeft);
-    DataT right_obj  = -right_label_sum * raft::myLog(right_label_sum / nRight);
+    DataT parent_obj = -label_sum * raft::log(label_sum * invLen);
+    DataT left_obj   = -left_label_sum * raft::log(left_label_sum / nLeft);
+    DataT right_obj  = -right_label_sum * raft::log(right_label_sum / nRight);
     DataT gain       = parent_obj - (left_obj + right_obj);
     gain             = gain * invLen;
 
@@ -392,9 +394,9 @@ class GammaObjectiveFunction {
       return -std::numeric_limits<DataT>::max();
 
     // compute the gain to be
-    DataT parent_obj = len * raft::myLog(label_sum * invLen);
-    DataT left_obj   = nLeft * raft::myLog(left_label_sum / nLeft);
-    DataT right_obj  = nRight * raft::myLog(right_label_sum / nRight);
+    DataT parent_obj = len * raft::log(label_sum * invLen);
+    DataT left_obj   = nLeft * raft::log(left_label_sum / nLeft);
+    DataT right_obj  = nRight * raft::log(right_label_sum / nRight);
     DataT gain       = parent_obj - (left_obj + right_obj);
     gain             = gain * invLen;
 

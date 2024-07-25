@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,9 @@
 
 #include "learning_rate.h"
 #include "shuffle.h"
+
 #include <cuml/solvers/params.hpp>
-#include <functions/hinge.cuh>
-#include <functions/linearReg.cuh>
-#include <functions/logisticReg.cuh>
-#include <glm/preprocess.cuh>
+
 #include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
@@ -30,13 +28,18 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
+
+#include <functions/hinge.cuh>
+#include <functions/linearReg.cuh>
+#include <functions/logisticReg.cuh>
+#include <glm/preprocess.cuh>
 
 namespace ML {
 namespace Solver {
@@ -70,8 +73,8 @@ using namespace MLCommon;
  * @param lr_type
  *        type of the learning rate function (i.e. OPTIMAL, CONSTANT, INVSCALING, ADAPTIVE)
  * @param eta0
- *        learning rate for contant lr_type. It's used to calculate learning rate function for other
- * types of lr_type
+ *        learning rate for constant lr_type. It's used to calculate learning rate function for
+ * other types of lr_type
  * @param power_t
  *        power value in the INVSCALING lr_type
  * @param loss

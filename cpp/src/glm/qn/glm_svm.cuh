@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,13 @@
 
 #include "glm_base.cuh"
 #include "simple_mat.cuh"
+
 #include <raft/linalg/add.cuh>
 #include <raft/util/cuda_utils.cuh>
 
 namespace ML {
 namespace GLM {
+namespace detail {
 
 template <typename T>
 struct SVCL1Loss : GLMBase<T, SVCL1Loss<T>> {
@@ -32,7 +34,7 @@ struct SVCL1Loss : GLMBase<T, SVCL1Loss<T>> {
     inline __device__ T operator()(const T y, const T z) const
     {
       T s = 2 * y - 1;
-      return raft::myMax<T>(0, 1 - s * z);
+      return raft::max<T>(0, 1 - s * z);
     }
   } lz;
 
@@ -63,7 +65,7 @@ struct SVCL2Loss : GLMBase<T, SVCL2Loss<T>> {
     inline __device__ T operator()(const T y, const T z) const
     {
       T s = 2 * y - 1;
-      T t = raft::myMax<T>(0, 1 - s * z);
+      T t = raft::max<T>(0, 1 - s * z);
       return t * t;
     }
   } lz;
@@ -153,6 +155,6 @@ struct SVRL2Loss : GLMBase<T, SVRL2Loss<T>> {
     return squaredNorm(grad, dev_scalar, stream) * 0.5;
   }
 };
-
+};  // namespace detail
 };  // namespace GLM
 };  // namespace ML

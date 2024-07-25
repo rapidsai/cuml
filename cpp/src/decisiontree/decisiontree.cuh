@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,17 @@
 
 #pragma once
 
+#include "batched-levelalgo/builder.cuh"
+#include "batched-levelalgo/quantiles.cuh"
+#include "treelite_util.h"
+
 #include <cuml/common/logger.hpp>
 #include <cuml/tree/flatnode.h>
 
 #include <raft/core/handle.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/util/cudart_utils.hpp>
 
-#include "treelite_util.h"
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 
@@ -32,12 +36,8 @@
 #include <locale>
 #include <map>
 #include <numeric>
-#include <raft/core/nvtx.hpp>
 #include <random>
 #include <vector>
-
-#include "batched-levelalgo/builder.cuh"
-#include "batched-levelalgo/quantiles.cuh"
 
 /** check for treelite runtime API errors and assert accordingly */
 
@@ -155,13 +155,14 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
                                    unsigned int num_class)
 {
   // First index refers to the cuml node id
-  // Seccond refers to the tl node id
+  // Second refers to the tl node id
   using kv = std::pair<std::size_t, std::size_t>;
   std::vector<kv> cur_level_queue;
   std::vector<kv> next_level_queue;
 
   tl::Tree<T, T> tl_tree;
   tl_tree.Init();
+  tl_tree.AllocNode();  // Allocate the root node
 
   // Track head and tail of bounded "queues" (implemented as vectors for
   // performance)
@@ -185,26 +186,32 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
       ++cur_front;
 
       if (!q_node.IsLeaf()) {
-        tl_tree.AddChilds(tl_node_id);
+        const int cleft  = tl_tree.AllocNode();
+        const int cright = tl_tree.AllocNode();
+        tl_tree.SetChildren(tl_node_id, cleft, cright);
 
         // Push left child to next_level queue.
-        next_level_queue[next_end] = {q_node.LeftChildId(), tl_tree.LeftChild(tl_node_id)};
+        next_level_queue[next_end] = {q_node.LeftChildId(), cleft};
         ++next_end;
 
         // Push right child to next_level queue.
-        next_level_queue[next_end] = {q_node.RightChildId(), tl_tree.RightChild(tl_node_id)};
+        next_level_queue[next_end] = {q_node.RightChildId(), cright};
         ++next_end;
 
         // Set node from current level as numerical node. Children IDs known.
-        tl_tree.SetNumericalSplit(
+        tl_tree.SetNumericalTest(
           tl_node_id, q_node.ColumnId(), q_node.QueryValue(), true, tl::Operator::kLE);
 
       } else {
-        auto leaf_begin = rf_tree.vector_leaf.begin() + cuml_node_id * num_class;
+        auto leaf_begin = rf_tree.vector_leaf.begin() + cuml_node_id * rf_tree.num_outputs;
         if (num_class == 1) {
           tl_tree.SetLeaf(tl_node_id, *leaf_begin);
         } else {
-          std::vector<T> leaf_vector(leaf_begin, leaf_begin + num_class);
+          // if rf_tree.num_outputs < num_class, fill the remainder with zero
+          // Most likely this happens when a binary classifier is fit with all-0 labels
+          ASSERT(rf_tree.num_outputs <= num_class, "num_class too small");
+          std::vector<T> leaf_vector(num_class, T(0));
+          std::copy(leaf_begin, leaf_begin + rf_tree.num_outputs, leaf_vector.begin());
           tl_tree.SetLeafVector(tl_node_id, leaf_vector);
         }
       }

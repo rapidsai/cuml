@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 #pragma once
+
+#include <cuml/common/utils.hpp>
 
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/vectorized.cuh>
@@ -32,7 +34,7 @@ namespace Batched {
  * @tparam VecLen number of elements
  * @param x x vector
  * @param y y vector
- * @param smem dynamic shared memory needed for reduction. It must be atleast of
+ * @param smem dynamic shared memory needed for reduction. It must be at least of
  *             size: `sizeof(DataT) * nWarps`.
  * @param broadcast only thread 0 will contain the final dot product if false,
  *                  else every thread will contain this value
@@ -58,15 +60,15 @@ dotProduct(const DataT (&x)[VecLen], const DataT (&y)[VecLen], char* smem, bool 
 }
 
 template <typename DataT, typename IdxT, int VecLenAx, int VecLenY, typename EpilogueOp>
-__global__ void gemvKernel(DataT* y,
-                           const DataT* A,
-                           const DataT* x,
-                           const DataT* z,
-                           DataT alpha,
-                           DataT beta,
-                           IdxT m,
-                           IdxT n,
-                           EpilogueOp op)
+CUML_KERNEL void gemvKernel(DataT* y,
+                            const DataT* A,
+                            const DataT* x,
+                            const DataT* z,
+                            DataT alpha,
+                            DataT beta,
+                            IdxT m,
+                            IdxT n,
+                            EpilogueOp op)
 {
   typedef raft::TxN_t<DataT, VecLenAx> VecTypeAx;
   typedef raft::TxN_t<DataT, VecLenY> VecTypeY;
@@ -176,7 +178,7 @@ void gemvImplAx(DataT* y,
  * @param stream cuda stream
  * @param op epilogue operation
  */
-template <typename DataT, typename IdxT, typename EpilogueOp = raft::Nop<DataT, IdxT>>
+template <typename DataT, typename IdxT, typename EpilogueOp = raft::identity_op>
 void gemv(DataT* y,
           const DataT* A,
           const DataT* x,
@@ -187,7 +189,7 @@ void gemv(DataT* y,
           IdxT n,
           IdxT batchSize,
           cudaStream_t stream,
-          EpilogueOp op = raft::Nop<DataT, IdxT>())
+          EpilogueOp op = raft::identity_op())
 {
   size_t bytes = n * sizeof(DataT);
   if (16 / sizeof(DataT) && bytes % 16 == 0) {

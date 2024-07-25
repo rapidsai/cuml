@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,9 @@
 
 #include "exact_kernels.cuh"
 #include "utils.cuh"
+
 #include <cuml/common/logger.hpp>
+
 #include <raft/util/cudart_utils.hpp>
 
 #include <thrust/device_ptr.h>
@@ -51,9 +53,6 @@ value_t Exact_TSNE(value_t* VAL,
   cudaStream_t stream = handle.get_stream();
   value_t kl_div      = 0;
   const value_idx dim = params.dim;
-
-  if (params.initialize_embeddings)
-    random_vector(Y, -0.0001f, 0.0001f, n * dim, stream, params.random_state);
 
   // Allocate space
   //---------------------------------------------------

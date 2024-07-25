@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,22 @@
  * limitations under the License.
  */
 
-#include <cmath>
 #include <cuml/common/logger.hpp>
 #include <cuml/genetic/common.h>
 #include <cuml/genetic/node.h>
 #include <cuml/genetic/program.h>
-#include <gtest/gtest.h>
-#include <iostream>
+
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
+
+#include <gtest/gtest.h>
 #include <test_utils.h>
+
+#include <cmath>
+#include <iostream>
 #include <vector>
 
 namespace cuml {
@@ -163,7 +168,7 @@ class GeneticProgramTest : public ::testing::Test {
   const int n_progs     = 2;
   const int n_samples   = 25;
   const int n_samples2  = 5;
-  const float tolerance = 0.025f;  // assuming upto 2.5% tolerance for results(for now)
+  const float tolerance = 0.025f;  // assuming up to 2.5% tolerance for results(for now)
 
   // 25*3 datapoints generated using numpy
   // y = X[0] * X[1] + X[2] + 0.5

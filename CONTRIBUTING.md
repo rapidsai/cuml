@@ -29,9 +29,9 @@ into three categories:
 2. Find an issue to work on. The best way is to look for the [good first issue](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
     or [help wanted](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) labels
 3. Comment on the issue saying you are going to work on it.
-4. Get familar with the developer guide relevant for you:
+4. Get familiar with the developer guide relevant for you:
     * For C++ developers it is available here [DEVELOPER_GUIDE.md](wiki/cpp/DEVELOPER_GUIDE.md)
-    * For Python developers, a [Python DEVELOPER_GUIDE.md](wiki/python/DEVELOPER_GUIDE.md) is availabe as well.
+    * For Python developers, a [Python DEVELOPER_GUIDE.md](wiki/python/DEVELOPER_GUIDE.md) is available as well.
 5. Code! Make sure to update unit tests!
 6. When done, [create your pull request](https://github.com/rapidsai/cuml/compare).
 7. Verify that CI passes all [status checks](https://help.github.com/articles/about-status-checks/), or fix if needed.
@@ -88,6 +88,16 @@ To skip the checks temporarily, use `git commit --no-verify` or its short form
 _Note_: If the auto-formatters' changes affect each other, you may need to go
 through multiple iterations of `git commit` and `git add -u`.
 
+cuML also uses [codespell](https://github.com/codespell-project/codespell) to find spelling
+mistakes, and this check is run as part of the pre-commit hook. To apply the suggested spelling
+fixes, you can run  `codespell -i 3 -w .` from the command-line in the cuML root directory.
+This will bring up an interactive prompt to select which spelling fixes to apply.
+
+If you want to ignore errors highlighted by codespell you can:
+ * Add the word to the ignore-words-list in pyproject.toml, to exclude for all of cuML
+ * Exclude the entire file from spellchecking, by adding to the `exclude` regex in .pre-commit-config.yaml
+ * Ignore only specific lines as shown in https://github.com/codespell-project/codespell/issues/1212#issuecomment-654191881
+
 ### Summary of pre-commit hooks
 
 The pre-commit hooks configured for this repository consist of a number of
@@ -97,11 +107,54 @@ please see the `.pre-commit-config.yaml` file.
 - `clang-format`: Formats C++ and CUDA code for consistency and readability.
 - `black`: Auto-formats Python code to conform to the PEP 8 style guide.
 - `flake8`: Lints Python code for syntax errors and common code style issues.
+- `cython-lint`: Lints Cython code for syntax errors and common code style issues.
 - _`DeprecationWarning` checker_: Checks for new `DeprecationWarning` being
   introduced in Python code, and instead `FutureWarning` should be used.
 - _`#include` syntax checker_: Ensures consistent syntax for C++ `#include` statements.
 - _Copyright header checker and auto-formatter_: Ensures the copyright headers
   of files are up-to-date and in the correct format.
+- `codespell`: Checks for spelling mistakes
+
+### Clang-tidy
+
+In order to maintain high-quality code, cuML uses not only pre-commit hooks
+featuring various formatters and linters but also the clang-tidy tool.
+Clang-tidy is designed to detect potential issues within the C and C++ code. It
+is typically run as part of our continuous integration (CI) process.
+
+While it's generally unnecessary for contributors to run clang-tidy locally,
+there might be cases where you would want to do so. There are two primary
+methods to run clang-tidy on your local machine: using Docker or Conda.
+
+* **Docker**
+
+    1. Navigate to the repository root directory.
+    2. Run the following Docker command:
+
+        ```bash
+        docker run --rm --pull always \
+            --mount type=bind,source="$(pwd)",target=/opt/repo --workdir /opt/repo \
+            -e SCCACHE_S3_NO_CREDENTIALS=1 \
+            rapidsai/ci-conda:latest /opt/repo/ci/run_clang_tidy.sh
+        ```
+
+
+* **Conda**
+
+    1. Navigate to the repository root directory.
+    2. Create and activate the needed conda environment:
+        ```bash
+        conda env create --yes -n cuml-clang-tidy -f conda/environments/clang_tidy_cuda-118_arch-x86_64.yaml
+        conda activate cuml-clang-tidy
+        ```
+    3. Generate the compile command database with
+        ```bash
+        ./build.sh --configure-only libcuml
+        ```
+    3. Run clang-tidy with the following command:
+        ```bash
+        python cpp/scripts/run-clang-tidy.py --config pyproject.toml
+        ```
 
 ### Managing PR labels
 

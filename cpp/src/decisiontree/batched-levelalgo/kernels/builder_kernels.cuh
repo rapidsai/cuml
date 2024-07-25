@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
 #include "../bins.cuh"
 #include "../objectives.cuh"
 #include "../quantiles.h"
+
+#include <cuml/common/utils.hpp>
 
 #include <raft/random/rng.cuh>
 
@@ -72,21 +74,23 @@ DI OutT* alignPointer(InT dataset)
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-__global__ void nodeSplitKernel(const IdxT max_depth,
-                                const IdxT min_samples_leaf,
-                                const IdxT min_samples_split,
-                                const IdxT max_leaves,
-                                const DataT min_impurity_decrease,
-                                const Dataset<DataT, LabelT, IdxT> dataset,
-                                const NodeWorkItem* work_items,
-                                const Split<DataT, IdxT>* splits);
+__attribute__((visibility("hidden"))) __global__ void nodeSplitKernel(
+  const IdxT max_depth,
+  const IdxT min_samples_leaf,
+  const IdxT min_samples_split,
+  const IdxT max_leaves,
+  const DataT min_impurity_decrease,
+  const Dataset<DataT, LabelT, IdxT> dataset,
+  const NodeWorkItem* work_items,
+  const Split<DataT, IdxT>* splits);
 
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
-__global__ void leafKernel(ObjectiveT objective,
-                           DatasetT dataset,
-                           const NodeT* tree,
-                           const InstanceRange* instance_ranges,
-                           DataT* leaves);
+__attribute__((visibility("hidden"))) __global__ void leafKernel(
+  ObjectiveT objective,
+  DatasetT dataset,
+  const NodeT* tree,
+  const InstanceRange* instance_ranges,
+  DataT* leaves);
 // 32-bit FNV1a hash
 // Reference: http://www.isthe.com/chongo/tech/comp/fnv/index.html
 const uint32_t fnv1a32_prime = uint32_t(16777619);
@@ -139,10 +143,10 @@ struct CustomDifference {
  * (=blockIdx.x), threadIdx.x). Method used is a random, parallel, sampling with replacement of
  * excess of 'k' samples (hence the name) and then eliminating the dupicates by ordering them. The
  * excess number of samples (=`n_parallel_samples`) is calculated such that after ordering there is
- * atleast 'k' uniques.
+ * at least 'k' uniques.
  */
 template <typename IdxT, int MAX_SAMPLES_PER_THREAD, int BLOCK_THREADS = 128>
-__global__ void excess_sample_with_replacement_kernel(
+CUML_KERNEL void excess_sample_with_replacement_kernel(
   IdxT* colids,
   const NodeWorkItem* work_items,
   size_t work_items_size,
@@ -185,7 +189,7 @@ __global__ void excess_sample_with_replacement_kernel(
       // mask of the previous iteration, if exists, is re-used here
       // so previously generated unique random numbers are used.
       // newly generated random numbers may or may not duplicate the previously generated ones
-      // but this ensures some forward progress in order to generate atleast 'k' unique random
+      // but this ensures some forward progress in order to generate at least 'k' unique random
       // samples.
       if (mask[thread_local_sample_idx] == 0 and cta_sample_idx < n_parallel_samples)
         raft::random::custom_next(
@@ -194,7 +198,7 @@ __global__ void excess_sample_with_replacement_kernel(
                0)  // indices that exceed `n_parallel_samples` will not generate
         items[thread_local_sample_idx] = n - 1;
       else
-        continue;  // this case is for samples whose mask == 1 (saving previous iteraion's random
+        continue;  // this case is for samples whose mask == 1 (saving previous iteration's random
                    // number generated)
     }
 
@@ -258,13 +262,13 @@ __global__ void excess_sample_with_replacement_kernel(
  * https://en.wikipedia.org/wiki/Reservoir_sampling#An_optimal_algorithm
  */
 template <typename IdxT>
-__global__ void algo_L_sample_kernel(int* colids,
-                                     const NodeWorkItem* work_items,
-                                     size_t work_items_size,
-                                     IdxT treeid,
-                                     uint64_t seed,
-                                     size_t n /* total cols to sample from*/,
-                                     size_t k /* cols to sample */)
+CUML_KERNEL void algo_L_sample_kernel(int* colids,
+                                      const NodeWorkItem* work_items,
+                                      size_t work_items_size,
+                                      IdxT treeid,
+                                      uint64_t seed,
+                                      size_t n /* total cols to sample from*/,
+                                      size_t k /* cols to sample */)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= work_items_size) return;
@@ -280,7 +284,7 @@ __global__ void algo_L_sample_kernel(int* colids,
   IdxT int_uniform_val;
   // fp_uniform_val will have a random value between 0 and 1
   gen.next(fp_uniform_val);
-  double W = raft::myExp(raft::myLog(fp_uniform_val) / k);
+  double W = raft::exp(raft::log(fp_uniform_val) / k);
 
   size_t col(0);
   // initially fill the reservoir array in increasing order of cols till k
@@ -295,26 +299,26 @@ __global__ void algo_L_sample_kernel(int* colids,
   while (col < n) {
     // fp_uniform_val will have a random value between 0 and 1
     gen.next(fp_uniform_val);
-    col += static_cast<int>(raft::myLog(fp_uniform_val) / raft::myLog(1 - W)) + 1;
+    col += static_cast<int>(raft::log(fp_uniform_val) / raft::log(1 - W)) + 1;
     if (col < n) {
       // int_uniform_val will now have a random value between 0...k
       raft::random::custom_next(gen, &int_uniform_val, uniform_int_dist_params, IdxT(0), IdxT(0));
       colids[tid * k + int_uniform_val] = col;  // the bad memory coalescing here is hidden
       // fp_uniform_val will have a random value between 0 and 1
       gen.next(fp_uniform_val);
-      W *= raft::myExp(raft::myLog(fp_uniform_val) / k);
+      W *= raft::exp(raft::log(fp_uniform_val) / k);
     }
   }
 }
 
 template <typename IdxT>
-__global__ void adaptive_sample_kernel(int* colids,
-                                       const NodeWorkItem* work_items,
-                                       size_t work_items_size,
-                                       IdxT treeid,
-                                       uint64_t seed,
-                                       int N,
-                                       int M)
+CUML_KERNEL void adaptive_sample_kernel(int* colids,
+                                        const NodeWorkItem* work_items,
+                                        size_t work_items_size,
+                                        IdxT treeid,
+                                        uint64_t seed,
+                                        int N,
+                                        int M)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= work_items_size) return;
@@ -344,23 +348,24 @@ template <typename DataT,
           int TPB,
           typename ObjectiveT,
           typename BinT>
-__global__ void computeSplitKernel(BinT* histograms,
-                                   IdxT n_bins,
-                                   IdxT max_depth,
-                                   IdxT min_samples_split,
-                                   IdxT max_leaves,
-                                   const Dataset<DataT, LabelT, IdxT> dataset,
-                                   const Quantiles<DataT, IdxT> quantiles,
-                                   const NodeWorkItem* work_items,
-                                   IdxT colStart,
-                                   const IdxT* colids,
-                                   int* done_count,
-                                   int* mutex,
-                                   volatile Split<DataT, IdxT>* splits,
-                                   ObjectiveT objective,
-                                   IdxT treeid,
-                                   const WorkloadInfo<IdxT>* workload_info,
-                                   uint64_t seed);
+__attribute__((visibility("hidden"))) __global__ void computeSplitKernel(
+  BinT* histograms,
+  IdxT n_bins,
+  IdxT max_depth,
+  IdxT min_samples_split,
+  IdxT max_leaves,
+  const Dataset<DataT, LabelT, IdxT> dataset,
+  const Quantiles<DataT, IdxT> quantiles,
+  const NodeWorkItem* work_items,
+  IdxT colStart,
+  const IdxT* colids,
+  int* done_count,
+  int* mutex,
+  volatile Split<DataT, IdxT>* splits,
+  ObjectiveT objective,
+  IdxT treeid,
+  const WorkloadInfo<IdxT>* workload_info,
+  uint64_t seed);
 
 }  // namespace DT
 }  // namespace ML

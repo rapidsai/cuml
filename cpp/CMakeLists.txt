@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2022, NVIDIA CORPORATION.
+# Copyright (c) 2018-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 # limitations under the License.
 #=============================================================================
 
-cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
 
-include(../fetch_rapids.cmake)
+include(../rapids_config.cmake)
 
 include(rapids-cmake)
 include(rapids-cpm)
@@ -26,7 +26,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 23.04.00 LANGUAGES CXX CUDA)
+project(CUML VERSION "${RAPIDS_VERSION}" LANGUAGES CXX CUDA)
 
 # Write the version header
 rapids_cmake_write_version_file(include/cuml/version_config.hpp)
@@ -43,6 +43,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
+option(CUML_ENABLE_GPU "Enable building GPU-accelerated algorithms" ON)
 option(BUILD_SHARED_LIBS "Build cuML shared libraries" ON)
 option(BUILD_CUML_C_LIBRARY "Build libcuml_c shared library. Contains the cuML C API" ON)
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml shared library" ON)
@@ -55,18 +56,20 @@ option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)"
 option(CUDA_ENABLE_KERNEL_INFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
-option(DISABLE_DEPRECATION_WARNINGS "Disable deprecation warnings " OFF)
+option(DISABLE_DEPRECATION_WARNINGS "Disable deprecation warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
-option(CUDA_STATIC_RUNTIME "Statically link the CUDA toolkit runtime and libraries" OFF)
+option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
+option(CUDA_STATIC_MATH_LIBRARIES "Statically link the CUDA math libraries" OFF)
 option(CUML_USE_RAFT_STATIC "Build and statically link the RAFT libraries" OFF)
-option(CUML_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" OFF)
+option(CUML_RAFT_COMPILED "Use libraft shared library" ON)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
 option(CUML_EXPORT_TREELITE_LINKAGE "Whether to publicly or privately link treelite to libcuml++" OFF)
 option(CUML_USE_CUMLPRIMS_MG_STATIC "Build and statically link the cumlprims_mg library" OFF)
+
 # The options below allow incorporating libcuml into another build process
 # without installing all its components. This is useful if total file size is
 # at a premium and we do not expect other consumers to use any APIs of the
@@ -93,13 +96,13 @@ message(VERBOSE "CUML_CPP: Enabling lineinfo in nvcc: ${CUDA_ENABLE_LINE_INFO}")
 message(VERBOSE "CUML_CPP: Enabling nvtx markers: ${NVTX}")
 message(VERBOSE "CUML_CPP: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 message(VERBOSE "CUML_CPP: Cache build artifacts with ccache: ${USE_CCACHE}")
-message(VERBOSE "CUML_CPP: Statically link the CUDA toolkit runtime and libraries: ${CUDA_STATIC_RUNTIME}")
+message(VERBOSE "CUML_CPP: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
+message(VERBOSE "CUML_CPP: Statically link the CUDA math libraries: ${CUDA_STATIC_MATH_LIBRARIES}")
 message(VERBOSE "CUML_CPP: Build and statically link RAFT libraries: ${CUML_USE_RAFT_STATIC}")
-message(VERBOSE "CUML_CPP: Build and statically link FAISS library: ${CUML_USE_FAISS_STATIC}")
 message(VERBOSE "CUML_CPP: Build and statically link Treelite library: ${CUML_USE_TREELITE_STATIC}")
 
 set(CUML_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Can specify individual algorithms or groups in a semicolon-separated list.")
-message(VERBOSE "CUML_CPP: Building libcuml++ with algoriths: '${CUML_ALGORITHMS}'.")
+message(VERBOSE "CUML_CPP: Building libcuml++ with algorithms: '${CUML_ALGORITHMS}'.")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
@@ -140,14 +143,17 @@ endif()
 # - compiler options ---------------------------------------------------------
 
 set(_ctk_static_suffix "")
-if(CUDA_STATIC_RUNTIME)
-  set(_ctk_static_suffix "_static_nocallback")
+set(_ctk_fft_static_suffix "")
+if(CUDA_STATIC_MATH_LIBRARIES)
+  set(_ctk_static_suffix "_static")
+  set(_ctk_fft_static_suffix "_static_nocallback")
 endif()
 
 if (NOT DISABLE_OPENMP)
   find_package(OpenMP)
   if(OpenMP_FOUND)
     message(STATUS "CUML_CPP: OpenMP found in ${OPENMP_INCLUDE_DIRS}")
+    list(APPEND CUML_CXX_FLAGS ${OpenMP_CXX_FLAGS})
   endif()
 endif()
 
@@ -168,7 +174,7 @@ include(cmake/modules/ConfigureCUDA.cmake)
 ##############################################################################
 # - Set options based on user defined one  -----------------------------------
 set(CUML_USE_RAFT_NN OFF)
-set(CUML_USE_RAFT_DIST OFF)
+set(CUML_RAFT_COMPILED OFF)
 set(LINK_TREELITE OFF)
 set(LINK_CUFFT OFF)
 include(cmake/modules/ConfigureAlgorithms.cmake)
@@ -218,6 +224,9 @@ if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   find_package(Threads)
 endif()
 
+# CCCL before RMM, and RMM before RAFT
+include(cmake/thirdparty/get_cccl.cmake)
+include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_raft.cmake)
 
 if(LINK_TREELITE)
@@ -238,12 +247,13 @@ if(ENABLE_CUMLPRIMS_MG)
 endif()
 
 if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
-  include(cmake/thirdparty/get_gtest.cmake)
+  include(${rapids-cmake-dir}/cpm/gtest.cmake)
+  rapids_cpm_gtest(BUILD_STATIC)
 endif()
 
 if(BUILD_CUML_BENCH)
   include(${rapids-cmake-dir}/cpm/gbench.cmake)
-  rapids_cpm_gbench()
+  rapids_cpm_gbench(BUILD_STATIC)
 endif()
 
 ##############################################################################
@@ -280,6 +290,9 @@ if(BUILD_CUML_CPP_LIBRARY)
   # common components
   add_library(${CUML_CPP_TARGET}
               src/common/logger.cpp)
+  if (CUML_ENABLE_GPU)
+    target_compile_definitions(${CUML_CPP_TARGET} PUBLIC CUML_ENABLE_GPU)
+  endif()
 
   if(all_algo OR arima_algo)
     target_sources(${CUML_CPP_TARGET}
@@ -336,11 +349,34 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # FIL components
   if(all_algo OR fil_algo)
+    if(CUML_ENABLE_GPU)
+      target_sources(${CUML_CPP_TARGET}
+        PRIVATE
+          # Current FIL
+          src/fil/fil.cu
+          src/fil/infer.cu
+          src/fil/treelite_import.cu
+          # Experimental FIL
+          src/experimental/fil/infer0.cu
+          src/experimental/fil/infer1.cu
+          src/experimental/fil/infer2.cu
+          src/experimental/fil/infer3.cu
+          src/experimental/fil/infer4.cu
+          src/experimental/fil/infer5.cu
+          src/experimental/fil/infer6.cu
+          src/experimental/fil/infer7.cu)
+    endif()
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
-        src/fil/fil.cu
-        src/fil/infer.cu
-        src/fil/treelite_import.cu)
+        # Experimental FIL
+        src/experimental/fil/infer0.cpp
+        src/experimental/fil/infer1.cpp
+        src/experimental/fil/infer2.cpp
+        src/experimental/fil/infer3.cpp
+        src/experimental/fil/infer4.cpp
+        src/experimental/fil/infer5.cpp
+        src/experimental/fil/infer6.cpp
+        src/experimental/fil/infer7.cpp)
   endif()
 
   # todo: organize linear models better
@@ -464,8 +500,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       PRIVATE
         src/svm/svc.cu
         src/svm/svr.cu
-        src/svm/linear.cu
-        src/svm/ws_util.cu)
+        src/svm/linear.cu)
   endif()
 
   if(all_algo OR autoarima_algo)
@@ -501,6 +536,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/glm/ols_mg.cu
         src/glm/preprocess_mg.cu
         src/glm/ridge_mg.cu
+        src/glm/qn_mg.cu
         src/kmeans/kmeans_mg.cu
         src/knn/knn_mg.cu
         src/knn/knn_classify_mg.cu
@@ -556,21 +592,13 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(CUML_USE_RAFT_STATIC AND (TARGET raft::raft))
     copy_interface_excludes(INCLUDED_TARGET raft::raft TARGET ${CUML_CPP_TARGET})
 
-    if(CUML_USE_RAFT_NN AND (TARGET faiss::faiss))
-      copy_interface_excludes(INCLUDED_TARGET faiss::faiss TARGET ${CUML_CPP_TARGET})
-    endif()
-
     if(CUML_USE_RAFT_DIST AND (TARGET cuco::cuco))
       list(APPEND _cuml_cpp_private_libs cuco::cuco)
     endif()
   endif()
 
   if(CUML_USE_TREELITE_STATIC AND (TARGET treelite::treelite_static))
-    # By default, TREELITE_LIBS will contain both treelite::treelite_static and
-    # treelite::treelite_runtime_static if we are linking statically, but these
-    # two targets have duplicate symbols so we can only link to one of them.
     set(TREELITE_LIBS treelite::treelite_static)
-
     copy_interface_excludes(INCLUDED_TARGET treelite::treelite_static TARGET ${CUML_CPP_TARGET})
   elseif(CUML_EXPORT_TREELITE_LINKAGE)
     list(APPEND _cuml_cpp_public_libs ${TREELITE_LIBS})
@@ -582,8 +610,9 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # These are always private:
   list(APPEND _cuml_cpp_private_libs
+    raft::raft
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
-    $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix}>
+    $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}>
     ${TREELITE_LIBS}
     ${OpenMP_CXX_LIB_NAMES}
     $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
@@ -601,9 +630,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   # because cumlprims_mg and cuML inherit their CUDA libs from the raft::raft
   # INTERFACE target.
   list(APPEND ${_cuml_cpp_libs_var_name}
-    raft::raft
-    $<$<BOOL:${CUML_USE_RAFT_NN}>:raft::nn>
-    $<$<BOOL:${CUML_USE_RAFT_DIST}>:raft::distance>
+    $<$<BOOL:${CUML_RAFT_COMPILED}>:${RAFT_COMPILED_LIB}>
     $<TARGET_NAME_IF_EXISTS:cumlprims_mg::cumlprims_mg>
   )
 
@@ -715,18 +742,12 @@ if (TARGET treelite::treelite)
 if (TARGET treelite::treelite AND (NOT TARGET treelite))
     add_library(treelite ALIAS treelite::treelite)
 endif()
-if (TARGET treelite::treelite_runtime AND (NOT TARGET treelite_runtime))
-    add_library(treelite_runtime ALIAS treelite::treelite_runtime)
-endif()
 ]=])
 else()
     string(APPEND code_string
 [=[
 if (TARGET treelite::treelite_static AND (NOT TARGET treelite_static))
     add_library(treelite_static ALIAS treelite::treelite_static)
-endif()
-if (TARGET treelite::treelite_runtime_static AND (NOT TARGET treelite_runtime_static))
-    add_library(treelite_runtime_static ALIAS treelite::treelite_runtime_static)
 endif()
 ]=])
 
@@ -763,5 +784,5 @@ endif()
 
 include(cmake/doxygen.cmake)
 add_doxygen_target(IN_DOXYFILE Doxyfile.in
-  OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
-  CWD ${CMAKE_CURRENT_BINARY_DIR})
+  OUT_DOXYFILE ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile
+  CWD ${CMAKE_CURRENT_SOURCE_DIR})

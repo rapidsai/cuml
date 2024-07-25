@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,9 @@
 
 #include "constants.h"
 #include "node.cuh"
+
 #include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 #include <cuml/genetic/common.h>
 #include <cuml/genetic/genetic.h>
 #include <cuml/genetic/program.h>
@@ -27,13 +29,15 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
+
+#include <device_launch_parameters.h>
+
 #include <algorithm>
 #include <numeric>
 #include <random>
 #include <stack>
-
-#include <device_launch_parameters.h>
-#include <rmm/device_uvector.hpp>
 
 namespace cuml {
 namespace genetic {
@@ -52,14 +56,14 @@ namespace genetic {
  * @param criterion     Selection criterion for choices(min/max)
  * @param parsimony     Parsimony coefficient to account for bloat
  */
-__global__ void batched_tournament_kernel(const program_t progs,
-                                          int* win_indices,
-                                          const int* seeds,
-                                          const int n_progs,
-                                          const int n_tours,
-                                          const int tour_size,
-                                          const int criterion,
-                                          const float parsimony)
+CUML_KERNEL void batched_tournament_kernel(const program_t progs,
+                                           int* win_indices,
+                                           const int* seeds,
+                                           const int n_progs,
+                                           const int n_tours,
+                                           const int tour_size,
+                                           const int criterion,
+                                           const float parsimony)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= n_tours) return;
@@ -370,8 +374,8 @@ void symFit(const raft::handle_t& handle,
 {
   cudaStream_t stream = handle.get_stream();
 
-  // Update arity map in params - Need to do this only here, as all operations will call Fit atleast
-  // once
+  // Update arity map in params - Need to do this only here, as all operations will call Fit at
+  // least once
   for (auto f : params.function_set) {
     int ar = 1;
     if (node::type::binary_begin <= f && f <= node::type::binary_end) { ar = 2; }

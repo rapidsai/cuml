@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,19 +16,22 @@
 
 #pragma once
 
-#include <memory>
-#include <raft/core/handle.hpp>
-#include <rmm/device_uvector.hpp>
-
 #include "kernels/builder_kernels.cuh"
 
 #include <common/Timer.h>
+
 #include <cuml/common/pinned_host_vector.hpp>
+#include <cuml/tree/decisiontree.hpp>
 #include <cuml/tree/flatnode.h>
+
+#include <raft/core/handle.hpp>
+#include <raft/core/nvtx.hpp>
 #include <raft/util/cuda_utils.cuh>
 
+#include <rmm/device_uvector.hpp>
+
 #include <deque>
-#include <raft/core/nvtx.hpp>
+#include <memory>
 #include <utility>
 
 namespace ML {
@@ -296,7 +299,7 @@ struct Builder {
    * @brief assign workspace to the current state
    *
    * @param[in] d_wspace device buffer allocated by the user for the workspace.
-   *                     Its size should be atleast workspaceSize()
+   *                     Its size should be at least workspaceSize()
    * @param[in] h_wspace pinned host buffer needed to store the learned nodes
    */
   void assignWorkspace(char* d_wspace, char* h_wspace)
@@ -414,8 +417,8 @@ struct Builder {
       // unique samples from 'n' is given by the following equation: log(1 - k/n)/log(1 - 1/n) ref:
       // https://stats.stackexchange.com/questions/296005/the-expected-number-of-unique-elements-drawn-with-replacement
       IdxT n_parallel_samples =
-        std::ceil(raft::myLog(1 - double(dataset.n_sampled_cols) / double(dataset.N)) /
-                  (raft::myLog(1 - 1.f / double(dataset.N))));
+        std::ceil(raft::log(1 - double(dataset.n_sampled_cols) / double(dataset.N)) /
+                  (raft::log(1 - 1.f / double(dataset.N))));
       // maximum sampling work possible by all threads in a block :
       // `max_samples_per_thread * block_thread`
       // dynamically calculated sampling work to be done per block:

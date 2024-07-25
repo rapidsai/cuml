@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,21 @@
  */
 
 #include "test_utils.h"
-#include <decoupled_lookback.cuh>
-#include <gtest/gtest.h>
+
+#include <cuml/common/utils.hpp>
+
 #include <raft/core/interruptible.hpp>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
+
+#include <decoupled_lookback.cuh>
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 
 template <int TPB>
-__global__ void dlbTestKernel(void* workspace, int len, int* out)
+CUML_KERNEL void dlbTestKernel(void* workspace, int len, int* out)
 {
   DecoupledLookBack<int> dlb(workspace);
   int count   = threadIdx.x == blockDim.x - 1 ? 1 : 0;

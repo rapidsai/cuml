@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+#include <cuml/common/utils.hpp>
+#include <cuml/explainer/kernel_shap.hpp>
+
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
-
-#include <cuml/explainer/kernel_shap.hpp>
 
 #include <curand.h>
 #include <curand_kernel.h>
@@ -46,13 +47,13 @@ namespace Explainer {
 */
 
 template <typename DataT, typename IdxT>
-__global__ void exact_rows_kernel(float* X,
-                                  IdxT nrows_X,
-                                  IdxT ncols,
-                                  DataT* background,
-                                  IdxT nrows_background,
-                                  DataT* dataset,
-                                  DataT* observation)
+CUML_KERNEL void exact_rows_kernel(float* X,
+                                   IdxT nrows_X,
+                                   IdxT ncols,
+                                   DataT* background,
+                                   IdxT nrows_background,
+                                   DataT* dataset,
+                                   DataT* observation)
 {
   // Each block processes one row of X. Columns are iterated over by blockDim.x at a time to ensure
   // data coelescing
@@ -104,15 +105,15 @@ __global__ void exact_rows_kernel(float* X,
 *
 */
 template <typename DataT, typename IdxT>
-__global__ void sampled_rows_kernel(IdxT* nsamples,
-                                    float* X,
-                                    IdxT nrows_X,
-                                    IdxT ncols,
-                                    DataT* background,
-                                    IdxT nrows_background,
-                                    DataT* dataset,
-                                    DataT* observation,
-                                    uint64_t seed)
+CUML_KERNEL void sampled_rows_kernel(IdxT* nsamples,
+                                     float* X,
+                                     IdxT nrows_X,
+                                     IdxT ncols,
+                                     DataT* background,
+                                     IdxT nrows_background,
+                                     DataT* dataset,
+                                     DataT* observation,
+                                     uint64_t seed)
 {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   // see what k this block will generate
@@ -125,7 +126,7 @@ __global__ void sampled_rows_kernel(IdxT* nsamples,
     int rand_idx = (int)(curand_uniform(&state) * ncols);
 
     // Since X is initialized to 0, we quickly check for collisions (if k_blk << ncols the
-    // likelyhood of collisions is low)
+    // likelihood of collisions is low)
     while (atomicExch(&(X[2 * blockIdx.x * ncols + rand_idx]), 1) == 1) {
       rand_idx = (int)(curand_uniform(&state) * ncols);
     }

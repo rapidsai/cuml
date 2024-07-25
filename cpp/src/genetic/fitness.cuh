@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <raft/core/handle.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/strided_reduction.cuh>
@@ -24,9 +25,11 @@
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>
 #include <raft/util/cuda_utils.cuh>
+#include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <thrust/adjacent_difference.h>
 #include <thrust/copy.h>
@@ -39,8 +42,6 @@
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
-
-#include <raft/util/cudart_utils.hpp>
 
 namespace cuml {
 namespace genetic {
@@ -126,8 +127,8 @@ void weightedPearson(const raft::handle_t& h,
     stream,
     false,
     [W] __device__(math_t v, int i) { return v * v * W[i]; },
-    raft::Sum<math_t>(),
-    [] __device__(math_t in) { return raft::mySqrt(in); });
+    raft::add_op(),
+    [] __device__(math_t in) { return raft::sqrt(in); });
   math_t HYstd = y_std.element(0, stream);
 
   // Find x_std
@@ -140,8 +141,8 @@ void weightedPearson(const raft::handle_t& h,
     stream,
     false,
     [W] __device__(math_t v, int i) { return v * v * W[i]; },
-    raft::Sum<math_t>(),
-    [] __device__(math_t in) { return raft::mySqrt(in); });
+    raft::add_op(),
+    [] __device__(math_t in) { return raft::sqrt(in); });
 
   // Cross covariance
   raft::linalg::matrixVectorOp(
@@ -273,9 +274,7 @@ void meanAbsoluteError(const raft::handle_t& h,
     n_samples,
     false,
     false,
-    [N, WS] __device__(math_t y_p, math_t y, math_t w) {
-      return N * w * raft::myAbs(y - y_p) / WS;
-    },
+    [N, WS] __device__(math_t y_p, math_t y, math_t w) { return N * w * raft::abs(y - y_p) / WS; },
     stream);
 
   // Average along rows
