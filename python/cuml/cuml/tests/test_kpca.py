@@ -63,13 +63,13 @@ def test_kpca_fit(datatype, input_type, name, use_handle, kernel):
             random_state=1,
         )
     X = X.astype(datatype)
-    skpca = skKernelPCA(kernel=kernel, eigen_solver='dense', n_components=2)
+    skpca = skKernelPCA(kernel=kernel, eigen_solver="dense", n_components=2)
     skpca.fit(X)
     handle, stream = get_handle(use_handle)
     cupca = cuKernelPCA(handle=handle, kernel=kernel, n_components=2)
     cupca.fit(X)
     cupca.handle.sync()
-    eigvals = getattr(cupca, 'eigenvalues_')
+    eigvals = getattr(cupca, "eigenvalues_")
     for attr in [
         "eigenvectors_",
         "eigenvalues_",
@@ -77,7 +77,10 @@ def test_kpca_fit(datatype, input_type, name, use_handle, kernel):
         cuml_res = getattr(cupca, attr)
 
         skl_res = getattr(skpca, attr)
-        assert array_equal(cuml_res, skl_res, 1e-1, total_tol=1e-1, with_sign=True)
+        assert array_equal(
+            cuml_res, skl_res, 1e-1, total_tol=1e-1, with_sign=True
+        )
+
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("input_type", ["ndarray"])
@@ -86,7 +89,9 @@ def test_kpca_fit(datatype, input_type, name, use_handle, kernel):
     "name", [unit_param(None), quality_param("iris"), stress_param("blobs")]
 )
 @pytest.mark.parametrize("kernel", ["linear", "poly", "rbf", "sigmoid"])
-def test_kpca_fit_then_transform(datatype, input_type, name, use_handle, kernel):
+def test_kpca_fit_then_transform(
+    datatype, input_type, name, use_handle, kernel
+):
     blobs_n_samples = 25000
     if name == "blobs" and pytest.max_gpu_memory < 32:
         if pytest.adapt_stress_test:
@@ -132,6 +137,7 @@ def test_kpca_fit_then_transform(datatype, input_type, name, use_handle, kernel)
         assert array_equal(X_cu, X_sk, 1e-1, total_tol=1e-1, with_sign=True)
         assert X_sk.shape[0] == X_cu.shape[0]
         assert X_sk.shape[1] == X_cu.shape[1]
+
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("input_type", ["ndarray"])
@@ -185,12 +191,17 @@ def test_kpca_fit_transform(datatype, input_type, name, use_handle, kernel):
         assert X_sk.shape[0] == X_cu.shape[0]
         assert X_sk.shape[1] == X_cu.shape[1]
 
+
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("input_type", ["ndarray"])
 @pytest.mark.parametrize("use_handle", [True, False])
-@pytest.mark.parametrize("name", [unit_param(None)])#[unit_param(None), quality_param("iris")])
+@pytest.mark.parametrize(
+    "name", [unit_param(None)]
+)  # [unit_param(None), quality_param("iris")])
 @pytest.mark.parametrize("kernel", ["linear", "poly", "rbf", "sigmoid"])
-def test_kpca_fit_then_transform_on_test_train_split(datatype, input_type, name, use_handle, kernel):
+def test_kpca_fit_then_transform_on_test_train_split(
+    datatype, input_type, name, use_handle, kernel
+):
     if name == "iris":
         iris = datasets.load_iris()
         X = iris.data
@@ -213,9 +224,12 @@ def test_kpca_fit_then_transform_on_test_train_split(datatype, input_type, name,
     cupca.fit(X_train)
     X_test_cu = cupca.transform(X_test)
     cupca.handle.sync()
-    assert array_equal(X_test_cu, X_test_sk, 1e-1, total_tol=1e-1, with_sign=True)
+    assert array_equal(
+        X_test_cu, X_test_sk, 1e-1, total_tol=1e-1, with_sign=True
+    )
     assert X_test_sk.shape[0] == X_test_cu.shape[0]
     assert X_test_sk.shape[1] == X_test_cu.shape[1]
+
 
 @pytest.mark.parametrize("n_samples", [200])
 @pytest.mark.parametrize("n_features", [100, 300])
@@ -241,6 +255,7 @@ def test_kpca_defaults(n_samples, n_features):
     assert cupca.eigenvectors_.shape[0] == skpca.eigenvectors_.shape[0]
     assert curesult.shape == skresult.shape
     assert array_equal(curesult, skresult, 1e-3, with_sign=False)
+
 
 @pytest.mark.parametrize("n_samples", [200])
 @pytest.mark.parametrize("n_features", [100, 300])
@@ -271,10 +286,10 @@ def test_exceptions():
     with pytest.raises(NotFittedError):
         X = cp.random.random((10, 10))
         cuKernelPCA().transform(X)
-    
+
     # Eigensolver arpack is supported in sklearn, but not in cuML
     with pytest.raises(TypeError):
-        cuKernelPCA(eigen_solver='arpack')
+        cuKernelPCA(eigen_solver="arpack")
 
     # fit_inverse_transform is not supported in cuML
     with pytest.raises(NotImplementedError):

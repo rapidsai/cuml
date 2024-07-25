@@ -14,40 +14,73 @@
  * limitations under the License.
  */
 
-#include <cuml/decomposition/kpca.hpp>
 #include "kpca.cuh"
+
+#include <cuml/decomposition/kpca.hpp>
 namespace ML {
 
-void kpcaFit(raft::handle_t &handle, float *input, float *eigenvectors,
-             float *eigenvalues, int *n_components, const ML::paramsKPCA &prms) {
+void kpcaFit(raft::handle_t& handle,
+             float* input,
+             float* eigenvectors,
+             float* eigenvalues,
+             int* n_components,
+             const ML::paramsKPCA& prms)
+{
   kpcaFit(handle, input, eigenvectors, eigenvalues, n_components, prms, handle.get_stream());
 }
 
-void kpcaFit(raft::handle_t &handle, double *input, double *eigenvectors,
-             double *eigenvalues, int *n_components, const ML::paramsKPCA &prms) {
+void kpcaFit(raft::handle_t& handle,
+             double* input,
+             double* eigenvectors,
+             double* eigenvalues,
+             int* n_components,
+             const ML::paramsKPCA& prms)
+{
   kpcaFit(handle, input, eigenvectors, eigenvalues, n_components, prms, handle.get_stream());
 }
 
-void kpcaTransformWithFitData(raft::handle_t &handle, float *eigenvectors, float *eigenvalues,
-                   float *trans_input, const ML::paramsKPCA &prms) {
-  kpcaTransformWithFitData(handle, eigenvectors, eigenvalues, trans_input, prms, handle.get_stream());
+void kpcaTransformWithFitData(raft::handle_t& handle,
+                              float* eigenvectors,
+                              float* eigenvalues,
+                              float* trans_input,
+                              const ML::paramsKPCA& prms)
+{
+  kpcaTransformWithFitData(
+    handle, eigenvectors, eigenvalues, trans_input, prms, handle.get_stream());
 }
 
-void kpcaTransformWithFitData(raft::handle_t &handle, double *eigenvectors, double *eigenvalues,
-                   double *trans_input, const paramsKPCA &prms) {
-  kpcaTransformWithFitData(handle, eigenvectors, eigenvalues, trans_input, prms, handle.get_stream());
+void kpcaTransformWithFitData(raft::handle_t& handle,
+                              double* eigenvectors,
+                              double* eigenvalues,
+                              double* trans_input,
+                              const paramsKPCA& prms)
+{
+  kpcaTransformWithFitData(
+    handle, eigenvectors, eigenvalues, trans_input, prms, handle.get_stream());
 }
 
-void kpcaTransform(const raft::handle_t &handle, float *fit_input, float *input,
-                   float *eigenvectors, float *eigenvalues,
-                   float *trans_input, const ML::paramsKPCA &prms) {
-  kpcaTransform(handle, fit_input, input, eigenvectors, eigenvalues, trans_input, prms, handle.get_stream());
+void kpcaTransform(const raft::handle_t& handle,
+                   float* fit_input,
+                   float* input,
+                   float* eigenvectors,
+                   float* eigenvalues,
+                   float* trans_input,
+                   const ML::paramsKPCA& prms)
+{
+  kpcaTransform(
+    handle, fit_input, input, eigenvectors, eigenvalues, trans_input, prms, handle.get_stream());
 }
 
-void kpcaTransform(const raft::handle_t &handle, double *fit_input, double *input,
-                   double *eigenvectors, double *eigenvalues,
-                   double *trans_input, const ML::paramsKPCA &prms) {
-  kpcaTransform(handle, fit_input, input, eigenvectors, eigenvalues, trans_input, prms, handle.get_stream());
+void kpcaTransform(const raft::handle_t& handle,
+                   double* fit_input,
+                   double* input,
+                   double* eigenvectors,
+                   double* eigenvalues,
+                   double* trans_input,
+                   const ML::paramsKPCA& prms)
+{
+  kpcaTransform(
+    handle, fit_input, input, eigenvectors, eigenvalues, trans_input, prms, handle.get_stream());
 }
 
-}
+}  // namespace ML
