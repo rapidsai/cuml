@@ -49,20 +49,16 @@ IF GPUBUILD == 1:
                          const paramsKPCA &prms) except +
 
 
-        cdef void kpcaFitTransform(handle_t& handle,
-                         float *input,
+        cdef void kpcaTransformWithFitData(handle_t& handle,
                          float *eigenvectors,
                          float *eigenvalues,
                          float *trans_input,
-                         int *n_components,
                          const paramsKPCA &prms) except +
 
-        cdef void kpcaFitTransform(handle_t& handle,
-                         double *input,
+        cdef void kpcaTransformWithFitData(handle_t& handle,
                          double *eigenvectors,
                          double *eigenvalues,
                          double *trans_input,
-                         int *n_components,
                          const paramsKPCA &prms) except +
 
         cdef void kpcaTransform(handle_t& handle,
@@ -230,8 +226,6 @@ class KernelPCA(UniversalBase,
         self.iterated_power = iterated_power
         self.n_components_ = n_components
         self.remove_zero_eig = remove_zero_eig
-        if remove_zero_eig:
-            self.n_components = None
         self.random_state = random_state
         self.eigen_solver = eigen_solver
         self.tol = tol
@@ -286,18 +280,19 @@ class KernelPCA(UniversalBase,
             params.n_iterations = self.iterated_power
             params.tol = self.tol
             params.verbose = self.verbose
-            params.remove_zero_eig = self.remove_zero_eig
+            params.remove_zero_eig = self.remove_zero_eig or self.n_components_ is None
             params.algorithm = <solver> (<underlying_type_t_solver> (
                 self.c_algorithm))
             params.fit_inverse_transform = self.fit_inverse_transform
             params.kernel = self._get_kernel_params(n_cols)
             return <size_t>params
 
-    def _initialize_arrays(self, n_components, n_rows, n_cols):
-
-        self.eigenvalues_ = CumlArray.zeros((n_components),
+    def _initialize_arrays(self, n_rows, n_cols):
+        # Will be resized to (n_components) after fit
+        self.eigenvalues_ = CumlArray.zeros((n_rows),
                                            dtype=self.dtype)
-        self.eigenvectors_ = CumlArray.zeros((n_rows, n_components),
+        # Will be resized to (n_rows, n_components) after fit
+        self.eigenvectors_ = CumlArray.zeros((n_rows, n_rows),
                                            dtype=self.dtype)
 
 
@@ -324,8 +319,7 @@ class KernelPCA(UniversalBase,
 
 
             # Calling _initialize_arrays, guarantees everything is CumlArray
-            self._initialize_arrays(params.n_components,
-                                    params.n_rows, params.n_cols)
+            self._initialize_arrays(params.n_rows, params.n_cols)
 
             cdef uintptr_t eigenvectors_ptr = self.eigenvectors_.ptr
 
@@ -371,30 +365,18 @@ class KernelPCA(UniversalBase,
         from a training set.
 
         """
-        cuml.internals.set_api_output_type("cupy")
-        if self.copy_X:
-            self.X_fit_ = X.copy()
-        else:
-            self.X_fit_ = X
-        self.X_m, self.n_samples_, self.n_features_in_, self.dtype = \
-            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
-        cdef uintptr_t _input_ptr = self.X_m.ptr
-        self.feature_names_in_ = self.X_m.index
+        # TODO necessary?
+        # cuml.internals.set_api_output_type("cupy")
+        self.fit(X)
         IF GPUBUILD == 1:
             cdef paramsKPCA *params = <paramsKPCA*><size_t> \
                 self._build_params(self.n_samples_, self.n_features_in_)
-
-            # Calling _initialize_arrays, guarantees everything is CumlArray
-            self._initialize_arrays(params.n_components,
-                                    params.n_rows, params.n_cols)
 
             cdef uintptr_t eigenvectors_ptr = self.eigenvectors_.ptr
 
             cdef uintptr_t eigenvalues_ptr = \
                 self.eigenvalues_.ptr
             
-            cdef int components = <int>(self.n_components_ or -1)
-            cdef int* component_ptr = &components
             t_input_data = \
                 CumlArray.zeros((params.n_rows, params.n_components),
                                 dtype=self.dtype.type, index=self.X_m.index)
@@ -402,20 +384,16 @@ class KernelPCA(UniversalBase,
 
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
             if self.dtype.type == np.float32:
-                kpcaFitTransform(handle_[0],
-                             <float*> _input_ptr,
+                kpcaTransformWithFitData(handle_[0],
                              <float*> eigenvectors_ptr,
                              <float*> eigenvalues_ptr,
                              <float*> _trans_input_ptr,
-                             component_ptr,
                              deref(params))
             else:
-                kpcaFitTransform(handle_[0],
-                             <double*> _input_ptr,
+                kpcaTransformWithFitData(handle_[0],
                              <double*> eigenvectors_ptr,
                              <double*> eigenvalues_ptr,
                              <double*> _trans_input_ptr,
-                             component_ptr,
                              deref(params))
             # make sure the previously scheduled gpu tasks are complete before the
             # following transfers start

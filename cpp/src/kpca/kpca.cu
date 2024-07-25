@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,14 +28,14 @@ void kpcaFit(raft::handle_t &handle, double *input, double *eigenvectors,
   kpcaFit(handle, input, eigenvectors, eigenvalues, n_components, prms, handle.get_stream());
 }
 
-void kpcaFitTransform(raft::handle_t &handle, float *input, float *eigenvectors, float *eigenvalues,
-                   float *trans_input, int *n_components, const ML::paramsKPCA &prms) {
-  kpcaFitTransform(handle, input, eigenvectors, eigenvalues, trans_input, n_components, prms, handle.get_stream());
+void kpcaTransformWithFitData(raft::handle_t &handle, float *eigenvectors, float *eigenvalues,
+                   float *trans_input, const ML::paramsKPCA &prms) {
+  kpcaTransformWithFitData(handle, eigenvectors, eigenvalues, trans_input, prms, handle.get_stream());
 }
 
-void kpcaFitTransform(raft::handle_t &handle, double *input, double *eigenvectors, double *eigenvalues,
-                   double *trans_input, int *n_components, const paramsKPCA &prms) {
-  kpcaFitTransform(handle, input, eigenvectors, eigenvalues, trans_input, n_components, prms, handle.get_stream());
+void kpcaTransformWithFitData(raft::handle_t &handle, double *eigenvectors, double *eigenvalues,
+                   double *trans_input, const paramsKPCA &prms) {
+  kpcaTransformWithFitData(handle, eigenvectors, eigenvalues, trans_input, prms, handle.get_stream());
 }
 
 void kpcaTransform(const raft::handle_t &handle, float *fit_input, float *input,

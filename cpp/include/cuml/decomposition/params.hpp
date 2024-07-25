@@ -85,7 +85,7 @@ class paramsKPCATemplate : public paramsTSVDTemplate<enum_solver> {
   MLCommon::Matrix::KernelParams kernel;
   size_t n_training_samples = 0;
   bool copy = true;  // TODO unused
-  bool remove_zero_eig = false; // TODO unused
+  bool remove_zero_eig = false;
   bool fit_inverse_transform = false; // TODO unused
 };
 

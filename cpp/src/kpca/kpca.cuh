@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,35 +44,34 @@
 
 namespace ML {
 
-// Finally, all the positive eigenvalues that are too small (with a value
-// smaller than the maximum eigenvalue multiplied by for double precision 1e-12 (2e-7 for float)) are set to
-// zero.
+// All the positive eigenvalues that are too small (with a value smaller than the maximum 
+// eigenvalue multiplied by for double precision 1e-12 (2e-7 for float)) are set to zero.
 template <typename T>
 struct is_too_small;
 
 template <>
 struct is_too_small<double> {
-    double* lambdas;
+    double* eigenvectors;
 
     __device__
-    is_too_small(double* lambdas) : lambdas(lambdas) {}
+    is_too_small(double* eigenvectors) : eigenvectors(eigenvectors) {}
 
     __device__
     bool operator()(const double& x) const {
-        return x < lambdas[0] * 1e-12;
+        return x < eigenvectors[0] * 1e-12;
     }
 };
 
 template <>
 struct is_too_small<float> {
-    float* lambdas;
+    float* eigenvectors;
 
     __device__
-    is_too_small(float* lambdas) : lambdas(lambdas) {}
+    is_too_small(float* eigenvectors) : eigenvectors(eigenvectors) {}
 
     __device__
     bool operator()(const float& x) const {
-        return x < lambdas[0] * 2e-7;
+        return x < eigenvectors[0] * 2e-7;
     }
 };
 
@@ -129,8 +128,6 @@ void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *eigenvectors
              value_t *eigenvalues, int* n_components, const ML::paramsKPCA &prms, cudaStream_t stream) {
   auto cublas_handle = handle.get_cublas_handle();
   auto thrust_policy = rmm::exec_policy(stream);
-  rmm::device_uvector<value_t> alphas(prms.n_rows * prms.n_rows, stream);
-  rmm::device_uvector<value_t> lambdas(prms.n_rows, stream);
 
   // Evaluate and center the kernel matrix
   rmm::device_uvector<value_t> kernel_mat(prms.n_rows * prms.n_rows, stream);
@@ -154,27 +151,24 @@ void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *eigenvectors
 
   // Either Jacobi (iterative power method) or DnC eigendecomp
   if (prms.algorithm == enum_solver::COV_EIG_JACOBI) {
-    raft::linalg::eigJacobi(handle, kernel_mat.data(), prms.n_rows, prms.n_rows, alphas.data(),
-                            lambdas.data(), stream, (value_t) prms.tol,
+    raft::linalg::eigJacobi(handle, kernel_mat.data(), prms.n_rows, prms.n_rows, eigenvectors,
+                            eigenvalues, stream, (value_t) prms.tol,
                             prms.n_iterations);
   } else {
-    raft::linalg::eigDC(handle, kernel_mat.data(), prms.n_rows, prms.n_rows, alphas.data(),
-                        lambdas.data(), stream);
+    raft::linalg::eigDC(handle, kernel_mat.data(), prms.n_rows, prms.n_rows, eigenvectors,
+                        eigenvalues, stream);
   }
-
-  raft::matrix::colReverse(alphas.data(), prms.n_rows, prms.n_rows, stream);
-  raft::matrix::rowReverse(lambdas.data(), prms.n_rows, std::size_t(1), stream);
-  raft::matrix::copy(alphas.data(), eigenvectors, prms.n_rows, prms.n_components, stream);
-  raft::matrix::copy(lambdas.data(), eigenvalues, prms.n_components, std::size_t(1), stream);
-  ML::signFlip(eigenvectors, prms.n_rows, prms.n_components, eigenvalues, std::size_t(0), stream);
-  if(n_components[0] == -1) {
+  // reverse since eigensolver returns in ascending order
+  raft::matrix::colReverse(eigenvectors, prms.n_rows, prms.n_rows, stream);
+  raft::matrix::rowReverse(eigenvalues, prms.n_rows, std::size_t(1), stream);
+  ML::signFlip(eigenvectors, prms.n_rows, prms.n_rows, eigenvalues, std::size_t(0), stream);
+  if(prms.remove_zero_eig) {
     // Find the largest index of non-zero eigenvector
-    thrust::device_ptr<value_t> d_eigenvalues_ptr(lambdas.data());
+    thrust::device_ptr<value_t> d_eigenvalues_ptr(eigenvalues);
 
-    auto it = thrust::find_if(thrust_policy, d_eigenvalues_ptr, d_eigenvalues_ptr + prms.n_rows, is_too_small<value_t>(lambdas.data()));
+    auto it = thrust::find_if(thrust_policy, d_eigenvalues_ptr, d_eigenvalues_ptr + prms.n_rows, is_too_small<value_t>(eigenvalues));
     int largest_nonzero_index = (it == d_eigenvalues_ptr + prms.n_rows) ? prms.n_rows : (it - d_eigenvalues_ptr);
-
-    n_components[0] = largest_nonzero_index;
+    n_components[0] = min(largest_nonzero_index, (int) prms.n_components);
   }
 }
 
@@ -182,7 +176,6 @@ void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *eigenvectors
 /**
  * @brief performs transform operation for the pca. Transforms the data to kernel eigenspace.
  * @param[in] handle: the internal cuml handle object
- * @param[in] input: data to transform. Size n_rows x n_components.
  * @param[out] eigenvectors: principal components of the input data. Size n_rows * n_components.
  * @param[out] eigenvalues: singular values of the data. Size n_components * 1.
  * @param[out] trans_input:  the transformed data. Size n_rows * n_components.
@@ -190,16 +183,14 @@ void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *eigenvectors
  * @param[in] stream cuda stream
  */
 template <typename value_t>
-void kpcaFitTransform(const raft::handle_t &handle, value_t *input,
+void kpcaTransformWithFitData(const raft::handle_t &handle,
                    value_t *eigenvectors, value_t *eigenvalues,
-                   value_t *trans_input, int *n_components, const ML::paramsKPCA &prms,
+                   value_t *trans_input, const ML::paramsKPCA &prms,
                    cudaStream_t stream) {
-  kpcaFit(handle, input, eigenvectors, eigenvalues, n_components, prms, stream);
-  size_t n_components_val = (size_t) *n_components;
-  rmm::device_uvector<value_t> sqrt_vals(n_components_val, stream);
-  raft::matrix::seqRoot(eigenvalues, sqrt_vals.data(), n_components_val, stream);
-  raft::matrix::copy(eigenvectors, trans_input, n_components_val, prms.n_rows, stream);
-  raft::matrix::matrixVectorBinaryMult(trans_input, sqrt_vals.data(), prms.n_rows, n_components_val, 
+  rmm::device_uvector<value_t> sqrt_vals(prms.n_components, stream);
+  raft::matrix::seqRoot(eigenvalues, sqrt_vals.data(), prms.n_components, stream);
+  raft::update_device(trans_input, eigenvectors, prms.n_components * prms.n_rows, stream);
+  raft::matrix::matrixVectorBinaryMult(trans_input, sqrt_vals.data(), prms.n_rows, prms.n_components, 
                                          false, true, stream);
 }
 
@@ -220,24 +211,24 @@ void kpcaTransform(const raft::handle_t &handle, value_t *fit_input, value_t *in
                    value_t *trans_input, const ML::paramsKPCA &prms,
                    cudaStream_t stream) {
   rmm::device_uvector<value_t> kernel_mat(prms.n_rows * prms.n_training_samples, stream);
-  rmm::device_uvector<value_t> kernel_mat2(prms.n_training_samples * prms.n_training_samples, stream);
+  rmm::device_uvector<value_t> fitted_kernel_mat(prms.n_training_samples * prms.n_training_samples, stream);
   auto thrust_policy = rmm::exec_policy(stream);
   thrust::fill(thrust_policy, kernel_mat.begin(), kernel_mat.end(), 0.0f);
   evaluateKernelMatrix(handle, input, prms.n_rows, fit_input, prms.n_training_samples, prms.n_cols, prms.kernel, kernel_mat, stream);
-  evaluateKernelMatrix(handle, fit_input, prms.n_training_samples, fit_input, prms.n_training_samples, prms.n_cols, prms.kernel, kernel_mat2, stream);
+  evaluateKernelMatrix(handle, fit_input, prms.n_training_samples, fit_input, prms.n_training_samples, prms.n_cols, prms.kernel, fitted_kernel_mat, stream);
 
   // Mean-center the kernel matrix
   rmm::device_uvector<value_t> row_means(prms.n_training_samples, stream);
   rmm::device_uvector<value_t> col_means(prms.n_rows, stream);
 
   // Step 1: Compute row means
-  raft::stats::mean(row_means.data(), kernel_mat2.data(), prms.n_training_samples, prms.n_training_samples, false, true, stream);
+  raft::stats::mean(row_means.data(), fitted_kernel_mat.data(), prms.n_training_samples, prms.n_training_samples, false, true, stream);
 
   // Step 2: Compute column means
   raft::stats::mean(col_means.data(), kernel_mat.data(), prms.n_rows, prms.n_training_samples, false, true, stream);
   // Step 3: Compute overall mean
   value_t overall_mean;
-  thrust::device_ptr<value_t> d_kernel_mat_ptr(kernel_mat2.data());
+  thrust::device_ptr<value_t> d_kernel_mat_ptr(fitted_kernel_mat.data());
   value_t sum = thrust::reduce(thrust_policy, d_kernel_mat_ptr, d_kernel_mat_ptr + prms.n_rows * prms.n_rows, static_cast<value_t>(0));
   overall_mean = sum / (prms.n_rows * prms.n_rows);
   // Output the overall mean
@@ -249,13 +240,14 @@ void kpcaTransform(const raft::handle_t &handle, value_t *fit_input, value_t *in
 
   rmm::device_uvector<value_t> sqrt_vals(prms.n_components, stream);
   raft::matrix::seqRoot(eigenvalues, sqrt_vals.data(), prms.n_components, stream);
-
+  rmm::device_uvector<value_t> eigenvectors_div_by_sqrt(prms.n_training_samples * prms.n_components, stream);
+  raft::update_device(eigenvectors_div_by_sqrt.data(), eigenvectors, prms.n_components * prms.n_training_samples, stream);
   // Launch kernel to divide each element in eigenvectors by the corresponding sqrt_val
   dim3 gridDim((prms.n_components + 31) / 32, (prms.n_training_samples + 31) / 32);
   dim3 blockDim(32, 32);
-  divideBySqrtKernel<<<gridDim, blockDim, 0, stream>>>(eigenvectors, sqrt_vals.data(), prms.n_training_samples, prms.n_components);
+  divideBySqrtKernel<<<gridDim, blockDim, 0, stream>>>(eigenvectors_div_by_sqrt.data(), sqrt_vals.data(), prms.n_training_samples, prms.n_components);
 
-  raft::linalg::gemm(handle, trans_input, kernel_mat.data(), eigenvectors, prms.n_rows, prms.n_components, prms.n_training_samples, 
+  raft::linalg::gemm(handle, trans_input, kernel_mat.data(), eigenvectors_div_by_sqrt.data(), prms.n_rows, prms.n_components, prms.n_training_samples, 
                       true, true, true, stream);
 }
 }
