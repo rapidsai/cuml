@@ -100,7 +100,7 @@ class KernelPCA(UniversalBase,
     .. code-block:: python
 
         >>> # Importing KernelPCA
-        >>> from cuml import KernelPCA
+        >>> from cuml.experimental.decomposition import KernelPCA
 
         >>> import cudf
         >>> import cupy as cp
@@ -114,14 +114,23 @@ class KernelPCA(UniversalBase,
         >>> kpca_float.fit(gdf_float)
         KernelPCA()
 
-        >>> print(f'components: {kpca_float.eigenvalues}') # doctest: +SKIP
-        components: [[...], [...]]
-        >>> print(f'eigen vectors: {kpca_float.eigenvectors}') # doctest: +SKIP
+        >>> print(f'components: {kpca_float.eigenvalues_}') # doctest: +SKIP
+        components:
+        0    1.0
+        1    1.0
+        >>> print(f'eigen vectors: {kpca_float.eigenvectors_}') # doctest: +SKIP
         eigen vectors: [...]
-
+                  0         1
+        0 -0.408248  0.707107
+        1 -0.408248 -0.707107
+        2  0.816497  0.000000
         >>> trans_gdf_float = kpca_float.transform(gdf_float)
         >>> print(f'Transformed: {trans_gdf_float}') # doctest: +SKIP
-        Transformed: [[...], [...]]
+        Transformed:
+                0             1
+        0 -0.408248  7.071068e-01
+        1 -0.408248 -7.071068e-01
+        2  0.816497 -1.284374e-08
 
     Parameters
     ----------
@@ -365,8 +374,6 @@ class KernelPCA(UniversalBase,
         from a training set.
 
         """
-        # TODO necessary?
-        # cuml.internals.set_api_output_type("cupy")
         self.fit(X)
         IF GPUBUILD == 1:
             cdef paramsKPCA *params = <paramsKPCA*><size_t> \
