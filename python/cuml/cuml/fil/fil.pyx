@@ -478,6 +478,11 @@ cdef class ForestInference_impl():
         preds_ptr = preds.ptr
 
         if fil_dtype == "float32":
+            if self.get_forest32() == NULL:
+                raise RuntimeError(
+                    "Cannot call predict() with empty forest. "
+                    "Please load the forest first with load() or "
+                    "load_from_sklearn()")
             predict(handle_[0],
                     self.get_forest32(),
                     <float*> preds_ptr,
@@ -485,6 +490,11 @@ cdef class ForestInference_impl():
                     <size_t> n_rows,
                     <bool> predict_proba)
         elif fil_dtype == "float64":
+            if self.get_forest64() == NULL:
+                raise RuntimeError(
+                    "Cannot call predict() with empty forest. "
+                    "Please load the forest first with load() or "
+                    "load_from_sklearn()")
             predict(handle_[0],
                     self.get_forest64(),
                     <double*> preds_ptr,
