@@ -118,9 +118,10 @@ void evaluateKernelMatrix(const raft::handle_t &handle, value_t *input1, int n_r
  * @brief perform fit operation for kernel PCA. Generates eigenvalues and eigenvectors (unscaled)
  * @param[in] handle: cuml handle object
  * @param[in] input: data to fit using kernel PCA. Size n_rows x n_cols. The size of the data is indicated in prms.
- * @param[out] eigenvectors: unscaled eigenvectors of the kernel matrix. Scaling occurs in the transform function. Size n_rows * n_components.
- * @param[out] eigenvalues: eigenvalues of the principal components. Size n_components * 1.
- * @param[in] prms: data structure that includes all the parameters from data size to algorithm.
+ * @param[out] eigenvectors: unscaled eigenvectors of the kernel matrix. Scaling occurs in the transform function. Size n_rows * n_rows.
+ * @param[out] eigenvalues: eigenvalues of the principal components. Size n_rows.
+ * @param[out] n_components: number of components to keep. If remove_zero_eig is set to true, this is the number of non-zero eigenvalues.
+ * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  * @param[in] stream cuda stream
  */
 template <typename value_t, typename enum_solver = ML::solver>
@@ -174,10 +175,10 @@ void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *eigenvectors
 
 
 /**
- * @brief performs transform operation for the pca. Transforms the data to kernel eigenspace.
+ * @brief performs transform operation for the pca. Transforms the data to kernel eigenspace. Used when fit and transform are on the same data.
  * @param[in] handle: the internal cuml handle object
  * @param[out] eigenvectors: principal components of the input data. Size n_rows * n_components.
- * @param[out] eigenvalues: singular values of the data. Size n_components * 1.
+ * @param[out] eigenvalues: singular values of the data. Size n_components.
  * @param[out] trans_input:  the transformed data. Size n_rows * n_components.
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  * @param[in] stream cuda stream
@@ -197,10 +198,10 @@ void kpcaTransformWithFitData(const raft::handle_t &handle,
 /**
  * @brief performs transform operation for the pca. Transforms the data to kernel eigenspace.
  * @param[in] handle: the internal cuml handle object
- * @param[in] fit_input: data to transform. Size n_training_samples x n_cols.
+ * @param[in] fit_input: data used. Size n_training_samples x n_cols.
  * @param[in] input: data to transform. Size n_rows x n_cols.
  * @param[in] eigenvectors: principal components of the input data. Size n_training_samples * n_components.
- * @param[in] eigenvalues: singular values of the data. Size n_components * 1.
+ * @param[in] eigenvalues: singular values of the data. Size n_components.
  * @param[out] trans_input:  the transformed data. Size n_rows * n_components.
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  * @param[in] stream cuda stream
