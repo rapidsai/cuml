@@ -7,12 +7,12 @@ repos:
       hooks:
           - id: black
             files: python/.*
-            args: [--config, python/pyproject.toml]
+            args: [--config, python/cuml/pyproject.toml]
     - repo: https://github.com/PyCQA/flake8
       rev: 5.0.4
       hooks:
           - id: flake8
-            args: [--config=python/.flake8]
+            args: [--config=python/cuml/.flake8]
             files: python/.*$
             types: [file]
             types_or: [python, cython]

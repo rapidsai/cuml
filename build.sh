@@ -61,7 +61,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    CUML_EXTRA_PYTHON_ARGS - Extra arguments to pass directly to pip install
 "
 LIBCUML_BUILD_DIR=${LIBCUML_BUILD_DIR:=${REPODIR}/cpp/build}
-CUML_BUILD_DIR=${REPODIR}/python/build
+CUML_BUILD_DIR=${REPODIR}/python/cuml/build
 PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
 BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
 
@@ -294,7 +294,7 @@ if (! hasArg --configure-only) && (completeBuild || hasArg cuml || hasArg pydocs
     fi
 
     SKBUILD_CMAKE_ARGS="-DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL};${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true ${REPODIR}/python
+        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true ${REPODIR}/python/cuml
 
     if hasArg pydocs; then
         cd ${REPODIR}/docs
@@ -304,5 +304,5 @@ fi
 
 if hasArg cuml-cpu; then
     SKBUILD_CMAKE_ARGS="-DCUML_CPU=ON;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE" \
-        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true ${REPODIR}/python
+        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true ${REPODIR}/python/cuml
 fi

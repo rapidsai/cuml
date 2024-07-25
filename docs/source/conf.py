@@ -201,7 +201,7 @@ def setup(app):
 # The following is used by sphinx.ext.linkcode to provide links to github
 linkcode_resolve = make_linkcode_resolve(
     'cuml', 'https://github.com/rapidsai/'
-    'cuml/blob/{revision}/python/'
+    'cuml/blob/{revision}/python/cuml/'
     '{package}/{path}#L{lineno}')
 
 # Set the default role for interpreted code (anything surrounded in `single
