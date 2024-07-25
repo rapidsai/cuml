@@ -219,7 +219,7 @@ def test_pca_fit_transform(datatype, input_type, name, use_handle):
     if name != "blobs":
         skpca = skPCA(n_components=2)
         Xskpca = skpca.fit_transform(X)
-    
+
     handle, stream = get_handle(use_handle)
     cupca = cuPCA(n_components=2, handle=handle)
 
