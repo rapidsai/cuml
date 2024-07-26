@@ -180,8 +180,8 @@ dependencies:
           - &treelite treelite==4.3.0
       - output_types: conda
         packages:
-          - &pylibraft_conda pylibraft==24.10.*,>=0.0.0a0
-          - &rmm_conda rmm==24.10.*,>=0.0.0a0
+          - &pylibraft_unsuffixed pylibraft==24.10.*,>=0.0.0a0
+          - &rmm_unsuffixed rmm==24.10.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -204,18 +204,22 @@ dependencies:
               - cuda-python
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - pylibraft-cu12==24.10.*,>=0.0.0a0
               - rmm-cu12==24.10.*,>=0.0.0a0
-          - matrix: {cuda: "11.*"}
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
             packages:
-              - &pylibraft_cu11 pylibraft-cu11==24.10.*,>=0.0.0a0
-              - &rmm_cu11 rmm-cu11==24.10.*,>=0.0.0a0
+              - pylibraft-cu11==24.10.*,>=0.0.0a0
+              - rmm-cu11==24.10.*,>=0.0.0a0
           - matrix:
             packages:
-              - pylibraft==24.10.*,>=0.0.0a0
-              - rmm==24.10.*,>=0.0.0a0
+              - *pylibraft_unsuffixed
+              - *rmm_unsuffixed
 
   py_run:
     common:
@@ -233,10 +237,10 @@ dependencies:
           - *treelite
       - output_types: conda
         packages:
-          - &cudf_conda cudf==24.10.*,>=0.0.0a0
-          - &cupy_conda cupy>=12.0.0
-          - &dask_cudf_conda dask-cudf==24.10.*,>=0.0.0a0
-          - &raft_dask_conda raft-dask==24.10.*,>=0.0.0a0
+          - &cudf_unsuffixed cudf==24.10.*,>=0.0.0a0
+          - &cupy_unsuffixed cupy>=12.0.0
+          - &dask_cudf_unsuffixed dask-cudf==24.10.*,>=0.0.0a0
+          - &raft_dask_unsuffixed raft-dask==24.10.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -246,30 +250,58 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - cudf-cu12==24.10.*,>=0.0.0a0
-              - cupy-cuda12x>=12.0.0
+              - &cupy_pyproject_cu12 cupy-cuda12x>=12.0.0
               - dask-cudf-cu12==24.10.*,>=0.0.0a0
               - pylibraft-cu12==24.10.*,>=0.0.0a0
               - raft-dask-cu12==24.10.*,>=0.0.0a0
               - rmm-cu12==24.10.*,>=0.0.0a0
-          - matrix: {cuda: "11.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "false"
+            packages:
+              - *cudf_unsuffixed
+              # NOTE: cupy still has a "-cuda12x" suffix here, because it's suffixed
+              #       in DLFW builds
+              - *cupy_pyproject_cu12
+              - *dask_cudf_unsuffixed
+              - *pylibraft_unsuffixed
+              - *raft_dask_unsuffixed
+              - *rmm_unsuffixed
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
             packages: &py_run_packages_cu11
               - cudf-cu11==24.10.*,>=0.0.0a0
               - &cupy_pyproject_cu11 cupy-cuda11x>=12.0.0
               - dask-cudf-cu11==24.10.*,>=0.0.0a0
-              - *pylibraft_cu11
+              - pylibraft-cu11==24.10.*,>=0.0.0a0
               - raft-dask-cu11==24.10.*,>=0.0.0a0
-              - *rmm_cu11
+              - rmm-cu11==24.10.*,>=0.0.0a0
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "false"
+            packages:
+              - *cudf_unsuffixed
+              # NOTE: cupy still has a "-cuda11x" suffix here, because it's suffixed
+              #       in DLFW builds
+              - *cupy_pyproject_cu11
+              - *dask_cudf_unsuffixed
+              - *pylibraft_unsuffixed
+              - *raft_dask_unsuffixed
+              - *rmm_unsuffixed
           - matrix:
             packages:
-              - *cudf_conda
+              - *cudf_unsuffixed
               - *cupy_pyproject_cu11
-              - *dask_cudf_conda
-              - *pylibraft_conda
-              - *raft_dask_conda
-              - *rmm_conda
+              - *dask_cudf_unsuffixed
+              - *pylibraft_unsuffixed
+              - *raft_dask_unsuffixed
+              - *rmm_unsuffixed
   cuda_version:
     specific:
       - output_types: conda
