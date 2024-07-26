@@ -293,7 +293,8 @@ class UMAP(UniversalBase,
         :ref:`output-data-type-configuration` for more info.
     build_algo: string (default='auto')
         How to build the knn graph. Supported build algorithms are ['auto', 'brute_force_knn',
-        'nn_descent']. 'auto' chooses to run with brute force knn or nn descent based on the dataset size.
+        'nn_descent']. 'auto' chooses to run with brute force knn if number of data rows is
+        smaller than or equal to 50K. Otherwise, runs with nn descent.
     build_kwds: dict (optional, default=None)
         Build algorithm argument {'nnd_graph_degree': 64, 'nnd_intermediate_graph_degree': 128,
         'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_return_distances': True}
@@ -431,6 +432,12 @@ class UMAP(UniversalBase,
                                                  n_neighbors)
 
         if build_algo == "auto" or build_algo == "brute_force_knn" or build_algo == "nn_descent":
+            if self.deterministic and build_algo == "auto":
+                # TODO: for now, users should be able to see the same results as previous version
+                # (i.e. running brute force knn) when they explicitly pass random_state
+                # https://github.com/rapidsai/cuml/issues/5985
+                logger.warn("build_algo set to brute_force_knn because random_state is given")
+                self.build_algo ="brute_force_knn"
             self.build_algo = build_algo
         else:
             raise Exception("Invalid build algo: {}. Only support auto, brute_force_knn and nn_descent" % build_algo)
