@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,19 @@
 from libcpp cimport bool
 
 ctypedef int underlying_type_t_solver
+
+cdef extern from "raft/distance/distance_types.hpp" namespace "raft::distance::kernels" nogil:
+    enum KernelType:
+        LINEAR,
+        POLYNOMIAL,
+        RBF,
+        TANH
+
+    cdef struct KernelParams:
+        KernelType kernel
+        int degree
+        double gamma
+        double coef0
 
 cdef extern from "cuml/decomposition/params.hpp" namespace "ML" nogil:
 
@@ -41,3 +54,11 @@ cdef extern from "cuml/decomposition/params.hpp" namespace "ML" nogil:
     cdef cppclass paramsPCA(paramsTSVD):
         bool copy
         bool whiten
+
+    cdef cppclass paramsKPCA(paramsTSVD):
+        KernelParams kernel
+        size_t n_training_samples
+        bool copy
+        bool remove_zero_eig
+        bool fit_inverse_transform
+
