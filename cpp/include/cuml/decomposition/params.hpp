@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <cuml/matrix/kernelparams.h>
 
 #include <cstdint>
 
@@ -78,8 +79,19 @@ class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
   bool whiten = false;
 };
 
+template <typename enum_solver = solver>
+class paramsKPCATemplate : public paramsTSVDTemplate<enum_solver> {
+ public:
+  MLCommon::Matrix::KernelParams kernel;
+  size_t n_training_samples  = 0;
+  bool copy                  = true;  // TODO unused
+  bool remove_zero_eig       = false;
+  bool fit_inverse_transform = false;  // TODO unused
+};
+
 typedef paramsTSVDTemplate<> paramsTSVD;
 typedef paramsPCATemplate<> paramsPCA;
+typedef paramsKPCATemplate<> paramsKPCA;
 
 enum class mg_solver { COV_EIG_DQ, COV_EIG_JACOBI, QR };
 
