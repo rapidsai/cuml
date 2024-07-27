@@ -309,8 +309,8 @@ class KernelPCA(UniversalBase,
     @enable_device_interop
     def fit(self, X, y=None) -> "KernelPCA":
         """
-        Fit the model with X. y is currently ignored.
-
+        Fit the model with X.
+        Param y is not used, present for API consistency by convention.
         """
         if self.copy_X:
             self.X_fit_ = X.copy()
@@ -368,11 +368,8 @@ class KernelPCA(UniversalBase,
     @enable_device_interop
     def fit_transform(self, X, y=None) -> CumlArray:
         """
-        Apply dimensionality reduction to X.
-
-        X is projected on the first principal components previously extracted
-        from a training set.
-
+        Fit the model with X and apply the kernel-based dimensionality reduction on X.
+        Param y is not used, present for API consistency by convention.
         """
         self.fit(X)
         IF GPUBUILD == 1:
@@ -408,13 +405,13 @@ class KernelPCA(UniversalBase,
             return t_input_data
     
     @enable_device_interop
-    def transform(self, X, convert_dtype=False) -> CumlArray:
         """
-        Apply dimensionality reduction to X.
+        Apply kernel-based dimensionality reduction to X.
 
-        X is projected on the first principal components previously extracted
-        from a training set.
+        X is projected into the kernel principal component space
+        learned from the training set.
 
+        Param y is not used, present for API consistency by convention.
         """
         self._check_is_fitted('eigenvectors_')
         cdef uintptr_t _fit_input_ptr = self.X_m.ptr
