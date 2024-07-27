@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -440,7 +440,7 @@ class SVC(SVMBase,
         self._fit_status_ = 0
         return self
 
-    def _fit_proba(self, X, y, samle_weight) -> "SVC":
+    def _fit_proba(self, X, y, sample_weight) -> "SVC":
         params = self.get_params()
         params["probability"] = False
 
@@ -460,8 +460,24 @@ class SVC(SVMBase,
                                                cv=5,
                                                method='sigmoid')
 
+        # Apply class weights to sample weights, necessary, so it doesn't crash when sample_weight is None
+        sample_weight = apply_class_weight(self.handle, sample_weight, self.class_weight, y, self.verbose,
+                                           self.output_type, self.dtype)
+
+        # If sample_weight is not None, it is a cupy array, and we need to convert it to a numpy array for sklearn
+        if sample_weight is not None:
+            # Currently, fitting a probabilistic SVC with class weights requires at least 3 classes, otherwise the following,
+            # ambiguous error is raised: ValueError: Buffer dtype mismatch, expected 'const float' but got 'double'
+            if len(set(y)) < 3:
+                raise ValueError("At least 3 classes are required to use probabilistic SVC with class weights.")
+
+            # Convert cupy array to numpy array
+            sample_weight = sample_weight.get()
+
         with cuml.internals.exit_internal_api():
-            self.prob_svc.fit(X, y)
+            # Fit the model, sample_weight is either None or a numpy array
+            self.prob_svc.fit(X, y, sample_weight=sample_weight)
+
         self._fit_status_ = 0
         return self
 

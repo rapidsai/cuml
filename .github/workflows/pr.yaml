@@ -26,10 +26,10 @@ jobs:
       - wheel-tests-cuml
       - devcontainer
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@cuda-12.5.1
   checks:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@cuda-12.5.1
     with:
       enable_check_generated_files: false
       ignored_pr_jobs: >-
@@ -37,7 +37,7 @@ jobs:
   clang-tidy:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@cuda-12.5.1
     with:
       build_type: pull-request
       node_type: "cpu8"
@@ -47,19 +47,19 @@ jobs:
   conda-cpp-build:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@cuda-12.5.1
     with:
       build_type: pull-request
   conda-cpp-tests:
     needs: conda-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@cuda-12.5.1
     with:
       build_type: pull-request
   conda-cpp-checks:
     needs: conda-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@cuda-12.5.1
     with:
       build_type: pull-request
       enable_check_symbols: true
@@ -67,20 +67,20 @@ jobs:
   conda-python-build:
     needs: conda-cpp-build
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@cuda-12.5.1
     with:
       build_type: pull-request
   conda-python-tests-singlegpu:
     needs: conda-python-build
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@cuda-12.5.1
     with:
       build_type: pull-request
       script: "ci/test_python_singlegpu.sh"
   optional-job-conda-python-tests-cudf-pandas-integration:
     needs: conda-python-build
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@cuda-12.5.1
     with:
       matrix_filter: map(select(.ARCH == "amd64"))
       build_type: pull-request
@@ -88,14 +88,14 @@ jobs:
   conda-python-tests-dask:
     needs: conda-python-build
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@cuda-12.5.1
     with:
       build_type: pull-request
       script: "ci/test_python_dask.sh"
   conda-notebook-tests:
     needs: conda-python-build
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@cuda-12.5.1
     with:
       build_type: pull-request
       node_type: "gpu-v100-latest-1"
@@ -105,7 +105,7 @@ jobs:
   docs-build:
     needs: conda-python-build
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@cuda-12.5.1
     with:
       build_type: pull-request
       node_type: "gpu-v100-latest-1"
@@ -115,7 +115,7 @@ jobs:
   wheel-build-cuml:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@cuda-12.5.1
     with:
       build_type: pull-request
       script: ci/build_wheel.sh
@@ -125,16 +125,16 @@ jobs:
   wheel-tests-cuml:
     needs: wheel-build-cuml
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@cuda-12.5.1
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
   devcontainer:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@cuda-12.5.1
     with:
       arch: '["amd64"]'
-      cuda: '["12.2"]'
+      cuda: '["12.5"]'
       extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
       build_command: |
         sccache -z;

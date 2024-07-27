@@ -16,7 +16,7 @@ on:
 jobs:
   conda-cpp-checks:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@cuda-12.5.1
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
@@ -26,7 +26,7 @@ jobs:
       symbol_exclusions: raft_cutlass
   conda-cpp-tests:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@cuda-12.5.1
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
@@ -34,7 +34,7 @@ jobs:
       sha: ${{ inputs.sha }}
   conda-python-tests-singlegpu:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@cuda-12.5.1
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
@@ -43,7 +43,7 @@ jobs:
       script: "ci/test_python_singlegpu.sh"
   conda-python-tests-dask:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@cuda-12.5.1
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}
@@ -52,7 +52,7 @@ jobs:
       script: "ci/test_python_dask.sh"
   wheel-tests-cuml:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-24.08
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@cuda-12.5.1
     with:
       build_type: nightly
       branch: ${{ inputs.branch }}

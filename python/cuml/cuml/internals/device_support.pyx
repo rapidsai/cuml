@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,11 +15,24 @@
 #
 
 
+from packaging.version import Version
+
+MIN_SKLEARN_VERSION = Version('1.5')
+
+
 try:
     import sklearn  # noqa: F401  # no-cython-lint
+
     CPU_ENABLED = True
+
+    if(Version(sklearn.__version__) >= MIN_SKLEARN_VERSION):
+        MIN_SKLEARN_PRESENT = (True, None, None)
+    else:
+        MIN_SKLEARN_PRESENT = (False, sklearn.__version__, MIN_SKLEARN_VERSION)
+
 except ImportError:
     CPU_ENABLED = False
+    MIN_SKLEARN_PRESENT = (False, None, None)
 
 IF GPUBUILD == 1:
     GPU_ENABLED = True

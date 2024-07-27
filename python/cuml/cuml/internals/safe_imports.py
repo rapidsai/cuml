@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,15 @@
 
 import importlib
 import traceback
+import warnings
 
 from contextlib import contextmanager
-from cuml.internals.device_support import CPU_ENABLED, GPU_ENABLED
+from cuml.internals.device_support import (
+    CPU_ENABLED,
+    GPU_ENABLED,
+    MIN_SKLEARN_VERSION,
+    MIN_SKLEARN_PRESENT,
+)
 from cuml.internals import logger
 
 
@@ -429,12 +435,25 @@ def cpu_only_import(module, *, alt=None):
         The imported module, the given alternate, or a class derived from
         UnavailableMeta.
     """
-    if CPU_ENABLED:
+    if CPU_ENABLED and MIN_SKLEARN_PRESENT[0]:
         return importlib.import_module(module)
+
     else:
+        if CPU_ENABLED:
+            err_msg = (
+                "Installed version of Scikit-learn {} "
+                "is lower than the latest tested and supported "
+                "version {}. This can affect the functionality "
+                "of some CPU components of cuML, GPU estimators "
+                "are unaffected.".format(
+                    MIN_SKLEARN_PRESENT[1], MIN_SKLEARN_PRESENT[2]
+                )
+            )
+        else:
+            err_msg = f"{module} is not installed in GPU-only installations"
         return safe_import(
             module,
-            msg=f"{module} is not installed in GPU-only installations",
+            msg=err_msg,
             alt=alt,
         )
 
@@ -467,14 +486,29 @@ def cpu_only_import_from(module, symbol, *, alt=None):
         The imported symbol, the given alternate, or a class derived from
         UnavailableMeta.
     """
-    if CPU_ENABLED:
+    if CPU_ENABLED and MIN_SKLEARN_PRESENT[0]:
         imported_module = importlib.import_module(module)
         return getattr(imported_module, symbol)
     else:
+        if CPU_ENABLED:
+            err_msg = (
+                "Installed version of Scikit-learn {} "
+                "is lower than the latest tested and supported "
+                "version {}. This can affect the functionality "
+                "of some CPU components of cuML, GPU estimators "
+                "are unaffected.".format(
+                    MIN_SKLEARN_PRESENT[1], MIN_SKLEARN_PRESENT[2]
+                )
+            )
+        else:
+            err_msg = (
+                f"{module}.{symbol} is not installed in GPU-only "
+                "installations"
+            )
+
         return safe_import_from(
             module,
             symbol,
-            msg=f"{module}.{symbol} is not available in GPU-only"
-            " installations",
+            msg=err_msg,
             alt=alt,
         )

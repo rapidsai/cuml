@@ -203,6 +203,8 @@ def concatenate(objs, axis=0):
         else:
             return cudf.concat(objs)
     elif isinstance(objs[0], cp.ndarray):
+        if len(objs) == 1:
+            return objs[0]
         return cp.concatenate(objs, axis=axis)
 
     elif isinstance(objs[0], np.ndarray):
