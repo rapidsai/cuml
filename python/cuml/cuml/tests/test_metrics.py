@@ -1065,7 +1065,7 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Change precision of one parameter
-    Y = np.asfarray(Y, dtype=np.float32)
+    Y = np.asarray(Y, dtype=np.float32)
     S = pairwise_distances(X, Y, metric=metric)
     S2 = ref_dense_pairwise_dist(X, Y, metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
@@ -1074,8 +1074,8 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     compare_precision = 2
 
     # Change precision of both parameters to float
-    X = np.asfarray(X, dtype=np.float32)
-    Y = np.asfarray(Y, dtype=np.float32)
+    X = np.asarray(X, dtype=np.float32)
+    Y = np.asarray(Y, dtype=np.float32)
     S = pairwise_distances(X, Y, metric=metric)
     S2 = ref_dense_pairwise_dist(X, Y, metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
@@ -1132,8 +1132,8 @@ def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
     # For fp32, compare at 4 decimals, (3 places less than the ~7 max)
     compare_precision = 4
 
-    X = np.asfarray(X, dtype=np.float32)
-    Y = np.asfarray(Y, dtype=np.float32)
+    X = np.asarray(X, dtype=np.float32)
+    Y = np.asarray(Y, dtype=np.float32)
 
     # Compare to sklearn, fp32
     S = pairwise_distances(X, Y, metric=metric)
@@ -1228,7 +1228,7 @@ def test_pairwise_distances_exceptions():
 
     X_int = rng.randint(10, size=(5, 4))
     X_double = rng.random_sample((5, 4))
-    X_float = np.asfarray(X_double, dtype=np.float32)
+    X_float = np.asarray(X_double, dtype=np.float32)
     X_bool = rng.choice([True, False], size=(5, 4))
 
     # Test int inputs (only float/double accepted at this time)

@@ -1163,12 +1163,16 @@ class CumlArray:
         if (
             not fail_on_order and order != arr.order and order != "K"
         ) or make_copy:
-            arr = cls(
-                arr.mem_type.xpy.array(
-                    arr.to_output("array"), order=order, copy=make_copy
-                ),
-                index=index,
-            )
+            if make_copy:
+                data = arr.mem_type.xpy.array(
+                    arr.to_output("array"), order=order
+                )
+            else:
+                data = arr.mem_type.xpy.asarray(
+                    arr.to_output("array"), order=order
+                )
+
+            arr = cls(data, index=index)
 
         n_rows = arr.shape[0]
 
