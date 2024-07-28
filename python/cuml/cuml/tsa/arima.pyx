@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -857,7 +857,7 @@ class ARIMA(Base):
             maxiter: int = 1000,
             method="ml",
             truncate: int = 0,
-            convert_dtype=True) -> "ARIMA":
+            convert_dtype: bool = True) -> "ARIMA":
         r"""Fit the ARIMA model to each time series.
 
         Parameters
@@ -907,7 +907,8 @@ class ARIMA(Base):
             def gf(x) -> np.ndarray:
                 """The gradient of the (batched) energy functional."""
                 # Recall: We maximize LL by minimizing -LL
-                n_gllf = -self._loglike_grad(x, h, True, fit_method, truncate)
+                n_gllf = -self._loglike_grad(x, h, True, fit_method, truncate,
+                                             convert_dtype)
                 return n_gllf / (self.n_obs - 1)
 
             # Check initial parameter sanity
@@ -946,12 +947,12 @@ class ARIMA(Base):
             x, niter = fit_helper(x if method == "css-ml" else x0, "ml")
             self.niter = (self.niter + niter) if method == "css-ml" else niter
 
-        self.unpack(self._batched_transform(x))
+        self.unpack(self._batched_transform(x), convert_dtype)
         return self
 
     @nvtx_annotate(message="tsa.arima.ARIMA._loglike", domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
-    def _loglike(self, x, convert_dtype, trans=True, method="ml", truncate=0):
+    def _loglike(self, x, trans=True, method="ml", truncate=0, convert_dtype=True):
         """Compute the batched log-likelihood for the given parameters.
 
         Parameters
@@ -1019,8 +1020,8 @@ class ARIMA(Base):
     @nvtx_annotate(message="tsa.arima.ARIMA._loglike_grad",
                    domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
-    def _loglike_grad(self, x, convert_dtype, h=1e-8, trans=True, method="ml",
-                      truncate=0):
+    def _loglike_grad(self, x, h=1e-8, trans=True, method="ml", truncate=0,
+                      convert_dtype=True):
         """Compute the gradient (via finite differencing) of the batched
         log-likelihood.
 
