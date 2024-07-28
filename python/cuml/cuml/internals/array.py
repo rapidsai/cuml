@@ -256,9 +256,7 @@ class CumlArray:
                             "Must specify dtype when data is passed as a"
                             " {}".format(type(data))
                         )
-                if isinstance(data, (CudfBuffer, DeviceBuffer)):
-                    self._mem_type = MemoryType.device
-                elif mem_type is None:
+                if mem_type is None:
                     if GlobalSettings().memory_type in (
                         None,
                         MemoryType.mirror,
@@ -269,13 +267,6 @@ class CumlArray:
                         )
                     self._mem_type = GlobalSettings().memory_type
 
-                try:
-                    data = data.ptr
-                    if shape is None:
-                        shape = (data.size,)
-                    self._owner = data
-                except AttributeError:  # Not a buffer object
-                    pass
                 if isinstance(data, int):
                     self._owner = owner
                 else:
@@ -320,7 +311,7 @@ class CumlArray:
                         if len(shape) == 0:
                             strides = None
                         elif len(shape) == 1:
-                            strides == (dtype.itemsize,)
+                            strides = (dtype.itemsize,)
                     except TypeError:  # Shape given as integer
                         strides = (dtype.itemsize,)
                 if strides is None:
@@ -1172,12 +1163,16 @@ class CumlArray:
         if (
             not fail_on_order and order != arr.order and order != "K"
         ) or make_copy:
-            arr = cls(
-                arr.mem_type.xpy.array(
-                    arr.to_output("array"), order=order, copy=make_copy
-                ),
-                index=index,
-            )
+            if make_copy:
+                data = arr.mem_type.xpy.array(
+                    arr.to_output("array"), order=order
+                )
+            else:
+                data = arr.mem_type.xpy.asarray(
+                    arr.to_output("array"), order=order
+                )
+
+            arr = cls(data, index=index)
 
         n_rows = arr.shape[0]
 
