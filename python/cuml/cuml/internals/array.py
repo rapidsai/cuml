@@ -256,9 +256,7 @@ class CumlArray:
                             "Must specify dtype when data is passed as a"
                             " {}".format(type(data))
                         )
-                if isinstance(data, (CudfBuffer, DeviceBuffer)):
-                    self._mem_type = MemoryType.device
-                elif mem_type is None:
+                if mem_type is None:
                     if GlobalSettings().memory_type in (
                         None,
                         MemoryType.mirror,
@@ -269,13 +267,6 @@ class CumlArray:
                         )
                     self._mem_type = GlobalSettings().memory_type
 
-                try:
-                    data = data.ptr
-                    if shape is None:
-                        shape = (data.size,)
-                    self._owner = data
-                except AttributeError:  # Not a buffer object
-                    pass
                 if isinstance(data, int):
                     self._owner = owner
                 else:
@@ -320,7 +311,7 @@ class CumlArray:
                         if len(shape) == 0:
                             strides = None
                         elif len(shape) == 1:
-                            strides == (dtype.itemsize,)
+                            strides = (dtype.itemsize,)
                     except TypeError:  # Shape given as integer
                         strides = (dtype.itemsize,)
                 if strides is None:

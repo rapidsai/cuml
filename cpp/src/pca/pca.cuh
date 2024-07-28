@@ -108,7 +108,7 @@ void pcaFit(const raft::handle_t& handle,
   auto n_components = prms.n_components;
   if (n_components > prms.n_cols) n_components = prms.n_cols;
 
-  raft::stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
+  raft::stats::mean(mu, input, prms.n_cols, prms.n_rows, false, false, stream);
 
   auto len = prms.n_cols * prms.n_cols;
   rmm::device_uvector<math_t> cov(len, stream);
