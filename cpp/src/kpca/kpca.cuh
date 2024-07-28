@@ -309,7 +309,6 @@ void kpcaTransform(const raft::handle_t& handle,
                                d_kernel_mat_ptr + prms.n_rows * prms.n_rows,
                                static_cast<value_t>(0));
   overall_mean = sum / (prms.n_rows * prms.n_rows);
-  // Output the overall mean
 
   // Step 4: Mean-center the matrix
   dim3 grid((prms.n_rows + 31) / 32, (prms.n_training_samples + 31) / 32);
