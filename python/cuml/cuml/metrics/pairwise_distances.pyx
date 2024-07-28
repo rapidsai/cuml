@@ -136,7 +136,7 @@ def _determine_metric(metric_str, is_sparse_=False):
 
 
 def nan_euclidean_distances(
-    X, Y=None, *, squared=False, missing_values=cp.nan
+    X, Y=None, *, squared=False, missing_values=cp.nan, convert_dtype=True
 ):
     """Calculate the euclidean distances in the presence of missing values.
 

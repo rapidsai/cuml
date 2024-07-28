@@ -314,7 +314,7 @@ class SGD(Base,
 
     @generate_docstring()
     @cuml.internals.api_base_return_any(set_output_dtype=True)
-    def fit(self, X, y, convert_dtype=False) -> "SGD":
+    def fit(self, X, y, convert_dtype=True) -> "SGD":
         """
         Fit the model with X and y.
 
@@ -408,7 +408,7 @@ class SGD(Base,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False) -> CumlArray:
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 
@@ -458,7 +458,7 @@ class SGD(Base,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array(get_output_dtype=True)
-    def predictClass(self, X, convert_dtype=False) -> CumlArray:
+    def predictClass(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 

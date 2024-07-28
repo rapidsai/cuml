@@ -316,7 +316,7 @@ class TruncatedSVD(UniversalBase,
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
     @enable_device_interop
-    def fit_transform(self, X, y=None) -> CumlArray:
+    def fit_transform(self, X, y=None, convert_dtype=True) -> CumlArray:
         """
         Fit LSI model to X and perform dimensionality reduction on X.
         y is currently ignored.
@@ -434,7 +434,7 @@ class TruncatedSVD(UniversalBase,
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
     @enable_device_interop
-    def transform(self, X, convert_dtype=False) -> CumlArray:
+    def transform(self, X, convert_dtype=True) -> CumlArray:
         """
         Perform dimensionality reduction on X.
 

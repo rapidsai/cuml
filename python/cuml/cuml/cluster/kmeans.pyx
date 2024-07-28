@@ -410,7 +410,7 @@ class KMeans(Base,
         """
         return self.fit(X, sample_weight=sample_weight).labels_
 
-    def _predict_labels_inertia(self, X, convert_dtype=False,
+    def _predict_labels_inertia(self, X, convert_dtype=True,
                                 sample_weight=None,
                                 normalize_weights=True
                                 ) -> typing.Tuple[CumlArray, float]:
@@ -549,7 +549,7 @@ class KMeans(Base,
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
     @enable_device_interop
-    def predict(self, X, convert_dtype=False, sample_weight=None,
+    def predict(self, X, convert_dtype=True, sample_weight=None,
                 normalize_weights=True) -> CumlArray:
         """
         Predict the closest cluster each sample in X belongs to.
@@ -568,7 +568,7 @@ class KMeans(Base,
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
     @enable_device_interop
-    def transform(self, X, convert_dtype=False) -> CumlArray:
+    def transform(self, X, convert_dtype=True) -> CumlArray:
         """
         Transform X to a cluster-distance space.
 

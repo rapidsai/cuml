@@ -1140,7 +1140,7 @@ class ARIMA(Base):
         return np.array(vec_loglike, dtype=np.float64)
 
     @nvtx_annotate(message="tsa.arima.ARIMA.unpack", domain="cuml_python")
-    def unpack(self, x: Union[list, np.ndarray]):
+    def unpack(self, x: Union[list, np.ndarray], convert_dtype=True):
         """Unpack linearized parameter vector `x` into the separate
         parameter arrays of the model
 

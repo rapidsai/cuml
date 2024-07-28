@@ -455,7 +455,7 @@ class QN(Base,
         self._coef_ = value
 
     @generate_docstring(X='dense_sparse')
-    def fit(self, X, y, sample_weight=None, convert_dtype=False) -> "QN":
+    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "QN":
         """
         Fit the model with X and y.
 
@@ -642,7 +642,7 @@ class QN(Base,
         return self
 
     @cuml.internals.api_base_return_array_skipall
-    def _decision_function(self, X, convert_dtype=False) -> CumlArray:
+    def _decision_function(self, X, convert_dtype=True) -> CumlArray:
         """
         Gives confidence score for X
 
@@ -786,7 +786,7 @@ class QN(Base,
             'shape': '(n_samples, 1)'
         })
     @cuml.internals.api_base_return_array(get_output_dtype=True)
-    def predict(self, X, convert_dtype=False) -> CumlArray:
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 

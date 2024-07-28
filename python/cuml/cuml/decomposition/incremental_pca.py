@@ -219,7 +219,7 @@ class IncrementalPCA(PCA):
         self._hyperparams = ["n_components", "whiten", "copy", "batch_size"]
         self._sparse_model = True
 
-    def fit(self, X, y=None) -> "IncrementalPCA":
+    def fit(self, X, y=None, convert_dtype=True) -> "IncrementalPCA":
         """
         Fit the model with X, using minibatches of size batch_size.
 
@@ -250,7 +250,11 @@ class IncrementalPCA(PCA):
             # transform and inverse transform convert the output to the
             # required type.
             X, n_samples, n_features, self.dtype = input_to_cupy_array(
-                X, order="K", check_dtype=[cp.float32, cp.float64]
+                X,
+                order="K",
+                convert_to_dtype=(cp.float32 if convert_dtype
+                                  else None),
+                check_dtype=[cp.float32, cp.float64]
             )
 
         n_samples, n_features = X.shape

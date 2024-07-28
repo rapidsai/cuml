@@ -407,7 +407,7 @@ class PCA(UniversalBase,
 
     @generate_docstring(X='dense_sparse')
     @enable_device_interop
-    def fit(self, X, y=None) -> "PCA":
+    def fit(self, X, y=None, convert_dtype=True) -> "PCA":
         """
         Fit the model with X. y is currently ignored.
 
@@ -650,7 +650,7 @@ class PCA(UniversalBase,
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
     @enable_device_interop
-    def transform(self, X, convert_dtype=False) -> CumlArray:
+    def transform(self, X, convert_dtype=True) -> CumlArray:
         """
         Apply dimensionality reduction to X.
 
@@ -669,6 +669,8 @@ class PCA(UniversalBase,
         elif self._sparse_model:
             X, _, _, _ = \
                 input_to_cupy_array(X, order='K',
+                                    convert_to_dtype=(dtype if convert_dtype
+                                                  else None),
                                     check_dtype=[cp.float32, cp.float64])
             return self._sparse_transform(X)
 

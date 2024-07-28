@@ -220,7 +220,7 @@ class CD(Base,
         }[self.loss]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=False, sample_weight=None) -> "CD":
+    def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "CD":
         """
         Fit the model with X and y.
 
@@ -313,7 +313,7 @@ class CD(Base,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False) -> CumlArray:
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 
