@@ -130,12 +130,11 @@ inline void launcher(const raft::handle_t& handle,
                                            static_cast<int64_t>(inputsA.n),
                                            static_cast<int64_t>(n_neighbors)};
 
-    if (graph.distances().has_value()) {
-      auto out_knn_dists_view =
-        raft::make_device_matrix_view(out.knn_dists, inputsA.n, n_neighbors);
-      raft::matrix::slice<float, int64_t, raft::row_major>(
-        handle, raft::make_const_mdspan(graph.distances().value()), out_knn_dists_view, coords);
-    }
+    RAFT_EXPECTS(graph.distances().has_value(),
+                 "return_distances for nn descent should be set to true to be used for UMAP");
+    auto out_knn_dists_view = raft::make_device_matrix_view(out.knn_dists, inputsA.n, n_neighbors);
+    raft::matrix::slice<float, int64_t, raft::row_major>(
+      handle, raft::make_const_mdspan(graph.distances().value()), out_knn_dists_view, coords);
     auto out_knn_indices_view =
       raft::make_device_matrix_view(out.knn_indices, inputsA.n, n_neighbors);
     raft::matrix::slice<int64_t, int64_t, raft::row_major>(
