@@ -126,4 +126,4 @@ def test_estimators_all_dtypes(model_name, dtype):
         res = model.predict(X_test)
 
     if hasattr(model, "transform"):
-        res = model.transform(X_test)
+        res = model.transform(X_test)  # noqa: F841

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -256,9 +256,8 @@ class KernelDensity(Base):
         if sample_weight is not None:
             self.sample_weight_ = input_to_cupy_array(
                 sample_weight,
-                convert_to_dtype=(np.float32 if convert_dtype
-                                  else None),
-                check_dtype=[cp.float32, cp.float64]
+                convert_to_dtype=(np.float32 if convert_dtype else None),
+                check_dtype=[cp.float32, cp.float64],
             ).array
             if self.sample_weight_.min() <= 0:
                 raise ValueError("sample_weight must have positive values")
@@ -266,10 +265,10 @@ class KernelDensity(Base):
             self.sample_weight_ = None
 
         self.X_ = input_to_cupy_array(
-            X, order="C",
-            convert_to_dtype=(np.float32 if convert_dtype
-                              else None),
-            check_dtype=[cp.float32, cp.float64]
+            X,
+            order="C",
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+            check_dtype=[cp.float32, cp.float64],
         ).array
 
         return self
@@ -296,8 +295,7 @@ class KernelDensity(Base):
             raise NotFittedError()
         X_cuml = input_to_cuml_array(
             X,
-            convert_to_dtype=(np.float32 if convert_dtype
-                              else None),
+            convert_to_dtype=(np.float32 if convert_dtype else None),
         )
         if self.metric_params:
             if len(self.metric_params) != 1:

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -80,13 +80,13 @@ def seas_test(y, s, handle=None, convert_dtype=True) -> CumlArray:
     h_y, n_obs, batch_size, _ = \
         input_to_host_array(y,
                             convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None),
+                                              else None),
                             check_dtype=[np.float32, np.float64])
 
     # Temporary: Python implementation
     python_res = python_seas_test(h_y, batch_size, n_obs, s)
     d_res, *_ = input_to_cuml_array(np.array(python_res),
                                     convert_to_dtype=(bool if convert_dtype
-                                                  else None),
+                                                      else None),
                                     check_dtype=bool)
     return d_res

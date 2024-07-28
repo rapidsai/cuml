@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -252,9 +252,8 @@ class IncrementalPCA(PCA):
             X, n_samples, n_features, self.dtype = input_to_cupy_array(
                 X,
                 order="K",
-                convert_to_dtype=(cp.float32 if convert_dtype
-                                  else None),
-                check_dtype=[cp.float32, cp.float64]
+                convert_to_dtype=(cp.float32 if convert_dtype else None),
+                check_dtype=[cp.float32, cp.float64],
             )
 
         n_samples, n_features = X.shape
