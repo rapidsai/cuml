@@ -223,7 +223,6 @@ class LabelEncoder(Base):
         if encoded.has_nulls and self.handle_unknown == "error":
             raise KeyError("Attempted to encode unseen key")
 
-        # print(type(encoded))
         return encoded
 
     def fit_transform(self, y, z=None) -> cudf.Series:
