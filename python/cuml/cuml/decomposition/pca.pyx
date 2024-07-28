@@ -635,8 +635,9 @@ class PCA(UniversalBase,
                 self.components_ *= cp.sqrt(self.n_samples_ - 1)
                 self.components_ /= self.singular_values_.reshape((-1, 1))
 
-            X = X - self.mean_
-            X_transformed = X.dot(self.components_.T)
+            precomputed_mean_impact = self.mean_ @ self.components_.T
+            mean_impact = cp.ones((X.shape[0], 1)) @ precomputed_mean_impact.reshape(1, -1)
+            X_transformed = X.dot(self.components_.T) -mean_impact
 
             if self.whiten:
                 self.components_ *= self.singular_values_.reshape((-1, 1))
