@@ -257,7 +257,7 @@ class KernelRidge(Base, RegressorMixin):
         X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
             X,
             convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None),
+                              else None),
             check_dtype=[np.float32, np.float64]
         )
 
