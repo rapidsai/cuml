@@ -194,7 +194,7 @@ def nan_euclidean_distances(
         input_to_cuml_array(X,
                             order="K",
                             convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None),
+                                              else None),
                             check_dtype=[np.float32, np.float64])
 
     if Y is None:
@@ -358,7 +358,7 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         input_to_cuml_array(X,
                             order="K",
                             convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None),
+                                              else None),
                             check_dtype=[np.float32, np.float64])
 
     # Get the order from the CumlArray

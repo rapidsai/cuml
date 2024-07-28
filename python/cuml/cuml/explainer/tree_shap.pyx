@@ -274,8 +274,6 @@ cdef class TreeExplainer:
             return input_to_cuml_array(
                 X,
                 order='C',
-                convert_to_dtype=(np.float32 if convert_dtype
-                                  else None),
                 convert_to_dtype=np.float64)
 
     def _determine_output_type(self, X):

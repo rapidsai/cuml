@@ -655,13 +655,13 @@ class NearestNeighbors(UniversalBase,
                 D_ndarr = cuml.common.input_to_cuml_array(
                     D_cparr,
                     convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None),
+                                      else None),
                 ).array
                 D_ndarr.index = index
                 I_ndarr = cuml.common.input_to_cuml_array(
                     I_cparr,
                     convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None),
+                                      else None),
                 ).array
                 I_ndarr.index = index
 

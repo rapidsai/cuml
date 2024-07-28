@@ -670,7 +670,7 @@ class PCA(UniversalBase,
             X, _, _, _ = \
                 input_to_cupy_array(X, order='K',
                                     convert_to_dtype=(dtype if convert_dtype
-                                                  else None),
+                                                      else None),
                                     check_dtype=[cp.float32, cp.float64])
             return self._sparse_transform(X)
 
