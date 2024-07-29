@@ -44,7 +44,7 @@ import inspect
 
 _parameters_docstrings = {
     "dense": "{name} : array-like (device or host) shape = {shape}\n"
-    "    Dense matrix. If datatype is other tha floats or doubles,\n"
+    "    Dense matrix. If datatype is other than floats or doubles,\n"
     "    then the data will be converted to float which increases memory\n"
     "    utilization. Set the parameter convert_dtype to False to avoid \n"
     "    this, then the method will throw an error instead.  \n"
