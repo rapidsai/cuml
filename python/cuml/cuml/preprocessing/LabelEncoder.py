@@ -265,7 +265,9 @@ class LabelEncoder(Base):
         ord_label = y.unique()
         category_num = len(self.classes_)
         if self.handle_unknown == "error":
-            for ordi in ord_label.values_host:
+            if not isinstance(ord_label, (cp.ndarray, np.ndarray)):
+                ord_label = ord_label.values_host
+            for ordi in ord_label:
                 if ordi < 0 or ordi >= category_num:
                     raise ValueError(
                         "y contains previously unseen label {}".format(ordi)
