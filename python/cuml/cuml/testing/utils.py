@@ -611,14 +611,11 @@ def assert_inverse_equal(ours, ref):
     if isinstance(ours, cp.ndarray):
         cp.testing.assert_array_equal(ours, ref)
     else:
-        if cudf_pandas_active:
-            if hasattr(ours, "to_pandas"):
-                ours = ours.to_pandas()
-            if hasattr(ref, "to_pandas"):
-                ref = ref.to_pandas()
-            pd.testing.assert_frame_equal(ours, ref)
-        else:
-            pd.testing.assert_frame_equal(ours.to_pandas(), ref.to_pandas())
+        if hasattr(ours, "to_pandas"):
+            ours = ours.to_pandas()
+        if hasattr(ref, "to_pandas"):
+            ref = ref.to_pandas()
+        pd.testing.assert_frame_equal(ours, ref)
 
 
 def from_df_to_numpy(df):
