@@ -1172,11 +1172,19 @@ class CumlArray:
         if (
             not fail_on_order and order != arr.order and order != "K"
         ) or make_copy:
-            info(
-                f"Expected {order} major order but got something else."
-                " Converting data; this will result in additional memory"
-                " utilization."
-            )
+            if make_copy:
+                info(
+                    f"Expected {order} major order but got an uncontiguous array."
+                    " Converting data; this will result in additional memory"
+                    " utilization."
+                )
+            else:
+                info(
+                    f"Expected {order} major order but got {arr.order}."
+                    " Converting data; this will result in additional memory"
+                    " utilization."
+                )
+
             arr = cls(
                 arr.mem_type.xpy.array(
                     arr.to_output("array"), order=order, copy=make_copy
