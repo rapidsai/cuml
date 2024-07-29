@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,12 +19,14 @@ from cuml.internals.safe_imports import cpu_only_import
 import cuml
 import pytest
 
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import gpu_only_import, gpu_only_import_from
 
 cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
 pd = cpu_only_import("pandas")
+
+cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
 
 
 ###############################################################################
@@ -71,7 +73,7 @@ def test_default_global_output_type(input_type):
 
     if input_type == "numba":
         assert is_cuda_array(res)
-    else:
+    elif not (input_type == "pandas" and cudf_pandas_active):
         assert isinstance(res, test_output_types[input_type])
 
 
