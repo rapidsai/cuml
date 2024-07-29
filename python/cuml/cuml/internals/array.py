@@ -1139,8 +1139,8 @@ class CumlArray:
 
         conversion_required = (
             convert_to_dtype
-            or convert_to_mem_type
-            and (convert_to_mem_type != arr.mem_type)
+            or (convert_to_mem_type
+            and (convert_to_mem_type != arr.mem_type))
         )
 
         if conversion_required:
