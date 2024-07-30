@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ def python_seas_test(y, batch_size, n_obs, s, threshold=0.64):
 
 
 @cuml.internals.api_return_array(input_arg="y", get_output_type=True)
-def seas_test(y, s, handle=None) -> CumlArray:
+def seas_test(y, s, handle=None, convert_dtype=True) -> CumlArray:
     """
     Perform Wang, Smith & Hyndman's test to decide whether seasonal
     differencing is needed
@@ -78,9 +78,15 @@ def seas_test(y, s, handle=None) -> CumlArray:
 
     # At the moment we use a host array
     h_y, n_obs, batch_size, _ = \
-        input_to_host_array(y, check_dtype=[np.float32, np.float64])
+        input_to_host_array(y,
+                            convert_to_dtype=(np.float32 if convert_dtype
+                                              else None),
+                            check_dtype=[np.float32, np.float64])
 
     # Temporary: Python implementation
     python_res = python_seas_test(h_y, batch_size, n_obs, s)
-    d_res, *_ = input_to_cuml_array(np.array(python_res), check_dtype=bool)
+    d_res, *_ = input_to_cuml_array(np.array(python_res),
+                                    convert_to_dtype=(bool if convert_dtype
+                                                      else None),
+                                    check_dtype=bool)
     return d_res

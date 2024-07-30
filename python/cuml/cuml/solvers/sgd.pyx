@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2023, NVIDIA CORPORATION.
+# Copyright (c) 2018-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -314,13 +314,16 @@ class SGD(Base,
 
     @generate_docstring()
     @cuml.internals.api_base_return_any(set_output_dtype=True)
-    def fit(self, X, y, convert_dtype=False) -> "SGD":
+    def fit(self, X, y, convert_dtype=True) -> "SGD":
         """
         Fit the model with X and y.
 
         """
         X_m, n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+            input_to_cuml_array(X,
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None),
+                                check_dtype=[np.float32, np.float64])
 
         y_m, _, _, _ = \
             input_to_cuml_array(y, check_dtype=self.dtype,
@@ -405,7 +408,7 @@ class SGD(Base,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False) -> CumlArray:
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 
@@ -455,7 +458,7 @@ class SGD(Base,
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array(get_output_dtype=True)
-    def predictClass(self, X, convert_dtype=False) -> CumlArray:
+    def predictClass(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 

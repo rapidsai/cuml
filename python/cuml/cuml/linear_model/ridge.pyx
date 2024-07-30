@@ -252,6 +252,8 @@ class Ridge(UniversalBase,
         cdef uintptr_t _X_ptr, _y_ptr, _sample_weight_ptr
         X_m, n_rows, self.n_features_in_, self.dtype = \
             input_to_cuml_array(X, deepcopy=True,
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None),
                                 check_dtype=[np.float32, np.float64])
         _X_ptr = X_m.ptr
         self.feature_names_in_ = X_m.index

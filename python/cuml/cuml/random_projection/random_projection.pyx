@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2023, NVIDIA CORPORATION.
+# Copyright (c) 2018-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -224,7 +224,7 @@ cdef class BaseRandomProjection():
         self.params.density = value
 
     @cuml.internals.api_base_return_any()
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, convert_dtype=True):
         """
         Fit the model. This function generates the random matrix on GPU.
 
@@ -242,7 +242,10 @@ cdef class BaseRandomProjection():
 
         """
         _, n_samples, n_features, self.dtype = \
-            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+            input_to_cuml_array(X,
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None),
+                                check_dtype=[np.float32, np.float64])
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         self.params.n_samples = n_samples
