@@ -586,10 +586,10 @@ class UMAP(UniversalBase,
         if self.build_algo == "auto":
             if self.n_rows <= 50000 or self.sparse_fit:
                 # brute force is faster for small datasets
-                logger.warn("Building knn graph using brute force")
+                logger.info("Building knn graph using brute force")
                 self.build_algo = "brute_force_knn"
             else:
-                logger.warn("Building knn graph using nn descent")
+                logger.info("Building knn graph using nn descent")
                 self.build_algo = "nn_descent"
 
         if self.build_algo == "brute_force_knn" and data_on_host:
