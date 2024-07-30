@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -455,7 +455,7 @@ class QN(Base,
         self._coef_ = value
 
     @generate_docstring(X='dense_sparse')
-    def fit(self, X, y, sample_weight=None, convert_dtype=False) -> "QN":
+    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "QN":
         """
         Fit the model with X and y.
 
@@ -470,7 +470,11 @@ class QN(Base,
         # Handle dense inputs
         else:
             X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
-                X, check_dtype=[np.float32, np.float64], order='K'
+                X,
+                convert_to_dtype=(np.float32 if convert_dtype
+                                  else None),
+                check_dtype=[np.float32, np.float64],
+                order='K'
             )
 
         y_m, _, _, _ = input_to_cuml_array(
@@ -638,7 +642,7 @@ class QN(Base,
         return self
 
     @cuml.internals.api_base_return_array_skipall
-    def _decision_function(self, X, convert_dtype=False) -> CumlArray:
+    def _decision_function(self, X, convert_dtype=True) -> CumlArray:
         """
         Gives confidence score for X
 
@@ -782,7 +786,7 @@ class QN(Base,
             'shape': '(n_samples, 1)'
         })
     @cuml.internals.api_base_return_array(get_output_dtype=True)
-    def predict(self, X, convert_dtype=False) -> CumlArray:
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 

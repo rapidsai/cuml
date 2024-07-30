@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,7 +61,10 @@ def r2_score(y, y_hat, convert_dtype=True, handle=None) -> float:
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     y_m, n_rows, _, ytype = \
-        input_to_cuml_array(y, check_dtype=[np.float32, np.float64],
+        input_to_cuml_array(y,
+                            convert_to_dtype=(np.float32 if convert_dtype
+                                              else None),
+                            check_dtype=[np.float32, np.float64],
                             check_cols=1)
     cdef uintptr_t y_ptr = y_m.ptr
 

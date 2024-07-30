@@ -1229,19 +1229,10 @@ def test_pairwise_distances_exceptions():
     X_int = rng.randint(10, size=(5, 4))
     X_double = rng.random_sample((5, 4))
     X_float = np.asarray(X_double, dtype=np.float32)
-    X_bool = rng.choice([True, False], size=(5, 4))
-
-    # Test int inputs (only float/double accepted at this time)
-    with pytest.raises(TypeError):
-        pairwise_distances(X_int, metric="euclidean")
 
     # Test second int inputs (should not have an exception with
     # convert_dtype=True)
     pairwise_distances(X_double, X_int, metric="euclidean")
-
-    # Test bool inputs (only float/double accepted at this time)
-    with pytest.raises(TypeError):
-        pairwise_distances(X_bool, metric="euclidean")
 
     # Test sending different types with convert_dtype=False
     with pytest.raises(TypeError):
