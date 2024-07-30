@@ -436,7 +436,7 @@ class UMAP(UniversalBase,
                 # TODO: for now, users should be able to see the same results as previous version
                 # (i.e. running brute force knn) when they explicitly pass random_state
                 # https://github.com/rapidsai/cuml/issues/5985
-                logger.warn("build_algo set to brute_force_knn because random_state is given")
+                logger.info("build_algo set to brute_force_knn because random_state is given")
                 self.build_algo ="brute_force_knn"
             self.build_algo = build_algo
         else:
@@ -802,7 +802,7 @@ class UMAP(UniversalBase,
         # NN Descent doesn't support transform yet
         if self.build_algo == "nn_descent" or self.build_algo == "auto":
             self.build_algo = "brute_force_knn"
-            logger.warn("Transform can only be run with brute force. Using brute force.")
+            logger.info("Transform can only be run with brute force. Using brute force.")
 
         IF GPUBUILD == 1:
             cdef UMAPParams* umap_params = \
