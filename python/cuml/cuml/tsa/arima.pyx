@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -365,7 +365,10 @@ class ARIMA(Base):
         # Exogenous variables
         if exog is not None:
             self.d_exog, n_obs_exog, n_cols_exog, _ \
-                = input_to_cuml_array(exog, check_dtype=np.float64)
+                = input_to_cuml_array(exog,
+                                      convert_to_dtype=(np.float64 if convert_dtype
+                                                        else None),
+                                      check_dtype=np.float64)
 
             if n_cols_exog % self.batch_size != 0:
                 raise ValueError("Number of columns in exog is not a multiple"
@@ -550,7 +553,7 @@ class ARIMA(Base):
                 params[names[i]] = getattr(self, "{}_".format(names[i]))
         return params
 
-    def set_fit_params(self, params: Mapping[str, object]):
+    def set_fit_params(self, params: Mapping[str, object], convert_dtype=True):
         """Set all the fit parameters. Not to be confused with ``set_params``
         Note: `unpack()` can be used to load a compact vector of the
         parameters
@@ -566,8 +569,12 @@ class ARIMA(Base):
         """
         for param_name in ["mu", "beta", "ar", "ma", "sar", "sma", "sigma2"]:
             if param_name in params:
-                array, *_ = input_to_cuml_array(params[param_name],
-                                                check_dtype=np.float64)
+                array, *_ = input_to_cuml_array(
+                    params[param_name],
+                    convert_to_dtype=(np.float64 if convert_dtype
+                                      else None),
+                    check_dtype=np.float64
+                )
                 setattr(self, "{}_".format(param_name), array)
 
     def get_param_names(self):
@@ -607,6 +614,7 @@ class ARIMA(Base):
         end=None,
         level=None,
         exog=None,
+        convert_dtype=True
     ) -> Union[CumlArray, Tuple[CumlArray, CumlArray, CumlArray]]:
         """Compute in-sample and/or out-of-sample prediction for each series
 
@@ -689,8 +697,12 @@ class ARIMA(Base):
         # Future values of the exogenous variables
         cdef uintptr_t d_exog_fut_ptr = <uintptr_t> NULL
         if order.n_exog and end > self.n_obs:
-            d_exog_fut, n_obs_fut, n_cols_fut, _ \
-                = input_to_cuml_array(exog, check_dtype=np.float64)
+            d_exog_fut, n_obs_fut, n_cols_fut, _ = input_to_cuml_array(
+                exog,
+                convert_to_dtype=(np.float64 if convert_dtype
+                                  else None),
+                check_dtype=np.float64
+            )
             if n_obs_fut != end - self.n_obs:
                 raise ValueError(
                     "Dimensions mismatch: `exog` should contain {}"
@@ -844,7 +856,8 @@ class ARIMA(Base):
             h: float = 1e-8,
             maxiter: int = 1000,
             method="ml",
-            truncate: int = 0) -> "ARIMA":
+            truncate: int = 0,
+            convert_dtype: bool = True) -> "ARIMA":
         r"""Fit the ARIMA model to each time series.
 
         Parameters
@@ -886,14 +899,16 @@ class ARIMA(Base):
                 """The (batched) energy functional returning the negative
                 log-likelihood (foreach series)."""
                 # Recall: We maximize LL by minimizing -LL
-                n_llf = -self._loglike(x, True, fit_method, truncate)
+                n_llf = -self._loglike(x, True, fit_method, truncate,
+                                       convert_dtype)
                 return n_llf / (self.n_obs - 1)
 
             # Optimized finite differencing gradient for batches
             def gf(x) -> np.ndarray:
                 """The gradient of the (batched) energy functional."""
                 # Recall: We maximize LL by minimizing -LL
-                n_gllf = -self._loglike_grad(x, h, True, fit_method, truncate)
+                n_gllf = -self._loglike_grad(x, h, True, fit_method, truncate,
+                                             convert_dtype)
                 return n_gllf / (self.n_obs - 1)
 
             # Check initial parameter sanity
@@ -932,12 +947,12 @@ class ARIMA(Base):
             x, niter = fit_helper(x if method == "css-ml" else x0, "ml")
             self.niter = (self.niter + niter) if method == "css-ml" else niter
 
-        self.unpack(self._batched_transform(x))
+        self.unpack(self._batched_transform(x), convert_dtype)
         return self
 
     @nvtx_annotate(message="tsa.arima.ARIMA._loglike", domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
-    def _loglike(self, x, trans=True, method="ml", truncate=0):
+    def _loglike(self, x, trans=True, method="ml", truncate=0, convert_dtype=True):
         """Compute the batched log-likelihood for the given parameters.
 
         Parameters
@@ -969,7 +984,11 @@ class ARIMA(Base):
         cdef ARIMAOrder order_kf = self.order_diff if diff else self.order
 
         d_x_array, *_ = \
-            input_to_cuml_array(x, check_dtype=np.float64, order='C')
+            input_to_cuml_array(x,
+                                convert_to_dtype=(np.float64 if convert_dtype
+                                                  else None),
+                                check_dtype=np.float64,
+                                order='C')
         cdef uintptr_t d_x_ptr = d_x_array.ptr
 
         cdef uintptr_t d_y_kf_ptr = \
@@ -1001,7 +1020,8 @@ class ARIMA(Base):
     @nvtx_annotate(message="tsa.arima.ARIMA._loglike_grad",
                    domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
-    def _loglike_grad(self, x, h=1e-8, trans=True, method="ml", truncate=0):
+    def _loglike_grad(self, x, h=1e-8, trans=True, method="ml", truncate=0,
+                      convert_dtype=True):
         """Compute the gradient (via finite differencing) of the batched
         log-likelihood.
 
@@ -1041,7 +1061,11 @@ class ARIMA(Base):
         cdef ARIMAOrder order_kf = self.order_diff if diff else self.order
 
         d_x_array, *_ = \
-            input_to_cuml_array(x, check_dtype=np.float64, order='C')
+            input_to_cuml_array(x,
+                                convert_to_dtype=(np.float64 if convert_dtype
+                                                  else None),
+                                check_dtype=np.float64,
+                                order='C')
         cdef uintptr_t d_x_ptr = d_x_array.ptr
 
         cdef uintptr_t d_y_kf_ptr = \
@@ -1117,7 +1141,7 @@ class ARIMA(Base):
         return np.array(vec_loglike, dtype=np.float64)
 
     @nvtx_annotate(message="tsa.arima.ARIMA.unpack", domain="cuml_python")
-    def unpack(self, x: Union[list, np.ndarray]):
+    def unpack(self, x: Union[list, np.ndarray], convert_dtype=True):
         """Unpack linearized parameter vector `x` into the separate
         parameter arrays of the model
 
@@ -1135,7 +1159,11 @@ class ARIMA(Base):
         cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
 
         d_x_array, *_ = \
-            input_to_cuml_array(x, check_dtype=np.float64, order='C')
+            input_to_cuml_array(x,
+                                convert_to_dtype=(np.float64 if convert_dtype
+                                                  else None),
+                                check_dtype=np.float64,
+                                order='C')
         cdef uintptr_t d_x_ptr = d_x_array.ptr
 
         cpp_unpack(handle_[0], cpp_params, order, <int> self.batch_size,

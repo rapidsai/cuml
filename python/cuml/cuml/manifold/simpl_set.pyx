@@ -221,6 +221,7 @@ def simplicial_set_embedding(
     metric_kwds=None,
     output_metric="euclidean",
     output_metric_kwds=None,
+    convert_dtype=True,
     verbose=False,
 ):
     """Perform a fuzzy simplicial set embedding, using a specified
@@ -347,7 +348,11 @@ def simplicial_set_embedding(
     umap_params.verbosity = <int> verbose
 
     X_m, _, _, _ = \
-        input_to_cuml_array(data, order='C', check_dtype=np.float32)
+        input_to_cuml_array(data,
+                            order='C',
+                            convert_to_dtype=(np.float32 if convert_dtype
+                                              else None),
+                            check_dtype=np.float32)
 
     graph = graph.tocoo()
     graph.sum_duplicates()

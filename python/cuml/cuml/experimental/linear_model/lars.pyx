@@ -225,15 +225,22 @@ class Lars(Base, RegressorMixin):
                                  " Proceeding without it.")
         return Gram
 
-    def _fit_cpp(self, X, y, Gram, x_scale):
+    def _fit_cpp(self, X, y, Gram, x_scale, convert_dtype):
         """ Fit lars model using cpp solver"""
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        X_m, _, _, _ = input_to_cuml_array(X, check_dtype=self.dtype,
-                                           order='F')
+        X_m, _, _, _ = \
+            input_to_cuml_array(X,
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None),
+                                check_dtype=self.dtype,
+                                order='F')
         cdef uintptr_t X_ptr = X_m.ptr
         cdef int n_rows = X.shape[0]
         cdef uintptr_t y_ptr = \
-            input_to_cuml_array(y, check_dtype=self.dtype).array.ptr
+            input_to_cuml_array(y,
+                                convert_to_dtype=(self.dtype if convert_dtype
+                                                  else None),
+                                check_dtype=self.dtype).array.ptr
         cdef int max_iter = self.n_nonzero_coefs
         self.beta_ = CumlArray.zeros(max_iter, dtype=self.dtype)
         cdef uintptr_t beta_ptr = self.beta_.ptr
@@ -324,7 +331,7 @@ class Lars(Base, RegressorMixin):
         if self.eps is None:
             self.eps = np.finfo(float).eps
 
-        self._fit_cpp(X, y, Gram, x_scale)
+        self._fit_cpp(X, y, Gram, x_scale, convert_dtype)
 
         self._set_intercept(x_mean, x_scale, y_scale)
 
