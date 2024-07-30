@@ -444,6 +444,8 @@ class UMAP(UniversalBase,
 
         self.build_kwds = build_kwds
 
+        logger.set_level(verbose)
+
     def validate_hyperparams(self):
 
         if self.min_dist > self.spread:
