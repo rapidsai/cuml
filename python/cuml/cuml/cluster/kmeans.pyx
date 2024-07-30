@@ -684,4 +684,4 @@ class KMeans(Base,
         return super().get_param_names() + \
             ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
-                'tol']
+                'tol', "convert_dtype"]
