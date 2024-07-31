@@ -431,6 +431,8 @@ class UMAP(UniversalBase,
         self.precomputed_knn = extract_knn_infos(precomputed_knn,
                                                  n_neighbors)
 
+        logger.set_level(verbose)
+        
         if build_algo == "auto" or build_algo == "brute_force_knn" or build_algo == "nn_descent":
             if self.deterministic and build_algo == "auto":
                 # TODO: for now, users should be able to see the same results as previous version
@@ -443,8 +445,6 @@ class UMAP(UniversalBase,
             raise Exception("Invalid build algo: {}. Only support auto, brute_force_knn and nn_descent" % build_algo)
 
         self.build_kwds = build_kwds
-
-        logger.set_level(verbose)
 
     def validate_hyperparams(self):
 
