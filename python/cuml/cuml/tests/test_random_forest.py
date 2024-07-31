@@ -54,6 +54,7 @@ cudf = gpu_only_import("cudf")
 np = cpu_only_import("numpy")
 
 cuda = gpu_only_import_from("numba", "cuda")
+cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
 
 
 pytestmark = pytest.mark.filterwarnings(
@@ -276,6 +277,11 @@ def test_tweedie_convergence(max_depth, split_criterion):
 )
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("max_features", [1.0, "log2", "sqrt"])
+@pytest.mark.skipif(
+    cudf_pandas_active,
+    reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
+    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+)
 def test_rf_classification(small_clf, datatype, max_samples, max_features):
     use_handle = True
 
@@ -405,6 +411,11 @@ def test_rf_classification_unorder(
         (1.0, 32),
     ],
 )
+@pytest.mark.skipif(
+    cudf_pandas_active,
+    reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
+    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+)
 def test_rf_regression(
     special_reg, datatype, max_features, max_samples, n_bins
 ):
@@ -510,6 +521,11 @@ def test_rf_classification_seed(small_clf, datatype):
 )
 @pytest.mark.parametrize("convert_dtype", [True, False])
 @pytest.mark.filterwarnings("ignore:To use pickling(.*)::cuml[.*]")
+@pytest.mark.skipif(
+    cudf_pandas_active,
+    reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
+    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+)
 def test_rf_classification_float64(small_clf, datatype, convert_dtype):
 
     X, y = small_clf
@@ -552,6 +568,11 @@ def test_rf_classification_float64(small_clf, datatype, convert_dtype):
     "datatype", [(np.float64, np.float32), (np.float32, np.float64)]
 )
 @pytest.mark.filterwarnings("ignore:To use pickling(.*)::cuml[.*]")
+@pytest.mark.skipif(
+    cudf_pandas_active,
+    reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
+    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+)
 def test_rf_regression_float64(large_reg, datatype):
 
     X, y = large_reg
@@ -675,6 +696,11 @@ def rf_classification(
 
 @pytest.mark.parametrize("datatype", [(np.float32, np.float64)])
 @pytest.mark.parametrize("array_type", ["dataframe", "numpy"])
+@pytest.mark.skipif(
+    cudf_pandas_active,
+    reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
+    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+)
 def test_rf_classification_multi_class(mclass_clf, datatype, array_type):
     rf_classification(datatype, array_type, 1.0, 1.0, mclass_clf)
 
@@ -682,6 +708,11 @@ def test_rf_classification_multi_class(mclass_clf, datatype, array_type):
 @pytest.mark.parametrize("datatype", [(np.float32, np.float64)])
 @pytest.mark.parametrize("max_samples", [unit_param(1.0), stress_param(0.95)])
 @pytest.mark.parametrize("max_features", [1.0, "log2", "sqrt"])
+@pytest.mark.skipif(
+    cudf_pandas_active,
+    reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
+    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+)
 def test_rf_classification_proba(
     small_clf, datatype, max_samples, max_features
 ):
@@ -694,6 +725,11 @@ def test_rf_classification_proba(
 )
 @pytest.mark.parametrize(
     "algo", ["auto", "naive", "tree_reorg", "batch_tree_reorg"]
+)
+@pytest.mark.skipif(
+    cudf_pandas_active,
+    reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
+    "Issue: https://github.com/rapidsai/cuml/issues/5991",
 )
 def test_rf_classification_sparse(
     small_clf, datatype, fil_sparse_format, algo
@@ -782,6 +818,11 @@ def test_rf_classification_sparse(
 )
 @pytest.mark.parametrize(
     "algo", ["auto", "naive", "tree_reorg", "batch_tree_reorg"]
+)
+@pytest.mark.skipif(
+    cudf_pandas_active,
+    reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
+    "Issue: https://github.com/rapidsai/cuml/issues/5991",
 )
 def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
     use_handle = True

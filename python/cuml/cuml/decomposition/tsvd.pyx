@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -316,14 +316,17 @@ class TruncatedSVD(UniversalBase,
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
     @enable_device_interop
-    def fit_transform(self, X, y=None) -> CumlArray:
+    def fit_transform(self, X, y=None, convert_dtype=True) -> CumlArray:
         """
         Fit LSI model to X and perform dimensionality reduction on X.
         y is currently ignored.
 
         """
         X_m, self.n_rows, self.n_features_in_, self.dtype = \
-            input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
+            input_to_cuml_array(X,
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None),
+                                check_dtype=[np.float32, np.float64])
         cdef uintptr_t _input_ptr = X_m.ptr
 
         self._initialize_arrays(self.n_components, self.n_rows,
@@ -431,7 +434,7 @@ class TruncatedSVD(UniversalBase,
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
     @enable_device_interop
-    def transform(self, X, convert_dtype=False) -> CumlArray:
+    def transform(self, X, convert_dtype=True) -> CumlArray:
         """
         Perform dimensionality reduction on X.
 

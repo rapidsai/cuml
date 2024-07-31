@@ -256,9 +256,7 @@ class CumlArray:
                             "Must specify dtype when data is passed as a"
                             " {}".format(type(data))
                         )
-                if isinstance(data, (CudfBuffer, DeviceBuffer)):
-                    self._mem_type = MemoryType.device
-                elif mem_type is None:
+                if mem_type is None:
                     if GlobalSettings().memory_type in (
                         None,
                         MemoryType.mirror,
@@ -269,13 +267,6 @@ class CumlArray:
                         )
                     self._mem_type = GlobalSettings().memory_type
 
-                try:
-                    data = data.ptr
-                    if shape is None:
-                        shape = (data.size,)
-                    self._owner = data
-                except AttributeError:  # Not a buffer object
-                    pass
                 if isinstance(data, int):
                     self._owner = owner
                 else:
@@ -320,7 +311,7 @@ class CumlArray:
                         if len(shape) == 0:
                             strides = None
                         elif len(shape) == 1:
-                            strides == (dtype.itemsize,)
+                            strides = (dtype.itemsize,)
                     except TypeError:  # Shape given as integer
                         strides = (dtype.itemsize,)
                 if strides is None:
@@ -1125,11 +1116,31 @@ class CumlArray:
         if convert_to_dtype:
             convert_to_dtype = arr.mem_type.xpy.dtype(convert_to_dtype)
 
-        conversion_required = (
-            convert_to_dtype and (convert_to_dtype != arr.dtype)
-        ) or (convert_to_mem_type and (convert_to_mem_type != arr.mem_type))
+        if check_dtype:
+            # convert check_dtype to list if it's not a list already
+            try:
+                check_dtype = [
+                    arr.mem_type.xpy.dtype(dtype) for dtype in check_dtype
+                ]
+            except TypeError:
+                check_dtype = [arr.mem_type.xpy.dtype(check_dtype)]
 
-        make_copy = False
+            # if the input is in the desired dtypes, avoid conversion
+            # otherwise, err if convert_dtype is false and input is not desired
+            # dtype.
+            if arr.dtype in check_dtype:
+                convert_to_dtype = False
+            else:
+                if not convert_to_dtype:
+                    raise TypeError(
+                        f"Expected input to be of type in {check_dtype} but got"
+                        f" {arr.dtype}"
+                    )
+
+        conversion_required = convert_to_dtype or (
+            convert_to_mem_type and (convert_to_mem_type != arr.mem_type)
+        )
+
         if conversion_required:
             convert_to_dtype = convert_to_dtype or None
             convert_to_mem_type = convert_to_mem_type or None
@@ -1174,9 +1185,12 @@ class CumlArray:
         ) or make_copy:
             if make_copy:
                 info(
-                    f"Expected {order} major order but got an uncontiguous array."
+                    "Got an uncontiguous array."
                     " Converting data; this will result in additional memory"
                     " utilization."
+                )
+                data = arr.mem_type.xpy.array(
+                    arr.to_output("array"), order=order
                 )
             else:
                 info(
@@ -1184,13 +1198,11 @@ class CumlArray:
                     " Converting data; this will result in additional memory"
                     " utilization."
                 )
+                data = arr.mem_type.xpy.asarray(
+                    arr.to_output("array"), order=order
+                )
 
-            arr = cls(
-                arr.mem_type.xpy.array(
-                    arr.to_output("array"), order=order, copy=make_copy
-                ),
-                index=index,
-            )
+            arr = cls(data, index=index)
 
         n_rows = arr.shape[0]
 
@@ -1218,20 +1230,6 @@ class CumlArray:
                     f"Expected {order_str} major order but got something else."
                     " Converting data; this will result in additional memory"
                     " utilization."
-                )
-
-        if check_dtype:
-            try:
-                check_dtype = [
-                    arr.mem_type.xpy.dtype(dtype) for dtype in check_dtype
-                ]
-            except TypeError:
-                check_dtype = [arr.mem_type.xpy.dtype(check_dtype)]
-
-            if arr.dtype not in check_dtype:
-                raise TypeError(
-                    f"Expected input to be of type in {check_dtype} but got"
-                    f" {arr.dtype}"
                 )
 
         if check_cols:

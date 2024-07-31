@@ -256,7 +256,8 @@ class DBSCAN(Base,
         if self.max_mbytes_per_batch is None:
             self.max_mbytes_per_batch = 0
 
-    def _fit(self, X, out_dtype, opg, sample_weight) -> "DBSCAN":
+    def _fit(self, X, out_dtype, opg, sample_weight,
+             convert_dtype=True) -> "DBSCAN":
         """
         Protected auxiliary function for `fit`. Takes an additional parameter
         opg that is set to `False` for SG, `True` for OPG (multi-GPU)
@@ -268,8 +269,13 @@ class DBSCAN(Base,
 
         IF GPUBUILD == 1:
             X_m, n_rows, n_cols, self.dtype = \
-                input_to_cuml_array(X, order='C',
-                                    check_dtype=[np.float32, np.float64])
+                input_to_cuml_array(
+                    X,
+                    order='C',
+                    convert_to_dtype=(np.float32 if convert_dtype
+                                      else None),
+                    check_dtype=[np.float32, np.float64]
+                )
 
             if n_rows == 0:
                 raise ValueError("No rows in the input array. DBScan cannot be "
@@ -280,8 +286,13 @@ class DBSCAN(Base,
             cdef uintptr_t sample_weight_ptr = <uintptr_t> NULL
             if sample_weight is not None:
                 sample_weight_m, _, _, _ = \
-                    input_to_cuml_array(sample_weight, check_dtype=self.dtype,
-                                        check_rows=n_rows, check_cols=1)
+                    input_to_cuml_array(
+                        sample_weight,
+                        convert_to_dtype=(self.dtype if convert_dtype
+                                          else None),
+                        check_dtype=self.dtype,
+                        check_rows=n_rows,
+                        check_cols=1)
                 sample_weight_ptr = sample_weight_m.ptr
 
             cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -411,7 +422,8 @@ class DBSCAN(Base,
 
     @generate_docstring(skip_parameters_heading=True)
     @enable_device_interop
-    def fit(self, X, out_dtype="int32", sample_weight=None) -> "DBSCAN":
+    def fit(self, X, out_dtype="int32", sample_weight=None,
+            convert_dtype=True) -> "DBSCAN":
         """
         Perform DBSCAN clustering from features.
 

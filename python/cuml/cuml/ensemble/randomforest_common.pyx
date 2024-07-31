@@ -278,7 +278,10 @@ class BaseRandomForestModel(Base):
         self._reset_forest_data()
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
+            input_to_cuml_array(X,
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None),
+                                check_dtype=[np.float32, np.float64],
                                 order='F')
         if self.n_bins > self.n_rows:
             warnings.warn("The number of bins, `n_bins` is greater than "
