@@ -433,7 +433,6 @@ class UMAP(UniversalBase,
 
         logger.set_level(verbose)
 
-
         if build_algo == "auto" or build_algo == "brute_force_knn" or build_algo == "nn_descent":
             if self.deterministic and build_algo == "auto":
                 # TODO: for now, users should be able to see the same results as previous version
