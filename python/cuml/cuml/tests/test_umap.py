@@ -60,12 +60,15 @@ dataset_names = ["iris", "digits", "wine", "blobs"]
 @pytest.mark.parametrize(
     "n_feats", [unit_param(20), quality_param(100), stress_param(1000)]
 )
-def test_blobs_cluster(nrows, n_feats):
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+def test_blobs_cluster(nrows, n_feats, build_algo):
 
     data, labels = datasets.make_blobs(
         n_samples=nrows, n_features=n_feats, centers=5, random_state=0
     )
-    embedding = cuUMAP().fit_transform(data, convert_dtype=True)
+    embedding = cuUMAP(build_algo=build_algo).fit_transform(
+        data, convert_dtype=True
+    )
 
     if nrows < 500000:
         score = adjusted_rand_score(labels, KMeans(5).fit_predict(embedding))
@@ -81,7 +84,8 @@ def test_blobs_cluster(nrows, n_feats):
 @pytest.mark.skipif(
     IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
 )
-def test_umap_fit_transform_score(nrows, n_feats):
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+def test_umap_fit_transform_score(nrows, n_feats, build_algo):
 
     n_samples = nrows
     n_features = n_feats
@@ -91,7 +95,7 @@ def test_umap_fit_transform_score(nrows, n_feats):
     )
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.1)
-    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01)
+    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, build_algo=build_algo)
 
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
@@ -297,11 +301,18 @@ def test_umap_fit_transform_trust(name, target_metric):
 @pytest.mark.parametrize("n_feats", [quality_param(100), stress_param(1000)])
 @pytest.mark.parametrize("should_downcast", [True])
 @pytest.mark.parametrize("input_type", ["dataframe", "ndarray"])
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 @pytest.mark.skipif(
     IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
 )
 def test_umap_data_formats(
-    input_type, should_downcast, nrows, n_feats, name, target_metric
+    input_type,
+    should_downcast,
+    nrows,
+    n_feats,
+    name,
+    target_metric,
+    build_algo,
 ):
 
     dtype = np.float32 if not should_downcast else np.float64
@@ -318,7 +329,12 @@ def test_umap_data_formats(
             n_samples=n_samples, n_features=n_feats, random_state=0
         )
 
-    umap = cuUMAP(n_neighbors=3, n_components=2, target_metric=target_metric)
+    umap = cuUMAP(
+        n_neighbors=3,
+        n_components=2,
+        target_metric=target_metric,
+        build_algo=build_algo,
+    )
 
     embeds = umap.fit_transform(X)
     assert type(embeds) == np.ndarray
@@ -326,10 +342,11 @@ def test_umap_data_formats(
 
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
 @pytest.mark.filterwarnings("ignore:(.*)connected(.*):UserWarning:sklearn[.*]")
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 @pytest.mark.skipif(
     IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
 )
-def test_umap_fit_transform_score_default(target_metric):
+def test_umap_fit_transform_score_default(target_metric, build_algo):
 
     n_samples = 500
     n_features = 20
@@ -339,7 +356,7 @@ def test_umap_fit_transform_score_default(target_metric):
     )
 
     model = umap.UMAP(target_metric=target_metric)
-    cuml_model = cuUMAP(target_metric=target_metric)
+    cuml_model = cuUMAP(target_metric=target_metric, build_algo=build_algo)
 
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
@@ -352,7 +369,8 @@ def test_umap_fit_transform_score_default(target_metric):
     assert array_equal(score, cuml_score, 1e-2, with_sign=True)
 
 
-def test_umap_fit_transform_against_fit_and_transform():
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+def test_umap_fit_transform_against_fit_and_transform(build_algo):
 
     n_samples = 500
     n_features = 20
@@ -365,7 +383,7 @@ def test_umap_fit_transform_against_fit_and_transform():
     First test the default option does not hash the input
     """
 
-    cuml_model = cuUMAP()
+    cuml_model = cuUMAP(build_algo=build_algo)
 
     ft_embedding = cuml_model.fit_transform(data, convert_dtype=True)
     fit_embedding_same_input = cuml_model.transform(data, convert_dtype=True)
@@ -496,7 +514,10 @@ def test_umap_fit_transform_trustworthiness_with_consistency_enabled():
     iris = datasets.load_iris()
     data = iris.data
     algo = cuUMAP(
-        n_neighbors=10, min_dist=0.01, init="random", random_state=42
+        n_neighbors=10,
+        min_dist=0.01,
+        init="random",
+        random_state=42,
     )
     embedding = algo.fit_transform(data, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
@@ -512,7 +533,10 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
     fit_data = data[selection]
     transform_data = data[~selection]
     model = cuUMAP(
-        n_neighbors=10, min_dist=0.01, init="random", random_state=42
+        n_neighbors=10,
+        min_dist=0.01,
+        init="random",
+        random_state=42,
     )
     model.fit(fit_data, convert_dtype=True)
     embedding = model.transform(transform_data, convert_dtype=True)
@@ -524,9 +548,12 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
 @pytest.mark.skipif(
     IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
 )
-def test_exp_decay_params():
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+def test_exp_decay_params(build_algo):
     def compare_exp_decay_params(a=None, b=None, min_dist=0.1, spread=1.0):
-        cuml_model = cuUMAP(a=a, b=b, min_dist=min_dist, spread=spread)
+        cuml_model = cuUMAP(
+            a=a, b=b, min_dist=min_dist, spread=spread, build_algo=build_algo
+        )
         state = cuml_model.__getstate__()
         cuml_a, cuml_b = state["a"], state["b"]
         skl_model = umap.UMAP(a=a, b=b, min_dist=min_dist, spread=spread)
@@ -544,20 +571,31 @@ def test_exp_decay_params():
 
 
 @pytest.mark.parametrize("n_neighbors", [5, 15])
-def test_umap_knn_graph(n_neighbors):
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+def test_umap_knn_graph(n_neighbors, build_algo):
     data, labels = datasets.make_blobs(
         n_samples=2000, n_features=10, centers=5, random_state=0
     )
     data = data.astype(np.float32)
 
     def fit_transform_embed(knn_graph=None):
-        model = cuUMAP(random_state=42, init="random", n_neighbors=n_neighbors)
+        model = cuUMAP(
+            random_state=42,
+            init="random",
+            n_neighbors=n_neighbors,
+            build_algo=build_algo,
+        )
         return model.fit_transform(
             data, knn_graph=knn_graph, convert_dtype=True
         )
 
     def transform_embed(knn_graph=None):
-        model = cuUMAP(random_state=42, init="random", n_neighbors=n_neighbors)
+        model = cuUMAP(
+            random_state=42,
+            init="random",
+            n_neighbors=n_neighbors,
+            build_algo=build_algo,
+        )
         model.fit(data, knn_graph=knn_graph, convert_dtype=True)
         return model.transform(data, convert_dtype=True)
 
@@ -567,7 +605,6 @@ def test_umap_knn_graph(n_neighbors):
 
     def test_equality(e1, e2):
         mean_diff = np.mean(np.abs(e1 - e2))
-        print("mean diff: %s" % mean_diff)
         assert mean_diff < 1.0
 
     neigh = NearestNeighbors(n_neighbors=n_neighbors)
@@ -599,8 +636,15 @@ def test_umap_knn_graph(n_neighbors):
 @pytest.mark.parametrize(
     "precomputed_type", ["knn_graph", "tuple", "pairwise"]
 )
-@pytest.mark.parametrize("sparse_input", [False, True])
-def test_umap_precomputed_knn(precomputed_type, sparse_input):
+@pytest.mark.parametrize(
+    "sparse_input,build_algo",
+    [
+        (False, "brute_force_knn"),
+        (True, "brute_force_knn"),
+        (False, "nn_descent"),
+    ],
+)
+def test_umap_precomputed_knn(precomputed_type, sparse_input, build_algo):
     data, labels = make_blobs(
         n_samples=2000, n_features=10, centers=5, random_state=0
     )
@@ -627,7 +671,11 @@ def test_umap_precomputed_knn(precomputed_type, sparse_input):
     elif precomputed_type == "pairwise":
         precomputed_knn = pairwise_distances(data)
 
-    model = cuUMAP(n_neighbors=n_neighbors, precomputed_knn=precomputed_knn)
+    model = cuUMAP(
+        n_neighbors=n_neighbors,
+        precomputed_knn=precomputed_knn,
+        build_algo=build_algo,
+    )
     embedding = model.fit_transform(data)
     trust = trustworthiness(data, embedding, n_neighbors=n_neighbors)
     assert trust >= 0.92
