@@ -66,10 +66,11 @@ jobs:
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
-  wheel-build-cuml:
+  wheel-build-cpp:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.08
     with:
+      matrix_filter: group_by([.ARCH, (.CUDA_VER|split(".")|map(tonumber)|.[0])]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
@@ -81,8 +82,35 @@ jobs:
       extra-repo: rapidsai/cumlprims_mg
       extra-repo-sha: branch-24.08
       extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
-  wheel-publish-cuml:
-    needs: wheel-build-cuml
+  wheel-publish-cpp:
+    needs: wheel-build-cpp
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@branch-24.08
+    with:
+      build_type: ${{ inputs.build_type || 'branch' }}
+      branch: ${{ inputs.branch }}
+      sha: ${{ inputs.sha }}
+      date: ${{ inputs.date }}
+      package-name: libcuml
+      package-type: cpp
+  wheel-build-python:
+    secrets: inherit
+    needs: wheel-build-cpp
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.08
+    with:
+      build_type: ${{ inputs.build_type || 'branch' }}
+      branch: ${{ inputs.branch }}
+      sha: ${{ inputs.sha }}
+      date: ${{ inputs.date }}
+      script: ci/build_wheel_python.sh
+      # Note that this approach to cloning repos obviates any modification to
+      # the CMake variables in get_cumlprims_mg.cmake since CMake will just use
+      # the clone as is.
+      extra-repo: rapidsai/cumlprims_mg
+      extra-repo-sha: branch-24.08
+      extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
+  wheel-publish-python:
+    needs: wheel-build-python
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@branch-24.08
     with:
@@ -91,3 +119,4 @@ jobs:
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
       package-name: cuml
+      package-type: python

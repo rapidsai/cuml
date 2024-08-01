@@ -36,7 +36,6 @@ project(
 ################################################################################
 # - User Options  --------------------------------------------------------------
 option(CUML_UNIVERSAL "Build all cuML Python components." ON)
-option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 set(CUML_RAFT_CLONE_ON_PIN OFF)
 
@@ -44,7 +43,6 @@ set(CUML_RAFT_CLONE_ON_PIN OFF)
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
 # https://github.com/rapidsai/cuml/issues/4843
 message(VERBOSE "CUML_PY: Build only cuML CPU Python components.: ${CUML_CPU}")
-message(VERBOSE "CUML_PY: Searching for existing CUML C++ installations before defaulting to local files: ${FIND_CUML_CPP}")
 message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 
 set(CUML_ALGORITHMS "ALL" CACHE STRING "Choose which algorithms are built cuML. Can specify individual algorithms or groups in a semicolon-separated list.")
@@ -55,53 +53,17 @@ set(CUML_CPP_SRC "../../cpp")
 ################################################################################
 # - Process User Options  ------------------------------------------------------
 
-# If the user requested it, we attempt to find cuml.
-if(FIND_CUML_CPP)
-  # We need to call get_treelite explicitly because we need the correct
-  # ${TREELITE_LIBS} definition for RF
-  include(rapids-cpm)
-  include(rapids-export)
-  rapids_cpm_init()
-  find_package(cuml ${CUML_VERSION} REQUIRED)
-  include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
-else()
-  set(cuml_FOUND OFF)
-endif()
+# We need to call get_treelite explicitly because we need the correct
+# ${TREELITE_LIBS} definition for RF
+include(rapids-cpm)
+include(rapids-export)
+rapids_cpm_init()
+find_package(cuml ${CUML_VERSION} REQUIRED)
+include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
 
 include(rapids-cython-core)
 
 set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
-
-if(NOT ${CUML_CPU})
-  if(NOT cuml_FOUND)
-    set(BUILD_CUML_TESTS OFF)
-    set(BUILD_PRIMS_TESTS OFF)
-    set(BUILD_CUML_C_LIBRARY OFF)
-    set(BUILD_CUML_EXAMPLES OFF)
-    set(BUILD_CUML_BENCH OFF)
-    set(BUILD_CUML_PRIMS_BENCH OFF)
-    set(CUML_EXPORT_TREELITE_LINKAGE ON)
-    set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
-
-    # Statically link dependencies if building wheels
-    set(CUDA_STATIC_RUNTIME ON)
-    set(CUDA_STATIC_MATH_LIBRARIES ON)
-    set(CUML_USE_RAFT_STATIC ON)
-    set(CUML_USE_FAISS_STATIC ON)
-    set(CUML_USE_TREELITE_STATIC ON)
-    set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
-    # Don't install the static libs into wheels
-    set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
-    set(RAFT_EXCLUDE_FAISS_FROM_ALL ON)
-    set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
-    set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
-
-    add_subdirectory(${CUML_CPP_SRC} cuml-cpp EXCLUDE_FROM_ALL)
-
-    set(cython_lib_dir cuml)
-    install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
-  endif()
-endif()
 
 if(CUML_CPU)
   set(CUML_UNIVERSAL OFF)
