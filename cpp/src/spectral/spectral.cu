@@ -192,6 +192,7 @@ void lanczos_solver(const raft::handle_t& handle,
                     int n_components,
                     T* eigenvectors,
                     T* eigenvalues,
+                    T* v0,
                     int* eig_iters,
                     unsigned long long seed = 1234567,
                     int maxiter             = 4000,
@@ -204,8 +205,11 @@ void lanczos_solver(const raft::handle_t& handle,
   rmm::device_uvector<int> src_offsets(n + 1, stream);
   rmm::device_uvector<int> dst_cols(nnz, stream);
   rmm::device_uvector<T> dst_vals(nnz, stream);
-  raft::sparse::convert::coo_to_csr(
-    handle, rows, cols, vals, nnz, n, src_offsets.data(), dst_cols.data(), dst_vals.data());
+  // raft::sparse::convert::coo_to_csr(
+  //   handle, rows, cols, vals, nnz, n, src_offsets.data(), dst_cols.data(), dst_vals.data());
+  // std::cout << "DONE" << std::endl;
+
+  raft::print_device_vector("v0 init", v0, n, std::cout);
 
   rmm::device_uvector<T> eigVals(n_components, stream);
   rmm::device_uvector<T> eigVecs(n * (n_components), stream);
@@ -216,9 +220,13 @@ void lanczos_solver(const raft::handle_t& handle,
   using index_type = int;
   using value_type = T;
 
-  index_type* ro = src_offsets.data();
-  index_type* ci = dst_cols.data();
-  value_type* vs = dst_vals.data();
+  index_type* ro = rows;
+  index_type* ci = cols;
+  value_type* vs = vals;
+
+  // index_type* ro = src_offsets.data();
+  // index_type* ci = dst_cols.data();
+  // value_type* vs = dst_vals.data();
 
   raft::spectral::matrix::sparse_matrix_t<index_type, value_type> const csr_m{
     handle, ro, ci, vs, n, nnz};
@@ -248,19 +256,19 @@ void lanczos_solver(const raft::handle_t& handle,
 
   // Compute smallest eigenvalues and eigenvectors
   std::get<0>(stats) =
-    eigen_solver.solve_smallest_eigenvectors(handle, csr_m, eigVals.data(), eigVecs.data());
+    eigen_solver.solve_smallest_eigenvectors(handle, csr_m, eigVals.data(), eigVecs.data(), v0);
   // std::cout << "stats" << std::get<0>(stats) << std::endl;
   raft::copy<int>(eig_iters, &std::get<0>(stats), 1, stream);
 
   raft::copy<T>(eigenvectors, eigVecs.data(), n * n_components, stream);
   raft::copy<T>(eigenvalues, eigVals.data(), n_components, stream);
 
-  std::ofstream out_file("output.txt");
-  if (!out_file.is_open()) { std::cerr << "Failed to open output file!" << std::endl; }
-  raft::print_device_vector("eigenvals", eigVals.data(), n_components, out_file);
-  raft::print_device_vector("eigenvecs", eigVecs.data(), n * (n_components), out_file);
-  raft::print_device_vector("eigenvectors", eigenvectors, n * n_components, out_file);
-  raft::print_device_vector("eigenvalues", eigenvalues, n_components, out_file);
+  // std::ofstream out_file("output.txt");
+  // if (!out_file.is_open()) { std::cerr << "Failed to open output file!" << std::endl; }
+  // raft::print_device_vector("eigenvals", eigVals.data(), n_components, out_file);
+  // raft::print_device_vector("eigenvecs", eigVecs.data(), n * (n_components), out_file);
+  // raft::print_device_vector("eigenvectors", eigenvectors, n * n_components, out_file);
+  // raft::print_device_vector("eigenvalues", eigenvalues, n_components, out_file);
 
   RAFT_CUDA_TRY(cudaGetLastError());
 }
@@ -274,6 +282,7 @@ void lanczos_solver(const raft::handle_t& handle,
                     int n_components,
                     float* eigenvectors,
                     float* eigenvalues,
+                    float* v0,
                     int* eig_iters,
                     unsigned long long seed = 1234567,
                     int maxiter             = 4000,
@@ -291,6 +300,7 @@ void lanczos_solver(const raft::handle_t& handle,
                         n,
                         eigenvectors,
                         eigenvalues,
+                        v0,
                         eig_iters,
                         seed,
                         maxiter,
@@ -309,6 +319,7 @@ void lanczos_solver(const raft::handle_t& handle,
                     int n_components,
                     double* eigenvectors,
                     double* eigenvalues,
+                    double* v0,
                     int* eig_iters,
                     unsigned long long seed = 1234567,
                     int maxiter             = 4000,
@@ -326,6 +337,7 @@ void lanczos_solver(const raft::handle_t& handle,
                          n,
                          eigenvectors,
                          eigenvalues,
+                         v0,
                          eig_iters,
                          seed,
                          maxiter,
@@ -371,7 +383,8 @@ void spectral_fit(const raft::handle_t& handle,
                   int* rows,
                   int* cols,
                   float* vals,
-                  int nnz)
+                  int nnz,
+                  int n_components)
 {
   manifold_dense_inputs_t<float> input(X, Y, n, p);
   knn_graph<int, float> k_graph(n, num_neighbors, knn_indices, knn_dists);
@@ -491,7 +504,7 @@ void spectral_fit(const raft::handle_t& handle,
   // raft::copy(knn_dists, coo.vals(), n * k_graph.n_neighbors, stream);
   // raft::copy(knn_indices, coo.cols(), n * k_graph.n_neighbors, stream);
 
-  Spectral::fit_embedding(handle, rows, cols, vals, nnz, n, 2, Y, 1234);
+  Spectral::fit_embedding(handle, rows, cols, vals, nnz, n, n_components, Y, 1234);
 }
 
 }  // namespace Spectral

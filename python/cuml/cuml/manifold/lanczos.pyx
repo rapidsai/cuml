@@ -59,6 +59,7 @@ cdef extern from "cuml/cluster/spectral.hpp" namespace "ML::Spectral":
         int n_components,
         float* eigenvectors,
         float* eigenvalues,
+        float* v0,
         int* eig_iters,
         unsigned long long seed,
         int maxiter,
@@ -77,6 +78,7 @@ cdef extern from "cuml/cluster/spectral.hpp" namespace "ML::Spectral":
         int n_components,
         double* eigenvectors,
         double* eigenvalues,
+        double* v0,
         int* eig_iters,
         unsigned long long seed,
         int maxiter,
@@ -144,16 +146,20 @@ def lanczos(A, n_components, seed, handle):
 # no laplacian computed
 
 # @cuml.internals.api_return_array(get_output_type=True)
-def eig_lanczos(A, n_components, seed, dtype, maxiter=4000, tol=0.01, conv_n_iters = 5, conv_eps = 0.001, restartiter=15, handle=Handle()):
+def eig_lanczos(A, n_components, seed, dtype, maxiter=4000, tol=0.01, conv_n_iters = 5, conv_eps = 0.001, restartiter=15, v0=None, handle=Handle()):
 
     # rows = CumlArrayDescriptor()
     # cols = CumlArrayDescriptor()
     # vals = CumlArrayDescriptor()
 
-    Acoo = A.tocoo()
-    rows = Acoo.row
-    cols = Acoo.col
-    vals = Acoo.data
+    # Acoo = A.tocoo()
+    # rows = Acoo.row
+    # cols = Acoo.col
+    # vals = Acoo.data
+
+    rows = A.indptr
+    cols = A.indices
+    vals = A.data
 
     rows, n, p, _ = \
             input_to_cuml_array(rows, order='C', check_dtype=np.int32,
@@ -179,6 +185,15 @@ def eig_lanczos(A, n_components, seed, dtype, maxiter=4000, tol=0.01, conv_n_ite
                     order="F",
                     dtype=dtype)
 
+    if v0 is None:
+        rng = np.random.default_rng(seed)
+        v0 = rng.random((N,)).astype(dtype)
+    
+    v0, n, p, _ = \
+            input_to_cuml_array(v0, order='C', check_dtype=dtype,
+                                convert_to_dtype=(dtype))
+
+
     cdef int eig_iters = 0
     cdef int* eig_iters_ptr = &eig_iters
 
@@ -187,6 +202,7 @@ def eig_lanczos(A, n_components, seed, dtype, maxiter=4000, tol=0.01, conv_n_ite
     cdef uintptr_t rows_ptr = rows.ptr
     cdef uintptr_t cols_ptr = cols.ptr
     cdef uintptr_t vals_ptr = vals.ptr
+    cdef uintptr_t v0_ptr = v0.ptr
 
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
@@ -203,6 +219,7 @@ def eig_lanczos(A, n_components, seed, dtype, maxiter=4000, tol=0.01, conv_n_ite
             <int> n_components,
             <float*> eigenvectors_ptr,
             <float*> eigenvalues_ptr,
+            <float*> v0_ptr,
             <int*> eig_iters_ptr,
             <long long> seed,
             <int> maxiter,
@@ -222,6 +239,7 @@ def eig_lanczos(A, n_components, seed, dtype, maxiter=4000, tol=0.01, conv_n_ite
             <int> n_components,
             <double*> eigenvectors_ptr,
             <double*> eigenvalues_ptr,
+            <double*> v0_ptr,
             <int*> eig_iters_ptr,
             <long long> seed,
             <int> maxiter,

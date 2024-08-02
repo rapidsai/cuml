@@ -74,6 +74,7 @@ void lanczos_solver(const raft::handle_t& handle,
                     int n_components,
                     T* eigenvectors,
                     T* eigenvalues,
+                    T* v0,
                     int* eig_iters,
                     unsigned long long seed = 1234567,
                     int maxiter             = 4000,
@@ -120,7 +121,8 @@ void spectral_fit(const raft::handle_t& handle,
                   int* rows,
                   int* cols,
                   float* vals,
-                  int nnz);
+                  int nnz,
+                  int n_components);
 
 }  // namespace Spectral
 }  // namespace ML

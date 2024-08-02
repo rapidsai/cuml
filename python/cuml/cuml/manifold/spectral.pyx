@@ -56,6 +56,10 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         BARNES_HUT = 1,
         FFT = 2
 
+    enum TSNE_INIT:
+        RANDOM = 0,
+        PCA = 1
+
     cdef cppclass TSNEParams:
         int dim,
         int n_neighbors,
@@ -76,7 +80,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         float post_momentum,
         long long random_state,
         int verbosity,
-        bool initialize_embeddings,
+        TSNE_INIT init,
         bool square_distances,
         DistanceType metric,
         float p,
@@ -128,7 +132,8 @@ cdef extern from "cuml/cluster/spectral.hpp" namespace "ML::Spectral":
         int* rows,
         int* cols,
         float* vals,
-        int nnz);
+        int nnz,
+        int n_components);
 
 
 class SpectralEmbedding(Base,
@@ -327,9 +332,9 @@ class SpectralEmbedding(Base,
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
                              "than 0.".format(n_components))
-        if n_components != 2:
-            raise ValueError("Currently TSNE supports n_components = 2; "
-                             "but got n_components = {}".format(n_components))
+        # if n_components != 2:
+        #     raise ValueError("Currently TSNE supports n_components = 2; "
+        #                      "but got n_components = {}".format(n_components))
         if perplexity < 0:
             raise ValueError("perplexity = {} should be more than 0.".format(
                              perplexity))
@@ -603,7 +608,7 @@ class SpectralEmbedding(Base,
 
         cdef float kl_divergence = 0
 
-        if self.sparse_fit:
+        if self.sparse_fit and False:
             TSNE_fit_sparse(handle_[0],
                             <int*><uintptr_t>
                             self.X_m.indptr.ptr,
@@ -647,7 +652,8 @@ class SpectralEmbedding(Base,
                 <int*> rows_ptr,
                 <int*> cols_ptr,
                 <float*> vals_ptr,
-                <int> self.nnz);
+                <int> self.nnz,
+                <int> self.n_components);
 
         self.handle.sync()
         free(params)
@@ -705,7 +711,7 @@ class SpectralEmbedding(Base,
         params.post_momentum = <float> self.post_momentum
         params.random_state = <long long> seed
         params.verbosity = <int> self.verbose
-        params.initialize_embeddings = <bool> True
+        # params.initialize_embeddings = <bool> True
         params.square_distances = <bool> self.square_distances
         params.algorithm = algo
 
