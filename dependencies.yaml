@@ -503,3 +503,4 @@ dependencies:
           - pandas
           - *scikit_learn
           - seaborn
+          - xgboost
