@@ -803,7 +803,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             only for models trained and double precision and when exact
             conformance between results from FIL and the original training
             framework is of paramount importance.
-        model_type : {'xgboost', 'xgboost_json', 'lightgbm',
+        model_type : {'xgboost_ubj', 'xgboost_json', 'xgboost', 'lightgbm',
             'treelite_checkpoint', None }, default=None
             The serialization format for the model file. If None, a best-effort
             guess will be made based on the file extension.
@@ -841,18 +841,26 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             extension = pathlib.Path(path).suffix
             if extension == '.json':
                 model_type = 'xgboost_json'
+            elif extension == '.ubj':
+                model_type = 'xgboost_ubj'
             elif extension == '.model':
                 model_type = 'xgboost'
             elif extension == '.txt':
                 model_type = 'lightgbm'
             else:
                 model_type = 'treelite_checkpoint'
-        if model_type == 'treelite_checkpoint':
+        if model_type == "treelite_checkpoint":
             tl_model = treelite.frontend.Model.deserialize(path)
+        elif model_type == "xgboost_ubj":
+            tl_model = treelite.frontend.load_xgboost_model(path, format_choice="ubjson")
+        elif model_type == "xgboost_json":
+            tl_model = treelite.frontend.load_xgboost_model(path, format_choice="json")
+        elif model_type == "xgboost":
+            tl_model = treelite.frontend.load_xgboost_model_legacy_binary(path)
+        elif model_type == "lightgbm":
+            tl_model = treelite.frontend.load_lightgbm_model(path)
         else:
-            tl_model = treelite.frontend.Model.load(
-                path, model_type
-            )
+            raise ValueError(f"Unknown model type: {model_type}")
         if default_chunk_size is None:
             default_chunk_size = threads_per_tree
         return cls(
