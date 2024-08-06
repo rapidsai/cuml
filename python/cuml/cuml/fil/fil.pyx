@@ -51,6 +51,9 @@ cdef extern from "treelite/c_api.h":
         size_t nitem
     ctypedef void* TreeliteModelHandle
     ctypedef void* TreeliteGTILConfigHandle
+    cdef int TreeliteLoadXGBoostModelUBJSON(const char* filename,
+                                            const char* config_json,
+                                            TreeliteModelHandle* out) except +
     cdef int TreeliteLoadXGBoostModelLegacyBinary(const char* filename,
                                                   const char* config_json,
                                                   TreeliteModelHandle* out) except +
@@ -188,7 +191,7 @@ cdef class TreeliteModel():
         return model
 
     @classmethod
-    def from_filename(cls, filename, model_type="xgboost"):
+    def from_filename(cls, filename, model_type="xgboost_ubj"):
         """
         Returns a TreeliteModel object loaded from `filename`
 
@@ -198,20 +201,25 @@ cdef class TreeliteModel():
             Path to treelite model file to load
 
         model_type : string
-            Type of model: 'xgboost', 'xgboost_json', or 'lightgbm'
+            Type of model: 'xgboost_ubj', 'xgboost_json', 'xgboost' or 'lightgbm'
         """
         cdef bytes filename_bytes = filename.encode("UTF-8")
         cdef bytes config_bytes = b"{}"
         cdef TreeliteModelHandle handle
         cdef int res
         cdef str err_msg
-        if model_type == "xgboost":
-            res = TreeliteLoadXGBoostModelLegacyBinary(filename_bytes, config_bytes, &handle)
+        if model_type == "xgboost_ubj":
+            res = TreeliteLoadXGBoostModelUBJSON(filename_bytes, config_bytes, &handle)
             if res < 0:
                 err_msg = TreeliteGetLastError().decode("UTF-8")
                 raise RuntimeError(f"Failed to load {filename} ({err_msg})")
         elif model_type == "xgboost_json":
             res = TreeliteLoadXGBoostModel(filename_bytes, config_bytes, &handle)
+            if res < 0:
+                err_msg = TreeliteGetLastError().decode("UTF-8")
+                raise RuntimeError(f"Failed to load {filename} ({err_msg})")
+        elif model_type == "xgboost":
+            res = TreeliteLoadXGBoostModelLegacyBinary(filename_bytes, config_bytes, &handle)
             if res < 0:
                 err_msg = TreeliteGetLastError().decode("UTF-8")
                 raise RuntimeError(f"Failed to load {filename} ({err_msg})")
@@ -953,7 +961,7 @@ class ForestInference(Base,
              n_items=0,
              compute_shape_str=False,
              precision='native',
-             model_type="xgboost",
+             model_type="xgboost_ubj",
              handle=None):
         """
         Returns a FIL instance containing the forest saved in `filename`
@@ -1018,9 +1026,14 @@ class ForestInference(Base,
               thresholds
             - ``'float64'``: always load in float64
 
-        model_type : string (default="xgboost")
-            Format of the saved treelite model to be load.
-            It can be 'xgboost', 'xgboost_json', 'lightgbm'.
+        model_type : string (default="xgboost_ubj")
+            Format of the saved tree model to be load.
+            It can be one of the following:
+
+            - ``'xgboost_ubj'``: XGBoost model, using the UBJSON format (default in XGBoost 2.1+)
+            - ``'xgboost_json'``: XGBoost model, using the JSON format
+            - ``'xgboost'``: XGBoost model, using the legacy binary format
+            - ``'lightgbm'``: LightGBM model
 
         Returns
         -------
