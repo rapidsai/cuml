@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -86,3 +86,18 @@ def test_monotonic_validate_invert_labels(arr_type, dtype, copy):
             assert array_equal(monotonic, arr_orig)
 
     assert array_equal(inverted, original)
+
+
+def test_check_labels():
+    n_labels, n_classes = 1_000_000, 8000
+    labels = cp.random.choice(n_classes, size=n_labels)
+    classes = cp.arange(n_classes)
+
+    assert check_labels(labels, classes)
+    labels[534_122] = 9123
+    assert not check_labels(labels, classes)
+    labels[534_122] = 0
+    labels[11_728] = 9123
+    assert not check_labels(labels, classes)
+    labels[11_728] = 0
+    assert check_labels(labels, classes)

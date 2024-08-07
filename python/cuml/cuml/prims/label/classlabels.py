@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,27 +50,41 @@ map_kernel_str = r"""
 
 
 validate_kernel_str = r"""
-({0} *x, int x_n, {0} *labels, int n_labels, int *out) {
+({0} *labels, int n_labels,
+ {0} *classes, int n_classes,
+ int n_passes, int pass_size,
+ int *out) {
   int tid = blockDim.x * blockIdx.x + threadIdx.x;
-
-  extern __shared__ {0} label_cache[];
-  for(int i = threadIdx.x; i < n_labels; i+=blockDim.x)
-    label_cache[i] = labels[i];
-
-  if(tid >= x_n) return;
-
-  __syncthreads();
-
-  int unmapped_label = x[tid];
   bool found = false;
-  for(int i = 0; i < n_labels; i++) {
-    if(label_cache[i] == unmapped_label) {
-      found = true;
-      break;
+
+  extern __shared__ {0} class_cache[];
+
+  int unmapped_class;
+  if (tid < n_labels)
+    unmapped_class = labels[tid];
+  for (int pass = 0; pass < n_passes; pass++) {
+    int offset = pass * pass_size;
+    int to_analyze = min(pass_size, n_classes - offset);
+    for (int i = threadIdx.x; i < to_analyze; i+=blockDim.x)
+      class_cache[i] = classes[offset + i];
+
+    __syncthreads();
+
+    if (!found && tid < n_labels) {
+      for(int i = 0; i < to_analyze; i++) {
+        if(class_cache[i] == unmapped_class) {
+          found = true;
+          break;
+        }
+      }
+    }
+
+    if (pass < n_passes - 1) {
+      __syncthreads();
+    } else {
+      if (!found && tid < n_labels) out[0] = 0;
     }
   }
-
-  if(!found) out[0] = 0;
 }
 """
 
@@ -191,14 +205,27 @@ def check_labels(labels, classes) -> bool:
     if labels.ndim != 1:
         raise ValueError("Labels array must be 1D")
 
-    valid = cp.array([1])
+    n_labels = int(labels.shape[0])
+    n_classes = int(classes.shape[0])
 
-    smem = labels.dtype.itemsize * int(classes.shape[0])
+    device = cp.cuda.Device()
+    device_properties = device.attributes
+    shared_mem_per_block = device_properties["MaxSharedMemoryPerBlock"]
+    pass_size = min(
+        n_classes, math.floor(shared_mem_per_block / labels.dtype.itemsize)
+    )
+    n_passes = math.ceil(n_classes / pass_size)
+
+    threads_per_block = 512
+    n_blocks = math.ceil(n_labels / threads_per_block)
+    smem = labels.dtype.itemsize * pass_size
+
+    valid = cp.array([1])
     validate = _validate_kernel(labels.dtype)
     validate(
-        (math.ceil(labels.shape[0] / 32),),
-        (32,),
-        (labels, labels.shape[0], classes, classes.shape[0], valid),
+        (n_blocks,),
+        (threads_per_block,),
+        (labels, n_labels, classes, n_classes, n_passes, pass_size, valid),
         shared_mem=smem,
     )
 
