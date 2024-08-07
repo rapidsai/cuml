@@ -66,14 +66,30 @@ files:
       - py_version
       - test_cuml
       - test_notebooks
-  py_build:
+  py_cpp_build:
+    output: pyproject
+    pyproject_dir: python/libcuml
+    extras:
+      table: build-system
+    includes:
+      - rapids_build_backend
+  py_wheel_build:
     output: pyproject
     pyproject_dir: python/cuml
     extras:
       table: build-system
     includes:
       - rapids_build_backend
-  py_rapids_build:
+  py_rapids_cpp_build:
+    output: pyproject
+    pyproject_dir: python/libcuml
+    extras:
+      table: tool.rapids-build-backend
+      key: requires
+    includes:
+      - common_build
+      - py_build
+  py_rapids_wheel_build:
     output: pyproject
     pyproject_dir: python/cuml
     extras:
