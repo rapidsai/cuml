@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ np = cpu_only_import("numpy")
 pd = cpu_only_import("pandas")
 
 cuda = gpu_only_import_from("numba", "cuda")
+cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
 
 
 cudf = gpu_only_import("cudf")
@@ -599,7 +600,10 @@ def generate_inputs_from_categories(
         inp_ary = cp.array(ary)
         return inp_ary, ary
     else:
-        df = cudf.DataFrame.from_pandas(pandas_df)
+        if cudf_pandas_active:
+            df = pandas_df
+        else:
+            df = cudf.DataFrame.from_pandas(pandas_df)
         return df, ary
 
 
@@ -607,7 +611,11 @@ def assert_inverse_equal(ours, ref):
     if isinstance(ours, cp.ndarray):
         cp.testing.assert_array_equal(ours, ref)
     else:
-        pd.testing.assert_frame_equal(ours.to_pandas(), ref.to_pandas())
+        if hasattr(ours, "to_pandas"):
+            ours = ours.to_pandas()
+        if hasattr(ref, "to_pandas"):
+            ref = ref.to_pandas()
+        pd.testing.assert_frame_equal(ours, ref)
 
 
 def from_df_to_numpy(df):

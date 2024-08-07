@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -183,11 +183,16 @@ class LogisticRegression(LinearRegression):
             inp_X = scipy.sparse.vstack([X for X, _ in data])
 
         elif cupyx.scipy.sparse.isspmatrix(data[0][0]):
+            total_nnz = sum([X.nnz for X, _ in data])
+            if total_nnz > np.iinfo(np.int32).max:
+                raise ValueError(
+                    f"please use scipy csr_matrix because cupyx uses int32 index dtype that does not support {total_nnz} non-zero values of a partition"
+                )
             inp_X = cupyx.scipy.sparse.vstack([X for X, _ in data])
 
         else:
             raise ValueError(
-                "input matrix must be dense, scipy sparse, or cupy sparse"
+                "input matrix must be dense, scipy sparse, or cupyx sparse"
             )
 
         inp_y = concatenate([y for _, y in data])

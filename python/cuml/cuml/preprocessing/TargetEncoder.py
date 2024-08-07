@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -315,8 +315,11 @@ class TargetEncoder:
             return df.reset_index()
 
         res = []
-        for f in train[self.fold_col].unique().values_host:
-            mask = train[self.fold_col] == f
+        unq_vals = train[self.fold_col].unique()
+        if not isinstance(unq_vals, (cp.ndarray, np.ndarray)):
+            unq_vals = unq_vals.values_host
+        for f in unq_vals:
+            mask = train[self.fold_col].values == f
             dg = train.loc[~mask].groupby(x_cols).agg({self.y_col: self.stat})
             dg = _rename_col(dg, self.out_col)
             res.append(train.loc[mask].merge(dg, on=x_cols, how="left"))

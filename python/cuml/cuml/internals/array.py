@@ -1116,11 +1116,31 @@ class CumlArray:
         if convert_to_dtype:
             convert_to_dtype = arr.mem_type.xpy.dtype(convert_to_dtype)
 
-        conversion_required = (
-            convert_to_dtype and (convert_to_dtype != arr.dtype)
-        ) or (convert_to_mem_type and (convert_to_mem_type != arr.mem_type))
+        if check_dtype:
+            # convert check_dtype to list if it's not a list already
+            try:
+                check_dtype = [
+                    arr.mem_type.xpy.dtype(dtype) for dtype in check_dtype
+                ]
+            except TypeError:
+                check_dtype = [arr.mem_type.xpy.dtype(check_dtype)]
 
-        make_copy = False
+            # if the input is in the desired dtypes, avoid conversion
+            # otherwise, err if convert_dtype is false and input is not desired
+            # dtype.
+            if arr.dtype in check_dtype:
+                convert_to_dtype = False
+            else:
+                if not convert_to_dtype:
+                    raise TypeError(
+                        f"Expected input to be of type in {check_dtype} but got"
+                        f" {arr.dtype}"
+                    )
+
+        conversion_required = convert_to_dtype or (
+            convert_to_mem_type and (convert_to_mem_type != arr.mem_type)
+        )
+
         if conversion_required:
             convert_to_dtype = convert_to_dtype or None
             convert_to_mem_type = convert_to_mem_type or None
@@ -1163,12 +1183,16 @@ class CumlArray:
         if (
             not fail_on_order and order != arr.order and order != "K"
         ) or make_copy:
-            arr = cls(
-                arr.mem_type.xpy.array(
-                    arr.to_output("array"), order=order, copy=make_copy
-                ),
-                index=index,
-            )
+            if make_copy:
+                data = arr.mem_type.xpy.array(
+                    arr.to_output("array"), order=order
+                )
+            else:
+                data = arr.mem_type.xpy.asarray(
+                    arr.to_output("array"), order=order
+                )
+
+            arr = cls(data, index=index)
 
         n_rows = arr.shape[0]
 
@@ -1196,20 +1220,6 @@ class CumlArray:
                     f"Expected {order_str} major order but got something else."
                     " Converting data; this will result in additional memory"
                     " utilization."
-                )
-
-        if check_dtype:
-            try:
-                check_dtype = [
-                    arr.mem_type.xpy.dtype(dtype) for dtype in check_dtype
-                ]
-            except TypeError:
-                check_dtype = [arr.mem_type.xpy.dtype(check_dtype)]
-
-            if arr.dtype not in check_dtype:
-                raise TypeError(
-                    f"Expected input to be of type in {check_dtype} but got"
-                    f" {arr.dtype}"
                 )
 
         if check_cols:

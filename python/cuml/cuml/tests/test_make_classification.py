@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -115,7 +115,7 @@ def test_make_classification_informative_features():
 
             # Cluster by sign, viewed as strings to allow uniquing
             signs = np.sign(cp.asnumpy(X))
-            signs = signs.view(dtype="|S{0}".format(signs.strides[0]))
+            signs = signs.view(dtype="|S{0}".format(signs.strides[0])).ravel()
             unique_signs, cluster_index = np.unique(signs, return_inverse=True)
 
             assert (

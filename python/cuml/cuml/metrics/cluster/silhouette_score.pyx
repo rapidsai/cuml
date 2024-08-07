@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics::Batched":
 
 def _silhouette_coeff(
         X, labels, metric='euclidean', sil_scores=None, chunksize=None,
-        handle=None):
+        convert_dtype=True, handle=None):
     """Function wrapped by silhouette_score and silhouette_samples to compute
     silhouette coefficients.
 
@@ -95,6 +95,8 @@ def _silhouette_coeff(
     data, n_rows, n_cols, dtype = input_to_cuml_array(
         X,
         order='C',
+        convert_to_dtype=(np.float32 if convert_dtype
+                          else None),
         check_dtype=[np.float32, np.float64],
     )
 
@@ -124,6 +126,8 @@ def _silhouette_coeff(
     else:
         sil_scores = input_to_cuml_array(
             sil_scores,
+            convert_to_dtype=(dtype if convert_dtype
+                              else None),
             check_dtype=dtype)[0]
 
         scores_ptr = sil_scores.ptr
@@ -157,6 +161,7 @@ def cython_silhouette_score(
         labels,
         metric='euclidean',
         chunksize=None,
+        convert_dtype=True,
         handle=None):
     """Calculate the mean silhouette coefficient for the provided data.
 
@@ -192,7 +197,8 @@ def cython_silhouette_score(
     """
 
     return _silhouette_coeff(
-        X, labels, chunksize=chunksize, metric=metric, handle=handle
+        X, labels, chunksize=chunksize, metric=metric,
+        convert_dtype=convert_dtype, handle=handle
     )
 
 
@@ -201,6 +207,7 @@ def cython_silhouette_samples(
         labels,
         metric='euclidean',
         chunksize=None,
+        convert_dtype=True,
         handle=None):
     """Calculate the silhouette coefficient for each sample in the provided data.
 
@@ -239,7 +246,7 @@ def cython_silhouette_samples(
 
     _silhouette_coeff(
         X, labels, chunksize=chunksize, metric=metric, sil_scores=sil_scores,
-        handle=handle
+        convert_dtype=convert_dtype, handle=handle
     )
 
     return sil_scores
