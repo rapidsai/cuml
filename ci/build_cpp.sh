@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -13,10 +13,8 @@ export CMAKE_GENERATOR=Ninja
 
 rapids-print-env
 
-version=$(rapids-generate-version)
-
 rapids-logger "Begin cpp build"
 
-RAPIDS_PACKAGE_VERSION=${version} rapids-conda-retry mambabuild conda/recipes/libcuml
+RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild conda/recipes/libcuml
 
 rapids-upload-conda-to-s3 cpp

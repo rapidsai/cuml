@@ -5,14 +5,20 @@ cpp/               @rapidsai/cuml-cpp-codeowners
 python/            @rapidsai/cuml-python-codeowners
 
 #cmake code owners
-**/CMakeLists.txt  @rapidsai/cuml-cmake-codeowners
-**/cmake/          @rapidsai/cuml-cmake-codeowners
-python/setup.py    @rapidsai/cuml-cmake-codeowners
-build.sh           @rapidsai/cuml-cmake-codeowners
-**/build.sh        @rapidsai/cuml-cmake-codeowners
+**/CMakeLists.txt          @rapidsai/cuml-cmake-codeowners
+**/cmake/                  @rapidsai/cuml-cmake-codeowners
+python/cuml/pyproject.toml @rapidsai/cuml-cmake-codeowners
+build.sh                   @rapidsai/cuml-cmake-codeowners
+**/build.sh                @rapidsai/cuml-cmake-codeowners
 
-#build/ops code owners
-.github/           @rapidsai/ops-codeowners
-ci/                @rapidsai/ops-codeowners
-conda/             @rapidsai/ops-codeowners
-dependencies.yaml  @rapidsai/ops-codeowners
+#CI code owners
+/.github/                @rapidsai/ci-codeowners
+/ci/                     @rapidsai/ci-codeowners
+/.pre-commit-config.yaml @rapidsai/ci-codeowners
+
+#packaging code owners
+/.devcontainer/    @rapidsai/packaging-codeowners
+/conda/            @rapidsai/packaging-codeowners
+/dependencies.yaml @rapidsai/packaging-codeowners
+/build.sh          @rapidsai/packaging-codeowners
+pyproject.toml     @rapidsai/packaging-codeowners

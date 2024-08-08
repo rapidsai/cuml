@@ -9,7 +9,7 @@ programming. In most cases, cuML's Python API matches the API from
 
 For large datasets, these GPU-based implementations can complete 10-50x faster
 than their CPU equivalents. For details on performance, see the [cuML Benchmarks
-Notebook](https://github.com/rapidsai/cuml/tree/branch-24.06/notebooks/tools).
+Notebook](https://github.com/rapidsai/cuml/tree/branch-24.08/notebooks/tools).
 
 As an example, the following Python snippet loads input and computes DBSCAN clusters, all on GPU, using cuDF:
 ```python
@@ -74,7 +74,7 @@ neighbors = nn.kneighbors(df)
 For additional examples, browse our complete [API
 documentation](https://docs.rapids.ai/api/cuml/stable/), or check out our
 example [walkthrough
-notebooks](https://github.com/rapidsai/cuml/tree/branch-24.06/notebooks). Finally, you
+notebooks](https://github.com/rapidsai/cuml/tree/branch-24.08/notebooks). Finally, you
 can find complete end-to-end examples in the [notebooks-contrib
 repo](https://github.com/rapidsai/notebooks-contrib).
 

@@ -21,6 +21,7 @@
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/map.cuh>
+#include <raft/linalg/transpose.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <thrust/reduce.h>
@@ -47,6 +48,7 @@ using namespace ML::Metrics;
 struct TSNEInput {
   int n, p;
   std::vector<float> dataset;
+  TSNE_INIT init;
   double trustworthiness_threshold;
 };
 
@@ -128,6 +130,11 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     // Allocate memory
     rmm::device_uvector<float> X_d(n * p, stream);
     raft::update_device(X_d.data(), dataset.data(), n * p, stream);
+
+    rmm::device_uvector<float> Xtranspose(n * p, stream);
+    raft::copy_async(Xtranspose.data(), X_d.data(), n * p, stream);
+    raft::linalg::transpose(handle, Xtranspose.data(), X_d.data(), p, n, stream);
+
     rmm::device_uvector<float> Y_d(n * model_params.dim, stream);
     rmm::device_uvector<int64_t> input_indices(0, stream);
     rmm::device_uvector<float> input_dists(0, stream);
@@ -183,6 +190,9 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     handle.sync_stream(stream);
     free(embeddings_h);
 
+    raft::copy_async(Xtranspose.data(), X_d.data(), n * p, stream);
+    raft::linalg::transpose(handle, Xtranspose.data(), X_d.data(), n, p, stream);
+
     // Produce trustworthiness score
     results.trustworthiness =
       trustworthiness_score<float, raft::distance::DistanceType::L2SqrtUnexpanded>(
@@ -215,6 +225,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     p                         = params.p;
     dataset                   = params.dataset;
     trustworthiness_threshold = params.trustworthiness_threshold;
+    model_params.init         = params.init;
     basicTest();
   }
 
@@ -242,10 +253,22 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
 };
 
 const std::vector<TSNEInput> inputs = {
-  {Digits::n_samples, Digits::n_features, Digits::digits, 0.98},
-  {Boston::n_samples, Boston::n_features, Boston::boston, 0.98},
-  {BreastCancer::n_samples, BreastCancer::n_features, BreastCancer::breast_cancer, 0.98},
-  {Diabetes::n_samples, Diabetes::n_features, Diabetes::diabetes, 0.90}};
+  {Digits::n_samples, Digits::n_features, Digits::digits, TSNE_INIT::RANDOM, 0.98},
+  {Boston::n_samples, Boston::n_features, Boston::boston, TSNE_INIT::RANDOM, 0.98},
+  {BreastCancer::n_samples,
+   BreastCancer::n_features,
+   BreastCancer::breast_cancer,
+   TSNE_INIT::RANDOM,
+   0.98},
+  {Diabetes::n_samples, Diabetes::n_features, Diabetes::diabetes, TSNE_INIT::RANDOM, 0.90},
+  {Digits::n_samples, Digits::n_features, Digits::digits, TSNE_INIT::PCA, 0.98},
+  {Boston::n_samples, Boston::n_features, Boston::boston, TSNE_INIT::PCA, 0.98},
+  {BreastCancer::n_samples,
+   BreastCancer::n_features,
+   BreastCancer::breast_cancer,
+   TSNE_INIT::PCA,
+   0.98},
+  {Diabetes::n_samples, Diabetes::n_features, Diabetes::diabetes, TSNE_INIT::PCA, 0.90}};
 
 typedef TSNETest TSNETestF;
 TEST_P(TSNETestF, Result)

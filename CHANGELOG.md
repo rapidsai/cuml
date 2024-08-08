@@ -1,3 +1,50 @@
+# cuml 24.08.00 (7 Aug 2024)
+
+## 🐛 Bug Fixes
+
+- Fixes for encoders/transformers for cudf.pandas ([#5990](https://github.com/rapidsai/cuml/pull/5990)) [@dantegd](https://github.com/dantegd)
+- BUG: remove sample parameter from pca call to mean ([#5980](https://github.com/rapidsai/cuml/pull/5980)) [@mfoerste4](https://github.com/mfoerste4)
+- Fix segfault and other errors in ForestInference.load_from_sklearn ([#5973](https://github.com/rapidsai/cuml/pull/5973)) [@hcho3](https://github.com/hcho3)
+- Rename `.devcontainer`s for CUDA 12.5 ([#5967](https://github.com/rapidsai/cuml/pull/5967)) [@jakirkham](https://github.com/jakirkham)
+- [MNT] Small NumPy 2 related fixes ([#5954](https://github.com/rapidsai/cuml/pull/5954)) [@seberg](https://github.com/seberg)
+- CI Fix: use ld_preload to avoid libgomp issue on ARM jobs ([#5949](https://github.com/rapidsai/cuml/pull/5949)) [@dantegd](https://github.com/dantegd)
+- Fix for benchmark runner to handle parameter sweeps of multiple data types ([#5938](https://github.com/rapidsai/cuml/pull/5938)) [@dantegd](https://github.com/dantegd)
+- Avoid extra memory copy when using cp.concatenate in cuml.dask kmeans ([#5937](https://github.com/rapidsai/cuml/pull/5937)) [@dantegd](https://github.com/dantegd)
+- Assign correct `labels_` in `cuml.dask.kmeans` ([#5931](https://github.com/rapidsai/cuml/pull/5931)) [@dantegd](https://github.com/dantegd)
+- Fix nightly jobs by updating hypothesis strategies to account for sklearn change ([#5925](https://github.com/rapidsai/cuml/pull/5925)) [@dantegd](https://github.com/dantegd)
+- Fix for SVC fit_proba not using class weights ([#5912](https://github.com/rapidsai/cuml/pull/5912)) [@pablotanner](https://github.com/pablotanner)
+- Fix `cudf.pandas` failure on `test_convert_input_dtype` ([#5885](https://github.com/rapidsai/cuml/pull/5885)) [@dantegd](https://github.com/dantegd)
+- Fix `cudf.pandas` failure on  `test_convert_matrix_order_cuml_array` ([#5882](https://github.com/rapidsai/cuml/pull/5882)) [@dantegd](https://github.com/dantegd)
+- Simplify cuml array ([#5166](https://github.com/rapidsai/cuml/pull/5166)) [@wence-](https://github.com/wence-)
+
+## 🚀 New Features
+
+- [FEA] Enable UMAP to build knn graph using NN Descent ([#5910](https://github.com/rapidsai/cuml/pull/5910)) [@jinsolp](https://github.com/jinsolp)
+- Allow estimators to accept any dtype ([#5888](https://github.com/rapidsai/cuml/pull/5888)) [@dantegd](https://github.com/dantegd)
+
+## 🛠️ Improvements
+
+- Add support for XGBoost UBJSON in FIL ([#6009](https://github.com/rapidsai/cuml/pull/6009)) [@hcho3](https://github.com/hcho3)
+- split up CUDA-suffixed dependencies in dependencies.yaml ([#5974](https://github.com/rapidsai/cuml/pull/5974)) [@jameslamb](https://github.com/jameslamb)
+- Use workflow branch 24.08 again ([#5970](https://github.com/rapidsai/cuml/pull/5970)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Bump Treelite to 4.3.0 ([#5968](https://github.com/rapidsai/cuml/pull/5968)) [@hcho3](https://github.com/hcho3)
+- reduce memory_footprint for sparse PCA transform ([#5964](https://github.com/rapidsai/cuml/pull/5964)) [@Intron7](https://github.com/Intron7)
+- Build and test with CUDA 12.5.1 ([#5963](https://github.com/rapidsai/cuml/pull/5963)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Support int64 index type in MG sparse LogisticRegression ([#5962](https://github.com/rapidsai/cuml/pull/5962)) [@lijinf2](https://github.com/lijinf2)
+- Add CUDA_STATIC_MATH_LIBRARIES ([#5959](https://github.com/rapidsai/cuml/pull/5959)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- skip CMake 3.30.0 ([#5956](https://github.com/rapidsai/cuml/pull/5956)) [@jameslamb](https://github.com/jameslamb)
+- Make `ci/run_cuml_dask_pytests.sh` environment-agnostic again ([#5950](https://github.com/rapidsai/cuml/pull/5950)) [@trxcllnt](https://github.com/trxcllnt)
+- Use verify-alpha-spec hook ([#5948](https://github.com/rapidsai/cuml/pull/5948)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- nest cuml one level deeper in python ([#5944](https://github.com/rapidsai/cuml/pull/5944)) [@msarahan](https://github.com/msarahan)
+- resolve dependency-file-generator warning, other rapids-build-backend followup ([#5928](https://github.com/rapidsai/cuml/pull/5928)) [@jameslamb](https://github.com/jameslamb)
+- Adopt CI/packaging codeowners ([#5923](https://github.com/rapidsai/cuml/pull/5923)) [@bdice](https://github.com/bdice)
+- Remove text builds of documentation ([#5921](https://github.com/rapidsai/cuml/pull/5921)) [@vyasr](https://github.com/vyasr)
+- Fix conflict of forward-merge #5905 of branch-24.06 into branch-24.08 ([#5911](https://github.com/rapidsai/cuml/pull/5911)) [@dantegd](https://github.com/dantegd)
+- Bump Treelite to 4.2.1 ([#5908](https://github.com/rapidsai/cuml/pull/5908)) [@hcho3](https://github.com/hcho3)
+- remove unnecessary &#39;setuptools&#39; dependency ([#5901](https://github.com/rapidsai/cuml/pull/5901)) [@jameslamb](https://github.com/jameslamb)
+- [FEA] PCA Initialization for TSNE ([#5897](https://github.com/rapidsai/cuml/pull/5897)) [@aamijar](https://github.com/aamijar)
+- Use rapids-build-backend ([#5804](https://github.com/rapidsai/cuml/pull/5804)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+
 # cuml 24.06.00 (5 Jun 2024)
 
 ## 🐛 Bug Fixes
