@@ -114,8 +114,8 @@ class LabelEncoder(
         0    a
         1    a
         2    b
-        0    c
-        1    b
+        3    c
+        4    b
         dtype: object
         >>> client.close()
         >>> cluster.close()
