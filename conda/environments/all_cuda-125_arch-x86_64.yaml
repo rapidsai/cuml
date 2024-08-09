@@ -59,7 +59,7 @@ dependencies:
 - rapids-dask-dependency==24.10.*,>=0.0.0a0
 - recommonmark
 - rmm==24.10.*,>=0.0.0a0
-- scikit-build-core>=0.7.0
+- scikit-build-core>=0.10.0
 - scikit-learn==1.5
 - scipy>=1.8.0
 - seaborn
