@@ -193,6 +193,8 @@ def eig_lanczos(A, n_components, seed, dtype, maxiter=4000, tol=0.01, conv_n_ite
             input_to_cuml_array(v0, order='C', check_dtype=dtype,
                                 convert_to_dtype=(dtype))
 
+    # v0print = v0.to_output(output_type="numpy")
+    # print("v0", np.array2string(v0print, separator=', '))
 
     cdef int eig_iters = 0
     cdef int* eig_iters_ptr = &eig_iters

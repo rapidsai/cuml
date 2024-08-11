@@ -209,7 +209,7 @@ void lanczos_solver(const raft::handle_t& handle,
   //   handle, rows, cols, vals, nnz, n, src_offsets.data(), dst_cols.data(), dst_vals.data());
   // std::cout << "DONE" << std::endl;
 
-  raft::print_device_vector("v0 init", v0, n, std::cout);
+  // raft::print_device_vector("v0 init", v0, n, std::cout);
 
   rmm::device_uvector<T> eigVals(n_components, stream);
   rmm::device_uvector<T> eigVecs(n * (n_components), stream);
