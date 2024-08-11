@@ -405,6 +405,7 @@ class KernelPCA(UniversalBase,
             return t_input_data
     
     @enable_device_interop
+    def transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Apply kernel-based dimensionality reduction to X.
 
