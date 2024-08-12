@@ -88,8 +88,8 @@ files:
     extras:
       table: project
     includes:
-      - py_run
       - cuda
+      - py_run
   py_test:
     output: pyproject
     pyproject_dir: python/cuml

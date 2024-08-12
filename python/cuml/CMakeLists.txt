@@ -92,7 +92,7 @@ if(NOT CUML_CPU)
     set(CUML_USE_FAISS_STATIC ON)
     set(CUML_USE_TREELITE_STATIC ON)
     set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
-    # Use the CUDA library wheels if possible
+    # Link to the CUDA wheels with shared libraries for CUDA 12+
     if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
       set(CUDA_STATIC_MATH_LIBRARIES OFF)
     else()
