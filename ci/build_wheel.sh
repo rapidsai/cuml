@@ -25,15 +25,20 @@ SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DDISABLE_DEPRECATION_WARNINGS=ON;-DC
     --no-deps \
     --disable-pip-version-check
 
+case "${RAPIDS_CUDA_VERSION}" in
+  12.*) EXCLUDE_ARGS=(
+    --exclude "libcublas.so.12"
+    --exclude "libcublasLt.so.12"
+    --exclude "libcufft.so.11"
+    --exclude "libcurand.so.10"
+    --exclude "libcusolver.so.11"
+    --exclude "libcusparse.so.12"
+    --exclude "libnvJitLink.so.12"
+  ) ;;
+  11.*) EXCLUDE_ARGS=() ;;
+esac
+
 mkdir -p final_dist
-python -m auditwheel repair -w final_dist \
-  --exclude "libcublas.so.12" \
-  --exclude "libcublasLt.so.12" \
-  --exclude "libcufft.so.11" \
-  --exclude "libcurand.so.10" \
-  --exclude "libcusolver.so.11" \
-  --exclude "libcusparse.so.12" \
-  --exclude "libnvJitLink.so.12" \
-  dist/*
+python -m auditwheel repair -w final_dist "${EXCLUDE_ARGS[@]}" dist/*
 
 RAPIDS_PY_WHEEL_NAME="cuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 final_dist
