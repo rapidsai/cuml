@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
 
 import joblib
+import warnings
 
 from cuml.internals.safe_imports import gpu_only_import
 cupy = gpu_only_import('cupy')
@@ -40,6 +41,7 @@ from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
 
@@ -289,6 +291,13 @@ class UMAP(UniversalBase,
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
+    build_algo: string (default='auto')
+        How to build the knn graph. Supported build algorithms are ['auto', 'brute_force_knn',
+        'nn_descent']. 'auto' chooses to run with brute force knn if number of data rows is
+        smaller than or equal to 50K. Otherwise, runs with nn descent.
+    build_kwds: dict (optional, default=None)
+        Build algorithm argument {'nnd_graph_degree': 64, 'nnd_intermediate_graph_degree': 128,
+        'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_return_distances': True}
 
     Notes
     -----
@@ -348,6 +357,8 @@ class UMAP(UniversalBase,
                  callback=None,
                  handle=None,
                  verbose=False,
+                 build_algo="auto",
+                 build_kwds=None,
                  output_type=None):
 
         super().__init__(handle=handle,
@@ -420,6 +431,21 @@ class UMAP(UniversalBase,
         self.precomputed_knn = extract_knn_infos(precomputed_knn,
                                                  n_neighbors)
 
+        logger.set_level(verbose)
+
+        if build_algo == "auto" or build_algo == "brute_force_knn" or build_algo == "nn_descent":
+            if self.deterministic and build_algo == "auto":
+                # TODO: for now, users should be able to see the same results as previous version
+                # (i.e. running brute force knn) when they explicitly pass random_state
+                # https://github.com/rapidsai/cuml/issues/5985
+                logger.info("build_algo set to brute_force_knn because random_state is given")
+                self.build_algo ="brute_force_knn"
+            self.build_algo = build_algo
+        else:
+            raise Exception("Invalid build algo: {}. Only support auto, brute_force_knn and nn_descent" % build_algo)
+
+        self.build_kwds = build_kwds
+
     def validate_hyperparams(self):
 
         if self.min_dist > self.spread:
@@ -452,6 +478,22 @@ class UMAP(UniversalBase,
                 umap_params.target_metric = MetricType.EUCLIDEAN
             else:  # self.target_metric == "categorical"
                 umap_params.target_metric = MetricType.CATEGORICAL
+            if cls.build_algo == "brute_force_knn":
+                umap_params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
+            else:  # self.init == "nn_descent"
+                umap_params.build_algo = graph_build_algo.NN_DESCENT
+                if cls.build_kwds is None:
+                    umap_params.nn_descent_params.graph_degree = <uint64_t> 64
+                    umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> 128
+                    umap_params.nn_descent_params.max_iterations = <uint64_t> 20
+                    umap_params.nn_descent_params.termination_threshold = <float> 0.0001
+                    umap_params.nn_descent_params.return_distances = <bool> True
+                else:
+                    umap_params.nn_descent_params.graph_degree = <uint64_t> cls.build_kwds.get("nnd_graph_degree", 64)
+                    umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> cls.build_kwds.get("nnd_intermediate_graph_degree", 128)
+                    umap_params.nn_descent_params.max_iterations = <uint64_t> cls.build_kwds.get("nnd_max_iterations", 20)
+                    umap_params.nn_descent_params.termination_threshold = <float> cls.build_kwds.get("nnd_termination_threshold", 0.0001)
+                    umap_params.nn_descent_params.return_distances = <bool> cls.build_kwds.get("nnd_return_distances", True)
             umap_params.target_weight = <float> cls.target_weight
             umap_params.random_state = <uint64_t> cls.random_state
             umap_params.deterministic = <bool> cls.deterministic
@@ -495,7 +537,7 @@ class UMAP(UniversalBase,
                         skip_parameters_heading=True)
     @enable_device_interop
     def fit(self, X, y=None, convert_dtype=True,
-            knn_graph=None) -> "UMAP":
+            knn_graph=None, data_on_host=False) -> "UMAP":
         """
         Fit X into an embedded space.
 
@@ -526,18 +568,41 @@ class UMAP(UniversalBase,
                                              convert_format=False)
             self.n_rows, self.n_dims = self._raw_data.shape
             self.sparse_fit = True
+            if self.build_algo == "nn_descent":
+                raise ValueError("NN Descent does not support sparse inputs")
 
         # Handle dense inputs
         else:
+            if data_on_host:
+                convert_to_mem_type = MemoryType.host
+            else:
+                convert_to_mem_type = MemoryType.device
+
             self._raw_data, self.n_rows, self.n_dims, _ = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
-                                                      else None))
+                                                      else None),
+                                    convert_to_mem_type=convert_to_mem_type)
+
+        if self.build_algo == "auto":
+            if self.n_rows <= 50000 or self.sparse_fit:
+                # brute force is faster for small datasets
+                logger.info("Building knn graph using brute force")
+                self.build_algo = "brute_force_knn"
+            else:
+                logger.info("Building knn graph using nn descent")
+                self.build_algo = "nn_descent"
+
+        if self.build_algo == "brute_force_knn" and data_on_host:
+            raise ValueError("Data cannot be on host for building with brute force knn")
 
         if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
+        if self.build_algo == "nn_descent" and self.n_rows < 150:
+            # https://github.com/rapidsai/cuvs/issues/184
+            warnings.warn("using nn_descent as build_algo on a small dataset (< 150 samples) is unstable")
 
         cdef uintptr_t _knn_dists_ptr = 0
         cdef uintptr_t _knn_indices_ptr = 0
@@ -630,7 +695,7 @@ class UMAP(UniversalBase,
     @cuml.internals.api_base_fit_transform()
     @enable_device_interop
     def fit_transform(self, X, y=None, convert_dtype=True,
-                      knn_graph=None) -> CumlArray:
+                      knn_graph=None, data_on_host=False) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed
         output.
@@ -663,7 +728,7 @@ class UMAP(UniversalBase,
             CSR/COO preferred other formats will go through conversion to CSR
 
         """
-        self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph)
+        self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph, data_on_host=data_on_host)
 
         return self.embedding_
 
@@ -734,6 +799,11 @@ class UMAP(UniversalBase,
 
         cdef uintptr_t _embed_ptr = self.embedding_.ptr
 
+        # NN Descent doesn't support transform yet
+        if self.build_algo == "nn_descent" or self.build_algo == "auto":
+            self.build_algo = "brute_force_knn"
+            logger.info("Transform can only be run with brute force. Using brute force.")
+
         IF GPUBUILD == 1:
             cdef UMAPParams* umap_params = \
                 <UMAPParams*> <size_t> UMAP._build_umap_params(self,
@@ -799,7 +869,9 @@ class UMAP(UniversalBase,
             "callback",
             "metric",
             "metric_kwds",
-            "precomputed_knn"
+            "precomputed_knn",
+            "build_algo",
+            "build_kwds"
         ]
 
     def get_attr_names(self):

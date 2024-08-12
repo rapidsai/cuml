@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -255,7 +255,10 @@ class KernelRidge(Base, RegressorMixin):
             ravel = True
 
         X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
-            X, check_dtype=[np.float32, np.float64]
+            X,
+            convert_to_dtype=(np.float32 if convert_dtype
+                              else None),
+            check_dtype=[np.float32, np.float64]
         )
 
         y_m, _, _, _ = input_to_cuml_array(
