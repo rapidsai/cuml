@@ -32,6 +32,7 @@ from cuml.linear_model import (
 from cuml.internals.memory_utils import using_memory_type
 from cuml.internals.mem_type import MemoryType
 from cuml.decomposition import PCA, TruncatedSVD
+from cuml.cluster import KMeans
 from cuml.common.device_selection import DeviceType, using_device_type
 from hdbscan import HDBSCAN as refHDBSCAN
 from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
@@ -42,6 +43,7 @@ from sklearn.linear_model import LogisticRegression as skLogisticRegression
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.decomposition import PCA as skPCA
 from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
+from sklearn.cluster import KMeans as skKMeans
 from sklearn.datasets import make_regression, make_blobs
 from pytest_cases import fixture_union, fixture
 from importlib import import_module
@@ -948,3 +950,19 @@ def test_hdbscan_methods(train_device, infer_device):
     assert_membership_vectors(membership, ref_membership)
     assert adjusted_rand_score(labels, ref_labels) >= 0.98
     assert array_equal(probs, ref_probs, unit_tol=0.001, total_tol=0.006)
+
+
+@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
+@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
+def test_kmeans_methods(train_device, infer_device):
+    ref_model = skKMeans(n_clusters=20)
+    ref_model.fit(X_train_blob)
+    ref_output = ref_model.predict(X_train_blob)
+
+    model = KMeans(n_clusters=20)
+    with using_device_type(train_device):
+        model.fit(X_train_blob)
+    with using_device_type(infer_device):
+        output = model.predict(X_train_blob)
+
+    assert adjusted_rand_score(ref_output, output) >= 0.95
