@@ -297,7 +297,9 @@ class UMAP(UniversalBase,
         smaller than or equal to 50K. Otherwise, runs with nn descent.
     build_kwds: dict (optional, default=None)
         Build algorithm argument {'nnd_graph_degree': 64, 'nnd_intermediate_graph_degree': 128,
-        'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_return_distances': True}
+        'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_return_distances': True,
+        'nnd_do_batch': False, 'nnd_n_clusters': 2}
+        Note that nnd_n_clusters only becomes effective when nnd_do_batch is True.
 
     Notes
     -----
