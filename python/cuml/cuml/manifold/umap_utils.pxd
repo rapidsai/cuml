@@ -40,11 +40,13 @@ cdef extern from "cuml/common/callback.hpp" namespace "ML::Internals":
 
 cdef extern from "raft/neighbors/nn_descent_types.hpp" namespace "raft::neighbors::experimental::nn_descent":
     cdef struct index_params:
-        int64_t graph_degree,
-        int64_t intermediate_graph_degree,
-        int64_t max_iterations,
+        uint64_t graph_degree,
+        uint64_t intermediate_graph_degree,
+        uint64_t max_iterations,
         float termination_threshold,
-        bool return_distances
+        bool return_distances,
+        uint64_t n_clusters,
+        bool do_batch
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
 
