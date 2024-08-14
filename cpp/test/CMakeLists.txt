@@ -85,6 +85,10 @@ function(ConfigureTest)
   set_target_properties(
     ${_CUML_TEST_NAME}
     PROPERTIES INSTALL_RPATH "\$ORIGIN/../../../lib"
+               CXX_STANDARD                      17
+               CXX_STANDARD_REQUIRED             ON
+               CUDA_STANDARD                     17
+               CUDA_STANDARD_REQUIRED            ON
   )
 
   set(_CUML_TEST_COMPONENT_NAME testing)

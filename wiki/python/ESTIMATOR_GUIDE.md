@@ -87,9 +87,9 @@ At a high level, all cuML Estimators must:
    ```
 
 7. Implement the appropriate tags method if any of the [default tags](#estimator-tags-and-cuml-specific-tags) need to be overridden for the new estimator.
-There are some convenience [Mixins](../../python/common/mixins.py), that the estimator can inherit, can be used for indicating the preferred order (column or row major) as well as for sparse input capability.
+There are some convenience [Mixins](../../python/cuml/cuml/internals/mixins.py), that the estimator can inherit, can be used for indicating the preferred order (column or row major) as well as for sparse input capability.
 
-If other tags are needed, they are static (i.e. don't change depending on the instantiated estimator), and more than one estimator will use them, then implement a new [Mixin](../../python/common/mixins.py), if the tag will be used by a single class then implement the `_more_static_tags` method:
+If other tags are needed, they are static (i.e. don't change depending on the instantiated estimator), and more than one estimator will use them, then implement a new [Mixin](../../python/cuml/cuml/internals/mixins.py), if the tag will be used by a single class then implement the `_more_static_tags` method:
    ```python
     @staticmethod
     def _more_static_tags():

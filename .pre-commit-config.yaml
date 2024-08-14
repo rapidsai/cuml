@@ -7,12 +7,12 @@ repos:
       hooks:
           - id: black
             files: python/.*
-            args: [--config, python/pyproject.toml]
+            args: [--config, python/cuml/pyproject.toml]
     - repo: https://github.com/PyCQA/flake8
       rev: 5.0.4
       hooks:
           - id: flake8
-            args: [--config=python/.flake8]
+            args: [--config=python/cuml/.flake8]
             files: python/.*$
             types: [file]
             types_or: [python, cython]
@@ -59,13 +59,8 @@ repos:
                 - cpp/test
             pass_filenames: false
             language: python
-    - repo: https://github.com/rapidsai/dependency-file-generator
-      rev: v1.8.0
-      hooks:
-          - id: rapids-dependency-file-generator
-            args: ["--clean"]
     - repo: https://github.com/rapidsai/pre-commit-hooks
-      rev: v0.0.3
+      rev: v0.3.1
       hooks:
         - id: verify-copyright
           files: |
@@ -78,7 +73,14 @@ repos:
                 setup[.]cfg$
           exclude: |
             (?x)
-                cpp/src/tsne/cannylab/bh[.]cu$
+                cpp/src/tsne/cannylab/bh[.]cu$|
+                python/cuml/cuml/_thirdparty
+        - id: verify-alpha-spec
+    - repo: https://github.com/rapidsai/dependency-file-generator
+      rev: v1.13.11
+      hooks:
+          - id: rapids-dependency-file-generator
+            args: ["--clean"]
 
 default_language_version:
     python: python3

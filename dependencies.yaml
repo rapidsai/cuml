@@ -3,7 +3,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["11.8", "12.2"]
+      cuda: ["11.8", "12.5"]
       arch: [x86_64]
     includes:
       - common_build
@@ -13,11 +13,12 @@ files:
       - py_build
       - py_run
       - py_version
+      - rapids_build_backend
       - test_python
   cpp_all:
     output: conda
     matrix:
-      cuda: ["11.8", "12.2"]
+      cuda: ["11.8", "12.5"]
       arch: [x86_64]
     includes:
       - common_build
@@ -67,19 +68,30 @@ files:
       - test_notebooks
   py_build:
     output: pyproject
+    pyproject_dir: python/cuml
     extras:
       table: build-system
+    includes:
+      - rapids_build_backend
+  py_rapids_build:
+    output: pyproject
+    pyproject_dir: python/cuml
+    extras:
+      table: tool.rapids-build-backend
+      key: requires
     includes:
       - common_build
       - py_build
   py_run:
     output: pyproject
+    pyproject_dir: python/cuml
     extras:
       table: project
     includes:
       - py_run
   py_test:
     output: pyproject
+    pyproject_dir: python/cuml
     extras:
       table: project.optional-dependencies
       key: test
@@ -92,6 +104,17 @@ channels:
   - conda-forge
   - nvidia
 dependencies:
+  rapids_build_backend:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - rapids-build-backend>=0.3.0,<0.4.0.dev0
+      - output_types: [conda]
+        packages:
+          - scikit-build-core>=0.10.0
+      - output_types: [requirements, pyproject]
+        packages:
+          - scikit-build-core[pyproject]>=0.10.0
   checks:
     common:
       - output_types: [conda, requirements]
@@ -110,16 +133,16 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &cmake_ver cmake>=3.26.4
+          - &cmake_ver cmake>=3.26.4,!=3.30.0
           - ninja
       - output_types: conda
         packages:
           - c-compiler
           - cxx-compiler
-          - libcumlprims==24.6.*
-          - libraft==24.6.*
-          - libraft-headers==24.6.*
-          - librmm==24.6.*
+          - libcumlprims==24.10.*,>=0.0.0a0
+          - libraft==24.10.*,>=0.0.0a0
+          - libraft-headers==24.10.*,>=0.0.0a0
+          - librmm==24.10.*,>=0.0.0a0
     specific:
       - output_types: conda
         matrices:
@@ -154,21 +177,17 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - cython>=3.0.0
-          - &treelite treelite==4.1.2
+          - &treelite treelite==4.3.0
       - output_types: conda
         packages:
-          - &pylibraft_conda pylibraft==24.6.*
-          - &rmm_conda rmm==24.6.*
-          - scikit-build-core>=0.7.0
+          - &pylibraft_unsuffixed pylibraft==24.10.*,>=0.0.0a0
+          - &rmm_unsuffixed rmm==24.10.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
           # This index is needed for cudf and rmm.
           - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
-      - output_types: [pyproject, requirements]
-        packages:
-          - scikit-build-core[pyproject]>=0.7.0
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
@@ -176,26 +195,37 @@ dependencies:
               cuda: "12.*"
             packages:
               - cuda-python>=12.0,<13.0a0
-          - matrix: # All CUDA 11 versions
+          - matrix:
+              cuda: "11.*"
             packages:
               - cuda-python>=11.7.1,<12.0a0
+          - matrix:
+            packages:
+              - cuda-python
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
-              - pylibraft-cu12==24.6.*
-              - rmm-cu12==24.6.*
-          - matrix: {cuda: "11.*"}
+              - pylibraft-cu12==24.10.*,>=0.0.0a0
+              - rmm-cu12==24.10.*,>=0.0.0a0
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
             packages:
-              - &pylibraft_cu11 pylibraft-cu11==24.6.*
-              - &rmm_cu11 rmm-cu11==24.6.*
-          - {matrix: null, packages: [*pylibraft_conda, *rmm_conda] }
+              - pylibraft-cu11==24.10.*,>=0.0.0a0
+              - rmm-cu11==24.10.*,>=0.0.0a0
+          - matrix:
+            packages:
+              - *pylibraft_unsuffixed
+              - *rmm_unsuffixed
 
   py_run:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - dask-cuda==24.6.*
+          - dask-cuda==24.10.*,>=0.0.0a0
           - joblib>=0.11
           - numba>=0.57
             # TODO: Is scipy really a hard dependency, or should
@@ -203,14 +233,14 @@ dependencies:
             # installation/run_constrained for conda)?
           - scipy>=1.8.0
           - packaging
-          - rapids-dask-dependency==24.6.*
+          - rapids-dask-dependency==24.10.*,>=0.0.0a0
           - *treelite
       - output_types: conda
         packages:
-          - &cudf_conda cudf==24.6.*
-          - &cupy_conda cupy>=12.0.0
-          - &dask_cudf_conda dask-cudf==24.6.*
-          - &raft_dask_conda raft-dask==24.6.*
+          - &cudf_unsuffixed cudf==24.10.*,>=0.0.0a0
+          - &cupy_unsuffixed cupy>=12.0.0
+          - &dask_cudf_unsuffixed dask-cudf==24.10.*,>=0.0.0a0
+          - &raft_dask_unsuffixed raft-dask==24.10.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -220,30 +250,58 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
-          - matrix: {cuda: "12.*"}
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
-              - cudf-cu12==24.6.*
-              - cupy-cuda12x>=12.0.0
-              - dask-cudf-cu12==24.6.*
-              - pylibraft-cu12==24.6.*
-              - raft-dask-cu12==24.6.*
-              - rmm-cu12==24.6.*
-          - matrix: {cuda: "11.*"}
+              - cudf-cu12==24.10.*,>=0.0.0a0
+              - &cupy_pyproject_cu12 cupy-cuda12x>=12.0.0
+              - dask-cudf-cu12==24.10.*,>=0.0.0a0
+              - pylibraft-cu12==24.10.*,>=0.0.0a0
+              - raft-dask-cu12==24.10.*,>=0.0.0a0
+              - rmm-cu12==24.10.*,>=0.0.0a0
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "false"
+            packages:
+              - *cudf_unsuffixed
+              # NOTE: cupy still has a "-cuda12x" suffix here, because it's suffixed
+              #       in DLFW builds
+              - *cupy_pyproject_cu12
+              - *dask_cudf_unsuffixed
+              - *pylibraft_unsuffixed
+              - *raft_dask_unsuffixed
+              - *rmm_unsuffixed
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "true"
             packages: &py_run_packages_cu11
-              - cudf-cu11==24.6.*
+              - cudf-cu11==24.10.*,>=0.0.0a0
               - &cupy_pyproject_cu11 cupy-cuda11x>=12.0.0
-              - dask-cudf-cu11==24.6.*
-              - *pylibraft_cu11
-              - raft-dask-cu11==24.6.*
-              - *rmm_cu11
-          - matrix: null
+              - dask-cudf-cu11==24.10.*,>=0.0.0a0
+              - pylibraft-cu11==24.10.*,>=0.0.0a0
+              - raft-dask-cu11==24.10.*,>=0.0.0a0
+              - rmm-cu11==24.10.*,>=0.0.0a0
+          - matrix:
+              cuda: "11.*"
+              cuda_suffixed: "false"
             packages:
-              - *cudf_conda
+              - *cudf_unsuffixed
+              # NOTE: cupy still has a "-cuda11x" suffix here, because it's suffixed
+              #       in DLFW builds
               - *cupy_pyproject_cu11
-              - *dask_cudf_conda
-              - *pylibraft_conda
-              - *raft_dask_conda
-              - *rmm_conda
+              - *dask_cudf_unsuffixed
+              - *pylibraft_unsuffixed
+              - *raft_dask_unsuffixed
+              - *rmm_unsuffixed
+          - matrix:
+            packages:
+              - *cudf_unsuffixed
+              - *cupy_pyproject_cu11
+              - *dask_cudf_unsuffixed
+              - *pylibraft_unsuffixed
+              - *raft_dask_unsuffixed
+              - *rmm_unsuffixed
   cuda_version:
     specific:
       - output_types: conda
@@ -272,6 +330,10 @@ dependencies:
               cuda: "12.2"
             packages:
               - cuda-version=12.2
+          - matrix:
+              cuda: "12.5"
+            packages:
+              - cuda-version=12.5
   cuda:
     specific:
       - output_types: conda
@@ -356,7 +418,7 @@ dependencies:
           # https://github.com/pydata/pydata-sphinx-theme/issues/1539
           - pydata-sphinx-theme!=0.14.2
           - recommonmark
-          - &scikit_learn scikit-learn==1.2
+          - &scikit_learn scikit-learn==1.5
           - sphinx<6
           - sphinx-copybutton
           - sphinx-markdown-tables
@@ -386,14 +448,14 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - libcuml==24.6.*
-          - libcuml-tests==24.6.*
+          - libcuml==24.10.*,>=0.0.0a0
+          - libcuml-tests==24.10.*,>=0.0.0a0
   test_cuml:
     common:
       - output_types: conda
         packages:
-          - libcuml==24.6.*
-          - cuml==24.6.*
+          - libcuml==24.10.*,>=0.0.0a0
+          - cuml==24.10.*,>=0.0.0a0
   test_cpp:
     common:
       - output_types: conda
@@ -437,3 +499,4 @@ dependencies:
           - pandas
           - *scikit_learn
           - seaborn
+          - xgboost

@@ -26,6 +26,7 @@
 #include <rmm/exec_policy.hpp>
 
 #include <cub/cub.cuh>
+#include <cuda/functional>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -156,7 +157,7 @@ void CondensedHierarchy<value_idx, value_t>::condense(value_idx* full_parents,
     thrust::cuda::par.on(stream),
     full_sizes,
     full_sizes + size,
-    [=] __device__(value_idx a) { return a != -1; },
+    cuda::proclaim_return_type<bool>([=] __device__(value_idx a) -> bool { return a != -1; }),
     0,
     thrust::plus<value_idx>());
 
