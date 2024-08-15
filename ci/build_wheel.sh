@@ -18,25 +18,31 @@ rapids-generate-version > ./VERSION
 
 cd ${package_dir}
 
-SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/" \
+case "${RAPIDS_CUDA_VERSION}" in
+  12.*)
+    EXCLUDE_ARGS=(
+      --exclude "libcublas.so.12"
+      --exclude "libcublasLt.so.12"
+      --exclude "libcufft.so.11"
+      --exclude "libcurand.so.10"
+      --exclude "libcusolver.so.11"
+      --exclude "libcusparse.so.12"
+      --exclude "libnvJitLink.so.12"
+    )
+    EXTRA_CMAKE_ARGS=";-DUSE_CUDA_MATH_WHEELS=ON"
+    ;;
+  11.*)
+    EXCLUDE_ARGS=()
+    EXTRA_CMAKE_ARGS=";-DUSE_CUDA_MATH_WHEELS=OFF"
+    ;;
+esac
+
+SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/${EXTRA_CMAKE_ARGS}" \
   python -m pip wheel . \
     -w dist \
     -vvv \
     --no-deps \
     --disable-pip-version-check
-
-case "${RAPIDS_CUDA_VERSION}" in
-  12.*) EXCLUDE_ARGS=(
-    --exclude "libcublas.so.12"
-    --exclude "libcublasLt.so.12"
-    --exclude "libcufft.so.11"
-    --exclude "libcurand.so.10"
-    --exclude "libcusolver.so.11"
-    --exclude "libcusparse.so.12"
-    --exclude "libnvJitLink.so.12"
-  ) ;;
-  11.*) EXCLUDE_ARGS=() ;;
-esac
 
 mkdir -p final_dist
 python -m auditwheel repair -w final_dist "${EXCLUDE_ARGS[@]}" dist/*
