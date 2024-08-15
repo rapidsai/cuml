@@ -177,7 +177,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cython>=3.0.0
+          - &cython cython>=3.0.0
           - &treelite treelite==4.3.0
       - output_types: conda
         packages:
@@ -486,7 +486,9 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
+          - *cython
           - dask-ml
+          - hdbscan>=0.8.38,<0.8.39
           - hypothesis>=6.0,<7
           - nltk
           - numpydoc
@@ -505,14 +507,9 @@ dependencies:
           - pip
           - pip:
               - dask-glm==0.3.0
-          # TODO: remove pin once a release that includes fixes for the error
-          # is released: https://github.com/rapidsai/cuml/issues/5514
-          - hdbscan<=0.8.30
       - output_types: pyproject
         packages:
           - dask-glm==0.3.0
-            # TODO: Can we stop pulling from the master branch now that there was a release in October?
-          - hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master
   test_notebooks:
     common:
       - output_types: [conda, requirements]
