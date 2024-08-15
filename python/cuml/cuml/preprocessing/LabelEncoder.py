@@ -217,10 +217,9 @@ class LabelEncoder(Base):
 
         y = cudf.Series(y, dtype="category")
 
-        encoded = y.cat.set_categories(self.classes_)._column.codes
-        encoded = cudf.Series(encoded, index=y.index)
+        encoded = y.cat.set_categories(self.classes_).cat.codes
 
-        if encoded.has_nulls and self.handle_unknown == "error":
+        if encoded.hasnans and self.handle_unknown == "error":
             raise KeyError("Attempted to encode unseen key")
 
         return encoded
@@ -237,9 +236,9 @@ class LabelEncoder(Base):
         self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
 
         y = y.astype("category")
-        self.classes_ = y._column.categories
+        self.classes_ = y.cat.categories
 
-        return cudf.Series(y._column.codes, index=y.index)
+        return y.cat.codes
 
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
         """
@@ -275,11 +274,14 @@ class LabelEncoder(Base):
 
         y = y.astype(self.dtype)
 
-        ran_idx = cudf.Series(cp.arange(len(self.classes_))).astype(self.dtype)
+        # TODO: Remove ._column once .replace correctly accepts cudf.Index
+        ran_idx = (
+            cudf.Index(cp.arange(len(self.classes_)))
+            .astype(self.dtype)
+            ._column
+        )
+        res = y.replace(ran_idx, self.classes_)
 
-        reverted = y._column.find_and_replace(ran_idx, self.classes_, False)
-
-        res = cudf.Series(reverted)
         return res
 
     def get_param_names(self):
