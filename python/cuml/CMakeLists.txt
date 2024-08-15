@@ -96,6 +96,9 @@ if(NOT CUML_CPU)
     if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
       set(CUDA_STATIC_MATH_LIBRARIES OFF)
     else()
+      if(USE_CUDA_MATH_WHEELS)
+        message(FATAL_ERROR "Cannot use CUDA math wheels with CUDA < 12.0")
+      endif()
       set(CUDA_STATIC_MATH_LIBRARIES ON)
     endif()
     # Don't install the static libs into wheels
@@ -113,7 +116,6 @@ if(NOT CUML_CPU)
         "$ORIGIN/../nvidia/curand/lib"
         "$ORIGIN/../nvidia/cusolver/lib"
         "$ORIGIN/../nvidia/cusparse/lib"
-        "$ORIGIN/../nvidia/nvjitlink/lib"
       )
     endif()
 
