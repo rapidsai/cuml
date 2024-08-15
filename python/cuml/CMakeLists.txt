@@ -116,6 +116,7 @@ if(NOT CUML_CPU)
         "$ORIGIN/../nvidia/curand/lib"
         "$ORIGIN/../nvidia/cusolver/lib"
         "$ORIGIN/../nvidia/cusparse/lib"
+        "$ORIGIN/../nvidia/nvjitlink/lib"
       )
     endif()
 
