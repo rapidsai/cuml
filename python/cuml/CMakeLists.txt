@@ -38,7 +38,7 @@ project(
 option(CUML_UNIVERSAL "Build all cuML Python components." ON)
 option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
-option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" ON)
+option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
 set(CUML_RAFT_CLONE_ON_PIN OFF)
 
 
