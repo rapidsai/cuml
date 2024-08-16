@@ -48,7 +48,6 @@ dependencies:
 - numpydoc
 - nvcc_linux-64=11.8
 - packaging
-- pip
 - pydata-sphinx-theme!=0.14.2
 - pylibraft==24.10.*,>=0.0.0a0
 - pynndescent==0.5.8
@@ -74,6 +73,4 @@ dependencies:
 - sysroot_linux-64==2.17
 - treelite==4.3.0
 - umap-learn==0.5.3
-- pip:
-  - dask-glm==0.3.0
 name: all_cuda-118_arch-x86_64

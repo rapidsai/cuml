@@ -502,14 +502,6 @@ dependencies:
           - statsmodels
           - umap-learn==0.5.3
           - pynndescent==0.5.8
-      - output_types: conda
-        packages:
-          - pip
-          - pip:
-              - dask-glm==0.3.0
-      - output_types: pyproject
-        packages:
-          - dask-glm==0.3.0
   test_notebooks:
     common:
       - output_types: [conda, requirements]
