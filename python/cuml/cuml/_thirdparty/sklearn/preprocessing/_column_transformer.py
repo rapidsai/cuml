@@ -274,7 +274,7 @@ def _pandas_indexing(X, key, key_dtype, axis):
     if hasattr(key, 'shape'):
         # Work-around for indexing with read-only key in pandas
         # FIXME: solved in pandas 0.25
-        key = np.asarray(key)
+        key = key.to_numpy()
         key = key if key.flags.writeable else key.copy()
     elif isinstance(key, tuple):
         key = list(key)

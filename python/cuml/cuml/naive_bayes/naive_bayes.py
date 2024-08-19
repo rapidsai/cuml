@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -177,7 +177,7 @@ class _BaseNB(Base, ClassifierMixin):
             "shape": "(n_rows, 1)",
         },
     )
-    def predict(self, X) -> CumlArray:
+    def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Perform classification on an array of test vectors X.
 
@@ -196,7 +196,10 @@ class _BaseNB(Base, ClassifierMixin):
             index = None
         else:
             X = input_to_cuml_array(
-                X, order="K", check_dtype=[cp.float32, cp.float64, cp.int32]
+                X,
+                order="K",
+                convert_to_dtype=(cp.float32 if convert_dtype else None),
+                check_dtype=[cp.float32, cp.float64, cp.int32],
             )
             index = X.index
             # todo: improve index management for cupy based codebases
@@ -223,7 +226,7 @@ class _BaseNB(Base, ClassifierMixin):
             "shape": "(n_rows, 1)",
         },
     )
-    def predict_log_proba(self, X) -> CumlArray:
+    def predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Return log-probability estimates for the test vector X.
 
@@ -242,7 +245,10 @@ class _BaseNB(Base, ClassifierMixin):
             index = None
         else:
             X = input_to_cuml_array(
-                X, order="K", check_dtype=[cp.float32, cp.float64, cp.int32]
+                X,
+                order="K",
+                convert_to_dtype=(cp.float32 if convert_dtype else None),
+                check_dtype=[cp.float32, cp.float64, cp.int32],
             )
             index = X.index
             # todo: improve index management for cupy based codebases

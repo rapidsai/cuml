@@ -22,7 +22,10 @@ from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.testing.utils import array_equal
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, load_npz, save_npz
+import random
+
+random.seed(0)
 
 pd = cpu_only_import("pandas")
 np = cpu_only_import("numpy")
@@ -51,6 +54,7 @@ def _prep_training_data(c, X_train, y_train, partitions_per_worker):
 
 
 def _prep_training_data_sparse(c, X_train, y_train, partitions_per_worker):
+    assert isinstance(X_train, csr_matrix)
     "The implementation follows test_dask_tfidf.create_cp_sparse_dask_array"
     import dask.array as da
 
@@ -308,6 +312,7 @@ def _test_lbfgs(
     standardization=False,
     n_classes=2,
     convert_to_sparse=False,
+    _convert_index=False,
 ):
     tolerance = 0.01 if convert_to_sparse else 0.005
 
@@ -329,6 +334,11 @@ def _test_lbfgs(
     )
 
     if convert_to_sparse:
+        assert (
+            _convert_index == np.int32 or _convert_index == np.int64
+        ), "only support np.int32 or np.int64 as index dtype"
+        X = csr_matrix(X)
+
         # X_dask and y_dask are dask array
         X_dask, y_dask = _prep_training_data_sparse(client, X, y, n_parts)
     else:
@@ -342,6 +352,7 @@ def _test_lbfgs(
         l1_ratio=l1_ratio,
         C=C,
         standardization=standardization,
+        _convert_index=_convert_index,
         verbose=True,
     )
     lr.fit(X_dask, y_dask)
@@ -597,6 +608,9 @@ def test_sparse_from_dense(fit_intercept, reg_dtype, n_classes, client):
     datatype = reg_dtype[1]
 
     nrows = int(1e5) if n_classes < 5 else int(2e5)
+
+    _convert_index = np.int32 if random.choice([True, False]) else np.int64
+
     run_test = partial(
         _test_lbfgs,
         nrows=nrows,
@@ -611,10 +625,12 @@ def test_sparse_from_dense(fit_intercept, reg_dtype, n_classes, client):
         C=C,
         l1_ratio=l1_ratio,
         convert_to_sparse=True,
+        _convert_index=_convert_index,
     )
 
     lr = run_test()
     assert lr.dtype == datatype
+    assert lr.index_dtype == _convert_index
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])

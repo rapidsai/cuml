@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
 
 @cuml.internals.api_return_array(input_arg="y", get_output_type=True)
 def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
-              handle=None) -> CumlArray:
+              handle=None, convert_dtype=True) -> CumlArray:
     """
     Perform the KPSS stationarity test on the data differenced according
     to the given order
@@ -82,7 +82,10 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
         A list of the stationarity test result for each series in the batch
     """
     d_y, n_obs, batch_size, dtype = \
-        input_to_cuml_array(y, check_dtype=[np.float32, np.float64])
+        input_to_cuml_array(y,
+                            convert_to_dtype=(np.float32 if convert_dtype
+                                              else None),
+                            check_dtype=[np.float32, np.float64])
     cdef uintptr_t d_y_ptr = d_y.ptr
 
     if handle is None:

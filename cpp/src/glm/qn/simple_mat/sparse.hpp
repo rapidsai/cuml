@@ -44,17 +44,17 @@ namespace ML {
  *
  * However, when the data comes from the outside, we cannot guarantee that.
  */
-template <typename T>
+template <typename T, typename I = int>
 struct SimpleSparseMat : SimpleMat<T> {
   typedef SimpleMat<T> Super;
   T* values;
-  int* cols;
-  int* row_ids;
-  int nnz;
+  I* cols;
+  I* row_ids;
+  I nnz;
 
   SimpleSparseMat() : Super(0, 0), values(nullptr), cols(nullptr), row_ids(nullptr), nnz(0) {}
 
-  SimpleSparseMat(T* values, int* cols, int* row_ids, int nnz, int m, int n)
+  SimpleSparseMat(T* values, I* cols, I* row_ids, I nnz, int m, int n)
     : Super(m, n), values(values), cols(cols), row_ids(row_ids), nnz(nnz)
   {
     check_csr(*this, 0);
@@ -62,7 +62,7 @@ struct SimpleSparseMat : SimpleMat<T> {
 
   void print(std::ostream& oss) const override { oss << (*this) << std::endl; }
 
-  void operator=(const SimpleSparseMat<T>& other) = delete;
+  void operator=(const SimpleSparseMat<T, I>& other) = delete;
 
   inline void gemmb(const raft::handle_t& handle,
                     const T alpha,
@@ -73,9 +73,9 @@ struct SimpleSparseMat : SimpleMat<T> {
                     SimpleDenseMat<T>& C,
                     cudaStream_t stream) const override
   {
-    const SimpleSparseMat<T>& B = *this;
-    int kA                      = A.n;
-    int kB                      = B.m;
+    const SimpleSparseMat<T, I>& B = *this;
+    int kA                         = A.n;
+    int kB                         = B.m;
 
     if (transA) {
       ASSERT(A.n == C.m, "GEMM invalid dims: m");
@@ -167,10 +167,10 @@ struct SimpleSparseMat : SimpleMat<T> {
   }
 };
 
-template <typename T>
-inline void check_csr(const SimpleSparseMat<T>& mat, cudaStream_t stream)
+template <typename T, typename I = int>
+inline void check_csr(const SimpleSparseMat<T, I>& mat, cudaStream_t stream)
 {
-  int row_ids_nnz;
+  I row_ids_nnz;
   raft::update_host(&row_ids_nnz, &mat.row_ids[mat.m], 1, stream);
   raft::interruptible::synchronize(stream);
   ASSERT(row_ids_nnz == mat.nnz,
@@ -178,15 +178,15 @@ inline void check_csr(const SimpleSparseMat<T>& mat, cudaStream_t stream)
          "the last element must be equal nnz.");
 }
 
-template <typename T>
-std::ostream& operator<<(std::ostream& os, const SimpleSparseMat<T>& mat)
+template <typename T, typename I = int>
+std::ostream& operator<<(std::ostream& os, const SimpleSparseMat<T, I>& mat)
 {
   check_csr(mat, 0);
   os << "SimpleSparseMat (CSR)"
      << "\n";
   std::vector<T> values(mat.nnz);
-  std::vector<int> cols(mat.nnz);
-  std::vector<int> row_ids(mat.m + 1);
+  std::vector<I> cols(mat.nnz);
+  std::vector<I> row_ids(mat.m + 1);
   raft::update_host(&values[0], mat.values, mat.nnz, rmm::cuda_stream_default);
   raft::update_host(&cols[0], mat.cols, mat.nnz, rmm::cuda_stream_default);
   raft::update_host(&row_ids[0], mat.row_ids, mat.m + 1, rmm::cuda_stream_default);

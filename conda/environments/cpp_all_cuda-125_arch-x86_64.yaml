@@ -17,13 +17,13 @@ dependencies:
 - gcc_linux-64=11.*
 - libcublas-dev
 - libcufft-dev
-- libcumlprims==24.8.*,>=0.0.0a0
+- libcumlprims==24.10.*,>=0.0.0a0
 - libcurand-dev
 - libcusolver-dev
 - libcusparse-dev
-- libraft-headers==24.8.*,>=0.0.0a0
-- libraft==24.8.*,>=0.0.0a0
-- librmm==24.8.*,>=0.0.0a0
+- libraft-headers==24.10.*,>=0.0.0a0
+- libraft==24.10.*,>=0.0.0a0
+- librmm==24.10.*,>=0.0.0a0
 - ninja
 - sysroot_linux-64==2.17
 name: cpp_all_cuda-125_arch-x86_64

@@ -51,6 +51,9 @@ cdef extern from "treelite/c_api.h":
         size_t nitem
     ctypedef void* TreeliteModelHandle
     ctypedef void* TreeliteGTILConfigHandle
+    cdef int TreeliteLoadXGBoostModelUBJSON(const char* filename,
+                                            const char* config_json,
+                                            TreeliteModelHandle* out) except +
     cdef int TreeliteLoadXGBoostModelLegacyBinary(const char* filename,
                                                   const char* config_json,
                                                   TreeliteModelHandle* out) except +
@@ -188,7 +191,7 @@ cdef class TreeliteModel():
         return model
 
     @classmethod
-    def from_filename(cls, filename, model_type="xgboost"):
+    def from_filename(cls, filename, model_type="xgboost_ubj"):
         """
         Returns a TreeliteModel object loaded from `filename`
 
@@ -198,20 +201,25 @@ cdef class TreeliteModel():
             Path to treelite model file to load
 
         model_type : string
-            Type of model: 'xgboost', 'xgboost_json', or 'lightgbm'
+            Type of model: 'xgboost_ubj', 'xgboost_json', 'xgboost' or 'lightgbm'
         """
         cdef bytes filename_bytes = filename.encode("UTF-8")
         cdef bytes config_bytes = b"{}"
         cdef TreeliteModelHandle handle
         cdef int res
         cdef str err_msg
-        if model_type == "xgboost":
-            res = TreeliteLoadXGBoostModelLegacyBinary(filename_bytes, config_bytes, &handle)
+        if model_type == "xgboost_ubj":
+            res = TreeliteLoadXGBoostModelUBJSON(filename_bytes, config_bytes, &handle)
             if res < 0:
                 err_msg = TreeliteGetLastError().decode("UTF-8")
                 raise RuntimeError(f"Failed to load {filename} ({err_msg})")
         elif model_type == "xgboost_json":
             res = TreeliteLoadXGBoostModel(filename_bytes, config_bytes, &handle)
+            if res < 0:
+                err_msg = TreeliteGetLastError().decode("UTF-8")
+                raise RuntimeError(f"Failed to load {filename} ({err_msg})")
+        elif model_type == "xgboost":
+            res = TreeliteLoadXGBoostModelLegacyBinary(filename_bytes, config_bytes, &handle)
             if res < 0:
                 err_msg = TreeliteGetLastError().decode("UTF-8")
                 raise RuntimeError(f"Failed to load {filename} ({err_msg})")
@@ -356,7 +364,7 @@ cdef class ForestInference_impl():
         return None
 
     def get_dtype(self):
-        dtype_array = [np.float32, np.float64]
+        dtype_array = ["float32", "float64"]
         return dtype_array[self.forest_data.index()]
 
     def get_algo(self, algo_str):
@@ -477,14 +485,24 @@ cdef class ForestInference_impl():
         cdef uintptr_t preds_ptr
         preds_ptr = preds.ptr
 
-        if fil_dtype == np.float32:
+        if fil_dtype == "float32":
+            if self.get_forest32() == NULL:
+                raise RuntimeError(
+                    "Cannot call predict() with empty forest. "
+                    "Please load the forest first with load() or "
+                    "load_from_sklearn()")
             predict(handle_[0],
                     self.get_forest32(),
                     <float*> preds_ptr,
                     <float*> X_ptr,
                     <size_t> n_rows,
                     <bool> predict_proba)
-        elif fil_dtype == np.float64:
+        elif fil_dtype == "float64":
+            if self.get_forest64() == NULL:
+                raise RuntimeError(
+                    "Cannot call predict() with empty forest. "
+                    "Please load the forest first with load() or "
+                    "load_from_sklearn()")
             predict(handle_[0],
                     self.get_forest64(),
                     <double*> preds_ptr,
@@ -493,7 +511,7 @@ cdef class ForestInference_impl():
                     <bool> predict_proba)
         else:
             # should not reach here
-            assert False, 'invalid fil_dtype, must be np.float32 or np.float64'
+            assert False, 'invalid fil_dtype, must be float32 or float64'
 
         self.handle.sync()
 
@@ -557,15 +575,15 @@ cdef class ForestInference_impl():
     def __dealloc__(self):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         fil_dtype = self.get_dtype()
-        if fil_dtype == np.float32:
+        if fil_dtype == "float32":
             if self.get_forest32() != NULL:
                 free[float](handle_[0], self.get_forest32())
-        elif fil_dtype == np.float64:
+        elif fil_dtype == "float64":
             if self.get_forest64() != NULL:
                 free[double](handle_[0], self.get_forest64())
         else:
             # should not reach here
-            assert False, 'invalid fil_dtype, must be np.float32 or np.float64'
+            assert False, 'invalid fil_dtype, must be float32 or float64'
 
 
 class ForestInference(Base,
@@ -747,7 +765,7 @@ class ForestInference(Base,
            Optional 'out' location to store inference results
 
         safe_dtype_conversion : bool (default = False)
-            FIL converts data to np.float32 when needed. Set this parameter to
+            FIL converts data to float32 when needed. Set this parameter to
             True to enable checking for information loss during that
             conversion, but note that this check can have a significant
             performance penalty. Parameter will be dropped in a future
@@ -776,7 +794,7 @@ class ForestInference(Base,
            Optional 'out' location to store inference results
 
         safe_dtype_conversion : bool (default = False)
-            FIL converts data to np.float32 when needed. Set this parameter to
+            FIL converts data to float32 when needed. Set this parameter to
             True to enable checking for information loss during that
             conversion, but note that this check can have a significant
             performance penalty. Parameter will be dropped in a future
@@ -943,7 +961,7 @@ class ForestInference(Base,
              n_items=0,
              compute_shape_str=False,
              precision='native',
-             model_type="xgboost",
+             model_type="xgboost_ubj",
              handle=None):
         """
         Returns a FIL instance containing the forest saved in `filename`
@@ -1008,9 +1026,14 @@ class ForestInference(Base,
               thresholds
             - ``'float64'``: always load in float64
 
-        model_type : string (default="xgboost")
-            Format of the saved treelite model to be load.
-            It can be 'xgboost', 'xgboost_json', 'lightgbm'.
+        model_type : string (default="xgboost_ubj")
+            Format of the saved tree model to be load.
+            It can be one of the following:
+
+            - ``'xgboost_ubj'``: XGBoost model, using the UBJSON format (default in XGBoost 2.1+)
+            - ``'xgboost_json'``: XGBoost model, using the JSON format
+            - ``'xgboost'``: XGBoost model, using the legacy binary format
+            - ``'lightgbm'``: LightGBM model
 
         Returns
         -------

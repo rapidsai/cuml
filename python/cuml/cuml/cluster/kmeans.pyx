@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -213,7 +213,8 @@ class KMeans(Base,
     def __init__(self, *, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
                  verbose=False, random_state=1,
                  init='scalable-k-means++', n_init=1, oversampling_factor=2.0,
-                 max_samples_per_batch=1<<15, output_type=None):
+                 max_samples_per_batch=1<<15, convert_dtype=True,
+                 output_type=None):
         super().__init__(handle=handle,
                          verbose=verbose,
                          output_type=output_type)
@@ -258,12 +259,16 @@ class KMeans(Base,
             IF GPUBUILD == 1:
                 self._params_init = Array
             self.cluster_centers_, _n_rows, self.n_cols, self.dtype = \
-                input_to_cuml_array(init, order='C',
-                                    check_dtype=[np.float32, np.float64])
+                input_to_cuml_array(
+                    init, order='C',
+                    convert_to_dtype=(np.float32 if convert_dtype
+                                      else None),
+                    check_dtype=[np.float32, np.float64]
+                )
 
     @generate_docstring()
     @enable_device_interop
-    def fit(self, X, sample_weight=None) -> "KMeans":
+    def fit(self, X, sample_weight=None, convert_dtype=True) -> "KMeans":
         """
         Compute k-means clustering with X.
 
@@ -271,13 +276,18 @@ class KMeans(Base,
         if self.init == 'preset':
             check_cols = self.n_cols
             check_dtype = self.dtype
+            target_dtype = self.dtype
         else:
             check_cols = False
             check_dtype = [np.float32, np.float64]
+            target_dtype = np.float32
 
         _X_m, _n_rows, self.n_cols, self.dtype = \
-            input_to_cuml_array(X, order='C',
+            input_to_cuml_array(X,
+                                order='C',
                                 check_cols=check_cols,
+                                convert_to_dtype=(target_dtype if convert_dtype
+                                                  else None),
                                 check_dtype=check_dtype)
 
         IF GPUBUILD == 1:
@@ -400,7 +410,7 @@ class KMeans(Base,
         """
         return self.fit(X, sample_weight=sample_weight).labels_
 
-    def _predict_labels_inertia(self, X, convert_dtype=False,
+    def _predict_labels_inertia(self, X, convert_dtype=True,
                                 sample_weight=None,
                                 normalize_weights=True
                                 ) -> typing.Tuple[CumlArray, float]:
@@ -539,7 +549,7 @@ class KMeans(Base,
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
     @enable_device_interop
-    def predict(self, X, convert_dtype=False, sample_weight=None,
+    def predict(self, X, convert_dtype=True, sample_weight=None,
                 normalize_weights=True) -> CumlArray:
         """
         Predict the closest cluster each sample in X belongs to.
@@ -558,7 +568,7 @@ class KMeans(Base,
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
     @enable_device_interop
-    def transform(self, X, convert_dtype=False) -> CumlArray:
+    def transform(self, X, convert_dtype=True) -> CumlArray:
         """
         Transform X to a cluster-distance space.
 
@@ -674,4 +684,4 @@ class KMeans(Base,
         return super().get_param_names() + \
             ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
-                'tol']
+                'tol', "convert_dtype"]

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,8 @@ cuda = gpu_only_import_from("numba", "cuda")
 
 cudf = gpu_only_import("cudf")
 scipy_sparse = cpu_only_import("scipy.sparse")
+
+cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
 
 IS_ARM = platform.processor() == "aarch64"
 
@@ -665,6 +667,10 @@ def test_svm_predict_convert_dtype(train_dtype, test_dtype, classifier):
     IS_ARM,
     reason="Test fails unexpectedly on ARM. "
     "github.com/rapidsai/cuml/issues/5100",
+)
+@pytest.mark.skipif(
+    cudf_pandas_active,
+    reason="cudf.pandas causes small numeric issues in this test only ",
 )
 def test_svm_no_support_vectors():
     n_rows = 10

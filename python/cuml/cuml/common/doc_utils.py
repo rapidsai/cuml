@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,7 +44,10 @@ import inspect
 
 _parameters_docstrings = {
     "dense": "{name} : array-like (device or host) shape = {shape}\n"
-    "    Dense matrix containing floats or doubles.\n"
+    "    Dense matrix. If datatype is other than floats or doubles,\n"
+    "    then the data will be converted to float which increases memory\n"
+    "    utilization. Set the parameter convert_dtype to False to avoid \n"
+    "    this, then the method will throw an error instead.  \n"
     "    Acceptable formats: CUDA array interface compliant objects like\n"
     "    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n"
     "    DataFrame/Series.",

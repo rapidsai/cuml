@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ from sklearn.preprocessing import OrdinalEncoder as skOrdinalEncoder
 from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.preprocessing import OrdinalEncoder
 
+cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
 DataFrame = gpu_only_import_from("cudf", "DataFrame")
 
 
@@ -97,7 +98,8 @@ def test_output_type(test_sample) -> None:
     enc = OrdinalEncoder(output_type="cudf").fit(X)
     assert isinstance(enc.transform(X), DataFrame)
     enc = OrdinalEncoder(output_type="pandas").fit(X)
-    assert isinstance(enc.transform(X), pd.DataFrame)
+    if not cudf_pandas_active:
+        assert isinstance(enc.transform(X), pd.DataFrame)
     enc = OrdinalEncoder(output_type="numpy").fit(X)
     assert isinstance(enc.transform(X), np.ndarray)
     # output_type == "input"

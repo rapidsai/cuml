@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ from cuml.internals.array_sparse import SparseCumlArray
 class MGFitMixin(object):
 
     @cuml.internals.api_base_return_any_skipall
-    def fit(self, input_data, n_rows, n_cols, partsToSizes, rank, order='F'):
+    def fit(self, input_data, n_rows, n_cols, partsToSizes, rank, order='F', convert_index=np.int32):
         """
         Fit function for MNMG linear regression classes
         This not meant to be used as
@@ -63,7 +63,7 @@ class MGFitMixin(object):
                 check_dtype = self.dtype
 
             if sparse_input:
-                X_m = SparseCumlArray(input_data[i][0], convert_index=np.int32)
+                X_m = SparseCumlArray(input_data[i][0], convert_index=convert_index)
                 _, self.n_cols = X_m.shape
             else:
                 X_m, _, self.n_cols, _ = \
@@ -73,6 +73,8 @@ class MGFitMixin(object):
 
             if i == 0:
                 self.dtype = X_m.dtype
+                if sparse_input:
+                    self.index_dtype = X_m.indptr.dtype
 
             y_m, *_ = input_to_cuml_array(input_data[i][1],
                                           check_dtype=self.dtype)

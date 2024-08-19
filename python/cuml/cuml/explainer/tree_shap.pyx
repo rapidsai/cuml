@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -208,9 +208,9 @@ cdef class TreeExplainer:
     cdef object num_class
     cdef object data
 
-    def __init__(self, *, model, data=None):
+    def __init__(self, *, model, data=None, convert_dtype=True):
         if data is not None:
-            self.data, _, _, _ = self._prepare_input(data)
+            self.data, _, _, _ = self._prepare_input(data, convert_dtype)
         else:
             self.data = None
 
@@ -260,22 +260,28 @@ cdef class TreeExplainer:
         if len(self.num_class) > 1:
             raise NotImplementedError("TreeExplainer does not support multi-target models")
 
-    def _prepare_input(self, X):
+    def _prepare_input(self, X, convert_dtype):
         try:
             return input_to_cuml_array(
-                X, order='C', check_dtype=[np.float32, np.float64])
+                X,
+                order='C',
+                convert_to_dtype=(np.float32 if convert_dtype
+                                  else None),
+                check_dtype=[np.float32, np.float64])
         except ValueError:
             # input can be a DataFrame with mixed types
             # in this case coerce to 64-bit
             return input_to_cuml_array(
-                X, order='C', convert_to_dtype=np.float64)
+                X,
+                order='C',
+                convert_to_dtype=np.float64)
 
     def _determine_output_type(self, X):
         X_type = determine_array_type(X)
         # Coerce to CuPy / NumPy because we may need to return 3D array
         return 'numpy' if X_type == 'numpy' else 'cupy'
 
-    def shap_values(self, X) -> CumlArray:
+    def shap_values(self, X, convert_dtype=True) -> CumlArray:
         """
         Estimate the SHAP values for a set of samples. For a given row, the
         SHAP values plus the `expected_value` attribute sum up to the raw
@@ -296,7 +302,7 @@ cdef class TreeExplainer:
             Returns a matrix of SHAP values of shape
             (# classes x # samples x # features).
         """
-        X_m, n_rows, n_cols, dtype = self._prepare_input(X)
+        X_m, n_rows, n_cols, dtype = self._prepare_input(X, convert_dtype)
         # Storing a C-order 3D array in a CumlArray leads to cryptic error
         # ValueError: len(shape) != len(strides)
         # So we use 2D array here
@@ -338,7 +344,10 @@ cdef class TreeExplainer:
             return preds[:, :-1]
 
     def shap_interaction_values(
-            self, X, method='shapley-interactions') -> CumlArray:
+            self,
+            X,
+            method='shapley-interactions',
+            convert_dtype=True) -> CumlArray:
         """
         Estimate the SHAP interaction values for a set of samples. For a
         given row, the SHAP values plus the `expected_value` attribute sum
@@ -363,7 +372,7 @@ cdef class TreeExplainer:
             Returns a matrix of SHAP values of shape
             (# classes x # samples x # features x # features).
         """
-        X_m, n_rows, n_cols, dtype = self._prepare_input(X)
+        X_m, n_rows, n_cols, dtype = self._prepare_input(X, convert_dtype)
 
         # Storing a C-order 3D array in a CumlArray leads to cryptic error
         # ValueError: len(shape) != len(strides)
