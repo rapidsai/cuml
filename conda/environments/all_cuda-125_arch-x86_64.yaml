@@ -47,7 +47,7 @@ dependencies:
 - pip
 - pydata-sphinx-theme!=0.14.2
 - pylibraft==24.10.*,>=0.0.0a0
-- pynndescent==0.5.8
+- pynndescent
 - pytest-benchmark
 - pytest-cases
 - pytest-cov

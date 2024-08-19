@@ -501,7 +501,7 @@ dependencies:
           - *scikit_learn
           - statsmodels
           - umap-learn==0.5.3
-          - pynndescent==0.5.8
+          - pynndescent
       - output_types: conda
         packages:
           - pip
