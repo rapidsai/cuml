@@ -168,7 +168,7 @@ while true; do
             CMAKE_LOG_LEVEL=VERBOSE
             ;;
         -g | --debug )
-            BUILD_TYPE=Debug
+            BUILD_TYPE=RelWithDebInfo
             ;;
         -n | --no-install )
             INSTALL_TARGET=""
