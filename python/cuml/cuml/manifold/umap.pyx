@@ -865,7 +865,7 @@ class UMAP(UniversalBase,
             state['_knn_dists'] = self.knn_dists.to_output('numpy')
             state['_knn_indices'] = self.knn_indices.to_output('numpy')
             state['_knn_search_index'] = None
-        else:
+        elif hasattr(self, '_raw_data'):
             host_raw_data = self._raw_data.to_output('numpy')
             state['_knn_dists'], state['_knn_indices'], state['_knn_search_index'] = \
                 nearest_neighbors(host_raw_data, self.n_neighbors, self.metric,
