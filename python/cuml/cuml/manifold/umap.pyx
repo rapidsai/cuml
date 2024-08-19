@@ -16,9 +16,11 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import cpu_only_import, safe_import_from
 np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
+nearest_neighbors = safe_import_from('umap.umap_', 'nearest_neighbors')
+DISCONNECTION_DISTANCES = safe_import_from('umap.umap_', 'DISCONNECTION_DISTANCES')
 
 import joblib
 import warnings
@@ -619,6 +621,8 @@ class UMAP(UniversalBase,
 
             _knn_dists_ptr = knn_dists.ptr
             _knn_indices_ptr = knn_indices.ptr
+            self._knn_dists = knn_dists
+            self._knn_indices = knn_indices
 
         self.n_neighbors = min(self.n_rows, self.n_neighbors)
 
@@ -845,6 +849,35 @@ class UMAP(UniversalBase,
         del X_m
         return embedding
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+
+        if "handle" in state:
+            del state["handle"]
+
+        state['_n_neighbors'] = self.n_neighbors
+        state['_a'] = self.a
+        state['_b'] = self.b
+        state['_initial_alpha'] = self.learning_rate
+        state['_disconnection_distance'] = DISCONNECTION_DISTANCES.get(self.metric, np.inf)
+
+        if hasattr(self, 'knn_dists') and hasattr(self, 'knn_indices'):
+            state['_knn_dists'] = self.knn_dists.to_output('numpy')
+            state['_knn_indices'] = self.knn_indices.to_output('numpy')
+            state['_knn_search_index'] = None
+        else:
+            host_raw_data = self._raw_data.to_output('numpy')
+            state['_knn_dists'], state['_knn_indices'], state['_knn_search_index'] = \
+                nearest_neighbors(host_raw_data, self.n_neighbors, self.metric,
+                                  self.metric_kwds, False, self.random_state)
+
+        return state
+
+    def __setstate__(self, state):
+        super(UMAP, self).__init__(handle=None,
+                                   verbose=state["verbose"])
+        self.__dict__.update(state)
+
     def get_param_names(self):
         return super().get_param_names() + [
             "n_neighbors",
@@ -875,4 +908,7 @@ class UMAP(UniversalBase,
         ]
 
     def get_attr_names(self):
-        return ['_raw_data', 'embedding_', '_input_hash', '_small_data']
+        return ['_raw_data', 'embedding_', '_input_hash', '_small_data',
+                '_knn_dists', '_knn_indices', '_knn_search_index',
+                '_disconnection_distance', '_n_neighbors', '_a', '_b',
+                '_initial_alpha']

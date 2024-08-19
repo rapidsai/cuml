@@ -646,8 +646,6 @@ def test_pickle_interop(tmp_path, test_data):
     pickle_filepath = tmp_path / "model.pickle"
 
     cuEstimator = test_data["cuEstimator"]
-    if cuEstimator is UMAP:
-        pytest.skip("UMAP GPU training CPU inference not yet implemented")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("gpu"):
         if "y_train" in test_data:
