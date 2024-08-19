@@ -22,6 +22,8 @@ EXITCODE=0
 trap "EXITCODE=1" ERR
 set +e
 
+# Force update NumPy, to run full tests with NumPy 2 on CI
+python -m pip install -U numpy
 
 rapids-logger "pytest cuml single GPU"
 ./ci/run_cuml_singlegpu_pytests.sh \
