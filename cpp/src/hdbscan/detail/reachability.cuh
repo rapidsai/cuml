@@ -78,7 +78,7 @@ void core_distances(
 // Functor to post-process distances by sqrt
 // For usage with NN Descent which internally supports L2Expanded only
 template <typename value_idx, typename value_t = float>
-struct DistancePostProcessSqrt {
+struct DistancePostProcessSqrt : NNDescent::DistEpilogue<value_idx, value_t> {
   DI value_t operator()(value_t value, value_idx row, value_idx col) const
   {
     return powf(fabsf(value), 0.5);
@@ -108,19 +108,6 @@ CUML_KERNEL void copy_first_k_cols_shift_zero(
       out[row * out_k + i] = in[row * in_k + i - 1];
     }
     out[row * out_k] = static_cast<T>(0);
-  }
-}
-
-template <typename T>
-CUML_KERNEL void copy_first_k_cols_shift_core_dists(
-  T* out, T* in, T* core_dists, size_t out_k, size_t in_k, size_t nrows)
-{
-  size_t row = blockIdx.x * blockDim.x + threadIdx.x;
-  if (row < nrows) {
-    for (size_t i = 1; i < out_k; i++) {
-      out[row * out_k + i] = in[row * in_k + i - 1];
-    }
-    out[row * out_k] = static_cast<T>(core_dists[row]);
   }
 }
 
@@ -278,11 +265,15 @@ struct ReachabilityPostProcess {
 // Functor to post-process distances into reachability space (Sqrt)
 // For usage with NN Descent which internally supports L2Expanded only
 template <typename value_idx, typename value_t = float>
-struct ReachabilityPostProcessSqrt {
+struct ReachabilityPostProcessSqrt : NNDescent::DistEpilogue<value_idx, value_t> {
+  ReachabilityPostProcessSqrt(value_t* core_dists_, value_t alpha_)
+    : NNDescent::DistEpilogue<value_idx, value_t>(), core_dists(core_dists_), alpha(alpha_){};
+
   DI value_t operator()(value_t value, value_idx row, value_idx col) const
   {
     return max(core_dists[col], max(core_dists[row], powf(fabsf(alpha * value), 0.5)));
   }
+
   const value_t* core_dists;
   value_t alpha;
 };
@@ -339,7 +330,7 @@ void mutual_reachability_knn_l2(
       std::nullopt,
       epilogue);
   } else {
-    auto epilogue = ReachabilityPostProcessSqrt<value_idx, value_t>{core_dists, alpha};
+    auto epilogue = ReachabilityPostProcessSqrt<value_idx, value_t>(core_dists, alpha);
     build_params.return_distances = true;
     RAFT_EXPECTS(static_cast<size_t>(k) <= build_params.graph_degree,
                  "n_neighbors should be smaller than the graph degree computed by nn descent");
@@ -347,9 +338,6 @@ void mutual_reachability_knn_l2(
     auto dataset = raft::make_host_matrix_view<const value_t, int64_t>(X, m, n);
     auto graph =
       NNDescent::detail::build<value_t, value_idx>(handle, build_params, dataset, epilogue);
-
-    size_t TPB        = 256;
-    size_t num_blocks = static_cast<size_t>((m + TPB) / TPB);
 
     auto indices_d =
       raft::make_device_matrix<value_idx, value_idx>(handle, m, build_params.graph_degree);
@@ -359,17 +347,21 @@ void mutual_reachability_knn_l2(
                m * build_params.graph_degree,
                handle.get_stream());
 
-    if (graph.distances().has_value()) {
-      copy_first_k_cols_shift_core_dists<float>
-        <<<num_blocks, TPB, 0, handle.get_stream()>>>(out_dists,
-                                                      graph.distances().value().data_handle(),
-                                                      core_dists,
-                                                      static_cast<size_t>(k),
-                                                      build_params.graph_degree,
-                                                      m);
-    }
-    copy_first_k_cols_shift_self<value_idx><<<num_blocks, TPB, 0, handle.get_stream()>>>(
-      out_inds, indices_d.data_handle(), static_cast<size_t>(k), build_params.graph_degree, m);
+    RAFT_EXPECTS(graph.distances().has_value(),
+                 "return_distances for nn descent should be set to true to be used for HDBSCAN");
+
+    raft::matrix::slice_coordinates coords{static_cast<int64_t>(0),
+                                           static_cast<int64_t>(0),
+                                           static_cast<int64_t>(m),
+                                           static_cast<int64_t>(k)};
+
+    auto out_knn_dists_view = raft::make_device_matrix_view(out_dists, m, (size_t)k);
+    raft::matrix::slice<float, int64_t, raft::row_major>(
+      handle, raft::make_const_mdspan(graph.distances().value()), out_knn_dists_view, coords);
+    auto out_knn_indices_view =
+      raft::make_device_matrix_view<value_idx, int64_t>(out_inds, m, (size_t)k);
+    raft::matrix::slice<value_idx, int64_t, raft::row_major>(
+      handle, raft::make_const_mdspan(indices_d.view()), out_knn_indices_view, coords);
   }
 }
 
