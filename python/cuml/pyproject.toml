@@ -43,6 +43,8 @@ filterwarnings = [
   "error::FutureWarning",
   "error::DeprecationWarning",
   "error:::cudf",
+  # TODO: Temporary fix for CI, silence warning originating from cudf.pandas.
+  "ignore:(.*)numpy.core.multiarray is deprecated(.*):DeprecationWarning",
   "ignore:[^.]*ABCs[^.]*:DeprecationWarning:patsy[.*]",
   "ignore:(.*)alias(.*):DeprecationWarning:hdbscan[.*]",
   # TODO: https://github.com/rapidsai/cuml/issues/5878
