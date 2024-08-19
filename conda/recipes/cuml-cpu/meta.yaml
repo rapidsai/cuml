@@ -31,7 +31,7 @@ requirements:
     - rapids-build-backend>=0.3.0,<0.4.0.dev0
   run:
     - python x.x
-    - numpy>=1.23,<2.0a0
+    - numpy>=1.23,<3
     - pandas
     - scikit-learn=1.2
     - hdbscan>=0.8.38,<0.8.39

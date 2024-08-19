@@ -116,7 +116,7 @@ test = [
     "hypothesis>=6.0,<7",
     "nltk",
     "numpydoc",
-    "pynndescent==0.5.8",
+    "pynndescent",
     "pytest-benchmark",
     "pytest-cases",
     "pytest-cov",
