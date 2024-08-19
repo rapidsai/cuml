@@ -25,7 +25,7 @@ conda activate test
 set -u
 
 # Force update NumPy, to run full tests with NumPy 2 on CI
-python -m pip install -U numpy
+python -m pip install -U "numpy<2.1"
 
 # dask and other tests sporadically run into this issue in ARM tests
 # exception=ImportError('/opt/conda/envs/test/lib/python3.10/site-packages/cuml/internals/../../../.././libgomp.so.1: cannot allocate memory in static TLS block')>)
