@@ -482,11 +482,12 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   # todo: separate solvers better
-  if(all_algo OR solvers_algo)
+  if(all_algo OR solvers_algo OR lanczos_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/solver/lars.cu
-        src/solver/solver.cu)
+        src/solver/solver.cu
+        src/solver/lanczos.cu)
   endif()
 
   if(all_algo OR spectralclustering_algo)
