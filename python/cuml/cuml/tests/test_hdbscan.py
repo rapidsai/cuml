@@ -1060,9 +1060,6 @@ def test_membership_vector_blobs(
         random_state=42,
     )
 
-    graph_degree, intermediate_graph_degree = get_graph_degree(
-        min_cluster_size
-    )
     cuml_agg = HDBSCAN(
         verbose=logger.level_info,
         allow_single_cluster=allow_single_cluster,
