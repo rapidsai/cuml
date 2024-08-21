@@ -848,9 +848,7 @@ def test_umap_trustworthiness_on_batch_nnd(
     n_rows, n_features, data_on_host, num_clusters
 ):
 
-    data, labels = make_blobs(
-        n_samples=n_rows, n_features=n_features, centers=5, random_state=42
-    )
+    digits = datasets.load_digits()
 
     cuml_model = cuUMAP(
         n_neighbors=10,
@@ -860,9 +858,9 @@ def test_umap_trustworthiness_on_batch_nnd(
     )
 
     cuml_embedding = cuml_model.fit_transform(
-        data, convert_dtype=True, data_on_host=data_on_host
+        digits.data, convert_dtype=True, data_on_host=data_on_host
     )
 
-    cuml_trust = trustworthiness(data, cuml_embedding, n_neighbors=10)
+    cuml_trust = trustworthiness(digits.data, cuml_embedding, n_neighbors=10)
 
     assert cuml_trust > 0.9
