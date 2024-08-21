@@ -1143,11 +1143,13 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                     build_params.intermediate_graph_degree = <size_t> 128
                     build_params.max_iterations = <size_t> 20
                     build_params.termination_threshold = <float> 0.0001
+                    build_params.return_distances = <bool> True
                 else:
                     build_params.graph_degree = <size_t> self.build_kwds.get("nnd_graph_degree", 64)
                     build_params.intermediate_graph_degree = <size_t> self.build_kwds.get("nnd_intermediate_graph_degree", 128)
                     build_params.max_iterations = <size_t> self.build_kwds.get("nnd_max_iterations", 20)
                     build_params.termination_threshold = <float> self.build_kwds.get("nnd_termination_threshold", 0.0001)
+                    build_params.return_distances = <bool> self.build_kwds.get("nnd_return_distances", True)
 
             compute_core_dists(handle_[0],
                                <float*> X_ptr,
