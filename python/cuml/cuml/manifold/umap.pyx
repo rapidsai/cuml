@@ -442,7 +442,8 @@ class UMAP(UniversalBase,
                 # https://github.com/rapidsai/cuml/issues/5985
                 logger.info("build_algo set to brute_force_knn because random_state is given")
                 self.build_algo ="brute_force_knn"
-            self.build_algo = build_algo
+            else:
+                self.build_algo = build_algo
         else:
             raise Exception("Invalid build algo: {}. Only support auto, brute_force_knn and nn_descent" % build_algo)
 
@@ -500,6 +501,10 @@ class UMAP(UniversalBase,
                     umap_params.nn_descent_params.return_distances = <bool> cls.build_kwds.get("nnd_return_distances", True)
                     umap_params.nn_descent_params.n_clusters = <uint64_t> cls.build_kwds.get("nnd_n_clusters", 2)
                     umap_params.nn_descent_params.do_batch = <bool> cls.build_kwds.get("nnd_do_batch", False)
+
+                    if cls.build_kwds.get("nnd_do_batch", False) and cls.build_kwds.get("nnd_n_clusters", 2) < 2:
+                        logger.info("Changing nnd_n_clusters to 2 to do batching. Set nnd_do_batch to False to run without batching")
+
             umap_params.target_weight = <float> cls.target_weight
             umap_params.random_state = <uint64_t> cls.random_state
             umap_params.deterministic = <bool> cls.deterministic
