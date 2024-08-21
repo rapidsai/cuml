@@ -88,7 +88,7 @@ files:
     extras:
       table: project
     includes:
-      - cuda
+      - cuda_wheels
       - py_run
   py_test:
     output: pyproject
@@ -407,10 +407,13 @@ dependencies:
               - *libcusolver114
               - *libcusparse_dev114
               - *libcusparse114
+  cuda_wheels:
+    specific:
       - output_types: pyproject
         matrices:
           - matrix:
               cuda: "12.*"
+              use_cuda_wheels: "true"
             packages:
               - nvidia-cublas-cu12
               - nvidia-cufft-cu12
@@ -419,7 +422,15 @@ dependencies:
               - nvidia-cusolver-cu12
           - matrix:
               cuda: "11.*"
+              use_cuda_wheels: "true"
             packages:
+          # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
+          # (e.g. for DLFW and pip devcontainers)
+          - matrix:
+              use_cuda_wheels: "false"
+            packages:
+          # if no matching matrix selectors passed, list the unsuffixed packages
+          # (just as a source of documentation, as this populates pyproject.toml in source control)
           - matrix:
             packages:
               - nvidia-cublas
