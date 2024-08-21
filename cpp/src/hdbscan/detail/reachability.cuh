@@ -24,7 +24,7 @@
 #include <raft/distance/distance.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/neighbors/brute_force.cuh>
-#include <raft/neighbors/detail/nn_descent.cuh>
+#include <raft/neighbors/nn_descent.cuh>
 #include <raft/neighbors/nn_descent_types.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/linalg/symmetrize.cuh>
@@ -111,6 +111,26 @@ CUML_KERNEL void copy_first_k_cols_shift_zero(
   }
 }
 
+template <typename value_idx, typename value_t, typename epilogue_op>
+auto get_graph_nnd(const raft::handle_t& handle,
+                   const value_t* X,
+                   size_t m,
+                   size_t n,
+                   epilogue_op distance_epilogue,
+                   Common::nn_index_params build_params)
+{
+  cudaPointerAttributes attr;
+  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, X));
+  float* ptr = reinterpret_cast<float*>(attr.devicePointer);
+  if (ptr != nullptr) {
+    auto dataset = raft::make_device_matrix_view<const value_t, int64_t>(X, m, n);
+    return NNDescent::build<value_t, value_idx>(handle, build_params, dataset, distance_epilogue);
+  } else {
+    auto dataset = raft::make_host_matrix_view<const value_t, int64_t>(X, m, n);
+    return NNDescent::build<value_t, value_idx>(handle, build_params, dataset, distance_epilogue);
+  }
+}
+
 /**
  * Wraps the brute force knn API, to be used for both training and prediction
  * @tparam value_idx data type for integrals
@@ -167,14 +187,12 @@ void compute_knn(const raft::handle_t& handle,
                     true,
                     metric);
   } else {  // NN_DESCENT
-    auto epilogue                 = DistancePostProcessSqrt<value_idx, float>{};
-    build_params.return_distances = true;
     RAFT_EXPECTS(static_cast<size_t>(k) <= build_params.graph_degree,
                  "n_neighbors should be smaller than the graph degree computed by nn descent");
 
-    auto dataset = raft::make_host_matrix_view<const float, int64_t>(X, m, n);
-
-    auto graph = NNDescent::detail::build<float, int64_t>(handle, build_params, dataset, epilogue);
+    auto epilogue                 = DistancePostProcessSqrt<int64_t, float>{};
+    build_params.return_distances = true;
+    auto graph = get_graph_nnd<int64_t, float>(handle, X, m, n, epilogue, build_params);
 
     size_t TPB        = 256;
     size_t num_blocks = static_cast<size_t>((m + TPB) / TPB);
@@ -330,14 +348,12 @@ void mutual_reachability_knn_l2(
       std::nullopt,
       epilogue);
   } else {
-    auto epilogue = ReachabilityPostProcessSqrt<value_idx, value_t>(core_dists, alpha);
-    build_params.return_distances = true;
     RAFT_EXPECTS(static_cast<size_t>(k) <= build_params.graph_degree,
                  "n_neighbors should be smaller than the graph degree computed by nn descent");
 
-    auto dataset = raft::make_host_matrix_view<const value_t, int64_t>(X, m, n);
-    auto graph =
-      NNDescent::detail::build<value_t, value_idx>(handle, build_params, dataset, epilogue);
+    auto epilogue = ReachabilityPostProcessSqrt<value_idx, value_t>(core_dists, alpha);
+    build_params.return_distances = true;
+    auto graph = get_graph_nnd<value_idx, value_t>(handle, X, m, n, epilogue, build_params);
 
     auto indices_d =
       raft::make_device_matrix<value_idx, value_idx>(handle, m, build_params.graph_degree);
