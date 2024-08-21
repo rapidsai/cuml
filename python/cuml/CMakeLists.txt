@@ -38,6 +38,7 @@ project(
 option(CUML_UNIVERSAL "Build all cuML Python components." ON)
 option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
+option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
 set(CUML_RAFT_CLONE_ON_PIN OFF)
 
 
@@ -72,8 +73,10 @@ include(rapids-cython-core)
 
 set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
 
-if(NOT ${CUML_CPU})
+if(NOT CUML_CPU)
   if(NOT cuml_FOUND)
+    find_package(CUDAToolkit REQUIRED)
+
     set(BUILD_CUML_TESTS OFF)
     set(BUILD_PRIMS_TESTS OFF)
     set(BUILD_CUML_C_LIBRARY OFF)
@@ -85,11 +88,19 @@ if(NOT ${CUML_CPU})
 
     # Statically link dependencies if building wheels
     set(CUDA_STATIC_RUNTIME ON)
-    set(CUDA_STATIC_MATH_LIBRARIES ON)
     set(CUML_USE_RAFT_STATIC ON)
     set(CUML_USE_FAISS_STATIC ON)
     set(CUML_USE_TREELITE_STATIC ON)
     set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
+    # Link to the CUDA wheels with shared libraries for CUDA 12+
+    if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
+      set(CUDA_STATIC_MATH_LIBRARIES OFF)
+    else()
+      if(USE_CUDA_MATH_WHEELS)
+        message(FATAL_ERROR "Cannot use CUDA math wheels with CUDA < 12.0")
+      endif()
+      set(CUDA_STATIC_MATH_LIBRARIES ON)
+    endif()
     # Don't install the static libs into wheels
     set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
     set(RAFT_EXCLUDE_FAISS_FROM_ALL ON)
@@ -97,6 +108,17 @@ if(NOT ${CUML_CPU})
     set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
 
     add_subdirectory(${CUML_CPP_SRC} cuml-cpp EXCLUDE_FROM_ALL)
+
+    if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
+      set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH
+        "$ORIGIN/../nvidia/cublas/lib"
+        "$ORIGIN/../nvidia/cufft/lib"
+        "$ORIGIN/../nvidia/curand/lib"
+        "$ORIGIN/../nvidia/cusolver/lib"
+        "$ORIGIN/../nvidia/cusparse/lib"
+        "$ORIGIN/../nvidia/nvjitlink/lib"
+      )
+    endif()
 
     set(cython_lib_dir cuml)
     install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})

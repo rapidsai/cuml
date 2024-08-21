@@ -34,7 +34,7 @@ requirements:
     - numpy>=1.23,<2.0a0
     - pandas
     - scikit-learn=1.2
-    - hdbscan<=0.8.30
+    - hdbscan>=0.8.38,<0.8.39
     - umap-learn=0.5.3
     - nvtx
 

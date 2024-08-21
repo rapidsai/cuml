@@ -88,6 +88,7 @@ files:
     extras:
       table: project
     includes:
+      - cuda
       - py_run
   py_test:
     output: pyproject
@@ -176,7 +177,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cython>=3.0.0
+          - &cython cython>=3.0.0
           - &treelite treelite==4.3.0
       - output_types: conda
         packages:
@@ -406,6 +407,26 @@ dependencies:
               - *libcusolver114
               - *libcusparse_dev114
               - *libcusparse114
+      - output_types: pyproject
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - nvidia-cublas-cu12
+              - nvidia-cufft-cu12
+              - nvidia-curand-cu12
+              - nvidia-cusparse-cu12
+              - nvidia-cusolver-cu12
+          - matrix:
+              cuda: "11.*"
+            packages:
+          - matrix:
+            packages:
+              - nvidia-cublas
+              - nvidia-cufft
+              - nvidia-curand
+              - nvidia-cusparse
+              - nvidia-cusolver
   docs:
     common:
       - output_types: [conda, requirements]
@@ -465,7 +486,9 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
+          - *cython
           - dask-ml
+          - hdbscan>=0.8.38,<0.8.39
           - hypothesis>=6.0,<7
           - nltk
           - numpydoc
@@ -484,14 +507,9 @@ dependencies:
           - pip
           - pip:
               - dask-glm==0.3.0
-          # TODO: remove pin once a release that includes fixes for the error
-          # is released: https://github.com/rapidsai/cuml/issues/5514
-          - hdbscan<=0.8.30
       - output_types: pyproject
         packages:
           - dask-glm==0.3.0
-            # TODO: Can we stop pulling from the master branch now that there was a release in October?
-          - hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master
   test_notebooks:
     common:
       - output_types: [conda, requirements]
