@@ -455,6 +455,25 @@ class UMAP(UniversalBase,
     def _build_umap_params(cls, sparse):
         IF GPUBUILD == 1:
             cdef UMAPParams* umap_params = new UMAPParams()
+
+            print("n_neighbors:", cls.n_neighbors)
+            print("n_components:", cls.n_components)
+            print("n_epochs:",  cls.n_epochs if cls.n_epochs else 0)
+            print("learning_rate:", cls.learning_rate)
+            print("min_dist:", cls.min_dist)
+            print("spread:", cls.spread)
+            print("set_op_mix_ratio:", cls.set_op_mix_ratio)
+            print("local_connectivity:", cls.local_connectivity)
+            print("repulsion_strength:", cls.repulsion_strength)
+            print("negative_sample_rate:", cls.negative_sample_rate)
+            print("transform_queue_size:", cls.transform_queue_size)
+            print("verbose:", cls.verbose)
+            print("a:", cls.a)
+            print("b:", cls.b)
+            print("target_weight:", cls.target_weight)
+            print("random_state:", cls.random_state)
+            print("deterministic:", cls.deterministic)
+
             umap_params.n_neighbors = <int> cls.n_neighbors
             umap_params.n_components = <int> cls.n_components
             umap_params.n_epochs = <int> cls.n_epochs if cls.n_epochs else 0
