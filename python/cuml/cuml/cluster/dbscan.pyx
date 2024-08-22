@@ -22,7 +22,7 @@ from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import UniversalBase
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.mixins import ClusterMixin
@@ -106,7 +106,7 @@ IF GPUBUILD == 1:
                       bool opg) except +
 
 
-class DBSCAN(Base,
+class DBSCAN(UniversalBase,
              ClusterMixin,
              CMajorInputTagMixin):
     """
@@ -222,8 +222,8 @@ class DBSCAN(Base,
     """
 
     _cpu_estimator_import_path = 'sklearn.cluster.DBSCAN'
-    labels_ = CumlArrayDescriptor()
-    core_sample_indices_ = CumlArrayDescriptor()
+    core_sample_indices_ = CumlArrayDescriptor(order="C")
+    labels_ = CumlArrayDescriptor(order="C")
 
     @device_interop_preparation
     def __init__(self, *,
@@ -268,7 +268,7 @@ class DBSCAN(Base,
                              "np.int32, np.int64}")
 
         IF GPUBUILD == 1:
-            X_m, n_rows, n_cols, self.dtype = \
+            X_m, n_rows, self.n_features_in_, self.dtype = \
                 input_to_cuml_array(
                     X,
                     order='C',
@@ -338,7 +338,7 @@ class DBSCAN(Base,
                     fit(handle_[0],
                         <float*>input_ptr,
                         <int> n_rows,
-                        <int> n_cols,
+                        <int> self.n_features_in_,
                         <float> self.eps,
                         <int> self.min_samples,
                         <DistanceType> metric,
@@ -353,7 +353,7 @@ class DBSCAN(Base,
                     fit(handle_[0],
                         <float*>input_ptr,
                         <int64_t> n_rows,
-                        <int64_t> n_cols,
+                        <int64_t> self.n_features_in_,
                         <float> self.eps,
                         <int> self.min_samples,
                         <DistanceType> metric,
@@ -370,7 +370,7 @@ class DBSCAN(Base,
                     fit(handle_[0],
                         <double*>input_ptr,
                         <int> n_rows,
-                        <int> n_cols,
+                        <int> self.n_features_in_,
                         <double> self.eps,
                         <int> self.min_samples,
                         <DistanceType> metric,
@@ -385,7 +385,7 @@ class DBSCAN(Base,
                     fit(handle_[0],
                         <double*>input_ptr,
                         <int64_t> n_rows,
-                        <int64_t> n_cols,
+                        <int64_t> self.n_features_in_,
                         <double> self.eps,
                         <int> self.min_samples,
                         <DistanceType> metric,
@@ -475,3 +475,6 @@ class DBSCAN(Base,
             "metric",
             "algorithm",
         ]
+
+    def get_attr_names(self):
+        return ["core_sample_indices_", "labels_", "n_features_in_"]
