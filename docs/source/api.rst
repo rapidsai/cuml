@@ -506,6 +506,11 @@ UMAP
 .. autoclass:: cuml.UMAP
     :members:
 
+.. autofunction:: cuml.manifold.umap.simplicial_set_embedding
+
+.. autofunction:: cuml.manifold.umap.fuzzy_simplicial_set
+
+
 Random Projections
 ------------------
 
