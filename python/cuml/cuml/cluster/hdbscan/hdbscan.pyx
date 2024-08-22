@@ -54,6 +54,7 @@ IF GPUBUILD == 1:
             size_t max_iterations,
             float termination_threshold,
             bool return_distances,
+            uint64_t n_clusters,
 
     cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
 
