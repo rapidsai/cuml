@@ -850,7 +850,7 @@ def test_umap_trustworthiness_on_batch_nnd(data_on_host, num_clusters):
         n_neighbors=10,
         min_dist=0.01,
         build_algo="nn_descent",
-        build_kwds={"nnd_do_batch": True, "nnd_n_clusters": num_clusters},
+        build_kwds={"nnd_n_clusters": num_clusters},
     )
 
     cuml_embedding = cuml_model.fit_transform(

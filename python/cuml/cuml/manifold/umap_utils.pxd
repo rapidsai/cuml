@@ -46,7 +46,6 @@ cdef extern from "raft/neighbors/nn_descent_types.hpp" namespace "raft::neighbor
         float termination_threshold,
         bool return_distances,
         uint64_t n_clusters,
-        bool do_batch
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
 

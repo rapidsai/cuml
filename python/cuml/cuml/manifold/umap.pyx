@@ -298,8 +298,8 @@ class UMAP(UniversalBase,
     build_kwds: dict (optional, default=None)
         Build algorithm argument {'nnd_graph_degree': 64, 'nnd_intermediate_graph_degree': 128,
         'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_return_distances': True,
-        'nnd_do_batch': False, 'nnd_n_clusters': 2}
-        Note that nnd_n_clusters only becomes effective when nnd_do_batch is True.
+        'nnd_n_clusters': 1}
+        Note that nnd_n_clusters > 1 will result in batch-building with NN Descent.
 
     Notes
     -----
@@ -491,19 +491,16 @@ class UMAP(UniversalBase,
                     umap_params.nn_descent_params.max_iterations = <uint64_t> 20
                     umap_params.nn_descent_params.termination_threshold = <float> 0.0001
                     umap_params.nn_descent_params.return_distances = <bool> True
-                    umap_params.nn_descent_params.n_clusters = <uint64_t> 2
-                    umap_params.nn_descent_params.do_batch = <bool> False
+                    umap_params.nn_descent_params.n_clusters = <uint64_t> 1
                 else:
                     umap_params.nn_descent_params.graph_degree = <uint64_t> cls.build_kwds.get("nnd_graph_degree", 64)
                     umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> cls.build_kwds.get("nnd_intermediate_graph_degree", 128)
                     umap_params.nn_descent_params.max_iterations = <uint64_t> cls.build_kwds.get("nnd_max_iterations", 20)
                     umap_params.nn_descent_params.termination_threshold = <float> cls.build_kwds.get("nnd_termination_threshold", 0.0001)
                     umap_params.nn_descent_params.return_distances = <bool> cls.build_kwds.get("nnd_return_distances", True)
-                    umap_params.nn_descent_params.n_clusters = <uint64_t> cls.build_kwds.get("nnd_n_clusters", 2)
-                    umap_params.nn_descent_params.do_batch = <bool> cls.build_kwds.get("nnd_do_batch", False)
-
-                    if cls.build_kwds.get("nnd_do_batch", False) and cls.build_kwds.get("nnd_n_clusters", 2) < 2:
-                        logger.info("Changing nnd_n_clusters to 2 to do batching. Set nnd_do_batch to False to run without batching")
+                    if cls.build_kwds.get("nnd_n_clusters", 1) < 1:
+                        logger.info("Negative number of nnd_n_clusters not allowed. Changing nnd_n_clusters to 1")
+                    umap_params.nn_descent_params.n_clusters = <uint64_t> cls.build_kwds.get("nnd_n_clusters", 1)
 
             umap_params.target_weight = <float> cls.target_weight
             umap_params.random_state = <uint64_t> cls.random_state
