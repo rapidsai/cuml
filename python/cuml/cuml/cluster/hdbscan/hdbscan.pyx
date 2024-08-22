@@ -54,7 +54,7 @@ IF GPUBUILD == 1:
             size_t max_iterations,
             float termination_threshold,
             bool return_distances,
-            uint64_t n_clusters,
+            size_t n_clusters,
 
     cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
 
@@ -569,6 +569,8 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.condensed_tree_ptr = None
         self.prediction_data_ptr = None
         self._cpu_to_gpu_interop_prepped = False
+
+        logger.set_level(verbose)
 
     @property
     def condensed_tree_(self):
