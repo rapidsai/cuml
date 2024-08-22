@@ -268,7 +268,7 @@ def simplicial_set_embedding(
         How to initialize the low dimensional embedding. Options are:
             * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
             * 'random': assign initial embedding positions at random.
-            * A numpy array of initial embedding positions.
+            * An array-like with initial embedding positions.
     random_state: numpy RandomState or equivalent
         A state capable being used as a numpy random state.
     metric: string (default='euclidean').
