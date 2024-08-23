@@ -203,14 +203,14 @@ void compute_knn(const raft::handle_t& handle,
     raft::copy(
       indices_d.data_handle(), graph.graph().data_handle(), m * build_params.graph_degree, stream);
 
-    if (graph.distances().has_value()) {
-      copy_first_k_cols_shift_zero<float>
-        <<<num_blocks, TPB, 0, stream>>>(dists,
-                                         graph.distances().value().data_handle(),
-                                         static_cast<size_t>(k),
-                                         build_params.graph_degree,
-                                         m);
-    }
+    RAFT_EXPECTS(graph.distances().has_value(),
+                 "return_distances for nn descent should be set to true to be used for HDBSCAN");
+    copy_first_k_cols_shift_zero<float>
+      <<<num_blocks, TPB, 0, stream>>>(dists,
+                                       graph.distances().value().data_handle(),
+                                       static_cast<size_t>(k),
+                                       build_params.graph_degree,
+                                       m);
     copy_first_k_cols_shift_self<int64_t><<<num_blocks, TPB, 0, stream>>>(int64_indices.data(),
                                                                           indices_d.data_handle(),
                                                                           static_cast<size_t>(k),
