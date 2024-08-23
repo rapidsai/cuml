@@ -158,10 +158,12 @@ void compute_core_dists(const raft::handle_t& handle,
                         size_t m,
                         size_t n,
                         raft::distance::DistanceType metric,
-                        int min_samples)
+                        int min_samples,
+                        HDBSCAN::Common::GRAPH_BUILD_ALGO build_algo,
+                        HDBSCAN::Common::nn_index_params build_params)
 {
   HDBSCAN::detail::Reachability::_compute_core_dists<int, float>(
-    handle, X, core_dists, m, n, metric, min_samples);
+    handle, X, core_dists, m, n, metric, min_samples, build_algo, build_params);
 }
 
 void compute_inverse_label_map(const raft::handle_t& handle,

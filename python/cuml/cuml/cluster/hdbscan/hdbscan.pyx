@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
 from warnings import warn
 
+from cuml.internals import logger
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.common.doc_utils import generate_docstring
@@ -31,6 +32,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.import_utils import has_hdbscan
@@ -46,11 +48,24 @@ IF GPUBUILD == 1:
     from pylibraft.common.handle import Handle
     from pylibraft.common.handle cimport handle_t
 
+    cdef extern from "raft/neighbors/nn_descent_types.hpp" namespace "raft::neighbors::experimental::nn_descent":
+        cdef struct index_params:
+            size_t graph_degree,
+            size_t intermediate_graph_degree,
+            size_t max_iterations,
+            float termination_threshold,
+            bool return_distances,
+            size_t n_clusters,
+
     cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
 
         ctypedef enum CLUSTER_SELECTION_METHOD:
             EOM "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::EOM"
             LEAF "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::LEAF"
+
+        ctypedef enum GRAPH_BUILD_ALGO:
+            BRUTE_FORCE_KNN "ML::HDBSCAN::Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN"
+            NN_DESCENT "ML::HDBSCAN::Common::GRAPH_BUILD_ALGO::NN_DESCENT"
 
         cdef cppclass CondensedHierarchy[value_idx, value_t]:
             CondensedHierarchy(
@@ -98,6 +113,8 @@ IF GPUBUILD == 1:
 
             bool allow_single_cluster,
             CLUSTER_SELECTION_METHOD cluster_selection_method,
+            GRAPH_BUILD_ALGO build_algo,
+            index_params nn_descent_params,
 
         cdef cppclass PredictionData[int, float]:
             PredictionData(const handle_t &handle,
@@ -151,7 +168,9 @@ IF GPUBUILD == 1:
                                 size_t m,
                                 size_t n,
                                 DistanceType metric,
-                                int min_samples)
+                                int min_samples,
+                                GRAPH_BUILD_ALGO build_algo,
+                                index_params build_params)
 
         void compute_inverse_label_map(const handle_t& handle,
                                        CondensedHierarchy[int, float]&
@@ -501,7 +520,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                  verbose=False,
                  connectivity='knn',
                  output_type=None,
-                 prediction_data=False):
+                 prediction_data=False,
+                 build_algo='auto',
+                 build_kwds=None):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -532,6 +553,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.fit_called_ = False
         self.prediction_data = prediction_data
 
+        self.build_algo = build_algo
+        self.build_kwds = build_kwds
+
         self.n_clusters_ = None
         self.n_leaves_ = None
 
@@ -546,6 +570,8 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.condensed_tree_ptr = None
         self.prediction_data_ptr = None
         self._cpu_to_gpu_interop_prepped = False
+
+        logger.set_level(verbose)
 
     @property
     def condensed_tree_(self):
@@ -753,17 +779,22 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
     @generate_docstring()
     @enable_device_interop
-    def fit(self, X, y=None, convert_dtype=True) -> "HDBSCAN":
+    def fit(self, X, y=None, convert_dtype=True, data_on_host=False) -> "HDBSCAN":
         """
         Fit HDBSCAN model from features.
         """
+        if data_on_host:
+            convert_to_mem_type = MemoryType.host
+        else:
+            convert_to_mem_type = MemoryType.device
 
         X_m, n_rows, n_cols, self.dtype = \
             input_to_cuml_array(X, order='C',
                                 check_dtype=[np.float32],
                                 convert_to_dtype=(np.float32
                                                   if convert_dtype
-                                                  else None))
+                                                  else None),
+                                convert_to_mem_type=convert_to_mem_type)
 
         self.X_m = X_m
         self.n_rows = n_rows
@@ -830,6 +861,37 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
             else:
                 raise ValueError("Cluster selection method not supported. "
                                  "Must one of {'eom', 'leaf'}")
+
+            if self.build_algo == "auto":
+                if self.n_rows <= 50000:
+                    # brute force is faster for small datasets
+                    logger.warn("Building knn graph using brute force")
+                    self.build_algo = "brute_force_knn"
+                else:
+                    logger.warn("Building knn graph using nn descent")
+                    self.build_algo = "nn_descent"
+
+            if self.build_algo == 'brute_force_knn':
+                params.build_algo = GRAPH_BUILD_ALGO.BRUTE_FORCE_KNN
+            elif self.build_algo == 'nn_descent':
+                params.build_algo = GRAPH_BUILD_ALGO.NN_DESCENT
+                if self.build_kwds is None:
+                    params.nn_descent_params.graph_degree = <size_t> 64
+                    params.nn_descent_params.intermediate_graph_degree = <size_t> 128
+                    params.nn_descent_params.max_iterations = <size_t> 20
+                    params.nn_descent_params.termination_threshold = <float> 0.0001
+                    params.nn_descent_params.return_distances = <bool> True
+                    params.nn_descent_params.n_clusters = <size_t> 1
+                else:
+                    params.nn_descent_params.graph_degree = <size_t> self.build_kwds.get("nnd_graph_degree", 64)
+                    params.nn_descent_params.intermediate_graph_degree = <size_t> self.build_kwds.get("nnd_intermediate_graph_degree", 128)
+                    params.nn_descent_params.max_iterations = <size_t> self.build_kwds.get("nnd_max_iterations", 20)
+                    params.nn_descent_params.termination_threshold = <float> self.build_kwds.get("nnd_termination_threshold", 0.0001)
+                    params.nn_descent_params.return_distances = <bool> self.build_kwds.get("nnd_return_distances", True)
+                    params.nn_descent_params.n_clusters = <size_t> self.build_kwds.get("nnd_n_clusters", 1)
+            else:
+                raise ValueError("Build algo not supported. "
+                                 "Must one of {'brute_force_knn', 'nn_descent'}")
 
             cdef DistanceType metric
             if self.metric in _metrics_mapping:
@@ -1071,13 +1133,46 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
             cdef uintptr_t X_ptr = self.X_m.ptr
             cdef uintptr_t core_dists_ptr = self.core_dists.ptr
 
+            cdef GRAPH_BUILD_ALGO build_algo
+            cdef index_params build_params
+
+            if self.build_algo == "auto":
+                if self.n_rows <= 50000:
+                    # brute force is faster for small datasets
+                    logger.warn("Building knn graph using brute force")
+                    self.build_algo = "brute_force_knn"
+                else:
+                    logger.warn("Building knn graph using nn descent")
+                    self.build_algo = "nn_descent"
+
+            if self.build_algo == 'brute_force_knn':
+                build_algo = GRAPH_BUILD_ALGO.BRUTE_FORCE_KNN
+            elif self.build_algo == 'nn_descent':
+                build_algo = GRAPH_BUILD_ALGO.NN_DESCENT
+                if self.build_kwds is None:
+                    build_params.graph_degree = <size_t> 64
+                    build_params.intermediate_graph_degree = <size_t> 128
+                    build_params.max_iterations = <size_t> 20
+                    build_params.termination_threshold = <float> 0.0001
+                    build_params.return_distances = <bool> True
+                    build_params.n_clusters = <size_t> 1
+                else:
+                    build_params.graph_degree = <size_t> self.build_kwds.get("nnd_graph_degree", 64)
+                    build_params.intermediate_graph_degree = <size_t> self.build_kwds.get("nnd_intermediate_graph_degree", 128)
+                    build_params.max_iterations = <size_t> self.build_kwds.get("nnd_max_iterations", 20)
+                    build_params.termination_threshold = <float> self.build_kwds.get("nnd_termination_threshold", 0.0001)
+                    build_params.return_distances = <bool> self.build_kwds.get("nnd_return_distances", True)
+                    build_params.n_clusters = <size_t> self.build_kwds.get("nnd_n_clusters", 1)
+
             compute_core_dists(handle_[0],
                                <float*> X_ptr,
                                <float*> core_dists_ptr,
                                <size_t> self.n_rows,
                                <size_t> self.n_cols,
                                <DistanceType> metric,
-                               <int> self.min_samples)
+                               <int> self.min_samples,
+                               <GRAPH_BUILD_ALGO> build_algo,
+                               build_params)
 
             cdef device_uvector[int] *inverse_label_map = \
                 new device_uvector[int](0, handle_[0].get_stream())
@@ -1125,7 +1220,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
             "connectivity",
             "alpha",
             "gen_min_span_tree",
-            "prediction_data"
+            "prediction_data",
+            "build_algo",
+            "build_kwds"
         ]
 
     def get_attr_names(self):
