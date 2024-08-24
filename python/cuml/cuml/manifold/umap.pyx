@@ -297,7 +297,9 @@ class UMAP(UniversalBase,
         smaller than or equal to 50K. Otherwise, runs with nn descent.
     build_kwds: dict (optional, default=None)
         Build algorithm argument {'nnd_graph_degree': 64, 'nnd_intermediate_graph_degree': 128,
-        'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_return_distances': True}
+        'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_return_distances': True,
+        'nnd_n_clusters': 1}
+        Note that nnd_n_clusters > 1 will result in batch-building with NN Descent.
 
     Notes
     -----
@@ -440,7 +442,8 @@ class UMAP(UniversalBase,
                 # https://github.com/rapidsai/cuml/issues/5985
                 logger.info("build_algo set to brute_force_knn because random_state is given")
                 self.build_algo ="brute_force_knn"
-            self.build_algo = build_algo
+            else:
+                self.build_algo = build_algo
         else:
             raise Exception("Invalid build algo: {}. Only support auto, brute_force_knn and nn_descent" % build_algo)
 
@@ -488,12 +491,17 @@ class UMAP(UniversalBase,
                     umap_params.nn_descent_params.max_iterations = <uint64_t> 20
                     umap_params.nn_descent_params.termination_threshold = <float> 0.0001
                     umap_params.nn_descent_params.return_distances = <bool> True
+                    umap_params.nn_descent_params.n_clusters = <uint64_t> 1
                 else:
                     umap_params.nn_descent_params.graph_degree = <uint64_t> cls.build_kwds.get("nnd_graph_degree", 64)
                     umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> cls.build_kwds.get("nnd_intermediate_graph_degree", 128)
                     umap_params.nn_descent_params.max_iterations = <uint64_t> cls.build_kwds.get("nnd_max_iterations", 20)
                     umap_params.nn_descent_params.termination_threshold = <float> cls.build_kwds.get("nnd_termination_threshold", 0.0001)
                     umap_params.nn_descent_params.return_distances = <bool> cls.build_kwds.get("nnd_return_distances", True)
+                    if cls.build_kwds.get("nnd_n_clusters", 1) < 1:
+                        logger.info("Negative number of nnd_n_clusters not allowed. Changing nnd_n_clusters to 1")
+                    umap_params.nn_descent_params.n_clusters = <uint64_t> cls.build_kwds.get("nnd_n_clusters", 1)
+
             umap_params.target_weight = <float> cls.target_weight
             umap_params.random_state = <uint64_t> cls.random_state
             umap_params.deterministic = <bool> cls.deterministic
