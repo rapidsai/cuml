@@ -69,7 +69,7 @@ requirements:
     - pylibraft ={{ minor_version }}
     - python x.x
     - raft-dask ={{ minor_version }}
-    - scikit-build-core >=0.7.0
+    - scikit-build-core >=0.10.0
     - treelite {{ treelite_version }}
     - rapids-build-backend>=0.3.0,<0.4.0.dev0
   run:

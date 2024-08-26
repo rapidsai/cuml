@@ -349,26 +349,6 @@ struct forest {
   cat_sets_device_owner cat_sets_;
 };
 
-template <typename storage_type>
-struct opt_into_arch_dependent_shmem : dispatch_functor<void> {
-  const int max_shm;
-  opt_into_arch_dependent_shmem(int max_shm_) : max_shm(max_shm_) {}
-
-  template <typename KernelParams = KernelTemplateParams<>>
-  void run(predict_params p)
-  {
-    auto kernel = infer_k<KernelParams::N_ITEMS,
-                          KernelParams::LEAF_ALGO,
-                          KernelParams::COLS_IN_SHMEM,
-                          KernelParams::CATS_SUPPORTED,
-                          storage_type>;
-    // p.shm_sz might be > max_shm or < MAX_SHM_STD, but we should not check for either, because
-    // we don't run on both proba_ssp_ and class_ssp_ (only class_ssp_). This should be quick.
-    RAFT_CUDA_TRY(
-      cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, max_shm));
-  }
-};
-
 template <typename real_t>
 struct dense_forest<dense_node<real_t>> : forest<real_t> {
   using node_t = dense_node<real_t>;
@@ -427,8 +407,9 @@ struct dense_forest<dense_node<real_t>> : forest<real_t> {
                                   h.get_stream()));
 
     // predict_proba is a runtime parameter, and opt-in is unconditional
-    dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<storage<node_t>>(this->max_shm_),
-                                    static_cast<predict_params>(this->class_ssp_));
+    fil::infer_shared_mem_size<storage<node_t>>(static_cast<predict_params>(this->class_ssp_),
+                                                this->max_shm_);
+
     // copy must be finished before freeing the host data
     h.sync_stream();
     h_nodes_.clear();
@@ -491,8 +472,8 @@ struct sparse_forest : forest<typename node_t::real_type> {
       nodes_.data(), nodes, sizeof(node_t) * num_nodes_, cudaMemcpyHostToDevice, h.get_stream()));
 
     // predict_proba is a runtime parameter, and opt-in is unconditional
-    dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<storage<node_t>>(this->max_shm_),
-                                    static_cast<predict_params>(this->class_ssp_));
+    fil::infer_shared_mem_size<storage<node_t>>(static_cast<predict_params>(this->class_ssp_),
+                                                this->max_shm_);
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) override

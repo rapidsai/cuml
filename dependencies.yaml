@@ -88,6 +88,7 @@ files:
     extras:
       table: project
     includes:
+      - cuda_wheels
       - py_run
   py_test:
     output: pyproject
@@ -111,10 +112,10 @@ dependencies:
           - rapids-build-backend>=0.3.0,<0.4.0.dev0
       - output_types: [conda]
         packages:
-          - scikit-build-core>=0.7.0
+          - scikit-build-core>=0.10.0
       - output_types: [requirements, pyproject]
         packages:
-          - scikit-build-core[pyproject]>=0.7.0
+          - scikit-build-core[pyproject]>=0.10.0
   checks:
     common:
       - output_types: [conda, requirements]
@@ -139,10 +140,10 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - libcumlprims==24.8.*,>=0.0.0a0
-          - libraft==24.8.*,>=0.0.0a0
-          - libraft-headers==24.8.*,>=0.0.0a0
-          - librmm==24.8.*,>=0.0.0a0
+          - libcumlprims==24.10.*,>=0.0.0a0
+          - libraft==24.10.*,>=0.0.0a0
+          - libraft-headers==24.10.*,>=0.0.0a0
+          - librmm==24.10.*,>=0.0.0a0
     specific:
       - output_types: conda
         matrices:
@@ -176,12 +177,12 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - cython>=3.0.0
+          - &cython cython>=3.0.0
           - &treelite treelite==4.3.0
       - output_types: conda
         packages:
-          - &pylibraft_unsuffixed pylibraft==24.8.*,>=0.0.0a0
-          - &rmm_unsuffixed rmm==24.8.*,>=0.0.0a0
+          - &pylibraft_unsuffixed pylibraft==24.10.*,>=0.0.0a0
+          - &rmm_unsuffixed rmm==24.10.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -208,14 +209,14 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - pylibraft-cu12==24.8.*,>=0.0.0a0
-              - rmm-cu12==24.8.*,>=0.0.0a0
+              - pylibraft-cu12==24.10.*,>=0.0.0a0
+              - rmm-cu12==24.10.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - pylibraft-cu11==24.8.*,>=0.0.0a0
-              - rmm-cu11==24.8.*,>=0.0.0a0
+              - pylibraft-cu11==24.10.*,>=0.0.0a0
+              - rmm-cu11==24.10.*,>=0.0.0a0
           - matrix:
             packages:
               - *pylibraft_unsuffixed
@@ -225,7 +226,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - dask-cuda==24.8.*,>=0.0.0a0
+          - dask-cuda==24.10.*,>=0.0.0a0
           - joblib>=0.11
           - numba>=0.57
             # TODO: Is scipy really a hard dependency, or should
@@ -233,14 +234,14 @@ dependencies:
             # installation/run_constrained for conda)?
           - scipy>=1.8.0
           - packaging
-          - rapids-dask-dependency==24.8.*,>=0.0.0a0
+          - rapids-dask-dependency==24.10.*,>=0.0.0a0
           - *treelite
       - output_types: conda
         packages:
-          - &cudf_unsuffixed cudf==24.8.*,>=0.0.0a0
+          - &cudf_unsuffixed cudf==24.10.*,>=0.0.0a0
           - &cupy_unsuffixed cupy>=12.0.0
-          - &dask_cudf_unsuffixed dask-cudf==24.8.*,>=0.0.0a0
-          - &raft_dask_unsuffixed raft-dask==24.8.*,>=0.0.0a0
+          - &dask_cudf_unsuffixed dask-cudf==24.10.*,>=0.0.0a0
+          - &raft_dask_unsuffixed raft-dask==24.10.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -254,12 +255,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - cudf-cu12==24.8.*,>=0.0.0a0
+              - cudf-cu12==24.10.*,>=0.0.0a0
               - &cupy_pyproject_cu12 cupy-cuda12x>=12.0.0
-              - dask-cudf-cu12==24.8.*,>=0.0.0a0
-              - pylibraft-cu12==24.8.*,>=0.0.0a0
-              - raft-dask-cu12==24.8.*,>=0.0.0a0
-              - rmm-cu12==24.8.*,>=0.0.0a0
+              - dask-cudf-cu12==24.10.*,>=0.0.0a0
+              - pylibraft-cu12==24.10.*,>=0.0.0a0
+              - raft-dask-cu12==24.10.*,>=0.0.0a0
+              - rmm-cu12==24.10.*,>=0.0.0a0
           - matrix:
               cuda: "12.*"
               cuda_suffixed: "false"
@@ -276,12 +277,12 @@ dependencies:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages: &py_run_packages_cu11
-              - cudf-cu11==24.8.*,>=0.0.0a0
+              - cudf-cu11==24.10.*,>=0.0.0a0
               - &cupy_pyproject_cu11 cupy-cuda11x>=12.0.0
-              - dask-cudf-cu11==24.8.*,>=0.0.0a0
-              - pylibraft-cu11==24.8.*,>=0.0.0a0
-              - raft-dask-cu11==24.8.*,>=0.0.0a0
-              - rmm-cu11==24.8.*,>=0.0.0a0
+              - dask-cudf-cu11==24.10.*,>=0.0.0a0
+              - pylibraft-cu11==24.10.*,>=0.0.0a0
+              - raft-dask-cu11==24.10.*,>=0.0.0a0
+              - rmm-cu11==24.10.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "false"
@@ -406,6 +407,38 @@ dependencies:
               - *libcusolver114
               - *libcusparse_dev114
               - *libcusparse114
+  cuda_wheels:
+    specific:
+      - output_types: pyproject
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              use_cuda_wheels: "true"
+            packages:
+              - nvidia-cublas-cu12
+              - nvidia-cufft-cu12
+              - nvidia-curand-cu12
+              - nvidia-cusparse-cu12
+              - nvidia-cusolver-cu12
+          # CUDA 11 does not provide wheels, so use the system libraries instead
+          - matrix:
+              cuda: "11.*"
+              use_cuda_wheels: "true"
+            packages:
+          # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
+          # (e.g. for DLFW and pip devcontainers)
+          - matrix:
+              use_cuda_wheels: "false"
+            packages:
+          # if no matching matrix selectors passed, list the unsuffixed packages
+          # (just as a source of documentation, as this populates pyproject.toml in source control)
+          - matrix:
+            packages:
+              - nvidia-cublas
+              - nvidia-cufft
+              - nvidia-curand
+              - nvidia-cusparse
+              - nvidia-cusolver
   docs:
     common:
       - output_types: [conda, requirements]
@@ -430,10 +463,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              py: "3.9"
-            packages:
-              - python=3.9
-          - matrix:
               py: "3.10"
             packages:
               - python=3.10
@@ -443,19 +472,19 @@ dependencies:
               - python=3.11
           - matrix:
             packages:
-              - python>=3.9,<3.12
+              - python>=3.10,<3.12
   test_libcuml:
     common:
       - output_types: conda
         packages:
-          - libcuml==24.8.*,>=0.0.0a0
-          - libcuml-tests==24.8.*,>=0.0.0a0
+          - libcuml==24.10.*,>=0.0.0a0
+          - libcuml-tests==24.10.*,>=0.0.0a0
   test_cuml:
     common:
       - output_types: conda
         packages:
-          - libcuml==24.8.*,>=0.0.0a0
-          - cuml==24.8.*,>=0.0.0a0
+          - libcuml==24.10.*,>=0.0.0a0
+          - cuml==24.10.*,>=0.0.0a0
   test_cpp:
     common:
       - output_types: conda
@@ -465,7 +494,9 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
+          - *cython
           - dask-ml
+          - hdbscan>=0.8.38,<0.8.39
           - hypothesis>=6.0,<7
           - nltk
           - numpydoc
@@ -484,14 +515,9 @@ dependencies:
           - pip
           - pip:
               - dask-glm==0.3.0
-          # TODO: remove pin once a release that includes fixes for the error
-          # is released: https://github.com/rapidsai/cuml/issues/5514
-          - hdbscan<=0.8.30
       - output_types: pyproject
         packages:
           - dask-glm==0.3.0
-            # TODO: Can we stop pulling from the master branch now that there was a release in October?
-          - hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master
   test_notebooks:
     common:
       - output_types: [conda, requirements]

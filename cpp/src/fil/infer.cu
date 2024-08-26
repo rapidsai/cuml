@@ -909,9 +909,35 @@ struct infer_k_storage_template : dispatch_functor<void> {
 };
 
 template <typename storage_type>
+struct opt_into_arch_dependent_shmem : dispatch_functor<void> {
+  const int max_shm;
+  opt_into_arch_dependent_shmem(int max_shm_) : max_shm(max_shm_) {}
+
+  template <typename KernelParams = KernelTemplateParams<>>
+  void run(predict_params p)
+  {
+    auto kernel = infer_k<KernelParams::N_ITEMS,
+                          KernelParams::LEAF_ALGO,
+                          KernelParams::COLS_IN_SHMEM,
+                          KernelParams::CATS_SUPPORTED,
+                          storage_type>;
+    // p.shm_sz might be > max_shm or < MAX_SHM_STD, but we should not check for either, because
+    // we don't run on both proba_ssp_ and class_ssp_ (only class_ssp_). This should be quick.
+    RAFT_CUDA_TRY(
+      cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, max_shm));
+  }
+};
+
+template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream)
 {
   dispatch_on_fil_template_params(infer_k_storage_template<storage_type>(forest, stream), params);
+}
+
+template <typename storage_type>
+void infer_shared_mem_size(predict_params params, int max_shm)
+{
+  dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<storage_type>(max_shm), params);
 }
 
 template void infer<dense_storage_f32>(dense_storage_f32 forest,
@@ -929,6 +955,12 @@ template void infer<sparse_storage16_f64>(sparse_storage16_f64 forest,
 template void infer<sparse_storage8>(sparse_storage8 forest,
                                      predict_params params,
                                      cudaStream_t stream);
+
+template void infer_shared_mem_size<dense_storage_f32>(predict_params params, int max_shm);
+template void infer_shared_mem_size<dense_storage_f64>(predict_params params, int max_shm);
+template void infer_shared_mem_size<sparse_storage16_f32>(predict_params params, int max_shm);
+template void infer_shared_mem_size<sparse_storage16_f64>(predict_params params, int max_shm);
+template void infer_shared_mem_size<sparse_storage8>(predict_params params, int max_shm);
 
 }  // namespace fil
 }  // namespace ML
