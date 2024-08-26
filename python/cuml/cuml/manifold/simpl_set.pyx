@@ -229,7 +229,7 @@ def simplicial_set_embedding(
     metric_kwds=None,
     output_metric="euclidean",
     output_metric_kwds=None,
-    repulsion_strength=1.0,
+    repulsion_strength=None,
     convert_dtype=True,
     verbose=False,
 ):
@@ -329,7 +329,7 @@ def simplicial_set_embedding(
     umap_params.a = <float> a
     umap_params.b = <float> b
 
-    if repulsion_strength != 1.0:
+    if repulsion_strength:
         gamma = repulsion_strength
         raise FutureWarning('Parameter "repulsion_strength" has been'
                             ' deprecated. Please use "gamma" instead.')
