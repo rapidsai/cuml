@@ -838,3 +838,25 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
 
     if umap_learn_supported:
         assert array_equal(umap_trust, cuml_trust, 0.05, with_sign=True)
+
+
+@pytest.mark.parametrize("data_on_host", [True, False])
+@pytest.mark.parametrize("num_clusters", [0, 3, 5])
+def test_umap_trustworthiness_on_batch_nnd(data_on_host, num_clusters):
+
+    digits = datasets.load_digits()
+
+    cuml_model = cuUMAP(
+        n_neighbors=10,
+        min_dist=0.01,
+        build_algo="nn_descent",
+        build_kwds={"nnd_n_clusters": num_clusters},
+    )
+
+    cuml_embedding = cuml_model.fit_transform(
+        digits.data, convert_dtype=True, data_on_host=data_on_host
+    )
+
+    cuml_trust = trustworthiness(digits.data, cuml_embedding, n_neighbors=10)
+
+    assert cuml_trust > 0.9
