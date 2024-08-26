@@ -220,7 +220,7 @@ def simplicial_set_embedding(
     initial_alpha=1.0,
     a=None,
     b=None,
-    repulsion_strength=1.0,
+    gamma=1.0,
     negative_sample_rate=5,
     n_epochs=None,
     init="spectral",
@@ -252,7 +252,7 @@ def simplicial_set_embedding(
         Parameter of differentiable approximation of right adjoint functor
     b: float
         Parameter of differentiable approximation of right adjoint functor
-    repulsion_strength: float
+    gamma: float
         Weight to apply to negative samples.
     negative_sample_rate: int (optional, default 5)
         The number of negative samples to select per positive sample
@@ -327,7 +327,7 @@ def simplicial_set_embedding(
     umap_params.initial_alpha = <int> initial_alpha
     umap_params.a = <float> a
     umap_params.b = <float> b
-    umap_params.repulsion_strength = <float> repulsion_strength
+    umap_params.repulsion_strength = <float> gamma
     umap_params.negative_sample_rate = <int> negative_sample_rate
     umap_params.n_epochs = <int> n_epochs
     umap_params.random_state = <int> random_state
