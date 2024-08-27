@@ -16,6 +16,7 @@
 
 # distutils: language = c++
 
+import warnings
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
@@ -81,6 +82,7 @@ def fuzzy_simplicial_set(X,
     locally approximating geodesic distance at each point, creating a fuzzy
     simplicial set for each such point, and then combining all the local
     fuzzy simplicial sets into a global one via a fuzzy union.
+
     Parameters
     ----------
     X: array of shape (n_samples, n_features)
@@ -237,6 +239,7 @@ def simplicial_set_embedding(
     initialisation method and then minimizing the fuzzy set cross entropy
     between the 1-skeletons of the high and low dimensional fuzzy simplicial
     sets.
+
     Parameters
     ----------
     data: array of shape (n_samples, n_features)
@@ -331,8 +334,11 @@ def simplicial_set_embedding(
 
     if repulsion_strength:
         gamma = repulsion_strength
-        raise FutureWarning('Parameter "repulsion_strength" has been'
-                            ' deprecated. Please use "gamma" instead.')
+        warnings.simplefilter(action="always", category=FutureWarning)
+        warnings.warn('Parameter "repulsion_strength" has been'
+                      ' deprecated. It will be removed in version 24.12.'
+                      ' Please use the "gamma" parameter instead.',
+                      FutureWarning)
 
     umap_params.repulsion_strength = <float> gamma
     umap_params.negative_sample_rate = <int> negative_sample_rate
