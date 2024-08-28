@@ -34,7 +34,3 @@ rapids_cython_create_modules(
   MODULE_PREFIX neighbors_
   ASSOCIATED_TARGETS cuml
 )
-
-foreach(target IN LISTS targets_using_numpy)
-  target_include_directories(${target} PRIVATE "${Python_NumPy_INCLUDE_DIRS}")
-endforeach()
