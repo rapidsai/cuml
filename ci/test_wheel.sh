@@ -35,9 +35,13 @@ rapids-logger "pytest cuml single GPU"
   -k 'test_sparse_pca_inputs' \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-sparse-pca.xml"
 
-rapids-logger "pytest cuml-dask"
-./ci/run_cuml_dask_pytests.sh \
-  --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask.xml"
+# Temporarily disabled for CUDA 12.x wheels. 
+# Reference issue: https://github.com/rapidsai/cuml/issues/6050
+if [[ "${RAPIDS_PY_CUDA_SUFFIX}" == "cu11" ]]; then
+  rapids-logger "pytest cuml-dask"
+  ./ci/run_cuml_dask_pytests.sh \
+    --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask.xml"
+fi
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
