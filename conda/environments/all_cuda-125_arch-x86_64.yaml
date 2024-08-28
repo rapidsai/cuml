@@ -42,6 +42,7 @@ dependencies:
 - ninja
 - nltk
 - numba>=0.57
+- numpy>=1.23,<3.0a0
 - numpydoc
 - packaging
 - pip
