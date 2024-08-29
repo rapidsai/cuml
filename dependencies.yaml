@@ -229,6 +229,7 @@ dependencies:
           - dask-cuda==24.10.*,>=0.0.0a0
           - joblib>=0.11
           - numba>=0.57
+          - numpy>=1.23,<3.0a0
             # TODO: Is scipy really a hard dependency, or should
             # we make it optional (i.e. an extra for pip
             # installation/run_constrained for conda)?
@@ -509,7 +510,7 @@ dependencies:
           - *scikit_learn
           - statsmodels
           - umap-learn==0.5.3
-          - pynndescent==0.5.8
+          - pynndescent
       - output_types: conda
         packages:
           - pip
