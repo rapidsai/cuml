@@ -493,7 +493,8 @@ void tl2fil_common(forest_params_t* params,
   std::size_t leaf_vec_size = tl_leaf_vector_size(model);
   std::string pred_transform(model.postprocessor);
   if (leaf_vec_size > 0) {
-    ASSERT(leaf_vec_size == static_cast<std::size_t>(model.num_class[0]), "treelite model inconsistent");
+    ASSERT(leaf_vec_size == static_cast<std::size_t>(model.num_class[0]),
+           "treelite model inconsistent");
     params->num_classes = leaf_vec_size;
     params->leaf_algo   = leaf_algo_t::VECTOR_LEAF;
 
@@ -513,7 +514,8 @@ void tl2fil_common(forest_params_t* params,
       // Ensure that the trees follow the grove-per-class layout.
       for (size_t tree_id = 0; tree_id < model_preset.trees.size(); ++tree_id) {
         ASSERT(model.target_id[tree_id] == 0, "FIL does not support multi-target models");
-        ASSERT(static_cast<std::size_t>(model.class_id[tree_id]) == tree_id % static_cast<size_t>(model.num_class[0]),
+        ASSERT(static_cast<std::size_t>(model.class_id[tree_id]) ==
+                 tree_id % static_cast<size_t>(model.num_class[0]),
                "The tree model is not compatible with FIL; the trees must be laid out "
                "such that tree i's output contributes towards class (i %% num_class).");
       }
