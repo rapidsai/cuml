@@ -88,7 +88,7 @@ files:
     extras:
       table: project
     includes:
-      - cuda
+      - cuda_wheels
       - py_run
   py_test:
     output: pyproject
@@ -229,6 +229,7 @@ dependencies:
           - dask-cuda==24.10.*,>=0.0.0a0
           - joblib>=0.11
           - numba>=0.57
+          - numpy>=1.23,<3.0a0
             # TODO: Is scipy really a hard dependency, or should
             # we make it optional (i.e. an extra for pip
             # installation/run_constrained for conda)?
@@ -407,19 +408,31 @@ dependencies:
               - *libcusolver114
               - *libcusparse_dev114
               - *libcusparse114
+  cuda_wheels:
+    specific:
       - output_types: pyproject
         matrices:
           - matrix:
               cuda: "12.*"
+              use_cuda_wheels: "true"
             packages:
               - nvidia-cublas-cu12
               - nvidia-cufft-cu12
               - nvidia-curand-cu12
               - nvidia-cusparse-cu12
               - nvidia-cusolver-cu12
+          # CUDA 11 does not provide wheels, so use the system libraries instead
           - matrix:
               cuda: "11.*"
+              use_cuda_wheels: "true"
             packages:
+          # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
+          # (e.g. for DLFW and pip devcontainers)
+          - matrix:
+              use_cuda_wheels: "false"
+            packages:
+          # if no matching matrix selectors passed, list the unsuffixed packages
+          # (just as a source of documentation, as this populates pyproject.toml in source control)
           - matrix:
             packages:
               - nvidia-cublas
@@ -451,10 +464,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              py: "3.9"
-            packages:
-              - python=3.9
-          - matrix:
               py: "3.10"
             packages:
               - python=3.10
@@ -464,7 +473,7 @@ dependencies:
               - python=3.11
           - matrix:
             packages:
-              - python>=3.9,<3.12
+              - python>=3.10,<3.12
   test_libcuml:
     common:
       - output_types: conda
@@ -501,7 +510,7 @@ dependencies:
           - *scikit_learn
           - statsmodels
           - umap-learn==0.5.3
-          - pynndescent==0.5.8
+          - pynndescent
       - output_types: conda
         packages:
           - pip
