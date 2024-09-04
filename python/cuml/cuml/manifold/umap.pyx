@@ -857,34 +857,38 @@ class UMAP(UniversalBase,
         del X_m
         return embedding
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
+    @property
+    def _n_neighbors(self):
+        return self.n_neighbors
 
-        if "handle" in state:
-            del state["handle"]
+    @property
+    def _a(self):
+        return self.a
 
-        state['_n_neighbors'] = self.n_neighbors
-        state['_a'] = self.a
-        state['_b'] = self.b
-        state['_initial_alpha'] = self.learning_rate
-        state['_disconnection_distance'] = DISCONNECTION_DISTANCES.get(self.metric, np.inf)
+    @property
+    def _b(self):
+        return self.b
 
+    @property
+    def _initial_alpha(self):
+        return self.learning_rate
+
+    @property
+    def _disconnection_distance(self):
+        return DISCONNECTION_DISTANCES.get(self.metric, np.inf)
+
+    def gpu_to_cpu(self):
         if hasattr(self, 'knn_dists') and hasattr(self, 'knn_indices'):
-            state['_knn_dists'] = self.knn_dists.to_output('numpy')
-            state['_knn_indices'] = self.knn_indices.to_output('numpy')
-            state['_knn_search_index'] = None
+            self._knn_dists = self.knn_dists
+            self._knn_indices = self.knn_indices
+            self._knn_search_index = None
         elif hasattr(self, '_raw_data'):
-            host_raw_data = self._raw_data.to_output('numpy')
-            state['_knn_dists'], state['_knn_indices'], state['_knn_search_index'] = \
-                nearest_neighbors(host_raw_data, self.n_neighbors, self.metric,
+            self._raw_data = self._raw_data.to_output('numpy')
+            self._knn_dists, self._knn_indices, self._knn_search_index = \
+                nearest_neighbors(self._raw_data, self.n_neighbors, self.metric,
                                   self.metric_kwds, False, self.random_state)
 
-        return state
-
-    def __setstate__(self, state):
-        super(UMAP, self).__init__(handle=None,
-                                   verbose=state["verbose"])
-        self.__dict__.update(state)
+        super().gpu_to_cpu()
 
     def get_param_names(self):
         return super().get_param_names() + [

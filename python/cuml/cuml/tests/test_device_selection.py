@@ -596,8 +596,6 @@ def test_train_cpu_infer_cpu(test_data):
 
 def test_train_gpu_infer_cpu(test_data):
     cuEstimator = test_data["cuEstimator"]
-    if cuEstimator is UMAP:
-        pytest.skip("UMAP GPU training CPU inference not yet implemented")
 
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("gpu"):
