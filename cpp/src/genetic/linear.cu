@@ -24,6 +24,7 @@
 
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/gemm.cuh>
@@ -35,7 +36,6 @@
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
 
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>

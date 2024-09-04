@@ -21,9 +21,10 @@
 
 #include <raft/util/cudart_utils.hpp>
 
+#include <rmm/cuda_stream.hpp>
+#include <rmm/device_buffer.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -200,11 +201,11 @@ int main(int argc, char* argv[])
   /* ======================= Begin GPU memory allocation ======================= */
   std::cout << "***************************************" << std::endl;
 
-  cudaStream_t stream;
+  rmm::cuda_stream stream;
   raft::handle_t handle{stream};
 
   // Begin recording time
-  cudaEventRecord(start, stream);
+  CUDA_RT_CALL(cudaEventRecord(start, stream.value()));
 
   rmm::device_uvector<float> dX_train(n_cols * n_train_rows, stream);
   rmm::device_uvector<float> dy_train(n_train_rows, stream);
@@ -215,46 +216,54 @@ int main(int argc, char* argv[])
   rmm::device_uvector<float> dy_pred(n_test_rows, stream);
   rmm::device_scalar<float> d_score{stream};
 
-  cg::program_t d_finalprogs;  // pointer to last generation ASTs on device
-
   CUDA_RT_CALL(cudaMemcpyAsync(dX_train.data(),
                                X_train.data(),
                                sizeof(float) * dX_train.size(),
                                cudaMemcpyHostToDevice,
-                               stream));
+                               stream.value()));
 
   CUDA_RT_CALL(cudaMemcpyAsync(dy_train.data(),
                                y_train.data(),
                                sizeof(float) * dy_train.size(),
                                cudaMemcpyHostToDevice,
-                               stream));
+                               stream.value()));
 
   CUDA_RT_CALL(cudaMemcpyAsync(dw_train.data(),
                                w_train.data(),
                                sizeof(float) * dw_train.size(),
                                cudaMemcpyHostToDevice,
-                               stream));
+                               stream.value()));
 
-  CUDA_RT_CALL(cudaMemcpyAsync(
-    dX_test.data(), X_test.data(), sizeof(float) * dX_test.size(), cudaMemcpyHostToDevice, stream));
+  CUDA_RT_CALL(cudaMemcpyAsync(dX_test.data(),
+                               X_test.data(),
+                               sizeof(float) * dX_test.size(),
+                               cudaMemcpyHostToDevice,
+                               stream.value()));
 
-  CUDA_RT_CALL(cudaMemcpyAsync(
-    dy_test.data(), y_test.data(), sizeof(float) * dy_test.size(), cudaMemcpyHostToDevice, stream));
+  CUDA_RT_CALL(cudaMemcpyAsync(dy_test.data(),
+                               y_test.data(),
+                               sizeof(float) * dy_test.size(),
+                               cudaMemcpyHostToDevice,
+                               stream.value()));
 
-  CUDA_RT_CALL(cudaMemcpyAsync(
-    dw_test.data(), w_test.data(), sizeof(float) * n_test_rows, cudaMemcpyHostToDevice, stream));
+  CUDA_RT_CALL(cudaMemcpyAsync(dw_test.data(),
+                               w_test.data(),
+                               sizeof(float) * n_test_rows,
+                               cudaMemcpyHostToDevice,
+                               stream.value()));
 
   // Initialize AST
-  auto curr_mr = rmm::mr::get_current_device_resource();
-  d_finalprogs = static_cast<cg::program_t>(curr_mr->allocate(params.population_size, stream));
+  auto prog_buffer = rmm::device_buffer(params.population_size, stream);
+  // pointer to last generation ASTs on device
+  cg::program_t d_finalprogs = static_cast<cg::program_t>(prog_buffer.data());
 
   std::vector<std::vector<cg::program>> history;
   history.reserve(params.generations);
 
-  cudaEventRecord(stop, stream);
-  cudaEventSynchronize(stop);
+  CUDA_RT_CALL(cudaEventRecord(stop, stream.value()));
+  CUDA_RT_CALL(cudaEventSynchronize(stop));
   float alloc_time;
-  cudaEventElapsedTime(&alloc_time, start, stop);
+  CUDA_RT_CALL(cudaEventElapsedTime(&alloc_time, start, stop));
 
   std::cout << "Allocated device memory in " << std::setw(10) << alloc_time << "ms" << std::endl;
 
@@ -263,7 +272,7 @@ int main(int argc, char* argv[])
   std::cout << "***************************************" << std::endl;
   std::cout << std::setw(30) << "Beginning training for " << std::setw(15) << params.generations
             << " generations" << std::endl;
-  cudaEventRecord(start, stream);
+  CUDA_RT_CALL(cudaEventRecord(start, stream.value()));
 
   cg::symFit(handle,
              dX_train.data(),
@@ -275,10 +284,10 @@ int main(int argc, char* argv[])
              d_finalprogs,
              history);
 
-  cudaEventRecord(stop, stream);
-  cudaEventSynchronize(stop);
+  CUDA_RT_CALL(cudaEventRecord(stop, stream.value()));
+  CUDA_RT_CALL(cudaEventSynchronize(stop));
   float training_time;
-  cudaEventElapsedTime(&training_time, start, stop);
+  CUDA_RT_CALL(cudaEventElapsedTime(&training_time, start, stop));
 
   int n_gen = params.num_epochs;
   std::cout << std::setw(30) << "Convergence achieved in " << std::setw(15) << n_gen
@@ -308,7 +317,7 @@ int main(int argc, char* argv[])
 
   std::cout << "***************************************" << std::endl;
   std::cout << "Beginning Inference on test dataset " << std::endl;
-  cudaEventRecord(start, stream);
+  CUDA_RT_CALL(cudaEventRecord(start, stream.value()));
   cuml::genetic::symRegPredict(
     handle, dX_test.data(), n_test_rows, d_finalprogs + best_idx, dy_pred.data());
 
@@ -319,10 +328,10 @@ int main(int argc, char* argv[])
   cuml::genetic::compute_metric(
     handle, n_test_rows, 1, dy_test.data(), dy_pred.data(), dw_test.data(), d_score.data(), params);
 
-  cudaEventRecord(stop, stream);
-  cudaEventSynchronize(stop);
+  CUDA_RT_CALL(cudaEventRecord(stop, stream.value()));
+  CUDA_RT_CALL(cudaEventSynchronize(stop));
   float inference_time;
-  cudaEventElapsedTime(&inference_time, start, stop);
+  CUDA_RT_CALL(cudaEventElapsedTime(&inference_time, start, stop));
 
   // Output fitness score
   std::cout << "Inference score = " << d_score.value(stream) << std::endl;
@@ -336,9 +345,6 @@ int main(int argc, char* argv[])
   std::copy(y_test.begin(), y_test.begin() + 5, std::ostream_iterator<float>(std::cout, ";"));
   std::cout << std::endl;
 
-  /* ======================= Reset data ======================= */
-
-  curr_mr->deallocate(d_finalprogs, params.population_size, stream);
   CUDA_RT_CALL(cudaEventDestroy(start));
   CUDA_RT_CALL(cudaEventDestroy(stop));
   return 0;

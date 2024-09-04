@@ -20,10 +20,9 @@
 #include <cuml/neighbors/knn_mg.hpp>
 
 #include <raft/comms/mpi_comms.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/util/cuda_utils.cuh>
-
-#include <rmm/mr/device/per_device_resource.hpp>
 
 #include <gtest/gtest.h>
 
@@ -63,8 +62,8 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
   bool runTest(const KNNParams& params)
   {
     raft::comms::initialize_mpi_comms(&handle, MPI_COMM_WORLD);
-    const auto& comm     = handle.get_comms();
-    const auto allocator = rmm::mr::get_current_device_resource();
+    const auto& comm = handle.get_comms();
+    auto allocator   = raft::resource::get_current_device_resource_ref();
 
     cudaStream_t stream = handle.get_stream();
 
@@ -112,14 +111,14 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
     std::vector<Matrix::floatData_t*> out_d_parts;
     std::vector<Matrix::Data<int64_t>*> out_i_parts;
     for (int i = 0; i < query_parts_per_rank; i++) {
-      float* q =
-        (float*)allocator.get()->allocate(params.min_rows * params.n_cols * sizeof(float*), stream);
+      float* q = static_cast<float*>(
+        allocator.allocate_async(params.min_rows * params.n_cols * sizeof(float*), stream));
 
-      float* o =
-        (float*)allocator.get()->allocate(params.min_rows * params.k * sizeof(float*), stream);
+      float* o = static_cast<float*>(
+        allocator.allocate_async(params.min_rows * params.k * sizeof(float*), stream));
 
-      int64_t* ind =
-        (int64_t*)allocator.get()->allocate(params.min_rows * params.k * sizeof(int64_t), stream);
+      int64_t* ind = static_cast<int64_t*>(
+        allocator.allocate_async(params.min_rows * params.k * sizeof(int64_t), stream));
 
       Matrix::Data<float>* query_d = new Matrix::Data<float>(q, params.min_rows * params.n_cols);
 

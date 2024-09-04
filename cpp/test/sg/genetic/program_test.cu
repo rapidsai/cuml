@@ -22,8 +22,8 @@
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#include <rmm/device_buffer.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
 
 #include <gtest/gtest.h>
 #include <test_utils.h>
@@ -38,7 +38,10 @@ namespace genetic {
 class GeneticProgramTest : public ::testing::Test {
  public:
   GeneticProgramTest()
-    : d_data(0, cudaStream_t(0)),
+    : nodes1_buffer(7 * sizeof(node), stream),
+      nodes2_buffer(7 * sizeof(node), stream),
+      progs_buffer(2 * sizeof(program), stream),
+      d_data(0, cudaStream_t(0)),
       d_y(0, cudaStream_t(0)),
       d_lYpred(0, cudaStream_t(0)),
       d_lY(0, cudaStream_t(0)),
@@ -101,10 +104,10 @@ class GeneticProgramTest : public ::testing::Test {
     d_lY.resize(250, stream);
     d_lunitW.resize(250, stream);
     d_lW.resize(250, stream);
-    d_nodes1 = (node*)rmm::mr::get_current_device_resource()->allocate(7 * sizeof(node), stream);
-    d_nodes2 = (node*)rmm::mr::get_current_device_resource()->allocate(7 * sizeof(node), stream);
-    d_progs =
-      (program_t)rmm::mr::get_current_device_resource()->allocate(2 * sizeof(program), stream);
+
+    d_nodes1 = static_cast<node*>(nodes1_buffer.data());
+    d_nodes2 = static_cast<node*>(nodes2_buffer.data());
+    d_progs  = static_cast<program_t>(progs_buffer.data());
 
     RAFT_CUDA_TRY(cudaMemcpyAsync(
       d_lYpred.data(), h_lYpred.data(), 500 * sizeof(float), cudaMemcpyHostToDevice, stream));
@@ -155,12 +158,7 @@ class GeneticProgramTest : public ::testing::Test {
       dyp2.data(), hyp2.data(), 10 * sizeof(float), cudaMemcpyHostToDevice, stream));
   }
 
-  void TearDown() override
-  {
-    rmm::mr::get_current_device_resource()->deallocate(d_nodes1, 7 * sizeof(node), stream);
-    rmm::mr::get_current_device_resource()->deallocate(d_nodes2, 7 * sizeof(node), stream);
-    rmm::mr::get_current_device_resource()->deallocate(d_progs, 2 * sizeof(program), stream);
-  }
+  void TearDown() override {}
 
   raft::handle_t handle;
   cudaStream_t stream;
@@ -348,6 +346,9 @@ class GeneticProgramTest : public ::testing::Test {
   node* d_nodes1;
   node* d_nodes2;
   program_t d_progs;
+  rmm::device_buffer nodes1_buffer;
+  rmm::device_buffer nodes2_buffer;
+  rmm::device_buffer progs_buffer;
   rmm::device_uvector<float> d_data;
   rmm::device_uvector<float> d_y;
   rmm::device_uvector<float> d_lYpred;
