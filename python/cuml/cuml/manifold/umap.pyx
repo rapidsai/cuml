@@ -861,21 +861,42 @@ class UMAP(UniversalBase,
     def _n_neighbors(self):
         return self.n_neighbors
 
+    @_n_neighbors.setter
+    def _n_neighbors(self, value):
+        self.n_neighbors = value
+
     @property
     def _a(self):
         return self.a
+
+    @_a.setter
+    def _a(self, value):
+        self.a = value
 
     @property
     def _b(self):
         return self.b
 
+    @_b.setter
+    def _b(self, value):
+        self.b = value
+
     @property
     def _initial_alpha(self):
         return self.learning_rate
 
+    @_initial_alpha.setter
+    def _initial_alpha(self, value):
+        self.learning_rate = value
+
     @property
     def _disconnection_distance(self):
-        return DISCONNECTION_DISTANCES.get(self.metric, np.inf)
+        self.disconnection_distance = DISCONNECTION_DISTANCES.get(self.metric, np.inf)
+        return self.disconnection_distance
+
+    @_disconnection_distance.setter
+    def _disconnection_distance(self, value):
+        self.disconnection_distance = value
 
     def gpu_to_cpu(self):
         if hasattr(self, 'knn_dists') and hasattr(self, 'knn_indices'):
