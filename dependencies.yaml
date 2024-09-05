@@ -513,7 +513,7 @@ dependencies:
           - seaborn
           - *scikit_learn
           - statsmodels
-          - umap-learn==0.5.3
+          - umap-learn==0.5.6
           - pynndescent
       - output_types: conda
         packages:
