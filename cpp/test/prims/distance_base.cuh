@@ -35,7 +35,7 @@ CUML_KERNEL void naiveDistanceKernel(DataType* dist,
                                      int m,
                                      int n,
                                      int k,
-                                     cuvs::distance::DistanceType type,
+                                     raft::distance::DistanceType type,
                                      bool isRowMajor)
 {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -48,8 +48,8 @@ CUML_KERNEL void naiveDistanceKernel(DataType* dist,
     auto diff = x[xidx] - y[yidx];
     acc += diff * diff;
   }
-  if (type == cuvs::distance::DistanceType::L2SqrtExpanded ||
-      type == cuvs::distance::DistanceType::L2SqrtUnexpanded)
+  if (type == raft::distance::DistanceType::L2SqrtExpanded ||
+      type == raft::distance::DistanceType::L2SqrtUnexpanded)
     acc = raft::sqrt(acc);
   int outidx   = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx] = acc;
@@ -112,23 +112,23 @@ void naiveDistance(DataType* dist,
                    int m,
                    int n,
                    int k,
-                   cuvs::distance::DistanceType type,
+                   raft::distance::DistanceType type,
                    bool isRowMajor)
 {
   static const dim3 TPB(16, 32, 1);
   dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
 
   switch (type) {
-    case cuvs::distance::DistanceType::L1:
+    case raft::distance::DistanceType::L1:
       naiveL1DistanceKernel<DataType> < <<nblks, TPB>>(dist, x, y, m, n, k, isRowMajor);
       break;
-    case cuvs::distance::DistanceType::L2SqrtUnexpanded:
-    case cuvs::distance::DistanceType::L2Unexpanded:
-    case cuvs::distance::DistanceType::L2SqrtExpanded:
-    case cuvs::distance::DistanceType::L2Expanded:
+    case raft::distance::DistanceType::L2SqrtUnexpanded:
+    case raft::distance::DistanceType::L2Unexpanded:
+    case raft::distance::DistanceType::L2SqrtExpanded:
+    case raft::distance::DistanceType::L2Expanded:
       naiveDistanceKernel<DataType> < <<nblks, TPB>>(dist, x, y, m, n, k, type, isRowMajor);
       break;
-    case cuvs::distance::DistanceType::CosineExpanded:
+    case raft::distance::DistanceType::CosineExpanded:
       naiveCosineDistanceKernel<DataType> < <<nblks, TPB>>(dist, x, y, m, n, k, isRowMajor);
       break;
     default: FAIL() << "should be here\n";
@@ -150,7 +150,7 @@ template <typename DataType>
   return os;
 }
 
-template <cuvs::distance::DistanceType distanceType, typename DataType>
+template <raft::distance::DistanceType distanceType, typename DataType>
 void distanceLauncher(raft::resources const& handle,
                       DataType* x,
                       DataType* y,
@@ -175,7 +175,7 @@ void distanceLauncher(raft::resources const& handle,
     handle, x, y, dist, m, n, k, workspace, worksize, fin_op, isRowMajor);
 }
 
-template <cuvs::distance::DistanceType distanceType, typename DataType>
+template <raft::distance::DistanceType distanceType, typename DataType>
 class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
  public:
   DistanceTest()

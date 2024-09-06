@@ -26,6 +26,7 @@
 #include <cuml/manifold/common.hpp>
 
 #include <raft/core/handle.hpp>
+#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/unary_op.cuh>
@@ -35,7 +36,6 @@
 
 #include <thrust/transform.h>
 
-#include <cuvs/distance/distance.hpp>
 #include <pca/pca.cuh>
 
 namespace ML {

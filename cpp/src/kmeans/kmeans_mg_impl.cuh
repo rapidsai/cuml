@@ -35,7 +35,6 @@
 #include <thrust/scan.h>
 #include <thrust/transform.h>
 
-#include <cuvs/distance/distance.hpp>
 #include <ml_cuda_utils.h>
 
 #include <cstdint>

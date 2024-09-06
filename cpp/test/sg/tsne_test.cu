@@ -26,7 +26,6 @@
 
 #include <thrust/reduce.h>
 
-#include <cuvs/distance/distance.hpp>
 #include <datasets/boston.h>
 #include <datasets/breast_cancer.h>
 #include <datasets/diabetes.h>
@@ -117,7 +116,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     auto stream = handle.get_stream();
     TSNEResults results;
 
-    auto DEFAULT_DISTANCE_METRIC = cuvs::distance::DistanceType::L2SqrtExpanded;
+    auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtExpanded;
     float minkowski_p            = 2.0;
 
     // Setup parameters
@@ -165,7 +164,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
                       n,
                       n,
                       model_params.dim,
-                      cuvs::distance::DistanceType::L2Expanded,
+                      raft::distance::DistanceType::L2Expanded,
                       false);
     handle.sync_stream(stream);
 

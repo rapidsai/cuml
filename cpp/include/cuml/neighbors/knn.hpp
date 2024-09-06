@@ -16,10 +16,9 @@
 
 #pragma once
 
+#include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/ann_common.h>
 #include <raft/spatial/knn/ball_cover_types.hpp>
-
-#include <cuvs/distance/distance.hpp>
 
 namespace raft {
 class handle_t;
@@ -61,7 +60,7 @@ void brute_force_knn(const raft::handle_t& handle,
                      int k,
                      bool rowMajorIndex                  = false,
                      bool rowMajorQuery                  = false,
-                     cuvs::distance::DistanceType metric = cuvs::distance::DistanceType::L2Expanded,
+                     raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
                      float metric_arg                    = 2.0f,
                      std::vector<int64_t>* translations  = nullptr);
 
@@ -91,7 +90,7 @@ void rbc_knn_query(const raft::handle_t& handle,
 void approx_knn_build_index(raft::handle_t& handle,
                             raft::spatial::knn::knnIndex* index,
                             raft::spatial::knn::knnIndexParam* params,
-                            cuvs::distance::DistanceType metric,
+                            raft::distance::DistanceType metric,
                             float metricArg,
                             float* index_array,
                             int n,

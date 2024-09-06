@@ -99,7 +99,7 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
                                      params.n_row,
                                      params.n_row,
                                      params.n_col,
-                                     cuvs::distance::DistanceType::L2SqrtUnexpanded);
+                                     raft::distance::L2SqrtUnexpanded);
     }
 
     rmm::device_uvector<IdxT> labels(params.n_row, stream);

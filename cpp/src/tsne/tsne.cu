@@ -19,8 +19,7 @@
 #include <cuml/manifold/tsne.h>
 
 #include <raft/core/handle.hpp>
-
-#include <cuvs/distance/distance.hpp>
+#include <raft/distance/distance_types.hpp>
 
 namespace ML {
 template <typename tsne_input, typename value_idx, typename value_t>

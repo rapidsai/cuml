@@ -19,9 +19,8 @@
 #include <cuml/cluster/kmeans.hpp>
 #include <cuml/common/logger.hpp>
 
+#include <raft/distance/distance_types.hpp>
 #include <raft/random/rng_state.hpp>
-
-#include <cuvs/distance/distance.hpp>
 
 #include <utility>
 
