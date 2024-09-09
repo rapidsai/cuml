@@ -27,9 +27,12 @@ cupy = gpu_only_import('cupy')
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.base import Base
+from cuml.internals.base import UniversalBase
 from pylibraft.common.handle cimport handle_t
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 import cuml.internals.logger as logger
+
 
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
@@ -115,7 +118,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         float* kl_div) except +
 
 
-class TSNE(Base,
+class TSNE(UniversalBase,
            CMajorInputTagMixin):
     """
     t-SNE (T-Distributed Stochastic Neighbor Embedding) is an extremely
@@ -263,9 +266,11 @@ class TSNE(Base,
 
     """
 
+    _cpu_estimator_import_path = 'sklearn.manifold.TSNE'
     X_m = CumlArrayDescriptor()
     embedding_ = CumlArrayDescriptor()
 
+    @device_interop_preparation
     def __init__(self, *,
                  n_components=2,
                  perplexity=30.0,
@@ -405,6 +410,7 @@ class TSNE(Base,
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')
+    @enable_device_interop
     def fit(self, X, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
@@ -443,6 +449,8 @@ class TSNE(Base,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
                                                       else None))
+
+        self.n_features_in_ = p
 
         if n <= 1:
             raise ValueError("There needs to be more than 1 sample to build "
@@ -561,6 +569,7 @@ class TSNE(Base,
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_fit_transform()
+    @enable_device_interop
     def fit_transform(self, X, convert_dtype=True,
                       knn_graph=None) -> CumlArray:
         """
@@ -648,6 +657,22 @@ class TSNE(Base,
     def kl_divergence_(self, value):
         self._kl_divergence_ = value
 
+    @property
+    def learning_rate_(self):
+        return self.learning_rate
+
+    @learning_rate_.setter
+    def learning_rate_(self, value):
+        self.learning_rate = value
+
+    @property
+    def n_iter_(self):
+        return self.n_iter
+
+    @n_iter_.setter
+    def n_iter_(self, value):
+        self.n_iter = value
+
     def __del__(self):
 
         if hasattr(self, "embedding_"):
@@ -690,3 +715,8 @@ class TSNE(Base,
             "square_distances",
             "precomputed_knn"
         ]
+
+    def get_attr_names(self):
+        return ["embedding", "kl_divergence_",
+                "n_features_in_", "learning_rate_",
+                "n_iter_"]
