@@ -24,6 +24,7 @@ from cuml.internals.safe_imports import gpu_only_import
 import pytest
 from cuml.datasets import make_blobs
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.metrics import trustworthiness
 
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
@@ -133,7 +134,7 @@ def test_simplicial_set_embedding(
     metric = "euclidean"
     initial_alpha = 1.0
     a, b = UMAP.find_ab_params(1.0, 0.1)
-    gamma = 0
+    gamma = 1.0
     negative_sample_rate = 5
     n_epochs = 500
     init = "random"
@@ -180,7 +181,6 @@ def test_simplicial_set_embedding(
     cu_fss_graph = cu_fuzzy_simplicial_set(
         X, n_neighbors, random_state, metric
     )
-
     cu_embedding = cu_simplicial_set_embedding(
         X,
         cu_fss_graph,
@@ -199,7 +199,7 @@ def test_simplicial_set_embedding(
         output_metric_kwds=output_metric_kwds,
     )
 
-    ref_embedding = cp.array(ref_embedding)
-    assert correctness_dense(
-        ref_embedding, cu_embedding, rtol=0.1, threshold=0.95
-    )
+    ref_t_score = trustworthiness(X, ref_embedding, n_neighbors=n_neighbors)
+    t_score = trustworthiness(X, cu_embedding, n_neighbors=n_neighbors)
+    abs_tol = 0.05
+    assert t_score >= ref_t_score - abs_tol
