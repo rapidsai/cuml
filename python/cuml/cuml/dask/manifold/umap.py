@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -83,9 +83,7 @@ class UMAP(BaseEstimator, DelayedTransformMixin):
 
     In addition to these missing features, you should expect to see
     the final embeddings differing between `cuml.umap` and the reference
-    UMAP. In particular, the reference UMAP uses an approximate kNN
-    algorithm for large data sizes while cuml.umap always uses exact
-    kNN.
+    UMAP.
 
     **Known issue:** If a UMAP model has not yet been fit, it cannot be pickled
 
