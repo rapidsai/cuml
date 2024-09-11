@@ -72,11 +72,17 @@ def pytest_addoption(parser):
     group = parser.getgroup("Dask cuML Custom Options")
 
     group.addoption(
-        "--run_ucx", action="store_true", help="run _only_ UCX-Py tests"
+        "--run_ucx",
+        action="store_true",
+        default=False,
+        help="run _only_ UCX-Py tests",
     )
 
     group.addoption(
-        "--run_ucxx", action="store_true", help="run _only_ UCXX tests"
+        "--run_ucxx",
+        action="store_true",
+        default=False,
+        help="run _only_ UCXX tests",
     )
 
 
