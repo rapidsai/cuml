@@ -68,6 +68,7 @@ dependencies:
 - scikit-learn==1.5
 - scipy>=1.8.0
 - seaborn
+- setuptools
 - sphinx-copybutton
 - sphinx-markdown-tables
 - sphinx<6
