@@ -92,6 +92,20 @@ void refine(const raft::handle_t& handle,
     handle, inputs, params, graph, embeddings);
 }
 
+void init_and_refine(const raft::handle_t& handle,
+                     float* X,
+                     int n,
+                     int d,
+                     raft::sparse::COO<float>* graph,
+                     UMAPParams* params,
+                     float* embeddings)
+{
+  CUML_LOG_DEBUG("Calling UMAP::init_and_refine() with precomputed KNN");
+  manifold_dense_inputs_t<float> inputs(X, nullptr, n, d);
+  UMAPAlgo::_init_and_refine<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, TPB_X>(
+    handle, inputs, params, graph, embeddings);
+}
+
 void fit(const raft::handle_t& handle,
          float* X,
          float* y,

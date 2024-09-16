@@ -85,6 +85,27 @@ void refine(const raft::handle_t& handle,
             float* embeddings);
 
 /**
+ * Initializes embeddings and performs a UMAP fit on them, which enables
+ * iterative fitting without callbacks.
+ *
+ * @param[in] handle: raft::handle_t
+ * @param[in] X: pointer to input array
+ * @param[in] n: n_samples of input array
+ * @param[in] d: n_features of input array
+ * @param[in] graph: pointer to raft::sparse::COO object computed using ML::UMAP::get_graph
+ * @param[in] params: pointer to ML::UMAPParams object
+ * @param[out] embeddings: pointer to current embedding with shape n * n_components, stores updated
+ * embeddings on executing refine
+ */
+void init_and_refine(const raft::handle_t& handle,
+                     float* X,
+                     int n,
+                     int d,
+                     raft::sparse::COO<float, int>* graph,
+                     UMAPParams* params,
+                     float* embeddings);
+
+/**
  * Dense fit
  *
  * @param[in] handle: raft::handle_t
