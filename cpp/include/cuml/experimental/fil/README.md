@@ -39,7 +39,7 @@ similar load methods for each of the serialization formats it supports.
 
 ```cpp
 auto filename = "xgboost.json";
-auto tl_model = treelite::frontend::LoadXGBoostModel(filename);
+auto tl_model = treelite::model_loader::LoadXGBoostModelJSON(filename, "{}");
 ```
 
 We then import the Treelite model into FIL via the

@@ -247,9 +247,28 @@ void _refine(const raft::handle_t& handle,
              value_t* embeddings)
 {
   cudaStream_t stream = handle.get_stream();
+  ML::Logger::get().setLevel(params->verbosity);
+
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
    */
+  SimplSetEmbed::run<TPB_X, value_t>(inputs.n, inputs.d, graph, params, embeddings, stream);
+}
+
+template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
+void _init_and_refine(const raft::handle_t& handle,
+                      const umap_inputs& inputs,
+                      UMAPParams* params,
+                      raft::sparse::COO<value_t>* graph,
+                      value_t* embeddings)
+{
+  cudaStream_t stream = handle.get_stream();
+  ML::Logger::get().setLevel(params->verbosity);
+
+  // Initialize embeddings
+  InitEmbed::run(handle, inputs.n, inputs.d, graph, params, embeddings, stream, params->init);
+
+  // Run simplicial set embedding
   SimplSetEmbed::run<TPB_X, value_t>(inputs.n, inputs.d, graph, params, embeddings, stream);
 }
 

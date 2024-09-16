@@ -59,7 +59,7 @@ void launcher(const raft::handle_t& handle,
 
 //  Functor to post-process distances as L2Sqrt*
 template <typename value_idx, typename value_t = float>
-struct DistancePostProcessSqrt {
+struct DistancePostProcessSqrt : NNDescent::DistEpilogue<value_idx, value_t> {
   DI value_t operator()(value_t value, value_idx row, value_idx col) const { return sqrtf(value); }
 };
 
