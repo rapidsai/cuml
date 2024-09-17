@@ -9,7 +9,7 @@ repos:
             files: python/.*
             args: [--config, python/cuml/pyproject.toml]
     - repo: https://github.com/PyCQA/flake8
-      rev: 5.0.4
+      rev: 7.1.1
       hooks:
           - id: flake8
             args: [--config=python/cuml/.flake8]
