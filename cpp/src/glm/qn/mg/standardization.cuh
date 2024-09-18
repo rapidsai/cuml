@@ -61,6 +61,11 @@ void mean_stddev(const raft::handle_t& handle,
   comm.sync_stream(stream);
 
   raft::stats::vars(stddev_vector, input_data, mean_vector, D, num_rows, false, !col_major, stream);
+  ML::Logger::get().setLevel(6);
+  auto log_data = raft::arr2Str(X.data, D * num_rows, "data ", stream);
+  auto log_vars = raft::arr2Str(stddev_vector, D, "", stream);
+  CUML_LOG_DEBUG("data: %s, and debug mean_vars is %s", log_data.c_str(), log_vars.c_str());
+
   weight = n_samples < 1 ? T(0) : T(1) * num_rows / T(n_samples - 1);
   raft::linalg::multiplyScalar(stddev_vector, stddev_vector, weight, D, stream);
   comm.allreduce(stddev_vector, stddev_vector, D, raft::comms::op_t::SUM, stream);
@@ -75,9 +80,20 @@ void mean_stddev(const raft::handle_t& handle,
     return a + weight * b * b;
   };
 
+  ML::Logger::get().setLevel(6);
+  auto mean_log = raft::arr2Str(mean_vector, D, "", stream);
+  CUML_LOG_DEBUG("debug start reporting results");
+  CUML_LOG_DEBUG("debug mean is %s", mean_log.c_str());
+
   raft::linalg::binaryOp(stddev_vector, stddev_vector, mean_vector, D, no_neg_op, stream);
 
+  auto stddev_log = raft::arr2Str(stddev_vector, D, "", stream);
+  CUML_LOG_DEBUG("debug square stddev is %s", stddev_log.c_str());
+
   raft::linalg::sqrt(stddev_vector, stddev_vector, D, handle.get_stream());
+
+  stddev_log = raft::arr2Str(stddev_vector, D, "", stream);
+  CUML_LOG_DEBUG("debug stddev is %s", stddev_log.c_str());
 }
 
 template <typename T, typename I = int>
@@ -174,6 +190,11 @@ void mean_stddev(const raft::handle_t& handle,
 
   mean(handle, X, n_samples, mean_vector);
 
+  ML::Logger::get().setLevel(6);
+  auto mean_log = raft::arr2Str(mean_vector, D, "", stream);
+  CUML_LOG_DEBUG("debug start reporting results");
+  CUML_LOG_DEBUG("debug mean is %s", mean_log.c_str());
+
   // calculate stdev.S
   rmm::device_uvector<T> X_values_squared(X.nnz, stream);
   raft::copy(X_values_squared.data(), X.values, X.nnz, stream);
@@ -196,8 +217,12 @@ void mean_stddev(const raft::handle_t& handle,
     return res;
   };
   raft::linalg::binaryOp(stddev_vector, stddev_vector, mean_vector, X.n, submean_no_neg_op, stream);
+  auto stddev_log = raft::arr2Str(stddev_vector, D, "", stream);
+  CUML_LOG_DEBUG("debug square stddev is %s", stddev_log.c_str());
 
   raft::linalg::sqrt(stddev_vector, stddev_vector, X.n, handle.get_stream());
+  stddev_log = raft::arr2Str(stddev_vector, D, "", stream);
+  CUML_LOG_DEBUG("debug stddev is %s", stddev_log.c_str());
 }
 
 struct inverse_op {
