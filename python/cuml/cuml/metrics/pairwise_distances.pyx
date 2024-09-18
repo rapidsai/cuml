@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -136,7 +136,7 @@ def _determine_metric(metric_str, is_sparse_=False):
 
 
 def nan_euclidean_distances(
-    X, Y=None, *, squared=False, missing_values=cp.nan
+    X, Y=None, *, squared=False, missing_values=cp.nan, convert_dtype=True
 ):
     """Calculate the euclidean distances in the presence of missing values.
 
@@ -191,7 +191,11 @@ def nan_euclidean_distances(
             Y.fillna(0, inplace=True)
 
     X_m, _n_samples_x, _n_features_x, dtype_x = \
-        input_to_cuml_array(X, order="K", check_dtype=[np.float32, np.float64])
+        input_to_cuml_array(X,
+                            order="K",
+                            convert_to_dtype=(np.float32 if convert_dtype
+                                              else None),
+                            check_dtype=[np.float32, np.float64])
 
     if Y is None:
         Y = X_m
@@ -351,7 +355,11 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
     # Get the input arrays, preserve order and type where possible
     X_m, n_samples_x, n_features_x, dtype_x = \
-        input_to_cuml_array(X, order="K", check_dtype=[np.float32, np.float64])
+        input_to_cuml_array(X,
+                            order="K",
+                            convert_to_dtype=(np.float32 if convert_dtype
+                                              else None),
+                            check_dtype=[np.float32, np.float64])
 
     # Get the order from the CumlArray
     input_order = X_m.order

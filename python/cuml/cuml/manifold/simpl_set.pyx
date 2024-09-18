@@ -16,6 +16,7 @@
 
 # distutils: language = c++
 
+import warnings
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
@@ -26,7 +27,7 @@ from cuml.manifold.umap_utils cimport *
 from cuml.manifold.umap_utils import GraphHolder, find_ab_params, \
     metric_parsing
 
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.internals.array import CumlArray
 
 from pylibraft.common.handle cimport handle_t
@@ -56,6 +57,14 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
                 UMAPParams* params,
                 float* embeddings)
 
+    void init_and_refine(handle_t &handle,
+                         float* X,
+                         int n,
+                         int d,
+                         COO* cgraph_coo,
+                         UMAPParams* params,
+                         float* embeddings)
+
 
 def fuzzy_simplicial_set(X,
                          n_neighbors,
@@ -73,6 +82,7 @@ def fuzzy_simplicial_set(X,
     locally approximating geodesic distance at each point, creating a fuzzy
     simplicial set for each such point, and then combining all the local
     fuzzy simplicial sets into a global one via a fuzzy union.
+
     Parameters
     ----------
     X: array of shape (n_samples, n_features)
@@ -212,7 +222,7 @@ def simplicial_set_embedding(
     initial_alpha=1.0,
     a=None,
     b=None,
-    repulsion_strength=1.0,
+    gamma=1.0,
     negative_sample_rate=5,
     n_epochs=None,
     init="spectral",
@@ -221,12 +231,15 @@ def simplicial_set_embedding(
     metric_kwds=None,
     output_metric="euclidean",
     output_metric_kwds=None,
+    repulsion_strength=None,
+    convert_dtype=True,
     verbose=False,
 ):
     """Perform a fuzzy simplicial set embedding, using a specified
     initialisation method and then minimizing the fuzzy set cross entropy
     between the 1-skeletons of the high and low dimensional fuzzy simplicial
     sets.
+
     Parameters
     ----------
     data: array of shape (n_samples, n_features)
@@ -243,7 +256,7 @@ def simplicial_set_embedding(
         Parameter of differentiable approximation of right adjoint functor
     b: float
         Parameter of differentiable approximation of right adjoint functor
-    repulsion_strength: float
+    gamma: float
         Weight to apply to negative samples.
     negative_sample_rate: int (optional, default 5)
         The number of negative samples to select per positive sample
@@ -259,7 +272,7 @@ def simplicial_set_embedding(
         How to initialize the low dimensional embedding. Options are:
             * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
             * 'random': assign initial embedding positions at random.
-            * A numpy array of initial embedding positions.
+            * An array-like with initial embedding positions.
     random_state: numpy RandomState or equivalent
         A state capable being used as a numpy random state.
     metric: string (default='euclidean').
@@ -293,9 +306,6 @@ def simplicial_set_embedding(
     if output_metric_kwds is None:
         output_metric_kwds = {}
 
-    if init not in ['spectral', 'random']:
-        raise Exception("Initialization strategy not supported: %d" % init)
-
     if output_metric not in ['euclidean', 'categorical']:
         raise Exception("Invalid output metric: {}" % output_metric)
 
@@ -319,17 +329,29 @@ def simplicial_set_embedding(
     cdef UMAPParams* umap_params = new UMAPParams()
     umap_params.n_components = <int> n_components
     umap_params.initial_alpha = <int> initial_alpha
-    umap_params.a = <int> a
-    umap_params.b = <int> b
-    umap_params.repulsion_strength = <float> repulsion_strength
+    umap_params.a = <float> a
+    umap_params.b = <float> b
+
+    if repulsion_strength:
+        gamma = repulsion_strength
+        warnings.simplefilter(action="always", category=FutureWarning)
+        warnings.warn('Parameter "repulsion_strength" has been'
+                      ' deprecated. It will be removed in version 24.12.'
+                      ' Please use the "gamma" parameter instead.',
+                      FutureWarning)
+
+    umap_params.repulsion_strength = <float> gamma
     umap_params.negative_sample_rate = <int> negative_sample_rate
     umap_params.n_epochs = <int> n_epochs
-    if init == 'spectral':
-        umap_params.init = <int> 1
-    else:  # init == 'random'
-        umap_params.init = <int> 0
     umap_params.random_state = <int> random_state
     umap_params.deterministic = <bool> deterministic
+    if isinstance(init, str):
+        if init == "random":
+            umap_params.init = <int> 0
+        elif init == 'spectral':
+            umap_params.init = <int> 1
+        else:
+            raise ValueError("Invalid initialization strategy")
     try:
         umap_params.metric = metric_parsing[metric.lower()]
     except KeyError:
@@ -343,11 +365,15 @@ def simplicial_set_embedding(
     else:  # output_metric == 'categorical'
         umap_params.target_metric = MetricType.CATEGORICAL
     umap_params.target_weight = <float> output_metric_kwds['p'] \
-        if 'p' in output_metric_kwds else 0
+        if 'p' in output_metric_kwds else 0.5
     umap_params.verbosity = <int> verbose
 
     X_m, _, _, _ = \
-        input_to_cuml_array(data, order='C', check_dtype=np.float32)
+        input_to_cuml_array(data,
+                            order='C',
+                            convert_to_dtype=(np.float32 if convert_dtype
+                                              else None),
+                            check_dtype=np.float32)
 
     graph = graph.tocoo()
     graph.sum_duplicates()
@@ -360,17 +386,40 @@ def simplicial_set_embedding(
                                                             handle,
                                                             graph)
 
-    embedding = CumlArray.zeros((X_m.shape[0], n_components),
-                                order="C", dtype=np.float32,
-                                index=X_m.index)
-
-    refine(handle_[0],
-           <float*><uintptr_t> X_m.ptr,
-           <int> X_m.shape[0],
-           <int> X_m.shape[1],
-           <COO*> fss_graph.get(),
-           <UMAPParams*> umap_params,
-           <float*><uintptr_t> embedding.ptr)
+    if isinstance(init, str):
+        if init in ['spectral', 'random']:
+            embedding = CumlArray.zeros((X_m.shape[0], n_components),
+                                        order="C", dtype=np.float32,
+                                        index=X_m.index)
+            init_and_refine(handle_[0],
+                            <float*><uintptr_t> X_m.ptr,
+                            <int> X_m.shape[0],
+                            <int> X_m.shape[1],
+                            <COO*> fss_graph.get(),
+                            <UMAPParams*> umap_params,
+                            <float*><uintptr_t> embedding.ptr)
+        else:
+            raise ValueError("Invalid initialization strategy")
+    elif is_array_like(init):
+        embedding, _, _, _ = \
+            input_to_cuml_array(init,
+                                order='C',
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None),
+                                check_dtype=np.float32,
+                                check_rows=X_m.shape[0],
+                                check_cols=n_components)
+        refine(handle_[0],
+               <float*><uintptr_t> X_m.ptr,
+               <int> X_m.shape[0],
+               <int> X_m.shape[1],
+               <COO*> fss_graph.get(),
+               <UMAPParams*> umap_params,
+               <float*><uintptr_t> embedding.ptr)
+    else:
+        raise ValueError(
+            "Initialization not supported. Please provide a valid "
+            "initialization strategy or a pre-initialized embedding.")
 
     free(umap_params)
 

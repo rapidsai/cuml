@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -233,7 +233,7 @@ class KernelDensity(Base):
             "metric_params",
         ]
 
-    def fit(self, X, y=None, sample_weight=None):
+    def fit(self, X, y=None, sample_weight=None, convert_dtype=True):
         """Fit the Kernel Density model on the data.
 
         Parameters
@@ -255,7 +255,9 @@ class KernelDensity(Base):
         """
         if sample_weight is not None:
             self.sample_weight_ = input_to_cupy_array(
-                sample_weight, check_dtype=[cp.float32, cp.float64]
+                sample_weight,
+                convert_to_dtype=(np.float32 if convert_dtype else None),
+                check_dtype=[cp.float32, cp.float64],
             ).array
             if self.sample_weight_.min() <= 0:
                 raise ValueError("sample_weight must have positive values")
@@ -263,12 +265,15 @@ class KernelDensity(Base):
             self.sample_weight_ = None
 
         self.X_ = input_to_cupy_array(
-            X, order="C", check_dtype=[cp.float32, cp.float64]
+            X,
+            order="C",
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+            check_dtype=[cp.float32, cp.float64],
         ).array
 
         return self
 
-    def score_samples(self, X):
+    def score_samples(self, X, convert_dtype=True):
         """Compute the log-likelihood of each sample under the model.
 
         Parameters
@@ -288,7 +293,10 @@ class KernelDensity(Base):
         """
         if not hasattr(self, "X_"):
             raise NotFittedError()
-        X_cuml = input_to_cuml_array(X)
+        X_cuml = input_to_cuml_array(
+            X,
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+        )
         if self.metric_params:
             if len(self.metric_params) != 1:
                 raise ValueError(

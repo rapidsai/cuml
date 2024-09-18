@@ -88,12 +88,12 @@ void qnFit(raft::handle_t& handle,
  * @param[out] f: host pointer holding the final objective value
  * @param[out] num_iters: host pointer holding the actual number of iterations taken
  */
-template <typename T>
+template <typename T, typename I>
 void qnFitSparse(raft::handle_t& handle,
                  std::vector<Matrix::Data<T>*>& input_values,
-                 int* input_cols,
-                 int* input_row_ids,
-                 int X_nnz,
+                 I* input_cols,
+                 I* input_row_ids,
+                 I X_nnz,
                  Matrix::PartDescriptor& input_desc,
                  std::vector<Matrix::Data<T>*>& labels,
                  T* coef,

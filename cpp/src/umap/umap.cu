@@ -92,6 +92,20 @@ void refine(const raft::handle_t& handle,
     handle, inputs, params, graph, embeddings);
 }
 
+void init_and_refine(const raft::handle_t& handle,
+                     float* X,
+                     int n,
+                     int d,
+                     raft::sparse::COO<float>* graph,
+                     UMAPParams* params,
+                     float* embeddings)
+{
+  CUML_LOG_DEBUG("Calling UMAP::init_and_refine() with precomputed KNN");
+  manifold_dense_inputs_t<float> inputs(X, nullptr, n, d);
+  UMAPAlgo::_init_and_refine<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, TPB_X>(
+    handle, inputs, params, graph, embeddings);
+}
+
 void fit(const raft::handle_t& handle,
          float* X,
          float* y,
@@ -187,6 +201,8 @@ void transform(const raft::handle_t& handle,
                UMAPParams* params,
                float* transformed)
 {
+  RAFT_EXPECTS(params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN,
+               "build algo nn_descent not supported for transform()");
   manifold_dense_inputs_t<float> inputs(X, nullptr, n, d);
   manifold_dense_inputs_t<float> orig_inputs(orig_X, nullptr, orig_n, d);
   UMAPAlgo::_transform<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, TPB_X>(
@@ -210,6 +226,8 @@ void transform_sparse(const raft::handle_t& handle,
                       UMAPParams* params,
                       float* transformed)
 {
+  RAFT_EXPECTS(params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN,
+               "build algo nn_descent not supported for transform()");
   manifold_sparse_inputs_t<knn_indices_sparse_t, float> inputs(
     indptr, indices, data, nullptr, nnz, n, d);
   manifold_sparse_inputs_t<knn_indices_sparse_t, float> orig_x_inputs(

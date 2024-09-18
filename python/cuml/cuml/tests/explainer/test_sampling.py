@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
 pd = cpu_only_import("pandas")
 cuda = gpu_only_import_from("numba", "cuda")
+cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
 
 
 @pytest.mark.parametrize(
@@ -64,7 +65,7 @@ def test_kmeans_input(input_type):
     elif input_type == "cudf-series":
         cp.testing.assert_array_equal(summary[0].values.tolist(), [23.0, 52.0])
         assert isinstance(summary[0], cudf.Series)
-    elif input_type == "pandas-series":
+    elif input_type == "pandas-series" and not cudf_pandas_active:
         cp.testing.assert_array_equal(
             summary[0].to_numpy().flatten(), [23.0, 52.0]
         )

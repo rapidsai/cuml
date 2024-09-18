@@ -633,7 +633,11 @@ class NearestNeighbors(UniversalBase,
             # that could arise.
             if metric_is_l2_based:
                 index = I_ndarr.index
-                X = input_to_cupy_array(X).array
+                X = input_to_cupy_array(
+                    X,
+                    convert_to_dtype=(np.float32 if convert_dtype
+                                      else None),
+                ).array
                 I_cparr = I_ndarr.to_output('cupy')
 
                 self_diff = X[I_cparr] - X[:, cp.newaxis, :]
@@ -648,9 +652,17 @@ class NearestNeighbors(UniversalBase,
                                              axis=1)
                 I_cparr = cp.take_along_axis(I_cparr, correct_order, axis=1)
 
-                D_ndarr = cuml.common.input_to_cuml_array(D_cparr).array
+                D_ndarr = cuml.common.input_to_cuml_array(
+                    D_cparr,
+                    convert_to_dtype=(np.float32 if convert_dtype
+                                      else None),
+                ).array
                 D_ndarr.index = index
-                I_ndarr = cuml.common.input_to_cuml_array(I_cparr).array
+                I_ndarr = cuml.common.input_to_cuml_array(
+                    I_cparr,
+                    convert_to_dtype=(np.int64 if convert_dtype
+                                      else None),
+                ).array
                 I_ndarr.index = index
 
         I_ndarr = I_ndarr.to_output(out_type)
