@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ def test_column_transformer(
     )
     ft_X = transformer.fit_transform(X)
     t_X = transformer.transform(X)
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
 
     sk_transformers = [
         ("scaler", skStandardScaler(), sk_selec1),
@@ -135,7 +135,7 @@ def test_column_transformer_sparse(
     if dataset_density < sparse_threshold:
         # Sparse input -> sparse output if dataset_density > sparse_threshold
         # else sparse input -> dense output
-        assert type(t_X) == type(X)
+        assert type(t_X) is type(X)
 
     sk_transformers = [
         ("scaler", skStandardScaler(with_mean=False), [0, 2]),
@@ -174,7 +174,7 @@ def test_make_column_transformer(clf_dataset, remainder):  # noqa: F811
 
     ft_X = transformer.fit_transform(X)
     t_X = transformer.transform(X)
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
 
     transformer = sk_make_column_transformer(
         (skStandardScaler(), sk_selec1),
@@ -210,7 +210,7 @@ def test_make_column_transformer_sparse(
     if dataset_density < sparse_threshold:
         # Sparse input -> sparse output if dataset_density > sparse_threshold
         # else sparse input -> dense output
-        assert type(t_X) == type(X)
+        assert type(t_X) is type(X)
 
     transformer = sk_make_column_transformer(
         (skStandardScaler(with_mean=False), [0, 2]),
@@ -313,7 +313,7 @@ def test_make_column_selector():
     sk_t_X = transformer.fit_transform(X_np)
 
     assert_allclose(t_X, sk_t_X)
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
 
 
 def test_column_transformer_index(clf_dataset):  # noqa: F811
