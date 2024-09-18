@@ -3,6 +3,10 @@
 
 set -euo pipefail
 
+cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
+source ./ci/use_wheels_from_prs.sh
+export PIP_CONSTRAINT=/tmp/constraints.txt
+
 mkdir -p ./dist
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 RAPIDS_PY_WHEEL_NAME="cuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./dist

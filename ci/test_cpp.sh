@@ -11,12 +11,31 @@ cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
+LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1678 cpp)
+RMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1678 python)
+
+UCXX_CHANNEL=$(rapids-get-pr-conda-artifact ucxx 278 cpp)
+
+LIBCUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 16806 cpp)
+CUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 16806 python)
+
+LIBRAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2433 cpp)
+RAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2433 python)
+
 rapids-logger "Generate C++ testing dependencies"
 rapids-dependency-file-generator \
   --output conda \
   --file-key test_cpp \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch)" \
-  --prepend-channel "${CPP_CHANNEL}" | tee env.yaml
+  --prepend-channel "${CPP_CHANNEL}" \
+  --prepend-channel "${LIBRMM_CHANNEL}" \
+  --prepend-channel "${RMM_CHANNEL}" \
+  --prepend-channel "${UCXX_CHANNEL}" \
+  --prepend-channel "${LIBCUDF_CHANNEL}" \
+  --prepend-channel "${CUDF_CHANNEL}" \
+  --prepend-channel "${LIBRAFT_CHANNEL}" \
+  --prepend-channel "${RAFT_CHANNEL}" \
+| tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
 
