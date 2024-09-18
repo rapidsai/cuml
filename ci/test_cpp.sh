@@ -22,6 +22,8 @@ CUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 16806 python)
 LIBRAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2433 cpp)
 RAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2433 python)
 
+CUMLPRIMS_CHANNEL=$(rapids-get-pr-conda-artifact cumlprims_mg 211 cpp)
+
 rapids-logger "Generate C++ testing dependencies"
 rapids-dependency-file-generator \
   --output conda \
@@ -35,6 +37,7 @@ rapids-dependency-file-generator \
   --prepend-channel "${CUDF_CHANNEL}" \
   --prepend-channel "${LIBRAFT_CHANNEL}" \
   --prepend-channel "${RAFT_CHANNEL}" \
+  --prepend-channel "${CUMLPRIMS_CHANNEL}" \
 | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test

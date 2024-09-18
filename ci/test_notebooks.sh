@@ -33,6 +33,7 @@ rapids-dependency-file-generator \
   --prepend-channel "${CUDF_CHANNEL}" \
   --prepend-channel "${LIBRAFT_CHANNEL}" \
   --prepend-channel "${RAFT_CHANNEL}" \
+  --prepend-channel "${CUMLPRIMS_CHANNEL}" \
 | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
