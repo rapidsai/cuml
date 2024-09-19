@@ -4,23 +4,11 @@
 set -euo pipefail
 
 . /opt/conda/etc/profile.d/conda.sh
+source ./ci/use_conda_packages_from_prs.sh
 
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
-
-LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1678 cpp)
-RMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1678 python)
-
-UCXX_CHANNEL=$(rapids-get-pr-conda-artifact ucxx 278 cpp)
-
-LIBCUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 16806 cpp)
-CUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 16806 python)
-
-LIBRAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2433 cpp)
-RAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2433 python)
-
-CUMLPRIMS_CHANNEL=$(rapids-get-pr-conda-artifact cumlprims_mg 211 cpp)
 
 rapids-logger "Generate Python testing dependencies"
 rapids-dependency-file-generator \
@@ -29,14 +17,6 @@ rapids-dependency-file-generator \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" \
   --prepend-channel "${CPP_CHANNEL}" \
   --prepend-channel "${PYTHON_CHANNEL}" \
-  --prepend-channel "${LIBRMM_CHANNEL}" \
-  --prepend-channel "${RMM_CHANNEL}" \
-  --prepend-channel "${UCXX_CHANNEL}" \
-  --prepend-channel "${LIBCUDF_CHANNEL}" \
-  --prepend-channel "${CUDF_CHANNEL}" \
-  --prepend-channel "${LIBRAFT_CHANNEL}" \
-  --prepend-channel "${RAFT_CHANNEL}" \
-  --prepend-channel "${CUMLPRIMS_CHANNEL}" \
 | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
