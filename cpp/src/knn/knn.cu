@@ -170,32 +170,81 @@ void rbc_knn_query(const raft::handle_t& handle,
                    int64_t* out_inds,
                    float* out_dists)
 {
+  // TODO: we're using this from raft in header only mode, decide if we should split out to a
+  // separate instantiation here
   raft::spatial::knn::rbc_knn_query(
     handle, index, k, search_items, n_search_items, out_inds, out_dists);
 }
 
 void approx_knn_build_index(raft::handle_t& handle,
-                            raft::spatial::knn::knnIndex* index,
-                            raft::spatial::knn::knnIndexParam* params,
+                            knnIndex* index,
+                            knnIndexParam* params,
                             raft::distance::DistanceType metric,
                             float metricArg,
                             float* index_array,
                             int n,
                             int D)
 {
-  raft::spatial::knn::approx_knn_build_index(
-    handle, index, params, metric, metricArg, index_array, n, D);
+  index->metric    = metric;
+  index->metricArg = metricArg;
+
+  auto ivf_ft_pams = dynamic_cast<IVFFlatParam*>(params);
+  auto ivf_pq_pams = dynamic_cast<IVFPQParam*>(params);
+  auto index_view  = raft::make_device_matrix_view<const float, int64_t>(index_array, n, D);
+
+  if (ivf_ft_pams) {
+    cuvs::neighbors::ivf_flat::index_params params;
+    params.metric     = static_cast<cuvs::distance::DistanceType>(metric);
+    params.metric_arg = metricArg;
+    params.n_lists    = ivf_ft_pams->nlist;
+
+    index->ivf_flat = std::make_unique<cuvs::neighbors::ivf_flat::index<float, int64_t>>(
+      cuvs::neighbors::ivf_flat::build(handle, params, index_view));
+  } else if (ivf_pq_pams) {
+    index->nprobe = dynamic_cast<const IVFParam*>(params)->nprobe;
+    cuvs::neighbors::ivf_pq::index_params params;
+    params.metric     = static_cast<cuvs::distance::DistanceType>(metric);
+    params.metric_arg = metricArg;
+    params.n_lists    = ivf_pq_pams->nlist;
+    params.pq_bits    = ivf_pq_pams->n_bits;
+    params.pq_dim     = ivf_pq_pams->M;
+    // TODO: handle ivf_pq_pams.usePrecomputedTables ?
+
+    index->ivf_pq = std::make_unique<cuvs::neighbors::ivf_pq::index<int64_t>>(
+      cuvs::neighbors::ivf_pq::build(handle, params, index_view));
+  } else {
+    RAFT_FAIL("Unrecognized index type.");
+  }
 }
 
 void approx_knn_search(raft::handle_t& handle,
                        float* distances,
                        int64_t* indices,
-                       raft::spatial::knn::knnIndex* index,
+                       knnIndex* index,
                        int k,
                        float* query_array,
                        int n)
 {
-  raft::spatial::knn::approx_knn_search(handle, distances, indices, index, k, query_array, n);
+  auto query_view =
+    raft::make_device_matrix_view<const float, int64_t>(query_array, n, index->ivf_pq->dim());
+  auto indices_view   = raft::make_device_matrix_view<int64_t, int64_t>(indices, n, k);
+  auto distances_view = raft::make_device_matrix_view<float, int64_t>(distances, n, k);
+
+  if (index->ivf_flat) {
+    cuvs::neighbors::ivf_flat::search_params params;
+    params.n_probes = index->nprobe;
+
+    cuvs::neighbors::ivf_flat::search(
+      handle, params, *index->ivf_flat, query_view, indices_view, distances_view);
+  } else if (index->ivf_pq) {
+    cuvs::neighbors::ivf_pq::search_params params;
+    params.n_probes = index->nprobe;
+
+    cuvs::neighbors::ivf_pq::search(
+      handle, params, *index->ivf_pq, query_view, indices_view, distances_view);
+  } else {
+    RAFT_FAIL("The model is not trained");
+  }
 }
 
 void knn_classify(raft::handle_t& handle,

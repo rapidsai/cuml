@@ -17,8 +17,10 @@
 #pragma once
 
 #include <raft/distance/distance_types.hpp>
-#include <raft/spatial/knn/ann_common.h>
 #include <raft/spatial/knn/ball_cover_types.hpp>
+
+#include <cuvs/neighbors/ivf_flat.hpp>
+#include <cuvs/neighbors/ivf_pq.hpp>
 
 namespace raft {
 class handle_t;
@@ -74,6 +76,35 @@ void rbc_knn_query(const raft::handle_t& handle,
                    uint32_t n_search_items,
                    int64_t* out_inds,
                    float* out_dists);
+
+struct knnIndex {
+  raft::distance::DistanceType metric;
+  float metricArg;
+  int nprobe;
+
+  std::unique_ptr<cuvs::neighbors::ivf_flat::index<float, int64_t>> ivf_flat;
+  std::unique_ptr<cuvs::neighbors::ivf_pq::index<int64_t>> ivf_pq;
+
+  int device;
+};
+
+struct knnIndexParam {
+  virtual ~knnIndexParam() {}
+};
+
+struct IVFParam : knnIndexParam {
+  int nlist;
+  int nprobe;
+};
+
+struct IVFFlatParam : IVFParam {};
+
+struct IVFPQParam : IVFParam {
+  int M;
+  int n_bits;
+  bool usePrecomputedTables;
+};
+
 /**
  * @brief Flat C++ API function to build an approximate nearest neighbors index
  * from an index array and a set of parameters.
@@ -88,8 +119,8 @@ void rbc_knn_query(const raft::handle_t& handle,
  * @param[in] D the dimensionality of the index array
  */
 void approx_knn_build_index(raft::handle_t& handle,
-                            raft::spatial::knn::knnIndex* index,
-                            raft::spatial::knn::knnIndexParam* params,
+                            knnIndex* index,
+                            knnIndexParam* params,
                             raft::distance::DistanceType metric,
                             float metricArg,
                             float* index_array,
@@ -112,7 +143,7 @@ void approx_knn_build_index(raft::handle_t& handle,
 void approx_knn_search(raft::handle_t& handle,
                        float* distances,
                        int64_t* indices,
-                       raft::spatial::knn::knnIndex* index,
+                       knnIndex* index,
                        int k,
                        float* query_array,
                        int n);
