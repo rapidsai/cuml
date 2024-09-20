@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) 2024, NVIDIA CORPORATION.
 
 LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1678 cpp)
 RMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1678 python)

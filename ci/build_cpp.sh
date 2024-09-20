@@ -18,7 +18,6 @@ rapids-print-env
 
 rapids-logger "Begin cpp build"
 
-RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild \
-    conda/recipes/libcuml
+RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild conda/recipes/libcuml
 
 rapids-upload-conda-to-s3 cpp
