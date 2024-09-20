@@ -278,7 +278,7 @@ void svcPredictX(const raft::handle_t& handle,
                        &one,
                        K.data(),
                        transpose_kernel ? model.n_support : n_batch,
-                       model.dual_coefs,
+                       (math_t*)model.dual_coefs.data(),
                        1,
                        &null,
                        y.data() + i,
@@ -357,9 +357,7 @@ void svmFreeBuffers(const raft::handle_t& handle, SvmModel<math_t>& m)
 {
   cudaStream_t stream                      = handle.get_stream();
   rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource();
-  if (m.dual_coefs)
-    rmm_alloc.deallocate_async(
-      m.dual_coefs, m.n_support * sizeof(math_t), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
+  m.dual_coefs.resize(0, stream);
   if (m.support_idx)
     rmm_alloc.deallocate_async(
       m.support_idx, m.n_support * sizeof(int), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
@@ -394,7 +392,6 @@ void svmFreeBuffers(const raft::handle_t& handle, SvmModel<math_t>& m)
   if (m.unique_labels)
     rmm_alloc.deallocate_async(
       m.unique_labels, m.n_classes * sizeof(math_t), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-  m.dual_coefs    = nullptr;
   m.support_idx   = nullptr;
   m.unique_labels = nullptr;
 }

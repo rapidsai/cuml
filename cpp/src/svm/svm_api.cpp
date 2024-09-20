@@ -64,9 +64,12 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle,
 
   ML::SVM::SvmModel<float> model;
 
+  rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource();
+
   cumlError_t status;
   raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+  cudaStream_t stream          = handle_ptr->get_stream();
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcFit(*handle_ptr,
@@ -78,13 +81,21 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle,
                       kernel_param,
                       model,
                       static_cast<float*>(nullptr));
-      *n_support     = model.n_support;
-      *b             = model.b;
-      *dual_coefs    = model.dual_coefs;
+      *n_support = model.n_support;
+      *b         = model.b;
+      if (model.dual_coefs.size() > 0) {
+        *dual_coefs = (float*)rmm_alloc.allocate_async(
+          model.dual_coefs.size(), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
+        RAFT_CUDA_TRY(cudaMemcpyAsync(
+          dual_coefs, model.dual_coefs.data(), model.dual_coefs.size(), cudaMemcpyDefault, stream));
+      } else {
+        *dual_coefs = nullptr;
+      }
       *x_support     = model.support_matrix.data;
       *support_idx   = model.support_idx;
       *n_classes     = model.n_classes;
       *unique_labels = model.unique_labels;
+
     }
     // TODO: Implement this
     // catch (const MLCommon::Exception& e)
@@ -138,9 +149,12 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle,
 
   ML::SVM::SvmModel<double> model;
 
+  rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource();
+
   cumlError_t status;
   raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+  cudaStream_t stream          = handle_ptr->get_stream();
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcFit(*handle_ptr,
@@ -152,9 +166,16 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle,
                       kernel_param,
                       model,
                       static_cast<double*>(nullptr));
-      *n_support     = model.n_support;
-      *b             = model.b;
-      *dual_coefs    = model.dual_coefs;
+      *n_support = model.n_support;
+      *b         = model.b;
+      if (model.dual_coefs.size() > 0) {
+        *dual_coefs = (double*)rmm_alloc.allocate_async(
+          model.dual_coefs.size(), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
+        RAFT_CUDA_TRY(cudaMemcpyAsync(
+          dual_coefs, model.dual_coefs.data(), model.dual_coefs.size(), cudaMemcpyDefault, stream));
+      } else {
+        *dual_coefs = nullptr;
+      }
       *x_support     = model.support_matrix.data;
       *support_idx   = model.support_idx;
       *n_classes     = model.n_classes;
@@ -191,6 +212,11 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle,
                              float buffer_size,
                              int predict_class)
 {
+  cumlError_t status;
+  raft::handle_t* handle_ptr;
+  std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+  cudaStream_t stream          = handle_ptr->get_stream();
+
   raft::distance::kernels::KernelParams kernel_param;
   kernel_param.kernel = (raft::distance::kernels::KernelType)kernel;
   kernel_param.degree = degree;
@@ -198,18 +224,19 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle,
   kernel_param.coef0  = coef0;
 
   ML::SVM::SvmModel<float> model;
-  model.n_support  = n_support;
-  model.b          = b;
-  model.dual_coefs = dual_coefs;
+  model.n_support = n_support;
+  model.b         = b;
+  if (n_support > 0) {
+    model.dual_coefs.resize(n_support * sizeof(float), stream);
+    RAFT_CUDA_TRY(cudaMemcpyAsync(
+      model.dual_coefs.data(), dual_coefs, n_support * sizeof(float), cudaMemcpyDefault, stream));
+  }
 
   model.support_matrix = {.data = x_support};
   model.support_idx    = nullptr;
   model.n_classes      = n_classes;
   model.unique_labels  = unique_labels;
 
-  cumlError_t status;
-  raft::handle_t* handle_ptr;
-  std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcPredict(
@@ -246,6 +273,11 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle,
                              double buffer_size,
                              int predict_class)
 {
+  cumlError_t status;
+  raft::handle_t* handle_ptr;
+  std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+  cudaStream_t stream          = handle_ptr->get_stream();
+
   raft::distance::kernels::KernelParams kernel_param;
   kernel_param.kernel = (raft::distance::kernels::KernelType)kernel;
   kernel_param.degree = degree;
@@ -253,18 +285,19 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle,
   kernel_param.coef0  = coef0;
 
   ML::SVM::SvmModel<double> model;
-  model.n_support  = n_support;
-  model.b          = b;
-  model.dual_coefs = dual_coefs;
+  model.n_support = n_support;
+  model.b         = b;
+  if (n_support > 0) {
+    model.dual_coefs.resize(n_support * sizeof(double), stream);
+    RAFT_CUDA_TRY(cudaMemcpyAsync(
+      model.dual_coefs.data(), dual_coefs, n_support * sizeof(double), cudaMemcpyDefault, stream));
+  }
 
   model.support_matrix = {.data = x_support};
   model.support_idx    = nullptr;
   model.n_classes      = n_classes;
   model.unique_labels  = unique_labels;
 
-  cumlError_t status;
-  raft::handle_t* handle_ptr;
-  std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcPredict(

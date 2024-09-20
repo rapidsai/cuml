@@ -144,8 +144,8 @@ SVC<math_t>::SVC(raft::handle_t& handle,
     param(SvmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity}),
     kernel_params(kernel_params)
 {
-  model.n_support      = 0;
-  model.dual_coefs     = nullptr;
+  model.n_support = 0;
+  model.dual_coefs.resize(0, handle.get_stream());
   model.support_matrix = {};
   model.support_idx    = nullptr;
   model.unique_labels  = nullptr;
@@ -162,7 +162,7 @@ void SVC<math_t>::fit(
   math_t* input, int n_rows, int n_cols, math_t* labels, const math_t* sample_weight)
 {
   model.n_cols = n_cols;
-  if (model.dual_coefs) svmFreeBuffers(handle, model);
+  if (!model.dual_coefs.is_empty()) svmFreeBuffers(handle, model);
   svcFit(handle, input, n_rows, n_cols, labels, param, kernel_params, model, sample_weight);
 }
 

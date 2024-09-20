@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,6 +39,8 @@ from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.array_sparse import SparseCumlArray, SparseCumlArrayInput
 from libcpp cimport bool
 
+from rmm._lib.device_buffer cimport device_buffer
+from rmm._lib.memory_resource cimport get_current_device_resource
 
 cdef extern from "raft/distance/distance_types.hpp" \
         namespace "raft::distance::kernels":
@@ -86,7 +88,7 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
         int n_support
         int n_cols
         math_t b
-        math_t *dual_coefs
+        device_buffer dual_coefs
         SupportStorage[math_t] support_matrix
         int *support_idx
         int n_classes
@@ -410,6 +412,7 @@ class SVMBase(Base,
         """
         cdef SvmModel[float] *model_f
         cdef SvmModel[double] *model_d
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if self.dual_coef_ is None:
             # the model is not fitted in this case
             return None
@@ -418,8 +421,8 @@ class SVMBase(Base,
             model_f.n_support = self.n_support_
             model_f.n_cols = self.n_cols
             model_f.b = self._intercept_.item()
-            model_f.dual_coefs = \
-                <float*><size_t>self.dual_coef_.ptr
+            model_f.dual_coefs = device_buffer(<float*><size_t>self.dual_coef_.ptr, self.dual_coef_.size, handle_[0].get_stream(), get_current_device_resource().get_mr())
+
             if isinstance(self.support_vectors_, SparseCumlArray):
                 model_f.support_matrix.nnz = self.support_vectors_.nnz
                 model_f.support_matrix.indptr = <int*><uintptr_t>self.support_vectors_.indptr.ptr
@@ -441,8 +444,8 @@ class SVMBase(Base,
             model_d.n_support = self.n_support_
             model_d.n_cols = self.n_cols
             model_d.b = self._intercept_.item()
-            model_d.dual_coefs = \
-                <double*><size_t>self.dual_coef_.ptr
+            model_d.dual_coefs = device_buffer(<double*><size_t>self.dual_coef_.ptr, self.dual_coef_.size, handle_[0].get_stream(), get_current_device_resource().get_mr())
+
             if isinstance(self.support_vectors_, SparseCumlArray):
                 model_d.support_matrix.nnz = self.support_vectors_.nnz
                 model_d.support_matrix.indptr = <int*><uintptr_t>self.support_vectors_.indptr.ptr
@@ -530,7 +533,7 @@ class SVMBase(Base,
             self._unpack_svm_model(
                 model_f.b,
                 model_f.n_support,
-                <uintptr_t>model_f.dual_coefs,
+                <uintptr_t>model_f.dual_coefs.data(),
                 <uintptr_t>model_f.support_idx,
                 model_f.support_matrix.nnz,
                 <uintptr_t>model_f.support_matrix.indptr,
@@ -543,7 +546,7 @@ class SVMBase(Base,
             self._unpack_svm_model(
                 model_d.b,
                 model_d.n_support,
-                <uintptr_t>model_d.dual_coefs,
+                <uintptr_t>model_d.dual_coefs.data(),
                 <uintptr_t>model_d.support_idx,
                 model_d.support_matrix.nnz,
                 <uintptr_t>model_d.support_matrix.indptr,

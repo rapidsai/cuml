@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include <rmm/device_buffer.hpp>
+
 namespace ML {
 namespace SVM {
 
@@ -25,6 +27,11 @@ struct SupportStorage {
   int* indptr  = nullptr;
   int* indices = nullptr;
   math_t* data = nullptr;
+  /*
+  rmm::device_buffer indptr_bf;
+  rmm::device_buffer indices_bf;
+  rmm::device_buffer data_bf;
+  */
 };
 
 /**
@@ -39,7 +46,8 @@ struct SvmModel {
 
   //! Non-zero dual coefficients ( dual_coef[i] = \f$ y_i \alpha_i \f$).
   //! Size [n_support].
-  math_t* dual_coefs;
+  // math_t* dual_coefs;
+  rmm::device_buffer dual_coefs;
 
   //! Support vector storage - can contain either CSR or dense
   SupportStorage<math_t> support_matrix;
