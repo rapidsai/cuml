@@ -108,8 +108,8 @@ def test_minmax_scaler(
     scaler = cuMinMaxScaler(feature_range=feature_range, copy=True)
     t_X = scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
-    assert type(t_X) == type(X)
-    assert type(r_X) == type(t_X)
+    assert type(t_X) is type(X)
+    assert type(r_X) is type(t_X)
 
     scaler = skMinMaxScaler(feature_range=feature_range, copy=True)
     sk_t_X = scaler.fit_transform(X_np)
@@ -127,7 +127,7 @@ def test_minmax_scale(
     X_np, X = clf_dataset
 
     t_X = cu_minmax_scale(X, feature_range=feature_range, axis=axis)
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
 
     sk_t_X = sk_minmax_scale(X_np, feature_range=feature_range, axis=axis)
 
@@ -146,8 +146,8 @@ def test_standard_scaler(
     )
     t_X = scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
-    assert type(t_X) == type(X)
-    assert type(r_X) == type(t_X)
+    assert type(t_X) is type(X)
+    assert type(r_X) is type(t_X)
 
     scaler = skStandardScaler(
         with_mean=with_mean, with_std=with_std, copy=True
@@ -168,8 +168,8 @@ def test_standard_scaler_sparse(
     scaler = cuStandardScaler(with_mean=False, with_std=with_std, copy=True)
     t_X = scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
-    #  assert type(t_X) == type(X)
-    #  assert type(r_X) == type(t_X)
+    #  assert type(t_X) is type(X)
+    #  assert type(r_X) is type(t_X)
     if cpx.scipy.sparse.issparse(X):
         assert cpx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
@@ -202,7 +202,7 @@ def test_scale(
     t_X = cu_scale(
         X, axis=axis, with_mean=with_mean, with_std=with_std, copy=True
     )
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
 
     sk_t_X = sk_scale(
         X_np, axis=axis, with_mean=with_mean, with_std=with_std, copy=True
@@ -218,7 +218,7 @@ def test_scale_sparse(
     X_np, X = sparse_clf_dataset
 
     t_X = cu_scale(X, with_mean=False, with_std=with_std, copy=True)
-    #  assert type(t_X) == type(X)
+    #  assert type(t_X) is type(X)
     if cpx.scipy.sparse.issparse(X):
         assert cpx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
@@ -234,7 +234,7 @@ def test_maxabs_scale(failure_logger, clf_dataset, axis):  # noqa: F811
     X_np, X = clf_dataset
 
     t_X = cu_maxabs_scale(X, axis=axis)
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
 
     sk_t_X = sk_maxabs_scale(X_np, axis=axis)
 
@@ -247,8 +247,8 @@ def test_maxabs_scaler(failure_logger, clf_dataset):  # noqa: F811
     scaler = cuMaxAbsScaler(copy=True)
     t_X = scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
-    assert type(t_X) == type(X)
-    assert type(r_X) == type(t_X)
+    assert type(t_X) is type(X)
+    assert type(r_X) is type(t_X)
 
     scaler = skMaxAbsScaler(copy=True)
     sk_t_X = scaler.fit_transform(X_np)
@@ -266,8 +266,8 @@ def test_maxabs_scaler_sparse(
     scaler = cuMaxAbsScaler(copy=True)
     t_X = scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
-    #  assert type(t_X) == type(X)
-    #  assert type(r_X) == type(t_X)
+    #  assert type(t_X) is type(X)
+    #  assert type(r_X) is type(t_X)
     if cpx.scipy.sparse.issparse(X):
         assert cpx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
@@ -291,7 +291,7 @@ def test_normalizer(failure_logger, clf_dataset, norm):  # noqa: F811
 
     normalizer = cuNormalizer(norm=norm, copy=True)
     t_X = normalizer.fit_transform(X)
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
 
     normalizer = skNormalizer(norm=norm, copy=True)
     sk_t_X = normalizer.fit_transform(X_np)
@@ -310,7 +310,7 @@ def test_normalizer_sparse(
 
     normalizer = cuNormalizer(norm=norm, copy=True)
     t_X = normalizer.fit_transform(X)
-    #  assert type(t_X) == type(X)
+    #  assert type(t_X) is type(X)
     if cpx.scipy.sparse.issparse(X):
         assert cpx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
@@ -344,7 +344,7 @@ def test_normalize(
             X_np, axis=axis, norm=norm, return_norm=return_norm
         )
 
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
     assert_allclose(t_X, sk_t_X)
 
 
@@ -357,7 +357,7 @@ def test_normalize_sparse(
     axis = 0 if X.format == "csc" else 1
 
     t_X = cu_normalize(X, axis=axis, norm=norm)
-    #  assert type(t_X) == type(X)
+    #  assert type(t_X) is type(X)
     if cpx.scipy.sparse.issparse(X):
         assert cpx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
@@ -399,7 +399,7 @@ def test_imputer(
         add_indicator=add_indicator,
     )
     t_X = imputer.fit_transform(X)
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
 
     imputer = skSimpleImputer(
         copy=True,
@@ -431,7 +431,7 @@ def test_imputer_sparse(sparse_imputer_dataset, strategy):  # noqa: F811
         fill_value=fill_value,
     )
     t_X = imputer.fit_transform(X)
-    #  assert type(t_X) == type(X)
+    #  assert type(t_X) is type(X)
     if cpx.scipy.sparse.issparse(X):
         assert cpx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
@@ -468,7 +468,7 @@ def test_poly_features(
         include_bias=include_bias,
     )
     t_X = polyfeatures.fit_transform(X)
-    assert type(X) == type(t_X)
+    assert type(X) is type(t_X)
     cu_feature_names = polyfeatures.get_feature_names()
 
     if isinstance(t_X, np.ndarray):
@@ -510,7 +510,7 @@ def test_poly_features_sparse(
         include_bias=include_bias,
     )
     t_X = polyfeatures.fit_transform(X)
-    #  assert type(t_X) == type(X)
+    #  assert type(t_X) is type(X)
     if cpx.scipy.sparse.issparse(X):
         assert cpx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
@@ -531,7 +531,7 @@ def test_add_dummy_feature(failure_logger, clf_dataset, value):  # noqa: F811
     X_np, X = clf_dataset
 
     t_X = cu_add_dummy_feature(X, value=value)
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
 
     sk_t_X = sk_add_dummy_feature(X_np, value=value)
     assert_allclose(t_X, sk_t_X)
@@ -544,7 +544,7 @@ def test_add_dummy_feature_sparse(
     X_np, X = sparse_dataset_with_coo
 
     t_X = cu_add_dummy_feature(X, value=value)
-    #  assert type(t_X) == type(X)
+    #  assert type(t_X) is type(X)
     if cpx.scipy.sparse.issparse(X):
         assert cpx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
@@ -559,7 +559,7 @@ def test_binarize(failure_logger, clf_dataset, threshold):  # noqa: F811
     X_np, X = clf_dataset
 
     t_X = cu_binarize(X, threshold=threshold, copy=True)
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
 
     sk_t_X = sk_binarize(X_np, threshold=threshold, copy=True)
 
@@ -573,7 +573,7 @@ def test_binarize_sparse(
     X_np, X = sparse_clf_dataset
 
     t_X = cu_binarize(X, threshold=threshold, copy=True)
-    #  assert type(t_X) == type(X)
+    #  assert type(t_X) is type(X)
     if cpx.scipy.sparse.issparse(X):
         assert cpx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
@@ -590,7 +590,7 @@ def test_binarizer(failure_logger, clf_dataset, threshold):  # noqa: F811
 
     binarizer = cuBinarizer(threshold=threshold, copy=True)
     t_X = binarizer.fit_transform(X)
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
 
     binarizer = skBinarizer(threshold=threshold, copy=True)
     sk_t_X = binarizer.fit_transform(X_np)
@@ -606,7 +606,7 @@ def test_binarizer_sparse(
 
     binarizer = cuBinarizer(threshold=threshold, copy=True)
     t_X = binarizer.fit_transform(X)
-    #  assert type(t_X) == type(X)
+    #  assert type(t_X) is type(X)
     if cpx.scipy.sparse.issparse(X):
         assert cpx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
@@ -638,8 +638,8 @@ def test_robust_scaler(
     )
     t_X = scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
-    assert type(t_X) == type(X)
-    assert type(r_X) == type(t_X)
+    assert type(t_X) is type(X)
+    assert type(r_X) is type(t_X)
 
     scaler = skRobustScaler(
         with_centering=with_centering,
@@ -675,8 +675,8 @@ def test_robust_scaler_sparse(
     )
     t_X = scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
-    #  assert type(t_X) == type(X)
-    #  assert type(r_X) == type(t_X)
+    #  assert type(t_X) is type(X)
+    #  assert type(r_X) is type(t_X)
     if cpx.scipy.sparse.issparse(X):
         assert cpx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
@@ -721,7 +721,7 @@ def test_robust_scale(
         quantile_range=quantile_range,
         copy=True,
     )
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
 
     sk_t_X = sk_robust_scale(
         X_np,
@@ -760,7 +760,7 @@ def test_robust_scale_sparse(
         quantile_range=quantile_range,
         copy=True,
     )
-    #  assert type(t_X) == type(X)
+    #  assert type(t_X) is type(X)
     if cpx.scipy.sparse.issparse(X):
         assert cpx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
@@ -814,8 +814,8 @@ def test_kbinsdiscretizer(
     r_X = transformer.inverse_transform(t_X)
 
     if encode != "onehot":
-        assert type(t_X) == type(X)
-        assert type(r_X) == type(t_X)
+        assert type(t_X) is type(X)
+        assert type(r_X) is type(t_X)
 
     transformer = skKBinsDiscretizer(
         n_bins=n_bins, encode=encode, strategy=strategy
@@ -847,10 +847,10 @@ def test_missing_indicator(
         missing_values=missing_values, features=features
     )
     ft_X = indicator.fit_transform(X)
-    assert type(ft_X) == type(X)
+    assert type(ft_X) is type(X)
     indicator.fit(X)
     t_X = indicator.transform(X)
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
 
     indicator = skMissingIndicator(
         missing_values=missing_values, features=features
@@ -875,7 +875,7 @@ def test_missing_indicator_sparse(
     assert cpx.scipy.sparse.issparse(ft_X) or scipy.sparse.issparse(ft_X)
     indicator.fit(X)
     t_X = indicator.transform(X)
-    # assert type(t_X) == type(X)
+    # assert type(t_X) is type(X)
     assert cpx.scipy.sparse.issparse(t_X) or scipy.sparse.issparse(t_X)
 
     indicator = skMissingIndicator(features=features, missing_values=1)
@@ -895,8 +895,8 @@ def test_function_transformer(clf_dataset):  # noqa: F811
     )
     t_X = transformer.fit_transform(X)
     r_X = transformer.inverse_transform(t_X)
-    assert type(t_X) == type(X)
-    assert type(r_X) == type(t_X)
+    assert type(t_X) is type(X)
+    assert type(r_X) is type(t_X)
 
     transformer = skFunctionTransformer(
         func=np.exp, inverse_func=np.log, check_inverse=False
@@ -952,9 +952,9 @@ def test_quantile_transformer(
         copy=True,
     )
     t_X = transformer.fit_transform(X)
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
     r_X = transformer.inverse_transform(t_X)
-    assert type(r_X) == type(t_X)
+    assert type(r_X) is type(t_X)
 
     quantiles_ = transformer.quantiles_
     references_ = transformer.references_
@@ -1063,7 +1063,7 @@ def test_quantile_transform(
         random_state=42,
         copy=True,
     )
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
 
     sk_t_X = sk_quantile_transform(
         X_np,
@@ -1090,11 +1090,11 @@ def test_power_transformer(
         method=method, standardize=standardize, copy=True
     )
     ft_X = transformer.fit_transform(X)
-    assert type(ft_X) == type(X)
+    assert type(ft_X) is type(X)
     t_X = transformer.transform(X)
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
     r_X = transformer.inverse_transform(t_X)
-    assert type(r_X) == type(t_X)
+    assert type(r_X) is type(t_X)
 
     normalizer = skPowerTransformer(
         method=method, standardize=standardize, copy=True
@@ -1115,7 +1115,7 @@ def test_power_transform(
     X_np, X = nan_filled_positive
 
     t_X = cu_power_transform(X, method=method, standardize=standardize)
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
 
     sk_t_X = sk_power_transform(X_np, method=method, standardize=standardize)
 
@@ -1129,7 +1129,7 @@ def test_kernel_centerer():
     model = cuKernelCenterer()
     model.fit(K)
     t_X = model.transform(K, copy=True)
-    assert type(t_X) == type(X)
+    assert type(t_X) is type(X)
 
     model = skKernelCenterer()
     sk_t_X = model.fit_transform(K)
