@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ def gradient_norm(model, X, y, K, sw=None):
     ).reshape(y.shape)
 
     # initialise to NaN in case below loop has 0 iterations
-    grads = cp.full_like(y, np.NAN)
+    grads = cp.full_like(y, np.nan)
     for i, (beta, target, current_alpha) in enumerate(
         zip(betas.T, y.T, model.alpha)
     ):
