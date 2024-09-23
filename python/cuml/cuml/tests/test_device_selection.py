@@ -21,7 +21,10 @@ from cuml.cluster.hdbscan import HDBSCAN
 from cuml.neighbors import NearestNeighbors
 from cuml.metrics import trustworthiness
 from cuml.metrics import adjusted_rand_score
-from cuml.manifold import UMAP
+from cuml.manifold import (
+    UMAP,
+    TSNE,
+)
 from cuml.linear_model import (
     ElasticNet,
     Lasso,
@@ -32,7 +35,10 @@ from cuml.linear_model import (
 from cuml.internals.memory_utils import using_memory_type
 from cuml.internals.mem_type import MemoryType
 from cuml.decomposition import PCA, TruncatedSVD
+from cuml.cluster import KMeans
+from cuml.cluster import DBSCAN
 from cuml.common.device_selection import DeviceType, using_device_type
+from cuml.testing.utils import assert_dbscan_equal
 from hdbscan import HDBSCAN as refHDBSCAN
 from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
 from sklearn.linear_model import Ridge as skRidge
@@ -42,7 +48,10 @@ from sklearn.linear_model import LogisticRegression as skLogisticRegression
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.decomposition import PCA as skPCA
 from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
+from sklearn.cluster import KMeans as skKMeans
+from sklearn.cluster import DBSCAN as skDBSCAN
 from sklearn.datasets import make_regression, make_blobs
+from sklearn.manifold import TSNE as refTSNE
 from pytest_cases import fixture_union, fixture
 from importlib import import_module
 import inspect
@@ -136,7 +145,11 @@ def make_reg_dataset():
 
 def make_blob_dataset():
     X, y = make_blobs(
-        n_samples=2000, n_features=20, centers=20, random_state=0
+        n_samples=2000,
+        n_features=20,
+        centers=20,
+        random_state=0,
+        cluster_std=1.0,
     )
     X_train, X_test = X[:1800], X[1800:]
     y_train, _ = y[:1800], y[1800:]
@@ -587,8 +600,6 @@ def test_train_cpu_infer_cpu(test_data):
 
 def test_train_gpu_infer_cpu(test_data):
     cuEstimator = test_data["cuEstimator"]
-    if cuEstimator is UMAP:
-        pytest.skip("UMAP GPU training CPU inference not yet implemented")
 
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("gpu"):
@@ -646,8 +657,6 @@ def test_pickle_interop(tmp_path, test_data):
     pickle_filepath = tmp_path / "model.pickle"
 
     cuEstimator = test_data["cuEstimator"]
-    if cuEstimator is UMAP:
-        pytest.skip("UMAP GPU training CPU inference not yet implemented")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("gpu"):
         if "y_train" in test_data:
@@ -852,6 +861,21 @@ def test_umap_methods(device):
     assert ref_trust - tol <= trust <= ref_trust + tol
 
 
+@pytest.mark.parametrize("device", ["cpu", "gpu"])
+def test_tsne_methods(device):
+    ref_model = refTSNE()
+    ref_embedding = ref_model.fit_transform(X_train_blob)
+    ref_trust = trustworthiness(X_train_blob, ref_embedding, n_neighbors=12)
+
+    model = TSNE(n_neighbors=12)
+    with using_device_type(device):
+        embedding = model.fit_transform(X_train_blob)
+    trust = trustworthiness(X_train_blob, embedding, n_neighbors=12)
+
+    tol = 0.02
+    assert trust >= ref_trust - tol
+
+
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 def test_pca_methods(train_device, infer_device):
@@ -948,3 +972,43 @@ def test_hdbscan_methods(train_device, infer_device):
     assert_membership_vectors(membership, ref_membership)
     assert adjusted_rand_score(labels, ref_labels) >= 0.98
     assert array_equal(probs, ref_probs, unit_tol=0.001, total_tol=0.006)
+
+
+@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
+@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
+def test_kmeans_methods(train_device, infer_device):
+    n_clusters = 20
+    ref_model = skKMeans(n_clusters=n_clusters)
+    ref_model.fit(X_train_blob)
+    ref_output = ref_model.predict(X_test_blob)
+
+    model = KMeans(n_clusters=n_clusters)
+    with using_device_type(train_device):
+        model.fit(X_train_blob)
+    with using_device_type(infer_device):
+        output = model.predict(X_test_blob)
+
+    assert adjusted_rand_score(ref_output, output) >= 0.9
+
+
+@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
+@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
+def test_dbscan_methods(train_device, infer_device):
+    eps = 8.0
+    ref_model = skDBSCAN(eps=eps)
+    ref_model.fit(X_train_blob)
+    ref_output = ref_model.fit_predict(X_train_blob)
+
+    model = DBSCAN(eps=eps)
+    with using_device_type(train_device):
+        model.fit(X_train_blob)
+    with using_device_type(infer_device):
+        output = model.fit_predict(X_train_blob)
+
+    assert array_equal(
+        ref_model.core_sample_indices_, ref_model.core_sample_indices_
+    )
+    assert adjusted_rand_score(ref_output, output) >= 0.95
+    assert_dbscan_equal(
+        ref_output, output, X_train_blob, model.core_sample_indices_, eps
+    )

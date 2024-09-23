@@ -596,7 +596,7 @@ def test_exception_one_label(fit_intercept, client):
     y = np.array([1.0, 1.0, 1.0, 1.0], datatype)
     X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
-    err_msg = "This solver needs samples of at least 2 classes in the data, but the data contains only one class: 1.0"
+    err_msg = "This solver needs samples of at least 2 classes in the data, but the data contains only one class:.*1.0"
 
     from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
 
