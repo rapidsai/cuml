@@ -12,8 +12,11 @@ UCXX_CHANNEL=$(rapids-get-pr-conda-artifact ucxx 278 cpp)
 LIBRAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2433 cpp)
 RAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2433 python)
 
-# NOTE: cloning private repos with rapids-get-pr-conda-artifact doesn't work
-# CUMLPRIMS_CHANNEL=$(rapids-get-pr-conda-artifact cumlprims_mg 211 cpp)
+# NOTE: cloning private repos with rapids-get-pr-conda-artifact doesn't work,
+#       so need to explicitly set the SHA to use
+CUMLPRIMS_CHANNEL=$(
+    RAPIDS_SHA=6f9f474 rapids-get-pr-conda-artifact cumlprims_mg 211 cpp
+)
 
 conda config --system --add channels "${LIBRMM_CHANNEL}"
 conda config --system --add channels "${RMM_CHANNEL}"
@@ -22,4 +25,4 @@ conda config --system --add channels "${CUDF_PYTHON_CHANNEL}"
 conda config --system --add channels "${UCXX_CHANNEL}"
 conda config --system --add channels "${LIBRAFT_CHANNEL}"
 conda config --system --add channels "${RAFT_CHANNEL}"
-# conda config --system --add channels "${CUMLPRIMS_CHANNEL}"
+conda config --system --add channels "${CUMLPRIMS_CHANNEL}"
