@@ -140,10 +140,12 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
+          - &fmt fmt>=11.0.2,<12
           - libcumlprims==24.10.*,>=0.0.0a0
           - libraft==24.10.*,>=0.0.0a0
           - libraft-headers==24.10.*,>=0.0.0a0
           - librmm==24.10.*,>=0.0.0a0
+          - &spdlog spdlog>=1.14.1,<1.15
     specific:
       - output_types: conda
         matrices:
@@ -518,6 +520,8 @@ dependencies:
           - setuptools  # Needed on Python 3.12 for dask-glm, which requires pkg_resources but Python 3.12 doesn't have setuptools by default
       - output_types: conda
         packages:
+          - *fmt
+          - *spdlog
           - pip
           - pip:
               - dask-glm==0.3.0
@@ -536,3 +540,7 @@ dependencies:
           - *scikit_learn
           - seaborn
           - xgboost
+      - output_types: conda
+        packages:
+          - *fmt
+          - *spdlog
