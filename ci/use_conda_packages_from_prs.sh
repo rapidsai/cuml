@@ -15,7 +15,7 @@ RAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2433 python)
 # NOTE: cloning private repos with rapids-get-pr-conda-artifact doesn't work,
 #       so need to explicitly set the SHA to use
 CUMLPRIMS_CHANNEL=$(
-    RAPIDS_SHA=6f9f474 rapids-get-pr-conda-artifact cumlprims_mg 211 cpp
+    RAPIDS_SHA=6f9f474 rapids-get-pr-conda-artifact cumlprims_mg 211 cpp 6f9f474
 )
 
 conda config --system --add channels "${LIBRMM_CHANNEL}"
