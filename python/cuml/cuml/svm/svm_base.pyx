@@ -111,9 +111,6 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
         KernelParams &kernel_params, const SvmModel[math_t] &model,
         math_t *preds, math_t buffer_size, bool predict_class) except +
 
-    cdef void svmFreeBuffers[math_t](const handle_t &handle,
-                                     SvmModel[math_t] &m) except +
-
 
 class SVMBase(Base,
               FMajorInputTagMixin):
@@ -263,7 +260,6 @@ class SVMBase(Base,
         self.coef_ = None  # value of the coef_ attribute, only for lin kernel
         self.dtype = None
         self._model = None  # structure of the model parameters
-        self._freeSvmBuffers = False  # whether to call the C++ lib for cleanup
 
         if (kernel == 'linear' or (kernel == 'poly' and degree == 1)) \
            and not getattr(type(self), "_linear_kernel_warned", False):
@@ -280,17 +276,12 @@ class SVMBase(Base,
         # deallocate model parameters
         cdef SvmModel[float] *model_f
         cdef SvmModel[double] *model_d
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if self._model is not None:
             if self.dtype == np.float32:
                 model_f = <SvmModel[float]*><uintptr_t> self._model
-                if self._freeSvmBuffers:
-                    svmFreeBuffers(handle_[0], model_f[0])
                 del model_f
             elif self.dtype == np.float64:
                 model_d = <SvmModel[double]*><uintptr_t> self._model
-                if self._freeSvmBuffers:
-                    svmFreeBuffers(handle_[0], model_d[0])
                 del model_d
             else:
                 raise TypeError("Unknown type for SVC class")
@@ -617,11 +608,6 @@ class SVMBase(Base,
         cdef SvmModel[float] *model_f
         cdef SvmModel[double] *model_d
 
-        # Mark that the C++ layer should free the parameter vectors
-        # If we could pass the deviceArray deallocator as finalizer for the
-        # device_array_from_ptr function, then this would not be necessary.
-        self._freeSvmBuffers = True
-
         if self.dtype == np.float32:
             model_f = <SvmModel[float]*><uintptr_t> self._model
             self._unpack_svm_model(
@@ -783,4 +769,3 @@ class SVMBase(Base,
                                       verbose=state['verbose'])
         self.__dict__.update(state)
         self._model = self._get_svm_model()
-        self._freeSvmBuffers = False
