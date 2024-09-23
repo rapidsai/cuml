@@ -40,7 +40,11 @@ from cuml.internals.array_sparse import SparseCumlArray, SparseCumlArrayInput
 from libcpp cimport bool
 
 from rmm._lib.device_buffer cimport device_buffer
-from rmm._lib.memory_resource cimport get_current_device_resource
+from rmm._lib.memory_resource cimport cuda_stream_view
+from cuda.ccudart cimport(
+    cudaMemcpyAsync,
+    cudaMemcpyKind,
+)
 
 cdef extern from "raft/distance/distance_types.hpp" \
         namespace "raft::distance::kernels":
@@ -77,11 +81,11 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
 
 cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
 
-    cdef cppclass SupportStorage[math_t]:
+    cdef cppclass SupportStorage:
         int nnz
-        int* indptr
-        int* indices
-        math_t* data
+        device_buffer indptr
+        device_buffer indices
+        device_buffer data
 
     cdef cppclass SvmModel[math_t]:
         # parameters of a fitted model
@@ -89,10 +93,10 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
         int n_cols
         math_t b
         device_buffer dual_coefs
-        SupportStorage[math_t] support_matrix
-        int *support_idx
+        SupportStorage support_matrix
+        device_buffer support_idx
         int n_classes
-        math_t *unique_labels
+        device_buffer unique_labels
 
 cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
@@ -412,7 +416,9 @@ class SVMBase(Base,
         """
         cdef SvmModel[float] *model_f
         cdef SvmModel[double] *model_d
+
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef cuda_stream_view stream = handle_[0].get_stream()
         if self.dual_coef_ is None:
             # the model is not fitted in this case
             return None
@@ -421,46 +427,134 @@ class SVMBase(Base,
             model_f.n_support = self.n_support_
             model_f.n_cols = self.n_cols
             model_f.b = self._intercept_.item()
-            model_f.dual_coefs = device_buffer(<float*><size_t>self.dual_coef_.ptr, self.dual_coef_.size, handle_[0].get_stream(), get_current_device_resource().get_mr())
+            model_f.dual_coefs.resize(self.dual_coef_.size, stream)
+            cudaMemcpyAsync(
+                <void*><uintptr_t>model_f.dual_coefs.data(),
+                <void*><uintptr_t>self.dual_coef_.ptr,
+                <size_t>(self.dual_coef_.size),
+                cudaMemcpyKind.cudaMemcpyDefault,
+                stream.value())
 
             if isinstance(self.support_vectors_, SparseCumlArray):
                 model_f.support_matrix.nnz = self.support_vectors_.nnz
-                model_f.support_matrix.indptr = <int*><uintptr_t>self.support_vectors_.indptr.ptr
-                model_f.support_matrix.indices = <int*><uintptr_t>self.support_vectors_.indices.ptr
-                model_f.support_matrix.data = <float*><uintptr_t>self.support_vectors_.data.ptr
+                model_f.support_matrix.indptr.resize(self.support_vectors_.indptr.size, stream)
+                cudaMemcpyAsync(
+                    <void*><uintptr_t>model_f.support_matrix.indptr.data(),
+                    <void*><uintptr_t>self.support_vectors_.indptr.ptr,
+                    <size_t>(self.support_vectors_.indptr.size),
+                    cudaMemcpyKind.cudaMemcpyDefault,
+                    stream.value())
+                model_f.support_matrix.indices.resize(self.support_vectors_.indices.size, stream)
+                cudaMemcpyAsync(
+                    <void*><uintptr_t>model_f.support_matrix.indices.data(),
+                    <void*><uintptr_t>self.support_vectors_.indices.ptr,
+                    <size_t>(self.support_vectors_.indices.size),
+                    cudaMemcpyKind.cudaMemcpyDefault,
+                    stream.value())
+                model_f.support_matrix.data.resize(self.support_vectors_.data.size, stream)
+                cudaMemcpyAsync(
+                    <void*><uintptr_t>model_f.support_matrix.data.data(),
+                    <void*><uintptr_t>self.support_vectors_.data.ptr,
+                    <size_t>(self.support_vectors_.data.size),
+                    cudaMemcpyKind.cudaMemcpyDefault,
+                    stream.value())
             else:
-                model_f.support_matrix.data = <float*><uintptr_t>self.support_vectors_.ptr
-            model_f.support_idx = \
-                <int*><uintptr_t>self.support_.ptr
+                model_f.support_matrix.data.resize(self.support_vectors_.size, stream)
+                cudaMemcpyAsync(
+                    <void*><uintptr_t>model_f.support_matrix.data.data(),
+                    <void*><uintptr_t>self.support_vectors_.ptr,
+                    <size_t>(self.support_vectors_.size),
+                    cudaMemcpyKind.cudaMemcpyDefault,
+                    stream.value())
+
+            model_f.support_idx.resize(self.support_.size, stream)
+            cudaMemcpyAsync(
+                <void*><uintptr_t>model_f.support_idx.data(),
+                <void*><uintptr_t>self.support_.ptr,
+                <size_t>(self.support_.size),
+                cudaMemcpyKind.cudaMemcpyDefault,
+                stream.value())
+
             model_f.n_classes = self.n_classes_
             if self.n_classes_ > 0:
-                model_f.unique_labels = \
-                    <float*><uintptr_t>self._unique_labels_.ptr
+                model_f.unique_labels.resize(self._unique_labels_.size, stream)
+                cudaMemcpyAsync(
+                    <void*><uintptr_t>model_f.unique_labels.data(),
+                    <void*><uintptr_t>self._unique_labels_.ptr,
+                    <size_t>(self._unique_labels_.size),
+                    cudaMemcpyKind.cudaMemcpyDefault,
+                    stream.value())
             else:
-                model_f.unique_labels = NULL
+                model_f.unique_labels.resize(0, stream)
+
+            self.handle.sync()
             return <uintptr_t>model_f
         else:
             model_d = new SvmModel[double]()
             model_d.n_support = self.n_support_
             model_d.n_cols = self.n_cols
             model_d.b = self._intercept_.item()
-            model_d.dual_coefs = device_buffer(<double*><size_t>self.dual_coef_.ptr, self.dual_coef_.size, handle_[0].get_stream(), get_current_device_resource().get_mr())
+            model_d.dual_coefs.resize(self.dual_coef_.size, stream)
+            cudaMemcpyAsync(
+                <void*><uintptr_t>model_d.dual_coefs.data(),
+                <void*><uintptr_t>self.dual_coef_.ptr,
+                <size_t>(self.dual_coef_.size),
+                cudaMemcpyKind.cudaMemcpyDefault,
+                stream.value())
 
             if isinstance(self.support_vectors_, SparseCumlArray):
                 model_d.support_matrix.nnz = self.support_vectors_.nnz
-                model_d.support_matrix.indptr = <int*><uintptr_t>self.support_vectors_.indptr.ptr
-                model_d.support_matrix.indices = <int*><uintptr_t>self.support_vectors_.indices.ptr
-                model_d.support_matrix.data = <double*><uintptr_t>self.support_vectors_.data.ptr
+                model_d.support_matrix.indptr.resize(self.support_vectors_.indptr.size, stream)
+                cudaMemcpyAsync(
+                    <void*><uintptr_t>model_d.support_matrix.indptr.data(),
+                    <void*><uintptr_t>self.support_vectors_.indptr.ptr,
+                    <size_t>(self.support_vectors_.indptr.size),
+                    cudaMemcpyKind.cudaMemcpyDefault,
+                    stream.value())
+                model_d.support_matrix.indices.resize(self.support_vectors_.indices.size, stream)
+                cudaMemcpyAsync(
+                    <void*><uintptr_t>model_d.support_matrix.indices.data(),
+                    <void*><uintptr_t>self.support_vectors_.indices.ptr,
+                    <size_t>(self.support_vectors_.indices.size),
+                    cudaMemcpyKind.cudaMemcpyDefault,
+                    stream.value())
+                model_d.support_matrix.data.resize(self.support_vectors_.data.size, stream)
+                cudaMemcpyAsync(
+                    <void*><uintptr_t>model_d.support_matrix.data.data(),
+                    <void*><uintptr_t>self.support_vectors_.data.ptr,
+                    <size_t>(self.support_vectors_.data.size),
+                    cudaMemcpyKind.cudaMemcpyDefault,
+                    stream.value())
             else:
-                model_d.support_matrix.data = <double*><uintptr_t>self.support_vectors_.ptr
-            model_d.support_idx = \
-                <int*><uintptr_t>self.support_.ptr
+                model_d.support_matrix.data.resize(self.support_vectors_.size, stream)
+                cudaMemcpyAsync(
+                    <void*><uintptr_t>model_d.support_matrix.data.data(),
+                    <void*><uintptr_t>self.support_vectors_.ptr,
+                    <size_t>(self.support_vectors_.size),
+                    cudaMemcpyKind.cudaMemcpyDefault,
+                    stream.value())
+
+            model_d.support_idx.resize(self.support_.size, stream)
+            cudaMemcpyAsync(
+                <void*><uintptr_t>model_d.support_idx.data(),
+                <void*><uintptr_t>self.support_.ptr,
+                <size_t>(self.support_.size),
+                cudaMemcpyKind.cudaMemcpyDefault,
+                stream.value())
+
             model_d.n_classes = self.n_classes_
             if self.n_classes_ > 0:
-                model_d.unique_labels = \
-                    <double*><uintptr_t>self._unique_labels_.ptr
+                model_d.unique_labels.resize(self._unique_labels_.size, stream)
+                cudaMemcpyAsync(
+                    <void*><uintptr_t>model_d.unique_labels.data(),
+                    <void*><uintptr_t>self._unique_labels_.ptr,
+                    <size_t>(self._unique_labels_.size),
+                    cudaMemcpyKind.cudaMemcpyDefault,
+                    stream.value())
             else:
-                model_d.unique_labels = NULL
+                model_d.unique_labels.resize(0, stream)
+
+            self.handle.sync()
             return <uintptr_t>model_d
 
     def _unpack_svm_model(self, b, n_support, dual_coefs, support_idx, nnz, indptr, indices, data, n_classes, unique_labels):
@@ -534,26 +628,26 @@ class SVMBase(Base,
                 model_f.b,
                 model_f.n_support,
                 <uintptr_t>model_f.dual_coefs.data(),
-                <uintptr_t>model_f.support_idx,
+                <uintptr_t>model_f.support_idx.data(),
                 model_f.support_matrix.nnz,
-                <uintptr_t>model_f.support_matrix.indptr,
-                <uintptr_t>model_f.support_matrix.indices,
-                <uintptr_t>model_f.support_matrix.data,
+                <uintptr_t>model_f.support_matrix.indptr.data(),
+                <uintptr_t>model_f.support_matrix.indices.data(),
+                <uintptr_t>model_f.support_matrix.data.data(),
                 model_f.n_classes,
-                <uintptr_t> model_f.unique_labels)
+                <uintptr_t> model_f.unique_labels.data())
         else:
             model_d = <SvmModel[double]*><uintptr_t> self._model
             self._unpack_svm_model(
                 model_d.b,
                 model_d.n_support,
                 <uintptr_t>model_d.dual_coefs.data(),
-                <uintptr_t>model_d.support_idx,
+                <uintptr_t>model_d.support_idx.data(),
                 model_d.support_matrix.nnz,
-                <uintptr_t>model_d.support_matrix.indptr,
-                <uintptr_t>model_d.support_matrix.indices,
-                <uintptr_t>model_d.support_matrix.data,
+                <uintptr_t>model_d.support_matrix.indptr.data(),
+                <uintptr_t>model_d.support_matrix.indices.data(),
+                <uintptr_t>model_d.support_matrix.data.data(),
                 model_d.n_classes,
-                <uintptr_t> model_d.unique_labels)
+                <uintptr_t> model_d.unique_labels.data())
 
         if self.n_support_ == 0:
             self.dual_coef_ = CumlArray.empty(

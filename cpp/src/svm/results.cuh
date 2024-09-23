@@ -117,23 +117,17 @@ class Results {
    */
   void Get(const math_t* alpha,
            const math_t* f,
-           rmm::device_buffer* dual_coefs,
+           rmm::device_buffer& dual_coefs,
            int* n_support,
-           int** idx,
-           SupportStorage<math_t>* support_matrix,
+           rmm::device_buffer& idx,
+           SupportStorage& support_matrix,
            math_t* b)
   {
     CombineCoefs(alpha, val_tmp.data());
     GetDualCoefs(val_tmp.data(), dual_coefs, n_support);
     *b = CalcB(alpha, f, *n_support);
-    if (*n_support > 0) {
-      *idx            = GetSupportVectorIndices(val_tmp.data(), *n_support);
-      *support_matrix = CollectSupportVectorMatrix(*idx, *n_support);
-    } else {
-      dual_coefs->resize(0, stream);
-      *idx            = nullptr;
-      *support_matrix = {};
-    }
+    GetSupportVectorIndices(idx, val_tmp.data(), *n_support);
+    CollectSupportVectorMatrix(support_matrix, idx, *n_support);
     // Make sure that all pending GPU calculations finished before we return
     handle.sync_stream(stream);
   }
@@ -141,32 +135,35 @@ class Results {
   /**
    * Collect support vectors into a matrix storage
    *
+   * @param [out] support_matrix containing the support vectors, size [n_suppor*n_cols]
    * @param [in] idx indices of support vectors, size [n_support]
    * @param [in] n_support number of support vectors
-   * @return pointer to a newly allocated device buffer that stores the support
-   *   vectors, size [n_suppor*n_cols]
    */
-  SupportStorage<math_t> CollectSupportVectorMatrix(const int* idx, int n_support)
+  void CollectSupportVectorMatrix(SupportStorage& support_matrix,
+                                  rmm::device_buffer& idx,
+                                  int n_support)
   {
-    SupportStorage<math_t> support_matrix;
     // allow ~1GB dense support matrix
     if (isDenseType<MatrixViewType>() ||
         ((size_t)n_support * n_cols * sizeof(math_t) < (1 << 30))) {
-      support_matrix.data = (math_t*)rmm_alloc.allocate_async(
-        n_support * n_cols * sizeof(math_t), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-      ML::SVM::extractRows<math_t>(matrix, support_matrix.data, idx, n_support, handle);
+      support_matrix.nnz = -1;
+      support_matrix.indptr.resize(0, stream);
+      support_matrix.indices.resize(0, stream);
+      support_matrix.data.resize(n_support * n_cols * sizeof(math_t), stream);
+      if (n_support > 0) {
+        ML::SVM::extractRows<math_t>(
+          matrix, (math_t*)support_matrix.data.data(), (int*)idx.data(), n_support, handle);
+      }
     } else {
       ML::SVM::extractRows<math_t>(matrix,
-                                   &(support_matrix.indptr),
-                                   &(support_matrix.indices),
-                                   &(support_matrix.data),
+                                   support_matrix.indptr,
+                                   support_matrix.indices,
+                                   support_matrix.data,
                                    &(support_matrix.nnz),
-                                   idx,
+                                   (int*)idx.data(),
                                    n_support,
                                    handle);
     }
-
-    return support_matrix;
   }
 
   /**
@@ -205,13 +202,13 @@ class Results {
    *   unallocated on entry, on exit size [n_support]
    * @param [out] n_support number of support vectors
    */
-  void GetDualCoefs(const math_t* val_tmp, rmm::device_buffer* dual_coefs, int* n_support)
+  void GetDualCoefs(const math_t* val_tmp, rmm::device_buffer& dual_coefs, int* n_support)
   {
     // Return only the non-zero coefficients
     auto select_op = [] __device__(math_t a) { return 0 != a; };
     *n_support     = SelectByCoef(val_tmp, n_rows, val_tmp, select_op, val_selected.data());
-    dual_coefs->resize(*n_support * sizeof(math_t), stream);
-    raft::copy((math_t*)dual_coefs->data(), val_selected.data(), *n_support, stream);
+    dual_coefs.resize(*n_support * sizeof(math_t), stream);
+    raft::copy((math_t*)dual_coefs.data(), val_selected.data(), *n_support, stream);
     handle.sync_stream(stream);
   }
 
@@ -219,18 +216,20 @@ class Results {
    * Flag support vectors and also collect their indices.
    * Support vectors are the vectors where alpha > 0.
    *
+   * @param [out] idx the training set indices of the support vectors, size [n_support]
    * @param [in] coef dual coefficients, size [n_rows]
    * @param [in] n_support number of support vectors
-   * @return indices of the support vectors, size [n_support]
    */
-  int* GetSupportVectorIndices(const math_t* coef, int n_support)
+  void GetSupportVectorIndices(rmm::device_buffer& idx, const math_t* coef, int n_support)
   {
-    auto select_op = [] __device__(math_t a) -> bool { return 0 != a; };
-    SelectByCoef(coef, n_rows, f_idx.data(), select_op, idx_selected.data());
-    int* idx = (int*)rmm_alloc.allocate_async(
-      n_support * sizeof(int), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-    raft::copy(idx, idx_selected.data(), n_support, stream);
-    return idx;
+    if (n_support > 0) {
+      auto select_op = [] __device__(math_t a) -> bool { return 0 != a; };
+      SelectByCoef(coef, n_rows, f_idx.data(), select_op, idx_selected.data());
+      idx.resize(n_support * sizeof(int), stream);
+      raft::copy((int*)idx.data(), idx_selected.data(), n_support, stream);
+    } else {
+      idx.resize(0, stream);
+    }
   }
 
   /**

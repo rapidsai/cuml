@@ -502,13 +502,9 @@ class GetResultsTest : public ::testing::Test {
  protected:
   void FreeDenseSupport()
   {
-    rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource();
-    auto stream                              = this->handle.get_stream();
-    rmm_alloc.deallocate_async(model.support_matrix.data,
-                               model.n_support * n_cols * sizeof(math_t),
-                               rmm::CUDA_ALLOCATION_ALIGNMENT,
-                               stream);
-    model.support_matrix.data = nullptr;
+    model.support_matrix.data.resize(0, stream);
+    // this *really* deallocates
+    model.support_matrix.data.shrink_to_fit(stream);
   }
 
   void TestResults()
@@ -531,10 +527,10 @@ class GetResultsTest : public ::testing::Test {
       handle, dense_view, n_rows, n_cols, y_dev.data(), C_dev.data(), C_SVC);
     res.Get(alpha_dev.data(),
             f_dev.data(),
-            &(model.dual_coefs),
+            model.dual_coefs,
             &(model.n_support),
-            &(model.support_idx),
-            &(model.support_matrix),
+            model.support_idx,
+            model.support_matrix,
             &(model.b));
 
     ASSERT_EQ(model.n_support, 7);
@@ -548,12 +544,12 @@ class GetResultsTest : public ::testing::Test {
 
     int idx_exp[] = {2, 3, 4, 6, 7, 8, 9};
     EXPECT_TRUE(devArrMatchHost(
-      idx_exp, model.support_idx, model.n_support, MLCommon::Compare<int>(), stream));
+      idx_exp, (int*)model.support_idx.data(), model.n_support, MLCommon::Compare<int>(), stream));
 
     math_t x_support_exp[] = {3, 4, 5, 7, 8, 9, 10, 13, 14, 15, 17, 18, 19, 20};
 
     EXPECT_TRUE(devArrMatchHost(x_support_exp,
-                                model.support_matrix.data,
+                                (math_t*)model.support_matrix.data.data(),
                                 model.n_support * n_cols,
                                 MLCommon::CompareApprox<math_t>(1e-6f),
                                 stream));
@@ -566,10 +562,10 @@ class GetResultsTest : public ::testing::Test {
     FreeDenseSupport();
     res.Get(alpha_dev.data(),
             f_dev.data(),
-            &(model.dual_coefs),
+            model.dual_coefs,
             &(model.n_support),
-            &(model.support_idx),
-            &(model.support_matrix),
+            model.support_idx,
+            model.support_matrix,
             &(model.b));
     FreeDenseSupport();
     EXPECT_FLOAT_EQ(model.b, -5.5f);
@@ -837,9 +833,9 @@ void checkResults(SvmModel<math_t>& model,
   EXPECT_LT(raft::abs(ay), ay_tol);
 
   if (x_support_exp) {
-    EXPECT_TRUE(model.support_matrix.data != nullptr && model.support_matrix.nnz == -1);
+    EXPECT_TRUE(model.support_matrix.data.size() > 0 && model.support_matrix.nnz == -1);
     EXPECT_TRUE(devArrMatchHost(x_support_exp,
-                                model.support_matrix.data,
+                                (math_t*)model.support_matrix.data.data(),
                                 model.n_support * model.n_cols,
                                 MLCommon::CompareApprox<math_t>(1e-6f),
                                 stream));
@@ -847,14 +843,16 @@ void checkResults(SvmModel<math_t>& model,
 
   if (idx_exp) {
     EXPECT_TRUE(devArrMatchHost(
-      idx_exp, model.support_idx, model.n_support, MLCommon::Compare<int>(), stream));
+      idx_exp, (int*)model.support_idx.data(), model.n_support, MLCommon::Compare<int>(), stream));
   }
 
   math_t* x_support_host = new math_t[model.n_support * model.n_cols];
   if (model.n_support * model.n_cols > 0) {
-    EXPECT_TRUE(model.support_matrix.data != nullptr && model.support_matrix.nnz == -1);
-    raft::update_host(
-      x_support_host, model.support_matrix.data, model.n_support * model.n_cols, stream);
+    EXPECT_TRUE(model.support_matrix.data.size() > 0 && model.support_matrix.nnz == -1);
+    raft::update_host(x_support_host,
+                      (math_t*)model.support_matrix.data.data(),
+                      model.n_support * model.n_cols,
+                      stream);
   }
   raft::interruptible::synchronize(stream);
 
@@ -1123,7 +1121,7 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
     GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(p.kernel_params);
     SmoSolver<TypeParam> smo(this->handle, param, p.kernel_params.kernel, kernel);
     {
-      SvmModel<TypeParam> model1{0, this->n_cols, 0, {}, {}, nullptr, 0, nullptr};
+      SvmModel<TypeParam> model1{0, this->n_cols, 0, {}, {}, {}, 0, {}};
       auto dense_view =
         raft::make_device_strided_matrix_view<TypeParam, int, raft::layout_f_contiguous>(
           this->x_dev.data(), this->n_rows, this->n_cols, 0);
@@ -1140,12 +1138,11 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
                 p.max_iter,
                 p.max_inner_iter);
       checkResults(model1, exp, stream);
-      svmFreeBuffers(this->handle, model1);
     }
 
     // also check sparse input
     {
-      SvmModel<TypeParam> model2{0, this->n_cols, 0, {}, {}, nullptr, 0, nullptr};
+      SvmModel<TypeParam> model2{0, this->n_cols, 0, {}, {}, {}, 0, {}};
       auto csr_structure =
         raft::make_device_compressed_structure_view<int, int, int>(this->x_dev_indptr.data(),
                                                                    this->x_dev_indices.data(),
@@ -1166,7 +1163,6 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
                 p.max_iter,
                 p.max_inner_iter);
       checkResults(model2, exp, stream);
-      svmFreeBuffers(this->handle, model2);
     }
   }
 }
@@ -1872,12 +1868,7 @@ class SvrTest : public ::testing::Test {
     raft::update_device(x_dev.data(), x_host, n_rows * n_cols, stream);
     raft::update_device(y_dev.data(), y_host, n_rows, stream);
 
-    model.n_support = 0;
-    model.dual_coefs.resize(0, stream);
-    model.support_matrix = {};
-    model.support_idx    = nullptr;
-    model.n_classes      = 0;
-    model.unique_labels  = nullptr;
+    svmFreeBuffers(handle, model);
   }
 
   void TearDown() override { svmFreeBuffers(handle, model); }
@@ -1937,10 +1928,10 @@ class SvrTest : public ::testing::Test {
 
     res.Get(alpha.data(),
             f.data(),
-            &model.dual_coefs,
+            model.dual_coefs,
             &model.n_support,
-            &model.support_idx,
-            &model.support_matrix,
+            model.support_idx,
+            model.support_matrix,
             &model.b);
     ASSERT_EQ(model.n_support, 5);
     math_t dc_exp[] = {0.1, 0.3, -0.4, 0.9, -0.9};
@@ -1954,14 +1945,14 @@ class SvrTest : public ::testing::Test {
 
     math_t x_exp[] = {1, 2, 3, 5, 6};
     EXPECT_TRUE(devArrMatchHost(x_exp,
-                                model.support_matrix.data,
+                                (math_t*)model.support_matrix.data.data(),
                                 model.n_support * n_cols,
                                 MLCommon::CompareApprox<math_t>(1.0e-6),
                                 stream));
 
     int idx_exp[] = {0, 1, 2, 4, 5};
     EXPECT_TRUE(devArrMatchHost(idx_exp,
-                                model.support_idx,
+                                (int*)model.support_idx.data(),
                                 model.n_support,
                                 MLCommon::CompareApprox<math_t>(1.0e-6),
                                 stream));

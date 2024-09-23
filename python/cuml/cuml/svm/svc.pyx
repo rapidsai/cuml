@@ -43,6 +43,8 @@ from cuml.svm.svm_base import SVMBase
 from cuml.internals.import_utils import has_sklearn
 from cuml.internals.array_sparse import SparseCumlArray
 
+from rmm._lib.device_buffer cimport device_buffer
+
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
     from sklearn.calibration import CalibratedClassifierCV
@@ -82,22 +84,22 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
 
 cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
 
-    cdef cppclass SupportStorage[math_t]:
+    cdef cppclass SupportStorage:
         int nnz
-        int* indptr
-        int* indices
-        math_t* data
+        device_buffer indptr
+        device_buffer indices
+        device_buffer data
 
     cdef cppclass SvmModel[math_t]:
         # parameters of a fitted model
         int n_support
         int n_cols
         math_t b
-        math_t *dual_coefs
-        SupportStorage[math_t] support_matrix
-        int *support_idx
+        device_buffer dual_coefs
+        SupportStorage support_matrix
+        device_buffer support_idx
         int n_classes
-        math_t *unique_labels
+        device_buffer unique_labels
 
 cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM" nogil:
 
@@ -488,7 +490,6 @@ class SVC(SVMBase,
         Fit the model with X and y.
 
         """
-
         self.n_classes_ = self._get_num_classes(y)
 
         # we need to check whether input X is sparse

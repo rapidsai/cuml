@@ -717,9 +717,9 @@ void extractRows(raft::device_csr_matrix_view<math_t, int, int, int> matrix_in,
  */
 template <typename math_t, typename LayoutPolicyIn>
 void extractRows(raft::device_matrix_view<math_t, int, LayoutPolicyIn> matrix_in,
-                 int** indptr_out,
-                 int** indices_out,
-                 math_t** data_out,
+                 rmm::device_buffer& indptr_out,
+                 rmm::device_buffer& indices_out,
+                 rmm::device_buffer& data_out,
                  int* nnz,
                  const int* row_indices,
                  int num_indices,
@@ -734,8 +734,6 @@ void extractRows(raft::device_matrix_view<math_t, int, LayoutPolicyIn> matrix_in
  * This is the specialized version for
  *     'CSR -> CSR (raw pointers)'
  *
- * Warning: this specialization will allocate the the required arrays in device memory.
- *
  * @param [in] matrix_in matrix input in CSR  [i, j]
  * @param [out] indptr_out row index pointer of CSR output [num_indices + 1]
  * @param [out] indices_out column indices of CSR output [nnz = indptr_out[num_indices + 1]]
@@ -747,9 +745,9 @@ void extractRows(raft::device_matrix_view<math_t, int, LayoutPolicyIn> matrix_in
  */
 template <typename math_t>
 void extractRows(raft::device_csr_matrix_view<math_t, int, int, int> matrix_in,
-                 int** indptr_out,
-                 int** indices_out,
-                 math_t** data_out,
+                 rmm::device_buffer& indptr_out,
+                 rmm::device_buffer& indices_out,
+                 rmm::device_buffer& data_out,
                  int* nnz,
                  const int* row_indices,
                  int num_indices,
@@ -762,20 +760,26 @@ void extractRows(raft::device_csr_matrix_view<math_t, int, int, int> matrix_in,
   math_t* data_in    = matrix_in.get_elements().data();
 
   // allocate indptr
-  auto* rmm_alloc = rmm::mr::get_current_device_resource();
-  *indptr_out     = (int*)rmm_alloc->allocate((num_indices + 1) * sizeof(int), stream);
+  indptr_out.resize((num_indices + 1) * sizeof(int), stream);
 
-  *nnz = computeIndptrForSubset(indptr_in, *indptr_out, row_indices, num_indices, stream);
+  *nnz =
+    computeIndptrForSubset(indptr_in, (int*)indptr_out.data(), row_indices, num_indices, stream);
 
   // allocate indices, data
-  *indices_out = (int*)rmm_alloc->allocate(*nnz * sizeof(int), stream);
-  *data_out    = (math_t*)rmm_alloc->allocate(*nnz * sizeof(math_t), stream);
+  indices_out.resize(*nnz * sizeof(int), stream);
+  data_out.resize(*nnz * sizeof(math_t), stream);
 
   // copy with 1 warp per row for now, blocksize 256
   const dim3 bs(32, 8, 1);
   const dim3 gs(raft::ceildiv(num_indices, (int)bs.y), 1, 1);
-  extractCSRRowsFromCSR<math_t><<<gs, bs, 0, stream>>>(
-    *indptr_out, *indices_out, *data_out, indptr_in, indices_in, data_in, row_indices, num_indices);
+  extractCSRRowsFromCSR<math_t><<<gs, bs, 0, stream>>>((int*)indptr_out.data(),
+                                                       (int*)indices_out.data(),
+                                                       (math_t*)data_out.data(),
+                                                       indptr_in,
+                                                       indices_in,
+                                                       data_in,
+                                                       row_indices,
+                                                       num_indices);
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
