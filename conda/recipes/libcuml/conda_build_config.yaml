@@ -19,6 +19,12 @@ c_stdlib_version:
 cmake_version:
   - ">=3.26.4,!=3.30.0"
 
+fmt_version:
+  - ">=11.0.2,<12"
+
+spdlog_version:
+  - ">=1.14.1,<1.15"
+
 treelite_version:
   - "=4.3.0"
 
