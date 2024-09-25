@@ -35,7 +35,7 @@ requirements:
     - pandas
     - scikit-learn=1.2
     - hdbscan>=0.8.38,<0.8.39
-    - umap-learn=0.5.3
+    - umap-learn=0.5.6
     - nvtx
 
 tests:                                 # [linux64]

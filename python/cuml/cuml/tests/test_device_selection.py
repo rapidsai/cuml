@@ -21,7 +21,10 @@ from cuml.cluster.hdbscan import HDBSCAN
 from cuml.neighbors import NearestNeighbors
 from cuml.metrics import trustworthiness
 from cuml.metrics import adjusted_rand_score
-from cuml.manifold import UMAP
+from cuml.manifold import (
+    UMAP,
+    TSNE,
+)
 from cuml.linear_model import (
     ElasticNet,
     Lasso,
@@ -48,6 +51,7 @@ from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
 from sklearn.cluster import KMeans as skKMeans
 from sklearn.cluster import DBSCAN as skDBSCAN
 from sklearn.datasets import make_regression, make_blobs
+from sklearn.manifold import TSNE as refTSNE
 from pytest_cases import fixture_union, fixture
 from importlib import import_module
 import inspect
@@ -596,8 +600,6 @@ def test_train_cpu_infer_cpu(test_data):
 
 def test_train_gpu_infer_cpu(test_data):
     cuEstimator = test_data["cuEstimator"]
-    if cuEstimator is UMAP:
-        pytest.skip("UMAP GPU training CPU inference not yet implemented")
 
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("gpu"):
@@ -655,8 +657,6 @@ def test_pickle_interop(tmp_path, test_data):
     pickle_filepath = tmp_path / "model.pickle"
 
     cuEstimator = test_data["cuEstimator"]
-    if cuEstimator is UMAP:
-        pytest.skip("UMAP GPU training CPU inference not yet implemented")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("gpu"):
         if "y_train" in test_data:
@@ -859,6 +859,21 @@ def test_umap_methods(device):
 
     tol = 0.02
     assert ref_trust - tol <= trust <= ref_trust + tol
+
+
+@pytest.mark.parametrize("device", ["cpu", "gpu"])
+def test_tsne_methods(device):
+    ref_model = refTSNE()
+    ref_embedding = ref_model.fit_transform(X_train_blob)
+    ref_trust = trustworthiness(X_train_blob, ref_embedding, n_neighbors=12)
+
+    model = TSNE(n_neighbors=12)
+    with using_device_type(device):
+        embedding = model.fit_transform(X_train_blob)
+    trust = trustworthiness(X_train_blob, embedding, n_neighbors=12)
+
+    tol = 0.02
+    assert trust >= ref_trust - tol
 
 
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])

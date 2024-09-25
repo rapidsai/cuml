@@ -337,7 +337,7 @@ def test_umap_data_formats(
     )
 
     embeds = umap.fit_transform(X)
-    assert type(embeds) == np.ndarray
+    assert type(embeds) is np.ndarray
 
 
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
