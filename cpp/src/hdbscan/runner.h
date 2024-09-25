@@ -183,8 +183,9 @@ void build_linkage(const raft::handle_t& handle,
                                                   params.alpha,
                                                   mutual_reachability_indptr.data(),
                                                   core_dists,
-                                                  mutual_reachability_coo);
-
+                                                  mutual_reachability_coo,
+                                                  params.build_algo,
+                                                  params.nn_descent_params);
   /**
    * Construct MST sorted by weights
    */
@@ -289,7 +290,6 @@ void _fit_hdbscan(const raft::handle_t& handle,
                                           m,
                                           out.get_stabilities(),
                                           label_map.data());
-
   /**
    * Normalize labels so they are drawn from a monotonically increasing set
    * starting at 0 even in the presence of noise (-1)
