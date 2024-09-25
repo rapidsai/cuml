@@ -103,11 +103,11 @@ void SmoSolver<math_t>::Solve(MatrixViewType matrix,
                               int n_cols,
                               math_t* y,
                               const math_t* sample_weight,
-                              rmm::device_buffer* dual_coefs,
-                              int* n_support,
-                              SupportStorage* support_matrix,
-                              rmm::device_buffer* idx,
-                              math_t* b,
+                              rmm::device_buffer& dual_coefs,
+                              int& n_support,
+                              SupportStorage& support_matrix,
+                              rmm::device_buffer& idx,
+                              math_t& b,
                               int max_outer_iter,
                               int max_inner_iter)
 {
@@ -210,7 +210,7 @@ void SmoSolver<math_t>::Solve(MatrixViewType matrix,
     diff_prev);
 
   Results<math_t, MatrixViewType> res(handle, matrix, n_rows, n_cols, y, C_vec.data(), svmType);
-  res.Get(alpha.data(), f.data(), *dual_coefs, n_support, *idx, *support_matrix, b);
+  res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, support_matrix, b);
 
   ReleaseBuffers();
 }

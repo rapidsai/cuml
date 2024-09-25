@@ -124,11 +124,11 @@ class SmoSolver {
              int n_cols,
              math_t* y,
              const math_t* sample_weight,
-             rmm::device_buffer* dual_coefs,
-             int* n_support,
-             SupportStorage* support_matrix,
-             rmm::device_buffer* idx,
-             math_t* b,
+             rmm::device_buffer& dual_coefs,
+             int& n_support,
+             SupportStorage& support_matrix,
+             rmm::device_buffer& idx,
+             math_t& b,
              int max_outer_iter = -1,
              int max_inner_iter = 10000);
 

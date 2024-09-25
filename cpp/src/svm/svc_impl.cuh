@@ -91,11 +91,11 @@ void svcFitX(const raft::handle_t& handle,
             n_cols,
             y.data(),
             sample_weight,
-            &(model.dual_coefs),
-            &(model.n_support),
-            &(model.support_matrix),
-            &(model.support_idx),
-            &(model.b),
+            model.dual_coefs,
+            model.n_support,
+            model.support_matrix,
+            model.support_idx,
+            model.b,
             param.max_iter);
   model.n_cols = n_cols;
   handle_impl.sync_stream(stream);
@@ -356,17 +356,22 @@ void svmFreeBuffers(const raft::handle_t& handle, SvmModel<math_t>& m)
 {
   cudaStream_t stream = handle.get_stream();
 
-  // Note that the underlying allocations are not *freed* but rather reset
   m.n_support = 0;
   m.n_cols    = 0;
   m.b         = (math_t)0;
   m.dual_coefs.resize(0, stream);
+  m.dual_coefs.shrink_to_fit(stream);
   m.support_idx.resize(0, stream);
+  m.support_idx.shrink_to_fit(stream);
   m.support_matrix.indptr.resize(0, stream);
+  m.support_matrix.indptr.shrink_to_fit(stream);
   m.support_matrix.indices.resize(0, stream);
+  m.support_matrix.indices.shrink_to_fit(stream);
   m.support_matrix.data.resize(0, stream);
+  m.support_matrix.data.shrink_to_fit(stream);
   m.support_matrix.nnz = -1;
   m.unique_labels.resize(0, stream);
+  m.unique_labels.shrink_to_fit(stream);
 }
 
 };  // end namespace SVM

@@ -87,41 +87,34 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle,
       if (model.dual_coefs.size() > 0) {
         *dual_coefs = (float*)rmm_alloc.allocate_async(
           model.dual_coefs.size(), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-        RAFT_CUDA_TRY(cudaMemcpyAsync(
-          dual_coefs, model.dual_coefs.data(), model.dual_coefs.size(), cudaMemcpyDefault, stream));
+        raft::copy(
+          *dual_coefs, reinterpret_cast<float*>(model.dual_coefs.data()), *n_support, stream);
       } else {
         *dual_coefs = nullptr;
       }
       if (model.support_matrix.data.size() > 0) {
         *x_support = (float*)rmm_alloc.allocate_async(
           model.support_matrix.data.size(), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-        RAFT_CUDA_TRY(cudaMemcpyAsync(x_support,
-                                      model.support_matrix.data.data(),
-                                      model.support_matrix.data.size(),
-                                      cudaMemcpyDefault,
-                                      stream));
+        raft::copy(*x_support,
+                   reinterpret_cast<float*>(model.support_matrix.data.data()),
+                   *n_support * n_cols,
+                   stream);
       } else {
         *x_support = nullptr;
       }
       if (model.support_idx.size() > 0) {
         *support_idx = (int*)rmm_alloc.allocate_async(
           model.support_idx.size(), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-        RAFT_CUDA_TRY(cudaMemcpyAsync(support_idx,
-                                      model.support_idx.data(),
-                                      model.support_idx.size(),
-                                      cudaMemcpyDefault,
-                                      stream));
+        raft::copy(
+          *support_idx, reinterpret_cast<int*>(model.support_idx.data()), *n_support, stream);
       } else {
         *support_idx = nullptr;
       }
       if (model.unique_labels.size() > 0) {
         *unique_labels = (float*)rmm_alloc.allocate_async(
           model.unique_labels.size(), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-        RAFT_CUDA_TRY(cudaMemcpyAsync(unique_labels,
-                                      model.unique_labels.data(),
-                                      model.unique_labels.size(),
-                                      cudaMemcpyDefault,
-                                      stream));
+        raft::copy(
+          *unique_labels, reinterpret_cast<float*>(model.unique_labels.data()), *n_classes, stream);
       } else {
         *unique_labels = nullptr;
       }
@@ -203,41 +196,36 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle,
       if (model.dual_coefs.size() > 0) {
         *dual_coefs = (double*)rmm_alloc.allocate_async(
           model.dual_coefs.size(), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-        RAFT_CUDA_TRY(cudaMemcpyAsync(
-          dual_coefs, model.dual_coefs.data(), model.dual_coefs.size(), cudaMemcpyDefault, stream));
+        raft::copy(
+          *dual_coefs, reinterpret_cast<double*>(model.dual_coefs.data()), *n_support, stream);
       } else {
         *dual_coefs = nullptr;
       }
       if (model.support_matrix.data.size() > 0) {
         *x_support = (double*)rmm_alloc.allocate_async(
           model.support_matrix.data.size(), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-        RAFT_CUDA_TRY(cudaMemcpyAsync(x_support,
-                                      model.support_matrix.data.data(),
-                                      model.support_matrix.data.size(),
-                                      cudaMemcpyDefault,
-                                      stream));
+        raft::copy(*x_support,
+                   reinterpret_cast<double*>(model.support_matrix.data.data()),
+                   *n_support * n_cols,
+                   stream);
       } else {
         *x_support = nullptr;
       }
       if (model.support_idx.size() > 0) {
         *support_idx = (int*)rmm_alloc.allocate_async(
           model.support_idx.size(), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-        RAFT_CUDA_TRY(cudaMemcpyAsync(support_idx,
-                                      model.support_idx.data(),
-                                      model.support_idx.size(),
-                                      cudaMemcpyDefault,
-                                      stream));
+        raft::copy(
+          *support_idx, reinterpret_cast<int*>(model.support_idx.data()), *n_support, stream);
       } else {
         *support_idx = nullptr;
       }
       if (model.unique_labels.size() > 0) {
         *unique_labels = (double*)rmm_alloc.allocate_async(
           model.unique_labels.size(), rmm::CUDA_ALLOCATION_ALIGNMENT, stream);
-        RAFT_CUDA_TRY(cudaMemcpyAsync(unique_labels,
-                                      model.unique_labels.data(),
-                                      model.unique_labels.size(),
-                                      cudaMemcpyDefault,
-                                      stream));
+        raft::copy(*unique_labels,
+                   reinterpret_cast<double*>(model.unique_labels.data()),
+                   *n_classes,
+                   stream);
       } else {
         *unique_labels = nullptr;
       }
@@ -291,24 +279,19 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle,
   model.n_classes = n_classes;
   if (n_support > 0) {
     model.dual_coefs.resize(n_support * sizeof(float), stream);
-    RAFT_CUDA_TRY(cudaMemcpyAsync(
-      model.dual_coefs.data(), dual_coefs, n_support * sizeof(float), cudaMemcpyDefault, stream));
+    raft::copy(reinterpret_cast<float*>(model.dual_coefs.data()), dual_coefs, n_support, stream);
 
     model.support_matrix.data.resize(n_support * n_cols * sizeof(float), stream);
-    RAFT_CUDA_TRY(cudaMemcpyAsync(model.support_matrix.data.data(),
-                                  x_support,
-                                  n_support * n_cols * sizeof(float),
-                                  cudaMemcpyDefault,
-                                  stream));
+    raft::copy(reinterpret_cast<float*>(model.support_matrix.data.data()),
+               x_support,
+               n_support * n_cols,
+               stream);
   }
 
   if (n_classes > 0) {
     model.unique_labels.resize(n_classes * sizeof(float), stream);
-    RAFT_CUDA_TRY(cudaMemcpyAsync(model.unique_labels.data(),
-                                  unique_labels,
-                                  n_classes * sizeof(float),
-                                  cudaMemcpyDefault,
-                                  stream));
+    raft::copy(
+      reinterpret_cast<float*>(model.unique_labels.data()), unique_labels, n_classes, stream);
   }
 
   if (status == CUML_SUCCESS) {
@@ -364,24 +347,19 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle,
   model.n_classes = n_classes;
   if (n_support > 0) {
     model.dual_coefs.resize(n_support * sizeof(double), stream);
-    RAFT_CUDA_TRY(cudaMemcpyAsync(
-      model.dual_coefs.data(), dual_coefs, n_support * sizeof(double), cudaMemcpyDefault, stream));
+    raft::copy(reinterpret_cast<double*>(model.dual_coefs.data()), dual_coefs, n_support, stream);
 
     model.support_matrix.data.resize(n_support * n_cols * sizeof(double), stream);
-    RAFT_CUDA_TRY(cudaMemcpyAsync(model.support_matrix.data.data(),
-                                  x_support,
-                                  n_support * n_cols * sizeof(double),
-                                  cudaMemcpyDefault,
-                                  stream));
+    raft::copy(reinterpret_cast<double*>(model.support_matrix.data.data()),
+               x_support,
+               n_support * n_cols,
+               stream);
   }
 
   if (n_classes > 0) {
     model.unique_labels.resize(n_classes * sizeof(double), stream);
-    RAFT_CUDA_TRY(cudaMemcpyAsync(model.unique_labels.data(),
-                                  unique_labels,
-                                  n_classes * sizeof(double),
-                                  cudaMemcpyDefault,
-                                  stream));
+    raft::copy(
+      reinterpret_cast<double*>(model.unique_labels.data()), unique_labels, n_classes, stream);
   }
 
   if (status == CUML_SUCCESS) {

@@ -528,10 +528,10 @@ class GetResultsTest : public ::testing::Test {
     res.Get(alpha_dev.data(),
             f_dev.data(),
             model.dual_coefs,
-            &(model.n_support),
+            model.n_support,
             model.support_idx,
             model.support_matrix,
-            &(model.b));
+            model.b);
 
     ASSERT_EQ(model.n_support, 7);
 
@@ -563,10 +563,10 @@ class GetResultsTest : public ::testing::Test {
     res.Get(alpha_dev.data(),
             f_dev.data(),
             model.dual_coefs,
-            &(model.n_support),
+            model.n_support,
             model.support_idx,
             model.support_matrix,
-            &(model.b));
+            model.b);
     FreeDenseSupport();
     EXPECT_FLOAT_EQ(model.b, -5.5f);
   }
@@ -1130,11 +1130,11 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
                 this->n_cols,
                 this->y_dev.data(),
                 nullptr,
-                &model1.dual_coefs,
-                &model1.n_support,
-                &model1.support_matrix,
-                &model1.support_idx,
-                &model1.b,
+                model1.dual_coefs,
+                model1.n_support,
+                model1.support_matrix,
+                model1.support_idx,
+                model1.b,
                 p.max_iter,
                 p.max_inner_iter);
       checkResults(model1, exp, stream);
@@ -1155,11 +1155,11 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
                 this->n_cols,
                 this->y_dev.data(),
                 nullptr,
-                &model2.dual_coefs,
-                &model2.n_support,
-                &model2.support_matrix,
-                &model2.support_idx,
-                &model2.b,
+                model2.dual_coefs,
+                model2.n_support,
+                model2.support_matrix,
+                model2.support_idx,
+                model2.b,
                 p.max_iter,
                 p.max_inner_iter);
       checkResults(model2, exp, stream);
@@ -1929,10 +1929,10 @@ class SvrTest : public ::testing::Test {
     res.Get(alpha.data(),
             f.data(),
             model.dual_coefs,
-            &model.n_support,
+            model.n_support,
             model.support_idx,
             model.support_matrix,
-            &model.b);
+            model.b);
     ASSERT_EQ(model.n_support, 5);
     math_t dc_exp[] = {0.1, 0.3, -0.4, 0.9, -0.9};
     EXPECT_TRUE(devArrMatchHost(dc_exp,

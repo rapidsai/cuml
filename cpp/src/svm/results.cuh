@@ -118,16 +118,16 @@ class Results {
   void Get(const math_t* alpha,
            const math_t* f,
            rmm::device_buffer& dual_coefs,
-           int* n_support,
+           int& n_support,
            rmm::device_buffer& idx,
            SupportStorage& support_matrix,
-           math_t* b)
+           math_t& b)
   {
     CombineCoefs(alpha, val_tmp.data());
     GetDualCoefs(val_tmp.data(), dual_coefs, n_support);
-    *b = CalcB(alpha, f, *n_support);
-    GetSupportVectorIndices(idx, val_tmp.data(), *n_support);
-    CollectSupportVectorMatrix(support_matrix, idx, *n_support);
+    b = CalcB(alpha, f, n_support);
+    GetSupportVectorIndices(idx, val_tmp.data(), n_support);
+    CollectSupportVectorMatrix(support_matrix, idx, n_support);
     // Make sure that all pending GPU calculations finished before we return
     handle.sync_stream(stream);
   }
@@ -151,8 +151,11 @@ class Results {
       support_matrix.indices.resize(0, stream);
       support_matrix.data.resize(n_support * n_cols * sizeof(math_t), stream);
       if (n_support > 0) {
-        ML::SVM::extractRows<math_t>(
-          matrix, (math_t*)support_matrix.data.data(), (int*)idx.data(), n_support, handle);
+        ML::SVM::extractRows<math_t>(matrix,
+                                     reinterpret_cast<math_t*>(support_matrix.data.data()),
+                                     reinterpret_cast<int*>(idx.data()),
+                                     n_support,
+                                     handle);
       }
     } else {
       ML::SVM::extractRows<math_t>(matrix,
@@ -160,7 +163,7 @@ class Results {
                                    support_matrix.indices,
                                    support_matrix.data,
                                    &(support_matrix.nnz),
-                                   (int*)idx.data(),
+                                   reinterpret_cast<int*>(idx.data()),
                                    n_support,
                                    handle);
     }
@@ -202,13 +205,13 @@ class Results {
    *   unallocated on entry, on exit size [n_support]
    * @param [out] n_support number of support vectors
    */
-  void GetDualCoefs(const math_t* val_tmp, rmm::device_buffer& dual_coefs, int* n_support)
+  void GetDualCoefs(const math_t* val_tmp, rmm::device_buffer& dual_coefs, int& n_support)
   {
     // Return only the non-zero coefficients
     auto select_op = [] __device__(math_t a) { return 0 != a; };
-    *n_support     = SelectByCoef(val_tmp, n_rows, val_tmp, select_op, val_selected.data());
-    dual_coefs.resize(*n_support * sizeof(math_t), stream);
-    raft::copy((math_t*)dual_coefs.data(), val_selected.data(), *n_support, stream);
+    n_support      = SelectByCoef(val_tmp, n_rows, val_tmp, select_op, val_selected.data());
+    dual_coefs.resize(n_support * sizeof(math_t), stream);
+    raft::copy((math_t*)dual_coefs.data(), val_selected.data(), n_support, stream);
     handle.sync_stream(stream);
   }
 
