@@ -26,7 +26,7 @@ rmm = gpu_only_import('rmm')
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport free
+from libc.stdlib cimport free as c_free
 
 import cuml.internals
 from cuml.internals.array import CumlArray
@@ -545,7 +545,7 @@ cdef class ForestInference_impl():
         treelite_params.threads_per_tree = kwargs['threads_per_tree']
         if kwargs['compute_shape_str']:
             if self.shape_str:
-                free(self.shape_str)
+                c_free(self.shape_str)
             treelite_params.pforest_shape_str = &self.shape_str
         else:
             treelite_params.pforest_shape_str = NULL
