@@ -183,7 +183,9 @@ void build_linkage(const raft::handle_t& handle,
                                                   params.alpha,
                                                   mutual_reachability_indptr.data(),
                                                   core_dists,
-                                                  mutual_reachability_coo);
+                                                  mutual_reachability_coo,
+                                                  params.build_algo,
+                                                  params.nn_descent_params);
 
   /**
    * Construct MST sorted by weights

@@ -16,11 +16,16 @@
 
 #pragma once
 
+#include <cuml/cluster/hdbscan.hpp>
+#include <cuml/common/utils.hpp>
 #include <cuml/neighbors/knn.hpp>
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/neighbors/brute_force.cuh>
+#include <raft/neighbors/nn_descent.cuh>
+#include <raft/neighbors/nn_descent_types.hpp>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -33,6 +38,8 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
+
+namespace NNDescent = raft::neighbors::experimental::nn_descent;
 
 namespace ML {
 namespace HDBSCAN {
@@ -68,6 +75,62 @@ void core_distances(
   });
 }
 
+// Functor to post-process distances by sqrt
+// For usage with NN Descent which internally supports L2Expanded only
+template <typename value_idx, typename value_t = float>
+struct DistancePostProcessSqrt : NNDescent::DistEpilogue<value_idx, value_t> {
+  DI value_t operator()(value_t value, value_idx row, value_idx col) const
+  {
+    return powf(fabsf(value), 0.5);
+  }
+};
+
+template <typename T>
+CUML_KERNEL void copy_first_k_cols_shift_self(
+  T* out, T* in, size_t out_k, size_t in_k, size_t nrows)
+{
+  size_t row = blockIdx.x * blockDim.x + threadIdx.x;
+  if (row < nrows) {
+    for (size_t i = 1; i < out_k; i++) {
+      out[row * out_k + i] = in[row * in_k + i - 1];
+    }
+    out[row * out_k] = row;
+  }
+}
+
+template <typename T>
+CUML_KERNEL void copy_first_k_cols_shift_zero(
+  T* out, T* in, size_t out_k, size_t in_k, size_t nrows)
+{
+  size_t row = blockIdx.x * blockDim.x + threadIdx.x;
+  if (row < nrows) {
+    for (size_t i = 1; i < out_k; i++) {
+      out[row * out_k + i] = in[row * in_k + i - 1];
+    }
+    out[row * out_k] = static_cast<T>(0);
+  }
+}
+
+template <typename value_idx, typename value_t, typename epilogue_op>
+auto get_graph_nnd(const raft::handle_t& handle,
+                   const value_t* X,
+                   size_t m,
+                   size_t n,
+                   epilogue_op distance_epilogue,
+                   Common::nn_index_params build_params)
+{
+  cudaPointerAttributes attr;
+  RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, X));
+  float* ptr = reinterpret_cast<float*>(attr.devicePointer);
+  if (ptr != nullptr) {
+    auto dataset = raft::make_device_matrix_view<const value_t, int64_t>(X, m, n);
+    return NNDescent::build<value_t, value_idx>(handle, build_params, dataset, distance_epilogue);
+  } else {
+    auto dataset = raft::make_host_matrix_view<const value_t, int64_t>(X, m, n);
+    return NNDescent::build<value_t, value_idx>(handle, build_params, dataset, distance_epilogue);
+  }
+}
+
 /**
  * Wraps the brute force knn API, to be used for both training and prediction
  * @tparam value_idx data type for integrals
@@ -93,33 +156,76 @@ void compute_knn(const raft::handle_t& handle,
                  const value_t* search_items,
                  size_t n_search_items,
                  int k,
-                 raft::distance::DistanceType metric)
+                 raft::distance::DistanceType metric,
+                 Common::GRAPH_BUILD_ALGO build_algo  = Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN,
+                 Common::nn_index_params build_params = Common::nn_index_params{})
 {
   auto stream      = handle.get_stream();
   auto exec_policy = handle.get_thrust_policy();
-  std::vector<value_t*> inputs;
-  inputs.push_back(const_cast<value_t*>(X));
-
-  std::vector<int> sizes;
-  sizes.push_back(m);
-
   // This is temporary. Once faiss is updated, we should be able to
   // pass value_idx through to knn.
   rmm::device_uvector<int64_t> int64_indices(k * n_search_items, stream);
 
-  // perform knn
-  brute_force_knn(handle,
-                  inputs,
-                  sizes,
-                  n,
-                  const_cast<value_t*>(search_items),
-                  n_search_items,
-                  int64_indices.data(),
-                  dists,
-                  k,
-                  true,
-                  true,
-                  metric);
+  switch (build_algo) {
+    case Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN: {
+      std::vector<value_t*> inputs;
+      inputs.push_back(const_cast<value_t*>(X));
+
+      std::vector<int> sizes;
+      sizes.push_back(m);
+
+      // perform knn
+      brute_force_knn(handle,
+                      inputs,
+                      sizes,
+                      n,
+                      const_cast<value_t*>(search_items),
+                      n_search_items,
+                      int64_indices.data(),
+                      dists,
+                      k,
+                      true,
+                      true,
+                      metric);
+      break;
+    }
+
+    case Common::GRAPH_BUILD_ALGO::NN_DESCENT: {
+      RAFT_EXPECTS(static_cast<size_t>(k) <= build_params.graph_degree,
+                   "n_neighbors should be smaller than the graph degree computed by nn descent");
+
+      auto epilogue                 = DistancePostProcessSqrt<int64_t, float>{};
+      build_params.return_distances = true;
+      auto graph = get_graph_nnd<int64_t, float>(handle, X, m, n, epilogue, build_params);
+
+      size_t TPB        = 256;
+      size_t num_blocks = static_cast<size_t>((m + TPB) / TPB);
+
+      auto indices_d =
+        raft::make_device_matrix<int64_t, int64_t>(handle, m, build_params.graph_degree);
+
+      raft::copy(indices_d.data_handle(),
+                 graph.graph().data_handle(),
+                 m * build_params.graph_degree,
+                 stream);
+
+      RAFT_EXPECTS(graph.distances().has_value(),
+                   "return_distances for nn descent should be set to true to be used for HDBSCAN");
+      copy_first_k_cols_shift_zero<float>
+        <<<num_blocks, TPB, 0, stream>>>(dists,
+                                         graph.distances().value().data_handle(),
+                                         static_cast<size_t>(k),
+                                         build_params.graph_degree,
+                                         m);
+      copy_first_k_cols_shift_self<int64_t>
+        <<<num_blocks, TPB, 0, stream>>>(int64_indices.data(),
+                                         indices_d.data_handle(),
+                                         static_cast<size_t>(k),
+                                         build_params.graph_degree,
+                                         m);
+      break;
+    }
+  }
 
   // convert from current knn's 64-bit to 32-bit.
   thrust::transform(exec_policy,
@@ -134,13 +240,16 @@ void compute_knn(const raft::handle_t& handle,
          to compute core_dists
 */
 template <typename value_idx, typename value_t>
-void _compute_core_dists(const raft::handle_t& handle,
-                         const value_t* X,
-                         value_t* core_dists,
-                         size_t m,
-                         size_t n,
-                         raft::distance::DistanceType metric,
-                         int min_samples)
+void _compute_core_dists(
+  const raft::handle_t& handle,
+  const value_t* X,
+  value_t* core_dists,
+  size_t m,
+  size_t n,
+  raft::distance::DistanceType metric,
+  int min_samples,
+  Common::GRAPH_BUILD_ALGO build_algo  = Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN,
+  Common::nn_index_params build_params = Common::nn_index_params{})
 {
   RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
@@ -151,7 +260,18 @@ void _compute_core_dists(const raft::handle_t& handle,
   rmm::device_uvector<value_t> dists(min_samples * m, stream);
 
   // perform knn
-  compute_knn(handle, X, inds.data(), dists.data(), m, n, X, m, min_samples, metric);
+  compute_knn(handle,
+              X,
+              inds.data(),
+              dists.data(),
+              m,
+              n,
+              X,
+              m,
+              min_samples,
+              metric,
+              build_algo,
+              build_params);
 
   // Slice core distances (distances to kth nearest neighbor)
   core_distances<value_idx>(dists.data(), min_samples, min_samples, m, core_dists, stream);
@@ -163,6 +283,22 @@ struct ReachabilityPostProcess {
   DI value_t operator()(value_t value, value_idx row, value_idx col) const
   {
     return max(core_dists[col], max(core_dists[row], alpha * value));
+  }
+
+  const value_t* core_dists;
+  value_t alpha;
+};
+
+// Functor to post-process distances into reachability space (Sqrt)
+// For usage with NN Descent which internally supports L2Expanded only
+template <typename value_idx, typename value_t = float>
+struct ReachabilityPostProcessSqrt : NNDescent::DistEpilogue<value_idx, value_t> {
+  ReachabilityPostProcessSqrt(value_t* core_dists_, value_t alpha_)
+    : NNDescent::DistEpilogue<value_idx, value_t>(), core_dists(core_dists_), alpha(alpha_){};
+
+  DI value_t operator()(value_t value, value_idx row, value_idx col) const
+  {
+    return max(core_dists[col], max(core_dists[row], powf(fabsf(alpha * value), 0.5)));
   }
 
   const value_t* core_dists;
@@ -184,38 +320,79 @@ struct ReachabilityPostProcess {
  * @param[in] core_dists array of core distances (size m)
  */
 template <typename value_idx, typename value_t>
-void mutual_reachability_knn_l2(const raft::handle_t& handle,
-                                value_idx* out_inds,
-                                value_t* out_dists,
-                                const value_t* X,
-                                size_t m,
-                                size_t n,
-                                int k,
-                                value_t* core_dists,
-                                value_t alpha)
+void mutual_reachability_knn_l2(
+  const raft::handle_t& handle,
+  value_idx* out_inds,
+  value_t* out_dists,
+  const value_t* X,
+  size_t m,
+  size_t n,
+  int k,
+  value_t* core_dists,
+  value_t alpha,
+  Common::GRAPH_BUILD_ALGO build_algo  = Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN,
+  Common::nn_index_params build_params = Common::nn_index_params{})
 {
   // Create a functor to postprocess distances into mutual reachability space
   // Note that we can't use a lambda for this here, since we get errors like:
   // `A type local to a function cannot be used in the template argument of the
   // enclosing parent function (and any parent classes) of an extended __device__
   // or __host__ __device__ lambda`
-  auto epilogue = ReachabilityPostProcess<value_idx, value_t>{core_dists, alpha};
+  switch (build_algo) {
+    case Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN: {
+      auto epilogue = ReachabilityPostProcess<value_idx, value_t>{core_dists, alpha};
+      auto X_view   = raft::make_device_matrix_view(X, m, n);
+      std::vector<raft::device_matrix_view<const value_t, size_t>> index = {X_view};
 
-  auto X_view = raft::make_device_matrix_view(X, m, n);
-  std::vector<raft::device_matrix_view<const value_t, size_t>> index = {X_view};
+      raft::neighbors::brute_force::knn<value_idx, value_t>(
+        handle,
+        index,
+        X_view,
+        raft::make_device_matrix_view(out_inds, m, static_cast<size_t>(k)),
+        raft::make_device_matrix_view(out_dists, m, static_cast<size_t>(k)),
+        // TODO: expand distance metrics to support more than just L2 distance
+        // https://github.com/rapidsai/cuml/issues/5301
+        raft::distance::DistanceType::L2SqrtExpanded,
+        std::make_optional<float>(2.0f),
+        std::nullopt,
+        epilogue);
+      break;
+    }
 
-  raft::neighbors::brute_force::knn<value_idx, value_t>(
-    handle,
-    index,
-    X_view,
-    raft::make_device_matrix_view(out_inds, m, static_cast<size_t>(k)),
-    raft::make_device_matrix_view(out_dists, m, static_cast<size_t>(k)),
-    // TODO: expand distance metrics to support more than just L2 distance
-    // https://github.com/rapidsai/cuml/issues/5301
-    raft::distance::DistanceType::L2SqrtExpanded,
-    std::make_optional<float>(2.0f),
-    std::nullopt,
-    epilogue);
+    case Common::GRAPH_BUILD_ALGO::NN_DESCENT: {
+      RAFT_EXPECTS(static_cast<size_t>(k) <= build_params.graph_degree,
+                   "n_neighbors should be smaller than the graph degree computed by nn descent");
+
+      auto epilogue = ReachabilityPostProcessSqrt<value_idx, value_t>(core_dists, alpha);
+      build_params.return_distances = true;
+      auto graph = get_graph_nnd<value_idx, value_t>(handle, X, m, n, epilogue, build_params);
+
+      auto indices_d =
+        raft::make_device_matrix<value_idx, value_idx>(handle, m, build_params.graph_degree);
+
+      raft::copy(indices_d.data_handle(),
+                 graph.graph().data_handle(),
+                 m * build_params.graph_degree,
+                 handle.get_stream());
+
+      RAFT_EXPECTS(graph.distances().has_value(),
+                   "return_distances for nn descent should be set to true to be used for HDBSCAN");
+
+      raft::matrix::slice_coordinates coords{static_cast<int64_t>(0),
+                                             static_cast<int64_t>(0),
+                                             static_cast<int64_t>(m),
+                                             static_cast<int64_t>(k)};
+
+      auto out_knn_dists_view = raft::make_device_matrix_view(out_dists, m, (size_t)k);
+      raft::matrix::slice<float, int64_t, raft::row_major>(
+        handle, raft::make_const_mdspan(graph.distances().value()), out_knn_dists_view, coords);
+      auto out_knn_indices_view =
+        raft::make_device_matrix_view<value_idx, int64_t>(out_inds, m, (size_t)k);
+      raft::matrix::slice<value_idx, int64_t, raft::row_major>(
+        handle, raft::make_const_mdspan(indices_d.view()), out_knn_indices_view, coords);
+      break;
+    }
+  }
 }
 
 /**
@@ -260,16 +437,19 @@ void mutual_reachability_knn_l2(const raft::handle_t& handle,
  *             neighbors.
  */
 template <typename value_idx, typename value_t>
-void mutual_reachability_graph(const raft::handle_t& handle,
-                               const value_t* X,
-                               size_t m,
-                               size_t n,
-                               raft::distance::DistanceType metric,
-                               int min_samples,
-                               value_t alpha,
-                               value_idx* indptr,
-                               value_t* core_dists,
-                               raft::sparse::COO<value_t, value_idx>& out)
+void mutual_reachability_graph(
+  const raft::handle_t& handle,
+  const value_t* X,
+  size_t m,
+  size_t n,
+  raft::distance::DistanceType metric,
+  int min_samples,
+  value_t alpha,
+  value_idx* indptr,
+  value_t* core_dists,
+  raft::sparse::COO<value_t, value_idx>& out,
+  Common::GRAPH_BUILD_ALGO build_algo  = Common::GRAPH_BUILD_ALGO::BRUTE_FORCE_KNN,
+  Common::nn_index_params build_params = Common::nn_index_params{})
 {
   RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
@@ -282,7 +462,18 @@ void mutual_reachability_graph(const raft::handle_t& handle,
   rmm::device_uvector<value_t> dists(min_samples * m, stream);
 
   // perform knn
-  compute_knn(handle, X, inds.data(), dists.data(), m, n, X, m, min_samples, metric);
+  compute_knn(handle,
+              X,
+              inds.data(),
+              dists.data(),
+              m,
+              n,
+              X,
+              m,
+              min_samples,
+              metric,
+              build_algo,
+              build_params);
 
   // Slice core distances (distances to kth nearest neighbor)
   core_distances<value_idx>(dists.data(), min_samples, min_samples, m, core_dists, stream);
@@ -290,8 +481,17 @@ void mutual_reachability_graph(const raft::handle_t& handle,
   /**
    * Compute L2 norm
    */
-  mutual_reachability_knn_l2(
-    handle, inds.data(), dists.data(), X, m, n, min_samples, core_dists, (value_t)1.0 / alpha);
+  mutual_reachability_knn_l2(handle,
+                             inds.data(),
+                             dists.data(),
+                             X,
+                             m,
+                             n,
+                             min_samples,
+                             core_dists,
+                             (value_t)1.0 / alpha,
+                             build_algo,
+                             build_params);
 
   // self-loops get max distance
   auto coo_rows_counting_itr = thrust::make_counting_iterator<value_idx>(0);
