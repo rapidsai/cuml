@@ -14,6 +14,7 @@ dependencies:
 - cuda-profiler-api
 - cuda-version=12.5
 - cxx-compiler
+- fmt>=11.0.2,<12
 - gcc_linux-64=11.*
 - libcublas-dev
 - libcufft-dev
@@ -25,5 +26,6 @@ dependencies:
 - libraft==24.10.*,>=0.0.0a0
 - librmm==24.10.*,>=0.0.0a0
 - ninja
+- spdlog>=1.14.1,<1.15
 - sysroot_linux-64==2.17
 name: cpp_all_cuda-125_arch-x86_64

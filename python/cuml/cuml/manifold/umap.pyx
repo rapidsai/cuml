@@ -315,9 +315,7 @@ class UMAP(UniversalBase,
 
     In addition to these missing features, you should expect to see
     the final embeddings differing between cuml.umap and the reference
-    UMAP. In particular, the reference UMAP uses an approximate kNN
-    algorithm for large data sizes while cuml.umap always uses exact
-    kNN.
+    UMAP.
 
     References
     ----------
