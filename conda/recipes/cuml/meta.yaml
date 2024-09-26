@@ -101,5 +101,5 @@ tests:
 about:
   home: https://rapids.ai/
   license: Apache-2.0
-  # license_file: LICENSE
+  license_file: LICENSE
   summary: cuML library
