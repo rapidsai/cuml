@@ -141,6 +141,7 @@ dependencies:
           - c-compiler
           - cxx-compiler
           - libcumlprims==24.10.*,>=0.0.0a0
+          - libcuvs==24.10.*,>=0.0.0a0
           - libraft==24.10.*,>=0.0.0a0
           - libraft-headers==24.10.*,>=0.0.0a0
           - librmm==24.10.*,>=0.0.0a0

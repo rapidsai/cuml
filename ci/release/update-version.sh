@@ -47,6 +47,7 @@ DEPENDENCIES=(
   libcumlprims
   libraft-headers
   libraft
+  libcuvs
   librmm
   pylibraft
   raft-dask
