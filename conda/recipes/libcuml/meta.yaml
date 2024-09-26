@@ -122,6 +122,7 @@ outputs:
     about:
       home: https://rapids.ai/
       license: Apache-2.0
+      license_file: LICENSE
       summary: libcuml library
   - name: libcuml-tests
     version: {{ version }}
@@ -155,4 +156,5 @@ outputs:
     about:
       home: https://rapids.ai/
       license: Apache-2.0
+      license_file: LICENSE
       summary: libcuml test & benchmark executables
