@@ -18,6 +18,7 @@
 
 #include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/ball_cover_types.hpp>
+#include <raft/spatial/knn/detail/processing.hpp>  // MetricProcessor
 
 #include <cuvs/neighbors/ivf_flat.hpp>
 #include <cuvs/neighbors/ivf_pq.hpp>
@@ -81,6 +82,7 @@ struct knnIndex {
   raft::distance::DistanceType metric;
   float metricArg;
   int nprobe;
+  std::unique_ptr<raft::spatial::knn::MetricProcessor<float>> metric_processor;
 
   std::unique_ptr<cuvs::neighbors::ivf_flat::index<float, int64_t>> ivf_flat;
   std::unique_ptr<cuvs::neighbors::ivf_pq::index<int64_t>> ivf_pq;
