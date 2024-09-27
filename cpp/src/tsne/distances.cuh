@@ -71,9 +71,10 @@ void get_distances(const raft::handle_t& handle,
 {
   // TODO: for TSNE transform first fit some points then transform with 1/(1+d^2)
   // #861
-  auto k      = k_graph.n_neighbors;
-  auto X_view = raft::make_device_matrix_view<const float, int64_t>(input.X, input.n, input.d);
-  auto idx    = cuvs::neighbors::brute_force::build(
+  auto k = k_graph.n_neighbors;
+  auto X_view =
+    raft::make_device_matrix_view<const float, int64_t, raft::col_major>(input.X, input.n, input.d);
+  auto idx = cuvs::neighbors::brute_force::build(
     handle, X_view, static_cast<cuvs::distance::DistanceType>(metric), p);
 
   cuvs::neighbors::brute_force::search(
