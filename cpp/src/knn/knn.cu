@@ -133,7 +133,7 @@ void brute_force_knn(const raft::handle_t& handle,
       cuvs::neighbors::brute_force::search(
         current_handle,
         *idx,
-        raft::make_device_matrix_view<const float, int64_t, raft::row_major>(search_items, n, D),
+        raft::make_device_matrix_view<const float, int64_t, raft::col_major>(search_items, n, D),
         raft::make_device_matrix_view<int64_t, int64_t>(out_i_ptr, n, k),
         raft::make_device_matrix_view<float, int64_t>(out_d_ptr, n, k),
         std::nullopt);
