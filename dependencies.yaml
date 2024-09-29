@@ -143,7 +143,6 @@ dependencies:
           - fmt>=11.0.2,<12
           - libcumlprims==24.10.*,>=0.0.0a0
           - libcuvs==24.10.*,>=0.0.0a0
-          - libraft==24.10.*,>=0.0.0a0
           - libraft-headers==24.10.*,>=0.0.0a0
           - librmm==24.10.*,>=0.0.0a0
           - spdlog>=1.14.1,<1.15

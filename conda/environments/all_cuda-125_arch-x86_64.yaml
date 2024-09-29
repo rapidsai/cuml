@@ -38,7 +38,6 @@ dependencies:
 - libcusparse-dev
 - libcuvs==24.10.*,>=0.0.0a0
 - libraft-headers==24.10.*,>=0.0.0a0
-- libraft==24.10.*,>=0.0.0a0
 - librmm==24.10.*,>=0.0.0a0
 - nbsphinx
 - ninja
