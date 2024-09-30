@@ -34,6 +34,7 @@ from cuml.internals.mem_type import MemoryType
 from cuml.decomposition import PCA, TruncatedSVD
 from cuml.cluster import KMeans
 from cuml.cluster import DBSCAN
+from cuml.svm import SVC, SVR
 from cuml.common.device_selection import DeviceType, using_device_type
 from cuml.testing.utils import assert_dbscan_equal
 from hdbscan import HDBSCAN as refHDBSCAN
@@ -47,7 +48,9 @@ from sklearn.decomposition import PCA as skPCA
 from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
 from sklearn.cluster import KMeans as skKMeans
 from sklearn.cluster import DBSCAN as skDBSCAN
-from sklearn.datasets import make_regression, make_blobs
+from sklearn.svm import SVC as skSVC
+from sklearn.svm import SVR as skSVR
+from sklearn.datasets import make_regression, make_classification, make_blobs
 from pytest_cases import fixture_union, fixture
 from importlib import import_module
 import inspect
@@ -139,6 +142,23 @@ def make_reg_dataset():
     )
 
 
+def make_class_dataset():
+    X, y = make_classification(
+        n_samples=2000,
+        n_features=20,
+        n_informative=18,
+        n_classes=2,
+        random_state=0,
+    )
+    X_train, X_test = X[:1800], X[1800:]
+    y_train, _ = y[:1800], y[1800:]
+    return (
+        X_train.astype(np.float32),
+        y_train.astype(np.float32),
+        X_test.astype(np.float32),
+    )
+
+
 def make_blob_dataset():
     X, y = make_blobs(
         n_samples=2000,
@@ -157,6 +177,7 @@ def make_blob_dataset():
 
 
 X_train_reg, y_train_reg, X_test_reg = make_reg_dataset()
+X_train_class, y_train_class, X_test_class = make_class_dataset()
 X_train_blob, y_train_blob, X_test_blob = make_blob_dataset()
 
 
@@ -997,3 +1018,35 @@ def test_dbscan_methods(train_device, infer_device):
     assert_dbscan_equal(
         ref_output, output, X_train_blob, model.core_sample_indices_, eps
     )
+
+
+@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
+@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
+def test_svc_methods(train_device, infer_device):
+    ref_model = skSVC()
+    ref_model.fit(X_train_class, y_train_class)
+    ref_output = ref_model.predict(X_test_class)
+
+    model = SVC()
+    with using_device_type(train_device):
+        model.fit(X_train_class, y_train_class)
+    with using_device_type(infer_device):
+        output = model.predict(X_test_class)
+
+    np.testing.assert_allclose(ref_output, output, rtol=0.15)
+
+
+@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
+@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
+def test_svr_methods(train_device, infer_device):
+    ref_model = skSVR()
+    ref_model.fit(X_train_reg, y_train_reg)
+    ref_output = ref_model.predict(X_test_reg)
+
+    model = SVR()
+    with using_device_type(train_device):
+        model.fit(X_train_reg, y_train_reg)
+    with using_device_type(infer_device):
+        output = model.predict(X_test_reg)
+
+    np.testing.assert_allclose(ref_output, output, rtol=0.15)
