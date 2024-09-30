@@ -51,7 +51,6 @@ if(BUILD_CUML_BENCH)
       ${TREELITE_LIBS}
       cuvs::cuvs
       raft::raft
-      raft::compiled
   )
 
   target_include_directories(${CUML_CPP_BENCH_TARGET}

@@ -58,7 +58,6 @@ function(ConfigureTest)
     cuvs::cuvs
     rmm::rmm
     raft::raft
-    $<$<BOOL:${CUML_RAFT_COMPILED}>:raft::compiled>
     GTest::gtest
     GTest::gtest_main
     GTest::gmock
