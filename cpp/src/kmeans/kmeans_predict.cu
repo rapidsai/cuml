@@ -129,7 +129,6 @@ void predict(const raft::handle_t& handle,
              int64_t* labels,
              double& inertia)
 {
-  // TODO: this is the problematic one
   predict_impl(handle,
                params,
                centroids,
