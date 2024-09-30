@@ -25,6 +25,8 @@ function(find_and_configure_cuvs)
     if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${CUML_BRANCH_VERSION_cuvs}")
         message(STATUS "CUML: CUVS pinned tag found: ${PKG_PINNED_TAG}. Cloning cuvs locally.")
         set(CPM_DOWNLOAD_cuvs ON)
+    else()
+        message(STATUS "Not cloning cuvs locally")
     endif()
 
     rapids_cpm_find(cuvs ${PKG_VERSION}
