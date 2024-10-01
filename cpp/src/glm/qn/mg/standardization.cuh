@@ -162,6 +162,16 @@ void mean_stddev(const raft::handle_t& handle,
 {
   auto stream = handle.get_stream();
   int D       = X.n;
+
+  if (X.nnz == 0) {
+    SimpleVec<T> meanVec(mean_vector, D);
+    meanVec.fill(0., stream);
+
+    SimpleVec<T> stddevVec(stddev_vector, D);
+    stddevVec.fill(0., stream);
+    return;
+  }
+
   mean(handle, X, n_samples, mean_vector);
 
   // calculate stdev.S
