@@ -21,6 +21,7 @@ cd ${package_dir}
 case "${RAPIDS_CUDA_VERSION}" in
   12.*)
     EXCLUDE_ARGS=(
+      --exclude "libcuvs.so"
       --exclude "libcublas.so.12"
       --exclude "libcublasLt.so.12"
       --exclude "libcufft.so.11"
@@ -32,7 +33,9 @@ case "${RAPIDS_CUDA_VERSION}" in
     EXTRA_CMAKE_ARGS=";-DUSE_CUDA_MATH_WHEELS=ON"
     ;;
   11.*)
-    EXCLUDE_ARGS=()
+    EXCLUDE_ARGS=(
+      --exclude "libcuvs.so"
+    )
     EXTRA_CMAKE_ARGS=";-DUSE_CUDA_MATH_WHEELS=OFF"
     ;;
 esac
