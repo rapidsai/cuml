@@ -56,8 +56,8 @@ endfunction()
 # To use a different CUVS locally, set the CMake variable
 # CPM_cuvs_SOURCE=/path/to/local/cuvs
 find_and_configure_cuvs(VERSION          ${CUML_MIN_VERSION_cuvs}
-      FORK             benfred
-      PINNED_TAG       cuml_integration
+      FORK             rapidsai
+      PINNED_TAG       branch-${CUML_BRANCH_VERSION_cuvs}
       EXCLUDE_FROM_ALL ${CUML_EXCLUDE_CUVS_FROM_ALL}
       # When PINNED_TAG above doesn't match cuml,
       # force local cuvs clone in build directory
