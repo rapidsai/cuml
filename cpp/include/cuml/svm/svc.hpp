@@ -219,7 +219,7 @@ class SVC {
 
   raft::distance::kernels::KernelParams kernel_params;
   SvmParameter param;
-  SvmModel<math_t> model;
+  SvmModelContainer<math_t> model_container;
   /**
    * @brief Constructs a support vector classifier
    * @param handle cuML handle

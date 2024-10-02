@@ -71,10 +71,10 @@ void svrFitX(const raft::handle_t& handle,
             n_cols,
             y,
             sample_weight,
-            model.dual_coefs,
+            *(model.dual_coefs),
             model.n_support,
             model.support_matrix,
-            model.support_idx,
+            *(model.support_idx),
             model.b,
             param.max_iter);
   model.n_cols = n_cols;

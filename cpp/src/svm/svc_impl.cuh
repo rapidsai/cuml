@@ -72,8 +72,8 @@ void svcFitX(const raft::handle_t& handle,
   {
     rmm::device_uvector<math_t> unique_labels(0, stream);
     model.n_classes = raft::label::getUniquelabels(unique_labels, labels, n_rows, stream);
-    model.unique_labels.resize(model.n_classes * sizeof(math_t), stream);
-    raft::copy((math_t*)model.unique_labels.data(), unique_labels.data(), model.n_classes, stream);
+    model.unique_labels->resize(model.n_classes * sizeof(math_t), stream);
+    raft::copy((math_t*)model.unique_labels->data(), unique_labels.data(), model.n_classes, stream);
     handle_impl.sync_stream(stream);
   }
 
@@ -81,7 +81,7 @@ void svcFitX(const raft::handle_t& handle,
 
   rmm::device_uvector<math_t> y(n_rows, stream);
   raft::label::getOvrlabels(
-    labels, n_rows, (math_t*)model.unique_labels.data(), model.n_classes, y.data(), 1, stream);
+    labels, n_rows, (math_t*)model.unique_labels->data(), model.n_classes, y.data(), 1, stream);
 
   raft::distance::kernels::GramMatrixBase<math_t>* kernel =
     raft::distance::kernels::KernelFactory<math_t>::create(kernel_params);
@@ -91,10 +91,10 @@ void svcFitX(const raft::handle_t& handle,
             n_cols,
             y.data(),
             sample_weight,
-            model.dual_coefs,
+            *(model.dual_coefs),
             model.n_support,
             model.support_matrix,
-            model.support_idx,
+            *(model.support_idx),
             model.b,
             param.max_iter);
   model.n_cols = n_cols;
@@ -191,21 +191,21 @@ void svcPredictX(const raft::handle_t& handle,
   rmm::device_uvector<math_t> l2_support(0, stream);
   bool is_csr_input = !isDenseType<MatrixViewType>();
 
-  bool is_csr_support   = model.support_matrix.data.size() > 0 && model.support_matrix.nnz >= 0;
-  bool is_dense_support = model.support_matrix.data.size() > 0 && !is_csr_support;
+  bool is_csr_support   = model.support_matrix.data->size() > 0 && model.support_matrix.nnz >= 0;
+  bool is_dense_support = model.support_matrix.data->size() > 0 && !is_csr_support;
 
   // Unfortunately we need runtime support for both types
   raft::device_matrix_view<math_t, int, raft::layout_stride> dense_support_matrix_view;
   if (is_dense_support) {
     dense_support_matrix_view =
       raft::make_device_strided_matrix_view<math_t, int, raft::layout_f_contiguous>(
-        (math_t*)model.support_matrix.data.data(), model.n_support, n_cols, 0);
+        (math_t*)model.support_matrix.data->data(), model.n_support, n_cols, 0);
   }
   auto csr_structure_view =
     is_csr_support
       ? raft::make_device_compressed_structure_view<int, int, int>(
-          (int*)model.support_matrix.indptr.data(),
-          (int*)model.support_matrix.indices.data(),
+          (int*)model.support_matrix.indptr->data(),
+          (int*)model.support_matrix.indices->data(),
           model.n_support,
           n_cols,
           model.support_matrix.nnz)
@@ -213,7 +213,7 @@ void svcPredictX(const raft::handle_t& handle,
   auto csr_support_matrix_view =
     is_csr_support
       ? raft::make_device_csr_matrix_view<math_t, int, int, int>(
-          (math_t*)model.support_matrix.data.data(), csr_structure_view)
+          (math_t*)model.support_matrix.data->data(), csr_structure_view)
       : raft::make_device_csr_matrix_view<math_t, int, int, int>(nullptr, csr_structure_view);
 
   bool transpose_kernel = is_csr_support && !is_csr_input;
@@ -277,7 +277,7 @@ void svcPredictX(const raft::handle_t& handle,
                        &one,
                        K.data(),
                        transpose_kernel ? model.n_support : n_batch,
-                       (math_t*)model.dual_coefs.data(),
+                       (math_t*)model.dual_coefs->data(),
                        1,
                        &null,
                        y.data() + i,
@@ -286,7 +286,7 @@ void svcPredictX(const raft::handle_t& handle,
 
   }  // end of loop
 
-  math_t* labels = (math_t*)model.unique_labels.data();
+  math_t* labels = (math_t*)model.unique_labels->data();
   math_t b       = model.b;
   if (predict_class) {
     // Look up the label based on the value of the decision function:
@@ -359,19 +359,19 @@ void svmFreeBuffers(const raft::handle_t& handle, SvmModel<math_t>& m)
   m.n_support = 0;
   m.n_cols    = 0;
   m.b         = (math_t)0;
-  m.dual_coefs.resize(0, stream);
-  m.dual_coefs.shrink_to_fit(stream);
-  m.support_idx.resize(0, stream);
-  m.support_idx.shrink_to_fit(stream);
-  m.support_matrix.indptr.resize(0, stream);
-  m.support_matrix.indptr.shrink_to_fit(stream);
-  m.support_matrix.indices.resize(0, stream);
-  m.support_matrix.indices.shrink_to_fit(stream);
-  m.support_matrix.data.resize(0, stream);
-  m.support_matrix.data.shrink_to_fit(stream);
+  m.dual_coefs->resize(0, stream);
+  m.dual_coefs->shrink_to_fit(stream);
+  m.support_idx->resize(0, stream);
+  m.support_idx->shrink_to_fit(stream);
+  m.support_matrix.indptr->resize(0, stream);
+  m.support_matrix.indptr->shrink_to_fit(stream);
+  m.support_matrix.indices->resize(0, stream);
+  m.support_matrix.indices->shrink_to_fit(stream);
+  m.support_matrix.data->resize(0, stream);
+  m.support_matrix.data->shrink_to_fit(stream);
   m.support_matrix.nnz = -1;
-  m.unique_labels.resize(0, stream);
-  m.unique_labels.shrink_to_fit(stream);
+  m.unique_labels->resize(0, stream);
+  m.unique_labels->shrink_to_fit(stream);
 }
 
 };  // end namespace SVM

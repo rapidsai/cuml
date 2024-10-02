@@ -147,21 +147,21 @@ class Results {
     if (isDenseType<MatrixViewType>() ||
         ((size_t)n_support * n_cols * sizeof(math_t) < (1 << 30))) {
       support_matrix.nnz = -1;
-      support_matrix.indptr.resize(0, stream);
-      support_matrix.indices.resize(0, stream);
-      support_matrix.data.resize(n_support * n_cols * sizeof(math_t), stream);
+      support_matrix.indptr->resize(0, stream);
+      support_matrix.indices->resize(0, stream);
+      support_matrix.data->resize(n_support * n_cols * sizeof(math_t), stream);
       if (n_support > 0) {
         ML::SVM::extractRows<math_t>(matrix,
-                                     reinterpret_cast<math_t*>(support_matrix.data.data()),
+                                     reinterpret_cast<math_t*>(support_matrix.data->data()),
                                      reinterpret_cast<int*>(idx.data()),
                                      n_support,
                                      handle);
       }
     } else {
       ML::SVM::extractRows<math_t>(matrix,
-                                   support_matrix.indptr,
-                                   support_matrix.indices,
-                                   support_matrix.data,
+                                   *(support_matrix.indptr),
+                                   *(support_matrix.indices),
+                                   *(support_matrix.data),
                                    &(support_matrix.nnz),
                                    reinterpret_cast<int*>(idx.data()),
                                    n_support,
