@@ -1119,3 +1119,44 @@ def test_standardization_sparse(fit_intercept, reg_dtype, client):
     )
 
     assert lr_on.dtype == datatype
+
+
+@pytest.mark.parametrize("standardization", [False, True])
+@pytest.mark.parametrize("fit_intercept", [False, True])
+def test_sparse_all_zeroes(standardization, fit_intercept, client):
+    n_parts = 2
+    datatype = "float32"
+
+    X = np.array([(0, 0), (0, 0), (0, 0), (0, 0)], datatype)
+    y = np.array([1.0, 1.0, 0.0, 0.0], datatype)
+    X = csr_matrix(X)
+    X_da_csr, y_da = _prep_training_data_sparse(client, X, y, n_parts)
+
+    from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
+
+    mg = cumlLBFGS_dask(
+        fit_intercept=fit_intercept,
+        verbose=True,
+        standardization=standardization,
+    )
+    mg.fit(X_da_csr, y_da)
+    mg_preds = mg.predict(X_da_csr).compute()
+
+    from sklearn.linear_model import LogisticRegression
+
+    cpu_lr = LogisticRegression(fit_intercept=fit_intercept)
+    cpu_lr.fit(X, y)
+    cpu_preds = cpu_lr.predict(X)
+
+    assert array_equal(mg_preds, cpu_preds)
+
+    assert array_equal(
+        mg.coef_,
+        cpu_lr.coef_,
+        with_sign=True,
+    )
+    assert array_equal(
+        mg.intercept_,
+        cpu_lr.intercept_,
+        with_sign=True,
+    )
