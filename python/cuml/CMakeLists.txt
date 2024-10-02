@@ -212,3 +212,7 @@ add_subdirectory(cuml/experimental/linear_model)
 if(DEFINED cython_lib_dir)
   rapids_cython_add_rpath_entries(TARGET cuml PATHS "${cython_lib_dir}")
 endif()
+
+if(USE_CUVS_WHEEL)
+  rapids_cython_add_rpath_entries(TARGET cuml PATHS cuvs)
+endif()
