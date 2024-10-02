@@ -267,7 +267,9 @@ def train_test_split(
 
     all_numeric = True
     if isinstance(X, cudf.DataFrame):
-        all_numeric = all(cudf.api.types.is_numeric_dtype(X[col]) for col in X.columns)
+        all_numeric = all(
+            cudf.api.types.is_numeric_dtype(X[col]) for col in X.columns
+        )
 
     if all_numeric:
         x_order = array_to_memory_order(X)
@@ -383,10 +385,12 @@ def train_test_split(
         x_type = determine_df_obj_type(X) or determine_array_type(X)
         y_type = determine_df_obj_type(y) or determine_array_type(y)
 
-        def _process_df_objs(df, df_type, df_train, df_test):
+        def _process_df_objs(
+            df, df_type, df_train, df_test, train_indices, test_indices
+        ):
             if df_type in {"series", "dataframe"}:
-                df_train = output_to_df_obj_like(df_train, df, x_type)
-                df_test = output_to_df_obj_like(df_test, df, x_type)
+                df_train = output_to_df_obj_like(df_train, df, df_type)
+                df_test = output_to_df_obj_like(df_test, df, df_type)
 
                 if determine_array_type(df.index) == "pandas":
                     if isinstance(train_indices, cp.ndarray):
@@ -397,11 +401,16 @@ def train_test_split(
                 df_train.index = df.index[train_indices]
                 df_test.index = df.index[test_indices]
             else:
-                X_train = X_train.to_output(x_type)
-                X_test = X_test.to_output(x_type)
+                df_train = df_train.to_output(df_type)
+                df_test = df_test.to_output(df_type)
+            return df_train, df_test
 
-        X_test, X_train = _process_df_objs(X, x_type, X_test, X_train)
-        y_test, y_train = _process_df_objs(y, y_type, y_test, y_train)
+        X_train, X_test = _process_df_objs(
+            X, x_type, X_train, X_test, train_indices
+        )
+        y_train, y_test = _process_df_objs(
+            y, y_type, y_train, y_test, test_indices
+        )
 
     else:
         X_train = X_arr.iloc[train_indices]
