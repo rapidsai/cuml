@@ -604,7 +604,7 @@ class KMeans(UniversalBase,
             cdef KMeansParams* params = \
                 <KMeansParams*><size_t>self._get_kmeans_params()
 
-            params.metric = CuvsDistanceType.L2SqrtExpanded
+            params.metric = CuvsDistanceType.L2Expanded
 
             int_dtype = np.int32 if self.labels_.dtype == np.int32 else np.int64
 
