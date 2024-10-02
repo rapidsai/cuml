@@ -155,8 +155,8 @@ if(CUML_CPU)
   list(APPEND CYTHON_FLAGS
   "--compile-time-env GPUBUILD=0")
 else()
-  set(cuml_sg_libraries cuml::${CUML_CPP_TARGET} cuvs::cuvs)
-  set(cuml_mg_libraries cuml::${CUML_CPP_TARGET} cuvs::cuvs)
+  set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
+  set(cuml_mg_libraries cuml::${CUML_CPP_TARGET})
 
   list(APPEND CYTHON_FLAGS
   "--compile-time-env GPUBUILD=1")
