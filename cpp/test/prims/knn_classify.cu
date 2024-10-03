@@ -84,8 +84,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
       idx,
       train_view,
       raft::make_device_matrix_view<int64_t, int64_t>(knn_indices.data(), params.rows, params.k),
-      raft::make_device_matrix_view<float, int64_t>(knn_dists.data(), params.rows, params.k),
-      std::nullopt);
+      raft::make_device_matrix_view<float, int64_t>(knn_dists.data(), params.rows, params.k));
 
     std::vector<int*> y;
     y.push_back(train_labels.data());

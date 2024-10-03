@@ -105,8 +105,7 @@ inline void launcher(const raft::handle_t& handle,
       idx,
       raft::make_device_matrix_view<const float, int64_t>(inputsB.X, inputsB.n, inputsB.d),
       raft::make_device_matrix_view<int64_t, int64_t>(out.knn_indices, inputsB.n, n_neighbors),
-      raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsB.n, n_neighbors),
-      std::nullopt);
+      raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsB.n, n_neighbors));
   } else {  // nn_descent
     // TODO:  use nndescent from cuvs
     RAFT_EXPECTS(static_cast<size_t>(n_neighbors) <= params->nn_descent_params.graph_degree,

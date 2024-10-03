@@ -82,8 +82,7 @@ void get_distances(const raft::handle_t& handle,
     idx,
     X_view,
     raft::make_device_matrix_view<int64_t, int64_t>(k_graph.knn_indices, input.n, k),
-    raft::make_device_matrix_view<float, int64_t>(k_graph.knn_dists, input.n, k),
-    std::nullopt);
+    raft::make_device_matrix_view<float, int64_t>(k_graph.knn_dists, input.n, k));
 }
 
 // dense, int32 indices

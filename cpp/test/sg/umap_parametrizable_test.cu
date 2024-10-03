@@ -136,8 +136,7 @@ class UMAPParametrizableTest : public ::testing::Test {
                                            raft::make_device_matrix_view<int64_t, int64_t>(
                                              knn_indices, n_samples, umap_params.n_neighbors),
                                            raft::make_device_matrix_view<float, int64_t>(
-                                             knn_dists, n_samples, umap_params.n_neighbors),
-                                           std::nullopt);
+                                             knn_dists, n_samples, umap_params.n_neighbors));
 
       handle.sync_stream(stream);
     }
