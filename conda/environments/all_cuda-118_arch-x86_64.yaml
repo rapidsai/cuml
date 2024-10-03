@@ -20,6 +20,7 @@ dependencies:
 - dask-cudf==24.10.*,>=0.0.0a0
 - dask-ml
 - doxygen=1.9.1
+- fmt>=11.0.2,<12
 - gcc_linux-64=11.*
 - graphviz
 - hdbscan>=0.8.38,<0.8.39
@@ -67,6 +68,8 @@ dependencies:
 - scikit-learn==1.5
 - scipy>=1.8.0
 - seaborn
+- setuptools
+- spdlog>=1.14.1,<1.15
 - sphinx-copybutton
 - sphinx-markdown-tables
 - sphinx<6
