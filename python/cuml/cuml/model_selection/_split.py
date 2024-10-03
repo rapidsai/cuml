@@ -406,10 +406,10 @@ def train_test_split(
             return df_train, df_test
 
         X_train, X_test = _process_df_objs(
-            X, x_type, X_train, X_test, train_indices
+            X, x_type, X_train, X_test, train_indices, test_indices
         )
         y_train, y_test = _process_df_objs(
-            y, y_type, y_train, y_test, test_indices
+            y, y_type, y_train, y_test, train_indices, test_indices
         )
 
     else:
