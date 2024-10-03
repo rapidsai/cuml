@@ -111,7 +111,6 @@ classifiers = [
 [project.optional-dependencies]
 test = [
     "cython>=3.0.0",
-    "dask-glm==0.3.0",
     "dask-ml",
     "hdbscan>=0.8.38,<0.8.39",
     "hypothesis>=6.0,<7",
