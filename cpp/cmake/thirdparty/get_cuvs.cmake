@@ -18,15 +18,24 @@ set(CUML_MIN_VERSION_cuvs "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
 set(CUML_BRANCH_VERSION_cuvs "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 
 function(find_and_configure_cuvs)
-    set(oneValueArgs VERSION FORK PINNED_TAG EXCLUDE_FROM_ALL COMPILE_LIBRARY CLONE_ON_PIN NVTX)
+    set(oneValueArgs VERSION FORK PINNED_TAG EXCLUDE_FROM_ALL USE_CUVS_STATIC COMPILE_LIBRARY CLONE_ON_PIN NVTX)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
             "${multiValueArgs}" ${ARGN} )
 
     if(PKG_CLONE_ON_PIN AND NOT PKG_PINNED_TAG STREQUAL "branch-${CUML_BRANCH_VERSION_cuvs}")
         message(STATUS "CUML: CUVS pinned tag found: ${PKG_PINNED_TAG}. Cloning cuvs locally.")
         set(CPM_DOWNLOAD_cuvs ON)
+    elseif(PKG_USE_CUVS_STATIC AND (NOT CPM_cuvs_SOURCE))
+        message(STATUS "CUML: Cloning cuvs locally to build static libraries.")
+        set(CPM_DOWNLOAD_cuvs ON)
     else()
         message(STATUS "Not cloning cuvs locally")
+    endif()
+
+    if(PKG_USE_CUVS_STATIC)
+      set(CUVS_LIB cuvs::cuvs_static PARENT_SCOPE)
+    else()
+      set(CUVS_LIB cuvs::cuvs PARENT_SCOPE)
     endif()
 
     rapids_cpm_find(cuvs ${PKG_VERSION}
@@ -56,13 +65,14 @@ endfunction()
 # To use a different CUVS locally, set the CMake variable
 # CPM_cuvs_SOURCE=/path/to/local/cuvs
 find_and_configure_cuvs(VERSION          ${CUML_MIN_VERSION_cuvs}
-      FORK             rapidsai
-      PINNED_TAG       branch-${CUML_BRANCH_VERSION_cuvs}
+      FORK             benfred
+      PINNED_TAG       static_lib
       EXCLUDE_FROM_ALL ${CUML_EXCLUDE_CUVS_FROM_ALL}
       # When PINNED_TAG above doesn't match cuml,
       # force local cuvs clone in build directory
       # even if it's already installed.
       CLONE_ON_PIN     ${CUML_CUVS_CLONE_ON_PIN}
       COMPILE_LIBRARY  ${CUML_CUVS_COMPILED}
+      USE_CUVS_STATIC  ${CUML_USE_CUVS_STATIC}
       NVTX             ${NVTX}
       )
