@@ -383,7 +383,8 @@ def train_test_split(
 
         # Coerce output to original input type
         x_type = determine_df_obj_type(X) or determine_array_type(X)
-        y_type = determine_df_obj_type(y) or determine_array_type(y)
+        if y is not None:
+            y_type = determine_df_obj_type(y) or determine_array_type(y)
 
         def _process_df_objs(
             df, df_type, df_train, df_test, train_indices, test_indices
@@ -408,9 +409,10 @@ def train_test_split(
         X_train, X_test = _process_df_objs(
             X, x_type, X_train, X_test, train_indices, test_indices
         )
-        y_train, y_test = _process_df_objs(
-            y, y_type, y_train, y_test, train_indices, test_indices
-        )
+        if y is not None:
+            y_train, y_test = _process_df_objs(
+                y, y_type, y_train, y_test, train_indices, test_indices
+            )
 
     else:
         X_train = X_arr.iloc[train_indices]
