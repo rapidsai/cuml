@@ -142,7 +142,7 @@ dependencies:
           - cxx-compiler
           - fmt>=11.0.2,<12
           - libcumlprims==24.10.*,>=0.0.0a0
-          - libraft==24.10.*,>=0.0.0a0
+          - libcuvs==24.10.*,>=0.0.0a0
           - libraft-headers==24.10.*,>=0.0.0a0
           - librmm==24.10.*,>=0.0.0a0
           - spdlog>=1.14.1,<1.15
@@ -183,6 +183,7 @@ dependencies:
           - &treelite treelite==4.3.0
       - output_types: conda
         packages:
+          - &cuvs_unsuffixed cuvs==24.10.*,>=0.0.0a0
           - &pylibraft_unsuffixed pylibraft==24.10.*,>=0.0.0a0
           - &rmm_unsuffixed rmm==24.10.*,>=0.0.0a0
       - output_types: requirements
@@ -211,16 +212,19 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
+              - cuvs-cu12==24.10.*,>=0.0.0a0
               - pylibraft-cu12==24.10.*,>=0.0.0a0
               - rmm-cu12==24.10.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
+              - cuvs-cu11==24.10.*,>=0.0.0a0
               - pylibraft-cu11==24.10.*,>=0.0.0a0
               - rmm-cu11==24.10.*,>=0.0.0a0
           - matrix:
             packages:
+              - *cuvs_unsuffixed
               - *pylibraft_unsuffixed
               - *rmm_unsuffixed
 
@@ -260,6 +264,7 @@ dependencies:
             packages:
               - cudf-cu12==24.10.*,>=0.0.0a0
               - &cupy_pyproject_cu12 cupy-cuda12x>=12.0.0
+              - cuvs-cu12==24.10.*,>=0.0.0a0
               - dask-cudf-cu12==24.10.*,>=0.0.0a0
               - pylibraft-cu12==24.10.*,>=0.0.0a0
               - raft-dask-cu12==24.10.*,>=0.0.0a0
@@ -272,6 +277,7 @@ dependencies:
               # NOTE: cupy still has a "-cuda12x" suffix here, because it's suffixed
               #       in DLFW builds
               - *cupy_pyproject_cu12
+              - *cuvs_unsuffixed
               - *dask_cudf_unsuffixed
               - *pylibraft_unsuffixed
               - *raft_dask_unsuffixed
@@ -282,6 +288,7 @@ dependencies:
             packages: &py_run_packages_cu11
               - cudf-cu11==24.10.*,>=0.0.0a0
               - &cupy_pyproject_cu11 cupy-cuda11x>=12.0.0
+              - cuvs-cu11==24.10.*,>=0.0.0a0
               - dask-cudf-cu11==24.10.*,>=0.0.0a0
               - pylibraft-cu11==24.10.*,>=0.0.0a0
               - raft-dask-cu11==24.10.*,>=0.0.0a0
@@ -294,6 +301,7 @@ dependencies:
               # NOTE: cupy still has a "-cuda11x" suffix here, because it's suffixed
               #       in DLFW builds
               - *cupy_pyproject_cu11
+              - *cuvs_unsuffixed
               - *dask_cudf_unsuffixed
               - *pylibraft_unsuffixed
               - *raft_dask_unsuffixed
@@ -302,6 +310,7 @@ dependencies:
             packages:
               - *cudf_unsuffixed
               - *cupy_pyproject_cu11
+              - *cuvs_unsuffixed
               - *dask_cudf_unsuffixed
               - *pylibraft_unsuffixed
               - *raft_dask_unsuffixed

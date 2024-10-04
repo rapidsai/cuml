@@ -82,6 +82,7 @@ requires-python = ">=3.10"
 dependencies = [
     "cudf==24.10.*,>=0.0.0a0",
     "cupy-cuda11x>=12.0.0",
+    "cuvs==24.10.*,>=0.0.0a0",
     "dask-cuda==24.10.*,>=0.0.0a0",
     "dask-cudf==24.10.*,>=0.0.0a0",
     "joblib>=0.11",
@@ -164,6 +165,7 @@ matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
 requires = [
     "cmake>=3.26.4,!=3.30.0",
     "cuda-python",
+    "cuvs==24.10.*,>=0.0.0a0",
     "cython>=3.0.0",
     "ninja",
     "pylibraft==24.10.*,>=0.0.0a0",

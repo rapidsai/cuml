@@ -22,8 +22,8 @@ dependencies:
 - libcurand-dev
 - libcusolver-dev
 - libcusparse-dev
+- libcuvs==24.10.*,>=0.0.0a0
 - libraft-headers==24.10.*,>=0.0.0a0
-- libraft==24.10.*,>=0.0.0a0
 - librmm==24.10.*,>=0.0.0a0
 - ninja
 - spdlog>=1.14.1,<1.15
