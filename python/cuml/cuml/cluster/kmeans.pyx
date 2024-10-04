@@ -20,6 +20,7 @@ from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 rmm = gpu_only_import('rmm')
+from cuml.internals.safe_imports import safe_import_from, return_false
 import typing
 
 IF GPUBUILD == 1:
@@ -46,7 +47,10 @@ from cuml.common import input_to_cuml_array
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 
-from sklearn.utils._openmp_helpers import _openmp_effective_n_threads
+# from sklearn.utils._openmp_helpers import _openmp_effective_n_threads
+_openmp_effective_n_threads = safe_import_from(
+    "sklearn.utils._openmp_helpers", "_openmp_effective_n_threads", alt=return_false
+)
 
 
 class KMeans(UniversalBase,
@@ -235,7 +239,10 @@ class KMeans(UniversalBase,
         self.cluster_centers_ = None
 
         # For sklearn interoperability
-        self._n_threads = _openmp_effective_n_threads()
+        if _openmp_effective_n_threads():
+            self._n_threads = _openmp_effective_n_threads()
+        else:
+            self._n_threads = 1
 
         # cuPy does not allow comparing with string. See issue #2372
         init_str = init if isinstance(init, str) else None
