@@ -508,7 +508,8 @@ class TargetEncoder:
             return "numpy"
         return "cupy"
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return [
             "n_folds",
             "smooth",

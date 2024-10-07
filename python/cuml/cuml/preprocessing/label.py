@@ -287,7 +287,8 @@ class LabelBinarizer(Base):
 
         return invert_labels(y_mapped, self.classes_)
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return super().get_param_names() + [
             "neg_label",
             "pos_label",

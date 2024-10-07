@@ -165,5 +165,6 @@ class Lasso(ElasticNet):
             verbose=verbose,
         )
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return list(set(super().get_param_names()) - {"l1_ratio"})

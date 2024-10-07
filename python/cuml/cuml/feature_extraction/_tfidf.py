@@ -301,7 +301,8 @@ class TfidfTransformer(Base):
             (value, 0), shape=(n_features, n_features), dtype=cp.float32
         )
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return super().get_param_names() + [
             "norm",
             "use_idf",

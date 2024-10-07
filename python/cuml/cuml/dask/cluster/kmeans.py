@@ -302,5 +302,6 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             cp.asarray(self.client.compute(scores, sync=True)) * -1.0
         )
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return list(self.kwargs.keys())

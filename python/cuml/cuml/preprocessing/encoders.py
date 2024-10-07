@@ -602,7 +602,8 @@ class OneHotEncoder(BaseEncoder):
 
         return np.array(feature_names, dtype=object)
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return super().get_param_names() + [
             "categories",
             "drop",

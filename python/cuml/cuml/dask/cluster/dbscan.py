@@ -160,5 +160,6 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         self.fit(X, out_dtype)
         return self.get_combined_model().labels_
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return list(self.kwargs.keys())

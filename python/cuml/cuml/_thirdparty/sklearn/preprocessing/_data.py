@@ -326,7 +326,8 @@ class MinMaxScaler(TransformerMixin,
             del self.data_max_
             del self.data_range_
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return super().get_param_names() + [
             "feature_range",
             "copy"

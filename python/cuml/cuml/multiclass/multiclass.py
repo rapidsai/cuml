@@ -192,7 +192,8 @@ class MulticlassClassifier(Base, ClassifierMixin):
         with cuml.internals.exit_internal_api():
             return self.multiclass_estimator.decision_function(X)
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return super().get_param_names() + ["estimator", "strategy"]
 
 

@@ -215,7 +215,8 @@ class PCA(
         """
         return self._inverse_transform(X, n_dims=2, delayed=delayed)
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return list(self.kwargs.keys())
 
     @staticmethod

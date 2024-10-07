@@ -243,7 +243,8 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
         self.fill_value = fill_value
         self.copy = copy
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return super().get_param_names() + [
             "strategy",
             "fill_value",

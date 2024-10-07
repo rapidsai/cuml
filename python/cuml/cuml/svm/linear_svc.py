@@ -173,7 +173,8 @@ class LinearSVC(LinearSVM, ClassifierMixin):
             )
         self.__loss = loss
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return list(
             {
                 "handle",
