@@ -16,7 +16,7 @@
 
 # distutils: language = c++
 
-from rmm.librmm.memory_resource cimport get_current_device_resource
+from rmm.pylibrmm.memory_resource cimport get_current_device_resource
 from pylibraft.common.handle cimport handle_t
 from cuml.manifold.umap_utils cimport *
 from cuml.metrics.distance_type cimport DistanceType
