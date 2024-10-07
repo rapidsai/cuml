@@ -1023,6 +1023,9 @@ def test_dbscan_methods(train_device, infer_device):
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 def test_svc_methods(train_device, infer_device):
+    if train_device == "gpu" and infer_device == "cpu":
+        pytest.skip("GPU training + CPU inference not supported yet")
+
     ref_model = skSVC()
     ref_model.fit(X_train_class, y_train_class)
     ref_output = ref_model.predict(X_test_class)
@@ -1039,6 +1042,9 @@ def test_svc_methods(train_device, infer_device):
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 def test_svr_methods(train_device, infer_device):
+    if train_device == "gpu" and infer_device == "cpu":
+        pytest.skip("GPU training + CPU inference not supported yet")
+
     ref_model = skSVR()
     ref_model.fit(X_train_reg, y_train_reg)
     ref_output = ref_model.predict(X_test_reg)

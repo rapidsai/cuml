@@ -337,6 +337,8 @@ class SVC(SVMBase,
 
     class_weight_ = CumlArrayDescriptor(order='F')
 
+    classes__order = 'F'
+
     @device_interop_preparation
     def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=1024.0,

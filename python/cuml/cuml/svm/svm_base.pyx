@@ -221,6 +221,10 @@ class SVMBase(UniversalBase,
     _internal_coef_ = CumlArrayDescriptor(order='F')
     _unique_labels_ = CumlArrayDescriptor(order='F')
 
+    _dual_coef__order = 'F'
+    support_vectors__order = 'F'
+    _intercept__order = 'F'
+
     def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=1024.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
@@ -409,9 +413,10 @@ class SVMBase(UniversalBase,
 
     @_intercept_.setter
     def _intercept_(self, value):
-        if isinstance(value, CumlArray):
-            value = value.to_output('cupy')
-        self._intercept__ = cupy.ascontiguousarray(value)
+        if hasattr(self, 'n_classes_') and self.n_classes_ == 2:
+            value = -1.0 * value.to_output('cupy')
+            value = input_to_cuml_array(value)[0]
+        self._intercept__ = value
 
     @property
     def _dual_coef_(self):
@@ -419,14 +424,14 @@ class SVMBase(UniversalBase,
 
     @_dual_coef_.setter
     def _dual_coef_(self, value):
-        if isinstance(value, CumlArray):
-            value = value.to_output('cupy')
-        self.dual_coef_ = cupy.ascontiguousarray(value)
+        if hasattr(self, 'n_classes_') and self.n_classes_ == 2:
+            value = -1.0 * value.to_output('cupy')
+            value = input_to_cuml_array(value)[0]
+        self.dual_coef_ = value
 
     @property
     def support_vectors_(self):
-        support_vectors = self.support_vectors__.to_output('numpy').astype(np.float64)
-        return np.ascontiguousarray(support_vectors)
+        return self.support_vectors__.to_output('numpy').astype(np.float64)
 
     @support_vectors_.setter
     def support_vectors_(self, value):
@@ -735,8 +740,8 @@ class SVMBase(UniversalBase,
     def get_attr_names(self):
         attr_names = ["_dual_coef_", "fit_status_", "_intercept_",
                       "n_features_in_", "_n_support", "shape_fit_",
-                      "support_", "support_vectors_",
-                      "_probA", "_probB", "_gamma"]
+                      "support_", "support_vectors_", "_probA",
+                      "_probB", "_gamma"]
         if self.kernel == "linear":
             attr_names.append("coef_")
         return attr_names

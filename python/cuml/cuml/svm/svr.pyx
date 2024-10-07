@@ -359,6 +359,10 @@ class SVR(SVMBase, RegressorMixin):
     def get_attr_names(self):
         return super().get_attr_names() + ["_sparse"]
 
-    def gpu_to_cpu(self):
-        super().gpu_to_cpu()
-        self._cpu_model._n_support = np.array([self.n_support_], dtype=np.int32)
+    def cpu_to_gpu(self):
+        self.dtype = np.float64
+        self.n_classes_ = 0
+
+        super().cpu_to_gpu()
+        self.n_support_ = self._cpu_model.n_support_
+        self._model = self._get_svm_model()
