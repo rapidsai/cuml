@@ -36,8 +36,10 @@ from cuml.common import input_to_cuml_array
 from cuml.internals import logger
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.doc_utils import _parameters_docstrings
-from rmm.pylibrmm.memory_resource cimport DeviceMemoryResource
-from rmm.librmm.memory_resource cimport get_current_device_resource
+from rmm.pylibrmm.memory_resource cimport (
+    DeviceMemoryResource,
+    get_current_device_resource,
+)
 
 import treelite.sklearn as tl_skl
 
