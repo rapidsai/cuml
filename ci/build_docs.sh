@@ -5,6 +5,11 @@ set -euo pipefail
 rapids-logger "Create test conda environment"
 . /opt/conda/etc/profile.d/conda.sh
 
+export RAPIDS_VERSION="$(rapids-version)"
+export RAPIDS_VERSION_MAJOR_MINOR="$(rapids-version-major-minor)"
+export RAPIDS_VERSION_NUMBER="24.12"
+export RAPIDS_DOCS_DIR="$(mktemp -d)"
+
 rapids-dependency-file-generator \
   --output conda \
   --file-key docs \
@@ -23,12 +28,8 @@ PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
 rapids-mamba-retry install \
   --channel "${CPP_CHANNEL}" \
   --channel "${PYTHON_CHANNEL}" \
-  cuml libcuml
-
-export RAPIDS_VERSION="$(rapids-version)"
-export RAPIDS_VERSION_MAJOR_MINOR="$(rapids-version-major-minor)"
-export RAPIDS_VERSION_NUMBER="24.12"
-export RAPIDS_DOCS_DIR="$(mktemp -d)"
+  "cuml=${RAPIDS_VERSION_MAJOR_MINOR}" \
+  "libcuml=${RAPIDS_VERSION_MAJOR_MINOR}"
 
 rapids-logger "Build CPP docs"
 pushd cpp
@@ -45,4 +46,3 @@ mv _html/* "${RAPIDS_DOCS_DIR}/cuml/html"
 popd
 
 rapids-upload-docs
-
