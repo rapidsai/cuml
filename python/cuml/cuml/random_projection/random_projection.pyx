@@ -445,7 +445,8 @@ class GaussianRandomProjection(Base,
             dense_output=True,
             random_state=random_state)
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return Base.get_param_names(self) + [
             "n_components",
             "eps",

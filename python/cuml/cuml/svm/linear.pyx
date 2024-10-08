@@ -151,7 +151,8 @@ cdef class LSVMPWrapper_:
             if key in allowed_keys:
                 setattr(self, key, val)
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         cdef LinearSVMParams ps
         return ps.keys()
 

@@ -234,5 +234,6 @@ class KNeighborsRegressor(RegressorMixin,
 
         return results
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return super().get_param_names() + ["weights"]

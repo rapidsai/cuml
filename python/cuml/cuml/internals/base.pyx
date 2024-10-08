@@ -182,7 +182,8 @@ class Base(TagsMixin,
                 self._check_output_type(data)
                 # inference logic goes here
 
-            def get_param_names(self):
+            @classmethod
+            def get_param_names(cls):
                 # return a list of hyperparam names supported by this algo
 
         # stream and handle example:

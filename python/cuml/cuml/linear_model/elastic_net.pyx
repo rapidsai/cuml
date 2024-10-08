@@ -272,7 +272,8 @@ class ElasticNet(UniversalBase,
         self.solver_model.set_params(**params)
         return self
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return super().get_param_names() + [
             "alpha",
             "l1_ratio",

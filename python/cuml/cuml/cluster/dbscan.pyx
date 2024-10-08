@@ -466,7 +466,8 @@ class DBSCAN(UniversalBase,
         self.fit(X, out_dtype, sample_weight)
         return self.labels_
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return super().get_param_names() + [
             "eps",
             "min_samples",

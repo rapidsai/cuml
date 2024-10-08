@@ -491,7 +491,8 @@ class LinearRegression(LinearPredictMixin,
         # `predict` method
         return super()._predict(X, convert_dtype=convert_dtype)
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return super().get_param_names() + \
             ['algorithm', 'fit_intercept', 'copy_X', 'normalize']
 

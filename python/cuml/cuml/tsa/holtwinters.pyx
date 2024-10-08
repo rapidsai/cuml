@@ -576,7 +576,8 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model to get season values")
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return super().get_param_names() + [
             "endog",
             "seasonal",

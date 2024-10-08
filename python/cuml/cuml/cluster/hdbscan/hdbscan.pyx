@@ -1112,7 +1112,8 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
             self._cpu_to_gpu_interop_prepped = True
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return super().get_param_names() + [
             "metric",
             "min_cluster_size",

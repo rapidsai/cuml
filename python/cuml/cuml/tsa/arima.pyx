@@ -577,7 +577,8 @@ class ARIMA(Base):
                 )
                 setattr(self, "{}_".format(param_name), array)
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         raise NotImplementedError
 
     def get_param_names(self):

@@ -182,7 +182,8 @@ IF GPUBUILD == 1:
         def _setparam(self, key, val):
             self.params[key] = val
 
-        def get_param_names(self):
+        @classmethod
+        def get_param_names(cls):
             return self.get_param_defaults().keys()
 
         def __str__(self):
