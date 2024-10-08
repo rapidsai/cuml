@@ -722,7 +722,7 @@ class UniversalBase(Base):
                     return self
 
             # return function result
-            return
+            return res
 
     @staticmethod
     def _get_serializer(protocol: str) -> Any:
