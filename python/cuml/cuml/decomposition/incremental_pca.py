@@ -216,7 +216,6 @@ class IncrementalPCA(PCA):
             output_type=output_type,
         )
         self.batch_size = batch_size
-        self._hyperparams = ["n_components", "whiten", "copy", "batch_size"]
         self._sparse_model = True
 
     def fit(self, X, y=None, convert_dtype=True) -> "IncrementalPCA":
@@ -452,7 +451,12 @@ class IncrementalPCA(PCA):
     @classmethod
     def get_param_names(cls):
         # Skip super() since we dont pass any extra parameters in __init__
-        return Base.get_param_names() + self._hyperparams
+        return Base.get_param_names() + [
+            "n_components",
+            "whiten",
+            "copy",
+            "batch_size",
+        ]
 
 
 def _validate_sparse_input(X):
