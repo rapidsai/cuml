@@ -29,7 +29,7 @@ from pylibraft.common.handle cimport *
 from cuml.common import input_to_cuml_array
 from cuml.internals.mixins import FMajorInputTagMixin
 
-from rmm._lib.cuda_stream_view cimport cuda_stream_view
+from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 
 cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 

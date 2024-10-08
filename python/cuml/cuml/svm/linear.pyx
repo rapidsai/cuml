@@ -22,7 +22,7 @@ from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 import cuml
 
-from rmm._lib.cuda_stream_view cimport cuda_stream_view
+from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 
 from collections import OrderedDict
 from cython.operator cimport dereference as deref
