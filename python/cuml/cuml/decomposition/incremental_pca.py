@@ -452,7 +452,7 @@ class IncrementalPCA(PCA):
     @classmethod
     def get_param_names(cls):
         # Skip super() since we dont pass any extra parameters in __init__
-        return Base.get_param_names(self) + self._hyperparams
+        return Base.get_param_names() + self._hyperparams
 
 
 def _validate_sparse_input(X):
