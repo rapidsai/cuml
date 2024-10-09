@@ -714,10 +714,10 @@ def test_svc_pickle(tmpdir, datatype, params, multiclass, sparse):
         iris_selection = np.random.RandomState(42).choice(
             [True, False], 150, replace=True, p=[0.75, 0.25]
         )
-        X_train = iris.data[iris_selection]
+        X_train = iris.data[iris_selection].astype(datatype)
         if sparse:
-            X_train = scipy_sparse.csr_matrix(X_train)
-        y_train = iris.target[iris_selection]
+            X_train = scipy_sparse.csr_matrix(X_train).astype(datatype)
+        y_train = iris.target[iris_selection].astype(datatype)
         if not multiclass:
             y_train = (y_train > 0).astype(datatype)
         data = [X_train, y_train]
@@ -751,8 +751,8 @@ def test_linear_svc_pickle(tmpdir, datatype, params, multiclass):
         iris_selection = np.random.RandomState(42).choice(
             [True, False], 150, replace=True, p=[0.75, 0.25]
         )
-        X_train = iris.data[iris_selection]
-        y_train = iris.target[iris_selection]
+        X_train = iris.data[iris_selection].astype(datatype)
+        y_train = iris.target[iris_selection].astype(datatype)
         if not multiclass:
             y_train = (y_train > 0).astype(datatype)
         data = [X_train, y_train]

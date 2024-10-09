@@ -36,17 +36,13 @@ struct SvrParams {
   RegressionParams regression;
   raft::distance::kernels::KernelParams kernel;
   ML::SVM::SvmParameter svm_param;
-  ML::SVM::SvmModel<D>* model;
 };
 
 template <typename D>
 class SVR : public RegressionFixture<D> {
  public:
   SVR(const std::string& name, const SvrParams<D>& p)
-    : RegressionFixture<D>(name, p.data, p.regression),
-      kernel(p.kernel),
-      model(p.model),
-      svm_param(p.svm_param)
+    : RegressionFixture<D>(name, p.data, p.regression), kernel(p.kernel), svm_param(p.svm_param)
   {
     std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
     std::ostringstream oss;
@@ -69,16 +65,16 @@ class SVR : public RegressionFixture<D> {
                       this->data.y.data(),
                       this->svm_param,
                       this->kernel,
-                      *(this->model));
+                      this->model);
       this->handle->sync_stream(this->stream);
-      ML::SVM::svmFreeBuffers(*this->handle, *(this->model));
+      ML::SVM::svmFreeBuffers(*this->handle, this->model);
     });
   }
 
  private:
   raft::distance::kernels::KernelParams kernel;
   ML::SVM::SvmParameter svm_param;
-  ML::SVM::SvmModel<D>* model;
+  ML::SVM::SvmModel<D> model;
 };
 
 template <typename D>
@@ -103,7 +99,6 @@ std::vector<SvrParams<D>> getInputs()
   //              epsilon, svmType})
   p.svm_param =
     ML::SVM::SvmParameter{1, 200, 200, 100, 1e-3, CUML_LEVEL_INFO, 0.1, ML::SVM::EPSILON_SVR};
-  p.model = new ML::SVM::SvmModel<D>{0, 0, 0, 0};
 
   std::vector<Triplets> rowcols = {{50000, 2, 2}, {1024, 10000, 10}, {3000, 200, 200}};
 

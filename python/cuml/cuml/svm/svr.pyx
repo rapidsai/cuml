@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,8 @@ from cuml.common import input_to_cuml_array
 from libcpp cimport nullptr
 from cuml.svm.svm_base import SVMBase
 
+from rmm._lib.device_buffer cimport device_buffer
+
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
         LINEAR, POLYNOMIAL, RBF, TANH
@@ -62,22 +64,22 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
 
 cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
 
-    cdef cppclass SupportStorage[math_t]:
+    cdef cppclass SupportStorage:
         int nnz
-        int* indptr
-        int* indices
-        math_t* data
+        device_buffer* indptr
+        device_buffer* indices
+        device_buffer* data
 
     cdef cppclass SvmModel[math_t]:
         # parameters of a fitted model
         int n_support
         int n_cols
         math_t b
-        math_t *dual_coefs
-        SupportStorage[math_t] support_matrix
-        int *support_idx
+        device_buffer* dual_coefs
+        SupportStorage support_matrix
+        device_buffer* support_idx
         int n_classes
-        math_t *unique_labels
+        device_buffer* unique_labels
 
 cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM" nogil:
 
@@ -302,6 +304,8 @@ class SVR(SVMBase, RegressorMixin):
 
         if self.dtype == np.float32:
             model_f = new SvmModel[float]()
+            self._model = <uintptr_t>model_f
+            self._init_model_buffers()
             if is_sparse:
                 svrFitSparse(handle_[0], <int*>X_indptr, <int*>X_indices,
                              <float*>X_data, n_rows, n_cols, n_nnz,
@@ -311,9 +315,10 @@ class SVR(SVMBase, RegressorMixin):
                 svrFit(handle_[0], <float*>X_data, n_rows, n_cols,
                        <float*>y_ptr, param, _kernel_params, model_f[0],
                        <float*>sample_weight_ptr)
-            self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
             model_d = new SvmModel[double]()
+            self._model = <uintptr_t>model_d
+            self._init_model_buffers()
             if is_sparse:
                 svrFitSparse(handle_[0], <int*>X_indptr, <int*>X_indices,
                              <double*>X_data, n_rows, n_cols, n_nnz,
@@ -323,7 +328,6 @@ class SVR(SVMBase, RegressorMixin):
                 svrFit(handle_[0], <double*>X_data, n_rows, n_cols,
                        <double*>y_ptr, param, _kernel_params, model_d[0],
                        <double*>sample_weight_ptr)
-            self._model = <uintptr_t>model_d
         else:
             raise TypeError('Input data type should be float32 or float64')
 

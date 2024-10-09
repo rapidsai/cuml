@@ -144,40 +144,44 @@ SVC<math_t>::SVC(raft::handle_t& handle,
     param(SvmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity}),
     kernel_params(kernel_params)
 {
-  model.n_support      = 0;
-  model.dual_coefs     = nullptr;
-  model.support_matrix = {};
-  model.support_idx    = nullptr;
-  model.unique_labels  = nullptr;
 }
 
 template <typename math_t>
 SVC<math_t>::~SVC()
 {
-  svmFreeBuffers(handle, model);
 }
 
 template <typename math_t>
 void SVC<math_t>::fit(
   math_t* input, int n_rows, int n_cols, math_t* labels, const math_t* sample_weight)
 {
-  model.n_cols = n_cols;
-  if (model.dual_coefs) svmFreeBuffers(handle, model);
-  svcFit(handle, input, n_rows, n_cols, labels, param, kernel_params, model, sample_weight);
+  model_container.model.n_cols = n_cols;
+  svmFreeBuffers(handle, model_container.model);
+  svcFit(handle,
+         input,
+         n_rows,
+         n_cols,
+         labels,
+         param,
+         kernel_params,
+         model_container.model,
+         sample_weight);
 }
 
 template <typename math_t>
 void SVC<math_t>::predict(math_t* input, int n_rows, int n_cols, math_t* preds)
 {
   math_t buffer_size = param.cache_size;
-  svcPredict(handle, input, n_rows, n_cols, kernel_params, model, preds, buffer_size, true);
+  svcPredict(
+    handle, input, n_rows, n_cols, kernel_params, model_container.model, preds, buffer_size, true);
 }
 
 template <typename math_t>
 void SVC<math_t>::decisionFunction(math_t* input, int n_rows, int n_cols, math_t* preds)
 {
   math_t buffer_size = param.cache_size;
-  svcPredict(handle, input, n_rows, n_cols, kernel_params, model, preds, buffer_size, false);
+  svcPredict(
+    handle, input, n_rows, n_cols, kernel_params, model_container.model, preds, buffer_size, false);
 }
 
 // Instantiate templates for the shared library

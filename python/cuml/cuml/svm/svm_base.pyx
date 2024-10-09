@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.array_sparse import SparseCumlArray, SparseCumlArrayInput
 from libcpp cimport bool
 
+from rmm._lib.device_buffer cimport device_buffer, DeviceBuffer
 
 cdef extern from "raft/distance/distance_types.hpp" \
         namespace "raft::distance::kernels":
@@ -75,22 +76,22 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
 
 cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
 
-    cdef cppclass SupportStorage[math_t]:
+    cdef cppclass SupportStorage:
         int nnz
-        int* indptr
-        int* indices
-        math_t* data
+        device_buffer* indptr
+        device_buffer* indices
+        device_buffer* data
 
     cdef cppclass SvmModel[math_t]:
         # parameters of a fitted model
         int n_support
         int n_cols
         math_t b
-        math_t *dual_coefs
-        SupportStorage[math_t] support_matrix
-        int *support_idx
+        device_buffer* dual_coefs
+        SupportStorage support_matrix
+        device_buffer* support_idx
         int n_classes
-        math_t *unique_labels
+        device_buffer* unique_labels
 
 cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
@@ -104,9 +105,6 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
         math_t* data, int n_rows, int n_cols, int nnz,
         KernelParams &kernel_params, const SvmModel[math_t] &model,
         math_t *preds, math_t buffer_size, bool predict_class) except +
-
-    cdef void svmFreeBuffers[math_t](const handle_t &handle,
-                                     SvmModel[math_t] &m) except +
 
 
 class SVMBase(Base,
@@ -252,12 +250,19 @@ class SVMBase(Base,
         self._intercept_ = None
         self.n_support_ = None
 
+        # device buffers to back managed model storage
+        self.__dual_coef_buffer_ = DeviceBuffer()
+        self.__support_idx_buffer_ = DeviceBuffer()
+        self.__unique_labels__buffer_ = DeviceBuffer()
+        self.__support_indptr_buffer_ = DeviceBuffer()
+        self.__support_indices_buffer_ = DeviceBuffer()
+        self.__support_data_buffer_ = DeviceBuffer()
+
         self._c_kernel = self._get_c_kernel(kernel)
         self._gamma_val = None  # the actual numerical value used for training
         self.coef_ = None  # value of the coef_ attribute, only for lin kernel
         self.dtype = None
         self._model = None  # structure of the model parameters
-        self._freeSvmBuffers = False  # whether to call the C++ lib for cleanup
 
         if (kernel == 'linear' or (kernel == 'poly' and degree == 1)) \
            and not getattr(type(self), "_linear_kernel_warned", False):
@@ -274,17 +279,12 @@ class SVMBase(Base,
         # deallocate model parameters
         cdef SvmModel[float] *model_f
         cdef SvmModel[double] *model_d
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if self._model is not None:
             if self.dtype == np.float32:
                 model_f = <SvmModel[float]*><uintptr_t> self._model
-                if self._freeSvmBuffers:
-                    svmFreeBuffers(handle_[0], model_f[0])
                 del model_f
             elif self.dtype == np.float64:
                 model_d = <SvmModel[double]*><uintptr_t> self._model
-                if self._freeSvmBuffers:
-                    svmFreeBuffers(handle_[0], model_d[0])
                 del model_d
             else:
                 raise TypeError("Unknown type for SVC class")
@@ -292,6 +292,14 @@ class SVMBase(Base,
                 del self._fit_status_
             except AttributeError:
                 pass
+
+        # re-init / clean all storages
+        self.__dual_coef_buffer_ = DeviceBuffer()
+        self.__support_idx_buffer_ = DeviceBuffer()
+        self.__unique_labels__buffer_ = DeviceBuffer()
+        self.__support_indptr_buffer_ = DeviceBuffer()
+        self.__support_indices_buffer_ = DeviceBuffer()
+        self.__support_data_buffer_ = DeviceBuffer()
 
         self._model = None
 
@@ -402,6 +410,32 @@ class SVMBase(Base,
         param.svmType = self.svmType
         return param
 
+    def _init_model_buffers(self):
+
+        if self._model is None:
+            raise AttributeError("_init_model_buffers is only available after _model is set")
+
+        cdef SvmModel[float] *model_f
+        cdef SvmModel[double] *model_d
+
+        if self.dtype == np.float32:
+            model_f = <SvmModel[float]*><uintptr_t> self._model
+            model_f.dual_coefs = (<DeviceBuffer?>self.__dual_coef_buffer_).c_obj.get()
+            model_f.support_idx = (<DeviceBuffer?>self.__support_idx_buffer_).c_obj.get()
+            model_f.unique_labels = (<DeviceBuffer?>self.__unique_labels__buffer_).c_obj.get()
+            model_f.support_matrix.indptr = (<DeviceBuffer?>self.__support_indptr_buffer_).c_obj.get()
+            model_f.support_matrix.indices = (<DeviceBuffer?>self.__support_indices_buffer_).c_obj.get()
+            model_f.support_matrix.data = (<DeviceBuffer?>self.__support_data_buffer_).c_obj.get()
+
+        else:
+            model_d = <SvmModel[double]*><uintptr_t> self._model
+            model_d.dual_coefs = (<DeviceBuffer?>self.__dual_coef_buffer_).c_obj.get()
+            model_d.support_idx = (<DeviceBuffer?>self.__support_idx_buffer_).c_obj.get()
+            model_d.unique_labels = (<DeviceBuffer?>self.__unique_labels__buffer_).c_obj.get()
+            model_d.support_matrix.indptr = (<DeviceBuffer?>self.__support_indptr_buffer_).c_obj.get()
+            model_d.support_matrix.indices = (<DeviceBuffer?>self.__support_indices_buffer_).c_obj.get()
+            model_d.support_matrix.data = (<DeviceBuffer?>self.__support_data_buffer_).c_obj.get()
+
     @cuml.internals.api_base_return_any_skipall
     def _get_svm_model(self):
         """ Wrap the fitted model parameters into an SvmModel structure.
@@ -410,7 +444,8 @@ class SVMBase(Base,
         """
         cdef SvmModel[float] *model_f
         cdef SvmModel[double] *model_d
-        if self.dual_coef_ is None:
+
+        if self.n_support_ is None:
             # the model is not fitted in this case
             return None
         if self.dtype == np.float32:
@@ -418,46 +453,36 @@ class SVMBase(Base,
             model_f.n_support = self.n_support_
             model_f.n_cols = self.n_cols
             model_f.b = self._intercept_.item()
-            model_f.dual_coefs = \
-                <float*><size_t>self.dual_coef_.ptr
-            if isinstance(self.support_vectors_, SparseCumlArray):
-                model_f.support_matrix.nnz = self.support_vectors_.nnz
-                model_f.support_matrix.indptr = <int*><uintptr_t>self.support_vectors_.indptr.ptr
-                model_f.support_matrix.indices = <int*><uintptr_t>self.support_vectors_.indices.ptr
-                model_f.support_matrix.data = <float*><uintptr_t>self.support_vectors_.data.ptr
-            else:
-                model_f.support_matrix.data = <float*><uintptr_t>self.support_vectors_.ptr
-            model_f.support_idx = \
-                <int*><uintptr_t>self.support_.ptr
+            model_f.dual_coefs = <device_buffer*><uintptr_t> (<DeviceBuffer?>self.__dual_coef_buffer_).c_obj.get()
+            model_f.support_matrix.indptr = (<DeviceBuffer?>self.__support_indptr_buffer_).c_obj.get()
+            model_f.support_matrix.indices = (<DeviceBuffer?>self.__support_indices_buffer_).c_obj.get()
+            model_f.support_matrix.data = (<DeviceBuffer?>self.__support_data_buffer_).c_obj.get()
+            model_f.support_idx = (<DeviceBuffer?>self.__support_idx_buffer_).c_obj.get()
+            model_f.unique_labels = (<DeviceBuffer?>self.__unique_labels__buffer_).c_obj.get()
+
+            if self.__support_indptr_buffer_.size > 0:
+                model_f.support_matrix.nnz = <int> (self.__support_data_buffer_.size // 4)
+
             model_f.n_classes = self.n_classes_
-            if self.n_classes_ > 0:
-                model_f.unique_labels = \
-                    <float*><uintptr_t>self._unique_labels_.ptr
-            else:
-                model_f.unique_labels = NULL
+
             return <uintptr_t>model_f
         else:
             model_d = new SvmModel[double]()
             model_d.n_support = self.n_support_
             model_d.n_cols = self.n_cols
             model_d.b = self._intercept_.item()
-            model_d.dual_coefs = \
-                <double*><size_t>self.dual_coef_.ptr
-            if isinstance(self.support_vectors_, SparseCumlArray):
-                model_d.support_matrix.nnz = self.support_vectors_.nnz
-                model_d.support_matrix.indptr = <int*><uintptr_t>self.support_vectors_.indptr.ptr
-                model_d.support_matrix.indices = <int*><uintptr_t>self.support_vectors_.indices.ptr
-                model_d.support_matrix.data = <double*><uintptr_t>self.support_vectors_.data.ptr
-            else:
-                model_d.support_matrix.data = <double*><uintptr_t>self.support_vectors_.ptr
-            model_d.support_idx = \
-                <int*><uintptr_t>self.support_.ptr
+            model_d.dual_coefs = <device_buffer*><uintptr_t> (<DeviceBuffer?>self.__dual_coef_buffer_).c_obj.get()
+            model_d.support_matrix.indptr = (<DeviceBuffer?>self.__support_indptr_buffer_).c_obj.get()
+            model_d.support_matrix.indices = (<DeviceBuffer?>self.__support_indices_buffer_).c_obj.get()
+            model_d.support_matrix.data = (<DeviceBuffer?>self.__support_data_buffer_).c_obj.get()
+            model_d.support_idx = (<DeviceBuffer?>self.__support_idx_buffer_).c_obj.get()
+            model_d.unique_labels = (<DeviceBuffer?>self.__unique_labels__buffer_).c_obj.get()
+
+            if self.__support_indptr_buffer_.size > 0:
+                model_d.support_matrix.nnz = <int> (self.__support_data_buffer_.size // 8)
+
             model_d.n_classes = self.n_classes_
-            if self.n_classes_ > 0:
-                model_d.unique_labels = \
-                    <double*><uintptr_t>self._unique_labels_.ptr
-            else:
-                model_d.unique_labels = NULL
+
             return <uintptr_t>model_d
 
     def _unpack_svm_model(self, b, n_support, dual_coefs, support_idx, nnz, indptr, indices, data, n_classes, unique_labels):
@@ -520,37 +545,32 @@ class SVMBase(Base,
         cdef SvmModel[float] *model_f
         cdef SvmModel[double] *model_d
 
-        # Mark that the C++ layer should free the parameter vectors
-        # If we could pass the deviceArray deallocator as finalizer for the
-        # device_array_from_ptr function, then this would not be necessary.
-        self._freeSvmBuffers = True
-
         if self.dtype == np.float32:
             model_f = <SvmModel[float]*><uintptr_t> self._model
             self._unpack_svm_model(
                 model_f.b,
                 model_f.n_support,
-                <uintptr_t>model_f.dual_coefs,
-                <uintptr_t>model_f.support_idx,
+                <uintptr_t>model_f.dual_coefs.data(),
+                <uintptr_t>model_f.support_idx.data(),
                 model_f.support_matrix.nnz,
-                <uintptr_t>model_f.support_matrix.indptr,
-                <uintptr_t>model_f.support_matrix.indices,
-                <uintptr_t>model_f.support_matrix.data,
+                <uintptr_t>model_f.support_matrix.indptr.data(),
+                <uintptr_t>model_f.support_matrix.indices.data(),
+                <uintptr_t>model_f.support_matrix.data.data(),
                 model_f.n_classes,
-                <uintptr_t> model_f.unique_labels)
+                <uintptr_t> model_f.unique_labels.data())
         else:
             model_d = <SvmModel[double]*><uintptr_t> self._model
             self._unpack_svm_model(
                 model_d.b,
                 model_d.n_support,
-                <uintptr_t>model_d.dual_coefs,
-                <uintptr_t>model_d.support_idx,
+                <uintptr_t>model_d.dual_coefs.data(),
+                <uintptr_t>model_d.support_idx.data(),
                 model_d.support_matrix.nnz,
-                <uintptr_t>model_d.support_matrix.indptr,
-                <uintptr_t>model_d.support_matrix.indices,
-                <uintptr_t>model_d.support_matrix.data,
+                <uintptr_t>model_d.support_matrix.indptr.data(),
+                <uintptr_t>model_d.support_matrix.indices.data(),
+                <uintptr_t>model_d.support_matrix.data.data(),
                 model_d.n_classes,
-                <uintptr_t> model_d.unique_labels)
+                <uintptr_t> model_d.unique_labels.data())
 
         if self.n_support_ == 0:
             self.dual_coef_ = CumlArray.empty(
@@ -679,6 +699,18 @@ class SVMBase(Base,
         state = self.__dict__.copy()
         del state['handle']
         del state['_model']
+
+        # the following are only wrappers around data owned by the DeviceBuffers
+        # We don't want to serialize the data twice
+        if 'dual_coef_' in state:
+            del state['dual_coef_']
+        if 'support_' in state:
+            del state['support_']
+        if 'support_vectors_' in state:
+            del state['support_vectors_']
+        if '_unique_labels_' in state:
+            del state['_unique_labels_']
+
         return state
 
     def __setstate__(self, state):
@@ -686,4 +718,7 @@ class SVMBase(Base,
                                       verbose=state['verbose'])
         self.__dict__.update(state)
         self._model = self._get_svm_model()
-        self._freeSvmBuffers = False
+
+        # unpack model & buffer locations
+        if self._model is not None:
+            self._unpack_model()
