@@ -19,9 +19,8 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/util/cudart_utils.hpp>
-
-#include <rmm/mr/device/per_device_resource.hpp>
 
 #include <cuda_runtime.h>
 
@@ -165,7 +164,7 @@ class Fixture : public ::benchmark::Fixture {
   void alloc(T*& ptr, size_t len, bool init = false)
   {
     auto nBytes  = len * sizeof(T);
-    auto d_alloc = rmm::mr::get_current_device_resource();
+    auto d_alloc = raft::resource::get_current_device_resource();
     ptr          = (T*)d_alloc->allocate(nBytes, stream);
     if (init) { RAFT_CUDA_TRY(cudaMemsetAsync(ptr, 0, nBytes, stream)); }
   }
@@ -173,7 +172,7 @@ class Fixture : public ::benchmark::Fixture {
   template <typename T>
   void dealloc(T* ptr, size_t len)
   {
-    auto d_alloc = rmm::mr::get_current_device_resource();
+    auto d_alloc = raft::resource::get_current_device_resource();
     d_alloc->deallocate(ptr, len * sizeof(T), stream);
   }
 

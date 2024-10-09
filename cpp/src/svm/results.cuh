@@ -20,8 +20,10 @@
 #include "ws_util.cuh"
 
 #include <cuml/svm/svm_model.h>
+#include <cuml/svm/svm_parameter.h>
 
 #include <raft/core/handle.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
@@ -31,7 +33,6 @@
 
 #include <rmm/aligned.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/resource_ref.hpp>
 
 #include <cub/device/device_select.cuh>
@@ -73,7 +74,7 @@ class Results {
           const math_t* y,
           const math_t* C,
           SvmType svmType)
-    : rmm_alloc(rmm::mr::get_current_device_resource()),
+    : rmm_alloc(raft::resource::get_current_device_resource_ref()),
       stream(handle.get_stream()),
       handle(handle),
       n_rows(n_rows),

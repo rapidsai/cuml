@@ -762,14 +762,15 @@ void extractRows(raft::device_csr_matrix_view<math_t, int, int, int> matrix_in,
   math_t* data_in    = matrix_in.get_elements().data();
 
   // allocate indptr
-  auto* rmm_alloc = rmm::mr::get_current_device_resource();
-  *indptr_out     = (int*)rmm_alloc->allocate((num_indices + 1) * sizeof(int), stream);
+  auto rmm_alloc = raft::resource::get_current_device_resource_ref();
+  *indptr_out =
+    static_cast<int*>(rmm_alloc.allocate_async((num_indices + 1) * sizeof(int), stream));
 
   *nnz = computeIndptrForSubset(indptr_in, *indptr_out, row_indices, num_indices, stream);
 
   // allocate indices, data
-  *indices_out = (int*)rmm_alloc->allocate(*nnz * sizeof(int), stream);
-  *data_out    = (math_t*)rmm_alloc->allocate(*nnz * sizeof(math_t), stream);
+  *indices_out = static_cast<int*>(rmm_alloc.allocate_async(*nnz * sizeof(int), stream));
+  *data_out    = static_cast<math_t*>(rmm_alloc.allocate_async(*nnz * sizeof(math_t), stream));
 
   // copy with 1 warp per row for now, blocksize 256
   const dim3 bs(32, 8, 1);

@@ -329,13 +329,13 @@ LinearSVMModel<T> LinearSVMModel<T>::allocate(const raft::handle_t& handle,
                                               const std::size_t nClasses)
 {
   auto stream                = handle.get_stream();
-  auto res                   = rmm::mr::get_current_device_resource();
+  auto res                   = raft::resource::get_current_device_resource_ref();
   const std::size_t coefRows = nCols + params.fit_intercept;
   const std::size_t coefCols = nClasses <= 2 ? 1 : nClasses;
   const std::size_t wSize    = coefRows * coefCols;
   const std::size_t cSize    = nClasses >= 2 ? nClasses : 0;
   const std::size_t pSize    = params.probability ? 2 * coefCols : 0;
-  auto bytes = static_cast<T*>(res->allocate(sizeof(T) * (wSize + cSize + pSize), stream));
+  auto bytes = static_cast<T*>(res.allocate_async(sizeof(T) * (wSize + cSize + pSize), stream));
   return LinearSVMModel<T>{/* .w         */ bytes,
                            /* .classes   */ cSize > 0 ? bytes + wSize : nullptr,
                            /* .probScale */ pSize > 0 ? bytes + wSize + cSize : nullptr,
@@ -347,13 +347,13 @@ template <typename T>
 void LinearSVMModel<T>::free(const raft::handle_t& handle, LinearSVMModel<T>& model)
 {
   auto stream                = handle.get_stream();
-  auto res                   = rmm::mr::get_current_device_resource();
+  auto res                   = raft::resource::get_current_device_resource_ref();
   const std::size_t coefRows = model.coefRows;
   const std::size_t coefCols = model.coefCols();
   const std::size_t wSize    = coefRows * coefCols;
   const std::size_t cSize    = model.nClasses;
   const std::size_t pSize    = model.probScale == nullptr ? 2 * coefCols : 0;
-  res->deallocate(model.w, sizeof(T) * (wSize + cSize + pSize), stream);
+  res.deallocate_async(model.w, sizeof(T) * (wSize + cSize + pSize), stream);
   model.w         = nullptr;
   model.classes   = nullptr;
   model.probScale = nullptr;

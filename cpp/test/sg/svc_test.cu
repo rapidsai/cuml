@@ -22,6 +22,7 @@
 #include <cuml/svm/svr.hpp>
 
 #include <raft/core/math.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/distance/kernels.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
@@ -502,8 +503,8 @@ class GetResultsTest : public ::testing::Test {
  protected:
   void FreeDenseSupport()
   {
-    rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource();
-    auto stream                              = this->handle.get_stream();
+    auto rmm_alloc = raft::resource::get_current_device_resource_ref();
+    auto stream    = this->handle.get_stream();
     rmm_alloc.deallocate_async(support_matrix.data,
                                n_coefs * n_cols * sizeof(math_t),
                                rmm::CUDA_ALLOCATION_ALIGNMENT,

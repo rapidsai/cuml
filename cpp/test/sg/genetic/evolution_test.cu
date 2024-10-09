@@ -21,6 +21,7 @@
 #include <cuml/genetic/program.h>
 
 #include <raft/core/handle.hpp>
+#include <raft/core/resource/device_memory_resource.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
@@ -268,9 +269,8 @@ class GeneticEvolutionTest : public ::testing::Test {
 TEST_F(GeneticEvolutionTest, SymReg)
 {
   MLCommon::CompareApprox<float> compApprox(tolerance);
-  program_t final_progs;
-  final_progs = (program_t)rmm::mr::get_current_device_resource()->allocate(
-    hyper_params.population_size * sizeof(program), stream);
+  auto prog_buffer = rmm::device_buffer(hyper_params.population_size * sizeof(program), stream);
+  program_t final_progs = static_cast<program_t>(prog_buffer.data());
   std::vector<std::vector<program>> history;
   history.reserve(hyper_params.generations);
 
@@ -337,12 +337,11 @@ TEST_F(GeneticEvolutionTest, SymReg)
   for (auto i = 0; i < hyper_params.population_size; ++i) {
     program tmp = program();
     raft::copy(&tmp, final_progs + i, 1, stream);
-    rmm::mr::get_current_device_resource()->deallocate(tmp.nodes, tmp.len * sizeof(node), stream);
+    // TODO: why are we deallocating something that wasn't allocated here?
+    raft::resource::get_current_device_resource_ref().deallocate_async(
+      tmp.nodes, tmp.len * sizeof(node), stream);
     tmp.nodes = nullptr;
   }
-  // deallocate the final programs from device memory
-  rmm::mr::get_current_device_resource()->deallocate(
-    final_progs, hyper_params.population_size * sizeof(program), stream);
 
   ASSERT_TRUE(compApprox(history[n_gen - 1][best_idx].raw_fitness_, 0.0036f));
   std::cout << "Some Predicted test values:" << std::endl;
