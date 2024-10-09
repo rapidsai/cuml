@@ -57,7 +57,9 @@ class BaseEstimator(object, metaclass=BaseMetaClass):
         self.internal_model = None
 
     def __getstate__(self):
-        internal_model = self._get_internal_model().result()
+        internal_model = self._get_internal_model()
+        if internal_model:
+            internal_model = internal_model.result()
         state = {
             "verbose": self.verbose,
             "kwargs": self.kwargs,
