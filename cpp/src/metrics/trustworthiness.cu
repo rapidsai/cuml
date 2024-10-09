@@ -17,8 +17,8 @@
 #include <cuml/metrics/metrics.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance.cuh>
-#include <raft/stats/trustworthiness_score.cuh>
+
+#include <cuvs/stats/trustworthiness_score.hpp>
 
 namespace ML {
 namespace Metrics {
@@ -47,8 +47,13 @@ double trustworthiness_score(const raft::handle_t& h,
                              int n_neighbors,
                              int batchSize)
 {
-  return raft::stats::trustworthiness_score<math_t, distance_type>(
-    h, X, X_embedded, n, m, d, n_neighbors, batchSize);
+  return cuvs::stats::trustworthiness_score(
+    h,
+    raft::make_device_matrix_view<const math_t, int64_t>(X, n, m),
+    raft::make_device_matrix_view<const math_t, int64_t>(X_embedded, n, d),
+    n_neighbors,
+    static_cast<cuvs::distance::DistanceType>(distance_type),
+    batchSize);
 }
 
 template double trustworthiness_score<float, raft::distance::DistanceType::L2SqrtUnexpanded>(

@@ -16,9 +16,11 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import cpu_only_import, safe_import_from
 np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
+nearest_neighbors = safe_import_from('umap.umap_', 'nearest_neighbors')
+DISCONNECTION_DISTANCES = safe_import_from('umap.umap_', 'DISCONNECTION_DISTANCES')
 
 import joblib
 import warnings
@@ -297,7 +299,9 @@ class UMAP(UniversalBase,
         smaller than or equal to 50K. Otherwise, runs with nn descent.
     build_kwds: dict (optional, default=None)
         Build algorithm argument {'nnd_graph_degree': 64, 'nnd_intermediate_graph_degree': 128,
-        'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_return_distances': True}
+        'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_return_distances': True,
+        'nnd_n_clusters': 1}
+        Note that nnd_n_clusters > 1 will result in batch-building with NN Descent.
 
     Notes
     -----
@@ -311,9 +315,7 @@ class UMAP(UniversalBase,
 
     In addition to these missing features, you should expect to see
     the final embeddings differing between cuml.umap and the reference
-    UMAP. In particular, the reference UMAP uses an approximate kNN
-    algorithm for large data sizes while cuml.umap always uses exact
-    kNN.
+    UMAP.
 
     References
     ----------
@@ -440,7 +442,8 @@ class UMAP(UniversalBase,
                 # https://github.com/rapidsai/cuml/issues/5985
                 logger.info("build_algo set to brute_force_knn because random_state is given")
                 self.build_algo ="brute_force_knn"
-            self.build_algo = build_algo
+            else:
+                self.build_algo = build_algo
         else:
             raise Exception("Invalid build algo: {}. Only support auto, brute_force_knn and nn_descent" % build_algo)
 
@@ -488,12 +491,17 @@ class UMAP(UniversalBase,
                     umap_params.nn_descent_params.max_iterations = <uint64_t> 20
                     umap_params.nn_descent_params.termination_threshold = <float> 0.0001
                     umap_params.nn_descent_params.return_distances = <bool> True
+                    umap_params.nn_descent_params.n_clusters = <uint64_t> 1
                 else:
                     umap_params.nn_descent_params.graph_degree = <uint64_t> cls.build_kwds.get("nnd_graph_degree", 64)
                     umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> cls.build_kwds.get("nnd_intermediate_graph_degree", 128)
                     umap_params.nn_descent_params.max_iterations = <uint64_t> cls.build_kwds.get("nnd_max_iterations", 20)
                     umap_params.nn_descent_params.termination_threshold = <float> cls.build_kwds.get("nnd_termination_threshold", 0.0001)
                     umap_params.nn_descent_params.return_distances = <bool> cls.build_kwds.get("nnd_return_distances", True)
+                    if cls.build_kwds.get("nnd_n_clusters", 1) < 1:
+                        logger.info("Negative number of nnd_n_clusters not allowed. Changing nnd_n_clusters to 1")
+                    umap_params.nn_descent_params.n_clusters = <uint64_t> cls.build_kwds.get("nnd_n_clusters", 1)
+
             umap_params.target_weight = <float> cls.target_weight
             umap_params.random_state = <uint64_t> cls.random_state
             umap_params.deterministic = <bool> cls.deterministic
@@ -619,6 +627,8 @@ class UMAP(UniversalBase,
 
             _knn_dists_ptr = knn_dists.ptr
             _knn_indices_ptr = knn_indices.ptr
+            self._knn_dists = knn_dists
+            self._knn_indices = knn_indices
 
         self.n_neighbors = min(self.n_rows, self.n_neighbors)
 
@@ -845,6 +855,60 @@ class UMAP(UniversalBase,
         del X_m
         return embedding
 
+    @property
+    def _n_neighbors(self):
+        return self.n_neighbors
+
+    @_n_neighbors.setter
+    def _n_neighbors(self, value):
+        self.n_neighbors = value
+
+    @property
+    def _a(self):
+        return self.a
+
+    @_a.setter
+    def _a(self, value):
+        self.a = value
+
+    @property
+    def _b(self):
+        return self.b
+
+    @_b.setter
+    def _b(self, value):
+        self.b = value
+
+    @property
+    def _initial_alpha(self):
+        return self.learning_rate
+
+    @_initial_alpha.setter
+    def _initial_alpha(self, value):
+        self.learning_rate = value
+
+    @property
+    def _disconnection_distance(self):
+        self.disconnection_distance = DISCONNECTION_DISTANCES.get(self.metric, np.inf)
+        return self.disconnection_distance
+
+    @_disconnection_distance.setter
+    def _disconnection_distance(self, value):
+        self.disconnection_distance = value
+
+    def gpu_to_cpu(self):
+        if hasattr(self, 'knn_dists') and hasattr(self, 'knn_indices'):
+            self._knn_dists = self.knn_dists
+            self._knn_indices = self.knn_indices
+            self._knn_search_index = None
+        elif hasattr(self, '_raw_data'):
+            self._raw_data = self._raw_data.to_output('numpy')
+            self._knn_dists, self._knn_indices, self._knn_search_index = \
+                nearest_neighbors(self._raw_data, self.n_neighbors, self.metric,
+                                  self.metric_kwds, False, self.random_state)
+
+        super().gpu_to_cpu()
+
     def get_param_names(self):
         return super().get_param_names() + [
             "n_neighbors",
@@ -875,4 +939,7 @@ class UMAP(UniversalBase,
         ]
 
     def get_attr_names(self):
-        return ['_raw_data', 'embedding_', '_input_hash', '_small_data']
+        return ['_raw_data', 'embedding_', '_input_hash', '_small_data',
+                '_knn_dists', '_knn_indices', '_knn_search_index',
+                '_disconnection_distance', '_n_neighbors', '_a', '_b',
+                '_initial_alpha']

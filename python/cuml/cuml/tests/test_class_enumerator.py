@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ def test_class_enumerator_parameters():
     class SomeModule:
         class SomeClass(cuml.Base):
             def __eq__(self, other):
-                return type(other) == type(self)
+                return type(other) is type(self)
 
     models1 = ClassEnumerator(module=SomeModule).get_models()
     models2 = ClassEnumerator(

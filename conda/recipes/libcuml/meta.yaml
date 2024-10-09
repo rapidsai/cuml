@@ -68,10 +68,12 @@ requirements:
     - libcusolver-dev
     - libcusparse-dev
     {% endif %}
+    - fmt {{ fmt_version }}
     - libcumlprims ={{ minor_version }}
-    - libraft ={{ minor_version }}
+    - libcuvs ={{ minor_version }}
     - libraft-headers ={{ minor_version }}
     - librmm ={{ minor_version }}
+    - spdlog {{ spdlog_version }}
     - treelite {{ treelite_version }}
 
 outputs:
@@ -114,12 +116,13 @@ outputs:
         - libcusparse
         {% endif %}
         - libcumlprims ={{ minor_version }}
-        - libraft ={{ minor_version }}
+        - libcuvs ={{ minor_version }}
         - librmm ={{ minor_version }}
         - treelite {{ treelite_version }}
     about:
       home: https://rapids.ai/
       license: Apache-2.0
+      license_file: LICENSE
       summary: libcuml library
   - name: libcuml-tests
     version: {{ version }}
@@ -153,4 +156,5 @@ outputs:
     about:
       home: https://rapids.ai/
       license: Apache-2.0
+      license_file: LICENSE
       summary: libcuml test & benchmark executables

@@ -1,3 +1,58 @@
+# cuml 24.10.00 (9 Oct 2024)
+
+## 🚨 Breaking Changes
+
+- Remove old dask-glm based logistic regression ([#6028](https://github.com/rapidsai/cuml/pull/6028)) [@dantegd](https://github.com/dantegd)
+
+## 🐛 Bug Fixes
+
+- Fix train_test_split for string columns ([#6088](https://github.com/rapidsai/cuml/pull/6088)) [@dantegd](https://github.com/dantegd)
+- Stop shadowing free function ([#6076](https://github.com/rapidsai/cuml/pull/6076)) [@vyasr](https://github.com/vyasr)
+- Set default values for conftest options. ([#6067](https://github.com/rapidsai/cuml/pull/6067)) [@bdice](https://github.com/bdice)
+- Add license file to conda packages ([#6061](https://github.com/rapidsai/cuml/pull/6061)) [@raydouglass](https://github.com/raydouglass)
+- Fix np.NAN to np.nan. ([#6056](https://github.com/rapidsai/cuml/pull/6056)) [@bdice](https://github.com/bdice)
+- Reenable `pytest cuml-dask` for CUDA 12.5 wheel CI tests ([#6051](https://github.com/rapidsai/cuml/pull/6051)) [@divyegala](https://github.com/divyegala)
+- Fix for `simplicial_set_embedding` ([#6043](https://github.com/rapidsai/cuml/pull/6043)) [@viclafargue](https://github.com/viclafargue)
+- MAINT: Allow for error message to contain ``np.float32(1.0)`` ([#6030](https://github.com/rapidsai/cuml/pull/6030)) [@seberg](https://github.com/seberg)
+- Stop exporting fill_k kernel as that causes ODR violations ([#6021](https://github.com/rapidsai/cuml/pull/6021)) [@robertmaynard](https://github.com/robertmaynard)
+- Avoid cudf column APIs after cudf.Series disallows column inputs ([#6019](https://github.com/rapidsai/cuml/pull/6019)) [@mroeschke](https://github.com/mroeschke)
+- Use HDBSCAN package pin to `0.8.38` ([#5906](https://github.com/rapidsai/cuml/pull/5906)) [@divyegala](https://github.com/divyegala)
+
+## 📖 Documentation
+
+- Update UMAP doc ([#6064](https://github.com/rapidsai/cuml/pull/6064)) [@viclafargue](https://github.com/viclafargue)
+- Update README in experimental FIL ([#6052](https://github.com/rapidsai/cuml/pull/6052)) [@hcho3](https://github.com/hcho3)
+- add docs for simplicial_set ([#6042](https://github.com/rapidsai/cuml/pull/6042)) [@Intron7](https://github.com/Intron7)
+
+## 🚀 New Features
+
+- TSNE CPU/GPU Interop ([#6063](https://github.com/rapidsai/cuml/pull/6063)) [@divyegala](https://github.com/divyegala)
+- Enable GPU `fit` and CPU `transform` in UMAP ([#6032](https://github.com/rapidsai/cuml/pull/6032)) [@divyegala](https://github.com/divyegala)
+
+## 🛠️ Improvements
+
+- Migrate to use cuVS for vector search ([#6085](https://github.com/rapidsai/cuml/pull/6085)) [@benfred](https://github.com/benfred)
+- Support all-zeroes feature vectors for MG sparse logistic regression ([#6082](https://github.com/rapidsai/cuml/pull/6082)) [@lijinf2](https://github.com/lijinf2)
+- Update update-version.sh to use packaging lib ([#6081](https://github.com/rapidsai/cuml/pull/6081)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Use CI workflow branch &#39;branch-24.10&#39; again ([#6072](https://github.com/rapidsai/cuml/pull/6072)) [@jameslamb](https://github.com/jameslamb)
+- Update fmt (to 11.0.2) and spdlog (to 1.14.1), add those libraries to libcuml conda host dependencies ([#6071](https://github.com/rapidsai/cuml/pull/6071)) [@jameslamb](https://github.com/jameslamb)
+- Update flake8 to 7.1.1. ([#6070](https://github.com/rapidsai/cuml/pull/6070)) [@bdice](https://github.com/bdice)
+- Add support for Python 3.12, update to umap-learn==0.5.6 ([#6060](https://github.com/rapidsai/cuml/pull/6060)) [@jameslamb](https://github.com/jameslamb)
+- Fix compiler warning about signed vs unsigned ints ([#6053](https://github.com/rapidsai/cuml/pull/6053)) [@hcho3](https://github.com/hcho3)
+- Update rapidsai/pre-commit-hooks ([#6048](https://github.com/rapidsai/cuml/pull/6048)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Drop Python 3.9 support ([#6040](https://github.com/rapidsai/cuml/pull/6040)) [@jameslamb](https://github.com/jameslamb)
+- Add use_cuda_wheels matrix entry ([#6038](https://github.com/rapidsai/cuml/pull/6038)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Switch debug build to RelWithDebInfo ([#6033](https://github.com/rapidsai/cuml/pull/6033)) [@rongou](https://github.com/rongou)
+- Remove NumPy &lt;2 pin ([#6031](https://github.com/rapidsai/cuml/pull/6031)) [@seberg](https://github.com/seberg)
+- Remove old dask-glm based logistic regression ([#6028](https://github.com/rapidsai/cuml/pull/6028)) [@dantegd](https://github.com/dantegd)
+- [FEA] UMAP API for building with batched NN Descent ([#6022](https://github.com/rapidsai/cuml/pull/6022)) [@jinsolp](https://github.com/jinsolp)
+- Enabling CPU/GPU interop for SVM, DBSCAN and KMeans ([#6020](https://github.com/rapidsai/cuml/pull/6020)) [@viclafargue](https://github.com/viclafargue)
+- Update pre-commit hooks ([#6016](https://github.com/rapidsai/cuml/pull/6016)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Improve update-version.sh ([#6014](https://github.com/rapidsai/cuml/pull/6014)) [@bdice](https://github.com/bdice)
+- Use tool.scikit-build.cmake.version, set scikit-build-core minimum-version ([#6012](https://github.com/rapidsai/cuml/pull/6012)) [@jameslamb](https://github.com/jameslamb)
+- Merge branch-24.08 into branch-24.10 ([#5981](https://github.com/rapidsai/cuml/pull/5981)) [@jameslamb](https://github.com/jameslamb)
+- Use CUDA math wheels ([#5966](https://github.com/rapidsai/cuml/pull/5966)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+
 # cuml 24.08.00 (7 Aug 2024)
 
 ## 🐛 Bug Fixes

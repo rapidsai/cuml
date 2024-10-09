@@ -14,11 +14,7 @@
  * limitations under the License.
  */
 
-#include "kmeans_mg_impl.cuh"
-
 #include <cuml/cluster/kmeans_mg.hpp>
-
-#include <raft/cluster/kmeans_types.hpp>
 
 namespace ML {
 namespace kmeans {
@@ -26,8 +22,8 @@ namespace opg {
 
 // ----------------------------- fit ---------------------------------//
 
-void fit(const raft::handle_t& handle,
-         const raft::cluster::KMeansParams& params,
+void fit(const raft::resources& handle,
+         const cuvs::cluster::kmeans::params& params,
          const float* X,
          int n_samples,
          int n_features,
@@ -36,14 +32,23 @@ void fit(const raft::handle_t& handle,
          float& inertia,
          int& n_iter)
 {
-  const raft::handle_t& h = handle;
+  std::optional<raft::device_vector_view<const float, int>> sample_weight_view;
+  if (sample_weight != NULL) {
+    sample_weight_view = raft::make_device_vector_view<const float, int>(sample_weight, n_samples);
+  }
 
-  raft::stream_syncer _(h);
-  impl::fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia, n_iter);
+  cuvs::cluster::kmeans::fit(
+    handle,
+    params,
+    raft::make_device_matrix_view<const float, int>(X, n_samples, n_features),
+    sample_weight_view,
+    raft::make_device_matrix_view<float, int>(centroids, params.n_clusters, n_features),
+    raft::make_host_scalar_view<float>(&inertia),
+    raft::make_host_scalar_view<int>(&n_iter));
 }
 
-void fit(const raft::handle_t& handle,
-         const raft::cluster::KMeansParams& params,
+void fit(const raft::resources& handle,
+         const cuvs::cluster::kmeans::params& params,
          const double* X,
          int n_samples,
          int n_features,
@@ -52,13 +57,23 @@ void fit(const raft::handle_t& handle,
          double& inertia,
          int& n_iter)
 {
-  const raft::handle_t& h = handle;
-  raft::stream_syncer _(h);
-  impl::fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia, n_iter);
+  std::optional<raft::device_vector_view<const double, int>> sample_weight_view;
+  if (sample_weight != NULL) {
+    sample_weight_view = raft::make_device_vector_view<const double, int>(sample_weight, n_samples);
+  }
+
+  cuvs::cluster::kmeans::fit(
+    handle,
+    params,
+    raft::make_device_matrix_view<const double, int>(X, n_samples, n_features),
+    sample_weight_view,
+    raft::make_device_matrix_view<double, int>(centroids, params.n_clusters, n_features),
+    raft::make_host_scalar_view<double>(&inertia),
+    raft::make_host_scalar_view<int>(&n_iter));
 }
 
-void fit(const raft::handle_t& handle,
-         const raft::cluster::KMeansParams& params,
+void fit(const raft::resources& handle,
+         const cuvs::cluster::kmeans::params& params,
          const float* X,
          int64_t n_samples,
          int64_t n_features,
@@ -67,14 +82,24 @@ void fit(const raft::handle_t& handle,
          float& inertia,
          int64_t& n_iter)
 {
-  const raft::handle_t& h = handle;
+  std::optional<raft::device_vector_view<const float, int64_t>> sample_weight_view;
+  if (sample_weight != NULL) {
+    sample_weight_view =
+      raft::make_device_vector_view<const float, int64_t>(sample_weight, n_samples);
+  }
 
-  raft::stream_syncer _(h);
-  impl::fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia, n_iter);
+  cuvs::cluster::kmeans::fit(
+    handle,
+    params,
+    raft::make_device_matrix_view<const float, int64_t>(X, n_samples, n_features),
+    sample_weight_view,
+    raft::make_device_matrix_view<float, int64_t>(centroids, params.n_clusters, n_features),
+    raft::make_host_scalar_view<float>(&inertia),
+    raft::make_host_scalar_view<int64_t>(&n_iter));
 }
 
-void fit(const raft::handle_t& handle,
-         const raft::cluster::KMeansParams& params,
+void fit(const raft::resources& handle,
+         const cuvs::cluster::kmeans::params& params,
          const double* X,
          int64_t n_samples,
          int64_t n_features,
@@ -83,11 +108,21 @@ void fit(const raft::handle_t& handle,
          double& inertia,
          int64_t& n_iter)
 {
-  const raft::handle_t& h = handle;
-  raft::stream_syncer _(h);
-  impl::fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia, n_iter);
-}
+  std::optional<raft::device_vector_view<const double, int64_t>> sample_weight_view;
+  if (sample_weight != NULL) {
+    sample_weight_view =
+      raft::make_device_vector_view<const double, int64_t>(sample_weight, n_samples);
+  }
 
+  cuvs::cluster::kmeans::fit(
+    handle,
+    params,
+    raft::make_device_matrix_view<const double, int64_t>(X, n_samples, n_features),
+    sample_weight_view,
+    raft::make_device_matrix_view<double, int64_t>(centroids, params.n_clusters, n_features),
+    raft::make_host_scalar_view<double>(&inertia),
+    raft::make_host_scalar_view<int64_t>(&n_iter));
+}
 };  // end namespace opg
 };  // end namespace kmeans
 };  // end namespace ML

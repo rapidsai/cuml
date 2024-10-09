@@ -20,6 +20,7 @@ from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 rmm = gpu_only_import('rmm')
+from cuml.internals.safe_imports import safe_import_from, return_false
 import typing
 
 IF GPUBUILD == 1:
@@ -32,13 +33,14 @@ IF GPUBUILD == 1:
     from cuml.cluster.cpp.kmeans cimport fit_predict as cpp_fit_predict
     from cuml.cluster.cpp.kmeans cimport predict as cpp_predict
     from cuml.cluster.cpp.kmeans cimport transform as cpp_transform
-    from cuml.cluster.cpp.kmeans cimport KMeansParams
     from cuml.metrics.distance_type cimport DistanceType
-    from cuml.cluster.kmeans_utils cimport *
+    from cuml.cluster.kmeans_utils cimport params as KMeansParams
+    from cuml.cluster.kmeans_utils cimport KMeansPlusPlus, Random, Array
+    from cuml.cluster.kmeans_utils cimport DistanceType as CuvsDistanceType
 
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.base import Base
+from cuml.internals.base import UniversalBase
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
@@ -46,8 +48,13 @@ from cuml.common import input_to_cuml_array
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 
+# from sklearn.utils._openmp_helpers import _openmp_effective_n_threads
+_openmp_effective_n_threads = safe_import_from(
+    "sklearn.utils._openmp_helpers", "_openmp_effective_n_threads", alt=return_false
+)
 
-class KMeans(Base,
+
+class KMeans(UniversalBase,
              ClusterMixin,
              CMajorInputTagMixin):
 
@@ -188,8 +195,8 @@ class KMeans(Base,
     """
 
     _cpu_estimator_import_path = 'sklearn.cluster.KMeans'
-    labels_ = CumlArrayDescriptor()
-    cluster_centers_ = CumlArrayDescriptor()
+    labels_ = CumlArrayDescriptor(order='C')
+    cluster_centers_ = CumlArrayDescriptor(order='C')
 
     def _get_kmeans_params(self):
         IF GPUBUILD == 1:
@@ -201,7 +208,7 @@ class KMeans(Base,
             params.tol = <double>self.tol
             params.verbosity = <int>self.verbose
             params.rng_state.seed = self.random_state
-            params.metric = DistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
+            params.metric = CuvsDistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
             params.batch_samples = <int>self.max_samples_per_batch
             params.oversampling_factor = <double>self.oversampling_factor
             params.n_init = <int>self.n_init
@@ -232,6 +239,12 @@ class KMeans(Base,
         self.labels_ = None
         self.cluster_centers_ = None
 
+        # For sklearn interoperability
+        if _openmp_effective_n_threads():
+            self._n_threads = _openmp_effective_n_threads()
+        else:
+            self._n_threads = 1
+
         # cuPy does not allow comparing with string. See issue #2372
         init_str = init if isinstance(init, str) else None
 
@@ -258,7 +271,7 @@ class KMeans(Base,
 
             IF GPUBUILD == 1:
                 self._params_init = Array
-            self.cluster_centers_, _n_rows, self.n_cols, self.dtype = \
+            self.cluster_centers_, _n_rows, self.n_features_in_, self.dtype = \
                 input_to_cuml_array(
                     init, order='C',
                     convert_to_dtype=(np.float32 if convert_dtype
@@ -274,7 +287,7 @@ class KMeans(Base,
 
         """
         if self.init == 'preset':
-            check_cols = self.n_cols
+            check_cols = self.n_features_in_
             check_dtype = self.dtype
             target_dtype = self.dtype
         else:
@@ -282,7 +295,7 @@ class KMeans(Base,
             check_dtype = [np.float32, np.float64]
             target_dtype = np.float32
 
-        _X_m, _n_rows, self.n_cols, self.dtype = \
+        _X_m, _n_rows, self.n_features_in_, self.dtype = \
             input_to_cuml_array(X,
                                 order='C',
                                 check_cols=check_cols,
@@ -306,14 +319,14 @@ class KMeans(Base,
 
             cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
 
-            int_dtype = np.int32 if np.int64(_n_rows) * np.int64(self.n_cols) < 2**31-1 else np.int64
+            int_dtype = np.int32 if np.int64(_n_rows) * np.int64(self.n_features_in_) < 2**31-1 else np.int64
 
             self.labels_ = CumlArray.zeros(shape=_n_rows, dtype=int_dtype)
             cdef uintptr_t labels_ptr = self.labels_.ptr
 
             if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
                 self.cluster_centers_ = \
-                    CumlArray.zeros(shape=(self.n_clusters, self.n_cols),
+                    CumlArray.zeros(shape=(self.n_clusters, self.n_features_in_),
                                     dtype=self.dtype, order='C')
 
             cdef uintptr_t cluster_centers_ptr = self.cluster_centers_.ptr
@@ -334,7 +347,7 @@ class KMeans(Base,
                         <KMeansParams> deref(params),
                         <const float*> input_ptr,
                         <int> _n_rows,
-                        <int> self.n_cols,
+                        <int> self.n_features_in_,
                         <const float *>sample_weight_ptr,
                         <float*> cluster_centers_ptr,
                         <int*> labels_ptr,
@@ -347,7 +360,7 @@ class KMeans(Base,
                         <KMeansParams> deref(params),
                         <const float*> input_ptr,
                         <int64_t> _n_rows,
-                        <int64_t> self.n_cols,
+                        <int64_t> self.n_features_in_,
                         <const float *>sample_weight_ptr,
                         <float*> cluster_centers_ptr,
                         <int64_t*> labels_ptr,
@@ -364,7 +377,7 @@ class KMeans(Base,
                         <KMeansParams> deref(params),
                         <const double*> input_ptr,
                         <int> _n_rows,
-                        <int> self.n_cols,
+                        <int> self.n_features_in_,
                         <const double *>sample_weight_ptr,
                         <double*> cluster_centers_ptr,
                         <int*> labels_ptr,
@@ -378,7 +391,7 @@ class KMeans(Base,
                          <KMeansParams> deref(params),
                          <const double*> input_ptr,
                          <int64_t> _n_rows,
-                         <int64_t> self.n_cols,
+                         <int64_t> self.n_features_in_,
                          <const double *>sample_weight_ptr,
                          <double*> cluster_centers_ptr,
                          <int64_t*> labels_ptr,
@@ -442,11 +455,13 @@ class KMeans(Base,
         Sum of squared distances of samples to their closest cluster center.
         """
 
+        self.dtype = self.cluster_centers_.dtype
+
         _X_m, _n_rows, _n_cols, _ = \
             input_to_cuml_array(X, order='C', check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
-                                check_cols=self.n_cols)
+                                check_cols=self.n_features_in_)
 
         IF GPUBUILD == 1:
             cdef uintptr_t input_ptr = _X_m.ptr
@@ -486,7 +501,7 @@ class KMeans(Base,
                         <float*> cluster_centers_ptr,
                         <float*> input_ptr,
                         <size_t> _n_rows,
-                        <size_t> self.n_cols,
+                        <size_t> self.n_features_in_,
                         <float *>sample_weight_ptr,
                         <bool> normalize_weights,
                         <int*> labels_ptr,
@@ -498,7 +513,7 @@ class KMeans(Base,
                         <float*> cluster_centers_ptr,
                         <float*> input_ptr,
                         <int64_t> _n_rows,
-                        <int64_t> self.n_cols,
+                        <int64_t> self.n_features_in_,
                         <float *>sample_weight_ptr,
                         <bool> normalize_weights,
                         <int64_t*> labels_ptr,
@@ -513,7 +528,7 @@ class KMeans(Base,
                         <double*> cluster_centers_ptr,
                         <double*> input_ptr,
                         <size_t> _n_rows,
-                        <size_t> self.n_cols,
+                        <size_t> self.n_features_in_,
                         <double *>sample_weight_ptr,
                         <bool> normalize_weights,
                         <int*> labels_ptr,
@@ -525,7 +540,7 @@ class KMeans(Base,
                         <double*> cluster_centers_ptr,
                         <double*> input_ptr,
                         <int64_t> _n_rows,
-                        <int64_t> self.n_cols,
+                        <int64_t> self.n_features_in_,
                         <double *>sample_weight_ptr,
                         <bool> normalize_weights,
                         <int64_t*> labels_ptr,
@@ -578,7 +593,7 @@ class KMeans(Base,
             input_to_cuml_array(X, order='C', check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
-                                check_cols=self.n_cols)
+                                check_cols=self.n_features_in_)
         IF GPUBUILD == 1:
             cdef uintptr_t input_ptr = _X_m.ptr
 
@@ -595,7 +610,8 @@ class KMeans(Base,
             # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
             cdef KMeansParams* params = \
                 <KMeansParams*><size_t>self._get_kmeans_params()
-            params.metric = DistanceType.L2SqrtExpanded
+
+            params.metric = CuvsDistanceType.L2Expanded
 
             int_dtype = np.int32 if self.labels_.dtype == np.int32 else np.int64
 
@@ -607,7 +623,7 @@ class KMeans(Base,
                         <float*> cluster_centers_ptr,
                         <float*> input_ptr,
                         <int> _n_rows,
-                        <int> self.n_cols,
+                        <int> self.n_features_in_,
                         <float*> preds_ptr)
                 else:
                     cpp_transform(
@@ -616,7 +632,7 @@ class KMeans(Base,
                         <float*> cluster_centers_ptr,
                         <float*> input_ptr,
                         <int64_t> _n_rows,
-                        <int64_t> self.n_cols,
+                        <int64_t> self.n_features_in_,
                         <float*> preds_ptr)
 
             elif self.dtype == np.float64:
@@ -627,7 +643,7 @@ class KMeans(Base,
                         <double*> cluster_centers_ptr,
                         <double*> input_ptr,
                         <int> _n_rows,
-                        <int> self.n_cols,
+                        <int> self.n_features_in_,
                         <double*> preds_ptr)
                 else:
                     cpp_transform(
@@ -636,7 +652,7 @@ class KMeans(Base,
                         <double*> cluster_centers_ptr,
                         <double*> input_ptr,
                         <int64_t> _n_rows,
-                        <int64_t> self.n_cols,
+                        <int64_t> self.n_features_in_,
                         <double*> preds_ptr)
 
             else:
@@ -685,3 +701,7 @@ class KMeans(Base,
             ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
                 'tol', "convert_dtype"]
+
+    def get_attr_names(self):
+        return ['cluster_centers_', 'labels_', 'inertia_',
+                'n_iter_', 'n_features_in_', '_n_threads']

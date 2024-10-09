@@ -103,92 +103,6 @@ def make_classification_dataset(
     return X, y
 
 
-def select_sk_solver(cuml_solver):
-    if cuml_solver == "newton":
-        return "newton-cg"
-    elif cuml_solver in ["admm", "lbfgs"]:
-        return "lbfgs"
-    else:
-        pytest.xfail("No matched sklearn solver")
-
-
-@pytest.mark.mg
-@pytest.mark.parametrize("nrows", [1e5])
-@pytest.mark.parametrize("ncols", [20])
-@pytest.mark.parametrize("n_parts", [2, 6])
-@pytest.mark.parametrize("fit_intercept", [False, True])
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("gpu_array_input", [False, True])
-@pytest.mark.parametrize(
-    "solver", ["admm", "gradient_descent", "newton", "lbfgs", "proximal_grad"]
-)
-def test_lr_fit_predict_score(
-    nrows,
-    ncols,
-    n_parts,
-    fit_intercept,
-    datatype,
-    gpu_array_input,
-    solver,
-    client,
-):
-    sk_solver = select_sk_solver(cuml_solver=solver)
-
-    def imp():
-        import cuml.comm.serialize  # NOQA
-
-    client.run(imp)
-
-    from cuml.dask.extended.linear_model import (
-        LogisticRegression as cumlLR_dask,
-    )
-
-    n_info = 5
-    nrows = int(nrows)
-    ncols = int(ncols)
-    X, y = make_classification_dataset(datatype, nrows, ncols, n_info)
-
-    gX, gy = _prep_training_data(client, X, y, n_parts)
-
-    if gpu_array_input:
-        gX = gX.values
-        gX._meta = cp.asarray(gX._meta)
-        gy = gy.values
-        gy._meta = cp.asarray(gy._meta)
-
-    cuml_model = cumlLR_dask(
-        fit_intercept=fit_intercept, solver=solver, max_iter=10
-    )
-
-    # test fit and predict
-    cuml_model.fit(gX, gy)
-    cu_preds = cuml_model.predict(gX)
-    accuracy_cuml = accuracy_score(y, cu_preds.compute().get())
-
-    sk_model = skLR(fit_intercept=fit_intercept, solver=sk_solver, max_iter=10)
-    sk_model.fit(X, y)
-    sk_preds = sk_model.predict(X)
-    accuracy_sk = accuracy_score(y, sk_preds)
-
-    assert (accuracy_cuml >= accuracy_sk) | (
-        np.abs(accuracy_cuml - accuracy_sk) < 1e-3
-    )
-
-    # score
-    accuracy_cuml = cuml_model.score(gX, gy).compute().item()
-    accuracy_sk = sk_model.score(X, y)
-
-    assert (accuracy_cuml >= accuracy_sk) | (
-        np.abs(accuracy_cuml - accuracy_sk) < 1e-3
-    )
-
-    # predicted probabilities should differ by <= 5%
-    # even with different solvers (arbitrary)
-    probs_cuml = cuml_model.predict_proba(gX).compute()
-    probs_sk = sk_model.predict_proba(X)[:, 1]
-    assert np.abs(probs_sk - probs_cuml.get()).max() <= 0.05
-
-
 @pytest.mark.mg
 @pytest.mark.parametrize("n_parts", [2])
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -682,7 +596,7 @@ def test_exception_one_label(fit_intercept, client):
     y = np.array([1.0, 1.0, 1.0, 1.0], datatype)
     X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
-    err_msg = "This solver needs samples of at least 2 classes in the data, but the data contains only one class: 1.0"
+    err_msg = "This solver needs samples of at least 2 classes in the data, but the data contains only one class:.*1.0"
 
     from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
 
@@ -1119,3 +1033,44 @@ def test_standardization_sparse(fit_intercept, reg_dtype, client):
     )
 
     assert lr_on.dtype == datatype
+
+
+@pytest.mark.parametrize("standardization", [False, True])
+@pytest.mark.parametrize("fit_intercept", [False, True])
+def test_sparse_all_zeroes(standardization, fit_intercept, client):
+    n_parts = 2
+    datatype = "float32"
+
+    X = np.array([(0, 0), (0, 0), (0, 0), (0, 0)], datatype)
+    y = np.array([1.0, 1.0, 0.0, 0.0], datatype)
+    X = csr_matrix(X)
+    X_da_csr, y_da = _prep_training_data_sparse(client, X, y, n_parts)
+
+    from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
+
+    mg = cumlLBFGS_dask(
+        fit_intercept=fit_intercept,
+        verbose=True,
+        standardization=standardization,
+    )
+    mg.fit(X_da_csr, y_da)
+    mg_preds = mg.predict(X_da_csr).compute()
+
+    from sklearn.linear_model import LogisticRegression
+
+    cpu_lr = LogisticRegression(fit_intercept=fit_intercept)
+    cpu_lr.fit(X, y)
+    cpu_preds = cpu_lr.predict(X)
+
+    assert array_equal(mg_preds, cpu_preds)
+
+    assert array_equal(
+        mg.coef_,
+        cpu_lr.coef_,
+        with_sign=True,
+    )
+    assert array_equal(
+        mg.intercept_,
+        cpu_lr.intercept_,
+        with_sign=True,
+    )

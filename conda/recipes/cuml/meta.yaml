@@ -69,7 +69,7 @@ requirements:
     - pylibraft ={{ minor_version }}
     - python x.x
     - raft-dask ={{ minor_version }}
-    - scikit-build-core >=0.7.0
+    - scikit-build-core >=0.10.0
     - treelite {{ treelite_version }}
     - rapids-build-backend>=0.3.0,<0.4.0.dev0
   run:
@@ -85,6 +85,7 @@ requirements:
     - joblib >=0.11
     - libcuml ={{ version }}
     - libcumlprims ={{ minor_version }}
+    - numpy >=1.23,<3.0a0
     - pylibraft ={{ minor_version }}
     - python x.x
     - raft-dask ={{ minor_version }}
@@ -100,5 +101,5 @@ tests:
 about:
   home: https://rapids.ai/
   license: Apache-2.0
-  # license_file: LICENSE
+  license_file: LICENSE
   summary: cuML library
