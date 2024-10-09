@@ -37,6 +37,8 @@ from cuml.common import using_output_type
 from cuml.internals.logger import warn
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.array_sparse import SparseCumlArray, SparseCumlArrayInput
+from cuml.internals.mem_type import MemoryType
+from cuml.internals.available_devices import is_cuda_available
 from libcpp cimport bool
 
 
@@ -216,14 +218,10 @@ class SVMBase(UniversalBase,
 
     dual_coef_ = CumlArrayDescriptor(order='F')
     support_ = CumlArrayDescriptor(order='F')
-    support_vectors__ = CumlArrayDescriptor(order='F')
-    _intercept__ = CumlArrayDescriptor(order='F')
+    support_vectors_ = CumlArrayDescriptor(order='F')
+    _intercept_ = CumlArrayDescriptor(order='F')
     _internal_coef_ = CumlArrayDescriptor(order='F')
     _unique_labels_ = CumlArrayDescriptor(order='F')
-
-    _dual_coef__order = 'F'
-    support_vectors__order = 'F'
-    _intercept__order = 'F'
 
     def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=1024.0,
@@ -252,8 +250,8 @@ class SVMBase(UniversalBase,
         # Attributes (parameters of the fitted model)
         self.dual_coef_ = None
         self.support_ = None
-        self.support_vectors__ = None
-        self._intercept__ = None
+        self.support_vectors_ = None
+        self._intercept_ = None
         self.n_support_ = None
 
         self._c_kernel = self._get_c_kernel(kernel)
@@ -347,7 +345,7 @@ class SVMBase(UniversalBase,
         if self.n_support_ == 0:
             return cupy.zeros((1, self.n_features_in_), dtype=self.dtype)
         with using_output_type("cupy"):
-            return cupy.dot(self.dual_coef_, self.support_vectors__)
+            return cupy.dot(self.dual_coef_, self.support_vectors_)
 
     def _check_is_fitted(self, attr):
         if not hasattr(self, attr) or (getattr(self, attr) is None):
@@ -372,70 +370,15 @@ class SVMBase(UniversalBase,
         self._internal_coef_ = value
 
     @property
-    def _probA(self):
-        if not hasattr(self, '__probA'):
-            return np.empty(0, dtype=np.float64)
-        else:
-            return self.__probA
-
-    @_probA.setter
-    def _probA(self, value):
-        self.__probA = value
-
-    @property
-    def _probB(self):
-        if not hasattr(self, '__probB'):
-            return np.empty(0, dtype=np.float64)
-        else:
-            return self.__probB
-
-    @_probB.setter
-    def _probB(self, value):
-        self.__probB = value
-
-    @property
     @cuml.internals.api_base_return_array_skipall
     def intercept_(self):
-        if self._intercept__ is None:
+        if self._intercept_ is None:
             raise AttributeError("intercept_ called before fit.")
-        return self._intercept__
+        return self._intercept_
 
     @intercept_.setter
     def intercept_(self, value):
-        self._intercept__ = value
-
-    @property
-    @cuml.internals.api_base_return_array_skipall
-    def _intercept_(self):
-        if self._intercept__ is None:
-            raise AttributeError("intercept_ called before fit.")
-        return self._intercept__.to_output('numpy').astype(np.float64)
-
-    @_intercept_.setter
-    def _intercept_(self, value):
-        if hasattr(self, 'n_classes_') and self.n_classes_ == 2:
-            value = -1.0 * value.to_output('cupy')
-            value = input_to_cuml_array(value)[0]
-        self._intercept__ = value
-
-    @property
-    def _dual_coef_(self):
-        return self.dual_coef_.to_output('numpy').astype(np.float64)
-
-    @_dual_coef_.setter
-    def _dual_coef_(self, value):
-        if hasattr(self, 'n_classes_') and self.n_classes_ == 2:
-            value = -1.0 * value.to_output('cupy')
-            value = input_to_cuml_array(value)[0]
-        self.dual_coef_ = value
-
-    @property
-    def support_vectors_(self):
-        return self.support_vectors__.to_output('numpy').astype(np.float64)
-
-    @support_vectors_.setter
-    def support_vectors_(self, value):
-        self.support_vectors__ = value
+        self._intercept_ = value
 
     def _get_kernel_params(self, X=None):
         """ Wrap the kernel parameters in a KernelParams obtect """
@@ -479,16 +422,16 @@ class SVMBase(UniversalBase,
             model_f = new SvmModel[float]()
             model_f.n_support = n_support
             model_f.n_cols = self.n_features_in_
-            model_f.b = self._intercept__.item()
+            model_f.b = self._intercept_.item()
             model_f.dual_coefs = \
                 <float*><size_t>self.dual_coef_.ptr
-            if isinstance(self.support_vectors__, SparseCumlArray):
-                model_f.support_matrix.nnz = self.support_vectors__.nnz
-                model_f.support_matrix.indptr = <int*><uintptr_t>self.support_vectors__.indptr.ptr
-                model_f.support_matrix.indices = <int*><uintptr_t>self.support_vectors__.indices.ptr
-                model_f.support_matrix.data = <float*><uintptr_t>self.support_vectors__.data.ptr
+            if isinstance(self.support_vectors_, SparseCumlArray):
+                model_f.support_matrix.nnz = self.support_vectors_.nnz
+                model_f.support_matrix.indptr = <int*><uintptr_t>self.support_vectors_.indptr.ptr
+                model_f.support_matrix.indices = <int*><uintptr_t>self.support_vectors_.indices.ptr
+                model_f.support_matrix.data = <float*><uintptr_t>self.support_vectors_.data.ptr
             else:
-                model_f.support_matrix.data = <float*><uintptr_t>self.support_vectors__.ptr
+                model_f.support_matrix.data = <float*><uintptr_t>self.support_vectors_.ptr
             model_f.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
             model_f.n_classes = self.n_classes_
@@ -502,16 +445,16 @@ class SVMBase(UniversalBase,
             model_d = new SvmModel[double]()
             model_d.n_support = n_support
             model_d.n_cols = self.n_features_in_
-            model_d.b = self._intercept__.item()
+            model_d.b = self._intercept_.item()
             model_d.dual_coefs = \
                 <double*><size_t>self.dual_coef_.ptr
-            if isinstance(self.support_vectors__, SparseCumlArray):
-                model_d.support_matrix.nnz = self.support_vectors__.nnz
-                model_d.support_matrix.indptr = <int*><uintptr_t>self.support_vectors__.indptr.ptr
-                model_d.support_matrix.indices = <int*><uintptr_t>self.support_vectors__.indices.ptr
-                model_d.support_matrix.data = <double*><uintptr_t>self.support_vectors__.data.ptr
+            if isinstance(self.support_vectors_, SparseCumlArray):
+                model_d.support_matrix.nnz = self.support_vectors_.nnz
+                model_d.support_matrix.indptr = <int*><uintptr_t>self.support_vectors_.indptr.ptr
+                model_d.support_matrix.indices = <int*><uintptr_t>self.support_vectors_.indices.ptr
+                model_d.support_matrix.data = <double*><uintptr_t>self.support_vectors_.data.ptr
             else:
-                model_d.support_matrix.data = <double*><uintptr_t>self.support_vectors__.ptr
+                model_d.support_matrix.data = <double*><uintptr_t>self.support_vectors_.ptr
             model_d.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
             model_d.n_classes = self.n_classes_
@@ -523,7 +466,7 @@ class SVMBase(UniversalBase,
             return <uintptr_t>model_d
 
     def _unpack_svm_model(self, b, n_support, dual_coefs, support_idx, nnz, indptr, indices, data, n_classes, unique_labels):
-        self._intercept__ = CumlArray.full(1, b, self.dtype)
+        self._intercept_ = CumlArray.full(1, b, self.dtype)
         self.n_support_ = n_support
 
         if n_support > 0:
@@ -540,7 +483,7 @@ class SVMBase(UniversalBase,
                 order='F')
 
             if nnz == -1:
-                self.support_vectors__ = CumlArray(
+                self.support_vectors_ = CumlArray(
                     data=data,
                     shape=(self.n_support_, self.n_features_in_),
                     dtype=self.dtype,
@@ -565,7 +508,7 @@ class SVMBase(UniversalBase,
                     data=data,
                     nnz=nnz,
                     shape=(self.n_support_, self.n_features_in_))
-                self.support_vectors__ = SparseCumlArray(data=sparse_input)
+                self.support_vectors_ = SparseCumlArray(data=sparse_input)
 
         self.n_classes_ = n_classes
         if self.n_classes_ > 0:
@@ -627,7 +570,7 @@ class SVMBase(UniversalBase,
 
             # Setting all dims to zero due to issue
             # https://github.com/rapidsai/cuml/issues/4095
-            self.support_vectors__ = CumlArray.empty(
+            self.support_vectors_ = CumlArray.empty(
                 shape=(0, 0),
                 dtype=self.dtype,
                 order='F')
@@ -738,10 +681,8 @@ class SVMBase(UniversalBase,
         ]
 
     def get_attr_names(self):
-        attr_names = ["_dual_coef_", "fit_status_", "_intercept_",
-                      "n_features_in_", "_n_support", "shape_fit_",
-                      "support_", "support_vectors_", "_probA",
-                      "_probB", "_gamma"]
+        attr_names = ["fit_status_", "n_features_in_", "shape_fit_",
+                      "support_", "_probA", "_probB", "_gamma"]
         if self.kernel == "linear":
             attr_names.append("coef_")
         return attr_names
@@ -758,3 +699,68 @@ class SVMBase(UniversalBase,
         self.__dict__.update(state)
         self._model = self._get_svm_model()
         self._freeSvmBuffers = False
+
+    def gpu_to_cpu(self):
+        self._cpu_model._n_support = np.array([self.n_support_, 0], dtype=np.int32)
+
+        super().gpu_to_cpu()
+
+        intercept_ = self._intercept_.to_output('numpy').astype(np.float64)
+        dual_coef_ = self.dual_coef_.to_output('numpy').astype(np.float64)
+        support_vectors_ = self.support_vectors_.to_output('numpy').astype(np.float64)
+
+        if self.n_classes_ == 2:
+            intercept_ = -1.0 * intercept_
+            dual_coef_ = -1.0 * dual_coef_
+
+        self._cpu_model._intercept_ = np.array(intercept_, order='C')
+        self._cpu_model._dual_coef_ = np.array(dual_coef_, order='C')
+        self._cpu_model.support_vectors_ = np.array(support_vectors_, order='C')
+
+        if hasattr(self, 'n_classes_'):
+            n = self.n_classes_ * (self.n_classes_ - 1) // 2
+            _probA = np.empty(n, dtype=np.float64)
+            _probB = np.empty(n, dtype=np.float64)
+        else:
+            _probA = np.empty(0, dtype=np.float64)
+            _probB = np.empty(0, dtype=np.float64)
+
+        self._cpu_model._probA = _probA
+        self._cpu_model._probB = _probB
+
+    def cpu_to_gpu(self):
+        super().cpu_to_gpu()
+
+        intercept_ = self._cpu_model._intercept_
+        dual_coef_ = self._cpu_model._dual_coef_
+
+        if self.n_classes_ == 2:
+            intercept_ = -1.0 * intercept_
+            dual_coef_ = -1.0 * dual_coef_
+
+        self._intercept_ = input_to_cuml_array(
+            intercept_,
+            convert_to_mem_type=(MemoryType.host,
+                                 MemoryType.device)[is_cuda_available()],
+            order='F')[0]
+        self.dual_coef_ = input_to_cuml_array(
+            dual_coef_,
+            convert_to_mem_type=(MemoryType.host,
+                                 MemoryType.device)[is_cuda_available()],
+            order='F')[0]
+        self.support_vectors_ = input_to_cuml_array(
+            self._cpu_model.support_vectors_,
+            convert_to_mem_type=(MemoryType.host,
+                                 MemoryType.device)[is_cuda_available()],
+            order='F')[0]
+
+        if hasattr(self, 'n_classes_'):
+            n = self.n_classes_ * (self.n_classes_ - 1) // 2
+            _probA = np.empty(n, dtype=np.float64)
+            _probB = np.empty(n, dtype=np.float64)
+        else:
+            _probA = np.empty(0, dtype=np.float64)
+            _probB = np.empty(0, dtype=np.float64)
+
+        self._probA = _probA
+        self._probB = _probB

@@ -337,8 +337,6 @@ class SVC(SVMBase,
 
     class_weight_ = CumlArrayDescriptor(order='F')
 
-    classes__order = 'F'
-
     @device_interop_preparation
     def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=1024.0,
@@ -525,10 +523,6 @@ class SVC(SVMBase,
         # In that case we don't want to make a dense copy
         _array_type, is_sparse = determine_array_type_full(X)
         self._sparse = is_sparse
-
-        # n = int(self.n_classes_ * (self.n_classes_ - 1) / 2)
-        # self._probA = np.empty(n, dtype=np.float64)
-        # self._probB = np.empty(n, dtype=np.float64)
 
         if self.probability:
             return self._fit_proba(X, y, sample_weight)
