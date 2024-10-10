@@ -19,7 +19,7 @@
 
 #include <cuml/cluster/hdbscan.hpp>
 
-#include <raft/cluster/detail/agglomerative.cuh>
+#include <raft/cluster/detail/agglomerative.cuh>  // build_dendrogram_host
 #include <raft/core/handle.hpp>
 #include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>
@@ -34,6 +34,7 @@
 #include <thrust/execution_policy.h>
 #include <thrust/transform.h>
 
+#include <cuvs/cluster/agglomerative.hpp>
 #include <gtest/gtest.h>
 #include <hdbscan/detail/condense.cuh>
 #include <hdbscan/detail/extract.cuh>

@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <raft/cluster/kmeans.cuh>
-#include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/handle.hpp>
+
+#include <cuvs/cluster/kmeans.hpp>
 
 namespace ML {
 namespace kmeans {
@@ -24,7 +24,7 @@ namespace kmeans {
 // -------------------------- fit_predict --------------------------------//
 template <typename value_t, typename idx_t>
 void fit_predict_impl(const raft::handle_t& handle,
-                      const raft::cluster::KMeansParams& params,
+                      const cuvs::cluster::kmeans::params& params,
                       const value_t* X,
                       idx_t n_samples,
                       idx_t n_features,
@@ -45,12 +45,12 @@ void fit_predict_impl(const raft::handle_t& handle,
   auto inertia_view = raft::make_host_scalar_view<value_t>(&inertia);
   auto n_iter_view  = raft::make_host_scalar_view<idx_t>(&n_iter);
 
-  raft::cluster::kmeans_fit_predict<value_t, idx_t>(
+  cuvs::cluster::kmeans::fit_predict(
     handle, params, X_view, sw, centroids_opt, rLabels, inertia_view, n_iter_view);
 }
 
 void fit_predict(const raft::handle_t& handle,
-                 const raft::cluster::KMeansParams& params,
+                 const cuvs::cluster::kmeans::params& params,
                  const float* X,
                  int n_samples,
                  int n_features,
@@ -65,7 +65,7 @@ void fit_predict(const raft::handle_t& handle,
 }
 
 void fit_predict(const raft::handle_t& handle,
-                 const raft::cluster::KMeansParams& params,
+                 const cuvs::cluster::kmeans::params& params,
                  const double* X,
                  int n_samples,
                  int n_features,
@@ -80,7 +80,7 @@ void fit_predict(const raft::handle_t& handle,
 }
 
 void fit_predict(const raft::handle_t& handle,
-                 const raft::cluster::KMeansParams& params,
+                 const cuvs::cluster::kmeans::params& params,
                  const float* X,
                  int64_t n_samples,
                  int64_t n_features,
@@ -95,7 +95,7 @@ void fit_predict(const raft::handle_t& handle,
 }
 
 void fit_predict(const raft::handle_t& handle,
-                 const raft::cluster::KMeansParams& params,
+                 const cuvs::cluster::kmeans::params& params,
                  const double* X,
                  int64_t n_samples,
                  int64_t n_features,
