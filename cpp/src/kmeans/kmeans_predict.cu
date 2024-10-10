@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <raft/cluster/kmeans.cuh>
-#include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/handle.hpp>
+
+#include <cuvs/cluster/kmeans.hpp>
 
 namespace ML {
 namespace kmeans {
@@ -25,7 +25,7 @@ namespace kmeans {
 
 template <typename value_t, typename idx_t>
 void predict_impl(const raft::handle_t& handle,
-                  const raft::cluster::KMeansParams& params,
+                  const cuvs::cluster::kmeans::params& params,
                   const value_t* centroids,
                   const value_t* X,
                   idx_t n_samples,
@@ -45,12 +45,12 @@ void predict_impl(const raft::handle_t& handle,
   auto rLabels      = raft::make_device_vector_view<idx_t, idx_t>(labels, n_samples);
   auto inertia_view = raft::make_host_scalar_view<value_t>(&inertia);
 
-  raft::cluster::kmeans_predict<value_t, idx_t>(
+  cuvs::cluster::kmeans::predict(
     handle, params, X_view, sw, centroids_view, rLabels, normalize_weights, inertia_view);
 }
 
 void predict(const raft::handle_t& handle,
-             const raft::cluster::KMeansParams& params,
+             const cuvs::cluster::kmeans::params& params,
              const float* centroids,
              const float* X,
              int n_samples,
@@ -73,7 +73,7 @@ void predict(const raft::handle_t& handle,
 }
 
 void predict(const raft::handle_t& handle,
-             const raft::cluster::KMeansParams& params,
+             const cuvs::cluster::kmeans::params& params,
              const double* centroids,
              const double* X,
              int n_samples,
@@ -96,7 +96,7 @@ void predict(const raft::handle_t& handle,
 }
 
 void predict(const raft::handle_t& handle,
-             const raft::cluster::KMeansParams& params,
+             const cuvs::cluster::kmeans::params& params,
              const float* centroids,
              const float* X,
              int64_t n_samples,
@@ -119,7 +119,7 @@ void predict(const raft::handle_t& handle,
 }
 
 void predict(const raft::handle_t& handle,
-             const raft::cluster::KMeansParams& params,
+             const cuvs::cluster::kmeans::params& params,
              const double* centroids,
              const double* X,
              int64_t n_samples,

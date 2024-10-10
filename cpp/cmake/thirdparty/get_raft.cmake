@@ -36,16 +36,6 @@ function(find_and_configure_raft)
         string(APPEND RAFT_COMPONENTS " distributed")
     endif()
 
-    if(PKG_COMPILE_LIBRARY)
-      if(NOT PKG_USE_RAFT_STATIC)
-        string(APPEND RAFT_COMPONENTS " compiled")
-        set(RAFT_COMPILED_LIB raft::compiled PARENT_SCOPE)
-      else()
-        string(APPEND RAFT_COMPONENTS " compiled_static")
-        set(RAFT_COMPILED_LIB raft::compiled_static PARENT_SCOPE)
-      endif()
-    endif()
-
     # We need to set this each time so that on subsequent calls to cmake
     # the raft-config.cmake re-evaluates the RAFT_NVTX value
     set(RAFT_NVTX ${PKG_NVTX})
@@ -66,7 +56,7 @@ function(find_and_configure_raft)
           "BUILD_TESTS OFF"
           "BUILD_BENCH OFF"
           "BUILD_CAGRA_HNSWLIB OFF"
-          "RAFT_COMPILE_LIBRARY ${PKG_COMPILE_LIBRARY}"
+          "RAFT_COMPILE_LIBRARY OFF"
     )
 
     if(raft_ADDED)

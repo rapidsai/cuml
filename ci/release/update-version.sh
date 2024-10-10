@@ -40,11 +40,13 @@ echo "${NEXT_FULL_TAG}" > VERSION
 DEPENDENCIES=(
   cudf
   cuml
+  cuvs
   dask-cuda
   dask-cudf
   libcuml
   libcuml-tests
   libcumlprims
+  libcuvs
   libraft-headers
   libraft
   librmm

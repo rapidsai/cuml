@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,23 +21,14 @@ from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
 
-cdef extern from "raft/spatial/knn/ann_common.h" \
-        namespace "raft::spatial::knn":
+cdef extern from "cuml/neighbors/knn.hpp" \
+        namespace "ML":
 
     cdef cppclass knnIndex:
         pass
 
     cdef cppclass knnIndexParam:
         pass
-
-    ctypedef enum QuantizerType:
-        QT_8bit,
-        QT_4bit,
-        QT_8bit_uniform,
-        QT_4bit_uniform,
-        QT_fp16,
-        QT_8bit_direct,
-        QT_6bit
 
     cdef cppclass IVFParam(knnIndexParam):
         int nlist
