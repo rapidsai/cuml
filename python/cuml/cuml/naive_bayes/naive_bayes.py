@@ -724,7 +724,8 @@ class GaussianNB(_BaseNB):
 
         return cp.array(joint_log_likelihood).T
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return super().get_param_names() + ["priors", "var_smoothing"]
 
 
