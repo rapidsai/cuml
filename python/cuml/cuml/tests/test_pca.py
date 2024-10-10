@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,6 +58,7 @@ def test_pca_fit(datatype, input_type, name, use_handle):
             allow_unlabeled=False,
             random_state=1,
         )
+    X = X.astype(datatype)
 
     skpca = skPCA(n_components=2)
     skpca.fit(X)
@@ -158,7 +159,7 @@ def test_pca_fit_then_transform(datatype, input_type, name, use_handle):
             allow_unlabeled=False,
             random_state=1,
         )
-
+    X = X.astype(datatype)
     if name != "blobs":
         skpca = skPCA(n_components=2)
         skpca.fit(X)
@@ -213,6 +214,8 @@ def test_pca_fit_transform(datatype, input_type, name, use_handle):
             random_state=1,
         )
 
+    X = X.astype(datatype)
+
     if name != "blobs":
         skpca = skPCA(n_components=2)
         Xskpca = skpca.fit_transform(X)
@@ -247,7 +250,7 @@ def test_pca_inverse_transform(datatype, input_type, name, use_handle, nrows):
         X = rng.randn(n, p)  # spherical data
         X[:, 1] *= 0.00001  # make middle component relatively small
         X += [3, 4, 2]  # make a large mean
-
+    X = X.astype(datatype)
     handle, stream = get_handle(use_handle)
     cupca = cuPCA(n_components=2, handle=handle)
 

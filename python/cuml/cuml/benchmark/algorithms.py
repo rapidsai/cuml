@@ -246,6 +246,13 @@ def all_algorithms():
             accepts_labels=False,
         ),
         AlgorithmPair(
+            sklearn.decomposition.KernelPCA,
+            cuml.experimental.KernelPCA,
+            shared_args=dict(),
+            name="KernelPCA",
+            accepts_labels=False,
+        ),
+        AlgorithmPair(
             sklearn.decomposition.TruncatedSVD,
             cuml.decomposition.tsvd.TruncatedSVD,
             shared_args=dict(n_components=10),
