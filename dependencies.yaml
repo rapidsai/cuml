@@ -512,7 +512,6 @@ dependencies:
         packages:
           - *cython
           - dask-ml
-          - hdbscan>=0.8.38,<0.8.39
           - hypothesis>=6.0,<7
           - nltk
           - numpydoc
@@ -527,6 +526,15 @@ dependencies:
           - umap-learn==0.5.6
           - pynndescent
           - setuptools  # Needed on Python 3.12 for dask-glm, which requires pkg_resources but Python 3.12 doesn't have setuptools by default
+      - output_types: conda
+        packages:
+          - pip
+          - pip:
+              - hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master
+      - output_types: pyproject
+        packages:
+          - hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master
+
   test_notebooks:
     common:
       - output_types: [conda, requirements]

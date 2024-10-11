@@ -26,7 +26,6 @@ dependencies:
 - fmt>=11.0.2,<12
 - gcc_linux-64=11.*
 - graphviz
-- hdbscan>=0.8.38,<0.8.39
 - hypothesis>=6.0,<7
 - ipykernel
 - ipython
@@ -47,6 +46,7 @@ dependencies:
 - numpy>=1.23,<3.0a0
 - numpydoc
 - packaging
+- pip
 - pydata-sphinx-theme!=0.14.2
 - pylibraft==24.12.*,>=0.0.0a0
 - pynndescent
@@ -74,4 +74,6 @@ dependencies:
 - sysroot_linux-64==2.17
 - treelite==4.3.0
 - umap-learn==0.5.6
+- pip:
+  - hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master
 name: all_cuda-125_arch-x86_64

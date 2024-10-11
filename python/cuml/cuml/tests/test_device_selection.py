@@ -932,9 +932,6 @@ def test_nn_methods(train_device, infer_device):
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 def test_hdbscan_methods(train_device, infer_device):
 
-    if train_device == "gpu" and infer_device == "cpu":
-        pytest.skip("Can't transfer attributes to cpu for now")
-
     ref_model = refHDBSCAN(
         prediction_data=True,
         approx_min_span_tree=False,
@@ -951,11 +948,13 @@ def test_hdbscan_methods(train_device, infer_device):
     ref_membership = cpu_all_points_membership_vectors(ref_model)
     ref_labels, ref_probs = cpu_approximate_predict(ref_model, X_test_blob)
 
+    gen_min_span_tree = train_device == "gpu" and infer_device == "cpu"
     model = HDBSCAN(
         prediction_data=True,
         approx_min_span_tree=False,
         max_cluster_size=0,
         min_cluster_size=30,
+        gen_min_span_tree=gen_min_span_tree,
     )
     with using_device_type(train_device):
         trained_labels = model.fit_predict(X_train_blob)
