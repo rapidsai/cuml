@@ -19,7 +19,6 @@ jobs:
     with:
       needs: ${{ toJSON(needs) }}
   wheel-build-cuml:
-    needs: checks
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-24.12
     with:
