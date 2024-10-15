@@ -83,11 +83,17 @@ struct treelite_traversal_node : public traversal_node<TREELITE_NODE_ID_T> {
   }
 
   auto max_num_categories() const {
-    auto categories = get_categories();
-    return *std::max_element(
-      std::begin(categories),
-      std::end(categories)
-    ) + 1;
+    auto result = std::remove_const_t<std::remove_reference_t<decltype(get_categories()[0])>>{};
+    if (is_categorical()) {
+      auto categories = get_categories();
+      if (categories.size() != 0) {
+        result = *std::max_element(
+          std::begin(categories),
+          std::end(categories)
+        ) + 1;
+      }
+    }
+    return result;
   }
 
   auto get_output() const {

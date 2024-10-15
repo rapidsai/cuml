@@ -130,7 +130,7 @@ struct traversal_forest {
               node.distant_child()
             ), depth + index_type{1});
             to_be_visited.add(hot_uid, distant_uid);
-            parent_indices.add(cur_index);
+            parent_indices.add(cur_index, cur_index);
           }
           ++cur_index;
         }

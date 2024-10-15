@@ -186,6 +186,16 @@ struct decision_forest_builder {
                            int device                       = 0,
                            raft_proto::cuda_stream stream   = raft_proto::cuda_stream{})
   {
+    std::cout << "      BEGIN get_decision_forest\n";
+    std::cout << "            nodes_.size() " << nodes_.size() << "\n";
+    std::cout << "            root_node_indexes_.size() " << root_node_indexes_.size() << "\n";
+    std::cout << "            node_id_mapping_.size() " << node_id_mapping_.size() << "\n";
+    std::cout << "            num_feature " << num_feature << "\n";
+    std::cout << "            num_class " << num_class << "\n";
+    std::cout << "            max_num_categories_ " << max_num_categories_ << "\n";
+    std::cout << "            vector_output_.size() " << vector_output_.size() << "\n";
+    std::cout << "            categorical_storage_.size() " << categorical_storage_.size() << "\n";
+    std::cout << "            output_size_ " << output_size_ << "\n";
     // Allow narrowing for preprocessing constants. They are stored as doubles
     // for consistency in the builder but must be converted to the proper types
     // for the concrete forest model.
