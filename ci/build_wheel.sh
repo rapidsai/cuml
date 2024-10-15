@@ -74,6 +74,8 @@ python -m pip wheel \
     --disable-pip-version-check \
     .
 
+sccache --show-adv-stats
+
 mkdir -p final_dist
 python -m auditwheel repair -w final_dist "${EXCLUDE_ARGS[@]}" dist/*
 
