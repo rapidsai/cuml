@@ -526,15 +526,6 @@ dependencies:
           - statsmodels
           - umap-learn==0.5.6
           - pynndescent
-      - output_types: conda
-        packages:
-          - pip
-          - pip:
-              - hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master
-      - output_types: pyproject
-        packages:
-          - hdbscan @ git+https://github.com/scikit-learn-contrib/hdbscan.git@master
-
   test_notebooks:
     common:
       - output_types: [conda, requirements]
