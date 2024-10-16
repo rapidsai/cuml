@@ -512,6 +512,7 @@ dependencies:
         packages:
           - *cython
           - dask-ml
+          - hdbscan>=0.8.39,<0.8.40
           - hypothesis>=6.0,<7
           - nltk
           - numpydoc
@@ -525,7 +526,6 @@ dependencies:
           - statsmodels
           - umap-learn==0.5.6
           - pynndescent
-          - setuptools  # Needed on Python 3.12 for dask-glm, which requires pkg_resources but Python 3.12 doesn't have setuptools by default
       - output_types: conda
         packages:
           - pip
