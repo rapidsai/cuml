@@ -20,6 +20,7 @@ from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 rmm = gpu_only_import('rmm')
+from cuml.internals.safe_imports import safe_import_from, return_false
 import typing
 
 IF GPUBUILD == 1:
@@ -32,9 +33,10 @@ IF GPUBUILD == 1:
     from cuml.cluster.cpp.kmeans cimport fit_predict as cpp_fit_predict
     from cuml.cluster.cpp.kmeans cimport predict as cpp_predict
     from cuml.cluster.cpp.kmeans cimport transform as cpp_transform
-    from cuml.cluster.cpp.kmeans cimport KMeansParams
     from cuml.metrics.distance_type cimport DistanceType
-    from cuml.cluster.kmeans_utils cimport *
+    from cuml.cluster.kmeans_utils cimport params as KMeansParams
+    from cuml.cluster.kmeans_utils cimport KMeansPlusPlus, Random, Array
+    from cuml.cluster.kmeans_utils cimport DistanceType as CuvsDistanceType
 
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -46,7 +48,10 @@ from cuml.common import input_to_cuml_array
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 
-from sklearn.utils._openmp_helpers import _openmp_effective_n_threads
+# from sklearn.utils._openmp_helpers import _openmp_effective_n_threads
+_openmp_effective_n_threads = safe_import_from(
+    "sklearn.utils._openmp_helpers", "_openmp_effective_n_threads", alt=return_false
+)
 
 
 class KMeans(UniversalBase,
@@ -203,7 +208,7 @@ class KMeans(UniversalBase,
             params.tol = <double>self.tol
             params.verbosity = <int>self.verbose
             params.rng_state.seed = self.random_state
-            params.metric = DistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
+            params.metric = CuvsDistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
             params.batch_samples = <int>self.max_samples_per_batch
             params.oversampling_factor = <double>self.oversampling_factor
             params.n_init = <int>self.n_init
@@ -235,7 +240,10 @@ class KMeans(UniversalBase,
         self.cluster_centers_ = None
 
         # For sklearn interoperability
-        self._n_threads = _openmp_effective_n_threads()
+        if _openmp_effective_n_threads():
+            self._n_threads = _openmp_effective_n_threads()
+        else:
+            self._n_threads = 1
 
         # cuPy does not allow comparing with string. See issue #2372
         init_str = init if isinstance(init, str) else None
@@ -602,7 +610,8 @@ class KMeans(UniversalBase,
             # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
             cdef KMeansParams* params = \
                 <KMeansParams*><size_t>self._get_kmeans_params()
-            params.metric = DistanceType.L2SqrtExpanded
+
+            params.metric = CuvsDistanceType.L2Expanded
 
             int_dtype = np.int32 if self.labels_.dtype == np.int32 else np.int64
 

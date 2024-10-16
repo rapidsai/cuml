@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,28 +27,10 @@ from libcpp cimport bool
 from cuml.metrics.distance_type cimport DistanceType
 from cuml.common.rng_state cimport RngState
 
-cdef extern from "cuml/cluster/kmeans.hpp" namespace \
-        "ML::kmeans::KMeansParams":
-    enum InitMethod:
-        KMeansPlusPlus, Random, Array
-
-    cdef struct KMeansParams:
-        int n_clusters,
-        InitMethod init
-        int max_iter,
-        double tol,
-        int verbosity,
-        RngState rng_state,
-        DistanceType metric,
-        int n_init,
-        double oversampling_factor,
-        int batch_samples,
-        int batch_centroids,
-        bool inertia_check
+from cuml.cluster.kmeans_utils cimport params as KMeansParams
 
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
-
     cdef void fit_predict(handle_t& handle,
                           KMeansParams& params,
                           const float *X,

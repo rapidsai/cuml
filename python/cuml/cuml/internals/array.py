@@ -1251,13 +1251,14 @@ def array_to_memory_order(arr, default="C"):
         return arr.order
     except AttributeError:
         pass
-    try:
-        array_interface = arr.__cuda_array_interface__
-    except AttributeError:
-        try:
-            array_interface = arr.__array_interface__
-        except AttributeError:
-            return array_to_memory_order(CumlArray.from_input(arr, order="K"))
+    array_interface = getattr(
+        arr,
+        "__cuda_array_interface__",
+        getattr(arr, "__array_interface__", False),
+    )
+    if not array_interface:
+        return array_to_memory_order(CumlArray.from_input(arr, order="K"))
+
     strides = array_interface.get("strides", None)
     if strides is None:
         try:

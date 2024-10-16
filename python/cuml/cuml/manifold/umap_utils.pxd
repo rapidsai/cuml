@@ -16,8 +16,8 @@
 
 # distutils: language = c++
 
-from rmm._lib.memory_resource cimport DeviceMemoryResource
-from rmm._lib.cuda_stream_view cimport cuda_stream_view
+from rmm.pylibrmm.memory_resource cimport DeviceMemoryResource
+from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 from libcpp.memory cimport unique_ptr
 
 from libc.stdint cimport uint64_t, uintptr_t, int64_t

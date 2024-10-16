@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <raft/cluster/kmeans.cuh>
-#include <raft/cluster/kmeans_types.hpp>
 #include <raft/core/handle.hpp>
+
+#include <cuvs/cluster/kmeans.hpp>
 
 namespace ML {
 namespace kmeans {
@@ -24,7 +24,7 @@ namespace kmeans {
 // ----------------------------- transform ---------------------------------//
 template <typename value_t, typename idx_t>
 void transform_impl(const raft::handle_t& handle,
-                    const raft::cluster::KMeansParams& params,
+                    const cuvs::cluster::kmeans::params& params,
                     const value_t* centroids,
                     const value_t* X,
                     idx_t n_samples,
@@ -36,11 +36,11 @@ void transform_impl(const raft::handle_t& handle,
     raft::make_device_matrix_view<const value_t, idx_t>(centroids, params.n_clusters, n_features);
   auto rX_new = raft::make_device_matrix_view<value_t, idx_t>(X_new, n_samples, n_features);
 
-  raft::cluster::kmeans::transform<value_t, idx_t>(handle, params, X_view, centroids_view, rX_new);
+  cuvs::cluster::kmeans::transform(handle, params, X_view, centroids_view, rX_new);
 }
 
 void transform(const raft::handle_t& handle,
-               const raft::cluster::KMeansParams& params,
+               const cuvs::cluster::kmeans::params& params,
                const float* centroids,
                const float* X,
                int n_samples,
@@ -51,7 +51,7 @@ void transform(const raft::handle_t& handle,
 }
 
 void transform(const raft::handle_t& handle,
-               const raft::cluster::KMeansParams& params,
+               const cuvs::cluster::kmeans::params& params,
                const double* centroids,
                const double* X,
                int n_samples,
@@ -62,7 +62,7 @@ void transform(const raft::handle_t& handle,
 }
 
 void transform(const raft::handle_t& handle,
-               const raft::cluster::KMeansParams& params,
+               const cuvs::cluster::kmeans::params& params,
                const float* centroids,
                const float* X,
                int64_t n_samples,
@@ -73,7 +73,7 @@ void transform(const raft::handle_t& handle,
 }
 
 void transform(const raft::handle_t& handle,
-               const raft::cluster::KMeansParams& params,
+               const cuvs::cluster::kmeans::params& params,
                const double* centroids,
                const double* X,
                int64_t n_samples,

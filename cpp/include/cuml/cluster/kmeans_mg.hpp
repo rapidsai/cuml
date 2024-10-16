@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ namespace opg {
  * @param[out]    n_iter        Number of iterations run.
  */
 
-void fit(const raft::handle_t& handle,
+void fit(const raft::resources& handle,
          const KMeansParams& params,
          const float* X,
          int n_samples,
@@ -58,7 +58,7 @@ void fit(const raft::handle_t& handle,
          float& inertia,
          int& n_iter);
 
-void fit(const raft::handle_t& handle,
+void fit(const raft::resources& handle,
          const KMeansParams& params,
          const double* X,
          int n_samples,
@@ -68,7 +68,7 @@ void fit(const raft::handle_t& handle,
          double& inertia,
          int& n_iter);
 
-void fit(const raft::handle_t& handle,
+void fit(const raft::resources& handle,
          const KMeansParams& params,
          const float* X,
          int64_t n_samples,
@@ -78,7 +78,7 @@ void fit(const raft::handle_t& handle,
          float& inertia,
          int64_t& n_iter);
 
-void fit(const raft::handle_t& handle,
+void fit(const raft::resources& handle,
          const KMeansParams& params,
          const double* X,
          int64_t n_samples,
