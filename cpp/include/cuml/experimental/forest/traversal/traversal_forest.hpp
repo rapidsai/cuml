@@ -114,7 +114,7 @@ struct traversal_forest {
     ) {
       for (auto const& root_node_uid : root_node_uids_) {
         to_be_visited.add(std::make_pair(root_node_uid, std::size_t{}));
-        parent_indices.add(cur_index++);
+        parent_indices.add(cur_index);
         while(!to_be_visited.empty()) {
           auto [node_uid, depth] = to_be_visited.next();
           auto parent_index = parent_indices.next();
@@ -140,6 +140,7 @@ struct traversal_forest {
         to_be_visited.add(root_node_uid);
         parent_indices.add(cur_index++);
       }
+      cur_index = index_type{};
       auto depth = index_type{};
       while(!to_be_visited.empty()) {
         auto layer_node_uids = std::vector<node_uid_type>{};
@@ -148,7 +149,6 @@ struct traversal_forest {
           layer_node_uids.push_back(to_be_visited.next());
           layer_parent_indices.push_back(parent_indices.next());
         }
-        ++depth;
         for (
           auto layer_index = index_type{}; layer_index < layer_node_uids.size(); ++layer_index
         ) {
@@ -166,11 +166,12 @@ struct traversal_forest {
           }
           ++cur_index;
         }
+        // Reset cur_index before iterating through distant nodes
+        cur_index -= layer_node_uids.size();
         for (
           auto layer_index = index_type{}; layer_index < layer_node_uids.size(); ++layer_index
         ) {
           auto node_uid = layer_node_uids[layer_index];
-          auto parent_index = layer_parent_indices[layer_index];
           auto node = get_node(node_uid);
           if (!node.is_leaf()) {
             auto distant_uid = std::make_pair(
@@ -178,16 +179,18 @@ struct traversal_forest {
               node.distant_child()
             );
             to_be_visited.add(distant_uid);
-            parent_indices.add(parent_index);
+            parent_indices.add(cur_index);
           }
           ++cur_index;
         }
+        ++depth;
       }
     } else if constexpr (order == forest_order::layered_children_together) {
       for (auto const& root_node_uid : root_node_uids_) {
         to_be_visited.add(root_node_uid);
         parent_indices.add(cur_index++);
       }
+      cur_index = index_type{};
       auto depth = index_type{};
       while(!to_be_visited.empty()) {
         auto layer_node_uids = std::vector<node_uid_type>{};
@@ -196,7 +199,6 @@ struct traversal_forest {
           layer_node_uids.push_back(to_be_visited.next());
           layer_parent_indices.push_back(parent_indices.next());
         }
-        ++depth;
         for (
           auto layer_index = index_type{}; layer_index < layer_node_uids.size(); ++layer_index
         ) {
@@ -218,6 +220,7 @@ struct traversal_forest {
           }
           ++cur_index;
         }
+        ++depth;
       }
     }
   }
