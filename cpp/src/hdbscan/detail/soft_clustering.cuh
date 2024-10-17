@@ -24,7 +24,6 @@
 #include <cuml/common/logger.hpp>
 
 #include <raft/core/device_mdspan.hpp>
-#include <raft/distance/distance.cuh>
 #include <raft/distance/distance_types.hpp>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
@@ -42,6 +41,8 @@
 #include <cub/cub.cuh>
 #include <thrust/execution_policy.h>
 #include <thrust/transform.h>
+
+#include <cuvs/distance/distance.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -88,45 +89,14 @@ void dist_membership_vector(const raft::handle_t& handle,
     value_idx samples_per_batch = min((value_idx)batch_size, (value_idx)n_queries - batch_offset);
     rmm::device_uvector<value_t> dist(samples_per_batch * n_exemplars, stream);
 
-    // compute the distances using raft API
-    switch (metric) {
-      case raft::distance::DistanceType::L2SqrtExpanded:
-        raft::distance::
-          distance<raft::distance::DistanceType::L2SqrtExpanded, value_t, value_t, value_t, int>(
-            handle,
-            query + batch_offset * n,
-            exemplars_dense.data(),
-            dist.data(),
-            samples_per_batch,
-            n_exemplars,
-            n,
-            true);
-        break;
-      case raft::distance::DistanceType::L1:
-        raft::distance::distance<raft::distance::DistanceType::L1, value_t, value_t, value_t, int>(
-          handle,
-          query + batch_offset * n,
-          exemplars_dense.data(),
-          dist.data(),
-          samples_per_batch,
-          n_exemplars,
-          n,
-          true);
-        break;
-      case raft::distance::DistanceType::CosineExpanded:
-        raft::distance::
-          distance<raft::distance::DistanceType::CosineExpanded, value_t, value_t, value_t, int>(
-            handle,
-            query + batch_offset * n,
-            exemplars_dense.data(),
-            dist.data(),
-            samples_per_batch,
-            n_exemplars,
-            n,
-            true);
-        break;
-      default: RAFT_EXPECTS(false, "Incorrect metric passed!");
-    }
+    // compute the distances using the CUVS API
+    cuvs::distance::pairwise_distance(
+      handle,
+      raft::make_device_matrix_view<const value_t, int64_t>(
+        query + batch_offset * n, samples_per_batch, n),
+      raft::make_device_matrix_view<const value_t, int64_t>(exemplars_dense.data(), n_exemplars, n),
+      raft::make_device_matrix_view<value_t, int64_t>(dist.data(), samples_per_batch, n_exemplars),
+      static_cast<cuvs::distance::DistanceType>(metric));
 
     // compute the minimum distances to exemplars of each cluster
     value_idx n_elements = samples_per_batch * n_selected_clusters;

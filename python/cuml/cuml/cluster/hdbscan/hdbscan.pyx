@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ IF GPUBUILD == 1:
     from libc.stdlib cimport free
     from cython.operator cimport dereference as deref
     from cuml.metrics.distance_type cimport DistanceType
-    from rmm._lib.device_uvector cimport device_uvector
+    from rmm.librmm.device_uvector cimport device_uvector
     from pylibraft.common.handle import Handle
     from pylibraft.common.handle cimport handle_t
 
