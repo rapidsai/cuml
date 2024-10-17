@@ -702,7 +702,8 @@ class SVC(SVMBase,
         else:
             return super().predict(X, False)
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         params = super().get_param_names() + \
             ["probability", "random_state", "class_weight",
              "multiclass_strategy"]

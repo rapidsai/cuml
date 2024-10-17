@@ -420,7 +420,8 @@ class NearestNeighbors(UniversalBase,
             self.n_indices = 1
         return self
 
-    def get_param_names(self):
+    @classmethod
+    def get_param_names(cls):
         return super().get_param_names() + \
             ["n_neighbors", "algorithm", "metric",
                 "p", "metric_params", "algo_params", "n_jobs"]

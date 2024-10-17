@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -182,7 +182,8 @@ class Base(TagsMixin,
                 self._check_output_type(data)
                 # inference logic goes here
 
-            def get_param_names(self):
+            @classmethod
+            def get_param_names(cls):
                 # return a list of hyperparam names supported by this algo
 
         # stream and handle example:
