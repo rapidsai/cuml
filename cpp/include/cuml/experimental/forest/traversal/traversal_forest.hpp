@@ -137,7 +137,7 @@ struct traversal_forest {
       }
     } else if constexpr (order == forest_order::layered_children_segregated) {
       for (auto const& root_node_uid : root_node_uids_) {
-        to_be_visited.add(std::make_pair(root_node_uid, std::size_t{}));
+        to_be_visited.add(root_node_uid);
         parent_indices.add(cur_index++);
       }
       auto depth = index_type{};
@@ -178,14 +178,14 @@ struct traversal_forest {
               node.distant_child()
             );
             to_be_visited.add(distant_uid);
-            parent_indices.add(cur_index);
+            parent_indices.add(parent_index);
           }
           ++cur_index;
         }
       }
     } else if constexpr (order == forest_order::layered_children_together) {
       for (auto const& root_node_uid : root_node_uids_) {
-        to_be_visited.add(std::make_pair(root_node_uid, std::size_t{}));
+        to_be_visited.add(root_node_uid);
         parent_indices.add(cur_index++);
       }
       auto depth = index_type{};
