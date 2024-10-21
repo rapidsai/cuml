@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "cuml/experimental/forest/traversal/traversal_order.hpp"
+#include <cuml/experimental/forest/traversal/traversal_order.hpp>
 #include <cuml/experimental/forest/traversal/traversal_forest.hpp>
 #include <cuml/experimental/forest/traversal/traversal_node.hpp>
 
@@ -165,6 +165,7 @@ struct traversal_forest_results {
   std::string order;
   std::vector<std::size_t> depth;
   std::vector<std::size_t> parents;
+  std::vector<std::size_t> tree_indices;
 };
 
 auto static const TRAVERSAL_RESULTS = std::vector<std::pair<forest_order, traversal_forest_results>>{
@@ -173,7 +174,8 @@ auto static const TRAVERSAL_RESULTS = std::vector<std::pair<forest_order, traver
     traversal_forest_results{
       "ABDEFGCHIJKLMNOPQRSTUVWYZX",
       std::vector<std::size_t>{0, 1, 2, 2, 3, 3, 1, 0, 1, 1, 2, 2, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 2, 3, 3, 2},
-      std::vector<std::size_t>{0, 0, 1, 1, 3, 3, 0, 7, 7, 7, 9, 9, 12, 12, 12, 15, 16, 16, 16, 19, 19, 19, 21, 22, 22, 21}
+      std::vector<std::size_t>{0, 0, 1, 1, 3, 3, 0, 7, 7, 7, 9, 9, 12, 12, 12, 15, 16, 16, 16, 19, 19, 19, 21, 22, 22, 21},
+      std::vector<std::size_t>{0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5}
     }
   ),
   std::make_pair(
@@ -182,6 +184,7 @@ auto static const TRAVERSAL_RESULTS = std::vector<std::pair<forest_order, traver
       "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
       std::vector<std::size_t>{0, 1, 1, 2, 2, 3, 3, 0, 1, 1, 2, 2, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 2, 2, 3, 3},
       std::vector<std::size_t>{0, 0, 0, 1, 1, 4, 4, 7, 7, 7, 9, 9, 12, 12, 12, 15, 16, 16, 16, 19, 19, 19, 21, 21, 22, 22},
+      std::vector<std::size_t>{0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5}
     }
   ),
   std::make_pair(
@@ -190,6 +193,7 @@ auto static const TRAVERSAL_RESULTS = std::vector<std::pair<forest_order, traver
       "AHMPQTBCIJNORSUVDEKLWXFGYZ",
       std::vector<std::size_t>{0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3},
       std::vector<std::size_t>{0, 1, 2, 3, 4, 5, 0, 0, 1, 1, 2, 2, 4, 4, 5, 5, 6, 6, 9, 9, 15, 15, 17, 17, 20, 20},
+      std::vector<std::size_t>{0, 1, 2, 3, 4, 5, 0, 0, 1, 1, 2, 2, 4, 4, 5, 5, 0, 0, 1, 1, 5, 5, 0, 0, 5, 5}
     }
   ),
   std::make_pair(
@@ -198,6 +202,7 @@ auto static const TRAVERSAL_RESULTS = std::vector<std::pair<forest_order, traver
       "AHMPQTBINRUCJOSVDKWELXYFZG",
       std::vector<std::size_t>{0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3},
       std::vector<std::size_t>{0, 1, 2, 3, 4, 5, 0, 1, 2, 4, 5, 0, 1, 2, 4, 5, 6, 12, 15, 6, 12, 15, 18, 19, 18, 19},
+      std::vector<std::size_t>{0, 1, 2, 3, 4, 5, 0, 1, 2, 4, 5, 0, 1, 2, 4, 5, 0, 1, 5, 0, 1, 5, 5, 0, 5, 0}
     }
   ),
 };
@@ -246,11 +251,23 @@ auto get_for_each_parent() {
   return result;
 }
 
+template<forest_order order>
+auto get_for_each_tree() {
+  auto result = std::vector<std::size_t>{};
+  test_forest{}.for_each<order>(
+    [&result](auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
+      result.push_back(tree_id);
+    }
+  );
+  return result;
+}
+
 TEST(ForestTraversal, depth_first)
 {
   auto order = get_for_each_order<forest_order::depth_first>();
   auto depths = get_for_each_depth<forest_order::depth_first>();
   auto parents = get_for_each_parent<forest_order::depth_first>();
+  auto trees = get_for_each_tree<forest_order::depth_first>();
   auto expected = get_expected_for_each_result<forest_order::depth_first>();
   EXPECT_EQ(order, expected.order);
   for (auto i = std::size_t{}; i < expected.depth.size(); ++i) {
@@ -259,6 +276,9 @@ TEST(ForestTraversal, depth_first)
   for (auto i = std::size_t{}; i < expected.parents.size(); ++i) {
     EXPECT_EQ(parents[i], expected.parents[i]);
   }
+  for (auto i = std::size_t{}; i < expected.tree_indices.size(); ++i) {
+    EXPECT_EQ(trees[i], expected.tree_indices[i]);
+  }
 }
 
 TEST(ForestTraversal, breadth_first)
@@ -266,6 +286,7 @@ TEST(ForestTraversal, breadth_first)
   auto order = get_for_each_order<forest_order::breadth_first>();
   auto depths = get_for_each_depth<forest_order::breadth_first>();
   auto parents = get_for_each_parent<forest_order::breadth_first>();
+  auto trees = get_for_each_tree<forest_order::breadth_first>();
   auto expected = get_expected_for_each_result<forest_order::breadth_first>();
   EXPECT_EQ(order, expected.order);
   for (auto i = std::size_t{}; i < expected.depth.size(); ++i) {
@@ -274,6 +295,9 @@ TEST(ForestTraversal, breadth_first)
   for (auto i = std::size_t{}; i < expected.parents.size(); ++i) {
     EXPECT_EQ(parents[i], expected.parents[i]);
   }
+  for (auto i = std::size_t{}; i < expected.tree_indices.size(); ++i) {
+    EXPECT_EQ(trees[i], expected.tree_indices[i]);
+  }
 }
 
 TEST(ForestTraversal, layered_children_together)
@@ -281,6 +305,7 @@ TEST(ForestTraversal, layered_children_together)
   auto order = get_for_each_order<forest_order::layered_children_together>();
   auto depths = get_for_each_depth<forest_order::layered_children_together>();
   auto parents = get_for_each_parent<forest_order::layered_children_together>();
+  auto trees = get_for_each_tree<forest_order::layered_children_together>();
   auto expected = get_expected_for_each_result<forest_order::layered_children_together>();
   EXPECT_EQ(order, expected.order);
   for (auto i = std::size_t{}; i < expected.depth.size(); ++i) {
@@ -289,6 +314,9 @@ TEST(ForestTraversal, layered_children_together)
   for (auto i = std::size_t{}; i < expected.parents.size(); ++i) {
     EXPECT_EQ(parents[i], expected.parents[i]);
   }
+  for (auto i = std::size_t{}; i < expected.tree_indices.size(); ++i) {
+    EXPECT_EQ(trees[i], expected.tree_indices[i]);
+  }
 }
 
 TEST(ForestTraversal, layered_children_segregated)
@@ -296,6 +324,7 @@ TEST(ForestTraversal, layered_children_segregated)
   auto order = get_for_each_order<forest_order::layered_children_segregated>();
   auto depths = get_for_each_depth<forest_order::layered_children_segregated>();
   auto parents = get_for_each_parent<forest_order::layered_children_segregated>();
+  auto trees = get_for_each_tree<forest_order::layered_children_segregated>();
   auto expected = get_expected_for_each_result<forest_order::layered_children_segregated>();
   EXPECT_EQ(order, expected.order);
   for (auto i = std::size_t{}; i < expected.depth.size(); ++i) {
@@ -303,6 +332,9 @@ TEST(ForestTraversal, layered_children_segregated)
   }
   for (auto i = std::size_t{}; i < expected.parents.size(); ++i) {
     EXPECT_EQ(parents[i], expected.parents[i]);
+  }
+  for (auto i = std::size_t{}; i < expected.tree_indices.size(); ++i) {
+    EXPECT_EQ(trees[i], expected.tree_indices[i]);
   }
 }
 
