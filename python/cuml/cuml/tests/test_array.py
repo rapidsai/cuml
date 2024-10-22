@@ -535,8 +535,6 @@ def test_serialize(inp, to_serialize_mem_type, from_serialize_mem_type):
     with using_memory_type(from_serialize_mem_type):
         ary2 = CumlArray.deserialize(header, frames)
 
-        assert pickle.loads(header["type-serialized"]) is CumlArray
-
         _assert_equal(inp, ary2)
 
         assert ary._array_interface["shape"] == ary2._array_interface["shape"]

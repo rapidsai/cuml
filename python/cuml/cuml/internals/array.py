@@ -728,9 +728,8 @@ class CumlArray:
 
     @classmethod
     def host_deserialize(cls, header, frames):
-        typ = pickle.loads(header["type-serialized"])
         assert all(not is_cuda for is_cuda in header["is-cuda"])
-        obj = typ.deserialize(header, frames)
+        obj = cls.deserialize(header, frames)
         return obj
 
     @nvtx_annotate(
@@ -748,9 +747,8 @@ class CumlArray:
 
     @classmethod
     def device_deserialize(cls, header, frames):
-        typ = pickle.loads(header["type-serialized"])
         assert all(is_cuda for is_cuda in header["is-cuda"])
-        obj = typ.deserialize(header, frames)
+        obj = cls.deserialize(header, frames)
         return obj
 
     @nvtx_annotate(
@@ -761,7 +759,6 @@ class CumlArray:
     def serialize(self, mem_type=None) -> Tuple[dict, list]:
         mem_type = self.mem_type if mem_type is None else mem_type
         header = {
-            "type-serialized": pickle.dumps(type(self)),
             "constructor-kwargs": {
                 "dtype": self.dtype.str,
                 "shape": self.shape,
