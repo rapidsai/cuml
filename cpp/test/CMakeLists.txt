@@ -57,7 +57,6 @@ function(ConfigureTest)
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
     rmm::rmm
     raft::raft
-    $<$<BOOL:${CUML_RAFT_COMPILED}>:raft::compiled>
     GTest::gtest
     GTest::gtest_main
     GTest::gmock

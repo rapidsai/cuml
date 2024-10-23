@@ -265,8 +265,18 @@ def train_test_split(
                              string"
             )
 
-    x_order = array_to_memory_order(X)
-    X_arr, X_row, *_ = input_to_cuml_array(X, order=x_order)
+    all_numeric = True
+    if isinstance(X, cudf.DataFrame):
+        all_numeric = all(
+            cudf.api.types.is_numeric_dtype(X[col]) for col in X.columns
+        )
+
+    if all_numeric:
+        x_order = array_to_memory_order(X)
+        X_arr, X_row, *_ = input_to_cuml_array(X, order=x_order)
+    else:
+        x_order = "F"
+        X_arr, X_row = X, X.shape[0]
     if y is not None:
         y_order = array_to_memory_order(y)
         y_arr, y_row, *_ = input_to_cuml_array(y, order=y_order)
@@ -363,55 +373,53 @@ def train_test_split(
         train_indices = range(0, train_size)
         test_indices = range(-1 * test_size, 0)
 
-    # Gather from indices
-    X_train = X_arr[train_indices]
-    X_test = X_arr[test_indices]
-    if y is not None:
-        y_train = y_arr[train_indices]
-        y_test = y_arr[test_indices]
+    if all_numeric:
+        # Gather from indices
+        X_train = X_arr[train_indices]
+        X_test = X_arr[test_indices]
+        if y is not None:
+            y_train = y_arr[train_indices]
+            y_test = y_arr[test_indices]
 
-    # Coerce output to original input type
-    if ty := determine_df_obj_type(X):
-        x_type = ty
+        # Coerce output to original input type
+        x_type = determine_df_obj_type(X) or determine_array_type(X)
+        if y is not None:
+            y_type = determine_df_obj_type(y) or determine_array_type(y)
+
+        def _process_df_objs(
+            df, df_type, df_train, df_test, train_indices, test_indices
+        ):
+            if df_type in {"series", "dataframe"}:
+                df_train = output_to_df_obj_like(df_train, df, df_type)
+                df_test = output_to_df_obj_like(df_test, df, df_type)
+
+                if determine_array_type(df.index) == "pandas":
+                    if isinstance(train_indices, cp.ndarray):
+                        train_indices = train_indices.get()
+                    if isinstance(test_indices, cp.ndarray):
+                        test_indices = test_indices.get()
+
+                df_train.index = df.index[train_indices]
+                df_test.index = df.index[test_indices]
+            else:
+                df_train = df_train.to_output(df_type)
+                df_test = df_test.to_output(df_type)
+            return df_train, df_test
+
+        X_train, X_test = _process_df_objs(
+            X, x_type, X_train, X_test, train_indices, test_indices
+        )
+        if y is not None:
+            y_train, y_test = _process_df_objs(
+                y, y_type, y_train, y_test, train_indices, test_indices
+            )
+
     else:
-        x_type = determine_array_type(X)
-
-    if ty := determine_df_obj_type(y):
-        y_type = ty
-    else:
-        y_type = determine_array_type(y)
-
-    if x_type in ("series", "dataframe"):
-        X_train = output_to_df_obj_like(X_train, X, x_type)
-        X_test = output_to_df_obj_like(X_test, X, x_type)
-
-        if determine_array_type(X.index) == "pandas":
-            if isinstance(train_indices, cp.ndarray):
-                train_indices = train_indices.get()
-            if isinstance(test_indices, cp.ndarray):
-                test_indices = test_indices.get()
-
-        X_train.index = X.index[train_indices]
-        X_test.index = X.index[test_indices]
-    else:
-        X_train = X_train.to_output(x_type)
-        X_test = X_test.to_output(x_type)
-
-    if y_type in ("series", "dataframe"):
-        y_train = output_to_df_obj_like(y_train, y, y_type)
-        y_test = output_to_df_obj_like(y_test, y, y_type)
-
-        if determine_array_type(y.index) == "pandas":
-            if isinstance(train_indices, cp.ndarray):
-                train_indices = train_indices.get()
-            if isinstance(test_indices, cp.ndarray):
-                test_indices = test_indices.get()
-
-        y_train.index = y.index[train_indices]
-        y_test.index = y.index[test_indices]
-    elif y_type is not None:
-        y_train = y_train.to_output(y_type)
-        y_test = y_test.to_output(y_type)
+        X_train = X_arr.iloc[train_indices]
+        X_test = X_arr.iloc[test_indices]
+        if y is not None:
+            y_train = y_arr[train_indices]
+            y_test = y_arr[test_indices]
 
     if y is not None:
         return X_train, X_test, y_train, y_test

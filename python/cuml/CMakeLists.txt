@@ -39,6 +39,7 @@ option(CUML_UNIVERSAL "Build all cuML Python components." ON)
 option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
+option(USE_CUVS_WHEEL "Use the cuVS wheel" OFF)
 set(CUML_RAFT_CLONE_ON_PIN OFF)
 
 
@@ -88,7 +89,7 @@ if(NOT CUML_CPU)
 
     # Statically link dependencies if building wheels
     set(CUDA_STATIC_RUNTIME ON)
-    set(CUML_USE_RAFT_STATIC ON)
+    set(CUML_USE_CUVS_STATIC ON)
     set(CUML_USE_FAISS_STATIC ON)
     set(CUML_USE_TREELITE_STATIC ON)
     set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
@@ -110,7 +111,7 @@ if(NOT CUML_CPU)
     add_subdirectory(${CUML_CPP_SRC} cuml-cpp EXCLUDE_FROM_ALL)
 
     if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
-      set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH
+      set(rpaths
         "$ORIGIN/../nvidia/cublas/lib"
         "$ORIGIN/../nvidia/cufft/lib"
         "$ORIGIN/../nvidia/curand/lib"
@@ -118,6 +119,12 @@ if(NOT CUML_CPU)
         "$ORIGIN/../nvidia/cusparse/lib"
         "$ORIGIN/../nvidia/nvjitlink/lib"
       )
+      set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)
+    endif()
+
+    if(USE_CUVS_WHEEL)
+      set(rpaths "$ORIGIN/../cuvs")
+      set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)
     endif()
 
     set(cython_lib_dir cuml)
@@ -204,4 +211,8 @@ add_subdirectory(cuml/experimental/linear_model)
 
 if(DEFINED cython_lib_dir)
   rapids_cython_add_rpath_entries(TARGET cuml PATHS "${cython_lib_dir}")
+endif()
+
+if(USE_CUVS_WHEEL)
+  rapids_cython_add_rpath_entries(TARGET cuml PATHS cuvs)
 endif()
