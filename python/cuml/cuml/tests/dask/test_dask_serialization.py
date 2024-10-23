@@ -80,3 +80,16 @@ def test_serialize_mnmg_model(client):
     unpickled_model = pickle.loads(pickled_model)
 
     assert np.allclose(unpickled_model.coef_, model.coef_)
+
+
+def test_serialize_before_training(client):
+    X, y = make_regression(n_samples=1000, n_features=20, random_state=0)
+    X, y = da.from_array(X), da.from_array(y)
+
+    model = LinearRegression(client=client)
+    pickled_model = pickle.dumps(model)
+    unpickled_model = pickle.loads(pickled_model)
+
+    unpickled_model.client = client
+    unpickled_model.fit(X, y)
+    assert hasattr(unpickled_model, "coef_")
