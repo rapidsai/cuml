@@ -38,8 +38,8 @@ if [[ ${RAPIDS_CUDA_MAJOR} == "11" ]]; then
   RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION) rapids-conda-retry mambabuild \
   --no-test \
   conda/recipes/cuml-cpu
-fi
 
-sccache --show-adv-stats
+  sccache --show-adv-stats
+fi
 
 rapids-upload-conda-to-s3 python
