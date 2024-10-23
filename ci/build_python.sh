@@ -19,12 +19,17 @@ rapids-logger "Begin py build"
 
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
+sccache --zero-stats
+
 # TODO: Remove `--no-test` flag once importing on a CPU
 # node works correctly
 RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION) rapids-conda-retry mambabuild \
   --no-test \
   --channel "${CPP_CHANNEL}" \
   conda/recipes/cuml
+
+sccache --show-adv-stats
+sccache --zero-stats
 
 # Build cuml-cpu only in CUDA 11 jobs since it only depends on python
 # version
@@ -33,6 +38,8 @@ if [[ ${RAPIDS_CUDA_MAJOR} == "11" ]]; then
   RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION) rapids-conda-retry mambabuild \
   --no-test \
   conda/recipes/cuml-cpu
+
+  sccache --show-adv-stats
 fi
 
 rapids-upload-conda-to-s3 python
