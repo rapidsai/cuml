@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 
 from cuml.model_selection._split import train_test_split
-from cuml.model_selection._split import StratifiedKFold
+from cuml.model_selection._split import KFold, StratifiedKFold
 from cuml.internals.import_utils import has_sklearn
 
 if has_sklearn():
