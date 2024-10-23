@@ -5,16 +5,11 @@ set -euo pipefail
 
 package_name="cuml"
 package_dir="python/cuml"
-underscore_package_name=$(echo "${package_name}" | tr "-" "_")
 
 source rapids-configure-sccache
 source rapids-date-string
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
-
-# This is the version of the suffix with a preceding hyphen. It's used
-# everywhere except in the final wheel name.
-PACKAGE_CUDA_SUFFIX="-${RAPIDS_PY_CUDA_SUFFIX}"
 
 rapids-logger "Generating build requirements"
 
