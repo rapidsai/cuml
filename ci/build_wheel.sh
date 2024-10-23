@@ -17,25 +17,23 @@ RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 PACKAGE_CUDA_SUFFIX="-${RAPIDS_PY_CUDA_SUFFIX}"
 
 rapids-logger "Generating build requirements"
-matrix_selectors="cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION};cuda_suffixed=true"
 
 rapids-dependency-file-generator \
   --output requirements \
-  --file-key "py_build_${underscore_package_name}" \
-  --matrix "${matrix_selectors}" \
+  --file-key "py_build_${package_name}" \
+  --file-key "py_rapids_build_${package_name}" \
+  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION};cuda_suffixed=true" \
 | tee /tmp/requirements-build.txt
-
-rapids-dependency-file-generator \
-  --output requirements \
-  --file-key "py_rapids_build_${underscore_package_name}" \
-  --matrix "${matrix_selectors}" \
-| tee -a /tmp/requirements-build.txt
 
 rapids-logger "Installing build requirements"
 python -m pip install \
     -v \
     --prefer-binary \
     -r /tmp/requirements-build.txt
+
+# build with '--no-build-isolation', for better sccache hit rate
+# 0 really means "add --no-build-isolation" (ref: https://github.com/pypa/pip/issues/5735)
+export PIP_NO_BUILD_ISOLATION=0
 
 rapids-generate-version > ./VERSION
 
@@ -66,10 +64,12 @@ esac
 export SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/;-DUSE_CUVS_WHEEL=ON${EXTRA_CMAKE_ARGS}"
 
 rapids-logger "Building '${package_name}' wheel"
+
+sccache --zero-stats
+
 python -m pip wheel \
     -w dist \
     -v \
-    --no-build-isolation \
     --no-deps \
     --disable-pip-version-check \
     .
@@ -79,4 +79,4 @@ sccache --show-adv-stats
 mkdir -p final_dist
 python -m auditwheel repair -w final_dist "${EXCLUDE_ARGS[@]}" dist/*
 
-RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 final_dist
+RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python final_dist
