@@ -335,9 +335,11 @@ auto get_feature_or_outputs() {
 template<forest_order order>
 auto get_for_each_depth() {
   auto result = std::vector<std::size_t>{};
-  test_forest{}.for_each<order>(
-    [&result](auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
-      result.push_back(depth);
+  node_transform<order>(
+    SAMPLE_FOREST,
+    std::back_inserter(result),
+    [](auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
+      return depth;
     }
   );
   return result;
