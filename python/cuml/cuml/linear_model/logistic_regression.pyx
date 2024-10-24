@@ -232,15 +232,7 @@ class LogisticRegression(UniversalBase,
         else:
             self.verb_prefix = ""
 
-    @generate_docstring(X='dense_sparse')
-    @cuml.internals.api_base_return_any(set_output_dtype=True)
-    @enable_device_interop
-    def fit(self, X, y, sample_weight=None,
-            convert_dtype=True) -> "LogisticRegression":
-        """
-        Fit the model with X and y.
-
-        """
+    def _validate_params(self):
         if self.penalty not in supported_penalties:
             raise ValueError("`penalty` " + str(self.penalty) + " not supported.")
 
@@ -267,6 +259,17 @@ class LogisticRegression(UniversalBase,
                 msg = "l1_ratio value has to be between 0.0 and 1.0"
                 raise ValueError(msg.format(self.l1_ratio))
 
+    @generate_docstring(X='dense_sparse')
+    @cuml.internals.api_base_return_any(set_output_dtype=True)
+    @enable_device_interop
+    def fit(self, X, y, sample_weight=None,
+            convert_dtype=True) -> "LogisticRegression":
+        """
+        Fit the model with X and y.
+
+        """
+        self._validate_params()
+
         l1_strength, l2_strength = self._get_qn_params()
         self.solver_model = QN(
             loss="sigmoid",
@@ -278,6 +281,7 @@ class LogisticRegression(UniversalBase,
             tol=self.tol,
             verbose=self.verbose,
             handle=self.handle,
+            output_type=self.output_type,
         )
 
         self.n_features_in_ = X.shape[1] if X.ndim == 2 else 1
