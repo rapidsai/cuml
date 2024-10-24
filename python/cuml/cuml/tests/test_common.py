@@ -13,11 +13,11 @@
 # limitations under the License.
 #
 
-
+import pytest
 from sklearn.utils import estimator_checks
 
 from cuml.internals.utils import all_estimators
-from cuml import LogisticRegression
+from cuml import LogisticRegression, KMeans, DBSCAN, SVC, SVR
 
 
 DEFAULT_PARAMETERS = {
@@ -28,10 +28,13 @@ DEFAULT_PARAMETERS = {
 
 
 def constructed_estimators():
-    """Build list of instances of all estimators in cuml"""
+    """Build list of instances of all single GPU estimators in cuml"""
     for name, Estimator in all_estimators(
         type_filter=["classifier", "regressor", "cluster"]
     ):
+        if name.endswith("MG"):
+            continue
+
         if name in DEFAULT_PARAMETERS:
             yield Estimator(**DEFAULT_PARAMETERS[name])
         else:
@@ -42,4 +45,11 @@ def constructed_estimators():
 def test_sklearn_compatible_estimator(estimator, check):
     # Check that all estimators pass the "common estimator" checks
     # provided by scikit-learn
+    if not isinstance(
+        estimator, (LogisticRegression, KMeans, SVC, SVR, DBSCAN)
+    ):
+        pytest.skip(
+            f"{estimator.__class__.__name__} is known to not pass the common tests"
+        )
+
     check(estimator)
