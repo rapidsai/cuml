@@ -324,7 +324,7 @@ auto get_feature_or_outputs() {
       if(node.is_leaf()) {
         feature_or_output = node.threshold();
       } else {
-        feature_or_output = node.get_feature();
+        feature_or_output = node.get_output()[0];
       }
       return feature_or_output;
     }
@@ -333,35 +333,12 @@ auto get_feature_or_outputs() {
 }
 
 template<forest_order order>
-auto get_for_each_depth() {
-  auto result = std::vector<std::size_t>{};
-  node_transform<order>(
+auto get_categorical_count() {
+  auto result = std::size_t{};
+  node_accumulate<order>(
     SAMPLE_FOREST,
-    std::back_inserter(result),
-    [](auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
-      return depth;
-    }
-  );
-  return result;
-}
-
-template<forest_order order>
-auto get_for_each_parent() {
-  auto result = std::vector<std::size_t>{};
-  test_forest{}.for_each<order>(
-    [&result](auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
-      result.push_back(parent_index);
-    }
-  );
-  return result;
-}
-
-template<forest_order order>
-auto get_for_each_tree() {
-  auto result = std::vector<std::size_t>{};
-  test_forest{}.for_each<order>(
-    [&result](auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
-      result.push_back(tree_id);
+    [](auto&& acc, auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
+      return acc + node.is_categorical();
     }
   );
   return result;
