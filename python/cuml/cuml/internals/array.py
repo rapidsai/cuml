@@ -455,6 +455,15 @@ class CumlArray:
         return self._array_interface["shape"]
 
     @property
+    def n_cols(self):
+        if len(self.shape) == 1:
+            return 1
+        elif len(self.shape) == 2:
+            return self.shape[1]
+        else:
+            raise ValueError("Multidimensional tensor")
+
+    @property
     def ndim(self):
         return len(self._array_interface["shape"])
 
@@ -943,6 +952,8 @@ class CumlArray:
         order="F",
         deepcopy=False,
         check_dtype=False,
+        convert_dtype=False,
+        target_dtype=None,
         convert_to_dtype=False,
         check_mem_type=False,
         convert_to_mem_type=None,

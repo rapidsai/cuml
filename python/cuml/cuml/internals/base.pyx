@@ -39,6 +39,7 @@ import cuml.common
 import cuml.internals.logger as logger
 import cuml.internals
 import cuml.internals.input_utils
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
 from cuml.internals.input_utils import (
@@ -317,6 +318,12 @@ class Base(TagsMixin,
 
     def __setstate__(self, d):
         self.__dict__.update(d)
+
+    def __getattribute__(self, name):
+        # Check if the attribute has a DynamicDescriptor and fit has not been called
+        if isinstance(getattr(type(self), name, None), DynamicDescriptor) and not self._is_fit:
+            raise AttributeError(f"'{name}' is not set until fit is called.")
+        return object.__getattribute__(self, name)
 
     def __getattr__(self, attr):
         """
@@ -723,3 +730,28 @@ class UniversalBase(Base):
 
             # return function result
             return res
+
+
+
+class DynamicDescriptor:
+    def __init__(self, attribute_name):
+        self.attribute_name = f"_{attribute_name}"
+
+    def __get__(self, obj, objtype=None):
+        if obj is None: 
+            return self
+        ary = getattr(obj, self.attribute_name, None)
+
+        if ary is None:
+            return ary
+
+        else:
+
+            if GlobalSettings().is_internal:
+                return ary
+            else:
+                # need to add logic to check globalsettings output_type
+                return ary.to_output(obj._input_type) 
+
+    def __set__(self, obj, value):
+        setattr(obj, self.attribute_name, value)
