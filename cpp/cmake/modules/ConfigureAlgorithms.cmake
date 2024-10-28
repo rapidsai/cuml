@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -121,6 +121,10 @@ else()
 
     if(metrics_algo)
         set(CUML_RAFT_COMPILED ON)
+    endif()
+
+    if(hdbscan_algo OR kmeans_algo OR knn_algo OR metrics_algo OR tsne_algo OR umap_algo)
+        set(LINK_CUVS ON)
     endif()
 endif()
 
