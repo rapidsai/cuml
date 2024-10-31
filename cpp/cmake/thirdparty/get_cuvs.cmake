@@ -38,6 +38,11 @@ function(find_and_configure_cuvs)
       set(CUVS_LIB cuvs::cuvs PARENT_SCOPE)
     endif()
 
+    set(CUVS_BUILD_MG_ALGOS ON)
+    if(SINGLEGPU)
+      set(CUVS_BUILD_MG_ALGOS OFF)
+    endif()
+
     rapids_cpm_find(cuvs ${PKG_VERSION}
       GLOBAL_TARGETS      cuvs::cuvs
       BUILD_EXPORT_SET    cuml-exports
@@ -50,6 +55,8 @@ function(find_and_configure_cuvs)
         OPTIONS
           "BUILD_TESTS OFF"
           "BUILD_BENCH OFF"
+          "BUILD_MG_ALGOS ${CUVS_BUILD_MG_ALGOS}"
+
     )
 
     if(cuvs_ADDED)
