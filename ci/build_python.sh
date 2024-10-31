@@ -29,12 +29,13 @@ RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION) rapids-conda-retry mambabuild \
   conda/recipes/cuml
 
 sccache --show-adv-stats
-sccache --zero-stats
 
 # Build cuml-cpu only in CUDA 11 jobs since it only depends on python
 # version
 RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
 if [[ ${RAPIDS_CUDA_MAJOR} == "11" ]]; then
+  sccache --zero-stats
+
   RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION) rapids-conda-retry mambabuild \
   --no-test \
   conda/recipes/cuml-cpu
