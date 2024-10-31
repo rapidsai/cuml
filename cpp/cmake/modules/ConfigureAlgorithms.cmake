@@ -20,6 +20,7 @@ if(CUML_ALGORITHMS STREQUAL "ALL")
     set(CUML_RAFT_COMPILED ON)
     set(LINK_TREELITE ON)
     set(LINK_CUFFT ON)
+    set(LINK_CUVS ON)
     set(all_algo ON)
     # setting treeshap to ON to get the gputreeshap include in the cuml_cpp_target
     set(treeshap_algo ON)
@@ -123,7 +124,8 @@ else()
         set(CUML_RAFT_COMPILED ON)
     endif()
 
-    if(hdbscan_algo OR kmeans_algo OR knn_algo OR metrics_algo OR tsne_algo OR umap_algo)
+    if(dbscan_algo OR hdbscan_algo OR kmeans_algo OR knn_algo
+       OR metrics_algo OR tsne_algo OR umap_algo)
         set(LINK_CUVS ON)
     endif()
 endif()
