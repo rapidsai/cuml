@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ if(CUML_ALGORITHMS STREQUAL "ALL")
     set(CUML_RAFT_COMPILED ON)
     set(LINK_TREELITE ON)
     set(LINK_CUFFT ON)
+    set(LINK_CUVS ON)
     set(all_algo ON)
     # setting treeshap to ON to get the gputreeshap include in the cuml_cpp_target
     set(treeshap_algo ON)
@@ -121,6 +122,11 @@ else()
 
     if(metrics_algo)
         set(CUML_RAFT_COMPILED ON)
+    endif()
+
+    if(dbscan_algo OR hdbscan_algo OR kmeans_algo OR knn_algo
+       OR metrics_algo OR tsne_algo OR umap_algo)
+        set(LINK_CUVS ON)
     endif()
 endif()
 
