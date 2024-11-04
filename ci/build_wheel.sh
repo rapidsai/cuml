@@ -40,14 +40,18 @@ case "${RAPIDS_CUDA_VERSION}" in
     ;;
 esac
 
+sccache --zero-stats
+
 SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/;-DUSE_CUVS_WHEEL=ON${EXTRA_CMAKE_ARGS}" \
   python -m pip wheel . \
     -w dist \
-    -vvv \
+    -v \
     --no-deps \
     --disable-pip-version-check
+
+sccache --show-adv-stats
 
 mkdir -p final_dist
 python -m auditwheel repair -w final_dist "${EXCLUDE_ARGS[@]}" dist/*
 
-RAPIDS_PY_WHEEL_NAME="cuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 final_dist
+RAPIDS_PY_WHEEL_NAME="cuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python final_dist
