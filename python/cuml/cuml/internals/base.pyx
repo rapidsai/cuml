@@ -469,6 +469,20 @@ class Base(TagsMixin,
                 func = nvtx_annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
 
+    def to_sklearn(self,
+                   protocol: str = "pickle",
+                   filename: Optional[str] = None) -> None:
+        raise NotImplementedError("Estimator does not support exporting to "
+                                  "Scikit-learn yet.")
+
+
+    @classmethod
+    def from_sklearn(cls,
+                     filename: str,
+                     protocol: str = "pickle") -> 'Model':
+        raise NotImplementedError("Estimator does not support importing from "
+                                  "Scikit-learn yet.")
+
 
 # Internal, non class owned helper functions
 def _check_output_type_str(output_str):
@@ -806,7 +820,13 @@ class UniversalBase(Base):
         with open(filename, "rb") as f:
             state = serializer.load(f)
 
-        estimator._cpu_model = cls._cpu_model_class()
-        estimator._cpu_model.__dict__.update(state)
+        estimator.import_cpu_model()
+        estimator._cpu_model = state
         estimator.cpu_to_gpu()
+
+        # we need to set an output type here since
+        # we cannot infer from training args.
+        # Setting to numpy seems like a reasonable default
+        estimator.output_type = "numpy"
+        estimator.output_mem_type = MemoryType.host
         return estimator
