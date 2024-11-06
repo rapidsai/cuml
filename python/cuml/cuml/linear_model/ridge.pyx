@@ -357,8 +357,8 @@ class Ridge(UniversalBase,
         return self
 
     @classmethod
-    def get_param_names(cls):
-        return super().get_param_names() + \
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
             ['solver', 'fit_intercept', 'normalize', 'alpha']
 
     def get_attr_names(self):

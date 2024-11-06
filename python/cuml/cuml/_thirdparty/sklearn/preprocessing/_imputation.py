@@ -244,8 +244,8 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
         self.copy = copy
 
     @classmethod
-    def get_param_names(cls):
-        return super().get_param_names() + [
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "strategy",
             "fill_value",
             "verbose",
@@ -545,8 +545,9 @@ class MissingIndicator(TransformerMixin,
         self.sparse = sparse
         self.error_on_new = error_on_new
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "missing_values",
             "features",
             "sparse",

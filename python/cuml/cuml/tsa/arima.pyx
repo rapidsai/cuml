@@ -578,13 +578,10 @@ class ARIMA(Base):
                 setattr(self, "{}_".format(param_name), array)
 
     @classmethod
-    def get_param_names(cls):
-        raise NotImplementedError
-
-    def get_param_names(self):
+    def _get_param_names(cls):
         """
         .. warning:: ARIMA is unable to be cloned at this time.
-            The methods: `get_param_names()`, `get_params` and
+            The methods: `_get_param_names()`, `get_params` and
             `set_params` will raise ``NotImplementedError``
         """
         raise NotImplementedError("ARIMA is unable to be cloned via "
@@ -593,7 +590,7 @@ class ARIMA(Base):
     def get_params(self, deep=True):
         """
         .. warning:: ARIMA is unable to be cloned at this time.
-            The methods: `get_param_names()`, `get_params` and
+            The methods: `_get_param_names()`, `get_params` and
             `set_params` will raise ``NotImplementedError``
         """
         raise NotImplementedError("ARIMA is unable to be cloned via "
@@ -602,7 +599,7 @@ class ARIMA(Base):
     def set_params(self, **params):
         """
         .. warning:: ARIMA is unable to be cloned at this time.
-            The methods: `get_param_names()`, `get_params` and
+            The methods: `_get_param_names()`, `get_params` and
             `set_params` will raise ``NotImplementedError``
         """
         raise NotImplementedError("ARIMA is unable to be cloned via "

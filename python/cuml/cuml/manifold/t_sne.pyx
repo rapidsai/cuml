@@ -691,8 +691,8 @@ class TSNE(UniversalBase,
         return state
 
     @classmethod
-    def get_param_names(cls):
-        return super().get_param_names() + [
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "n_components",
             "perplexity",
             "early_exaggeration",

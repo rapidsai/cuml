@@ -398,7 +398,7 @@ class Lars(Base, RegressorMixin):
         return preds
 
     @classmethod
-    def get_param_names(cls):
-        return super().get_param_names() + \
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
             ['copy_X', 'fit_intercept', 'fit_path', 'n_nonzero_coefs',
              'normalize', 'precompute', 'eps']

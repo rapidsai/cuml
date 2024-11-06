@@ -193,8 +193,8 @@ class MulticlassClassifier(Base, ClassifierMixin):
             return self.multiclass_estimator.decision_function(X)
 
     @classmethod
-    def get_param_names(cls):
-        return super().get_param_names() + ["estimator", "strategy"]
+    def _get_param_names(cls):
+        return super()._get_param_names() + ["estimator", "strategy"]
 
 
 class OneVsRestClassifier(MulticlassClassifier):
@@ -266,8 +266,9 @@ class OneVsRestClassifier(MulticlassClassifier):
             strategy="ovr",
         )
 
-    def get_param_names(self):
-        param_names = super().get_param_names()
+    @classmethod
+    def _get_param_names(cls):
+        param_names = super()._get_param_names()
         param_names.remove("strategy")
         return param_names
 
@@ -340,7 +341,8 @@ class OneVsOneClassifier(MulticlassClassifier):
             strategy="ovo",
         )
 
-    def get_param_names(self):
-        param_names = super().get_param_names()
+    @classmethod
+    def _get_param_names(cls):
+        param_names = super()._get_param_names()
         param_names.remove("strategy")
         return param_names

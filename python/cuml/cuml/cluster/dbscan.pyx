@@ -467,8 +467,8 @@ class DBSCAN(UniversalBase,
         return self.labels_
 
     @classmethod
-    def get_param_names(cls):
-        return super().get_param_names() + [
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "eps",
             "min_samples",
             "max_mbytes_per_batch",

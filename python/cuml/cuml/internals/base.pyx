@@ -183,7 +183,7 @@ class Base(TagsMixin,
                 # inference logic goes here
 
             @classmethod
-            def get_param_names(cls):
+            def _get_param_names(cls):
                 # return a list of hyperparam names supported by this algo
 
         # stream and handle example:
@@ -271,7 +271,8 @@ class Base(TagsMixin,
             output += ' <sk_model_ attribute used>'
         return output
 
-    def get_param_names(self):
+    @classmethod
+    def _get_param_names(cls):
         """
         Returns a list of hyperparameter names owned by this class. It is
         expected that every child class overrides this method and appends its
@@ -283,12 +284,12 @@ class Base(TagsMixin,
     def get_params(self, deep=True):
         """
         Returns a dict of all params owned by this class. If the child class
-        has appropriately overridden the `get_param_names` method and does not
+        has appropriately overridden the `_get_param_names` method and does not
         need anything other than what is there in this method, then it doesn't
         have to override this method
         """
         params = dict()
-        variables = self.get_param_names()
+        variables = self._get_param_names()
         for key in variables:
             var_value = getattr(self, key, None)
             params[key] = var_value
@@ -298,12 +299,12 @@ class Base(TagsMixin,
         """
         Accepts a dict of params and updates the corresponding ones owned by
         this class. If the child class has appropriately overridden the
-        `get_param_names` method and does not need anything other than what is,
+        `_get_param_names` method and does not need anything other than what is,
         there in this method, then it doesn't have to override this method
         """
         if not params:
             return self
-        variables = self.get_param_names()
+        variables = self._get_param_names()
         for key, value in params.items():
             if key not in variables:
                 raise ValueError("Bad param '%s' passed to set_params" % key)

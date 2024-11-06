@@ -726,8 +726,8 @@ class PCA(UniversalBase,
             return t_input_data
 
     @classmethod
-    def get_param_names(cls):
-        return super().get_param_names() + \
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
             ["copy", "iterated_power", "n_components", "svd_solver", "tol",
                 "whiten", "random_state"]
 

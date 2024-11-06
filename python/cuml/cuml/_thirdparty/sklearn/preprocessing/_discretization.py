@@ -159,8 +159,8 @@ class KBinsDiscretizer(TransformerMixin,
         self.strategy = strategy
 
     @classmethod
-    def get_param_names(cls):
-        return super().get_param_names() + [
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "n_bins",
             "encode",
             "strategy"

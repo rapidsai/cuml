@@ -15,7 +15,7 @@ This guide is meant to help developers follow the correct patterns when creating
    - [Returning Arrays](#returning-arrays)
 - [Estimator Design](#estimator-design)
    - [Initialization](#initialization)
-   - [Implementing `get_param_names()`](#implementing-get_param_names)
+   - [Implementing `_get_param_names()`](#implementing-_get_param_names)
    - [Estimator Tags and cuML Specific Tags](#estimator-tags-and-cuml-specific-tags)
    - [Estimator Array-Like Attributes](#estimator-array-like-attributes)
    - [Estimator Methods](#estimator-methods)
@@ -77,10 +77,11 @@ At a high level, all cuML Estimators must:
       def predict(self, X) -> CumlArray:
          ...
    ```
-6. Implement `get_param_names()` including values returned by `super().get_param_names()`
+6. Implement `_get_param_names()` including values returned by `super()._get_param_names()`
    ```python
-      def get_param_names(self):
-         return super().get_param_names() + [
+      @classmethod
+   def _get_param_names(cls):
+         return super()._get_param_names() + [
             "eps",
             "min_samples",
          ]
@@ -254,19 +255,20 @@ def __init__(self, my_option="option1"):
 
 This will break cloning since the value of `self.my_option` is not a valid input to `__init__`. Instead, `my_option` should be saved as an attribute as-is.
 
-### Implementing `get_param_names()`
+### Implementing `_get_param_names()`
 
-To support cloning, estimators need to implement the function `get_param_names()`. The returned value should be a list of strings of all estimator attributes that are necessary to duplicate the estimator. This method is used in `Base.get_params()` which will collect the collect the estimator param values from this list and pass this dictionary to a new estimator constructor. Therefore, all strings returned by `get_param_names()` should be arguments in `__init__()` otherwise an invalid argument exception will be raised. Most estimators implement `get_param_names()` similar to:
+To support cloning, estimators need to implement the function `_get_param_names()`. The returned value should be a list of strings of all estimator attributes that are necessary to duplicate the estimator. This method is used in `Base.get_params()` which will collect the collect the estimator param values from this list and pass this dictionary to a new estimator constructor. Therefore, all strings returned by `_get_param_names()` should be arguments in `__init__()` otherwise an invalid argument exception will be raised. Most estimators implement `_get_param_names()` similar to:
 
 ```python
-def get_param_names(self):
-   return super().get_param_names() + [
+@classmethod
+def _get_param_names(cls):
+   return super()._get_param_names() + [
       "eps",
       "min_samples",
    ]
 ```
 
-**Note:** Be sure to include `super().get_param_names()` in the returned list to properly set the `super()` attributes.
+**Note:** Be sure to include `super()._get_param_names()` in the returned list to properly set the `super()` attributes.
 
 ### Estimator Tags and cuML-Specific Tags
 

@@ -166,5 +166,5 @@ class Lasso(ElasticNet):
         )
 
     @classmethod
-    def get_param_names(cls):
-        return list(set(super().get_param_names()) - {"l1_ratio"})
+    def _get_param_names(cls):
+        return list(set(super()._get_param_names()) - {"l1_ratio"})

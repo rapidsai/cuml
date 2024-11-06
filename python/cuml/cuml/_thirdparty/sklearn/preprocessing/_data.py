@@ -327,8 +327,8 @@ class MinMaxScaler(TransformerMixin,
             del self.data_range_
 
     @classmethod
-    def get_param_names(cls):
-        return super().get_param_names() + [
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "feature_range",
             "copy"
         ]
@@ -652,8 +652,9 @@ class StandardScaler(TransformerMixin,
             del self.mean_
             del self.var_
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "with_mean",
             "with_std",
             "copy"
@@ -956,8 +957,9 @@ class MaxAbsScaler(TransformerMixin,
             del self.n_samples_seen_
             del self.max_abs_
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "copy"
         ]
 
@@ -1206,8 +1208,9 @@ class RobustScaler(TransformerMixin,
         self.quantile_range = quantile_range
         self.copy = copy
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "with_centering",
             "with_scaling",
             "quantile_range",
@@ -1479,8 +1482,9 @@ class PolynomialFeatures(TransformerMixin,
         self.include_bias = include_bias
         self.order = order
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "degree",
             "interaction_only",
             "include_bias",
@@ -2274,8 +2278,9 @@ class QuantileTransformer(TransformerMixin,
         self.random_state = random_state
         self.copy = copy
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "n_quantiles",
             "output_distribution",
             "ignore_implicit_zeros",
@@ -2798,8 +2803,9 @@ class PowerTransformer(TransformerMixin,
         self.standardize = standardize
         self.copy = copy
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "method",
             "standardize",
             "copy"

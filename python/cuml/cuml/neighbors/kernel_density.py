@@ -226,8 +226,8 @@ class KernelDensity(Base):
             raise ValueError("invalid kernel: '{0}'".format(kernel))
 
     @classmethod
-    def get_param_names(cls):
-        return super().get_param_names() + [
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "bandwidth",
             "kernel",
             "metric",

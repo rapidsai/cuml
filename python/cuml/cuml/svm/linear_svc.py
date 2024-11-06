@@ -174,7 +174,7 @@ class LinearSVC(LinearSVM, ClassifierMixin):
         self.__loss = loss
 
     @classmethod
-    def get_param_names(cls):
+    def _get_param_names(cls):
         return list(
             {
                 "handle",
@@ -192,7 +192,7 @@ class LinearSVC(LinearSVM, ClassifierMixin):
                 "grad_tol",
                 "change_tol",
                 "multi_class",
-            }.union(super().get_param_names())
+            }.union(super()._get_param_names())
         )
 
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "LinearSVM":

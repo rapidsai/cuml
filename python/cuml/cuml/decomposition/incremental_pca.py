@@ -449,9 +449,9 @@ class IncrementalPCA(PCA):
             return super().transform(X)
 
     @classmethod
-    def get_param_names(cls):
+    def _get_param_names(cls):
         # Skip super() since we dont pass any extra parameters in __init__
-        return Base.get_param_names() + [
+        return Base._get_param_names() + [
             "n_components",
             "whiten",
             "copy",

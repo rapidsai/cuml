@@ -299,5 +299,5 @@ class KNeighborsClassifier(ClassifierMixin,
             if len(final_classes) == 1 else tuple(final_classes)
 
     @classmethod
-    def get_param_names(cls):
-        return super().get_param_names() + ["weights"]
+    def _get_param_names(cls):
+        return super()._get_param_names() + ["weights"]

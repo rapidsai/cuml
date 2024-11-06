@@ -662,8 +662,8 @@ class SVMBase(Base,
         return preds
 
     @classmethod
-    def get_param_names(cls):
-        return super().get_param_names() + [
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "C",
             "kernel",
             "degree",

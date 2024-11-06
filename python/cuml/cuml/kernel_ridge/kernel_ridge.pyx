@@ -227,8 +227,8 @@ class KernelRidge(Base, RegressorMixin):
         self.kernel_params = kernel_params
 
     @classmethod
-    def get_param_names(cls):
-        return super().get_param_names() + [
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "alpha",
             "kernel",
             "gamma",

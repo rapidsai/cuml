@@ -280,8 +280,8 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         return self.fit(X).labels_
 
     @classmethod
-    def get_param_names(cls):
-        return super().get_param_names() + [
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "n_clusters",
             "affinity",
             "metric",

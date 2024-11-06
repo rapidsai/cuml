@@ -153,7 +153,7 @@ class LinearSVR(LinearSVM, RegressorMixin):
         self.__loss = loss
 
     @classmethod
-    def get_param_names(cls):
+    def _get_param_names(cls):
         return list(
             {
                 "handle",
@@ -169,5 +169,5 @@ class LinearSVR(LinearSVM, RegressorMixin):
                 "grad_tol",
                 "change_tol",
                 "epsilon",
-            }.union(super().get_param_names())
+            }.union(super()._get_param_names())
         )

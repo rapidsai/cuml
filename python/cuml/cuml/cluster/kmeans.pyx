@@ -697,8 +697,8 @@ class KMeans(UniversalBase,
         return self.transform(X, convert_dtype=convert_dtype)
 
     @classmethod
-    def get_param_names(cls):
-        return super().get_param_names() + \
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
             ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
                 'tol', "convert_dtype"]
