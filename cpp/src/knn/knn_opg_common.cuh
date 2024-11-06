@@ -426,7 +426,7 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
                        size_t query_size)
 {
   std::vector<in_t*> ptrs(params.idx_data->size());
-  std::vector<std::size_t> sizes(params.idx_data->size());
+  std::vector<int> sizes(params.idx_data->size());
 
   for (std::size_t cur_idx = 0; cur_idx < params.idx_data->size(); cur_idx++) {
     ptrs[cur_idx]  = params.idx_data->at(cur_idx)->ptr;
@@ -443,20 +443,20 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
 
   // ID ranges need to be offset by each local partition's
   // starting indices.
-  raft::spatial::knn::brute_force_knn<std::int64_t, float, std::size_t>(
-    handle,
-    ptrs,
-    sizes,
-    params.idx_desc->N,
-    query,
-    query_size,
-    work.res_I.data(),
-    work.res_D.data(),
-    params.k,
-    params.rowMajorIndex,
-    params.rowMajorQuery,
-    &start_indices_long,
-    raft::distance::DistanceType::L2SqrtExpanded);
+  brute_force_knn(handle,
+                  ptrs,
+                  sizes,
+                  params.idx_desc->N,
+                  query,
+                  query_size,
+                  work.res_I.data(),
+                  work.res_D.data(),
+                  params.k,
+                  params.rowMajorIndex,
+                  params.rowMajorQuery,
+                  raft::distance::DistanceType::L2SqrtExpanded,
+                  2.0f,
+                  &start_indices_long);
   handle.sync_stream(handle.get_stream());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }

@@ -31,7 +31,7 @@ from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 
 from cuml.cluster import KMeans
-from cuml.cluster.kmeans_utils cimport *
+from cuml.cluster.kmeans_utils cimport params as KMeansParams
 
 
 cdef extern from "cuml/cluster/kmeans_mg.hpp" \

@@ -66,14 +66,14 @@ files:
       - py_version
       - test_cuml
       - test_notebooks
-  py_build:
+  py_build_cuml:
     output: pyproject
     pyproject_dir: python/cuml
     extras:
       table: build-system
     includes:
       - rapids_build_backend
-  py_rapids_build:
+  py_rapids_build_cuml:
     output: pyproject
     pyproject_dir: python/cuml
     extras:
@@ -142,7 +142,7 @@ dependencies:
           - cxx-compiler
           - fmt>=11.0.2,<12
           - libcumlprims==24.12.*,>=0.0.0a0
-          - libraft==24.12.*,>=0.0.0a0
+          - libcuvs==24.12.*,>=0.0.0a0
           - libraft-headers==24.12.*,>=0.0.0a0
           - librmm==24.12.*,>=0.0.0a0
           - spdlog>=1.14.1,<1.15
@@ -183,6 +183,7 @@ dependencies:
           - &treelite treelite==4.3.0
       - output_types: conda
         packages:
+          - &cuvs_unsuffixed cuvs==24.12.*,>=0.0.0a0
           - &pylibraft_unsuffixed pylibraft==24.12.*,>=0.0.0a0
           - &rmm_unsuffixed rmm==24.12.*,>=0.0.0a0
       - output_types: requirements
@@ -211,16 +212,19 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
+              - cuvs-cu12==24.12.*,>=0.0.0a0
               - pylibraft-cu12==24.12.*,>=0.0.0a0
               - rmm-cu12==24.12.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
+              - cuvs-cu11==24.12.*,>=0.0.0a0
               - pylibraft-cu11==24.12.*,>=0.0.0a0
               - rmm-cu11==24.12.*,>=0.0.0a0
           - matrix:
             packages:
+              - *cuvs_unsuffixed
               - *pylibraft_unsuffixed
               - *rmm_unsuffixed
 
@@ -260,6 +264,7 @@ dependencies:
             packages:
               - cudf-cu12==24.12.*,>=0.0.0a0
               - &cupy_pyproject_cu12 cupy-cuda12x>=12.0.0
+              - cuvs-cu12==24.12.*,>=0.0.0a0
               - dask-cudf-cu12==24.12.*,>=0.0.0a0
               - pylibraft-cu12==24.12.*,>=0.0.0a0
               - raft-dask-cu12==24.12.*,>=0.0.0a0
@@ -272,6 +277,7 @@ dependencies:
               # NOTE: cupy still has a "-cuda12x" suffix here, because it's suffixed
               #       in DLFW builds
               - *cupy_pyproject_cu12
+              - *cuvs_unsuffixed
               - *dask_cudf_unsuffixed
               - *pylibraft_unsuffixed
               - *raft_dask_unsuffixed
@@ -282,6 +288,7 @@ dependencies:
             packages: &py_run_packages_cu11
               - cudf-cu11==24.12.*,>=0.0.0a0
               - &cupy_pyproject_cu11 cupy-cuda11x>=12.0.0
+              - cuvs-cu11==24.12.*,>=0.0.0a0
               - dask-cudf-cu11==24.12.*,>=0.0.0a0
               - pylibraft-cu11==24.12.*,>=0.0.0a0
               - raft-dask-cu11==24.12.*,>=0.0.0a0
@@ -294,6 +301,7 @@ dependencies:
               # NOTE: cupy still has a "-cuda11x" suffix here, because it's suffixed
               #       in DLFW builds
               - *cupy_pyproject_cu11
+              - *cuvs_unsuffixed
               - *dask_cudf_unsuffixed
               - *pylibraft_unsuffixed
               - *raft_dask_unsuffixed
@@ -302,6 +310,7 @@ dependencies:
             packages:
               - *cudf_unsuffixed
               - *cupy_pyproject_cu11
+              - *cuvs_unsuffixed
               - *dask_cudf_unsuffixed
               - *pylibraft_unsuffixed
               - *raft_dask_unsuffixed
@@ -503,7 +512,7 @@ dependencies:
         packages:
           - *cython
           - dask-ml
-          - hdbscan>=0.8.38,<0.8.39
+          - hdbscan>=0.8.39,<0.8.40
           - hypothesis>=6.0,<7
           - nltk
           - numpydoc
@@ -517,7 +526,6 @@ dependencies:
           - statsmodels
           - umap-learn==0.5.6
           - pynndescent
-          - setuptools  # Needed on Python 3.12 for dask-glm, which requires pkg_resources but Python 3.12 doesn't have setuptools by default
   test_notebooks:
     common:
       - output_types: [conda, requirements]

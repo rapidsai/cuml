@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
       params.max_iter   = 300;
       params.tol        = 0.05;
     }
-    params.metric = raft::distance::DistanceType::L2SqrtExpanded;
+    params.metric = cuvs::distance::DistanceType::L2SqrtExpanded;
     params.init   = ML::kmeans::KMeansParams::InitMethod::Random;
 
     // Inputs copied from kmeans_test.cu
