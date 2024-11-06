@@ -39,6 +39,7 @@ build:
     - {{ compiler('cuda') }}
     - cuda-cudart-dev
     {% endif %}
+    - cuda-python
 
 requirements:
   build:
@@ -76,8 +77,10 @@ requirements:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
     - cudatoolkit
+    - cuda-python >=11.7.1,<12.0a0,!=11.8.4
     {% else %}
     - cuda-cudart
+    - cuda-python >=12.0,<13.0a0,!=12.6.1
     {% endif %}
     - cudf ={{ minor_version }}
     - cupy >=12.0.0
