@@ -198,11 +198,11 @@ dependencies:
           - matrix:
               cuda: "12.*"
             packages:
-              - cuda-python>=12.0,<13.0a0
+              - cuda-python>=12.0,<13.0a0,!=12.6.1
           - matrix:
               cuda: "11.*"
             packages:
-              - cuda-python>=11.7.1,<12.0a0
+              - cuda-python>=11.7.1,<12.0a0,!=11.8.4
           - matrix:
             packages:
               - cuda-python
