@@ -65,7 +65,7 @@ HOST DEVICE auto evaluate_tree_impl(node_t const* __restrict__ node,
       if (cur_node.is_categorical()) {
         auto valid_categories = categorical_set_type{
           &cur_node.index(), uint32_t(sizeof(typename node_t::index_type) * 8)};
-        condition = valid_categories.test(input_val);
+        condition = valid_categories.test(input_val) && !isnan(input_val);
       } else {
         condition = (input_val < cur_node.threshold());
       }
