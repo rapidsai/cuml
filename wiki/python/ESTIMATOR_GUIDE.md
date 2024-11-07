@@ -80,7 +80,7 @@ At a high level, all cuML Estimators must:
 6. Implement `_get_param_names()` including values returned by `super()._get_param_names()`
    ```python
       @classmethod
-   def _get_param_names(cls):
+      def _get_param_names(cls):
          return super()._get_param_names() + [
             "eps",
             "min_samples",
