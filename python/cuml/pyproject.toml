@@ -45,6 +45,8 @@ filterwarnings = [
   "error:::cudf",
   "ignore:[^.]*ABCs[^.]*:DeprecationWarning:patsy[.*]",
   "ignore:(.*)alias(.*):DeprecationWarning:hdbscan[.*]",
+  # https://github.com/rapidsai/build-planning/issues/116
+  "ignore:.*cuda..* module is deprecated.*:DeprecationWarning",
   # TODO: https://github.com/rapidsai/cuml/issues/5878
   "ignore:.*ndarray.scatter_[(max|add)].* is deprecated:DeprecationWarning:cupyx",
   # TODO: https://github.com/rapidsai/cuml/issues/5879
