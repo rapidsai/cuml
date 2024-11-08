@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -884,8 +884,12 @@ def test_missing_categorical():
             num_class=[1],
             leaf_vector_shape=(1, 1),
         ),
-        tree_annotation=treelite.model_builder.TreeAnnotation(num_tree=1, target_id=[0], class_id=[0]),
-        postprocessor=treelite.model_builder.PostProcessorFunc(name="identity"),
+        tree_annotation=treelite.model_builder.TreeAnnotation(
+            num_tree=1, target_id=[0], class_id=[0]
+        ),
+        postprocessor=treelite.model_builder.PostProcessorFunc(
+            name="identity"
+        ),
         base_scores=[0.0],
     )
     builder.start_tree()
