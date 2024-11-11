@@ -22,7 +22,7 @@ wrapped_estimators = {
     "PCA": ("cuml.decomposition", "PCA"),
     "TruncatedSVD": ("cuml.decomposition", "TruncatedSVD"),
     "KernelRidge": ("cuml.kernel_ridge", "KernelRidge"),
-    "LinearRegression": "cuml.linear_model.LinearRegression",
+    "LinearRegression": ("cuml.linear_model.LinearRegression", "LinearRegression"),
     "LogisticRegression": ("cuml.linear_model", "LogisticRegression"),
     "ElasticNet": ("cuml.linear_model", "ElasticNet"),
     "Ridge": ("cuml.linear_model", "Ridge"),
