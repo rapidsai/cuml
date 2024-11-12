@@ -31,11 +31,11 @@ def install():
 
     print("Installing cuML Accelerator...")
     loader = ModuleAccelerator.install("sklearn", "cuml", "sklearn")
-    # loader_umap = ModuleAccelerator.install("umap", "cuml", "umap")
-    # loader_hdbscan = ModuleAccelerator.install("hdbscan", "cuml", "hdbscan")
+    loader_umap = ModuleAccelerator.install("umap", "cuml", "umap")
+    loader_hdbscan = ModuleAccelerator.install("hdbscan", "cuml", "hdbscan")
     global LOADED
     LOADED = loader is not None
-
+    
 
 def pytest_load_initial_conftests(early_config, parser, args):
     # https://docs.pytest.org/en/7.1.x/reference/\

@@ -225,6 +225,20 @@ class DBSCAN(UniversalBase,
     core_sample_indices_ = CumlArrayDescriptor(order="C")
     labels_ = CumlArrayDescriptor(order="C")
 
+    _hyperparam_interop_translator = {
+        "metric": {
+            "manhattan": "dispatch",
+            "chebyshev": "dispatch",
+            "minkowski": "dispatch",
+        },
+       
+        "algorithm": {
+            "auto": "brute",
+            "ball_tree": "dispatch",
+            "kd_tree": "dispatch",
+        },
+    }
+
     @device_interop_preparation
     def __init__(self, *,
                  eps=0.5,

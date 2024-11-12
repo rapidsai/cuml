@@ -192,6 +192,18 @@ class Ridge(UniversalBase,
     coef_ = CumlArrayDescriptor(order='F')
     intercept_ = CumlArrayDescriptor(order='F')
 
+    _hyperparam_interop_translator = {
+        "solver": {
+            "auto": "eig",
+            "cholesky": "eig",
+            "lsqr": "eig",
+            "sag": "eig",
+            "saga": "eig",
+            "lbfgs": "eig",
+            "sparse_cg": "eig"
+        }
+    }
+
     @device_interop_preparation
     def __init__(self, *, alpha=1.0, solver='eig', fit_intercept=True,
                  normalize=False, handle=None, output_type=None,

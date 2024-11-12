@@ -38,6 +38,12 @@ from cuml.internals import logger
     default=False,
     help="Perform per-line profiling of this script.",
 )
+@click.option(
+    "--strict",
+    is_flag=True,
+    default=False,
+    help="Perform per-line profiling of this script.",
+)
 @click.argument("args", nargs=-1)
 def main(module, profile, line_profile, args):
     """ """

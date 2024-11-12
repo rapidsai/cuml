@@ -490,21 +490,27 @@ class Base(TagsMixin,
         gpuaccel = True
         for arg, value in kwargs.items():
 
-            if arg not in gpu_hyperparams:
+            if arg in cls._base_hyperparam_interop_translator:
+                if cls._base_hyperparam_interop_translator[arg] == "accept":
+                    gpuaccel = gpuaccel and True
 
-                if arg in cls._base_hyperparam_interop_translator:
-                    if cls._base_hyperparam_interop_translator[arg] == "accept":
-                        gpuaccel = gpuaccel and True
-
-                elif arg in cls._hyperparam_interop_translator:
-
+            elif arg in cls._hyperparam_interop_translator:
+                if value in cls._hyperparam_interop_translator[arg]:
                     if cls._hyperparam_interop_translator[arg][value] == "accept":
                         gpuaccel = gpuaccel and True
-                    else:
+                    elif cls._hyperparam_interop_translator[arg][value] == "dispatch":
                         gpuaccel = False
+                    else:
+                        kwargs[arg] = cls._hyperparam_interop_translator[arg][value]
+                        gpuaccel = gpuaccel and True
+                        # todo (dgd): improve message
+                        logger.warn("Value changed")
 
                 else:
-                    gpuaccel = False
+                    gpuaccel = gpuaccel and True
+
+            # else:
+            #     gpuaccel = False
 
         # we need to enable this if we enable translation for regular cuML
         # kwargs["_gpuaccel"] = gpuaccel

@@ -62,7 +62,8 @@ class EstimatorInterceptor:
                 self._cpu_model_class = (
                     original_class_a  # Store a reference to the original class
                 )
-                _, self._gpuaccel = self._hyperparam_translator(**kwargs)
+                # print("HYPPPPP")
+                kwargs, self._gpuaccel = self._hyperparam_translator(**kwargs)
                 super().__init__(*args, **kwargs)
 
                 self._cpu_hyperparams = list(
@@ -117,6 +118,9 @@ class EstimatorInterceptor:
             f"Created proxy estimator: ({module_b}, {self.class_name_b}, {ProxyEstimator})"
         )
         setattr(module_b, self.class_name_b, ProxyEstimator)
+
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            setattr(module_a, self.class_name_a, ProxyEstimator)
 
 
 def reconstruct_proxy(orig_class, state):

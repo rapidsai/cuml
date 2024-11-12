@@ -150,6 +150,17 @@ class ElasticNet(UniversalBase,
     _cpu_estimator_import_path = 'sklearn.linear_model.ElasticNet'
     coef_ = CumlArrayDescriptor(order='F')
 
+    _hyperparam_interop_translator = {
+        "positive": {
+            True: "dispatch",
+            False: "accept",
+        },
+        "warm_start": {
+            True: "dispatch",
+            False: "accept",
+        },
+    }
+
     @device_interop_preparation
     def __init__(self, *, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3,

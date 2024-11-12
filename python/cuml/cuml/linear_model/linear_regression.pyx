@@ -269,7 +269,10 @@ class LinearRegression(LinearPredictMixin,
     intercept_ = CumlArrayDescriptor(order='F')
 
     _hyperparam_interop_translator = {
-        "positive": {False: "accept"}
+        "positive": {
+            True: "dispatch",
+            False: "accept",
+        },
     }
 
     @device_interop_preparation
