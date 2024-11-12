@@ -690,8 +690,9 @@ class TSNE(UniversalBase,
         self.__dict__.update(state)
         return state
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "n_components",
             "perplexity",
             "early_exaggeration",

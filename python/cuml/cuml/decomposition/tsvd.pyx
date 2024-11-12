@@ -482,8 +482,9 @@ class TruncatedSVD(UniversalBase,
 
             return t_input_data
 
-    def get_param_names(self):
-        return super().get_param_names() + \
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
             ["algorithm", "n_components", "n_iter", "random_state", "tol"]
 
     def get_attr_names(self):
