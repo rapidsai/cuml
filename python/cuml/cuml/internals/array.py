@@ -728,9 +728,8 @@ class CumlArray:
 
     @classmethod
     def host_deserialize(cls, header, frames):
-        typ = pickle.loads(header["type-serialized"])
         assert all(not is_cuda for is_cuda in header["is-cuda"])
-        obj = typ.deserialize(header, frames)
+        obj = cls.deserialize(header, frames)
         return obj
 
     @nvtx_annotate(
@@ -748,9 +747,8 @@ class CumlArray:
 
     @classmethod
     def device_deserialize(cls, header, frames):
-        typ = pickle.loads(header["type-serialized"])
         assert all(is_cuda for is_cuda in header["is-cuda"])
-        obj = typ.deserialize(header, frames)
+        obj = cls.deserialize(header, frames)
         return obj
 
     @nvtx_annotate(
@@ -761,7 +759,6 @@ class CumlArray:
     def serialize(self, mem_type=None) -> Tuple[dict, list]:
         mem_type = self.mem_type if mem_type is None else mem_type
         header = {
-            "type-serialized": pickle.dumps(type(self)),
             "constructor-kwargs": {
                 "dtype": self.dtype.str,
                 "shape": self.shape,
@@ -1251,13 +1248,14 @@ def array_to_memory_order(arr, default="C"):
         return arr.order
     except AttributeError:
         pass
-    try:
-        array_interface = arr.__cuda_array_interface__
-    except AttributeError:
-        try:
-            array_interface = arr.__array_interface__
-        except AttributeError:
-            return array_to_memory_order(CumlArray.from_input(arr, order="K"))
+    array_interface = getattr(
+        arr,
+        "__cuda_array_interface__",
+        getattr(arr, "__array_interface__", False),
+    )
+    if not array_interface:
+        return array_to_memory_order(CumlArray.from_input(arr, order="K"))
+
     strides = array_interface.get("strides", None)
     if strides is None:
         try:

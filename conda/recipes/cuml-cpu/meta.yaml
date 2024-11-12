@@ -31,11 +31,11 @@ requirements:
     - rapids-build-backend>=0.3.0,<0.4.0.dev0
   run:
     - python x.x
-    - numpy>=1.23,<2.0a0
+    - numpy>=1.23,<3.0a0
     - pandas
     - scikit-learn=1.2
     - hdbscan>=0.8.38,<0.8.39
-    - umap-learn=0.5.3
+    - umap-learn=0.5.6
     - nvtx
 
 tests:                                 # [linux64]
@@ -45,5 +45,5 @@ tests:                                 # [linux64]
 about:
   home: https://rapids.ai/
   license: Apache-2.0
-  # license_file: LICENSE
+  license_file: LICENSE
   summary: cuML-CPU library

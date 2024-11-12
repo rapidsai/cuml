@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -101,11 +101,9 @@ def cuda_kernel_factory(nvrtc_kernel_str, dtypes, kernel_name=None):
             "{%d}" % idx, dtype_strs[idx]
         )
 
-    kernel_name = f"""{uuid1()
-                      if kernel_name is None
-                      else kernel_name}_{
-                        "".join(dtype_strs).replace(" ", "_")
-                    }"""
+    kernel_name_prefix = uuid1() if kernel_name is None else kernel_name
+    kernel_name_suffix = "".join(dtype_strs).replace(" ", "_")
+    kernel_name = f"{kernel_name_prefix}_{kernel_name_suffix}"
 
     nvrtc_kernel_str = "%s\nvoid %s%s" % (
         extern_prefix,

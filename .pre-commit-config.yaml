@@ -9,7 +9,7 @@ repos:
             files: python/.*
             args: [--config, python/cuml/pyproject.toml]
     - repo: https://github.com/PyCQA/flake8
-      rev: 5.0.4
+      rev: 7.1.1
       hooks:
           - id: flake8
             args: [--config=python/cuml/.flake8]
@@ -60,7 +60,7 @@ repos:
             pass_filenames: false
             language: python
     - repo: https://github.com/rapidsai/pre-commit-hooks
-      rev: v0.3.1
+      rev: v0.4.0
       hooks:
         - id: verify-copyright
           files: |
@@ -77,7 +77,7 @@ repos:
                 python/cuml/cuml/_thirdparty
         - id: verify-alpha-spec
     - repo: https://github.com/rapidsai/dependency-file-generator
-      rev: v1.13.11
+      rev: v1.16.0
       hooks:
           - id: rapids-dependency-file-generator
             args: ["--clean"]

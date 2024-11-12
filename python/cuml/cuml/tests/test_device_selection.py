@@ -21,7 +21,10 @@ from cuml.cluster.hdbscan import HDBSCAN
 from cuml.neighbors import NearestNeighbors
 from cuml.metrics import trustworthiness
 from cuml.metrics import adjusted_rand_score
-from cuml.manifold import UMAP
+from cuml.manifold import (
+    UMAP,
+    TSNE,
+)
 from cuml.linear_model import (
     ElasticNet,
     Lasso,
@@ -48,9 +51,10 @@ from sklearn.decomposition import PCA as skPCA
 from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
 from sklearn.cluster import KMeans as skKMeans
 from sklearn.cluster import DBSCAN as skDBSCAN
+from sklearn.datasets import make_regression, make_classification, make_blobs
 from sklearn.svm import SVC as skSVC
 from sklearn.svm import SVR as skSVR
-from sklearn.datasets import make_regression, make_classification, make_blobs
+from sklearn.manifold import TSNE as refTSNE
 from pytest_cases import fixture_union, fixture
 from importlib import import_module
 import inspect
@@ -617,8 +621,6 @@ def test_train_cpu_infer_cpu(test_data):
 
 def test_train_gpu_infer_cpu(test_data):
     cuEstimator = test_data["cuEstimator"]
-    if cuEstimator is UMAP:
-        pytest.skip("UMAP GPU training CPU inference not yet implemented")
 
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("gpu"):
@@ -676,8 +678,6 @@ def test_pickle_interop(tmp_path, test_data):
     pickle_filepath = tmp_path / "model.pickle"
 
     cuEstimator = test_data["cuEstimator"]
-    if cuEstimator is UMAP:
-        pytest.skip("UMAP GPU training CPU inference not yet implemented")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("gpu"):
         if "y_train" in test_data:
@@ -882,6 +882,21 @@ def test_umap_methods(device):
     assert ref_trust - tol <= trust <= ref_trust + tol
 
 
+@pytest.mark.parametrize("device", ["cpu", "gpu"])
+def test_tsne_methods(device):
+    ref_model = refTSNE()
+    ref_embedding = ref_model.fit_transform(X_train_blob)
+    ref_trust = trustworthiness(X_train_blob, ref_embedding, n_neighbors=12)
+
+    model = TSNE(n_neighbors=12)
+    with using_device_type(device):
+        embedding = model.fit_transform(X_train_blob)
+    trust = trustworthiness(X_train_blob, embedding, n_neighbors=12)
+
+    tol = 0.02
+    assert trust >= ref_trust - tol
+
+
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 def test_pca_methods(train_device, infer_device):
@@ -938,9 +953,6 @@ def test_nn_methods(train_device, infer_device):
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 def test_hdbscan_methods(train_device, infer_device):
 
-    if train_device == "gpu" and infer_device == "cpu":
-        pytest.skip("Can't transfer attributes to cpu for now")
-
     ref_model = refHDBSCAN(
         prediction_data=True,
         approx_min_span_tree=False,
@@ -957,11 +969,13 @@ def test_hdbscan_methods(train_device, infer_device):
     ref_membership = cpu_all_points_membership_vectors(ref_model)
     ref_labels, ref_probs = cpu_approximate_predict(ref_model, X_test_blob)
 
+    gen_min_span_tree = train_device == "gpu" and infer_device == "cpu"
     model = HDBSCAN(
         prediction_data=True,
         approx_min_span_tree=False,
         max_cluster_size=0,
         min_cluster_size=30,
+        gen_min_span_tree=gen_min_span_tree,
     )
     with using_device_type(train_device):
         trained_labels = model.fit_predict(X_train_blob)

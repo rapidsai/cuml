@@ -39,6 +39,7 @@ build:
     - {{ compiler('cuda') }}
     - cuda-cudart-dev
     {% endif %}
+    - cuda-python
 
 requirements:
   build:
@@ -57,10 +58,10 @@ requirements:
     - cuda-version ={{ cuda_version }}
     {% if cuda_major == "11" %}
     - cudatoolkit
-    - cuda-python >=11.7.1,<12.0a0
+    - cuda-python >=11.7.1,<12.0a0,<=11.8.3
     {% else %}
     - cuda-cudart-dev
-    - cuda-python >=12.0,<13.0a0
+    - cuda-python >=12.0,<13.0a0,<=12.6.0
     {% endif %}
     - cudf ={{ minor_version }}
     - cython >=3.0.0
@@ -76,8 +77,10 @@ requirements:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
     - cudatoolkit
+    - cuda-python >=11.7.1,<12.0a0,<=11.8.3
     {% else %}
     - cuda-cudart
+    - cuda-python >=12.0,<13.0a0,<=12.6.0
     {% endif %}
     - cudf ={{ minor_version }}
     - cupy >=12.0.0
@@ -85,6 +88,7 @@ requirements:
     - joblib >=0.11
     - libcuml ={{ version }}
     - libcumlprims ={{ minor_version }}
+    - numpy >=1.23,<3.0a0
     - pylibraft ={{ minor_version }}
     - python x.x
     - raft-dask ={{ minor_version }}
@@ -100,5 +104,5 @@ tests:
 about:
   home: https://rapids.ai/
   license: Apache-2.0
-  # license_file: LICENSE
+  license_file: LICENSE
   summary: cuML library

@@ -18,7 +18,7 @@
 
 #include <cuml/common/log_levels.hpp>
 
-#include <raft/cluster/kmeans_types.hpp>
+#include <cuvs/cluster/kmeans.hpp>
 
 namespace raft {
 class handle_t;
@@ -28,7 +28,7 @@ namespace ML {
 
 namespace kmeans {
 
-using KMeansParams = raft::cluster::KMeansParams;
+using KMeansParams = cuvs::cluster::kmeans::params;
 
 /**
  * @brief Compute k-means clustering and predicts cluster index for each sample
