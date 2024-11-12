@@ -347,6 +347,7 @@ class ModuleAcceleratorBase(
             
             mod = importlib.import_module(wrapped_estimators[name][0])
             wrapped_attr = getattr(mod, wrapped_estimators[name][1])
+            logger.debug(
                 f"Patched {wrapped_attr}"
             )
         # elif _is_function_or_method(slow_attr):
