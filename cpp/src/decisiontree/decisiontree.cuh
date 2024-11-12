@@ -58,7 +58,19 @@ inline bool is_dev_ptr(const void* p)
   cudaPointerAttributes pointer_attr;
   cudaError_t err = cudaPointerGetAttributes(&pointer_attr, p);
   if (err == cudaSuccess) {
-    return pointer_attr.devicePointer;
+    return (pointer_attr.devicePointer || pointer_attr.type == cudaMemoryTypeDevice);
+  } else {
+    err = cudaGetLastError();
+    return false;
+  }
+}
+
+inline bool is_host_ptr(const void* p)
+{
+  cudaPointerAttributes pointer_attr;
+  cudaError_t err = cudaPointerGetAttributes(&pointer_attr, p);
+  if (err == cudaSuccess) {
+    return (pointer_attr.hostPointer || pointer_attr.type == cudaMemoryTypeUnregistered);
   } else {
     err = cudaGetLastError();
     return false;
@@ -355,7 +367,7 @@ class DecisionTree {
                       int verbosity)
   {
     if (verbosity >= 0) { ML::Logger::get().setLevel(verbosity); }
-    ASSERT(!is_dev_ptr(rows) && !is_dev_ptr(predictions),
+    ASSERT(is_host_ptr(rows) && is_host_ptr(predictions),
            "DT Error: Current impl. expects both input and predictions to be CPU "
            "pointers.\n");
 
