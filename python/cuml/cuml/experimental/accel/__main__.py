@@ -41,9 +41,8 @@ from cuml.internals import logger
 @click.argument("args", nargs=-1)
 def main(module, profile, line_profile, args):
     """ """
-    if not logging.getLogger().hasHandlers():
-        logging.basicConfig(level=logging.DEBUG)
 
+    # todo (dgd): add option to lower verbosity
     logger.set_level(logger.level_debug)
     logger.set_pattern("%v")
 

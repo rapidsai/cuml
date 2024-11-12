@@ -41,7 +41,7 @@ from .fast_slow_proxy import (
     get_intermediate_type_map,
     get_registered_functions,
 )
-from ._wrappers.sklearn import wrapped_estimators
+from ._wrappers import wrapped_estimators
 
 from cuml.internals import logger
 
@@ -91,7 +91,7 @@ def deduce_cuml_accel_mode(slow_lib: str, fast_lib: str) -> DeducedMode:
     Whether the fast library is being used, and the resulting names of
     the "slow" and "fast" libraries.
     """
-    if "CUDF_PANDAS_FALLBACK_MODE" not in os.environ:
+    if "CUML_FALLBACK_MODE" not in os.environ:
         try:
             importlib.import_module(fast_lib)
             return DeducedMode(
@@ -141,10 +141,12 @@ class ModuleAcceleratorBase(
         slow_lib
              Name of package that provides "slow" fallback implementation
         """
-        if ModuleAcceleratorBase._instance is not None:
-            raise RuntimeError(
-                "Only one instance of ModuleAcceleratorBase allowed"
-            )
+        # todo (dgd) replace this check for raising only when initializing
+        # a loader for an already module-accelerated slow_lib 
+        # if ModuleAcceleratorBase._instance is not None:
+        #     raise RuntimeError(
+        #         "Only one instance of ModuleAcceleratorBase allowed"
+        #     )
         self = object.__new__(cls)
         self.mod_name = mod_name
         self.fast_lib = fast_lib
@@ -342,10 +344,13 @@ class ModuleAcceleratorBase(
                 # with a an unusable fast object.
                 return self._wrapped_objs[slow_attr]
         if name in wrapped_estimators:
+            
             mod = importlib.import_module(wrapped_estimators[name][0])
             wrapped_attr = getattr(mod, wrapped_estimators[name][1])
-        elif _is_function_or_method(slow_attr):
-            wrapped_attr = _FunctionProxy(fast_attr, slow_attr)
+                f"Patched {wrapped_attr}"
+            )
+        # elif _is_function_or_method(slow_attr):
+        #     wrapped_attr = _FunctionProxy(fast_attr, slow_attr)
         else:
             wrapped_attr = slow_attr
         return wrapped_attr
@@ -452,9 +457,7 @@ class ModuleAccelerator(ModuleAcceleratorBase):
         # level). For everything that is eagerly imported when we do
         # "import slow_lib" this import line is trivial because we
         # immediately pull the correct result out of sys.modules.
-        # print(f"mod_name: {mod_name}")
 
-        # print(f"rename_root_module :{rename_root_module(
         #         mod_name,
         #         self.slow_lib,
         #         self._module_cache_prefix + self.slow_lib,

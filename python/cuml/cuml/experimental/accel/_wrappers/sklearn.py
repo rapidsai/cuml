@@ -16,23 +16,6 @@
 
 from ..estimator_proxy import intercept
 
-wrapped_estimators = {
-    "KMeans": ("cuml.cluster", "KMeans"),
-    "DBSCAN": ("cuml.cluster", "DBSCAN"),
-    "PCA": ("cuml.decomposition", "PCA"),
-    "TruncatedSVD": ("cuml.decomposition", "TruncatedSVD"),
-    "KernelRidge": ("cuml.kernel_ridge", "KernelRidge"),
-    "LinearRegression": ("cuml.linear_model.LinearRegression", "LinearRegression"),
-    "LogisticRegression": ("cuml.linear_model", "LogisticRegression"),
-    "ElasticNet": ("cuml.linear_model", "ElasticNet"),
-    "Ridge": ("cuml.linear_model", "Ridge"),
-    "Lasso": ("cuml.linear_model", "Lasso"),
-    "TSNE": ("cuml.manifold", "TSNE"),
-    "NearestNeighbors": ("cuml.neighbors", "NearestNeighbors"),
-    "KNeighborsClassifier": ("cuml.neighbors", "KNeighborsClassifier"),
-    "KNeighborsRegressor": ("cuml.neighbors", "KNeighborsRegressor"),
-}
-
 
 ###############################################################################
 #                              Clustering Estimators                          #

@@ -38,9 +38,6 @@ def install():
 
 
 def pytest_load_initial_conftests(early_config, parser, args):
-    # We need to install ourselves before conftest.py import (which
-    # might import pandas) This hook is guaranteed to run before that
-    # happens see
     # https://docs.pytest.org/en/7.1.x/reference/\
     # reference.html#pytest.hookspec.pytest_load_initial_conftests
     try:

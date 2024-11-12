@@ -203,7 +203,7 @@ class Base(TagsMixin,
     """
 
     _base_hyperparam_interop_translator = {
-        "n_jobs": None
+        "n_jobs": "accept"
     }
 
     _hyperparam_interop_translator = {}
@@ -485,7 +485,7 @@ class Base(TagsMixin,
         Each children estimator can override the method, returning either
         modifier **kwargs with equivalent options, or
         """
-        gpu_hyperparams = cls.get_param_names()
+        gpu_hyperparams = cls._get_param_names()
         kwargs.pop("self", None)
         gpuaccel = True
         for arg, value in kwargs.items():
@@ -493,11 +493,12 @@ class Base(TagsMixin,
             if arg not in gpu_hyperparams:
 
                 if arg in cls._base_hyperparam_interop_translator:
-                    if cls._base_hyperparam_interop_translator[arg] == "pass":
+                    if cls._base_hyperparam_interop_translator[arg] == "accept":
                         gpuaccel = gpuaccel and True
 
                 elif arg in cls._hyperparam_interop_translator:
-                    if cls._hyperparam_interop_translator[arg] == "pass":
+
+                    if cls._hyperparam_interop_translator[arg][value] == "accept":
                         gpuaccel = gpuaccel and True
                     else:
                         gpuaccel = False
@@ -722,6 +723,8 @@ class UniversalBase(Base):
         # device_type = cuml.global_settings.device_type
         device_type = self._dispatch_selector(func_name, *args, **kwargs)
 
+        logger.debug(f"device_type {device_type}")
+
         # GPU case
         if device_type == DeviceType.device or func_name not in ['fit', 'fit_transform', 'fit_predict']:
             # call the function from the GPU estimator
@@ -769,8 +772,10 @@ class UniversalBase(Base):
     def _dispatch_selector(self, func_name, *args, **kwargs):
         """
         """
+        if not hasattr(self, "_gpuaccel"):
+            return cuml.global_settings.device_type
 
-        if not self._gpuaccel:
+        elif not self._gpuaccel:
             device_type = DeviceType.host
         else:
             if not self._should_dispatch_cpu(func_name, *args, **kwargs):

@@ -112,6 +112,11 @@ class EstimatorInterceptor:
                 self.cpu_to_gpu()
                 self.output_type = "numpy"
                 self.output_mem_type = MemoryType.host
+                
+        logger.debug(
+            f"Created proxy estimator: ({module_b}, {self.class_name_b}, {ProxyEstimator})"
+        )
+        setattr(module_b, self.class_name_b, ProxyEstimator)
 
 
 def reconstruct_proxy(orig_class, state):
