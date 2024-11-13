@@ -34,8 +34,10 @@ def install():
     loader_umap = ModuleAccelerator.install("umap", "cuml", "umap")
     loader_hdbscan = ModuleAccelerator.install("hdbscan", "cuml", "hdbscan")
     global LOADED
-    LOADED = loader is not None
-    
+    LOADED = all(
+        var is not None for var in [loader, loader_umap, loader_hdbscan]
+    )
+
 
 def pytest_load_initial_conftests(early_config, parser, args):
     # https://docs.pytest.org/en/7.1.x/reference/\

@@ -16,7 +16,7 @@
 
 import click
 import code
-import logging
+import os
 import runpy
 import sys
 
@@ -42,15 +42,18 @@ from cuml.internals import logger
     "--strict",
     is_flag=True,
     default=False,
-    help="Perform per-line profiling of this script.",
+    help="Turn strict mode for hyperparameters on.",
 )
 @click.argument("args", nargs=-1)
-def main(module, profile, line_profile, args):
+def main(module, profile, line_profile, strict, args):
     """ """
 
     # todo (dgd): add option to lower verbosity
     logger.set_level(logger.level_debug)
     logger.set_pattern("%v")
+
+    if strict:
+        os.environ["CUML_ACCEL_STRICT_MODE"] = "ON"
 
     install()
 

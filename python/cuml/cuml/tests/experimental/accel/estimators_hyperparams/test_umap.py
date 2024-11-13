@@ -45,7 +45,9 @@ def test_umap_min_dist(manifold_data, min_dist):
     print(f"Trustworthiness with min_dist={min_dist}: {trust}")
 
 
-@pytest.mark.parametrize("metric", ["euclidean", "manhattan", "chebyshev", "cosine"])
+@pytest.mark.parametrize(
+    "metric", ["euclidean", "manhattan", "chebyshev", "cosine"]
+)
 def test_umap_metric(manifold_data, metric):
     X = manifold_data
     umap = UMAP(metric=metric, random_state=42)
@@ -78,7 +80,9 @@ def test_umap_negative_sample_rate(manifold_data, negative_sample_rate):
     umap = UMAP(negative_sample_rate=negative_sample_rate, random_state=42)
     X_embedded = umap.fit_transform(X)
     trust = trustworthiness(X, X_embedded, n_neighbors=5)
-    print(f"Trustworthiness with negative_sample_rate={negative_sample_rate}: {trust}")
+    print(
+        f"Trustworthiness with negative_sample_rate={negative_sample_rate}: {trust}"
+    )
 
 
 @pytest.mark.parametrize("learning_rate", [0.1, 10.0])
@@ -108,8 +112,6 @@ def test_umap_consistency(manifold_data):
     ), "Embeddings should be consistent across runs with the same random_state"
 
 
-
-
 @pytest.mark.parametrize("n_epochs", [100, 200, 500])
 def test_umap_n_epochs(manifold_data, n_epochs):
     X = manifold_data
@@ -125,7 +127,9 @@ def test_umap_local_connectivity(manifold_data, local_connectivity):
     umap = UMAP(local_connectivity=local_connectivity, random_state=42)
     X_embedded = umap.fit_transform(X)
     trust = trustworthiness(X, X_embedded, n_neighbors=5)
-    print(f"Trustworthiness with local_connectivity={local_connectivity}: {trust}")
+    print(
+        f"Trustworthiness with local_connectivity={local_connectivity}: {trust}"
+    )
 
 
 @pytest.mark.parametrize("repulsion_strength", [0.5, 1.0, 2.0])
@@ -134,7 +138,9 @@ def test_umap_repulsion_strength(manifold_data, repulsion_strength):
     umap = UMAP(repulsion_strength=repulsion_strength, random_state=42)
     X_embedded = umap.fit_transform(X)
     trust = trustworthiness(X, X_embedded, n_neighbors=5)
-    print(f"Trustworthiness with repulsion_strength={repulsion_strength}: {trust}")
+    print(
+        f"Trustworthiness with repulsion_strength={repulsion_strength}: {trust}"
+    )
 
 
 @pytest.mark.parametrize("metric_kwds", [{"p": 1}, {"p": 2}, {"p": 3}])
@@ -152,7 +158,9 @@ def test_umap_angular_rp_forest(manifold_data, angular_rp_forest):
     umap = UMAP(angular_rp_forest=angular_rp_forest, random_state=42)
     X_embedded = umap.fit_transform(X)
     trust = trustworthiness(X, X_embedded, n_neighbors=5)
-    print(f"Trustworthiness with angular_rp_forest={angular_rp_forest}: {trust}")
+    print(
+        f"Trustworthiness with angular_rp_forest={angular_rp_forest}: {trust}"
+    )
 
 
 @pytest.mark.parametrize("densmap", [True, False])

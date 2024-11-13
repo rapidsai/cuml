@@ -142,7 +142,7 @@ class ModuleAcceleratorBase(
              Name of package that provides "slow" fallback implementation
         """
         # todo (dgd) replace this check for raising only when initializing
-        # a loader for an already module-accelerated slow_lib 
+        # a loader for an already module-accelerated slow_lib
         # if ModuleAcceleratorBase._instance is not None:
         #     raise RuntimeError(
         #         "Only one instance of ModuleAcceleratorBase allowed"
@@ -344,12 +344,10 @@ class ModuleAcceleratorBase(
                 # with a an unusable fast object.
                 return self._wrapped_objs[slow_attr]
         if name in wrapped_estimators:
-            
+
             mod = importlib.import_module(wrapped_estimators[name][0])
             wrapped_attr = getattr(mod, wrapped_estimators[name][1])
-            logger.debug(
-                f"Patched {wrapped_attr}"
-            )
+            logger.debug(f"Patched {wrapped_attr}")
         # elif _is_function_or_method(slow_attr):
         #     wrapped_attr = _FunctionProxy(fast_attr, slow_attr)
         else:
