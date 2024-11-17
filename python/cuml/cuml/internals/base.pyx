@@ -20,6 +20,7 @@ import os
 import inspect
 import numbers
 from importlib import import_module
+from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import_from,
@@ -731,8 +732,10 @@ class UniversalBase(Base):
 
         logger.debug(f"device_type {device_type}")
 
-        # GPU case
-        if device_type == DeviceType.device or func_name not in ['fit', 'fit_transform', 'fit_predict']:
+        # For GPU systems, we always dispatch inference
+        if GPU_ENABLED and (
+            device_type == DeviceType.device or 
+            func_name not in ['fit', 'fit_transform', 'fit_predict']):
             # call the function from the GPU estimator
             logger.debug(f"Performing {func_name} in GPU")
             return gpu_func(self, *args, **kwargs)
