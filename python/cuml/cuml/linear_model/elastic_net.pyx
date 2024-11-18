@@ -152,10 +152,10 @@ class ElasticNet(UniversalBase,
 
     _hyperparam_interop_translator = {
         "positive": {
-            True: "dispatch",
+            True: "NotImplemented",
         },
         "warm_start": {
-            True: "dispatch",
+            True: "NotImplemented",
         },
     }
 
