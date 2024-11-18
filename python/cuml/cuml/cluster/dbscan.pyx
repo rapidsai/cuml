@@ -227,15 +227,15 @@ class DBSCAN(UniversalBase,
 
     _hyperparam_interop_translator = {
         "metric": {
-            "manhattan": "dispatch",
-            "chebyshev": "dispatch",
-            "minkowski": "dispatch",
+            "manhattan": "NotImplemented",
+            "chebyshev": "NotImplemented",
+            "minkowski": "NotImplemented",
         },
        
         "algorithm": {
             "auto": "brute",
-            "ball_tree": "dispatch",
-            "kd_tree": "dispatch",
+            "ball_tree": "NotImplemented",
+            "kd_tree": "NotImplemented",
         },
     }
 

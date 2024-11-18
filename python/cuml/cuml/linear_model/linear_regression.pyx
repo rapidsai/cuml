@@ -270,8 +270,7 @@ class LinearRegression(LinearPredictMixin,
 
     _hyperparam_interop_translator = {
         "positive": {
-            True: "dispatch",
-            False: "accept",
+            True: "NotImplemented",
         },
     }
 

@@ -24,10 +24,6 @@ from cuml.internals.safe_imports import gpu_only_import, cpu_only_import
 from typing import Optional, Tuple, Dict
 
 
-# currently we just use this dictionary for debugging purposes
-patched_classes = {}
-
-
 def intercept(
     original_module: str,
     accelerated_module: str,
