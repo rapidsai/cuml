@@ -36,50 +36,50 @@ def intercept(
 ):
     """
     Factory function that creates class definitions of ProxyEstimators that
-    accelerate estimators of the original class. 
+    accelerate estimators of the original class.
 
-    This function dynamically creates a new class called `ProxyEstimator` that 
-    inherits from the GPU-accelerated class in the `accelerated_module` 
-    (e.g., cuML) and acts as a drop-in replacement for the original class in 
-    `original_module` (e.g., scikit-learn). Then, this class can be used to 
+    This function dynamically creates a new class called `ProxyEstimator` that
+    inherits from the GPU-accelerated class in the `accelerated_module`
+    (e.g., cuML) and acts as a drop-in replacement for the original class in
+    `original_module` (e.g., scikit-learn). Then, this class can be used to
     create instances of ProxyEstimators that dispatch to either library.
 
     **Design of the ProxyEstimator Class Inside**
-    
+
     **`ProxyEstimator` Class:**
-        - The `ProxyEstimator` class inherits from the GPU-accelerated 
+        - The `ProxyEstimator` class inherits from the GPU-accelerated
         class (`class_b`) obtained from the `accelerated_module`.
-        - It serves as a wrapper that adds additional functionality 
+        - It serves as a wrapper that adds additional functionality
         to maintain compatibility with the original CPU-based estimator.
         Key methods and attributes:
-            - `__init__`: Initializes the proxy estimator, stores a 
+            - `__init__`: Initializes the proxy estimator, stores a
             reference to the original class before ModuleAccelerator
-            replaces the original module, translates hyperparameters, 
+            replaces the original module, translates hyperparameters,
             and initializes the parent (cuML) class.
-            - `__repr__` and `__str__`: Provide string representations 
+            - `__repr__` and `__str__`: Provide string representations
             that reference the original CPU-based class.
-            - Attribute `_cpu_model_class`: Stores a reference to the 
+            - Attribute `_cpu_model_class`: Stores a reference to the
             original CPU-based estimator class.
-            - Attribute `_gpuaccel`: Indicates whether GPU acceleration 
+            - Attribute `_gpuaccel`: Indicates whether GPU acceleration
             is enabled.
-            - By designing the `ProxyEstimator` in this way, we can 
-            seamlessly replace the original CPU-based estimator with a 
-            GPU-accelerated version without altering the existing codebase. 
-            The metaclass ensures that the class behaves and appears 
-            like the original estimator, while the proxy class manages 
+            - By designing the `ProxyEstimator` in this way, we can
+            seamlessly replace the original CPU-based estimator with a
+            GPU-accelerated version without altering the existing codebase.
+            The metaclass ensures that the class behaves and appears
+            like the original estimator, while the proxy class manages
             the underlying acceleration and compatibility.
 
     **Serialization/Pickling of ProxyEstimators**
 
-    Since pickle has strict rules about serializing classes, we cannot 
+    Since pickle has strict rules about serializing classes, we cannot
     (reasonably) create a method that just pickles and unpickles a ProxyEstimat
-    as if it was just an instance of the original module. 
+    as if it was just an instance of the original module.
 
     To overcome this limitation and offer compatibility between environments
     with acceleration and environments without, a ProxyEstimator serializes
-    *both* the underlying _cpu_model as well as the ProxyEstimator itself. 
-    See the example below to see how it works in practice. 
-            
+    *both* the underlying _cpu_model as well as the ProxyEstimator itself.
+    See the example below to see how it works in practice.
+
     Parameters
     ----------
     original_module : str
@@ -94,17 +94,17 @@ def intercept(
 
     Returns
     -------
-    A class definition of ProxyEstimator that inherits from 
+    A class definition of ProxyEstimator that inherits from
     the accelerated library class (cuML).
 
     Examples
     --------
     >>> from module_accelerator import intercept
-    >>> ProxyEstimator = intercept('sklearn.linear_model', 
+    >>> ProxyEstimator = intercept('sklearn.linear_model',
     ...                            'cuml.linear_model', 'LinearRegression')
     >>> model = ProxyEstimator()
     >>> with open("ProxyEstimator.pkl", "wb") as f:
-    >>>     # This saves two pickled files, a pickle corresponding to 
+    >>>     # This saves two pickled files, a pickle corresponding to
     >>>     # the ProxyEstimator and a "ProxyEstimator_pickle.pkl" that is
     >>>     # the CPU model pickled.
     >>>     loaded = load(f)
@@ -129,14 +129,15 @@ def intercept(
         A proxy estimator class that wraps the accelerated estimator and provides
         compatibility with the original estimator interface.
 
-        The ProxyEstimator inherits from the accelerated estimator class and 
-        wraps additional functionality to maintain compatibility with the original 
+        The ProxyEstimator inherits from the accelerated estimator class and
+        wraps additional functionality to maintain compatibility with the original
         CPU-based estimator.
-        
-        It handles the translation of hyperparameters and the transfer of models 
+
+        It handles the translation of hyperparameters and the transfer of models
         between CPU and GPU.
 
         """
+
         def __init__(self, *args, **kwargs):
             self._cpu_model_class = (
                 original_class_a  # Store a reference to the original class
@@ -153,7 +154,7 @@ def intercept(
         def __repr__(self):
             """
             Return a formal string representation of the object.
-            
+
             Returns
             -------
             str
@@ -165,7 +166,7 @@ def intercept(
         def __str__(self):
             """
             Return an informal string representation of the object.
-            
+
             Returns
             -------
             str
@@ -204,7 +205,7 @@ def intercept(
             Returns
             -------
             tuple
-                A tuple containing the callable to reconstruct the object 
+                A tuple containing the callable to reconstruct the object
                 and the arguments for reconstruction.
 
             Notes
@@ -240,16 +241,17 @@ def intercept(
     return ProxyEstimator
 
 
-def reconstruct_proxy( 
-        original_module: str,
-        accelerated_module: str, 
-        class_name: str, 
-        args: Tuple,
-        kwargs: Dict):
+def reconstruct_proxy(
+    original_module: str,
+    accelerated_module: str,
+    class_name: str,
+    args: Tuple,
+    kwargs: Dict,
+):
     """
     Function to enable pickling of ProxyEstimators since they are defined inside
     a function, which Pickle doesn't like without a function or something
-    that has an absolute import path like this function. 
+    that has an absolute import path like this function.
 
     Parameters
     ----------
@@ -263,11 +265,11 @@ def reconstruct_proxy(
         Args of class to be deserialized (typically empty for ProxyEstimators)
     kwargs : Dict
         Keyword arguments to reconstruct the ProxyEstimator instance, typically
-        state from __setstate__ method. 
+        state from __setstate__ method.
 
     Returns
     -------
-    Instance of ProxyEstimator constructed with the kwargs passed to the function.  
+    Instance of ProxyEstimator constructed with the kwargs passed to the function.
 
     """
     # We probably don't need to intercept again here, since we already stored

@@ -34,7 +34,7 @@ from . import install
 @click.argument("args", nargs=-1)
 def main(module, strict, args):
     """ """
-    
+
     if strict:
         os.environ["CUML_ACCEL_STRICT_MODE"] = "ON"
 
