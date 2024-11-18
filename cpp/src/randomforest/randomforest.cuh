@@ -224,7 +224,6 @@ class RandomForest {
 
     int row_size = n_cols;
 
-    ML::PatternSetter _("%v");
     for (int row_id = 0; row_id < n_rows; row_id++) {
       std::vector<T> row_prediction(forest->trees[0]->num_outputs);
       for (int i = 0; i < this->rf_params.n_trees; i++) {
