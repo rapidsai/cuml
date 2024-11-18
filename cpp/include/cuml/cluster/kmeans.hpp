@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include <cuml/common/log_levels.hpp>
-
 #include <cuvs/cluster/kmeans.hpp>
 
 namespace raft {

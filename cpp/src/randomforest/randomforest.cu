@@ -122,11 +122,11 @@ void print(const RF_metrics rf_metrics)
 void preprocess_labels(int n_rows,
                        std::vector<int>& labels,
                        std::map<int, int>& labels_map,
-                       int verbosity)
+                       level_enum verbosity)
 {
   std::pair<std::map<int, int>::iterator, bool> ret;
   int n_unique_labels = 0;
-  ML::Logger::get().setLevel(verbosity);
+  ML::default_logger().set_level(verbosity);
 
   CUML_LOG_DEBUG("Preprocessing labels");
   for (int i = 0; i < n_rows; i++) {
@@ -149,9 +149,9 @@ void preprocess_labels(int n_rows,
 void postprocess_labels(int n_rows,
                         std::vector<int>& labels,
                         std::map<int, int>& labels_map,
-                        int verbosity)
+                        level_enum verbosity)
 {
-  ML::Logger::get().setLevel(verbosity);
+  ML::default_logger().set_level(verbosity);
   CUML_LOG_DEBUG("Postrocessing labels");
   std::map<int, int>::iterator it;
   int n_unique_cnt = labels_map.size();
@@ -385,10 +385,10 @@ void fit(const raft::handle_t& user_handle,
          int* labels,
          int n_unique_labels,
          RF_params rf_params,
-         int verbosity)
+         level_enum verbosity)
 {
   raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
-  ML::Logger::get().setLevel(verbosity);
+  ML::default_logger().set_level(verbosity);
   ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
   forest->trees.resize(rf_params.n_trees);
   forest->rf_params = rf_params;
@@ -406,10 +406,10 @@ void fit(const raft::handle_t& user_handle,
          int* labels,
          int n_unique_labels,
          RF_params rf_params,
-         int verbosity)
+         level_enum verbosity)
 {
   raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
-  ML::Logger::get().setLevel(verbosity);
+  ML::default_logger().set_level(verbosity);
   ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
   forest->trees.resize(rf_params.n_trees);
   forest->rf_params = rf_params;
@@ -440,7 +440,7 @@ void predict(const raft::handle_t& user_handle,
              int n_rows,
              int n_cols,
              int* predictions,
-             int verbosity)
+             level_enum verbosity)
 {
   ASSERT(!forest->trees.empty(), "Cannot predict! No trees in the forest.");
   std::shared_ptr<RandomForest<float, int>> rf_classifier =
@@ -454,7 +454,7 @@ void predict(const raft::handle_t& user_handle,
              int n_rows,
              int n_cols,
              int* predictions,
-             int verbosity)
+             level_enum verbosity)
 {
   ASSERT(!forest->trees.empty(), "Cannot predict! No trees in the forest.");
   std::shared_ptr<RandomForest<double, int>> rf_classifier =
@@ -482,7 +482,7 @@ RF_metrics score(const raft::handle_t& user_handle,
                  const int* ref_labels,
                  int n_rows,
                  const int* predictions,
-                 int verbosity)
+                 level_enum verbosity)
 {
   RF_metrics classification_score = RandomForest<float, int>::score(
     user_handle, ref_labels, n_rows, predictions, verbosity, RF_type::CLASSIFICATION);
@@ -494,7 +494,7 @@ RF_metrics score(const raft::handle_t& user_handle,
                  const int* ref_labels,
                  int n_rows,
                  const int* predictions,
-                 int verbosity)
+                 level_enum verbosity)
 {
   RF_metrics classification_score = RandomForest<double, int>::score(
     user_handle, ref_labels, n_rows, predictions, verbosity, RF_type::CLASSIFICATION);
@@ -575,10 +575,10 @@ void fit(const raft::handle_t& user_handle,
          int n_cols,
          float* labels,
          RF_params rf_params,
-         int verbosity)
+         level_enum verbosity)
 {
   raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
-  ML::Logger::get().setLevel(verbosity);
+  ML::default_logger().set_level(verbosity);
   ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
   forest->trees.resize(rf_params.n_trees);
   forest->rf_params = rf_params;
@@ -595,10 +595,10 @@ void fit(const raft::handle_t& user_handle,
          int n_cols,
          double* labels,
          RF_params rf_params,
-         int verbosity)
+         level_enum verbosity)
 {
   raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
-  ML::Logger::get().setLevel(verbosity);
+  ML::default_logger().set_level(verbosity);
   ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
   forest->trees.resize(rf_params.n_trees);
   forest->rf_params = rf_params;
@@ -628,7 +628,7 @@ void predict(const raft::handle_t& user_handle,
              int n_rows,
              int n_cols,
              float* predictions,
-             int verbosity)
+             level_enum verbosity)
 {
   std::shared_ptr<RandomForest<float, float>> rf_regressor =
     std::make_shared<RandomForest<float, float>>(forest->rf_params, RF_type::REGRESSION);
@@ -641,7 +641,7 @@ void predict(const raft::handle_t& user_handle,
              int n_rows,
              int n_cols,
              double* predictions,
-             int verbosity)
+             level_enum verbosity)
 {
   std::shared_ptr<RandomForest<double, double>> rf_regressor =
     std::make_shared<RandomForest<double, double>>(forest->rf_params, RF_type::REGRESSION);
@@ -670,7 +670,7 @@ RF_metrics score(const raft::handle_t& user_handle,
                  const float* ref_labels,
                  int n_rows,
                  const float* predictions,
-                 int verbosity)
+                 level_enum verbosity)
 {
   RF_metrics regression_score = RandomForest<float, float>::score(
     user_handle, ref_labels, n_rows, predictions, verbosity, RF_type::REGRESSION);
@@ -683,7 +683,7 @@ RF_metrics score(const raft::handle_t& user_handle,
                  const double* ref_labels,
                  int n_rows,
                  const double* predictions,
-                 int verbosity)
+                 level_enum verbosity)
 {
   RF_metrics regression_score = RandomForest<double, double>::score(
     user_handle, ref_labels, n_rows, predictions, verbosity, RF_type::REGRESSION);

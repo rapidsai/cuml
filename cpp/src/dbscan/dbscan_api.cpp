@@ -50,7 +50,7 @@ cumlError_t cumlSpDbscanFit(cumlHandle_t handle,
                       NULL,
                       max_bytes_per_batch,
                       ML::Dbscan::EpsNnMethod::BRUTE_FORCE,
-                      verbosity);
+                      static_cast<ML::level_enum>(verbosity));
     }
     // TODO: Implement this
     // catch (const MLCommon::Exception& e)
@@ -93,7 +93,7 @@ cumlError_t cumlDpDbscanFit(cumlHandle_t handle,
                       NULL,
                       max_bytes_per_batch,
                       ML::Dbscan::EpsNnMethod::BRUTE_FORCE,
-                      verbosity);
+                      static_cast<ML::level_enum>(verbosity));
     }
     // TODO: Implement this
     // catch (const MLCommon::Exception& e)

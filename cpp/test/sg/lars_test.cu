@@ -481,9 +481,9 @@ class LarsTestFitPredict : public ::testing::Test {
 
   void testFitGram()
   {
-    auto stream   = handle.get_stream();
-    int max_iter  = 10;
-    int verbosity = 0;
+    auto stream              = handle.get_stream();
+    int max_iter             = 10;
+    ML::level_enum verbosity = ML::level_enum::off;
     int n_active;
     ML::Solver::Lars::larsFit(handle,
                               X.data(),
@@ -512,9 +512,9 @@ class LarsTestFitPredict : public ::testing::Test {
 
   void testFitX()
   {
-    auto stream   = handle.get_stream();
-    int max_iter  = 10;
-    int verbosity = 0;
+    auto stream              = handle.get_stream();
+    int max_iter             = 10;
+    ML::level_enum verbosity = ML::level_enum::off;
     int n_active;
     ML::Solver::Lars::larsFit(handle,
                               X.data(),
@@ -593,11 +593,11 @@ class LarsTestFitPredict : public ::testing::Test {
 
   void testFitLarge()
   {
-    auto stream   = handle.get_stream();
-    int n_rows    = 65536;
-    int n_cols    = 10;
-    int max_iter  = n_cols;
-    int verbosity = 0;
+    auto stream              = handle.get_stream();
+    int n_rows               = 65536;
+    int n_cols               = 10;
+    int max_iter             = n_cols;
+    ML::level_enum verbosity = ML::level_enum::off;
     int n_active;
     rmm::device_uvector<math_t> X(n_rows * n_cols, stream);
     rmm::device_uvector<math_t> y(n_rows, stream);

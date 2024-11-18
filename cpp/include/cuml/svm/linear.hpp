@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ struct LinearSVMParams {
    */
   int lbfgs_memory = 5;
   /** Triggers extra output when greater than zero. */
-  int verbose = 0;
+  level_enum verbose = level_enum::off;
   /**
    * The constant scaling factor of the main term in the loss function.
    * (You can also think of that as the inverse factor of the penalty term).

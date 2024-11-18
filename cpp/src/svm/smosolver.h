@@ -87,7 +87,7 @@ class SmoSolver {
       f(0, stream),
       y_label(0, stream)
   {
-    ML::Logger::get().setLevel(param.verbosity);
+    ML::default_logger().set_level(param.verbosity);
   }
 
   void GetNonzeroDeltaAlpha(const math_t* vec,

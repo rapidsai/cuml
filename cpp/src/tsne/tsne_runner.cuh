@@ -63,7 +63,7 @@ class TSNE_runner {
     this->p = input.d;
     this->Y = input.y;
 
-    ML::Logger::get().setLevel(params.verbosity);
+    ML::default_logger().set_level(params.verbosity);
     if (params.dim > 2 and params.algorithm != TSNE_ALGORITHM::EXACT) {
       params.algorithm = TSNE_ALGORITHM::EXACT;
       CUML_LOG_WARN(

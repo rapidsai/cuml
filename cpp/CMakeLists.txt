@@ -220,6 +220,16 @@ endif()
 rapids_cpm_init()
 rapids_cmake_install_lib_dir(lib_dir)
 
+# Not using rapids-cmake since we never want to find, always download.
+CPMAddPackage(
+  NAME rapids_logger GITHUB_REPOSITORY vyasr/rmm GIT_SHALLOW TRUE SOURCE_SUBDIR rapids_logger
+  GIT_TAG feat/logger
+)
+rapids_make_logger(
+    ML VISIBILITY_MACRO "__attribute__((visibility(\"default\")))" EXPORT_SET cuml-exports LOGGER_HEADER_DIR include/cuml/common/ LOGGER_MACRO_PREFIX CUML LOGGER_TARGET cuml_logger
+  SUPPORTS_LOGGING
+)
+
 if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   find_package(Threads)
 endif()
@@ -291,8 +301,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # single GPU components
   # common components
-  add_library(${CUML_CPP_TARGET}
-              src/common/logger.cpp)
+  add_library(${CUML_CPP_TARGET})
   if (CUML_ENABLE_GPU)
     target_compile_definitions(${CUML_CPP_TARGET} PUBLIC CUML_ENABLE_GPU)
   endif()
@@ -628,8 +637,10 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC  rmm::rmm rmm::rmm_logger ${CUVS_LIB}
             ${_cuml_cpp_public_libs}
+            cuml_logger
     PRIVATE ${_cuml_cpp_private_libs}
-                   rmm::rmm_logger_impl
+            rmm::rmm_logger_impl
+            cuml_logger_impl
   )
 
   # If we export the libdmlc symbols, they can lead to weird crashes with other

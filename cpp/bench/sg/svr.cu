@@ -102,7 +102,7 @@ std::vector<SvrParams<D>> getInputs()
   // SvmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity,
   //              epsilon, svmType})
   p.svm_param =
-    ML::SVM::SvmParameter{1, 200, 200, 100, 1e-3, CUML_LEVEL_INFO, 0.1, ML::SVM::EPSILON_SVR};
+    ML::SVM::SvmParameter{1, 200, 200, 100, 1e-3, ML::level_enum::info, 0.1, ML::SVM::EPSILON_SVR};
   p.model = new ML::SVM::SvmModel<D>{0, 0, 0, 0};
 
   std::vector<Triplets> rowcols = {{50000, 2, 2}, {1024, 10000, 10}, {3000, 200, 200}};
