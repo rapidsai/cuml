@@ -471,6 +471,20 @@ class Base(TagsMixin,
                 func = nvtx_annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
 
+    def to_sklearn(self,
+                   protocol: str = "pickle",
+                   filename: Optional[str] = None) -> None:
+        raise NotImplementedError("Estimator does not support exporting to "
+                                  "Scikit-learn yet.")
+
+
+    @classmethod
+    def from_sklearn(cls,
+                     filename: str,
+                     protocol: str = "pickle") -> 'Model':
+        raise NotImplementedError("Estimator does not support importing from "
+                                  "Scikit-learn yet.")
+
 
 # Internal, non class owned helper functions
 def _check_output_type_str(output_str):
@@ -725,3 +739,96 @@ class UniversalBase(Base):
 
             # return function result
             return res
+
+    @staticmethod
+    def _get_serializer(protocol: str) -> Any:
+        """
+        Get the appropriate serializer based on the specified protocol.
+        """
+        if protocol == "pickle":
+            import pickle as serializer
+        elif protocol == "joblib":
+            import joblib as serializer
+        else:
+            raise TypeError(f"Protocol {protocol} not supported.")
+        return serializer
+
+    def to_sklearn(self,
+                   protocol: str = "pickle",
+                   filename: Optional[str] = None) -> None:
+        """
+        Serialize the estimator to a Scikit-learn compatible file using the
+        specified protocol.
+
+        Parameters
+        ----------
+        protocol : str, optional
+            The serialization protocol to use. Defaults to 'pickle'.
+        filename : str, optional
+            The name of the file where the model will be saved. If not provided, it defaults
+            to the class name with '_sklearn' appended.
+
+        Raises
+        ------
+        AttributeError
+            If the model does not have a `_cpu_model` attribute.
+        TypeError
+            If the protocol is not supported.
+
+        """
+        if filename is None:
+            filename = self.__class__.__name__ + "_sklearn"
+
+        serializer = self._get_serializer(protocol)
+
+        if not hasattr(self, '_cpu_model'):
+            self.import_cpu_model()
+            self.build_cpu_model()
+            self.gpu_to_cpu()
+
+        with open(filename, "wb") as f:
+            serializer.dump(self._cpu_model, f)
+
+    @classmethod
+    def from_sklearn(cls,
+                     filename: str,
+                     protocol: str = "pickle") -> 'Model':
+        """
+        Create a cuML estimator from a pickle or joblib serialized
+        Scikit-learn model.
+
+        Parameters
+        ----------
+        filename : str
+            The name of the file from which to load the model.
+        protocol : str, optional
+            The serialization protocol to use. Defaults to 'pickle'.
+
+        Returns
+        -------
+        Model
+            An instance of the class with the loaded model.
+
+        Raises
+        ------
+        AttributeError
+            If the model does not have a `_cpu_model` attribute.
+        TypeError
+            If the protocol is not supported.
+        """
+        estimator = cls()
+        serializer = cls._get_serializer(protocol)
+
+        with open(filename, "rb") as f:
+            state = serializer.load(f)
+
+        estimator.import_cpu_model()
+        estimator._cpu_model = state
+        estimator.cpu_to_gpu()
+
+        # we need to set an output type here since
+        # we cannot infer from training args.
+        # Setting to numpy seems like a reasonable default
+        estimator.output_type = "numpy"
+        estimator.output_mem_type = MemoryType.host
+        return estimator
