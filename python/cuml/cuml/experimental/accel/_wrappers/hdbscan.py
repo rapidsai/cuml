@@ -17,7 +17,7 @@
 from ..estimator_proxy import intercept
 
 
-UMAP = intercept(
+HDBSCAN = intercept(
     original_module="hdbscan",
     accelerated_module="cuml.cluster",
     original_class_name="HDBSCAN",

@@ -21,10 +21,6 @@ from ..estimator_proxy import intercept
 #                              Clustering Estimators                          #
 ###############################################################################
 
-# AgglomerativeClustering = intercept(original_module="sklearn.cluster",
-#                              accelerated_module="cuml.cluster",
-#                              original_class_name="AgglomerativeClustering")
-
 KMeans = intercept(
     original_module="sklearn.cluster",
     accelerated_module="cuml.cluster",
@@ -36,12 +32,6 @@ DBSCAN = intercept(
     accelerated_module="cuml.cluster",
     original_class_name="DBSCAN",
 )
-
-# HDBSCAN = intercept(
-#     original_module="sklearn.cluster",
-#     accelerated_module="cuml.cluster",
-#     original_class_name="HDBSCAN",
-# )
 
 
 ###############################################################################
@@ -56,30 +46,11 @@ PCA = intercept(
 )
 
 
-# IncrementalPCA = intercept(original_module="sklearn.decomposition",
-#                              accelerated_module="cuml.decomposition",
-#                              original_class_name="IncrementalPCA")
-
-
 TruncatedSVD = intercept(
     original_module="sklearn.decomposition",
     accelerated_module="cuml.decomposition",
     original_class_name="TruncatedSVD",
 )
-
-
-###############################################################################
-#                              Ensemble Estimators                            #
-###############################################################################
-
-
-# RandomForestClassifier = intercept(original_module="sklearn.ensemble",
-#                              accelerated_module="cuml.ensemble",
-#                              original_class_name="RandomForestClassifier")
-
-# RandomForestRegressor = intercept(original_module="sklearn.decomposition",
-#                              accelerated_module="cuml.decomposition",
-#                              original_class_name="RandomForestRegressor")
 
 
 ###############################################################################
@@ -135,27 +106,6 @@ TSNE = intercept(
 
 
 ###############################################################################
-#                              Bayes Estimators                               #
-###############################################################################
-
-# GaussianNB = intercept(original_module="sklearn.naive_bayes",
-#                              accelerated_module="cuml.naive_bayes",
-#                              original_class_name="GaussianNB")
-
-# MultinomialNB = intercept(original_module="sklearn.naive_bayes",
-#                              accelerated_module="cuml.naive_bayes",
-#                              original_class_name="MultinomialNB")
-
-# BernoulliNB = intercept(original_module="sklearn.naive_bayes",
-#                              accelerated_module="cuml.naive_bayes",
-#                              original_class_name="BernoulliNB")
-
-# ComplementNB = intercept(original_module="sklearn.naive_bayes",
-#                              accelerated_module="cuml.naive_bayes",
-#                              original_class_name="ComplementNB")
-
-
-###############################################################################
 #                              Neighbors Estimators                           #
 ###############################################################################
 
@@ -177,47 +127,3 @@ KNeighborsRegressor = intercept(
     accelerated_module="cuml.neighbors",
     original_class_name="KNeighborsRegressor",
 )
-
-###############################################################################
-#                              Rand Proj Estimators                           #
-###############################################################################
-
-
-# GaussianRandomProjection = intercept(original_module="sklearn.random_projection",
-#                              accelerated_module="cuml.random_projection",
-#                              original_class_name="GaussianRandomProjection")
-
-
-# SparseRandomProjection = intercept(original_module="sklearn.random_projection",
-#                              accelerated_module="cuml.random_projection",
-#                              original_class_name="SparseRandomProjection")
-
-
-###############################################################################
-#                              SVM Estimators                                 #
-###############################################################################
-
-
-# LinearSVC = intercept(original_module="sklearn.svm",
-#                              accelerated_module="cuml.svm",
-#                              original_class_name="LinearSVC")
-
-# LinearSVR = intercept(original_module="sklearn.svm",
-#                              accelerated_module="cuml.svm",
-#                              original_class_name="LinearSVR")
-
-# SVC = intercept(original_module="sklearn.svm",
-#                              accelerated_module="cuml.svm",
-#                              original_class_name="SVC")
-
-# SVR = intercept(original_module="sklearn.svm",
-#                              accelerated_module="cuml.svm",
-#                              original_class_name="SVR")
-
-
-###############################################################################
-#                              TSA Estimators                                 #
-###############################################################################
-
-
-# not supported yet
