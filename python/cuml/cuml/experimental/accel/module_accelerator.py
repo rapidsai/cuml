@@ -32,15 +32,13 @@ from types import ModuleType
 from typing import Any, ContextManager, NamedTuple
 
 from typing_extensions import Self
-
-from .fast_slow_proxy import (
-    _FunctionProxy,
-    _is_function_or_method,
+from .utils import (
     _Unusable,
     get_final_type_map,
     get_intermediate_type_map,
     get_registered_functions,
 )
+
 from ._wrappers import wrapped_estimators
 
 from cuml.internals import logger
@@ -77,7 +75,7 @@ class DeducedMode(NamedTuple):
 
 def deduce_cuml_accel_mode(slow_lib: str, fast_lib: str) -> DeducedMode:
     """
-    Determine if cudf.pandas should use the requested fast library.
+    Determine if the ModuleAccelerator should use the requested fast library.
 
     Parameters
     ----------
@@ -615,9 +613,9 @@ class ModuleAccelerator(ModuleAcceleratorBase):
         with ImportLock():
             logger.debug("Module Accelerator Install")
             logger.debug(f"destination_module: {destination_module}")
-            logger.debug(f"fast_lib: {fast_lib}")
-            logger.debug(f"slow_lib: {slow_lib}")
-            logger.info("Non Estimator Function Dispatching disabled...")
+            logger.debug(f"Accelerator library: {fast_lib}")
+            logger.debug(f"Original library: {slow_lib}")
+            logger.debug("Non Estimator Function Dispatching disabled...")
             if destination_module != slow_lib:
                 raise RuntimeError(
                     f"Destination module '{destination_module}' must match"

@@ -40,13 +40,17 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
                 default_device_type = DeviceType.host
                 default_memory_type = MemoryType.host
             self.shared_state = {
-                "_output_type": None,
                 "_device_type": default_device_type,
                 "_memory_type": default_memory_type,
-                "root_cm": None,
             }
-        else:
-            self.shared_state = {"_output_type": None, "root_cm": None}
+
+        self.shared_state.update(
+            {
+                "_output_type": None, 
+                "root_cm": None,
+                "accelerator_loaded": False
+            }
+        )
 
 
 _global_settings_data = _GlobalSettingsData()

@@ -730,14 +730,12 @@ class UniversalBase(Base):
         # device_type = cuml.global_settings.device_type
         device_type = self._dispatch_selector(func_name, *args, **kwargs)
 
-        logger.debug(f"device_type {device_type}")
-
-        # For GPU systems, we always dispatch inference
+        # For GPU systems, using the accelerator we always dispatch inference
         if GPU_ENABLED and (
             device_type == DeviceType.device or 
             func_name not in ['fit', 'fit_transform', 'fit_predict']):
             # call the function from the GPU estimator
-            logger.debug(f"Performing {func_name} in GPU")
+            logger.info(f"cuML: Performing {func_name} in GPU")
             return gpu_func(self, *args, **kwargs)
 
         # CPU case
@@ -760,6 +758,7 @@ class UniversalBase(Base):
             # get the function from the GPU estimator
             cpu_func = getattr(self._cpu_model, func_name)
             # call the function from the GPU estimator
+            logger.info(f"cuML: Performing {func_name} in CPU")
             res = cpu_func(*args, **kwargs)
 
             # CPU training
