@@ -46,9 +46,11 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
 
         self.shared_state.update(
             {
-                "_output_type": None,
+                "_output_type": None, 
                 "root_cm": None,
+                "accelerator_active": False,
                 "accelerator_loaded": False,
+                "accelerated_modules": {}
             }
         )
 
