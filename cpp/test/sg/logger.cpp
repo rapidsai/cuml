@@ -57,8 +57,8 @@ class LoggerTest : public ::testing::Test {
 
   void TearDown() override
   {
-    default_logger().setCallback(nullptr);
-    default_logger().setFlush(nullptr);
+    default_logger().remove_callback();
+    // default_logger().setFlush(nullptr);
     default_logger().set_level(ML::level_enum::info);
   }
 };
@@ -66,7 +66,7 @@ class LoggerTest : public ::testing::Test {
 TEST_F(LoggerTest, callback)
 {
   std::string testMsg;
-  default_logger().setCallback(exampleCallback);
+  default_logger().set_callback(exampleCallback);
 
   testMsg = "This is a critical message";
   CUML_LOG_CRITICAL(testMsg.c_str());
@@ -91,7 +91,7 @@ TEST_F(LoggerTest, callback)
 
 TEST_F(LoggerTest, flush)
 {
-  default_logger().setFlush(exampleFlush);
+  // default_logger().setFlush(exampleFlush);
   default_logger().flush();
   ASSERT_EQ(1, flushCount);
 }

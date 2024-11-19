@@ -122,7 +122,7 @@ T run(const raft::handle_t& handle,
   pams.lbfgs_memory        = 5;
   pams.penalty_l1          = l1;
   pams.penalty_l2          = l2;
-  pams.verbose             = verbosity;
+  pams.verbose             = static_cast<int>(verbosity);
 
   int num_iters = 0;
 
@@ -156,7 +156,7 @@ T run_api(const raft::handle_t& cuml_handle,
   pams.lbfgs_memory        = 5;
   pams.penalty_l1          = l1;
   pams.penalty_l2          = l2;
-  pams.verbose             = verbosity;
+  pams.verbose             = static_cast<int>(verbosity);
   pams.fit_intercept       = fit_intercept;
   pams.loss                = loss_type;
 

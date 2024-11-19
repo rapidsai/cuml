@@ -182,10 +182,10 @@ void delete_rf_metadata(RandomForestMetaData<T, L>* forest)
 template <class T, class L>
 std::string _get_rf_text(const RandomForestMetaData<T, L>* forest, bool summary)
 {
-  ML::PatternSetter _("%v");
   if (!forest) {
     return "Empty forest";
   } else {
+    default_logger().set_pattern("%v");
     std::ostringstream oss;
     oss << "Forest has " << forest->rf_params.n_trees << " trees, "
         << "max_depth " << forest->rf_params.tree_params.max_depth << ", and max_leaves "
@@ -198,6 +198,7 @@ std::string _get_rf_text(const RandomForestMetaData<T, L>* forest, bool summary)
         oss << DT::get_tree_text<T, L>(forest->trees[i].get()) << "\n";
       }
     }
+    default_logger().set_pattern(default_pattern());
     return oss.str();
   }
 }

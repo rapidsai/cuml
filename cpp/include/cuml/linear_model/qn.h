@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2022, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 #pragma once
-
-#include <cuml/common/logger.hpp>
 
 #include <stdbool.h>
 
@@ -84,7 +82,7 @@ struct qn_params {
   /** Number of vectors approximating the hessian (l-bfgs). */
   int lbfgs_memory;
   /** Triggers extra output when greater than zero. */
-  level_enum verbose;
+  int verbose;
   /** Whether to fit the bias term. */
   bool fit_intercept;
   /**
@@ -107,7 +105,7 @@ struct qn_params {
       max_iter(1000),
       linesearch_max_iter(50),
       lbfgs_memory(5),
-      verbose(level_enum::off),
+      verbose(0),
       fit_intercept(true),
       penalty_normalized(true)
   {

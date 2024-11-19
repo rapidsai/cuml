@@ -224,6 +224,7 @@ class RandomForest {
 
     int row_size = n_cols;
 
+    default_logger().set_pattern("%v");
     for (int row_id = 0; row_id < n_rows; row_id++) {
       std::vector<T> row_prediction(forest->trees[0]->num_outputs);
       for (int i = 0; i < this->rf_params.n_trees; i++) {
@@ -257,6 +258,7 @@ class RandomForest {
 
     raft::update_device(predictions, h_predictions.data(), n_rows, stream);
     user_handle.sync_stream(stream);
+    default_logger().set_pattern(default_pattern());
   }
 
   /**
