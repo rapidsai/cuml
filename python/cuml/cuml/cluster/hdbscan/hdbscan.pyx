@@ -491,7 +491,6 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
             "chebyshev": "NotImplemented",
             "minkowski": "NotImplemented",
         },
-       
         "algorithm": {
             "auto": "brute",
             "ball_tree": "NotImplemented",

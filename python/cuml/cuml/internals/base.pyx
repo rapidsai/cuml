@@ -482,7 +482,7 @@ class Base(TagsMixin,
         at estimator creating time.
         Each children estimator can override the method, returning either
         modifier **kwargs with equivalent options, or setting gpuaccel to False
-        for hyperaparameters not supported by cuML yet. 
+        for hyperaparameters not supported by cuML yet.
         """
         gpuaccel = True
         # Copy it so we can modify it
@@ -715,7 +715,7 @@ class UniversalBase(Base):
 
         if device_type == DeviceType.device:
             # call the function from the GPU estimator
-            if GlobalSettings().accelerator_active: 
+            if GlobalSettings().accelerator_active:
                 logger.info(f"cuML: Performing {func_name} in GPU")
             return gpu_func(self, *args, **kwargs)
 
@@ -764,7 +764,7 @@ class UniversalBase(Base):
         # if not using accelerator, then return global device
         if not hasattr(self, "_gpuaccel"):
             return cuml.global_settings.device_type
-        
+
         # if using accelerator and doing inference, always use GPU
         elif func_name not in ['fit', 'fit_transform', 'fit_predict']:
             device_type = DeviceType.device

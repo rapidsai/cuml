@@ -151,7 +151,6 @@ class KNeighborsClassifier(ClassifierMixin,
         },
     }
 
-
     def __init__(self, *, weights="uniform", handle=None, verbose=False,
                  output_type=None, **kwargs):
         super().__init__(

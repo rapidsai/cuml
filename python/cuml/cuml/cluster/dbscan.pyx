@@ -231,7 +231,6 @@ class DBSCAN(UniversalBase,
             "chebyshev": "NotImplemented",
             "minkowski": "NotImplemented",
         },
-       
         "algorithm": {
             "auto": "brute",
             "ball_tree": "NotImplemented",
