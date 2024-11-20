@@ -42,6 +42,7 @@ import cuml.internals
 import cuml.internals.input_utils
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import (
     determine_array_type,
     input_to_cuml_array,
@@ -489,7 +490,7 @@ class Base(TagsMixin,
         # Allow the derived class to overwrite the base class
         translations.update(cls._hyperparam_interop_translator)
         for parameter_name, value in kwargs.items():
-            # maybe clean up using: translations.get(parameter_name, {}).get(value, None)?
+
             if parameter_name in translations:
                 if value in translations[parameter_name]:
                     if translations[parameter_name][value] == "NotImplemented":
@@ -712,12 +713,10 @@ class UniversalBase(Base):
         # device_type = cuml.global_settings.device_type
         device_type = self._dispatch_selector(func_name, *args, **kwargs)
 
-        # For GPU systems, using the accelerator we always dispatch inference
-        if GPU_ENABLED and (
-            device_type == DeviceType.device or 
-            func_name not in ['fit', 'fit_transform', 'fit_predict']):
+        if device_type == DeviceType.device:
             # call the function from the GPU estimator
-            logger.info(f"cuML: Performing {func_name} in GPU")
+            if GlobalSettings().accelerator_active: 
+                logger.info(f"cuML: Performing {func_name} in GPU")
             return gpu_func(self, *args, **kwargs)
 
         # CPU case
@@ -762,9 +761,15 @@ class UniversalBase(Base):
     def _dispatch_selector(self, func_name, *args, **kwargs):
         """
         """
+        # if not using accelerator, then return global device
         if not hasattr(self, "_gpuaccel"):
             return cuml.global_settings.device_type
+        
+        # if using accelerator and doing inference, always use GPU
+        elif func_name not in ['fit', 'fit_transform', 'fit_predict']:
+            device_type = DeviceType.device
 
+        # otherwise we select CPU when _gpuaccel is off
         elif not self._gpuaccel:
             device_type = DeviceType.host
         else:

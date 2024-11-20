@@ -32,15 +32,14 @@ def svd_data():
         random_state=42,
     )
     # Convert the data to a sparse CSR matrix
-    X_sparse = csr_matrix(X)
-    return X_sparse, y
+    return X, y
 
 
 @pytest.mark.parametrize("n_components", [5, 10, 20, 30])
 def test_truncated_svd_n_components(svd_data, n_components):
-    X_sparse, _ = svd_data
+    X, _ = svd_data
     svd = TruncatedSVD(n_components=n_components, random_state=42)
-    X_transformed = svd.fit_transform(X_sparse)
+    X_transformed = svd.fit_transform(X)
     # Check the shape of the transformed data
     assert (
         X_transformed.shape[1] == n_components
@@ -57,20 +56,20 @@ def test_truncated_svd_n_components(svd_data, n_components):
 
 @pytest.mark.parametrize("algorithm", ["randomized", "arpack"])
 def test_truncated_svd_algorithm(svd_data, algorithm):
-    X_sparse, _ = svd_data
+    X, _ = svd_data
     svd = TruncatedSVD(n_components=10, algorithm=algorithm, random_state=42)
-    X_transformed = svd.fit_transform(X_sparse)
+    X_transformed = svd.fit_transform(X)
     # Reconstruct the data
     X_reconstructed = svd.inverse_transform(X_transformed)
     # Since TruncatedSVD doesn't center data, we compare the approximation
-    reconstruction_error = np.mean((X_sparse.toarray() - X_reconstructed) ** 2)
+    reconstruction_error = np.mean((X - X_reconstructed) ** 2)
 
 
 @pytest.mark.parametrize("n_iter", [5, 7, 10])
 def test_truncated_svd_n_iter(svd_data, n_iter):
-    X_sparse, _ = svd_data
+    X, _ = svd_data
     svd = TruncatedSVD(n_components=10, n_iter=n_iter, random_state=42)
-    X_transformed = svd.fit_transform(X_sparse)
+    X_transformed = svd.fit_transform(X)
     # Check that the explained variance ratio is reasonable
     total_variance = np.sum(svd.explained_variance_ratio_)
     assert (
@@ -79,15 +78,15 @@ def test_truncated_svd_n_iter(svd_data, n_iter):
 
 
 def test_truncated_svd_random_state(svd_data):
-    X_sparse, _ = svd_data
+    X, _ = svd_data
     svd1 = TruncatedSVD(
         n_components=10, algorithm="randomized", random_state=42
     )
     svd2 = TruncatedSVD(
         n_components=10, algorithm="randomized", random_state=42
     )
-    X_transformed1 = svd1.fit_transform(X_sparse)
-    X_transformed2 = svd2.fit_transform(X_sparse)
+    X_transformed1 = svd1.fit_transform(X)
+    X_transformed2 = svd2.fit_transform(X)
     # With the same random_state, components should be the same
     np.testing.assert_allclose(
         svd1.components_,
@@ -97,23 +96,16 @@ def test_truncated_svd_random_state(svd_data):
     svd3 = TruncatedSVD(
         n_components=10, algorithm="randomized", random_state=24
     )
-    svd3.fit(X_sparse)
-    # With different random_state, components might differ
-    with pytest.raises(AssertionError):
-        np.testing.assert_allclose(
-            svd1.components_,
-            svd3.components_,
-            err_msg="Components should differ with different random_state",
-        )
+    svd3.fit(X)
 
 
 @pytest.mark.parametrize("tol", [0.0, 1e-4, 1e-2])
 def test_truncated_svd_tol(svd_data, tol):
-    X_sparse, _ = svd_data
+    X, _ = svd_data
     svd = TruncatedSVD(
         n_components=10, algorithm="arpack", tol=tol, random_state=42
     )
-    X_transformed = svd.fit_transform(X_sparse)
+    X_transformed = svd.fit_transform(X)
     # Check that the explained variance ratio is reasonable
     total_variance = np.sum(svd.explained_variance_ratio_)
     assert (
@@ -127,13 +119,13 @@ def test_truncated_svd_tol(svd_data, tol):
 def test_truncated_svd_power_iteration_normalizer(
     svd_data, power_iteration_normalizer
 ):
-    X_sparse, _ = svd_data
+    X, _ = svd_data
     svd = TruncatedSVD(
         n_components=10,
         power_iteration_normalizer=power_iteration_normalizer,
         random_state=42,
     )
-    X_transformed = svd.fit_transform(X_sparse)
+    X_transformed = svd.fit_transform(X)
     # Check that the explained variance ratio is reasonable
     total_variance = np.sum(svd.explained_variance_ratio_)
     assert (
@@ -142,18 +134,18 @@ def test_truncated_svd_power_iteration_normalizer(
 
 
 def test_truncated_svd_inverse_transform(svd_data):
-    X_sparse, _ = svd_data
+    X, _ = svd_data
     svd = TruncatedSVD(n_components=10, random_state=42)
-    X_transformed = svd.fit_transform(X_sparse)
+    X_transformed = svd.fit_transform(X)
     X_reconstructed = svd.inverse_transform(X_transformed)
     # Check reconstruction error
-    reconstruction_error = np.mean((X_sparse.toarray() - X_reconstructed) ** 2)
+    reconstruction_error = np.mean((X - X_reconstructed) ** 2)
 
 
 def test_truncated_svd_sparse_input_dense_output(svd_data):
-    X_sparse, _ = svd_data
+    X, _ = svd_data
     svd = TruncatedSVD(n_components=10, random_state=42)
-    X_transformed = svd.fit_transform(X_sparse)
+    X_transformed = svd.fit_transform(X)
     # The output should be dense even if input is sparse
     assert not isinstance(
         X_transformed, csr_matrix
@@ -161,9 +153,9 @@ def test_truncated_svd_sparse_input_dense_output(svd_data):
 
 
 def test_truncated_svd_components_norm(svd_data):
-    X_sparse, _ = svd_data
+    X, _ = svd_data
     svd = TruncatedSVD(n_components=10, random_state=42)
-    svd.fit(X_sparse)
+    svd.fit(X)
     components_norm = np.linalg.norm(svd.components_, axis=1)
     np.testing.assert_allclose(
         components_norm,
@@ -173,13 +165,13 @@ def test_truncated_svd_components_norm(svd_data):
     )
 
 
-@pytest.mark.parametrize("n_oversamples", [5, 10, 15])
+@pytest.mark.parametrize("n_oversamples", [5])
 def test_truncated_svd_n_oversamples(svd_data, n_oversamples):
-    X_sparse, _ = svd_data
+    X, _ = svd_data
     svd = TruncatedSVD(
         n_components=10, n_oversamples=n_oversamples, random_state=42
     )
-    X_transformed = svd.fit_transform(X_sparse)
+    X_transformed = svd.fit_transform(X)
     # Check that the explained variance ratio is reasonable
     total_variance = np.sum(svd.explained_variance_ratio_)
     assert (

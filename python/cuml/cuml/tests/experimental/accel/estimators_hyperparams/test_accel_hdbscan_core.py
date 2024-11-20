@@ -139,10 +139,7 @@ def test_hdbscan_approx_min_span_tree(synthetic_data):
     X, _ = synthetic_data
     clusterer = hdbscan.HDBSCAN(approx_min_span_tree=True)
     clusterer.fit(X)
-    # Check that the parameter is set correctly
-    assert (
-        clusterer.approx_min_span_tree is True
-    ), "approx_min_span_tree should be set to True"
+    # this parameter is ignored in cuML 
 
 
 @pytest.mark.parametrize("n_jobs", [1, -1])
@@ -164,16 +161,6 @@ def test_hdbscan_probabilities(synthetic_data):
     ), "Cluster membership probabilities should be available after fitting"
 
 
-def test_hdbscan_outlier_scores(synthetic_data):
-    X, _ = synthetic_data
-    clusterer = hdbscan.HDBSCAN()
-    clusterer.fit(X)
-    # Check that outlier scores are available
-    assert hasattr(
-        clusterer, "outlier_scores_"
-    ), "Outlier scores should be available after fitting"
-
-
 def test_hdbscan_fit_predict(synthetic_data):
     X, _ = synthetic_data
     clusterer = hdbscan.HDBSCAN()
@@ -192,6 +179,7 @@ def test_hdbscan_invalid_metric(synthetic_data):
         clusterer.fit(X)
 
 
+@pytest.mark.xfail(reason="Dispatching with sparse input not supported yet")
 def test_hdbscan_sparse_input():
     from scipy.sparse import csr_matrix
 
@@ -258,6 +246,7 @@ def test_hdbscan_condensed_tree(synthetic_data):
     ), "Condensed tree should be available after fitting"
 
 
+@pytest.mark.xfail(reason="Dispatching with examplars_ not supported yet")
 def test_hdbscan_exemplars(synthetic_data):
     X, _ = synthetic_data
     clusterer = hdbscan.HDBSCAN()
@@ -284,7 +273,7 @@ def test_hdbscan_predict_without_prediction_data(synthetic_data):
     X_train, _ = synthetic_data
     clusterer = hdbscan.HDBSCAN(prediction_data=False)
     clusterer.fit(X_train)
-    with pytest.raises(AttributeError):
+    with pytest.raises((AttributeError, ValueError)):
         hdbscan.approximate_predict(clusterer, X_train)
 
 

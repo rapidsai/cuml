@@ -485,6 +485,20 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
     mst_dst_ = CumlArrayDescriptor()
     mst_weights_ = CumlArrayDescriptor()
 
+    _hyperparam_interop_translator = {
+        "metric": {
+            "manhattan": "NotImplemented",
+            "chebyshev": "NotImplemented",
+            "minkowski": "NotImplemented",
+        },
+       
+        "algorithm": {
+            "auto": "brute",
+            "ball_tree": "NotImplemented",
+            "kd_tree": "NotImplemented",
+        },
+    }
+
     @device_interop_preparation
     def __init__(self, *,
                  min_cluster_size=5,

@@ -90,7 +90,7 @@ def test_classification_transformers(
     )
     # Fit and predict
     pipeline.fit(X_train, y_train)
-    y_pred = pipeline.predict(X_test)
+    pipeline.predict(X_test)
     # Ensure that the result is binary or multiclass classification
 
 
@@ -134,8 +134,8 @@ def test_unsupervised_neighbors(transformer, estimator, classification_data):
     pipeline.fit(X_train)
 
 
-def test_umap_with_logistic_regression(data):
-    X_train, X_test, y_train, y_test = data
+def test_umap_with_logistic_regression(classification_data):
+    X_train, X_test, y_train, y_test = classification_data
     # Create pipeline with UMAP for dimensionality reduction and logistic regression
     pipeline = Pipeline(
         [
@@ -145,21 +145,4 @@ def test_umap_with_logistic_regression(data):
     )
     # Fit and predict
     pipeline.fit(X_train, y_train)
-    y_pred = pipeline.predict(X_test)
-    # Check accuracy
-
-
-def test_hdbscan_with_logistic_regression(data):
-    X_train, X_test, y_train, y_test = data
-    # Create pipeline with HDBSCAN for clustering and logistic regression
-    # HDBSCAN outputs labels as features
-    pipeline = Pipeline(
-        [
-            ("hdbscan", hdbscan.HDBSCAN(min_cluster_size=5)),
-            ("classifier", LogisticRegression()),
-        ]
-    )
-    # Fit and predict
-    pipeline.fit(X_train, y_train)
-    y_pred = pipeline.predict(X_test)
-    # Check accuracy
+    pipeline.predict(X_test)

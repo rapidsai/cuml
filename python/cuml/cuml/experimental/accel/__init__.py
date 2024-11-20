@@ -21,12 +21,14 @@ from .magics import load_ipython_extension
 
 from cuml.internals import logger
 from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.memory_utils import set_global_output_type
 
 __all__ = ["load_ipython_extension", "install"]
 
 
 def _install_for_library(library_name):
     importlib.import_module(f"._wrappers.{library_name}", __name__)
+    return True
 
 
 def install():
@@ -50,6 +52,8 @@ def install():
         logger.info("cuML: experimental accelerator succesfully initialized...")
     else:
         logger.info("cuML: experimental accelerator failed to initialize...")
+
+    set_global_output_type("numpy")
 
 
 def pytest_load_initial_conftests(early_config, parser, args):

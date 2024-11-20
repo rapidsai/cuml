@@ -140,6 +140,18 @@ class KNeighborsClassifier(ClassifierMixin,
     y = CumlArrayDescriptor()
     classes_ = CumlArrayDescriptor()
 
+    _hyperparam_interop_translator = {
+        "weights": {
+            "distance": "NotImplemented",
+        },
+        "algorithm": {
+            "auto": "brute",
+            "ball_tree": "brute",
+            "kd_tree": "brute",
+        },
+    }
+
+
     def __init__(self, *, weights="uniform", handle=None, verbose=False,
                  output_type=None, **kwargs):
         super().__init__(

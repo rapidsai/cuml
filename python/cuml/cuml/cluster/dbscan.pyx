@@ -277,7 +277,7 @@ class DBSCAN(UniversalBase,
         opg that is set to `False` for SG, `True` for OPG (multi-GPU)
         """
         if out_dtype not in ["int32", np.int32, "int64", np.int64]:
-            raise ValueError("Invalid value for out_dtype. "
+            raise ValueError(f"Invalid value for out_dtype: {out_dtype}. "
                              "Valid values are {'int32', 'int64', "
                              "np.int32, np.int64}")
 
@@ -436,7 +436,7 @@ class DBSCAN(UniversalBase,
 
     @generate_docstring(skip_parameters_heading=True)
     @enable_device_interop
-    def fit(self, X, out_dtype="int32", sample_weight=None,
+    def fit(self, X, y=None, out_dtype="int32", sample_weight=None,
             convert_dtype=True) -> "DBSCAN":
         """
         Perform DBSCAN clustering from features.
@@ -461,7 +461,7 @@ class DBSCAN(UniversalBase,
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
     @enable_device_interop
-    def fit_predict(self, X, out_dtype="int32", sample_weight=None) -> CumlArray:
+    def fit_predict(self, X, y=None, out_dtype="int32", sample_weight=None) -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.
 
@@ -477,7 +477,7 @@ class DBSCAN(UniversalBase,
             negative weight may inhibit its eps-neighbor from being core.
             default: None (which is equivalent to weight 1 for all samples).
         """
-        self.fit(X, out_dtype, sample_weight)
+        self.fit(X, out_dtype=out_dtype, sample_weight=sample_weight)
         return self.labels_
 
     @classmethod

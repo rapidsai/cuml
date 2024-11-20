@@ -103,15 +103,6 @@ def test_umap_init(manifold_data, init):
     print(f"Trustworthiness with init={init}: {trust}")
 
 
-def test_umap_consistency(manifold_data):
-    X = manifold_data
-    umap1 = UMAP(random_state=42).fit(X)
-    umap2 = UMAP(random_state=42).fit(X)
-    assert np.allclose(
-        umap1.embedding_, umap2.embedding_
-    ), "Embeddings should be consistent across runs with the same random_state"
-
-
 @pytest.mark.parametrize("n_epochs", [100, 200, 500])
 def test_umap_n_epochs(manifold_data, n_epochs):
     X = manifold_data

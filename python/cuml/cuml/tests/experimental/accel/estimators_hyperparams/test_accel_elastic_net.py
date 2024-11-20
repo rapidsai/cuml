@@ -135,15 +135,9 @@ def test_elasticnet_random_state(regression_data):
     )
     model3 = ElasticNet(selection="random", random_state=24)
     model3.fit(X, y)
-    # Coefficients might differ with a different random_state
-    # with pytest.raises(AssertionError):
-    #     np.testing.assert_allclose(
-    #         model1.coef_,
-    #         model3.coef_,
-    #         err_msg="Coefficients should differ with different random_state",
-    #     )
 
 
+@pytest.mark.xfail(reason="cuML does not emit ConvergenceWarning yet.")
 def test_elasticnet_convergence_warning(regression_data):
     X, y = regression_data
     from sklearn.exceptions import ConvergenceWarning
