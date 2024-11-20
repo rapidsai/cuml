@@ -140,8 +140,8 @@ def intercept(
     **Serialization/Pickling of ProxyEstimators**
 
     Since pickle has strict rules about serializing classes, we cannot
-    (reasonably) create a method that just pickles and unpickles a ProxyEstimat
-    as if it was just an instance of the original module.
+    (reasonably) create a method that just pickles and unpickles a
+    ProxyEstimator as if it was just an instance of the original module.
 
     Therefore, doing a pickling of ProxyEstimator will make it serialize to
     a file that can be opened in systems with cuML installed (CPU or GPU).

@@ -43,6 +43,8 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
                 "_device_type": default_device_type,
                 "_memory_type": default_memory_type,
             }
+        else:
+            self.shared_state = {}
 
         self.shared_state.update(
             {
