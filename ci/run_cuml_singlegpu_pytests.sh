@@ -6,6 +6,6 @@ cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../python/cuml/cuml/tests
 
 python -m pytest --cache-clear --ignore=dask -m "not memleak" "$@" .
 
-cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../python/cuml/cuml/tests/experimental/accel
+cd  experimental/accel
 
 python -m pytest -p cuml.experimental.accel --cache-clear "$@" .
