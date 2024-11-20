@@ -17,6 +17,8 @@
 from cuml.internals.base import Base, UniversalBase
 from cuml.internals.available_devices import is_cuda_available
 
+from cuml.sample.estimator import Estimator
+
 # GPU only packages
 
 if is_cuda_available():
