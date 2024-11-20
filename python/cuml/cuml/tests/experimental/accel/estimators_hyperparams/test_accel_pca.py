@@ -63,9 +63,7 @@ def test_pca_svd_solver(pca_data, svd_solver):
     pca = PCA(n_components=5, svd_solver=svd_solver, random_state=42).fit(X)
     X_transformed = pca.transform(X)
     # Reconstruct the data
-    X_reconstructed = pca.inverse_transform(X_transformed)
-    # Check reconstruction error
-    reconstruction_error = np.mean((X - X_reconstructed) ** 2)
+    pca.inverse_transform(X_transformed)
 
 
 @pytest.mark.parametrize("whiten", [True, False])
@@ -90,7 +88,7 @@ def test_pca_tol(pca_data, tol):
     pca = PCA(
         n_components=5, svd_solver="arpack", tol=tol, random_state=42
     ).fit(X)
-    X_transformed = pca.transform(X)
+    pca.transform(X)
     # Since 'arpack' is iterative, tol might affect convergence
     # Check that the explained variance ratio is reasonable
     total_variance = np.sum(pca.explained_variance_ratio_)
@@ -109,15 +107,13 @@ def test_pca_random_state(pca_data):
         pca2.components_,
         err_msg="Components should be the same with the same random_state",
     )
-    pca3 = PCA(n_components=5, svd_solver="randomized", random_state=24).fit(X)
-    # With different random_state, components might differ
 
 
 @pytest.mark.parametrize("copy", [True, False])
 def test_pca_copy(pca_data, copy):
     X, _ = pca_data
     X_original = X.copy()
-    pca = PCA(n_components=5, copy=copy).fit(X)
+    PCA(n_components=5, copy=copy).fit(X)
     if copy:
         # X should remain unchanged
         assert np.allclose(X, X_original), "X has been modified when copy=True"
@@ -135,7 +131,7 @@ def test_pca_iterated_power(pca_data, iterated_power):
         iterated_power=iterated_power,
         random_state=42,
     ).fit(X)
-    X_transformed = pca.transform(X)
+    pca.transform(X)
     # Check that the explained variance ratio is reasonable
     total_variance = np.sum(pca.explained_variance_ratio_)
     assert (
@@ -161,4 +157,4 @@ def test_pca_inverse_transform(pca_data):
     X_transformed = pca.transform(X)
     X_reconstructed = pca.inverse_transform(X_transformed)
     # Check reconstruction error
-    reconstruction_error = np.mean((X - X_reconstructed) ** 2)
+    np.mean((X - X_reconstructed) ** 2)

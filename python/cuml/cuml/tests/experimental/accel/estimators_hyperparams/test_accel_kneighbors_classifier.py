@@ -155,7 +155,7 @@ def test_knn_classifier_predict_proba(classification_data):
         X.shape[0],
         len(np.unique(y)),
     ), "Probability matrix shape should be (n_samples, n_classes)"
-    
+
 
 def test_knn_classifier_sparse_input():
     from scipy.sparse import csr_matrix

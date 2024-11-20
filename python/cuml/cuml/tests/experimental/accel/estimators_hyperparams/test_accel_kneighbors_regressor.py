@@ -42,7 +42,7 @@ def test_knn_regressor_n_neighbors(regression_data, n_neighbors):
     model = KNeighborsRegressor(n_neighbors=n_neighbors)
     model.fit(X, y)
     y_pred = model.predict(X)
-    r2 = r2_score(y, y_pred)
+    r2_score(y, y_pred)
 
 
 @pytest.mark.parametrize("weights", ["uniform"])
@@ -89,7 +89,7 @@ def test_knn_regressor_metric(regression_data, metric):
     model = KNeighborsRegressor(metric=metric)
     model.fit(X, y)
     y_pred = model.predict(X)
-    r2 = r2_score(y, y_pred)
+    r2_score(y, y_pred)
 
 
 @pytest.mark.parametrize("p", [1, 2, 3])
@@ -145,7 +145,7 @@ def test_knn_regressor_sparse_input():
     model = KNeighborsRegressor()
     model.fit(X_sparse, y)
     y_pred = model.predict(X_sparse)
-    r2 = r2_score(y, y_pred)
+    r2_score(y, y_pred)
 
 
 def test_knn_regressor_multioutput():
@@ -160,4 +160,4 @@ def test_knn_regressor_multioutput():
         y_pred.shape == y.shape
     ), "Predicted outputs should have the same shape as true outputs"
     # Calculate R^2 score for multi-output regression
-    r2 = r2_score(y, y_pred)
+    r2_score(y, y_pred)

@@ -69,6 +69,7 @@ def test_ridge_max_iter(regression_data, max_iter):
     model = Ridge(max_iter=max_iter, solver="sag", random_state=42)
     model.fit(X, y)
 
+
 @pytest.mark.parametrize("tol", [1e-4, 1e-3, 1e-2])
 def test_ridge_tol(regression_data, tol):
     X, y = regression_data

@@ -36,7 +36,6 @@ def install():
     logger.set_level(logger.level_info)
     logger.set_pattern("%v")
 
-
     logger.info("cuML: Installing experimental accelerator...")
     loader_sklearn = _install_for_library(library_name="sklearn")
     loader_umap = _install_for_library(library_name="umap")
@@ -49,7 +48,9 @@ def install():
     GlobalSettings().accelerator_active = True
 
     if GlobalSettings().accelerator_loaded:
-        logger.info("cuML: experimental accelerator succesfully initialized...")
+        logger.info(
+            "cuML: experimental accelerator successfully initialized..."
+        )
     else:
         logger.info("cuML: experimental accelerator failed to initialize...")
 

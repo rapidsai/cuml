@@ -54,7 +54,7 @@ def test_logistic_regression_penalty(classification_data, penalty, solver):
         kwargs["l1_ratio"] = 0.5  # l1_ratio is required for elasticnet
     clf = LogisticRegression(**kwargs).fit(X, y)
     y_pred = clf.predict(X)
-    acc = accuracy_score(y, y_pred)
+    accuracy_score(y, y_pred)
 
 
 @pytest.mark.parametrize("dual", [True, False])
@@ -70,7 +70,7 @@ def test_logistic_regression_dual(classification_data, dual):
             penalty="l2", solver="liblinear", dual=dual, max_iter=200
         ).fit(X, y)
     y_pred = clf.predict(X)
-    acc = accuracy_score(y, y_pred)
+    accuracy_score(y, y_pred)
 
 
 @pytest.mark.parametrize("tol", [1e-2])
@@ -78,7 +78,7 @@ def test_logistic_regression_tol(classification_data, tol):
     X, y = classification_data
     clf = LogisticRegression(tol=tol, max_iter=200).fit(X, y)
     y_pred = clf.predict(X)
-    acc = accuracy_score(y, y_pred)
+    accuracy_score(y, y_pred)
 
 
 @pytest.mark.parametrize("C", [0.01, 0.1, 1.0, 10.0, 100.0])
@@ -86,7 +86,7 @@ def test_logistic_regression_C(classification_data, C):
     X, y = classification_data
     clf = LogisticRegression(C=C, max_iter=200).fit(X, y)
     y_pred = clf.predict(X)
-    acc = accuracy_score(y, y_pred)
+    accuracy_score(y, y_pred)
 
 
 @pytest.mark.parametrize("fit_intercept", [True, False])
@@ -96,7 +96,7 @@ def test_logistic_regression_fit_intercept(classification_data, fit_intercept):
         X, y
     )
     y_pred = clf.predict(X)
-    acc = accuracy_score(y, y_pred)
+    accuracy_score(y, y_pred)
 
 
 @pytest.mark.parametrize("intercept_scaling", [0.5, 1.0, 2.0])
@@ -112,7 +112,7 @@ def test_logistic_regression_intercept_scaling(
         max_iter=200,
     ).fit(X, y)
     y_pred = clf.predict(X)
-    acc = accuracy_score(y, y_pred)
+    accuracy_score(y, y_pred)
 
 
 @pytest.mark.parametrize("class_weight", [None, "balanced"])
@@ -120,7 +120,7 @@ def test_logistic_regression_class_weight(classification_data, class_weight):
     X, y = classification_data
     clf = LogisticRegression(class_weight=class_weight, max_iter=200).fit(X, y)
     y_pred = clf.predict(X)
-    acc = accuracy_score(y, y_pred)
+    accuracy_score(y, y_pred)
 
 
 def test_logistic_regression_class_weight_custom(classification_data):
@@ -130,7 +130,7 @@ def test_logistic_regression_class_weight_custom(classification_data):
         X, y
     )
     y_pred = clf.predict(X)
-    acc = accuracy_score(y, y_pred)
+    accuracy_score(y, y_pred)
 
 
 @pytest.mark.parametrize(
@@ -140,7 +140,7 @@ def test_logistic_regression_solver(classification_data, solver):
     X, y = classification_data
     clf = LogisticRegression(solver=solver, max_iter=200).fit(X, y)
     y_pred = clf.predict(X)
-    acc = accuracy_score(y, y_pred)
+    accuracy_score(y, y_pred)
 
 
 @pytest.mark.parametrize("max_iter", [50, 100, 200, 500])
@@ -148,7 +148,7 @@ def test_logistic_regression_max_iter(classification_data, max_iter):
     X, y = classification_data
     clf = LogisticRegression(max_iter=max_iter).fit(X, y)
     y_pred = clf.predict(X)
-    acc = accuracy_score(y, y_pred)
+    accuracy_score(y, y_pred)
 
 
 @pytest.mark.parametrize(
@@ -174,7 +174,7 @@ def test_logistic_regression_multi_class(
         multi_class=multi_class, solver=solver, max_iter=200
     ).fit(X, y)
     y_pred = clf.predict(X)
-    acc = accuracy_score(y, y_pred)
+    accuracy_score(y, y_pred)
 
 
 @pytest.mark.parametrize("warm_start", [True, False])
@@ -182,7 +182,7 @@ def test_logistic_regression_warm_start(classification_data, warm_start):
     X, y = classification_data
     clf = LogisticRegression(warm_start=warm_start, max_iter=200).fit(X, y)
     y_pred = clf.predict(X)
-    acc = accuracy_score(y, y_pred)
+    accuracy_score(y, y_pred)
 
 
 @pytest.mark.parametrize("l1_ratio", [0.0, 0.5, 1.0])
@@ -192,4 +192,4 @@ def test_logistic_regression_l1_ratio(classification_data, l1_ratio):
         penalty="elasticnet", solver="saga", l1_ratio=l1_ratio, max_iter=200
     ).fit(X, y)
     y_pred = clf.predict(X)
-    acc = accuracy_score(y, y_pred)
+    accuracy_score(y, y_pred)

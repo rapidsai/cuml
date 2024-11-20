@@ -44,7 +44,7 @@ def test_lasso_alpha(regression_data, alpha):
     model.fit(X, y)
     y_pred = model.predict(X)
     # Compute R^2 score
-    r2 = r2_score(y, y_pred)
+    r2_score(y, y_pred)
 
 
 def test_lasso_alpha_sparsity(regression_data):

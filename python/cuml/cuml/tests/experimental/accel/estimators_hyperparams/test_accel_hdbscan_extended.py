@@ -69,7 +69,7 @@ def test_hdbscan_membership_vector(synthetic_data):
     clusterer = hdbscan.HDBSCAN(prediction_data=True)
     clusterer.fit(X_train)
     point = X_train[0].reshape((1, 2))
-    membership = hdbscan.membership_vector(clusterer, point)
+    hdbscan.membership_vector(clusterer, point)
 
 
 def test_hdbscan_all_points_membership_vectors(synthetic_data):
@@ -108,7 +108,7 @@ def test_hdbscan_condensed_tree(synthetic_data):
         condensed_tree, "to_pandas"
     ), "Condensed tree should have a 'to_pandas' method"
     # Convert to pandas DataFrame and check columns
-    df = condensed_tree.to_pandas()
+    condensed_tree.to_pandas()
 
 
 def test_hdbscan_single_linkage_tree_attribute(synthetic_data):
@@ -146,7 +146,7 @@ def test_hdbscan_prediction_membership_vector(synthetic_data):
     clusterer = hdbscan.HDBSCAN(prediction_data=True)
     clusterer.fit(X_train)
     point = X_train[0].reshape((1, 2))
-    membership = prediction.membership_vector(clusterer, point)
+    prediction.membership_vector(clusterer, point)
 
 
 def test_hdbscan_prediction_all_points_membership_vectors(synthetic_data):

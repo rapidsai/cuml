@@ -37,7 +37,7 @@ def test_dbscan_eps(clustering_data, eps):
     X, y_true = clustering_data
     dbscan = DBSCAN(eps=eps).fit(X)
     y_pred = dbscan.labels_
-    ari = adjusted_rand_score(y_true, y_pred)
+    adjusted_rand_score(y_true, y_pred)
 
 
 @pytest.mark.parametrize("min_samples", [1, 5, 10, 20])
@@ -45,7 +45,7 @@ def test_dbscan_min_samples(clustering_data, min_samples):
     X, y_true = clustering_data
     dbscan = DBSCAN(eps=0.5, min_samples=min_samples).fit(X)
     y_pred = dbscan.labels_
-    ari = adjusted_rand_score(y_true, y_pred)
+    adjusted_rand_score(y_true, y_pred)
 
 
 @pytest.mark.parametrize("metric", ["euclidean", "manhattan", "chebyshev"])
@@ -53,7 +53,7 @@ def test_dbscan_metric(clustering_data, metric):
     X, y_true = clustering_data
     dbscan = DBSCAN(eps=0.5, metric=metric).fit(X)
     y_pred = dbscan.labels_
-    ari = adjusted_rand_score(y_true, y_pred)
+    adjusted_rand_score(y_true, y_pred)
 
 
 @pytest.mark.parametrize(
@@ -63,7 +63,7 @@ def test_dbscan_algorithm(clustering_data, algorithm):
     X, y_true = clustering_data
     dbscan = DBSCAN(eps=0.5, algorithm=algorithm).fit(X)
     y_pred = dbscan.labels_
-    ari = adjusted_rand_score(y_true, y_pred)
+    adjusted_rand_score(y_true, y_pred)
 
 
 @pytest.mark.parametrize("leaf_size", [10, 30, 50])
@@ -71,7 +71,7 @@ def test_dbscan_leaf_size(clustering_data, leaf_size):
     X, y_true = clustering_data
     dbscan = DBSCAN(eps=0.5, leaf_size=leaf_size).fit(X)
     y_pred = dbscan.labels_
-    ari = adjusted_rand_score(y_true, y_pred)
+    adjusted_rand_score(y_true, y_pred)
 
 
 @pytest.mark.parametrize("p", [1, 2, 3])
@@ -79,7 +79,7 @@ def test_dbscan_p(clustering_data, p):
     X, y_true = clustering_data
     dbscan = DBSCAN(eps=0.5, metric="minkowski", p=p).fit(X)
     y_pred = dbscan.labels_
-    ari = adjusted_rand_score(y_true, y_pred)
+    adjusted_rand_score(y_true, y_pred)
 
 
 def test_dbscan_consistency(clustering_data):

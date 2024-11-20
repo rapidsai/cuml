@@ -139,7 +139,7 @@ def test_hdbscan_approx_min_span_tree(synthetic_data):
     X, _ = synthetic_data
     clusterer = hdbscan.HDBSCAN(approx_min_span_tree=True)
     clusterer.fit(X)
-    # this parameter is ignored in cuML 
+    # this parameter is ignored in cuML
 
 
 @pytest.mark.parametrize("n_jobs", [1, -1])

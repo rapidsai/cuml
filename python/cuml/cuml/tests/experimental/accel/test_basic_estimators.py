@@ -43,25 +43,25 @@ from scipy.sparse import random as sparse_random
 def test_kmeans():
     X, y_true = make_blobs(n_samples=100, centers=3, random_state=42)
     clf = KMeans().fit(X)
-    y_pred = clf.predict(X)
+    clf.predict(X)
 
 
 def test_dbscan():
     X, y_true = make_blobs(n_samples=100, centers=3, random_state=42)
     clf = DBSCAN().fit(X)
-    y_pred = clf.labels_
+    clf.labels_
 
 
 def test_pca():
     X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
     pca = PCA().fit(X)
-    X_transformed = pca.transform(X)
+    pca.transform(X)
 
 
 def test_truncated_svd():
     X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
     svd = TruncatedSVD().fit(X)
-    X_transformed = svd.transform(X)
+    svd.transform(X)
 
 
 def test_linear_regression():
@@ -69,7 +69,7 @@ def test_linear_regression():
         n_samples=100, n_features=20, noise=0.1, random_state=42
     )
     lr = LinearRegression().fit(X, y)
-    y_pred = lr.predict(X)
+    lr.predict(X)
 
 
 def test_logistic_regression():
@@ -77,7 +77,7 @@ def test_logistic_regression():
         n_samples=100, n_features=20, n_classes=2, random_state=42
     )
     clf = LogisticRegression().fit(X, y)
-    y_pred = clf.predict(X)
+    clf.predict(X)
 
 
 def test_elastic_net():
@@ -85,7 +85,7 @@ def test_elastic_net():
         n_samples=100, n_features=20, noise=0.1, random_state=42
     )
     enet = ElasticNet().fit(X, y)
-    y_pred = enet.predict(X)
+    enet.predict(X)
 
 
 def test_ridge():
@@ -93,7 +93,7 @@ def test_ridge():
         n_samples=100, n_features=20, noise=0.1, random_state=42
     )
     ridge = Ridge().fit(X, y)
-    y_pred = ridge.predict(X)
+    ridge.predict(X)
 
 
 def test_lasso():
@@ -101,13 +101,13 @@ def test_lasso():
         n_samples=100, n_features=20, noise=0.1, random_state=42
     )
     lasso = Lasso().fit(X, y)
-    y_pred = lasso.predict(X)
+    lasso.predict(X)
 
 
 def test_tsne():
     X, _ = make_blobs(n_samples=100, centers=3, n_features=20, random_state=42)
     tsne = TSNE()
-    X_embedded = tsne.fit_transform(X)
+    tsne.fit_transform(X)
 
 
 def test_nearest_neighbors():
@@ -129,7 +129,7 @@ def test_k_neighbors_classifier():
     for weights in ["uniform", "distance"]:
         for metric in ["euclidean", "manhattan"]:
             knn = KNeighborsClassifier().fit(X, y)
-            y_pred = knn.predict(X)
+            knn.predict(X)
 
 
 def test_k_neighbors_regressor():
@@ -139,4 +139,4 @@ def test_k_neighbors_regressor():
     for weights in ["uniform", "distance"]:
         for metric in ["euclidean", "manhattan"]:
             knr = KNeighborsRegressor().fit(X, y)
-            y_pred = knr.predict(X)
+            knr.predict(X)

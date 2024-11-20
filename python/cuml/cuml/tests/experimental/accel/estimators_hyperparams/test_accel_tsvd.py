@@ -60,16 +60,14 @@ def test_truncated_svd_algorithm(svd_data, algorithm):
     svd = TruncatedSVD(n_components=10, algorithm=algorithm, random_state=42)
     X_transformed = svd.fit_transform(X)
     # Reconstruct the data
-    X_reconstructed = svd.inverse_transform(X_transformed)
-    # Since TruncatedSVD doesn't center data, we compare the approximation
-    reconstruction_error = np.mean((X - X_reconstructed) ** 2)
+    svd.inverse_transform(X_transformed)
 
 
 @pytest.mark.parametrize("n_iter", [5, 7, 10])
 def test_truncated_svd_n_iter(svd_data, n_iter):
     X, _ = svd_data
     svd = TruncatedSVD(n_components=10, n_iter=n_iter, random_state=42)
-    X_transformed = svd.fit_transform(X)
+    svd.fit_transform(X)
     # Check that the explained variance ratio is reasonable
     total_variance = np.sum(svd.explained_variance_ratio_)
     assert (
@@ -85,8 +83,8 @@ def test_truncated_svd_random_state(svd_data):
     svd2 = TruncatedSVD(
         n_components=10, algorithm="randomized", random_state=42
     )
-    X_transformed1 = svd1.fit_transform(X)
-    X_transformed2 = svd2.fit_transform(X)
+    svd1.fit_transform(X)
+    svd2.fit_transform(X)
     # With the same random_state, components should be the same
     np.testing.assert_allclose(
         svd1.components_,
@@ -105,7 +103,7 @@ def test_truncated_svd_tol(svd_data, tol):
     svd = TruncatedSVD(
         n_components=10, algorithm="arpack", tol=tol, random_state=42
     )
-    X_transformed = svd.fit_transform(X)
+    svd.fit_transform(X)
     # Check that the explained variance ratio is reasonable
     total_variance = np.sum(svd.explained_variance_ratio_)
     assert (
@@ -125,7 +123,7 @@ def test_truncated_svd_power_iteration_normalizer(
         power_iteration_normalizer=power_iteration_normalizer,
         random_state=42,
     )
-    X_transformed = svd.fit_transform(X)
+    svd.fit_transform(X)
     # Check that the explained variance ratio is reasonable
     total_variance = np.sum(svd.explained_variance_ratio_)
     assert (
@@ -139,7 +137,7 @@ def test_truncated_svd_inverse_transform(svd_data):
     X_transformed = svd.fit_transform(X)
     X_reconstructed = svd.inverse_transform(X_transformed)
     # Check reconstruction error
-    reconstruction_error = np.mean((X - X_reconstructed) ** 2)
+    np.mean((X - X_reconstructed) ** 2)
 
 
 def test_truncated_svd_sparse_input_dense_output(svd_data):
@@ -171,7 +169,7 @@ def test_truncated_svd_n_oversamples(svd_data, n_oversamples):
     svd = TruncatedSVD(
         n_components=10, n_oversamples=n_oversamples, random_state=42
     )
-    X_transformed = svd.fit_transform(X)
+    svd.fit_transform(X)
     # Check that the explained variance ratio is reasonable
     total_variance = np.sum(svd.explained_variance_ratio_)
     assert (

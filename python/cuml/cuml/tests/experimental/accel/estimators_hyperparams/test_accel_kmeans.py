@@ -34,7 +34,7 @@ def test_kmeans_n_clusters(clustering_data, n_clusters):
     X, y_true = clustering_data
     kmeans = KMeans(n_clusters=n_clusters, random_state=42).fit(X)
     y_pred = kmeans.labels_
-    ari = adjusted_rand_score(y_true, y_pred)
+    adjusted_rand_score(y_true, y_pred)
 
 
 @pytest.mark.parametrize("init", ["k-means++", "random"])
@@ -42,7 +42,7 @@ def test_kmeans_init(clustering_data, init):
     X, y_true = clustering_data
     kmeans = KMeans(n_clusters=3, init=init, random_state=42).fit(X)
     y_pred = kmeans.labels_
-    ari = adjusted_rand_score(y_true, y_pred)
+    adjusted_rand_score(y_true, y_pred)
 
 
 @pytest.mark.parametrize("n_init", [1, 5, 10, 20])
@@ -50,7 +50,7 @@ def test_kmeans_n_init(clustering_data, n_init):
     X, y_true = clustering_data
     kmeans = KMeans(n_clusters=3, n_init=n_init, random_state=42).fit(X)
     y_pred = kmeans.labels_
-    ari = adjusted_rand_score(y_true, y_pred)
+    adjusted_rand_score(y_true, y_pred)
 
 
 @pytest.mark.parametrize("max_iter", [100, 300, 500])
@@ -58,7 +58,7 @@ def test_kmeans_max_iter(clustering_data, max_iter):
     X, y_true = clustering_data
     kmeans = KMeans(n_clusters=3, max_iter=max_iter, random_state=42).fit(X)
     y_pred = kmeans.labels_
-    ari = adjusted_rand_score(y_true, y_pred)
+    adjusted_rand_score(y_true, y_pred)
 
 
 @pytest.mark.parametrize("tol", [1e-4, 1e-3, 1e-2])
@@ -66,7 +66,7 @@ def test_kmeans_tol(clustering_data, tol):
     X, y_true = clustering_data
     kmeans = KMeans(n_clusters=3, tol=tol, random_state=42).fit(X)
     y_pred = kmeans.labels_
-    ari = adjusted_rand_score(y_true, y_pred)
+    adjusted_rand_score(y_true, y_pred)
 
 
 @pytest.mark.parametrize("algorithm", ["elkan", "lloyd"])
@@ -74,7 +74,7 @@ def test_kmeans_algorithm(clustering_data, algorithm):
     X, y_true = clustering_data
     kmeans = KMeans(n_clusters=3, algorithm=algorithm, random_state=42).fit(X)
     y_pred = kmeans.labels_
-    ari = adjusted_rand_score(y_true, y_pred)
+    adjusted_rand_score(y_true, y_pred)
 
 
 @pytest.mark.parametrize("copy_x", [True, False])
@@ -91,7 +91,7 @@ def test_kmeans_copy_x(clustering_data, copy_x):
         # X might be modified when copy_x=False
         pass  # We cannot guarantee X remains unchanged
     y_pred = kmeans.labels_
-    ari = adjusted_rand_score(y_true, y_pred)
+    adjusted_rand_score(y_true, y_pred)
 
 
 def test_kmeans_random_state(clustering_data):

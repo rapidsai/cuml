@@ -129,7 +129,7 @@ def test_tsne_method(synthetic_data, method):
 def test_tsne_angle(synthetic_data, angle):
     X, _ = synthetic_data
     model = TSNE(method="barnes_hut", angle=angle, random_state=42)
-    X_embedded = model.fit_transform(X)
+    model.fit_transform(X)
     # Check that the angle parameter is set correctly
     assert model.angle == angle, f"Angle should be {angle}"
 
@@ -147,8 +147,6 @@ def test_tsne_random_state(synthetic_data):
         atol=1e-5,
         err_msg="Embeddings should be the same with the same random_state",
     )
-    model3 = TSNE(random_state=24)
-    X_embedded3 = model3.fit_transform(X)
 
 
 def test_tsne_verbose(synthetic_data, capsys):
@@ -168,7 +166,7 @@ def test_tsne_structure_preservation(synthetic_data):
     dist_original = pairwise_distances(X)
     dist_embedded = pairwise_distances(X_embedded)
     # Compute correlation between the distances
-    corr = np.corrcoef(dist_original.ravel(), dist_embedded.ravel())[0, 1]
+    np.corrcoef(dist_original.ravel(), dist_embedded.ravel())[0, 1]
 
 
 @pytest.mark.parametrize("min_grad_norm", [1e-5])

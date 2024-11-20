@@ -31,14 +31,14 @@ def regression_data():
 def test_linear_regression_fit_intercept(regression_data, fit_intercept):
     X, y = regression_data
     lr = LinearRegression(fit_intercept=fit_intercept).fit(X, y)
-    y_pred = lr.predict(X)
+    lr.predict(X)
 
 
 @pytest.mark.parametrize("copy_X", [True, False])
 def test_linear_regression_copy_X(regression_data, copy_X):
     X, y = regression_data
     X_original = X.copy()
-    lr = LinearRegression(copy_X=copy_X).fit(X, y)
+    LinearRegression(copy_X=copy_X).fit(X, y)
     if copy_X:
         # X should remain unchanged
         assert np.array_equal(
@@ -53,7 +53,7 @@ def test_linear_regression_copy_X(regression_data, copy_X):
 def test_linear_regression_positive(regression_data, positive):
     X, y = regression_data
     lr = LinearRegression(positive=positive).fit(X, y)
-    y_pred = lr.predict(X)
+    lr.predict(X)
     if positive:
         # Verify that all coefficients are non-negative
         assert np.all(lr.coef_ >= 0), "Not all coefficients are non-negative"

@@ -111,8 +111,7 @@ def test_regression_transformers(transformer, estimator, regression_data):
     )
     # Fit and predict
     pipeline.fit(X_train, y_train)
-    y_pred = pipeline.predict(X_test)
-    # Ensure that the result has a reasonably low mean squared error
+    pipeline.predict(X_test)
 
 
 @pytest.mark.parametrize(

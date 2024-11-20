@@ -158,9 +158,7 @@ def test_nearest_neighbors_radius_neighbors_graph(synthetic_data):
     assert graph.getformat() == "csr", "Graph should be in CSR format"
     # Check that non-zero entries correspond to distances within the radius
     non_zero_indices = graph.nonzero()
-    distances = pairwise_distances(
-        X[non_zero_indices[0]], X[non_zero_indices[1]]
-    )
+    pairwise_distances(X[non_zero_indices[0]], X[non_zero_indices[1]])
 
 
 @pytest.mark.parametrize("return_distance", [True, False])
