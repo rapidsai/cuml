@@ -361,8 +361,5 @@ class SVR(SVMBase, RegressorMixin):
 
     def cpu_to_gpu(self):
         self.dtype = np.float64
-        self.n_classes_ = 0
 
         super().cpu_to_gpu()
-        self.n_support_ = self._cpu_model.n_support_
-        self._model = self._get_svm_model()

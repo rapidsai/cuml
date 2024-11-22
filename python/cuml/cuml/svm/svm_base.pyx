@@ -434,12 +434,13 @@ class SVMBase(UniversalBase,
                 model_f.support_matrix.data = <float*><uintptr_t>self.support_vectors_.ptr
             model_f.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
-            model_f.n_classes = self.n_classes_
-            if self.n_classes_ > 0:
-                model_f.unique_labels = \
-                    <float*><uintptr_t>self._unique_labels_.ptr
-            else:
-                model_f.unique_labels = NULL
+            if hasattr(self, 'n_classes_'):
+                model_f.n_classes = self.n_classes_
+                if self.n_classes_ > 0:
+                    model_f.unique_labels = \
+                        <float*><uintptr_t>self._unique_labels_.ptr
+                else:
+                    model_f.unique_labels = NULL
             return <uintptr_t>model_f
         else:
             model_d = new SvmModel[double]()
@@ -457,12 +458,13 @@ class SVMBase(UniversalBase,
                 model_d.support_matrix.data = <double*><uintptr_t>self.support_vectors_.ptr
             model_d.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
-            model_d.n_classes = self.n_classes_
-            if self.n_classes_ > 0:
-                model_d.unique_labels = \
-                    <double*><uintptr_t>self._unique_labels_.ptr
-            else:
-                model_d.unique_labels = NULL
+            if hasattr(self, 'n_classes_'):
+                model_d.n_classes = self.n_classes_
+                if self.n_classes_ > 0:
+                    model_d.unique_labels = \
+                        <double*><uintptr_t>self._unique_labels_.ptr
+                else:
+                    model_d.unique_labels = NULL
             return <uintptr_t>model_d
 
     def _unpack_svm_model(self, b, n_support, dual_coefs, support_idx, nnz, indptr, indices, data, n_classes, unique_labels):
@@ -681,8 +683,7 @@ class SVMBase(UniversalBase,
         ]
 
     def get_attr_names(self):
-        attr_names = ["fit_status_", "n_features_in_", "shape_fit_",
-                      "support_", "_probA", "_probB", "_gamma"]
+        attr_names = ["fit_status_", "n_features_in_", "shape_fit_"]
         if self.kernel == "linear":
             attr_names.append("coef_")
         return attr_names
@@ -701,40 +702,36 @@ class SVMBase(UniversalBase,
         self._freeSvmBuffers = False
 
     def gpu_to_cpu(self):
-        self._cpu_model._n_support = np.array([self.n_support_, 0], dtype=np.int32)
-
         super().gpu_to_cpu()
 
-        intercept_ = self._intercept_.to_output('numpy').astype(np.float64)
-        dual_coef_ = self.dual_coef_.to_output('numpy').astype(np.float64)
-        support_vectors_ = self.support_vectors_.to_output('numpy').astype(np.float64)
+        intercept_ = self._intercept_.to_output('numpy')
+        dual_coef_ = self.dual_coef_.to_output('numpy')
+        support_= self.support_.to_output('numpy')
+        support_vectors_ = self.support_vectors_.to_output('numpy')
 
-        if self.n_classes_ == 2:
+        if hasattr(self, 'n_classes_') and self.n_classes_ == 2:
             intercept_ = -1.0 * intercept_
             dual_coef_ = -1.0 * dual_coef_
 
-        self._cpu_model._intercept_ = np.array(intercept_, order='C')
-        self._cpu_model._dual_coef_ = np.array(dual_coef_, order='C')
-        self._cpu_model.support_vectors_ = np.array(support_vectors_, order='C')
+        self._cpu_model._n_support = np.array([self.n_support_, 0], dtype=np.int32)
+        self._cpu_model._intercept_ = np.ascontiguousarray(intercept_, dtype=np.float64)
+        self._cpu_model._dual_coef_ = np.ascontiguousarray(dual_coef_, dtype=np.float64)
+        self._cpu_model.support_ = np.ascontiguousarray(support_, dtype=np.int32)
+        self._cpu_model.support_vectors_ = np.ascontiguousarray(support_vectors_, dtype=np.float64)
 
-        if hasattr(self, 'n_classes_'):
-            n = self.n_classes_ * (self.n_classes_ - 1) // 2
-            _probA = np.empty(n, dtype=np.float64)
-            _probB = np.empty(n, dtype=np.float64)
-        else:
-            _probA = np.empty(0, dtype=np.float64)
-            _probB = np.empty(0, dtype=np.float64)
-
-        self._cpu_model._probA = _probA
-        self._cpu_model._probB = _probB
+        self._cpu_model._probA = np.empty(0, dtype=np.float64)
+        self._cpu_model._probB = np.empty(0, dtype=np.float64)
+        self._cpu_model._gamma = self._gamma
 
     def cpu_to_gpu(self):
         super().cpu_to_gpu()
 
+        self.n_support_ = self._cpu_model.n_support_
+
         intercept_ = self._cpu_model._intercept_
         dual_coef_ = self._cpu_model._dual_coef_
 
-        if self.n_classes_ == 2:
+        if hasattr(self, 'n_classes_') and self.n_classes_ == 2:
             intercept_ = -1.0 * intercept_
             dual_coef_ = -1.0 * dual_coef_
 
@@ -742,25 +739,29 @@ class SVMBase(UniversalBase,
             intercept_,
             convert_to_mem_type=(MemoryType.host,
                                  MemoryType.device)[is_cuda_available()],
+            convert_to_dtype=np.float64,
             order='F')[0]
         self.dual_coef_ = input_to_cuml_array(
             dual_coef_,
             convert_to_mem_type=(MemoryType.host,
                                  MemoryType.device)[is_cuda_available()],
+            convert_to_dtype=np.float64,
+            order='F')[0]
+        self.support_ = input_to_cuml_array(
+            self._cpu_model.support_,
+            convert_to_mem_type=(MemoryType.host,
+                                 MemoryType.device)[is_cuda_available()],
+            convert_to_dtype=np.int32,
             order='F')[0]
         self.support_vectors_ = input_to_cuml_array(
             self._cpu_model.support_vectors_,
             convert_to_mem_type=(MemoryType.host,
                                  MemoryType.device)[is_cuda_available()],
+            convert_to_dtype=np.float64,
             order='F')[0]
 
-        if hasattr(self, 'n_classes_'):
-            n = self.n_classes_ * (self.n_classes_ - 1) // 2
-            _probA = np.empty(n, dtype=np.float64)
-            _probB = np.empty(n, dtype=np.float64)
-        else:
-            _probA = np.empty(0, dtype=np.float64)
-            _probB = np.empty(0, dtype=np.float64)
+        self._probA = np.empty(0, dtype=np.float64)
+        self._probB = np.empty(0, dtype=np.float64)
+        self._gamma = self._cpu_model._gamma
 
-        self._probA = _probA
-        self._probB = _probB
+        self._model = self._get_svm_model()

@@ -113,50 +113,6 @@ class MulticlassClassifier(Base, ClassifierMixin):
         self.strategy = strategy
         self.estimator = estimator
 
-    @property
-    @cuml.internals.api_base_return_array_skipall
-    def classes_(self):
-        return self.multiclass_estimator.classes_
-
-    @classes_.setter
-    def classes_(self, value):
-        import sklearn.multiclass
-
-        if self.strategy == "ovr":
-            self.multiclass_estimator = sklearn.multiclass.OneVsRestClassifier(
-                self.estimator, n_jobs=None
-            )
-            from sklearn.preprocessing import LabelBinarizer
-
-            self.multiclass_estimator.label_binarizer_ = LabelBinarizer(
-                sparse_output=True
-            )
-            self.multiclass_estimator.label_binarizer_.fit(
-                value.to_output("numpy")
-            )
-        elif self.strategy == "ovo":
-            self.multiclass_estimator = sklearn.multiclass.OneVsOneClassifier(
-                self.estimator, n_jobs=None
-            )
-        else:
-            raise ValueError(
-                "Invalid multiclass strategy "
-                + str(self.strategy)
-                + ", must be one of "
-                '{"ovr", "ovo"}'
-            )
-        self.multiclass_estimator.classes_ = value
-
-    @property
-    @cuml.internals.api_base_return_any_skipall
-    def n_classes_(self):
-        return self.multiclass_estimator.n_classes_
-
-    @generate_docstring(y="dense_anydtype")
-    def fit(self, X, y) -> "MulticlassClassifier":
-        """
-        Fit a multiclass classifier.
-        """
         if not has_sklearn():
             raise ImportError(
                 "Scikit-learn is needed to use "
@@ -180,6 +136,16 @@ class MulticlassClassifier(Base, ClassifierMixin):
                 '{"ovr", "ovo"}'
             )
 
+    @property
+    @cuml.internals.api_base_return_array_skipall
+    def classes_(self):
+        return self.multiclass_estimator.classes_
+
+    @generate_docstring(y="dense_anydtype")
+    def fit(self, X, y) -> "MulticlassClassifier":
+        """
+        Fit a multiclass classifier.
+        """
         X = input_to_host_array_with_sparse_support(X)
 
         y = input_to_host_array(y).array

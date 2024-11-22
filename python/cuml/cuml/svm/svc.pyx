@@ -46,6 +46,35 @@ from cuml.internals.import_utils import has_sklearn
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.api_decorators import device_interop_preparation, enable_device_interop
 
+from sklearn.svm import SVC as skSVC
+from sklearn.preprocessing import LabelBinarizer
+from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
+from cuml.internals.mem_type import MemoryType
+from cuml.internals.available_devices import is_cuda_available
+
+
+class cpuModelSVC(skSVC):
+    def fit(self, X, y, sample_weight=None):
+        self.classes_ = np.unique(y)
+        self.n_classes_ = len(self.classes_)
+
+        if self.n_classes_ == 2:
+            super().fit(X, y, sample_weight)
+        else:
+            params = self.get_params()
+            if self.decision_function_shape == 'ovr':
+                self.multi_class_model = OneVsRestClassifier(skSVC(**params))
+            elif self.decision_function_shape == 'ovo':
+                self.multi_class_model = OneVsOneClassifier(skSVC(**params))
+            self.multi_class_model.fit(X, y)
+
+    def predict(self, X):
+        if self.n_classes_ == 2:
+            return super().predict(X)
+        else:
+            return self.multi_class_model.predict(X)
+
+
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
     from sklearn.calibration import CalibratedClassifierCV
@@ -333,7 +362,7 @@ class SVC(SVMBase,
 
     """
 
-    _cpu_estimator_import_path = 'sklearn.svm.SVC'
+    _cpu_estimator_import_path = 'cuml.svm.cpuModelSVC'
 
     class_weight_ = CumlArrayDescriptor(order='F')
 
@@ -750,14 +779,14 @@ class SVC(SVMBase,
 
     def cpu_to_gpu(self):
         self.dtype = np.float64
+        self.target_dtype = np.int64
         self.probability = self._cpu_model.probability
-        self.n_classes_ = len(self._cpu_model.classes_)
+        self.n_classes_ = self._cpu_model.n_classes_
 
         if self.probability:
-            params = self.get_params()
-            params["probability"] = False
-            params["output_type"] = "numpy"
-            self.prob_svc = CalibratedClassifierCV(SVC(**params), cv=5, method='sigmoid')
+            pass
+        elif self.n_classes_ == 2:
+            super().cpu_to_gpu()
         elif self.n_classes_ > 2:
             if not hasattr(self, 'multiclass_svc'):
                 params = self.get_params()
@@ -766,7 +795,108 @@ class SVC(SVMBase,
                     MulticlassClassifier(estimator=SVC(**params), handle=self.handle,
                                          verbose=self.verbose, output_type=self.output_type,
                                          strategy=strategy)
-        else:
-            super().cpu_to_gpu()
-            self.n_support_ = self._cpu_model.n_support_
-            self._model = self._get_svm_model()
+
+                def turn_cpu_into_gpu(cpu_est):
+                    gpu_est = SVC(**params)
+                    gpu_est.dtype = np.float64
+                    gpu_est.target_dtype = np.int64
+                    gpu_est.n_classes_ = 2
+
+                    # n_classes == 2 in this case
+                    intercept_ = -1.0 * cpu_est._intercept_
+                    dual_coef_ = -1.0 * cpu_est._dual_coef_
+
+                    gpu_est.n_support_ = cpu_est.n_support_.sum()
+
+                    gpu_est._intercept_ = input_to_cuml_array(
+                        intercept_,
+                        convert_to_mem_type=(MemoryType.host,
+                                             MemoryType.device)[is_cuda_available()],
+                        convert_to_dtype=np.float64,
+                        order='F')[0]
+                    gpu_est.dual_coef_ = input_to_cuml_array(
+                        dual_coef_,
+                        convert_to_mem_type=(MemoryType.host,
+                                             MemoryType.device)[is_cuda_available()],
+                        convert_to_dtype=np.float64,
+                        order='F')[0]
+                    gpu_est.support_ = input_to_cuml_array(
+                        cpu_est.support_,
+                        convert_to_mem_type=(MemoryType.host,
+                                             MemoryType.device)[is_cuda_available()],
+                        convert_to_dtype=np.int32,
+                        order='F')[0]
+                    gpu_est.support_vectors_ = input_to_cuml_array(
+                        cpu_est.support_vectors_,
+                        convert_to_mem_type=(MemoryType.host,
+                                             MemoryType.device)[is_cuda_available()],
+                        convert_to_dtype=np.float64,
+                        order='F')[0]
+                    gpu_est._unique_labels_ = input_to_cuml_array(
+                        np.array(cpu_est.classes_, dtype=np.float64),
+                        deepcopy=True,
+                        convert_to_mem_type=(MemoryType.host,
+                                             MemoryType.device)[is_cuda_available()],
+                        convert_to_dtype=np.float64,
+                        order='F')[0]
+
+                    gpu_est._probA = cp.empty(0, dtype=np.float64)
+                    gpu_est._probB = cp.empty(0, dtype=np.float64)
+                    gpu_est._gamma = cpu_est._gamma
+                    gpu_est.fit_status_ = cpu_est.fit_status_
+                    gpu_est.n_features_in_ = cpu_est.n_features_in_
+                    gpu_est._sparse = cpu_est._sparse
+
+                    gpu_est._model = gpu_est._get_svm_model()
+                    return gpu_est
+
+                self.multiclass_svc.multiclass_estimator.classes_ = self._cpu_model.classes_
+                estimators = self._cpu_model.multi_class_model.estimators_
+                self.multiclass_svc.multiclass_estimator.estimators_ = [turn_cpu_into_gpu(est) for est in estimators]
+
+                if strategy == 'ovr':
+                    self.multiclass_svc.multiclass_estimator.label_binarizer_ = LabelBinarizer(sparse_output=True)
+                    self.multiclass_svc.multiclass_estimator.label_binarizer_.fit(self._cpu_model.classes_)
+                elif strategy == 'ovo':
+                    self.multiclass_svc.multiclass_estimator.pairwise_indices_ = None
+
+    def gpu_to_cpu(self):
+        self._cpu_model.n_classes_ = self.n_classes_
+
+        if self.probability:
+            pass
+        elif self.n_classes_ == 2:
+            super().gpu_to_cpu()
+        elif self.n_classes_ > 2:
+            estimators = self.multiclass_svc.multiclass_estimator.estimators_
+            classes = self.classes_.to_output('numpy').astype(np.int32)
+
+            if self.decision_function_shape == 'ovr':
+                self._cpu_model.multi_class_model = OneVsRestClassifier(skSVC)
+                self._cpu_model.multi_class_model.label_binarizer_ = LabelBinarizer(sparse_output=True)
+                self._cpu_model.multi_class_model.label_binarizer_.fit(classes)
+            elif self.decision_function_shape == 'ovo':
+                self._cpu_model.multi_class_model = OneVsOneClassifier(skSVC)
+                self._cpu_model.multi_class_model.pairwise_indices_ = None
+
+            params = self.get_params()
+            params = {key: value for key, value, in params.items() if key in self._cpu_hyperparams}
+
+            def turn_gpu_into_cpu(gpu_est):
+                cpu_est = skSVC(**params)
+                cpu_est.support_ = gpu_est.support_.to_output('numpy').astype(np.int32)
+                cpu_est.support_vectors_ = np.ascontiguousarray(gpu_est.support_vectors_.to_output('numpy').astype(np.float64))
+                cpu_est._n_support = np.array([gpu_est.n_support_, 0]).astype(np.int32)
+                cpu_est._dual_coef_ = -1.0 * np.ascontiguousarray(gpu_est.dual_coef_.to_output('numpy').astype(np.float64))
+                cpu_est._intercept_ = -1.0 * gpu_est.intercept_.to_output('numpy').astype(np.float64)
+                cpu_est.classes_ = gpu_est.classes_.to_output('numpy').astype(np.int32)
+                cpu_est.n_classes_ = 2
+                cpu_est._probA = np.empty(0, dtype=np.float64)
+                cpu_est._probB = np.empty(0, dtype=np.float64)
+                cpu_est.fit_status_ = gpu_est.fit_status_
+                cpu_est._sparse = gpu_est._sparse
+                cpu_est._gamma = gpu_est._gamma
+                return cpu_est
+
+            self._cpu_model.multi_class_model.estimators_ = [turn_gpu_into_cpu(est) for est in estimators]
+            self._cpu_model.multi_class_model.classes_ = classes
