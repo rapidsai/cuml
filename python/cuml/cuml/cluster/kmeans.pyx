@@ -16,6 +16,8 @@
 
 # distutils: language = c++
 
+import warnings
+
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
@@ -143,10 +145,17 @@ class KMeans(UniversalBase,
          - If an ndarray is passed, it should be of
            shape (`n_clusters`, `n_features`) and gives the initial centers.
 
-    n_init: int (default = 1)
+    n_init: 'auto' or int (default = 1)
         Number of instances the k-means algorithm will be called with
         different seeds. The final results will be from the instance
         that produces lowest inertia out of n_init instances.
+
+        .. versionadded:: 25.02
+           Added 'auto' option for `n_init`.
+
+        .. versionchanged:: 25.XX
+            Default value for `n_init` will change from 1 to `'auto'` in version 25.XX.
+
     oversampling_factor : float64 (default = 2.0)
         The amount of points to sample
         in scalable k-means++ initialization for potential centroids.
@@ -216,7 +225,22 @@ class KMeans(UniversalBase,
             params.metric = DistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
             params.batch_samples = <int>self.max_samples_per_batch
             params.oversampling_factor = <double>self.oversampling_factor
-            params.n_init = <int>self.n_init
+            n_init = self.n_init
+            if n_init == "warn":
+                warnings.warn(
+                    "The default value of `n_init` will change from"
+                    " 1 to 'auto' in 25.XX. Set the value of `n_init`"
+                    " explicitly to suppress this warning.",
+                    FutureWarning,
+                )
+                n_init = 1
+            if n_init == "auto":
+                if self.init in ("k-means||", "scalable-k-means++"):
+                    params.n_init = 1
+                else:
+                    params.n_init = 10
+            else:
+                params.n_init = <int>n_init
             return <size_t>params
         ELSE:
             return None
@@ -224,7 +248,7 @@ class KMeans(UniversalBase,
     @device_interop_preparation
     def __init__(self, *, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
                  verbose=False, random_state=1,
-                 init='scalable-k-means++', n_init=1, oversampling_factor=2.0,
+                 init='scalable-k-means++', n_init="warn", oversampling_factor=2.0,
                  max_samples_per_batch=1<<15, convert_dtype=True,
                  output_type=None):
         super().__init__(handle=handle,
