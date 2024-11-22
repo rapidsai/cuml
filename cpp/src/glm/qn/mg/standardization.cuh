@@ -206,6 +206,13 @@ void mean_stddev(const raft::handle_t& handle,
 
     SimpleVec<T> stddevVec(stddev_vector, D);
     stddevVec.fill(0., stream);
+
+    // call allreduces on zeroes to sync with other GPUs to avoid hanging
+    auto& comm = handle.get_comms();
+    comm.allreduce(mean_vector, mean_vector, D, raft::comms::op_t::SUM, stream);
+    comm.sync_stream(stream);
+    comm.allreduce(stddev_vector, stddev_vector, D, raft::comms::op_t::SUM, stream);
+    comm.sync_stream(stream);
     return;
   }
 
