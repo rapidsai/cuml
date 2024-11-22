@@ -564,7 +564,7 @@ class KMeans(UniversalBase,
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
     @enable_device_interop
-    def predict(self, X, convert_dtype=True, sample_weight=None,
+    def predict(self, X, y=None, convert_dtype=True, sample_weight=None,
                 normalize_weights=True) -> CumlArray:
         """
         Predict the closest cluster each sample in X belongs to.
@@ -583,7 +583,7 @@ class KMeans(UniversalBase,
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
     @enable_device_interop
-    def transform(self, X, convert_dtype=True) -> CumlArray:
+    def transform(self, X, y=None, convert_dtype=True) -> CumlArray:
         """
         Transform X to a cluster-distance space.
 
@@ -687,7 +687,7 @@ class KMeans(UniversalBase,
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
     @enable_device_interop
-    def fit_transform(self, X, convert_dtype=False,
+    def fit_transform(self, X, y=None, convert_dtype=False,
                       sample_weight=None) -> CumlArray:
         """
         Compute clustering and transform X to cluster-distance space.
@@ -696,8 +696,9 @@ class KMeans(UniversalBase,
         self.fit(X, sample_weight=sample_weight)
         return self.transform(X, convert_dtype=convert_dtype)
 
-    def get_param_names(self):
-        return super().get_param_names() + \
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
             ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
                 'tol', "convert_dtype"]

@@ -289,6 +289,20 @@ class NearestNeighbors(UniversalBase,
     _cpu_estimator_import_path = 'sklearn.neighbors.NearestNeighbors'
     _fit_X = CumlArrayDescriptor(order='C')
 
+    _hyperparam_interop_translator = {
+        "weights": {
+            "distance": "NotImplemented",
+        },
+        "algorithm": {
+            "auto": "brute",
+            "ball_tree": "brute",
+            "kd_tree": "brute",
+        },
+        "metric": {
+            "mahalanobis": "NotImplemented"
+        }
+    }
+
     @device_interop_preparation
     def __init__(self, *,
                  n_neighbors=5,
@@ -320,7 +334,7 @@ class NearestNeighbors(UniversalBase,
 
     @generate_docstring(X='dense_sparse')
     @enable_device_interop
-    def fit(self, X, convert_dtype=True) -> "NearestNeighbors":
+    def fit(self, X, y=None, convert_dtype=True) -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
 
@@ -420,8 +434,9 @@ class NearestNeighbors(UniversalBase,
             self.n_indices = 1
         return self
 
-    def get_param_names(self):
-        return super().get_param_names() + \
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
             ["n_neighbors", "algorithm", "metric",
                 "p", "metric_params", "algo_params", "n_jobs"]
 
@@ -680,7 +695,7 @@ class NearestNeighbors(UniversalBase,
 
         return (D_ndarr, I_ndarr) if return_distance else I_ndarr
 
-    def _kneighbors_dense(self, X, n_neighbors, convert_dtype=None):
+    def _kneighbors_dense(self, X, n_neighbors, convert_dtype=True):
 
         if not is_dense(X):
             raise ValueError("A NearestNeighbors model trained on dense "

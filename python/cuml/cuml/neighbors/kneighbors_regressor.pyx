@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -150,6 +150,17 @@ class KNeighborsRegressor(RegressorMixin,
 
     y = CumlArrayDescriptor()
 
+    _hyperparam_interop_translator = {
+        "weights": {
+            "distance": "NotImplemented",
+        },
+        "algorithm": {
+            "auto": "brute",
+            "ball_tree": "brute",
+            "kd_tree": "brute",
+        },
+    }
+
     def __init__(self, *, weights="uniform", handle=None, verbose=False,
                  output_type=None, **kwargs):
         super().__init__(
@@ -159,9 +170,6 @@ class KNeighborsRegressor(RegressorMixin,
             **kwargs)
         self.y = None
         self.weights = weights
-        if weights != "uniform":
-            raise ValueError("Only uniform weighting strategy "
-                             "is supported currently.")
 
     @generate_docstring(convert_dtype_cast='np.float32')
     def fit(self, X, y, convert_dtype=True) -> "KNeighborsRegressor":
@@ -169,6 +177,9 @@ class KNeighborsRegressor(RegressorMixin,
         Fit a GPU index for k-nearest neighbors regression model.
 
         """
+        if self.weights != "uniform":
+            raise ValueError("Only uniform weighting strategy "
+                             "is supported currently.")
         self._set_target_dtype(y)
 
         super(KNeighborsRegressor, self).fit(X, convert_dtype=convert_dtype)
@@ -234,5 +245,6 @@ class KNeighborsRegressor(RegressorMixin,
 
         return results
 
-    def get_param_names(self):
-        return super().get_param_names() + ["weights"]
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + ["weights"]
