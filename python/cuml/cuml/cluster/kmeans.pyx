@@ -153,8 +153,8 @@ class KMeans(UniversalBase,
         .. versionadded:: 24.12
            Added 'auto' option for `n_init`.
 
-        .. versionchanged:: 25.05
-            Default value for `n_init` will change from 1 to `'auto'` in version 25.XX.
+        .. versionchanged:: 25.02
+            Default value for `n_init` will change from 1 to `'auto'` in version 25.02.
 
     oversampling_factor : float64 (default = 2.0)
         The amount of points to sample
@@ -229,7 +229,7 @@ class KMeans(UniversalBase,
             if n_init == "warn":
                 warnings.warn(
                     "The default value of `n_init` will change from"
-                    " 1 to 'auto' in 25.05. Set the value of `n_init`"
+                    " 1 to 'auto' in 25.02. Set the value of `n_init`"
                     " explicitly to suppress this warning.",
                     FutureWarning,
                 )
