@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -272,8 +272,9 @@ class ElasticNet(UniversalBase,
         self.solver_model.set_params(**params)
         return self
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "alpha",
             "l1_ratio",
             "fit_intercept",

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -106,7 +106,7 @@ class LinearRegression(
         """
         return self._predict(X, delayed=delayed)
 
-    def get_param_names(self):
+    def _get_param_names(self):
         return list(self.kwargs.keys())
 
     @staticmethod

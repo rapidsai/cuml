@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -152,7 +152,8 @@ class LinearSVR(LinearSVM, RegressorMixin):
             )
         self.__loss = loss
 
-    def get_param_names(self):
+    @classmethod
+    def _get_param_names(cls):
         return list(
             {
                 "handle",
@@ -168,5 +169,5 @@ class LinearSVR(LinearSVM, RegressorMixin):
                 "grad_tol",
                 "change_tol",
                 "epsilon",
-            }.union(super().get_param_names())
+            }.union(super()._get_param_names())
         )

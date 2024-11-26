@@ -356,8 +356,9 @@ class Ridge(UniversalBase,
                 raise TypeError(msg.format(params['solver']))
         return self
 
-    def get_param_names(self):
-        return super().get_param_names() + \
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
             ['solver', 'fit_intercept', 'normalize', 'alpha']
 
     def get_attr_names(self):

@@ -146,12 +146,13 @@ cdef class LSVMPWrapper_:
         self.params[key] = val
 
     def __init__(self, **kwargs):
-        allowed_keys = set(self.get_param_names())
+        allowed_keys = set(self._get_param_names())
         for key, val in kwargs.items():
             if key in allowed_keys:
                 setattr(self, key, val)
 
-    def get_param_names(self):
+    @classmethod
+    def _get_param_names(cls):
         cdef LinearSVMParams ps
         return ps.keys()
 
@@ -212,7 +213,7 @@ def __add_prop(prop_name):
     ))
 
 
-for prop_name in LSVMPWrapper().get_param_names():
+for prop_name in LSVMPWrapper()._get_param_names():
     if not hasattr(LSVMPWrapper, prop_name):
         __add_prop(prop_name)
 del __add_prop
@@ -594,7 +595,7 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
         return state
 
     def __init__(self, **kwargs):
-        # `tol` is special in that it's not present in get_param_names,
+        # `tol` is special in that it's not present in _get_param_names,
         # so having a special logic here does not affect pickling/cloning.
         tol = kwargs.pop('tol', None)
         if tol is not None:
@@ -604,8 +605,8 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
             self.change_tol = tol * default_to_ratio
         # All arguments are optional (they have defaults),
         # yet we need to check for unused arguments
-        allowed_keys = set(self.get_param_names())
-        super_keys = set(super().get_param_names())
+        allowed_keys = set(self._get_param_names())
+        super_keys = set(super()._get_param_names())
         remaining_kwargs = {}
         for key, val in kwargs.items():
             if key not in allowed_keys or key in super_keys:

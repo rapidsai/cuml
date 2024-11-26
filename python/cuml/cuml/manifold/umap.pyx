@@ -909,8 +909,9 @@ class UMAP(UniversalBase,
 
         super().gpu_to_cpu()
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "n_neighbors",
             "n_components",
             "n_epochs",

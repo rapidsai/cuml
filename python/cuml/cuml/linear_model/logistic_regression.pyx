@@ -534,8 +534,9 @@ class LogisticRegression(UniversalBase,
     def intercept_(self, value):
         self.solver_model.intercept_ = value
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "penalty",
             "tol",
             "C",
