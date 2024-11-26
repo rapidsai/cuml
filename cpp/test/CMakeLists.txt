@@ -110,6 +110,7 @@ endfunction()
 # - build ml_test executable -------------------------------------------------
 if(all_algo)
   ConfigureTest(PREFIX SG NAME LOGGER_TEST  sg/logger.cpp ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME THREADSAFE_WRAPPER_TEST sg/experimental/threadsafe_wrapper.cpp ML_INCLUDE)
 endif()
 
 if(all_algo OR dbscan_algo)
