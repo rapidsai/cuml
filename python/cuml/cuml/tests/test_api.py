@@ -237,6 +237,8 @@ def test_fit_function(dataset, model_name):
         model = models[model_name](np.random.normal(0.0, 1.0, (10,)))
     elif model_name in ["RandomForestClassifier", "RandomForestRegressor"]:
         model = models[model_name](n_bins=32)
+    elif model_name == "KMeans":
+        model = models[model_name](n_init="auto")
     else:
         if n_pos_args_constr == 1:
             model = models[model_name]()

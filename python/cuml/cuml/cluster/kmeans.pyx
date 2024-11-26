@@ -97,7 +97,7 @@ class KMeans(UniversalBase,
         3  4.0  3.0
         >>>
         >>> # Calling fit
-        >>> kmeans_float = KMeans(n_clusters=2)
+        >>> kmeans_float = KMeans(n_clusters=2, n_init="auto")
         >>> kmeans_float.fit(b)
         KMeans()
         >>>
