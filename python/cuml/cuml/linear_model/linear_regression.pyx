@@ -268,6 +268,12 @@ class LinearRegression(LinearPredictMixin,
     coef_ = CumlArrayDescriptor(order='F')
     intercept_ = CumlArrayDescriptor(order='F')
 
+    _hyperparam_interop_translator = {
+        "positive": {
+            True: "NotImplemented",
+        },
+    }
+
     @device_interop_preparation
     def __init__(self, *, algorithm='eig', fit_intercept=True,
                  copy_X=None, normalize=False,

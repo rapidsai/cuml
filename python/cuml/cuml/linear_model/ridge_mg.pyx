@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,6 +69,7 @@ class RidgeMG(MGFitMixin, Ridge):
 
     @cuml.internals.api_base_return_any_skipall
     def _fit(self, X, y, coef_ptr, input_desc):
+        self.algo = self._get_algorithm_int(self.solver)
 
         cdef float float_intercept
         cdef double double_intercept

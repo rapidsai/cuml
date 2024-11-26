@@ -238,7 +238,7 @@ def test_tsne_large(nrows, ncols, method):
 
 def test_components_exception():
     with pytest.raises(ValueError):
-        TSNE(n_components=3)
+        TSNE(n_components=3).fit(np.array([]))
 
 
 @pytest.mark.parametrize("input_type", ["cupy", "scipy"])

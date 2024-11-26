@@ -240,6 +240,13 @@ class TruncatedSVD(UniversalBase,
     explained_variance_ratio_ = CumlArrayDescriptor(order='F')
     singular_values_ = CumlArrayDescriptor(order='F')
 
+    _hyperparam_interop_translator = {
+        "algorithm": {
+            "randomized": "full",
+            "arpack": "full",
+        },
+    }
+
     @device_interop_preparation
     def __init__(self, *, algorithm='full', handle=None, n_components=1,
                  n_iter=15, random_state=None, tol=1e-7,

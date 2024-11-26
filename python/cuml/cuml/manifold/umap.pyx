@@ -234,7 +234,7 @@ class UMAP(UniversalBase,
         are returned when transform is called on the same data upon
         which the model was trained. This enables consistent
         behavior between calling ``model.fit_transform(X)`` and
-        calling ``model.fit(X).transform(X)``. Not that the CPU-based
+        calling ``model.fit(X).transform(X)``. Note that the CPU-based
         UMAP reference implementation does this by default. This
         feature is made optional in the GPU version due to the
         significant overhead in copying memory to the host for

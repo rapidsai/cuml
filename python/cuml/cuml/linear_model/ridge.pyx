@@ -192,6 +192,21 @@ class Ridge(UniversalBase,
     coef_ = CumlArrayDescriptor(order='F')
     intercept_ = CumlArrayDescriptor(order='F')
 
+    _hyperparam_interop_translator = {
+        "positive": {
+            True: "NotImplemented"
+        },
+        "solver": {
+            "auto": "eig",
+            "cholesky": "eig",
+            "lsqr": "eig",
+            "sag": "eig",
+            "saga": "eig",
+            "lbfgs": "NotImplemented",
+            "sparse_cg": "eig"
+        },
+    }
+
     @device_interop_preparation
     def __init__(self, *, alpha=1.0, solver='eig', fit_intercept=True,
                  normalize=False, handle=None, output_type=None,
@@ -221,13 +236,8 @@ class Ridge(UniversalBase,
         self.alpha = alpha
         self.fit_intercept = fit_intercept
         self.normalize = normalize
+        self.solver = solver
 
-        if solver in ['svd', 'eig', 'cd']:
-            self.solver = solver
-            self.algo = self._get_algorithm_int(solver)
-        else:
-            msg = "solver {!r} is not supported"
-            raise TypeError(msg.format(solver))
         self.intercept_value = 0.0
 
     def _check_alpha(self, alpha):
@@ -236,6 +246,9 @@ class Ridge(UniversalBase,
             raise TypeError(msg.format(alpha))
 
     def _get_algorithm_int(self, algorithm):
+        if self.solver not in ['svd', 'eig', 'cd']:
+            msg = "solver {!r} is not supported"
+            raise TypeError(msg.format(self.solver))
         return {
             'svd': 0,
             'eig': 1,
@@ -249,6 +262,8 @@ class Ridge(UniversalBase,
         Fit the model with X and y.
 
         """
+        self.algo = self._get_algorithm_int(self.solver)
+
         cdef uintptr_t _X_ptr, _y_ptr, _sample_weight_ptr
         X_m, n_rows, self.n_features_in_, self.dtype = \
             input_to_cuml_array(X, deepcopy=True,
