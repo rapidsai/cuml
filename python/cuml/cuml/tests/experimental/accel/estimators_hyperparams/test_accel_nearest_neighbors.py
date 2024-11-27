@@ -159,6 +159,7 @@ def test_nearest_neighbors_radius_neighbors_graph(synthetic_data):
     pairwise_distances(X[non_zero_indices[0]], X[non_zero_indices[1]])
 
 
+@pytest.mark.parametrize("return_distance", [True, False])
 def test_nearest_neighbors_return_distance(synthetic_data, return_distance):
     X, _ = synthetic_data
     model = NearestNeighbors()
