@@ -794,14 +794,14 @@ class UniversalBase(Base):
         return False
 
     def _check_cpu_model(self):
-            """
-            Checks if an estimator already has created a _cpu_model,
-            and creates one if necessary.
-            """
-            if not hasattr(self, "_cpu_model"):
-                self.import_cpu_model()
-                self.build_cpu_model()
-                self.gpu_to_cpu()
+        """
+        Checks if an estimator already has created a _cpu_model,
+        and creates one if necessary.
+        """
+        if not hasattr(self, "_cpu_model"):
+            self.import_cpu_model()
+            self.build_cpu_model()
+            self.gpu_to_cpu()
 
     def __getattr__(self, attr):
         try:
