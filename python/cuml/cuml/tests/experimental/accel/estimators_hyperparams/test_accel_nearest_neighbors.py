@@ -96,7 +96,6 @@ def test_nearest_neighbors_n_jobs(synthetic_data, n_jobs):
     assert True, f"NearestNeighbors ran successfully with n_jobs={n_jobs}"
 
 
-@pytest.mark.xfail(reason="cuML doesn't have radius neighbors method")
 def test_nearest_neighbors_radius(synthetic_data):
     X, _ = synthetic_data
     radius = 1.0
@@ -143,7 +142,6 @@ def test_nearest_neighbors_kneighbors_graph(synthetic_data):
     ), f"Each sample should have {n_neighbors} neighbors in the graph"
 
 
-@pytest.mark.xfail(reason="cuML doesn't have radius neighbors graph method")
 def test_nearest_neighbors_radius_neighbors_graph(synthetic_data):
     X, _ = synthetic_data
     radius = 1.0
@@ -161,7 +159,6 @@ def test_nearest_neighbors_radius_neighbors_graph(synthetic_data):
     pairwise_distances(X[non_zero_indices[0]], X[non_zero_indices[1]])
 
 
-@pytest.mark.parametrize("return_distance", [True, False])
 def test_nearest_neighbors_return_distance(synthetic_data, return_distance):
     X, _ = synthetic_data
     model = NearestNeighbors()

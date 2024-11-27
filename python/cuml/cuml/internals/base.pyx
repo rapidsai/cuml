@@ -792,3 +792,25 @@ class UniversalBase(Base):
         """
 
         return False
+
+    def _check_cpu_model(self):
+            """
+            Checks if an estimator already has created a _cpu_model,
+            and creates one if necessary.
+            """
+            if not hasattr(self, "_cpu_model"):
+                self.import_cpu_model()
+                self.build_cpu_model()
+                self.gpu_to_cpu()
+
+    def __getattr__(self, attr):
+        try:
+            super().__getattr__(attr)
+
+        except AttributeError as ex:
+            if GlobalSettings().accelerator_active:
+                if hasattr(self._cpu_model_class, attr):
+                    self._check_cpu_model()
+                    return getattr(self._cpu_model, attr)
+
+            raise ex
