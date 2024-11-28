@@ -21,6 +21,7 @@ np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 rmm = gpu_only_import('rmm')
 from cuml.internals.safe_imports import safe_import_from, return_false
+from cuml.internals.utils import check_random_seed
 import typing
 
 IF GPUBUILD == 1:
@@ -207,7 +208,7 @@ class KMeans(UniversalBase,
             params.max_iter = <int>self.max_iter
             params.tol = <double>self.tol
             params.verbosity = <int>self.verbose
-            params.rng_state.seed = self.random_state
+            params.rng_state.seed = self._seed
             params.metric = CuvsDistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
             params.batch_samples = <int>self.max_samples_per_batch
             params.oversampling_factor = <double>self.oversampling_factor
@@ -302,6 +303,11 @@ class KMeans(UniversalBase,
                                 convert_to_dtype=(target_dtype if convert_dtype
                                                   else None),
                                 check_dtype=check_dtype)
+
+        # XXX Should deriving a seed from a random state be idempotent? Should repeated
+        # XXX calls of `fit` create new seeds or not?
+        if not hasattr(self, "_seed"):
+            self._seed = check_random_seed(self.random_state)
 
         IF GPUBUILD == 1:
 

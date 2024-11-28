@@ -46,6 +46,7 @@ from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
+from cuml.internals.utils import check_random_seed
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.api_decorators import device_interop_preparation
@@ -399,22 +400,7 @@ class UMAP(UniversalBase,
 
         self.deterministic = random_state is not None
 
-        # Check to see if we are already a random_state (type==np.uint64).
-        # Reuse this if already passed (can happen from get_params() of another
-        # instance)
-        if isinstance(random_state, np.uint64):
-            self.random_state = random_state
-        else:
-            # Otherwise create a RandomState instance to generate a new
-            # np.uint64
-            if isinstance(random_state, np.random.RandomState):
-                rs = random_state
-            else:
-                rs = np.random.RandomState(random_state)
-
-            self.random_state = rs.randint(low=0,
-                                           high=np.iinfo(np.uint32).max,
-                                           dtype=np.uint32)
+        self.random_state = random_state
 
         if target_metric == "euclidean" or target_metric == "categorical":
             self.target_metric = target_metric
@@ -454,38 +440,37 @@ class UMAP(UniversalBase,
         if self.min_dist > self.spread:
             raise ValueError("min_dist should be <= spread")
 
-    @staticmethod
-    def _build_umap_params(cls, sparse):
+    def _build_umap_params(self, sparse):
         IF GPUBUILD == 1:
             cdef UMAPParams* umap_params = new UMAPParams()
-            umap_params.n_neighbors = <int> cls.n_neighbors
-            umap_params.n_components = <int> cls.n_components
-            umap_params.n_epochs = <int> cls.n_epochs if cls.n_epochs else 0
-            umap_params.learning_rate = <float> cls.learning_rate
-            umap_params.min_dist = <float> cls.min_dist
-            umap_params.spread = <float> cls.spread
-            umap_params.set_op_mix_ratio = <float> cls.set_op_mix_ratio
-            umap_params.local_connectivity = <float> cls.local_connectivity
-            umap_params.repulsion_strength = <float> cls.repulsion_strength
-            umap_params.negative_sample_rate = <int> cls.negative_sample_rate
-            umap_params.transform_queue_size = <int> cls.transform_queue_size
-            umap_params.verbosity = <int> cls.verbose
-            umap_params.a = <float> cls.a
-            umap_params.b = <float> cls.b
-            if cls.init == "spectral":
+            umap_params.n_neighbors = <int> self.n_neighbors
+            umap_params.n_components = <int> self.n_components
+            umap_params.n_epochs = <int> self.n_epochs if self.n_epochs else 0
+            umap_params.learning_rate = <float> self.learning_rate
+            umap_params.min_dist = <float> self.min_dist
+            umap_params.spread = <float> self.spread
+            umap_params.set_op_mix_ratio = <float> self.set_op_mix_ratio
+            umap_params.local_connectivity = <float> self.local_connectivity
+            umap_params.repulsion_strength = <float> self.repulsion_strength
+            umap_params.negative_sample_rate = <int> self.negative_sample_rate
+            umap_params.transform_queue_size = <int> self.transform_queue_size
+            umap_params.verbosity = <int> self.verbose
+            umap_params.a = <float> self.a
+            umap_params.b = <float> self.b
+            if self.init == "spectral":
                 umap_params.init = <int> 1
             else:  # self.init == "random"
                 umap_params.init = <int> 0
-            umap_params.target_n_neighbors = <int> cls.target_n_neighbors
-            if cls.target_metric == "euclidean":
+            umap_params.target_n_neighbors = <int> self.target_n_neighbors
+            if self.target_metric == "euclidean":
                 umap_params.target_metric = MetricType.EUCLIDEAN
             else:  # self.target_metric == "categorical"
                 umap_params.target_metric = MetricType.CATEGORICAL
-            if cls.build_algo == "brute_force_knn":
+            if self.build_algo == "brute_force_knn":
                 umap_params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
             else:  # self.init == "nn_descent"
                 umap_params.build_algo = graph_build_algo.NN_DESCENT
-                if cls.build_kwds is None:
+                if self.build_kwds is None:
                     umap_params.nn_descent_params.graph_degree = <uint64_t> 64
                     umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> 128
                     umap_params.nn_descent_params.max_iterations = <uint64_t> 20
@@ -493,38 +478,38 @@ class UMAP(UniversalBase,
                     umap_params.nn_descent_params.return_distances = <bool> True
                     umap_params.nn_descent_params.n_clusters = <uint64_t> 1
                 else:
-                    umap_params.nn_descent_params.graph_degree = <uint64_t> cls.build_kwds.get("nnd_graph_degree", 64)
-                    umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> cls.build_kwds.get("nnd_intermediate_graph_degree", 128)
-                    umap_params.nn_descent_params.max_iterations = <uint64_t> cls.build_kwds.get("nnd_max_iterations", 20)
-                    umap_params.nn_descent_params.termination_threshold = <float> cls.build_kwds.get("nnd_termination_threshold", 0.0001)
-                    umap_params.nn_descent_params.return_distances = <bool> cls.build_kwds.get("nnd_return_distances", True)
-                    if cls.build_kwds.get("nnd_n_clusters", 1) < 1:
+                    umap_params.nn_descent_params.graph_degree = <uint64_t> self.build_kwds.get("nnd_graph_degree", 64)
+                    umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> self.build_kwds.get("nnd_intermediate_graph_degree", 128)
+                    umap_params.nn_descent_params.max_iterations = <uint64_t> self.build_kwds.get("nnd_max_iterations", 20)
+                    umap_params.nn_descent_params.termination_threshold = <float> self.build_kwds.get("nnd_termination_threshold", 0.0001)
+                    umap_params.nn_descent_params.return_distances = <bool> self.build_kwds.get("nnd_return_distances", True)
+                    if self.build_kwds.get("nnd_n_clusters", 1) < 1:
                         logger.info("Negative number of nnd_n_clusters not allowed. Changing nnd_n_clusters to 1")
-                    umap_params.nn_descent_params.n_clusters = <uint64_t> cls.build_kwds.get("nnd_n_clusters", 1)
+                    umap_params.nn_descent_params.n_clusters = <uint64_t> self.build_kwds.get("nnd_n_clusters", 1)
 
-            umap_params.target_weight = <float> cls.target_weight
-            umap_params.random_state = <uint64_t> cls.random_state
-            umap_params.deterministic = <bool> cls.deterministic
+            umap_params.target_weight = <float> self.target_weight
+            umap_params.random_state = <uint64_t> check_random_seed(self.random_state)
+            umap_params.deterministic = <bool> self.deterministic
 
             try:
-                umap_params.metric = metric_parsing[cls.metric.lower()]
+                umap_params.metric = metric_parsing[self.metric.lower()]
                 if sparse:
                     if umap_params.metric not in SPARSE_SUPPORTED_METRICS:
-                        raise NotImplementedError(f"Metric '{cls.metric}' not supported for sparse inputs.")
+                        raise NotImplementedError(f"Metric '{self.metric}' not supported for sparse inputs.")
                 elif umap_params.metric not in DENSE_SUPPORTED_METRICS:
-                    raise NotImplementedError(f"Metric '{cls.metric}' not supported for dense inputs.")
+                    raise NotImplementedError(f"Metric '{self.metric}' not supported for dense inputs.")
 
             except KeyError:
-                raise ValueError(f"Invalid value for metric: {cls.metric}")
+                raise ValueError(f"Invalid value for metric: {self.metric}")
 
-            if cls.metric_kwds is None:
+            if self.metric_kwds is None:
                 umap_params.p = <float> 2.0
             else:
-                umap_params.p = <float>cls.metric_kwds.get('p')
+                umap_params.p = <float>self.metric_kwds.get('p')
 
             cdef uintptr_t callback_ptr = 0
-            if cls.callback:
-                callback_ptr = cls.callback.get_native_callback()
+            if self.callback:
+                callback_ptr = self.callback.get_native_callback()
                 umap_params.callback = <GraphBasedDimRedCallback*>callback_ptr
 
             return <size_t>umap_params
@@ -657,7 +642,7 @@ class UMAP(UniversalBase,
                 <handle_t*> <size_t> self.handle.getHandle()
             fss_graph = GraphHolder.new_graph(handle_.get_stream())
             cdef UMAPParams* umap_params = \
-                <UMAPParams*> <size_t> UMAP._build_umap_params(self,
+                <UMAPParams*> <size_t> self._build_umap_params(
                                                                self.sparse_fit)
             if self.sparse_fit:
                 fit_sparse(handle_[0],
@@ -816,7 +801,7 @@ class UMAP(UniversalBase,
 
         IF GPUBUILD == 1:
             cdef UMAPParams* umap_params = \
-                <UMAPParams*> <size_t> UMAP._build_umap_params(self,
+                <UMAPParams*> <size_t> self._build_umap_params(
                                                                self.sparse_fit)
             cdef handle_t * handle_ = \
                 <handle_t*> <size_t> self.handle.getHandle()

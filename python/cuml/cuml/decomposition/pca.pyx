@@ -209,9 +209,6 @@ class PCA(UniversalBase,
 
             ``n_components = min(n_samples, n_features)``
 
-    random_state : int / None (default = None)
-        If you want results to be the same when you restart Python, select a
-        state.
     svd_solver : 'full' or 'jacobi' or 'auto' (default = 'full')
         Full uses a eigendecomposition of the covariance matrix then discards
         components.
@@ -292,7 +289,7 @@ class PCA(UniversalBase,
 
     @device_interop_preparation
     def __init__(self, *, copy=True, handle=None, iterated_power=15,
-                 n_components=None, random_state=None, svd_solver='auto',
+                 n_components=None, svd_solver='auto',
                  tol=1e-7, verbose=False, whiten=False,
                  output_type=None):
         # parameters
@@ -302,7 +299,6 @@ class PCA(UniversalBase,
         self.copy = copy
         self.iterated_power = iterated_power
         self.n_components = n_components
-        self.random_state = random_state
         self.svd_solver = svd_solver
         self.tol = tol
         self.whiten = whiten
@@ -739,7 +735,7 @@ class PCA(UniversalBase,
     def _get_param_names(cls):
         return super()._get_param_names() + \
             ["copy", "iterated_power", "n_components", "svd_solver", "tol",
-                "whiten", "random_state"]
+                "whiten"]
 
     def _check_is_fitted(self, attr):
         if not hasattr(self, attr) or (getattr(self, attr) is None):
