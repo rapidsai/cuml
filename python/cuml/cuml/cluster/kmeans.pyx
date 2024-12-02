@@ -208,7 +208,10 @@ class KMeans(UniversalBase,
             params.max_iter = <int>self.max_iter
             params.tol = <double>self.tol
             params.verbosity = <int>self.verbose
-            params.rng_state.seed = self._seed
+            # After transferring from one device to another `_seed` might not be set
+            # so we need to pass a dummy value here. Its value does not matter as the
+            # seed is only used during fitting
+            params.rng_state.seed = getattr(self, "_seed", 0)
             params.metric = CuvsDistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
             params.batch_samples = <int>self.max_samples_per_batch
             params.oversampling_factor = <double>self.oversampling_factor
