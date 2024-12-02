@@ -762,6 +762,16 @@ class UniversalBase(Base):
         """
         """
         # if not using accelerator, then return global device
+
+        sparse_support = "sparse" in self._get_tags()["X_types_gpu"]
+        if args and is_sparse(args[0]):
+            if GlobalSettings.accelerator_active:
+                device_type = DeviceType.host
+            else:
+                raise NotImplementedError(
+                    "Estimator does not support sparse inputs currently"
+                )
+
         if not hasattr(self, "_gpuaccel"):
             return cuml.global_settings.device_type
 
