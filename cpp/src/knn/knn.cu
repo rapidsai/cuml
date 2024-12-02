@@ -49,7 +49,7 @@ void brute_force_knn(const raft::handle_t& handle,
                      int k,
                      bool rowMajorIndex,
                      bool rowMajorQuery,
-                     raft::distance::DistanceType metric,
+                     cuvs::distance::DistanceType metric,
                      float metric_arg,
                      std::vector<int64_t>* translations)
 {
@@ -109,14 +109,14 @@ void brute_force_knn(const raft::handle_t& handle,
       idx = cuvs::neighbors::brute_force::build(
         current_handle,
         raft::make_device_matrix_view<const float, int64_t, raft::row_major>(input[i], sizes[i], D),
-        static_cast<cuvs::distance::DistanceType>(metric),
+        metric,
         metric_arg);
 
     } else {
       idx = cuvs::neighbors::brute_force::build(
         current_handle,
         raft::make_device_matrix_view<const float, int64_t, raft::col_major>(input[i], sizes[i], D),
-        static_cast<cuvs::distance::DistanceType>(metric),
+        metric,
         metric_arg);
     }
 
@@ -177,7 +177,7 @@ void rbc_knn_query(const raft::handle_t& handle,
 void approx_knn_build_index(raft::handle_t& handle,
                             knnIndex* index,
                             knnIndexParam* params,
-                            raft::distance::DistanceType metric,
+                            cuvs::distance::DistanceType metric,
                             float metricArg,
                             float* index_array,
                             int n,
@@ -189,14 +189,19 @@ void approx_knn_build_index(raft::handle_t& handle,
   auto ivf_ft_pams = dynamic_cast<IVFFlatParam*>(params);
   auto ivf_pq_pams = dynamic_cast<IVFPQParam*>(params);
 
-  index->metric_processor = raft::spatial::knn::create_processor<float>(
-    metric, n, D, 0, false, raft::resource::get_cuda_stream(handle));
+  index->metric_processor =
+    raft::spatial::knn::create_processor<float>(static_cast<raft::distance::DistanceType>(metric),
+                                                n,
+                                                D,
+                                                0,
+                                                false,
+                                                raft::resource::get_cuda_stream(handle));
   // For cosine/correlation distance, the metric processor translates distance
   // to inner product via pre/post processing - pass the translated metric to
   // ANN index
-  if (metric == raft::distance::DistanceType::CosineExpanded ||
-      metric == raft::distance::DistanceType::CorrelationExpanded) {
-    metric = index->metric = raft::distance::DistanceType::InnerProduct;
+  if (metric == cuvs::distance::DistanceType::CosineExpanded ||
+      metric == cuvs::distance::DistanceType::CorrelationExpanded) {
+    metric = index->metric = cuvs::distance::DistanceType::InnerProduct;
   }
   index->metric_processor->preprocess(index_array);
   auto index_view = raft::make_device_matrix_view<const float, int64_t>(index_array, n, D);
@@ -204,7 +209,7 @@ void approx_knn_build_index(raft::handle_t& handle,
   if (ivf_ft_pams) {
     index->nprobe = ivf_ft_pams->nprobe;
     cuvs::neighbors::ivf_flat::index_params params;
-    params.metric     = static_cast<cuvs::distance::DistanceType>(metric);
+    params.metric     = metric;
     params.metric_arg = metricArg;
     params.n_lists    = ivf_ft_pams->nlist;
 
@@ -213,7 +218,7 @@ void approx_knn_build_index(raft::handle_t& handle,
   } else if (ivf_pq_pams) {
     index->nprobe = ivf_pq_pams->nprobe;
     cuvs::neighbors::ivf_pq::index_params params;
-    params.metric     = static_cast<cuvs::distance::DistanceType>(metric);
+    params.metric     = metric;
     params.metric_arg = metricArg;
     params.n_lists    = ivf_pq_pams->nlist;
     params.pq_bits    = ivf_pq_pams->n_bits;
@@ -266,14 +271,14 @@ void approx_knn_search(raft::handle_t& handle,
   index->metric_processor->revert(query_array);
 
   // perform post-processing to show the real distances
-  if (index->metric == raft::distance::DistanceType::L2SqrtExpanded ||
-      index->metric == raft::distance::DistanceType::L2SqrtUnexpanded ||
-      index->metric == raft::distance::DistanceType::LpUnexpanded) {
+  if (index->metric == cuvs::distance::DistanceType::L2SqrtExpanded ||
+      index->metric == cuvs::distance::DistanceType::L2SqrtUnexpanded ||
+      index->metric == cuvs::distance::DistanceType::LpUnexpanded) {
     /**
      * post-processing
      */
     float p = 0.5;  // standard l2
-    if (index->metric == raft::distance::DistanceType::LpUnexpanded) p = 1.0 / index->metricArg;
+    if (index->metric == cuvs::distance::DistanceType::LpUnexpanded) p = 1.0 / index->metricArg;
     raft::linalg::unaryOp<float>(distances,
                                  distances,
                                  n * k,
