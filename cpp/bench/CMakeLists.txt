@@ -50,6 +50,7 @@ if(BUILD_CUML_BENCH)
       benchmark::benchmark
       ${TREELITE_LIBS}
       raft::raft
+      rmm::rmm_logger_impl
   )
 
   target_include_directories(${CUML_CPP_BENCH_TARGET}
