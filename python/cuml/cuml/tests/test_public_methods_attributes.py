@@ -36,7 +36,7 @@ estimators = [
     "TSNE",
     "NearestNeighbors",
     "UMAP",
-    "HDBSCAN"
+    "HDBSCAN",
 ]
 
 
@@ -53,7 +53,6 @@ estimator_module_mapping = {
     "TSNE": "manifold",
     "NearestNeighbors": "neighbors",
 }
-
 
 
 # Categorize estimators based on their type
@@ -87,7 +86,7 @@ unsupervised_estimators = [
     "TSNE",
     "NearestNeighbors",
     "UMAP",
-    "HDBSCAN"
+    "HDBSCAN",
 ]
 
 
@@ -103,7 +102,9 @@ def test_UniversalBase_estimators(estimator_name):
         host_module_name = "hdbscan"
         cuml_module_name = "cuml"
     else:
-        host_module_name = "sklearn." + estimator_module_mapping[estimator_name]
+        host_module_name = (
+            "sklearn." + estimator_module_mapping[estimator_name]
+        )
         cuml_module_name = "cuml." + estimator_module_mapping[estimator_name]
 
     # Import the estimator from scikit-learn
@@ -119,8 +120,12 @@ def test_UniversalBase_estimators(estimator_name):
     cuml_attrs = dir(cuml_estimator_class)
 
     # Filter out private attributes (those starting with '_')
-    host_public_attrs = [attr for attr in host_attrs if not attr.startswith('_')]
-    cuml_public_attrs = [attr for attr in cuml_attrs if not attr.startswith('_')]
+    host_public_attrs = [
+        attr for attr in host_attrs if not attr.startswith("_")
+    ]
+    cuml_public_attrs = [
+        attr for attr in cuml_attrs if not attr.startswith("_")
+    ]
 
     # Compare the sets of public attributes and methods
     missing_in_host = set(cuml_public_attrs) - set(host_public_attrs)
@@ -135,9 +140,13 @@ def test_UniversalBase_estimators(estimator_name):
 
     # Prepare a small dataset
     if estimator_name in regression_estimators:
-        X, y = make_regression(n_samples=100, n_features=5, noise=0.1, random_state=42)
+        X, y = make_regression(
+            n_samples=100, n_features=5, noise=0.1, random_state=42
+        )
     elif estimator_name in classification_estimators:
-        X, y = make_classification(n_samples=100, n_features=5, n_classes=2, random_state=42)
+        X, y = make_classification(
+            n_samples=100, n_features=5, n_classes=2, random_state=42
+        )
     else:
         X = np.random.rand(100, 5)
         y = None
@@ -163,7 +172,7 @@ def test_UniversalBase_estimators(estimator_name):
     # Call public methods and ensure they can be executed without errors
     for method_name in host_public_attrs:
         # Skip special methods and attributes
-        if method_name.startswith('__') or method_name.endswith('__'):
+        if method_name.startswith("__") or method_name.endswith("__"):
             continue
 
         # Get the method from both estimators
@@ -174,13 +183,20 @@ def test_UniversalBase_estimators(estimator_name):
         if callable(host_method):
             if callable(cuml_method):
                 # Prepare arguments based on method name
-                if method_name in ['fit', 'partial_fit']:
+                if method_name in ["fit", "partial_fit"]:
                     continue
 
                 # Already fitted
-                elif method_name in ['predict', 'transform', 'predict_proba', 'decision_function', 'score_samples', 'kneighbors']:
+                elif method_name in [
+                    "predict",
+                    "transform",
+                    "predict_proba",
+                    "decision_function",
+                    "score_samples",
+                    "kneighbors",
+                ]:
                     args = (X,)
-                elif method_name == 'fit_predict':
+                elif method_name == "fit_predict":
                     args = (X, y) if y is not None else (X,)
                 else:
                     continue  # Skip other methods for simplicity
@@ -190,17 +206,27 @@ def test_UniversalBase_estimators(estimator_name):
                     host_method(*args)
                     cuml_method(*args)
                 except Exception as e:
-                    errors.append(f"Method {method_name} failed for {estimator_name}: {e}")
+                    errors.append(
+                        f"Method {method_name} failed for {estimator_name}: {e}"
+                    )
 
             elif cuml_method is None:
                 cuml_estimator._experimental_dispatching = True
                 dispatched_method = getattr(cuml_estimator, method_name, None)
 
                 if dispatched_method is None:
-                    errors.append(f"Method {method_name} was not dispatched correctly")
+                    errors.append(
+                        f"Method {method_name} was not dispatched correctly"
+                    )
                 else:
-                    if not (inspect.ismethod(dispatched_method) or inspect.isfunction(dispatched_method)):
-                        errors.append(f"Dispatched method {method_name} is not a method or function")
+                    if not (
+                        inspect.ismethod(dispatched_method)
+                        or inspect.isfunction(dispatched_method)
+                    ):
+                        errors.append(
+                            f"Dispatched method {method_name} is not a "
+                            "method or function"
+                        )
 
                 cuml_estimator._experimental_dispatching = False
 
