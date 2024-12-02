@@ -1041,8 +1041,13 @@ def test_dbscan_methods(train_device, infer_device):
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("decision_function_shape", ["ovo", "ovr"])
 @pytest.mark.parametrize("class_type", ["single_class", "multi_class"])
+@pytest.mark.parametrize("probability", [True, False])
 def test_svc_methods(
-    train_device, infer_device, decision_function_shape, class_type
+    train_device,
+    infer_device,
+    decision_function_shape,
+    class_type,
+    probability,
 ):
     if class_type == "single_class":
         X_train = X_train_class
@@ -1053,11 +1058,17 @@ def test_svc_methods(
         y_train = y_train_multiclass
         X_test = X_test_multiclass
 
-    ref_model = skSVC(decision_function_shape=decision_function_shape)
+    ref_model = skSVC(
+        probability=probability,
+        decision_function_shape=decision_function_shape,
+    )
     ref_model.fit(X_train, y_train)
     ref_output = ref_model.predict(X_test)
 
-    model = SVC(decision_function_shape=decision_function_shape)
+    model = SVC(
+        probability=probability,
+        decision_function_shape=decision_function_shape,
+    )
     with using_device_type(train_device):
         model.fit(X_train, y_train)
     with using_device_type(infer_device):
