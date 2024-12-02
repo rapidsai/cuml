@@ -32,6 +32,7 @@ from cuml.common import input_to_cuml_array
 
 from cuml.cluster import KMeans
 from cuml.cluster.kmeans_utils cimport params as KMeansParams
+from cuml.internals.utils import check_random_seed
 
 
 cdef extern from "cuml/cluster/kmeans_mg.hpp" \

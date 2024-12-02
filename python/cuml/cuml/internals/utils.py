@@ -22,13 +22,14 @@ def check_random_seed(seed):
     Parameters
     ----------
     seed : None | int | instance of RandomState
-        If seed is None, return None
+        If seed is None, return a random int as seed.
         If seed is an int, return it.
         If seed is a RandomState instance, derive a seed from it.
         Otherwise raise ValueError.
     """
     if seed is None:
-        return None
+        seed = np.random.RandomState(None)
+
     if isinstance(seed, numbers.Integral):
         return seed
     if isinstance(seed, np.random.RandomState):
