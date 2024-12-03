@@ -773,7 +773,7 @@ def test_predict_per_tree(
         assert pred_per_tree.shape == expected_shape
         np.testing.assert_almost_equal(sum_by_class, margin_pred, decimal=3)
         np.testing.assert_almost_equal(
-            pred_per_tree, pred_per_tree_tl, decimal=3
+            pred_per_tree.reshape((n_rows, -1, 1)), pred_per_tree_tl, decimal=3
         )
         np.testing.assert_almost_equal(
             pred_per_tree_opt, pred_per_tree, decimal=3
