@@ -20,6 +20,7 @@ import os
 import inspect
 import numbers
 from importlib import import_module
+from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import_from,
@@ -41,6 +42,7 @@ import cuml.internals
 import cuml.internals.input_utils
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import (
     determine_array_type,
     input_to_cuml_array,
@@ -201,6 +203,8 @@ class Base(TagsMixin,
         base.handle.sync()
         del base  # optional!
     """
+
+    _hyperparam_interop_translator = {}
 
     def __init__(self, *,
                  handle=None,
@@ -471,6 +475,31 @@ class Base(TagsMixin,
                 func = nvtx_annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
 
+    @classmethod
+    def _hyperparam_translator(cls, **kwargs):
+        """
+        This method is meant to do checks and translations of hyperparameters
+        at estimator creating time.
+        Each children estimator can override the method, returning either
+        modifier **kwargs with equivalent options, or setting gpuaccel to False
+        for hyperaparameters not supported by cuML yet.
+        """
+        gpuaccel = True
+        # Copy it so we can modify it
+        translations = dict(cls.__bases__[0]._hyperparam_interop_translator)
+        # Allow the derived class to overwrite the base class
+        translations.update(cls._hyperparam_interop_translator)
+        for parameter_name, value in kwargs.items():
+
+            if parameter_name in translations:
+                if value in translations[parameter_name]:
+                    if translations[parameter_name][value] == "NotImplemented":
+                        gpuaccel = False
+                    else:
+                        kwargs[parameter_name] = translations[parameter_name][value]
+
+        return kwargs, gpuaccel
+
 
 # Internal, non class owned helper functions
 def _check_output_type_str(output_str):
@@ -681,11 +710,13 @@ class UniversalBase(Base):
             keyword arguments to be passed to the function for the call
         """
         # look for current device_type
-        device_type = cuml.global_settings.device_type
+        # device_type = cuml.global_settings.device_type
+        device_type = self._dispatch_selector(func_name, *args, **kwargs)
 
-        # GPU case
         if device_type == DeviceType.device:
             # call the function from the GPU estimator
+            if GlobalSettings().accelerator_active:
+                logger.info(f"cuML: Performing {func_name} in GPU")
             return gpu_func(self, *args, **kwargs)
 
         # CPU case
@@ -708,6 +739,7 @@ class UniversalBase(Base):
             # get the function from the GPU estimator
             cpu_func = getattr(self._cpu_model, func_name)
             # call the function from the GPU estimator
+            logger.info(f"cuML: Performing {func_name} in CPU")
             res = cpu_func(*args, **kwargs)
 
             # CPU training
@@ -725,3 +757,38 @@ class UniversalBase(Base):
 
             # return function result
             return res
+
+    def _dispatch_selector(self, func_name, *args, **kwargs):
+        """
+        """
+        # if not using accelerator, then return global device
+        if not hasattr(self, "_gpuaccel"):
+            return cuml.global_settings.device_type
+
+        # if using accelerator and doing inference, always use GPU
+        elif func_name not in ['fit', 'fit_transform', 'fit_predict']:
+            device_type = DeviceType.device
+
+        # otherwise we select CPU when _gpuaccel is off
+        elif not self._gpuaccel:
+            device_type = DeviceType.host
+        else:
+            if not self._should_dispatch_cpu(func_name, *args, **kwargs):
+                device_type = DeviceType.device
+            else:
+                device_type = DeviceType.host
+
+        return device_type
+
+    def _should_dispatch_cpu(self, func_name, *args, **kwargs):
+        """
+        This method is meant to do checks of data sizes and other things
+        at fit and other method call time, to decide where to disptach
+        a function. For hyperparameters of the estimator,
+        see the method _hyperparam_translator.
+        Each estimator inheritting from UniversalBase can override this
+        method to have custom rules of when to dispatch to CPU depending
+        on the data passed to fit/predict...
+        """
+
+        return False
