@@ -18,8 +18,8 @@
 #include <cuml/metrics/metrics.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance_types.hpp>
 
+#include <cuvs/distance/distance.hpp>
 #include <cuvs/stats/silhouette_score.hpp>
 
 namespace ML {
@@ -34,7 +34,7 @@ float silhouette_score(const raft::handle_t& handle,
                        int n_labels,
                        float* scores,
                        int chunk,
-                       raft::distance::DistanceType metric)
+                       cuvs::distance::DistanceType metric)
 {
   std::optional<raft::device_vector_view<float, int64_t>> silhouette_score_per_sample;
   if (scores != NULL) {
@@ -48,7 +48,7 @@ float silhouette_score(const raft::handle_t& handle,
     silhouette_score_per_sample,
     n_labels,
     chunk,
-    static_cast<cuvs::distance::DistanceType>(metric));
+    metric);
 }
 }  // namespace Batched
 }  // namespace Metrics
