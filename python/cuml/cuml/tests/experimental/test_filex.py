@@ -751,7 +751,7 @@ def test_predict_per_tree(
             xgboost_params=xgboost_params,
         )
         fm = ForestInference.load(model_path, output_class=True)
-        tl_model = treelite.Model.from_xgboost(bst)
+        tl_model = treelite.frontend.from_xgboost(bst)
         pred_per_tree_tl = treelite.gtil.predict_per_tree(tl_model, X)
 
     with using_device_type(infer_device):
