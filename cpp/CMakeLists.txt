@@ -222,12 +222,10 @@ rapids_cmake_install_lib_dir(lib_dir)
 
 # Not using rapids-cmake since we never want to find, always download.
 CPMAddPackage(
-  NAME rapids_logger GITHUB_REPOSITORY vyasr/rmm GIT_SHALLOW TRUE SOURCE_SUBDIR rapids_logger
-  GIT_TAG feat/logger
+  NAME rapids_logger GITHUB_REPOSITORY rapidsai/rapids-logger GIT_SHALLOW TRUE GIT_TAG 14bb233d2420f7187a690f0bb528ec0420c70d48
 )
 rapids_make_logger(
-    ML VISIBILITY_MACRO "__attribute__((visibility(\"default\")))" EXPORT_SET cuml-exports LOGGER_HEADER_DIR include/cuml/common/ LOGGER_MACRO_PREFIX CUML LOGGER_TARGET cuml_logger
-  SUPPORTS_LOGGING
+  ML EXPORT_SET cuml-exports LOGGER_HEADER_DIR include/cuml/common/ LOGGER_MACRO_PREFIX CUML LOGGER_TARGET cuml_logger
 )
 
 if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
