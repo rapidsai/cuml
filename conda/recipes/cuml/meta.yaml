@@ -92,7 +92,7 @@ requirements:
     - pylibraft ={{ minor_version }}
     - python x.x
     - raft-dask ={{ minor_version }}
-    - rapids-dask-dependency ={{ minor_version }}
+    - rapids-dask-dependency ==24.12.00a8
     - treelite {{ treelite_version }}
 
 tests:
