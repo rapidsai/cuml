@@ -556,8 +556,7 @@ def test_sparse_from_dense(fit_intercept, reg_dtype, n_classes, client):
     assert lr.index_dtype == _convert_index
 
 
-# @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("dtype", [np.float32])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_sparse_nlp20news(dtype, nlp_20news, client):
 
     X, y = nlp_20news
@@ -685,7 +684,9 @@ def standardize_dataset(X_train, X_test, fit_intercept):
     return (X_train_scaled, X_test_scaled, scaler)
 
 
-def adjust_model_for_comparison(coef_, intercept_, fit_intercept, scaler):
+def adjust_standardization_model_for_comparison(
+    coef_, intercept_, fit_intercept, scaler
+):
     # This function is for testing standardization.
     # It converts the coef_ and intercept_ of Dask Cuml to align wih scikit-learn for comparison.
     coef_ = coef_ if isinstance(coef_, np.ndarray) else coef_.to_numpy()
@@ -812,7 +813,10 @@ def test_standardization_on_scaled_dataset(
     )
 
     # assert equal the accuracy and the model
-    mgon_coef_origin, mgon_intercept_origin = adjust_model_for_comparison(
+    (
+        mgon_coef_origin,
+        mgon_intercept_origin,
+    ) = adjust_standardization_model_for_comparison(
         mgon.coef_, mgon.intercept_, fit_intercept, scaler
     )
 
@@ -921,7 +925,10 @@ def test_standardization_example(fit_intercept, reg_dtype, client):
     lr_on = cumlLBFGS_dask(standardization=True, verbose=True, **est_params)
     lr_on.fit(X_df, y_df)
 
-    lron_coef_origin, lron_intercept_origin = adjust_model_for_comparison(
+    (
+        lron_coef_origin,
+        lron_intercept_origin,
+    ) = adjust_standardization_model_for_comparison(
         lr_on.coef_, lr_on.intercept_, fit_intercept, scaler
     )
 
@@ -1061,7 +1068,10 @@ def test_standardization_sparse(
     lr_on = cumlLBFGS_dask(standardization=True, verbose=True, **est_params)
     lr_on.fit(X_da, y_da)
 
-    lron_coef_origin, lron_intercept_origin = adjust_model_for_comparison(
+    (
+        lron_coef_origin,
+        lron_intercept_origin,
+    ) = adjust_standardization_model_for_comparison(
         lr_on.coef_, lr_on.intercept_, fit_intercept, scaler
     )
 
@@ -1144,7 +1154,7 @@ def test_sparse_all_zeroes(
         mg_coef = mg.coef_
         mg_intercept = mg.intercept_
     else:
-        mg_coef, mg_intercept = adjust_model_for_comparison(
+        mg_coef, mg_intercept = adjust_standardization_model_for_comparison(
             mg.coef_, mg.intercept_, fit_intercept, scaler
         )
 
