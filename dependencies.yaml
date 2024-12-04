@@ -523,6 +523,7 @@ dependencies:
           - pytest-xdist
           - seaborn
           - *scikit_learn
+          - &xgboost xgboost>=2.1.0
           - statsmodels
           - umap-learn==0.5.6
           - pynndescent
@@ -537,4 +538,4 @@ dependencies:
           - pandas
           - *scikit_learn
           - seaborn
-          - xgboost
+          - *xgboost
