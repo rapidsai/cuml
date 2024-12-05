@@ -391,6 +391,7 @@ struct dense_forest<dense_node<real_t>> : forest<real_t> {
   {
     this->init_common(h, cat_sets, vector_leaf, params);
     if (this->algo_ == algo_t::NAIVE) this->algo_ = algo_t::BATCH_TREE_REORG;
+    if (this->algo_ == algo_t::BATCH_TREE_REORG) { this->algo_ = algo_t::TREE_REORG; }
 
     int num_nodes = forest_num_nodes(this->num_trees_, this->depth_);
     nodes_.resize(num_nodes, h.get_stream());
