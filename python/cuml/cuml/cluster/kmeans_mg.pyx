@@ -130,8 +130,7 @@ class KMeansMG(KMeans):
 
         cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
 
-        if not hasattr(self, "_seed"):
-            self._seed = check_random_seed(self.random_state)
+        self._seed = check_random_seed(self.random_state)
 
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
             self.cluster_centers_ = CumlArray.zeros(shape=(self.n_clusters,

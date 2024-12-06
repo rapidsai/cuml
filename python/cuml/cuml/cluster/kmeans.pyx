@@ -307,10 +307,7 @@ class KMeans(UniversalBase,
                                                   else None),
                                 check_dtype=check_dtype)
 
-        # XXX Should deriving a seed from a random state be idempotent? Should repeated
-        # XXX calls of `fit` create new seeds or not?
-        if not hasattr(self, "_seed"):
-            self._seed = check_random_seed(self.random_state)
+        self._seed = check_random_seed(self.random_state)
 
         IF GPUBUILD == 1:
 
