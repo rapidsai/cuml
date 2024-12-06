@@ -36,6 +36,7 @@ IF GPUBUILD == 1:
     from cuml.metrics.distance_type cimport DistanceType
     from cuml.cluster.kmeans_utils cimport params as KMeansParams
     from cuml.cluster.kmeans_utils cimport KMeansPlusPlus, Random, Array
+    from cuml.internals.logger cimport level_enum
 
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -205,7 +206,11 @@ class KMeans(UniversalBase,
             params.init = self._params_init
             params.max_iter = <int>self.max_iter
             params.tol = <double>self.tol
-            params.verbosity = <int>self.verbose
+            breakpoint()
+            # TODO: This params object inherits from a cuvs type that still uses raft's
+            # integer-based legacy logging. Once raft's logger is also converted to
+            # using rapids-logger we will instead need to translate between enums here.
+            params.verbosity = <int> self.verbose
             params.rng_state.seed = self.random_state
             params.metric = DistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
             params.batch_samples = <int>self.max_samples_per_batch

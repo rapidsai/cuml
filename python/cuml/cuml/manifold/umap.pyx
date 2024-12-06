@@ -469,7 +469,7 @@ class UMAP(UniversalBase,
             umap_params.repulsion_strength = <float> cls.repulsion_strength
             umap_params.negative_sample_rate = <int> cls.negative_sample_rate
             umap_params.transform_queue_size = <int> cls.transform_queue_size
-            umap_params.verbosity = <int> cls.verbose
+            umap_params.verbosity = cls.verbose
             umap_params.a = <float> cls.a
             umap_params.b = <float> cls.b
             if cls.init == "spectral":

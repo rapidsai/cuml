@@ -31,7 +31,8 @@ from cuml.internals.base import UniversalBase
 from pylibraft.common.handle cimport handle_t
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
-import cuml.internals.logger as logger
+from cuml.internals import logger
+from cuml.internals cimport logger
 
 
 from cuml.internals.array import CumlArray
@@ -82,7 +83,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         float pre_momentum,
         float post_momentum,
         long long random_state,
-        int verbosity,
+        logger.level_enum verbosity,
         TSNE_INIT init,
         bool square_distances,
         DistanceType metric,
@@ -511,7 +512,7 @@ class TSNE(UniversalBase,
             self.pre_learning_rate = max(n / 3.0, 1)
             self.post_learning_rate = self.pre_learning_rate
             self.early_exaggeration = 24.0 if n > 10000 else 12.0
-            if logger.should_log_for(logger.level_debug):
+            if logger.should_log_for(logger.level_enum.debug):
                 logger.debug("New n_neighbors = {}, learning_rate = {}, "
                              "exaggeration = {}"
                              .format(self.n_neighbors, self.pre_learning_rate,
@@ -615,7 +616,7 @@ class TSNE(UniversalBase,
         params.pre_momentum = <float> self.pre_momentum
         params.post_momentum = <float> self.post_momentum
         params.random_state = <long long> seed
-        params.verbosity = <int> self.verbose
+        params.verbosity = self.verbose
         params.square_distances = <bool> self.square_distances
         params.algorithm = algo
 

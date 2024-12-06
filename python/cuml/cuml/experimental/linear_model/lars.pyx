@@ -23,7 +23,8 @@ from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 cp = gpu_only_import('cupy')
-import cuml.internals.logger as logger
+from cuml.internals import logger
+from cuml.internals cimport logger
 import cuml.internals
 
 from libcpp cimport nullptr
@@ -43,7 +44,7 @@ cdef extern from "cuml/solvers/lars.hpp" namespace "ML::Solver::Lars":
         const handle_t& handle, math_t* X, int n_rows, int n_cols,
         const math_t* y, math_t* beta, int* active_idx, math_t* alphas,
         int* n_active, math_t* Gram, int max_iter, math_t* coef_path,
-        int verbosity, int ld_X, int ld_G, math_t epsilon) except +
+        logger.level_enum verbosity, int ld_X, int ld_G, math_t epsilon) except +
 
     cdef void larsPredict[math_t](
         const handle_t& handle, const math_t* X, int n_rows, int n_cols,
@@ -270,13 +271,13 @@ class Lars(Base, RegressorMixin):
             larsFit(handle_[0], <float*> X_ptr, n_rows, <int> self.n_cols,
                     <float*> y_ptr, <float*> beta_ptr, <int*> active_idx_ptr,
                     <float*> alphas_ptr, &n_active, <float*> Gram_ptr,
-                    max_iter, <float*> coef_path_ptr, <int> self.verbose, ld_X,
+                    max_iter, <float*> coef_path_ptr, self.verbose, ld_X,
                     ld_G, <float> self.eps)
         else:
             larsFit(handle_[0], <double*> X_ptr, n_rows, <int> self.n_cols,
                     <double*> y_ptr, <double*> beta_ptr, <int*> active_idx_ptr,
                     <double*> alphas_ptr, &n_active, <double*> Gram_ptr,
-                    max_iter, <double*> coef_path_ptr, <int> self.verbose,
+                    max_iter, <double*> coef_path_ptr, self.verbose,
                     ld_X, ld_G, <double> self.eps)
         self.n_active = n_active
         self.n_iter_ = n_active

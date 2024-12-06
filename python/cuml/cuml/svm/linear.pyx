@@ -30,6 +30,7 @@ from cuml.internals.base_helpers import BaseMetaClass
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+from cuml.internals.logger cimport level_enum
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array
@@ -69,7 +70,7 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM" nogil:
         int max_iter
         int linesearch_max_iter
         int lbfgs_memory
-        int verbose
+        level_enum verbose
         double C
         double grad_tol
         double change_tol

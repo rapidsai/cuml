@@ -226,11 +226,11 @@ class Base(TagsMixin,
             # 0 is most logging, and logging decreases from there.
             # So if the user passes an int value for logging, we convert it.
             if verbose is True:
-                self.verbose = logger.level_debug
+                self.verbose = logger.level_enum.debug
             elif verbose is False:
-                self.verbose = logger.level_info
+                self.verbose = logger.level_enum.info
             else:
-                self.verbose = verbose
+                self.verbose = logger.level_enum(verbose)
         ELSE:
             self.verbose = verbose
 

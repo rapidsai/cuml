@@ -29,6 +29,7 @@ from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.logger cimport level_enum
 
 
 IF GPUBUILD == 1:
@@ -57,7 +58,7 @@ IF GPUBUILD == 1:
                       float* sample_weight,
                       size_t max_mbytes_per_batch,
                       EpsNnMethod eps_nn_method,
-                      int verbosity,
+                      level_enum verbosity,
                       bool opg) except +
 
         cdef void fit(handle_t& handle,
@@ -72,7 +73,7 @@ IF GPUBUILD == 1:
                       double* sample_weight,
                       size_t max_mbytes_per_batch,
                       EpsNnMethod eps_nn_method,
-                      int verbosity,
+                      level_enum verbosity,
                       bool opg) except +
 
         cdef void fit(handle_t& handle,
@@ -87,7 +88,7 @@ IF GPUBUILD == 1:
                       float* sample_weight,
                       size_t max_mbytes_per_batch,
                       EpsNnMethod eps_nn_method,
-                      int verbosity,
+                      level_enum verbosity,
                       bool opg) except +
 
         cdef void fit(handle_t& handle,
@@ -102,7 +103,7 @@ IF GPUBUILD == 1:
                       double* sample_weight,
                       size_t max_mbytes_per_batch,
                       EpsNnMethod eps_nn_method,
-                      int verbosity,
+                      level_enum verbosity,
                       bool opg) except +
 
 
@@ -360,7 +361,7 @@ class DBSCAN(UniversalBase,
                         <float*> sample_weight_ptr,
                         <size_t>self.max_mbytes_per_batch,
                         <EpsNnMethod> algorithm,
-                        <int> self.verbose,
+                        <level_enum> self.verbose,
                         <bool> opg)
                 else:
                     fit(handle_[0],
@@ -375,7 +376,7 @@ class DBSCAN(UniversalBase,
                         <float*> sample_weight_ptr,
                         <size_t>self.max_mbytes_per_batch,
                         <EpsNnMethod> algorithm,
-                        <int> self.verbose,
+                        <level_enum> self.verbose,
                         <bool> opg)
 
             else:
@@ -392,7 +393,7 @@ class DBSCAN(UniversalBase,
                         <double*> sample_weight_ptr,
                         <size_t> self.max_mbytes_per_batch,
                         <EpsNnMethod> algorithm,
-                        <int> self.verbose,
+                        <level_enum> self.verbose,
                         <bool> opg)
                 else:
                     fit(handle_[0],
@@ -407,7 +408,7 @@ class DBSCAN(UniversalBase,
                         <double*> sample_weight_ptr,
                         <size_t> self.max_mbytes_per_batch,
                         <EpsNnMethod> algorithm,
-                        <int> self.verbose,
+                        <level_enum> self.verbose,
                         <bool> opg)
 
             # make sure that the `fit` is complete before the following

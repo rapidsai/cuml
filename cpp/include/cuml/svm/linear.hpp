@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <cuml/common/logger.hpp>
+
 #include <raft/core/handle.hpp>
 
 namespace ML {

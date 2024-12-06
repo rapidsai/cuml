@@ -34,6 +34,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.common import input_to_cuml_array
 
+from cuml.internals.logger cimport level_enum
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.ensemble.randomforest_common import _obtain_fil_model
 from cuml.ensemble.randomforest_shared cimport *
@@ -61,7 +62,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   int*,
                   int,
                   RF_params,
-                  int) except +
+                  level_enum) except +
 
     cdef void fit(handle_t& handle,
                   RandomForestMetaData[double, int]*,
@@ -71,7 +72,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   int*,
                   int,
                   RF_params,
-                  int) except +
+                  level_enum) except +
 
     cdef void predict(handle_t& handle,
                       RandomForestMetaData[float, int] *,
@@ -79,7 +80,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       int,
                       int,
                       int*,
-                      bool) except +
+                      level_enum) except +
 
     cdef void predict(handle_t& handle,
                       RandomForestMetaData[double, int]*,
@@ -87,21 +88,21 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       int,
                       int,
                       int*,
-                      bool) except +
+                      level_enum) except +
 
     cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[float, int]*,
                           int*,
                           int,
                           int*,
-                          bool) except +
+                          level_enum) except +
 
     cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[double, int]*,
                           int*,
                           int,
                           int*,
-                          bool) except +
+                          level_enum) except +
 
 
 class RandomForestClassifier(BaseRandomForestModel,
@@ -476,7 +477,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                 <int*> y_ptr,
                 <int> self.num_classes,
                 rf_params,
-                <int> self.verbose)
+                <level_enum> self.verbose)
 
         elif self.dtype == np.float64:
             rf_params64 = rf_params
@@ -488,7 +489,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                 <int*> y_ptr,
                 <int> self.num_classes,
                 rf_params64,
-                <int> self.verbose)
+                <level_enum> self.verbose)
 
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
@@ -528,7 +529,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                     <int> n_rows,
                     <int> n_cols,
                     <int*> preds_ptr,
-                    <int> self.verbose)
+                    <level_enum> self.verbose)
 
         elif self.dtype == np.float64:
             predict(handle_[0],
@@ -537,7 +538,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                     <int> n_rows,
                     <int> n_cols,
                     <int*> preds_ptr,
-                    <int> self.verbose)
+                    <level_enum> self.verbose)
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
                             " but input of type '%s' passed."
@@ -765,14 +766,14 @@ class RandomForestClassifier(BaseRandomForestModel,
                                <int*> y_ptr,
                                <int> n_rows,
                                <int*> preds_ptr,
-                               <int> self.verbose)
+                               <level_enum> self.verbose)
         elif self.dtype == np.float64:
             self.stats = score(handle_[0],
                                rf_forest64,
                                <int*> y_ptr,
                                <int> n_rows,
                                <int*> preds_ptr,
-                               <int> self.verbose)
+                               <level_enum> self.verbose)
         else:
             raise TypeError("supports only np.float32 and np.float64 input,"
                             " but input of type '%s' passed."
