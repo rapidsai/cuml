@@ -37,7 +37,6 @@ IF GPUBUILD == 1:
     from cuml.metrics.distance_type cimport DistanceType
     from cuml.cluster.kmeans_utils cimport params as KMeansParams
     from cuml.cluster.kmeans_utils cimport KMeansPlusPlus, Random, Array
-    from cuml.cluster.kmeans_utils cimport DistanceType as CuvsDistanceType
 
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -212,7 +211,7 @@ class KMeans(UniversalBase,
             # so we need to pass a dummy value here. Its value does not matter as the
             # seed is only used during fitting
             params.rng_state.seed = getattr(self, "_seed", 0)
-            params.metric = CuvsDistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
+            params.metric = DistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
             params.batch_samples = <int>self.max_samples_per_batch
             params.oversampling_factor = <double>self.oversampling_factor
             params.n_init = <int>self.n_init
@@ -617,7 +616,7 @@ class KMeans(UniversalBase,
             cdef KMeansParams* params = \
                 <KMeansParams*><size_t>self._get_kmeans_params()
 
-            params.metric = CuvsDistanceType.L2Expanded
+            params.metric = DistanceType.L2Expanded
 
             int_dtype = np.int32 if self.labels_.dtype == np.int32 else np.int64
 

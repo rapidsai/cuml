@@ -319,7 +319,7 @@ class TrustworthinessScoreTest : public ::testing::Test {
     raft::update_device(d_X_embedded.data(), X_embedded.data(), X_embedded.size(), stream);
 
     // euclidean test
-    score = trustworthiness_score<float, raft::distance::DistanceType::L2SqrtUnexpanded>(
+    score = trustworthiness_score<float, cuvs::distance::DistanceType::L2SqrtUnexpanded>(
       h, d_X.data(), d_X_embedded.data(), 50, 30, 8, 5);
   }
 
