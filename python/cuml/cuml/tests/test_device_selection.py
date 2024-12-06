@@ -1063,7 +1063,10 @@ def test_svc_methods(
         decision_function_shape=decision_function_shape,
     )
     ref_model.fit(X_train, y_train)
-    ref_output = ref_model.predict(X_test)
+    if probability:
+        ref_output = ref_model.predict_proba(X_test)
+    else:
+        ref_output = ref_model.predict(X_test)
 
     model = SVC(
         probability=probability,
@@ -1072,10 +1075,21 @@ def test_svc_methods(
     with using_device_type(train_device):
         model.fit(X_train, y_train)
     with using_device_type(infer_device):
-        output = model.predict(X_test)
+        if probability:
+            output = model.predict_proba(X_test)
+        else:
+            output = model.predict(X_test)
 
-    correct_percentage = (ref_output == output).sum() / ref_output.size
-    assert correct_percentage > 0.9
+    if probability:
+        eps = 0.25
+        mismatches = (
+            (output <= ref_output - eps) | (output >= ref_output + eps)
+        ).sum()
+        outlier_percentage = mismatches / ref_output.size
+        assert outlier_percentage < 0.03
+    else:
+        correct_percentage = (ref_output == output).sum() / ref_output.size
+        assert correct_percentage > 0.9
 
 
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])

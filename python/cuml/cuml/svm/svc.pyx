@@ -69,6 +69,8 @@ class cpuModelSVC(skSVC):
                     estimator = OneVsRestClassifier(skSVC(**params))
                 elif self.decision_function_shape == 'ovo':
                     estimator = OneVsOneClassifier(skSVC(**params))
+                else:
+                    raise ValueError
 
             self.prob_svc = CalibratedClassifierCV(estimator,
                                                    cv=5,
@@ -82,6 +84,8 @@ class cpuModelSVC(skSVC):
                 self.multi_class_model = OneVsRestClassifier(skSVC(**params))
             elif self.decision_function_shape == 'ovo':
                 self.multi_class_model = OneVsOneClassifier(skSVC(**params))
+            else:
+                raise ValueError
             self.multi_class_model.fit(X, y)
 
     def predict(self, X):
@@ -91,6 +95,14 @@ class cpuModelSVC(skSVC):
             return super().predict(X)
         else:
             return self.multi_class_model.predict(X)
+
+    def predict_proba(self, X):
+        if self.probability:
+            return self.prob_svc.predict_proba(X)
+        elif self.n_classes_ == 2:
+            return super().predict_proba(X)
+        else:
+            return self.multi_class_model.predict_proba(X)
 
 
 if has_sklearn():
@@ -485,7 +497,6 @@ class SVC(SVMBase,
 
         params = self.get_params()
         strategy = params.pop('decision_function_shape', 'ovo')
-
         self.multiclass_svc = MulticlassClassifier(
             estimator=SVC(**params), handle=self.handle, verbose=self.verbose,
             output_type=self.output_type, strategy=strategy)
@@ -537,6 +548,8 @@ class SVC(SVMBase,
                 estimator = OneVsRestClassifier(SVC(**params))
             elif self.decision_function_shape == 'ovo':
                 estimator = OneVsOneClassifier(SVC(**params))
+            else:
+                raise ValueError
 
         self.prob_svc = CalibratedClassifierCV(estimator,
                                                cv=5,
@@ -793,8 +806,7 @@ class SVC(SVMBase,
     @classmethod
     def _get_param_names(cls):
         params = super()._get_param_names() + \
-            ["probability", "random_state", "class_weight",
-             "decision_function_shape"]
+            ["probability", "random_state", "class_weight", "decision_function_shape"]
 
         # Ignore "epsilon" since its not used in the constructor
         if ("epsilon" in params):
@@ -810,6 +822,7 @@ class SVC(SVMBase,
         self.target_dtype = np.int64
         self.probability = self._cpu_model.probability
         self.n_classes_ = self._cpu_model.n_classes_
+        self.decision_function_shape = self._cpu_model.decision_function_shape
 
         def turn_cpu_into_gpu(cpu_est, params):
             gpu_est = SVC(**params)
@@ -883,6 +896,8 @@ class SVC(SVMBase,
                         elif self.decision_function_shape == 'ovo':
                             gpu_est = OneVsOneClassifier(SVC)
                             gpu_est.pairwise_indices_ = None
+                        else:
+                            raise ValueError
                         gpu_est.classes_ = classes
                         estimators = cpu_est.estimators_
                         gpu_est.estimators_ = [turn_cpu_into_gpu(est, params) for est in estimators]
@@ -920,9 +935,12 @@ class SVC(SVMBase,
                     self.multiclass_svc.multiclass_estimator.label_binarizer_.fit(self._cpu_model.classes_)
                 elif strategy == 'ovo':
                     self.multiclass_svc.multiclass_estimator.pairwise_indices_ = None
+                else:
+                    raise ValueError
 
     def gpu_to_cpu(self):
         self._cpu_model.n_classes_ = self.n_classes_
+        self._cpu_model.decision_function_shape = self.decision_function_shape
 
         def turn_gpu_into_cpu(gpu_est, params):
             cpu_est = skSVC(**params)
@@ -957,6 +975,8 @@ class SVC(SVMBase,
                         elif self.decision_function_shape == 'ovo':
                             cpu_est = OneVsOneClassifier(skSVC)
                             cpu_est.pairwise_indices_ = None
+                        else:
+                            raise ValueError
                         cpu_est.classes_ = classes
                         estimators = gpu_est.estimators_
                         cpu_est.estimators_ = [turn_gpu_into_cpu(est, params) for est in estimators]
@@ -986,6 +1006,8 @@ class SVC(SVMBase,
             elif self.decision_function_shape == 'ovo':
                 self._cpu_model.multi_class_model = OneVsOneClassifier(skSVC)
                 self._cpu_model.multi_class_model.pairwise_indices_ = None
+            else:
+                raise ValueError
             self._cpu_model.multi_class_model.classes_ = classes
 
             params = self.get_params()
