@@ -146,9 +146,8 @@ class Base(TagsMixin,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -208,7 +207,7 @@ class Base(TagsMixin,
 
     def __init__(self, *,
                  handle=None,
-                 verbose=False,
+                 verbose=logger.level_enum.info,
                  output_type=None,
                  output_mem_type=None):
         """
@@ -222,15 +221,7 @@ class Base(TagsMixin,
             self.handle = None
 
         IF GPUBUILD == 1:
-            # Internally, self.verbose follows the spdlog/c++ standard of
-            # 0 is most logging, and logging decreases from there.
-            # So if the user passes an int value for logging, we convert it.
-            if verbose is True:
-                self.verbose = logger.level_enum.debug
-            elif verbose is False:
-                self.verbose = logger.level_enum.info
-            else:
-                self.verbose = logger.level_enum(verbose)
+            self.verbose = logger.level_enum(verbose)
         ELSE:
             self.verbose = verbose
 

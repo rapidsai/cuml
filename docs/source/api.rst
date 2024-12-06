@@ -91,25 +91,25 @@ they are:
      - cuml.common.logger value
      - Verbosity level
    * - 0
-     - cuml.common.logger.level_off
+     - cuml.common.logger.level_enum.off
      - Disables all log messages
    * - 1
-     - cuml.common.logger.level_critical
+     - cuml.common.logger.level_enum.critical
      - Enables only critical messages
    * - 2
-     - cuml.common.logger.level_error
+     - cuml.common.logger.level_enum.error
      - Enables all messages up to and including errors.
    * - 3
-     - cuml.common.logger.level_warn
+     - cuml.common.logger.level_enum.warn
      - Enables all messages up to and including warnings.
    * - 4 or False
-     - cuml.common.logger.level_info
+     - cuml.common.logger.level_enum.info
      - Enables all messages up to and including information messages.
    * - 5 or True
-     - cuml.common.logger.level_debug
+     - cuml.common.logger.level_enum.debug
      - Enables all messages up to and including debug messages.
    * - 6
-     - cuml.common.logger.level_trace
+     - cuml.common.logger.level_enum.trace
      - Enables all messages up to and including trace messages.
 
 

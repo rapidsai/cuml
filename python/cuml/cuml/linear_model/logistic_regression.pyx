@@ -141,9 +141,8 @@ class LogisticRegression(UniversalBase,
     linesearch_max_iter : int (default = 50)
         Max number of linesearch iterations per outer iteration used in the
         lbfgs and owl QN solvers.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
     l1_ratio : float or None, optional (default=None)
         The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`
     solver : 'qn' (default='qn')
@@ -277,7 +276,7 @@ class LogisticRegression(UniversalBase,
             handle=self.handle,
         )
 
-        if logger.should_log_for(logger.level_debug):
+        if logger.should_log_for(logger.level_enum.debug):
             self.verb_prefix = "CY::"
             logger.debug(self.verb_prefix + "Estimator parameters:")
             logger.debug(pprint.pformat(self.__dict__))
@@ -353,24 +352,24 @@ class LogisticRegression(UniversalBase,
         else:
             loss = "sigmoid"
 
-        if logger.should_log_for(logger.level_debug):
+        if logger.should_log_for(logger.level_enum.debug):
             logger.debug(self.verb_prefix + "Setting loss to " + str(loss))
 
         self.solver_model.loss = loss
 
-        if logger.should_log_for(logger.level_debug):
+        if logger.should_log_for(logger.level_enum.debug):
             logger.debug(self.verb_prefix + "Calling QN fit " + str(loss))
 
         self.solver_model.fit(X, y_m, sample_weight=sample_weight,
                               convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array
-        if logger.should_log_for(logger.level_debug):
+        if logger.should_log_for(logger.level_enum.debug):
             logger.debug(
                 self.verb_prefix + "Setting coefficients " + str(loss)
             )
 
-        if logger.should_log_for(logger.level_trace):
+        if logger.should_log_for(logger.level_enum.trace):
             with using_output_type("cupy"):
                 logger.trace(self.verb_prefix + "Coefficients: " +
                              str(self.solver_model.coef_))

@@ -70,10 +70,10 @@ def set_level(level):
 
         # regular usage of setting a logging level for all subsequent logs
         # in this case, it will enable all logs upto and including `info()`
-        logger.set_level(logger.level_info)
+        logger.set_level(logger.level_enum.info)
 
         # in case one wants to temporarily set the log level for a code block
-        with logger.set_level(logger.level_debug) as _:
+        with logger.set_level(logger.level_enum.debug) as _:
             logger.debug("Hello world!")
 
     Parameters
@@ -161,7 +161,7 @@ def should_log_for(level):
 
     .. code-block:: python
 
-        if logger.should_log_for(level_info):
+        if logger.should_log_for(level_enum.info):
             # which could waste precious CPU cycles
             my_message = construct_message()
             logger.info(my_message)
@@ -169,8 +169,7 @@ def should_log_for(level):
     Parameters
     ----------
     level : level_enum
-        Logging level to be set. \
-        It must be one of cuml.common.logger.level_*
+        Logging level to be set.
     """
     IF GPUBUILD == 1:
         return default_logger().should_log(level)
@@ -182,11 +181,12 @@ def _log(level_enum lvl, msg, default_func):
 
     Parameters
     ----------
-    lvl : int
-        Logging level to be set. \
-        It must be one of cuml.common.logger.level_*
+    lvl : level_enum
+        Logging level to be set.
     msg : str
         Message to be logged.
+    default_func : function
+        Default logging function to be used if GPU build is disabled.
     """
     IF GPUBUILD == 1:
         cdef string s = msg.encode("UTF-8")
