@@ -166,7 +166,7 @@ void postprocess_labels(int n_rows,
     labels[i] = reverse_map[prev];
     CUML_LOG_DEBUG("Mapping %d back to %d", prev, labels[i]);
   }
-  CUML_LOG_DEBUG("Finished postrocessing labels");
+  CUML_LOG_DEBUG("Finished postprocessing labels");
 }
 
 /**
