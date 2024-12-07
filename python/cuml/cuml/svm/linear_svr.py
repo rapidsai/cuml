@@ -76,9 +76,8 @@ class LinearSVR(LinearSVM, RegressorMixin):
             } (default = {LinearSVM_defaults.lbfgs_memory})
         Number of vectors approximating the hessian for the underlying QN
         solver (l-bfgs).
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
     C : {LinearSVM_defaults.C.__class__.__name__ \
             } (default = {LinearSVM_defaults.C})
         The constant scaling factor of the loss term in the target formula

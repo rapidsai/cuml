@@ -28,6 +28,7 @@ from cuml.internals.base import Base
 from cuml.internals.array import CumlArray
 from cuml.common.exceptions import NotFittedError
 import cuml.internals
+from cuml.internals import logger
 
 from cython.operator cimport dereference as deref
 
@@ -70,7 +71,7 @@ class BaseRandomForestModel(Base):
     def __init__(self, *, split_criterion, n_streams=4, n_estimators=100,
                  max_depth=16, handle=None, max_features='sqrt', n_bins=128,
                  bootstrap=True,
-                 verbose=False, min_samples_leaf=1, min_samples_split=2,
+                 verbose=logger.level_enum.info, min_samples_leaf=1, min_samples_split=2,
                  max_samples=1.0, max_leaves=-1, accuracy_metric=None,
                  dtype=None, output_type=None, min_weight_fraction_leaf=None,
                  n_jobs=None, max_leaf_nodes=None, min_impurity_decrease=0.0,
