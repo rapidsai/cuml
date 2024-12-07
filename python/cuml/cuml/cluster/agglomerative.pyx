@@ -25,6 +25,7 @@ np = cpu_only_import('numpy')
 
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+from cuml.internals import logger
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
@@ -96,9 +97,8 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
     n_clusters : int (default = 2)
         The number of clusters to find.
     affinity : str, default='euclidean'
@@ -150,7 +150,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
     children_ = CumlArrayDescriptor()
 
     def __init__(self, *, n_clusters=2, affinity="deprecated", metric=None,
-                 linkage="single", handle=None, verbose=False,
+                 linkage="single", handle=None, verbose=logger.level_enum.info,
                  connectivity='knn', n_neighbors=10, output_type=None):
 
         super().__init__(handle=handle,

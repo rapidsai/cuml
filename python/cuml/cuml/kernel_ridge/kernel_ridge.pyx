@@ -24,6 +24,7 @@ from cupyx import lapack, geterr, seterr
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base
 from cuml.internals.mixins import RegressorMixin
+from cuml.internals import logger
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
 
@@ -153,9 +154,8 @@ class KernelRidge(Base, RegressorMixin):
         users can run different models concurrently in different streams
         by creating handles in several streams.
         If it is None, a new one is created.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
 
     Attributes
     ----------
@@ -215,7 +215,7 @@ class KernelRidge(Base, RegressorMixin):
         kernel_params=None,
         output_type=None,
         handle=None,
-        verbose=False
+        verbose=logger.level_enum.info
     ):
         super().__init__(handle=handle, verbose=verbose,
                          output_type=output_type)

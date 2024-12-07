@@ -19,6 +19,7 @@ from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import SyncFitMixinLinearModel
 from raft_dask.common.comms import get_raft_comm_state
 from dask.distributed import get_worker
+from cuml.internals import logger
 
 
 class Ridge(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
@@ -68,7 +69,9 @@ class Ridge(BaseEstimator, SyncFitMixinLinearModel, DelayedPredictionMixin):
 
     """
 
-    def __init__(self, *, client=None, verbose=False, **kwargs):
+    def __init__(
+        self, *, client=None, verbose=logger.level_enum.info, **kwargs
+    ):
         super().__init__(client=client, verbose=verbose, **kwargs)
 
         self.coef_ = None

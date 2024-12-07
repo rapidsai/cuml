@@ -19,6 +19,7 @@ from cuml.dask.decomposition.base import DecompositionSyncFitMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedInverseTransformMixin
+from cuml.internals import logger
 
 
 class TruncatedSVD(

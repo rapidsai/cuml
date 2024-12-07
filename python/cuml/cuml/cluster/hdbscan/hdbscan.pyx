@@ -25,6 +25,7 @@ from warnings import warn
 
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
+from cuml.internals import logger
 from cuml.common.doc_utils import generate_docstring
 
 from cuml.common import input_to_cuml_array
@@ -350,9 +351,8 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
     alpha : float, optional (default=1.0)
         A distance scaling parameter as used in robust single linkage.
 
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
 
     min_cluster_size : int, optional (default = 5)
         The minimum number of samples in a group for that group to be
@@ -511,7 +511,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
                  allow_single_cluster=False,
                  gen_min_span_tree=False,
                  handle=None,
-                 verbose=False,
+                 verbose=logger.level_enum.info,
                  connectivity='knn',
                  output_type=None,
                  prediction_data=False):

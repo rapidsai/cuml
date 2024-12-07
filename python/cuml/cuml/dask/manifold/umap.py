@@ -15,6 +15,7 @@
 
 from cuml.dask.common.base import BaseEstimator, DelayedTransformMixin
 from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.internals import logger
 
 
 class UMAP(BaseEstimator, DelayedTransformMixin):

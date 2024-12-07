@@ -16,6 +16,7 @@
 
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals import logger
 
 
 class Lasso(ElasticNet):
@@ -116,9 +117,8 @@ class Lasso(ElasticNet):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
 
     Attributes
     ----------
@@ -148,7 +148,7 @@ class Lasso(ElasticNet):
         selection="cyclic",
         handle=None,
         output_type=None,
-        verbose=False,
+        verbose=logger.level_enum.info,
     ):
         # Lasso is just a special case of ElasticNet
         super().__init__(

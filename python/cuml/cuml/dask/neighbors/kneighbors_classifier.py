@@ -28,6 +28,7 @@ from dask.distributed import get_worker
 import dask.array as da
 from uuid import uuid1
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals import logger
 
 np = cpu_only_import("numpy")
 pd = cpu_only_import("pandas")
@@ -65,7 +66,12 @@ class KNeighborsClassifier(NearestNeighbors):
     """
 
     def __init__(
-        self, *, client=None, streams_per_handle=0, verbose=False, **kwargs
+        self,
+        *,
+        client=None,
+        streams_per_handle=0,
+        verbose=logger.level_enum.info,
+        **kwargs,
     ):
         super().__init__(client=client, verbose=verbose, **kwargs)
         self.streams_per_handle = streams_per_handle

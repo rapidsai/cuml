@@ -166,9 +166,8 @@ class TSNE(UniversalBase,
         'chebyshev', 'cosine', 'correlation']
     init : str 'random' or 'pca' (default 'random')
         Currently supports random or pca initialization.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
     random_state : int (default None)
         Setting this can make repeated runs look more similar. Note, however,
         that this highly parallelized t-SNE implementation is not completely
@@ -290,7 +289,7 @@ class TSNE(UniversalBase,
                  metric='euclidean',
                  metric_params=None,
                  init='random',
-                 verbose=False,
+                 verbose=logger.level_enum.info,
                  random_state=None,
                  method='fft',
                  angle=0.5,

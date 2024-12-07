@@ -163,9 +163,8 @@ class SVMBase(Base,
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
         for nochange_steps consecutive steps, then we stop training.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
     epsilon: float (default = 0.1)
         epsilon parameter of the epsiron-SVR model. There is no penalty
         associated to points that are predicted within the epsilon-tube
@@ -224,7 +223,7 @@ class SVMBase(Base,
 
     def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=1024.0,
-                 max_iter=-1, nochange_steps=1000, verbose=False,
+                 max_iter=-1, nochange_steps=1000, verbose=logger.level_enum.info,
                  epsilon=0.1, output_type=None):
         super().__init__(handle=handle,
                          verbose=verbose,

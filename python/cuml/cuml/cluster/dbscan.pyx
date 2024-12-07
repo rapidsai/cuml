@@ -23,6 +23,7 @@ cp = gpu_only_import('cupy')
 
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
+from cuml.internals import logger
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.mixins import ClusterMixin
@@ -169,9 +170,8 @@ class DBSCAN(UniversalBase,
         due to numerical rounding.
     algorithm: {'brute', 'rbc'}, default = 'brute'
         The algorithm to be used by for nearest neighbor computations.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
     max_mbytes_per_batch : (optional) int64
         Calculate batch size using no more than this number of megabytes for
         the pairwise distance computation. This enables the trade-off between
@@ -246,7 +246,7 @@ class DBSCAN(UniversalBase,
                  min_samples=5,
                  metric='euclidean',
                  algorithm='brute',
-                 verbose=False,
+                 verbose=logger.level_enum.info,
                  max_mbytes_per_batch=None,
                  output_type=None,
                  calc_core_sample_indices=True):

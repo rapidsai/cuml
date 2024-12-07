@@ -35,6 +35,7 @@ from cuml.common.doc_utils import insert_into_docstring
 from cuml.common import input_to_cuml_array
 
 from cuml.internals.logger cimport level_enum
+from cuml.internals import logger
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.ensemble.randomforest_common import _obtain_fil_model
 from cuml.ensemble.randomforest_shared cimport *
@@ -220,9 +221,8 @@ class RandomForestClassifier(BaseRandomForestModel,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -247,7 +247,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html>`_.
     """
 
-    def __init__(self, *, split_criterion=0, handle=None, verbose=False,
+    def __init__(self, *, split_criterion=0, handle=None, verbose=logger.level_enum.info,
                  output_type=None,
                  **kwargs):
 

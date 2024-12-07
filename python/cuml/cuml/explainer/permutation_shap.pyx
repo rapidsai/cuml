@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ np = cpu_only_import('numpy')
 import time
 
 from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.internals import logger
 cu_df = gpu_only_import_from('cudf', 'DataFrame')
 from cuml.explainer.base import SHAPBase
 from cuml.explainer.common import get_cai_ptr
@@ -204,7 +205,7 @@ class PermutationExplainer(SHAPBase):
                  random_state=None,
                  dtype=None,
                  output_type=None,
-                 verbose=False,):
+                 verbose=logger.level_enum.info,):
         super().__init__(
             order='C',
             model=model,

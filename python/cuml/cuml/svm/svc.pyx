@@ -281,9 +281,8 @@ class SVC(SVMBase,
         Seed for random number generator (used only when probability = True).
         Currently this argument is not used and a warning will be printed if the
         user provides it.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
 
     Attributes
     ----------
@@ -333,7 +332,7 @@ class SVC(SVMBase,
 
     def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=1024.0,
-                 max_iter=-1, nochange_steps=1000, verbose=False,
+                 max_iter=-1, nochange_steps=1000, verbose=logger.level_enum.info,
                  output_type=None, probability=False, random_state=None,
                  class_weight=None, multiclass_strategy='ovo'):
         super().__init__(

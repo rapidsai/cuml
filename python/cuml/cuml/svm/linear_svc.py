@@ -82,9 +82,8 @@ class LinearSVC(LinearSVM, ClassifierMixin):
         Weights to modify the parameter C for class i to class_weight[i]*C. The
         string 'balanced' is also accepted, in which case ``class_weight[i] =
         n_samples / (n_classes * n_samples_of_class[i])``
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
     C : {LinearSVM_defaults.C.__class__.__name__ \
             } (default = {LinearSVM_defaults.C})
         The constant scaling factor of the loss term in the target formula

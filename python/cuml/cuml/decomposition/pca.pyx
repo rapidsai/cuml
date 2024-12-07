@@ -219,9 +219,8 @@ class PCA(UniversalBase,
     tol : float (default = 1e-7)
         Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
         but but will slow down the algorithm's convergence.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
     whiten : boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by
         the corresponding singular values then multiplying by sqrt(n_samples).
@@ -293,7 +292,7 @@ class PCA(UniversalBase,
     @device_interop_preparation
     def __init__(self, *, copy=True, handle=None, iterated_power=15,
                  n_components=None, random_state=None, svd_solver='auto',
-                 tol=1e-7, verbose=False, whiten=False,
+                 tol=1e-7, verbose=logger.level_enum.info, whiten=False,
                  output_type=None):
         # parameters
         super().__init__(handle=handle,

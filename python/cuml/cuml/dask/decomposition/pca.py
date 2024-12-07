@@ -20,6 +20,8 @@ from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedInverseTransformMixin
 
+from cuml.internals import logger
+
 
 class PCA(
     BaseDecomposition,
@@ -99,9 +101,8 @@ class PCA(
         'full': Run exact full SVD and select the components by postprocessing
         'jacobi': Iteratively compute SVD of the covariance matrix
         'auto': For compatibility with Scikit-learn. Alias for 'jacobi'.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
     whiten : boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by
         the corresponding singular values then multiplying by sqrt(n_samples).
@@ -145,7 +146,9 @@ class PCA(
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
-    def __init__(self, *, client=None, verbose=False, **kwargs):
+    def __init__(
+        self, *, client=None, verbose=logger.level_enum.info, **kwargs
+    ):
 
         super().__init__(
             model_func=PCA._create_pca,

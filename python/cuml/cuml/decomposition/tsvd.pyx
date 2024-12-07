@@ -31,6 +31,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals import logger
 
 
 IF GPUBUILD == 1:
@@ -192,9 +193,8 @@ class TruncatedSVD(UniversalBase,
     tol : float (default = 1e-7)
         Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
         but but will slow down the algorithm's convergence.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -250,7 +250,7 @@ class TruncatedSVD(UniversalBase,
     @device_interop_preparation
     def __init__(self, *, algorithm='full', handle=None, n_components=1,
                  n_iter=15, random_state=None, tol=1e-7,
-                 verbose=False, output_type=None):
+                 verbose=logger.level_enum.info, output_type=None):
         # params
         super().__init__(handle=handle,
                          verbose=verbose,

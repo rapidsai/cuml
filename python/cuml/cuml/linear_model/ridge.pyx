@@ -33,6 +33,7 @@ from cuml.linear_model.base import LinearPredictMixin
 from cuml.common import input_to_cuml_array
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals import logger
 
 
 IF GPUBUILD == 1:
@@ -159,9 +160,8 @@ class Ridge(UniversalBase,
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
 
     Attributes
     ----------
@@ -210,7 +210,7 @@ class Ridge(UniversalBase,
     @device_interop_preparation
     def __init__(self, *, alpha=1.0, solver='eig', fit_intercept=True,
                  normalize=False, handle=None, output_type=None,
-                 verbose=False):
+                 verbose=logger.level_enum.info):
         """
         Initializes the linear ridge regression class.
 

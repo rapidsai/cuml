@@ -41,6 +41,7 @@ from cuml.metrics.distance_type cimport DistanceType
 from cuml.metrics.raft_distance_type cimport DistanceType as RaftDistanceType
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals import logger
 
 from cuml.neighbors.ann cimport *
 
@@ -154,9 +155,8 @@ class NearestNeighbors(UniversalBase,
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -307,7 +307,7 @@ class NearestNeighbors(UniversalBase,
     @device_interop_preparation
     def __init__(self, *,
                  n_neighbors=5,
-                 verbose=False,
+                 verbose=logger.level_enum.info,
                  handle=None,
                  algorithm="auto",
                  metric="euclidean",
@@ -951,7 +951,7 @@ class NearestNeighbors(UniversalBase,
 
 
 @cuml.internals.api_return_sparse_array()
-def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
+def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=logger.level_enum.info,
                      handle=None, algorithm="brute", metric="euclidean", p=2,
                      include_self=False, metric_params=None):
     """
@@ -973,9 +973,8 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         connectivity matrix with ones and zeros, 'distance' returns the
         edges as the distances between points with the requested metric.
 
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
 
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for

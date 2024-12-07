@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import dask.array
 from toolz import first
 import dask
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals import logger
 
 cp = gpu_only_import("cupy")
 
@@ -82,7 +83,9 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
 
     """
 
-    def __init__(self, *, client=None, verbose=False, **kwargs):
+    def __init__(
+        self, *, client=None, verbose=logger.level_enum.info, **kwargs
+    ):
         """
         Create new multinomial distributed Naive Bayes classifier instance
 

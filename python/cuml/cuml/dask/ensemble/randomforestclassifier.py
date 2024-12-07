@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ from cuml.ensemble import RandomForestClassifier as cuRFC
 from cuml.dask.common.base import BaseEstimator
 from cuml.internals.safe_imports import gpu_only_import
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals import logger
 
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
@@ -163,7 +164,7 @@ class RandomForestClassifier(
         *,
         workers=None,
         client=None,
-        verbose=False,
+        verbose=logger.level_enum.info,
         n_estimators=100,
         random_state=None,
         ignore_empty_partitions=False,

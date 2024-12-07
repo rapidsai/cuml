@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,10 +26,18 @@ from dask.distributed import wait, get_worker
 
 from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.internals import logger
 
 
 class BaseDecomposition(BaseEstimator):
-    def __init__(self, *, model_func, client=None, verbose=False, **kwargs):
+    def __init__(
+        self,
+        *,
+        model_func,
+        client=None,
+        verbose=logger.level_enum.info,
+        **kwargs,
+    ):
         """
         Constructor for distributed decomposition model
         """

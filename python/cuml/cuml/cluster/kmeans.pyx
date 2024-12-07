@@ -36,7 +36,7 @@ IF GPUBUILD == 1:
     from cuml.metrics.distance_type cimport DistanceType
     from cuml.cluster.kmeans_utils cimport params as KMeansParams
     from cuml.cluster.kmeans_utils cimport KMeansPlusPlus, Random, Array
-    from cuml.internals.logger cimport level_enum
+    from cuml.internals import logger
 
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -125,9 +125,8 @@ class KMeans(UniversalBase,
         The more iterations of EM, the more accurate, but slower.
     tol : float64 (default = 1e-4)
         Stopping criterion when centroid means do not change much.
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
+    verbose : level_enum
+        Sets logging level. See :ref:`verbosity-levels` for more info.
     random_state : int (default = 1)
         If you want results to be the same when you restart Python, select a
         state.
@@ -206,7 +205,6 @@ class KMeans(UniversalBase,
             params.init = self._params_init
             params.max_iter = <int>self.max_iter
             params.tol = <double>self.tol
-            breakpoint()
             # TODO: This params object inherits from a cuvs type that still uses raft's
             # integer-based legacy logging. Once raft's logger is also converted to
             # using rapids-logger we will instead need to translate between enums here.
@@ -222,7 +220,7 @@ class KMeans(UniversalBase,
 
     @device_interop_preparation
     def __init__(self, *, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
-                 verbose=False, random_state=1,
+                 verbose=logger.level_enum.info, random_state=1,
                  init='scalable-k-means++', n_init=1, oversampling_factor=2.0,
                  max_samples_per_batch=1<<15, convert_dtype=True,
                  output_type=None):
