@@ -145,7 +145,7 @@ def set_pattern(pattern):
         # pattern.
         cdef string prev = default_pattern()
         # TODO: Need to cast to a Python string?
-        context_object = PatternSetter(prev.decode("UTF-8"))
+        context_object = PatternSetter(prev)
         cdef string s = pattern.encode("UTF-8")
         default_logger().set_pattern(s)
         return context_object
