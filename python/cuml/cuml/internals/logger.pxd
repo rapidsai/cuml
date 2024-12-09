@@ -17,9 +17,10 @@
 # distutils: language = c++
 
 
+from libcpp.string cimport string
+
 IF GPUBUILD == 1:
     import sys
-    from libcpp.string cimport string
     from libcpp.memory cimport make_shared, shared_ptr
     from libcpp cimport bool
 
@@ -74,6 +75,17 @@ IF GPUBUILD == 1:
 
     cdef void _log_callback(int lvl, const char * msg) with gil
     cdef void _log_flush() with gil
+
+ELSE:
+    cpdef enum class level_enum:
+        trace = 0
+        debug = 1
+        info = 2
+        warn = 3
+        error = 4
+        critical = 5
+        off = 6
+        n_levels = 7
 
 
 cdef class LogLevelSetter:
