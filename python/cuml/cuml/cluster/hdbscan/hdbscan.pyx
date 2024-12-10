@@ -1125,6 +1125,15 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
             self._cpu_to_gpu_interop_prepped = True
 
+    def gpu_to_cpu(self):
+        super().gpu_to_cpu()
+        self._cpu_model.condensed_tree_ = \
+            self.condensed_tree_._raw_tree
+        self._cpu_model.single_linkage_tree_ = \
+            self.single_linkage_tree_._linkage
+        self._cpu_model.minimum_spanning_tree_ = \
+            self.minimum_spanning_tree_._mst
+
     @classmethod
     def _get_param_names(cls):
         return super()._get_param_names() + [
