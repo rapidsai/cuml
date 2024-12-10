@@ -320,6 +320,4 @@ def flush():
 
 IF GPUBUILD == 1:
     # Set callback functions to handle redirected sys.stdout in Python
-    default_logger().sinks().push_back(<sink_ptr> make_shared[callback_sink_mt](_log_callback))
-    # TODO: Expose flushing in the callback sink.
-    # default_logger().setFlush(_log_flush)
+    default_logger().sinks().push_back(<sink_ptr> make_shared[callback_sink_mt](_log_callback, _log_flush))

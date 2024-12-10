@@ -67,11 +67,10 @@ IF GPUBUILD == 1:
         cdef string default_pattern() except +
 
         ctypedef void(*log_callback_t)(int, const char*) except * with gil
+        ctypedef void(*flush_callback_t)() except * with gil
 
         cdef cppclass callback_sink_mt:
-            # TODO: Expose flushing in C++
-            callback_sink_mt(log_callback_t callback) except +
-            # void setFlush(void(*flush)()) except +
+            callback_sink_mt(log_callback_t callback, flush_callback_t flush) except +
 
     cdef void _log_callback(int lvl, const char * msg) with gil
     cdef void _log_flush() with gil
