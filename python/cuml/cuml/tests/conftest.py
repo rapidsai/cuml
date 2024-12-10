@@ -24,6 +24,7 @@ from sklearn.datasets import fetch_20newsgroups
 from sklearn.utils import Bunch
 from datetime import timedelta
 from math import ceil
+import functools
 import hypothesis
 from cuml.internals.safe_imports import gpu_only_import
 import pytest
@@ -201,7 +202,7 @@ def pytest_pyfunc_call(pyfuncitem):
         pytest.skip("Test requires cudf.pandas accelerator")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def nlp_20news():
     try:
         twenty_train = fetch_20newsgroups(
@@ -217,7 +218,7 @@ def nlp_20news():
     return X, Y
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def housing_dataset():
     try:
         data = fetch_california_housing()
@@ -234,16 +235,24 @@ def housing_dataset():
     return X, y, feature_names
 
 
-@pytest.fixture(scope="module")
+@functools.cache
+def get_boston_data():
+    return pd.read_csv(
+        "https://raw.githubusercontent.com/scikit-learn/scikit-learn/baf828ca126bcb2c0ad813226963621cafe38adb/sklearn/datasets/data/boston_house_prices.csv",
+        header=None,
+    )  # noqa: E501
+
+
+@pytest.fixture(scope="session")
 def deprecated_boston_dataset():
     # dataset was removed in Scikit-learn 1.2, we should change it for a
     # better dataset for tests, see
     # https://github.com/rapidsai/cuml/issues/5158
 
-    df = pd.read_csv(
-        "https://raw.githubusercontent.com/scikit-learn/scikit-learn/baf828ca126bcb2c0ad813226963621cafe38adb/sklearn/datasets/data/boston_house_prices.csv",
-        header=None,
-    )  # noqa: E501
+    try:
+        df = get_boston_data()
+    except:  # noqa E722
+        pytest.xfail(reason="Error fetching Boston housing dataset")
     n_samples = int(df[0][0])
     data = df[list(np.arange(13))].values[2:n_samples].astype(np.float64)
     targets = df[13].values[2:n_samples].astype(np.float64)
@@ -255,7 +264,7 @@ def deprecated_boston_dataset():
 
 
 @pytest.fixture(
-    scope="module",
+    scope="session",
     params=["digits", "deprecated_boston_dataset", "diabetes", "cancer"],
 )
 def test_datasets(request, deprecated_boston_dataset):
@@ -302,7 +311,7 @@ def failure_logger(request):
         print(error_msg)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def exact_shap_regression_dataset():
     return create_synthetic_dataset(
         generator=skl_make_reg,
@@ -315,7 +324,7 @@ def exact_shap_regression_dataset():
     )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def exact_shap_classification_dataset():
     return create_synthetic_dataset(
         generator=skl_make_clas,
