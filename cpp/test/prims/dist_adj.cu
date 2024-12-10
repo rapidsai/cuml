@@ -106,7 +106,7 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
 
     naiveDistanceAdj(dist_ref.data(), x.data(), y.data(), m, n, k, threshold, isRowMajor);
     size_t worksize =
-      getWorkspaceSize<raft::distance::DistanceType::L2Expanded, DataType, DataType, bool>(
+      getWorkspaceSize<cuvs::distance::DistanceType::L2Expanded, DataType, DataType, bool>(
         x, y, m, n, k);
 
     rmm::device_uvector<char> workspace(worksize, stream);
@@ -114,7 +114,7 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
     auto fin_op = [threshold] __device__(DataType d_val, int g_d_idx) {
       return d_val <= threshold;
     };
-    distance<raft::distance::DistanceType::L2Expanded, DataType, DataType, bool>(x.data(),
+    distance<cuvs::distance::DistanceType::L2Expanded, DataType, DataType, bool>(x.data(),
                                                                                  y.data(),
                                                                                  dist.data(),
                                                                                  m,
