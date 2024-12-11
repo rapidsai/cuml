@@ -228,7 +228,9 @@ endif()
 include(cmake/thirdparty/get_cccl.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_raft.cmake)
-include(cmake/thirdparty/get_cuvs.cmake)
+if(LINK_CUVS)
+  include(cmake/thirdparty/get_cuvs.cmake)
+endif()
 
 if(LINK_TREELITE)
   include(cmake/thirdparty/get_treelite.cmake)
@@ -624,9 +626,10 @@ if(BUILD_CUML_CPP_LIBRARY)
   )
 
   target_link_libraries(${CUML_CPP_TARGET}
-    PUBLIC  rmm::rmm ${CUVS_LIB}
+    PUBLIC  rmm::rmm rmm::rmm_logger ${CUVS_LIB}
             ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs}
+                   rmm::rmm_logger_impl
   )
 
   # If we export the libdmlc symbols, they can lead to weird crashes with other

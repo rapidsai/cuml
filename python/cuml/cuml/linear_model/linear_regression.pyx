@@ -268,6 +268,12 @@ class LinearRegression(LinearPredictMixin,
     coef_ = CumlArrayDescriptor(order='F')
     intercept_ = CumlArrayDescriptor(order='F')
 
+    _hyperparam_interop_translator = {
+        "positive": {
+            True: "NotImplemented",
+        },
+    }
+
     @device_interop_preparation
     def __init__(self, *, algorithm='eig', fit_intercept=True,
                  copy_X=None, normalize=False,
@@ -491,8 +497,9 @@ class LinearRegression(LinearPredictMixin,
         # `predict` method
         return super()._predict(X, convert_dtype=convert_dtype)
 
-    def get_param_names(self):
-        return super().get_param_names() + \
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
             ['algorithm', 'fit_intercept', 'copy_X', 'normalize']
 
     def get_attr_names(self):

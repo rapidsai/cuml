@@ -189,6 +189,17 @@ class LogisticRegression(UniversalBase,
     class_weight = CumlArrayDescriptor(order='F')
     expl_spec_weights_ = CumlArrayDescriptor(order='F')
 
+    _hyperparam_interop_translator = {
+        "solver": {
+            "lbfgs": "qn",
+            "liblinear": "qn",
+            "newton-cg": "qn",
+            "newton-cholesky": "qn",
+            "sag": "qn",
+            "saga": "qn"
+        },
+    }
+
     @device_interop_preparation
     def __init__(
         self,
@@ -534,8 +545,9 @@ class LogisticRegression(UniversalBase,
     def intercept_(self, value):
         self.solver_model.intercept_ = value
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "penalty",
             "tol",
             "C",

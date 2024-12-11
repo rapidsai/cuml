@@ -234,7 +234,7 @@ class UMAP(UniversalBase,
         are returned when transform is called on the same data upon
         which the model was trained. This enables consistent
         behavior between calling ``model.fit_transform(X)`` and
-        calling ``model.fit(X).transform(X)``. Not that the CPU-based
+        calling ``model.fit(X).transform(X)``. Note that the CPU-based
         UMAP reference implementation does this by default. This
         feature is made optional in the GPU version due to the
         significant overhead in copying memory to the host for
@@ -909,8 +909,9 @@ class UMAP(UniversalBase,
 
         super().gpu_to_cpu()
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "n_neighbors",
             "n_components",
             "n_epochs",

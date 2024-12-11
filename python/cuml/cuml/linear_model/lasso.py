@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -165,5 +165,6 @@ class Lasso(ElasticNet):
             verbose=verbose,
         )
 
-    def get_param_names(self):
-        return list(set(super().get_param_names()) - {"l1_ratio"})
+    @classmethod
+    def _get_param_names(cls):
+        return list(set(super()._get_param_names()) - {"l1_ratio"})
