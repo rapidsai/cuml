@@ -121,6 +121,7 @@ classifiers = [
 
 [project.optional-dependencies]
 test = [
+    "certifi",
     "cython>=3.0.0",
     "dask-ml",
     "hdbscan>=0.8.39,<0.8.40",
