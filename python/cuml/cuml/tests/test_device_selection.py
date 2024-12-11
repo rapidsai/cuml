@@ -1013,6 +1013,7 @@ def test_dbscan_methods(train_device, infer_device):
         ref_output, output, X_train_blob, model.core_sample_indices_, eps
     )
 
+
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 def test_random_forest_methods(train_device, infer_device):
