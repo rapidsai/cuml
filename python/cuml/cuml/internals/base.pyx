@@ -37,6 +37,7 @@ except ImportError:
 
 import cuml
 import cuml.common
+from cuml.common.sparse_utils import is_sparse
 import cuml.internals.logger as logger
 import cuml.internals
 import cuml.internals.input_utils
@@ -47,6 +48,7 @@ from cuml.internals.input_utils import (
     determine_array_type,
     input_to_cuml_array,
     input_to_host_array,
+    input_to_host_array_with_sparse_support,
     is_array_like
 )
 from cuml.internals.memory_utils import determine_array_memtype
@@ -676,7 +678,9 @@ class UniversalBase(Base):
 
     def args_to_cpu(self, *args, **kwargs):
         # put all the args on host
-        new_args = tuple(input_to_host_array_with_sparse_support(arg) for arg in args)
+        new_args = tuple(
+            input_to_host_array_with_sparse_support(arg) for arg in args
+        )
 
         # put all the kwargs on host
         new_kwargs = dict()
