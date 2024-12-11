@@ -13,7 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import treelite.sklearn
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.api_decorators import device_interop_preparation
+from soupsieve.pretty import pretty
+
 cp = gpu_only_import('cupy')
 import math
 import warnings
@@ -24,7 +28,7 @@ np = cpu_only_import('numpy')
 from cuml import ForestInference
 from cuml.fil.fil import TreeliteModel
 from pylibraft.common.handle import Handle
-from cuml.internals.base import Base
+from cuml.internals.base import UniversalBase
 from cuml.internals.array import CumlArray
 from cuml.common.exceptions import NotFittedError
 import cuml.internals
@@ -39,7 +43,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.prims.label.classlabels import make_monotonic, check_labels
 
 
-class BaseRandomForestModel(Base):
+class BaseRandomForestModel(UniversalBase):
     _param_names = ['n_estimators', 'max_depth', 'handle',
                     'max_features', 'n_bins',
                     'split_criterion', 'min_samples_leaf',
@@ -67,6 +71,7 @@ class BaseRandomForestModel(Base):
 
     classes_ = CumlArrayDescriptor()
 
+    @device_interop_preparation
     def __init__(self, *, split_criterion, n_streams=4, n_estimators=100,
                  max_depth=16, handle=None, max_features='sqrt', n_bins=128,
                  bootstrap=True,
@@ -266,7 +271,18 @@ class BaseRandomForestModel(Base):
                         )
 
         self.treelite_handle = <uintptr_t> tl_handle
+        print(f"{self.treelite_handle=}", flush=True)
         return self.treelite_handle
+
+    def cpu_to_gpu(self):
+        print(f"!!! Called cpu_to_gpu() from derived type, {type(self._cpu_model)=}", flush=True)
+        tl_model = treelite.sklearn.import_model(self._cpu_model)
+        tl_model2 = TreeliteModel.from_treelite_bytes(tl_model.serialize_bytes())
+        self.treelite_serialized_model = treelite_serialize(tl_model2.handle)
+        self._obtain_treelite_handle()
+        self.dtype = np.float64
+        print(f"!!! {self.dtype=}", flush=True)
+        super().cpu_to_gpu()
 
     @cuml.internals.api_base_return_generic(set_output_type=True,
                                             set_n_features_in=True,

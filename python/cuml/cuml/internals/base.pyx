@@ -554,6 +554,7 @@ def _determine_stateless_output_type(output_type, input_obj):
 class UniversalBase(Base):
 
     def import_cpu_model(self):
+        print("!!! import_cpu_model", flush=True)
         # skip the CPU estimator has been imported already
         if hasattr(self, '_cpu_model_class'):
             return
@@ -576,6 +577,7 @@ class UniversalBase(Base):
         )
 
     def build_cpu_model(self):
+        print("!!! build_cpu_model", flush=True)
         if hasattr(self, '_cpu_model'):
             return
         filtered_kwargs = {}
@@ -589,8 +591,10 @@ class UniversalBase(Base):
 
         # initialize model
         self._cpu_model = self._cpu_model_class(**filtered_kwargs)
+        print(f"!!! {type(self._cpu_model)=}", flush=True)
 
     def gpu_to_cpu(self):
+        print("!!! gpu_to_cpu()", flush=True)
         # transfer attributes from GPU to CPU estimator
         for attr in self.get_attr_names():
             # check presence of attribute
@@ -633,6 +637,7 @@ class UniversalBase(Base):
                     setattr(self._cpu_model, attr, cu_attr)
 
     def cpu_to_gpu(self):
+        print("!!! cpu_to_gpu()", flush=True)
         # transfer attributes from CPU to GPU estimator
         with using_memory_type(
             (MemoryType.host, MemoryType.device)[
@@ -712,6 +717,7 @@ class UniversalBase(Base):
         # look for current device_type
         # device_type = cuml.global_settings.device_type
         device_type = self._dispatch_selector(func_name, *args, **kwargs)
+        print(f"!!! dispatch_func({func_name=}, {gpu_func=}, {device_type=})", flush=True)
 
         if device_type == DeviceType.device:
             # call the function from the GPU estimator

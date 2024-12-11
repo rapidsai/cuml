@@ -13,7 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 # distutils: language = c++
 
 from cuml.internals.safe_imports import (
@@ -249,6 +250,9 @@ class RandomForestRegressor(BaseRandomForestModel,
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html>`_.
     """
 
+    _cpu_estimator_import_path = 'sklearn.ensemble.RandomForestRegressor'
+
+    @device_interop_preparation
     def __init__(self, *,
                  split_criterion=2,
                  accuracy_metric='r2',
@@ -340,6 +344,9 @@ class RandomForestRegressor(BaseRandomForestModel,
         self.treelite_serialized_model = None
         self.n_cols = None
 
+    def get_attr_names(self):
+        return []
+
     def convert_to_treelite_model(self):
         """
         Converts the cuML RF model to a Treelite model
@@ -411,6 +418,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         domain="cuml_python")
     @generate_docstring()
     @cuml.internals.api_base_return_any_skipall
+    @enable_device_interop
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Regression on the input data
@@ -533,6 +541,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
+    @enable_device_interop
     def predict(self, X, predict_model="GPU",
                 algo='auto', convert_dtype=True,
                 fil_sparse_format='auto') -> CumlArray:
