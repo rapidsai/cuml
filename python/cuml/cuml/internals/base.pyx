@@ -687,7 +687,7 @@ class UniversalBase(Base):
         for kw, arg in kwargs.items():
             # if array-like, ensure array-like is on the host
             if is_array_like(arg):
-                new_kwargs[kw] = input_to_host_array_with_sparse_support(arg)[0]
+                new_kwargs[kw] = input_to_host_array_with_sparse_support(arg)
             # if Real or string, pass as is
             elif isinstance(arg, (numbers.Real, str)):
                 new_kwargs[kw] = arg
