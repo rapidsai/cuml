@@ -80,9 +80,13 @@ def _prep_training_data_sparse(c, X_train, y_train, partitions_per_worker):
     X_da = da.from_array(X_train, chunks=(target_chunk_sizes, -1))
     y_da = da.from_array(y_train, chunks=target_chunk_sizes)
 
-    X_da, y_da = dask_utils.persist_across_workers(
-        c, [X_da, y_da], workers=workers
-    )
+    # todo (dgd): Dask nightly packages break persisting
+    # sparse arrays before using them.
+    # https://github.com/rapidsai/cuml/issues/6168
+
+    # X_da, y_da = dask_utils.persist_across_workers(
+    #     c, [X_da, y_da], workers=workers
+    # )
     return X_da, y_da
 
 
