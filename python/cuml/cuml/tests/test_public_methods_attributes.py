@@ -172,7 +172,7 @@ def test_UniversalBase_estimators(estimator_name):
     # Call public methods and ensure they can be executed without errors
     for method_name in host_public_attrs:
         # Skip special methods and attributes
-        if method_name.startswith("__") or method_name.endswith("__"):
+        if method_name.startswith("__"):
             continue
 
         # Get the method from both estimators
