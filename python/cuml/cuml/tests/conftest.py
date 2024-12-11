@@ -24,6 +24,9 @@ from sklearn.datasets import fetch_20newsgroups
 from sklearn.utils import Bunch
 from datetime import timedelta
 from math import ceil
+from ssl import create_default_context
+from urllib.request import build_opener, HTTPSHandler, install_opener
+import certifi
 import functools
 import hypothesis
 from cuml.internals.safe_imports import gpu_only_import
@@ -42,6 +45,14 @@ cp = gpu_only_import("cupy")
 
 # Add the import here for any plugins that should be loaded EVERY TIME
 pytest_plugins = "cuml.testing.plugins.quick_run_plugin"
+
+
+# Install SSL certificates
+def pytest_sessionstart(session):
+    ssl_context = create_default_context(cafile=certifi.where())
+    https_handler = HTTPSHandler(context=ssl_context)
+    install_opener(build_opener(https_handler))
+
 
 CI = os.environ.get("CI") in ("true", "1")
 HYPOTHESIS_ENABLED = os.environ.get("HYPOTHESIS_ENABLED") in (
