@@ -326,6 +326,9 @@ class SVC(SVMBase,
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
         while ``'ovr'`` selects `OneVsRestClassifier
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html>`_
+
+        .. versionadded:: 25.02
+          The parameter `multiclass_strategy` was renamed to `decision_function_shape`.
     nochange_steps : int (default = 1000)
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
@@ -345,6 +348,14 @@ class SVC(SVMBase,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
+    multiclass_strategy
+        Multiclass classification strategy. ``'ovo'`` uses `OneVsOneClassifier
+        <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
+        while ``'ovr'`` selects `OneVsRestClassifier
+        <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html>`_
+
+        .. versionchanged:: 25.02
+            Renamed to `decision_function_shape`. Will be removed in later versions.
 
     Attributes
     ----------
@@ -402,7 +413,7 @@ class SVC(SVMBase,
                  max_iter=-1, nochange_steps=1000, verbose=False,
                  output_type=None, probability=False, random_state=None,
                  class_weight=None, decision_function_shape='ovo',
-                 multiclass_strategy=None):
+                 multiclass_strategy="warn"):
         super().__init__(
             handle=handle,
             C=C,
@@ -424,15 +435,8 @@ class SVC(SVMBase,
         self.class_weight = class_weight
         self.svmType = C_SVC
 
-        if multiclass_strategy:
-            decision_function_shape = multiclass_strategy
-            warnings.simplefilter(action="always", category=FutureWarning)
-            warnings.warn('Parameter "multiclass_strategy" has been'
-                          ' deprecated. Please use the'
-                          ' "decision_function_shape" parameter instead.',
-                          FutureWarning)
-
         self.decision_function_shape = decision_function_shape
+        self.multiclass_strategy = multiclass_strategy
 
     @property
     @cuml.internals.api_base_return_array_skipall
@@ -584,6 +588,12 @@ class SVC(SVMBase,
         Fit the model with X and y.
 
         """
+        if self.multiclass_strategy != "warn":
+            self.decision_function_shape = self.multiclass_strategy
+            warnings.warn('Parameter "multiclass_strategy" has been'
+                          ' deprecated. Please use the'
+                          ' "decision_function_shape" parameter instead.',
+                          FutureWarning)
 
         self.n_classes_ = self._get_num_classes(y)
 

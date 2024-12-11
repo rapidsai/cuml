@@ -146,7 +146,7 @@ def make_reg_dataset():
     )
 
 
-def make_class_dataset(n_classes):
+def make_classification_dataset(n_classes):
     X, y = make_classification(
         n_samples=2000,
         n_features=20,
@@ -181,10 +181,12 @@ def make_blob_dataset():
 
 
 X_train_reg, y_train_reg, X_test_reg = make_reg_dataset()
-X_train_class, y_train_class, X_test_class = make_class_dataset(2)
-X_train_multiclass, y_train_multiclass, X_test_multiclass = make_class_dataset(
-    5
-)
+X_train_class, y_train_class, X_test_class = make_classification_dataset(2)
+(
+    X_train_multiclass,
+    y_train_multiclass,
+    X_test_multiclass,
+) = make_classification_dataset(5)
 X_train_blob, y_train_blob, X_test_blob = make_blob_dataset()
 
 
