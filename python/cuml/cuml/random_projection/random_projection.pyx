@@ -29,7 +29,7 @@ from pylibraft.common.handle cimport *
 from cuml.common import input_to_cuml_array
 from cuml.internals.mixins import FMajorInputTagMixin
 
-from rmm._lib.cuda_stream_view cimport cuda_stream_view
+from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 
 cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
@@ -445,8 +445,9 @@ class GaussianRandomProjection(Base,
             dense_output=True,
             random_state=random_state)
 
-    def get_param_names(self):
-        return Base.get_param_names(self) + [
+    @classmethod
+    def _get_param_names(cls):
+        return Base._get_param_names() + [
             "n_components",
             "eps",
             "random_state"
@@ -589,8 +590,9 @@ class SparseRandomProjection(Base,
             dense_output=dense_output,
             random_state=random_state)
 
-    def get_param_names(self):
-        return Base.get_param_names(self) + [
+    @classmethod
+    def _get_param_names(cls):
+        return Base._get_param_names() + [
             "n_components",
             "density",
             "eps",

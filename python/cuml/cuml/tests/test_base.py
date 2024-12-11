@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ def test_base_class_usage():
     # Ensure base class returns the 3 main properties needed by all classes
     base = cuml.Base()
     base.handle.sync()
-    base_params = base.get_param_names()
+    base_params = base._get_param_names()
 
     assert "handle" in base_params
     assert "verbose" in base_params
@@ -160,10 +160,10 @@ def test_base_subclass_init_matches_docs(child_class: str):
 @pytest.mark.parametrize("child_class", list(all_base_children.keys()))
 # ignore ColumnTransformer init warning
 @pytest.mark.filterwarnings("ignore:Transformers are required")
-def test_base_children_get_param_names(child_class: str):
+def test_base_children__get_param_names(child_class: str):
     """
     This test ensures that the arguments in `Base.__init__` are available in
-    all derived classes `get_param_names`
+    all derived classes `_get_param_names`
     """
 
     klass = all_base_children[child_class]
@@ -183,9 +183,9 @@ def test_base_children_get_param_names(child_class: str):
         # Create an instance
         obj = klass(*bound.args, **bound.kwargs)
 
-        param_names = obj.get_param_names()
+        param_names = obj._get_param_names()
 
-        # Now ensure the base parameters are included in get_param_names
+        # Now ensure the base parameters are included in _get_param_names
         for name, param in sig.parameters.items():
             if param.name == "output_mem_type":
                 continue  # TODO(wphicks): Add this to all algos

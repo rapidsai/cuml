@@ -280,6 +280,16 @@ class PCA(UniversalBase,
     noise_variance_ = CumlArrayDescriptor(order='F')
     trans_input_ = CumlArrayDescriptor(order='F')
 
+    _hyperparam_interop_translator = {
+        "svd_solver": {
+            "arpack": "full",
+            "randomized": "full"
+        },
+        "iterated_power": {
+            "auto": 15,
+        },
+    }
+
     @device_interop_preparation
     def __init__(self, *, copy=True, handle=None, iterated_power=15,
                  n_components=None, random_state=None, svd_solver='auto',
@@ -725,8 +735,9 @@ class PCA(UniversalBase,
 
             return t_input_data
 
-    def get_param_names(self):
-        return super().get_param_names() + \
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
             ["copy", "iterated_power", "n_components", "svd_solver", "tol",
                 "whiten", "random_state"]
 

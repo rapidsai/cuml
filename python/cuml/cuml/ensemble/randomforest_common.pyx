@@ -382,8 +382,9 @@ class BaseRandomForestModel(Base):
             preds = tl_to_fil_model.predict(X)
         return preds
 
-    def get_param_names(self):
-        return super().get_param_names() + BaseRandomForestModel._param_names
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + BaseRandomForestModel._param_names
 
     def set_params(self, **params):
         self.treelite_serialized_model = None

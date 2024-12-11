@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ IF GPUBUILD == 1:
     from libc.stdlib cimport free
     from cython.operator cimport dereference as deref
     from cuml.metrics.distance_type cimport DistanceType
-    from rmm._lib.device_uvector cimport device_uvector
+    from rmm.librmm.device_uvector cimport device_uvector
     from pylibraft.common.handle import Handle
     from pylibraft.common.handle cimport handle_t
 
@@ -484,6 +484,19 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
     mst_src_ = CumlArrayDescriptor()
     mst_dst_ = CumlArrayDescriptor()
     mst_weights_ = CumlArrayDescriptor()
+
+    _hyperparam_interop_translator = {
+        "metric": {
+            "manhattan": "NotImplemented",
+            "chebyshev": "NotImplemented",
+            "minkowski": "NotImplemented",
+        },
+        "algorithm": {
+            "auto": "brute",
+            "ball_tree": "NotImplemented",
+            "kd_tree": "NotImplemented",
+        },
+    }
 
     @device_interop_preparation
     def __init__(self, *,
@@ -1112,8 +1125,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
             self._cpu_to_gpu_interop_prepped = True
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "metric",
             "min_cluster_size",
             "max_cluster_size",

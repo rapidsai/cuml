@@ -508,7 +508,8 @@ class TargetEncoder:
             return "numpy"
         return "cupy"
 
-    def get_param_names(self):
+    @classmethod
+    def _get_param_names(cls):
         return [
             "n_folds",
             "smooth",
@@ -521,7 +522,7 @@ class TargetEncoder:
         Returns a dict of all params owned by this class.
         """
         params = dict()
-        variables = self.get_param_names()
+        variables = self._get_param_names()
         for key in variables:
             var_value = getattr(self, key, None)
             params[key] = var_value
