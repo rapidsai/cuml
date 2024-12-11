@@ -30,6 +30,7 @@ from cuml.internals.safe_imports import gpu_only_import
 import pytest
 import os
 import subprocess
+import time
 import pandas as pd
 import cudf.pandas
 
@@ -237,10 +238,16 @@ def housing_dataset():
 
 @functools.cache
 def get_boston_data():
-    return pd.read_csv(
-        "https://raw.githubusercontent.com/scikit-learn/scikit-learn/baf828ca126bcb2c0ad813226963621cafe38adb/sklearn/datasets/data/boston_house_prices.csv",
-        header=None,
-    )  # noqa: E501
+    n_retries = 3
+    url = "https://raw.githubusercontent.com/scikit-learn/scikit-learn/baf828ca126bcb2c0ad813226963621cafe38adb/sklearn/datasets/data/boston_house_prices.csv"  # noqa: E501
+    for _ in range(n_retries):
+        try:
+            return pd.read_csv(url, header=None)
+        except Exception:
+            time.sleep(1)
+    raise RuntimeError(
+        f"Failed to download file from {url} after {n_retries} retries."
+    )
 
 
 @pytest.fixture(scope="session")
