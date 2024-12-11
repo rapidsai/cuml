@@ -66,14 +66,14 @@ files:
       - py_version
       - test_cuml
       - test_notebooks
-  py_build:
+  py_build_cuml:
     output: pyproject
     pyproject_dir: python/cuml
     extras:
       table: build-system
     includes:
       - rapids_build_backend
-  py_rapids_build:
+  py_rapids_build_cuml:
     output: pyproject
     pyproject_dir: python/cuml
     extras:
@@ -141,10 +141,10 @@ dependencies:
           - c-compiler
           - cxx-compiler
           - fmt>=11.0.2,<12
-          - libcumlprims==24.10.*
-          - libcuvs==24.10.*
-          - libraft-headers==24.10.*
-          - librmm==24.10.*
+          - libcumlprims==24.12.*
+          - libcuvs==24.12.*
+          - libraft-headers==24.12.*
+          - librmm==24.12.*
           - spdlog>=1.14.1,<1.15
     specific:
       - output_types: conda
@@ -183,9 +183,9 @@ dependencies:
           - &treelite treelite==4.3.0
       - output_types: conda
         packages:
-          - &cuvs_unsuffixed cuvs==24.10.*
-          - &pylibraft_unsuffixed pylibraft==24.10.*
-          - &rmm_unsuffixed rmm==24.10.*
+          - &cuvs_unsuffixed cuvs==24.12.*
+          - &pylibraft_unsuffixed pylibraft==24.12.*
+          - &rmm_unsuffixed rmm==24.12.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -198,11 +198,11 @@ dependencies:
           - matrix:
               cuda: "12.*"
             packages:
-              - cuda-python>=12.0,<13.0a0
+              - cuda-python>=12.0,<13.0a0,<=12.6.0
           - matrix:
               cuda: "11.*"
             packages:
-              - cuda-python>=11.7.1,<12.0a0
+              - cuda-python>=11.7.1,<12.0a0,<=11.8.3
           - matrix:
             packages:
               - cuda-python
@@ -212,16 +212,16 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - cuvs-cu12==24.10.*
-              - pylibraft-cu12==24.10.*
-              - rmm-cu12==24.10.*
+              - cuvs-cu12==24.12.*
+              - pylibraft-cu12==24.12.*
+              - rmm-cu12==24.12.*
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - cuvs-cu11==24.10.*
-              - pylibraft-cu11==24.10.*
-              - rmm-cu11==24.10.*
+              - cuvs-cu11==24.12.*
+              - pylibraft-cu11==24.12.*
+              - rmm-cu11==24.12.*
           - matrix:
             packages:
               - *cuvs_unsuffixed
@@ -232,7 +232,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - dask-cuda==24.10.*
+          - dask-cuda==24.12.*
           - joblib>=0.11
           - numba>=0.57
           - numpy>=1.23,<3.0a0
@@ -241,14 +241,14 @@ dependencies:
             # installation/run_constrained for conda)?
           - scipy>=1.8.0
           - packaging
-          - rapids-dask-dependency==24.10.*
+          - rapids-dask-dependency==24.12.*
           - *treelite
       - output_types: conda
         packages:
-          - &cudf_unsuffixed cudf==24.10.*
+          - &cudf_unsuffixed cudf==24.12.*
           - &cupy_unsuffixed cupy>=12.0.0
-          - &dask_cudf_unsuffixed dask-cudf==24.10.*
-          - &raft_dask_unsuffixed raft-dask==24.10.*
+          - &dask_cudf_unsuffixed dask-cudf==24.12.*
+          - &raft_dask_unsuffixed raft-dask==24.12.*
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -262,13 +262,13 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - cudf-cu12==24.10.*
+              - cudf-cu12==24.12.*
               - &cupy_pyproject_cu12 cupy-cuda12x>=12.0.0
-              - cuvs-cu12==24.10.*
-              - dask-cudf-cu12==24.10.*
-              - pylibraft-cu12==24.10.*
-              - raft-dask-cu12==24.10.*
-              - rmm-cu12==24.10.*
+              - cuvs-cu12==24.12.*
+              - dask-cudf-cu12==24.12.*
+              - pylibraft-cu12==24.12.*
+              - raft-dask-cu12==24.12.*
+              - rmm-cu12==24.12.*
           - matrix:
               cuda: "12.*"
               cuda_suffixed: "false"
@@ -286,13 +286,13 @@ dependencies:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages: &py_run_packages_cu11
-              - cudf-cu11==24.10.*
+              - cudf-cu11==24.12.*
               - &cupy_pyproject_cu11 cupy-cuda11x>=12.0.0
-              - cuvs-cu11==24.10.*
-              - dask-cudf-cu11==24.10.*
-              - pylibraft-cu11==24.10.*
-              - raft-dask-cu11==24.10.*
-              - rmm-cu11==24.10.*
+              - cuvs-cu11==24.12.*
+              - dask-cudf-cu11==24.12.*
+              - pylibraft-cu11==24.12.*
+              - raft-dask-cu11==24.12.*
+              - rmm-cu11==24.12.*
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "false"
@@ -463,7 +463,7 @@ dependencies:
           # https://github.com/pydata/pydata-sphinx-theme/issues/1539
           - pydata-sphinx-theme!=0.14.2
           - recommonmark
-          - &scikit_learn scikit-learn==1.5
+          - &scikit_learn scikit-learn==1.5.*
           - sphinx<6
           - sphinx-copybutton
           - sphinx-markdown-tables
@@ -493,14 +493,14 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - libcuml==24.10.*
-          - libcuml-tests==24.10.*
+          - libcuml==24.12.*
+          - libcuml-tests==24.12.*
   test_cuml:
     common:
       - output_types: conda
         packages:
-          - libcuml==24.10.*
-          - cuml==24.10.*
+          - libcuml==24.12.*
+          - cuml==24.12.*
   test_cpp:
     common:
       - output_types: conda
@@ -510,9 +510,10 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
+          - certifi
           - *cython
           - dask-ml
-          - hdbscan>=0.8.38,<0.8.39
+          - hdbscan>=0.8.39,<0.8.40
           - hypothesis>=6.0,<7
           - nltk
           - numpydoc
@@ -523,10 +524,10 @@ dependencies:
           - pytest-xdist
           - seaborn
           - *scikit_learn
+          - &xgboost xgboost>=2.1.0
           - statsmodels
           - umap-learn==0.5.6
           - pynndescent
-          - setuptools  # Needed on Python 3.12 for dask-glm, which requires pkg_resources but Python 3.12 doesn't have setuptools by default
   test_notebooks:
     common:
       - output_types: [conda, requirements]
@@ -538,4 +539,4 @@ dependencies:
           - pandas
           - *scikit_learn
           - seaborn
-          - xgboost
+          - *xgboost
