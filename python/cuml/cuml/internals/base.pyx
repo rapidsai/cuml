@@ -676,19 +676,21 @@ class UniversalBase(Base):
 
     def args_to_cpu(self, *args, **kwargs):
         # put all the args on host
-        new_args = tuple(input_to_host_array(arg)[0] for arg in args)
+        new_args = tuple(input_to_host_array_with_sparse_support(arg) for arg in args)
 
         # put all the kwargs on host
         new_kwargs = dict()
         for kw, arg in kwargs.items():
             # if array-like, ensure array-like is on the host
             if is_array_like(arg):
-                new_kwargs[kw] = input_to_host_array(arg)[0]
+                new_kwargs[kw] = input_to_host_array_with_sparse_support(arg)[0]
             # if Real or string, pass as is
             elif isinstance(arg, (numbers.Real, str)):
                 new_kwargs[kw] = arg
             else:
                 raise ValueError(f"Unable to process argument {kw}")
+
+        new_kwargs.pop("convert_dtype", None)
         return new_args, new_kwargs
 
     def dispatch_func(self, func_name, gpu_func, *args, **kwargs):
@@ -736,9 +738,9 @@ class UniversalBase(Base):
             # ensure args and kwargs are on the CPU
             args, kwargs = self.args_to_cpu(*args, **kwargs)
 
-            # get the function from the GPU estimator
+            # get the function from the CPU estimator
             cpu_func = getattr(self._cpu_model, func_name)
-            # call the function from the GPU estimator
+            # call the function from the CPU estimator
             logger.info(f"cuML: Performing {func_name} in CPU")
             res = cpu_func(*args, **kwargs)
 
@@ -761,17 +763,20 @@ class UniversalBase(Base):
     def _dispatch_selector(self, func_name, *args, **kwargs):
         """
         """
-        # if not using accelerator, then return global device
-
+        # check for sparse inputs and whether estimator supports them
         sparse_support = "sparse" in self._get_tags()["X_types_gpu"]
         if args and is_sparse(args[0]):
-            if GlobalSettings.accelerator_active:
-                device_type = DeviceType.host
+            if GlobalSettings().accelerator_active and not sparse_support:
+                logger.info(
+                    f"cuML: Estimator {self} does not support sparse inputs in GPU."
+                )
+                return DeviceType.host
             else:
                 raise NotImplementedError(
                     "Estimator does not support sparse inputs currently"
                 )
 
+        # if not using accelerator, then return global device
         if not hasattr(self, "_gpuaccel"):
             return cuml.global_settings.device_type
 
