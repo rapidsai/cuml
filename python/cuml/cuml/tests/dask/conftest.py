@@ -1,6 +1,9 @@
 # Copyright (c) 2020-2024, NVIDIA CORPORATION.
 
+import certifi
 import pytest
+from ssl import create_default_context
+from urllib.request import build_opener, HTTPSHandler, install_opener
 
 from dask_cuda import initialize
 from dask_cuda import LocalCUDACluster
@@ -10,6 +13,13 @@ from dask.distributed import Client
 enable_tcp_over_ucx = True
 enable_nvlink = False
 enable_infiniband = False
+
+
+# Install SSL certificates
+def pytest_sessionstart(session):
+    ssl_context = create_default_context(cafile=certifi.where())
+    https_handler = HTTPSHandler(context=ssl_context)
+    install_opener(build_opener(https_handler))
 
 
 @pytest.fixture(scope="module")

@@ -510,6 +510,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
+          - certifi
           - *cython
           - dask-ml
           - hdbscan>=0.8.39,<0.8.40
