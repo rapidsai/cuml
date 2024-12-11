@@ -161,6 +161,16 @@ void mean(const raft::handle_t& handle,
   auto stream  = handle.get_stream();
   auto& comm   = handle.get_comms();
 
+  if (X.nnz == 0) {
+    SimpleVec<T> meanVec(mean_vector, D);
+    meanVec.fill(0., stream);
+
+    // call allreduces on zeroes to sync with other GPUs to avoid hanging
+    comm.allreduce(mean_vector, mean_vector, D, raft::comms::op_t::SUM, stream);
+    comm.sync_stream(stream);
+    return;
+  }
+
   int chunk_size = 500000;  // split matrix by rows for better numeric precision
   rmm::device_uvector<I> buff_row_ids(chunk_size + 1, stream);
 
@@ -200,27 +210,24 @@ void mean_stddev(const raft::handle_t& handle,
   auto stream = handle.get_stream();
   int D       = X.n;
 
-  if (X.nnz == 0) {
-    SimpleVec<T> meanVec(mean_vector, D);
-    meanVec.fill(0., stream);
-
-    SimpleVec<T> stddevVec(stddev_vector, D);
-    stddevVec.fill(0., stream);
-    return;
-  }
-
   mean(handle, X, n_samples, mean_vector);
 
   // calculate stdev.S
-  rmm::device_uvector<T> X_values_squared(X.nnz, stream);
-  raft::copy(X_values_squared.data(), X.values, X.nnz, stream);
-  auto square_op = [] __device__(const T a) { return a * a; };
-  raft::linalg::unaryOp(X_values_squared.data(), X_values_squared.data(), X.nnz, square_op, stream);
 
-  auto X_squared =
-    SimpleSparseMat<T, I>(X_values_squared.data(), X.cols, X.row_ids, X.nnz, X.m, X.n);
+  if (X.nnz == 0) {
+    mean(handle, X, n_samples, stddev_vector);
+  } else {
+    rmm::device_uvector<T> X_values_squared(X.nnz, stream);
+    raft::copy(X_values_squared.data(), X.values, X.nnz, stream);
+    auto square_op = [] __device__(const T a) { return a * a; };
+    raft::linalg::unaryOp(
+      X_values_squared.data(), X_values_squared.data(), X.nnz, square_op, stream);
 
-  mean(handle, X_squared, n_samples, stddev_vector);
+    auto X_squared =
+      SimpleSparseMat<T, I>(X_values_squared.data(), X.cols, X.row_ids, X.nnz, X.m, X.n);
+
+    mean(handle, X_squared, n_samples, stddev_vector);
+  }
 
   T weight               = n_samples / T(n_samples - 1);
   auto submean_no_neg_op = [weight] __device__(const T a, const T b) -> T {
