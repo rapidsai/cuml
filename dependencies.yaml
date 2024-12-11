@@ -141,10 +141,10 @@ dependencies:
           - c-compiler
           - cxx-compiler
           - fmt>=11.0.2,<12
-          - libcumlprims==24.12.*,>=0.0.0a0
-          - libcuvs==24.12.*,>=0.0.0a0
-          - libraft-headers==24.12.*,>=0.0.0a0
-          - librmm==24.12.*,>=0.0.0a0
+          - libcumlprims==25.2.*,>=0.0.0a0
+          - libcuvs==25.2.*,>=0.0.0a0
+          - libraft-headers==25.2.*,>=0.0.0a0
+          - librmm==25.2.*,>=0.0.0a0
           - spdlog>=1.14.1,<1.15
     specific:
       - output_types: conda
@@ -183,9 +183,9 @@ dependencies:
           - &treelite treelite==4.3.0
       - output_types: conda
         packages:
-          - &cuvs_unsuffixed cuvs==24.12.*,>=0.0.0a0
-          - &pylibraft_unsuffixed pylibraft==24.12.*,>=0.0.0a0
-          - &rmm_unsuffixed rmm==24.12.*,>=0.0.0a0
+          - &cuvs_unsuffixed cuvs==25.2.*,>=0.0.0a0
+          - &pylibraft_unsuffixed pylibraft==25.2.*,>=0.0.0a0
+          - &rmm_unsuffixed rmm==25.2.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -198,11 +198,11 @@ dependencies:
           - matrix:
               cuda: "12.*"
             packages:
-              - cuda-python>=12.0,<13.0a0,<=12.6.0
+              - cuda-python>=12.6.2,<13.0a0
           - matrix:
               cuda: "11.*"
             packages:
-              - cuda-python>=11.7.1,<12.0a0,<=11.8.3
+              - cuda-python>=11.8.5,<12.0a0
           - matrix:
             packages:
               - cuda-python
@@ -212,16 +212,16 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - cuvs-cu12==24.12.*,>=0.0.0a0
-              - pylibraft-cu12==24.12.*,>=0.0.0a0
-              - rmm-cu12==24.12.*,>=0.0.0a0
+              - cuvs-cu12==25.2.*,>=0.0.0a0
+              - pylibraft-cu12==25.2.*,>=0.0.0a0
+              - rmm-cu12==25.2.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages:
-              - cuvs-cu11==24.12.*,>=0.0.0a0
-              - pylibraft-cu11==24.12.*,>=0.0.0a0
-              - rmm-cu11==24.12.*,>=0.0.0a0
+              - cuvs-cu11==25.2.*,>=0.0.0a0
+              - pylibraft-cu11==25.2.*,>=0.0.0a0
+              - rmm-cu11==25.2.*,>=0.0.0a0
           - matrix:
             packages:
               - *cuvs_unsuffixed
@@ -232,7 +232,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - dask-cuda==24.12.*,>=0.0.0a0
+          - dask-cuda==25.2.*,>=0.0.0a0
           - joblib>=0.11
           - numba>=0.57
           - numpy>=1.23,<3.0a0
@@ -241,14 +241,14 @@ dependencies:
             # installation/run_constrained for conda)?
           - scipy>=1.8.0
           - packaging
-          - rapids-dask-dependency==24.12.*,>=0.0.0a0
+          - rapids-dask-dependency==25.2.*,>=0.0.0a0
           - *treelite
       - output_types: conda
         packages:
-          - &cudf_unsuffixed cudf==24.12.*,>=0.0.0a0
+          - &cudf_unsuffixed cudf==25.2.*,>=0.0.0a0
           - &cupy_unsuffixed cupy>=12.0.0
-          - &dask_cudf_unsuffixed dask-cudf==24.12.*,>=0.0.0a0
-          - &raft_dask_unsuffixed raft-dask==24.12.*,>=0.0.0a0
+          - &dask_cudf_unsuffixed dask-cudf==25.2.*,>=0.0.0a0
+          - &raft_dask_unsuffixed raft-dask==25.2.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -262,13 +262,13 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - cudf-cu12==24.12.*,>=0.0.0a0
+              - cudf-cu12==25.2.*,>=0.0.0a0
               - &cupy_pyproject_cu12 cupy-cuda12x>=12.0.0
-              - cuvs-cu12==24.12.*,>=0.0.0a0
-              - dask-cudf-cu12==24.12.*,>=0.0.0a0
-              - pylibraft-cu12==24.12.*,>=0.0.0a0
-              - raft-dask-cu12==24.12.*,>=0.0.0a0
-              - rmm-cu12==24.12.*,>=0.0.0a0
+              - cuvs-cu12==25.2.*,>=0.0.0a0
+              - dask-cudf-cu12==25.2.*,>=0.0.0a0
+              - pylibraft-cu12==25.2.*,>=0.0.0a0
+              - raft-dask-cu12==25.2.*,>=0.0.0a0
+              - rmm-cu12==25.2.*,>=0.0.0a0
           - matrix:
               cuda: "12.*"
               cuda_suffixed: "false"
@@ -286,13 +286,13 @@ dependencies:
               cuda: "11.*"
               cuda_suffixed: "true"
             packages: &py_run_packages_cu11
-              - cudf-cu11==24.12.*,>=0.0.0a0
+              - cudf-cu11==25.2.*,>=0.0.0a0
               - &cupy_pyproject_cu11 cupy-cuda11x>=12.0.0
-              - cuvs-cu11==24.12.*,>=0.0.0a0
-              - dask-cudf-cu11==24.12.*,>=0.0.0a0
-              - pylibraft-cu11==24.12.*,>=0.0.0a0
-              - raft-dask-cu11==24.12.*,>=0.0.0a0
-              - rmm-cu11==24.12.*,>=0.0.0a0
+              - cuvs-cu11==25.2.*,>=0.0.0a0
+              - dask-cudf-cu11==25.2.*,>=0.0.0a0
+              - pylibraft-cu11==25.2.*,>=0.0.0a0
+              - raft-dask-cu11==25.2.*,>=0.0.0a0
+              - rmm-cu11==25.2.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "false"
@@ -493,14 +493,14 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - libcuml==24.12.*,>=0.0.0a0
-          - libcuml-tests==24.12.*,>=0.0.0a0
+          - libcuml==25.2.*,>=0.0.0a0
+          - libcuml-tests==25.2.*,>=0.0.0a0
   test_cuml:
     common:
       - output_types: conda
         packages:
-          - libcuml==24.12.*,>=0.0.0a0
-          - cuml==24.12.*,>=0.0.0a0
+          - libcuml==25.2.*,>=0.0.0a0
+          - cuml==25.2.*,>=0.0.0a0
   test_cpp:
     common:
       - output_types: conda
