@@ -22,7 +22,6 @@ from toolz import first
 
 from collections.abc import Sequence
 from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals import logger
 
 dcDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
 dcSeries = gpu_only_import_from("dask_cudf", "Series")
@@ -123,9 +122,7 @@ class LabelEncoder(
 
     """
 
-    def __init__(
-        self, *, client=None, verbose=logger.level_enum.info, **kwargs
-    ):
+    def __init__(self, *, client=None, verbose=False, **kwargs):
         super().__init__(client=client, verbose=verbose, **kwargs)
 
     def fit(self, y):

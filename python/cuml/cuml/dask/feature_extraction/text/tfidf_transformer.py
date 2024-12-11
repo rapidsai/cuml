@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@ from cuml.dask.common.func import reduce
 from cuml.dask.common.input_utils import DistributedDataHandler
 
 from cuml.feature_extraction.text import TfidfTransformer as s_TfidfTransformer
-from cuml.internals import logger
 
 
 class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
@@ -78,9 +77,7 @@ class TfidfTransformer(BaseEstimator, DelayedTransformMixin):
 
     """
 
-    def __init__(
-        self, *, client=None, verbose=logger.level_enum.info, **kwargs
-    ):
+    def __init__(self, *, client=None, verbose=False, **kwargs):
 
         """
         Create new  distributed TF-IDF transformer instance

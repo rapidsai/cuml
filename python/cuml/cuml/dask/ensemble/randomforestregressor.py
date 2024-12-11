@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.ensemble.base import BaseRandomForestModel
 from cuml.dask.common.base import BaseEstimator
-from cuml.internals import logger
 
 import dask
 
@@ -150,7 +149,7 @@ class RandomForestRegressor(
         *,
         workers=None,
         client=None,
-        verbose=logger.level_enum.info,
+        verbose=False,
         n_estimators=100,
         random_state=None,
         ignore_empty_partitions=False,

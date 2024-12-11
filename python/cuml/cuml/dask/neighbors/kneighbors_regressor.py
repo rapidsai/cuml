@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ from raft_dask.common.comms import get_raft_comm_state
 from cuml.dask.neighbors import NearestNeighbors
 from dask.distributed import get_worker
 import dask.array as da
-from cuml.internals import logger
 from uuid import uuid1
 
 
@@ -53,8 +52,9 @@ class KNeighborsRegressor(NearestNeighbors):
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     """
 
     def __init__(

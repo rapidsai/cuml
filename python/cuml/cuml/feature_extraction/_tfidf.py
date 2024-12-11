@@ -18,7 +18,6 @@ from cuml.internals.array import CumlArray
 from cuml.common.sparsefuncs import csr_diag_mul
 from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
 import cuml.internals
-from cuml.internals import logger
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.safe_imports import gpu_only_import
 
@@ -106,8 +105,9 @@ class TfidfTransformer(Base):
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -131,7 +131,7 @@ class TfidfTransformer(Base):
         smooth_idf=True,
         sublinear_tf=False,
         handle=None,
-        verbose=logger.level_enum.info,
+        verbose=False,
         output_type=None,
     ):
 

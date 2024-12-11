@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 from cuml.dask.solvers import CD
 from cuml.dask.common.base import BaseEstimator
-from cuml.internals import logger
 
 
 class Lasso(BaseEstimator):

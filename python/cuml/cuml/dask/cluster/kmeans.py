@@ -25,7 +25,6 @@ from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import BaseEstimator
 from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals import logger
 
 cp = gpu_only_import("cupy")
 
@@ -59,8 +58,9 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         The more iterations of EM, the more accurate, but slower.
     tol : float (default = 1e-4)
         Stopping criterion when centroid means do not change much.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     random_state : int (default = 1)
         If you want results to be the same when you restart Python,
         select a state.
@@ -93,9 +93,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
     """
 
-    def __init__(
-        self, *, client=None, verbose=logger.level_enum.info, **kwargs
-    ):
+    def __init__(self, *, client=None, verbose=False, **kwargs):
         super().__init__(client=client, verbose=verbose, **kwargs)
 
     @staticmethod

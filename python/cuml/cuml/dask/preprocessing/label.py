@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ from cuml.common import rmm_cupy_ary
 
 import dask
 from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals import logger
 
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")

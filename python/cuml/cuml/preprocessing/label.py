@@ -20,7 +20,6 @@ from cuml.common import CumlArray, has_scipy
 import cuml.internals
 from cuml import Base
 from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals import logger
 
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
@@ -102,8 +101,9 @@ class LabelBinarizer(Base):
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -156,7 +156,7 @@ class LabelBinarizer(Base):
         pos_label=1,
         sparse_output=False,
         handle=None,
-        verbose=logger.level_enum.info,
+        verbose=False,
         output_type=None,
     ):
         super().__init__(

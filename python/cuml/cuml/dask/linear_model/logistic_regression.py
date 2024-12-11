@@ -28,7 +28,6 @@ from raft_dask.common.comms import Comms
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals import logger
 
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")

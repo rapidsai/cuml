@@ -21,7 +21,6 @@ from cuml.internals.input_utils import input_to_cupy_array
 from cuml.common import input_to_cuml_array
 from cuml import Base
 from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals import logger
 import numbers
 
 from cuml.internals.safe_imports import gpu_only_import
@@ -80,8 +79,9 @@ class IncrementalPCA(PCA):
         `fit`. If `batch_size` is ``None``, then `batch_size`
         is inferred from the data and set to :py:`5 * n_features`, to provide a
         balance between approximation accuracy and memory consumption.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -203,7 +203,7 @@ class IncrementalPCA(PCA):
         whiten=False,
         copy=True,
         batch_size=None,
-        verbose=logger.level_enum.info,
+        verbose=False,
         output_type=None,
     ):
 

@@ -22,7 +22,6 @@ import inspect
 import pytest
 import cuml
 import cuml.internals.mixins as cumix
-from cuml.internals import logger
 from cuml.internals.safe_imports import gpu_only_import
 
 cp = gpu_only_import("cupy")
@@ -106,23 +105,17 @@ tags_mixins = {
 
 
 class dummy_regressor_estimator(Base, cumix.RegressorMixin):
-    def __init__(
-        self, *, handle=None, verbose=logger.level_enum.info, output_type=None
-    ):
+    def __init__(self, *, handle=None, verbose=False, output_type=None):
         super().__init__(handle=handle)
 
 
 class dummy_classifier_estimator(Base, cumix.ClassifierMixin):
-    def __init__(
-        self, *, handle=None, verbose=logger.level_enum.info, output_type=None
-    ):
+    def __init__(self, *, handle=None, verbose=False, output_type=None):
         super().__init__(handle=handle)
 
 
 class dummy_cluster_estimator(Base, cumix.ClusterMixin):
-    def __init__(
-        self, *, handle=None, verbose=logger.level_enum.info, output_type=None
-    ):
+    def __init__(self, *, handle=None, verbose=False, output_type=None):
         super().__init__(handle=handle)
 
 

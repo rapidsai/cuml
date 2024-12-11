@@ -18,7 +18,6 @@ import cuml.internals
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.import_utils import has_sklearn
-from cuml.internals import logger
 from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import (
@@ -76,8 +75,9 @@ class MulticlassClassifier(Base, ClassifierMixin):
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -103,7 +103,7 @@ class MulticlassClassifier(Base, ClassifierMixin):
         estimator,
         *,
         handle=None,
-        verbose=logger.level_enum.info,
+        verbose=False,
         output_type=None,
         strategy="ovr",
     ):
@@ -242,8 +242,9 @@ class OneVsRestClassifier(MulticlassClassifier):
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -254,12 +255,7 @@ class OneVsRestClassifier(MulticlassClassifier):
 
     @_deprecate_pos_args(version="21.06")
     def __init__(
-        self,
-        estimator,
-        *args,
-        handle=None,
-        verbose=logger.level_enum.info,
-        output_type=None,
+        self, estimator, *args, handle=None, verbose=False, output_type=None
     ):
         super().__init__(
             estimator,
@@ -321,8 +317,9 @@ class OneVsOneClassifier(MulticlassClassifier):
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -333,12 +330,7 @@ class OneVsOneClassifier(MulticlassClassifier):
 
     @_deprecate_pos_args(version="21.06")
     def __init__(
-        self,
-        estimator,
-        *args,
-        handle=None,
-        verbose=logger.level_enum.info,
-        output_type=None,
+        self, estimator, *args, handle=None, verbose=False, output_type=None
     ):
         super().__init__(
             estimator,

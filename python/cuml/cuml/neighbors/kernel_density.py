@@ -18,7 +18,6 @@ from cuml.common.exceptions import NotFittedError
 from cuml.internals.import_utils import has_scipy
 from cuml.metrics import pairwise_distances
 from cuml.internals.base import Base
-from cuml.internals import logger
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.safe_imports import gpu_only_import_from
@@ -184,8 +183,9 @@ class KernelDensity(Base):
         users can run different models concurrently in different streams
         by creating handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     Examples
     --------
@@ -210,7 +210,7 @@ class KernelDensity(Base):
         metric_params=None,
         output_type=None,
         handle=None,
-        verbose=logger.level_enum.info,
+        verbose=False,
     ):
         super(KernelDensity, self).__init__(
             verbose=verbose, handle=handle, output_type=output_type

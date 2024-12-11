@@ -23,7 +23,6 @@ from cuml.dask.common.base import DelayedTransformMixin
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import BaseEstimator
 from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals import logger
 
 np = cpu_only_import("numpy")
 
@@ -42,8 +41,9 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     ----------
     client : dask.distributed.Client
         Dask client to use
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be
         considered as an important core point (including the point itself).
@@ -74,9 +74,7 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     """
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
-        super().__init__(
-            client=client, verbose=logger.level_enum.info, **kwargs
-        )
+        super().__init__(client=client, verbose=verbose, **kwargs)
 
     @staticmethod
     @mnmg_import
