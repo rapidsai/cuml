@@ -284,8 +284,9 @@ class UMAP(UniversalBase,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -357,7 +358,7 @@ class UMAP(UniversalBase,
                  precomputed_knn=None,
                  callback=None,
                  handle=None,
-                 verbose=logger.level_enum.info,
+                 verbose=False,
                  build_algo="auto",
                  build_kwds=None,
                  output_type=None):

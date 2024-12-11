@@ -141,8 +141,9 @@ class LogisticRegression(UniversalBase,
     linesearch_max_iter : int (default = 50)
         Max number of linesearch iterations per outer iteration used in the
         lbfgs and owl QN solvers.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     l1_ratio : float or None, optional (default=None)
         The Elastic-Net mixing parameter, with `0 <= l1_ratio <= 1`
     solver : 'qn' (default='qn')
@@ -210,7 +211,7 @@ class LogisticRegression(UniversalBase,
         class_weight=None,
         max_iter=1000,
         linesearch_max_iter=50,
-        verbose=logger.level_enum.info,
+        verbose=False,
         l1_ratio=None,
         solver="qn",
         handle=None,

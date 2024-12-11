@@ -160,8 +160,9 @@ class SVR(SVMBase, RegressorMixin):
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
         for nochange_steps consecutive steps, then we stop training.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -231,7 +232,7 @@ class SVR(SVMBase, RegressorMixin):
     def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, epsilon=0.1,
                  cache_size=1024.0, max_iter=-1, nochange_steps=1000,
-                 verbose=logger.level_enum.info, output_type=None):
+                 verbose=False, output_type=None):
         super().__init__(
             handle=handle,
             C=C,

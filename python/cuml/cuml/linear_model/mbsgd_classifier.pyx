@@ -22,7 +22,6 @@ from cuml.internals.base import Base
 from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import FMajorInputTagMixin
-from cuml.internals import logger
 from cuml.solvers import SGD
 
 
@@ -144,8 +143,9 @@ class MBSGDClassifier(Base,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -163,7 +163,7 @@ class MBSGDClassifier(Base,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
-                 verbose=logger.level_enum.info, output_type=None):
+                 verbose=False, output_type=None):
         super().__init__(handle=handle,
                          verbose=verbose,
                          output_type=output_type)

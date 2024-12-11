@@ -27,7 +27,6 @@ from cuml.explainer.common import get_cai_ptr
 from cuml.explainer.common import model_func_call
 from cuml.linear_model import Lasso
 from cuml.linear_model import LinearRegression
-from cuml.internals import logger
 from functools import lru_cache
 from itertools import combinations
 from numbers import Number
@@ -198,7 +197,7 @@ class KernelExplainer(SHAPBase):
                  data,
                  nsamples='auto',
                  link='identity',
-                 verbose=logger.level_enum.info,
+                 verbose=False,
                  random_state=None,
                  is_gpu_model=None,
                  handle=None,

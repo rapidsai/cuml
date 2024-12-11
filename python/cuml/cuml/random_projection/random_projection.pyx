@@ -28,7 +28,6 @@ from cuml.internals.base import Base
 from pylibraft.common.handle cimport *
 from cuml.common import input_to_cuml_array
 from cuml.internals.mixins import FMajorInputTagMixin
-from cuml.internals import logger
 
 from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 
@@ -403,8 +402,9 @@ class GaussianRandomProjection(Base,
 
     random_state : int (default = None)
         Seed used to initialize random generator
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -429,7 +429,7 @@ class GaussianRandomProjection(Base,
     """
 
     def __init__(self, *, handle=None, n_components='auto', eps=0.1,
-                 random_state=None, verbose=logger.level_enum.info, output_type=None):
+                 random_state=None, verbose=False, output_type=None):
 
         Base.__init__(self,
                       handle=handle,
@@ -545,8 +545,9 @@ class SparseRandomProjection(Base,
     random_state : int (default = None)
         Seed used to initialize random generator
 
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
@@ -573,7 +574,7 @@ class SparseRandomProjection(Base,
 
     def __init__(self, *, handle=None, n_components='auto', density='auto',
                  eps=0.1, dense_output=True, random_state=None,
-                 verbose=logger.level_enum.info, output_type=None):
+                 verbose=False, output_type=None):
 
         Base.__init__(self,
                       handle=handle,

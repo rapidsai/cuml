@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -138,8 +138,9 @@ class AutoARIMA(Base):
         If True, the data is differenced before being passed to the Kalman
         filter. If False, differencing is part of the state-space model.
         See additional notes in the ARIMA docs
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -189,7 +190,7 @@ class AutoARIMA(Base):
                  *,
                  handle=None,
                  simple_differencing=True,
-                 verbose=logger.level_enum.info,
+                 verbose=False,
                  output_type=None,
                  convert_dtype=True):
         # Initialize base class

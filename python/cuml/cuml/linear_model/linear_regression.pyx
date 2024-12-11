@@ -36,7 +36,6 @@ from cuml.linear_model.base import LinearPredictMixin
 from cuml.common import input_to_cuml_array
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
-from cuml.internals import logger
 
 
 IF GPUBUILD == 1:
@@ -218,8 +217,9 @@ class LinearRegression(LinearPredictMixin,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -277,7 +277,7 @@ class LinearRegression(LinearPredictMixin,
     @device_interop_preparation
     def __init__(self, *, algorithm='eig', fit_intercept=True,
                  copy_X=None, normalize=False,
-                 handle=None, verbose=logger.level_enum.info, output_type=None):
+                 handle=None, verbose=False, output_type=None):
         IF GPUBUILD == 1:
             if handle is None and algorithm == 'eig':
                 # if possible, create two streams, so that eigenvalue decomposition

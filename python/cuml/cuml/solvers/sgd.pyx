@@ -33,7 +33,6 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
 from cuml.internals.mixins import FMajorInputTagMixin
-from cuml.internals import logger
 
 IF GPUBUILD == 1:
     from libcpp cimport bool
@@ -215,8 +214,9 @@ class SGD(Base,
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     """
 
@@ -227,7 +227,7 @@ class SGD(Base,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
-                 output_type=None, verbose=logger.level_enum.info):
+                 output_type=None, verbose=False):
 
         if loss in ['hinge', 'log', 'squared_loss']:
             self.loss = loss

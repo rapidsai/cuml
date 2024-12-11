@@ -27,7 +27,6 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import FMajorInputTagMixin
-from cuml.internals import logger
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
@@ -99,8 +98,9 @@ class KNeighborsClassifier(ClassifierMixin,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -151,7 +151,7 @@ class KNeighborsClassifier(ClassifierMixin,
         },
     }
 
-    def __init__(self, *, weights="uniform", handle=None, verbose=logger.level_enum.info,
+    def __init__(self, *, weights="uniform", handle=None, verbose=False,
                  output_type=None, **kwargs):
         super().__init__(
             handle=handle,

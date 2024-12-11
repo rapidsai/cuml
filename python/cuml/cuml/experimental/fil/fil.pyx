@@ -37,7 +37,6 @@ from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport cuda_stream as 
 from cuml.experimental.fil.detail.raft_proto.device_type cimport device_type as raft_proto_device_t
 from cuml.experimental.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
 from cuml.experimental.fil.detail.raft_proto.optional cimport optional, nullopt
-from cuml.internals import logger
 from cuml.internals import set_api_output_dtype
 from cuml.internals.base import UniversalBase
 from cuml.internals.device_type import DeviceType, DeviceTypeError
@@ -467,8 +466,9 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_class : boolean
         True for classifier models, false for regressors.
     layout : {'breadth_first', 'depth_first'}, default='depth_first'
@@ -655,7 +655,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             treelite_model=None,
             handle=None,
             output_type=None,
-            verbose=logger.level_enum.info,
+            verbose=False,
             is_classifier=False,
             output_class=None,
             layout='depth_first',

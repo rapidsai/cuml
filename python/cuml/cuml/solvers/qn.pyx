@@ -26,7 +26,6 @@ import cuml.internals
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import logger
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
 from cuml.common.doc_utils import generate_docstring
@@ -370,8 +369,9 @@ class QN(Base,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -412,8 +412,8 @@ class QN(Base,
     def __init__(self, *, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-4,
                  delta=None, linesearch_max_iter=50, lbfgs_memory=5,
-                 verbose=logger.level_enum.info, handle=None, output_type=None,
-                 warm_start=logger.level_enum.info, penalty_normalized=True):
+                 verbose=False, handle=None, output_type=None,
+                 warm_start=False, penalty_normalized=True):
 
         super().__init__(handle=handle,
                          verbose=verbose,

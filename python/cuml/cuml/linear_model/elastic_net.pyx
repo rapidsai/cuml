@@ -25,7 +25,6 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.logger import warn
-from cuml.internals import logger
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
@@ -131,8 +130,9 @@ class ElasticNet(UniversalBase,
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     Attributes
     ----------
@@ -163,7 +163,7 @@ class ElasticNet(UniversalBase,
     def __init__(self, *, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3,
                  solver='cd', selection='cyclic',
-                 handle=None, output_type=None, verbose=logger.level_enum.info):
+                 handle=None, output_type=None, verbose=False):
         """
         Initializes the elastic-net regression class.
 

@@ -23,7 +23,6 @@ from cuml.internals.import_utils import has_scipy
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.base import Base
-from cuml.internals import logger
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common import CumlArray
 import math
@@ -160,9 +159,7 @@ class _BaseNB(Base, ClassifierMixin):
     class_log_prior_ = CumlArrayDescriptor()
     feature_log_prob_ = CumlArrayDescriptor()
 
-    def __init__(
-        self, *, verbose=logger.level_enum.info, handle=None, output_type=None
-    ):
+    def __init__(self, *, verbose=False, handle=None, output_type=None):
         super(_BaseNB, self).__init__(
             verbose=verbose, handle=handle, output_type=output_type
         )
@@ -331,8 +328,9 @@ class GaussianNB(_BaseNB):
         users can run different models concurrently in different streams
         by creating handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     Examples
     --------
@@ -363,7 +361,7 @@ class GaussianNB(_BaseNB):
         var_smoothing=1e-9,
         output_type=None,
         handle=None,
-        verbose=logger.level_enum.info,
+        verbose=False,
     ):
 
         super(GaussianNB, self).__init__(
@@ -738,7 +736,7 @@ class _BaseDiscreteNB(_BaseNB):
         alpha=1.0,
         fit_prior=True,
         class_prior=None,
-        verbose=logger.level_enum.info,
+        verbose=False,
         handle=None,
         output_type=None,
     ):
@@ -1109,8 +1107,9 @@ class MultinomialNB(_BaseDiscreteNB):
         users can run different models concurrently in different streams
         by creating handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     Attributes
     ----------
@@ -1178,7 +1177,7 @@ class MultinomialNB(_BaseDiscreteNB):
         class_prior=None,
         output_type=None,
         handle=None,
-        verbose=logger.level_enum.info,
+        verbose=False,
     ):
         super(MultinomialNB, self).__init__(
             alpha=alpha,
@@ -1254,8 +1253,9 @@ class BernoulliNB(_BaseDiscreteNB):
         users can run different models concurrently in different streams
         by creating handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     Attributes
     ----------
@@ -1310,7 +1310,7 @@ class BernoulliNB(_BaseDiscreteNB):
         class_prior=None,
         output_type=None,
         handle=None,
-        verbose=logger.level_enum.info,
+        verbose=False,
     ):
         super(BernoulliNB, self).__init__(
             alpha=alpha,
@@ -1417,8 +1417,9 @@ class ComplementNB(_BaseDiscreteNB):
         users can run different models concurrently in different streams
         by creating handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     Attributes
     ----------
@@ -1469,7 +1470,7 @@ class ComplementNB(_BaseDiscreteNB):
         norm=False,
         output_type=None,
         handle=None,
-        verbose=logger.level_enum.info,
+        verbose=False,
     ):
         super(ComplementNB, self).__init__(
             alpha=alpha,
@@ -1574,8 +1575,9 @@ class CategoricalNB(_BaseDiscreteNB):
         users can run different models concurrently in different streams
         by creating handles in several streams.
         If it is None, a new one is created.
-    verbose : level_enum
-        Sets logging level. See :ref:`verbosity-levels` for more info.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     Attributes
     ----------
@@ -1624,7 +1626,7 @@ class CategoricalNB(_BaseDiscreteNB):
         class_prior=None,
         output_type=None,
         handle=None,
-        verbose=logger.level_enum.info,
+        verbose=False,
     ):
         super(CategoricalNB, self).__init__(
             alpha=alpha,
