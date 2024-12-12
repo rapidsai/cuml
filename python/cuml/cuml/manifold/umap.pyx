@@ -39,6 +39,7 @@ import cuml.internals
 from cuml.internals.base import UniversalBase
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger
+from cuml.internals.logger cimport level_enum
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
@@ -469,7 +470,7 @@ class UMAP(UniversalBase,
             umap_params.repulsion_strength = <float> cls.repulsion_strength
             umap_params.negative_sample_rate = <int> cls.negative_sample_rate
             umap_params.transform_queue_size = <int> cls.transform_queue_size
-            umap_params.verbosity = cls.verbose
+            umap_params.verbosity = <level_enum> cls.verbose
             umap_params.a = <float> cls.a
             umap_params.b = <float> cls.b
             if cls.init == "spectral":

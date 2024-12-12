@@ -29,7 +29,6 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import determine_array_type_full
 from cuml.internals.mixins import RegressorMixin
-from cuml.internals import logger
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array

@@ -32,8 +32,8 @@ import cuml.internals
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import logger
-from cuml.internals cimport logger
+from cuml.internals.logger import warn
+from cuml.internals.logger cimport level_enum
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array, input_to_host_array, input_to_host_array_with_sparse_support
@@ -77,7 +77,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         int max_iter
         int nochange_steps
         double tol
-        logger.level_enum verbosity
+        level_enum verbosity
         double epsilon
         SvmType svmType
 
@@ -353,7 +353,7 @@ class SVC(SVMBase,
         self.probability = probability
         self.random_state = random_state
         if probability and random_state is not None:
-            logger.warn("Random state is currently ignored by probabilistic SVC")
+            warn("Random state is currently ignored by probabilistic SVC")
         self.class_weight = class_weight
         self.svmType = C_SVC
         self.multiclass_strategy = multiclass_strategy
@@ -405,8 +405,8 @@ class SVC(SVMBase,
 
     def _fit_multiclass(self, X, y, sample_weight) -> "SVC":
         if sample_weight is not None:
-            logger.warn("Sample weights are currently ignored for multi class "
-                        "classification")
+            warn("Sample weights are currently ignored for multi class "
+                 "classification")
         if not has_sklearn():
             raise RuntimeError("Scikit-learn is needed to fit multiclass SVM")
 

@@ -222,7 +222,15 @@ class Base(TagsMixin,
             self.handle = None
 
         IF GPUBUILD == 1:
-            self.verbose = logger.level_enum(verbose)
+            # Internally, self.verbose follows the spdlog/c++ standard of
+            # 0 is most logging, and logging decreases from there.
+            # So if the user passes an int value for logging, we convert it.
+            if verbose is True:
+                self.verbose = logger.level_enum.debug
+            elif verbose is False:
+                self.verbose = logger.level_enum.info
+            else:
+                self.verbose = logger.level_enum(verbose)
         ELSE:
             self.verbose = verbose
 

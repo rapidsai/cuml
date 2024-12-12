@@ -34,8 +34,8 @@ from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.internals.input_utils import determine_array_type_full
 from cuml.common import using_output_type
-from cuml.internals import logger
-from cuml.internals cimport logger
+from cuml.internals.logger import warn
+from cuml.internals.logger cimport level_enum
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.array_sparse import SparseCumlArray, SparseCumlArrayInput
 from libcpp cimport bool
@@ -69,7 +69,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         int max_iter
         int nochange_steps
         double tol
-        logger.level_enum verbosity
+        level_enum verbosity
         double epsilon
         SvmType svmType
 
@@ -264,9 +264,9 @@ class SVMBase(Base,
            and not getattr(type(self), "_linear_kernel_warned", False):
             setattr(type(self), "_linear_kernel_warned", True)
             cname = type(self).__name__
-            logger.warn(f'{cname} with the linear kernel can be much faster using '
-                        f'the specialized solver provided by Linear{cname}. Consider '
-                        f'switching to Linear{cname} if tranining takes too long.')
+            warn(f'{cname} with the linear kernel can be much faster using '
+                 f'the specialized solver provided by Linear{cname}. Consider '
+                 f'switching to Linear{cname} if tranining takes too long.')
 
     def __del__(self):
         self._dealloc()
