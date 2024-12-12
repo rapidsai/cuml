@@ -902,10 +902,9 @@ class UMAP(UniversalBase,
             self._knn_dists = self.knn_dists
             self._knn_indices = self.knn_indices
             self._knn_search_index = None
-        elif hasattr(self, '_raw_data'):
-            self._raw_data = self._raw_data.to_output('numpy')
+        if hasattr(self, '_raw_data'):
             self._knn_dists, self._knn_indices, self._knn_search_index = \
-                nearest_neighbors(self._raw_data, self.n_neighbors, self.metric,
+                nearest_neighbors(self._raw_data.to_output('numpy'), self.n_neighbors, self.metric,
                                   self.metric_kwds, False, self.random_state)
 
         super().gpu_to_cpu()
