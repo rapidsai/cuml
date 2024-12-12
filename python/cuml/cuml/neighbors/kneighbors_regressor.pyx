@@ -163,7 +163,6 @@ class KNeighborsRegressor(RegressorMixin,
         },
     }
 
-    @device_interop_preparation
     def __init__(self, *, weights="uniform", handle=None, verbose=False,
                  output_type=None, **kwargs):
         super().__init__(
@@ -175,7 +174,6 @@ class KNeighborsRegressor(RegressorMixin,
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    @enable_device_interop
     def fit(self, X, y, convert_dtype=True) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
