@@ -994,11 +994,10 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
     ),
     algorithm=algorithms,
     xp=st.sampled_from([np, cp]),
-    copy=st.sampled_from((True, False, None, ...)),
+    copy=st.sampled_from((True, False, ...)),
 )
 @example(make_regression(n_features=1), "svd", cp, True)
 @example(make_regression(n_features=1), "svd", cp, False)
-@example(make_regression(n_features=1), "svd", cp, None)
 @example(make_regression(n_features=1), "svd", cp, ...)
 @example(make_regression(n_features=1), "svd", np, False)
 @example(make_regression(n_features=2), "svd", cp, False)
@@ -1008,11 +1007,10 @@ def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
     X, y = xp.asarray(X), xp.asarray(y)
     X_copy = X.copy()
 
-    with (pytest.warns(UserWarning) if copy in (None, ...) else nullcontext()):
-        if copy is ...:  # no argument
-            cuLR = cuLinearRegression(algorithm=algorithm)
-        else:
-            cuLR = cuLinearRegression(algorithm=algorithm, copy_X=copy)
+    if copy is ...:  # no argument
+        cuLR = cuLinearRegression(algorithm=algorithm)
+    else:
+        cuLR = cuLinearRegression(algorithm=algorithm, copy_X=copy)
 
     cuLR.fit(X, y)
 

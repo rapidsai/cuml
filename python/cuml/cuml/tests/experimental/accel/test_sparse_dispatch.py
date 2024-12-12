@@ -17,10 +17,10 @@
 import pytest
 import numpy as np
 
+from cuml.internals.global_settings import GlobalSettings
 from scipy.sparse import csr_matrix
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn.decomposition import TruncatedSVD
-from sklearn.kernel_ridge import KernelRidge
 from sklearn.linear_model import (
     LinearRegression,
     LogisticRegression,
@@ -54,6 +54,10 @@ estimators = {
 
 @pytest.mark.parametrize("estimator_name", list(estimators.keys()))
 def test_sparse_support(estimator_name):
+    if not GlobalSettings().accelerator_active and estimator_name == "UMAP":
+        pytest.skip(
+            reason="UMAP CPU library fails on this small dataset"
+        )
     X_sparse = csr_matrix([[0, 1], [1, 0]])
     y_class = np.array([0, 1])
     y_reg = np.array([0.0, 1.0])
