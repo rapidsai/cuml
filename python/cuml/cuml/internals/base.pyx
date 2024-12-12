@@ -230,7 +230,8 @@ class Base(TagsMixin,
             elif verbose is False:
                 self.verbose = logger.level_enum.info
             else:
-                self.verbose = logger.level_enum(verbose)
+                # cuml's verbosity levels are the inverse of rapids-logger's (spdlog's)
+                self.verbose = logger.level_enum(6 - verbose)
         ELSE:
             self.verbose = verbose
 
