@@ -769,8 +769,11 @@ class UniversalBase(Base):
         """
         # check for sparse inputs and whether estimator supports them
         sparse_support = "sparse" in self._get_tags()["X_types_gpu"]
+
         if args and is_sparse(args[0]):
-            if GlobalSettings().accelerator_active and not sparse_support:
+            if sparse_support:
+                return DeviceType.device
+            elif GlobalSettings().accelerator_active and not sparse_support:
                 logger.info(
                     f"cuML: Estimator {self} does not support sparse inputs in GPU."
                 )
