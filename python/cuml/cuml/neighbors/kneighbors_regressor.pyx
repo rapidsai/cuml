@@ -25,6 +25,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.internals.api_decorators import enable_device_interop
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
