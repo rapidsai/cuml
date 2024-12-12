@@ -31,7 +31,6 @@ import cuml.internals
 
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.logger cimport level_enum
-from cuml.internals import logger
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.common import input_to_cuml_array

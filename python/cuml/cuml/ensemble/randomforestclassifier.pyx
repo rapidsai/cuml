@@ -35,7 +35,6 @@ from cuml.common.doc_utils import insert_into_docstring
 from cuml.common import input_to_cuml_array
 
 from cuml.internals.logger cimport level_enum
-from cuml.internals import logger
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.ensemble.randomforest_common import _obtain_fil_model
 from cuml.ensemble.randomforest_shared cimport *
