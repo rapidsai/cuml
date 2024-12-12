@@ -48,20 +48,19 @@ estimators = {
     "Lasso": lambda: Lasso(),
     "NearestNeighbors": lambda: NearestNeighbors(n_neighbors=1),
     "UMAP": lambda: UMAP(n_components=1),
-    "HDBSCAN": lambda: HDBSCAN()
+    "HDBSCAN": lambda: HDBSCAN(),
 }
 
 
 @pytest.mark.parametrize("estimator_name", list(estimators.keys()))
 def test_sparse_support(estimator_name):
-    X_sparse = csr_matrix([[0, 1],
-                           [1, 0]])
+    X_sparse = csr_matrix([[0, 1], [1, 0]])
     y_class = np.array([0, 1])
     y_reg = np.array([0.0, 1.0])
     estimator = estimators[estimator_name]()
     # Fit or fit_transform depending on the estimator type
     if isinstance(estimator, (KMeans, DBSCAN, TruncatedSVD, NearestNeighbors)):
-        if hasattr(estimator, 'fit_transform'):
+        if hasattr(estimator, "fit_transform"):
             estimator.fit_transform(X_sparse)
         else:
             estimator.fit(X_sparse)

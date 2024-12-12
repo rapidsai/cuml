@@ -21,10 +21,17 @@ from cuml.cluster import KMeans, DBSCAN
 from cuml.decomposition import TruncatedSVD
 from cuml.kernel_ridge import KernelRidge
 from cuml.linear_model import (
-    LinearRegression, LogisticRegression, ElasticNet,
-    Ridge, Lasso
+    LinearRegression,
+    LogisticRegression,
+    ElasticNet,
+    Ridge,
+    Lasso,
 )
-from cuml.neighbors import NearestNeighbors, KNeighborsClassifier, KNeighborsRegressor
+from cuml.neighbors import (
+    NearestNeighbors,
+    KNeighborsClassifier,
+    KNeighborsRegressor,
+)
 from sklearn.base import is_classifier, is_regressor
 from cuml.cluster import HDBSCAN
 
@@ -41,22 +48,22 @@ estimators = {
     "NearestNeighbors": lambda: NearestNeighbors(n_neighbors=1),
     "KNeighborsClassifier": lambda: KNeighborsClassifier(n_neighbors=1),
     "KNeighborsRegressor": lambda: KNeighborsRegressor(n_neighbors=1),
-    "KNeighborsRegressor": lambda: KNeighborsRegressor(n_neighbors=1),
-    "HDBSCAN": lambda: HDBSCAN()
+    "HDBSCAN": lambda: HDBSCAN(),
 }
 
 
 @pytest.mark.parametrize("estimator_name", list(estimators.keys()))
 def test_sparse_not_implemented_exception(estimator_name):
-    X_sparse = csr_matrix([[0, 1],
-                           [1, 0]])
+    X_sparse = csr_matrix([[0, 1], [1, 0]])
     y_class = np.array([0, 1])
     y_reg = np.array([0.0, 1.0])
     estimator = estimators[estimator_name]()
     # Fit or fit_transform depending on the estimator type
     with pytest.raises(NotImplementedError):
-        if isinstance(estimator, (KMeans, DBSCAN, TruncatedSVD, NearestNeighbors)):
-            if hasattr(estimator, 'fit_transform'):
+        if isinstance(
+            estimator, (KMeans, DBSCAN, TruncatedSVD, NearestNeighbors)
+        ):
+            if hasattr(estimator, "fit_transform"):
                 estimator.fit_transform(X_sparse)
             else:
                 if isinstance(estimator, KNeighborsClassifier):
