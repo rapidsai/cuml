@@ -39,6 +39,7 @@ import cuml
 import cuml.common
 import cuml.internals.logger as logger
 import cuml.internals
+from cuml.internals import api_context_managers
 import cuml.internals.input_utils
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
@@ -226,14 +227,13 @@ class Base(TagsMixin,
             # 0 is most logging, and logging decreases from there.
             # So if the user passes an int value for logging, we convert it.
             if verbose is True:
-                self.verbose = logger.level_enum.debug
+                self._verbose = logger.level_enum.debug
             elif verbose is False:
-                self.verbose = logger.level_enum.info
+                self._verbose = logger.level_enum.info
             else:
-                # cuml's verbosity levels are the inverse of rapids-logger's (spdlog's)
-                self.verbose = logger.level_enum(6 - verbose)
+                self._verbose = verbose
         ELSE:
-            self.verbose = verbose
+            self._verbose = verbose
 
         self.output_type = _check_output_type_str(
             cuml.global_settings.output_type
@@ -250,6 +250,29 @@ class Base(TagsMixin,
         nvtx_benchmark = os.getenv('NVTX_BENCHMARK')
         if nvtx_benchmark and nvtx_benchmark.lower() == 'true':
             self.set_nvtx_annotations()
+
+    @property
+    def verbose(self):
+        if api_context_managers.in_internal_api():
+            return logger.level_enum(6 - self._verbose)
+        else:
+            return self._verbose
+
+    @verbose.setter
+    def verbose(self, int | logger.level_enum):
+        if api_context_managers.in_internal_api():
+            assert isinstance(value, level_enum), (
+                "The log level should always be provided as a level_enum, "
+                "not an integer"
+            )
+            self._verbose = 6 - int(value)
+        else:
+            if isinstance(value, logger.level_enum):
+                raise ValueError(
+                    "The log level should always be provided as an integer, "
+                    "not using the enum"
+                    )
+            self._verbose = value
 
     def __repr__(self):
         """
