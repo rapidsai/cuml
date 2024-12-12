@@ -552,6 +552,9 @@ def _determine_stateless_output_type(output_type, input_obj):
 
 
 class UniversalBase(Base):
+    # variable to enable dispatching non-implemented methods to CPU
+    # estimators, experimental.
+    _experimental_dispatching = False
 
     def import_cpu_model(self):
         # skip the CPU estimator has been imported already
@@ -792,3 +795,37 @@ class UniversalBase(Base):
         """
 
         return False
+
+    def __getattr__(self, attr):
+        try:
+            res = super().__getattr__(attr)
+            return res
+
+        except AttributeError as ex:
+            # When using cuml.experimental.accel or setting the
+            # self._experimental_dispatching flag to True, we look for methods
+            # that are not in the cuML estimator in the host estimator
+            if GlobalSettings().accelerator_active or self._experimental_dispatching:
+
+                self.import_cpu_model()
+                if hasattr(self._cpu_model_class, attr):
+
+                    # we turn off and cache the dispatching variables off so that
+                    # build_cpu_model and gpu_to_cpu don't recurse infinitely
+                    cached_dispatching = self._experimental_dispatching
+                    cached_accelerator_active = GlobalSettings().accelerator_active
+                    self._experimental_dispatching = False
+                    GlobalSettings().accelerator_active = False
+
+                    self.build_cpu_model()
+                    self.gpu_to_cpu()
+
+                    # restore the dispatching variables back on
+                    self._experimental_dispatching = cached_dispatching
+                    GlobalSettings().accelerator_active = cached_accelerator_active
+
+                    return getattr(self._cpu_model, attr)
+
+                raise ex
+
+            raise ex
