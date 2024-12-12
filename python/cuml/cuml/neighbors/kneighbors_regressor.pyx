@@ -25,6 +25,8 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
@@ -161,6 +163,7 @@ class KNeighborsRegressor(RegressorMixin,
         },
     }
 
+    @device_interop_preparation
     def __init__(self, *, weights="uniform", handle=None, verbose=False,
                  output_type=None, **kwargs):
         super().__init__(
@@ -172,6 +175,7 @@ class KNeighborsRegressor(RegressorMixin,
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
+    @enable_device_interop
     def fit(self, X, y, convert_dtype=True) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
@@ -195,6 +199,7 @@ class KNeighborsRegressor(RegressorMixin,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
+    @enable_device_interop
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors regression model to
