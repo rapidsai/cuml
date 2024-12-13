@@ -39,7 +39,7 @@ from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
-from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.common.sparsefuncs import extract_knn_infos
 from cuml.metrics.distance_type cimport DistanceType
 rmm = gpu_only_import('rmm')
@@ -119,7 +119,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
 
 
 class TSNE(UniversalBase,
-           CMajorInputTagMixin):
+           CMajorInputTagMixin,
+           SparseInputTagMixin):
     """
     t-SNE (T-Distributed Stochastic Neighbor Embedding) is an extremely
     powerful dimensionality reduction technique that aims to maintain
