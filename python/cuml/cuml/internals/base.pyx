@@ -259,9 +259,9 @@ class Base(TagsMixin,
             return self._verbose
 
     @verbose.setter
-    def verbose(self, int | logger.level_enum):
+    def verbose(self, value: int | logger.level_enum):
         if api_context_managers.in_internal_api():
-            assert isinstance(value, level_enum), (
+            assert isinstance(value, logger.level_enum), (
                 "The log level should always be provided as a level_enum, "
                 "not an integer"
             )
