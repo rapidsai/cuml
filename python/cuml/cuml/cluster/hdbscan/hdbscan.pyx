@@ -561,6 +561,14 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self._cpu_to_gpu_interop_prepped = False
 
     @property
+    def gen_min_span_tree(self):
+        return self._gen_min_span_tree
+
+    @property.setter
+    def gen_min_span_tree(self, value):
+        self._gen_min_span_tree = GlobalSettings().accelerator_active or value
+
+    @property
     def condensed_tree_(self):
 
         if self.condensed_tree_obj is None:
@@ -642,7 +650,6 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.prediction_data_obj = new_val
 
     def build_minimum_spanning_tree(self, X):
-
         if self.gen_min_span_tree and self.minimum_spanning_tree_ is None:
             with cuml.using_output_type("numpy"):
                 raw_tree = np.column_stack((self.mst_src_,
