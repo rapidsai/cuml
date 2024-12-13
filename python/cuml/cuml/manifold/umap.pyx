@@ -910,6 +910,7 @@ class UMAP(UniversalBase,
                                   self.metric_kwds, False, self.random_state)
 
         super().gpu_to_cpu()
+        self._cpu_model._validate_parameters()
 
     @classmethod
     def _get_param_names(cls):
