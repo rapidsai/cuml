@@ -577,11 +577,13 @@ class UMAP(UniversalBase,
                                              convert_format=False)
             self.n_rows, self.n_dims = self._raw_data.shape
             self.sparse_fit = True
+            self._sparse_data = True
             if self.build_algo == "nn_descent":
                 raise ValueError("NN Descent does not support sparse inputs")
 
         # Handle dense inputs
         else:
+            self._sparse_data = False
             if data_on_host:
                 convert_to_mem_type = MemoryType.host
             else:
@@ -943,4 +945,4 @@ class UMAP(UniversalBase,
         return ['_raw_data', 'embedding_', '_input_hash', '_small_data',
                 '_knn_dists', '_knn_indices', '_knn_search_index',
                 '_disconnection_distance', '_n_neighbors', '_a', '_b',
-                '_initial_alpha']
+                '_initial_alpha', '_sparse_data']
