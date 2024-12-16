@@ -31,6 +31,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.import_utils import has_hdbscan
@@ -564,9 +565,10 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
     def gen_min_span_tree(self):
         return self._gen_min_span_tree
 
-    @property.setter
+    @gen_min_span_tree.setter
     def gen_min_span_tree(self, value):
-        self._gen_min_span_tree = GlobalSettings().accelerator_active or value
+        self._gen_min_span_tree = \
+            GlobalSettings().accelerator_active or value
 
     @property
     def condensed_tree_(self):
@@ -650,6 +652,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.prediction_data_obj = new_val
 
     def build_minimum_spanning_tree(self, X):
+
         if self.gen_min_span_tree and self.minimum_spanning_tree_ is None:
             with cuml.using_output_type("numpy"):
                 raw_tree = np.column_stack((self.mst_src_,
@@ -788,6 +791,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.X_m = X_m
         self.n_rows = n_rows
         self.n_cols = n_cols
+
+        if GlobalSettings().accelerator_active:
+            self._raw_data = self.X_m.to_output("numpy")
 
         cdef uintptr_t _input_ptr = X_m.ptr
 
@@ -1140,6 +1146,8 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
             self.condensed_tree_._raw_tree
         self._cpu_model.single_linkage_tree_ = \
             self.single_linkage_tree_._linkage
+        if hasattr(self, "_raw_data"):
+            self._cpu_model._raw_data = self._raw_data
         if self.gen_min_span_tree:
             self._cpu_model.minimum_spanning_tree_ = \
                 self.minimum_spanning_tree_._mst
