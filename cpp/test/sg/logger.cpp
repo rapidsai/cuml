@@ -92,8 +92,7 @@ TEST_F(LoggerTest, flush)
 {
   default_logger().sinks().push_back(
     std::make_shared<callback_sink_mt>(exampleCallback, exampleFlush));
-  auto const testMsg = "This is a critical message";
-  CUML_LOG_CRITICAL(testMsg);
+  default_logger().flush();
   ASSERT_EQ(1, flushCount);
 }
 
