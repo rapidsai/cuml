@@ -72,13 +72,13 @@ endfunction()
 # To use a different CUVS locally, set the CMake variable
 # CPM_cuvs_SOURCE=/path/to/local/cuvs
 find_and_configure_cuvs(VERSION          ${CUML_MIN_VERSION_cuvs}
-      FORK             rapidsai
-      PINNED_TAG       branch-${CUML_BRANCH_VERSION_cuvs}
+      FORK             vyasr
+      PINNED_TAG       feat/raft_logger
       EXCLUDE_FROM_ALL ${CUML_EXCLUDE_CUVS_FROM_ALL}
       # When PINNED_TAG above doesn't match cuml,
       # force local cuvs clone in build directory
       # even if it's already installed.
-      CLONE_ON_PIN     ${CUML_CUVS_CLONE_ON_PIN}
+      CLONE_ON_PIN     OFF
       COMPILE_LIBRARY  ${CUML_CUVS_COMPILED}
       USE_CUVS_STATIC  ${CUML_USE_CUVS_STATIC}
       )
