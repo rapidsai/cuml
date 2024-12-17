@@ -45,7 +45,7 @@ from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.mem_type import MemoryType
-from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.common.sparse_utils import is_sparse
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -137,7 +137,8 @@ IF GPUBUILD == 1:
 
 
 class UMAP(UniversalBase,
-           CMajorInputTagMixin):
+           CMajorInputTagMixin,
+           SparseInputTagMixin):
     """
     Uniform Manifold Approximation and Projection
 
