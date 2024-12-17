@@ -90,6 +90,8 @@ IF GPUBUILD == 1:
                  float * knn_dists,
                  UMAPParams * params,
                  float * embeddings,
+                 float * sigmas,
+                 float * rhos,
                  COO * graph) except +
 
         void fit_sparse(handle_t &handle,
@@ -104,6 +106,8 @@ IF GPUBUILD == 1:
                         float * knn_dists,
                         UMAPParams *params,
                         float *embeddings,
+                        float * sigmas,
+                        float * rhos,
                         COO * graph) except +
 
         void transform(handle_t & handle,
@@ -313,6 +317,7 @@ class UMAP(UniversalBase,
     * Using a pre-computed pairwise distance matrix (under consideration
       for future releases)
     * Manual initialization of initial embedding positions
+    * inverse_transform function
 
     In addition to these missing features, you should expect to see
     the final embeddings differing between cuml.umap and the reference
@@ -577,11 +582,13 @@ class UMAP(UniversalBase,
                                              convert_format=False)
             self.n_rows, self.n_dims = self._raw_data.shape
             self.sparse_fit = True
+            self._sparse_data = True
             if self.build_algo == "nn_descent":
                 raise ValueError("NN Descent does not support sparse inputs")
 
         # Handle dense inputs
         else:
+            self._sparse_data = False
             if data_on_host:
                 convert_to_mem_type = MemoryType.host
             else:
@@ -638,11 +645,15 @@ class UMAP(UniversalBase,
                                           order="C", dtype=np.float32,
                                           index=self._raw_data.index)
 
+        self._sigmas = CumlArray.zeros(self.n_rows, dtype=np.float32)
+        self._rhos = CumlArray.zeros(self.n_rows, dtype=np.float32)
+
         if self.hash_input:
             self._input_hash = joblib.hash(self._raw_data.to_output('numpy'))
 
         cdef uintptr_t _embed_raw_ptr = self.embedding_.ptr
-
+        cdef uintptr_t _signmas_ptr = self._sigmas.ptr
+        cdef uintptr_t _rhos_ptr = self._rhos.ptr
         cdef uintptr_t _y_raw_ptr = 0
 
         if y is not None:
@@ -673,6 +684,8 @@ class UMAP(UniversalBase,
                            <float*> _knn_dists_ptr,
                            <UMAPParams*> umap_params,
                            <float*> _embed_raw_ptr,
+                           <float*> _signmas_ptr,
+                           <float*> _rhos_ptr,
                            <COO*> fss_graph.get())
 
             else:
@@ -685,6 +698,8 @@ class UMAP(UniversalBase,
                     <float*> _knn_dists_ptr,
                     <UMAPParams*>umap_params,
                     <float*>_embed_raw_ptr,
+                    <float*> _signmas_ptr,
+                    <float*> _rhos_ptr,
                     <COO*> fss_graph.get())
 
             self.graph_ = fss_graph.get_cupy_coo()
@@ -908,6 +923,7 @@ class UMAP(UniversalBase,
                                   self.metric_kwds, False, self.random_state)
 
         super().gpu_to_cpu()
+        self._cpu_model._validate_parameters()
 
     @classmethod
     def _get_param_names(cls):
@@ -943,4 +959,4 @@ class UMAP(UniversalBase,
         return ['_raw_data', 'embedding_', '_input_hash', '_small_data',
                 '_knn_dists', '_knn_indices', '_knn_search_index',
                 '_disconnection_distance', '_n_neighbors', '_a', '_b',
-                '_initial_alpha']
+                '_initial_alpha', '_sparse_data', '_sigmas', '_rhos']

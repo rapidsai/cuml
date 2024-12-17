@@ -44,6 +44,8 @@ std::unique_ptr<raft::sparse::COO<float, int>> get_graph(
   int d,
   knn_indices_dense_t* knn_indices,  // precomputed indices
   float* knn_dists,                  // precomputed distances
+  float* sigmas,
+  float* rhos,
   UMAPParams* params)
 {
   auto graph = std::make_unique<raft::sparse::COO<float>>(handle.get_stream());
@@ -56,12 +58,12 @@ std::unique_ptr<raft::sparse::COO<float, int>> get_graph(
       UMAPAlgo::_get_graph_supervised<knn_indices_dense_t,
                                       float,
                                       manifold_precomputed_knn_inputs_t<knn_indices_dense_t, float>,
-                                      TPB_X>(handle, inputs, params, graph.get());
+                                      TPB_X>(handle, inputs, params, sigmas, rhos, graph.get());
     } else {
       UMAPAlgo::_get_graph<knn_indices_dense_t,
                            float,
                            manifold_precomputed_knn_inputs_t<knn_indices_dense_t, float>,
-                           TPB_X>(handle, inputs, params, graph.get());
+                           TPB_X>(handle, inputs, params, sigmas, rhos, graph.get());
     }
     return graph;
   } else {
@@ -69,10 +71,10 @@ std::unique_ptr<raft::sparse::COO<float, int>> get_graph(
     if (y != nullptr) {
       UMAPAlgo::
         _get_graph_supervised<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, TPB_X>(
-          handle, inputs, params, graph.get());
+          handle, inputs, params, sigmas, rhos, graph.get());
     } else {
       UMAPAlgo::_get_graph<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, TPB_X>(
-        handle, inputs, params, graph.get());
+        handle, inputs, params, sigmas, rhos, graph.get());
     }
     return graph;
   }
@@ -115,6 +117,8 @@ void fit(const raft::handle_t& handle,
          float* knn_dists,
          UMAPParams* params,
          float* embeddings,
+         float * sigmas,
+         float * rhos,
          raft::sparse::COO<float, int>* graph)
 {
   if (knn_indices != nullptr && knn_dists != nullptr) {
@@ -126,22 +130,22 @@ void fit(const raft::handle_t& handle,
       UMAPAlgo::_fit_supervised<knn_indices_dense_t,
                                 float,
                                 manifold_precomputed_knn_inputs_t<knn_indices_dense_t, float>,
-                                TPB_X>(handle, inputs, params, embeddings, graph);
+                                TPB_X>(handle, inputs, params, embeddings, sigmas, rhos, graph);
     } else {
       UMAPAlgo::_fit<knn_indices_dense_t,
                      float,
                      manifold_precomputed_knn_inputs_t<knn_indices_dense_t, float>,
-                     TPB_X>(handle, inputs, params, embeddings, graph);
+                     TPB_X>(handle, inputs, params, embeddings, sigmas, rhos, graph);
     }
 
   } else {
     manifold_dense_inputs_t<float> inputs(X, y, n, d);
     if (y != nullptr) {
       UMAPAlgo::_fit_supervised<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, TPB_X>(
-        handle, inputs, params, embeddings, graph);
+        handle, inputs, params, embeddings, sigmas, rhos, graph);
     } else {
       UMAPAlgo::_fit<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, TPB_X>(
-        handle, inputs, params, embeddings, graph);
+        handle, inputs, params, embeddings, sigmas, rhos, graph);
     }
   }
 }
@@ -158,6 +162,8 @@ void fit_sparse(const raft::handle_t& handle,
                 float* knn_dists,
                 UMAPParams* params,
                 float* embeddings,
+                float * sigmas,
+                float * rhos,
                 raft::sparse::COO<float, int>* graph)
 {
   if (knn_indices != nullptr && knn_dists != nullptr) {
@@ -167,12 +173,12 @@ void fit_sparse(const raft::handle_t& handle,
       UMAPAlgo::_fit_supervised<knn_indices_sparse_t,
                                 float,
                                 manifold_precomputed_knn_inputs_t<knn_indices_sparse_t, float>,
-                                TPB_X>(handle, inputs, params, embeddings, graph);
+                                TPB_X>(handle, inputs, params, embeddings, sigmas, rhos, graph);
     } else {
       UMAPAlgo::_fit<knn_indices_sparse_t,
                      float,
                      manifold_precomputed_knn_inputs_t<knn_indices_sparse_t, float>,
-                     TPB_X>(handle, inputs, params, embeddings, graph);
+                     TPB_X>(handle, inputs, params, embeddings, sigmas, rhos, graph);
     }
   } else {
     manifold_sparse_inputs_t<int, float> inputs(indptr, indices, data, y, nnz, n, d);
@@ -180,12 +186,12 @@ void fit_sparse(const raft::handle_t& handle,
       UMAPAlgo::_fit_supervised<knn_indices_sparse_t,
                                 float,
                                 manifold_sparse_inputs_t<knn_indices_sparse_t, float>,
-                                TPB_X>(handle, inputs, params, embeddings, graph);
+                                TPB_X>(handle, inputs, params, embeddings, sigmas, rhos, graph);
     } else {
       UMAPAlgo::_fit<knn_indices_sparse_t,
                      float,
                      manifold_sparse_inputs_t<knn_indices_sparse_t, float>,
-                     TPB_X>(handle, inputs, params, embeddings, graph);
+                     TPB_X>(handle, inputs, params, embeddings, sigmas, rhos, graph);
     }
   }
 }

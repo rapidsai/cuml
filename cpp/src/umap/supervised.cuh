@@ -283,6 +283,8 @@ void perform_general_intersection(const raft::handle_t& handle,
                                   raft::sparse::COO<value_t>* rgraph_coo,
                                   raft::sparse::COO<value_t>* final_coo,
                                   UMAPParams* params,
+                                  float * sigmas,
+                                  float * rhos,
                                   cudaStream_t stream)
 {
   /**
@@ -323,6 +325,8 @@ void perform_general_intersection(const raft::handle_t& handle,
                                                 params->target_n_neighbors,
                                                 &ygraph_coo,
                                                 params,
+                                                sigmas,
+                                                rhos,
                                                 stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 

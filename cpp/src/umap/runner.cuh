@@ -95,6 +95,8 @@ template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
 void _get_graph(const raft::handle_t& handle,
                 const umap_inputs& inputs,
                 UMAPParams* params,
+                float * sigmas,
+                float * rhos,
                 raft::sparse::COO<value_t, int>* graph)
 {
   raft::common::nvtx::range fun_scope("umap::supervised::_get_graph");
@@ -137,7 +139,7 @@ void _get_graph(const raft::handle_t& handle,
   raft::common::nvtx::push_range("umap::simplicial_set");
   raft::sparse::COO<value_t> fss_graph(stream);
   FuzzySimplSet::run<TPB_X, value_idx, value_t>(
-    inputs.n, knn_graph.knn_indices, knn_graph.knn_dists, k, &fss_graph, params, stream);
+    inputs.n, knn_graph.knn_indices, knn_graph.knn_dists, k, &fss_graph, params, sigmas, rhos, stream);
 
   CUML_LOG_DEBUG("Done. Calling remove zeros");
 
@@ -152,6 +154,8 @@ template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
 void _get_graph_supervised(const raft::handle_t& handle,
                            const umap_inputs& inputs,
                            UMAPParams* params,
+                           float * sigmas,
+                           float * rhos,
                            raft::sparse::COO<value_t, int>* graph)
 {
   raft::common::nvtx::range fun_scope("umap::supervised::_get_graph_supervised");
@@ -206,6 +210,8 @@ void _get_graph_supervised(const raft::handle_t& handle,
                                                   params->n_neighbors,
                                                   &fss_graph_tmp,
                                                   params,
+                                                  sigmas,
+                                                  rhos,
                                                   stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
 
@@ -228,7 +234,7 @@ void _get_graph_supervised(const raft::handle_t& handle,
   } else {
     CUML_LOG_DEBUG("Performing general intersection");
     Supervised::perform_general_intersection<TPB_X, value_idx, value_t>(
-      handle, inputs.y, &fss_graph, &ci_graph, params, stream);
+      handle, inputs.y, &fss_graph, &ci_graph, params, sigmas, rhos, stream);
   }
 
   /**
@@ -277,6 +283,8 @@ void _fit(const raft::handle_t& handle,
           const umap_inputs& inputs,
           UMAPParams* params,
           value_t* embeddings,
+          float * sigmas,
+          float * rhos,
           raft::sparse::COO<float, int>* graph)
 {
   raft::common::nvtx::range fun_scope("umap::unsupervised::fit");
@@ -284,7 +292,7 @@ void _fit(const raft::handle_t& handle,
   cudaStream_t stream = handle.get_stream();
   ML::Logger::get().setLevel(params->verbosity);
 
-  UMAPAlgo::_get_graph<value_idx, value_t, umap_inputs, TPB_X>(handle, inputs, params, graph);
+  UMAPAlgo::_get_graph<value_idx, value_t, umap_inputs, TPB_X>(handle, inputs, params, sigmas, rhos, graph);
 
   /**
    * Run initialization method
@@ -313,6 +321,8 @@ void _fit_supervised(const raft::handle_t& handle,
                      const umap_inputs& inputs,
                      UMAPParams* params,
                      value_t* embeddings,
+                     float * sigmas,
+                     float * rhos,
                      raft::sparse::COO<float, int>* graph)
 {
   raft::common::nvtx::range fun_scope("umap::supervised::fit");
@@ -321,7 +331,7 @@ void _fit_supervised(const raft::handle_t& handle,
   ML::Logger::get().setLevel(params->verbosity);
 
   UMAPAlgo::_get_graph_supervised<value_idx, value_t, umap_inputs, TPB_X>(
-    handle, inputs, params, graph);
+    handle, inputs, params, sigmas, rhos, graph);
 
   /**
    * Initialize embeddings
