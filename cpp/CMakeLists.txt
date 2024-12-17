@@ -109,6 +109,17 @@ set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
 set_property(CACHE RMM_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL" "OFF")
 message(VERBOSE "CUML_CPP: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 
+# Set logging level
+set(LIBCUML_LOGGING_LEVEL
+    "DEBUG"
+    CACHE STRING "Choose the logging level."
+)                                                                                                
+set_property(
+  CACHE LIBCUML_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL"
+                                       "OFF"
+)
+message(VERBOSE "CUML: LIBCUML_LOGGING_LEVEL = '${LIBCUML_LOGGING_LEVEL}'.")
+
 if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
   # have different values for the `Threads::Threads` target. Setting this flag ensures
@@ -571,6 +582,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
                 "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
   )
+  target_compile_definitions(${CUML_CPP_TARGET} PUBLIC "CUML_LOG_ACTIVE_LEVEL=CUML_LOG_LEVEL_${LIBCUML_LOGGING_LEVEL}")
 
   target_include_directories(${CUML_CPP_TARGET}
     PUBLIC
