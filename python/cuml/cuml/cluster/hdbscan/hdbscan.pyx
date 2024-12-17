@@ -568,7 +568,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
     @gen_min_span_tree.setter
     def gen_min_span_tree(self, value):
         # If accelerator is active, we want to generate
-        # the mst to improve compatibility. 
+        # the mst to improve compatibility.
         self._gen_min_span_tree = \
             GlobalSettings().accelerator_active or value
 
