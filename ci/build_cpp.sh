@@ -17,7 +17,13 @@ rapids-logger "Begin cpp build"
 
 sccache --zero-stats
 
-RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild conda/recipes/libcuml
+LIBRAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2530 cpp)
+LIBCUVS_CHANNEL=$(rapids-get-pr-conda-artifact cuvs 540 cpp)
+
+RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild \
+        --channel "${LIBRAFT_CHANNEL}" \
+        --channel "${LIBCUVS_CHANNEL}" \
+        conda/recipes/libcuml
 
 sccache --show-adv-stats
 
