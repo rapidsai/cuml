@@ -286,7 +286,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                 state["rf_params64"] = rf_forest64.rf_params
 
         state["n_cols"] = self.n_cols
-        state["verbose"] = self.verbose
+        state["_verbose"] = self._verbose
         state["treelite_serialized_model"] = self.treelite_serialized_model
         state["treelite_handle"] = None
         state["split_criterion"] = self.split_criterion
@@ -297,7 +297,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         super(RandomForestClassifier, self).__init__(
             split_criterion=state["split_criterion"],
             handle=state["handle"],
-            verbose=state["verbose"])
+            verbose=state["_verbose"])
         cdef  RandomForestMetaData[float, int] *rf_forest = \
             new RandomForestMetaData[float, int]()
         cdef  RandomForestMetaData[double, int] *rf_forest64 = \

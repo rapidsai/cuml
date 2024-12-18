@@ -76,11 +76,21 @@ IF GPUBUILD == 1:
 
 
 class VerbosityDescriptor:
+    """Descriptor for ensuring correct type is used for verbosity
+
+    This descriptor ensures that when the 'verbose' attribute of a cuML
+    estimator is accessed external to the cuML API, an integer is returned
+    (consistent with Scikit-Learn's API for verbosity). Internal to the API, an
+    enum is used. Scikit-Learn's numerical values for verbosity are the inverse
+    of those used by spdlog, so the numerical value is also inverted internal
+    to the cuML API. This ensures that cuML code treats verbosity values as
+    expected for an spdlog-based codebase.
+    """
     def __get__(self, obj, cls=None):
         if api_context_managers.in_internal_api():
-            return logger.level_enum(6 - self._verbose)
+            return logger.level_enum(6 - obj._verbose)
         else:
-            return self._verbose
+            return obj._verbose
 
     def __set__(self, obj, value):
         if api_context_managers.in_internal_api():
@@ -88,14 +98,14 @@ class VerbosityDescriptor:
                 "The log level should always be provided as a level_enum, "
                 "not an integer"
             )
-            self._verbose = 6 - int(value)
+            obj._verbose = 6 - int(value)
         else:
             if isinstance(value, logger.level_enum):
                 raise ValueError(
                     "The log level should always be provided as an integer, "
                     "not using the enum"
                     )
-            self._verbose = value
+            obj._verbose = value
 
 
 class Base(TagsMixin,
@@ -247,6 +257,15 @@ class Base(TagsMixin,
         ELSE:
             self.handle = None
 
+        # The following manipulation of the root_cm ensures that the verbose
+        # descriptor sees any set or get of the verbose attribute as happening
+        # internal to the cuML API. Currently, __init__ calls do not take place
+        # within an api context manager, so setting "verbose" here would
+        # otherwise appear to be external to the cuML API. This behavior will
+        # be corrected with the update of cuML's API context manager
+        # infrastructure in https://github.com/rapidsai/cuml/pull/6189.
+        GlobalSettings().prev_root_cm = GlobalSettings().root_cm
+        GlobalSettings().root_cm = True
         IF GPUBUILD == 1:
             # Internally, self.verbose follows the spdlog/c++ standard of
             # 0 is most logging, and logging decreases from there.
@@ -259,6 +278,9 @@ class Base(TagsMixin,
                 self.verbose = logger.level_enum(6 - verbose)
         ELSE:
             self.verbose = logger.level_enum(6 - verbose)
+        # Please see above note on manipulation of the root_cm. This should be
+        # rendered unnecessary with https://github.com/rapidsai/cuml/pull/6189.
+        GlobalSettings().root_cm = GlobalSettings().prev_root_cm
 
         self.output_type = _check_output_type_str(
             cuml.global_settings.output_type
@@ -324,6 +346,14 @@ class Base(TagsMixin,
         variables = self._get_param_names()
         for key in variables:
             var_value = getattr(self, key, None)
+            # We are currently internal to the cuML API, but the value we
+            # return will immediately be returned external to the API, so we
+            # must perform the translation from enum to integer before
+            # returning the value. Ordinarily, this is handled by
+            # VerbosityDescriptor for direct access to the verbose
+            # attribute.
+            if key == "verbose":
+                var_value = 6 - int(var_value)
             params[key] = var_value
         return params
 

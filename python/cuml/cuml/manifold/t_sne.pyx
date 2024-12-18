@@ -694,7 +694,7 @@ class TSNE(UniversalBase,
 
     def __setstate__(self, state):
         super(TSNE, self).__init__(handle=None,
-                                   verbose=state['verbose'])
+                                   verbose=state['_verbose'])
         self.__dict__.update(state)
         return state
 

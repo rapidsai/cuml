@@ -685,7 +685,7 @@ class SVMBase(Base,
 
     def __setstate__(self, state):
         super(SVMBase, self).__init__(handle=None,
-                                      verbose=state['verbose'])
+                                      verbose=state['_verbose'])
         self.__dict__.update(state)
         self._model = self._get_svm_model()
         self._freeSvmBuffers = False

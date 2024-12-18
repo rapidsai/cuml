@@ -566,7 +566,7 @@ class LogisticRegression(UniversalBase,
 
     def __setstate__(self, state):
         super().__init__(handle=None,
-                         verbose=state["verbose"])
+                         verbose=state["_verbose"])
         self.__dict__.update(state)
 
     def get_attr_names(self):

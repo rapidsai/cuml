@@ -290,7 +290,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                 state["rf_params64"] = rf_forest64.rf_params
 
         state['n_cols'] = self.n_cols
-        state["verbose"] = self.verbose
+        state["_verbose"] = self._verbose
         state["treelite_serialized_model"] = self.treelite_serialized_model
         state['handle'] = self.handle
         state["treelite_handle"] = None
@@ -301,7 +301,7 @@ class RandomForestRegressor(BaseRandomForestModel,
     def __setstate__(self, state):
         super(RandomForestRegressor, self).__init__(
             split_criterion=state["split_criterion"],
-            handle=state["handle"], verbose=state['verbose'])
+            handle=state["handle"], verbose=state['_verbose'])
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         cdef  RandomForestMetaData[double, double] *rf_forest64 = \
