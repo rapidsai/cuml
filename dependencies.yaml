@@ -551,7 +551,7 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - dsak-cudf-cu12==25.2.*,>=0.0.0a0
+              - dask-cudf-cu12==25.2.*,>=0.0.0a0
           - matrix:
               cuda: "11.*"
               cuda_suffixed: "true"
