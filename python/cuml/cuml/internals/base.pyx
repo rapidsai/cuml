@@ -75,6 +75,29 @@ IF GPUBUILD == 1:
     import cuml.common.cuda
 
 
+class VerbosityDescriptor:
+    def __get__(self, obj, cls=None):
+        if api_context_managers.in_internal_api():
+            return logger.level_enum(6 - self._verbose)
+        else:
+            return self._verbose
+
+    def __set__(self, obj, value):
+        if api_context_managers.in_internal_api():
+            assert isinstance(value, logger.level_enum), (
+                "The log level should always be provided as a level_enum, "
+                "not an integer"
+            )
+            self._verbose = 6 - int(value)
+        else:
+            if isinstance(value, logger.level_enum):
+                raise ValueError(
+                    "The log level should always be provided as an integer, "
+                    "not using the enum"
+                    )
+            self._verbose = value
+
+
 class Base(TagsMixin,
            metaclass=cuml.internals.BaseMetaClass):
     """
@@ -229,13 +252,13 @@ class Base(TagsMixin,
             # 0 is most logging, and logging decreases from there.
             # So if the user passes an int value for logging, we convert it.
             if verbose is True:
-                self._verbose = logger.level_enum.debug
+                self.verbose = logger.level_enum.debug
             elif verbose is False:
-                self._verbose = logger.level_enum.info
+                self.verbose = logger.level_enum.info
             else:
-                self._verbose = verbose
+                self.verbose = logger.level_enum(6 - verbose)
         ELSE:
-            self._verbose = verbose
+            self.verbose = logger.level_enum(6 - verbose)
 
         self.output_type = _check_output_type_str(
             cuml.global_settings.output_type
@@ -253,28 +276,7 @@ class Base(TagsMixin,
         if nvtx_benchmark and nvtx_benchmark.lower() == 'true':
             self.set_nvtx_annotations()
 
-    @property
-    def verbose(self):
-        if api_context_managers.in_internal_api():
-            return logger.level_enum(6 - self._verbose)
-        else:
-            return self._verbose
-
-    @verbose.setter
-    def verbose(self, value: int | logger.level_enum):
-        if api_context_managers.in_internal_api():
-            assert isinstance(value, logger.level_enum), (
-                "The log level should always be provided as a level_enum, "
-                "not an integer"
-            )
-            self._verbose = 6 - int(value)
-        else:
-            if isinstance(value, logger.level_enum):
-                raise ValueError(
-                    "The log level should always be provided as an integer, "
-                    "not using the enum"
-                    )
-            self._verbose = value
+    verbose = VerbosityDescriptor()
 
     def __repr__(self):
         """
