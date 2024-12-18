@@ -36,6 +36,7 @@ IF GPUBUILD == 1:
     from cuml.metrics.distance_type cimport DistanceType
     from cuml.cluster.kmeans_utils cimport params as KMeansParams
     from cuml.cluster.kmeans_utils cimport KMeansPlusPlus, Random, Array
+    from cuml.cluster cimport kmeans_utils
 
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -51,6 +52,9 @@ from cuml.internals.api_decorators import enable_device_interop
 _openmp_effective_n_threads = safe_import_from(
     "sklearn.utils._openmp_helpers", "_openmp_effective_n_threads", alt=return_false
 )
+
+# Avoid potential future conflicts with cuml's level enum
+ctypedef kmeans_utils.level_enum raft_level_enum
 
 
 class KMeans(UniversalBase,
@@ -205,7 +209,7 @@ class KMeans(UniversalBase,
             params.init = self._params_init
             params.max_iter = <int>self.max_iter
             params.tol = <double>self.tol
-            params.verbosity = <int>self.verbose
+            params.verbosity = <raft_level_enum>(<int>self.verbose)
             params.rng_state.seed = self.random_state
             params.metric = DistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
             params.batch_samples = <int>self.max_samples_per_batch
