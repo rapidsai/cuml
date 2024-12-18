@@ -59,6 +59,8 @@ function(ConfigureTest)
     rmm::rmm_logger
     rmm::rmm_logger_impl
     raft::raft
+    raft::raft_logger
+    raft::raft_logger_impl
     GTest::gtest
     GTest::gtest_main
     GTest::gmock
