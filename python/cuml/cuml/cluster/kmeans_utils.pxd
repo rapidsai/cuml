@@ -24,6 +24,17 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace \
         "cuvs::cluster::kmeans::params":
     enum InitMethod:
         KMeansPlusPlus, Random, Array
+cdef extern from "raft/core/logger.hpp" namespace "raft":
+    cdef enum class level_enum:
+        trace
+        debug
+        info
+        warn
+        error
+        critical
+        off
+        n_levels
+
 cdef extern from "cuvs/cluster/kmeans.hpp" namespace \
         "cuvs::cluster::kmeans":
     cdef struct params:
@@ -31,7 +42,7 @@ cdef extern from "cuvs/cluster/kmeans.hpp" namespace \
         InitMethod init
         int max_iter,
         double tol,
-        int verbosity,
+        level_enum verbosity,
         RngState rng_state,
         DistanceType metric,
         int n_init,
