@@ -47,6 +47,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
                               int d,
                               int64_t* knn_indices,
                               float* knn_dists,
+                              float * sigmas,
+                              float * rhos,
                               UMAPParams* params)
 
     void refine(handle_t &handle,
@@ -197,6 +199,12 @@ def fuzzy_simplicial_set(X,
         knn_indices_ptr = 0
         knn_dists_ptr = 0
 
+    sigmas = CumlArray.zeros(self.n_rows, dtype=np.float32)
+    rhos = CumlArray.zeros(self.n_rows, dtype=np.float32)
+
+    cdef uintptr_t _signmas_ptr = sigmas.ptr
+    cdef uintptr_t _rhos_ptr = rhos.ptr
+
     handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
     cdef unique_ptr[COO] fss_graph_ptr = get_graph(
@@ -207,6 +215,8 @@ def fuzzy_simplicial_set(X,
         <int> X.shape[1],
         <int64_t*><uintptr_t> knn_indices_ptr,
         <float*><uintptr_t> knn_dists_ptr,
+        <float*> _signmas_ptr,
+        <float*> _rhos_ptr,
         <UMAPParams*> umap_params)
     fss_graph = GraphHolder.from_ptr(fss_graph_ptr)
 

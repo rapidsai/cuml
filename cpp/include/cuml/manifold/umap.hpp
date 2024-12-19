@@ -61,6 +61,8 @@ std::unique_ptr<raft::sparse::COO<float, int>> get_graph(const raft::handle_t& h
                                                          int d,
                                                          int64_t* knn_indices,
                                                          float* knn_dists,
+                                                         float * sigmas,
+                                                         float * rhos,
                                                          UMAPParams* params);
 
 /**
@@ -128,6 +130,8 @@ void fit(const raft::handle_t& handle,
          float* knn_dists,
          UMAPParams* params,
          float* embeddings,
+         float * sigmas,
+         float * rhos,
          raft::sparse::COO<float, int>* graph);
 
 /**
@@ -159,6 +163,8 @@ void fit_sparse(const raft::handle_t& handle,
                 float* knn_dists,
                 UMAPParams* params,
                 float* embeddings,
+                float * sigmas,
+                float * rhos,
                 raft::sparse::COO<float, int>* graph);
 
 /**
