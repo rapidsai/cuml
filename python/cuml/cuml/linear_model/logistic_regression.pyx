@@ -25,7 +25,7 @@ import pprint
 import cuml.internals
 from cuml.solvers import QN
 from cuml.internals.base import UniversalBase
-from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
+from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin, SparseInputTagMixin
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
@@ -45,7 +45,8 @@ supported_solvers = ["qn"]
 
 class LogisticRegression(UniversalBase,
                          ClassifierMixin,
-                         FMajorInputTagMixin):
+                         FMajorInputTagMixin,
+                         SparseInputTagMixin):
     """
     LogisticRegression is a linear model that is used to model probability of
     occurrence of certain events, for example probability of success or fail of

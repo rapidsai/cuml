@@ -44,7 +44,7 @@ from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.mem_type import MemoryType
-from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.utils import check_random_seed
 
@@ -137,7 +137,8 @@ IF GPUBUILD == 1:
 
 
 class UMAP(UniversalBase,
-           CMajorInputTagMixin):
+           CMajorInputTagMixin,
+           SparseInputTagMixin):
     """
     Uniform Manifold Approximation and Projection
 
@@ -886,10 +887,9 @@ class UMAP(UniversalBase,
             self._knn_dists = self.knn_dists
             self._knn_indices = self.knn_indices
             self._knn_search_index = None
-        elif hasattr(self, '_raw_data'):
-            self._raw_data = self._raw_data.to_output('numpy')
+        if hasattr(self, '_raw_data'):
             self._knn_dists, self._knn_indices, self._knn_search_index = \
-                nearest_neighbors(self._raw_data, self.n_neighbors, self.metric,
+                nearest_neighbors(self._raw_data.to_output('numpy'), self.n_neighbors, self.metric,
                                   self.metric_kwds, False, self.random_state)
 
         super().gpu_to_cpu()
