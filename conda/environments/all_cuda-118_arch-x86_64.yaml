@@ -8,8 +8,9 @@ channels:
 - nvidia
 dependencies:
 - c-compiler
+- certifi
 - cmake>=3.26.4,!=3.30.0
-- cuda-python>=11.7.1,<12.0a0,<=11.8.3
+- cuda-python>=11.8.5,<12.0a0
 - cuda-version=11.8
 - cudatoolkit
 - cudf==25.2.*,>=0.0.0a0

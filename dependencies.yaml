@@ -198,11 +198,11 @@ dependencies:
           - matrix:
               cuda: "12.*"
             packages:
-              - cuda-python>=12.0,<13.0a0,<=12.6.0
+              - cuda-python>=12.6.2,<13.0a0
           - matrix:
               cuda: "11.*"
             packages:
-              - cuda-python>=11.7.1,<12.0a0,<=11.8.3
+              - cuda-python>=11.8.5,<12.0a0
           - matrix:
             packages:
               - cuda-python
@@ -510,6 +510,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
+          - certifi
           - *cython
           - dask-ml
           - hdbscan>=0.8.39,<0.8.40

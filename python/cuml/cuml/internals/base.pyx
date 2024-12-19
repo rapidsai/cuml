@@ -37,6 +37,7 @@ except ImportError:
 
 import cuml
 import cuml.common
+from cuml.common.sparse_utils import is_sparse
 import cuml.internals.logger as logger
 import cuml.internals
 import cuml.internals.input_utils
@@ -47,6 +48,7 @@ from cuml.internals.input_utils import (
     determine_array_type,
     input_to_cuml_array,
     input_to_host_array,
+    input_to_host_array_with_sparse_support,
     is_array_like
 )
 from cuml.internals.memory_utils import determine_array_memtype
@@ -552,6 +554,9 @@ def _determine_stateless_output_type(output_type, input_obj):
 
 
 class UniversalBase(Base):
+    # variable to enable dispatching non-implemented methods to CPU
+    # estimators, experimental.
+    _experimental_dispatching = False
 
     def import_cpu_model(self):
         # skip the CPU estimator has been imported already
@@ -676,19 +681,23 @@ class UniversalBase(Base):
 
     def args_to_cpu(self, *args, **kwargs):
         # put all the args on host
-        new_args = tuple(input_to_host_array(arg)[0] for arg in args)
+        new_args = tuple(
+            input_to_host_array_with_sparse_support(arg) for arg in args
+        )
 
         # put all the kwargs on host
         new_kwargs = dict()
         for kw, arg in kwargs.items():
             # if array-like, ensure array-like is on the host
             if is_array_like(arg):
-                new_kwargs[kw] = input_to_host_array(arg)[0]
+                new_kwargs[kw] = input_to_host_array_with_sparse_support(arg)
             # if Real or string, pass as is
             elif isinstance(arg, (numbers.Real, str)):
                 new_kwargs[kw] = arg
             else:
                 raise ValueError(f"Unable to process argument {kw}")
+
+        new_kwargs.pop("convert_dtype", None)
         return new_args, new_kwargs
 
     def dispatch_func(self, func_name, gpu_func, *args, **kwargs):
@@ -736,9 +745,9 @@ class UniversalBase(Base):
             # ensure args and kwargs are on the CPU
             args, kwargs = self.args_to_cpu(*args, **kwargs)
 
-            # get the function from the GPU estimator
+            # get the function from the CPU estimator
             cpu_func = getattr(self._cpu_model, func_name)
-            # call the function from the GPU estimator
+            # call the function from the CPU estimator
             logger.info(f"cuML: Performing {func_name} in CPU")
             res = cpu_func(*args, **kwargs)
 
@@ -761,6 +770,22 @@ class UniversalBase(Base):
     def _dispatch_selector(self, func_name, *args, **kwargs):
         """
         """
+        # check for sparse inputs and whether estimator supports them
+        sparse_support = "sparse" in self._get_tags()["X_types_gpu"]
+
+        if args and is_sparse(args[0]):
+            if sparse_support:
+                return DeviceType.device
+            elif GlobalSettings().accelerator_active and not sparse_support:
+                logger.info(
+                    f"cuML: Estimator {self} does not support sparse inputs in GPU."
+                )
+                return DeviceType.host
+            else:
+                raise NotImplementedError(
+                    "Estimator does not support sparse inputs currently"
+                )
+
         # if not using accelerator, then return global device
         if not hasattr(self, "_gpuaccel"):
             return cuml.global_settings.device_type
@@ -792,3 +817,37 @@ class UniversalBase(Base):
         """
 
         return False
+
+    def __getattr__(self, attr):
+        try:
+            res = super().__getattr__(attr)
+            return res
+
+        except AttributeError as ex:
+            # When using cuml.experimental.accel or setting the
+            # self._experimental_dispatching flag to True, we look for methods
+            # that are not in the cuML estimator in the host estimator
+            if GlobalSettings().accelerator_active or self._experimental_dispatching:
+
+                self.import_cpu_model()
+                if hasattr(self._cpu_model_class, attr):
+
+                    # we turn off and cache the dispatching variables off so that
+                    # build_cpu_model and gpu_to_cpu don't recurse infinitely
+                    cached_dispatching = self._experimental_dispatching
+                    cached_accelerator_active = GlobalSettings().accelerator_active
+                    self._experimental_dispatching = False
+                    GlobalSettings().accelerator_active = False
+
+                    self.build_cpu_model()
+                    self.gpu_to_cpu()
+
+                    # restore the dispatching variables back on
+                    self._experimental_dispatching = cached_dispatching
+                    GlobalSettings().accelerator_active = cached_accelerator_active
+
+                    return getattr(self._cpu_model, attr)
+
+                raise ex
+
+            raise ex
