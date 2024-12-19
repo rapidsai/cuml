@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -29,8 +29,7 @@ add_subdirectory(hdbscan)
 rapids_cython_create_modules(
   CXX
   SOURCE_FILES "${cython_sources}"
-  # Need the raft logger to specify enum types for the kmeans parameters.
-  LINKED_LIBRARIES "${cuml_mg_libraries}" raft::raft_logger
+  LINKED_LIBRARIES "${cuml_mg_libraries}"
   MODULE_PREFIX cluster_
   ASSOCIATED_TARGETS cuml
 )

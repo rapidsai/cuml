@@ -628,7 +628,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   )
 
   target_link_libraries(${CUML_CPP_TARGET}
-    PUBLIC  rmm::rmm rmm::rmm_logger ${CUVS_LIB}
+    PUBLIC  rmm::rmm rmm::rmm_logger raft::raft_logger ${CUVS_LIB}
             ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs}
   )
