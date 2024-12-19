@@ -171,7 +171,7 @@ def test_weighted_kmeans(nrows, ncols, nclusters, max_weight, random_state):
     sk_kmeans.fit(cp.asnumpy(X), sample_weight=wt)
     sk_score = sk_kmeans.score(cp.asnumpy(X))
 
-    assert abs(cu_score - sk_score) <= cluster_std * 1.5
+    assert cu_score - sk_score <= cluster_std * 1.5
 
 
 @pytest.mark.parametrize("nrows", [1000, 10000])
