@@ -163,7 +163,7 @@ def test_fil_classification(
             X, y, train_size=0.8, random_state=0
         )
 
-        model_path = os.path.join(tmp_path, "xgb_class.model")
+        model_path = os.path.join(tmp_path, "xgb_class.ubj")
 
         bst = _build_and_save_xgboost(
             model_path,
@@ -258,7 +258,7 @@ def test_fil_regression(
             X, y, train_size=train_size, random_state=0
         )
 
-        model_path = os.path.join(tmp_path, "xgb_reg.model")
+        model_path = os.path.join(tmp_path, "xgb_reg.ubj")
         bst = _build_and_save_xgboost(
             model_path,
             X_train,
@@ -490,12 +490,12 @@ def test_fil_skl_regression(
         np.testing.assert_allclose(fil_preds_opt, fil_preds, atol=1.2e-3)
 
 
-@pytest.fixture(scope="session", params=["binary", "json"])
+@pytest.fixture(scope="session", params=["ubjson", "json"])
 def small_classifier_and_preds(tmpdir_factory, request):
     X, y = simulate_data(500, 10, random_state=43210, classification=True)
 
-    ext = "json" if request.param == "json" else "model"
-    model_type = "xgboost_json" if request.param == "json" else "xgboost"
+    ext = "json" if request.param == "json" else "ubj"
+    model_type = "xgboost_json" if request.param == "json" else "xgboost_ubj"
     model_path = str(
         tmpdir_factory.mktemp("models").join(f"small_class.{ext}")
     )
@@ -738,7 +738,7 @@ def test_predict_per_tree(
             classification=True,
         )
 
-        model_path = os.path.join(tmp_path, "xgb_class.model")
+        model_path = os.path.join(tmp_path, "xgb_class.ubj")
 
         xgboost_params = {"base_score": (0.5 if n_classes == 2 else 0.0)}
         bst = _build_and_save_xgboost(
@@ -751,7 +751,7 @@ def test_predict_per_tree(
             xgboost_params=xgboost_params,
         )
         fm = ForestInference.load(model_path, output_class=True)
-        tl_model = treelite.Model.from_xgboost(bst)
+        tl_model = treelite.frontend.from_xgboost(bst)
         pred_per_tree_tl = treelite.gtil.predict_per_tree(tl_model, X)
 
     with using_device_type(infer_device):
@@ -773,7 +773,7 @@ def test_predict_per_tree(
         assert pred_per_tree.shape == expected_shape
         np.testing.assert_almost_equal(sum_by_class, margin_pred, decimal=3)
         np.testing.assert_almost_equal(
-            pred_per_tree, pred_per_tree_tl, decimal=3
+            pred_per_tree.reshape((n_rows, -1, 1)), pred_per_tree_tl, decimal=3
         )
         np.testing.assert_almost_equal(
             pred_per_tree_opt, pred_per_tree, decimal=3
@@ -844,7 +844,7 @@ def test_apply(train_device, infer_device, n_classes, tmp_path):
             classification=True,
         )
 
-        model_path = os.path.join(tmp_path, "xgb_class.model")
+        model_path = os.path.join(tmp_path, "xgb_class.ubj")
 
         xgboost_params = {"base_score": (0.5 if n_classes == 2 else 0.0)}
         bst = _build_and_save_xgboost(
@@ -858,7 +858,7 @@ def test_apply(train_device, infer_device, n_classes, tmp_path):
         )
 
         fm = ForestInference.load(
-            model_path, output_class=True, model_type="xgboost"
+            model_path, output_class=True, model_type="xgboost_ubj"
         )
 
     with using_device_type(infer_device):

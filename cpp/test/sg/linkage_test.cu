@@ -19,12 +19,12 @@
 #include <cuml/datasets/make_blobs.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuvs/distance/distance.hpp>
 #include <gtest/gtest.h>
 #include <test_utils.h>
 
@@ -92,7 +92,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
                                    params.n_row,
                                    params.n_col,
                                    &out_arrs,
-                                   raft::distance::DistanceType::L2Unexpanded,
+                                   cuvs::distance::DistanceType::L2Unexpanded,
                                    params.c,
                                    params.n_clusters);
     } else {
@@ -101,7 +101,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
                                   params.n_row,
                                   params.n_col,
                                   &out_arrs,
-                                  raft::distance::DistanceType::L2Expanded,
+                                  cuvs::distance::DistanceType::L2Expanded,
                                   params.n_clusters);
     }
 

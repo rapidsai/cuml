@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2023, NVIDIA CORPORATION.
+# Copyright (c) 2018-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,10 +28,10 @@ from cuml.internals.input_utils import input_to_cuml_array
 from pylibraft.common.handle import Handle
 from pylibraft.common.handle cimport handle_t
 
-cdef extern from "raft/distance/distance_types.hpp" namespace "raft::distance":
+cdef extern from "cuvs/distance/distance.hpp" namespace "cuvs::distance":
 
     ctypedef int DistanceType
-    ctypedef DistanceType euclidean "(raft::distance::DistanceType)5"
+    ctypedef DistanceType euclidean "(cuvs::distance::DistanceType)5"
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 

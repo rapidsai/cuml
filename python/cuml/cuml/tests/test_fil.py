@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -155,7 +155,7 @@ def test_fil_classification(
         X, y, train_size=train_size, random_state=0
     )
 
-    model_path = os.path.join(tmp_path, "xgb_class.model")
+    model_path = os.path.join(tmp_path, "xgb_class.ubj")
 
     bst = _build_and_save_xgboost(
         model_path,
@@ -226,7 +226,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
         X, y, train_size=train_size, random_state=0
     )
 
-    model_path = os.path.join(tmp_path, "xgb_reg.model")
+    model_path = os.path.join(tmp_path, "xgb_reg.ubj")
     bst = _build_and_save_xgboost(
         model_path,
         X_train,
@@ -447,12 +447,12 @@ def test_fil_skl_regression(
     assert np.allclose(fil_preds, skl_preds, 1.2e-2)
 
 
-@pytest.fixture(scope="session", params=["binary", "json"])
+@pytest.fixture(scope="session", params=["ubjson", "json"])
 def small_classifier_and_preds(tmpdir_factory, request):
     X, y = simulate_data(500, 10, random_state=43210, classification=True)
 
-    ext = "json" if request.param == "json" else "model"
-    model_type = "xgboost_json" if request.param == "json" else "xgboost"
+    ext = "json" if request.param == "json" else "ubj"
+    model_type = "xgboost_json" if request.param == "json" else "xgboost_ubj"
     model_path = str(
         tmpdir_factory.mktemp("models").join(f"small_class.{ext}")
     )

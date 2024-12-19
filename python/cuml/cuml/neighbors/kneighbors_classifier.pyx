@@ -27,6 +27,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.internals.api_decorators import enable_device_interop
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
@@ -246,6 +247,7 @@ class KNeighborsClassifier(ClassifierMixin,
                                        'description': 'Labels probabilities',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_generic()
+    @enable_device_interop
     def predict_proba(
             self,
             X,

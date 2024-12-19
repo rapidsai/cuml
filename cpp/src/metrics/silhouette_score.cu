@@ -32,7 +32,7 @@ double silhouette_score(const raft::handle_t& handle,
                         int* labels,
                         int nLabels,
                         double* silScores,
-                        raft::distance::DistanceType metric)
+                        cuvs::distance::DistanceType metric)
 {
   std::optional<raft::device_vector_view<double, int64_t>> silhouette_score_per_sample;
   if (silScores != NULL) {
@@ -45,7 +45,7 @@ double silhouette_score(const raft::handle_t& handle,
     raft::make_device_vector_view<const int, int64_t>(labels, nRows),
     silhouette_score_per_sample,
     nLabels,
-    static_cast<cuvs::distance::DistanceType>(metric));
+    metric);
 }
 }  // namespace Metrics
 }  // namespace ML

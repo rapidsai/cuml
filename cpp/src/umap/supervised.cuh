@@ -27,6 +27,7 @@
 #include <cuml/neighbors/knn.hpp>
 
 #include <raft/core/handle.hpp>
+#include <raft/sparse/convert/coo.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/add.cuh>

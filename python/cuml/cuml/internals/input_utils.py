@@ -530,6 +530,11 @@ def input_to_host_array(
 
 
 def input_to_host_array_with_sparse_support(X):
+    try:
+        if scipy_sparse.isspmatrix(X):
+            return X
+    except UnavailableError:
+        pass
     _array_type, is_sparse = determine_array_type_full(X)
     if is_sparse:
         if _array_type == "cupy":

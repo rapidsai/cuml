@@ -68,8 +68,8 @@ cumlError_t knn_search(const cumlHandle_t handle,
   cumlError_t status;
   raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
-  raft::distance::DistanceType metric_distance_type =
-    static_cast<raft::distance::DistanceType>(metric_type);
+  cuvs::distance::DistanceType metric_distance_type =
+    static_cast<cuvs::distance::DistanceType>(metric_type);
 
   std::vector<float*> input_vec(n_params);
   std::vector<int> sizes_vec(n_params);

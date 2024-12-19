@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <raft/distance/distance_types.hpp>
 #include <raft/spatial/knn/ball_cover_types.hpp>
 #include <raft/spatial/knn/detail/processing.hpp>  // MetricProcessor
 
+#include <cuvs/distance/distance.hpp>
 #include <cuvs/neighbors/ivf_flat.hpp>
 #include <cuvs/neighbors/ivf_pq.hpp>
 
@@ -63,7 +63,7 @@ void brute_force_knn(const raft::handle_t& handle,
                      int k,
                      bool rowMajorIndex                  = false,
                      bool rowMajorQuery                  = false,
-                     raft::distance::DistanceType metric = raft::distance::DistanceType::L2Expanded,
+                     cuvs::distance::DistanceType metric = cuvs::distance::DistanceType::L2Expanded,
                      float metric_arg                    = 2.0f,
                      std::vector<int64_t>* translations  = nullptr);
 
@@ -79,7 +79,7 @@ void rbc_knn_query(const raft::handle_t& handle,
                    float* out_dists);
 
 struct knnIndex {
-  raft::distance::DistanceType metric;
+  cuvs::distance::DistanceType metric;
   float metricArg;
   int nprobe;
   std::unique_ptr<raft::spatial::knn::MetricProcessor<float>> metric_processor;
@@ -123,7 +123,7 @@ struct IVFPQParam : IVFParam {
 void approx_knn_build_index(raft::handle_t& handle,
                             knnIndex* index,
                             knnIndexParam* params,
-                            raft::distance::DistanceType metric,
+                            cuvs::distance::DistanceType metric,
                             float metricArg,
                             float* index_array,
                             int n,

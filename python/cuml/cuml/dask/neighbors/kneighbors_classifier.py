@@ -114,8 +114,6 @@ class KNeighborsClassifier(NearestNeighbors):
                 # Dask-expr does not support numerical column names
                 # See: https://github.com/dask/dask-expr/issues/1015
                 _y = y
-                if hasattr(y, "to_legacy_dataframe"):
-                    _y = y.to_legacy_dataframe()
                 n_targets = len(_y.columns)
                 for i in range(n_targets):
                     uniq_labels.append(_y.iloc[:, i].unique())

@@ -147,7 +147,7 @@ class RPROJTest : public ::testing::Test {
   void epsilon_check()
   {
     int D                        = johnson_lindenstrauss_min_dim(N, epsilon);
-    constexpr auto distance_type = raft::distance::DistanceType::L2SqrtUnexpanded;
+    constexpr auto distance_type = cuvs::distance::DistanceType::L2SqrtUnexpanded;
 
     rmm::device_uvector<T> d_pdist(N * N, stream);
     ML::Metrics::pairwise_distance(

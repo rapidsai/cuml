@@ -121,7 +121,7 @@ std::size_t run(const raft::handle_t& handle,
                 std::size_t batch_size,
                 EpsNnMethod eps_nn_method,
                 cudaStream_t stream,
-                raft::distance::DistanceType metric)
+                cuvs::distance::DistanceType metric)
 {
   const std::size_t align = 256;
   Index_ n_batches        = raft::ceildiv((std::size_t)n_owned_rows, batch_size);
@@ -136,8 +136,8 @@ std::size_t run(const raft::handle_t& handle,
   // switch compute mode based on feature dimension
   bool sparse_rbc_mode = eps_nn_method == EpsNnMethod::RBC;
 
-  if (sparse_rbc_mode && metric != raft::distance::DistanceType::L2SqrtExpanded &&
-      metric != raft::distance::DistanceType::L2SqrtUnexpanded) {
+  if (sparse_rbc_mode && metric != cuvs::distance::DistanceType::L2SqrtExpanded &&
+      metric != cuvs::distance::DistanceType::L2SqrtUnexpanded) {
     CUML_LOG_WARN("Metric not supported by RBC yet. Falling back to BRUTE_FORCE strategy.");
     sparse_rbc_mode = false;
   }
@@ -220,7 +220,11 @@ std::size_t run(const raft::handle_t& handle,
   raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_, Index_>* rbc_index_ptr =
     nullptr;
   raft::neighbors::ball_cover::BallCoverIndex<Index_, Type_f, Index_, Index_> rbc_index(
-    handle, x, sparse_rbc_mode ? N : 0, sparse_rbc_mode ? D : 0, metric);
+    handle,
+    x,
+    sparse_rbc_mode ? N : 0,
+    sparse_rbc_mode ? D : 0,
+    static_cast<raft::distance::DistanceType>(metric));
 
   if (sparse_rbc_mode) {
     raft::neighbors::ball_cover::build_index(handle, rbc_index);

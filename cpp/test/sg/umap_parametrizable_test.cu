@@ -239,7 +239,7 @@ class UMAPParametrizableTest : public ::testing::Test {
     ASSERT_TRUE(!has_nan(embedding_ptr, n_samples * umap_params.n_components, stream));
 
     double trustworthiness =
-      trustworthiness_score<float, raft::distance::DistanceType::L2SqrtUnexpanded>(
+      trustworthiness_score<float, cuvs::distance::DistanceType::L2SqrtUnexpanded>(
         handle,
         X,
         embedding_ptr,

@@ -32,12 +32,13 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
-from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.common import input_to_cuml_array
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparse_utils import is_dense
 from cuml.metrics.distance_type cimport DistanceType
+from cuml.metrics.raft_distance_type cimport DistanceType as RaftDistanceType
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 
@@ -64,7 +65,7 @@ IF GPUBUILD == 1:
                            float *X,
                            uint32_t n_rows,
                            uint32_t n_cols,
-                           DistanceType metric) except +
+                           RaftDistanceType metric) except +
 
     cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         void brute_force_knn(
@@ -143,7 +144,8 @@ IF GPUBUILD == 1:
 
 
 class NearestNeighbors(UniversalBase,
-                       CMajorInputTagMixin):
+                       CMajorInputTagMixin,
+                       SparseInputTagMixin):
     """
     NearestNeighbors is an queries neighborhoods from a given set of
     datapoints. Currently, cuML supports k-NN queries, which define
@@ -426,7 +428,7 @@ class NearestNeighbors(UniversalBase,
                 rbc_index = new BallCoverIndex[int64_t, float, uint32_t](
                     handle_[0], <float*><uintptr_t>self._fit_X.ptr,
                     <uint32_t>self.n_samples_fit_, <uint32_t>self.n_features_in_,
-                    <DistanceType>metric)
+                    <RaftDistanceType>metric)
                 rbc_build_index(handle_[0],
                                 deref(rbc_index))
                 self.knn_index = <uintptr_t>rbc_index

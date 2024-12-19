@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -160,7 +160,7 @@ void _compute_knn_and_nearest_neighbor(const raft::handle_t& handle,
                                        size_t n_prediction_points,
                                        value_idx* min_mr_inds,
                                        value_t* prediction_lambdas,
-                                       raft::distance::DistanceType metric)
+                                       cuvs::distance::DistanceType metric)
 {
   auto stream               = handle.get_stream();
   size_t m                  = prediction_data.n_rows;
@@ -233,12 +233,12 @@ void approximate_predict(const raft::handle_t& handle,
                          value_idx* labels,
                          const value_t* points_to_predict,
                          size_t n_prediction_points,
-                         raft::distance::DistanceType metric,
+                         cuvs::distance::DistanceType metric,
                          int min_samples,
                          value_idx* out_labels,
                          value_t* out_probabilities)
 {
-  RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
+  RAFT_EXPECTS(metric == cuvs::distance::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
 
   auto stream      = handle.get_stream();

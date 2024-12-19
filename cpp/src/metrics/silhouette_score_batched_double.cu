@@ -34,7 +34,7 @@ double silhouette_score(const raft::handle_t& handle,
                         int n_labels,
                         double* scores,
                         int chunk,
-                        raft::distance::DistanceType metric)
+                        cuvs::distance::DistanceType metric)
 {
   std::optional<raft::device_vector_view<double, int64_t>> silhouette_score_per_sample;
   if (scores != NULL) {
@@ -48,7 +48,7 @@ double silhouette_score(const raft::handle_t& handle,
     silhouette_score_per_sample,
     n_labels,
     chunk,
-    static_cast<cuvs::distance::DistanceType>(metric));
+    metric);
 }
 
 }  // namespace Batched

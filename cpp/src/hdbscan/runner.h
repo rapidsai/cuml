@@ -159,7 +159,7 @@ void build_linkage(const raft::handle_t& handle,
                    const value_t* X,
                    size_t m,
                    size_t n,
-                   raft::distance::DistanceType metric,
+                   cuvs::distance::DistanceType metric,
                    Common::HDBSCANParams& params,
                    value_t* core_dists,
                    Common::robust_single_linkage_output<value_idx, value_t>& out)
@@ -183,7 +183,7 @@ void build_linkage(const raft::handle_t& handle,
     raft::make_device_vector_view<value_idx>(mutual_reachability_indptr.data(), m + 1),
     raft::make_device_vector_view<value_t>(core_dists, m),
     mutual_reachability_coo,
-    static_cast<cuvs::distance::DistanceType>(metric),
+    metric,
     params.alpha);
 
   /**
@@ -206,7 +206,7 @@ void build_linkage(const raft::handle_t& handle,
                                           color.data(),
                                           mutual_reachability_coo.nnz,
                                           red_op,
-                                          metric,
+                                          static_cast<raft::distance::DistanceType>(metric),
                                           (size_t)10);
 
   /**
@@ -229,7 +229,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   const value_t* X,
                   size_t m,
                   size_t n,
-                  raft::distance::DistanceType metric,
+                  cuvs::distance::DistanceType metric,
                   Common::HDBSCANParams& params,
                   value_idx* labels,
                   value_t* core_dists,

@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,6 +50,10 @@ def test_to_sparse_dask_array(input_type, nrows, ncols, client):
 
     a = cupyx.scipy.sparse.random(nrows, ncols, format="csr", dtype=cp.float32)
     if input_type == "dask_dataframe":
+        pytest.xfail(
+            reason="Dask nightlies break task fusing for this, "
+            "issue https://github.com/rapidsai/cuml/issues/6169"
+        )
         df = cudf.DataFrame(a.todense())
         inp = dask_cudf.from_cudf(df, npartitions=2)
     elif input_type == "dask_array":

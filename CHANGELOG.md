@@ -1,3 +1,44 @@
+# cuml 24.12.00 (11 Dec 2024)
+
+## 🚨 Breaking Changes
+
+- Forward merge Branch 24.10 into 24.12 ([#6106](https://github.com/rapidsai/cuml/pull/6106)) [@divyegala](https://github.com/divyegala)
+
+## 🐛 Bug Fixes
+
+- Fix `scikit-learn` version specifier ([#6158](https://github.com/rapidsai/cuml/pull/6158)) [@trxcllnt](https://github.com/trxcllnt)
+- Correctly handle missing categorical data in experimental FIL ([#6132](https://github.com/rapidsai/cuml/pull/6132)) [@wphicks](https://github.com/wphicks)
+- Put a ceiling on cuda-python ([#6131](https://github.com/rapidsai/cuml/pull/6131)) [@bdice](https://github.com/bdice)
+- Don&#39;t presume pointers are mutually exclusive for device/host. ([#6128](https://github.com/rapidsai/cuml/pull/6128)) [@robertmaynard](https://github.com/robertmaynard)
+- cuml SINGLEGPU now tells cuvs to not build with nccl/mg support ([#6127](https://github.com/rapidsai/cuml/pull/6127)) [@robertmaynard](https://github.com/robertmaynard)
+- Remove type from pickle header for CumlArray ([#6120](https://github.com/rapidsai/cuml/pull/6120)) [@wphicks](https://github.com/wphicks)
+- Forward merge Branch 24.10 into 24.12 ([#6106](https://github.com/rapidsai/cuml/pull/6106)) [@divyegala](https://github.com/divyegala)
+- Fix Dask estimators serialization prior to training ([#6065](https://github.com/rapidsai/cuml/pull/6065)) [@viclafargue](https://github.com/viclafargue)
+
+## 🚀 New Features
+
+- Enable HDBSCAN `gpu` training and `cpu` inference ([#6108](https://github.com/rapidsai/cuml/pull/6108)) [@divyegala](https://github.com/divyegala)
+
+## 🛠️ Improvements
+
+- Update FIL tests to use XGBoost UBJSON instead of binary ([#6153](https://github.com/rapidsai/cuml/pull/6153)) [@hcho3](https://github.com/hcho3)
+- Use sparse knn / distances from cuvs ([#6143](https://github.com/rapidsai/cuml/pull/6143)) [@benfred](https://github.com/benfred)
+- Ensure MG to have the same number of allreduce calls in mean_stddev for sparse matrix to avoid hanging ([#6141](https://github.com/rapidsai/cuml/pull/6141)) [@lijinf2](https://github.com/lijinf2)
+- Stop excluding cutlass from symbol exclusion check ([#6140](https://github.com/rapidsai/cuml/pull/6140)) [@vyasr](https://github.com/vyasr)
+- Optimize MG variance calculation for dataset standardization for logistic regression ([#6138](https://github.com/rapidsai/cuml/pull/6138)) [@lijinf2](https://github.com/lijinf2)
+- enforce wheel size limits, README formatting in CI ([#6136](https://github.com/rapidsai/cuml/pull/6136)) [@jameslamb](https://github.com/jameslamb)
+- Experimental command line interface UX ([#6135](https://github.com/rapidsai/cuml/pull/6135)) [@dantegd](https://github.com/dantegd)
+- add telemetry ([#6126](https://github.com/rapidsai/cuml/pull/6126)) [@msarahan](https://github.com/msarahan)
+- Make cuVS optional if CUML_ALGORITHMS is set ([#6125](https://github.com/rapidsai/cuml/pull/6125)) [@hcho3](https://github.com/hcho3)
+- devcontainer: replace `VAULT_HOST` with `AWS_ROLE_ARN` ([#6118](https://github.com/rapidsai/cuml/pull/6118)) [@jjacobelli](https://github.com/jjacobelli)
+- print sccache stats in builds ([#6111](https://github.com/rapidsai/cuml/pull/6111)) [@jameslamb](https://github.com/jameslamb)
+- fix version in Doxygen docs ([#6104](https://github.com/rapidsai/cuml/pull/6104)) [@jameslamb](https://github.com/jameslamb)
+- make conda installs in CI stricter ([#6103](https://github.com/rapidsai/cuml/pull/6103)) [@jameslamb](https://github.com/jameslamb)
+- Make `get_param_names` a class method on single GPU estimators to match Scikit-learn closer ([#6101](https://github.com/rapidsai/cuml/pull/6101)) [@dantegd](https://github.com/dantegd)
+- Prune workflows based on changed files ([#6094](https://github.com/rapidsai/cuml/pull/6094)) [@KyleFromNVIDIA](https://github.com/KyleFromNVIDIA)
+- Update all rmm imports to use pylibrmm/librmm ([#6084](https://github.com/rapidsai/cuml/pull/6084)) [@Matt711](https://github.com/Matt711)
+- Merge branch 24.10 into branch 24.12 ([#6083](https://github.com/rapidsai/cuml/pull/6083)) [@jameslamb](https://github.com/jameslamb)
+
 # cuml 24.10.00 (9 Oct 2024)
 
 ## 🚨 Breaking Changes

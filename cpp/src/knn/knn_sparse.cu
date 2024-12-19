@@ -17,7 +17,8 @@
 #include <cuml/neighbors/knn_sparse.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/sparse/selection/knn.cuh>
+
+#include <cuvs/neighbors/brute_force.hpp>
 
 namespace ML {
 namespace Sparse {
@@ -40,29 +41,34 @@ void brute_force_knn(raft::handle_t& handle,
                      int k,
                      size_t batch_size_index,  // approx 1M
                      size_t batch_size_query,
-                     raft::distance::DistanceType metric,
+                     cuvs::distance::DistanceType metric,
                      float metricArg)
 {
-  raft::sparse::selection::brute_force_knn(idx_indptr,
-                                           idx_indices,
-                                           idx_data,
-                                           idx_nnz,
-                                           n_idx_rows,
-                                           n_idx_cols,
-                                           query_indptr,
-                                           query_indices,
-                                           query_data,
-                                           query_nnz,
-                                           n_query_rows,
-                                           n_query_cols,
-                                           output_indices,
-                                           output_dists,
-                                           k,
-                                           handle,
-                                           batch_size_index,
-                                           batch_size_query,
-                                           metric,
-                                           metricArg);
+  auto idx_structure = raft::make_device_compressed_structure_view<int, int, int>(
+    const_cast<int*>(idx_indptr), const_cast<int*>(idx_indices), n_idx_rows, n_idx_cols, idx_nnz);
+  auto idx_csr = raft::make_device_csr_matrix_view<const float>(idx_data, idx_structure);
+
+  auto query_structure =
+    raft::make_device_compressed_structure_view<int, int, int>(const_cast<int*>(query_indptr),
+                                                               const_cast<int*>(query_indices),
+                                                               n_query_rows,
+                                                               n_query_cols,
+                                                               query_nnz);
+  auto query_csr = raft::make_device_csr_matrix_view<const float>(query_data, query_structure);
+
+  cuvs::neighbors::brute_force::sparse_search_params search_params;
+  search_params.batch_size_index = batch_size_index;
+  search_params.batch_size_query = batch_size_query;
+
+  auto index = cuvs::neighbors::brute_force::build(handle, idx_csr, metric, metricArg);
+
+  cuvs::neighbors::brute_force::search(
+    handle,
+    search_params,
+    index,
+    query_csr,
+    raft::make_device_matrix_view<int, int64_t>(output_indices, n_query_rows, k),
+    raft::make_device_matrix_view<float, int64_t>(output_dists, n_query_cols, k));
 }
 };  // namespace Sparse
 };  // namespace ML

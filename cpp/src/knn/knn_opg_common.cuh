@@ -454,7 +454,7 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
                   params.k,
                   params.rowMajorIndex,
                   params.rowMajorQuery,
-                  raft::distance::DistanceType::L2SqrtExpanded,
+                  cuvs::distance::DistanceType::L2SqrtExpanded,
                   2.0f,
                   &start_indices_long);
   handle.sync_stream(handle.get_stream());

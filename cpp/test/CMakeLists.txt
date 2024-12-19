@@ -56,6 +56,8 @@ function(ConfigureTest)
     CUDA::cusparse${_ctk_static_suffix}
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
     rmm::rmm
+    rmm::rmm_logger
+    rmm::rmm_logger_impl
     raft::raft
     GTest::gtest
     GTest::gtest_main

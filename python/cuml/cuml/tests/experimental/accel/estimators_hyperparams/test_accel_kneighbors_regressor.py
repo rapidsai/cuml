@@ -116,6 +116,9 @@ def test_knn_regressor_weights_callable(regression_data):
     assert r2 > 0.7, "R^2 score should be reasonable with custom weights"
 
 
+@pytest.mark.xfail(
+    reason="cuML and sklearn don't have matching exceptions yet"
+)
 def test_knn_regressor_invalid_algorithm(regression_data):
     X, y = regression_data
     with pytest.raises((ValueError, KeyError)):
@@ -123,6 +126,9 @@ def test_knn_regressor_invalid_algorithm(regression_data):
         model.fit(X, y)
 
 
+@pytest.mark.xfail(
+    reason="cuML and sklearn don't have matching exceptions yet"
+)
 def test_knn_regressor_invalid_metric(regression_data):
     X, y = regression_data
     with pytest.raises(ValueError):
