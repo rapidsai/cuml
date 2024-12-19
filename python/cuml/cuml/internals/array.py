@@ -1295,3 +1295,34 @@ def elements_in_representable_range(arr, dtype):
     return not (
         ((arr_xpy < dtype_range.min) | (arr_xpy > dtype_range.max)).any()
     )
+
+
+def cuml_array_to_output(arr):
+    if isinstance(arr, CumlArray):
+        return arr.to_output(
+            output_type=GlobalSettings().output_type,
+            output_dtype=GlobalSettings().output_dtype,
+            output_mem_type=GlobalSettings().output_mem_type,
+        )
+    else:
+        return arr
+
+
+def generator_of_arrays_to_output(gen):
+    def generator():
+        for val in gen:
+            yield cuml_array_to_output(val)
+    return generator()
+
+
+def iterable_of_arrays_to_output(iterable):
+    return type(iterable)(
+        cuml_array_to_output(val) for val in iterable
+    )
+
+
+def dict_of_arrays_to_output(dictionary):
+    return {
+        key: cuml_array_to_output(val)
+        for key, val in dictionary.items()
+    }

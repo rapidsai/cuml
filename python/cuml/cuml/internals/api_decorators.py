@@ -14,268 +14,185 @@
 # limitations under the License.
 #
 
-import contextlib
 import functools
 import inspect
-import typing
-import warnings
 
-# TODO: Try to resolve circular import that makes this necessary:
-from cuml.internals import input_utils as iu
-from cuml.internals.api_context_managers import BaseReturnAnyCM
-from cuml.internals.api_context_managers import BaseReturnArrayCM
-from cuml.internals.api_context_managers import BaseReturnGenericCM
-from cuml.internals.api_context_managers import BaseReturnSparseArrayCM
-from cuml.internals.api_context_managers import InternalAPIContextBase
-from cuml.internals.api_context_managers import ReturnAnyCM
-from cuml.internals.api_context_managers import ReturnArrayCM
-from cuml.internals.api_context_managers import ReturnGenericCM
-from cuml.internals.api_context_managers import ReturnSparseArrayCM
-from cuml.internals.api_context_managers import set_api_output_dtype
-from cuml.internals.api_context_managers import set_api_output_type
-from cuml.internals.constants import CUML_WRAPPED_FLAG
+from cuml.internals.api_context_managers import (
+    CumlAPIContext,
+    GlobalSettingsContext
+)
+from cuml.internals.array import (
+    cuml_array_to_output,
+    generator_of_arrays_to_output,
+    iterable_of_arrays_to_output,
+    dict_of_arrays_to_output
+)
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.memory_utils import using_output_type
-from cuml.internals.type_utils import _DecoratorType, wraps_typed
-from cuml.internals import logger
+from cuml.internals.input_utils import (
+    determine_array_type,
+    determine_array_dtype
+)
+from enum import Enum, auto
+from functools import wraps
+
+global_settings = GlobalSettings()
 
 
-def _wrap_once(wrapped, *args, **kwargs):
-    """Prevent wrapping functions multiple times."""
-    setattr(wrapped, CUML_WRAPPED_FLAG, True)
-    return functools.wraps(wrapped, *args, **kwargs)
+class CumlReturnType(Enum):
+    # Return an array, which can directly be converted to the
+    # globally-specified output type
+    array = auto()
+    # Return a generator whose elements can be converted to the
+    # globally-specified output type
+    generator_of_arrays = auto()
+    # Return an iterable whose elements can be converted to the
+    # globally-specified output type
+    iterable_of_arrays = auto()
+    # Return a dictionary, some of whose values can be converted to the
+    # globally-specified output type
+    dict_of_arrays = auto()
+    # Return a value of unspecified type which will not undergo
+    # conversion
+    raw = auto()
 
 
-def _has_self(sig):
-    return "self" in sig.parameters and list(sig.parameters)[0] == "self"
 
+class cuml_function:
+    """A decorator for cuML API functions
 
-def _find_arg(sig, arg_name, default_position):
-    params = list(sig.parameters)
+    This decorator's primary purpose is to track the type of data which is
+    provided as inputs to cuML and ensure that data of the corresponding type
+    are returned upon exiting the cuML API boundary. For instance, if a user
+    provides numpy input, they should receive numpy output. If the user
+    provides cuDF input, they should receive cuDF output.
+    """
+    def __init__(
+        self,
+        input_param='X',
+        target_param='y',
+        return_type=CumlReturnType.raw
+    ):
+        # Dictionary mapping parameter names to their purpose (e.g. as input,
+        # target, etc.) for use in parsing input to a wrapped function
+        self.params_to_handle = {
+            "self": "self",
+        }
+        if input_param is not None:
+            self.params_to_handle[input_param] = "input"
+        if target_param is not None:
+            self.params_to_handle[target_param] = "target"
+        self.return_type = return_type
 
-    # Check for default name in input args
-    if arg_name in sig.parameters:
-        return arg_name, params.index(arg_name)
-    # Otherwise use argument in list by position
-    elif arg_name is ...:
-        index = int(_has_self(sig)) + default_position
-        return params[index], index
-    else:
-        raise ValueError(f"Unable to find parameter '{arg_name}'.")
+    def __call__(self, func):
 
+        signature = inspect.signature(func)
+        # Mapping from parameter purpose (input, target, ...) to a two-element
+        # tuple. The first element is the index where the param may appear for
+        # positional inputs (if any) and the second is the name of that param
+        # as it may appear in a dictionary of kwargs
+        param_parsing_dict = {}
 
-def _get_value(args, kwargs, name, index):
-    """Determine value for a given set of args, kwargs, name and index."""
-    try:
-        return kwargs[name]
-    except KeyError:
-        try:
-            return args[index]
-        except IndexError:
-            raise IndexError(
-                f"Specified arg idx: {index}, and argument name: {name}, "
-                "were not found in args or kwargs."
-            )
+        for param_index, (name, spec) in enumerate(signature.parameters.items()):
+            if name in self.params_to_handle:
+                if spec.kind == inspect.Parameter.POSITIONAL_ONLY:
+                    param_parsing_dict[
+                        self.params_to_handle[name]
+                    ] = (param_index, None)
+                elif spec.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD:
+                    param_parsing_dict[
+                        self.params_to_handle[name]
+                    ] = (param_index, name)
+                else:
+                    param_parsing_dict[
+                        self.params_to_handle[name]
+                    ] = (None, name)
 
+        def get_value_from_params(parse_spec, *args, **kwargs):
+            try:
+                return kwargs[parse_spec[1]]
+            except KeyError:
+                if parse_spec[0] is not None:
+                    try:
+                        return args[parse_spec[0]]
+                    except IndexError:
+                        pass
+            return None
 
-def _make_decorator_function(
-    context_manager_cls: InternalAPIContextBase,
-    process_return=True,
-    needs_self: bool = False,
-    **defaults,
-) -> typing.Callable[..., _DecoratorType]:
-    # This function generates a function to be applied as decorator to a
-    # wrapped function. For example:
-    #
-    #       a_decorator = _make_decorator_function(...)
-    #
-    #       ...
-    #
-    #       @a_decorator(...)  # apply decorator where appropriate
-    #       def fit(X, y):
-    #           ...
-    #
-    # Note: The decorator function can be partially closed by directly
-    # providing keyword arguments to this function to be used as defaults.
+        @functools.wraps(func)
+        def cuml_func(*args, **kwargs):
+            special_param_values = {
+                param_purpose: get_value_from_params(param_spec, *args, **kwargs)
+                for param_purpose, param_spec in param_parsing_dict
+            }
+            special_param_values = {
+                key: value for key, value in special_param_values.items()
+                if value is not None
+            }
 
-    def decorator_function(
-        input_arg: str = ...,
-        target_arg: str = ...,
-        get_output_type: bool = False,
-        set_output_type: bool = False,
-        get_output_dtype: bool = False,
-        set_output_dtype: bool = False,
-        set_n_features_in: bool = False,
-    ) -> _DecoratorType:
-        def decorator_closure(func):
-            # This function constitutes the closed decorator that will return
-            # the wrapped function. It performs function introspection at
-            # function definition time. The code within the wrapper function is
-            # executed at function execution time.
+            api_output_type = None
+            api_output_dtype = None
+            if "input" in special_param_values:
+                if "self" in special_param_values:
+                    estimator = special_param_values["self"]
+                    estimator._set_output_type(
+                        special_param_values["input"]
+                    )
+                    if len(special_param_values["input"].shape) > 1:
+                        estimator._set_n_features_in(
+                            special_param_values["input"]
+                        )
+                else:
+                    api_output_type = determine_array_type(
+                        special_param_values["input"]
+                    )
+            elif "self" in special_param_values:
+                estimator = special_param_values["self"]
+                api_output_type = estimator.output_type
+                if api_output_type == "input":
+                    api_output_type = estimator._input_type
 
-            # Prepare arguments
-            sig = inspect.signature(func, follow_wrapped=True)
+            if "target" in special_param_values:
+                if "self" in special_param_values:
+                    estimator = special_param_values["self"]
+                    estimator._set_target_dtype(
+                        determine_array_dtype(
+                            special_param_values["target"]
+                        )
+                    )
+                    api_output_dtype = estimator._get_target_dtype()
+                else:
+                    api_output_dtype = determine_array_dtype(
+                        special_param_values["target"]
+                    )
+            elif "self" in special_param_values:
+                estimator = special_param_values["self"]
+                api_output_dtype = estimator._get_target_dtype()
 
-            has_self = _has_self(sig)
-            if needs_self and not has_self:
-                raise Exception("No self found on function!")
-
-            if input_arg is not None and (
-                set_output_type
-                or set_output_dtype
-                or set_n_features_in
-                or get_output_type
+            with GlobalSettingsContext(
+                output_type = api_output_type,
+                output_dtype = api_output_dtype
             ):
-                input_arg_ = _find_arg(sig, input_arg or "X", 0)
-            else:
-                input_arg_ = None
+                with CumlAPIContext():
+                    result = func(*args, **kwargs)
 
-            if set_output_dtype or (get_output_dtype and not has_self):
-                target_arg_ = _find_arg(sig, target_arg or "y", 1)
-            else:
-                target_arg_ = None
+                if (
+                    global_settings.in_internal_api() or
+                    self.return_type == CumlReturnType.raw
+                ):
+                    return result
 
-            @_wrap_once(func)
-            def wrapper(*args, **kwargs):
-                # Wraps the decorated function, executed at runtime.
+                if self.return_type == CumlReturnType.array:
+                    return cuml_array_to_output(result)
+                elif self.return_type == CumlReturnType.generator_of_arrays:
+                    return generator_of_arrays_to_output(result)
+                elif self.return_type == CumlReturnType.iterable_of_arrays:
+                    return iterable_of_arrays_to_output(result)
+                elif self.return_type == CumlReturnType.dict_of_arrays_to_output:
+                    return dict_of_arrays_to_output(result)
+                else:
+                    return result
 
-                with context_manager_cls(func, args) as cm:
-
-                    self_val = args[0] if has_self else None
-
-                    if input_arg_:
-                        input_val = _get_value(args, kwargs, *input_arg_)
-                    else:
-                        input_val = None
-                    if target_arg_:
-                        target_val = _get_value(args, kwargs, *target_arg_)
-                    else:
-                        target_val = None
-
-                    if set_output_type:
-                        assert self_val is not None
-                        self_val._set_output_type(input_val)
-                    if set_output_dtype:
-                        assert self_val is not None
-                        self_val._set_target_dtype(target_val)
-                    if set_n_features_in and len(input_val.shape) >= 2:
-                        assert self_val is not None
-                        self_val._set_n_features_in(input_val)
-
-                    if get_output_type:
-                        if self_val is None:
-                            assert input_val is not None
-                            out_type = iu.determine_array_type(input_val)
-                        elif input_val is None:
-                            out_type = self_val.output_type
-                            if out_type == "input":
-                                out_type = self_val._input_type
-                        else:
-                            out_type = self_val._get_output_type(input_val)
-
-                        set_api_output_type(out_type)
-
-                    if get_output_dtype:
-                        if self_val is None:
-                            assert target_val is not None
-                            output_dtype = iu.determine_array_dtype(target_val)
-                        else:
-                            output_dtype = self_val._get_target_dtype()
-
-                        set_api_output_dtype(output_dtype)
-
-                    if process_return:
-                        ret = func(*args, **kwargs)
-                    else:
-                        return func(*args, **kwargs)
-
-                return cm.process_return(ret)
-
-            return wrapper
-
-        return decorator_closure
-
-    return functools.partial(decorator_function, **defaults)
-
-
-api_return_any = _make_decorator_function(ReturnAnyCM, process_return=False)
-api_base_return_any = _make_decorator_function(
-    BaseReturnAnyCM,
-    needs_self=True,
-    set_output_type=True,
-    set_n_features_in=True,
-)
-api_return_array = _make_decorator_function(ReturnArrayCM, process_return=True)
-api_base_return_array = _make_decorator_function(
-    BaseReturnArrayCM,
-    needs_self=True,
-    process_return=True,
-    get_output_type=True,
-)
-api_return_generic = _make_decorator_function(
-    ReturnGenericCM, process_return=True
-)
-api_base_return_generic = _make_decorator_function(
-    BaseReturnGenericCM,
-    needs_self=True,
-    process_return=True,
-    get_output_type=True,
-)
-api_base_fit_transform = _make_decorator_function(
-    # TODO: add tests for this decorator(
-    BaseReturnArrayCM,
-    needs_self=True,
-    process_return=True,
-    get_output_type=True,
-    set_output_type=True,
-    set_n_features_in=True,
-)
-
-api_return_sparse_array = _make_decorator_function(
-    ReturnSparseArrayCM, process_return=True
-)
-api_base_return_sparse_array = _make_decorator_function(
-    BaseReturnSparseArrayCM,
-    needs_self=True,
-    process_return=True,
-    get_output_type=True,
-)
-
-api_base_return_any_skipall = api_base_return_any(
-    set_output_type=False, set_n_features_in=False
-)
-api_base_return_array_skipall = api_base_return_array(get_output_type=False)
-api_base_return_generic_skipall = api_base_return_generic(
-    get_output_type=False
-)
-
-
-@contextlib.contextmanager
-def exit_internal_api():
-
-    assert GlobalSettings().root_cm is not None
-
-    try:
-        old_root_cm = GlobalSettings().root_cm
-
-        GlobalSettings().root_cm = None
-
-        # Set the global output type to the previous value to pretend we never
-        # entered the API
-        with using_output_type(old_root_cm.prev_output_type):
-
-            yield
-
-    finally:
-        GlobalSettings().root_cm = old_root_cm
-
-
-def mirror_args(
-    wrapped: _DecoratorType,
-    assigned=("__doc__", "__annotations__"),
-    updated=functools.WRAPPER_UPDATES,
-) -> typing.Callable[[_DecoratorType], _DecoratorType]:
-    return _wrap_once(wrapped=wrapped, assigned=assigned, updated=updated)
+        return cuml_func
 
 
 class _deprecate_pos_args:
