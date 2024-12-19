@@ -35,6 +35,7 @@ from cuml.common import input_to_cuml_array
 from cuml.internals.input_utils import determine_array_type_full
 from cuml.common import using_output_type
 from cuml.internals.logger import warn
+from cuml.internals.logger cimport level_enum
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.array_sparse import SparseCumlArray, SparseCumlArrayInput
 from libcpp cimport bool
@@ -68,7 +69,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         int max_iter
         int nochange_steps
         double tol
-        int verbosity
+        level_enum verbosity
         double epsilon
         SvmType svmType
 
@@ -684,7 +685,7 @@ class SVMBase(Base,
 
     def __setstate__(self, state):
         super(SVMBase, self).__init__(handle=None,
-                                      verbose=state['verbose'])
+                                      verbose=state['_verbose'])
         self.__dict__.update(state)
         self._model = self._get_svm_model()
         self._freeSvmBuffers = False

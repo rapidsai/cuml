@@ -102,7 +102,7 @@ void _get_graph(const raft::handle_t& handle,
 
   int k = params->n_neighbors;
 
-  ML::Logger::get().setLevel(params->verbosity);
+  ML::default_logger().set_level(params->verbosity);
 
   CUML_LOG_DEBUG("n_neighbors=%d", params->n_neighbors);
 
@@ -159,7 +159,7 @@ void _get_graph_supervised(const raft::handle_t& handle,
 
   int k = params->n_neighbors;
 
-  ML::Logger::get().setLevel(params->verbosity);
+  ML::default_logger().set_level(params->verbosity);
 
   if (params->target_n_neighbors == -1) params->target_n_neighbors = params->n_neighbors;
 
@@ -247,7 +247,7 @@ void _refine(const raft::handle_t& handle,
              value_t* embeddings)
 {
   cudaStream_t stream = handle.get_stream();
-  ML::Logger::get().setLevel(params->verbosity);
+  ML::default_logger().set_level(params->verbosity);
 
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
@@ -263,7 +263,7 @@ void _init_and_refine(const raft::handle_t& handle,
                       value_t* embeddings)
 {
   cudaStream_t stream = handle.get_stream();
-  ML::Logger::get().setLevel(params->verbosity);
+  ML::default_logger().set_level(params->verbosity);
 
   // Initialize embeddings
   InitEmbed::run(handle, inputs.n, inputs.d, graph, params, embeddings, stream, params->init);
@@ -282,7 +282,7 @@ void _fit(const raft::handle_t& handle,
   raft::common::nvtx::range fun_scope("umap::unsupervised::fit");
 
   cudaStream_t stream = handle.get_stream();
-  ML::Logger::get().setLevel(params->verbosity);
+  ML::default_logger().set_level(params->verbosity);
 
   UMAPAlgo::_get_graph<value_idx, value_t, umap_inputs, TPB_X>(handle, inputs, params, graph);
 
@@ -318,7 +318,7 @@ void _fit_supervised(const raft::handle_t& handle,
   raft::common::nvtx::range fun_scope("umap::supervised::fit");
 
   cudaStream_t stream = handle.get_stream();
-  ML::Logger::get().setLevel(params->verbosity);
+  ML::default_logger().set_level(params->verbosity);
 
   UMAPAlgo::_get_graph_supervised<value_idx, value_t, umap_inputs, TPB_X>(
     handle, inputs, params, graph);
@@ -360,7 +360,7 @@ void _transform(const raft::handle_t& handle,
   raft::common::nvtx::range fun_scope("umap::transform");
   cudaStream_t stream = handle.get_stream();
 
-  ML::Logger::get().setLevel(params->verbosity);
+  ML::default_logger().set_level(params->verbosity);
 
   CUML_LOG_DEBUG("Running transform");
 

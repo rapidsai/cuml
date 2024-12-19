@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "logger.hpp"
+#include <cuml/common/logger.hpp>
 
 #include <raft/core/error.hpp>
 #include <raft/util/cudart_utils.hpp>
