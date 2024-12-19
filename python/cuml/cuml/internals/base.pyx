@@ -851,3 +851,63 @@ class UniversalBase(Base):
                 raise ex
 
             raise ex
+
+    def as_sklearn(self):
+        """
+        Convert the current GPU-accelerated estimator into a scikit-learn estimator.
+        This method imports and builds an equivalent CPU-backed scikit-learn model,
+        transferring all necessary parameters from the GPU representation to the
+        CPU model. After this conversion, the returned object should be a fully
+        compatible scikit-learn estimator, allowing you to use it in standard
+        scikit-learn pipelines and workflows.
+
+        Returns
+        -------
+        sklearn.base.BaseEstimator
+            A scikit-learn compatible estimator instance that mirrors the trained
+            state of the current GPU-accelerated estimator.
+
+        """
+        self.import_cpu_model()
+        self.build_cpu_model()
+        self.gpu_to_cpu()
+        return self._cpu_model
+        
+    @classmethod
+    def from_sklearn(cls, model):
+        """
+        Create a GPU-accelerated estimator from a scikit-learn estimator.
+        This class method takes an existing scikit-learn estimator and converts it
+        into the corresponding GPU-backed estimator. It imports any required CPU
+        model definitions, stores the given scikit-learn model internally, and then
+        transfers the model parameters and state onto the GPU.
+        Parameters
+        ----------
+        model : sklearn.base.BaseEstimator
+            A fitted scikit-learn estimator from which to create the GPU-accelerated
+            version.
+        Returns
+        -------
+        cls
+            A new instance of the GPU-accelerated estimator class that mirrors the
+            state of the input scikit-learn estimator.
+        Notes
+        -----
+        - `output_type` of the estimator is set to "numpy" 
+            by default, as these cannot be inferred from training arguments. If
+            something different is required, then please use cuML's output_type
+            configuration utilites. 
+        """
+        estimator = cls()
+        estimator.import_cpu_model()
+        estimator._cpu_model = model
+        estimator.cpu_to_gpu()
+
+        # we need to set an output type here since
+        # we cannot infer from training args.
+        # Setting to numpy seems like a reasonable default for matching the 
+        # deserialized class by default. 
+        estimator.output_type = "numpy"
+        estimator.output_mem_type = MemoryType.host
+        
+        return estimator
