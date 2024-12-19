@@ -371,6 +371,9 @@ class Base(TagsMixin,
             if key not in variables:
                 raise ValueError("Bad param '%s' passed to set_params" % key)
             else:
+                # Switch verbose to enum since we are now internal to cuML API
+                if key == "verbose":
+                    value = logger.level_enum(6 - int(value))
                 setattr(self, key, value)
         return self
 
