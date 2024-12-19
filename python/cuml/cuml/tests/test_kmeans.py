@@ -418,5 +418,6 @@ def test_fit_transform_weighted_kmeans(
     sk_transf = sk_kmeans.fit_transform(cp.asnumpy(X), sample_weight=wt)
     sk_score = sk_kmeans.score(cp.asnumpy(X))
 
-    assert abs(cu_score - sk_score) <= cluster_std * 1.5
+    # we fail if cuML's score is significantly worse than sklearn's
+    assert cu_score - sk_score <= cluster_std * 1.5
     assert sk_transf.shape == cuml_transf.shape
