@@ -359,8 +359,9 @@ class CD(Base,
 
         return preds
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "loss",
             "alpha",
             "l1_ratio",

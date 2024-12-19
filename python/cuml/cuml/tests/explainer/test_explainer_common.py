@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -141,7 +141,7 @@ def test_get_tag_from_model_func(model):
 
     for tag in _default_tags:
         res = get_tag_from_model_func(
-            func=mod.get_param_names, tag=tag, default="FFF"
+            func=mod._get_param_names, tag=tag, default="FFF"
         )
 
         if tag != "preferred_input_order":
@@ -153,7 +153,7 @@ def test_get_handle_from_cuml_model_func(model):
     mod = create_dummy_model(model)
 
     handle = get_handle_from_cuml_model_func(
-        mod.get_param_names, create_new=True
+        mod._get_param_names, create_new=True
     )
 
     assert isinstance(handle, Handle)

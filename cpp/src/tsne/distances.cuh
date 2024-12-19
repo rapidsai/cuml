@@ -23,11 +23,9 @@
 
 #include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/symmetrize.cuh>
-#include <raft/sparse/selection/knn.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
@@ -37,13 +35,15 @@
 #include <thrust/functional.h>
 #include <thrust/transform_reduce.h>
 
+#include <cuvs/distance/distance.hpp>
+#include <cuvs/neighbors/brute_force.hpp>
 #include <selection/knn.cuh>
 
 namespace ML {
 namespace TSNE {
 
 /**
- * @brief Uses FAISS's KNN to find the top n_neighbors. This speeds up the attractive forces.
+ * @brief Uses CUVS's KNN to find the top n_neighbors. This speeds up the attractive forces.
  * @param[in] input: dense/sparse manifold input
  * @param[out] indices: The output indices from KNN.
  * @param[out] distances: The output sorted distances from KNN.
@@ -56,7 +56,7 @@ void get_distances(const raft::handle_t& handle,
                    tsne_input& input,
                    knn_graph<value_idx, value_t>& k_graph,
                    cudaStream_t stream,
-                   raft::distance::DistanceType metric,
+                   cuvs::distance::DistanceType metric,
                    value_t p);
 
 // dense, int64 indices
@@ -65,37 +65,22 @@ void get_distances(const raft::handle_t& handle,
                    manifold_dense_inputs_t<float>& input,
                    knn_graph<int64_t, float>& k_graph,
                    cudaStream_t stream,
-                   raft::distance::DistanceType metric,
+                   cuvs::distance::DistanceType metric,
                    float p)
 {
   // TODO: for TSNE transform first fit some points then transform with 1/(1+d^2)
   // #861
+  auto k = k_graph.n_neighbors;
+  auto X_view =
+    raft::make_device_matrix_view<const float, int64_t, raft::col_major>(input.X, input.n, input.d);
+  auto idx = cuvs::neighbors::brute_force::build(handle, X_view, metric, p);
 
-  std::vector<float*> input_vec = {input.X};
-  std::vector<int> sizes_vec    = {input.n};
-
-  /**
- * std::vector<float *> &input, std::vector<int> &sizes,
-                     IntType D, float *search_items, IntType n, int64_t *res_I,
-                     float *res_D, IntType k,
-                     std::shared_ptr<deviceAllocator> allocator,
-                     cudaStream_t userStream,
- */
-
-  raft::spatial::knn::brute_force_knn<int64_t, float, int>(handle,
-                                                           input_vec,
-                                                           sizes_vec,
-                                                           input.d,
-                                                           input.X,
-                                                           input.n,
-                                                           k_graph.knn_indices,
-                                                           k_graph.knn_dists,
-                                                           k_graph.n_neighbors,
-                                                           false,
-                                                           false,
-                                                           nullptr,
-                                                           metric,
-                                                           p);
+  cuvs::neighbors::brute_force::search(
+    handle,
+    idx,
+    X_view,
+    raft::make_device_matrix_view<int64_t, int64_t>(k_graph.knn_indices, input.n, k),
+    raft::make_device_matrix_view<float, int64_t>(k_graph.knn_dists, input.n, k));
 }
 
 // dense, int32 indices
@@ -104,7 +89,7 @@ void get_distances(const raft::handle_t& handle,
                    manifold_dense_inputs_t<float>& input,
                    knn_graph<int, float>& k_graph,
                    cudaStream_t stream,
-                   raft::distance::DistanceType metric,
+                   cuvs::distance::DistanceType metric,
                    float p)
 {
   throw raft::exception("Dense TSNE does not support 32-bit integer indices yet.");
@@ -116,29 +101,26 @@ void get_distances(const raft::handle_t& handle,
                    manifold_sparse_inputs_t<int, float>& input,
                    knn_graph<int, float>& k_graph,
                    cudaStream_t stream,
-                   raft::distance::DistanceType metric,
+                   cuvs::distance::DistanceType metric,
                    float p)
 {
-  raft::sparse::selection::brute_force_knn(input.indptr,
-                                           input.indices,
-                                           input.data,
-                                           input.nnz,
-                                           input.n,
-                                           input.d,
-                                           input.indptr,
-                                           input.indices,
-                                           input.data,
-                                           input.nnz,
-                                           input.n,
-                                           input.d,
-                                           k_graph.knn_indices,
-                                           k_graph.knn_dists,
-                                           k_graph.n_neighbors,
-                                           handle,
-                                           ML::Sparse::DEFAULT_BATCH_SIZE,
-                                           ML::Sparse::DEFAULT_BATCH_SIZE,
-                                           metric,
-                                           p);
+  auto input_structure = raft::make_device_compressed_structure_view<int, int, int>(
+    input.indptr, input.indices, input.n, input.d, input.nnz);
+  auto input_csr = raft::make_device_csr_matrix_view<const float>(input.data, input_structure);
+
+  cuvs::neighbors::brute_force::sparse_search_params search_params;
+  search_params.batch_size_index = ML::Sparse::DEFAULT_BATCH_SIZE;
+  search_params.batch_size_query = ML::Sparse::DEFAULT_BATCH_SIZE;
+
+  auto index = cuvs::neighbors::brute_force::build(handle, input_csr, metric, p);
+
+  cuvs::neighbors::brute_force::search(
+    handle,
+    search_params,
+    index,
+    input_csr,
+    raft::make_device_matrix_view<int, int64_t>(k_graph.knn_indices, input.n, k_graph.n_neighbors),
+    raft::make_device_matrix_view<float, int64_t>(k_graph.knn_dists, input.n, k_graph.n_neighbors));
 }
 
 // sparse, int64
@@ -147,7 +129,7 @@ void get_distances(const raft::handle_t& handle,
                    manifold_sparse_inputs_t<int64_t, float>& input,
                    knn_graph<int64_t, float>& k_graph,
                    cudaStream_t stream,
-                   raft::distance::DistanceType metric,
+                   cuvs::distance::DistanceType metric,
                    float p)
 {
   throw raft::exception("Sparse TSNE does not support 64-bit integer indices yet.");

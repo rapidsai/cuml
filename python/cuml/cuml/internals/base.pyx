@@ -20,6 +20,7 @@ import os
 import inspect
 import numbers
 from importlib import import_module
+from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import_from,
@@ -36,15 +37,18 @@ except ImportError:
 
 import cuml
 import cuml.common
+from cuml.common.sparse_utils import is_sparse
 import cuml.internals.logger as logger
 import cuml.internals
 import cuml.internals.input_utils
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import (
     determine_array_type,
     input_to_cuml_array,
     input_to_host_array,
+    input_to_host_array_with_sparse_support,
     is_array_like
 )
 from cuml.internals.memory_utils import determine_array_memtype
@@ -182,7 +186,8 @@ class Base(TagsMixin,
                 self._check_output_type(data)
                 # inference logic goes here
 
-            def get_param_names(self):
+            @classmethod
+            def _get_param_names(cls):
                 # return a list of hyperparam names supported by this algo
 
         # stream and handle example:
@@ -200,6 +205,8 @@ class Base(TagsMixin,
         base.handle.sync()
         del base  # optional!
     """
+
+    _hyperparam_interop_translator = {}
 
     def __init__(self, *,
                  handle=None,
@@ -270,7 +277,8 @@ class Base(TagsMixin,
             output += ' <sk_model_ attribute used>'
         return output
 
-    def get_param_names(self):
+    @classmethod
+    def _get_param_names(cls):
         """
         Returns a list of hyperparameter names owned by this class. It is
         expected that every child class overrides this method and appends its
@@ -282,12 +290,12 @@ class Base(TagsMixin,
     def get_params(self, deep=True):
         """
         Returns a dict of all params owned by this class. If the child class
-        has appropriately overridden the `get_param_names` method and does not
+        has appropriately overridden the `_get_param_names` method and does not
         need anything other than what is there in this method, then it doesn't
         have to override this method
         """
         params = dict()
-        variables = self.get_param_names()
+        variables = self._get_param_names()
         for key in variables:
             var_value = getattr(self, key, None)
             params[key] = var_value
@@ -297,12 +305,12 @@ class Base(TagsMixin,
         """
         Accepts a dict of params and updates the corresponding ones owned by
         this class. If the child class has appropriately overridden the
-        `get_param_names` method and does not need anything other than what is,
+        `_get_param_names` method and does not need anything other than what is,
         there in this method, then it doesn't have to override this method
         """
         if not params:
             return self
-        variables = self.get_param_names()
+        variables = self._get_param_names()
         for key, value in params.items():
             if key not in variables:
                 raise ValueError("Bad param '%s' passed to set_params" % key)
@@ -469,19 +477,30 @@ class Base(TagsMixin,
                 func = nvtx_annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
 
-    def to_sklearn(self,
-                   protocol: str = "pickle",
-                   filename: Optional[str] = None) -> None:
-        raise NotImplementedError("Estimator does not support exporting to "
-                                  "Scikit-learn yet.")
-
-
     @classmethod
-    def from_sklearn(cls,
-                     filename: str,
-                     protocol: str = "pickle") -> 'Model':
-        raise NotImplementedError("Estimator does not support importing from "
-                                  "Scikit-learn yet.")
+    def _hyperparam_translator(cls, **kwargs):
+        """
+        This method is meant to do checks and translations of hyperparameters
+        at estimator creating time.
+        Each children estimator can override the method, returning either
+        modifier **kwargs with equivalent options, or setting gpuaccel to False
+        for hyperaparameters not supported by cuML yet.
+        """
+        gpuaccel = True
+        # Copy it so we can modify it
+        translations = dict(cls.__bases__[0]._hyperparam_interop_translator)
+        # Allow the derived class to overwrite the base class
+        translations.update(cls._hyperparam_interop_translator)
+        for parameter_name, value in kwargs.items():
+
+            if parameter_name in translations:
+                if value in translations[parameter_name]:
+                    if translations[parameter_name][value] == "NotImplemented":
+                        gpuaccel = False
+                    else:
+                        kwargs[parameter_name] = translations[parameter_name][value]
+
+        return kwargs, gpuaccel
 
 
 # Internal, non class owned helper functions
@@ -535,6 +554,9 @@ def _determine_stateless_output_type(output_type, input_obj):
 
 
 class UniversalBase(Base):
+    # variable to enable dispatching non-implemented methods to CPU
+    # estimators, experimental.
+    _experimental_dispatching = False
 
     def import_cpu_model(self):
         # skip the CPU estimator has been imported already
@@ -659,19 +681,23 @@ class UniversalBase(Base):
 
     def args_to_cpu(self, *args, **kwargs):
         # put all the args on host
-        new_args = tuple(input_to_host_array(arg)[0] for arg in args)
+        new_args = tuple(
+            input_to_host_array_with_sparse_support(arg) for arg in args
+        )
 
         # put all the kwargs on host
         new_kwargs = dict()
         for kw, arg in kwargs.items():
             # if array-like, ensure array-like is on the host
             if is_array_like(arg):
-                new_kwargs[kw] = input_to_host_array(arg)[0]
+                new_kwargs[kw] = input_to_host_array_with_sparse_support(arg)
             # if Real or string, pass as is
             elif isinstance(arg, (numbers.Real, str)):
                 new_kwargs[kw] = arg
             else:
                 raise ValueError(f"Unable to process argument {kw}")
+
+        new_kwargs.pop("convert_dtype", None)
         return new_args, new_kwargs
 
     def dispatch_func(self, func_name, gpu_func, *args, **kwargs):
@@ -693,11 +719,13 @@ class UniversalBase(Base):
             keyword arguments to be passed to the function for the call
         """
         # look for current device_type
-        device_type = cuml.global_settings.device_type
+        # device_type = cuml.global_settings.device_type
+        device_type = self._dispatch_selector(func_name, *args, **kwargs)
 
-        # GPU case
         if device_type == DeviceType.device:
             # call the function from the GPU estimator
+            if GlobalSettings().accelerator_active:
+                logger.info(f"cuML: Performing {func_name} in GPU")
             return gpu_func(self, *args, **kwargs)
 
         # CPU case
@@ -717,9 +745,10 @@ class UniversalBase(Base):
             # ensure args and kwargs are on the CPU
             args, kwargs = self.args_to_cpu(*args, **kwargs)
 
-            # get the function from the GPU estimator
+            # get the function from the CPU estimator
             cpu_func = getattr(self._cpu_model, func_name)
-            # call the function from the GPU estimator
+            # call the function from the CPU estimator
+            logger.info(f"cuML: Performing {func_name} in CPU")
             res = cpu_func(*args, **kwargs)
 
             # CPU training
@@ -738,95 +767,87 @@ class UniversalBase(Base):
             # return function result
             return res
 
-    @staticmethod
-    def _get_serializer(protocol: str) -> Any:
+    def _dispatch_selector(self, func_name, *args, **kwargs):
         """
-        Get the appropriate serializer based on the specified protocol.
         """
-        if protocol == "pickle":
-            import pickle as serializer
-        elif protocol == "joblib":
-            import joblib as serializer
+        # check for sparse inputs and whether estimator supports them
+        sparse_support = "sparse" in self._get_tags()["X_types_gpu"]
+
+        if args and is_sparse(args[0]):
+            if sparse_support:
+                return DeviceType.device
+            elif GlobalSettings().accelerator_active and not sparse_support:
+                logger.info(
+                    f"cuML: Estimator {self} does not support sparse inputs in GPU."
+                )
+                return DeviceType.host
+            else:
+                raise NotImplementedError(
+                    "Estimator does not support sparse inputs currently"
+                )
+
+        # if not using accelerator, then return global device
+        if not hasattr(self, "_gpuaccel"):
+            return cuml.global_settings.device_type
+
+        # if using accelerator and doing inference, always use GPU
+        elif func_name not in ['fit', 'fit_transform', 'fit_predict']:
+            device_type = DeviceType.device
+
+        # otherwise we select CPU when _gpuaccel is off
+        elif not self._gpuaccel:
+            device_type = DeviceType.host
         else:
-            raise TypeError(f"Protocol {protocol} not supported.")
-        return serializer
+            if not self._should_dispatch_cpu(func_name, *args, **kwargs):
+                device_type = DeviceType.device
+            else:
+                device_type = DeviceType.host
 
-    def to_sklearn(self,
-                   protocol: str = "pickle",
-                   filename: Optional[str] = None) -> None:
+        return device_type
+
+    def _should_dispatch_cpu(self, func_name, *args, **kwargs):
         """
-        Serialize the estimator to a Scikit-learn compatible file using the
-        specified protocol.
-
-        Parameters
-        ----------
-        protocol : str, optional
-            The serialization protocol to use. Defaults to 'pickle'.
-        filename : str, optional
-            The name of the file where the model will be saved. If not provided, it defaults
-            to the class name with '_sklearn' appended.
-
-        Raises
-        ------
-        AttributeError
-            If the model does not have a `_cpu_model` attribute.
-        TypeError
-            If the protocol is not supported.
-
+        This method is meant to do checks of data sizes and other things
+        at fit and other method call time, to decide where to disptach
+        a function. For hyperparameters of the estimator,
+        see the method _hyperparam_translator.
+        Each estimator inheritting from UniversalBase can override this
+        method to have custom rules of when to dispatch to CPU depending
+        on the data passed to fit/predict...
         """
-        if filename is None:
-            filename = self.__class__.__name__ + "_sklearn"
 
-        serializer = self._get_serializer(protocol)
+        return False
 
-        if not hasattr(self, '_cpu_model'):
-            self.import_cpu_model()
-            self.build_cpu_model()
-            self.gpu_to_cpu()
+    def __getattr__(self, attr):
+        try:
+            res = super().__getattr__(attr)
+            return res
 
-        with open(filename, "wb") as f:
-            serializer.dump(self._cpu_model, f)
+        except AttributeError as ex:
+            # When using cuml.experimental.accel or setting the
+            # self._experimental_dispatching flag to True, we look for methods
+            # that are not in the cuML estimator in the host estimator
+            if GlobalSettings().accelerator_active or self._experimental_dispatching:
 
-    @classmethod
-    def from_sklearn(cls,
-                     filename: str,
-                     protocol: str = "pickle") -> 'Model':
-        """
-        Create a cuML estimator from a pickle or joblib serialized
-        Scikit-learn model.
+                self.import_cpu_model()
+                if hasattr(self._cpu_model_class, attr):
 
-        Parameters
-        ----------
-        filename : str
-            The name of the file from which to load the model.
-        protocol : str, optional
-            The serialization protocol to use. Defaults to 'pickle'.
+                    # we turn off and cache the dispatching variables off so that
+                    # build_cpu_model and gpu_to_cpu don't recurse infinitely
+                    cached_dispatching = self._experimental_dispatching
+                    cached_accelerator_active = GlobalSettings().accelerator_active
+                    self._experimental_dispatching = False
+                    GlobalSettings().accelerator_active = False
 
-        Returns
-        -------
-        Model
-            An instance of the class with the loaded model.
+                    self.build_cpu_model()
+                    self.gpu_to_cpu()
 
-        Raises
-        ------
-        AttributeError
-            If the model does not have a `_cpu_model` attribute.
-        TypeError
-            If the protocol is not supported.
-        """
-        estimator = cls()
-        serializer = cls._get_serializer(protocol)
+                    # restore the dispatching variables back on
+                    self._experimental_dispatching = cached_dispatching
+                    GlobalSettings().accelerator_active = cached_accelerator_active
 
-        with open(filename, "rb") as f:
-            state = serializer.load(f)
+                    return getattr(self._cpu_model, attr)
 
-        estimator.import_cpu_model()
-        estimator._cpu_model = state
-        estimator.cpu_to_gpu()
+                raise ex
 
-        # we need to set an output type here since
-        # we cannot infer from training args.
-        # Setting to numpy seems like a reasonable default
-        estimator.output_type = "numpy"
-        estimator.output_mem_type = MemoryType.host
-        return estimator
+            raise ex

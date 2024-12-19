@@ -44,7 +44,7 @@ from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.mem_type import MemoryType
-from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.common.sparse_utils import is_sparse
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -136,7 +136,8 @@ IF GPUBUILD == 1:
 
 
 class UMAP(UniversalBase,
-           CMajorInputTagMixin):
+           CMajorInputTagMixin,
+           SparseInputTagMixin):
     """
     Uniform Manifold Approximation and Projection
 
@@ -234,7 +235,7 @@ class UMAP(UniversalBase,
         are returned when transform is called on the same data upon
         which the model was trained. This enables consistent
         behavior between calling ``model.fit_transform(X)`` and
-        calling ``model.fit(X).transform(X)``. Not that the CPU-based
+        calling ``model.fit(X).transform(X)``. Note that the CPU-based
         UMAP reference implementation does this by default. This
         feature is made optional in the GPU version due to the
         significant overhead in copying memory to the host for
@@ -901,16 +902,16 @@ class UMAP(UniversalBase,
             self._knn_dists = self.knn_dists
             self._knn_indices = self.knn_indices
             self._knn_search_index = None
-        elif hasattr(self, '_raw_data'):
-            self._raw_data = self._raw_data.to_output('numpy')
+        if hasattr(self, '_raw_data'):
             self._knn_dists, self._knn_indices, self._knn_search_index = \
-                nearest_neighbors(self._raw_data, self.n_neighbors, self.metric,
+                nearest_neighbors(self._raw_data.to_output('numpy'), self.n_neighbors, self.metric,
                                   self.metric_kwds, False, self.random_state)
 
         super().gpu_to_cpu()
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "n_neighbors",
             "n_components",
             "n_epochs",

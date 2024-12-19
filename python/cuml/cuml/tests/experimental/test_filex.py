@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -163,7 +163,7 @@ def test_fil_classification(
             X, y, train_size=0.8, random_state=0
         )
 
-        model_path = os.path.join(tmp_path, "xgb_class.model")
+        model_path = os.path.join(tmp_path, "xgb_class.ubj")
 
         bst = _build_and_save_xgboost(
             model_path,
@@ -258,7 +258,7 @@ def test_fil_regression(
             X, y, train_size=train_size, random_state=0
         )
 
-        model_path = os.path.join(tmp_path, "xgb_reg.model")
+        model_path = os.path.join(tmp_path, "xgb_reg.ubj")
         bst = _build_and_save_xgboost(
             model_path,
             X_train,
@@ -490,12 +490,12 @@ def test_fil_skl_regression(
         np.testing.assert_allclose(fil_preds_opt, fil_preds, atol=1.2e-3)
 
 
-@pytest.fixture(scope="session", params=["binary", "json"])
+@pytest.fixture(scope="session", params=["ubjson", "json"])
 def small_classifier_and_preds(tmpdir_factory, request):
     X, y = simulate_data(500, 10, random_state=43210, classification=True)
 
-    ext = "json" if request.param == "json" else "model"
-    model_type = "xgboost_json" if request.param == "json" else "xgboost"
+    ext = "json" if request.param == "json" else "ubj"
+    model_type = "xgboost_json" if request.param == "json" else "xgboost_ubj"
     model_path = str(
         tmpdir_factory.mktemp("models").join(f"small_class.{ext}")
     )
@@ -738,7 +738,7 @@ def test_predict_per_tree(
             classification=True,
         )
 
-        model_path = os.path.join(tmp_path, "xgb_class.model")
+        model_path = os.path.join(tmp_path, "xgb_class.ubj")
 
         xgboost_params = {"base_score": (0.5 if n_classes == 2 else 0.0)}
         bst = _build_and_save_xgboost(
@@ -751,7 +751,7 @@ def test_predict_per_tree(
             xgboost_params=xgboost_params,
         )
         fm = ForestInference.load(model_path, output_class=True)
-        tl_model = treelite.Model.from_xgboost(bst)
+        tl_model = treelite.frontend.from_xgboost(bst)
         pred_per_tree_tl = treelite.gtil.predict_per_tree(tl_model, X)
 
     with using_device_type(infer_device):
@@ -773,7 +773,7 @@ def test_predict_per_tree(
         assert pred_per_tree.shape == expected_shape
         np.testing.assert_almost_equal(sum_by_class, margin_pred, decimal=3)
         np.testing.assert_almost_equal(
-            pred_per_tree, pred_per_tree_tl, decimal=3
+            pred_per_tree.reshape((n_rows, -1, 1)), pred_per_tree_tl, decimal=3
         )
         np.testing.assert_almost_equal(
             pred_per_tree_opt, pred_per_tree, decimal=3
@@ -844,7 +844,7 @@ def test_apply(train_device, infer_device, n_classes, tmp_path):
             classification=True,
         )
 
-        model_path = os.path.join(tmp_path, "xgb_class.model")
+        model_path = os.path.join(tmp_path, "xgb_class.ubj")
 
         xgboost_params = {"base_score": (0.5 if n_classes == 2 else 0.0)}
         bst = _build_and_save_xgboost(
@@ -858,7 +858,7 @@ def test_apply(train_device, infer_device, n_classes, tmp_path):
         )
 
         fm = ForestInference.load(
-            model_path, output_class=True, model_type="xgboost"
+            model_path, output_class=True, model_type="xgboost_ubj"
         )
 
     with using_device_type(infer_device):
@@ -870,3 +870,51 @@ def test_apply(train_device, infer_device, n_classes, tmp_path):
             expected_shape = (n_rows, num_boost_round * n_classes)
         assert pred_leaf.shape == expected_shape
         np.testing.assert_equal(pred_leaf, expected_pred_leaf)
+
+
+def test_missing_categorical():
+    builder = treelite.model_builder.ModelBuilder(
+        threshold_type="float32",
+        leaf_output_type="float32",
+        metadata=treelite.model_builder.Metadata(
+            num_feature=1,
+            task_type="kBinaryClf",
+            average_tree_output=False,
+            num_target=1,
+            num_class=[1],
+            leaf_vector_shape=(1, 1),
+        ),
+        tree_annotation=treelite.model_builder.TreeAnnotation(
+            num_tree=1, target_id=[0], class_id=[0]
+        ),
+        postprocessor=treelite.model_builder.PostProcessorFunc(
+            name="identity"
+        ),
+        base_scores=[0.0],
+    )
+    builder.start_tree()
+    builder.start_node(0)
+    builder.categorical_test(
+        feature_id=0,
+        category_list=[0, 2],
+        default_left=False,
+        category_list_right_child=False,
+        left_child_key=1,
+        right_child_key=2,
+    )
+    builder.end_node()
+    builder.start_node(1)
+    builder.leaf(1.0)
+    builder.end_node()
+    builder.start_node(2)
+    builder.leaf(2.0)
+    builder.end_node()
+    builder.end_tree()
+
+    model = builder.commit()
+
+    input = np.array([[np.nan]])
+    gtil_preds = treelite.gtil.predict(model, input)
+    fm = ForestInference.load_from_treelite_model(model)
+    fil_preds = np.asarray(fm.predict(input))
+    np.testing.assert_equal(fil_preds.flatten(), gtil_preds.flatten())

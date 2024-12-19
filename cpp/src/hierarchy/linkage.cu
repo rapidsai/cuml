@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,11 +26,11 @@ void single_linkage_pairwise(const raft::handle_t& handle,
                              size_t m,
                              size_t n,
                              raft::cluster::linkage_output<int>* out,
-                             raft::distance::DistanceType metric,
+                             cuvs::distance::DistanceType metric,
                              int n_clusters)
 {
   raft::cluster::single_linkage<int, float, raft::cluster::LinkageDistance::PAIRWISE>(
-    handle, X, m, n, metric, out, 0, n_clusters);
+    handle, X, m, n, static_cast<raft::distance::DistanceType>(metric), out, 0, n_clusters);
 }
 
 void single_linkage_neighbors(const raft::handle_t& handle,
@@ -38,12 +38,12 @@ void single_linkage_neighbors(const raft::handle_t& handle,
                               size_t m,
                               size_t n,
                               raft::cluster::linkage_output<int>* out,
-                              raft::distance::DistanceType metric,
+                              cuvs::distance::DistanceType metric,
                               int c,
                               int n_clusters)
 {
   raft::cluster::single_linkage<int, float, raft::cluster::LinkageDistance::KNN_GRAPH>(
-    handle, X, m, n, metric, out, c, n_clusters);
+    handle, X, m, n, static_cast<raft::distance::DistanceType>(metric), out, c, n_clusters);
 }
 
 struct distance_graph_impl_int_float

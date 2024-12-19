@@ -18,8 +18,9 @@
 #include <cuml/metrics/metrics.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance_types.hpp>
-#include <raft/stats/silhouette_score.cuh>
+
+#include <cuvs/distance/distance.hpp>
+#include <cuvs/stats/silhouette_score.hpp>
 
 namespace ML {
 
@@ -31,11 +32,20 @@ double silhouette_score(const raft::handle_t& handle,
                         int* labels,
                         int nLabels,
                         double* silScores,
-                        raft::distance::DistanceType metric)
+                        cuvs::distance::DistanceType metric)
 {
-  return raft::stats::silhouette_score<double, int>(
-    handle, y, nRows, nCols, labels, nLabels, silScores, handle.get_stream(), metric);
-}
+  std::optional<raft::device_vector_view<double, int64_t>> silhouette_score_per_sample;
+  if (silScores != NULL) {
+    silhouette_score_per_sample = raft::make_device_vector_view<double, int64_t>(silScores, nRows);
+  }
 
+  return cuvs::stats::silhouette_score(
+    handle,
+    raft::make_device_matrix_view<const double, int64_t>(y, nRows, nCols),
+    raft::make_device_vector_view<const int, int64_t>(labels, nRows),
+    silhouette_score_per_sample,
+    nLabels,
+    metric);
+}
 }  // namespace Metrics
 }  // namespace ML

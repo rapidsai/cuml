@@ -64,8 +64,7 @@ option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
 option(CUDA_STATIC_MATH_LIBRARIES "Statically link the CUDA math libraries" OFF)
-option(CUML_USE_RAFT_STATIC "Build and statically link the RAFT libraries" OFF)
-option(CUML_RAFT_COMPILED "Use libraft shared library" ON)
+option(CUML_USE_CUVS_STATIC "Build and statically link the CUVS library" OFF)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
 option(CUML_EXPORT_TREELITE_LINKAGE "Whether to publicly or privately link treelite to libcuml++" OFF)
 option(CUML_USE_CUMLPRIMS_MG_STATIC "Build and statically link the cumlprims_mg library" OFF)
@@ -78,6 +77,7 @@ option(CUML_EXCLUDE_RAFT_FROM_ALL "Exclude RAFT targets from cuML's 'all' target
 option(CUML_EXCLUDE_TREELITE_FROM_ALL "Exclude Treelite targets from cuML's 'all' target" OFF)
 option(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL "Exclude cumlprims_mg targets from cuML's 'all' target" OFF)
 option(CUML_RAFT_CLONE_ON_PIN "Explicitly clone RAFT branch when pinned to non-feature branch" ON)
+option(CUML_CUVS_CLONE_ON_PIN "Explicitly clone CUVS branch when pinned to non-feature branch" ON)
 
 message(VERBOSE "CUML_CPP: Building libcuml_c shared library. Contains the cuML C API: ${BUILD_CUML_C_LIBRARY}")
 message(VERBOSE "CUML_CPP: Building libcuml shared library: ${BUILD_CUML_CPP_LIBRARY}")
@@ -98,7 +98,7 @@ message(VERBOSE "CUML_CPP: Disabling all mnmg components and comms libraries: ${
 message(VERBOSE "CUML_CPP: Cache build artifacts with ccache: ${USE_CCACHE}")
 message(VERBOSE "CUML_CPP: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
 message(VERBOSE "CUML_CPP: Statically link the CUDA math libraries: ${CUDA_STATIC_MATH_LIBRARIES}")
-message(VERBOSE "CUML_CPP: Build and statically link RAFT libraries: ${CUML_USE_RAFT_STATIC}")
+message(VERBOSE "CUML_CPP: Build and statically link CUVS libraries: ${CUML_USE_CUVS_STATIC}")
 message(VERBOSE "CUML_CPP: Build and statically link Treelite library: ${CUML_USE_TREELITE_STATIC}")
 
 set(CUML_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Can specify individual algorithms or groups in a semicolon-separated list.")
@@ -228,6 +228,9 @@ endif()
 include(cmake/thirdparty/get_cccl.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_raft.cmake)
+if(LINK_CUVS)
+  include(cmake/thirdparty/get_cuvs.cmake)
+endif()
 
 if(LINK_TREELITE)
   include(cmake/thirdparty/get_treelite.cmake)
@@ -442,18 +445,6 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/metrics/kl_divergence.cu
         src/metrics/mutual_info_score.cu
         src/metrics/pairwise_distance.cu
-        src/metrics/pairwise_distance_canberra.cu
-        src/metrics/pairwise_distance_chebyshev.cu
-        src/metrics/pairwise_distance_correlation.cu
-        src/metrics/pairwise_distance_cosine.cu
-        src/metrics/pairwise_distance_euclidean.cu
-        src/metrics/pairwise_distance_hamming.cu
-        src/metrics/pairwise_distance_hellinger.cu
-        src/metrics/pairwise_distance_jensen_shannon.cu
-        src/metrics/pairwise_distance_kl_divergence.cu
-        src/metrics/pairwise_distance_l1.cu
-        src/metrics/pairwise_distance_minkowski.cu
-        src/metrics/pairwise_distance_russell_rao.cu
         src/metrics/r2_score.cu
         src/metrics/rand_index.cu
         src/metrics/silhouette_score.cu
@@ -635,9 +626,10 @@ if(BUILD_CUML_CPP_LIBRARY)
   )
 
   target_link_libraries(${CUML_CPP_TARGET}
-    PUBLIC  rmm::rmm
+    PUBLIC  rmm::rmm rmm::rmm_logger ${CUVS_LIB}
             ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs}
+                   rmm::rmm_logger_impl
   )
 
   # If we export the libdmlc symbols, they can lead to weird crashes with other

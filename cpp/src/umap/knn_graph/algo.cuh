@@ -27,14 +27,14 @@
 #include <raft/core/host_mdspan.hpp>
 #include <raft/core/mdspan.hpp>
 #include <raft/core/mdspan_types.hpp>
-#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/slice.cuh>
 #include <raft/neighbors/nn_descent.cuh>
 #include <raft/neighbors/nn_descent_types.hpp>
-#include <raft/sparse/selection/knn.cuh>
-#include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <cuvs/distance/distance.hpp>
+#include <cuvs/neighbors/brute_force.hpp>
 
 #include <iostream>
 
@@ -92,26 +92,20 @@ inline void launcher(const raft::handle_t& handle,
                      cudaStream_t stream)
 {
   if (params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN) {
-    std::vector<float*> ptrs(1);
-    std::vector<int> sizes(1);
-    ptrs[0]  = inputsA.X;
-    sizes[0] = inputsA.n;
+    auto idx = cuvs::neighbors::brute_force::build(
+      handle,
+      raft::make_device_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d),
+      params->metric,
+      params->p);
 
-    raft::spatial::knn::brute_force_knn(handle,
-                                        ptrs,
-                                        sizes,
-                                        inputsA.d,
-                                        inputsB.X,
-                                        inputsB.n,
-                                        out.knn_indices,
-                                        out.knn_dists,
-                                        n_neighbors,
-                                        true,
-                                        true,
-                                        static_cast<std::vector<int64_t>*>(nullptr),
-                                        params->metric,
-                                        params->p);
+    cuvs::neighbors::brute_force::search(
+      handle,
+      idx,
+      raft::make_device_matrix_view<const float, int64_t>(inputsB.X, inputsB.n, inputsB.d),
+      raft::make_device_matrix_view<int64_t, int64_t>(out.knn_indices, inputsB.n, n_neighbors),
+      raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsB.n, n_neighbors));
   } else {  // nn_descent
+    // TODO:  use nndescent from cuvs
     RAFT_EXPECTS(static_cast<size_t>(n_neighbors) <= params->nn_descent_params.graph_degree,
                  "n_neighbors should be smaller than the graph degree computed by nn descent");
 
@@ -166,26 +160,28 @@ inline void launcher(const raft::handle_t& handle,
 {
   RAFT_EXPECTS(params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN,
                "nn_descent does not support sparse inputs");
-  raft::sparse::selection::brute_force_knn(inputsA.indptr,
-                                           inputsA.indices,
-                                           inputsA.data,
-                                           inputsA.nnz,
-                                           inputsA.n,
-                                           inputsA.d,
-                                           inputsB.indptr,
-                                           inputsB.indices,
-                                           inputsB.data,
-                                           inputsB.nnz,
-                                           inputsB.n,
-                                           inputsB.d,
-                                           out.knn_indices,
-                                           out.knn_dists,
-                                           n_neighbors,
-                                           handle,
-                                           ML::Sparse::DEFAULT_BATCH_SIZE,
-                                           ML::Sparse::DEFAULT_BATCH_SIZE,
-                                           params->metric,
-                                           params->p);
+
+  auto a_structure = raft::make_device_compressed_structure_view<int, int, int>(
+    inputsA.indptr, inputsA.indices, inputsA.n, inputsA.d, inputsA.nnz);
+  auto a_csr = raft::make_device_csr_matrix_view<const float>(inputsA.data, a_structure);
+
+  auto b_structure = raft::make_device_compressed_structure_view<int, int, int>(
+    inputsB.indptr, inputsB.indices, inputsB.n, inputsB.d, inputsB.nnz);
+  auto b_csr = raft::make_device_csr_matrix_view<const float>(inputsB.data, b_structure);
+
+  cuvs::neighbors::brute_force::sparse_search_params search_params;
+  search_params.batch_size_index = ML::Sparse::DEFAULT_BATCH_SIZE;
+  search_params.batch_size_query = ML::Sparse::DEFAULT_BATCH_SIZE;
+
+  auto index = cuvs::neighbors::brute_force::build(handle, a_csr, params->metric, params->p);
+
+  cuvs::neighbors::brute_force::search(
+    handle,
+    search_params,
+    index,
+    b_csr,
+    raft::make_device_matrix_view<int, int64_t>(out.knn_indices, inputsB.n, n_neighbors),
+    raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsB.n, n_neighbors));
 }
 
 template <>

@@ -39,7 +39,7 @@ from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
-from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.common.sparsefuncs import extract_knn_infos
 from cuml.metrics.distance_type cimport DistanceType
 rmm = gpu_only_import('rmm')
@@ -119,7 +119,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
 
 
 class TSNE(UniversalBase,
-           CMajorInputTagMixin):
+           CMajorInputTagMixin,
+           SparseInputTagMixin):
     """
     t-SNE (T-Distributed Stochastic Neighbor Embedding) is an extremely
     powerful dimensionality reduction technique that aims to maintain
@@ -270,6 +271,12 @@ class TSNE(UniversalBase,
     X_m = CumlArrayDescriptor()
     embedding_ = CumlArrayDescriptor()
 
+    _hyperparam_interop_translator = {
+        "n_components": {
+            3 : "NotImplemented",
+        }
+    }
+
     @device_interop_preparation
     def __init__(self, *,
                  n_components=2,
@@ -302,12 +309,6 @@ class TSNE(UniversalBase,
                          verbose=verbose,
                          output_type=output_type)
 
-        if n_components < 0:
-            raise ValueError("n_components = {} should be more "
-                             "than 0.".format(n_components))
-        if n_components != 2:
-            raise ValueError("Currently TSNE supports n_components = 2; "
-                             "but got n_components = {}".format(n_components))
         if perplexity < 0:
             raise ValueError("perplexity = {} should be more than 0.".format(
                              perplexity))
@@ -427,6 +428,12 @@ class TSNE(UniversalBase,
         should match the metric used to train the TSNE embeedings.
         Takes precedence over the precomputed_knn parameter.
         """
+        if self.n_components < 0:
+            raise ValueError("n_components = {} should be more "
+                             "than 0.".format(self.n_components))
+        if self.n_components != 2:
+            raise ValueError("Currently TSNE supports n_components = 2; "
+                             "but got n_components = {}".format(self.n_components))
         cdef int n, p
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if handle_ == NULL:
@@ -690,8 +697,9 @@ class TSNE(UniversalBase,
         self.__dict__.update(state)
         return state
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "n_components",
             "perplexity",
             "early_exaggeration",

@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -166,19 +166,25 @@ def all_points_membership_vectors(clusterer, batch_size=4096):
 
         # trained on gpu
         if not hasattr(clusterer, "_cpu_model"):
-            # the reference HDBSCAN implementations uses @property
-            # for attributes without setters available for them,
-            # so they can't be transferred from the GPU model
-            # to the CPU model
-            raise ValueError("Inferring on CPU is not supported yet when the "
-                             "model has been trained on GPU")
+            clusterer.import_cpu_model()
+            clusterer.build_cpu_model()
+            clusterer.gpu_to_cpu()
+            # These attributes have to be reassigned to the CPU model
+            # as the raw arrays because the reference HDBSCAN implementation
+            # reconstructs the objects from the raw arrays
+            clusterer._cpu_model.condensed_tree_ = \
+                clusterer.condensed_tree_._raw_tree
+            clusterer._cpu_model.single_linkage_tree_ = \
+                clusterer.single_linkage_tree_._linkage
+            clusterer._cpu_model.minimum_spanning_tree_ = \
+                clusterer.minimum_spanning_tree_._mst
 
         # this took a long debugging session to figure out, but
         # this method on cpu does not work without this copy for some reason
         clusterer._cpu_model.prediction_data_.raw_data = \
             clusterer._cpu_model.prediction_data_.raw_data.copy()
         return cpu_all_points_membership_vectors(clusterer._cpu_model)
-
+    # gpu infer, cpu/gpu train
     elif device_type == DeviceType.device:
         # trained on cpu
         if hasattr(clusterer, "_cpu_model"):

@@ -18,13 +18,12 @@
 #include <cuml/metrics/metrics.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance_types.hpp>
-#include <raft/stats/silhouette_score.cuh>
+
+#include <cuvs/distance/distance.hpp>
+#include <cuvs/stats/silhouette_score.hpp>
 
 namespace ML {
-
 namespace Metrics {
-
 namespace Batched {
 
 float silhouette_score(const raft::handle_t& handle,
@@ -35,12 +34,22 @@ float silhouette_score(const raft::handle_t& handle,
                        int n_labels,
                        float* scores,
                        int chunk,
-                       raft::distance::DistanceType metric)
+                       cuvs::distance::DistanceType metric)
 {
-  return raft::stats::silhouette_score_batched<float, int, int>(
-    handle, X, n_rows, n_cols, y, n_labels, scores, chunk, metric);
-}
+  std::optional<raft::device_vector_view<float, int64_t>> silhouette_score_per_sample;
+  if (scores != NULL) {
+    silhouette_score_per_sample = raft::make_device_vector_view<float, int64_t>(scores, n_rows);
+  }
 
+  return cuvs::stats::silhouette_score_batched(
+    handle,
+    raft::make_device_matrix_view<const float, int64_t>(X, n_rows, n_cols),
+    raft::make_device_vector_view<const int, int64_t>(y, n_rows),
+    silhouette_score_per_sample,
+    n_labels,
+    chunk,
+    metric);
+}
 }  // namespace Batched
 }  // namespace Metrics
 }  // namespace ML
