@@ -33,6 +33,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.logger import warn
+from cuml.internals.logger cimport level_enum
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array, input_to_host_array, input_to_host_array_with_sparse_support
@@ -76,7 +77,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         int max_iter
         int nochange_steps
         double tol
-        int verbosity
+        level_enum verbosity
         double epsilon
         SvmType svmType
 

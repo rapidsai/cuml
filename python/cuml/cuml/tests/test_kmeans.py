@@ -62,7 +62,7 @@ def get_data_consistency_test():
 @pytest.fixture
 def random_state():
     random_state = random.randint(0, 10**6)
-    with logger.set_level(logger.level_debug):
+    with logger.set_level(logger.level_enum.debug):
         logger.debug("Random seed: {}".format(random_state))
     return random_state
 

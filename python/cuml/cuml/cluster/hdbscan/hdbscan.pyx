@@ -964,7 +964,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
     def __setstate__(self, state):
         super(HDBSCAN, self).__init__(
             handle=state["handle"],
-            verbose=state["verbose"]
+            verbose=state["_verbose"]
         )
 
         if not state["fit_called_"]:

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml/common/log_levels.hpp>
+#include <cuml/common/logger.hpp>
 
 #include <cuvs/distance/distance.hpp>
 
@@ -73,7 +73,7 @@ void fit(const raft::handle_t& handle,
          float* sample_weight       = nullptr,
          size_t max_bytes_per_batch = 0,
          EpsNnMethod eps_nn_method  = BRUTE_FORCE,
-         int verbosity              = CUML_LEVEL_INFO,
+         level_enum verbosity       = ML::level_enum::info,
          bool opg                   = false);
 void fit(const raft::handle_t& handle,
          double* input,
@@ -87,7 +87,7 @@ void fit(const raft::handle_t& handle,
          double* sample_weight      = nullptr,
          size_t max_bytes_per_batch = 0,
          EpsNnMethod eps_nn_method  = BRUTE_FORCE,
-         int verbosity              = CUML_LEVEL_INFO,
+         level_enum verbosity       = ML::level_enum::info,
          bool opg                   = false);
 
 void fit(const raft::handle_t& handle,
@@ -102,7 +102,7 @@ void fit(const raft::handle_t& handle,
          float* sample_weight         = nullptr,
          size_t max_bytes_per_batch   = 0,
          EpsNnMethod eps_nn_method    = BRUTE_FORCE,
-         int verbosity                = CUML_LEVEL_INFO,
+         level_enum verbosity         = ML::level_enum::info,
          bool opg                     = false);
 void fit(const raft::handle_t& handle,
          double* input,
@@ -116,7 +116,7 @@ void fit(const raft::handle_t& handle,
          double* sample_weight        = nullptr,
          size_t max_bytes_per_batch   = 0,
          EpsNnMethod eps_nn_method    = BRUTE_FORCE,
-         int verbosity                = CUML_LEVEL_INFO,
+         level_enum verbosity         = ML::level_enum::info,
          bool opg                     = false);
 
 /** @} */
