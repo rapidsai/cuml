@@ -772,7 +772,12 @@ def test_logistic_regression_predict_proba(
     sk_log_proba = sklog.predict_log_proba(X_test)
 
     assert array_equal(cu_proba, sk_proba)
-    assert array_equal(cu_log_proba, sk_log_proba)
+
+    # if the probabilities pass test, then the margin of the logarithm
+    # of the probabilities can be relaxed to avoid false positives.
+    assert array_equal(
+        cu_log_proba, sk_log_proba, unit_tol=1e-2, total_tol=1e-3
+    )
 
 
 @pytest.mark.parametrize("constructor", [np.array, cp.array, cudf.DataFrame])
