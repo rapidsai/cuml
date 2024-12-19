@@ -31,13 +31,53 @@ from . import install
     default=False,
     help="Turn strict mode for hyperparameters on.",
 )
+@click.option(
+    "--convert_to_sklearn",
+    type=click.Path(exists=True),
+    required=False,
+    help="Path to a pickled accelerated estimator to convert to a sklearn estimator."
+)
+@click.option(
+    "--format",
+    "save_format",
+    type=click.Choice(["pickle", "joblib"], case_sensitive=False),
+    default="pickle",
+    help="Format to save the converted sklearn estimator."
+)
+@click.option(
+    "--output",
+    type=click.Path(writable=True),
+    default="converted_sklearn_model.pkl",
+    help="Output path for the converted sklearn estimator file."
+)
 @click.argument("args", nargs=-1)
-def main(module, strict, args):
+def main(module, strict, convert_to_sklearn, save_format, output, args):
 
     if strict:
         os.environ["CUML_ACCEL_STRICT_MODE"] = "ON"
 
     install()
+
+    # If the user requested a conversion, handle it and exit
+    if convert_to_sklearn:
+
+        # Load the accelerated estimator
+        with open(convert_to_sklearn, "rb") as f:
+            accelerated_estimator = pickle.load(f)
+
+        # Convert to sklearn estimator
+        sklearn_estimator = accelerated_estimator.as_sklearn()
+
+        # Save using chosen format
+        if save_format == "pickle":
+            import pickle
+            with open(output, "wb") as f:
+                pickle.dump(sklearn_estimator, f)
+        else:  # joblib
+            from joblib import dump as joblib_dump
+            joblib_dump(sklearn_estimator, output)
+        # Exit after conversion
+        sys.exit(0)
 
     if module:
         (module,) = module
