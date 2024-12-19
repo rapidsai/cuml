@@ -24,6 +24,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace \
         "cuvs::cluster::kmeans::params":
     enum InitMethod:
         KMeansPlusPlus, Random, Array
+
 cdef extern from "raft/core/logger.hpp" namespace "raft":
     cdef enum class level_enum:
         trace
