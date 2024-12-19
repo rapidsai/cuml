@@ -35,23 +35,23 @@ from . import install
     "--convert_to_sklearn",
     type=click.Path(exists=True),
     required=False,
-    help="Path to a pickled accelerated estimator to convert to a sklearn estimator."
+    help="Path to a pickled accelerated estimator to convert to a sklearn estimator.",
 )
 @click.option(
     "--format",
-    "save_format",
+    "format",
     type=click.Choice(["pickle", "joblib"], case_sensitive=False),
     default="pickle",
-    help="Format to save the converted sklearn estimator."
+    help="Format to save the converted sklearn estimator.",
 )
 @click.option(
     "--output",
     type=click.Path(writable=True),
     default="converted_sklearn_model.pkl",
-    help="Output path for the converted sklearn estimator file."
+    help="Output path for the converted sklearn estimator file.",
 )
 @click.argument("args", nargs=-1)
-def main(module, strict, convert_to_sklearn, save_format, output, args):
+def main(module, strict, convert_to_sklearn, format, output, args):
 
     if strict:
         os.environ["CUML_ACCEL_STRICT_MODE"] = "ON"
@@ -63,19 +63,21 @@ def main(module, strict, convert_to_sklearn, save_format, output, args):
 
         # Load the accelerated estimator
         with open(convert_to_sklearn, "rb") as f:
-            accelerated_estimator = pickle.load(f)
+            if format == "pickle":
+                import pickle as serializer
+            elif format == "joblib":
+                import joblib as serializer
+            else:
+                raise ValueError(f"Serializer {format} not supported.")
+            accelerated_estimator = serializer.load(f)
 
         # Convert to sklearn estimator
         sklearn_estimator = accelerated_estimator.as_sklearn()
 
         # Save using chosen format
-        if save_format == "pickle":
-            import pickle
-            with open(output, "wb") as f:
-                pickle.dump(sklearn_estimator, f)
-        else:  # joblib
-            from joblib import dump as joblib_dump
-            joblib_dump(sklearn_estimator, output)
+        with open(output, "wb") as f:
+            serializer.dump(sklearn_estimator, f)
+
         # Exit after conversion
         sys.exit(0)
 

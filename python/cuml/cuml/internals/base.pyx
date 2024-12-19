@@ -872,7 +872,7 @@ class UniversalBase(Base):
         self.build_cpu_model()
         self.gpu_to_cpu()
         return self._cpu_model
-        
+
     @classmethod
     def from_sklearn(cls, model):
         """
@@ -893,10 +893,10 @@ class UniversalBase(Base):
             state of the input scikit-learn estimator.
         Notes
         -----
-        - `output_type` of the estimator is set to "numpy" 
+        - `output_type` of the estimator is set to "numpy"
             by default, as these cannot be inferred from training arguments. If
             something different is required, then please use cuML's output_type
-            configuration utilites. 
+            configuration utilities.
         """
         estimator = cls()
         estimator.import_cpu_model()
@@ -905,9 +905,9 @@ class UniversalBase(Base):
 
         # we need to set an output type here since
         # we cannot infer from training args.
-        # Setting to numpy seems like a reasonable default for matching the 
-        # deserialized class by default. 
+        # Setting to numpy seems like a reasonable default for matching the
+        # deserialized class by default.
         estimator.output_type = "numpy"
         estimator.output_mem_type = MemoryType.host
-        
+
         return estimator
