@@ -38,6 +38,9 @@ IF GPUBUILD == 1:
     from cuml.cluster.kmeans_utils cimport KMeansPlusPlus, Random, Array
     from cuml.cluster cimport kmeans_utils
 
+    # Avoid potential future conflicts with cuml's level enum
+    ctypedef kmeans_utils.level_enum raft_level_enum
+
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import UniversalBase
@@ -52,9 +55,6 @@ from cuml.internals.api_decorators import enable_device_interop
 _openmp_effective_n_threads = safe_import_from(
     "sklearn.utils._openmp_helpers", "_openmp_effective_n_threads", alt=return_false
 )
-
-# Avoid potential future conflicts with cuml's level enum
-ctypedef kmeans_utils.level_enum raft_level_enum
 
 
 class KMeans(UniversalBase,
