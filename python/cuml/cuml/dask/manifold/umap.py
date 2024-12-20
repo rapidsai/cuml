@@ -44,7 +44,7 @@ class UMAP(BaseEstimator, DelayedTransformMixin):
         >>> X, y = make_blobs(1000, 10, centers=42, cluster_std=0.1,
         ...                   dtype=np.float32, random_state=10)
 
-        >>> local_model = UMAP(random_state=10)
+        >>> local_model = UMAP(random_state=10, verbose=0)
 
         >>> selection = np.random.RandomState(10).choice(1000, 100)
         >>> X_train = X[selection]
