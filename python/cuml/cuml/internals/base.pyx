@@ -16,16 +16,20 @@
 
 # distutils: language = c++
 
+import copy
 import os
 import inspect
 import numbers
+import pickle
 from importlib import import_module
 from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import_from,
-    null_decorator
+    null_decorator,
+    safe_import
 )
+joblib = safe_import(module="joblib")
 np = cpu_only_import('numpy')
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
@@ -852,7 +856,7 @@ class UniversalBase(Base):
 
             raise ex
 
-    def as_sklearn(self):
+    def as_sklearn(self, deepcopy=False):
         """
         Convert the current GPU-accelerated estimator into a scikit-learn estimator.
         
@@ -862,6 +866,15 @@ class UniversalBase(Base):
         compatible scikit-learn estimator, allowing you to use it in standard
         scikit-learn pipelines and workflows.
 
+        Parameters
+        ----------
+        deepcopy : boolean (default=False)
+            Whether to return a deepcopy of the internal scikit-learn estimator of
+            the cuML models. cuML models internally have CPU based estimators that
+            could be updated. If you intend to use both the cuML and the scikit-learn
+            estimators after using the method in parallel, it is recommended to set
+            this to True to avoid one overwriting data of the other. 
+            
         Returns
         -------
         sklearn.base.BaseEstimator
@@ -872,7 +885,10 @@ class UniversalBase(Base):
         self.import_cpu_model()
         self.build_cpu_model()
         self.gpu_to_cpu()
-        return self._cpu_model
+        if deepcopy:
+            return copy.deepcopy(self._cpu_model)
+        else:
+            return self._cpu_model
 
     @classmethod
     def from_sklearn(cls, model):
