@@ -142,7 +142,7 @@ def _build_fil_classifier(m, data, args, tmpdir):
     num_rounds = args["num_rounds"]
     n_feature = data[0].shape[1]
     train_size = data[0].shape[0]
-    model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
+    model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.ubj"
     model_path = os.path.join(tmpdir, model_name)
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)
