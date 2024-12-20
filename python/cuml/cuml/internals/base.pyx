@@ -20,16 +20,13 @@ import copy
 import os
 import inspect
 import numbers
-import pickle
 from importlib import import_module
 from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import_from,
     null_decorator,
-    safe_import
 )
-joblib = safe_import(module="joblib")
 np = cpu_only_import('numpy')
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
@@ -859,7 +856,7 @@ class UniversalBase(Base):
     def as_sklearn(self, deepcopy=False):
         """
         Convert the current GPU-accelerated estimator into a scikit-learn estimator.
-        
+
         This method imports and builds an equivalent CPU-backed scikit-learn model,
         transferring all necessary parameters from the GPU representation to the
         CPU model. After this conversion, the returned object should be a fully
@@ -873,8 +870,8 @@ class UniversalBase(Base):
             the cuML models. cuML models internally have CPU based estimators that
             could be updated. If you intend to use both the cuML and the scikit-learn
             estimators after using the method in parallel, it is recommended to set
-            this to True to avoid one overwriting data of the other. 
-            
+            this to True to avoid one overwriting data of the other.
+
         Returns
         -------
         sklearn.base.BaseEstimator
@@ -894,18 +891,18 @@ class UniversalBase(Base):
     def from_sklearn(cls, model):
         """
         Create a GPU-accelerated estimator from a scikit-learn estimator.
-        
+
         This class method takes an existing scikit-learn estimator and converts it
         into the corresponding GPU-backed estimator. It imports any required CPU
         model definitions, stores the given scikit-learn model internally, and then
         transfers the model parameters and state onto the GPU.
-        
+
         Parameters
         ----------
         model : sklearn.base.BaseEstimator
             A fitted scikit-learn estimator from which to create the GPU-accelerated
             version.
-            
+
         Returns
         -------
         cls

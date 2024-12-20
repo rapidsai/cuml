@@ -16,6 +16,8 @@
 
 import click
 import code
+import joblib
+import pickle
 import os
 import runpy
 import sys
@@ -61,24 +63,18 @@ def main(module, strict, convert_to_sklearn, format, output, args):
     # If the user requested a conversion, handle it and exit
     if convert_to_sklearn:
 
-        # Load the accelerated estimator
         with open(convert_to_sklearn, "rb") as f:
             if format == "pickle":
                 serializer = pickle
             elif format == "joblib":
                 serializer = joblib
-            else:
-                raise ValueError(f"Serializer {format} not supported.")
             accelerated_estimator = serializer.load(f)
 
-        # Convert to sklearn estimator
         sklearn_estimator = accelerated_estimator.as_sklearn()
 
-        # Save using chosen format
         with open(output, "wb") as f:
             serializer.dump(sklearn_estimator, f)
 
-        # Exit after conversion
         sys.exit()
 
     if module:
