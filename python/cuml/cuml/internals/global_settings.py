@@ -49,7 +49,8 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
         self.shared_state.update(
             {
                 "_output_type": None,
-                "root_cm": None,
+                "_output_dtype": None,
+                "_api_depth": 0,
                 "accelerator_active": False,
                 "accelerator_loaded": False,
                 "accelerated_modules": {},
@@ -132,5 +133,27 @@ class GlobalSettings:
         self._output_type = value
 
     @property
+    def output_dtype(self):
+        """The globally-defined default output dtype for cuML API calls"""
+        return self._output_dtype  # pylint: disable=no-member
+
+    @output_dtype.setter
+    def output_dtype(self, value):
+        self._output_dtype = value
+
+    @property
     def xpy(self):
         return self.memory_type.xpy
+
+    @property
+    def api_depth(self):
+        return self._api_depth
+
+    def increment_api_depth(self):
+        self._api_depth += 1
+
+    def decrement_api_depth(self):
+        self._api_depth -= 1
+
+    def in_internal_api(self):
+        return self._api_depth > 0
