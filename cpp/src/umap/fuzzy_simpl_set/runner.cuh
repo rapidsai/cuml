@@ -45,13 +45,15 @@ void run(int n,
          int n_neighbors,
          raft::sparse::COO<T>* coo,
          UMAPParams* params,
+         float * sigmas,
+         float * rhos,
          cudaStream_t stream,
          int algorithm = 0)
 {
   switch (algorithm) {
     case 0:
       Naive::launcher<TPB_X, value_idx, T>(
-        n, knn_indices, knn_dists, n_neighbors, coo, params, stream);
+        n, knn_indices, knn_dists, n_neighbors, coo, params, sigmas, rhos, stream);
       break;
   }
 }

@@ -291,21 +291,23 @@ void launcher(int n,
               int n_neighbors,
               raft::sparse::COO<value_t>* out,
               UMAPParams* params,
+              float * sigmas,
+              float * rhos,
               cudaStream_t stream)
 {
   /**
    * Calculate mean distance through a parallel reduction
    */
-  rmm::device_uvector<value_t> sigmas(n, stream);
-  rmm::device_uvector<value_t> rhos(n, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(value_t), stream));
-  RAFT_CUDA_TRY(cudaMemsetAsync(rhos.data(), 0, n * sizeof(value_t), stream));
+  // rmm::device_uvector<value_t> sigmas(n, stream);
+  // rmm::device_uvector<value_t> rhos(n, stream);
+  // RAFT_CUDA_TRY(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(value_t), stream));
+  // RAFT_CUDA_TRY(cudaMemsetAsync(rhos.data(), 0, n * sizeof(value_t), stream));
 
   smooth_knn_dist<TPB_X, value_idx, value_t>(n,
                                              knn_indices,
                                              knn_dists,
-                                             rhos.data(),
-                                             sigmas.data(),
+                                             rhos,
+                                             sigmas,
                                              params,
                                              n_neighbors,
                                              params->local_connectivity,
@@ -316,9 +318,9 @@ void launcher(int n,
   // check for logging in order to avoid the potentially costly `arr2Str` call!
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
     CUML_LOG_DEBUG("Smooth kNN Distances");
-    auto str = raft::arr2Str(sigmas.data(), 25, "sigmas", stream);
+    auto str = raft::arr2Str(sigmas, 25, "sigmas", stream);
     CUML_LOG_DEBUG("%s", str.c_str());
-    str = raft::arr2Str(rhos.data(), 25, "rhos", stream);
+    str = raft::arr2Str(rhos, 25, "rhos", stream);
     CUML_LOG_DEBUG("%s", str.c_str());
   }
 
@@ -333,8 +335,8 @@ void launcher(int n,
 
   compute_membership_strength_kernel<TPB_X><<<grid_elm, blk_elm, 0, stream>>>(knn_indices,
                                                                               knn_dists,
-                                                                              sigmas.data(),
-                                                                              rhos.data(),
+                                                                              sigmas,
+                                                                              rhos,
                                                                               in.vals(),
                                                                               in.rows(),
                                                                               in.cols(),
