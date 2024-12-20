@@ -64,9 +64,9 @@ def main(module, strict, convert_to_sklearn, format, output, args):
         # Load the accelerated estimator
         with open(convert_to_sklearn, "rb") as f:
             if format == "pickle":
-                import pickle as serializer
+                serializer = pickle
             elif format == "joblib":
-                import joblib as serializer
+                serializer = joblib
             else:
                 raise ValueError(f"Serializer {format} not supported.")
             accelerated_estimator = serializer.load(f)
@@ -79,7 +79,7 @@ def main(module, strict, convert_to_sklearn, format, output, args):
             serializer.dump(sklearn_estimator, f)
 
         # Exit after conversion
-        sys.exit(0)
+        sys.exit()
 
     if module:
         (module,) = module

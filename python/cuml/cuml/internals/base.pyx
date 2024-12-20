@@ -855,6 +855,7 @@ class UniversalBase(Base):
     def as_sklearn(self):
         """
         Convert the current GPU-accelerated estimator into a scikit-learn estimator.
+        
         This method imports and builds an equivalent CPU-backed scikit-learn model,
         transferring all necessary parameters from the GPU representation to the
         CPU model. After this conversion, the returned object should be a fully
@@ -877,20 +878,24 @@ class UniversalBase(Base):
     def from_sklearn(cls, model):
         """
         Create a GPU-accelerated estimator from a scikit-learn estimator.
+        
         This class method takes an existing scikit-learn estimator and converts it
         into the corresponding GPU-backed estimator. It imports any required CPU
         model definitions, stores the given scikit-learn model internally, and then
         transfers the model parameters and state onto the GPU.
+        
         Parameters
         ----------
         model : sklearn.base.BaseEstimator
             A fitted scikit-learn estimator from which to create the GPU-accelerated
             version.
+            
         Returns
         -------
         cls
             A new instance of the GPU-accelerated estimator class that mirrors the
             state of the input scikit-learn estimator.
+
         Notes
         -----
         - `output_type` of the estimator is set to "numpy"
