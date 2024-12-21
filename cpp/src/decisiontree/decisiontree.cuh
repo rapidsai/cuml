@@ -364,9 +364,9 @@ class DecisionTree {
                       std::size_t n_cols,
                       DataT* predictions,
                       int num_outputs,
-                      int verbosity)
+                      level_enum verbosity)
   {
-    if (verbosity >= 0) { ML::Logger::get().setLevel(verbosity); }
+    if (verbosity >= level_enum::off) { default_logger().set_level(verbosity); }
     ASSERT(is_host_ptr(rows) && is_host_ptr(predictions),
            "DT Error: Current impl. expects both input and predictions to be CPU "
            "pointers.\n");

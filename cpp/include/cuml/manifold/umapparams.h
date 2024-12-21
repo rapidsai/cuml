@@ -117,7 +117,7 @@ class UMAPParams {
   /**
    * Control logging level during algorithm execution
    */
-  int verbosity = CUML_LEVEL_INFO;
+  level_enum verbosity = level_enum::info;
 
   /**
    *  More specific parameters controlling the embedding. If None these

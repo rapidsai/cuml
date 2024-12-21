@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <cuml/common/logger.hpp>
 
 namespace ML {
 namespace SVM {
@@ -37,10 +39,10 @@ struct SvmParameter {
   //! maximum number of outer SMO iterations. Use -1 to let the SMO solver set
   //! a default value (100*n_rows).
   int max_iter;
-  int nochange_steps;  //<! Number of steps to continue with non-changing diff
-  double tol;          //!< Tolerance used to stop fitting.
-  int verbosity;       //!< Print information about training
-  double epsilon;      //!< epsilon parameter for epsilon-SVR
+  int nochange_steps;    //<! Number of steps to continue with non-changing diff
+  double tol;            //!< Tolerance used to stop fitting.
+  level_enum verbosity;  //!< Print information about training
+  double epsilon;        //!< epsilon parameter for epsilon-SVR
   SvmType svmType;
 };
 

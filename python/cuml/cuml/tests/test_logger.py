@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,9 +27,9 @@ def test_logger():
     logger.error("This is a error message")
     logger.critical("This is a critical message")
 
-    with logger.set_level(logger.level_warn):
-        assert logger.should_log_for(logger.level_warn)
-        assert not logger.should_log_for(logger.level_info)
+    with logger.set_level(logger.level_enum.warn):
+        assert logger.should_log_for(logger.level_enum.warn)
+        assert not logger.should_log_for(logger.level_enum.info)
 
     with logger.set_pattern("%v"):
         logger.info("This is an info message")
@@ -38,7 +38,7 @@ def test_logger():
 def test_redirected_logger():
     new_stdout = StringIO()
 
-    with logger.set_level(logger.level_trace):
+    with logger.set_level(logger.level_enum.trace):
         # We do not test trace because CUML_LOG_TRACE is not compiled by
         # default
         test_msg = "This is a debug message"
@@ -76,7 +76,7 @@ def test_log_flush():
     stdout_buffer = BytesIO()
     new_stdout = TextIOWrapper(stdout_buffer)
 
-    with logger.set_level(logger.level_trace):
+    with logger.set_level(logger.level_enum.trace):
         test_msg = "This is a debug message"
         with redirect_stdout(new_stdout):
             logger.debug(test_msg)

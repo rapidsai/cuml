@@ -54,7 +54,7 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle,
   param.max_iter       = max_iter;
   param.nochange_steps = nochange_steps;
   param.tol            = tol;
-  param.verbosity      = verbosity;
+  param.verbosity      = static_cast<ML::level_enum>(verbosity);
 
   raft::distance::kernels::KernelParams kernel_param;
   kernel_param.kernel = (raft::distance::kernels::KernelType)kernel;
@@ -128,7 +128,7 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle,
   param.max_iter       = max_iter;
   param.nochange_steps = nochange_steps;
   param.tol            = tol;
-  param.verbosity      = verbosity;
+  param.verbosity      = static_cast<ML::level_enum>(verbosity);
 
   raft::distance::kernels::KernelParams kernel_param;
   kernel_param.kernel = (raft::distance::kernels::KernelType)kernel;

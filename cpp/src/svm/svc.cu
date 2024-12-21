@@ -139,7 +139,7 @@ SVC<math_t>::SVC(raft::handle_t& handle,
                  math_t cache_size,
                  int max_iter,
                  int nochange_steps,
-                 int verbosity)
+                 level_enum verbosity)
   : handle(handle),
     param(SvmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity}),
     kernel_params(kernel_params)
