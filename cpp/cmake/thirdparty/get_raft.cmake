@@ -54,7 +54,6 @@ function(find_and_configure_raft)
         EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
         OPTIONS
           "BUILD_TESTS OFF"
-          "BUILD_BENCH OFF"
           "BUILD_PRIMS_BENCH OFF"
           "BUILD_CAGRA_HNSWLIB OFF"
           "RAFT_COMPILE_LIBRARY OFF"

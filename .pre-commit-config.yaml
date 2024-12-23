@@ -69,8 +69,7 @@ repos:
                 CMakeLists[.]txt$|
                 CMakeLists_standalone[.]txt$|
                 [.]flake8[.]cython$|
-                meta[.]yaml$|
-                setup[.]cfg$
+                meta[.]yaml$
           exclude: |
             (?x)
                 cpp/src/tsne/cannylab/bh[.]cu$|
