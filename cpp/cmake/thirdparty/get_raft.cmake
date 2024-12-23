@@ -55,6 +55,7 @@ function(find_and_configure_raft)
         OPTIONS
           "BUILD_TESTS OFF"
           "BUILD_BENCH OFF"
+          "BUILD_PRIMS_BENCH OFF"
           "BUILD_CAGRA_HNSWLIB OFF"
           "RAFT_COMPILE_LIBRARY OFF"
     )
