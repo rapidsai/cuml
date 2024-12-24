@@ -83,14 +83,12 @@ if(NOT CUML_CPU)
     set(BUILD_CUML_C_LIBRARY OFF)
     set(BUILD_CUML_EXAMPLES OFF)
     set(BUILD_CUML_BENCH OFF)
-    set(BUILD_CUML_PRIMS_BENCH OFF)
     set(CUML_EXPORT_TREELITE_LINKAGE ON)
     set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
 
     # Statically link dependencies if building wheels
     set(CUDA_STATIC_RUNTIME ON)
     set(CUML_USE_CUVS_STATIC ON)
-    set(CUML_USE_FAISS_STATIC ON)
     set(CUML_USE_TREELITE_STATIC ON)
     set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
     # Link to the CUDA wheels with shared libraries for CUDA 12+
