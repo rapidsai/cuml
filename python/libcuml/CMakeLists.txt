@@ -1,0 +1,109 @@
+# =============================================================================
+# Copyright (c) 2024, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+# in compliance with the License. You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software distributed under the License
+# is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+# or implied. See the License for the specific language governing permissions and limitations under
+# the License.
+# =============================================================================
+
+cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
+
+include(../../rapids_config.cmake)
+
+project(
+  libcuml-python
+  VERSION "${RAPIDS_VERSION}"
+  LANGUAGES CXX
+)
+
+################################################################################
+# - User Options  --------------------------------------------------------------
+option(CUML_UNIVERSAL "Build all cuML Python components." ON)
+option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
+option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
+option(USE_CUVS_WHEEL "Use the cuVS wheel" OFF)
+
+# todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
+# https://github.com/rapidsai/cuml/issues/4843
+message(VERBOSE "CUML_PY: Build only cuML CPU Python components.: ${CUML_CPU}")
+message(VERBOSE "CUML_PY: Searching for existing CUML C++ installations before defaulting to local files: ${FIND_CUML_CPP}")
+message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
+
+set(CUML_ALGORITHMS "ALL" CACHE STRING "Choose which algorithms are built cuML. Can specify individual algorithms or groups in a semicolon-separated list.")
+
+set(CUML_CPP_TARGET "cuml++")
+set(CUML_CPP_SRC "../../cpp")
+
+################################################################################
+# - Process User Options  ------------------------------------------------------
+
+# Check if cuml is already available. If so, it is the user's responsibility to ensure that the
+# CMake package is also available at build time of the Python cuml package.
+find_package(cuml "${RAPIDS_VERSION}")
+
+if(cuml_FOUND)
+  return()
+endif()
+
+unset(cuml_FOUND)
+
+find_package(CUDAToolkit REQUIRED)
+
+set(BUILD_CUML_TESTS OFF)
+set(BUILD_PRIMS_TESTS OFF)
+set(BUILD_CUML_C_LIBRARY OFF)
+set(BUILD_CUML_EXAMPLES OFF)
+set(BUILD_CUML_BENCH OFF)
+set(CUML_EXPORT_TREELITE_LINKAGE ON)
+set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
+set(CUML_RAFT_CLONE_ON_PIN OFF)
+
+# Statically link dependencies if building wheels
+set(CUDA_STATIC_RUNTIME ON)
+set(CUML_USE_CUVS_STATIC ON)
+set(CUML_USE_TREELITE_STATIC ON)
+set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
+
+# Don't install the static libs into wheels
+set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
+# TODO(jameslamb): should treelite just be included here?
+set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
+# TODO(jameslamb): figure out how cumlprims_mg should work (re-download in cuml? only install/export the headers in libcuml?)
+set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL OFF)
+
+# Link to the CUDA wheels with shared libraries for CUDA 12+
+if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
+  set(CUDA_STATIC_MATH_LIBRARIES OFF)
+else()
+  if(USE_CUDA_MATH_WHEELS)
+    message(FATAL_ERROR "Cannot use CUDA math wheels with CUDA < 12.0")
+  endif()
+  set(CUDA_STATIC_MATH_LIBRARIES ON)
+endif()
+
+# TODO(jameslamb): keep cuvs files (like lib64/libcuvs.{a,so}) out of the wheel
+# TODO(jameslamb): audit all file contents
+add_subdirectory(../../cpp cuml-cpp)
+
+if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
+  set(rpaths
+    "$ORIGIN/../nvidia/cublas/lib"
+    "$ORIGIN/../nvidia/cufft/lib"
+    "$ORIGIN/../nvidia/curand/lib"
+    "$ORIGIN/../nvidia/cusolver/lib"
+    "$ORIGIN/../nvidia/cusparse/lib"
+    "$ORIGIN/../nvidia/nvjitlink/lib"
+  )
+  set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)
+endif()
+
+if(USE_CUVS_WHEEL)
+  set(rpaths "$ORIGIN/../cuvs")
+  set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)
+endif()

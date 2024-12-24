@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+# If libcuml was installed as a wheel, we must request it to load the library symbols.
+# Otherwise, we assume that the library was installed in a system path that ld can find.
+try:
+    import libcuml
+except ModuleNotFoundError:
+    pass
+else:
+    libcuml.load_library()
+    del libcuml
 
 from cuml.internals.base import Base, UniversalBase
 from cuml.internals.available_devices import is_cuda_available

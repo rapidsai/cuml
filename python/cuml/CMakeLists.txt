@@ -42,7 +42,6 @@ option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libr
 option(USE_CUVS_WHEEL "Use the cuVS wheel" OFF)
 set(CUML_RAFT_CLONE_ON_PIN OFF)
 
-
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
 # https://github.com/rapidsai/cuml/issues/4843
 message(VERBOSE "CUML_PY: Build only cuML CPU Python components.: ${CUML_CPU}")
@@ -57,79 +56,38 @@ set(CUML_CPP_SRC "../../cpp")
 ################################################################################
 # - Process User Options  ------------------------------------------------------
 
-# If the user requested it, we attempt to find cuml.
-if(FIND_CUML_CPP)
-  # We need to call get_treelite explicitly because we need the correct
-  # ${TREELITE_LIBS} definition for RF
-  include(rapids-cpm)
-  include(rapids-export)
-  rapids_cpm_init()
-  find_package(cuml ${CUML_VERSION} REQUIRED)
-  include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
-else()
-  set(cuml_FOUND OFF)
-endif()
+# We need to call get_treelite explicitly because we need the correct
+# ${TREELITE_LIBS} definition for RF
+#
+# and it needs to come before find_package(cuml), because it's a PUBLIC
+# dependency of cuml::cuml
+include(rapids-cpm)
+include(rapids-export)
+rapids_cpm_init()
+include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
+
+find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
+
+# # If the user requested it, we attempt to find cuml.
+# if(FIND_CUML_CPP)
+#   # We need to call get_treelite explicitly because we need the correct
+#   # ${TREELITE_LIBS} definition for RF
+#   include(rapids-cpm)
+#   include(rapids-export)
+#   rapids_cpm_init()
+#   find_package(cuml ${CUML_VERSION} REQUIRED)
+#   include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
+# else()
+#   set(cuml_FOUND OFF)
+# endif()
 
 include(rapids-cython-core)
 
 set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
 
+# cuml-cpu does not need libcuml++.so
 if(NOT CUML_CPU)
-  if(NOT cuml_FOUND)
-    find_package(CUDAToolkit REQUIRED)
-
-    set(BUILD_CUML_TESTS OFF)
-    set(BUILD_PRIMS_TESTS OFF)
-    set(BUILD_CUML_C_LIBRARY OFF)
-    set(BUILD_CUML_EXAMPLES OFF)
-    set(BUILD_CUML_BENCH OFF)
-    set(BUILD_CUML_PRIMS_BENCH OFF)
-    set(CUML_EXPORT_TREELITE_LINKAGE ON)
-    set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
-
-    # Statically link dependencies if building wheels
-    set(CUDA_STATIC_RUNTIME ON)
-    set(CUML_USE_CUVS_STATIC ON)
-    set(CUML_USE_FAISS_STATIC ON)
-    set(CUML_USE_TREELITE_STATIC ON)
-    set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
-    # Link to the CUDA wheels with shared libraries for CUDA 12+
-    if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
-      set(CUDA_STATIC_MATH_LIBRARIES OFF)
-    else()
-      if(USE_CUDA_MATH_WHEELS)
-        message(FATAL_ERROR "Cannot use CUDA math wheels with CUDA < 12.0")
-      endif()
-      set(CUDA_STATIC_MATH_LIBRARIES ON)
-    endif()
-    # Don't install the static libs into wheels
-    set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
-    set(RAFT_EXCLUDE_FAISS_FROM_ALL ON)
-    set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
-    set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
-
-    add_subdirectory(${CUML_CPP_SRC} cuml-cpp EXCLUDE_FROM_ALL)
-
-    if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
-      set(rpaths
-        "$ORIGIN/../nvidia/cublas/lib"
-        "$ORIGIN/../nvidia/cufft/lib"
-        "$ORIGIN/../nvidia/curand/lib"
-        "$ORIGIN/../nvidia/cusolver/lib"
-        "$ORIGIN/../nvidia/cusparse/lib"
-        "$ORIGIN/../nvidia/nvjitlink/lib"
-      )
-      set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)
-    endif()
-
-    if(USE_CUVS_WHEEL)
-      set(rpaths "$ORIGIN/../cuvs")
-      set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)
-    endif()
-
-    set(cython_lib_dir cuml)
-    install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
-  endif()
+  # (moved to libcuml/CMakeLists.txt)
 endif()
 
 if(CUML_CPU)
@@ -208,10 +166,6 @@ add_subdirectory(cuml/svm)
 add_subdirectory(cuml/tsa)
 
 add_subdirectory(cuml/experimental/linear_model)
-
-if(DEFINED cython_lib_dir)
-  rapids_cython_add_rpath_entries(TARGET cuml PATHS "${cython_lib_dir}")
-endif()
 
 if(USE_CUVS_WHEEL)
   rapids_cython_add_rpath_entries(TARGET cuml PATHS cuvs)

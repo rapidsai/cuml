@@ -7,6 +7,8 @@ wheel_dir_relative_path=$1
 
 rapids-logger "validate packages with 'pydistcheck'"
 
+# TODO(jameslamb) add libcuml here
+
 pydistcheck \
     --inspect \
     "$(echo ${wheel_dir_relative_path}/*.whl)"
