@@ -31,6 +31,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.import_utils import has_hdbscan
@@ -782,6 +783,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.n_rows = n_rows
         self.n_cols = n_cols
 
+        if GlobalSettings().accelerator_active:
+            self._raw_data = self.X_m.to_output("numpy")
+
         cdef uintptr_t _input_ptr = X_m.ptr
 
         IF GPUBUILD == 1:
@@ -1133,6 +1137,8 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
             self.condensed_tree_._raw_tree
         self._cpu_model.single_linkage_tree_ = \
             self.single_linkage_tree_._linkage
+        if hasattr(self, "_raw_data"):
+            self._cpu_model._raw_data = self._raw_data
         if self.gen_min_span_tree:
             self._cpu_model.minimum_spanning_tree_ = \
                 self.minimum_spanning_tree_._mst
