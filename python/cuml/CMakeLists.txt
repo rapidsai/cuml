@@ -64,6 +64,14 @@ set(CUML_CPP_SRC "../../cpp")
 include(rapids-cpm)
 include(rapids-export)
 rapids_cpm_init()
+
+set(CUML_EXPORT_TREELITE_LINKAGE ON)
+set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
+# use dynamic treelite (provided by treelite wheels)
+# TODO(jameslamb): does this make sense?
+set(CUML_USE_TREELITE_STATIC OFF)
+# TODO(jameslamb): should treelite just be included here?
+set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
 include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
 
 find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
@@ -82,8 +90,6 @@ find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
 # endif()
 
 include(rapids-cython-core)
-
-set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
 
 # cuml-cpu does not need libcuml++.so
 if(NOT CUML_CPU)

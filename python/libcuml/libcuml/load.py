@@ -46,6 +46,10 @@ def _load_wheel_installation(soname: str):
 
 def load_library():
     """Dynamically load libcuml++.so and its dependencies"""
+    # treelite must be loaded before libcuml++ because libcuml++
+    # references its symbols
+    import treelite
+
     prefer_system_installation = (
         os.getenv("RAPIDS_LIBCUML_PREFER_SYSTEM_LIBRARY", "false").lower()
         != "false"
@@ -81,4 +85,4 @@ def load_library():
     # to inspect where libcuml was loaded from.
 
     # TODO(jameslamb): return something here?
-    # return libcugraph_lib
+    return libcuml_lib

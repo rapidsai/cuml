@@ -3,16 +3,10 @@
 
 set -euo pipefail
 
+package_name="cuml"
 package_dir="python/cuml"
 
-source rapids-configure-sccache
-source rapids-date-string
-
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
-
-rapids-generate-version > ./VERSION
-
-cd ${package_dir}
 
 # TODO(jameslamb): split this out into build_wheel_{cuml,libcuml}.sh
 # TODO(jameslamb): add libcuml++.so to cuml exclusions
@@ -38,20 +32,15 @@ case "${RAPIDS_CUDA_VERSION}" in
     ;;
 esac
 
-sccache --zero-stats
+export SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/;-DUSE_CUVS_WHEEL=ON${EXTRA_CMAKE_ARGS}"
+./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
-SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/;-DUSE_CUVS_WHEEL=ON${EXTRA_CMAKE_ARGS}" \
-  python -m pip wheel . \
-    -w dist \
-    -v \
-    --no-deps \
-    --disable-pip-version-check
+mkdir -p ${package_dir}/final_dist
+python -m auditwheel repair \
+    "${EXCLUDE_ARGS[@]}" \
+    -w ${package_dir}/final_dist \
+    ${package_dir}/dist/*
 
-sccache --show-adv-stats
+./ci/validate_wheel.sh ${package_dir} final_dist
 
-mkdir -p final_dist
-python -m auditwheel repair -w final_dist "${EXCLUDE_ARGS[@]}" dist/*
-
-../../ci/validate_wheel.sh final_dist
-
-RAPIDS_PY_WHEEL_NAME="cuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python final_dist
+RAPIDS_PY_WHEEL_NAME="${package_name}_${RAPIDS_PY_CUDA_SUFFIX}" rapids-upload-wheels-to-s3 python "${package_dir}/final_dist"

@@ -60,20 +60,24 @@ set(BUILD_PRIMS_TESTS OFF)
 set(BUILD_CUML_C_LIBRARY OFF)
 set(BUILD_CUML_EXAMPLES OFF)
 set(BUILD_CUML_BENCH OFF)
-set(CUML_EXPORT_TREELITE_LINKAGE ON)
-set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
 set(CUML_RAFT_CLONE_ON_PIN OFF)
+
+# --- treelite --- #
+set(CUML_EXPORT_TREELITE_LINKAGE ON)
+set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
+# use dynamic treelite (provided by treelite wheels)
+# TODO(jameslamb): does this make sense?
+set(CUML_USE_TREELITE_STATIC OFF)
+# TODO(jameslamb): should treelite just be included here?
+set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
 
 # Statically link dependencies if building wheels
 set(CUDA_STATIC_RUNTIME ON)
 set(CUML_USE_CUVS_STATIC ON)
-set(CUML_USE_TREELITE_STATIC ON)
 set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
 
 # Don't install the static libs into wheels
 set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
-# TODO(jameslamb): should treelite just be included here?
-set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
 # TODO(jameslamb): figure out how cumlprims_mg should work (re-download in cuml? only install/export the headers in libcuml?)
 set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL OFF)
 

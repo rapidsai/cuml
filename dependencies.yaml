@@ -10,6 +10,7 @@ files:
       - cuda
       - cuda_version
       - depends_on_librmm
+      - depends_on_treelite
       - docs
       - py_build
       - py_run
@@ -83,6 +84,8 @@ files:
     includes:
       - common_build
       - depends_on_librmm
+      # TODO(jameslamb): does cuml really need treelite at build time?
+      - depends_on_treelite
       - py_build
   py_run_cuml:
     output: pyproject
@@ -92,6 +95,7 @@ files:
     includes:
       - cuda_wheels
       - depends_on_libcuml
+      - depends_on_treelite
       - py_run
   py_test_cuml:
     output: pyproject
@@ -118,6 +122,7 @@ files:
       - common_build
       - depends_on_libraft
       - depends_on_librmm
+      - depends_on_treelite
       - py_build
   py_run_libcuml:
     output: pyproject
@@ -208,7 +213,6 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - &cython cython>=3.0.0
-          - &treelite treelite==4.3.0
       - output_types: conda
         packages:
           - &cuvs_unsuffixed cuvs==25.2.*,>=0.0.0a0
@@ -270,7 +274,6 @@ dependencies:
           - scipy>=1.8.0
           - packaging
           - rapids-dask-dependency==25.2.*,>=0.0.0a0
-          - *treelite
       - output_types: conda
         packages:
           - &cudf_unsuffixed cudf==25.2.*,>=0.0.0a0
@@ -640,3 +643,8 @@ dependencies:
             packages:
               - librmm-cu11==25.2.*,>=0.0.0a0
           - {matrix: null, packages: [*librmm_unsuffixed]}
+  depends_on_treelite:
+    common:
+      - output_types: [conda, requirements, pyproject]
+        packages:
+          - treelite==4.3.0

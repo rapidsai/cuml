@@ -37,5 +37,4 @@ rapids_cython_create_modules(
   SOURCE_FILES "${cython_sources}"
   LINKED_LIBRARIES "${cuml_mg_libraries}"
   MODULE_PREFIX linear_model_
-  ASSOCIATED_TARGETS cuml
 )

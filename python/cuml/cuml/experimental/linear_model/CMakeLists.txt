@@ -22,5 +22,4 @@ rapids_cython_create_modules(
   SOURCE_FILES "${cython_sources}"
   LINKED_LIBRARIES "${cuml_sg_libraries}"
   MODULE_PREFIX experimental_
-  ASSOCIATED_TARGETS cuml
 )

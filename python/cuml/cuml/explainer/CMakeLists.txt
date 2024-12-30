@@ -28,5 +28,4 @@ rapids_cython_create_modules(
   SOURCE_FILES "${cython_sources}"
   LINKED_LIBRARIES "${linked_libraries}"
   MODULE_PREFIX explainer_
-  ASSOCIATED_TARGETS cuml
 )

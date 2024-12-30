@@ -26,7 +26,6 @@ rapids_cython_create_modules(
   SOURCE_FILES "${cython_sources}"
   LINKED_LIBRARIES "${cuml_sg_libraries}"
   MODULE_PREFIX internals_
-  ASSOCIATED_TARGETS cuml
 )
 
 # We need to include for callbacks_implements.h in the internals folder
