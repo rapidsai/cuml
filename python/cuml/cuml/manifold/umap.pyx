@@ -435,7 +435,18 @@ class UMAP(UniversalBase,
         self.precomputed_knn = extract_knn_infos(precomputed_knn,
                                                  n_neighbors)
 
-        logger.set_level(verbose)
+        # We need to set this log level here so that it is propagated in time
+        # for the logger.info call below. We cannot use the verbose parameter
+        # directly because Base.__init__ contains the logic for converting
+        # boolean values to suitable integers. We access self._verbose instead
+        # of self.verbose because due to the same issues described in
+        # Base.__init__'s logic for setting verbose, this code is not
+        # considered to be within a root context and therefore considered
+        # external. Rather than mucking with the decorator, for this specific
+        # case since we're trying to set the properties of the underlying
+        # logger we may as well access our underlying value directly and
+        # perform the necessary arithmetic.
+        logger.set_level(logger.level_enum(6 - self._verbose))
 
         if build_algo == "auto" or build_algo == "brute_force_knn" or build_algo == "nn_descent":
             if self.deterministic and build_algo == "auto":
