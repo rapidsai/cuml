@@ -62,10 +62,10 @@ set(CUML_RAFT_CLONE_ON_PIN OFF)
 
 # --- treelite --- #
 set(CUML_EXPORT_TREELITE_LINKAGE ON)
-set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
+set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
 # use dynamic treelite (provided by treelite wheels)
-# TODO(jameslamb): does this make sense?
-set(CUML_USE_TREELITE_STATIC OFF)
+# TODO(jameslamb): is it safe for libcuml and cuml to both use their own static treelite?
+set(CUML_USE_TREELITE_STATIC ON)
 # TODO(jameslamb): should treelite just be included here?
 set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
 
