@@ -289,6 +289,7 @@ class KMeans(UniversalBase,
         Compute k-means clustering with X.
 
         """
+        self._n_features_out = self.n_clusters
         if self.init == 'preset':
             check_cols = self.n_features_in_
             check_dtype = self.dtype
@@ -305,6 +306,8 @@ class KMeans(UniversalBase,
                                 convert_to_dtype=(target_dtype if convert_dtype
                                                   else None),
                                 check_dtype=check_dtype)
+
+        self.feature_names_in_ = _X_m.index
 
         IF GPUBUILD == 1:
 
@@ -708,4 +711,5 @@ class KMeans(UniversalBase,
 
     def get_attr_names(self):
         return ['cluster_centers_', 'labels_', 'inertia_',
-                'n_iter_', 'n_features_in_', '_n_threads']
+                'n_iter_', 'n_features_in_', '_n_threads',
+                "feature_names_in_", "_n_features_out"]
