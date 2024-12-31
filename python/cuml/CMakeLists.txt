@@ -36,7 +36,6 @@ project(
 ################################################################################
 # - User Options  --------------------------------------------------------------
 option(CUML_UNIVERSAL "Build all cuML Python components." ON)
-option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
 option(USE_CUVS_WHEEL "Use the cuVS wheel" OFF)
@@ -45,7 +44,6 @@ set(CUML_RAFT_CLONE_ON_PIN OFF)
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
 # https://github.com/rapidsai/cuml/issues/4843
 message(VERBOSE "CUML_PY: Build only cuML CPU Python components.: ${CUML_CPU}")
-message(VERBOSE "CUML_PY: Searching for existing CUML C++ installations before defaulting to local files: ${FIND_CUML_CPP}")
 message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 
 set(CUML_ALGORITHMS "ALL" CACHE STRING "Choose which algorithms are built cuML. Can specify individual algorithms or groups in a semicolon-separated list.")
@@ -75,19 +73,6 @@ set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
 include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
 
 find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
-
-# # If the user requested it, we attempt to find cuml.
-# if(FIND_CUML_CPP)
-#   # We need to call get_treelite explicitly because we need the correct
-#   # ${TREELITE_LIBS} definition for RF
-#   include(rapids-cpm)
-#   include(rapids-export)
-#   rapids_cpm_init()
-#   find_package(cuml ${CUML_VERSION} REQUIRED)
-#   include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
-# else()
-#   set(cuml_FOUND OFF)
-# endif()
 
 include(rapids-cython-core)
 
