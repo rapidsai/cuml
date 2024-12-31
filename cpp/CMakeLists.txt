@@ -602,6 +602,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   # These are always private:
   list(APPEND _cuml_cpp_private_libs
     raft::raft
+    rmm::rmm_logger_impl
+    raft::raft_logger_impl
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}>
     ${TREELITE_LIBS}
@@ -629,7 +631,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     PUBLIC  rmm::rmm rmm::rmm_logger ${CUVS_LIB}
             ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs}
-                   rmm::rmm_logger_impl
   )
 
   # If we export the libdmlc symbols, they can lead to weird crashes with other
