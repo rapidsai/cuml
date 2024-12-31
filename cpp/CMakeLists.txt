@@ -233,7 +233,7 @@ rapids_cmake_install_lib_dir(lib_dir)
 
 # Not using rapids-cmake since we never want to find, always download.
 CPMAddPackage(
-    NAME rapids_logger GITHUB_REPOSITORY vyasr/rapids-logger GIT_SHALLOW FALSE GIT_TAG feat/cuml
+    NAME rapids_logger GITHUB_REPOSITORY vyasr/rapids-logger GIT_SHALLOW FALSE GIT_TAG 4df3ee70c6746fd1b6c0dc14209dae2e2d4378c6 VERSION 4df3ee70c6746fd1b6c0dc14209dae2e2d4378c6
 )
 rapids_make_logger(
   ML EXPORT_SET cuml-exports LOGGER_HEADER_DIR include/cuml/common/ LOGGER_MACRO_PREFIX CUML LOGGER_TARGET cuml_logger
