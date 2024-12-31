@@ -35,6 +35,7 @@ creation and prediction (the main inference kernel is defined in infer.cu). */
 #include <cstddef>  // for size_t
 #include <cstdint>  // for uint8_t
 
+// Test comment
 namespace ML {
 namespace fil {
 
