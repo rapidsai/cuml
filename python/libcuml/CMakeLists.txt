@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -51,14 +51,11 @@ endif()
 
 unset(cuml_FOUND)
 
-find_package(CUDAToolkit REQUIRED)
-
 set(BUILD_CUML_TESTS OFF)
 set(BUILD_PRIMS_TESTS OFF)
 set(BUILD_CUML_C_LIBRARY OFF)
 set(BUILD_CUML_EXAMPLES OFF)
 set(BUILD_CUML_BENCH OFF)
-set(CUML_RAFT_CLONE_ON_PIN OFF)
 
 # --- treelite --- #
 set(CUML_EXPORT_TREELITE_LINKAGE ON)
@@ -69,17 +66,32 @@ set(CUML_USE_TREELITE_STATIC ON)
 # TODO(jameslamb): should treelite just be included here?
 set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
 
-# Statically link dependencies if building wheels
-set(CUDA_STATIC_RUNTIME ON)
-set(CUML_USE_CUVS_STATIC ON)
-set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
-
-# Don't install the static libs into wheels
+# --- raft --- #
+set(CUML_RAFT_CLONE_ON_PIN OFF)
 set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
+
+# --- cumlprims_mg --- #
+set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
 # TODO(jameslamb): figure out how cumlprims_mg should work (re-download in cuml? only install/export the headers in libcuml?)
-set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL OFF)
+set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
+
+# --- cuvs --- #
+ 
+if(USE_CUVS_WHEEL)
+  set(CUML_USE_CUVS_STATIC OFF)
+else()
+  set(CUML_USE_CUVS_STATIC ON)
+endif()
+
+# either way, don't unclude any cuvs stuff in wheel
+# (expect anything building against libcuml to provide cuvs headers externally)
+set(CUML_EXCLUDE_CUVS_FROM_ALL ON)
+
+# --- CUDA --- #
+set(CUDA_STATIC_RUNTIME ON)
 
 # Link to the CUDA wheels with shared libraries for CUDA 12+
+find_package(CUDAToolkit REQUIRED)
 if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
   set(CUDA_STATIC_MATH_LIBRARIES OFF)
 else()

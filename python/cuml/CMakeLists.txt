@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -37,7 +37,6 @@ project(
 # - User Options  --------------------------------------------------------------
 option(CUML_UNIVERSAL "Build all cuML Python components." ON)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
-option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
 option(USE_CUVS_WHEEL "Use the cuVS wheel" OFF)
 set(CUML_RAFT_CLONE_ON_PIN OFF)
 
@@ -54,6 +53,13 @@ set(CUML_CPP_SRC "../../cpp")
 ################################################################################
 # - Process User Options  ------------------------------------------------------
 
+# --- CCCL, RAFT, and RMM --- #
+# CCCL before RMM, and RMM before RAFT
+include(cmake/thirdparty/get_cccl.cmake)
+include(cmake/thirdparty/get_rmm.cmake)
+include(cmake/thirdparty/get_raft.cmake)
+
+# --- treelite --- #
 # We need to call get_treelite explicitly because we need the correct
 # ${TREELITE_LIBS} definition for RF
 #
@@ -71,11 +77,46 @@ set(CUML_USE_TREELITE_STATIC ON)
 set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
 include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
 
+# get nlohmann_json and rapidsjson
+# TODO(jameslamb): maybe this isn't necessary?
+function(copy_interface_excludes)
+  set(_options "")
+  set(_one_value TARGET INCLUDED_TARGET)
+  set(_multi_value "")
+  cmake_parse_arguments(_CUML_INCLUDES "${_options}" "${_one_value}"
+                        "${_multi_value}" ${ARGN})
+  get_target_property(_includes ${_CUML_INCLUDES_INCLUDED_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
+  target_include_directories(${_CUML_INCLUDES_TARGET} PUBLIC ${_includes})
+endfunction()
+copy_interface_excludes(INCLUDED_TARGET treelite::treelite_static TARGET ${CUML_CPP_TARGET})
+
+# --- cuvs --- #
+ 
+if(USE_CUVS_WHEEL)
+  set(CUML_USE_CUVS_STATIC OFF)
+else()
+  set(CUML_USE_CUVS_STATIC ON)
+endif()
+
+# either way, don't unclude any cuvs stuff in wheel
+# (expect anything building against libcuml to provide cuvs headers externally)
+set(CUML_EXCLUDE_CUVS_FROM_ALL ON)
+
+# download this again just to get the headers
+include(${CUML_CPP_SRC}/cmake/thirdparty/get_cuvs.cmake)
+
+# --- cumlprims_mg --- #
+set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
+# TODO(jameslamb): figure out how cumlprims_mg should work (re-download in cuml? only install/export the headers in libcuml?)
+set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
+include(${CUML_CPP_SRC}/cmake/thirdparty/get_cumlprims_mg.cmake)
+
 find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
 
 include(rapids-cython-core)
 
 # cuml-cpu does not need libcuml++.so
+# TODO(jameslamb): maybe all the stuff above is unnecessary in the CPU-only case?
 if(NOT CUML_CPU)
   # (moved to libcuml/CMakeLists.txt)
 endif()
