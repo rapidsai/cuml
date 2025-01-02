@@ -55,9 +55,9 @@ set(CUML_CPP_SRC "../../cpp")
 
 # --- CCCL, RAFT, and RMM --- #
 # CCCL before RMM, and RMM before RAFT
-include(cmake/thirdparty/get_cccl.cmake)
-include(cmake/thirdparty/get_rmm.cmake)
-include(cmake/thirdparty/get_raft.cmake)
+# include(cmake/thirdparty/get_cccl.cmake)
+# include(cmake/thirdparty/get_rmm.cmake)
+# include(cmake/thirdparty/get_raft.cmake)
 
 # --- treelite --- #
 # We need to call get_treelite explicitly because we need the correct
@@ -79,19 +79,18 @@ include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
 
 # get nlohmann_json and rapidsjson
 # TODO(jameslamb): maybe this isn't necessary?
-function(copy_interface_excludes)
-  set(_options "")
-  set(_one_value TARGET INCLUDED_TARGET)
-  set(_multi_value "")
-  cmake_parse_arguments(_CUML_INCLUDES "${_options}" "${_one_value}"
-                        "${_multi_value}" ${ARGN})
-  get_target_property(_includes ${_CUML_INCLUDES_INCLUDED_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
-  target_include_directories(${_CUML_INCLUDES_TARGET} PUBLIC ${_includes})
-endfunction()
-copy_interface_excludes(INCLUDED_TARGET treelite::treelite_static TARGET ${CUML_CPP_TARGET})
+# function(copy_interface_excludes)
+#   set(_options "")
+#   set(_one_value TARGET INCLUDED_TARGET)
+#   set(_multi_value "")
+#   cmake_parse_arguments(_CUML_INCLUDES "${_options}" "${_one_value}"
+#                         "${_multi_value}" ${ARGN})
+#   get_target_property(_includes ${_CUML_INCLUDES_INCLUDED_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
+#   target_include_directories(${_CUML_INCLUDES_TARGET} PUBLIC ${_includes})
+# endfunction()
+# copy_interface_excludes(INCLUDED_TARGET treelite::treelite_static TARGET ${CUML_CPP_TARGET})
 
 # --- cuvs --- #
- 
 if(USE_CUVS_WHEEL)
   set(CUML_USE_CUVS_STATIC OFF)
 else()

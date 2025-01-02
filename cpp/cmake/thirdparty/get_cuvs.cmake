@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
 # limitations under the License.
 #=============================================================================
 
-set(CUML_MIN_VERSION_cuvs "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
-set(CUML_BRANCH_VERSION_cuvs "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
+set(CUML_MIN_VERSION_cuvs "${RAPIDS_VERSION_MAJOR}.${RAPIDS_VERSION_MINOR}.00")
+set(CUML_BRANCH_VERSION_cuvs "${RAPIDS_VERSION_MAJOR}.${RAPIDS_VERSION_MINOR}")
 
 function(find_and_configure_cuvs)
     set(oneValueArgs VERSION FORK PINNED_TAG EXCLUDE_FROM_ALL USE_CUVS_STATIC COMPILE_LIBRARY CLONE_ON_PIN)
@@ -54,9 +54,9 @@ function(find_and_configure_cuvs)
         EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
         OPTIONS
           "BUILD_TESTS OFF"
-          "BUILD_BENCH OFF"
+          "BUILD_CAGRA_HNSWLIB OFF"
+          "BUILD_CUVS_BENCH OFF"
           "BUILD_MG_ALGOS ${CUVS_BUILD_MG_ALGOS}"
-
     )
 
     if(cuvs_ADDED)

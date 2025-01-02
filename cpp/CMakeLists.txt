@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2024, NVIDIA CORPORATION.
+# Copyright (c) 2018-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -602,6 +602,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   # These are always private:
   list(APPEND _cuml_cpp_private_libs
     raft::raft
+    rmm::rmm_logger
     rmm::rmm_logger_impl
     raft::raft_logger_impl
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
@@ -628,7 +629,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   )
 
   target_link_libraries(${CUML_CPP_TARGET}
-    PUBLIC  rmm::rmm rmm::rmm_logger ${CUVS_LIB}
+    PUBLIC  rmm::rmm ${CUVS_LIB}
             ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs}
   )

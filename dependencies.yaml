@@ -15,6 +15,7 @@ files:
       - depends_on_dask_cudf
       - depends_on_libcumlprims
       - depends_on_libcuvs
+      - depends_on_libraft
       - depends_on_libraft_headers
       - depends_on_librmm
       - depends_on_pylibraft
@@ -110,8 +111,9 @@ files:
     includes:
       - common_build
       - depends_on_cuvs
+      - depends_on_libcuml
       - depends_on_libcumlprims
-      - depends_on_libraft_headers
+      - depends_on_libraft
       - depends_on_librmm
       - depends_on_pylibraft
       - depends_on_rmm
