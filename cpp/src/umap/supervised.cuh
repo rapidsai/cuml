@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -301,7 +301,7 @@ void perform_general_intersection(const raft::handle_t& handle,
     handle, y_inputs, y_inputs, knn_graph, params->target_n_neighbors, params, stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
+  if (ML::default_logger().should_log(ML::level_enum::debug)) {
     CUML_LOG_DEBUG("Target kNN Graph");
     std::stringstream ss1, ss2;
     ss1 << raft::arr2Str(
@@ -326,7 +326,7 @@ void perform_general_intersection(const raft::handle_t& handle,
                                                 stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
+  if (ML::default_logger().should_log(ML::level_enum::debug)) {
     CUML_LOG_DEBUG("Target Fuzzy Simplicial Set");
     std::stringstream ss;
     ss << ygraph_coo;

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -125,13 +125,13 @@ class SHAPBase():
                  output_type=None):
 
         if verbose is True:
-            self.verbose = logger.level_debug
+            self.verbose = logger.level_enum.debug
         elif verbose is False:
-            self.verbose = logger.level_error
+            self.verbose = logger.level_enum.error
         else:
             self.verbose = verbose
 
-        if self.verbose >= logger.level_debug:
+        if self.verbose >= logger.level_enum.debug:
             self.time_performance = True
         else:
             self.time_performance = False

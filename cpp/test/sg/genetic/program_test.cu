@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -642,7 +642,7 @@ TEST_F(GeneticProgramTest, ProgramExecution)
   MLCommon::CompareApprox<float> compApprox(tolerance);
 
   // Enable debug logging
-  ML::Logger::get().setLevel(CUML_LEVEL_INFO);
+  ML::default_logger().set_level(ML::level_enum::info);
 
   // Allocate memory
   std::vector<float> h_ypred(n_progs * n_samples, 0.0f);

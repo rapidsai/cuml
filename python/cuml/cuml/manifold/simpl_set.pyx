@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -165,7 +165,7 @@ def fuzzy_simplicial_set(X,
         umap_params.p = <float> 2.0
     else:
         umap_params.p = <float> metric_kwds.get("p", 2.0)
-    umap_params.verbosity = <int> verbose
+    umap_params.verbosity = verbose
 
     X_m, _, _, _ = \
         input_to_cuml_array(X,
@@ -366,7 +366,7 @@ def simplicial_set_embedding(
         umap_params.target_metric = MetricType.CATEGORICAL
     umap_params.target_weight = <float> output_metric_kwds['p'] \
         if 'p' in output_metric_kwds else 0.5
-    umap_params.verbosity = <int> verbose
+    umap_params.verbosity = verbose
 
     X_m, _, _, _ = \
         input_to_cuml_array(data,
