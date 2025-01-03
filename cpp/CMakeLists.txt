@@ -231,8 +231,8 @@ endif()
 rapids_cpm_init()
 rapids_cmake_install_lib_dir(lib_dir)
 
-include(${rapids-cmake-dir}/cpm/logger.cmake)
-rapids_cpm_logger()
+include(${rapids-cmake-dir}/cpm/rapids_logger.cmake)
+rapids_cpm_rapids_logger()
 rapids_make_logger(
   ML EXPORT_SET cuml-exports LOGGER_HEADER_DIR include/cuml/common/ LOGGER_MACRO_PREFIX CUML LOGGER_TARGET cuml_logger
 )
