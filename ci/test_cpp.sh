@@ -18,7 +18,7 @@ rapids-dependency-file-generator \
   --output conda \
   --file-key test_cpp \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch)" \
-  -prepend--channel "${LIBRMM_CHANNEL}" --prepend-channel "${LIBRAFT_CHANNEL}" --prepend-channel "${CPP_CHANNEL}" | tee env.yaml
+  --prepend-channel "${LIBRMM_CHANNEL}" --prepend-channel "${LIBRAFT_CHANNEL}" --prepend-channel "${CPP_CHANNEL}" | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
 
