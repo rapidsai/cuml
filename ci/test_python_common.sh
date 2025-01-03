@@ -1,11 +1,15 @@
 #!/bin/bash
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 
 set -euo pipefail
 
 . /opt/conda/etc/profile.d/conda.sh
 
 rapids-logger "Downloading artifacts from previous jobs"
+LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1776 cpp)
+PYLIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1776 python)
+LIBRAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2534 cpp)
+PYLIBRAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2534 python)
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
 
@@ -14,6 +18,10 @@ rapids-dependency-file-generator \
   --output conda \
   --file-key test_python \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" \
+  --prepend-channel "${LIBRMM_CHANNEL}" \
+  --prepend-channel "${PYLIBRMM_CHANNEL}" \
+  --prepend-channel "${LIBRAFT_CHANNEL}" \
+  --prepend-channel "${PYLIBRAFT_CHANNEL}" \
   --prepend-channel "${CPP_CHANNEL}" \
   --prepend-channel "${PYTHON_CHANNEL}" | tee env.yaml
 

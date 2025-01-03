@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -9,6 +9,8 @@ cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 . /opt/conda/etc/profile.d/conda.sh
 
 rapids-logger "Downloading artifacts from previous jobs"
+LIBRMM_CHANNEL=$(rapids-get-pr-conda-artifact rmm 1776 cpp)
+LIBRAFT_CHANNEL=$(rapids-get-pr-conda-artifact raft 2534 cpp)
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 
 rapids-logger "Generate C++ testing dependencies"
@@ -16,7 +18,7 @@ rapids-dependency-file-generator \
   --output conda \
   --file-key test_cpp \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch)" \
-  --prepend-channel "${CPP_CHANNEL}" | tee env.yaml
+  -prepend--channel "${LIBRMM_CHANNEL}" --prepend-channel "${LIBRAFT_CHANNEL}" --prepend-channel "${CPP_CHANNEL}" | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
 
