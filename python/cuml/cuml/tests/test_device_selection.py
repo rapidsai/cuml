@@ -981,7 +981,7 @@ def test_kmeans_methods(train_device, infer_device):
     ref_model.fit(X_train_blob)
     ref_output = ref_model.predict(X_test_blob)
 
-    model = KMeans(n_clusters=n_clusters)
+    model = KMeans(n_clusters=n_clusters, n_init="auto")
     with using_device_type(train_device):
         model.fit(X_train_blob)
     with using_device_type(infer_device):
