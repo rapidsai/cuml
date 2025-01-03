@@ -247,48 +247,17 @@ def housing_dataset():
     return X, y, feature_names
 
 
-@functools.cache
-def get_boston_data():
-    n_retries = 3
-    url = "https://raw.githubusercontent.com/scikit-learn/scikit-learn/baf828ca126bcb2c0ad813226963621cafe38adb/sklearn/datasets/data/boston_house_prices.csv"  # noqa: E501
-    for _ in range(n_retries):
-        try:
-            return pd.read_csv(url, header=None)
-        except Exception:
-            time.sleep(1)
-    raise RuntimeError(
-        f"Failed to download file from {url} after {n_retries} retries."
-    )
-
-
-@pytest.fixture(scope="session")
-def deprecated_boston_dataset():
-    # dataset was removed in Scikit-learn 1.2, we should change it for a
-    # better dataset for tests, see
-    # https://github.com/rapidsai/cuml/issues/5158
-
-    try:
-        df = get_boston_data()
-    except:  # noqa E722
-        pytest.xfail(reason="Error fetching Boston housing dataset")
-    n_samples = int(df[0][0])
-    data = df[list(np.arange(13))].values[2:n_samples].astype(np.float64)
-    targets = df[13].values[2:n_samples].astype(np.float64)
-
-    return Bunch(
-        data=data,
-        target=targets,
-    )
-
-
 @pytest.fixture(
-    scope="session",
-    params=["digits", "deprecated_boston_dataset", "diabetes", "cancer"],
+    scope="module",
+    params=["digits", "housing_dataset", "diabetes", "cancer"],
 )
-def test_datasets(request, deprecated_boston_dataset):
+def test_datasets(request, housing_dataset):
+    X, y, _ = housing_dataset
+    housing_dataset = Bunch(data=X.get(), target=y.get())
+
     test_datasets_dict = {
         "digits": datasets.load_digits(),
-        "deprecated_boston_dataset": deprecated_boston_dataset,
+        "housing_dataset": housing_dataset,
         "diabetes": datasets.load_diabetes(),
         "cancer": datasets.load_breast_cancer(),
     }
