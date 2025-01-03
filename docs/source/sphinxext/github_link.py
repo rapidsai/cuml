@@ -103,7 +103,7 @@ def _linkcode_resolve(domain, info, package, url_fmt, revision):
     else:
         if fn.endswith(".pyx"):
             sp_path = next(x for x in sys.path if re.match(".*site-packages$", x))
-            fn = fn.replace("/opt/conda/conda-bld/work/python", sp_path)
+            fn = fn.replace("/opt/conda/conda-bld/work/python/cuml", sp_path)
 
         # Convert to relative from module root
         fn = os.path.relpath(fn,
