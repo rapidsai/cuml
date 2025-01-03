@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -21,5 +21,4 @@ rapids_cython_create_modules(
         SOURCE_FILES "${cython_sources}"
         LINKED_LIBRARIES "${cuml_sg_libraries}"
         MODULE_PREFIX cluster_hdbscan_
-        ASSOCIATED_TARGETS cuml
 )

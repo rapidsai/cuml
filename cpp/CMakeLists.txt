@@ -622,6 +622,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   # These are always private:
   list(APPEND _cuml_cpp_private_libs
     raft::raft
+    rmm::rmm_logger
     rmm::rmm_logger_impl
     raft::raft_logger_impl
     cuml_logger_impl
@@ -649,7 +650,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   )
 
   target_link_libraries(${CUML_CPP_TARGET}
-    PUBLIC  rmm::rmm rmm::rmm_logger ${CUVS_LIB}
+    PUBLIC  rmm::rmm ${CUVS_LIB}
             ${_cuml_cpp_public_libs}
             cuml_logger
     PRIVATE ${_cuml_cpp_private_libs}

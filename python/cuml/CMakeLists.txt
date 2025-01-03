@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -36,17 +36,13 @@ project(
 ################################################################################
 # - User Options  --------------------------------------------------------------
 option(CUML_UNIVERSAL "Build all cuML Python components." ON)
-option(FIND_CUML_CPP "Search for existing CUML C++ installations before defaulting to local files" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
-option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
 option(USE_CUVS_WHEEL "Use the cuVS wheel" OFF)
 set(CUML_RAFT_CLONE_ON_PIN OFF)
-
 
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
 # https://github.com/rapidsai/cuml/issues/4843
 message(VERBOSE "CUML_PY: Build only cuML CPU Python components.: ${CUML_CPU}")
-message(VERBOSE "CUML_PY: Searching for existing CUML C++ installations before defaulting to local files: ${FIND_CUML_CPP}")
 message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 
 set(CUML_ALGORITHMS "ALL" CACHE STRING "Choose which algorithms are built cuML. Can specify individual algorithms or groups in a semicolon-separated list.")
@@ -57,77 +53,71 @@ set(CUML_CPP_SRC "../../cpp")
 ################################################################################
 # - Process User Options  ------------------------------------------------------
 
-# If the user requested it, we attempt to find cuml.
-if(FIND_CUML_CPP)
-  # We need to call get_treelite explicitly because we need the correct
-  # ${TREELITE_LIBS} definition for RF
-  include(rapids-cpm)
-  include(rapids-export)
-  rapids_cpm_init()
-  find_package(cuml ${CUML_VERSION} REQUIRED)
-  include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
+# --- CCCL, RAFT, and RMM --- #
+# CCCL before RMM, and RMM before RAFT
+# include(cmake/thirdparty/get_cccl.cmake)
+# include(cmake/thirdparty/get_rmm.cmake)
+# include(cmake/thirdparty/get_raft.cmake)
+
+# --- treelite --- #
+# We need to call get_treelite explicitly because we need the correct
+# ${TREELITE_LIBS} definition for RF
+#
+# and it needs to come before find_package(cuml), because it's a PUBLIC
+# dependency of cuml::cuml
+include(rapids-cpm)
+include(rapids-export)
+rapids_cpm_init()
+
+set(CUML_EXPORT_TREELITE_LINKAGE ON)
+set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
+# TODO(jameslamb): is it safe for libcuml and cuml to both use their own static treelite?
+set(CUML_USE_TREELITE_STATIC ON)
+# TODO(jameslamb): should treelite just be included here?
+set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
+include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
+
+# get nlohmann_json and rapidsjson
+# TODO(jameslamb): maybe this isn't necessary?
+# function(copy_interface_excludes)
+#   set(_options "")
+#   set(_one_value TARGET INCLUDED_TARGET)
+#   set(_multi_value "")
+#   cmake_parse_arguments(_CUML_INCLUDES "${_options}" "${_one_value}"
+#                         "${_multi_value}" ${ARGN})
+#   get_target_property(_includes ${_CUML_INCLUDES_INCLUDED_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
+#   target_include_directories(${_CUML_INCLUDES_TARGET} PUBLIC ${_includes})
+# endfunction()
+# copy_interface_excludes(INCLUDED_TARGET treelite::treelite_static TARGET ${CUML_CPP_TARGET})
+
+# --- cuvs --- #
+if(USE_CUVS_WHEEL)
+  set(CUML_USE_CUVS_STATIC OFF)
 else()
-  set(cuml_FOUND OFF)
+  set(CUML_USE_CUVS_STATIC ON)
 endif()
+
+# either way, don't unclude any cuvs stuff in wheel
+# (expect anything building against libcuml to provide cuvs headers externally)
+set(CUML_EXCLUDE_CUVS_FROM_ALL ON)
+
+# download this again just to get the headers
+include(${CUML_CPP_SRC}/cmake/thirdparty/get_cuvs.cmake)
+
+# --- cumlprims_mg --- #
+set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
+# TODO(jameslamb): figure out how cumlprims_mg should work (re-download in cuml? only install/export the headers in libcuml?)
+set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
+include(${CUML_CPP_SRC}/cmake/thirdparty/get_cumlprims_mg.cmake)
+
+find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
 
 include(rapids-cython-core)
 
-set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
-
+# cuml-cpu does not need libcuml++.so
+# TODO(jameslamb): maybe all the stuff above is unnecessary in the CPU-only case?
 if(NOT CUML_CPU)
-  if(NOT cuml_FOUND)
-    find_package(CUDAToolkit REQUIRED)
-
-    set(BUILD_CUML_TESTS OFF)
-    set(BUILD_PRIMS_TESTS OFF)
-    set(BUILD_CUML_C_LIBRARY OFF)
-    set(BUILD_CUML_EXAMPLES OFF)
-    set(BUILD_CUML_BENCH OFF)
-    set(CUML_EXPORT_TREELITE_LINKAGE ON)
-    set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
-
-    # Statically link dependencies if building wheels
-    set(CUDA_STATIC_RUNTIME ON)
-    set(CUML_USE_CUVS_STATIC ON)
-    set(CUML_USE_TREELITE_STATIC ON)
-    set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
-    # Link to the CUDA wheels with shared libraries for CUDA 12+
-    if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
-      set(CUDA_STATIC_MATH_LIBRARIES OFF)
-    else()
-      if(USE_CUDA_MATH_WHEELS)
-        message(FATAL_ERROR "Cannot use CUDA math wheels with CUDA < 12.0")
-      endif()
-      set(CUDA_STATIC_MATH_LIBRARIES ON)
-    endif()
-    # Don't install the static libs into wheels
-    set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
-    set(RAFT_EXCLUDE_FAISS_FROM_ALL ON)
-    set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
-    set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
-
-    add_subdirectory(${CUML_CPP_SRC} cuml-cpp EXCLUDE_FROM_ALL)
-
-    if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
-      set(rpaths
-        "$ORIGIN/../nvidia/cublas/lib"
-        "$ORIGIN/../nvidia/cufft/lib"
-        "$ORIGIN/../nvidia/curand/lib"
-        "$ORIGIN/../nvidia/cusolver/lib"
-        "$ORIGIN/../nvidia/cusparse/lib"
-        "$ORIGIN/../nvidia/nvjitlink/lib"
-      )
-      set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)
-    endif()
-
-    if(USE_CUVS_WHEEL)
-      set(rpaths "$ORIGIN/../cuvs")
-      set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)
-    endif()
-
-    set(cython_lib_dir cuml)
-    install(TARGETS ${CUML_CPP_TARGET} DESTINATION ${cython_lib_dir})
-  endif()
+  # (moved to libcuml/CMakeLists.txt)
 endif()
 
 if(CUML_CPU)
@@ -206,10 +196,6 @@ add_subdirectory(cuml/svm)
 add_subdirectory(cuml/tsa)
 
 add_subdirectory(cuml/experimental/linear_model)
-
-if(DEFINED cython_lib_dir)
-  rapids_cython_add_rpath_entries(TARGET cuml PATHS "${cython_lib_dir}")
-endif()
 
 if(USE_CUVS_WHEEL)
   rapids_cython_add_rpath_entries(TARGET cuml PATHS cuvs)
