@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,9 +15,20 @@
 #=============================================================================
 
 function(find_and_configure_rmm)
-    include(${rapids-cmake-dir}/cpm/rmm.cmake)
-    rapids_cpm_rmm(BUILD_EXPORT_SET cuml-exports
-                   INSTALL_EXPORT_SET cuml-exports)
+    #include(${rapids-cmake-dir}/cpm/rmm.cmake)
+    #rapids_cpm_rmm(BUILD_EXPORT_SET cuml-exports
+    #               INSTALL_EXPORT_SET cuml-exports)
+  include("${rapids-cmake-dir}/cpm/find.cmake")
+  rapids_cpm_find(
+    rmm 25.02
+    BUILD_EXPORT_SET cuml-exports
+    INSTALL_EXPORT_SET cuml-exports
+    GLOBAL_TARGETS rmm::rmm
+    CPM_ARGS
+    GIT_REPOSITORY "https://github.com/vyasr/rmm.git"
+    GIT_TAG "chore/rapids_cmake_logger"
+    OPTIONS "BUILD_TESTS OFF" "BUILD_BENCHMARKS OFF"
+  )
 endfunction()
 
 find_and_configure_rmm()
