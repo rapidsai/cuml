@@ -142,8 +142,8 @@ def batched_fmin_lbfgs_b(
         for ib in range(num_batches)
     ]
     iwa = [np.copy(np.zeros(3 * n, np.int32)) for ib in range(num_batches)]
-    task = [np.copy(np.zeros(1, "S60")) for ib in range(num_batches)]
-    csave = [np.copy(np.zeros(1, "S60")) for ib in range(num_batches)]
+    task = [np.copy(np.zeros(1, np.int32)) for ib in range(num_batches)]
+    ln_task = [np.copy(np.zeros(1, np.int32)) for ib in range(num_batches)]
     lsave = [np.copy(np.zeros(4, np.int32)) for ib in range(num_batches)]
     isave = [np.copy(np.zeros(44, np.int32)) for ib in range(num_batches)]
     dsave = [np.copy(np.zeros(29, np.float64)) for ib in range(num_batches)]
@@ -175,12 +175,11 @@ def batched_fmin_lbfgs_b(
                     wa[ib],
                     iwa[ib],
                     task[ib],
-                    iprint,
-                    csave[ib],
                     lsave[ib],
                     isave[ib],
                     dsave[ib],
                     maxls,
+                    ln_task[ib]
                 )
 
             xk = np.concatenate(x)
