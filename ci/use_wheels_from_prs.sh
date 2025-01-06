@@ -1,3 +1,5 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.
+
 # TODO(jameslamb): remove this when https://github.com/rapidsai/raft/pull/2531 is merged
 RAFT_COMMIT="345f0e556b602ec65b5eebe825ffd000d61706fe"
 LIBRAFT_CHANNEL=$(
