@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 function(find_and_configure_rmm)
     include(${rapids-cmake-dir}/cpm/rmm.cmake)
-    rapids_cpm_rmm(BUILD_EXPORT_SET cuml-exports
-                   INSTALL_EXPORT_SET cuml-exports)
+    # TODO(jameslamb): justify not exporting rmm?
+    rapids_cpm_rmm()
 endfunction()
 
 find_and_configure_rmm()

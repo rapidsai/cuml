@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021-2022, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
 # limitations under the License.
 #=============================================================================
 
-set(CUML_MIN_VERSION_cumlprims_mg "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
-set(CUML_BRANCH_VERSION_cumlprims_mg "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
+set(CUML_MIN_VERSION_cumlprims_mg "${RAPIDS_VERSION_MAJOR}.${RAPIDS_VERSION_MINOR}.00")
+set(CUML_BRANCH_VERSION_cumlprims_mg "${RAPIDS_VERSION_MAJOR}.${RAPIDS_VERSION_MINOR}")
 
 function(find_and_configure_cumlprims_mg)
 
@@ -35,10 +35,9 @@ function(find_and_configure_cumlprims_mg)
       set(CUMLPRIMS_MG_BUILD_SHARED_LIBS OFF)
     endif()
 
+    # TODO(jameslamb): justify not exporting cumlprims?
     rapids_cpm_find(cumlprims_mg ${PKG_VERSION}
       GLOBAL_TARGETS      cumlprims_mg::cumlprims_mg
-      BUILD_EXPORT_SET    cuml-exports
-      INSTALL_EXPORT_SET  cuml-exports
         CPM_ARGS
           GIT_REPOSITORY git@github.com:${PKG_FORK}/cumlprims_mg.git
           GIT_TAG        ${PKG_PINNED_TAG}

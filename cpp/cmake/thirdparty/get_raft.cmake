@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
 # limitations under the License.
 #=============================================================================
 
-set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
-set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
+set(CUML_MIN_VERSION_raft "${RAPIDS_VERSION_MAJOR}.${RAPIDS_VERSION_MINOR}.00")
+set(CUML_BRANCH_VERSION_raft "${RAPIDS_VERSION_MAJOR}.${RAPIDS_VERSION_MINOR}")
 
 function(find_and_configure_raft)
     set(oneValueArgs VERSION FORK PINNED_TAG EXCLUDE_FROM_ALL USE_RAFT_STATIC COMPILE_LIBRARY CLONE_ON_PIN NVTX)
@@ -42,10 +42,9 @@ function(find_and_configure_raft)
 
     message(VERBOSE "CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
 
+    # TODO(jameslamb): justify not exporting raft?
     rapids_cpm_find(raft ${PKG_VERSION}
       GLOBAL_TARGETS      raft::raft
-      BUILD_EXPORT_SET    cuml-exports
-      INSTALL_EXPORT_SET  cuml-exports
       COMPONENTS          ${RAFT_COMPONENTS}
       CPM_ARGS
         GIT_REPOSITORY         https://github.com/${PKG_FORK}/raft.git

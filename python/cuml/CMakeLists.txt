@@ -55,9 +55,17 @@ set(CUML_CPP_SRC "../../cpp")
 
 # --- CCCL, RAFT, and RMM --- #
 # CCCL before RMM, and RMM before RAFT
+# TODO(jameslamb): skipping CCCL because we're already getting it from libraft... is that ok?
+#   -- Found CCCL: /pyenv/versions/3.12.8/lib/python3.12/site-packages/libraft/lib64/rapids/cmake/cccl/cccl-config.cmake (found version "2.7.0.0")
+#     CMake Error at /pyenv/versions/3.12.8/lib/python3.12/site-packages/libraft/lib64/cmake/NvidiaCutlass/NvidiaCutlassTargets.cmake:42 (message):
+#     Some (but not all) targets in this export set were already defined.
+#
+#     Targets Defined: nvidia::cutlass::cutlass
+#     Targets not yet defined: nvidia::cutlass::tools::util
+#
 # include(cmake/thirdparty/get_cccl.cmake)
-# include(cmake/thirdparty/get_rmm.cmake)
-# include(cmake/thirdparty/get_raft.cmake)
+include(cmake/thirdparty/get_rmm.cmake)
+include(cmake/thirdparty/get_raft.cmake)
 
 # --- treelite --- #
 # We need to call get_treelite explicitly because we need the correct
