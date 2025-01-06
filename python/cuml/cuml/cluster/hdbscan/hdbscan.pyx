@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -968,7 +968,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
     def __setstate__(self, state):
         super(HDBSCAN, self).__init__(
             handle=state["handle"],
-            verbose=state["verbose"]
+            verbose=state["_verbose"]
         )
 
         if not state["fit_called_"]:

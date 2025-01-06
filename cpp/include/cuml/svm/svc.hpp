@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -236,10 +236,10 @@ class SVC {
       math_t tol = 1.0e-3,
       raft::distance::kernels::KernelParams kernel_params =
         raft::distance::kernels::KernelParams{raft::distance::kernels::LINEAR, 3, 1, 0},
-      math_t cache_size  = 200,
-      int max_iter       = -1,
-      int nochange_steps = 1000,
-      int verbosity      = CUML_LEVEL_INFO);
+      math_t cache_size    = 200,
+      int max_iter         = -1,
+      int nochange_steps   = 1000,
+      level_enum verbosity = ML::level_enum::info);
 
   ~SVC();
 

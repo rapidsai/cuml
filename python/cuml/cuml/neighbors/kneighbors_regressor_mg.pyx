@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -127,7 +127,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
                 <float*><uintptr_t>o_cai.ptr, n_rows * n_outputs))
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        is_verbose = logger.should_log_for(logger.level_debug)
+        is_verbose = logger.should_log_for(logger.level_enum.debug)
 
         # Launch distributed operations
         knn_regress(

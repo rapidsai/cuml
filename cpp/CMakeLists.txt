@@ -109,6 +109,17 @@ set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
 set_property(CACHE RMM_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL" "OFF")
 message(VERBOSE "CUML_CPP: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 
+# Set logging level
+set(LIBCUML_LOGGING_LEVEL
+    "DEBUG"
+    CACHE STRING "Choose the logging level."
+)                                                                                                
+set_property(
+  CACHE LIBCUML_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL"
+                                       "OFF"
+)
+message(VERBOSE "CUML: LIBCUML_LOGGING_LEVEL = '${LIBCUML_LOGGING_LEVEL}'.")
+
 if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
   # have different values for the `Threads::Threads` target. Setting this flag ensures
@@ -220,6 +231,12 @@ endif()
 rapids_cpm_init()
 rapids_cmake_install_lib_dir(lib_dir)
 
+include(${rapids-cmake-dir}/cpm/rapids_logger.cmake)
+rapids_cpm_rapids_logger()
+rapids_make_logger(
+  ML EXPORT_SET cuml-exports LOGGER_HEADER_DIR include/cuml/common/ LOGGER_MACRO_PREFIX CUML LOGGER_TARGET cuml_logger
+)
+
 if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   find_package(Threads)
 endif()
@@ -291,8 +308,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # single GPU components
   # common components
-  add_library(${CUML_CPP_TARGET}
-              src/common/logger.cpp)
+  add_library(${CUML_CPP_TARGET})
   if (CUML_ENABLE_GPU)
     target_compile_definitions(${CUML_CPP_TARGET} PUBLIC CUML_ENABLE_GPU)
   endif()
@@ -564,6 +580,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
                 "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
   )
+  target_compile_definitions(${CUML_CPP_TARGET} PUBLIC "CUML_LOG_ACTIVE_LEVEL=CUML_LOG_LEVEL_${LIBCUML_LOGGING_LEVEL}")
 
   target_include_directories(${CUML_CPP_TARGET}
     PUBLIC
@@ -605,6 +622,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     rmm::rmm_logger
     rmm::rmm_logger_impl
     raft::raft_logger_impl
+    cuml_logger_impl
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}>
     ${TREELITE_LIBS}
@@ -631,6 +649,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC  rmm::rmm ${CUVS_LIB}
             ${_cuml_cpp_public_libs}
+            cuml_logger
     PRIVATE ${_cuml_cpp_private_libs}
   )
 

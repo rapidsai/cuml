@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -185,7 +185,7 @@ def test_hdbscan_blobs(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         min_samples=min_samples,
         max_cluster_size=max_cluster_size,
@@ -251,7 +251,7 @@ def test_hdbscan_sklearn_datasets(
     X = test_datasets.data
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         gen_min_span_tree=True,
         min_samples=min_samples,
@@ -309,7 +309,7 @@ def test_hdbscan_sklearn_extract_clusters(
 ):
     X = test_datasets.data
     cuml_agg = HDBSCAN(
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         gen_min_span_tree=True,
         min_samples=min_samples,
@@ -365,7 +365,7 @@ def test_hdbscan_cluster_patterns(
     X, y = get_pattern(dataset, nrows)[0]
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         min_samples=min_samples,
         max_cluster_size=max_cluster_size,
@@ -428,7 +428,7 @@ def test_hdbscan_cluster_patterns_extract_clusters(
     X, y = get_pattern(dataset, nrows)[0]
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         min_samples=min_samples,
         max_cluster_size=max_cluster_size,
@@ -572,7 +572,7 @@ def test_all_points_membership_vectors_blobs(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
         min_cluster_size=min_cluster_size,
@@ -628,7 +628,7 @@ def test_all_points_membership_vectors_moons(
     X, y = datasets.make_moons(n_samples=nrows, noise=0.05, random_state=42)
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         min_samples=min_samples,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
@@ -686,7 +686,7 @@ def test_all_points_membership_vectors_circles(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         min_samples=min_samples,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
@@ -762,7 +762,7 @@ def test_approximate_predict_blobs(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
         min_cluster_size=min_cluster_size,
@@ -823,7 +823,7 @@ def test_approximate_predict_moons(
     X_test = X[nrows:]
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         min_samples=min_samples,
         max_cluster_size=max_cluster_size,
@@ -890,7 +890,7 @@ def test_approximate_predict_circles(
     X_test = X[nrows:]
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         min_samples=min_samples,
         max_cluster_size=max_cluster_size,
@@ -958,7 +958,7 @@ def test_approximate_predict_digits(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         min_samples=min_samples,
         max_cluster_size=max_cluster_size,
@@ -1032,7 +1032,7 @@ def test_membership_vector_blobs(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
         min_cluster_size=min_cluster_size,
@@ -1098,7 +1098,7 @@ def test_membership_vector_moons(
     X_test = X[nrows:]
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         min_samples=min_samples,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
@@ -1164,7 +1164,7 @@ def test_membership_vector_circles(
     X_test = X[nrows:]
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         min_samples=min_samples,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
