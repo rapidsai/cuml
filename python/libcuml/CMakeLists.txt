@@ -106,18 +106,20 @@ endif()
 add_subdirectory(../../cpp cuml-cpp)
 
 if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
+  # assumes libcuml++ is installed 2 levels deep, e.g. site-packages/cuml/lib64/libcuml++.so
   set(rpaths
-    "$ORIGIN/../nvidia/cublas/lib"
-    "$ORIGIN/../nvidia/cufft/lib"
-    "$ORIGIN/../nvidia/curand/lib"
-    "$ORIGIN/../nvidia/cusolver/lib"
-    "$ORIGIN/../nvidia/cusparse/lib"
-    "$ORIGIN/../nvidia/nvjitlink/lib"
+    "$ORIGIN/../../nvidia/cublas/lib"
+    "$ORIGIN/../../nvidia/cufft/lib"
+    "$ORIGIN/../../nvidia/curand/lib"
+    "$ORIGIN/../../nvidia/cusolver/lib"
+    "$ORIGIN/../../nvidia/cusparse/lib"
+    "$ORIGIN/../../nvidia/nvjitlink/lib"
   )
   set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)
 endif()
 
 if(USE_CUVS_WHEEL)
-  set(rpaths "$ORIGIN/../cuvs")
+  # assumes libcuml++ is installed 2 levels deep, e.g. site-packages/cuml/lib64/libcuml++.so
+  set(rpaths "$ORIGIN/../../cuvs")
   set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)
 endif()

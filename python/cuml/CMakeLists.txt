@@ -53,6 +53,10 @@ set(CUML_CPP_SRC "../../cpp")
 ################################################################################
 # - Process User Options  ------------------------------------------------------
 
+include(rapids-cpm)
+include(rapids-export)
+rapids_cpm_init()
+
 # --- CCCL, RAFT, and RMM --- #
 # CCCL before RMM, and RMM before RAFT
 # TODO(jameslamb): skipping CCCL because we're already getting it from libraft... is that ok?
@@ -64,8 +68,8 @@ set(CUML_CPP_SRC "../../cpp")
 #     Targets not yet defined: nvidia::cutlass::tools::util
 #
 # include(cmake/thirdparty/get_cccl.cmake)
-include(cmake/thirdparty/get_rmm.cmake)
-include(cmake/thirdparty/get_raft.cmake)
+include(${CUML_CPP_SRC}/cmake/thirdparty/get_rmm.cmake)
+include(${CUML_CPP_SRC}/cmake/thirdparty/get_raft.cmake)
 
 # --- treelite --- #
 # We need to call get_treelite explicitly because we need the correct
@@ -73,10 +77,6 @@ include(cmake/thirdparty/get_raft.cmake)
 #
 # and it needs to come before find_package(cuml), because it's a PUBLIC
 # dependency of cuml::cuml
-include(rapids-cpm)
-include(rapids-export)
-rapids_cpm_init()
-
 set(CUML_EXPORT_TREELITE_LINKAGE ON)
 set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
 # TODO(jameslamb): is it safe for libcuml and cuml to both use their own static treelite?
