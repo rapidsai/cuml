@@ -20,7 +20,6 @@ EXITCODE=0
 trap "EXITCODE=1" ERR
 set +e
 
-
 rapids-logger "pytest cuml single GPU"
 ./ci/run_cuml_singlegpu_pytests.sh \
   --numprocesses=8 \

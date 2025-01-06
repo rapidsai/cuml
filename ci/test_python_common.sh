@@ -9,6 +9,9 @@ rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
 
+# TODO(jameslamb): remove this when https://github.com/rapidsai/raft/pull/2531 is merged
+source ci/use_conda_packages_from_prs.sh
+
 rapids-logger "Generate Python testing dependencies"
 rapids-dependency-file-generator \
   --output conda \

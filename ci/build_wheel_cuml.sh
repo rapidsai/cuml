@@ -8,6 +8,9 @@ package_dir="python/cuml"
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
+# TODO(jameslamb): remove this when https://github.com/rapidsai/raft/pull/2531 is merged
+source ./ci/use_wheels_from_prs.sh
+
 # TODO(jameslamb): split this out into build_wheel_{cuml,libcuml}.sh
 # TODO(jameslamb): add libcuml++.so to cuml exclusions
 case "${RAPIDS_CUDA_VERSION}" in
