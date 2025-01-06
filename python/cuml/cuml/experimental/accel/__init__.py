@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ def _install_for_library(library_name):
 
 def install():
     """Enable cuML Accelerator Mode."""
-    logger.set_level(logger.level_info)
+    logger.set_level(logger.level_enum.info)
     logger.set_pattern("%v")
 
     logger.info("cuML: Installing experimental accelerator...")

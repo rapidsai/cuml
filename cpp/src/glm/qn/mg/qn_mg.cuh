@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ int qn_fit_mg(const raft::handle_t& handle,
   auto obj_function =
     GLMWithDataMG(handle, rank, n_ranks, n_samples, &regularizer_obj, X, y, Z, stder_p);
   return ML::GLM::detail::qn_minimize(
-    handle, w0, fx, num_iters, obj_function, l1, opt_param, pams.verbose);
+    handle, w0, fx, num_iters, obj_function, l1, opt_param, static_cast<level_enum>(pams.verbose));
 }
 
 template <typename T>

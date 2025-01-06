@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ from libc.stdint cimport uint64_t, uintptr_t, int64_t
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 from cuml.metrics.distance_type cimport DistanceType
+from cuml.internals.logger cimport level_enum
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":
 
@@ -61,7 +62,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         float repulsion_strength,
         int negative_sample_rate,
         float transform_queue_size,
-        int verbosity,
+        level_enum verbosity,
         float a,
         float b,
         float initial_alpha,

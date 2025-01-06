@@ -52,7 +52,7 @@ At a high level, all cuML Estimators must:
    ```python
    class MyEstimator(Base):
 
-      def __init__(self, *, extra_arg=True, handle=None, verbose=False, output_type=None):
+      def __init__(self, *, extra_arg=True, handle=None, verbose=logger.level_enum.info, output_type=None):
          super().__init__(handle=handle, verbose=verbose, output_type=output_type)
          ...
    ```

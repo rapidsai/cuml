@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ T run(const raft::handle_t& handle,
       T l2,
       T* w,
       SimpleDenseMat<T>& z,
-      int verbosity,
+      level_enum verbosity,
       cudaStream_t stream)
 {
   qn_params pams;
@@ -122,7 +122,7 @@ T run(const raft::handle_t& handle,
   pams.lbfgs_memory        = 5;
   pams.penalty_l1          = l1;
   pams.penalty_l2          = l2;
-  pams.verbose             = verbosity;
+  pams.verbose             = static_cast<int>(verbosity);
 
   int num_iters = 0;
 
@@ -144,7 +144,7 @@ T run_api(const raft::handle_t& cuml_handle,
           T l2,
           T* w,
           SimpleDenseMat<T>& z,
-          int verbosity,
+          level_enum verbosity,
           cudaStream_t stream)
 {
   qn_params pams;
@@ -156,7 +156,7 @@ T run_api(const raft::handle_t& cuml_handle,
   pams.lbfgs_memory        = 5;
   pams.penalty_l1          = l1;
   pams.penalty_l2          = l2;
-  pams.verbose             = verbosity;
+  pams.verbose             = static_cast<int>(verbosity);
   pams.fit_intercept       = fit_intercept;
   pams.loss                = loss_type;
 
@@ -226,7 +226,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn)
 
   l1 = alpha;
   l2 = 0.0;
-  fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, level_enum::off, stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
   ASSERT_TRUE(checkParamsEqual(handle, &w_l1_b[0], &b_l1_b, w0.data, loss_b, compApprox, stream));
 
@@ -240,7 +240,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn)
                l2,
                w0.data,
                z,
-               0,
+               level_enum::off,
                stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
 
@@ -250,7 +250,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn)
 
   l1 = 0;
   l2 = alpha;
-  fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, level_enum::off, stream);
 
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
   ASSERT_TRUE(checkParamsEqual(handle, &w_l2_b[0], &b_l2_b, w0.data, loss_b, compApprox, stream));
@@ -265,7 +265,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn)
                l2,
                w0.data,
                z,
-               0,
+               level_enum::off,
                stream);
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
 
@@ -274,7 +274,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn)
 
   l1 = alpha;
   l2 = 0.0;
-  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, level_enum::off, stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
   ASSERT_TRUE(
     checkParamsEqual(handle, &w_l1_no_b[0], nobptr, w0.data, loss_no_b, compApprox, stream));
@@ -289,7 +289,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn)
                l2,
                w0.data,
                z,
-               0,
+               level_enum::off,
                stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
 
@@ -298,7 +298,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn)
 
   l1 = 0;
   l2 = alpha;
-  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, level_enum::off, stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
   ASSERT_TRUE(
     checkParamsEqual(handle, &w_l2_no_b[0], nobptr, w0.data, loss_no_b, compApprox, stream));
@@ -313,7 +313,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn)
                l2,
                w0.data,
                z,
-               0,
+               level_enum::off,
                stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
 }
@@ -346,7 +346,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn)
   l2              = 0.0;
   double obj_l1_b = 0.5407911382311313;
 
-  fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, level_enum::off, stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
 
   fx = run_api(cuml_handle,
@@ -359,7 +359,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn)
                l2,
                w0.data,
                z,
-               0,
+               level_enum::off,
                stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
 
@@ -367,7 +367,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn)
   l2              = alpha;
   double obj_l2_b = 0.5721784062720949;
 
-  fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, level_enum::off, stream);
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
 
   fx = run_api(cuml_handle,
@@ -380,7 +380,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn)
                l2,
                w0.data,
                z,
-               0,
+               level_enum::off,
                stream);
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
 
@@ -388,7 +388,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn)
   l2                 = 0.0;
   double obj_l1_no_b = 0.6606929813245878;
 
-  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, level_enum::off, stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
 
   fx = run_api(cuml_handle,
@@ -401,7 +401,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn)
                l2,
                w0.data,
                z,
-               0,
+               level_enum::off,
                stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
 
@@ -410,7 +410,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn)
 
   double obj_l2_no_b = 0.6597171282106854;
 
-  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, level_enum::off, stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
 
   fx = run_api(cuml_handle,
@@ -423,7 +423,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn)
                l2,
                w0.data,
                z,
-               0,
+               level_enum::off,
                stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
 }
@@ -457,7 +457,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn)
   double w_l1_b[2] = {-0.4952397281519840, 0.3813315300180231};
   double b_l1_b    = -0.08140861819001188;
   double obj_l1_b  = 0.011136986298775138;
-  fx               = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx               = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, level_enum::off, stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
   ASSERT_TRUE(checkParamsEqual(handle, &w_l1_b[0], &b_l1_b, w0.data, loss_b, compApprox, stream));
 
@@ -471,7 +471,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn)
                l2,
                w0.data,
                z,
-               0,
+               level_enum::off,
                stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
 
@@ -481,7 +481,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn)
   double b_l2_b    = -0.08062397391797513;
   double obj_l2_b  = 0.004268621967866347;
 
-  fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, level_enum::off, stream);
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
   ASSERT_TRUE(checkParamsEqual(handle, &w_l2_b[0], &b_l2_b, w0.data, loss_b, compApprox, stream));
 
@@ -495,7 +495,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn)
                l2,
                w0.data,
                z,
-               0,
+               level_enum::off,
                stream);
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
 
@@ -504,7 +504,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn)
   double w_l1_no_b[2] = {-0.5175178128147135, 0.3720844589831813};
   double obj_l1_no_b  = 0.013981355746112447;
 
-  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, level_enum::off, stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
   ASSERT_TRUE(
     checkParamsEqual(handle, &w_l1_no_b[0], nobptr, w0.data, loss_no_b, compApprox, stream));
@@ -519,7 +519,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn)
                l2,
                w0.data,
                z,
-               0,
+               level_enum::off,
                stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
 
@@ -528,7 +528,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn)
   double w_l2_no_b[2] = {-0.5241651041233270, 0.3846317886627560};
   double obj_l2_no_b  = 0.007061261366969662;
 
-  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, level_enum::off, stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
   ASSERT_TRUE(
     checkParamsEqual(handle, &w_l2_no_b[0], nobptr, w0.data, loss_no_b, compApprox, stream));
@@ -543,7 +543,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn)
                l2,
                w0.data,
                z,
-               0,
+               level_enum::off,
                stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
 }
@@ -667,8 +667,10 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse_logistic)
     pams.fit_intercept = loss.fit_intercept;
 
     double f_dense, f_sparse;
-    f_dense  = run(handle, loss, *Xdev, *ydev, l1, l2, w0_dense.data, z_dense, 0, stream);
-    f_sparse = run(handle, loss, X_sparse, *ydev, l1, l2, w0_sparse.data, z_sparse, 0, stream);
+    f_dense =
+      run(handle, loss, *Xdev, *ydev, l1, l2, w0_dense.data, z_dense, level_enum::off, stream);
+    f_sparse =
+      run(handle, loss, X_sparse, *ydev, l1, l2, w0_sparse.data, z_sparse, level_enum::off, stream);
     ASSERT_TRUE(compApprox(f_dense, f_sparse));
 
     qnPredict(
@@ -702,7 +704,7 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse_logistic)
                       l2,
                       w0_dense.data,
                       z_dense,
-                      0,
+                      level_enum::off,
                       stream);
     f_sparse = run_api(cuml_handle,
                        QN_LOSS_SOFTMAX,
@@ -714,7 +716,7 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse_logistic)
                        l2,
                        w0_sparse.data,
                        z_sparse,
-                       0,
+                       level_enum::off,
                        stream);
     ASSERT_TRUE(compApprox(f_dense, f_sparse));
   };
