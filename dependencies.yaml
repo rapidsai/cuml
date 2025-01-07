@@ -170,6 +170,8 @@ files:
       table: project
     includes:
       - cuda_wheels
+      - depends_on_cuvs
+      - depends_on_treelite
 channels:
   - rapidsai
   - rapidsai-nightly
@@ -636,7 +638,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - &libraft_unsuffixed libraft=25.2.*,>=0.0.0a0
+          - &libraft_unsuffixed libraft==25.2.*,>=0.0.0a0
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
