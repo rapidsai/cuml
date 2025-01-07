@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -91,6 +91,7 @@ def batched_fmin_lbfgs_b(
              -1 for no diagnostic info
              n=1-100 for diagnostic info every n steps.
              >100 for detailed diagnostic info
+             Only used for Scipy < 1.15
     maxiter : int
               Maximum number of L-BFGS iterations
     maxls   : int
@@ -100,6 +101,8 @@ def batched_fmin_lbfgs_b(
 
     if has_scipy():
         from scipy.optimize import _lbfgsb
+
+        scipy_greater_115 = has_scipy(min_version="1.15")
     else:
         raise RuntimeError("Scipy is needed to run batched_fmin_lbfgs_b")
 
@@ -142,8 +145,15 @@ def batched_fmin_lbfgs_b(
         for ib in range(num_batches)
     ]
     iwa = [np.copy(np.zeros(3 * n, np.int32)) for ib in range(num_batches)]
-    task = [np.copy(np.zeros(1, np.int32)) for ib in range(num_batches)]
-    ln_task = [np.copy(np.zeros(1, np.int32)) for ib in range(num_batches)]
+
+    # we need different inputs after Scipy 1.15 using a C-based lbfgs
+    if scipy_greater_115:
+        task = [np.copy(np.zeros(1, np.int32)) for ib in range(num_batches)]
+        ln_task = [np.copy(np.zeros(1, np.int32)) for ib in range(num_batches)]
+    else:
+        task = [np.copy(np.zeros(1, "S60")) for ib in range(num_batches)]
+        csave = [np.copy(np.zeros(1, "S60")) for ib in range(num_batches)]
+
     lsave = [np.copy(np.zeros(4, np.int32)) for ib in range(num_batches)]
     isave = [np.copy(np.zeros(44, np.int32)) for ib in range(num_batches)]
     dsave = [np.copy(np.zeros(29, np.float64)) for ib in range(num_batches)]
@@ -161,26 +171,47 @@ def batched_fmin_lbfgs_b(
             for ib in range(num_batches):
                 if converged[ib]:
                     continue
-
-                _lbfgsb.setulb(
-                    m,
-                    x[ib],
-                    low_bnd,
-                    upper_bnd,
-                    nbd,
-                    f[ib],
-                    g[ib],
-                    factr,
-                    pgtol,
-                    wa[ib],
-                    iwa[ib],
-                    task[ib],
-                    lsave[ib],
-                    isave[ib],
-                    dsave[ib],
-                    maxls,
-                    ln_task[ib]
-                )
+                if scipy_greater_115:
+                    _lbfgsb.setulb(
+                        m,
+                        x[ib],
+                        low_bnd,
+                        upper_bnd,
+                        nbd,
+                        f[ib],
+                        g[ib],
+                        factr,
+                        pgtol,
+                        wa[ib],
+                        iwa[ib],
+                        task[ib],
+                        lsave[ib],
+                        isave[ib],
+                        dsave[ib],
+                        maxls,
+                        ln_task[ib],
+                    )
+                else:
+                    _lbfgsb.setulb(
+                        m,
+                        x[ib],
+                        low_bnd,
+                        upper_bnd,
+                        nbd,
+                        f[ib],
+                        g[ib],
+                        factr,
+                        pgtol,
+                        wa[ib],
+                        iwa[ib],
+                        task[ib],
+                        iprint,
+                        csave[ib],
+                        lsave[ib],
+                        isave[ib],
+                        dsave[ib],
+                        maxls,
+                    )
 
             xk = np.concatenate(x)
             fk = func(xk)
