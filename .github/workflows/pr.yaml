@@ -28,7 +28,7 @@ jobs:
       - wheel-build-libcuml
       - wheel-build-cuml
       - wheel-tests-cuml
-      - devcontainer
+      # - devcontainer
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@branch-25.02
     if: always()
@@ -197,18 +197,18 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
-  devcontainer:
-    needs: telemetry-setup
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@branch-25.02
-    with:
-      arch: '["amd64"]'
-      cuda: '["12.5"]'
-      extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
-      build_command: |
-        sccache -z;
-        build-all --verbose;
-        sccache -s;
+  # devcontainer:
+  #   needs: telemetry-setup
+  #   secrets: inherit
+  #   uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@branch-25.02
+  #   with:
+  #     arch: '["amd64"]'
+  #     cuda: '["12.5"]'
+  #     extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
+  #     build_command: |
+  #       sccache -z;
+  #       build-all --verbose;
+  #       sccache -s;
 
   telemetry-summarize:
     # This job must use a self-hosted runner to record telemetry traces.

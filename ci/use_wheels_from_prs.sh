@@ -8,7 +8,7 @@ LIBRAFT_CHANNEL=$(
   RAPIDS_PY_WHEEL_NAME="libraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact raft 2531 cpp "${RAFT_COMMIT:0:7}"
 )
 PYLIBRAFT_CHANNEL=$(
-  RAPIDS_PY_WHEEL_NAME="libraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact raft 2531 python "${RAFT_COMMIT:0:7}"
+  RAPIDS_PY_WHEEL_NAME="pylibraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact raft 2531 python "${RAFT_COMMIT:0:7}"
 )
 RAFT_DASK_CHANNEL=$(
   RAPIDS_PY_WHEEL_NAME="raft_dask_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact raft 2531 python "${RAFT_COMMIT:0:7}"
