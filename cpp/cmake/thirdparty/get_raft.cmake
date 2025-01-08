@@ -44,7 +44,7 @@ function(find_and_configure_raft)
 
     # TODO(jameslamb): justify not exporting raft?
     rapids_cpm_find(raft ${PKG_VERSION}
-      GLOBAL_TARGETS      raft::raft
+      GLOBAL_TARGETS      raft::raft raft::raft_logger raft::raft_logger_impl
       COMPONENTS          ${RAFT_COMPONENTS}
       CPM_ARGS
         GIT_REPOSITORY         https://github.com/${PKG_FORK}/raft.git
