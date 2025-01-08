@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ inline void WorkingSet<math_t>::SimpleSelect(
                                   (int)8 * sizeof(math_t),
                                   stream);
 
-  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
+  if (ML::default_logger().should_log(ML::level_enum::debug) && n_train < 20) {
     std::stringstream ss;
     raft::print_device_vector("idx_sorted", f_idx_sorted.data(), n_train, ss);
     CUML_LOG_DEBUG(ss.str().c_str());
@@ -236,7 +236,7 @@ inline int WorkingSet<math_t>::GatherAvailable(int n_already_selected,
       available, n_train, idx.data(), n_already_selected);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
-  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
+  if (ML::default_logger().should_log(ML::level_enum::debug) && n_train < 20) {
     std::stringstream ss;
     raft::print_device_vector("avail", available, n_train, ss);
     CUML_LOG_DEBUG(ss.str().c_str());
@@ -250,7 +250,7 @@ inline int WorkingSet<math_t>::GatherAvailable(int n_already_selected,
                thrust::make_permutation_iterator(av_ptr, idx_ptr),
                thrust::make_permutation_iterator(av_ptr, idx_ptr + n_train),
                av_sorted_ptr);
-  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
+  if (ML::default_logger().should_log(ML::level_enum::debug) && n_train < 20) {
     std::stringstream ss;
     raft::print_device_vector("avail_sorted", available_sorted.data(), n_train, ss);
     CUML_LOG_DEBUG(ss.str().c_str());
@@ -276,7 +276,7 @@ inline int WorkingSet<math_t>::GatherAvailable(int n_already_selected,
     raft::copy(
       idx.data() + n_already_selected, idx_tmp.data() + n_selected - n_copy, n_copy, stream);
   }
-  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
+  if (ML::default_logger().should_log(ML::level_enum::debug) && n_train < 20) {
     std::stringstream ss;
     raft::print_device_vector("selected", idx.data(), n_already_selected + n_copy, ss);
     CUML_LOG_DEBUG(ss.str().c_str());

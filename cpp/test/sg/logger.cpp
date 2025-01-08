@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,15 +29,15 @@ TEST(Logger, Test)
   CUML_LOG_WARN("This is a warning message");
   CUML_LOG_INFO("This is an info message");
 
-  Logger::get().setLevel(CUML_LEVEL_WARN);
-  ASSERT_EQ(CUML_LEVEL_WARN, Logger::get().getLevel());
-  Logger::get().setLevel(CUML_LEVEL_INFO);
-  ASSERT_EQ(CUML_LEVEL_INFO, Logger::get().getLevel());
+  default_logger().set_level(ML::level_enum::warn);
+  ASSERT_EQ(ML::level_enum::warn, default_logger().level());
+  default_logger().set_level(ML::level_enum::info);
+  ASSERT_EQ(ML::level_enum::info, default_logger().level());
 
-  ASSERT_FALSE(Logger::get().shouldLogFor(CUML_LEVEL_TRACE));
-  ASSERT_FALSE(Logger::get().shouldLogFor(CUML_LEVEL_DEBUG));
-  ASSERT_TRUE(Logger::get().shouldLogFor(CUML_LEVEL_INFO));
-  ASSERT_TRUE(Logger::get().shouldLogFor(CUML_LEVEL_WARN));
+  ASSERT_FALSE(default_logger().should_log(ML::level_enum::trace));
+  ASSERT_FALSE(default_logger().should_log(ML::level_enum::debug));
+  ASSERT_TRUE(default_logger().should_log(ML::level_enum::info));
+  ASSERT_TRUE(default_logger().should_log(ML::level_enum::warn));
 }
 
 std::string logged = "";
@@ -52,21 +52,20 @@ class LoggerTest : public ::testing::Test {
   {
     flushCount = 0;
     logged     = "";
-    Logger::get().setLevel(CUML_LEVEL_TRACE);
+    default_logger().set_level(ML::level_enum::trace);
   }
 
   void TearDown() override
   {
-    Logger::get().setCallback(nullptr);
-    Logger::get().setFlush(nullptr);
-    Logger::get().setLevel(CUML_LEVEL_INFO);
+    default_logger().sinks().pop_back();
+    default_logger().set_level(ML::level_enum::info);
   }
 };
 
 TEST_F(LoggerTest, callback)
 {
   std::string testMsg;
-  Logger::get().setCallback(exampleCallback);
+  default_logger().sinks().push_back(std::make_shared<callback_sink_mt>(exampleCallback));
 
   testMsg = "This is a critical message";
   CUML_LOG_CRITICAL(testMsg.c_str());
@@ -91,8 +90,9 @@ TEST_F(LoggerTest, callback)
 
 TEST_F(LoggerTest, flush)
 {
-  Logger::get().setFlush(exampleFlush);
-  Logger::get().flush();
+  default_logger().sinks().push_back(
+    std::make_shared<callback_sink_mt>(exampleCallback, exampleFlush));
+  default_logger().flush();
   ASSERT_EQ(1, flushCount);
 }
 

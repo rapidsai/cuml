@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ import cuml.internals
 from cuml.internals.base import UniversalBase
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger
+from cuml.internals.logger cimport level_enum
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.array import CumlArray
@@ -434,7 +435,18 @@ class UMAP(UniversalBase,
         self.precomputed_knn = extract_knn_infos(precomputed_knn,
                                                  n_neighbors)
 
-        logger.set_level(verbose)
+        # We need to set this log level here so that it is propagated in time
+        # for the logger.info call below. We cannot use the verbose parameter
+        # directly because Base.__init__ contains the logic for converting
+        # boolean values to suitable integers. We access self._verbose instead
+        # of self.verbose because due to the same issues described in
+        # Base.__init__'s logic for setting verbose, this code is not
+        # considered to be within a root context and therefore considered
+        # external. Rather than mucking with the decorator, for this specific
+        # case since we're trying to set the properties of the underlying
+        # logger we may as well access our underlying value directly and
+        # perform the necessary arithmetic.
+        logger.set_level(logger.level_enum(6 - self._verbose))
 
         if build_algo == "auto" or build_algo == "brute_force_knn" or build_algo == "nn_descent":
             if self.deterministic and build_algo == "auto":
@@ -470,7 +482,7 @@ class UMAP(UniversalBase,
             umap_params.repulsion_strength = <float> cls.repulsion_strength
             umap_params.negative_sample_rate = <int> cls.negative_sample_rate
             umap_params.transform_queue_size = <int> cls.transform_queue_size
-            umap_params.verbosity = <int> cls.verbose
+            umap_params.verbosity = <level_enum> cls.verbose
             umap_params.a = <float> cls.a
             umap_params.b = <float> cls.b
             if cls.init == "spectral":
@@ -577,11 +589,13 @@ class UMAP(UniversalBase,
                                              convert_format=False)
             self.n_rows, self.n_dims = self._raw_data.shape
             self.sparse_fit = True
+            self._sparse_data = True
             if self.build_algo == "nn_descent":
                 raise ValueError("NN Descent does not support sparse inputs")
 
         # Handle dense inputs
         else:
+            self._sparse_data = False
             if data_on_host:
                 convert_to_mem_type = MemoryType.host
             else:
@@ -908,6 +922,7 @@ class UMAP(UniversalBase,
                                   self.metric_kwds, False, self.random_state)
 
         super().gpu_to_cpu()
+        self._cpu_model._validate_parameters()
 
     @classmethod
     def _get_param_names(cls):
@@ -943,4 +958,4 @@ class UMAP(UniversalBase,
         return ['_raw_data', 'embedding_', '_input_hash', '_small_data',
                 '_knn_dists', '_knn_indices', '_knn_search_index',
                 '_disconnection_distance', '_n_neighbors', '_a', '_b',
-                '_initial_alpha']
+                '_initial_alpha', '_sparse_data']

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -124,7 +124,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     model_params.dim           = 2;
     model_params.n_neighbors   = 90;
     model_params.min_grad_norm = 1e-12;
-    model_params.verbosity     = CUML_LEVEL_DEBUG;
+    model_params.verbosity     = ML::level_enum::debug;
     model_params.metric        = DEFAULT_DISTANCE_METRIC;
 
     // Allocate memory

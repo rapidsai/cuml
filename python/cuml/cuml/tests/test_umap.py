@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -197,7 +197,7 @@ def test_umap_transform_on_digits_sparse(
 
     fitter = cuUMAP(
         n_neighbors=15,
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         init="random",
         n_epochs=0,
         min_dist=0.01,
@@ -236,7 +236,7 @@ def test_umap_transform_on_digits(target_metric):
 
     fitter = cuUMAP(
         n_neighbors=15,
-        verbose=logger.level_debug,
+        verbose=logger.level_enum.debug,
         init="random",
         n_epochs=0,
         min_dist=0.01,
