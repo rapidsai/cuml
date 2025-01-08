@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 import platform
 
 from packaging.version import Version
@@ -145,11 +144,15 @@ def check_min_cupy_version(version):
         return False
 
 
-def has_scipy(raise_if_unavailable=False):
+def has_scipy(raise_if_unavailable=False, min_version=None):
     try:
         import scipy  # NOQA
 
-        return True
+        if min_version is None:
+            return True
+        else:
+            return Version(str(scipy.__version__)) >= Version(min_version)
+
     except ImportError:
         if not raise_if_unavailable:
             return False
