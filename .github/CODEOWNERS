@@ -7,7 +7,6 @@ python/            @rapidsai/cuml-python-codeowners
 #cmake code owners
 **/CMakeLists.txt          @rapidsai/cuml-cmake-codeowners
 **/cmake/                  @rapidsai/cuml-cmake-codeowners
-python/cuml/pyproject.toml @rapidsai/cuml-cmake-codeowners
 build.sh                   @rapidsai/cuml-cmake-codeowners
 **/build.sh                @rapidsai/cuml-cmake-codeowners
 
