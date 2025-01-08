@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -416,7 +416,7 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
   qn_pams.change_tol          = params.change_tol;
   qn_pams.linesearch_max_iter = params.linesearch_max_iter;
   qn_pams.lbfgs_memory        = params.lbfgs_memory;
-  qn_pams.verbose             = params.verbose;
+  qn_pams.verbose             = static_cast<int>(params.verbose);
 
   ML::GLM::qn_params qn_pams_logistic = qn_pams;
   qn_pams_logistic.loss               = ML::GLM::QN_LOSS_LOGISTIC;

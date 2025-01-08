@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,66 +17,11 @@
 # distutils: language = c++
 
 
-IF GPUBUILD == 0:
-    import logging
+import logging
 
 
 IF GPUBUILD == 1:
     import sys
-    from libcpp.string cimport string
-    from libcpp cimport bool
-
-    cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
-        cdef cppclass Logger:
-            @staticmethod
-            Logger& get()
-            void setLevel(int level)
-            void setPattern(const string& pattern)
-            void setCallback(void(*callback)(int, char*))
-            void setFlush(void(*flush)())
-            void setCallback(void(*callback)(int, const char*) except *)
-            void setFlush(void(*flush)() except *)
-            bool shouldLogFor(int level) const
-            int getLevel() const
-            string getPattern() const
-            void flush()
-
-    cdef extern from "cuml/common/logger.hpp" nogil:
-        void CUML_LOG_TRACE(const char* fmt, ...)
-        void CUML_LOG_DEBUG(const char* fmt, ...)
-        void CUML_LOG_INFO(const char* fmt, ...)
-        void CUML_LOG_WARN(const char* fmt, ...)
-        void CUML_LOG_ERROR(const char* fmt, ...)
-        void CUML_LOG_CRITICAL(const char* fmt, ...)
-
-        cdef int CUML_LEVEL_TRACE
-        cdef int CUML_LEVEL_DEBUG
-        cdef int CUML_LEVEL_INFO
-        cdef int CUML_LEVEL_WARN
-        cdef int CUML_LEVEL_ERROR
-        cdef int CUML_LEVEL_CRITICAL
-        cdef int CUML_LEVEL_OFF
-
-    """Enables all log messages upto and including `trace()`"""
-    level_trace = CUML_LEVEL_TRACE
-
-    """Enables all log messages upto and including `debug()`"""
-    level_debug = CUML_LEVEL_DEBUG
-
-    """Enables all log messages upto and including `info()`"""
-    level_info = CUML_LEVEL_INFO
-
-    """Enables all log messages upto and including `warn()`"""
-    level_warn = CUML_LEVEL_WARN
-
-    """Enables all log messages upto and include `error()`"""
-    level_error = CUML_LEVEL_ERROR
-
-    """Enables only `critical()` messages"""
-    level_critical = CUML_LEVEL_CRITICAL
-
-    """Disables all log messages"""
-    level_off = CUML_LEVEL_OFF
 
     cdef void _log_callback(int lvl, const char * msg) with gil:
         """
@@ -99,10 +44,10 @@ IF GPUBUILD == 1:
             sys.stdout.flush()
 
 
-class LogLevelSetter:
+cdef class LogLevelSetter:
     """Internal "context manager" object for restoring previous log level"""
 
-    def __init__(self, prev_log_level):
+    def __cinit__(self, level_enum prev_log_level):
         self.prev_log_level = prev_log_level
 
     def __enter__(self):
@@ -110,7 +55,7 @@ class LogLevelSetter:
 
     def __exit__(self, a, b, c):
         IF GPUBUILD == 1:
-            Logger.get().setLevel(<int>self.prev_log_level)
+            default_logger().set_level(self.prev_log_level)
 
 
 def set_level(level):
@@ -125,17 +70,16 @@ def set_level(level):
 
         # regular usage of setting a logging level for all subsequent logs
         # in this case, it will enable all logs upto and including `info()`
-        logger.set_level(logger.level_info)
+        logger.set_level(logger.level_enum.info)
 
         # in case one wants to temporarily set the log level for a code block
-        with logger.set_level(logger.level_debug) as _:
+        with logger.set_level(logger.level_enum.debug) as _:
             logger.debug("Hello world!")
 
     Parameters
     ----------
-    level : int
-        Logging level to be set. \
-        It must be one of cuml.internals.logger.LEVEL_*
+    level : level_enum
+        Logging level to be set.
 
     Returns
     -------
@@ -144,13 +88,13 @@ def set_level(level):
         level for a code section, as described in the example section above.
     """
     IF GPUBUILD == 1:
-        cdef int prev = Logger.get().getLevel()
+        cdef level_enum prev = default_logger().level()
         context_object = LogLevelSetter(prev)
-        Logger.get().setLevel(<int>level)
+        default_logger().set_level(level)
         return context_object
 
 
-class PatternSetter:
+cdef class PatternSetter:
     """Internal "context manager" object for restoring previous log pattern"""
 
     def __init__(self, prev_pattern):
@@ -161,8 +105,7 @@ class PatternSetter:
 
     def __exit__(self, a, b, c):
         IF GPUBUILD == 1:
-            cdef string s = self.prev_pattern.encode("utf-8")
-            Logger.get().setPattern(s)
+            default_logger().set_pattern(self.prev_pattern)
 
 
 def set_pattern(pattern):
@@ -195,10 +138,16 @@ def set_pattern(pattern):
         pattern for a code section, as described in the example section above.
     """
     IF GPUBUILD == 1:
-        cdef string prev = Logger.get().getPattern()
-        context_object = PatternSetter(prev.decode("UTF-8"))
+        # TODO: We probably can't implement this exact API because you can't
+        # get the pattern from a spdlog logger since it could be different for
+        # every sink (conversely, you could set because it forces every sink to
+        # be the same). The best we can probably do is revert to the default
+        # pattern.
+        cdef string prev = default_pattern()
+        # TODO: Need to cast to a Python string?
+        context_object = PatternSetter(prev)
         cdef string s = pattern.encode("UTF-8")
-        Logger.get().setPattern(s)
+        default_logger().set_pattern(s)
         return context_object
 
 
@@ -212,19 +161,38 @@ def should_log_for(level):
 
     .. code-block:: python
 
-        if logger.should_log_for(level_info):
+        if logger.should_log_for(level_enum.info):
             # which could waste precious CPU cycles
             my_message = construct_message()
             logger.info(my_message)
 
     Parameters
     ----------
-    level : int
-        Logging level to be set. \
-        It must be one of cuml.common.logger.level_*
+    level : level_enum
+        Logging level to be set.
     """
     IF GPUBUILD == 1:
-        return Logger.get().shouldLogFor(<int>level)
+        return default_logger().should_log(level)
+
+
+def _log(level_enum lvl, msg, default_func):
+    """
+    Internal function to log a message at a given level.
+
+    Parameters
+    ----------
+    lvl : level_enum
+        Logging level to be set.
+    msg : str
+        Message to be logged.
+    default_func : function
+        Default logging function to be used if GPU build is disabled.
+    """
+    IF GPUBUILD == 1:
+        cdef string s = msg.encode("UTF-8")
+        default_logger().log(lvl, s)
+    ELSE:
+        default_func(msg)
 
 
 def trace(msg):
@@ -243,11 +211,8 @@ def trace(msg):
     msg : str
         Message to be logged.
     """
-    IF GPUBUILD == 1:
-        cdef string s = msg.encode("UTF-8")
-        CUML_LOG_TRACE(s.c_str())
-    ELSE:
-        logging.debug(msg)
+    # No trace level in Python so we use the closest thing, debug.
+    _log(level_enum.trace, msg, logging.debug)
 
 
 def debug(msg):
@@ -266,11 +231,7 @@ def debug(msg):
     msg : str
         Message to be logged.
     """
-    IF GPUBUILD == 1:
-        cdef string s = msg.encode("UTF-8")
-        CUML_LOG_DEBUG(s.c_str())
-    ELSE:
-        logging.debug(msg)
+    _log(level_enum.debug, msg, logging.debug)
 
 
 def info(msg):
@@ -289,11 +250,7 @@ def info(msg):
     msg : str
         Message to be logged.
     """
-    IF GPUBUILD == 1:
-        cdef string s = msg.encode("UTF-8")
-        CUML_LOG_INFO(s.c_str())
-    ELSE:
-        logging.info(msg)
+    _log(level_enum.info, msg, logging.info)
 
 
 def warn(msg):
@@ -312,11 +269,7 @@ def warn(msg):
     msg : str
         Message to be logged.
     """
-    IF GPUBUILD == 1:
-        cdef string s = msg.encode("UTF-8")
-        CUML_LOG_WARN(s.c_str())
-    ELSE:
-        logging.warning(msg)
+    _log(level_enum.warn, msg, logging.warn)
 
 
 def error(msg):
@@ -335,11 +288,7 @@ def error(msg):
     msg : str
         Message to be logged.
     """
-    IF GPUBUILD == 1:
-        cdef string s = msg.encode("UTF-8")
-        CUML_LOG_ERROR(s.c_str())
-    ELSE:
-        logging.error(msg)
+    _log(level_enum.error, msg, logging.error)
 
 
 def critical(msg):
@@ -358,11 +307,7 @@ def critical(msg):
     msg : str
         Message to be logged.
     """
-    IF GPUBUILD == 1:
-        cdef string s = msg.encode("UTF-8")
-        CUML_LOG_CRITICAL(s.c_str())
-    ELSE:
-        logging.critical(msg)
+    _log(level_enum.critical, msg, logging.critical)
 
 
 def flush():
@@ -370,10 +315,9 @@ def flush():
     Flush the logs.
     """
     IF GPUBUILD == 1:
-        Logger.get().flush()
+        default_logger().flush()
 
 
 IF GPUBUILD == 1:
     # Set callback functions to handle redirected sys.stdout in Python
-    Logger.get().setCallback(_log_callback)
-    Logger.get().setFlush(_log_flush)
+    default_logger().sinks().push_back(<sink_ptr> make_shared[callback_sink_mt](_log_callback, _log_flush))

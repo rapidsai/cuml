@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ from cuml.internals.array import CumlArray
 import cuml.internals
 
 from cuml.internals.mixins import RegressorMixin
+from cuml.internals.logger cimport level_enum
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.common import input_to_cuml_array
@@ -59,7 +60,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   int,
                   float*,
                   RF_params,
-                  int) except +
+                  level_enum) except +
 
     cdef void fit(handle_t& handle,
                   RandomForestMetaData[double, double]*,
@@ -68,7 +69,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   int,
                   double*,
                   RF_params,
-                  int) except +
+                  level_enum) except +
 
     cdef void predict(handle_t& handle,
                       RandomForestMetaData[float, float] *,
@@ -76,7 +77,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       int,
                       int,
                       float*,
-                      int) except +
+                      level_enum) except +
 
     cdef void predict(handle_t& handle,
                       RandomForestMetaData[double, double]*,
@@ -84,21 +85,21 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       int,
                       int,
                       double*,
-                      int) except +
+                      level_enum) except +
 
     cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[float, float]*,
                           float*,
                           int,
                           float*,
-                          int) except +
+                          level_enum) except +
 
     cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[double, double]*,
                           double*,
                           int,
                           double*,
-                          int) except +
+                          level_enum) except +
 
 
 class RandomForestRegressor(BaseRandomForestModel,
@@ -289,7 +290,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                 state["rf_params64"] = rf_forest64.rf_params
 
         state['n_cols'] = self.n_cols
-        state["verbose"] = self.verbose
+        state["_verbose"] = self._verbose
         state["treelite_serialized_model"] = self.treelite_serialized_model
         state['handle'] = self.handle
         state["treelite_handle"] = None
@@ -300,7 +301,7 @@ class RandomForestRegressor(BaseRandomForestModel,
     def __setstate__(self, state):
         super(RandomForestRegressor, self).__init__(
             split_criterion=state["split_criterion"],
-            handle=state["handle"], verbose=state['verbose'])
+            handle=state["handle"], verbose=state['_verbose'])
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         cdef  RandomForestMetaData[double, double] *rf_forest64 = \
@@ -462,7 +463,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                 <int> self.n_cols,
                 <float*> y_ptr,
                 rf_params,
-                <int> self.verbose)
+                <level_enum> self.verbose)
 
         else:
             rf_params64 = rf_params
@@ -473,7 +474,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                 <int> self.n_cols,
                 <double*> y_ptr,
                 rf_params64,
-                <int> self.verbose)
+                <level_enum> self.verbose)
         # make sure that the `fit` is complete before the following delete
         # call happens
         self.handle.sync()
@@ -508,7 +509,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                     <int> n_rows,
                     <int> n_cols,
                     <float*> preds_ptr,
-                    <int> self.verbose)
+                    <level_enum> self.verbose)
 
         elif self.dtype == np.float64:
             predict(handle_[0],
@@ -517,7 +518,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                     <int> n_rows,
                     <int> n_cols,
                     <double*> preds_ptr,
-                    <int> self.verbose)
+                    <level_enum> self.verbose)
         else:
             raise TypeError("supports only float32 and float64 input,"
                             " but input of type '%s' passed."
@@ -685,7 +686,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                                     <float*> y_ptr,
                                     <int> n_rows,
                                     <float*> preds_ptr,
-                                    <int> self.verbose)
+                                    <level_enum> self.verbose)
 
         elif self.dtype == np.float64:
             self.temp_stats = score(handle_[0],
@@ -693,7 +694,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                                     <double*> y_ptr,
                                     <int> n_rows,
                                     <double*> preds_ptr,
-                                    <int> self.verbose)
+                                    <level_enum> self.verbose)
 
         if self.accuracy_metric == 'median_ae':
             stats = self.temp_stats['median_abs_error']
