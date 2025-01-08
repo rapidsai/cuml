@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,9 @@
 # limitations under the License.
 #
 
+import pytest
+
+from cuml.common import has_scipy
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 from cuml.internals.safe_imports import cpu_only_import
 
@@ -64,6 +67,10 @@ def g_batched_rosenbrock(
     return gall
 
 
+@pytest.mark.xfail(
+    condition=has_scipy(min_version="1.15"),
+    reason="https://github.com/rapidsai/cuml/issues/6210",
+)
 def test_batched_lbfgs_rosenbrock():
     """Test batched rosenbrock using batched lbfgs implemtnation"""
 
@@ -107,7 +114,6 @@ def test_batched_lbfgs_rosenbrock():
     res_xk, _, _ = batched_fmin_lbfgs_b(
         f, x0, num_batches, gf, iprint=-1, factr=100
     )
-
     np.testing.assert_allclose(res_xk, res_true, rtol=1e-5)
 
 
