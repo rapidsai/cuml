@@ -418,9 +418,7 @@ def test_integration(key, data, dtype):
         data.dataset == "endog_hourly_earnings_by_industry_missing_exog"
         and cudf_pandas_active
     ):
-        pytest.skip(
-            reason="https://github.com/rapidsai/cuml/issues/6209"
-        )
+        pytest.skip(reason="https://github.com/rapidsai/cuml/issues/6209")
     order, seasonal_order, intercept = extract_order(key)
     s = max(1, seasonal_order[3])
 
