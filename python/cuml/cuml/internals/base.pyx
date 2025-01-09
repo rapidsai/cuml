@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,8 +37,10 @@ except ImportError:
 
 import cuml
 import cuml.common
+from cuml.common.sparse_utils import is_sparse
 import cuml.internals.logger as logger
 import cuml.internals
+from cuml.internals import api_context_managers
 import cuml.internals.input_utils
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
@@ -47,6 +49,7 @@ from cuml.internals.input_utils import (
     determine_array_type,
     input_to_cuml_array,
     input_to_host_array,
+    input_to_host_array_with_sparse_support,
     is_array_like
 )
 from cuml.internals.memory_utils import determine_array_memtype
@@ -70,6 +73,39 @@ cp = gpu_only_import('cupy')
 IF GPUBUILD == 1:
     import pylibraft.common.handle
     import cuml.common.cuda
+
+
+class VerbosityDescriptor:
+    """Descriptor for ensuring correct type is used for verbosity
+
+    This descriptor ensures that when the 'verbose' attribute of a cuML
+    estimator is accessed external to the cuML API, an integer is returned
+    (consistent with Scikit-Learn's API for verbosity). Internal to the API, an
+    enum is used. Scikit-Learn's numerical values for verbosity are the inverse
+    of those used by spdlog, so the numerical value is also inverted internal
+    to the cuML API. This ensures that cuML code treats verbosity values as
+    expected for an spdlog-based codebase.
+    """
+    def __get__(self, obj, cls=None):
+        if api_context_managers.in_internal_api():
+            return logger.level_enum(6 - obj._verbose)
+        else:
+            return obj._verbose
+
+    def __set__(self, obj, value):
+        if api_context_managers.in_internal_api():
+            assert isinstance(value, logger.level_enum), (
+                "The log level should always be provided as a level_enum, "
+                "not an integer"
+            )
+            obj._verbose = 6 - int(value)
+        else:
+            if isinstance(value, logger.level_enum):
+                raise ValueError(
+                    "The log level should always be provided as an integer, "
+                    "not using the enum"
+                    )
+            obj._verbose = value
 
 
 class Base(TagsMixin,
@@ -221,18 +257,30 @@ class Base(TagsMixin,
         ELSE:
             self.handle = None
 
+        # The following manipulation of the root_cm ensures that the verbose
+        # descriptor sees any set or get of the verbose attribute as happening
+        # internal to the cuML API. Currently, __init__ calls do not take place
+        # within an api context manager, so setting "verbose" here would
+        # otherwise appear to be external to the cuML API. This behavior will
+        # be corrected with the update of cuML's API context manager
+        # infrastructure in https://github.com/rapidsai/cuml/pull/6189.
+        GlobalSettings().prev_root_cm = GlobalSettings().root_cm
+        GlobalSettings().root_cm = True
         IF GPUBUILD == 1:
             # Internally, self.verbose follows the spdlog/c++ standard of
             # 0 is most logging, and logging decreases from there.
             # So if the user passes an int value for logging, we convert it.
             if verbose is True:
-                self.verbose = logger.level_debug
+                self.verbose = logger.level_enum.debug
             elif verbose is False:
-                self.verbose = logger.level_info
+                self.verbose = logger.level_enum.info
             else:
-                self.verbose = verbose
+                self.verbose = logger.level_enum(6 - verbose)
         ELSE:
-            self.verbose = verbose
+            self.verbose = logger.level_enum(6 - verbose)
+        # Please see above note on manipulation of the root_cm. This should be
+        # rendered unnecessary with https://github.com/rapidsai/cuml/pull/6189.
+        GlobalSettings().root_cm = GlobalSettings().prev_root_cm
 
         self.output_type = _check_output_type_str(
             cuml.global_settings.output_type
@@ -249,6 +297,8 @@ class Base(TagsMixin,
         nvtx_benchmark = os.getenv('NVTX_BENCHMARK')
         if nvtx_benchmark and nvtx_benchmark.lower() == 'true':
             self.set_nvtx_annotations()
+
+    verbose = VerbosityDescriptor()
 
     def __repr__(self):
         """
@@ -296,6 +346,14 @@ class Base(TagsMixin,
         variables = self._get_param_names()
         for key in variables:
             var_value = getattr(self, key, None)
+            # We are currently internal to the cuML API, but the value we
+            # return will immediately be returned external to the API, so we
+            # must perform the translation from enum to integer before
+            # returning the value. Ordinarily, this is handled by
+            # VerbosityDescriptor for direct access to the verbose
+            # attribute.
+            if key == "verbose":
+                var_value = 6 - int(var_value)
             params[key] = var_value
         return params
 
@@ -313,6 +371,9 @@ class Base(TagsMixin,
             if key not in variables:
                 raise ValueError("Bad param '%s' passed to set_params" % key)
             else:
+                # Switch verbose to enum since we are now internal to cuML API
+                if key == "verbose":
+                    value = logger.level_enum(6 - int(value))
                 setattr(self, key, value)
         return self
 
@@ -552,6 +613,9 @@ def _determine_stateless_output_type(output_type, input_obj):
 
 
 class UniversalBase(Base):
+    # variable to enable dispatching non-implemented methods to CPU
+    # estimators, experimental.
+    _experimental_dispatching = False
 
     def import_cpu_model(self):
         print("!!! import_cpu_model", flush=True)
@@ -681,19 +745,23 @@ class UniversalBase(Base):
 
     def args_to_cpu(self, *args, **kwargs):
         # put all the args on host
-        new_args = tuple(input_to_host_array(arg)[0] for arg in args)
+        new_args = tuple(
+            input_to_host_array_with_sparse_support(arg) for arg in args
+        )
 
         # put all the kwargs on host
         new_kwargs = dict()
         for kw, arg in kwargs.items():
             # if array-like, ensure array-like is on the host
             if is_array_like(arg):
-                new_kwargs[kw] = input_to_host_array(arg)[0]
+                new_kwargs[kw] = input_to_host_array_with_sparse_support(arg)
             # if Real or string, pass as is
             elif isinstance(arg, (numbers.Real, str)):
                 new_kwargs[kw] = arg
             else:
                 raise ValueError(f"Unable to process argument {kw}")
+
+        new_kwargs.pop("convert_dtype", None)
         return new_args, new_kwargs
 
     def dispatch_func(self, func_name, gpu_func, *args, **kwargs):
@@ -742,9 +810,9 @@ class UniversalBase(Base):
             # ensure args and kwargs are on the CPU
             args, kwargs = self.args_to_cpu(*args, **kwargs)
 
-            # get the function from the GPU estimator
+            # get the function from the CPU estimator
             cpu_func = getattr(self._cpu_model, func_name)
-            # call the function from the GPU estimator
+            # call the function from the CPU estimator
             logger.info(f"cuML: Performing {func_name} in CPU")
             res = cpu_func(*args, **kwargs)
 
@@ -767,6 +835,22 @@ class UniversalBase(Base):
     def _dispatch_selector(self, func_name, *args, **kwargs):
         """
         """
+        # check for sparse inputs and whether estimator supports them
+        sparse_support = "sparse" in self._get_tags()["X_types_gpu"]
+
+        if args and is_sparse(args[0]):
+            if sparse_support:
+                return DeviceType.device
+            elif GlobalSettings().accelerator_active and not sparse_support:
+                logger.info(
+                    f"cuML: Estimator {self} does not support sparse inputs in GPU."
+                )
+                return DeviceType.host
+            else:
+                raise NotImplementedError(
+                    "Estimator does not support sparse inputs currently"
+                )
+
         # if not using accelerator, then return global device
         if not hasattr(self, "_gpuaccel"):
             return cuml.global_settings.device_type
@@ -798,3 +882,37 @@ class UniversalBase(Base):
         """
 
         return False
+
+    def __getattr__(self, attr):
+        try:
+            res = super().__getattr__(attr)
+            return res
+
+        except AttributeError as ex:
+            # When using cuml.experimental.accel or setting the
+            # self._experimental_dispatching flag to True, we look for methods
+            # that are not in the cuML estimator in the host estimator
+            if GlobalSettings().accelerator_active or self._experimental_dispatching:
+
+                self.import_cpu_model()
+                if hasattr(self._cpu_model_class, attr):
+
+                    # we turn off and cache the dispatching variables off so that
+                    # build_cpu_model and gpu_to_cpu don't recurse infinitely
+                    cached_dispatching = self._experimental_dispatching
+                    cached_accelerator_active = GlobalSettings().accelerator_active
+                    self._experimental_dispatching = False
+                    GlobalSettings().accelerator_active = False
+
+                    self.build_cpu_model()
+                    self.gpu_to_cpu()
+
+                    # restore the dispatching variables back on
+                    self._experimental_dispatching = cached_dispatching
+                    GlobalSettings().accelerator_active = cached_accelerator_active
+
+                    return getattr(self._cpu_model, attr)
+
+                raise ex
+
+            raise ex

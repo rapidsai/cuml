@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ class GeneticEvolutionTest : public ::testing::Test {
  protected:
   void SetUp() override
   {
-    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
+    ML::default_logger().set_level(ML::level_enum::info);
 
     // Set training param vals
     hyper_params.population_size       = 5000;

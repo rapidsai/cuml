@@ -6,6 +6,7 @@ ARG PYTHON_PACKAGE_MANAGER=conda
 FROM ${BASE} as pip-base
 
 ENV DEFAULT_VIRTUAL_ENV=rapids
+ENV RAPIDS_LIBUCX_PREFER_SYSTEM_LIBRARY=true
 
 RUN apt update -y \
  && DEBIAN_FRONTEND=noninteractive apt install -y \

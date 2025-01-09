@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
 
     rmm::device_uvector<T> out_probabilities(params.n_row, handle.get_stream());
 
-    Logger::get().setLevel(CUML_LEVEL_DEBUG);
+    default_logger().set_level(ML::level_enum::debug);
 
     HDBSCAN::Common::hdbscan_output<IdxT, T> out(handle,
                                                  params.n_row,
@@ -167,7 +167,7 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
 
     rmm::device_uvector<T> out_delta(params.n_row, handle.get_stream());
 
-    Logger::get().setLevel(CUML_LEVEL_DEBUG);
+    default_logger().set_level(ML::level_enum::debug);
 
     raft::sparse::op::coo_sort_by_weight(
       mst_src.data(), mst_dst.data(), mst_data.data(), (IdxT)mst_src.size(), handle.get_stream());
@@ -257,7 +257,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
 
     params = ::testing::TestWithParam<ClusterSelectionInputs<T, IdxT>>::GetParam();
 
-    Logger::get().setLevel(CUML_LEVEL_DEBUG);
+    default_logger().set_level(ML::level_enum::debug);
 
     rmm::device_uvector<IdxT> condensed_parents(params.condensed_parents.size(),
                                                 handle.get_stream());

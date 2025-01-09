@@ -36,6 +36,10 @@ IF GPUBUILD == 1:
     from cuml.metrics.distance_type cimport DistanceType
     from cuml.cluster.kmeans_utils cimport params as KMeansParams
     from cuml.cluster.kmeans_utils cimport KMeansPlusPlus, Random, Array
+    from cuml.cluster cimport kmeans_utils
+
+    # Avoid potential future conflicts with cuml's level enum
+    ctypedef kmeans_utils.level_enum raft_level_enum
 
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -205,7 +209,7 @@ class KMeans(UniversalBase,
             params.init = self._params_init
             params.max_iter = <int>self.max_iter
             params.tol = <double>self.tol
-            params.verbosity = <int>self.verbose
+            params.verbosity = <raft_level_enum>(<int>self.verbose)
             params.rng_state.seed = self.random_state
             params.metric = DistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
             params.batch_samples = <int>self.max_samples_per_batch
@@ -285,6 +289,7 @@ class KMeans(UniversalBase,
         Compute k-means clustering with X.
 
         """
+        self._n_features_out = self.n_clusters
         if self.init == 'preset':
             check_cols = self.n_features_in_
             check_dtype = self.dtype
@@ -301,6 +306,8 @@ class KMeans(UniversalBase,
                                 convert_to_dtype=(target_dtype if convert_dtype
                                                   else None),
                                 check_dtype=check_dtype)
+
+        self.feature_names_in_ = _X_m.index
 
         IF GPUBUILD == 1:
 
@@ -704,4 +711,5 @@ class KMeans(UniversalBase,
 
     def get_attr_names(self):
         return ['cluster_centers_', 'labels_', 'inertia_',
-                'n_iter_', 'n_features_in_', '_n_threads']
+                'n_iter_', 'n_features_in_', '_n_threads',
+                "feature_names_in_", "_n_features_out"]
