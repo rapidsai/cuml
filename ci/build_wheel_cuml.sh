@@ -13,6 +13,7 @@ source ./ci/use_wheels_from_prs.sh
 
 EXCLUDE_ARGS=(
   --exclude "libcuml++.so"
+  --exclude "libcumlprims_mg.so"
   --exclude "libcuvs.so"
 )
 

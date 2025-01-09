@@ -37,8 +37,13 @@ def _load_wheel_installation(soname: str):
 
     Returns ``None`` if the library cannot be loaded.
     """
+    # cumlprims_mg installs to lib/
+    if soname.startswith("libcumlprims_mg"):
+        relative_libdir = "lib"
+    else:
+        relative_libdir = "lib64"
     if os.path.isfile(
-        lib := os.path.join(os.path.dirname(__file__), "lib64", soname)
+        lib := os.path.join(os.path.dirname(__file__), relative_libdir, soname)
     ):
         return ctypes.CDLL(lib, PREFERRED_LOAD_FLAG)
     return None
@@ -72,7 +77,7 @@ def load_library():
     )
 
     # TODO(jameslamb): remove for loop?
-    for soname in ["libcuml++.so"]:
+    for soname in ["libcumlprims_mg.so", "libcuml++.so"]:
         libcuml_lib = None
         if prefer_system_installation:
             # Prefer a system library if one is present to

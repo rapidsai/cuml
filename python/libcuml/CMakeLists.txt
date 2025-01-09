@@ -71,9 +71,10 @@ set(CUML_RAFT_CLONE_ON_PIN OFF)
 set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
 
 # --- cumlprims_mg --- #
-set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
+# ship cumlprims_mg in the 'libcuml' wheel (for re-use by 'cuml' wheels)
+set(CUML_USE_CUMLPRIMS_MG_STATIC OFF)
 # TODO(jameslamb): figure out how cumlprims_mg should work (re-download in cuml? only install/export the headers in libcuml?)
-set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
+set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL OFF)
 
 # --- cuvs --- #
  

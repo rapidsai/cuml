@@ -85,19 +85,6 @@ set(CUML_USE_TREELITE_STATIC ON)
 set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
 include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
 
-# get nlohmann_json and rapidsjson
-# TODO(jameslamb): maybe this isn't necessary?
-# function(copy_interface_excludes)
-#   set(_options "")
-#   set(_one_value TARGET INCLUDED_TARGET)
-#   set(_multi_value "")
-#   cmake_parse_arguments(_CUML_INCLUDES "${_options}" "${_one_value}"
-#                         "${_multi_value}" ${ARGN})
-#   get_target_property(_includes ${_CUML_INCLUDES_INCLUDED_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
-#   target_include_directories(${_CUML_INCLUDES_TARGET} PUBLIC ${_includes})
-# endfunction()
-# copy_interface_excludes(INCLUDED_TARGET treelite::treelite_static TARGET ${CUML_CPP_TARGET})
-
 # --- cuvs --- #
 if(USE_CUVS_WHEEL)
   set(CUML_USE_CUVS_STATIC OFF)
@@ -113,10 +100,10 @@ set(CUML_EXCLUDE_CUVS_FROM_ALL ON)
 include(${CUML_CPP_SRC}/cmake/thirdparty/get_cuvs.cmake)
 
 # --- cumlprims_mg --- #
+# TODO(jameslamb): confirm that cumlprims_mg doesn't start getting installed in conda packages
+# dynamic cumlprims_mg should be found, not installed
 set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
-# TODO(jameslamb): figure out how cumlprims_mg should work (re-download in cuml? only install/export the headers in libcuml?)
 set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
-include(${CUML_CPP_SRC}/cmake/thirdparty/get_cumlprims_mg.cmake)
 
 find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
 

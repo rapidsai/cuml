@@ -28,7 +28,9 @@ python -m pip install \
 # 0 really means "add --no-build-isolation" (ref: https://github.com/pypa/pip/issues/5735)
 export PIP_NO_BUILD_ISOLATION=0
 
+# TODO(jameslamb): it's weird to "exclude" libcumlprims_mg just as a way to stop auditwheel from complaining... when it really is in the wheel
 EXCLUDE_ARGS=(
+  --exclude "libcumlprims_mg.so"
   --exclude "libcuvs.so"
   --exclude "libraft.so"
 )
