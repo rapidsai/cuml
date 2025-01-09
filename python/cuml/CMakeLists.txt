@@ -145,6 +145,7 @@ else()
   "--compile-time-env GPUBUILD=1")
 endif()
 
+# TODO(jameslamb): should SINGLEGPU move into libcuml?
 if(NOT SINGLEGPU)
   include("${CUML_CPP_SRC}/cmake/thirdparty/get_cumlprims_mg.cmake")
   set(cuml_mg_libraries
