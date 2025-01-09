@@ -1018,7 +1018,6 @@ def test_dbscan_methods(train_device, infer_device):
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 def test_random_forest_methods(train_device, infer_device):
     model = RandomForestRegressor()
-    print(f"!!! {train_device=} {infer_device=}", flush=True)
     with using_device_type(train_device):
         model.fit(X_train_reg, y_train_reg)
     with using_device_type(infer_device):

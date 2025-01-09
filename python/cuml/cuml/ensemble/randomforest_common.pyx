@@ -271,17 +271,14 @@ class BaseRandomForestModel(UniversalBase):
                         )
 
         self.treelite_handle = <uintptr_t> tl_handle
-        print(f"{self.treelite_handle=}", flush=True)
         return self.treelite_handle
 
     def cpu_to_gpu(self):
-        print(f"!!! Called cpu_to_gpu() from derived type, {type(self._cpu_model)=}", flush=True)
         tl_model = treelite.sklearn.import_model(self._cpu_model)
-        tl_model2 = TreeliteModel.from_treelite_bytes(tl_model.serialize_bytes())
-        self.treelite_serialized_model = treelite_serialize(tl_model2.handle)
+        self._temp = TreeliteModel.from_treelite_bytes(tl_model.serialize_bytes())
+        self.treelite_serialized_model = treelite_serialize(self._temp.handle)
         self._obtain_treelite_handle()
         self.dtype = np.float64
-        print(f"!!! {self.dtype=}", flush=True)
         super().cpu_to_gpu()
 
     def gpu_to_cpu(self):
@@ -292,7 +289,6 @@ class BaseRandomForestModel(UniversalBase):
         tl_bytes = tl_model.to_treelite_bytes()
         tl_model2 = treelite.Model.deserialize_bytes(tl_bytes)
         self._cpu_model = treelite.sklearn.export_model(tl_model2)
-        print(f"!!! Called gpu_to_cpu() from derived type", flush=True)
 
     @cuml.internals.api_base_return_generic(set_output_type=True,
                                             set_n_features_in=True,
