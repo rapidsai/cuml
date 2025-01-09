@@ -65,6 +65,7 @@ option(USE_CCACHE "Cache build artifacts with ccache" OFF)
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
 option(CUDA_STATIC_MATH_LIBRARIES "Statically link the CUDA math libraries" OFF)
 option(CUML_USE_CUVS_STATIC "Build and statically link the CUVS library" OFF)
+option(CUML_USE_RAFT_STATIC "Build and statically link the RAFT library" OFF)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
 option(CUML_EXPORT_TREELITE_LINKAGE "Whether to publicly or privately link treelite to libcuml++" OFF)
 option(CUML_USE_CUMLPRIMS_MG_STATIC "Build and statically link the cumlprims_mg library" OFF)
@@ -619,7 +620,6 @@ if(BUILD_CUML_CPP_LIBRARY)
   # These are always private:
   list(APPEND _cuml_cpp_private_libs
     raft::raft
-    rmm::rmm_logger
     rmm::rmm_logger_impl
     raft::raft_logger_impl
     cuml_logger_impl
@@ -647,7 +647,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   )
 
   target_link_libraries(${CUML_CPP_TARGET}
-    PUBLIC  rmm::rmm ${CUVS_LIB}
+    PUBLIC  rmm::rmm rmm::rmm_logger ${CUVS_LIB}
             ${_cuml_cpp_public_libs}
             cuml_logger
     PRIVATE ${_cuml_cpp_private_libs}

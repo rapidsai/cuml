@@ -11,11 +11,14 @@ RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 # TODO(jameslamb): remove this when https://github.com/rapidsai/raft/pull/2531 is merged
 source ./ci/use_wheels_from_prs.sh
 
-# TODO(jameslamb): split this out into build_wheel_{cuml,libcuml}.sh
-# TODO(jameslamb): add libcuml++.so to cuml exclusions
+EXCLUDE_ARGS=(
+  --exclude "libcuml++.so"
+  --exclude "libcuvs.so"
+)
+
 case "${RAPIDS_CUDA_VERSION}" in
   12.*)
-    EXCLUDE_ARGS=(
+    EXCLUDE_ARGS+=(
       --exclude "libcuvs.so"
       --exclude "libcublas.so.12"
       --exclude "libcublasLt.so.12"
@@ -28,9 +31,6 @@ case "${RAPIDS_CUDA_VERSION}" in
     EXTRA_CMAKE_ARGS=";-DUSE_CUDA_MATH_WHEELS=ON"
     ;;
   11.*)
-    EXCLUDE_ARGS=(
-      --exclude "libcuvs.so"
-    )
     EXTRA_CMAKE_ARGS=";-DUSE_CUDA_MATH_WHEELS=OFF"
     ;;
 esac

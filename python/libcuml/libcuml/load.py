@@ -46,6 +46,22 @@ def _load_wheel_installation(soname: str):
 
 def load_library():
     """Dynamically load libcuml++.so and its dependencies"""
+    try:
+        # libraft must be loaded before libcuml++ because libcuml++
+        # references its symbols
+        import libraft
+
+        libraft.load_library()
+    except ModuleNotFoundError:
+        # 'libcuml++' has a runtime dependency on 'libraft'. However,
+        # that dependency might be satisfied by the 'libraft' conda package
+        # (which does not have any Python modules), instead of the
+        # 'libraft' wheel.
+        #
+        # In that situation, assume that 'libraft.so' is in a place where
+        # the loader can find it.
+        pass
+
     # treelite must be loaded before libcuml++ because libcuml++
     # references its symbols
     import treelite

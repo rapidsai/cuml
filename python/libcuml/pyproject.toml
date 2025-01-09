@@ -38,6 +38,7 @@ classifiers = [
 ]
 dependencies = [
     "cuvs==25.2.*,>=0.0.0a0",
+    "libraft==25.2.*,>=0.0.0a0",
     "nvidia-cublas",
     "nvidia-cufft",
     "nvidia-curand",

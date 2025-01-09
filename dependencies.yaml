@@ -171,6 +171,7 @@ files:
     includes:
       - cuda_wheels
       - depends_on_cuvs
+      - depends_on_libraft
       - depends_on_treelite
 channels:
   - rapidsai
