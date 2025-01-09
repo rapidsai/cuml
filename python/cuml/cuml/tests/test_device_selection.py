@@ -37,7 +37,7 @@ from cuml.internals.mem_type import MemoryType
 from cuml.decomposition import PCA, TruncatedSVD
 from cuml.cluster import KMeans
 from cuml.cluster import DBSCAN
-from cuml.ensemble import RandomForestRegressor
+from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
 from cuml.common.device_selection import DeviceType, using_device_type
 from cuml.testing.utils import assert_dbscan_equal
 from hdbscan import HDBSCAN as refHDBSCAN
@@ -1016,9 +1016,19 @@ def test_dbscan_methods(train_device, infer_device):
 
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
-def test_random_forest_methods(train_device, infer_device):
+def test_random_forest_regressor(train_device, infer_device):
     model = RandomForestRegressor()
     with using_device_type(train_device):
         model.fit(X_train_reg, y_train_reg)
     with using_device_type(infer_device):
-        output = model.predict(X_test_reg)
+        _ = model.predict(X_test_reg)
+
+
+@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
+@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
+def test_random_forest_classifier(train_device, infer_device):
+    model = RandomForestClassifier()
+    with using_device_type(train_device):
+        model.fit(X_train_blob, y_train_blob)
+    with using_device_type(infer_device):
+        _ = model.predict(X_test_blob)

@@ -16,6 +16,8 @@
 #
 
 # distutils: language = c++
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import,
@@ -247,6 +249,9 @@ class RandomForestClassifier(BaseRandomForestModel,
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html>`_.
     """
 
+    _cpu_estimator_import_path = 'sklearn.ensemble.RandomForestClassifier'
+
+    @device_interop_preparation
     def __init__(self, *, split_criterion=0, handle=None, verbose=False,
                  output_type=None,
                  **kwargs):
@@ -337,6 +342,9 @@ class RandomForestClassifier(BaseRandomForestModel,
         self.treelite_serialized_model = None
         self.n_cols = None
 
+    def get_attr_names(self):
+        return []
+
     def convert_to_treelite_model(self):
         """
         Converts the cuML RF model to a Treelite model
@@ -417,6 +425,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     @cuml.internals.api_base_return_any(set_output_type=False,
                                         set_output_dtype=True,
                                         set_n_features_in=False)
+    @enable_device_interop
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
@@ -555,6 +564,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     @cuml.internals.api_base_return_array(get_output_dtype=True)
+    @enable_device_interop
     def predict(self, X, predict_model="GPU", threshold=0.5,
                 algo='auto', convert_dtype=True,
                 fil_sparse_format='auto') -> CumlArray:

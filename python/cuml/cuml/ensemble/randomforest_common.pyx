@@ -278,6 +278,7 @@ class BaseRandomForestModel(UniversalBase):
         self.treelite_serialized_model = treelite_serialize(self._temp.handle)
         self._obtain_treelite_handle()
         self.dtype = np.float64
+        self.update_labels = False
         super().cpu_to_gpu()
 
     def gpu_to_cpu(self):
