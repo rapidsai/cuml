@@ -69,3 +69,8 @@ cpp/Doxyfile
 # clang tooling
 compile_commands.json
 .clangd/
+
+# generally prefer 'pyproject.toml' to 'pytest.ini' for pytest options
+# ref: https://github.com/rapidsai/cuml/pull/6201
+pytest.ini
+!python/cuml/cuml/benchmark/automated/pytest.ini
