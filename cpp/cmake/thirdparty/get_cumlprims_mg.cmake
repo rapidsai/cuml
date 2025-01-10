@@ -35,9 +35,10 @@ function(find_and_configure_cumlprims_mg)
       set(CUMLPRIMS_MG_BUILD_SHARED_LIBS OFF)
     endif()
 
-    # TODO(jameslamb): justify not exporting cumlprims?
     rapids_cpm_find(cumlprims_mg ${PKG_VERSION}
       GLOBAL_TARGETS      cumlprims_mg::cumlprims_mg
+      BUILD_EXPORT_SET    cuml-exports
+      INSTALL_EXPORT_SET  cuml-exports
         CPM_ARGS
           GIT_REPOSITORY git@github.com:${PKG_FORK}/cumlprims_mg.git
           GIT_TAG        ${PKG_PINNED_TAG}

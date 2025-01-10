@@ -43,9 +43,10 @@ function(find_and_configure_cuvs)
       set(CUVS_BUILD_MG_ALGOS OFF)
     endif()
 
-    # TODO(jameslamb): is not exporting cuvs ok here?
     rapids_cpm_find(cuvs ${PKG_VERSION}
       GLOBAL_TARGETS      cuvs::cuvs
+      BUILD_EXPORT_SET    cuml-exports
+      INSTALL_EXPORT_SET  cuml-exports
       CPM_ARGS
         GIT_REPOSITORY         https://github.com/${PKG_FORK}/cuvs.git
         GIT_TAG                ${PKG_PINNED_TAG}
@@ -56,6 +57,7 @@ function(find_and_configure_cuvs)
           "BUILD_CAGRA_HNSWLIB OFF"
           "BUILD_CUVS_BENCH OFF"
           "BUILD_MG_ALGOS ${CUVS_BUILD_MG_ALGOS}"
+
     )
 
     if(cuvs_ADDED)
