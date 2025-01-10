@@ -158,6 +158,7 @@ files:
       table: tool.rapids-build-backend
       key: requires
     includes:
+      # TODO(jameslamb): split out cuda-python and cython
       - common_build
       - depends_on_libraft
       - depends_on_librmm

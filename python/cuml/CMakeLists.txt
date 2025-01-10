@@ -19,7 +19,9 @@ include(../../rapids_config.cmake)
 option(CUML_CPU "Build only cuML CPU Python components." OFF)
 set(language_list "CXX")
 
+# TODO(jameslamb): can this be removed?
 if(NOT CUML_CPU)
+  # TODO(jameslamb): where does rapids_cuda_init_architectures belong?
   # We always need CUDA for cuML GPU because the raft dependency brings in a
   # header-only cuco dependency that enables CUDA unconditionally.
   include(rapids-cuda)
@@ -38,7 +40,6 @@ project(
 option(CUML_UNIVERSAL "Build all cuML Python components." ON)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CUVS_WHEEL "Use the cuVS wheel" OFF)
-set(CUML_RAFT_CLONE_ON_PIN OFF)
 
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
 # https://github.com/rapidsai/cuml/issues/4843
@@ -69,15 +70,20 @@ rapids_cpm_init()
 #
 # include(cmake/thirdparty/get_cccl.cmake)
 include(${CUML_CPP_SRC}/cmake/thirdparty/get_rmm.cmake)
+
+# --- raft --- #
+set(CUML_RAFT_CLONE_ON_PIN OFF)
+set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
 include(${CUML_CPP_SRC}/cmake/thirdparty/get_raft.cmake)
 
 # --- treelite --- #
 # We need to call get_treelite explicitly because we need the correct
-# ${TREELITE_LIBS} definition for RF
+# ${TREELITE_LIBS} definition for RF.
+#
+# And because cuml Cython code needs to headers to satisfy calls like 'cdef extern from "treelite/c_api.h"'
 #
 # and it needs to come before find_package(cuml), because it's a PUBLIC
 # dependency of cuml::cuml
-set(CUML_EXPORT_TREELITE_LINKAGE ON)
 set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
 # TODO(jameslamb): is it safe for libcuml and cuml to both use their own static treelite?
 set(CUML_USE_TREELITE_STATIC ON)
@@ -97,17 +103,18 @@ endif()
 set(CUML_EXCLUDE_CUVS_FROM_ALL ON)
 
 # download this again just to get the headers
+# TODO(jameslamb): prevent re-compilation of cuvs here
+# set(BUILD_SHARED_LIBS OFF)
+# set(BUILD_C_LIBRARY OFF)
 include(${CUML_CPP_SRC}/cmake/thirdparty/get_cuvs.cmake)
 
 # --- cumlprims_mg --- #
 # TODO(jameslamb): confirm that cumlprims_mg doesn't start getting installed in conda packages
 # dynamic cumlprims_mg should be found, not installed
-set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
+set(CUML_USE_CUMLPRIMS_MG_STATIC OFF)
 set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
 
 find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
-
-include(rapids-cython-core)
 
 # cuml-cpu does not need libcuml++.so
 # TODO(jameslamb): maybe all the stuff above is unnecessary in the CPU-only case?
@@ -160,7 +167,7 @@ endif()
 include("${CUML_CPP_SRC}/cmake/modules/ConfigureAlgorithms.cmake")
 include(cmake/ConfigureCythonAlgorithms.cmake)
 
-if(${CUML_CPU})
+if(CUML_CPU)
   # libcuml requires metrics built if HDSCAN is built, which is not the case
   # for cuml-cpu
   unset(metrics_algo)
@@ -168,6 +175,7 @@ endif()
 
 message(VERBOSE "CUML_PY: Building cuML with algorithms: '${CUML_ALGORITHMS}'.")
 
+include(rapids-cython-core)
 rapids_cython_init()
 
 add_subdirectory(cuml/common)
@@ -192,7 +200,3 @@ add_subdirectory(cuml/svm)
 add_subdirectory(cuml/tsa)
 
 add_subdirectory(cuml/experimental/linear_model)
-
-if(USE_CUVS_WHEEL)
-  rapids_cython_add_rpath_entries(TARGET cuml PATHS cuvs)
-endif()

@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -24,7 +24,6 @@ project(
 
 ################################################################################
 # - User Options  --------------------------------------------------------------
-option(CUML_UNIVERSAL "Build all cuML Python components." ON)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
 option(USE_CUVS_WHEEL "Use the cuVS wheel" OFF)
@@ -33,6 +32,8 @@ option(USE_CUVS_WHEEL "Use the cuVS wheel" OFF)
 # https://github.com/rapidsai/cuml/issues/4843
 message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 
+# In libcuml wheels, we always want to build in all cuML algorithms.
+# This is the default in cpp/CMakeLists.txt, but just making that choice for wheels explicit here.
 set(CUML_ALGORITHMS "ALL" CACHE STRING "Choose which algorithms are built cuML. Can specify individual algorithms or groups in a semicolon-separated list.")
 
 set(CUML_CPP_TARGET "cuml++")
@@ -77,7 +78,6 @@ set(CUML_USE_CUMLPRIMS_MG_STATIC OFF)
 set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL OFF)
 
 # --- cuvs --- #
- 
 if(USE_CUVS_WHEEL)
   set(CUML_USE_CUVS_STATIC OFF)
 else()
@@ -102,12 +102,11 @@ else()
   set(CUDA_STATIC_MATH_LIBRARIES ON)
 endif()
 
-# TODO(jameslamb): keep cuvs files (like lib64/libcuvs.{a,so}) out of the wheel
-# TODO(jameslamb): audit all file contents
 add_subdirectory(../../cpp cuml-cpp)
 
 if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
   # assumes libcuml++ is installed 2 levels deep, e.g. site-packages/cuml/lib64/libcuml++.so
+  # TODO(jameslamb): is nvjitlink even necessary?
   set(rpaths
     "$ORIGIN/../../nvidia/cublas/lib"
     "$ORIGIN/../../nvidia/cufft/lib"

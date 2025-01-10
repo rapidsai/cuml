@@ -16,8 +16,8 @@
 
 function(find_and_configure_rmm)
     include(${rapids-cmake-dir}/cpm/rmm.cmake)
-    # TODO(jameslamb): justify not exporting rmm?
-    rapids_cpm_rmm()
+    rapids_cpm_rmm(BUILD_EXPORT_SET cuml-exports
+                   INSTALL_EXPORT_SET cuml-exports)
 endfunction()
 
 find_and_configure_rmm()

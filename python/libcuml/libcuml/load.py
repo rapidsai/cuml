@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ def load_library():
         != "false"
     )
 
-    # TODO(jameslamb): remove for loop?
+    libs_to_return = []
     for soname in ["libcumlprims_mg.so", "libcuml++.so"]:
         libcuml_lib = None
         if prefer_system_installation:
@@ -100,10 +100,11 @@ def load_library():
                 # and rely on other mechanisms (like RPATHs on other DSOs) to
                 # help the loader find the library.
                 pass
+        if libcuml_lib:
+            libs_to_return.append(libcuml_lib)
 
-    # The caller almost never needs to do anything with this library, but no
-    # harm in offering the option since this object at least provides a handle
-    # to inspect where libcuml was loaded from.
+    # The caller almost never needs to do anything with these libraries, but no
+    # harm in offering the option since these objects at least provide handles
+    # to inspect where libcugraph was loaded from.
 
-    # TODO(jameslamb): return something here?
-    return libcuml_lib
+    return libs_to_return
