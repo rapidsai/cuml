@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2024, NVIDIA CORPORATION.
+# Copyright (c) 2018-2025, NVIDIA CORPORATION.
 
 {% set version = environ['RAPIDS_PACKAGE_VERSION'].lstrip('v') %}
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
@@ -34,7 +34,7 @@ build:
     - SCCACHE_S3_USE_SSL
   ignore_run_exports_from:
     {% if cuda_major == "11" %}
-    - {{ compiler('cuda11') }}
+    - {{ compiler('cuda') }}
     {% else %}
     - {{ compiler('cuda') }}
     - cuda-cudart-dev
@@ -46,7 +46,7 @@ requirements:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     {% if cuda_major == "11" %}
-    - {{ compiler('cuda11') }} ={{ cuda_version }}
+    - {{ compiler('cuda') }} ={{ cuda_version }}
     {% else %}
     - {{ compiler('cuda') }}
     {% endif %}
