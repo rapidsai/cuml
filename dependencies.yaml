@@ -110,7 +110,6 @@ files:
       key: requires
     includes:
       - common_build
-      - depends_on_cuvs
       - depends_on_libcuml
       - depends_on_libcumlprims
       - depends_on_libraft

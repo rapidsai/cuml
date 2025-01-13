@@ -177,13 +177,11 @@ versioneer\.py |
 build-backend = "scikit_build_core.build"
 dependencies-file = "../../dependencies.yaml"
 # TODO(jameslamb): can 'cuda_wheels=true' be removed?
-matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
+matrix-entry = "cuda_suffixed=true"
 
-# TODO(jameslamb): check build deps for cuml
 requires = [
     "cmake>=3.26.4,!=3.30.0",
     "cuda-python",
-    "cuvs==25.2.*,>=0.0.0a0",
     "cython>=3.0.0",
     "libcuml==25.2.*,>=0.0.0a0",
     "libraft==25.2.*,>=0.0.0a0",
