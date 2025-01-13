@@ -3,7 +3,10 @@
 
 set -euo pipefail
 
-wheel_dir_relative_path=$1
+package_dir=$1
+wheel_dir_relative_path=$2
+
+cd "${package_dir}"
 
 rapids-logger "validate packages with 'pydistcheck'"
 
