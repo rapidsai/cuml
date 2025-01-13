@@ -36,7 +36,10 @@ import cuml.tsa.arima as arima
 from cuml.internals.safe_imports import gpu_only_import
 import statsmodels.api as sm
 from sklearn.model_selection import train_test_split
-from cuml.internals.safe_imports import cpu_only_import_from
+from cuml.internals.safe_imports import (
+    cpu_only_import_from,
+    gpu_only_import_from,
+)
 import warnings
 import os
 import pytest
@@ -49,6 +52,7 @@ pd = cpu_only_import("pandas")
 approx_fprime = cpu_only_import_from("scipy.optimize", "approx_fprime")
 
 cudf = gpu_only_import("cudf")
+cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
 
 
 ###############################################################################
@@ -410,6 +414,11 @@ def fill_interpolation(df_in):
 @pytest.mark.parametrize("dtype", [np.float64])
 def test_integration(key, data, dtype):
     """Full integration test: estimate, fit, forecast"""
+    if (
+        data.dataset == "endog_hourly_earnings_by_industry_missing_exog"
+        and cudf_pandas_active
+    ):
+        pytest.skip(reason="https://github.com/rapidsai/cuml/issues/6209")
     order, seasonal_order, intercept = extract_order(key)
     s = max(1, seasonal_order[3])
 
