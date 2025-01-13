@@ -62,9 +62,12 @@ if(NOT CUML_CPU)
   rapids_cpm_init()
 
   # re-find CCCL, RMM, and RAFT before cuVS
-  include(cmake/thirdparty/get_cccl.cmake)
-  include(cmake/thirdparty/get_rmm.cmake)
-  include(cmake/thirdparty/get_raft.cmake)
+  message(STATUS "--- [debug] finding CCCL for cuML")
+  include(${CUML_CPP_SRC}/cmake/thirdparty/get_cccl.cmake)
+  message(STATUS "--- [debug] finding RMM for cuML")
+  include(${CUML_CPP_SRC}/cmake/thirdparty/get_rmm.cmake)
+  message(STATUS "--- [debug] finding RAFT for cuML")
+  include(${CUML_CPP_SRC}/cmake/thirdparty/get_raft.cmake)
 
   # --- cuvs --- #
   # Once there are 'libcuvs' wheels, it should be possible to remove this CPM build of cuvs.
@@ -80,7 +83,26 @@ if(NOT CUML_CPU)
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_cuvs.cmake)
   message(STATUS "--- [debug] done finding cuVS for cuML")
 
+  # --- treelite --- #
+  # We need to call get_treelite explicitly because we need the correct
+  # ${TREELITE_LIBS} definition for RF.
+  #
+  # And because cuml Cython code needs to headers to satisfy calls like 'cdef extern from "treelite/c_api.h"'
+  #
+  # and it needs to come before find_package(cuml), because it's a PUBLIC
+  # dependency of cuml::cuml
+  set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
+  # TODO(jameslamb): is it safe for libcuml and cuml to both use their own static treelite?
+  set(CUML_USE_TREELITE_STATIC ON)
+  # TODO(jameslamb): should treelite just be included here?
+  set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
+  message(STATUS "--- [debug] finding treelite for cuML")
+  include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
+  message(STATUS "--- [debug] done finding treelite for cuML")
+
+  message(STATUS "--- [debug] finding cuML")
   find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
+  message(STATUS "--- [debug] found cuML")
   
   # --- CCCL, RAFT, and RMM --- #
   # CCCL before RMM, and RMM before RAFT
@@ -101,21 +123,6 @@ if(NOT CUML_CPU)
   set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_raft.cmake)
   
-  # --- treelite --- #
-  # We need to call get_treelite explicitly because we need the correct
-  # ${TREELITE_LIBS} definition for RF.
-  #
-  # And because cuml Cython code needs to headers to satisfy calls like 'cdef extern from "treelite/c_api.h"'
-  #
-  # and it needs to come before find_package(cuml), because it's a PUBLIC
-  # dependency of cuml::cuml
-  set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
-  # TODO(jameslamb): is it safe for libcuml and cuml to both use their own static treelite?
-  set(CUML_USE_TREELITE_STATIC ON)
-  # TODO(jameslamb): should treelite just be included here?
-  set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
-  include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
-
   # --- cumlprims_mg --- #
   # TODO(jameslamb): confirm that cumlprims_mg doesn't start getting installed in conda packages
   # dynamic cumlprims_mg should be found, not installed
