@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,45 +13,10 @@
 # limitations under the License.
 #
 
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.input_utils import determine_array_type
-from cuml.internals.input_utils import determine_array_dtype
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.array import CumlArray
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
-import pickle
-
-import cuml
-import cuml.internals
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
-test_input_types = ["numpy", "numba", "cupy", "cudf"]
-
-test_output_types_str = ["numpy", "numba", "cupy", "cudf"]
-
-test_dtypes_short = [
-    np.uint8,
-    np.float16,
-    np.int32,
-    np.float64,
-]
-
-unsupported_cudf_dtypes = [
-    np.uint8,
-    np.uint16,
-    np.uint32,
-    np.uint64,
-    np.float16,
-]
-
-test_shapes = [10, (10, 1), (10, 5), (1, 10)]
+from cuml.internals.base import Base
 
 
-class DummyTestEstimator(cuml.Base):
+class DummyTestEstimator(Base):
 
     input_any_ = CumlArrayDescriptor()
 

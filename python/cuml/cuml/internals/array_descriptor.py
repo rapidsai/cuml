@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,36 +21,6 @@ from cuml.internals.input_utils import (
     input_to_cuml_array,
     determine_array_type,
 )
-
-
-@dataclass
-class CumlArrayDescriptorMeta:
-
-    # The type for the input value. One of: _input_type_to_str
-    input_type: str
-
-    # Dict containing values in different formats. One entry per type. Both the
-    # input type and any cached converted types will be stored. Erased on set
-    values: dict = field(default_factory=dict)
-
-    def get_input_value(self):
-
-        assert (
-            self.input_type in self.values
-        ), "Missing value for input_type {}".format(self.input_type)
-
-        return self.values[self.input_type]
-
-    def __getstate__(self):
-        # Need to only return the input_value from
-        return {
-            "input_type": self.input_type,
-            "input_value": self.get_input_value(),
-        }
-
-    def __setstate__(self, d):
-        self.input_type = d["input_type"]
-        self.values = {self.input_type: d["input_value"]}
 
 
 class CumlArrayDescriptor:

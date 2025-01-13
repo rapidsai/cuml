@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,8 +74,7 @@ IF GPUBUILD == 1:
     import cuml.common.cuda
 
 
-class Base(TagsMixin,
-           metaclass=cuml.internals.BaseMetaClass):
+class Base(TagsMixin):
     """
     Base class for all the ML algos. It handles some of the common operations
     across all algos. Every ML algo class exposed at cython level must inherit
