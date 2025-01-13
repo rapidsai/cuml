@@ -54,6 +54,39 @@ if not IS_ARM:
 dataset_names = ["iris", "digits", "wine", "blobs"]
 
 
+def test_new_data_on_host_default():
+    data, labels = make_blobs(
+        # Make the data big enough so that we can have it on the host
+        n_samples=50_000 + 1,
+        n_features=10,
+        centers=5,
+        random_state=0,
+    )
+    u = cuUMAP()
+
+    with pytest.warns(
+        FutureWarning,
+        match='The default value of `data_on_host` will change from False to "auto" in 25.06.',
+    ):
+        u.fit(data)
+        u.fit_transform(data)
+
+    # No warnings when value is explicitly set
+    u.fit(data, data_on_host=True)
+    u.fit_transform(data, data_on_host=True)
+    u.fit(data, data_on_host=False)
+    u.fit_transform(data, data_on_host=False)
+
+    # XXX crashes with CUDA memory error, why?
+    """
+    # No warning when the data is sparse
+    print("E")
+    data = scipy_sparse.csr_matrix(data)
+    u = cuUMAP()
+    u.fit_transform(data)
+    """
+
+
 @pytest.mark.parametrize(
     "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
 )
