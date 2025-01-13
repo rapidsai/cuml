@@ -3,7 +3,7 @@
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
-RAFT_COMMIT="345f0e556b602ec65b5eebe825ffd000d61706fe"
+RAFT_COMMIT="d275c995fb51310d1340fe2fd6d63d0bfd43cafa"
 LIBRAFT_CHANNEL=$(
   RAPIDS_PY_WHEEL_NAME="libraft_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact raft 2531 cpp "${RAFT_COMMIT:0:7}"
 )

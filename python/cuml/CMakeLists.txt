@@ -19,7 +19,7 @@ include(../../rapids_config.cmake)
 option(CUML_CPU "Build only cuML CPU Python components." OFF)
 set(language_list "CXX")
 
-# TODO(jameslamb): can this be removed?
+# TODO(jameslamb): can this be removed? (I think so?)
 if(NOT CUML_CPU)
   # TODO(jameslamb): where does rapids_cuda_init_architectures belong?
   # We always need CUDA for cuML GPU because the raft dependency brings in a
@@ -54,72 +54,73 @@ set(CUML_CPP_SRC "../../cpp")
 ################################################################################
 # - Process User Options  ------------------------------------------------------
 
-include(rapids-cpm)
-include(rapids-export)
-rapids_cpm_init()
-
-# --- CCCL, RAFT, and RMM --- #
-# CCCL before RMM, and RMM before RAFT
-# TODO(jameslamb): skipping CCCL because we're already getting it from libraft... is that ok?
-#   -- Found CCCL: /pyenv/versions/3.12.8/lib/python3.12/site-packages/libraft/lib64/rapids/cmake/cccl/cccl-config.cmake (found version "2.7.0.0")
-#     CMake Error at /pyenv/versions/3.12.8/lib/python3.12/site-packages/libraft/lib64/cmake/NvidiaCutlass/NvidiaCutlassTargets.cmake:42 (message):
-#     Some (but not all) targets in this export set were already defined.
-#
-#     Targets Defined: nvidia::cutlass::cutlass
-#     Targets not yet defined: nvidia::cutlass::tools::util
-#
-# include(cmake/thirdparty/get_cccl.cmake)
-include(${CUML_CPP_SRC}/cmake/thirdparty/get_rmm.cmake)
-
-# --- raft --- #
-set(CUML_RAFT_CLONE_ON_PIN OFF)
-set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
-include(${CUML_CPP_SRC}/cmake/thirdparty/get_raft.cmake)
-
-# --- treelite --- #
-# We need to call get_treelite explicitly because we need the correct
-# ${TREELITE_LIBS} definition for RF.
-#
-# And because cuml Cython code needs to headers to satisfy calls like 'cdef extern from "treelite/c_api.h"'
-#
-# and it needs to come before find_package(cuml), because it's a PUBLIC
-# dependency of cuml::cuml
-set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
-# TODO(jameslamb): is it safe for libcuml and cuml to both use their own static treelite?
-set(CUML_USE_TREELITE_STATIC ON)
-# TODO(jameslamb): should treelite just be included here?
-set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
-include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
-
-# --- cuvs --- #
-if(USE_CUVS_WHEEL)
-  set(CUML_USE_CUVS_STATIC OFF)
-else()
-  set(CUML_USE_CUVS_STATIC ON)
-endif()
-
-# either way, don't unclude any cuvs stuff in wheel
-# (expect anything building against libcuml to provide cuvs headers externally)
-set(CUML_EXCLUDE_CUVS_FROM_ALL ON)
-
-# download this again just to get the headers
-# TODO(jameslamb): prevent re-compilation of cuvs here
-# set(BUILD_SHARED_LIBS OFF)
-# set(BUILD_C_LIBRARY OFF)
-include(${CUML_CPP_SRC}/cmake/thirdparty/get_cuvs.cmake)
-
-# --- cumlprims_mg --- #
-# TODO(jameslamb): confirm that cumlprims_mg doesn't start getting installed in conda packages
-# dynamic cumlprims_mg should be found, not installed
-set(CUML_USE_CUMLPRIMS_MG_STATIC OFF)
-set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
-
-find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
-
 # cuml-cpu does not need libcuml++.so
-# TODO(jameslamb): maybe all the stuff above is unnecessary in the CPU-only case?
 if(NOT CUML_CPU)
-  # (moved to libcuml/CMakeLists.txt)
+
+  include(rapids-cpm)
+  include(rapids-export)
+  rapids_cpm_init()
+
+  # re-find CCCL, RMM, and RAFT before cuVS
+  include(cmake/thirdparty/get_cccl.cmake)
+  include(cmake/thirdparty/get_rmm.cmake)
+  include(cmake/thirdparty/get_raft.cmake)
+
+  # --- cuvs --- #
+  # Once there are 'libcuvs' wheels, it should be possible to remove this CPM build of cuvs.
+  #
+  #   * conda builds will find 'libcuvs' in the build environment
+  #   * wheel builds will find 'libcuvs' wherever that wheel is installed
+  #
+  # Until then, this is necessary because cuVS is included in the public headers of both
+  # libcuml (C++) and cuml (Cython).
+  message(STATUS "--- [debug] finding cuVS for cuML")
+  set(CUML_USE_CUVS_STATIC OFF)
+  set(CUML_EXCLUDE_CUVS_FROM_ALL ON)
+  include(${CUML_CPP_SRC}/cmake/thirdparty/get_cuvs.cmake)
+  message(STATUS "--- [debug] done finding cuVS for cuML")
+
+  find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
+  
+  # --- CCCL, RAFT, and RMM --- #
+  # CCCL before RMM, and RMM before RAFT
+  # TODO(jameslamb): skipping CCCL because we're already getting it from libraft... is that ok?
+  #   -- Found CCCL: /pyenv/versions/3.12.8/lib/python3.12/site-packages/libraft/lib64/rapids/cmake/cccl/cccl-config.cmake (found version "2.7.0.0")
+  #     CMake Error at /pyenv/versions/3.12.8/lib/python3.12/site-packages/libraft/lib64/cmake/NvidiaCutlass/NvidiaCutlassTargets.cmake:42 (message):
+  #     Some (but not all) targets in this export set were already defined.
+  #
+  #     Targets Defined: nvidia::cutlass::cutlass
+  #     Targets not yet defined: nvidia::cutlass::tools::util
+  #
+  # include(cmake/thirdparty/get_cccl.cmake)
+  include(${CUML_CPP_SRC}/cmake/thirdparty/get_rmm.cmake)
+  
+  # --- raft --- #
+  # TODO(jameslamb): the 'libraft' wheel does 
+  set(CUML_RAFT_CLONE_ON_PIN OFF)
+  set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
+  include(${CUML_CPP_SRC}/cmake/thirdparty/get_raft.cmake)
+  
+  # --- treelite --- #
+  # We need to call get_treelite explicitly because we need the correct
+  # ${TREELITE_LIBS} definition for RF.
+  #
+  # And because cuml Cython code needs to headers to satisfy calls like 'cdef extern from "treelite/c_api.h"'
+  #
+  # and it needs to come before find_package(cuml), because it's a PUBLIC
+  # dependency of cuml::cuml
+  set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
+  # TODO(jameslamb): is it safe for libcuml and cuml to both use their own static treelite?
+  set(CUML_USE_TREELITE_STATIC ON)
+  # TODO(jameslamb): should treelite just be included here?
+  set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
+  include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
+
+  # --- cumlprims_mg --- #
+  # TODO(jameslamb): confirm that cumlprims_mg doesn't start getting installed in conda packages
+  # dynamic cumlprims_mg should be found, not installed
+  set(CUML_USE_CUMLPRIMS_MG_STATIC OFF)
+  set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
 endif()
 
 if(CUML_CPU)
