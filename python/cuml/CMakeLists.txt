@@ -61,12 +61,10 @@ if(NOT CUML_CPU)
   include(rapids-export)
   rapids_cpm_init()
 
-  # re-find CCCL, RMM, and RAFT before cuVS
-  message(STATUS "--- [debug] finding CCCL for cuML")
+  # find CCCL, RMM, and RAFT before cuVS, to avoid
+  # cuVS CMake defining conflicting versions of targets like 'nvidia::cutlaass'
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_cccl.cmake)
-  message(STATUS "--- [debug] finding RMM for cuML")
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_rmm.cmake)
-  message(STATUS "--- [debug] finding RAFT for cuML")
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_raft.cmake)
 
   # --- cuvs --- #
@@ -103,31 +101,7 @@ if(NOT CUML_CPU)
   message(STATUS "--- [debug] finding cuML")
   find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
   message(STATUS "--- [debug] found cuML")
-  
-  # --- CCCL, RAFT, and RMM --- #
-  # CCCL before RMM, and RMM before RAFT
-  # TODO(jameslamb): skipping CCCL because we're already getting it from libraft... is that ok?
-  #   -- Found CCCL: /pyenv/versions/3.12.8/lib/python3.12/site-packages/libraft/lib64/rapids/cmake/cccl/cccl-config.cmake (found version "2.7.0.0")
-  #     CMake Error at /pyenv/versions/3.12.8/lib/python3.12/site-packages/libraft/lib64/cmake/NvidiaCutlass/NvidiaCutlassTargets.cmake:42 (message):
-  #     Some (but not all) targets in this export set were already defined.
-  #
-  #     Targets Defined: nvidia::cutlass::cutlass
-  #     Targets not yet defined: nvidia::cutlass::tools::util
-  #
-  # include(cmake/thirdparty/get_cccl.cmake)
-  include(${CUML_CPP_SRC}/cmake/thirdparty/get_rmm.cmake)
-  
-  # --- raft --- #
-  # TODO(jameslamb): the 'libraft' wheel does 
-  set(CUML_RAFT_CLONE_ON_PIN OFF)
-  set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
-  include(${CUML_CPP_SRC}/cmake/thirdparty/get_raft.cmake)
-  
-  # --- cumlprims_mg --- #
-  # TODO(jameslamb): confirm that cumlprims_mg doesn't start getting installed in conda packages
-  # dynamic cumlprims_mg should be found, not installed
-  set(CUML_USE_CUMLPRIMS_MG_STATIC OFF)
-  set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL ON)
+
 endif()
 
 if(CUML_CPU)
