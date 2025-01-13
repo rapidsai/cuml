@@ -40,6 +40,7 @@ project(
 option(CUML_UNIVERSAL "Build all cuML Python components." ON)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CUVS_WHEEL "Use the cuVS wheel" OFF)
+option(USE_LIBCUML_WHEEL "Use libcuml wheel to provide some dependencies" OFF)
 
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
 # https://github.com/rapidsai/cuml/issues/4843
@@ -85,13 +86,14 @@ else()
   include(rapids-export)
   rapids_cpm_init()
 
-  # find CCCL, RMM, and RAFT before cuVS, to avoid
+  # --- CCCL, RAFT, RMM ---#
+  # find CCCL, RAFT, and RMM before cuVS, to avoid
   # cuVS CMake defining conflicting versions of targets like 'nvidia::cutlaass'
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_cccl.cmake)
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_rmm.cmake)
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_raft.cmake)
 
-  # --- cuvs --- #
+  # --- cuVS --- #
   # Once there are 'libcuvs' wheels, it should be possible to remove this CPM build of cuvs.
   #
   #   * conda builds will find 'libcuvs' in the build environment
@@ -112,15 +114,28 @@ else()
   # And because cuml Cython code needs to headers to satisfy calls like 'cdef extern from "treelite/c_api.h"'
   #
   # and it needs to come before find_package(cuml), because it's a PUBLIC
-  # dependency of cuml::cuml
-  set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
-  # TODO(jameslamb): is it safe for libcuml and cuml to both use their own static treelite?
-  set(CUML_USE_TREELITE_STATIC ON)
+  # dependency of cuml::cuml.
+  #
+  # TODO(jameslamb): clean up these comments
+
+  # wheel builds use a static treelite, because the 'libtreelite.so' in 'treelite' wheels
+  # isn't intended for dynamic linking by third-party projects (e.g. hides its symbols)
+  if(USE_LIBCUML_WHEEL)
+    # TODO(jameslamb): is it safe for libcuml++ libcuml wheels and Cython extensions in 'cuml' wheels
+    #                  to use separate static treelite?
+    set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
+    set(CUML_USE_TREELITE_STATIC ON)
+  else()
+    set(CUML_PYTHON_TREELITE_TARGET treelite::treelite)
+    set(CUML_USE_TREELITE_STATIC OFF)
+  endif()
+
   set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
+
   message(STATUS "--- [debug] finding treelite for cuML")
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
-  message(STATUS "--- [debug] done finding treelite for cuML")
 
+  # --- libcuml --- #
   message(STATUS "--- [debug] finding cuML")
   find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
   message(STATUS "--- [debug] found cuML")
