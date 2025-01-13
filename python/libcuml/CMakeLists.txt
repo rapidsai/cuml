@@ -52,41 +52,38 @@ endif()
 
 unset(cuml_FOUND)
 
+# --- cuML --- #
 set(BUILD_CUML_TESTS OFF)
 set(BUILD_PRIMS_TESTS OFF)
 set(BUILD_CUML_C_LIBRARY OFF)
 set(BUILD_CUML_EXAMPLES OFF)
 set(BUILD_CUML_BENCH OFF)
 
-# --- treelite --- #
-set(CUML_EXPORT_TREELITE_LINKAGE ON)
-set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
-# use dynamic treelite (provided by treelite wheels)
-# TODO(jameslamb): is it safe for libcuml and cuml to both use their own static treelite?
-set(CUML_USE_TREELITE_STATIC ON)
-# TODO(jameslamb): should treelite just be included here?
-set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
-
-# --- raft --- #
-set(CUML_RAFT_CLONE_ON_PIN OFF)
-set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
-
 # --- cumlprims_mg --- #
 # ship cumlprims_mg in the 'libcuml' wheel (for re-use by 'cuml' wheels)
 set(CUML_USE_CUMLPRIMS_MG_STATIC OFF)
-# TODO(jameslamb): figure out how cumlprims_mg should work (re-download in cuml? only install/export the headers in libcuml?)
 set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL OFF)
 
-# --- cuvs --- #
+# --- cuVS --- #
 if(USE_CUVS_WHEEL)
   set(CUML_USE_CUVS_STATIC OFF)
 else()
   set(CUML_USE_CUVS_STATIC ON)
 endif()
 
-# either way, don't unclude any cuvs stuff in wheel
+# don't unclude any cuVS stuff in libcuml wheel
 # (expect anything building against libcuml to provide cuvs headers externally)
 set(CUML_EXCLUDE_CUVS_FROM_ALL ON)
+
+# --- raft --- #
+set(CUML_RAFT_CLONE_ON_PIN OFF)
+set(CUML_EXCLUDE_RAFT_FROM_ALL ON)
+
+# --- treelite --- #
+set(CUML_EXPORT_TREELITE_LINKAGE ON)
+set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
+set(CUML_USE_TREELITE_STATIC ON)
+set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
 
 # --- CUDA --- #
 set(CUDA_STATIC_RUNTIME ON)
@@ -106,7 +103,6 @@ add_subdirectory(../../cpp cuml-cpp)
 
 if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
   # assumes libcuml++ is installed 2 levels deep, e.g. site-packages/cuml/lib64/libcuml++.so
-  # TODO(jameslamb): is nvjitlink even necessary?
   set(rpaths
     "$ORIGIN/../../nvidia/cublas/lib"
     "$ORIGIN/../../nvidia/cufft/lib"

@@ -54,8 +54,32 @@ set(CUML_CPP_SRC "../../cpp")
 ################################################################################
 # - Process User Options  ------------------------------------------------------
 
+if(CUML_CPU)
+  set(CUML_UNIVERSAL OFF)
+  set(SINGLEGPU ON)
+
+  # only a subset of algorithms are supported in CPU-only cuML
+  set(CUML_ALGORITHMS "linearregression")
+  list(APPEND CUML_ALGORITHMS "pca")
+  list(APPEND CUML_ALGORITHMS "tsvd")
+  list(APPEND CUML_ALGORITHMS "elasticnet")
+  list(APPEND CUML_ALGORITHMS "logisticregression")
+  list(APPEND CUML_ALGORITHMS "ridge")
+  list(APPEND CUML_ALGORITHMS "lasso")
+  list(APPEND CUML_ALGORITHMS "umap")
+  list(APPEND CUML_ALGORITHMS "knn")
+  list(APPEND CUML_ALGORITHMS "hdbscan")
+  list(APPEND CUML_ALGORITHMS "dbscan")
+  list(APPEND CUML_ALGORITHMS "kmeans")
+
+  # this won't be needed when we add CPU libcuml++ (FIL)
+  set(cuml_sg_libraries "")
+
+  list(APPEND CYTHON_FLAGS
+  "--compile-time-env GPUBUILD=0")
+
 # cuml-cpu does not need libcuml++.so
-if(NOT CUML_CPU)
+else()
 
   include(rapids-cpm)
   include(rapids-export)
@@ -92,7 +116,6 @@ if(NOT CUML_CPU)
   set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
   # TODO(jameslamb): is it safe for libcuml and cuml to both use their own static treelite?
   set(CUML_USE_TREELITE_STATIC ON)
-  # TODO(jameslamb): should treelite just be included here?
   set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
   message(STATUS "--- [debug] finding treelite for cuML")
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
@@ -102,45 +125,11 @@ if(NOT CUML_CPU)
   find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
   message(STATUS "--- [debug] found cuML")
 
-endif()
-
-if(CUML_CPU)
-  set(CUML_UNIVERSAL OFF)
-  set(SINGLEGPU ON)
-
-  set(CUML_ALGORITHMS "linearregression")
-  list(APPEND CUML_ALGORITHMS "pca")
-  list(APPEND CUML_ALGORITHMS "tsvd")
-  list(APPEND CUML_ALGORITHMS "elasticnet")
-  list(APPEND CUML_ALGORITHMS "logisticregression")
-  list(APPEND CUML_ALGORITHMS "ridge")
-  list(APPEND CUML_ALGORITHMS "lasso")
-  list(APPEND CUML_ALGORITHMS "umap")
-  list(APPEND CUML_ALGORITHMS "knn")
-  list(APPEND CUML_ALGORITHMS "hdbscan")
-  list(APPEND CUML_ALGORITHMS "dbscan")
-  list(APPEND CUML_ALGORITHMS "kmeans")
-
-  # this won't be needed when we add CPU libcuml++ (FIL)
-  set(cuml_sg_libraries "")
-
-  list(APPEND CYTHON_FLAGS
-  "--compile-time-env GPUBUILD=0")
-else()
   set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
   set(cuml_mg_libraries cuml::${CUML_CPP_TARGET})
 
   list(APPEND CYTHON_FLAGS
   "--compile-time-env GPUBUILD=1")
-endif()
-
-# TODO(jameslamb): should SINGLEGPU move into libcuml?
-if(NOT SINGLEGPU)
-  include("${CUML_CPP_SRC}/cmake/thirdparty/get_cumlprims_mg.cmake")
-  set(cuml_mg_libraries
-    cuml::${CUML_CPP_TARGET}
-    cumlprims_mg::cumlprims_mg
-  )
 endif()
 
  ################################################################################
