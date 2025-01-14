@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the “License”);
 # you may not use this file except in compliance with the License.
@@ -46,10 +46,32 @@ def test_umap_min_dist(manifold_data, min_dist):
 
 
 @pytest.mark.parametrize(
-    "metric", ["euclidean", "manhattan", "chebyshev", "cosine"]
+    "metric",
+    [
+        "euclidean",
+        "manhattan",
+        "chebyshev",
+        "cosine",
+        # These metrics are currently not supported in cuml,
+        # we test them here to make sure no exception is raised
+        "sokalsneath",
+        "rogerstanimoto",
+        "sokalmichener",
+        "yule",
+        "ll_dirichlet",
+        "russellrao",
+        "kulsinski",
+        "dice",
+        "wminkowski",
+        "mahalanobis",
+        "haversine",
+    ],
 )
 def test_umap_metric(manifold_data, metric):
     X = manifold_data
+    # haversine only works for 2D data
+    if metric == "haversine":
+        X = X[:, :2]
     umap = UMAP(metric=metric, random_state=42)
     X_embedded = umap.fit_transform(X)
     trust = trustworthiness(X, X_embedded, n_neighbors=5)
