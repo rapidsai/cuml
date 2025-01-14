@@ -6,6 +6,8 @@ set -euo pipefail
 package_name="cuml"
 package_dir="python/cuml"
 
+RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
+
 # Download the libcuml wheel built in the previous step and make it
 # available for pip to find.
 LIBCUML_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libcuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp /tmp/libcuml_dist)
@@ -38,8 +40,6 @@ python -m pip install \
     -v \
     --prefer-binary \
     -r /tmp/requirements-build.txt
-
-RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
 # build with '--no-build-isolation', for better sccache hit rate
 # 0 really means "add --no-build-isolation" (ref: https://github.com/pypa/pip/issues/5735)

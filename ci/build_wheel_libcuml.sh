@@ -6,6 +6,8 @@ set -euo pipefail
 package_name="libcuml"
 package_dir="python/libcuml"
 
+RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
+
 rapids-logger "Generating build requirements"
 
 # TODO(jameslamb): remove this when https://github.com/rapidsai/raft/pull/2531 is merged
@@ -56,8 +58,6 @@ esac
 
 export SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/;-DUSE_CUVS_WHEEL=ON${EXTRA_CMAKE_ARGS};-DSINGLEGPU=OFF"
 ./ci/build_wheel.sh "${package_name}" "${package_dir}"
-
-RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
 mkdir -p ${package_dir}/final_dist
 python -m auditwheel repair \
