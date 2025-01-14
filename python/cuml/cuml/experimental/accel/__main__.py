@@ -34,7 +34,7 @@ from . import install
     help="Turn strict mode for hyperparameters on.",
 )
 @click.option(
-    "--convert_to_sklearn",
+    "--convert-to-sklearn",
     type=click.Path(exists=True),
     required=False,
     help="Path to a pickled accelerated estimator to convert to a sklearn estimator.",
