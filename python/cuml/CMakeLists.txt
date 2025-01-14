@@ -37,12 +37,14 @@ project(
 # - User Options  --------------------------------------------------------------
 option(CUML_UNIVERSAL "Build all cuML Python components." ON)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
+option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
 option(USE_CUVS_WHEEL "Use the cuVS wheel" OFF)
 option(USE_LIBCUML_WHEEL "Use libcuml wheel to provide some dependencies" OFF)
 
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
 # https://github.com/rapidsai/cuml/issues/4843
 message(VERBOSE "CUML_PY: Build only cuML CPU Python components.: ${CUML_CPU}")
+message(VERBOSE "CUML_PY: Use CUDA math wheels instead of system libraries: ${USE_CUDA_MATH_WHEELS}")
 message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 
 set(CUML_ALGORITHMS "ALL" CACHE STRING "Choose which algorithms are built cuML. Can specify individual algorithms or groups in a semicolon-separated list.")
@@ -84,9 +86,27 @@ else()
   include(rapids-export)
   rapids_cpm_init()
 
+  # --- CUDA --- #
+  set(CUDA_STATIC_RUNTIME ON)
+
+  # Link to the CUDA wheels with shared libraries for CUDA 12+
+  #
+  # This is here because we're rebuilding cuVS below...without it, cuVS on CUDA 11
+  # dynamically links to CUDA math libs (cuBLAS, cuFFT, etc.), and then
+  # that linkage results in those libraries being vendored in wheels by auditwheel.
+  find_package(CUDAToolkit REQUIRED)
+  if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
+    set(CUDA_STATIC_MATH_LIBRARIES OFF)
+  else()
+    if(USE_CUDA_MATH_WHEELS)
+      message(FATAL_ERROR "Cannot use CUDA math wheels with CUDA < 12.0")
+    endif()
+    set(CUDA_STATIC_MATH_LIBRARIES ON)
+  endif()
+
   # --- CCCL, RAFT, RMM ---#
   # find CCCL, RAFT, and RMM before cuVS, to avoid
-  # cuVS CMake defining conflicting versions of targets like 'nvidia::cutlaass'
+  # cuVS CMake defining conflicting versions of targets like 'nvidia::cutlass::cutlass'
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_cccl.cmake)
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_rmm.cmake)
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_raft.cmake)
