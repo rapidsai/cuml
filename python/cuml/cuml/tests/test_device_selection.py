@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -598,6 +598,10 @@ def test_train_cpu_infer_cpu(test_data):
     assert_func(cuml_output, test_data)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:The default value of `data_on_host` "
+    'will change from False to "auto" in 25.06'
+)
 def test_train_gpu_infer_cpu(test_data):
     cuEstimator = test_data["cuEstimator"]
 
@@ -635,6 +639,10 @@ def test_train_cpu_infer_gpu(test_data):
     assert_func(cuml_output, test_data)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:The default value of `data_on_host` "
+    'will change from False to "auto" in 25.06'
+)
 def test_train_gpu_infer_gpu(test_data):
     cuEstimator = test_data["cuEstimator"]
     if cuEstimator is UMAP and IS_ARM:
@@ -653,6 +661,10 @@ def test_train_gpu_infer_gpu(test_data):
     assert_func(cuml_output, test_data)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:The default value of `data_on_host` "
+    'will change from False to "auto" in 25.06'
+)
 def test_pickle_interop(tmp_path, test_data):
     pickle_filepath = tmp_path / "model.pickle"
 
@@ -843,6 +855,10 @@ def test_ridge_methods(train_device, infer_device):
     assert ref_output - tol <= output <= ref_output + tol
 
 
+@pytest.mark.filterwarnings(
+    "ignore:The default value of `data_on_host` "
+    'will change from False to "auto" in 25.06'
+)
 @pytest.mark.parametrize("device", ["cpu", "gpu"])
 @pytest.mark.skipif(
     IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
