@@ -6,8 +6,6 @@ set -euo pipefail
 package_name="cuml"
 package_dir="python/cuml"
 
-RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
-
 # Download the libcuml wheel built in the previous step and make it
 # available for pip to find.
 LIBCUML_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libcuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp /tmp/libcuml_dist)
@@ -22,6 +20,30 @@ EOF
 # Using env variable PIP_CONSTRAINT is necessary to ensure the constraints
 # are used when creating the isolated build environment.
 export PIP_CONSTRAINT="${PWD}/constraints.txt"
+
+rapids-logger "Generating build requirements"
+
+# TODO(jameslamb): remove this when https://github.com/rapidsai/raft/pull/2531 is merged
+source ./ci/use_wheels_from_prs.sh
+
+rapids-dependency-file-generator \
+  --output requirements \
+  --file-key "py_build_${package_name}" \
+  --file-key "py_rapids_build_${package_name}" \
+  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION};cuda_suffixed=true" \
+| tee /tmp/requirements-build.txt
+
+rapids-logger "Installing build requirements"
+python -m pip install \
+    -v \
+    --prefer-binary \
+    -r /tmp/requirements-build.txt
+
+RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
+
+# build with '--no-build-isolation', for better sccache hit rate
+# 0 really means "add --no-build-isolation" (ref: https://github.com/pypa/pip/issues/5735)
+export PIP_NO_BUILD_ISOLATION=0
 
 EXCLUDE_ARGS=(
   --exclude "libcuml++.so"
@@ -40,14 +62,10 @@ case "${RAPIDS_CUDA_VERSION}" in
       --exclude "libcusparse.so.12"
       --exclude "libnvJitLink.so.12"
     )
-    EXTRA_CMAKE_ARGS=";-DUSE_CUDA_MATH_WHEELS=ON"
-    ;;
-  11.*)
-    EXTRA_CMAKE_ARGS=";-DUSE_CUDA_MATH_WHEELS=OFF"
     ;;
 esac
 
-export SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/;-DUSE_CUVS_WHEEL=ON${EXTRA_CMAKE_ARGS};-DSINGLEGPU=OFF;-DUSE_LIBCUML_WHEEL=ON"
+export SKBUILD_CMAKE_ARGS="-DDETECT_CONDA_ENV=OFF;-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/;-DUSE_CUVS_WHEEL=ON;-DSINGLEGPU=OFF;-DUSE_LIBCUML_WHEEL=ON"
 ./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
 mkdir -p ${package_dir}/final_dist
