@@ -23,6 +23,7 @@ from cuml.internals.mem_type import MemoryType
 from cuml.internals import logger
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.safe_imports import gpu_only_import, cpu_only_import
+from sklearn.base import _clone_parametrized
 from typing import Optional, Tuple, Dict, Any, Type, List
 
 
@@ -276,6 +277,9 @@ def intercept(
                     self.__getstate__(),
                 ),
             )
+
+        def __sklearn_clone__(self):
+            return _clone_parametrized(self)
 
     logger.debug(
         f"Created proxy estimator: ({module_b}, {original_class_name}, {ProxyEstimator})"
