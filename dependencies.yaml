@@ -10,6 +10,7 @@ files:
       - cuda
       - cuda_version
       - depends_on_cudf
+      - depends_on_cuda_python
       - depends_on_cupy
       - depends_on_cuvs
       - depends_on_dask_cudf
@@ -23,8 +24,8 @@ files:
       - depends_on_rmm
       - depends_on_treelite
       - docs
-      - py_build
-      - py_run
+      - py_build_cuml
+      - py_run_cuml
       - py_version
       - rapids_build_backend
       - test_python
@@ -92,7 +93,7 @@ files:
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rmm
-      - py_run
+      - py_run_cuml
       - py_version
       - test_notebooks
   py_build_cuml:
@@ -117,13 +118,14 @@ files:
       - depends_on_pylibraft
       - depends_on_rmm
       - depends_on_treelite
-      - py_build
+      - py_build_cuml
   py_run_cuml:
     output: pyproject
     pyproject_dir: python/cuml
     extras:
       table: project
     includes:
+      - depends_on_cuda_python
       - depends_on_cudf
       - depends_on_cupy
       - depends_on_cuvs
@@ -133,7 +135,7 @@ files:
       - depends_on_raft_dask
       - depends_on_rmm
       - depends_on_treelite
-      - py_run
+      - py_run_cuml
   py_test_cuml:
     output: pyproject
     pyproject_dir: python/cuml
@@ -160,7 +162,7 @@ files:
       - common_build
       - depends_on_libraft
       - depends_on_librmm
-      - py_build
+      - py_build_cuml
   py_run_libcuml:
     output: pyproject
     pyproject_dir: python/libcuml
@@ -243,27 +245,13 @@ dependencies:
               cuda: "12.*"
             packages:
               - cuda-nvcc
-  py_build:
+  py_build_cuml:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
           - &cython cython>=3.0.0
-    specific:
-      - output_types: [conda, requirements, pyproject]
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - cuda-python>=12.6.2,<13.0a0
-          - matrix:
-              cuda: "11.*"
-            packages:
-              - cuda-python>=11.8.5,<12.0a0
-          - matrix:
-            packages:
-              - cuda-python
 
-  py_run:
+  py_run_cuml:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
@@ -500,6 +488,21 @@ dependencies:
           - *scikit_learn
           - seaborn
           - *xgboost
+  depends_on_cuda_python:
+    specific:
+      - output_types: [conda, requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - cuda-python>=12.6.2,<13.0a0
+          - matrix:
+              cuda: "11.*"
+            packages:
+              - cuda-python>=11.8.5,<12.0a0
+          - matrix:
+            packages:
+              - cuda-python
   depends_on_cudf:
     common:
       - output_types: conda
