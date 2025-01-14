@@ -80,7 +80,6 @@ dependencies-file = "../../dependencies.yaml"
 matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
 requires = [
     "cmake>=3.26.4,!=3.30.0",
-    "cython>=3.0.0",
     "libraft==25.2.*,>=0.0.0a0",
     "librmm==25.2.*,>=0.0.0a0",
     "ninja",

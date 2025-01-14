@@ -175,6 +175,7 @@ matrix-entry = "cuda_suffixed=true"
 
 requires = [
     "cmake>=3.26.4,!=3.30.0",
+    "cuda-python",
     "cython>=3.0.0",
     "libcuml==25.2.*,>=0.0.0a0",
     "libraft==25.2.*,>=0.0.0a0",

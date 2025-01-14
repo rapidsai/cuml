@@ -17,12 +17,10 @@ files:
       - depends_on_libcumlprims
       - depends_on_libcuvs
       - depends_on_libraft
-      - depends_on_libraft_headers
       - depends_on_librmm
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rmm
-      - depends_on_treelite
       - docs
       - py_build_cuml
       - py_run_cuml
@@ -111,13 +109,13 @@ files:
       key: requires
     includes:
       - common_build
+      - depends_on_cuda_python
       - depends_on_libcuml
       - depends_on_libcumlprims
       - depends_on_libraft
       - depends_on_librmm
       - depends_on_pylibraft
       - depends_on_rmm
-      - depends_on_treelite
       - py_build_cuml
   py_run_cuml:
     output: pyproject
@@ -134,7 +132,6 @@ files:
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rmm
-      - depends_on_treelite
       - py_run_cuml
   py_test_cuml:
     output: pyproject
@@ -158,11 +155,9 @@ files:
       table: tool.rapids-build-backend
       key: requires
     includes:
-      # TODO(jameslamb): split out cuda-python and cython
       - common_build
       - depends_on_libraft
       - depends_on_librmm
-      - py_build_cuml
   py_run_libcuml:
     output: pyproject
     pyproject_dir: python/libcuml
@@ -250,6 +245,7 @@ dependencies:
       - output_types: [conda, requirements, pyproject]
         packages:
           - &cython cython>=3.0.0
+          - &treelite treelite==4.3.0
 
   py_run_cuml:
     common:
@@ -265,6 +261,7 @@ dependencies:
           - scipy>=1.8.0
           - packaging
           - rapids-dask-dependency==25.2.*,>=0.0.0a0
+          - *treelite
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
@@ -766,8 +763,3 @@ dependencies:
           - matrix:
             packages:
               - *rmm_unsuffixed
-  depends_on_treelite:
-    common:
-      - output_types: [conda, requirements, pyproject]
-        packages:
-          - treelite==4.3.0
