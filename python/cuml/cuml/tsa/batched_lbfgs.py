@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -91,6 +91,7 @@ def batched_fmin_lbfgs_b(
              -1 for no diagnostic info
              n=1-100 for diagnostic info every n steps.
              >100 for detailed diagnostic info
+             Only used for Scipy < 1.15
     maxiter : int
               Maximum number of L-BFGS iterations
     maxls   : int
@@ -100,6 +101,8 @@ def batched_fmin_lbfgs_b(
 
     if has_scipy():
         from scipy.optimize import _lbfgsb
+
+        scipy_greater_115 = has_scipy(min_version="1.15")
     else:
         raise RuntimeError("Scipy is needed to run batched_fmin_lbfgs_b")
 
@@ -142,13 +145,21 @@ def batched_fmin_lbfgs_b(
         for ib in range(num_batches)
     ]
     iwa = [np.copy(np.zeros(3 * n, np.int32)) for ib in range(num_batches)]
-    task = [np.copy(np.zeros(1, "S60")) for ib in range(num_batches)]
-    csave = [np.copy(np.zeros(1, "S60")) for ib in range(num_batches)]
+
+    # we need different inputs after Scipy 1.15 using a C-based lbfgs
+    if scipy_greater_115:
+        task = [np.copy(np.zeros(1, np.int32)) for ib in range(num_batches)]
+        ln_task = [np.copy(np.zeros(1, np.int32)) for ib in range(num_batches)]
+    else:
+        task = [np.copy(np.zeros(1, "S60")) for ib in range(num_batches)]
+        csave = [np.copy(np.zeros(1, "S60")) for ib in range(num_batches)]
+
     lsave = [np.copy(np.zeros(4, np.int32)) for ib in range(num_batches)]
     isave = [np.copy(np.zeros(44, np.int32)) for ib in range(num_batches)]
     dsave = [np.copy(np.zeros(29, np.float64)) for ib in range(num_batches)]
-    for ib in range(num_batches):
-        task[ib][:] = "START"
+    if not scipy_greater_115:
+        for ib in range(num_batches):
+            task[ib][:] = "START"
 
     n_iterations = np.zeros(num_batches, dtype=np.int32)
 
@@ -161,27 +172,47 @@ def batched_fmin_lbfgs_b(
             for ib in range(num_batches):
                 if converged[ib]:
                     continue
-
-                _lbfgsb.setulb(
-                    m,
-                    x[ib],
-                    low_bnd,
-                    upper_bnd,
-                    nbd,
-                    f[ib],
-                    g[ib],
-                    factr,
-                    pgtol,
-                    wa[ib],
-                    iwa[ib],
-                    task[ib],
-                    iprint,
-                    csave[ib],
-                    lsave[ib],
-                    isave[ib],
-                    dsave[ib],
-                    maxls,
-                )
+                if scipy_greater_115:
+                    _lbfgsb.setulb(
+                        m,
+                        x[ib],
+                        low_bnd,
+                        upper_bnd,
+                        nbd,
+                        f[ib],
+                        g[ib],
+                        factr,
+                        pgtol,
+                        wa[ib],
+                        iwa[ib],
+                        task[ib],
+                        lsave[ib],
+                        isave[ib],
+                        dsave[ib],
+                        maxls,
+                        ln_task[ib],
+                    )
+                else:
+                    _lbfgsb.setulb(
+                        m,
+                        x[ib],
+                        low_bnd,
+                        upper_bnd,
+                        nbd,
+                        f[ib],
+                        g[ib],
+                        factr,
+                        pgtol,
+                        wa[ib],
+                        iwa[ib],
+                        task[ib],
+                        iprint,
+                        csave[ib],
+                        lsave[ib],
+                        isave[ib],
+                        dsave[ib],
+                        maxls,
+                    )
 
             xk = np.concatenate(x)
             fk = func(xk)
@@ -189,19 +220,45 @@ def batched_fmin_lbfgs_b(
             for ib in range(num_batches):
                 if converged[ib]:
                     continue
-                task_str = task[ib].tobytes()
-                task_str_strip = task[ib].tobytes().strip(b"\x00").strip()
-                if task_str.startswith(b"FG"):
+
+                # This are the status messages in scipy 1.15:
+                # status_messages = {
+                #     0 : "START",
+                #     1 : "NEW_X",
+                #     2 : "RESTART",
+                #     3 : "FG",
+                #     4 : "CONVERGENCE",
+                #     5 : "STOP",
+                #     6 : "WARNING",
+                #     7 : "ERROR",
+                #     8 : "ABNORMAL"
+                # }
+                if scipy_greater_115:
+                    cond1 = task[0] == 3
+                    cond2 = task[0] == 1
+                    cond3 = task[0] == 4
+                else:
+                    task_str = task[ib].tobytes()
+                    task_str_strip = task[ib].tobytes().strip(b"\x00").strip()
+                    cond1 = task_str.startswith(b"FG")
+                    cond2 = task_str.startswith(b"NEW_X")
+                    cond3 = task_str_strip.startswith(b"CONV")
+
+                if cond1:
                     # needs function evaluation
                     f[ib] = fk[ib]
                     g[ib] = gk[ib * n : (ib + 1) * n]
-                elif task_str.startswith(b"NEW_X"):
+                elif cond2:
                     n_iterations[ib] += 1
                     if n_iterations[ib] >= maxiter:
-                        task[ib][
-                            :
-                        ] = "STOP: TOTAL NO. of ITERATIONS REACHED LIMIT"
-                elif task_str_strip.startswith(b"CONV"):
+                        if scipy_greater_115:
+                            task[ib][0] = 5
+                            task[ib][1] = 504
+                        else:
+                            task[ib][
+                                :
+                            ] = "STOP: TOTAL NO. of ITERATIONS REACHED LIMIT"
+                elif cond3:
                     converged[ib] = True
                     warn_flag[ib] = 0
                 else:
