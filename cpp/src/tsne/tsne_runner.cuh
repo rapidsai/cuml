@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ class TSNE_runner {
     this->p = input.d;
     this->Y = input.y;
 
-    ML::Logger::get().setLevel(params.verbosity);
+    ML::default_logger().set_level(params.verbosity);
     if (params.dim > 2 and params.algorithm != TSNE_ALGORITHM::EXACT) {
       params.algorithm = TSNE_ALGORITHM::EXACT;
       CUML_LOG_WARN(

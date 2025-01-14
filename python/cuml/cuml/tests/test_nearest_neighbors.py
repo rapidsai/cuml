@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -617,14 +617,14 @@ def test_nearest_neighbors_sparse(
         a = a.astype("bool").astype("float32")
         b = b.astype("bool").astype("float32")
 
-    logger.set_level(logger.level_debug)
+    logger.set_level(logger.level_enum.debug)
     nn = cuKNN(
         metric=metric,
         p=2.0,
         n_neighbors=n_neighbors,
         algorithm="brute",
         output_type="numpy",
-        verbose=logger.level_debug,
+        verbose=logger.level_enum.debug,
         algo_params={
             "batch_size_index": batch_size_index,
             "batch_size_query": batch_size_query,

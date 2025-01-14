@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,14 +61,16 @@ int qn_fit(const raft::handle_t& handle,
   if (l2 == 0) {
     GLMWithData<T, LossFunction> lossWith(&loss, X, y, Z);
 
-    return qn_minimize(handle, w0, fx, num_iters, lossWith, l1, opt_param, pams.verbose);
+    return qn_minimize(
+      handle, w0, fx, num_iters, lossWith, l1, opt_param, static_cast<level_enum>(pams.verbose));
 
   } else {
     Tikhonov<T> reg(l2);
     RegularizedGLM<T, LossFunction, decltype(reg)> obj(&loss, &reg);
     GLMWithData<T, decltype(obj)> lossWith(&obj, X, y, Z);
 
-    return qn_minimize(handle, w0, fx, num_iters, lossWith, l1, opt_param, pams.verbose);
+    return qn_minimize(
+      handle, w0, fx, num_iters, lossWith, l1, opt_param, static_cast<level_enum>(pams.verbose));
   }
 }
 

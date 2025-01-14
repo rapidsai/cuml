@@ -69,15 +69,14 @@ repos:
                 CMakeLists[.]txt$|
                 CMakeLists_standalone[.]txt$|
                 [.]flake8[.]cython$|
-                meta[.]yaml$|
-                setup[.]cfg$
+                meta[.]yaml$
           exclude: |
             (?x)
                 cpp/src/tsne/cannylab/bh[.]cu$|
                 python/cuml/cuml/_thirdparty
         - id: verify-alpha-spec
     - repo: https://github.com/rapidsai/dependency-file-generator
-      rev: v1.16.0
+      rev: v1.17.0
       hooks:
           - id: rapids-dependency-file-generator
             args: ["--clean"]

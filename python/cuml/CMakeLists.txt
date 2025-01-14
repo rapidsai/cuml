@@ -1,5 +1,5 @@
 # =============================================================================
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 # in compliance with the License. You may obtain a copy of the License at
@@ -83,14 +83,12 @@ if(NOT CUML_CPU)
     set(BUILD_CUML_C_LIBRARY OFF)
     set(BUILD_CUML_EXAMPLES OFF)
     set(BUILD_CUML_BENCH OFF)
-    set(BUILD_CUML_PRIMS_BENCH OFF)
     set(CUML_EXPORT_TREELITE_LINKAGE ON)
     set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
 
     # Statically link dependencies if building wheels
     set(CUDA_STATIC_RUNTIME ON)
     set(CUML_USE_CUVS_STATIC ON)
-    set(CUML_USE_FAISS_STATIC ON)
     set(CUML_USE_TREELITE_STATIC ON)
     set(CUML_USE_CUMLPRIMS_MG_STATIC ON)
     # Link to the CUDA wheels with shared libraries for CUDA 12+
@@ -176,7 +174,7 @@ endif()
 include("${CUML_CPP_SRC}/cmake/modules/ConfigureAlgorithms.cmake")
 include(cmake/ConfigureCythonAlgorithms.cmake)
 
-if(${CUML_CPU})
+if(CUML_CPU)
   # libcuml requires metrics built if HDSCAN is built, which is not the case
   # for cuml-cpu
   unset(metrics_algo)
