@@ -77,7 +77,7 @@ def test_new_data_on_host_default():
     u.fit(data, data_on_host=False)
     u.fit_transform(data, data_on_host=False)
 
-    # XXX crashes with CUDA memory error, why?
+    # XXX crashes with CUDA memory error, why? Too many rows?
     """
     # No warning when the data is sparse
     print("E")
