@@ -101,6 +101,6 @@ def load_library():
 
     # The caller almost never needs to do anything with these libraries, but no
     # harm in offering the option since these objects at least provide handles
-    # to inspect where libcugraph was loaded from.
+    # to inspect where libcuml was loaded from.
 
     return libs_to_return

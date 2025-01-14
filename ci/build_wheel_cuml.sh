@@ -16,7 +16,7 @@ LIBCUML_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libcuml_${RAPIDS_PY_CUDA_SUFFIX}" rap
 source ./ci/use_wheels_from_prs.sh
 
 cat >> ./constraints.txt <<EOF
-libcuml-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${LIBCUGRAPH_WHEELHOUSE}/libcuml_*.whl)
+libcuml-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${LIBCUML_WHEELHOUSE}/libcuml_*.whl)
 EOF
 
 # Using env variable PIP_CONSTRAINT is necessary to ensure the constraints
