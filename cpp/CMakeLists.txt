@@ -420,6 +420,25 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/hdbscan/hdbscan.cu
         src/hdbscan/condensed_hierarchy.cu
         src/hdbscan/prediction_data.cu)
+
+    set_property(
+      SOURCE src/hdbscan/condensed_hierarchy.cu
+      APPEND_STRING
+      PROPERTY COMPILE_FLAGS
+      " -Xcompiler=-Wno-maybe-uninitialized"
+    )
+    set_property(
+      SOURCE src/hdbscan/hdbscan.cu
+      APPEND_STRING
+      PROPERTY COMPILE_FLAGS
+      " -Xcompiler=-Wno-maybe-uninitialized"
+    )
+    set_property(
+      SOURCE src/hdbscan/prediction_data.cu
+      APPEND_STRING
+      PROPERTY COMPILE_FLAGS
+      " -Xcompiler=-Wno-maybe-uninitialized"
+    )
   endif()
 
   if(all_algo OR holtwinters_algo)
