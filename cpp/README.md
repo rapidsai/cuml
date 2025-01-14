@@ -37,7 +37,6 @@ Current cmake offers the following configuration options:
 | BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
 | BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
 | BUILD_CUML_BENCH | [ON, OFF]  | ON  | Enable/disable building of cuML C++ benchark. |
-| BUILD_CUML_PRIMS_BENCH | [ON, OFF]  | ON  | Enable/disable building of ml-prims C++ benchark. |
 | BUILD_CUML_STD_COMMS | [ON, OFF] | ON | Enable/disable building cuML NCCL+UCX communicator for running multi-node multi-GPU algorithms. Note that UCX support can also be enabled/disabled (see below). The standard communicator and MPI communicator are not mutually exclusive and can both be installed at the same time. |
 | WITH_UCX | [ON, OFF] | OFF | Enable/disable UCX support in the standard cuML communicator. Algorithms requiring point-to-point messaging will not work when this is disabled. This flag is ignored if BUILD_CUML_STD_COMMS is set to OFF. |
 | BUILD_CUML_MPI_COMMS | [ON, OFF] | OFF | Enable/disable building cuML MPI+NCCL communicator for running multi-node multi-GPU C++ tests. MPI communicator and STD communicator may both be installed at the same time. If OFF, it overrides BUILD_CUML_MG_TESTS to be OFF as well. |

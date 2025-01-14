@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -211,9 +211,9 @@ class RandomForest {
                int n_cols,
                L* predictions,
                const RandomForestMetaData<T, L>* forest,
-               int verbosity) const
+               level_enum verbosity) const
   {
-    ML::Logger::get().setLevel(verbosity);
+    ML::default_logger().set_level(verbosity);
     this->error_checking(input, predictions, n_rows, n_cols, true);
     std::vector<L> h_predictions(n_rows);
     cudaStream_t stream = user_handle.get_stream();
@@ -224,7 +224,7 @@ class RandomForest {
 
     int row_size = n_cols;
 
-    ML::PatternSetter _("%v");
+    default_logger().set_pattern("%v");
     for (int row_id = 0; row_id < n_rows; row_id++) {
       std::vector<T> row_prediction(forest->trees[0]->num_outputs);
       for (int i = 0; i < this->rf_params.n_trees; i++) {
@@ -258,6 +258,7 @@ class RandomForest {
 
     raft::update_device(predictions, h_predictions.data(), n_rows, stream);
     user_handle.sync_stream(stream);
+    default_logger().set_pattern(default_pattern());
   }
 
   /**
@@ -276,16 +277,16 @@ class RandomForest {
                           const L* ref_labels,
                           int n_rows,
                           const L* predictions,
-                          int verbosity,
+                          level_enum verbosity,
                           int rf_type = RF_type::CLASSIFICATION)
   {
-    ML::Logger::get().setLevel(verbosity);
+    ML::default_logger().set_level(verbosity);
     cudaStream_t stream = user_handle.get_stream();
     RF_metrics stats;
     if (rf_type == RF_type::CLASSIFICATION) {  // task classifiation: get classification metrics
       float accuracy = raft::stats::accuracy(predictions, ref_labels, n_rows, stream);
       stats          = set_rf_metrics_classification(accuracy);
-      if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) print(stats);
+      if (ML::default_logger().should_log(ML::level_enum::debug)) print(stats);
 
       /* TODO: Potentially augment RF_metrics w/ more metrics (e.g., precision, F1, etc.).
         For non binary classification problems (i.e., one target and  > 2 labels), need avg.
@@ -300,7 +301,7 @@ class RandomForest {
                                       mean_squared_error,
                                       median_abs_error);
       stats = set_rf_metrics_regression(mean_abs_error, mean_squared_error, median_abs_error);
-      if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) print(stats);
+      if (ML::default_logger().should_log(ML::level_enum::debug)) print(stats);
     }
 
     return stats;

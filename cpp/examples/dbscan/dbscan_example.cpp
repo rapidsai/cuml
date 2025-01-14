@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -209,7 +209,7 @@ int main(int argc, char* argv[])
                   nullptr,
                   max_bytes_per_batch,
                   ML::Dbscan::EpsNnMethod::BRUTE_FORCE,
-                  false);
+                  ML::level_enum::off);
   CUDA_RT_CALL(cudaMemcpyAsync(
     h_labels.data(), d_labels, nRows * sizeof(int), cudaMemcpyDeviceToHost, stream));
   CUDA_RT_CALL(cudaStreamSynchronize(stream));
