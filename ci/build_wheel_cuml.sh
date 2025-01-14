@@ -8,8 +8,20 @@ package_dir="python/cuml"
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
+# Download the libcuml wheel built in the previous step and make it
+# available for pip to find.
+LIBCUML_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libcuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp /tmp/libcuml_dist)
+
 # TODO(jameslamb): remove this when https://github.com/rapidsai/raft/pull/2531 is merged
 source ./ci/use_wheels_from_prs.sh
+
+cat >> ./constraints.txt <<EOF
+libcuml-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${LIBCUGRAPH_WHEELHOUSE}/libcuml_*.whl)
+EOF
+
+# Using env variable PIP_CONSTRAINT is necessary to ensure the constraints
+# are used when creating the isolated build environment.
+export PIP_CONSTRAINT="${PWD}/constraints.txt"
 
 EXCLUDE_ARGS=(
   --exclude "libcuml++.so"
@@ -20,7 +32,6 @@ EXCLUDE_ARGS=(
 case "${RAPIDS_CUDA_VERSION}" in
   12.*)
     EXCLUDE_ARGS+=(
-      --exclude "libcuvs.so"
       --exclude "libcublas.so.12"
       --exclude "libcublasLt.so.12"
       --exclude "libcufft.so.11"

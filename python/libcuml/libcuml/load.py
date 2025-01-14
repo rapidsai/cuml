@@ -67,10 +67,6 @@ def load_library():
         # the loader can find it.
         pass
 
-    # treelite must be loaded before libcuml++ because libcuml++
-    # references its symbols
-    import treelite
-
     prefer_system_installation = (
         os.getenv("RAPIDS_LIBCUML_PREFER_SYSTEM_LIBRARY", "false").lower()
         != "false"

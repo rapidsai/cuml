@@ -19,9 +19,7 @@ include(../../rapids_config.cmake)
 option(CUML_CPU "Build only cuML CPU Python components." OFF)
 set(language_list "CXX")
 
-# TODO(jameslamb): can this be removed? (I think so?)
 if(NOT CUML_CPU)
-  # TODO(jameslamb): where does rapids_cuda_init_architectures belong?
   # We always need CUDA for cuML GPU because the raft dependency brings in a
   # header-only cuco dependency that enables CUDA unconditionally.
   include(rapids-cuda)

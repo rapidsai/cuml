@@ -32,7 +32,6 @@ tmp/
 .hypothesis
 wheels/
 wheelhouse/
-raft_log.txt
 _skbuild/
 
 ## files pickled in notebook when ran during python docstring generation
