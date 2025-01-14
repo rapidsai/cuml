@@ -123,6 +123,7 @@ files:
     extras:
       table: project
     includes:
+      - cuda_wheels
       - depends_on_cuda_python
       - depends_on_cudf
       - depends_on_cupy
