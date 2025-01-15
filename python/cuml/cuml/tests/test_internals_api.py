@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2023, NVIDIA CORPORATION.
+# Copyright (c) 2018-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,10 @@ class CustomCallback(GraphBasedDimRedCallback):
         self.train_event = True
 
 
+@pytest.mark.filterwarnings(
+    "ignore:The default value of `data_on_host` "
+    'will change from False to "auto" in 25.06'
+)
 @pytest.mark.parametrize("n_components", [2, 4, 8])
 def test_internals_api(n_components):
     callback = CustomCallback()

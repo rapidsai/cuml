@@ -50,6 +50,10 @@ IS_ARM = platform.processor() == "aarch64"
 if not IS_ARM:
     import umap
 
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The default value of `data_on_host` "
+    'will change from False to "auto" in 25.06'
+)
 
 dataset_names = ["iris", "digits", "wine", "blobs"]
 

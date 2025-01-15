@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -104,6 +104,10 @@ def make_dataset(dtype, nrows, ncols, ninfo):
 ###############################################################################
 
 
+@pytest.mark.filterwarnings(
+    "ignore:The default value of `data_on_host` "
+    'will change from False to "auto" in 25.06'
+)
 @pytest.mark.parametrize("model_name", models.keys())
 @pytest.mark.parametrize("dtype", test_dtypes_all)
 def test_estimators_all_dtypes(model_name, dtype):
