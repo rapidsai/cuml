@@ -22,8 +22,8 @@ files:
       - depends_on_raft_dask
       - depends_on_rmm
       - docs
-      - py_build
-      - py_run
+      - py_build_cuml
+      - py_run_cuml
       - py_version
       - rapids_build_backend
       - test_python
@@ -115,7 +115,7 @@ files:
       - depends_on_libraft_headers
       - depends_on_pylibraft
       - depends_on_rmm
-      - py_build
+      - py_build_cuml
   py_run_cuml:
     output: pyproject
     pyproject_dir: python/cuml
@@ -131,7 +131,7 @@ files:
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rmm
-      - py_run
+      - py_run_cuml
   py_test_cuml:
     output: pyproject
     pyproject_dir: python/cuml
@@ -221,14 +221,14 @@ dependencies:
             packages:
               - cuda-nvcc
               - gcc_linux-aarch64=13.*
-  py_build:
+  py_build_cuml:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
           - &cython cython>=3.0.0
           - &treelite treelite==4.3.0
 
-  py_run:
+  py_run_cuml:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
