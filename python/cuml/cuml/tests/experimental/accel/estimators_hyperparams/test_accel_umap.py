@@ -59,7 +59,7 @@ def test_umap_min_dist(manifold_data, min_dist):
         "sokalmichener",
         "yule",
         "ll_dirichlet",
-        "russelrao",
+        "russellrao",
         "kulsinski",
         "dice",
         "wminkowski",
@@ -72,6 +72,7 @@ def test_umap_metric(manifold_data, metric):
     # haversine only works for 2D data
     if metric == "haversine":
         X = X[:, :2]
+
     umap = UMAP(metric=metric, random_state=42)
     X_embedded = umap.fit_transform(X)
     trust = trustworthiness(X, X_embedded, n_neighbors=5)
