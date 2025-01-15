@@ -150,7 +150,7 @@ if("${CMAKE_CUDA_COMPILER_VERSION}" VERSION_GREATER_EQUAL "11.2")
     if(all_algo OR hdbscan_algo)
       ConfigureTest(PREFIX SG NAME HDBSCAN_TEST  sg/hdbscan_test.cu ML_INCLUDE)
       # When using GCC 13, some maybe-uninitialized warnings appear from CCCL and are treated as errors.
-	    # See this issue: https://github.com/rapidsai/cuml/issues/6225
+      # See this issue: https://github.com/rapidsai/cuml/issues/6225
       set_property(
         SOURCE sg/hdbscan_test.cu
         APPEND_STRING
