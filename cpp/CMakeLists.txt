@@ -421,6 +421,8 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/hdbscan/condensed_hierarchy.cu
         src/hdbscan/prediction_data.cu)
 
+    # When using GCC 13, some maybe-uninitialized warnings appear from CCCL and are treated as errors.
+    # See this issue: https://github.com/rapidsai/cuml/issues/6225
     set_property(
       SOURCE src/hdbscan/condensed_hierarchy.cu
       APPEND_STRING
