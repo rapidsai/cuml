@@ -59,7 +59,7 @@ def test_umap_min_dist(manifold_data, min_dist):
         "sokalmichener",
         "yule",
         "ll_dirichlet",
-        "russellrao",
+        "russelrao",
         "kulsinski",
         "dice",
         "wminkowski",
