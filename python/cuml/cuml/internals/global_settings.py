@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,6 +53,7 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
                 "accelerator_active": False,
                 "accelerator_loaded": False,
                 "accelerated_modules": {},
+                "_api_depth": 0,
             }
         )
 
@@ -134,3 +135,13 @@ class GlobalSettings:
     @property
     def xpy(self):
         return self.memory_type.xpy
+
+    @property
+    def api_depth(self):
+        return self._api_depth
+
+    def increment_api_depth(self):
+        self._api_depth += 1
+
+    def decrement_api_depth(self):
+        self._api_depth -= 1
