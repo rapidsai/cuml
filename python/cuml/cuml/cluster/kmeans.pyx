@@ -36,7 +36,10 @@ IF GPUBUILD == 1:
     from cuml.metrics.distance_type cimport DistanceType
     from cuml.cluster.kmeans_utils cimport params as KMeansParams
     from cuml.cluster.kmeans_utils cimport KMeansPlusPlus, Random, Array
-    from cuml.cluster.kmeans_utils cimport DistanceType as CuvsDistanceType
+    from cuml.cluster cimport kmeans_utils
+
+    # Avoid potential future conflicts with cuml's level enum
+    ctypedef kmeans_utils.level_enum raft_level_enum
 
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -206,9 +209,9 @@ class KMeans(UniversalBase,
             params.init = self._params_init
             params.max_iter = <int>self.max_iter
             params.tol = <double>self.tol
-            params.verbosity = <int>self.verbose
+            params.verbosity = <raft_level_enum>(<int>self.verbose)
             params.rng_state.seed = self.random_state
-            params.metric = CuvsDistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
+            params.metric = DistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
             params.batch_samples = <int>self.max_samples_per_batch
             params.oversampling_factor = <double>self.oversampling_factor
             params.n_init = <int>self.n_init
@@ -286,6 +289,7 @@ class KMeans(UniversalBase,
         Compute k-means clustering with X.
 
         """
+        self._n_features_out = self.n_clusters
         if self.init == 'preset':
             check_cols = self.n_features_in_
             check_dtype = self.dtype
@@ -302,6 +306,8 @@ class KMeans(UniversalBase,
                                 convert_to_dtype=(target_dtype if convert_dtype
                                                   else None),
                                 check_dtype=check_dtype)
+
+        self.feature_names_in_ = _X_m.index
 
         IF GPUBUILD == 1:
 
@@ -564,7 +570,7 @@ class KMeans(UniversalBase,
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
     @enable_device_interop
-    def predict(self, X, convert_dtype=True, sample_weight=None,
+    def predict(self, X, y=None, convert_dtype=True, sample_weight=None,
                 normalize_weights=True) -> CumlArray:
         """
         Predict the closest cluster each sample in X belongs to.
@@ -583,7 +589,7 @@ class KMeans(UniversalBase,
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
     @enable_device_interop
-    def transform(self, X, convert_dtype=True) -> CumlArray:
+    def transform(self, X, y=None, convert_dtype=True) -> CumlArray:
         """
         Transform X to a cluster-distance space.
 
@@ -611,7 +617,7 @@ class KMeans(UniversalBase,
             cdef KMeansParams* params = \
                 <KMeansParams*><size_t>self._get_kmeans_params()
 
-            params.metric = CuvsDistanceType.L2Expanded
+            params.metric = DistanceType.L2Expanded
 
             int_dtype = np.int32 if self.labels_.dtype == np.int32 else np.int64
 
@@ -687,7 +693,7 @@ class KMeans(UniversalBase,
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
     @enable_device_interop
-    def fit_transform(self, X, convert_dtype=False,
+    def fit_transform(self, X, y=None, convert_dtype=False,
                       sample_weight=None) -> CumlArray:
         """
         Compute clustering and transform X to cluster-distance space.
@@ -696,12 +702,14 @@ class KMeans(UniversalBase,
         self.fit(X, sample_weight=sample_weight)
         return self.transform(X, convert_dtype=convert_dtype)
 
-    def get_param_names(self):
-        return super().get_param_names() + \
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
             ['n_init', 'oversampling_factor', 'max_samples_per_batch',
                 'init', 'max_iter', 'n_clusters', 'random_state',
                 'tol', "convert_dtype"]
 
     def get_attr_names(self):
         return ['cluster_centers_', 'labels_', 'inertia_',
-                'n_iter_', 'n_features_in_', '_n_threads']
+                'n_iter_', 'n_features_in_', '_n_threads',
+                "feature_names_in_", "_n_features_out"]

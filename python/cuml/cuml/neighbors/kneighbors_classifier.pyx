@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.internals.api_decorators import enable_device_interop
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
@@ -140,6 +141,17 @@ class KNeighborsClassifier(ClassifierMixin,
     y = CumlArrayDescriptor()
     classes_ = CumlArrayDescriptor()
 
+    _hyperparam_interop_translator = {
+        "weights": {
+            "distance": "NotImplemented",
+        },
+        "algorithm": {
+            "auto": "brute",
+            "ball_tree": "brute",
+            "kd_tree": "brute",
+        },
+    }
+
     def __init__(self, *, weights="uniform", handle=None, verbose=False,
                  output_type=None, **kwargs):
         super().__init__(
@@ -235,6 +247,7 @@ class KNeighborsClassifier(ClassifierMixin,
                                        'description': 'Labels probabilities',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_generic()
+    @enable_device_interop
     def predict_proba(
             self,
             X,
@@ -298,5 +311,6 @@ class KNeighborsClassifier(ClassifierMixin,
         return final_classes[0] \
             if len(final_classes) == 1 else tuple(final_classes)
 
-    def get_param_names(self):
-        return super().get_param_names() + ["weights"]
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + ["weights"]

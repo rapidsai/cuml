@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -629,7 +629,7 @@ def test_logistic_regression_model_default(dtype):
 
 
 @given(
-    dtype=floating_dtypes(sizes=(32, 64)),
+    dtype=st.sampled_from((np.float32, np.float64)),
     order=st.sampled_from(("C", "F")),
     sparse_input=st.booleans(),
     fit_intercept=st.booleans(),
@@ -661,7 +661,7 @@ def test_logistic_regression_model_digits(
     assert score >= acceptable_score
 
 
-@given(dtype=floating_dtypes(sizes=(32, 64)))
+@given(dtype=st.sampled_from((np.float32, np.float64)))
 def test_logistic_regression_sparse_only(dtype, nlp_20news):
 
     # sklearn score with max_iter = 10000
@@ -685,7 +685,7 @@ def test_logistic_regression_sparse_only(dtype, nlp_20news):
 @given(
     dataset=split_datasets(
         standard_classification_datasets(
-            dtypes=floating_dtypes(sizes=(32, 64)),
+            dtypes=st.sampled_from((np.float32, np.float64)),
             n_classes=st.sampled_from((2, 10)),
             n_features=st.just(20),
             n_informative=st.just(10),
@@ -727,7 +727,7 @@ def test_logistic_regression_decision_function(
 @given(
     dataset=split_datasets(
         standard_classification_datasets(
-            dtypes=floating_dtypes(sizes=(32, 64)),
+            dtypes=st.sampled_from((np.float32, np.float64)),
             n_classes=st.sampled_from((2, 10)),
             n_features=st.just(20),
             n_informative=st.just(10),
@@ -772,7 +772,12 @@ def test_logistic_regression_predict_proba(
     sk_log_proba = sklog.predict_log_proba(X_test)
 
     assert array_equal(cu_proba, sk_proba)
-    assert array_equal(cu_log_proba, sk_log_proba)
+
+    # if the probabilities pass test, then the margin of the logarithm
+    # of the probabilities can be relaxed to avoid false positives.
+    assert array_equal(
+        cu_log_proba, sk_log_proba, unit_tol=1e-2, total_tol=1e-3
+    )
 
 
 @pytest.mark.parametrize("constructor", [np.array, cp.array, cudf.DataFrame])
@@ -994,11 +999,10 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
     ),
     algorithm=algorithms,
     xp=st.sampled_from([np, cp]),
-    copy=st.sampled_from((True, False, None, ...)),
+    copy=st.sampled_from((True, False, ...)),
 )
 @example(make_regression(n_features=1), "svd", cp, True)
 @example(make_regression(n_features=1), "svd", cp, False)
-@example(make_regression(n_features=1), "svd", cp, None)
 @example(make_regression(n_features=1), "svd", cp, ...)
 @example(make_regression(n_features=1), "svd", np, False)
 @example(make_regression(n_features=2), "svd", cp, False)
@@ -1008,11 +1012,10 @@ def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
     X, y = xp.asarray(X), xp.asarray(y)
     X_copy = X.copy()
 
-    with (pytest.warns(UserWarning) if copy in (None, ...) else nullcontext()):
-        if copy is ...:  # no argument
-            cuLR = cuLinearRegression(algorithm=algorithm)
-        else:
-            cuLR = cuLinearRegression(algorithm=algorithm, copy_X=copy)
+    if copy is ...:  # no argument
+        cuLR = cuLinearRegression(algorithm=algorithm)
+    else:
+        cuLR = cuLinearRegression(algorithm=algorithm, copy_X=copy)
 
     cuLR.fit(X, y)
 

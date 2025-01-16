@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,7 +58,19 @@ inline bool is_dev_ptr(const void* p)
   cudaPointerAttributes pointer_attr;
   cudaError_t err = cudaPointerGetAttributes(&pointer_attr, p);
   if (err == cudaSuccess) {
-    return pointer_attr.devicePointer;
+    return (pointer_attr.devicePointer || pointer_attr.type == cudaMemoryTypeDevice);
+  } else {
+    err = cudaGetLastError();
+    return false;
+  }
+}
+
+inline bool is_host_ptr(const void* p)
+{
+  cudaPointerAttributes pointer_attr;
+  cudaError_t err = cudaPointerGetAttributes(&pointer_attr, p);
+  if (err == cudaSuccess) {
+    return (pointer_attr.hostPointer || pointer_attr.type == cudaMemoryTypeUnregistered);
   } else {
     err = cudaGetLastError();
     return false;
@@ -352,10 +364,10 @@ class DecisionTree {
                       std::size_t n_cols,
                       DataT* predictions,
                       int num_outputs,
-                      int verbosity)
+                      level_enum verbosity)
   {
-    if (verbosity >= 0) { ML::Logger::get().setLevel(verbosity); }
-    ASSERT(!is_dev_ptr(rows) && !is_dev_ptr(predictions),
+    if (verbosity >= level_enum::off) { default_logger().set_level(verbosity); }
+    ASSERT(is_host_ptr(rows) && is_host_ptr(predictions),
            "DT Error: Current impl. expects both input and predictions to be CPU "
            "pointers.\n");
 

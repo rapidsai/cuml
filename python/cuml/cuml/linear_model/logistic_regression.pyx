@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,11 +25,11 @@ import pprint
 import cuml.internals
 from cuml.solvers import QN
 from cuml.internals.base import UniversalBase
-from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
+from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin, SparseInputTagMixin
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
-import cuml.internals.logger as logger
+from cuml.internals import logger
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.internals.api_decorators import device_interop_preparation
@@ -45,7 +45,8 @@ supported_solvers = ["qn"]
 
 class LogisticRegression(UniversalBase,
                          ClassifierMixin,
-                         FMajorInputTagMixin):
+                         FMajorInputTagMixin,
+                         SparseInputTagMixin):
     """
     LogisticRegression is a linear model that is used to model probability of
     occurrence of certain events, for example probability of success or fail of
@@ -189,6 +190,17 @@ class LogisticRegression(UniversalBase,
     class_weight = CumlArrayDescriptor(order='F')
     expl_spec_weights_ = CumlArrayDescriptor(order='F')
 
+    _hyperparam_interop_translator = {
+        "solver": {
+            "lbfgs": "qn",
+            "liblinear": "qn",
+            "newton-cg": "qn",
+            "newton-cholesky": "qn",
+            "sag": "qn",
+            "saga": "qn"
+        },
+    }
+
     @device_interop_preparation
     def __init__(
         self,
@@ -266,7 +278,7 @@ class LogisticRegression(UniversalBase,
             handle=self.handle,
         )
 
-        if logger.should_log_for(logger.level_debug):
+        if logger.should_log_for(logger.level_enum.debug):
             self.verb_prefix = "CY::"
             logger.debug(self.verb_prefix + "Estimator parameters:")
             logger.debug(pprint.pformat(self.__dict__))
@@ -342,24 +354,24 @@ class LogisticRegression(UniversalBase,
         else:
             loss = "sigmoid"
 
-        if logger.should_log_for(logger.level_debug):
+        if logger.should_log_for(logger.level_enum.debug):
             logger.debug(self.verb_prefix + "Setting loss to " + str(loss))
 
         self.solver_model.loss = loss
 
-        if logger.should_log_for(logger.level_debug):
+        if logger.should_log_for(logger.level_enum.debug):
             logger.debug(self.verb_prefix + "Calling QN fit " + str(loss))
 
         self.solver_model.fit(X, y_m, sample_weight=sample_weight,
                               convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array
-        if logger.should_log_for(logger.level_debug):
+        if logger.should_log_for(logger.level_enum.debug):
             logger.debug(
                 self.verb_prefix + "Setting coefficients " + str(loss)
             )
 
-        if logger.should_log_for(logger.level_trace):
+        if logger.should_log_for(logger.level_enum.trace):
             with using_output_type("cupy"):
                 logger.trace(self.verb_prefix + "Coefficients: " +
                              str(self.solver_model.coef_))
@@ -534,8 +546,9 @@ class LogisticRegression(UniversalBase,
     def intercept_(self, value):
         self.solver_model.intercept_ = value
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "penalty",
             "tol",
             "C",
@@ -553,7 +566,7 @@ class LogisticRegression(UniversalBase,
 
     def __setstate__(self, state):
         super().__init__(handle=None,
-                         verbose=state["verbose"])
+                         verbose=state["_verbose"])
         self.__dict__.update(state)
 
     def get_attr_names(self):

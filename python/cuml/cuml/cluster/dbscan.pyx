@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,12 +23,14 @@ cp = gpu_only_import('cupy')
 
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
+from cuml.internals import logger
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.logger cimport level_enum
 
 
 IF GPUBUILD == 1:
@@ -57,7 +59,7 @@ IF GPUBUILD == 1:
                       float* sample_weight,
                       size_t max_mbytes_per_batch,
                       EpsNnMethod eps_nn_method,
-                      int verbosity,
+                      level_enum verbosity,
                       bool opg) except +
 
         cdef void fit(handle_t& handle,
@@ -72,7 +74,7 @@ IF GPUBUILD == 1:
                       double* sample_weight,
                       size_t max_mbytes_per_batch,
                       EpsNnMethod eps_nn_method,
-                      int verbosity,
+                      level_enum verbosity,
                       bool opg) except +
 
         cdef void fit(handle_t& handle,
@@ -87,7 +89,7 @@ IF GPUBUILD == 1:
                       float* sample_weight,
                       size_t max_mbytes_per_batch,
                       EpsNnMethod eps_nn_method,
-                      int verbosity,
+                      level_enum verbosity,
                       bool opg) except +
 
         cdef void fit(handle_t& handle,
@@ -102,7 +104,7 @@ IF GPUBUILD == 1:
                       double* sample_weight,
                       size_t max_mbytes_per_batch,
                       EpsNnMethod eps_nn_method,
-                      int verbosity,
+                      level_enum verbosity,
                       bool opg) except +
 
 
@@ -225,6 +227,19 @@ class DBSCAN(UniversalBase,
     core_sample_indices_ = CumlArrayDescriptor(order="C")
     labels_ = CumlArrayDescriptor(order="C")
 
+    _hyperparam_interop_translator = {
+        "metric": {
+            "manhattan": "NotImplemented",
+            "chebyshev": "NotImplemented",
+            "minkowski": "NotImplemented",
+        },
+        "algorithm": {
+            "auto": "brute",
+            "ball_tree": "NotImplemented",
+            "kd_tree": "NotImplemented",
+        },
+    }
+
     @device_interop_preparation
     def __init__(self, *,
                  eps=0.5,
@@ -263,7 +278,7 @@ class DBSCAN(UniversalBase,
         opg that is set to `False` for SG, `True` for OPG (multi-GPU)
         """
         if out_dtype not in ["int32", np.int32, "int64", np.int64]:
-            raise ValueError("Invalid value for out_dtype. "
+            raise ValueError(f"Invalid value for out_dtype: {out_dtype}. "
                              "Valid values are {'int32', 'int64', "
                              "np.int32, np.int64}")
 
@@ -347,7 +362,7 @@ class DBSCAN(UniversalBase,
                         <float*> sample_weight_ptr,
                         <size_t>self.max_mbytes_per_batch,
                         <EpsNnMethod> algorithm,
-                        <int> self.verbose,
+                        <level_enum> self.verbose,
                         <bool> opg)
                 else:
                     fit(handle_[0],
@@ -362,7 +377,7 @@ class DBSCAN(UniversalBase,
                         <float*> sample_weight_ptr,
                         <size_t>self.max_mbytes_per_batch,
                         <EpsNnMethod> algorithm,
-                        <int> self.verbose,
+                        <level_enum> self.verbose,
                         <bool> opg)
 
             else:
@@ -379,7 +394,7 @@ class DBSCAN(UniversalBase,
                         <double*> sample_weight_ptr,
                         <size_t> self.max_mbytes_per_batch,
                         <EpsNnMethod> algorithm,
-                        <int> self.verbose,
+                        <level_enum> self.verbose,
                         <bool> opg)
                 else:
                     fit(handle_[0],
@@ -394,7 +409,7 @@ class DBSCAN(UniversalBase,
                         <double*> sample_weight_ptr,
                         <size_t> self.max_mbytes_per_batch,
                         <EpsNnMethod> algorithm,
-                        <int> self.verbose,
+                        <level_enum> self.verbose,
                         <bool> opg)
 
             # make sure that the `fit` is complete before the following
@@ -422,7 +437,7 @@ class DBSCAN(UniversalBase,
 
     @generate_docstring(skip_parameters_heading=True)
     @enable_device_interop
-    def fit(self, X, out_dtype="int32", sample_weight=None,
+    def fit(self, X, y=None, out_dtype="int32", sample_weight=None,
             convert_dtype=True) -> "DBSCAN":
         """
         Perform DBSCAN clustering from features.
@@ -447,7 +462,7 @@ class DBSCAN(UniversalBase,
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
     @enable_device_interop
-    def fit_predict(self, X, out_dtype="int32", sample_weight=None) -> CumlArray:
+    def fit_predict(self, X, y=None, out_dtype="int32", sample_weight=None) -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.
 
@@ -463,11 +478,12 @@ class DBSCAN(UniversalBase,
             negative weight may inhibit its eps-neighbor from being core.
             default: None (which is equivalent to weight 1 for all samples).
         """
-        self.fit(X, out_dtype, sample_weight)
+        self.fit(X, out_dtype=out_dtype, sample_weight=sample_weight)
         return self.labels_
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "eps",
             "min_samples",
             "max_mbytes_per_batch",

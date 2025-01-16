@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.import_utils import has_hdbscan
@@ -485,6 +486,19 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
     mst_dst_ = CumlArrayDescriptor()
     mst_weights_ = CumlArrayDescriptor()
 
+    _hyperparam_interop_translator = {
+        "metric": {
+            "manhattan": "NotImplemented",
+            "chebyshev": "NotImplemented",
+            "minkowski": "NotImplemented",
+        },
+        "algorithm": {
+            "auto": "brute",
+            "ball_tree": "NotImplemented",
+            "kd_tree": "NotImplemented",
+        },
+    }
+
     @device_interop_preparation
     def __init__(self, *,
                  min_cluster_size=5,
@@ -769,6 +783,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.n_rows = n_rows
         self.n_cols = n_cols
 
+        if GlobalSettings().accelerator_active:
+            self._raw_data = self.X_m.to_output("numpy")
+
         cdef uintptr_t _input_ptr = X_m.ptr
 
         IF GPUBUILD == 1:
@@ -951,7 +968,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
     def __setstate__(self, state):
         super(HDBSCAN, self).__init__(
             handle=state["handle"],
-            verbose=state["verbose"]
+            verbose=state["_verbose"]
         )
 
         if not state["fit_called_"]:
@@ -1112,8 +1129,23 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
             self._cpu_to_gpu_interop_prepped = True
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    def gpu_to_cpu(self):
+        super().gpu_to_cpu()
+
+        # set non array hdbscan variables
+        self._cpu_model.condensed_tree_ = \
+            self.condensed_tree_._raw_tree
+        self._cpu_model.single_linkage_tree_ = \
+            self.single_linkage_tree_._linkage
+        if hasattr(self, "_raw_data"):
+            self._cpu_model._raw_data = self._raw_data
+        if self.gen_min_span_tree:
+            self._cpu_model.minimum_spanning_tree_ = \
+                self.minimum_spanning_tree_._mst
+
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "metric",
             "min_cluster_size",
             "max_cluster_size",

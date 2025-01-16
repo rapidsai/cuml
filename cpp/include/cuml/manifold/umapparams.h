@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,9 @@
 #include <cuml/common/callback.hpp>
 #include <cuml/common/logger.hpp>
 
-#include <raft/distance/distance_types.hpp>
 #include <raft/neighbors/nn_descent_types.hpp>
+
+#include <cuvs/distance/distance.hpp>
 
 namespace ML {
 
@@ -116,7 +117,7 @@ class UMAPParams {
   /**
    * Control logging level during algorithm execution
    */
-  int verbosity = CUML_LEVEL_INFO;
+  level_enum verbosity = level_enum::info;
 
   /**
    *  More specific parameters controlling the embedding. If None these
@@ -170,7 +171,7 @@ class UMAPParams {
    */
   bool deterministic = true;
 
-  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded;
+  cuvs::distance::DistanceType metric = cuvs::distance::DistanceType::L2SqrtExpanded;
 
   float p = 2.0;
 

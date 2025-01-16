@@ -268,9 +268,15 @@ class LinearRegression(LinearPredictMixin,
     coef_ = CumlArrayDescriptor(order='F')
     intercept_ = CumlArrayDescriptor(order='F')
 
+    _hyperparam_interop_translator = {
+        "positive": {
+            True: "NotImplemented",
+        },
+    }
+
     @device_interop_preparation
     def __init__(self, *, algorithm='eig', fit_intercept=True,
-                 copy_X=None, normalize=False,
+                 copy_X=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
         IF GPUBUILD == 1:
             if handle is None and algorithm == 'eig':
@@ -295,16 +301,6 @@ class LinearRegression(LinearPredictMixin,
             raise TypeError(msg.format(algorithm))
 
         self.intercept_value = 0.0
-        if copy_X is None:
-            warnings.warn(
-                "Starting from version 23.08, the new 'copy_X' parameter defaults "
-                "to 'True', ensuring a copy of X is created after passing it to "
-                "fit(), preventing any changes to the input, but with increased "
-                "memory usage. This represents a change in behavior from previous "
-                "versions. With `copy_X=False` a copy might still be created if "
-                "necessary. Explicitly set 'copy_X' to either True or False to "
-                "suppress this warning.", UserWarning)
-            copy_X = True
         self.copy_X = copy_X
 
     def _get_algorithm_int(self, algorithm):
@@ -491,8 +487,9 @@ class LinearRegression(LinearPredictMixin,
         # `predict` method
         return super()._predict(X, convert_dtype=convert_dtype)
 
-    def get_param_names(self):
-        return super().get_param_names() + \
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
             ['algorithm', 'fit_intercept', 'copy_X', 'normalize']
 
     def get_attr_names(self):

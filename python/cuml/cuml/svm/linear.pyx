@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,8 @@ from cuml.internals.base_helpers import BaseMetaClass
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+from cuml.internals.logger cimport level_enum
+from cuml.internals.logger import level_enum as py_level_enum
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array
@@ -69,7 +71,7 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM" nogil:
         int max_iter
         int linesearch_max_iter
         int lbfgs_memory
-        int verbose
+        level_enum verbose
         double C
         double grad_tol
         double change_tol
@@ -146,12 +148,13 @@ cdef class LSVMPWrapper_:
         self.params[key] = val
 
     def __init__(self, **kwargs):
-        allowed_keys = set(self.get_param_names())
+        allowed_keys = set(self._get_param_names())
         for key, val in kwargs.items():
             if key in allowed_keys:
                 setattr(self, key, val)
 
-    def get_param_names(self):
+    @classmethod
+    def _get_param_names(cls):
         cdef LinearSVMParams ps
         return ps.keys()
 
@@ -203,6 +206,18 @@ class LSVMPWrapper(LSVMPWrapper_):
         else:
             raise ValueError(f"Unknown loss string value: {loss}")
 
+    @property
+    def verbose(self):
+        # Reverse ordering of log levels to convert spdlog level values to
+        # Scikit-Learn log level values
+        return 6 - int(self._getparam('verbose'))
+
+    @verbose.setter
+    def verbose(self, level: int):
+        # Reverse ordering of log levels to convert spdlog level values to
+        # Scikit-Learn log level values
+        self._setparam('verbose', py_level_enum(6 - level))
+
 
 # Add properties for parameters with a trivial conversion
 def __add_prop(prop_name):
@@ -212,7 +227,7 @@ def __add_prop(prop_name):
     ))
 
 
-for prop_name in LSVMPWrapper().get_param_names():
+for prop_name in LSVMPWrapper()._get_param_names():
     if not hasattr(LSVMPWrapper, prop_name):
         __add_prop(prop_name)
 del __add_prop
@@ -594,7 +609,7 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
         return state
 
     def __init__(self, **kwargs):
-        # `tol` is special in that it's not present in get_param_names,
+        # `tol` is special in that it's not present in _get_param_names,
         # so having a special logic here does not affect pickling/cloning.
         tol = kwargs.pop('tol', None)
         if tol is not None:
@@ -604,8 +619,8 @@ class LinearSVM(Base, metaclass=WithReexportedParams):
             self.change_tol = tol * default_to_ratio
         # All arguments are optional (they have defaults),
         # yet we need to check for unused arguments
-        allowed_keys = set(self.get_param_names())
-        super_keys = set(super().get_param_names())
+        allowed_keys = set(self._get_param_names())
+        super_keys = set(super()._get_param_names())
         remaining_kwargs = {}
         for key, val in kwargs.items():
             if key not in allowed_keys or key in super_keys:

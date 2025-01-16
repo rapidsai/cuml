@@ -171,7 +171,7 @@ IF GPUBUILD == 1:
             return x
 
         def __init__(self, **kwargs):
-            allowed_keys = set(self.get_param_names())
+            allowed_keys = set(self._get_param_names())
             for key, val in kwargs.items():
                 if key in allowed_keys:
                     setattr(self, key, val)
@@ -182,8 +182,9 @@ IF GPUBUILD == 1:
         def _setparam(self, key, val):
             self.params[key] = val
 
-        def get_param_names(self):
-            return self.get_param_defaults().keys()
+        @classmethod
+        def _get_param_names(cls):
+            return cls.get_param_defaults().keys()
 
         def __str__(self):
             return type(self).__name__ + str(self.params)
@@ -949,8 +950,9 @@ class QN(Base,
         else:
             self.intercept_ = CumlArray.zeros(shape=_num_classes)
 
-    def get_param_names(self):
-        return super().get_param_names() + \
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + \
             ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
                 'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory',
                 'warm_start', 'delta', 'penalty_normalized']

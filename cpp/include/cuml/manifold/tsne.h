@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 #include <cuml/common/logger.hpp>
 
-#include <raft/distance/distance_types.hpp>
+#include <cuvs/distance/distance.hpp>
 
 namespace raft {
 class handle_t;
@@ -94,7 +94,7 @@ struct TSNEParams {
   long long random_state = -1;
 
   // verbosity level for logging messages during execution
-  int verbosity = CUML_LEVEL_INFO;
+  level_enum verbosity = ML::level_enum::info;
 
   // Embedding initializer algorithm
   TSNE_INIT init = TSNE_INIT::RANDOM;
@@ -106,7 +106,7 @@ struct TSNEParams {
   bool square_distances = true;
 
   // Distance metric to use.
-  raft::distance::DistanceType metric = raft::distance::DistanceType::L2SqrtExpanded;
+  cuvs::distance::DistanceType metric = cuvs::distance::DistanceType::L2SqrtExpanded;
 
   // Value of p for Minkowski distance
   float p = 2.0;

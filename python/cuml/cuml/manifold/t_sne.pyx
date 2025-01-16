@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,8 @@ from cuml.internals.base import UniversalBase
 from pylibraft.common.handle cimport handle_t
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
-import cuml.internals.logger as logger
+from cuml.internals import logger
+from cuml.internals cimport logger
 
 
 from cuml.internals.array import CumlArray
@@ -39,7 +40,7 @@ from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
-from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.common.sparsefuncs import extract_knn_infos
 from cuml.metrics.distance_type cimport DistanceType
 rmm = gpu_only_import('rmm')
@@ -82,7 +83,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         float pre_momentum,
         float post_momentum,
         long long random_state,
-        int verbosity,
+        logger.level_enum verbosity,
         TSNE_INIT init,
         bool square_distances,
         DistanceType metric,
@@ -119,7 +120,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
 
 
 class TSNE(UniversalBase,
-           CMajorInputTagMixin):
+           CMajorInputTagMixin,
+           SparseInputTagMixin):
     """
     t-SNE (T-Distributed Stochastic Neighbor Embedding) is an extremely
     powerful dimensionality reduction technique that aims to maintain
@@ -270,6 +272,12 @@ class TSNE(UniversalBase,
     X_m = CumlArrayDescriptor()
     embedding_ = CumlArrayDescriptor()
 
+    _hyperparam_interop_translator = {
+        "n_components": {
+            3 : "NotImplemented",
+        }
+    }
+
     @device_interop_preparation
     def __init__(self, *,
                  n_components=2,
@@ -302,12 +310,6 @@ class TSNE(UniversalBase,
                          verbose=verbose,
                          output_type=output_type)
 
-        if n_components < 0:
-            raise ValueError("n_components = {} should be more "
-                             "than 0.".format(n_components))
-        if n_components != 2:
-            raise ValueError("Currently TSNE supports n_components = 2; "
-                             "but got n_components = {}".format(n_components))
         if perplexity < 0:
             raise ValueError("perplexity = {} should be more than 0.".format(
                              perplexity))
@@ -427,6 +429,12 @@ class TSNE(UniversalBase,
         should match the metric used to train the TSNE embeedings.
         Takes precedence over the precomputed_knn parameter.
         """
+        if self.n_components < 0:
+            raise ValueError("n_components = {} should be more "
+                             "than 0.".format(self.n_components))
+        if self.n_components != 2:
+            raise ValueError("Currently TSNE supports n_components = 2; "
+                             "but got n_components = {}".format(self.n_components))
         cdef int n, p
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if handle_ == NULL:
@@ -505,7 +513,7 @@ class TSNE(UniversalBase,
             self.pre_learning_rate = max(n / 3.0, 1)
             self.post_learning_rate = self.pre_learning_rate
             self.early_exaggeration = 24.0 if n > 10000 else 12.0
-            if logger.should_log_for(logger.level_debug):
+            if logger.should_log_for(logger.level_enum.debug):
                 logger.debug("New n_neighbors = {}, learning_rate = {}, "
                              "exaggeration = {}"
                              .format(self.n_neighbors, self.pre_learning_rate,
@@ -609,7 +617,7 @@ class TSNE(UniversalBase,
         params.pre_momentum = <float> self.pre_momentum
         params.post_momentum = <float> self.post_momentum
         params.random_state = <long long> seed
-        params.verbosity = <int> self.verbose
+        params.verbosity = self.verbose
         params.square_distances = <bool> self.square_distances
         params.algorithm = algo
 
@@ -686,12 +694,13 @@ class TSNE(UniversalBase,
 
     def __setstate__(self, state):
         super(TSNE, self).__init__(handle=None,
-                                   verbose=state['verbose'])
+                                   verbose=state['_verbose'])
         self.__dict__.update(state)
         return state
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "n_components",
             "perplexity",
             "early_exaggeration",
@@ -719,4 +728,4 @@ class TSNE(UniversalBase,
     def get_attr_names(self):
         return ["embedding", "kl_divergence_",
                 "n_features_in_", "learning_rate_",
-                "n_iter_"]
+                "n_iter_", "embedding_"]

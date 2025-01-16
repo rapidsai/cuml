@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,13 +40,21 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
                 default_device_type = DeviceType.host
                 default_memory_type = MemoryType.host
             self.shared_state = {
-                "_output_type": None,
                 "_device_type": default_device_type,
                 "_memory_type": default_memory_type,
-                "root_cm": None,
             }
         else:
-            self.shared_state = {"_output_type": None, "root_cm": None}
+            self.shared_state = {}
+
+        self.shared_state.update(
+            {
+                "_output_type": None,
+                "root_cm": None,
+                "accelerator_active": False,
+                "accelerator_loaded": False,
+                "accelerated_modules": {},
+            }
+        )
 
 
 _global_settings_data = _GlobalSettingsData()

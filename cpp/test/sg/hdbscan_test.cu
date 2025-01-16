@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@
 
 #include <raft/cluster/detail/agglomerative.cuh>  // build_dendrogram_host
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance_types.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/sort.cuh>
@@ -35,6 +34,8 @@
 #include <thrust/transform.h>
 
 #include <cuvs/cluster/agglomerative.hpp>
+#include <cuvs/distance/distance.hpp>
+#include <cuvs/neighbors/reachability.hpp>
 #include <gtest/gtest.h>
 #include <hdbscan/detail/condense.cuh>
 #include <hdbscan/detail/extract.cuh>
@@ -84,7 +85,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
 
     rmm::device_uvector<T> out_probabilities(params.n_row, handle.get_stream());
 
-    Logger::get().setLevel(CUML_LEVEL_DEBUG);
+    default_logger().set_level(ML::level_enum::debug);
 
     HDBSCAN::Common::hdbscan_output<IdxT, T> out(handle,
                                                  params.n_row,
@@ -105,7 +106,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
             data.data(),
             params.n_row,
             params.n_col,
-            raft::distance::DistanceType::L2SqrtExpanded,
+            cuvs::distance::DistanceType::L2SqrtExpanded,
             hdbscan_params,
             out,
             core_dists.data());
@@ -166,7 +167,7 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
 
     rmm::device_uvector<T> out_delta(params.n_row, handle.get_stream());
 
-    Logger::get().setLevel(CUML_LEVEL_DEBUG);
+    default_logger().set_level(ML::level_enum::debug);
 
     raft::sparse::op::coo_sort_by_weight(
       mst_src.data(), mst_dst.data(), mst_data.data(), (IdxT)mst_src.size(), handle.get_stream());
@@ -256,7 +257,7 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
 
     params = ::testing::TestWithParam<ClusterSelectionInputs<T, IdxT>>::GetParam();
 
-    Logger::get().setLevel(CUML_LEVEL_DEBUG);
+    default_logger().set_level(ML::level_enum::debug);
 
     rmm::device_uvector<IdxT> condensed_parents(params.condensed_parents.size(),
                                                 handle.get_stream());
@@ -460,7 +461,7 @@ class AllPointsMembershipVectorsTest
                                               condensed_tree,
                                               prediction_data_,
                                               data.data(),
-                                              raft::distance::DistanceType::L2SqrtExpanded,
+                                              cuvs::distance::DistanceType::L2SqrtExpanded,
                                               membership_vec.data());
 
     ASSERT_TRUE(MLCommon::devArrMatch(membership_vec.data(),
@@ -571,17 +572,16 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
     rmm::device_uvector<IdxT> mutual_reachability_indptr(params.n_row + 1, stream);
     raft::sparse::COO<T, IdxT> mutual_reachability_coo(stream,
                                                        (params.min_samples + 1) * params.n_row * 2);
-    ML::HDBSCAN::detail::Reachability::mutual_reachability_graph(
+
+    cuvs::neighbors::reachability::mutual_reachability_graph(
       handle,
-      data.data(),
-      (size_t)params.n_row,
-      (size_t)params.n_col,
-      raft::distance::DistanceType::L2SqrtExpanded,
+      raft::make_device_matrix_view<T, int64_t>(data.data(), params.n_row, params.n_col),
       params.min_samples + 1,
-      (float)1.0,
-      mutual_reachability_indptr.data(),
-      pred_data.get_core_dists(),
-      mutual_reachability_coo);
+      raft::make_device_vector_view<IdxT>(mutual_reachability_indptr.data(), params.n_row + 1),
+      raft::make_device_vector_view<T>(core_dists.data(), params.n_row),
+      mutual_reachability_coo,
+      cuvs::distance::DistanceType::L2SqrtExpanded,
+      1.0);
 
     transformLabels(handle, labels.data(), label_map.data(), params.n_row);
     ML::HDBSCAN::Common::generate_prediction_data(handle,
@@ -602,7 +602,7 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
                               labels.data(),
                               const_cast<float*>(points_to_predict.data()),
                               (size_t)params.n_points_to_predict,
-                              raft::distance::DistanceType::L2SqrtExpanded,
+                              cuvs::distance::DistanceType::L2SqrtExpanded,
                               params.min_samples,
                               out_labels.data(),
                               out_probabilities.data());
@@ -726,17 +726,16 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
     rmm::device_uvector<IdxT> mutual_reachability_indptr(params.n_row + 1, stream);
     raft::sparse::COO<T, IdxT> mutual_reachability_coo(stream,
                                                        (params.min_samples + 1) * params.n_row * 2);
-    ML::HDBSCAN::detail::Reachability::mutual_reachability_graph(
+
+    cuvs::neighbors::reachability::mutual_reachability_graph(
       handle,
-      data.data(),
-      (size_t)params.n_row,
-      (size_t)params.n_col,
-      raft::distance::DistanceType::L2SqrtExpanded,
+      raft::make_device_matrix_view<T, int64_t>(data.data(), params.n_row, params.n_col),
       params.min_samples + 1,
-      (float)1.0,
-      mutual_reachability_indptr.data(),
-      prediction_data_.get_core_dists(),
-      mutual_reachability_coo);
+      raft::make_device_vector_view<IdxT>(mutual_reachability_indptr.data(), params.n_row + 1),
+      raft::make_device_vector_view<T>(core_dists.data(), params.n_row),
+      mutual_reachability_coo,
+      cuvs::distance::DistanceType::L2SqrtExpanded,
+      1.0);
 
     transformLabels(handle, labels.data(), label_map.data(), params.n_row);
 
@@ -754,7 +753,7 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
                                   points_to_predict.data(),
                                   params.n_points_to_predict,
                                   params.min_samples,
-                                  raft::distance::DistanceType::L2SqrtExpanded,
+                                  cuvs::distance::DistanceType::L2SqrtExpanded,
                                   membership_vec.data());
 
     ASSERT_TRUE(MLCommon::devArrMatch(membership_vec.data(),

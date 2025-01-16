@@ -56,7 +56,10 @@ function(ConfigureTest)
     CUDA::cusparse${_ctk_static_suffix}
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
     rmm::rmm
+    rmm::rmm_logger
     raft::raft
+    raft::raft_logger
+    test_logger_impls
     GTest::gtest
     GTest::gtest_main
     GTest::gmock
@@ -105,6 +108,8 @@ function(ConfigureTest)
 
 endfunction()
 
+add_library(test_logger_impls OBJECT)
+target_link_libraries(test_logger_impls PRIVATE rmm::rmm_logger_impl raft::raft_logger_impl)
 
 ##############################################################################
 # - build ml_test executable -------------------------------------------------

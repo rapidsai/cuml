@@ -724,8 +724,9 @@ class GaussianNB(_BaseNB):
 
         return cp.array(joint_log_likelihood).T
 
-    def get_param_names(self):
-        return super().get_param_names() + ["priors", "var_smoothing"]
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + ["priors", "var_smoothing"]
 
 
 class _BaseDiscreteNB(_BaseNB):
@@ -1058,8 +1059,9 @@ class _BaseDiscreteNB(_BaseNB):
         self.feature_count_ = self.feature_count_ + counts
         self.class_count_ = self.class_count_ + class_c
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "alpha",
             "fit_prior",
             "class_prior",
@@ -1373,8 +1375,9 @@ class BernoulliNB(_BaseDiscreteNB):
             smoothed_cc.reshape(-1, 1)
         )
 
-    def get_param_names(self):
-        return super().get_param_names() + ["binarize"]
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + ["binarize"]
 
 
 class ComplementNB(_BaseDiscreteNB):
@@ -1536,8 +1539,9 @@ class ComplementNB(_BaseDiscreteNB):
             feature_log_prob = -logged
         self.feature_log_prob_ = feature_log_prob
 
-    def get_param_names(self):
-        return super().get_param_names() + ["norm"]
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + ["norm"]
 
 
 class CategoricalNB(_BaseDiscreteNB):

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ template void larsFit<float, int>(const raft::handle_t& handle,
                                   float* Gram,
                                   int max_iter,
                                   float* coef_path,
-                                  int verbosity,
+                                  level_enum verbosity,
                                   int ld_X,
                                   int ld_G,
                                   float eps);
@@ -54,7 +54,7 @@ template void larsFit<double, int>(const raft::handle_t& handle,
                                    double* Gram,
                                    int max_iter,
                                    double* coef_path,
-                                   int verbosity,
+                                   level_enum verbosity,
                                    int ld_X,
                                    int ld_G,
                                    double eps);

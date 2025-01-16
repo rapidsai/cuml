@@ -602,8 +602,9 @@ class OneHotEncoder(BaseEncoder):
 
         return np.array(feature_names, dtype=object)
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "categories",
             "drop",
             "sparse",
@@ -767,8 +768,9 @@ class OrdinalEncoder(BaseEncoder):
         r = DataFrame(result)
         return _get_output(self.output_type, self.input_type, r, self.dtype)
 
-    def get_param_names(self):
-        return super().get_param_names() + [
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + [
             "categories",
             "dtype",
             "handle_unknown",
