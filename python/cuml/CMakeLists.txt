@@ -107,8 +107,7 @@ else()
   # --- CCCL, RAFT, RMM ---#
   # find CCCL, RAFT, and RMM before cuVS, to avoid
   # cuVS CMake defining conflicting versions of targets like 'nvidia::cutlass::cutlass'
-  include(${CUML_CPP_SRC}/cmake/thirdparty/get_cccl.cmake)
-  include(${CUML_CPP_SRC}/cmake/thirdparty/get_rmm.cmake)
+  # include(${CUML_CPP_SRC}/cmake/thirdparty/get_cccl.cmake)
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_raft.cmake)
 
   # --- cuVS --- #

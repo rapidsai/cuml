@@ -89,6 +89,7 @@ jobs:
       package-name: libcuml
       package-type: cpp
   wheel-build-cuml:
+    needs: wheel-build-libcuml
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@branch-25.02
     with:
