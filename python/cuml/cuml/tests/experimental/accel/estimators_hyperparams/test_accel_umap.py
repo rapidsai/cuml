@@ -21,10 +21,16 @@ from umap import UMAP
 from sklearn.manifold import trustworthiness
 
 
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:The default value of `data_on_host` "
-    'will change from False to "auto" in 25.06'
-)
+pytestmark = [
+    pytest.mark.filterwarnings(
+        "ignore:The default value of `data_on_host` "
+        'will change from False to "auto" in 25.06'
+    ),
+    pytest.mark.filterwarnings(
+        "ignore:The default value of `nnd_n_clusters` "
+        "will change from 1 to 10 in 25.06."
+    ),
+]
 
 
 @pytest.fixture(scope="module")
