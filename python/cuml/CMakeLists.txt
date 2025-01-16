@@ -160,6 +160,10 @@ else()
   set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
   set(cuml_mg_libraries cuml::${CUML_CPP_TARGET})
 
+  if(NOT SINGLEGPU)
+    list(APPEND cuml_mg_libraries cumlprims_mg::cumlprims_mg)
+  endif()
+
   list(APPEND CYTHON_FLAGS
   "--compile-time-env GPUBUILD=1")
 endif()
