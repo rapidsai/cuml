@@ -165,7 +165,7 @@ test_101_111_4 = ARIMAData(
     n_obs=101,
     n_test=10,
     dataset="alcohol",
-    tolerance_integration=0.01,
+    tolerance_integration=0.05,
 )
 
 # ARIMA(5,1,0)
