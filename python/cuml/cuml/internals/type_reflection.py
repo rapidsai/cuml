@@ -83,25 +83,24 @@ class CumlArrayDescriptor:
         value = getattr(obj, f"_{self.name}_value")
         if api_depth_greater_than_zero():
             return value
+        elif (global_output_type := GlobalSettings().output_type) is not None:
+            return value.to_output(global_output_type)
         else:
-            output_type = _get_output_type(obj)
+            output_type = obj._output_type
             return value.to_output(output_type)
 
 
 # Type reflection
 
-global_output_type = None
-
 
 @contextmanager
 def override_output_type(output_type: str):
-    global global_output_type
     try:
-        previous_output_type = global_output_type
-        global_output_type = output_type
+        previous_output_type = GlobalSettings().output_type
+        GlobalSettings().output_type = output_type
         yield
     finally:
-        global_output_type = previous_output_type
+        GlobalSettings().output_type = previous_output_type
 
 
 def determine_array_type(value) -> str:
@@ -118,13 +117,6 @@ def determine_array_type(value) -> str:
 
 def _set_output_type(obj: Any, output_type: str):
     setattr(obj, "_output_type", output_type)
-
-
-def _get_output_type(obj: Any) -> str:
-    if global_output_type is None:
-        return getattr(obj, "_output_type", None)
-    else:
-        return global_output_type
 
 
 class set_output_type:
@@ -207,7 +199,9 @@ class convert_cuml_arrays:
                 return ret
 
             # We use the global output type, whenever it is set.
-            elif global_output_type is not None:
+            elif (
+                global_output_type := GlobalSettings().output_type
+            ) is not None:
                 return _to_output_type(ret, global_output_type)
 
             # Use the object's output type, assumes that func is a method with self argument.
