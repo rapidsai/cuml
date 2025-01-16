@@ -3,6 +3,7 @@
 import inspect
 from collections.abc import Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
 from functools import wraps
 from typing import Any
 
@@ -138,8 +139,11 @@ class set_output_type:
     Sets the output_type of self to the type of the X argument.
     """
 
-    def __init__(self, arg_name: str):
-        self.arg_name = arg_name
+    def __init__(self, to):
+        if isinstance(to, str):
+            to = TypeOfArgument(to)
+
+        self.to = to
 
     def __call__(self, func):
         sig = inspect.signature(func)
@@ -150,9 +154,12 @@ class set_output_type:
                 bound_args = sig.bind(obj, *args, **kwargs)
                 bound_args.apply_defaults()
 
-                arg_value = bound_args.arguments.get(self.arg_name)
-                arg_type = determine_array_type(arg_value)
-                _set_output_type(obj, arg_type)
+                if isinstance(self.to, TypeOfArgument):
+                    arg_value = bound_args.arguments.get(self.to.argument_name)
+                    arg_type = determine_array_type(arg_value)
+                    _set_output_type(obj, arg_type)
+                else:
+                    raise TypeError(f"Cannot handle self.to type '{type(self.to)}.")
 
             return func(obj, *args, **kwargs)
 
@@ -169,25 +176,19 @@ def _to_output_type(obj, output_type: str):
         return obj
 
 
-def convert_cuml_arrays(func):  # decorator
-    """Cuml arrays in method return value are converted."""
-
-    @wraps(func)
-    @api_boundary
-    def inner(obj, *args, **kwargs):
-        ret = func(obj, *args, **kwargs)
-        if is_api_internal():
-            return ret
-        else:
-            output_type = _get_output_type(obj)
-            return _to_output_type(ret, output_type)
-
-    return inner
+# Sentinels
+ObjectOutputType = object()
+GlobalOutputType = object()
 
 
-class convert_cuml_arrays_to_type_of:
-    def __init__(self, arg_name: str):
-        self.arg_name = arg_name
+@dataclass
+class TypeOfArgument:
+    argument_name: str
+
+
+class convert_cuml_arrays:
+    def __init__(self, to=ObjectOutputType):
+        self.to = to
 
     def __call__(self, func):
         sig = inspect.signature(func)
@@ -198,14 +199,25 @@ class convert_cuml_arrays_to_type_of:
             ret = func(*args, **kwargs)
             if is_api_internal():
                 return ret
-            else:
+            elif global_output_type is not None:
+                return _to_output_type(ret, global_output_type)
+            elif self.to is ObjectOutputType:
+                # Use the object's output type.
+                obj = args[0]
+                output_type = obj._output_type
+            elif self.to is GlobalOutputType:
+                # Always use the global output type.
+                output_type = global_output_type
+            elif isinstance(self.to, TypeOfArgument):
+                # Use the type of the function argument.
                 bound_args = sig.bind(*args, **kwargs)
                 bound_args.apply_defaults()
-
-                arg_value = bound_args.arguments.get(self.arg_name)
+                arg_value = bound_args.arguments.get(self.to.argument_name)
                 output_type = determine_array_type(arg_value)
+            else:
+                raise ValueError(f"Unable to process 'to' argument: {self.to}")
 
-                return _to_output_type(ret, output_type)
+            return _to_output_type(ret, output_type)
 
         return inner
 
@@ -218,8 +230,8 @@ class MinimalLinearRegression:
     coef_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
 
-    # Private methods should not be at the API boundary and should
-    # not use the @set_output_type decorator.
+    # Private methods should not be at the API boundary and must
+    # never use the @set_output_type decorator.
 
     def _fit_on_device(self, X: cp.ndarray, y: cp.ndarray):
         X_design = cp.hstack([cp.ones((X.shape[0], 1)), X])
@@ -245,7 +257,7 @@ class MinimalLinearRegression:
         # perform an automatic conversion.
         return X @ self.coef_.to_device_array() + self.intercept_.to_device_array()
 
-    @convert_cuml_arrays
+    @convert_cuml_arrays(to=ObjectOutputType)
     def predict(self, X):
         y = self._predict_on_device(as_cuml_array(X).to_device_array())
 
@@ -278,18 +290,17 @@ def example_workflow():
     assert isinstance(model.coef_, np.ndarray)
 
     # Example for reflection of types of a stateless function.
-
-    # @convert_cuml_arrays
-    # @set_output_type("X")
-
-    @convert_cuml_arrays_to_type_of("X")
+    @convert_cuml_arrays(to=TypeOfArgument("X"))
     def power(X, exponent: int):
         X = as_cuml_array(X)
         result = cp.sqrt(X.to_device_array())
         return as_cuml_array(result)
 
     squared_X = power(X, 2)
-    print(type(squared_X))
+    assert isinstance(squared_X, type(X))
+
+    with override_output_type("cupy"):
+        assert isinstance(power(X, 2), cp.ndarray)
 
 
 if __name__ == "__main__":
