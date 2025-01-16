@@ -3,11 +3,10 @@
 import inspect
 import numpy as np
 import cupy as cp
-from dataclasses import dataclass
 from functools import wraps
-from collections import OrderedDict
 from typing import Any
 from collections.abc import Sequence
+from contextlib import contextmanager
 
 ## Everything related to API boundary determination
 
@@ -87,6 +86,17 @@ class CumlArrayDescriptor:
 ## Type reflection
 
 global_output_type = None
+
+@contextmanager
+def override_output_type(output_type: str):
+    global global_output_type
+    try:
+        previous_output_type = global_output_type
+        global_output_type = output_type
+        yield
+    finally:
+        global_output_type = previous_output_type
+
 
 def determine_array_type(value) -> str:
     """Utility function to identify the array type."""
@@ -212,7 +222,7 @@ class MinimalLinearRegression:
         return CumlArray(y)
 
 
-def test():
+def example_workflow():
     # Example usage
     from sklearn.datasets import make_regression
 
@@ -228,6 +238,11 @@ def test():
     print("Predictions:", predictions, type(predictions))
     print("coef", model.coef_, type(model.coef_))
 
+    with override_output_type("cupy"):
+        assert isinstance(model.coef_, cp.ndarray)
+
+    assert isinstance(model.coef_, np.ndarray)
+
 
 if __name__ == "__main__":
-    test()
+    example_workflow()
