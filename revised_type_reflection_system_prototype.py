@@ -185,6 +185,31 @@ def convert_cuml_arrays(func):  # decorator
     return inner
 
 
+class convert_cuml_arrays_to_type_of:
+    def __init__(self, arg_name: str):
+        self.arg_name = arg_name
+
+    def __call__(self, func):
+        sig = inspect.signature(func)
+
+        @wraps(func)
+        @api_boundary
+        def inner(*args, **kwargs):
+            ret = func(*args, **kwargs)
+            if is_api_internal():
+                return ret
+            else:
+                bound_args = sig.bind(*args, **kwargs)
+                bound_args.apply_defaults()
+
+                arg_value = bound_args.arguments.get(self.arg_name)
+                output_type = determine_array_type(arg_value)
+
+                return _to_output_type(ret, output_type)
+
+        return inner
+
+
 ## Example estimator implementation
 
 
@@ -251,6 +276,20 @@ def example_workflow():
         assert isinstance(model.coef_, cp.ndarray)
 
     assert isinstance(model.coef_, np.ndarray)
+
+    # Example for reflection of types of a stateless function.
+
+    # @convert_cuml_arrays
+    # @set_output_type("X")
+
+    @convert_cuml_arrays_to_type_of("X")
+    def power(X, exponent: int):
+        X = as_cuml_array(X)
+        result = cp.sqrt(X.to_device_array())
+        return as_cuml_array(result)
+
+    squared_X = power(X, 2)
+    print(type(squared_X))
 
 
 if __name__ == "__main__":
