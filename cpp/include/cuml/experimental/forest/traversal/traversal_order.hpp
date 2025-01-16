@@ -22,11 +22,9 @@ namespace forest {
 /* A class used to specify the order in which nodes of a forest should be
  * traversed
  *
- * Because the meaning of "left" and "right" vary by convnection,
- * performance, we refer to the two children of a node as "hot" or
- * "distant" rather than left or right. The "hot" child is the one which
- * is traversed soonest after the parent, and the "distant" child is
- * traversed latest.
+ * Because the meaning of "left" and "right" vary by convention, we refer to the two children of a
+ * node as "hot" or "distant" rather than left or right. The "hot" child is the one which is
+ * traversed soonest after the parent, and the "distant" child is traversed latest.
  */
 enum class forest_order : unsigned char {
   // Traverse forest by proceeding depth-first through each tree
