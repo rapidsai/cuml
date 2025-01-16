@@ -180,6 +180,8 @@ def _to_output_type(obj, output_type: str):
 ObjectOutputType = object()
 GlobalOutputType = object()
 
+DefaultOutputType = ObjectOutputType
+
 
 @dataclass
 class TypeOfArgument:
@@ -187,7 +189,7 @@ class TypeOfArgument:
 
 
 class convert_cuml_arrays:
-    def __init__(self, to=ObjectOutputType):
+    def __init__(self, to=DefaultOutputType):
         self.to = to
 
     def __call__(self, func):
@@ -197,17 +199,21 @@ class convert_cuml_arrays:
         @api_boundary
         def inner(*args, **kwargs):
             ret = func(*args, **kwargs)
+
+            # Internal call, just return the value without further processing.
             if is_api_internal():
                 return ret
+
+            # We use the global output type, whenever it is set.
             elif global_output_type is not None:
                 return _to_output_type(ret, global_output_type)
+
+            # Use the object's output type, assumes that func is a method with self argument.
             elif self.to is ObjectOutputType:
                 # Use the object's output type.
                 obj = args[0]
                 output_type = obj._output_type
-            elif self.to is GlobalOutputType:
-                # Always use the global output type.
-                output_type = global_output_type
+
             elif isinstance(self.to, TypeOfArgument):
                 # Use the type of the function argument.
                 bound_args = sig.bind(*args, **kwargs)
