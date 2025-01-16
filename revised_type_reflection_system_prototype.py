@@ -1,16 +1,18 @@
 # Copyright (c) 2025, NVIDIA CORPORATION.
 
 import inspect
-import numpy as np
-import cupy as cp
-from functools import wraps
-from typing import Any
 from collections.abc import Sequence
 from contextlib import contextmanager
+from functools import wraps
+from typing import Any
+
+import cupy as cp
+import numpy as np
 
 ## Everything related to API boundary determination
 
-global_api_counter : int = 0
+global_api_counter: int = 0
+
 
 def is_api_internal():
     return global_api_counter > 1
@@ -32,6 +34,7 @@ def api_boundary(func):
 
 ## CumlArray
 
+
 class CumlArray:
 
     def __init__(self, data):
@@ -39,7 +42,7 @@ class CumlArray:
 
     def to_output(self, output_type: str):
         match output_type:
-            case  "numpy":
+            case "numpy":
                 if isinstance(self.data, cp.ndarray):
                     return self.data.get()
                 else:
@@ -59,6 +62,7 @@ def as_cuml_array(X) -> CumlArray:
 
 
 ## CumlArrayDescriptor
+
 
 class CumlArrayDescriptor:
 
@@ -87,6 +91,7 @@ class CumlArrayDescriptor:
 
 global_output_type = None
 
+
 @contextmanager
 def override_output_type(output_type: str):
     global global_output_type
@@ -109,8 +114,10 @@ def determine_array_type(value) -> str:
     else:
         return ValueError(f"Unknown array type: {type(value)}")
 
+
 def _set_output_type(obj: Any, output_type: str):
     setattr(obj, "_output_type", output_type)
+
 
 def _get_output_type(obj: Any) -> str:
     if global_output_type is None:
@@ -130,7 +137,7 @@ class set_output_type:
 
     Sets the output_type of self to the type of the X argument.
     """
-    
+
     def __init__(self, arg_name: str):
         self.arg_name = arg_name
 
@@ -177,7 +184,9 @@ def convert_cuml_arrays(func):  # decorator
 
     return inner
 
+
 ## Example estimator implementation
+
 
 class MinimalLinearRegression:
 
