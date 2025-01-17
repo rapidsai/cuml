@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,6 +40,12 @@ from cuml.internals.memory_utils import using_output_type
 from cuml.internals.memory_utils import with_cupy_rmm
 from cuml.common.device_selection import using_device_type
 
+from cuml.internals.type_reflection import (
+    CumlArrayDescriptor,
+    set_output_type,
+    convert_cuml_arrays,
+)
+
 
 if is_cuda_available():
     from cuml.common.pointer_utils import device_of_gpu_matrix
@@ -51,6 +57,7 @@ from cuml.common.timing_utils import timed
 
 __all__ = [
     "CumlArray",
+    "CumlArrayDescriptor",
     "SparseCumlArray",
     "device_of_gpu_matrix",
     "has_cupy",
@@ -67,6 +74,8 @@ __all__ = [
     "using_memory_type",
     "using_output_type",
     "with_cupy_rmm",
+    "convert_cuml_arrays",
+    "set_output_type",
     "sparse_scipy_to_cp",
     "timed",
 ]

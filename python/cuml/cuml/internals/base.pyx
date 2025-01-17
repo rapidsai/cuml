@@ -109,8 +109,7 @@ class VerbosityDescriptor:
             obj._verbose = value
 
 
-class Base(TagsMixin,
-           metaclass=cuml.internals.BaseMetaClass):
+class Base(TagsMixin):
     """
     Base class for all the ML algos. It handles some of the common operations
     across all algos. Every ML algo class exposed at cython level must inherit
@@ -283,15 +282,6 @@ class Base(TagsMixin,
         # rendered unnecessary with https://github.com/rapidsai/cuml/pull/6189.
         GlobalSettings().root_cm = GlobalSettings().prev_root_cm
 
-        self.output_type = _check_output_type_str(
-            cuml.global_settings.output_type
-            if output_type is None else output_type)
-        if output_mem_type is None:
-            self.output_mem_type = cuml.global_settings.memory_type
-        else:
-            self.output_mem_type = MemoryType.from_str(output_mem_type)
-        self._input_type = None
-        self._input_mem_type = None
         self.target_dtype = None
         self.n_features_in_ = None
 
@@ -397,115 +387,6 @@ class Base(TagsMixin,
         else:
             raise AttributeError(attr)
 
-    def _set_base_attributes(self,
-                             output_type=None,
-                             target_dtype=None,
-                             n_features=None):
-        """
-        Method to set the base class attributes - output type,
-        target dtype and n_features. It combines the three different
-        function calls. It's called in fit function from estimators.
-
-        Parameters
-        --------
-        output_type : DataFrame (default = None)
-            Is output_type is passed, aets the output_type on the
-            dataframe passed
-        target_dtype : Target column (default = None)
-            If target_dtype is passed, we call _set_target_dtype
-            on it
-        n_features: int or DataFrame (default=None)
-            If an int is passed, we set it to the number passed
-            If dataframe, we set it based on the passed df.
-
-        Examples
-        --------
-
-        .. code-block:: python
-
-                # To set output_type and n_features based on X
-                self._set_base_attributes(output_type=X, n_features=X)
-
-                # To set output_type on X and n_features to 10
-                self._set_base_attributes(output_type=X, n_features=10)
-
-                # To only set target_dtype
-                self._set_base_attributes(output_type=X, target_dtype=y)
-        """
-        if output_type is not None:
-            self._set_output_type(output_type)
-            self._set_output_mem_type(output_type)
-        if target_dtype is not None:
-            self._set_target_dtype(target_dtype)
-        if n_features is not None:
-            self._set_n_features_in(n_features)
-
-    def _set_output_type(self, inp):
-        self._input_type = determine_array_type(inp)
-
-    def _set_output_mem_type(self, inp):
-        self._input_mem_type = determine_array_memtype(
-            inp
-        )
-
-    def _get_output_type(self, inp):
-        """
-        Method to be called by predict/transform methods of inheriting classes.
-        Returns the appropriate output type depending on the type of the input,
-        class output type and global output type.
-        """
-
-        # Default to the global type
-        output_type = cuml.global_settings.output_type
-
-        # If its None, default to our type
-        if (output_type is None or output_type == "mirror"):
-            output_type = self.output_type
-
-        # If we are input, get the type from the input
-        if output_type == 'input':
-            output_type = determine_array_type(inp)
-
-        return output_type
-
-    def _get_output_mem_type(self, inp):
-        """
-        Method to be called by predict/transform methods of inheriting classes.
-        Returns the appropriate memory type depending on the type of the input,
-        class output type and global output type.
-        """
-
-        # Default to the global type
-        mem_type = cuml.global_settings.memory_type
-
-        # If we are input, get the type from the input
-        if cuml.global_settings.output_type == 'input':
-            mem_type = determine_array_memtype(inp)
-
-        return mem_type
-
-    def _set_target_dtype(self, target):
-        self.target_dtype = cuml.internals.input_utils.determine_array_dtype(
-            target)
-
-    def _get_target_dtype(self):
-        """
-        Method to be called by predict/transform methods of
-        inheriting classifier classes. Returns the appropriate output
-        dtype depending on the dtype of the target.
-        """
-        try:
-            out_dtype = self.target_dtype
-        except AttributeError:
-            out_dtype = None
-        return out_dtype
-
-    def _set_n_features_in(self, X):
-        if isinstance(X, int):
-            self.n_features_in_ = X
-        else:
-            self.n_features_in_ = X.shape[1]
-
     def _more_tags(self):
         # 'preserves_dtype' tag's Scikit definition currently only applies to
         # transformers and whether the transform method conserves the dtype
@@ -591,26 +472,6 @@ def _check_output_type_str(output_str):
         f'output_type must be one of {valid_output_types_str}'
         f' Got: {output_str}'
     )
-
-
-def _determine_stateless_output_type(output_type, input_obj):
-    """
-    This function determines the output type using the same steps that are
-    performed in `cuml.common.base.Base`. This can be used to mimic the
-    functionality in `Base` for stateless functions or objects that do not
-    derive from `Base`.
-    """
-
-    # Default to the global type if not specified, otherwise, check the
-    # output_type string
-    temp_output = cuml.global_settings.output_type if output_type is None \
-        else _check_output_type_str(output_type)
-
-    # If we are using 'input', determine the the type from the input object
-    if temp_output == 'input':
-        temp_output = determine_array_type(input_obj)
-
-    return temp_output
 
 
 class UniversalBase(Base):

@@ -2,6 +2,7 @@
 
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.array import CumlArray
+from cuml.internals.input_utils import input_to_cuml_array
 
 import inspect
 from collections.abc import Sequence
@@ -32,15 +33,17 @@ def cuml_public_api(func):
     return inner
 
 
-# # CumlArray
+# CumlArray
 
 
-def as_cuml_array(X) -> CumlArray:
+def as_cuml_array(X, dtype=None) -> CumlArray:
     """Wraps array X in CumlArray container."""
-    return CumlArray(X)
+    # TODO: After debugging, replace this with an immediate call to the CumlArray constructor.
+    return CumlArray(X, dtype=dtype)
 
 
 # CumlArrayDescriptor
+# TODO: Replace CumlArrayDescriptor in cuml/common/array_descriptor.py
 
 
 class CumlArrayDescriptor:
@@ -52,7 +55,12 @@ class CumlArrayDescriptor:
 
     def __set__(self, obj, value):
         # Save the provided value as CumlArray and initialize output cache.
-        setattr(obj, f"_{self.name}_data", as_cuml_array(value))
+        dtype = _get_dtype(obj)
+        setattr(
+            obj,
+            f"_{self.name}_data",
+            None if value is None else as_cuml_array(value, dtype),
+        )
         setattr(obj, f"_{self.name}_output_cache", dict())
 
     def _to_cached_output(self, obj, array, output_type):
@@ -82,7 +90,7 @@ class CumlArrayDescriptor:
             return self._to_cached_output(obj, array, global_output_type)
 
         # Return the array converted to the object's _output_type
-        elif (output_type := obj._output_type) is not None:
+        elif (output_type := getattr(obj, "_output_type", None)) is not None:
             return self._to_cached_output(obj, array, output_type)
 
         # Neither the global nor the object's output_type are set. Since this
@@ -122,8 +130,20 @@ def determine_array_type(value) -> str:
         return ValueError(f"Unknown array type: {type(value)}")
 
 
+def determine_array_dtype(value):
+    return value.dtype
+
+
 def _set_output_type(obj: Any, output_type: str):
     setattr(obj, "_output_type", output_type)
+
+
+def _set_dtype(obj: Any, dtype):
+    setattr(obj, "dtype", dtype)
+
+
+def _get_dtype(obj: Any):
+    return getattr(obj, "dtype", None)
 
 
 class set_output_type:
@@ -138,11 +158,12 @@ class set_output_type:
     Sets the output_type of self to the type of the X argument.
     """
 
-    def __init__(self, to):
+    def __init__(self, to, dtype=None):
         if isinstance(to, str):
             to = TypeOfArgument(to)
 
         self.to = to
+        self.dtype = dtype
 
     def __call__(self, func):
         sig = inspect.signature(func)
@@ -157,7 +178,9 @@ class set_output_type:
                 if isinstance(self.to, TypeOfArgument):
                     arg_value = bound_args.arguments.get(self.to.argument_name)
                     arg_type = determine_array_type(arg_value)
+                    dtype = self.dtype or determine_array_dtype(arg_value)
                     _set_output_type(obj, arg_type)
+                    _set_dtype(obj, dtype)
                 else:
                     raise TypeError(
                         f"Cannot handle self.to type '{type(self.to)}."
