@@ -27,20 +27,7 @@ project(
 
 ################################################################################
 # - User Options  --------------------------------------------------------------
-option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
-option(USE_CUVS_WHEEL "Use the cuVS wheel" OFF)
-
-# todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
-# https://github.com/rapidsai/cuml/issues/4843
-message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
-
-# In libcuml wheels, we always want to build in all cuML algorithms.
-# This is the default in cpp/CMakeLists.txt, but just making that choice for wheels explicit here.
-set(CUML_ALGORITHMS "ALL" CACHE STRING "Choose which algorithms are built cuML. Can specify individual algorithms or groups in a semicolon-separated list.")
-
-set(CUML_CPP_TARGET "cuml++")
-set(CUML_CPP_SRC "../../cpp")
 
 ################################################################################
 # - Process User Options  ------------------------------------------------------
@@ -62,17 +49,23 @@ set(BUILD_CUML_C_LIBRARY OFF)
 set(BUILD_CUML_EXAMPLES OFF)
 set(BUILD_CUML_BENCH OFF)
 
+# In libcuml wheels, we always want to build in all cuML algorithms.
+# This is the default in cpp/CMakeLists.txt, but just making that choice for wheels explicit here.
+set(CUML_ALGORITHMS "ALL" CACHE STRING "Choose which algorithms are built cuML. Can specify individual algorithms or groups in a semicolon-separated list.")
+
+# for libcuml wheels, always compile in the multi-node, multi-GPU stuff from cumlprims_mg
+set(SINGLEGPU ON)
+
+set(CUML_CPP_TARGET "cuml++")
+set(CUML_CPP_SRC "../../cpp")
+
 # --- cumlprims_mg --- #
 # ship cumlprims_mg in the 'libcuml' wheel (for re-use by 'cuml' wheels)
 set(CUML_USE_CUMLPRIMS_MG_STATIC OFF)
 set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL OFF)
 
 # --- cuVS --- #
-if(USE_CUVS_WHEEL)
-  set(CUML_USE_CUVS_STATIC OFF)
-else()
-  set(CUML_USE_CUVS_STATIC ON)
-endif()
+set(CUML_USE_CUVS_STATIC OFF)
 
 # don't unclude any cuVS stuff in libcuml wheel
 # (expect anything building against libcuml to provide cuvs headers externally)
@@ -117,7 +110,8 @@ if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
   set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)
 endif()
 
-if(USE_CUVS_WHEEL)
+# if dynamically linking to cuVS, set up an RPATH to find the libcuvs.so installed via the cuvs wheel
+if(NOT CUML_USE_CUVS_STATIC)
   # assumes libcuml++ is installed 2 levels deep, e.g. site-packages/cuml/lib64/libcuml++.so
   set(rpaths "$ORIGIN/../../cuvs")
   set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)

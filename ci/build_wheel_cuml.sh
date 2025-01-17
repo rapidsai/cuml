@@ -55,14 +55,14 @@ case "${RAPIDS_CUDA_VERSION}" in
       --exclude "libcusparse.so.12"
       --exclude "libnvJitLink.so.12"
     )
-    EXTRA_CMAKE_ARGS=";-DUSE_CUDA_MATH_WHEELS=ON"
+    EXTRA_CMAKE_ARGS="-DUSE_CUDA_MATH_WHEELS=ON"
     ;;
   11.*)
-    EXTRA_CMAKE_ARGS=";-DUSE_CUDA_MATH_WHEELS=OFF"
+    EXTRA_CMAKE_ARGS="-DUSE_CUDA_MATH_WHEELS=OFF"
     ;;
 esac
 
-export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/;-DUSE_CUVS_WHEEL=ON${EXTRA_CMAKE_ARGS};-DSINGLEGPU=OFF;-DUSE_LIBCUML_WHEEL=ON"
+export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/;${EXTRA_CMAKE_ARGS};-DSINGLEGPU=OFF;-DUSE_LIBCUML_WHEEL=ON"
 ./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
 mkdir -p ${package_dir}/final_dist
