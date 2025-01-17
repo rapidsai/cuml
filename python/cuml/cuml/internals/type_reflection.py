@@ -51,8 +51,17 @@ class CumlArrayDescriptor:
         self.name = name
 
     def __set__(self, obj, value):
-        # Just save the provided value as CumlArray
+        # Save the provided value as CumlArray and initialize output cache.
         setattr(obj, f"_{self.name}_data", as_cuml_array(value))
+        setattr(obj, f"_{self.name}_output_cache", dict())
+
+    def _to_cached_output(self, obj, array, output_type):
+        output_cache = getattr(obj, f"_{self.name}_output_cache")
+
+        if output_type not in output_cache:
+            output_cache[output_type] = array.to_output(output_type)
+
+        return output_cache[output_type]
 
     @cuml_public_api
     def __get__(self, obj, _=None):
@@ -70,11 +79,11 @@ class CumlArrayDescriptor:
 
         # The global output type is set, return the array converted to that.
         elif (global_output_type := GlobalSettings().output_type) is not None:
-            return array.to_output(global_output_type)
+            return self._to_cached_output(obj, array, global_output_type)
 
         # Return the array converted to the object's _output_type
         elif (output_type := obj._output_type) is not None:
-            return array.to_output(output_type)
+            return self._to_cached_output(obj, array, output_type)
 
         # Neither the global nor the object's output_type are set. Since this
         # is a user call, we must fail.
