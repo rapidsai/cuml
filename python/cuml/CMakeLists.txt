@@ -38,7 +38,6 @@ project(
 option(CUML_UNIVERSAL "Build all cuML Python components." ON)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
-option(USE_CUVS_WHEEL "Use the cuVS wheel" OFF)
 option(USE_LIBCUML_WHEEL "Use libcuml wheel to provide some dependencies" OFF)
 
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
@@ -104,10 +103,9 @@ else()
     set(CUDA_STATIC_MATH_LIBRARIES ON)
   endif()
 
-  # --- CCCL, RAFT, RMM ---#
-  # find CCCL, RAFT, and RMM before cuVS, to avoid
+  # --- RAFT---#
+  # find RAFT before cuVS, to avoid
   # cuVS CMake defining conflicting versions of targets like 'nvidia::cutlass::cutlass'
-  # include(${CUML_CPP_SRC}/cmake/thirdparty/get_cccl.cmake)
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_raft.cmake)
 
   # --- cuVS --- #
@@ -118,22 +116,16 @@ else()
   #
   # Until then, this is necessary because cuVS is included in the public headers of both
   # libcuml (C++) and cuml (Cython).
-  message(STATUS "--- [debug] finding cuVS for cuML")
   set(CUML_USE_CUVS_STATIC OFF)
   set(CUML_EXCLUDE_CUVS_FROM_ALL ON)
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_cuvs.cmake)
-  message(STATUS "--- [debug] done finding cuVS for cuML")
 
   # --- treelite --- #
-  # We need to call get_treelite explicitly because we need the correct
+  # Need to call get_treelite explicitly because we need the correct
   # ${TREELITE_LIBS} definition for RF.
   #
-  # And because cuml Cython code needs to headers to satisfy calls like 'cdef extern from "treelite/c_api.h"'
-  #
-  # and it needs to come before find_package(cuml), because it's a PUBLIC
-  # dependency of cuml::cuml.
-  #
-  # TODO(jameslamb): clean up these comments
+  # And because cuml Cython code needs the headers to satisfy calls like
+  # 'cdef extern from "treelite/c_api.h"'
 
   # wheel builds use a static treelite, because the 'libtreelite.so' in 'treelite' wheels
   # isn't intended for dynamic linking by third-party projects (e.g. hides its symbols)
@@ -149,13 +141,10 @@ else()
 
   set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
 
-  message(STATUS "--- [debug] finding treelite for cuML")
   include(${CUML_CPP_SRC}/cmake/thirdparty/get_treelite.cmake)
 
   # --- libcuml --- #
-  message(STATUS "--- [debug] finding cuML")
   find_package(cuml "${RAPIDS_VERSION}" REQUIRED)
-  message(STATUS "--- [debug] found cuML")
 
   set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
   set(cuml_mg_libraries cuml::${CUML_CPP_TARGET})

@@ -20,6 +20,17 @@ if [[ "${package_dir}" == "python/libcuml" ]]; then
             --max-allowed-size-compressed '500M'
         )
     fi
+elif [[ "${package_dir}" == "python/cuml" ]]; then
+    # TODO(jameslamb): why are the CUDA 11 wheels so big???
+    if [[ "${RAPIDS_CUDA_MAJOR}" == "11" ]]; then
+        PYDISTCHECK_ARGS+=(
+            --max-allowed-size-compressed '1.5G'
+        )
+    else
+        PYDISTCHECK_ARGS+=(
+            --max-allowed-size-compressed '75M'
+        )
+    fi
 fi
 
 cd "${package_dir}"

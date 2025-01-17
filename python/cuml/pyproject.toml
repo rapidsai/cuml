@@ -21,11 +21,9 @@ requires = [
 
 [tool.pydistcheck]
 select = [
+    # NOTE: size threshold is managed via CLI args in CI scripts
     "distro-too-large-compressed",
 ]
-
-# PyPI limit is 100 MiB, fail CI before we get too close to that
-max_allowed_size_compressed = '75M'
 
 [tool.pytest.ini_options]
 addopts = "--tb=native"
@@ -177,7 +175,6 @@ versioneer\.py |
 build-backend = "scikit_build_core.build"
 dependencies-file = "../../dependencies.yaml"
 matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
-
 requires = [
     "cmake>=3.26.4,!=3.30.0",
     "cuda-python",
