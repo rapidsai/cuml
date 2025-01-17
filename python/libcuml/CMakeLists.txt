@@ -54,7 +54,7 @@ set(BUILD_CUML_BENCH OFF)
 set(CUML_ALGORITHMS "ALL" CACHE STRING "Choose which algorithms are built cuML. Can specify individual algorithms or groups in a semicolon-separated list.")
 
 # for libcuml wheels, always compile in the multi-node, multi-GPU stuff from cumlprims_mg
-set(SINGLEGPU ON)
+set(SINGLEGPU OFF)
 
 set(CUML_CPP_TARGET "cuml++")
 set(CUML_CPP_SRC "../../cpp")
