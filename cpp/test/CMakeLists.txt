@@ -133,6 +133,7 @@ if(all_algo OR fil_algo)
   ConfigureTest(PREFIX SG NAME HOST_BUFFER_TEST  sg/experimental/fil/raft_proto/buffer.cpp ML_INCLUDE)
   ConfigureTest(PREFIX SG NAME DEVICE_BUFFER_TEST  sg/experimental/fil/raft_proto/buffer.cu ML_INCLUDE)
   ConfigureTest(PREFIX SG NAME FOREST_TRAVERSAL_TEST sg/experimental/forest/traversal_forest.cpp ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME TREELITE_TRAVERSAL_TEST sg/experimental/forest/treelite_traversal.cpp ML_INCLUDE)
 endif()
 
 # todo: organize linear models better

@@ -33,7 +33,7 @@ struct treelite_traversal_node : public traversal_node<TREELITE_NODE_ID_T> {
   treelite_traversal_node(
     treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree,
     id_type node_id
-  ) : tl_tree_{tl_tree}, node_id_{node_id}, traversal_node{} {}
+  ) : traversal_node{}, tl_tree_{tl_tree}, node_id_{node_id} {}
 
   bool is_leaf() const override {
     return tl_tree_.IsLeaf(node_id_);
@@ -52,9 +52,9 @@ struct treelite_traversal_node : public traversal_node<TREELITE_NODE_ID_T> {
   id_type distant_child() const override {
     auto result = id_type{};
     if (left_is_hot()) {
-      result = tl_tree_.LeftChild(node_id_);
-    } else {
       result = tl_tree_.RightChild(node_id_);
+    } else {
+      result = tl_tree_.LeftChild(node_id_);
     }
     return result;
   }
@@ -152,14 +152,14 @@ struct treelite_traversal_forest : public traversal_forest<treelite_traversal_no
 
   treelite_traversal_forest(
     treelite::ModelPreset<tl_threshold_t, tl_output_t> const& tl_model
-  ) : tl_model_{tl_model}, traversal_forest<treelite_traversal_node<tl_threshold_t, tl_output_t>>{[&tl_model]() {
+  ) : traversal_forest<treelite_traversal_node<tl_threshold_t, tl_output_t>>{[&tl_model]() {
     auto result = std::vector<node_uid_type>{};
     result.reserve(tl_model.GetNumTree());
     for (auto i=std::size_t{}; i < tl_model.GetNumTree(); ++i) {
       result.push_back(std::make_pair(i, TREELITE_NODE_ID_T{}));
     }
     return result;
-  }()} {}
+  }()}, tl_model_{tl_model} {}
 
   node_type get_node(tree_id_type tree_id, node_id_type node_id) const override {
     return node_type{
