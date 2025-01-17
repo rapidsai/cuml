@@ -2,7 +2,7 @@
 
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.array import CumlArray
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.memory_utils import using_output_type
 
 import inspect
 from collections.abc import Sequence
@@ -108,16 +108,6 @@ class CumlArrayDescriptor:
 # Type reflection
 
 
-@contextmanager
-def override_output_type(output_type: str):
-    try:
-        previous_output_type = GlobalSettings().output_type
-        GlobalSettings().output_type = output_type
-        yield
-    finally:
-        GlobalSettings().output_type = previous_output_type
-
-
 def determine_array_type(value) -> str:
     """Utility function to identify the array type."""
     if isinstance(value, CumlArray):
@@ -203,7 +193,6 @@ def _to_output_type(obj, output_type: str):
 
 # Sentinels
 ObjectOutputType = object()
-GlobalOutputType = object()
 
 DefaultOutputType = ObjectOutputType
 
@@ -322,7 +311,7 @@ def example_workflow():
     print("Predictions:", predictions, type(predictions))
     print("coef", model.coef_, type(model.coef_))
 
-    with override_output_type("cupy"):
+    with using_output_type("cupy"):
         assert isinstance(model.coef_, cp.ndarray)
 
     assert isinstance(model.coef_, np.ndarray)
@@ -337,7 +326,7 @@ def example_workflow():
     squared_X = power(X, 2)
     assert isinstance(squared_X, type(X))
 
-    with override_output_type("cupy"):
+    with using_output_type("cupy"):
         assert isinstance(power(X, 2), cp.ndarray)
 
 

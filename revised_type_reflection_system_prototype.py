@@ -94,7 +94,7 @@ global_output_type = None
 
 
 @contextmanager
-def override_output_type(output_type: str):
+def using_output_type(output_type: str):
     global global_output_type
     try:
         previous_output_type = global_output_type
@@ -290,7 +290,7 @@ def example_workflow():
     print("Predictions:", predictions, type(predictions))
     print("coef", model.coef_, type(model.coef_))
 
-    with override_output_type("cupy"):
+    with using_output_type("cupy"):
         assert isinstance(model.coef_, cp.ndarray)
 
     assert isinstance(model.coef_, np.ndarray)
@@ -305,7 +305,7 @@ def example_workflow():
     squared_X = power(X, 2)
     assert isinstance(squared_X, type(X))
 
-    with override_output_type("cupy"):
+    with using_output_type("cupy"):
         assert isinstance(power(X, 2), cp.ndarray)
 
 

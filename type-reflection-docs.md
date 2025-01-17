@@ -94,7 +94,7 @@ It is possible to override the dynamic output type by setting the global output 
 Example:
 
 ```python
-with override_output_type("cupy"):
+with using_output_type("cupy"):
     ...
 ```
 
