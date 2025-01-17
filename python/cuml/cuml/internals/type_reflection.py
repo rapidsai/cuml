@@ -57,9 +57,8 @@ class CumlArrayDescriptor:
     @cuml_public_api
     def __get__(self, obj, _=None):
 
-        if (
-            obj is None
-        ):  # descriptor was accessed on class rather than instance
+        # The descriptor was accessed on a class rather than an instance.
+        if obj is None:
             return self
 
         # Get data from the owning object
@@ -83,6 +82,10 @@ class CumlArrayDescriptor:
             raise RuntimeError(
                 "Tried to access CumlArrayDescriptor without output_type set."
             )
+
+    def __delete__(self, obj):
+        if obj is not None:
+            delattr(obj, f"_{self.name}_data")
 
 
 # Type reflection
@@ -135,6 +138,7 @@ class set_output_type:
     def __call__(self, func):
         sig = inspect.signature(func)
 
+        @wraps(func)
         @cuml_public_api
         def inner(obj, *args, **kwargs):
             if not in_internal_api():
