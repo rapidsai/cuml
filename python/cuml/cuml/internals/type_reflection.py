@@ -23,7 +23,7 @@ def api_depth_greater_than_one() -> bool:
     return GlobalSettings().api_depth > 1
 
 
-def cuml_api(func):
+def cuml_public_api(func):
     @wraps(func)
     def inner(*args, **kwargs):
         GlobalSettings().increment_api_depth()
@@ -140,7 +140,7 @@ class set_output_type:
     def __call__(self, func):
         sig = inspect.signature(func)
 
-        @cuml_api
+        @cuml_public_api
         def inner(obj, *args, **kwargs):
             if not api_depth_greater_than_one():
                 bound_args = sig.bind(obj, *args, **kwargs)
@@ -190,7 +190,7 @@ class convert_cuml_arrays:
         sig = inspect.signature(func)
 
         @wraps(func)
-        @cuml_api
+        @cuml_public_api
         def inner(*args, **kwargs):
             ret = func(*args, **kwargs)
 
