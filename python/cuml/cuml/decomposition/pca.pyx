@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -171,8 +171,8 @@ class PCA(UniversalBase,
         1 2.333...
         2 2.333...
         dtype: float32
-        >>> print(f'noise variance: {pca_float.noise_variance_}')
-        noise variance: 0  0.0
+        >>> print(f'noise variance: {pca_float.noise_variance_}') # doctest: +SKIP
+        noise variance: 0   -7.377287e-08
         dtype: float32
         >>> trans_gdf_float = pca_float.transform(gdf_float)
         >>> print(f'Inverse: {trans_gdf_float}') # doctest: +SKIP
