@@ -1,6 +1,7 @@
 # Copyright (c) 2025, NVIDIA CORPORATION.
 
 from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.array import CumlArray
 
 import inspect
 from collections.abc import Sequence
@@ -35,27 +36,7 @@ def cuml_public_api(func):
     return inner
 
 
-# CumlArray
-
-
-class CumlArray:
-    def __init__(self, data):
-        self.data = data
-
-    def to_output(self, output_type: str):
-        match output_type:
-            case "numpy":
-                if isinstance(self.data, cp.ndarray):
-                    return self.data.get()
-                else:
-                    return np.asarray(self.data)
-            case "cupy":
-                return cp.asarray(self.data)
-            case _:
-                raise TypeError(f"Unknown output_type '{output_type}'.")
-
-    def to_device_array(self) -> cp.ndarray:
-        return self.to_output("cupy")
+# # CumlArray
 
 
 def as_cuml_array(X) -> CumlArray:
