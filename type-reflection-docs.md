@@ -83,7 +83,7 @@ is returned to the user.
 
 To achieve this, we keep track of whether a cuml API call was made externally at
 the user-level, or internally. A developer can always check the current API
-stack level with the `is_api_internal()` function.
+stack level with the `in_internal_api()` function.
 
 The `convert_cuml_arrays` decorator will only trigger conversions for external
 API calls, right before data is handed back to the user.
@@ -98,7 +98,8 @@ with override_output_type("cupy"):
     ...
 ```
 
-All outputs within this context will be converted to cupy arrays.
+All outputs within this context will be converted to cupy arrays regardless of
+any other configuration.
 
 Note: It is **not** possible to opt out of the global output type override. If a
 function needs to return a specific type regardless of the global output type
@@ -112,6 +113,8 @@ The default behavior of the `convert_cuml_arrays()` decorator is to convert cuml
 1. To the global output type if set.
 2. The object's output type.
 
+_The function will fail if neither is set._
+
 The behavior can be modified by setting the `to` argument:
 
 ```
@@ -122,10 +125,7 @@ The behavior can be modified by setting the `to` argument:
 If you want to use the 
 
 # Use the type of the argument named "X":
-# @convert_cuml_arrays(to=TypeOfArgument("X"))
-
-# Use the specifically hard-coded type:
-# @convert_cuml_arrays(to=SpecificType("cupy"))
+# @convert_cuml_arrays(to=(DefaultOutputType, TypeOfArgument("X")))
 
 # Always use the globally set output type:
 # @convert_cuml_arrays(to=GlobalOutputType)
