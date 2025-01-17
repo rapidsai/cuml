@@ -16,11 +16,7 @@ import numpy as np
 # Everything related to API boundary determination
 
 
-def api_depth_greater_than_zero() -> bool:
-    return GlobalSettings().api_depth > 0
-
-
-def api_depth_greater_than_one() -> bool:
+def in_internal_api() -> bool:
     return GlobalSettings().api_depth > 1
 
 
@@ -58,6 +54,7 @@ class CumlArrayDescriptor:
         # Just save the provided value as CumlArray
         setattr(obj, f"_{self.name}_data", as_cuml_array(value))
 
+    @cuml_public_api
     def __get__(self, obj, _=None):
 
         if (
@@ -69,7 +66,7 @@ class CumlArrayDescriptor:
         array = getattr(obj, f"_{self.name}_data")
 
         # This is accessed internally, just return the cuml array directly.
-        if api_depth_greater_than_zero():
+        if in_internal_api():
             return array
 
         # The global output type is set, return the array converted to that.
@@ -140,7 +137,7 @@ class set_output_type:
 
         @cuml_public_api
         def inner(obj, *args, **kwargs):
-            if not api_depth_greater_than_one():
+            if not in_internal_api():
                 bound_args = sig.bind(obj, *args, **kwargs)
                 bound_args.apply_defaults()
 
@@ -193,7 +190,7 @@ class convert_cuml_arrays:
             ret = func(*args, **kwargs)
 
             # Internal call, just return the value without further processing.
-            if api_depth_greater_than_one():
+            if in_internal_api():
                 return ret
 
             # We use the global output type, whenever it is set.
