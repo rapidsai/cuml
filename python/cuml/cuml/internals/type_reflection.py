@@ -56,19 +56,36 @@ class CumlArrayDescriptor:
 
     def __set__(self, obj, value):
         # Just save the provided value as CumlArray
-        setattr(obj, f"_{self.name}_value", as_cuml_array(value))
+        setattr(obj, f"_{self.name}_data", as_cuml_array(value))
 
-    def __get__(self, obj, objtype=None):
-        # Return either the original value for internal access or convert to the
-        # desired output type.
-        value = getattr(obj, f"_{self.name}_value")
+    def __get__(self, obj, _=None):
+
+        if (
+            obj is None
+        ):  # descriptor was accessed on class rather than instance
+            return self
+
+        # Get data from the owning object
+        array = getattr(obj, f"_{self.name}_data")
+
+        # This is accessed internally, just return the cuml array directly.
         if api_depth_greater_than_zero():
-            return value
+            return array
+
+        # The global output type is set, return the array converted to that.
         elif (global_output_type := GlobalSettings().output_type) is not None:
-            return value.to_output(global_output_type)
+            return array.to_output(global_output_type)
+
+        # Return the array converted to the object's _output_type
+        elif (output_type := obj._output_type) is not None:
+            return array.to_output(output_type)
+
+        # Neither the global nor the object's output_type are set. Since this
+        # is a user call, we must fail.
         else:
-            output_type = obj._output_type
-            return value.to_output(output_type)
+            raise RuntimeError(
+                "Tried to access CumlArrayDescriptor without output_type set."
+            )
 
 
 # Type reflection
