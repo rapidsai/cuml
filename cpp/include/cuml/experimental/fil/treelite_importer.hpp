@@ -370,7 +370,7 @@ struct treelite_importer {
     if (tl_model.task_type == treelite::TaskType::kMultiClf) {
       // Must be either vector leaf or grove-per-class
       if (tl_model.leaf_vector_shape[1] > 1) {  // vector-leaf
-        ASSERT(tl_model.leaf_vector_shape[1] == tl_model.num_class[0],
+        ASSERT(tl_model.leaf_vector_shape[1] == int(tl_model.num_class[0]),
                "Vector leaf must be equal to num_class = %d",
                tl_model.num_class[0]);
         auto tree_count = num_trees(tl_model);
@@ -380,7 +380,7 @@ struct treelite_importer {
       } else {  // grove-per-class
         auto tree_count = num_trees(tl_model);
         for (decltype(tree_count) tree_id = 0; tree_id < tree_count; ++tree_id) {
-          ASSERT(tl_model.class_id[tree_id] == tree_id % tl_model.num_class[0],
+          ASSERT(tl_model.class_id[tree_id] == int(tree_id % tl_model.num_class[0]),
                  "Tree %d has invalid class assignment",
                  tree_id);
         }
