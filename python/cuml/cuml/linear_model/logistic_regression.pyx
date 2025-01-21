@@ -188,7 +188,6 @@ class LogisticRegression(UniversalBase,
 
     _cpu_estimator_import_path = 'sklearn.linear_model.LogisticRegression'
     classes_ = CumlArrayDescriptor(order='F', dtype="<i4")
-    class_weight = CumlArrayDescriptor(order='F')
     expl_spec_weights_ = CumlArrayDescriptor(order='F')
 
     _hyperparam_interop_translator = {
