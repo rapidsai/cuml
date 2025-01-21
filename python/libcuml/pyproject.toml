@@ -37,6 +37,7 @@ classifiers = [
     "Environment :: GPU :: NVIDIA CUDA",
 ]
 dependencies = [
+    "libcuvs==25.2.*,>=0.0.0a0",
     "libraft==25.2.*,>=0.0.0a0",
     "nvidia-cublas",
     "nvidia-cufft",
@@ -79,6 +80,7 @@ dependencies-file = "../../dependencies.yaml"
 matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
 requires = [
     "cmake>=3.26.4,!=3.30.0",
+    "libcuvs==25.2.*,>=0.0.0a0",
     "libraft==25.2.*,>=0.0.0a0",
     "librmm==25.2.*,>=0.0.0a0",
     "ninja",
