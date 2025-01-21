@@ -3,6 +3,10 @@
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.array import CumlArray
 from cuml.internals.memory_utils import using_output_type
+from cuml.internals.input_utils import (
+    determine_array_type,
+    determine_array_dtype,
+)
 
 import inspect
 from collections.abc import Sequence
@@ -47,15 +51,16 @@ def as_cuml_array(X, dtype=None) -> CumlArray:
 
 
 class CumlArrayDescriptor:
-    def __init__(self, order="K"):
+    def __init__(self, order="K", dtype=None):
         self.order = order
+        self.dtype = dtype
 
     def __set_name__(self, owner, name):
         self.name = name
 
     def __set__(self, obj, value):
         # Save the provided value as CumlArray and initialize output cache.
-        dtype = _get_dtype(obj)
+        dtype = self.dtype or _get_dtype(obj)
         setattr(
             obj,
             f"_{self.name}_data",
@@ -108,22 +113,6 @@ class CumlArrayDescriptor:
 # Type reflection
 
 
-def determine_array_type(value) -> str:
-    """Utility function to identify the array type."""
-    if isinstance(value, CumlArray):
-        return "cuml"
-    elif isinstance(value, np.ndarray):
-        return "numpy"
-    elif isinstance(value, cp.ndarray):
-        return "cupy"
-    else:
-        return ValueError(f"Unknown array type: {type(value)}")
-
-
-def determine_array_dtype(value):
-    return value.dtype
-
-
 def _set_output_type(obj: Any, output_type: str):
     setattr(obj, "_output_type", output_type)
 
@@ -168,6 +157,10 @@ class set_output_type:
                 if isinstance(self.to, TypeOfArgument):
                     arg_value = bound_args.arguments.get(self.to.argument_name)
                     arg_type = determine_array_type(arg_value)
+                    if arg_type is None:
+                        raise TypeError(
+                            f"Argument for {self.to.argument_name} must be array-like."
+                        )
                     dtype = self.dtype or determine_array_dtype(arg_value)
                     _set_output_type(obj, arg_type)
                     _set_dtype(obj, dtype)

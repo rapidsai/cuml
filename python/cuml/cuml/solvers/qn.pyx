@@ -948,9 +948,9 @@ class QN(Base,
         _num_classes = self.get_num_classes(_num_classes_dim)
 
         if _num_classes == 2:
-            self.intercept_ = CumlArray.zeros(shape=1)
+            self.intercept_ = CumlArray.zeros(shape=1, dtype=self.dtype)
         else:
-            self.intercept_ = CumlArray.zeros(shape=_num_classes)
+            self.intercept_ = CumlArray.zeros(shape=_num_classes, dtype=self.dtype)
 
     @classmethod
     def _get_param_names(cls):
