@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -8,6 +8,9 @@ rapids-configure-conda-channels
 source rapids-configure-sccache
 
 source rapids-date-string
+
+# TODO(jameslamb): remove this when https://github.com/rapidsai/raft/pull/2531 is merged
+source ci/use_conda_packages_from_prs.sh
 
 export CMAKE_GENERATOR=Ninja
 

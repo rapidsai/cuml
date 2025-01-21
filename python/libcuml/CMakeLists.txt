@@ -66,9 +66,6 @@ set(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL OFF)
 
 # --- cuVS --- #
 set(CUML_USE_CUVS_STATIC OFF)
-
-# don't unclude any cuVS stuff in libcuml wheel
-# (expect anything building against libcuml to provide cuvs headers externally)
 set(CUML_EXCLUDE_CUVS_FROM_ALL ON)
 
 # --- raft --- #
@@ -107,12 +104,5 @@ if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
     "$ORIGIN/../../nvidia/cusparse/lib"
     "$ORIGIN/../../nvidia/nvjitlink/lib"
   )
-  set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)
-endif()
-
-# if dynamically linking to cuVS, set up an RPATH to find the libcuvs.so installed via the cuvs wheel
-if(NOT CUML_USE_CUVS_STATIC)
-  # assumes libcuml++ is installed 2 levels deep, e.g. site-packages/cuml/lib64/libcuml++.so
-  set(rpaths "$ORIGIN/../../cuvs")
   set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)
 endif()

@@ -85,41 +85,6 @@ else()
   include(rapids-export)
   rapids_cpm_init()
 
-  # --- CUDA --- #
-  set(CUDA_STATIC_RUNTIME ON)
-
-  # Link to the CUDA wheels with shared libraries for CUDA 12+
-  #
-  # This is here because we're rebuilding cuVS below...without it, cuVS on CUDA 11
-  # dynamically links to CUDA math libs (cuBLAS, cuFFT, etc.), and then
-  # that linkage results in those libraries being vendored in wheels by auditwheel.
-  find_package(CUDAToolkit REQUIRED)
-  if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
-    set(CUDA_STATIC_MATH_LIBRARIES OFF)
-  else()
-    if(USE_CUDA_MATH_WHEELS)
-      message(FATAL_ERROR "Cannot use CUDA math wheels with CUDA < 12.0")
-    endif()
-    set(CUDA_STATIC_MATH_LIBRARIES ON)
-  endif()
-
-  # --- RAFT---#
-  # find RAFT before cuVS, to avoid
-  # cuVS CMake defining conflicting versions of targets like 'nvidia::cutlass::cutlass'
-  include(${CUML_CPP_SRC}/cmake/thirdparty/get_raft.cmake)
-
-  # --- cuVS --- #
-  # Once there are 'libcuvs' wheels, it should be possible to remove this CPM build of cuvs.
-  #
-  #   * conda builds will find 'libcuvs' in the build environment
-  #   * wheel builds will find 'libcuvs' wherever that wheel is installed
-  #
-  # Until then, this is necessary because cuVS is included in the public headers of both
-  # libcuml (C++) and cuml (Cython).
-  set(CUML_USE_CUVS_STATIC OFF)
-  set(CUML_EXCLUDE_CUVS_FROM_ALL ON)
-  include(${CUML_CPP_SRC}/cmake/thirdparty/get_cuvs.cmake)
-
   # --- treelite --- #
   # Need to call get_treelite explicitly because we need the correct
   # ${TREELITE_LIBS} definition for RF.

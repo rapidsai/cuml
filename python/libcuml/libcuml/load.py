@@ -67,6 +67,22 @@ def load_library():
         # the loader can find it.
         pass
 
+    try:
+        # libcvs must be loaded before libcuml++ because libcuml++
+        # references its symbols
+        import libcuvs
+
+        libcuvs.load_library()
+    except ModuleNotFoundError:
+        # 'libcuml++' has a runtime dependency on 'libcuml'. However,
+        # that dependency might be satisfied by the 'libcuvs' conda package
+        # (which does not have any Python modules), instead of the
+        # 'libcuvs' wheel.
+        #
+        # In that situation, assume that 'libcuvs.so' is in a place where
+        # the loader can find it.
+        pass
+
     prefer_system_installation = (
         os.getenv("RAPIDS_LIBCUML_PREFER_SYSTEM_LIBRARY", "false").lower()
         != "false"

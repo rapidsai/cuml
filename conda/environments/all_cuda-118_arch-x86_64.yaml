@@ -41,7 +41,6 @@ dependencies:
 - libcusolver=11.4.1.48
 - libcusparse-dev=11.7.5.86
 - libcusparse=11.7.5.86
-- libcuvs==25.2.*,>=0.0.0a0
 - libraft==25.2.*,>=0.0.0a0
 - librmm==25.2.*,>=0.0.0a0
 - nbsphinx
