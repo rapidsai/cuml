@@ -29,7 +29,6 @@ max_allowed_size_compressed = '1.5G'
 
 [tool.pytest.ini_options]
 addopts = "--tb=native"
-
 markers = [
   "unit: Quickest tests focused on accuracy and correctness",
   "quality: More intense tests than unit with increased runtimes",
@@ -40,7 +39,6 @@ markers = [
   "ucx: Run _only_ Dask UCX-Py tests",
   "ucxx: Run _only_ Dask UCXX tests",
 ]
-
 testpaths = [
   "cuml/tests",
   "cuml/tests/dask",
@@ -48,7 +46,6 @@ testpaths = [
   "cuml/tests/explainer",
   "cuml/tests/stemmer_tests",
 ]
-
 filterwarnings = [
   "error::FutureWarning",
   "error::DeprecationWarning",
