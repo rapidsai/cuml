@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@ import inspect
 
 from copy import deepcopy
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.api_decorators import api_base_return_any_skipall
 from cuml.internals.base_helpers import _tags_class_and_instance
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.common import convert_cuml_arrays
 
 
 ###############################################################################
@@ -198,8 +198,8 @@ class RegressorMixin:
             "description": "R^2 of self.predict(X) " "wrt. y.",
         }
     )
-    @api_base_return_any_skipall
     @enable_device_interop
+    @convert_cuml_arrays()
     def score(self, X, y, **kwargs):
         """
         Scoring function for regression estimators
@@ -239,8 +239,8 @@ class ClassifierMixin:
             ),
         }
     )
-    @api_base_return_any_skipall
     @enable_device_interop
+    @convert_cuml_arrays()
     def score(self, X, y, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.

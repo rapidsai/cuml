@@ -380,6 +380,8 @@ class Base(TagsMixin):
         """
         Redirects to `solver_model` if the attribute exists.
         """
+        # TODO: I think we should handle this explicitly on a
+        # estimator-by-estimator basis.
         if attr == "solver_model":
             return self.__dict__['solver_model']
         if "solver_model" in self.__dict__.keys():

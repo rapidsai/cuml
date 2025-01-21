@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import warnings
 
 from libc.stdint cimport uintptr_t
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common import CumlArrayDescriptor, set_output_type, convert_cuml_arrays
 from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import RegressorMixin, FMajorInputTagMixin
 from cuml.internals.array import CumlArray
@@ -257,6 +257,7 @@ class Ridge(UniversalBase,
 
     @generate_docstring()
     @enable_device_interop
+    @set_output_type("X")
     def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "Ridge":
         """
         Fit the model with X and y.

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,13 +25,14 @@ from libc.stdint cimport uintptr_t
 import cuml.internals
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common import CumlArrayDescriptor
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.common.sparse_utils import is_sparse
+from cuml.common import convert_cuml_arrays, set_output_type
 
 
 IF GPUBUILD == 1:
@@ -435,7 +436,7 @@ class QN(Base,
         self.loss = loss
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @convert_cuml_arrays()
     def coef_(self):
         if self._coef_ is None:
             return None
@@ -456,6 +457,7 @@ class QN(Base,
         self._coef_ = value
 
     @generate_docstring(X='dense_sparse')
+    @set_output_type("X")
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "QN":
         """
         Fit the model with X and y.
@@ -642,7 +644,6 @@ class QN(Base,
 
         return self
 
-    @cuml.internals.api_base_return_array_skipall
     def _decision_function(self, X, convert_dtype=True) -> CumlArray:
         """
         Gives confidence score for X
@@ -786,7 +787,7 @@ class QN(Base,
             'description': 'Predicted values',
             'shape': '(n_samples, 1)'
         })
-    @cuml.internals.api_base_return_array(get_output_dtype=True)
+    @convert_cuml_arrays()
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
@@ -905,6 +906,7 @@ class QN(Base,
 
         return preds
 
+    @convert_cuml_arrays()
     def score(self, X, y):
         if GPUBUILD == 1:
             return accuracy_score(y, self.predict(X))

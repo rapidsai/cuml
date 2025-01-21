@@ -26,12 +26,14 @@ import cuml.internals
 from cuml.solvers import QN
 from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin, SparseInputTagMixin
-from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
+from cuml.common import set_output_type
+from cuml.common import convert_cuml_arrays
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 cp = gpu_only_import('cupy')
@@ -286,8 +288,8 @@ class LogisticRegression(UniversalBase,
             self.verb_prefix = ""
 
     @generate_docstring(X='dense_sparse')
-    @cuml.internals.api_base_return_any(set_output_dtype=True)
     @enable_device_interop
+    @set_output_type("X")
     def fit(self, X, y, sample_weight=None,
             convert_dtype=True) -> "LogisticRegression":
         """
@@ -390,6 +392,7 @@ class LogisticRegression(UniversalBase,
                                        'description': 'Confidence score',
                                        'shape': '(n_samples, n_classes)'})
     @enable_device_interop
+    @convert_cuml_arrays()
     def decision_function(self, X, convert_dtype=True) -> CumlArray:
         """
         Gives confidence score for X
@@ -405,8 +408,8 @@ class LogisticRegression(UniversalBase,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    @cuml.internals.api_base_return_array(get_output_dtype=True)
     @enable_device_interop
+    @convert_cuml_arrays()
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
@@ -421,6 +424,7 @@ class LogisticRegression(UniversalBase,
                                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
     @enable_device_interop
+    @convert_cuml_arrays()
     def predict_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the class probabilities for each class in X
@@ -438,6 +442,7 @@ class LogisticRegression(UniversalBase,
                                                        class probabilities',
                                        'shape': '(n_samples, n_classes)'})
     @enable_device_interop
+    @convert_cuml_arrays()
     def predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the log class probabilities for each class in X
@@ -529,7 +534,7 @@ class LogisticRegression(UniversalBase,
         return self
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @convert_cuml_arrays()
     def coef_(self):
         return self.solver_model.coef_
 
@@ -538,7 +543,7 @@ class LogisticRegression(UniversalBase,
         self.solver_model.coef_ = value
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @convert_cuml_arrays()
     def intercept_(self):
         return self.solver_model.intercept_
 
