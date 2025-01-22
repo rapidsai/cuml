@@ -348,7 +348,7 @@ void _fit_supervised(const raft::handle_t& handle,
 /**
  *
  */
-template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
+template <typename value_idx, typename value_t, typename umap_inputs, uint64_t TPB_X>
 void _transform(const raft::handle_t& handle,
                 const umap_inputs& inputs,
                 umap_inputs& orig_x_inputs,
@@ -425,7 +425,7 @@ void _transform(const raft::handle_t& handle,
    * Compute graph of membership strengths
    */
 
-  int nnz = inputs.n * params->n_neighbors;
+  uint64_t nnz = inputs.n * params->n_neighbors;
 
   dim3 grid_nnz(raft::ceildiv(nnz, TPB_X), 1, 1);
 
@@ -449,14 +449,14 @@ void _transform(const raft::handle_t& handle,
                                    params->n_neighbors);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  rmm::device_uvector<int> row_ind(inputs.n, stream);
+  rmm::device_uvector<uint64_t> row_ind(inputs.n, stream);
   rmm::device_uvector<int> ia(inputs.n, stream);
 
   raft::sparse::convert::sorted_coo_to_csr(&graph_coo, row_ind.data(), stream);
   raft::sparse::linalg::coo_degree(&graph_coo, ia.data(), stream);
 
   rmm::device_uvector<value_t> vals_normed(graph_coo.nnz, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(vals_normed.data(), 0, graph_coo.nnz * sizeof(value_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(vals_normed.data(), 0, nnz * sizeof(value_t), stream));
 
   CUML_LOG_DEBUG("Performing L1 normalization");
 

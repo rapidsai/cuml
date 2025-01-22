@@ -101,7 +101,7 @@ void reset_local_connectivity(raft::sparse::COO<T>* in_coo,
  * and this will update the fuzzy simplicial set to respect that label
  * data.
  */
-template <typename value_t, int TPB_X>
+template <typename value_t, uint64_t TPB_X>
 void categorical_simplicial_set_intersection(raft::sparse::COO<value_t>* graph_coo,
                                              value_t* target,
                                              cudaStream_t stream,
@@ -119,7 +119,7 @@ void categorical_simplicial_set_intersection(raft::sparse::COO<value_t>* graph_c
                                                                      far_dist);
 }
 
-template <typename value_t, int TPB_X>
+template <typename value_t, uint64_t TPB_X>
 CUML_KERNEL void sset_intersection_kernel(int* row_ind1,
                                           int* cols1,
                                           value_t* vals1,
@@ -177,7 +177,7 @@ CUML_KERNEL void sset_intersection_kernel(int* row_ind1,
  * Computes the CSR column index pointer and values
  * for the general simplicial set intersecftion.
  */
-template <typename T, int TPB_X>
+template <typename T, uint64_t TPB_X>
 void general_simplicial_set_intersection(int* row1_ind,
                                          raft::sparse::COO<T>* in1,
                                          int* row2_ind,

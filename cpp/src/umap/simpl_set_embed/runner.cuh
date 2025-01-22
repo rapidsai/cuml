@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ namespace SimplSetEmbed {
 using namespace ML;
 
 template <int TPB_X, typename T>
-void run(int m,
+void run(uint64_t m,
          int n,
          raft::sparse::COO<T>* coo,
          UMAPParams* params,

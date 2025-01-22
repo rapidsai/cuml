@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,16 +96,16 @@ DI T truncate_gradient(T const rounding_factor, T const x)
   return (rounding_factor + x) - rounding_factor;
 }
 
-template <typename T, int TPB_X, int n_components>
+template <typename T, uint64_t TPB_X, uint64_t n_components>
 CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            T* head_buffer,
                                            int head_n,
                                            T const* tail_embedding,
                                            T* tail_buffer,
-                                           const MLCommon::FastIntDiv tail_n,
+                                           uint64_t tail_n,
                                            const int* head,
                                            const int* tail,
-                                           int nnz,
+                                           uint64_t nnz,
                                            T const* epochs_per_sample,
                                            T* epoch_of_next_negative_sample,
                                            T* epoch_of_next_sample,
@@ -118,7 +118,7 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            T nsr_inv,
                                            T rounding)
 {
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  uint64_t row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row >= nnz) return;
   auto _epoch_of_next_sample = epoch_of_next_sample[row];
   if (_epoch_of_next_sample > epoch) return;
@@ -127,8 +127,8 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
   /**
    * Positive sample stage (attractive forces)
    */
-  int j            = head[row];
-  int k            = tail[row];
+  uint64_t j       = head[row];
+  uint64_t k       = tail[row];
   T const* current = head_embedding + (j * n_components);
   T const* other   = tail_embedding + (k * n_components);
 
@@ -172,9 +172,9 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
    */
   raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)row, 0);
   for (int p = 0; p < n_neg_samples; p++) {
-    int r;
+    uint64_t r;
     gen.next(r);
-    int t                    = r % tail_n;
+    uint64_t t               = r % tail_n;
     T const* negative_sample = tail_embedding + (t * n_components);
     T negative_sample_reg[n_components];
     for (int i = 0; i < n_components; ++i) {
@@ -210,16 +210,16 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
     _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
 }
 
-template <typename T, int TPB_X, bool use_shared_mem>
+template <typename T, uint64_t TPB_X, bool use_shared_mem>
 CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        T* head_buffer,
-                                       int head_n,
+                                       uint64_t head_n,
                                        T const* tail_embedding,
                                        T* tail_buffer,
-                                       const MLCommon::FastIntDiv tail_n,
+                                       uint64_t tail_n,
                                        const int* head,
                                        const int* tail,
-                                       int nnz,
+                                       uint64_t nnz,
                                        T const* epochs_per_sample,
                                        T* epoch_of_next_negative_sample,
                                        T* epoch_of_next_sample,
@@ -233,7 +233,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        T rounding)
 {
   extern __shared__ T embedding_shared_mem_updates[];
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  uint64_t row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row >= nnz) return;
   auto _epoch_of_next_sample = epoch_of_next_sample[row];
   if (_epoch_of_next_sample > epoch) return;
@@ -242,8 +242,8 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
   /**
    * Positive sample stage (attractive forces)
    */
-  int j            = head[row];
-  int k            = tail[row];
+  uint64_t j       = head[row];
+  uint64_t k       = tail[row];
   T const* current = head_embedding + (j * params.n_components);
   T const* other   = tail_embedding + (k * params.n_components);
 
@@ -293,9 +293,9 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
    */
   raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)row, 0);
   for (int p = 0; p < n_neg_samples; p++) {
-    int r;
+    uint64_t r;
     gen.next(r);
-    int t                    = r % tail_n;
+    uint64_t t               = r % tail_n;
     T const* negative_sample = tail_embedding + (t * params.n_components);
     dist_squared             = rdist<T>(current, negative_sample, params.n_components);
     // repulsive force between two vertices
@@ -348,16 +348,16 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
  * @param rounding:    Floating rounding factor used to truncate the gradient update for
  *                     deterministic result.
  */
-template <typename T, int TPB_X>
+template <typename T, uint64_t TPB_X>
 void call_optimize_batch_kernel(T const* head_embedding,
                                 T* head_buffer,
                                 int head_n,
                                 T const* tail_embedding,
                                 T* tail_buffer,
-                                const MLCommon::FastIntDiv& tail_n,
+                                const uint64_t tail_n,
                                 const int* head,
                                 const int* tail,
-                                int nnz,
+                                uint64_t nnz,
                                 T const* epochs_per_sample,
                                 T* epoch_of_next_negative_sample,
                                 T* epoch_of_next_sample,

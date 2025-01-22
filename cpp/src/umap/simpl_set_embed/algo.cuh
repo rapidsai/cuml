@@ -18,8 +18,6 @@
 
 #include "optimize_batch_kernel.cuh"
 
-#include <common/fast_int_div.cuh>
-
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
 
@@ -59,7 +57,8 @@ using namespace ML;
  * @param stream cuda stream
  */
 template <typename T>
-void make_epochs_per_sample(T* weights, int weights_n, int n_epochs, T* result, cudaStream_t stream)
+void make_epochs_per_sample(
+  T* weights, uint64_t weights_n, int n_epochs, T* result, cudaStream_t stream)
 {
   thrust::device_ptr<T> d_weights = thrust::device_pointer_cast(weights);
   T weights_max =
@@ -102,10 +101,10 @@ void optimization_iteration_finalization(
 template <typename T>
 void apply_embedding_updates(T* head_embedding,
                              T* head_buffer,
-                             int head_n,
+                             uint64_t head_n,
                              T* tail_embedding,
                              T* tail_buffer,
-                             int tail_n,
+                             uint64_t tail_n,
                              UMAPParams* params,
                              bool move_other,
                              rmm::cuda_stream_view stream)
@@ -195,14 +194,14 @@ T create_gradient_rounding_factor(
  * positive weights (neighbors in the 1-skeleton) and repelling
  * negative weights (non-neighbors in the 1-skeleton).
  */
-template <int TPB_X, typename T>
+template <uint64_t TPB_X, typename T>
 void optimize_layout(T* head_embedding,
-                     int head_n,
+                     uint64_t head_n,
                      T* tail_embedding,
-                     int tail_n,
+                     uint64_t tail_n,
                      const int* head,
                      const int* tail,
-                     int nnz,
+                     uint64_t nnz,
                      T* epochs_per_sample,
                      float gamma,
                      UMAPParams* params,
@@ -252,14 +251,13 @@ void optimize_layout(T* head_embedding,
 
   T rounding = create_gradient_rounding_factor<T>(head, nnz, head_n, alpha, stream_view);
 
-  MLCommon::FastIntDiv tail_n_fast(tail_n);
   for (int n = 0; n < n_epochs; n++) {
     call_optimize_batch_kernel<T, TPB_X>(head_embedding,
                                          d_head_buffer,
                                          head_n,
                                          tail_embedding,
                                          d_tail_buffer,
-                                         tail_n_fast,
+                                         tail_n,
                                          head,
                                          tail,
                                          nnz,
@@ -298,10 +296,14 @@ void optimize_layout(T* head_embedding,
  * and their 1-skeletons.
  */
 template <int TPB_X, typename T>
-void launcher(
-  int m, int n, raft::sparse::COO<T>* in, UMAPParams* params, T* embedding, cudaStream_t stream)
+void launcher(uint64_t m,
+              int n,
+              raft::sparse::COO<T>* in,
+              UMAPParams* params,
+              T* embedding,
+              cudaStream_t stream)
 {
-  int nnz = in->nnz;
+  uint64_t nnz = in->nnz;
 
   /**
    * Find vals.max()

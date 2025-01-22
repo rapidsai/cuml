@@ -91,8 +91,8 @@ CUML_KERNEL void smooth_knn_dist_kernel(const value_t* knn_dists,
                                         float bandwidth          = 1.0)
 {
   // row-based matrix 1 thread per row
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
-  int i   = row * n_neighbors;  // each thread processes one row of the dist matrix
+  int row    = (blockIdx.x * TPB_X) + threadIdx.x;
+  uint64_t i = (uint64_t)row * n_neighbors;  // each thread processes one row of the dist matrix
 
   if (row < n) {
     float target = __log2f(n_neighbors) * bandwidth;
@@ -190,7 +190,7 @@ CUML_KERNEL void smooth_knn_dist_kernel(const value_t* knn_dists,
  *
  * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
  */
-template <int TPB_X, typename value_idx, typename value_t>
+template <uint64_t TPB_X, typename value_idx, typename value_t>
 CUML_KERNEL void compute_membership_strength_kernel(
   const value_idx* knn_indices,
   const float* knn_dists,  // nn outputs
@@ -199,14 +199,14 @@ CUML_KERNEL void compute_membership_strength_kernel(
   value_t* vals,
   int* rows,
   int* cols,  // result coo
-  int n,
-  int n_neighbors)
+  int n_neighbors,
+  uint64_t to_process)
 {  // model params
 
   // row-based matrix is best
-  int idx = (blockIdx.x * TPB_X) + threadIdx.x;
+  uint64_t idx = (blockIdx.x * TPB_X) + threadIdx.x;
 
-  if (idx < n * n_neighbors) {
+  if (idx < to_process) {
     int row = idx / n_neighbors;  // one neighbor per thread
 
     double cur_rho   = rhos[row];
@@ -237,8 +237,8 @@ CUML_KERNEL void compute_membership_strength_kernel(
 /*
  * Sets up and runs the knn dist smoothing
  */
-template <int TPB_X, typename value_idx, typename value_t>
-void smooth_knn_dist(int n,
+template <uint64_t TPB_X, typename value_idx, typename value_t>
+void smooth_knn_dist(uint64_t n,
                      const value_idx* knn_indices,
                      const float* knn_dists,
                      value_t* rhos,
@@ -253,7 +253,8 @@ void smooth_knn_dist(int n,
 
   rmm::device_uvector<value_t> dist_means_dev(n_neighbors, stream);
 
-  raft::stats::mean(dist_means_dev.data(), knn_dists, 1, n_neighbors * n, false, false, stream);
+  raft::stats::mean(
+    dist_means_dev.data(), knn_dists, (uint64_t)1, n * n_neighbors, false, false, stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   value_t mean_dist = 0.0;
@@ -284,8 +285,8 @@ void smooth_knn_dist(int n,
  * @param params UMAPParams config object
  * @param stream cuda stream to use for device operations
  */
-template <int TPB_X, typename value_idx, typename value_t>
-void launcher(int n,
+template <uint64_t TPB_X, typename value_idx, typename value_t>
+void launcher(uint64_t n,
               const value_idx* knn_indices,
               const value_t* knn_dists,
               int n_neighbors,
@@ -328,7 +329,8 @@ void launcher(int n,
    * Compute graph of membership strengths
    */
 
-  dim3 grid_elm(raft::ceildiv(n * n_neighbors, TPB_X), 1, 1);
+  uint64_t to_process = n * n_neighbors;
+  dim3 grid_elm(raft::ceildiv(to_process, TPB_X), 1, 1);
   dim3 blk_elm(TPB_X, 1, 1);
 
   compute_membership_strength_kernel<TPB_X><<<grid_elm, blk_elm, 0, stream>>>(knn_indices,
@@ -338,8 +340,8 @@ void launcher(int n,
                                                                               in.vals(),
                                                                               in.rows(),
                                                                               in.cols(),
-                                                                              in.n_rows,
-                                                                              n_neighbors);
+                                                                              n_neighbors,
+                                                                              to_process);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   if (ML::default_logger().should_log(ML::level_enum::debug)) {
@@ -365,7 +367,7 @@ void launcher(int n,
     },
     stream);
 
-  raft::sparse::op::coo_sort<value_t>(out, stream);
+  // raft::sparse::op::coo_sort<value_t>(out, stream);
 }
 }  // namespace Naive
 }  // namespace FuzzySimplSet
