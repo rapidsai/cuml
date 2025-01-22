@@ -21,9 +21,11 @@ requires = [
 
 [tool.pydistcheck]
 select = [
-    # NOTE: size threshold is managed via CLI args in CI scripts
     "distro-too-large-compressed",
 ]
+
+# PyPI limit is 100 MiB, fail CI before we get too close to that
+max_allowed_size_compressed = '75M'
 
 [tool.pytest.ini_options]
 addopts = "--tb=native"

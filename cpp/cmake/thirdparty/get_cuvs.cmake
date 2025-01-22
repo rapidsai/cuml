@@ -14,8 +14,8 @@
 # limitations under the License.
 #=============================================================================
 
-set(CUML_MIN_VERSION_cuvs "${RAPIDS_VERSION_MAJOR}.${RAPIDS_VERSION_MINOR}.00")
-set(CUML_BRANCH_VERSION_cuvs "${RAPIDS_VERSION_MAJOR}.${RAPIDS_VERSION_MINOR}")
+set(CUML_MIN_VERSION_cuvs "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
+set(CUML_BRANCH_VERSION_cuvs "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 
 function(find_and_configure_cuvs)
     set(oneValueArgs VERSION FORK PINNED_TAG EXCLUDE_FROM_ALL USE_CUVS_STATIC COMPILE_LIBRARY CLONE_ON_PIN)

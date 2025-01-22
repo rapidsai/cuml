@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# Copyright (c) 2021-2022, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
 # limitations under the License.
 #=============================================================================
 
-set(CUML_MIN_VERSION_cumlprims_mg "${RAPIDS_VERSION_MAJOR}.${RAPIDS_VERSION_MINOR}.00")
-set(CUML_BRANCH_VERSION_cumlprims_mg "${RAPIDS_VERSION_MAJOR}.${RAPIDS_VERSION_MINOR}")
+set(CUML_MIN_VERSION_cumlprims_mg "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
+set(CUML_BRANCH_VERSION_cumlprims_mg "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 
 function(find_and_configure_cumlprims_mg)
 

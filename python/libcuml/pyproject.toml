@@ -54,9 +54,11 @@ libcuml= "libcuml"
 
 [tool.pydistcheck]
 select = [
-    # NOTE: size threshold is managed via CLI args in CI scripts
     "distro-too-large-compressed",
 ]
+
+# detect when package size grows significantly
+max_allowed_size_compressed = '500M'
 
 [tool.scikit-build]
 build-dir = "build/{wheel_tag}"

@@ -74,7 +74,7 @@ def load_library():
 
         libcuvs.load_library()
     except ModuleNotFoundError:
-        # 'libcuml++' has a runtime dependency on 'libcuml'. However,
+        # 'libcuml++' has a runtime dependency on 'libcuvs'. However,
         # that dependency might be satisfied by the 'libcuvs' conda package
         # (which does not have any Python modules), instead of the
         # 'libcuvs' wheel.

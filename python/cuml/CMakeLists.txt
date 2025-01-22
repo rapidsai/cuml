@@ -93,8 +93,6 @@ else()
   # wheel builds use a static treelite, because the 'libtreelite.so' in 'treelite' wheels
   # isn't intended for dynamic linking by third-party projects (e.g. hides its symbols)
   if(USE_LIBCUML_WHEEL)
-    # TODO(jameslamb): is it safe for libcuml++ libcuml wheels and Cython extensions in 'cuml' wheels
-    #                  to use separate static treelite?
     set(CUML_PYTHON_TREELITE_TARGET treelite::treelite_static)
     set(CUML_USE_TREELITE_STATIC ON)
   else()
