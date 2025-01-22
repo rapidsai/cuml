@@ -11,7 +11,7 @@ LIBCUVS_CHANNEL=$(
   RAPIDS_PY_WHEEL_NAME="libcuvs_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact cuvs 594 cpp "${CUVS_COMMIT:0:7}"
 )
 
-cat >> ./constraints.txt <<EOF
+cat > /tmp/constraints.txt <<EOF
 cuvs-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${CUVS_CHANNEL}/cuvs_*.whl)
 libcuvs-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${LIBCUVS_CHANNEL}/libcuvs_*.whl)
 EOF
