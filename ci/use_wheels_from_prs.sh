@@ -16,4 +16,4 @@ cuvs-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${CUVS_CHANNEL}/cuvs_*.whl)
 libcuvs-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${LIBCUVS_CHANNEL}/libcuvs_*.whl)
 EOF
 
-export PIP_CONSTRAINT=$(pwd)/constraints.txt
+export PIP_CONSTRAINT=/tmp/constraints.txt
