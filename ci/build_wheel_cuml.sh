@@ -30,7 +30,7 @@ EXCLUDE_ARGS=(
   --exclude "libnvJitLink.so.*"
 )
 
-export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/;-DSINGLEGPU=OFF;-DUSE_LIBCUML_WHEEL=ON"
+export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DSINGLEGPU=OFF;-DUSE_LIBCUML_WHEEL=ON"
 ./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
 mkdir -p ${package_dir}/final_dist
