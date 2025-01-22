@@ -184,6 +184,9 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
+      # CUDA 11 wheel CI is disabled until
+      # https://github.com/rapidsai/build-planning/issues/137 is resolved.
+      matrix_filter: map(select(.CUDA_VER | startswith("11") | not))
   devcontainer:
     needs: telemetry-setup
     secrets: inherit
