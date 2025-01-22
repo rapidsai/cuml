@@ -36,34 +36,16 @@ EXCLUDE_ARGS=(
   --exclude "libcumlprims_mg.so"
   --exclude "libcuvs.so"
   --exclude "libraft.so"
+  --exclude "libcublas.so.*"
+  --exclude "libcublasLt.so.*"
+  --exclude "libcufft.so.*"
+  --exclude "libcurand.so.*"
+  --exclude "libcusolver.so.*"
+  --exclude "libcusparse.so.*"
+  --exclude "libnvJitLink.so.*"
 )
 
-# Avoid ever vendoring CUDA libraries into wheels.
-#
-# On CUDA 11 builds these excludes should technically be unnecessary because
-# there cuml and its dependencies statically link again these libraries, but
-# this is here unconditionally to ensure those wheels don't accidentally pick up
-# these libraries transitively.
-EXCLUDE_ARGS+=(
-  --exclude "libcublas.so.12"
-  --exclude "libcublasLt.so.12"
-  --exclude "libcufft.so.11"
-  --exclude "libcurand.so.10"
-  --exclude "libcusolver.so.11"
-  --exclude "libcusparse.so.12"
-  --exclude "libnvJitLink.so.12"
-)
-
-case "${RAPIDS_CUDA_VERSION}" in
-  12.*)
-    EXTRA_CMAKE_ARGS="-DUSE_CUDA_MATH_WHEELS=ON"
-    ;;
-  11.*)
-    EXTRA_CMAKE_ARGS="-DUSE_CUDA_MATH_WHEELS=OFF"
-    ;;
-esac
-
-export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/;${EXTRA_CMAKE_ARGS}"
+export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/"
 ./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
 mkdir -p ${package_dir}/final_dist

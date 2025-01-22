@@ -400,6 +400,11 @@ dependencies:
               cuda: "11.*"
               use_cuda_wheels: "true"
             packages:
+              - nvidia-cublas-cu11
+              - nvidia-cufft-cu11
+              - nvidia-curand-cu11
+              - nvidia-cusparse-cu11
+              - nvidia-cusolver-cu11
           # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
           # (e.g. for DLFW and pip devcontainers)
           - matrix:

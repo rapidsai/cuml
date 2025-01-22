@@ -25,13 +25,6 @@ project(
   LANGUAGES CXX CUDA
 )
 
-################################################################################
-# - User Options  --------------------------------------------------------------
-option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
-
-################################################################################
-# - Process User Options  ------------------------------------------------------
-
 # Check if cuml is already available. If so, it is the user's responsibility to ensure that the
 # CMake package is also available at build time of the Python cuml package.
 find_package(cuml "${RAPIDS_VERSION}")
@@ -80,29 +73,17 @@ set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
 
 # --- CUDA --- #
 set(CUDA_STATIC_RUNTIME ON)
-
-# Link to the CUDA wheels with shared libraries for CUDA 12+
-find_package(CUDAToolkit REQUIRED)
-if(CUDAToolkit_VERSION VERSION_GREATER_EQUAL 12.0)
-  set(CUDA_STATIC_MATH_LIBRARIES OFF)
-else()
-  if(USE_CUDA_MATH_WHEELS)
-    message(FATAL_ERROR "Cannot use CUDA math wheels with CUDA < 12.0")
-  endif()
-  set(CUDA_STATIC_MATH_LIBRARIES ON)
-endif()
+set(CUDA_STATIC_MATH_LIBRARIES OFF)
 
 add_subdirectory(../../cpp cuml-cpp)
 
-if(NOT CUDA_STATIC_MATH_LIBRARIES AND USE_CUDA_MATH_WHEELS)
-  # assumes libcuml++ is installed 2 levels deep, e.g. site-packages/cuml/lib64/libcuml++.so
-  set(rpaths
-    "$ORIGIN/../../nvidia/cublas/lib"
-    "$ORIGIN/../../nvidia/cufft/lib"
-    "$ORIGIN/../../nvidia/curand/lib"
-    "$ORIGIN/../../nvidia/cusolver/lib"
-    "$ORIGIN/../../nvidia/cusparse/lib"
-    "$ORIGIN/../../nvidia/nvjitlink/lib"
-  )
-  set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)
-endif()
+# assumes libcuml++ is installed 2 levels deep, e.g. site-packages/cuml/lib64/libcuml++.so
+set(rpaths
+  "$ORIGIN/../../nvidia/cublas/lib"
+  "$ORIGIN/../../nvidia/cufft/lib"
+  "$ORIGIN/../../nvidia/curand/lib"
+  "$ORIGIN/../../nvidia/cusolver/lib"
+  "$ORIGIN/../../nvidia/cusparse/lib"
+  "$ORIGIN/../../nvidia/nvjitlink/lib"
+)
+set_property(TARGET ${CUML_CPP_TARGET} PROPERTY INSTALL_RPATH ${rpaths} APPEND)

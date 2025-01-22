@@ -37,13 +37,11 @@ project(
 # - User Options  --------------------------------------------------------------
 option(CUML_UNIVERSAL "Build all cuML Python components." ON)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
-option(USE_CUDA_MATH_WHEELS "Use the CUDA math wheels instead of the system libraries" OFF)
 option(USE_LIBCUML_WHEEL "Use libcuml wheel to provide some dependencies" OFF)
 
 # todo: use CMAKE_MESSAGE_CONTEXT for prefix for logging.
 # https://github.com/rapidsai/cuml/issues/4843
 message(VERBOSE "CUML_PY: Build only cuML CPU Python components.: ${CUML_CPU}")
-message(VERBOSE "CUML_PY: Use CUDA math wheels instead of system libraries: ${USE_CUDA_MATH_WHEELS}")
 message(VERBOSE "CUML_PY: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 
 set(CUML_ALGORITHMS "ALL" CACHE STRING "Choose which algorithms are built cuML. Can specify individual algorithms or groups in a semicolon-separated list.")
