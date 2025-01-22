@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@
 #include <rmm/exec_policy.hpp>
 
 #include <cub/cub.cuh>
+#include <cuda/functional>
 #include <thrust/copy.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
@@ -114,8 +115,9 @@ Common::CondensedHierarchy<value_idx, value_t> make_cluster_tree(
     thrust_policy,
     sizes,
     sizes + condensed_tree.get_n_edges(),
-    cuda::proclaim_return_type<bool>([=] __device__(value_idx a) -> bool { return a > 1; }),
-    0,
+    cuda::proclaim_return_type<value_idx>(
+      [=] __device__(value_idx a) -> value_idx { return static_cast<value_idx>(a > 1); }),
+    static_cast<value_idx>(0),
     thrust::plus<value_idx>());
 
   // remove leaves from condensed tree
