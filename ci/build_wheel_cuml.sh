@@ -8,14 +8,14 @@ package_dir="python/cuml"
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
+# TODO(jameslamb): remove this when https://github.com/rapidsai/raft/pull/2531 is merged
+source ./ci/use_wheels_from_prs.sh
+
 # Download the libcuml wheel built in the previous step and make it
 # available for pip to find.
 RAPIDS_PY_WHEEL_NAME="libcuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp /tmp/libcuml_dist
-echo "libcuml-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo /tmp/libcuml_dist/libcuml_*.whl)" > /tmp/constraints.txt
+echo "libcuml-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo /tmp/libcuml_dist/libcuml_*.whl)" >> /tmp/constraints.txt
 export PIP_CONSTRAINT="/tmp/constraints.txt"
-
-# TODO(jameslamb): remove this when https://github.com/rapidsai/raft/pull/2531 is merged
-source ./ci/use_wheels_from_prs.sh
 
 EXCLUDE_ARGS=(
   --exclude "libcuml++.so"
