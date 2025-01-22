@@ -10,6 +10,7 @@ files:
       - cuda
       - cuda_version
       - depends_on_cudf
+      - depends_on_cuda_python
       - depends_on_cupy
       - depends_on_cuvs
       - depends_on_dask_cudf
@@ -21,8 +22,8 @@ files:
       - depends_on_raft_dask
       - depends_on_rmm
       - docs
-      - py_build
-      - py_run
+      - py_build_cuml
+      - py_run_cuml
       - py_version
       - rapids_build_backend
       - test_python
@@ -90,7 +91,7 @@ files:
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rmm
-      - py_run
+      - py_run_cuml
       - py_version
       - test_notebooks
   py_build_cuml:
@@ -108,12 +109,13 @@ files:
       key: requires
     includes:
       - common_build
+      - depends_on_cuda_python
       - depends_on_cuvs
       - depends_on_libcumlprims
       - depends_on_libraft_headers
       - depends_on_pylibraft
       - depends_on_rmm
-      - py_build
+      - py_build_cuml
   py_run_cuml:
     output: pyproject
     pyproject_dir: python/cuml
@@ -121,6 +123,7 @@ files:
       table: project
     includes:
       - cuda_wheels
+      - depends_on_cuda_python
       - depends_on_cudf
       - depends_on_cupy
       - depends_on_cuvs
@@ -128,7 +131,7 @@ files:
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rmm
-      - py_run
+      - py_run_cuml
   py_test_cuml:
     output: pyproject
     pyproject_dir: python/cuml
@@ -187,51 +190,45 @@ dependencies:
           - matrix:
               arch: x86_64
             packages:
-              - gcc_linux-64=11.*
-              - sysroot_linux-64==2.17
+              - sysroot_linux-64==2.28
           - matrix:
               arch: aarch64
             packages:
-              - gcc_linux-aarch64=11.*
-              - sysroot_linux-aarch64==2.17
+              - sysroot_linux-aarch64==2.28
       - output_types: conda
         matrices:
           - matrix:
               arch: x86_64
               cuda: "11.8"
             packages:
+              - gcc_linux-64=11.*
               - nvcc_linux-64=11.8
           - matrix:
               arch: aarch64
               cuda: "11.8"
             packages:
+              - gcc_linux-64=11.*
               - nvcc_linux-aarch64=11.8
           - matrix:
+              arch: x86_64
               cuda: "12.*"
             packages:
               - cuda-nvcc
-  py_build:
+              - gcc_linux-64=13.*
+          - matrix:
+              arch: aarch64
+              cuda: "12.*"
+            packages:
+              - cuda-nvcc
+              - gcc_linux-aarch64=13.*
+  py_build_cuml:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
           - &cython cython>=3.0.0
           - &treelite treelite==4.4.1
-    specific:
-      - output_types: [conda, requirements, pyproject]
-        matrices:
-          - matrix:
-              cuda: "12.*"
-            packages:
-              - cuda-python>=12.6.2,<13.0a0
-          - matrix:
-              cuda: "11.*"
-            packages:
-              - cuda-python>=11.8.5,<12.0a0
-          - matrix:
-            packages:
-              - cuda-python
 
-  py_run:
+  py_run_cuml:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
@@ -469,6 +466,21 @@ dependencies:
           - *scikit_learn
           - seaborn
           - *xgboost
+  depends_on_cuda_python:
+    specific:
+      - output_types: [conda, requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - cuda-python>=12.6.2,<13.0a0
+          - matrix:
+              cuda: "11.*"
+            packages:
+              - cuda-python>=11.8.5,<12.0a0
+          - matrix:
+            packages:
+              - cuda-python
   depends_on_cudf:
     common:
       - output_types: conda

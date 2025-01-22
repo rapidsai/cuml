@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ function(find_and_configure_raft)
     message(VERBOSE "CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
 
     rapids_cpm_find(raft ${PKG_VERSION}
-      GLOBAL_TARGETS      raft::raft
+      GLOBAL_TARGETS      raft::raft raft::raft_logger raft::raft_logger_impl
       BUILD_EXPORT_SET    cuml-exports
       INSTALL_EXPORT_SET  cuml-exports
       COMPONENTS          ${RAFT_COMPONENTS}

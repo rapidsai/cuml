@@ -728,4 +728,4 @@ class TSNE(UniversalBase,
     def get_attr_names(self):
         return ["embedding", "kl_divergence_",
                 "n_features_in_", "learning_rate_",
-                "n_iter_"]
+                "n_iter_", "embedding_"]
