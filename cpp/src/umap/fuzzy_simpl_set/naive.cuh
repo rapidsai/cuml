@@ -367,7 +367,7 @@ void launcher(uint64_t n,
     },
     stream);
 
-  // raft::sparse::op::coo_sort<value_t>(out, stream);
+  raft::sparse::op::coo_sort<value_t>(out, stream);
 }
 }  // namespace Naive
 }  // namespace FuzzySimplSet
