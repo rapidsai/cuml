@@ -3,7 +3,7 @@
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
-CUVS_COMMIT="0bc1f0a77d46bda91eda6f816ea7b49b797676f9"
+CUVS_COMMIT="97c56178cd0e07e4b6b138bb0904af78379f1bb3"
 CUVS_CHANNEL=$(
   RAPIDS_PY_WHEEL_NAME="cuvs_${RAPIDS_PY_CUDA_SUFFIX}" rapids-get-pr-wheel-artifact cuvs 594 python "${CUVS_COMMIT:0:7}"
 )
