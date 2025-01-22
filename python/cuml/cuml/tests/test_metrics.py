@@ -163,8 +163,9 @@ def test_r2_score(datatype, use_handle):
     np.testing.assert_almost_equal(score, 0.98, decimal=7)
 
 
-# Ignore FutureWarning: Using `__dataframe__` is deprecated
-@pytest.mark.filterwarnings("ignore::FutureWarning")
+@pytest.mark.filterwarnings(
+    "ignore:Support for loading dataframes via the `__dataframe__` interchange protocol is deprecated"
+)
 def test_sklearn_search():
     """Test ensures scoring function works with sklearn machinery"""
     import numpy as np
