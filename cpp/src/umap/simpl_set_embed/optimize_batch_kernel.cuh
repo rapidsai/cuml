@@ -99,7 +99,7 @@ DI T truncate_gradient(T const rounding_factor, T const x)
 template <typename T, uint64_t TPB_X, uint64_t n_components>
 CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            T* head_buffer,
-                                           int head_n,
+                                           uint64_t head_n,
                                            T const* tail_embedding,
                                            T* tail_buffer,
                                            uint64_t tail_n,
@@ -242,17 +242,19 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
   /**
    * Positive sample stage (attractive forces)
    */
+  uint64_t n_components = params.n_components;
+
   uint64_t j       = head[row];
   uint64_t k       = tail[row];
-  T const* current = head_embedding + (j * params.n_components);
-  T const* other   = tail_embedding + (k * params.n_components);
+  T const* current = head_embedding + (j * n_components);
+  T const* other   = tail_embedding + (k * n_components);
 
-  T* cur_write = head_buffer + (j * params.n_components);
-  T* oth_write = tail_buffer + (k * params.n_components);
+  T* cur_write = head_buffer + (j * n_components);
+  T* oth_write = tail_buffer + (k * n_components);
 
   T* current_buffer{nullptr};
   if (use_shared_mem) { current_buffer = (T*)embedding_shared_mem_updates + threadIdx.x; }
-  auto dist_squared = rdist<T>(current, other, params.n_components);
+  auto dist_squared = rdist<T>(current, other, n_components);
   // Attractive force between the two vertices, since they
   // are connected by an edge in the 1-skeleton.
   auto attractive_grad_coeff = T(0.0);
@@ -264,7 +266,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
    * (update `other` embedding only if we are
    * performing unsupervised training).
    */
-  for (int d = 0; d < params.n_components; d++) {
+  for (int d = 0; d < n_components; d++) {
     auto grad_d = clip<T>(attractive_grad_coeff * (current[d] - other[d]), T(-4.0), T(4.0));
     grad_d *= alpha;
     if (use_shared_mem) {
@@ -279,7 +281,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
   // storing gradients for negative samples back to global memory
   if (use_shared_mem && move_other) {
     __syncthreads();
-    for (int d = 0; d < params.n_components; d++) {
+    for (int d = 0; d < n_components; d++) {
       auto grad = current_buffer[d * TPB_X];
       raft::myAtomicAdd<T>((T*)oth_write + d, truncate_gradient(rounding, -grad));
     }
@@ -296,8 +298,8 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
     uint64_t r;
     gen.next(r);
     uint64_t t               = r % tail_n;
-    T const* negative_sample = tail_embedding + (t * params.n_components);
-    dist_squared             = rdist<T>(current, negative_sample, params.n_components);
+    T const* negative_sample = tail_embedding + (t * n_components);
+    dist_squared             = rdist<T>(current, negative_sample, n_components);
     // repulsive force between two vertices
     auto repulsive_grad_coeff = T(0.0);
     if (dist_squared > T(0.0)) {
@@ -309,7 +311,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
      * (which has been negatively sampled) by updating
      * their 'weights' to push them farther in Euclidean space.
      */
-    for (int d = 0; d < params.n_components; d++) {
+    for (int d = 0; d < n_components; d++) {
       auto grad_d = T(0.0);
       if (repulsive_grad_coeff > T(0.0))
         grad_d = clip<T>(repulsive_grad_coeff * (current[d] - negative_sample[d]), T(-4.0), T(4.0));
@@ -327,7 +329,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
   // storing gradients for positive samples back to global memory
   if (use_shared_mem) {
     __syncthreads();
-    for (int d = 0; d < params.n_components; d++) {
+    for (int d = 0; d < n_components; d++) {
       raft::myAtomicAdd<T>((T*)cur_write + d,
                            truncate_gradient(rounding, current_buffer[d * TPB_X]));
     }
@@ -351,10 +353,10 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
 template <typename T, uint64_t TPB_X>
 void call_optimize_batch_kernel(T const* head_embedding,
                                 T* head_buffer,
-                                int head_n,
+                                uint64_t head_n,
                                 T const* tail_embedding,
                                 T* tail_buffer,
-                                const uint64_t tail_n,
+                                uint64_t tail_n,
                                 const int* head,
                                 const int* tail,
                                 uint64_t nnz,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ namespace RandomInit {
 using namespace ML;
 
 template <typename T>
-void launcher(int n, int d, UMAPParams* params, T* embedding, cudaStream_t stream)
+void launcher(uint64_t n, int d, UMAPParams* params, T* embedding, cudaStream_t stream)
 {
   uint64_t seed = params->random_state;
 

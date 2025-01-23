@@ -110,27 +110,26 @@ void apply_embedding_updates(T* head_embedding,
                              rmm::cuda_stream_view stream)
 {
   ASSERT(params->deterministic, "Only used when deterministic is set to true.");
+  uint64_t n_components = params->n_components;
   if (move_other) {
-    auto n_components = params->n_components;
-    thrust::for_each(
-      rmm::exec_policy(stream),
-      thrust::make_counting_iterator(0u),
-      thrust::make_counting_iterator(0u) + std::max(head_n, tail_n) * params->n_components,
-      [=] __device__(uint32_t i) {
-        if (i < head_n * n_components) {
-          head_embedding[i] += head_buffer[i];
-          head_buffer[i] = 0.0f;
-        }
-        if (i < tail_n * n_components) {
-          tail_embedding[i] += tail_buffer[i];
-          tail_buffer[i] = 0.0f;
-        }
-      });
+    thrust::for_each(rmm::exec_policy(stream),
+                     thrust::make_counting_iterator(0u),
+                     thrust::make_counting_iterator(0u) + std::max(head_n, tail_n) * n_components,
+                     [=] __device__(uint32_t i) {
+                       if (i < head_n * n_components) {
+                         head_embedding[i] += head_buffer[i];
+                         head_buffer[i] = 0.0f;
+                       }
+                       if (i < tail_n * n_components) {
+                         tail_embedding[i] += tail_buffer[i];
+                         tail_buffer[i] = 0.0f;
+                       }
+                     });
   } else {
     // No need to update reference embedding
     thrust::for_each(rmm::exec_policy(stream),
                      thrust::make_counting_iterator(0u),
-                     thrust::make_counting_iterator(0u) + head_n * params->n_components,
+                     thrust::make_counting_iterator(0u) + head_n * n_components,
                      [=] __device__(uint32_t i) {
                        head_embedding[i] += head_buffer[i];
                        head_buffer[i] = 0.0f;
@@ -232,12 +231,13 @@ void optimize_layout(T* head_embedding,
   T* d_head_buffer = head_embedding;
   T* d_tail_buffer = tail_embedding;
   if (params->deterministic) {
-    head_buffer.resize(head_n * params->n_components, stream_view);
+    uint64_t n_components = params->n_components;
+    head_buffer.resize(head_n * n_components, stream_view);
     RAFT_CUDA_TRY(
       cudaMemsetAsync(head_buffer.data(), '\0', sizeof(T) * head_buffer.size(), stream));
     // No need for tail if it's not being written.
     if (move_other) {
-      tail_buffer.resize(tail_n * params->n_components, stream_view);
+      tail_buffer.resize(tail_n * n_components, stream_view);
       RAFT_CUDA_TRY(
         cudaMemsetAsync(tail_buffer.data(), '\0', sizeof(T) * tail_buffer.size(), stream));
     }
