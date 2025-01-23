@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import numbers
 import cuml.internals
 
 from collections.abc import Iterable
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.safe_imports import gpu_only_import
 from cuml.datasets.utils import _create_rs_generator
 from cuml.internals.safe_imports import (
@@ -44,8 +45,7 @@ def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
                 center_box[0],
                 center_box[1],
                 size=(n_centers, n_features),
-                dtype=dtype,
-            )
+            ).astype(dtype)
 
         else:
             if n_features != centers.shape[1]:
@@ -63,8 +63,7 @@ def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
                 center_box[0],
                 center_box[1],
                 size=(n_centers, n_features),
-                dtype=dtype,
-            )
+            ).astype(dtype)
         try:
             assert len(centers) == n_centers
         except TypeError:
@@ -173,7 +172,8 @@ def make_blobs(
     # Set the default output type to "cupy". This will be ignored if the user
     # has set `cuml.global_settings.output_type`. Only necessary for array
     # generation methods that do not take an array as input
-    cuml.internals.set_api_output_type("cupy")
+    cuml.internals.set_api_output_type("array")
+    xpy = GlobalSettings().xpy
 
     generator = _create_rs_generator(random_state=random_state)
 
@@ -191,7 +191,7 @@ def make_blobs(
         )
 
     if isinstance(cluster_std, numbers.Real):
-        cluster_std = cp.full(len(centers), cluster_std)
+        cluster_std = xpy.full(len(centers), cluster_std)
 
     if isinstance(n_samples, Iterable):
         n_samples_per_center = n_samples
@@ -201,9 +201,9 @@ def make_blobs(
         for i in range(n_samples % n_centers):
             n_samples_per_center[i] += 1
 
-    X = cp.zeros(n_samples * n_features, dtype=dtype)
+    X = xpy.zeros(n_samples * n_features, dtype=dtype)
     X = X.reshape((n_samples, n_features), order=order)
-    y = cp.zeros(n_samples, dtype=dtype)
+    y = xpy.zeros(n_samples, dtype=dtype)
 
     if shuffle:
         proba_samples_per_center = np.array(n_samples_per_center) / np.sum(
@@ -213,21 +213,20 @@ def make_blobs(
             n_centers, n_samples, replace=True, p=proba_samples_per_center
         )
         for i, (n, std) in enumerate(zip(n_samples_per_center, cluster_std)):
-            center_indices = cp.where(shuffled_sample_indices == i)
+            center_indices = xpy.where(shuffled_sample_indices == i)
 
             y[center_indices[0]] = i
 
             X_k = generator.normal(
                 scale=std,
                 size=(len(center_indices[0]), n_features),
-                dtype=dtype,
-            )
+            ).astype(dtype)
 
             # NOTE: Adding the loc explicitly as cupy has a bug
             # when calling generator.normal with an array for loc.
             # cupy.random.normal, however, works with the same
             # arguments
-            cp.add(X_k, centers[i], out=X_k)
+            xpy.add(X_k, centers[i], out=X_k)
             X[center_indices[0], :] = X_k
     else:
         stop = 0
@@ -236,11 +235,11 @@ def make_blobs(
 
             y[start:stop] = i
 
-            X_k = generator.normal(
-                scale=std, size=(n, n_features), dtype=dtype
+            X_k = generator.normal(scale=std, size=(n, n_features)).astype(
+                dtype
             )
 
-            cp.add(X_k, centers[i], out=X_k)
+            xpy.add(X_k, centers[i], out=X_k)
             X[start:stop, :] = X_k
 
     if return_centers:
