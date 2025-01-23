@@ -68,7 +68,7 @@ def load_library():
         pass
 
     try:
-        # libcvs must be loaded before libcuml++ because libcuml++
+        # libcuvs must be loaded before libcuml++ because libcuml++
         # references its symbols
         import libcuvs
 
