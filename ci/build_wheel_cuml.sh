@@ -21,6 +21,7 @@ EXCLUDE_ARGS=(
   --exclude "libcuml++.so"
   --exclude "libcumlprims_mg.so"
   --exclude "libcuvs.so"
+  --exclude "libraft.so"
   --exclude "libcublas.so.*"
   --exclude "libcublasLt.so.*"
   --exclude "libcufft.so.*"
