@@ -329,10 +329,10 @@ void launcher(uint64_t n,
    * Compute graph of membership strengths
    */
 
-  uint64_t to_process = n * n_neighbors;
-  dim3 grid_elm(raft::ceildiv(to_process, TPB_X), 1, 1);
+  dim3 grid_elm(raft::ceildiv(n * n_neighbors, TPB_X), 1, 1);
   dim3 blk_elm(TPB_X, 1, 1);
 
+  uint64_t to_process = (uint64_t)in.n_rows * n_neighbors;
   compute_membership_strength_kernel<TPB_X><<<grid_elm, blk_elm, 0, stream>>>(knn_indices,
                                                                               knn_dists,
                                                                               sigmas.data(),
