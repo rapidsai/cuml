@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <cuda/std/functional>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/iterator/constant_iterator.h>
@@ -325,7 +326,7 @@ raft::device_csr_matrix_view<math_t, int, int, int> getMatrixBatch(
                         inptr_src + batch_size + 1,
                         thrust::make_constant_iterator(nnz_offset),
                         inptr_tgt,
-                        thrust::minus<int>());
+                        cuda::std::plus<int>());
     }
 
     auto csr_struct_out = raft::make_device_compressed_structure_view<int, int, int>(
@@ -496,7 +497,7 @@ static void copySparseRowsToDense(const int* indptr,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-struct rowsize : public thrust::unary_function<int, int> {
+struct rowsize {
   const int* indptr_;
   rowsize(const int* indptr) : indptr_(indptr) {}
 
@@ -610,7 +611,7 @@ int computeIndptrForSubset(
                                    row_new_indices_ptr + num_indices,
                                    row_sizes_ptr + 1,
                                    rowsize(indptr_in),
-                                   thrust::plus<int>());
+                                   cuda::std::plus<int>());
 
   // retrieve nnz from indptr_in[num_indices]
   int nnz;

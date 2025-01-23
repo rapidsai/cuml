@@ -118,7 +118,7 @@ Common::CondensedHierarchy<value_idx, value_t> make_cluster_tree(
     cuda::proclaim_return_type<value_idx>(
       [=] __device__(value_idx a) -> value_idx { return static_cast<value_idx>(a > 1); }),
     static_cast<value_idx>(0),
-    thrust::plus<value_idx>());
+    cuda::std::plus<value_idx>());
 
   // remove leaves from condensed tree
   rmm::device_uvector<value_idx> cluster_parents(cluster_tree_edges, stream);
