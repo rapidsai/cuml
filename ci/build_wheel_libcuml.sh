@@ -6,9 +6,6 @@ set -euo pipefail
 package_name="libcuml"
 package_dir="python/libcuml"
 
-# TODO(jameslamb): remove this when https://github.com/rapidsai/raft/pull/2531 is merged
-source ./ci/use_wheels_from_prs.sh
-
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 
 rapids-logger "Generating build requirements"

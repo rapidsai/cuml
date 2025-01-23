@@ -1,11 +1,8 @@
 #!/bin/bash
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# Copyright (c) 2020-2024, NVIDIA CORPORATION.
 set -euo pipefail
 
 . /opt/conda/etc/profile.d/conda.sh
-
-# TODO(jameslamb): remove this when https://github.com/rapidsai/raft/pull/2531 is merged
-source ci/use_conda_packages_from_prs.sh
 
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)

@@ -37,13 +37,8 @@ def _load_wheel_installation(soname: str):
 
     Returns ``None`` if the library cannot be loaded.
     """
-    # cumlprims_mg installs to lib/
-    if soname.startswith("libcumlprims_mg"):
-        relative_libdir = "lib"
-    else:
-        relative_libdir = "lib64"
     if os.path.isfile(
-        lib := os.path.join(os.path.dirname(__file__), relative_libdir, soname)
+        lib := os.path.join(os.path.dirname(__file__), "lib64", soname)
     ):
         return ctypes.CDLL(lib, PREFERRED_LOAD_FLAG)
     return None
