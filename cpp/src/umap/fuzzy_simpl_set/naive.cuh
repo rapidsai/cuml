@@ -92,8 +92,9 @@ CUML_KERNEL void smooth_knn_dist_kernel(const value_t* knn_dists,
                                         float bandwidth          = 1.0)
 {
   // row-based matrix 1 thread per row
-  int row    = (blockIdx.x * TPB_X) + threadIdx.x;
-  uint64_t i = uint64_t{row} * n_neighbors;  // each thread processes one row of the dist matrix
+  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  uint64_t i =
+    static_cast<uint64_t>(row) * n_neighbors;  // each thread processes one row of the dist matrix
 
   if (row < n) {
     float target = __log2f(n_neighbors) * bandwidth;
@@ -330,7 +331,7 @@ void launcher(uint64_t n,
    * Compute graph of membership strengths
    */
 
-  uint64_t to_process = (uint64_t)in.n_rows * n_neighbors;
+  uint64_t to_process = static_cast<uint64_t>(in.n_rows) * n_neighbors;
   dim3 grid_elm(raft::ceildiv(to_process, TPB_X), 1, 1);
   dim3 blk_elm(TPB_X, 1, 1);
 
