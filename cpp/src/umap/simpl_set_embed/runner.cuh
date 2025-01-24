@@ -31,7 +31,7 @@ namespace SimplSetEmbed {
 using namespace ML;
 
 template <int TPB_X, typename T>
-void run(uint64_t m,
+void run(int m,
          int n,
          raft::sparse::COO<T>* coo,
          UMAPParams* params,

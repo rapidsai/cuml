@@ -102,10 +102,10 @@ void optimization_iteration_finalization(
 template <typename T>
 void apply_embedding_updates(T* head_embedding,
                              T* head_buffer,
-                             uint64_t head_n,
+                             int head_n,
                              T* tail_embedding,
                              T* tail_buffer,
-                             uint64_t tail_n,
+                             int tail_n,
                              UMAPParams* params,
                              bool move_other,
                              rmm::cuda_stream_view stream)
@@ -169,7 +169,7 @@ T create_rounding_factor(T max_abs, int n)
 
 template <typename T>
 T create_gradient_rounding_factor(
-  const int* head, int nnz, int n_samples, T alpha, rmm::cuda_stream_view stream)
+  const int* head, uint64_t nnz, int n_samples, T alpha, rmm::cuda_stream_view stream)
 {
   rmm::device_uvector<T> buffer(n_samples, stream);
   // calculate the maximum number of edges connected to 1 vertex.
@@ -196,9 +196,9 @@ T create_gradient_rounding_factor(
  */
 template <uint64_t TPB_X, typename T>
 void optimize_layout(T* head_embedding,
-                     uint64_t head_n,
+                     int head_n,
                      T* tail_embedding,
-                     uint64_t tail_n,
+                     int tail_n,
                      const int* head,
                      const int* tail,
                      uint64_t nnz,
@@ -255,7 +255,6 @@ void optimize_layout(T* head_embedding,
   for (int n = 0; n < n_epochs; n++) {
     call_optimize_batch_kernel<T, TPB_X>(head_embedding,
                                          d_head_buffer,
-                                         head_n,
                                          tail_embedding,
                                          d_tail_buffer,
                                          tail_n,
@@ -297,12 +296,8 @@ void optimize_layout(T* head_embedding,
  * and their 1-skeletons.
  */
 template <int TPB_X, typename T>
-void launcher(uint64_t m,
-              int n,
-              raft::sparse::COO<T>* in,
-              UMAPParams* params,
-              T* embedding,
-              cudaStream_t stream)
+void launcher(
+  int m, int n, raft::sparse::COO<T>* in, UMAPParams* params, T* embedding, cudaStream_t stream)
 {
   uint64_t nnz = in->nnz;
 
