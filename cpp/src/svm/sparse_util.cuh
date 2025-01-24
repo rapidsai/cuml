@@ -326,7 +326,7 @@ raft::device_csr_matrix_view<math_t, int, int, int> getMatrixBatch(
                         inptr_src + batch_size + 1,
                         thrust::make_constant_iterator(nnz_offset),
                         inptr_tgt,
-                        cuda::std::plus<int>());
+                        cuda::std::minus<int>());
     }
 
     auto csr_struct_out = raft::make_device_compressed_structure_view<int, int, int>(
