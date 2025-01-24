@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ function(find_and_configure_treelite)
 
     rapids_cpm_find(Treelite ${PKG_VERSION}
         GLOBAL_TARGETS       ${TREELITE_LIBS}
+        BUILD_EXPORT_SET     cuml-exports
         INSTALL_EXPORT_SET   cuml-exports
         CPM_ARGS
             GIT_REPOSITORY   https://github.com/dmlc/treelite.git
