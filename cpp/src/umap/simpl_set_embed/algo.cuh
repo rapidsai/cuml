@@ -36,6 +36,7 @@
 
 #include <curand.h>
 #include <math.h>
+#include <stdint.h>
 
 #include <cstdlib>
 #include <string>

@@ -22,6 +22,8 @@
 
 #include <raft/sparse/coo.hpp>
 
+#include <stdint.h>
+
 namespace UMAPAlgo {
 
 namespace SimplSetEmbed {

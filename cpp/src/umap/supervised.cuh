@@ -46,6 +46,8 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
+#include <stdint.h>
+
 namespace UMAPAlgo {
 
 namespace Supervised {

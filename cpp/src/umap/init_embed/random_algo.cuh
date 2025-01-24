@@ -20,6 +20,8 @@
 
 #include <raft/random/rng.cuh>
 
+#include <stdint.h>
+
 namespace UMAPAlgo {
 namespace InitEmbed {
 namespace RandomInit {

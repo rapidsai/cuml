@@ -47,6 +47,8 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
+#include <stdint.h>
+
 #include <memory>
 
 namespace UMAPAlgo {
@@ -425,7 +427,7 @@ void _transform(const raft::handle_t& handle,
    * Compute graph of membership strengths
    */
 
-  uint64_t nnz = (uint64_t)inputs.n * params->n_neighbors;
+  uint64_t nnz = uint64_t{inputs.n} * params->n_neighbors;
 
   dim3 grid_nnz(raft::ceildiv(nnz, TPB_X), 1, 1);
 
@@ -437,7 +439,7 @@ void _transform(const raft::handle_t& handle,
 
   raft::sparse::COO<value_t> graph_coo(stream, nnz, inputs.n, inputs.n);
 
-  uint64_t to_process = (uint64_t)graph_coo.n_rows * params->n_neighbors;
+  uint64_t to_process = uint64_t{graph_coo.n_rows} * params->n_neighbors;
   FuzzySimplSetImpl::compute_membership_strength_kernel<TPB_X>
     <<<grid_nnz, blk, 0, stream>>>(knn_graph.knn_indices,
                                    knn_graph.knn_dists,

@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 namespace ML {
 
 // Dense input uses int64_t until FAISS is updated

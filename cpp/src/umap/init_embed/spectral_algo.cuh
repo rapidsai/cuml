@@ -29,6 +29,8 @@
 #include <thrust/execution_policy.h>
 #include <thrust/extrema.h>
 
+#include <stdint.h>
+
 #include <iostream>
 
 namespace UMAPAlgo {

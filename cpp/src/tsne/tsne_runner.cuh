@@ -37,6 +37,7 @@
 
 #include <cuvs/distance/distance.hpp>
 #include <pca/pca.cuh>
+#include <stdint.h>
 
 namespace ML {
 
@@ -167,7 +168,7 @@ class TSNE_runner {
   {
     distance_and_perplexity();
 
-    const auto NNZ  = (value_idx)COO_Matrix.nnz;
+    const auto NNZ  = value_idx{COO_Matrix.nnz};
     auto* VAL       = COO_Matrix.vals();
     const auto* COL = COO_Matrix.cols();
     const auto* ROW = COO_Matrix.rows();

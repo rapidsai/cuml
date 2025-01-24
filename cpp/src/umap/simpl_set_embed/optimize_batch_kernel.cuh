@@ -24,6 +24,8 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <stdint.h>
+
 #include <cstddef>
 
 namespace UMAPAlgo {

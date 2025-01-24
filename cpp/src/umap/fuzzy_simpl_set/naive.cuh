@@ -30,6 +30,7 @@
 
 #include <cuda_runtime.h>
 
+#include <stdint.h>
 #include <stdio.h>
 
 #include <string>
@@ -92,7 +93,7 @@ CUML_KERNEL void smooth_knn_dist_kernel(const value_t* knn_dists,
 {
   // row-based matrix 1 thread per row
   int row    = (blockIdx.x * TPB_X) + threadIdx.x;
-  uint64_t i = (uint64_t)row * n_neighbors;  // each thread processes one row of the dist matrix
+  uint64_t i = uint64_t{row} * n_neighbors;  // each thread processes one row of the dist matrix
 
   if (row < n) {
     float target = __log2f(n_neighbors) * bandwidth;
@@ -254,7 +255,7 @@ void smooth_knn_dist(uint64_t n,
   rmm::device_uvector<value_t> dist_means_dev(n_neighbors, stream);
 
   raft::stats::mean(
-    dist_means_dev.data(), knn_dists, (uint64_t)1, n * n_neighbors, false, false, stream);
+    dist_means_dev.data(), knn_dists, uint64_t{1}, n * n_neighbors, false, false, stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   value_t mean_dist = 0.0;
@@ -329,10 +330,10 @@ void launcher(uint64_t n,
    * Compute graph of membership strengths
    */
 
-  dim3 grid_elm(raft::ceildiv(n * n_neighbors, TPB_X), 1, 1);
+  uint64_t to_process = {in.n_rows} * n_neighbors;
+  dim3 grid_elm(raft::ceildiv(to_process, TPB_X), 1, 1);
   dim3 blk_elm(TPB_X, 1, 1);
 
-  uint64_t to_process = (uint64_t)in.n_rows * n_neighbors;
   compute_membership_strength_kernel<TPB_X><<<grid_elm, blk_elm, 0, stream>>>(knn_indices,
                                                                               knn_dists,
                                                                               sigmas.data(),
