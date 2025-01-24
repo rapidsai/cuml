@@ -330,7 +330,7 @@ void launcher(uint64_t n,
    * Compute graph of membership strengths
    */
 
-  uint64_t to_process = {in.n_rows} * n_neighbors;
+  uint64_t to_process = (uint64_t)in.n_rows * n_neighbors;
   dim3 grid_elm(raft::ceildiv(to_process, TPB_X), 1, 1);
   dim3 blk_elm(TPB_X, 1, 1);
 
