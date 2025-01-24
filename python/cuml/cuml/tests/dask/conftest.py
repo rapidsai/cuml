@@ -1,14 +1,9 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 
 import certifi
 import pytest
 from ssl import create_default_context
 from urllib.request import build_opener, HTTPSHandler, install_opener
-
-from dask_cuda import initialize
-from dask_cuda import LocalCUDACluster
-from dask_cuda.utils_test import IncreasedCloseTimeoutNanny
-from dask.distributed import Client
 
 enable_tcp_over_ucx = True
 enable_nvlink = False
@@ -24,6 +19,8 @@ def pytest_sessionstart(session):
 
 @pytest.fixture(scope="module")
 def cluster():
+    from dask_cuda import LocalCUDACluster
+    from dask_cuda.utils_test import IncreasedCloseTimeoutNanny
 
     cluster = LocalCUDACluster(
         protocol="tcp",
@@ -36,6 +33,7 @@ def cluster():
 
 @pytest.fixture(scope="function")
 def client(cluster):
+    from dask.distributed import Client
 
     client = Client(cluster)
     yield client
@@ -44,6 +42,8 @@ def client(cluster):
 
 @pytest.fixture(scope="module")
 def ucx_cluster():
+    from dask_cuda import LocalCUDACluster
+
     cluster = LocalCUDACluster(
         protocol="ucx",
     )
@@ -53,6 +53,7 @@ def ucx_cluster():
 
 @pytest.fixture(scope="function")
 def ucx_client(ucx_cluster):
+    from dask.distributed import Client
 
     client = Client(ucx_cluster)
     yield client
@@ -61,6 +62,9 @@ def ucx_client(ucx_cluster):
 
 @pytest.fixture(scope="module")
 def ucxx_cluster():
+    from dask_cuda import LocalCUDACluster
+    from dask_cuda.utils_test import IncreasedCloseTimeoutNanny
+
     cluster = LocalCUDACluster(
         protocol="ucxx",
         worker_class=IncreasedCloseTimeoutNanny,
@@ -72,6 +76,7 @@ def ucxx_cluster():
 @pytest.fixture(scope="function")
 def ucxx_client(ucxx_cluster):
     pytest.importorskip("distributed_ucxx")
+    from dask.distributed import Client
 
     client = Client(ucxx_cluster)
     yield client

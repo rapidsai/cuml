@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,10 +48,6 @@ CudfBuffer = gpu_only_import_from("cudf.core.buffer", "Buffer")
 CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
 CudfIndex = gpu_only_import_from("cudf", "Index")
 CudfSeries = gpu_only_import_from("cudf", "Series")
-DaskCudfDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
-DaskCudfSeries = gpu_only_import_from("dask_cudf", "Series")
-DaskDataFrame = gpu_only_import_from("dask.dataframe", "DataFrame")
-DaskSeries = gpu_only_import_from("dask.dataframe", "Series")
 DeviceBuffer = gpu_only_import_from("rmm", "DeviceBuffer")
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
@@ -1061,9 +1057,7 @@ class CumlArray:
             else:
                 return X
 
-        if isinstance(
-            X, (DaskCudfSeries, DaskCudfDataFrame, DaskSeries, DaskDataFrame)
-        ):
+        if hasattr(X, "__dask_graph__") and hasattr(X, "compute"):
             # TODO: Warn, but not when using dask_sql
             X = X.compute()
 

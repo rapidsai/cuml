@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,8 +48,6 @@ cp_ndarray = gpu_only_import_from("cupy", "ndarray")
 CudfSeries = gpu_only_import_from("cudf", "Series")
 CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
 CudfIndex = gpu_only_import_from("cudf", "Index")
-DaskCudfSeries = gpu_only_import_from("dask_cudf", "Series")
-DaskCudfDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
 np_ndarray = cpu_only_import_from("numpy", "ndarray")
 numba_devicearray = gpu_only_import_from("numba.cuda", "devicearray")
 try:
@@ -554,7 +552,7 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True, safe_dtype=True):
     if the conversion would lose information.
     """
 
-    if isinstance(X, (DaskCudfSeries, DaskCudfDataFrame)):
+    if hasattr(X, "__dask_graph__") and hasattr(X, "compute"):
         # TODO: Warn, but not when using dask_sql
         X = X.compute()
 

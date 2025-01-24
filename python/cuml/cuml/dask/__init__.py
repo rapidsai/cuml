@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from dask import config
+try:
+    import dask
+    import dask_cudf as _  # noqa
+    import raft_dask as _  # noqa
+    import dask.distributed as _  # noqa
+
+    del _
+except ImportError as exc:
+    msg = (
+        f"{exc!s}\n\n"
+        "CuML Dask requirements are not installed.\n\n"
+        "Please either conda or pip install as follows:\n\n"
+        "  conda install cuml-dask      # either conda install\n"
+        '  pip install -U "cuml[dask]"  # or pip install\n'
+    )
+    raise ImportError(msg) from exc
 
 from cuml.dask import cluster
 from cuml.dask import common
@@ -29,7 +44,7 @@ from cuml.dask import preprocessing
 from cuml.dask import solvers
 
 # Avoid "p2p" shuffling in dask for now
-config.set({"dataframe.shuffle.method": "tasks"})
+dask.config.set({"dataframe.shuffle.method": "tasks"})
 
 __all__ = [
     "cluster",
