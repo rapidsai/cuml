@@ -201,6 +201,7 @@ class IncrementalPCA(PCA):
     """
 
     _cpu_estimator_import_path = "sklearn.decomposition.IncrementalPCA"
+    _hyperparam_interop_translator = {}
 
     @device_interop_preparation
     def __init__(
