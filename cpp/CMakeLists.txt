@@ -115,7 +115,7 @@ message(VERBOSE "CUML_CPP: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 set(LIBCUML_LOGGING_LEVEL
     "DEBUG"
     CACHE STRING "Choose the logging level."
-)                                                                                                
+)
 set_property(
   CACHE LIBCUML_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL"
                                        "OFF"
@@ -422,6 +422,27 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/hdbscan/hdbscan.cu
         src/hdbscan/condensed_hierarchy.cu
         src/hdbscan/prediction_data.cu)
+
+    # When using GCC 13, some maybe-uninitialized warnings appear from CCCL and are treated as errors.
+    # See this issue: https://github.com/rapidsai/cuml/issues/6225
+    set_property(
+      SOURCE src/hdbscan/condensed_hierarchy.cu
+      APPEND_STRING
+      PROPERTY COMPILE_FLAGS
+      " -Xcompiler=-Wno-maybe-uninitialized"
+    )
+    set_property(
+      SOURCE src/hdbscan/hdbscan.cu
+      APPEND_STRING
+      PROPERTY COMPILE_FLAGS
+      " -Xcompiler=-Wno-maybe-uninitialized"
+    )
+    set_property(
+      SOURCE src/hdbscan/prediction_data.cu
+      APPEND_STRING
+      PROPERTY COMPILE_FLAGS
+      " -Xcompiler=-Wno-maybe-uninitialized"
+    )
   endif()
 
   if(all_algo OR holtwinters_algo)
@@ -703,7 +724,7 @@ endif()
 
 if(BUILD_CUML_TESTS)
   include(CTest)
-  add_subdirectory(test)
+  add_subdirectory(tests)
 endif()
 
 ##############################################################################
