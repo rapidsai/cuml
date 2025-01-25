@@ -164,7 +164,7 @@ def test_r2_score(datatype, use_handle):
 
 
 @pytest.mark.filterwarnings(
-    "ignore:Support for loading dataframes via the `__dataframe__` interchange protocol is deprecated"
+    "ignore:Using `__dataframe__` is deprecated"
 )
 def test_sklearn_search():
     """Test ensures scoring function works with sklearn machinery"""
