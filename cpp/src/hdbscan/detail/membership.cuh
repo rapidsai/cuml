@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,8 +80,7 @@ void get_probabilities(const raft::handle_t& handle,
                              int,
                              const value_idx*,
                              const value_idx*,
-                             cudaStream_t,
-                             bool) =
+                             cudaStream_t) =
     cub::DeviceSegmentedReduce::Max<const value_t*, value_t*, const value_idx*, const value_idx*>;
   Utils::cub_segmented_reduce(
     lambdas, deaths.data(), n_clusters, sorted_parents_offsets.data(), stream, reduce_func);
