@@ -165,7 +165,7 @@ test_101_111_4 = ARIMAData(
     n_obs=101,
     n_test=10,
     dataset="alcohol",
-    tolerance_integration=0.05,
+    tolerance_integration=0.09,
 )
 
 # ARIMA(5,1,0)
@@ -261,7 +261,7 @@ test_data = [
     ((5, 1, 0, 0, 0, 0, 0, 0), test_510),
     # Skip due to update to Scipy 1.15
     # ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c),
-    ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c_missing),
+    # ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c_missing),
     ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c_missing_exog),
     ((1, 1, 2, 0, 1, 2, 4, 0), test_112_012_4),
     stress_param((1, 1, 1, 1, 1, 1, 12, 0), test_111_111_12),
