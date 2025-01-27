@@ -54,7 +54,8 @@ void launcher(const raft::handle_t& handle,
 {
   cudaStream_t stream = handle.get_stream();
 
-  ASSERT(n > params->n_components, "Spectral layout requires n_samples > n_components");
+  ASSERT(n > static_cast<uint64_t>(params->n_components),
+         "Spectral layout requires n_samples > n_components");
 
   rmm::device_uvector<T> tmp_storage(n * params->n_components, stream);
 
