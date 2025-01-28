@@ -37,7 +37,7 @@ from pylibraft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as cppbool
-from cuda.ccudart cimport(
+from cuda.bindings.cyruntime cimport(
     cudaMemcpyAsync,
     cudaMemcpyKind,
 )

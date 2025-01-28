@@ -724,7 +724,7 @@ endif()
 
 if(BUILD_CUML_TESTS)
   include(CTest)
-  add_subdirectory(test)
+  add_subdirectory(tests)
 endif()
 
 ##############################################################################
