@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 
 # cuml build script
 
@@ -287,11 +287,6 @@ fi
 if (! hasArg --configure-only) && (completeBuild || hasArg cuml || hasArg pydocs); then
     # Replace spaces with semicolons in SKBUILD_EXTRA_CMAKE_ARGS
     SKBUILD_EXTRA_CMAKE_ARGS=$(echo ${SKBUILD_EXTRA_CMAKE_ARGS} | sed 's/ /;/g')
-
-    # Append `-DFIND_CUML_CPP=ON` to CUML_EXTRA_CMAKE_ARGS unless a user specified the option.
-    if [[ "${SKBUILD_EXTRA_CMAKE_ARGS}" != *"DFIND_CUML_CPP"* ]]; then
-        SKBUILD_EXTRA_CMAKE_ARGS="${SKBUILD_EXTRA_CMAKE_ARGS};-DFIND_CUML_CPP=ON"
-    fi
 
     SKBUILD_CMAKE_ARGS="-DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL};${SKBUILD_EXTRA_CMAKE_ARGS}" \
         python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true ${REPODIR}/python/cuml

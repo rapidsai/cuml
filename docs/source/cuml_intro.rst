@@ -18,7 +18,7 @@ then call ``predict`` or ``transform`` for inference.
 .. code-block:: python
 
    import cuml.LinearRegression
-   
+
    model = cuml.LinearRegression()
    model.fit(X_train, y)
    y_prediction = model.predict(X_test)

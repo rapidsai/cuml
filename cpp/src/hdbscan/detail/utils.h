@@ -76,19 +76,11 @@ void cub_segmented_reduce(const value_t* in,
 {
   rmm::device_uvector<char> d_temp_storage(0, stream);
   size_t temp_storage_bytes = 0;
-  cub_reduce_func(
-    nullptr, temp_storage_bytes, in, out, n_segments, offsets, offsets + 1, stream, false);
+  cub_reduce_func(nullptr, temp_storage_bytes, in, out, n_segments, offsets, offsets + 1, stream);
   d_temp_storage.resize(temp_storage_bytes, stream);
 
-  cub_reduce_func(d_temp_storage.data(),
-                  temp_storage_bytes,
-                  in,
-                  out,
-                  n_segments,
-                  offsets,
-                  offsets + 1,
-                  stream,
-                  false);
+  cub_reduce_func(
+    d_temp_storage.data(), temp_storage_bytes, in, out, n_segments, offsets, offsets + 1, stream);
 }
 
 /**
@@ -118,7 +110,7 @@ Common::CondensedHierarchy<value_idx, value_t> make_cluster_tree(
     cuda::proclaim_return_type<value_idx>(
       [=] __device__(value_idx a) -> value_idx { return static_cast<value_idx>(a > 1); }),
     static_cast<value_idx>(0),
-    thrust::plus<value_idx>());
+    cuda::std::plus<value_idx>());
 
   // remove leaves from condensed tree
   rmm::device_uvector<value_idx> cluster_parents(cluster_tree_edges, stream);

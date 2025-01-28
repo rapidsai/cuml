@@ -27,7 +27,6 @@
 
 #include <cub/cub.cuh>
 #include <cuda/functional>
-#include <cuda/std/functional>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -161,7 +160,7 @@ void CondensedHierarchy<value_idx, value_t>::condense(value_idx* full_parents,
     cuda::proclaim_return_type<value_idx>(
       [=] __device__(value_idx a) -> value_idx { return static_cast<value_idx>(a != -1); }),
     static_cast<value_idx>(0),
-    thrust::plus<value_idx>());
+    cuda::std::plus<value_idx>());
 
   parents.resize(n_edges, stream);
   children.resize(n_edges, stream);

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ def test_tsne_knn_graph_used(test_datasets, type_knn_graph, method):
     )
 
     # Perform tsne with normal knn_graph
-    Y = tsne.fit_transform(X, True, knn_graph)
+    Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph)
 
     trust_normal = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
 
@@ -97,16 +97,16 @@ def test_tsne_knn_graph_used(test_datasets, type_knn_graph, method):
     )
 
     # Perform tsne with garbage knn_graph
-    Y = tsne.fit_transform(X, True, knn_graph_garbage)
+    Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph_garbage)
 
     trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
     assert (trust_normal - trust_garbage) > 0.15
 
-    Y = tsne.fit_transform(X, True, knn_graph_garbage)
+    Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph_garbage)
     trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
     assert (trust_normal - trust_garbage) > 0.15
 
-    Y = tsne.fit_transform(X, True, knn_graph_garbage)
+    Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph_garbage)
     trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
     assert (trust_normal - trust_garbage) > 0.15
 
@@ -137,13 +137,17 @@ def test_tsne_knn_parameters(test_datasets, type_knn_graph, method):
         perplexity=DEFAULT_PERPLEXITY,
     )
 
-    embed = tsne.fit_transform(X, True, knn_graph)
+    embed = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph)
     validate_embedding(X, embed)
 
-    embed = tsne.fit_transform(X, True, knn_graph.tocoo())
+    embed = tsne.fit_transform(
+        X, convert_dtype=True, knn_graph=knn_graph.tocoo()
+    )
     validate_embedding(X, embed)
 
-    embed = tsne.fit_transform(X, True, knn_graph.tocsc())
+    embed = tsne.fit_transform(
+        X, convert_dtype=True, knn_graph=knn_graph.tocsc()
+    )
     validate_embedding(X, embed)
 
 
@@ -309,17 +313,21 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
 
     new_data = sp_prefix.csr_matrix(scipy.sparse.csr_matrix(digits))
 
-    Y = tsne.fit_transform(new_data, True, knn_graph)
+    Y = tsne.fit_transform(new_data, convert_dtype=True, knn_graph=knn_graph)
     if input_type == "cupy":
         Y = Y.get()
     validate_embedding(digits, Y, 0.85)
 
-    Y = tsne.fit_transform(new_data, True, knn_graph.tocoo())
+    Y = tsne.fit_transform(
+        new_data, convert_dtype=True, knn_graph=knn_graph.tocoo()
+    )
     if input_type == "cupy":
         Y = Y.get()
     validate_embedding(digits, Y, 0.85)
 
-    Y = tsne.fit_transform(new_data, True, knn_graph.tocsc())
+    Y = tsne.fit_transform(
+        new_data, convert_dtype=True, knn_graph=knn_graph.tocsc()
+    )
     if input_type == "cupy":
         Y = Y.get()
     validate_embedding(digits, Y, 0.85)

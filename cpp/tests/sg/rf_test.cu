@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuda/std/functional>
 #include <thrust/binary_search.h>
 #include <thrust/copy.h>
 #include <thrust/device_vector.h>
@@ -305,7 +306,7 @@ class RfSpecialisedTest {
       thrust::device_vector<double> normal(params.n_rows);
       r.normal(normal.data().get(), normal.size(), 0.0, 2.0, nullptr);
       thrust::transform(
-        normal.begin(), normal.end(), y_temp.begin(), y.begin(), thrust::plus<LabelT>());
+        normal.begin(), normal.end(), y_temp.begin(), y.begin(), cuda::std::plus<LabelT>());
     }
     raft::linalg::transpose(
       handle, X.data().get(), X_transpose.data().get(), params.n_rows, params.n_cols, nullptr);

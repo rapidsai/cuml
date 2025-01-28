@@ -77,5 +77,3 @@ Packages required for multigpu algorithms*:
 ### Python Tests
 
 Python tests are based on the pytest library. To run them, from the `path_to_cuml/python/` folder, simply type `pytest`.
-
-

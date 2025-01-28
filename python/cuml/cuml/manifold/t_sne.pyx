@@ -413,7 +413,7 @@ class TSNE(UniversalBase,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')
     @enable_device_interop
-    def fit(self, X, convert_dtype=True, knn_graph=None) -> "TSNE":
+    def fit(self, X, y=None, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
 
@@ -578,7 +578,7 @@ class TSNE(UniversalBase,
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_fit_transform()
     @enable_device_interop
-    def fit_transform(self, X, convert_dtype=True,
+    def fit_transform(self, X, y=None, convert_dtype=True,
                       knn_graph=None) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed output.

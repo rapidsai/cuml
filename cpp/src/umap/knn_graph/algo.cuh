@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,12 +92,22 @@ inline void launcher(const raft::handle_t& handle,
                      cudaStream_t stream)
 {
   if (params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN) {
-    auto idx = cuvs::neighbors::brute_force::build(
-      handle,
-      raft::make_device_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d),
-      params->metric,
-      params->p);
-
+    cudaPointerAttributes attr;
+    RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, inputsA.X));
+    float* ptr = reinterpret_cast<float*>(attr.devicePointer);
+    auto idx   = [&]() {
+      if (ptr != nullptr) {  // inputsA on device
+        return cuvs::neighbors::brute_force::build(
+          handle,
+          {params->metric, params->p},
+          raft::make_device_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d));
+      } else {  // inputsA on host
+        return cuvs::neighbors::brute_force::build(
+          handle,
+          {params->metric, params->p},
+          raft::make_host_matrix_view<const float, int64_t>(inputsA.X, inputsA.n, inputsA.d));
+      }
+    }();
     cuvs::neighbors::brute_force::search(
       handle,
       idx,
