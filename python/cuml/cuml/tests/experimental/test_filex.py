@@ -102,7 +102,7 @@ def _build_and_save_xgboost(
     dtrain = xgb.DMatrix(X_train, label=y_train)
 
     # instantiate params
-    params = {"eval_metric": "error", "max_depth": 25}
+    params = {"eval_metric": "error", "max_depth": 25, "device": "cuda"}
 
     # learning task params
     if classification:
