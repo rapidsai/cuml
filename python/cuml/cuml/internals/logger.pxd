@@ -47,6 +47,7 @@ IF GPUBUILD == 1:
         cdef cppclass sink_vector:
             void push_back(const sink_ptr& sink) except +
             void pop_back() except +
+            void clear()
 
     cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
         cdef cppclass logger:
