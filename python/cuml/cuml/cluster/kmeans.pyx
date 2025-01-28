@@ -150,10 +150,10 @@ class KMeans(UniversalBase,
         different seeds. The final results will be from the instance
         that produces lowest inertia out of n_init instances.
 
-        .. versionadded:: 24.12
+        .. versionadded:: 25.02
            Added 'auto' option for `n_init`.
 
-        .. versionchanged:: 25.02
+        .. versionchanged:: 25.04
             Default value for `n_init` will change from 1 to `'auto'` in version 25.02.
 
     oversampling_factor : float64 (default = 2.0)
@@ -229,7 +229,7 @@ class KMeans(UniversalBase,
             if n_init == "warn":
                 warnings.warn(
                     "The default value of `n_init` will change from"
-                    " 1 to 'auto' in 25.02. Set the value of `n_init`"
+                    " 1 to 'auto' in 25.04. Set the value of `n_init`"
                     " explicitly to suppress this warning.",
                     FutureWarning,
                 )
