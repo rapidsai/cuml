@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <cuda/std/functional>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
 #include <thrust/functional.h>
@@ -512,7 +513,7 @@ value_t FFT_TSNE(value_t* VAL,
                                     norm_vec_thrust,
                                     norm_vec_thrust + normalization_vec_device.size(),
                                     0.0f,
-                                    thrust::plus<value_t>());
+                                    cuda::std::plus<value_t>());
       normalization = sumQ - n;
     }
 
@@ -565,7 +566,7 @@ value_t FFT_TSNE(value_t* VAL,
                       att_forces_thrust + n,
                       att_forces_thrust + n,
                       att_forces_thrust,
-                      thrust::plus<value_t>());
+                      cuda::std::plus<value_t>());
 
     thrust::transform(thrust_policy,
                       att_forces_thrust,
@@ -577,7 +578,7 @@ value_t FFT_TSNE(value_t* VAL,
                                        att_forces_thrust,
                                        att_forces_thrust + attractive_forces_device.size(),
                                        0.0f,
-                                       thrust::plus<value_t>()) /
+                                       cuda::std::plus<value_t>()) /
                         attractive_forces_device.size();
 
     if (grad_norm <= params.min_grad_norm) {
