@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,7 +54,8 @@ function(find_and_configure_cuvs)
         EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
         OPTIONS
           "BUILD_TESTS OFF"
-          "BUILD_BENCH OFF"
+          "BUILD_CAGRA_HNSWLIB OFF"
+          "BUILD_CUVS_BENCH OFF"
           "BUILD_MG_ALGOS ${CUVS_BUILD_MG_ALGOS}"
 
     )
