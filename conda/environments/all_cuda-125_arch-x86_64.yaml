@@ -39,12 +39,12 @@ dependencies:
 - libcusolver-dev
 - libcusparse-dev
 - libcuvs==25.2.*,>=0.0.0a0
-- libraft-headers==25.2.*,>=0.0.0a0
+- libraft==25.2.*,>=0.0.0a0
 - librmm==25.2.*,>=0.0.0a0
 - nbsphinx
 - ninja
 - nltk
-- numba>=0.57
+- numba>=0.59.1,<0.61.0a0
 - numpy>=1.23,<3.0a0
 - numpydoc
 - packaging
