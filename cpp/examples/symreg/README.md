@@ -1,5 +1,5 @@
 # symbolic regression
-This subfolder contains an example on how perform symbolic regression in cuML (from C++) 
+This subfolder contains an example on how perform symbolic regression in cuML (from C++)
 There are two `CMakeLists.txt` in this folder:
 1. `CMakeLists.txt` (default) which is included when building cuML
 2. `CMakeLists_standalone.txt` as an example for a stand alone project linking to `libcuml.so`
@@ -11,7 +11,7 @@ $ cmake .. -DCUML_LIBRARY_DIR=/path/to/directory/with/libcuml.so -DCUML_INCLUDE_
 ```
 Then build with `make` or `ninja`
 ```
-$ make  
+$ make
 Scanning dependencies of target raft
 [ 10%] Creating directories for 'raft'
 [ 20%] Performing download step (git clone) for 'raft'
@@ -28,7 +28,7 @@ Scanning dependencies of target symreg_example
 [100%] Linking CUDA executable symreg_example
 [100%] Built target symreg_example
 ```
-`CMakeLists_standalone.txt` also loads a minimal set of header dependencies(namely [raft](https://github.com/rapidsai/raft) and [cub](https://github.com/NVIDIA/cub)) if they are not detected in the system. 
+`CMakeLists_standalone.txt` also loads a minimal set of header dependencies(namely [raft](https://github.com/rapidsai/raft) and [cub](https://github.com/NVIDIA/cub)) if they are not detected in the system.
 ## Run
 
 1. Generate a toy training and test dataset
@@ -53,7 +53,7 @@ $ ./symreg_example -n_cols 2                   \
                    -stopping_criteria 0.01     \
                    -p_crossover 0.7            \
                    -p_subtree 0.1              \
-                   -p_hoist 0.05               \ 
+                   -p_hoist 0.05               \
                    -p_point 0.1                \
                    -parsimony_coefficient 0.01
 ```
@@ -77,7 +77,7 @@ Finished training for 4 generations.
            Best AST equation :( add( sub( mult( X0, X0) , div( X1, X1) ) , sub( X1, mult( X1, X1) ) ) )
 Training time =    626.658ms
 ***************************************
-Beginning Inference on Test dataset... 
+Beginning Inference on Test dataset...
 Inference score on test set = 5.29271e-08
 Inference time =    0.35248ms
 Some Predicted test values:

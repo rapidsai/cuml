@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -752,6 +752,12 @@ def apply_rule(word_str_ser, rule, w_in_c_flag):
 
         # mask where replacement will happen
         valid_mask = double_consonant_mask & condition_mask & w_in_c_flag
+
+        # recent cuDF change made it so that the conditions above have a NA
+        # instead of null, which makes us need to replace them with False
+        # here so replace_suffix works correctly and doesn't duplicate
+        # single letters we don't want to.
+        valid_mask = valid_mask.fillna(False)
 
         # new series with updated valid_mask
         word_str_ser = replace_suffix(
