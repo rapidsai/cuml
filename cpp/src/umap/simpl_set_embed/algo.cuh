@@ -299,7 +299,7 @@ template <int TPB_X, typename T>
 void launcher(
   int m, int n, raft::sparse::COO<T>* in, UMAPParams* params, T* embedding, cudaStream_t stream)
 {
-  uint64_t nnz = in->nnz;
+  uint64_t nnz = in->safe_nnz;
 
   /**
    * Find vals.max()
@@ -334,14 +334,14 @@ void launcher(
   raft::sparse::COO<T> out(stream);
   raft::sparse::op::coo_remove_zeros<T>(in, &out, stream);
 
-  rmm::device_uvector<T> epochs_per_sample(out.nnz, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(epochs_per_sample.data(), 0, out.nnz * sizeof(T), stream));
+  rmm::device_uvector<T> epochs_per_sample(out.safe_nnz, stream);
+  RAFT_CUDA_TRY(cudaMemsetAsync(epochs_per_sample.data(), 0, out.safe_nnz * sizeof(T), stream));
 
-  make_epochs_per_sample(out.vals(), out.nnz, n_epochs, epochs_per_sample.data(), stream);
+  make_epochs_per_sample(out.vals(), out.safe_nnz, n_epochs, epochs_per_sample.data(), stream);
 
   if (ML::default_logger().should_log(ML::level_enum::debug)) {
     std::stringstream ss;
-    ss << raft::arr2Str(epochs_per_sample.data(), out.nnz, "epochs_per_sample", stream);
+    ss << raft::arr2Str(epochs_per_sample.data(), out.safe_nnz, "epochs_per_sample", stream);
     CUML_LOG_DEBUG(ss.str().c_str());
   }
 
@@ -351,7 +351,7 @@ void launcher(
                             m,
                             out.rows(),
                             out.cols(),
-                            out.nnz,
+                            out.safe_nnz,
                             epochs_per_sample.data(),
                             params->repulsion_strength,
                             params,
