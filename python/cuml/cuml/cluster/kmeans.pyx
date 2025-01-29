@@ -213,9 +213,8 @@ class KMeans(UniversalBase,
             # After transferring from one device to another `_seed` might not be set
             # so we need to pass a dummy value here. Its value does not matter as the
             # seed is only used during fitting
-            params.rng_state.seed = getattr(self, "_seed", 0)
+            params.rng_state.seed = <int>getattr(self, "_seed", 0)
             params.verbosity = <raft_level_enum>(<int>self.verbose)
-            params.rng_state.seed = self.random_state
             params.metric = DistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
             params.batch_samples = <int>self.max_samples_per_batch
             params.oversampling_factor = <double>self.oversampling_factor
