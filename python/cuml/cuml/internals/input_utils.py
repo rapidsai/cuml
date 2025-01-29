@@ -52,6 +52,7 @@ DaskCudfSeries = gpu_only_import_from("dask_cudf", "Series")
 DaskCudfDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
 np_ndarray = cpu_only_import_from("numpy", "ndarray")
 numba_devicearray = gpu_only_import_from("numba.cuda", "devicearray")
+isinstance_cudf_pandas = gpu_only_import_from("cudf.pandas", "isinstance_cudf_pandas")
 try:
     NumbaDeviceNDArrayBase = numba_devicearray.DeviceNDArrayBase
 except UnavailableError:
@@ -177,7 +178,7 @@ def get_supported_input_type(X):
     # A cudf.pandas wrapped Numpy array defines `__cuda_array_interface__`
     # which means without this we'd always return a cupy array. We don't want
     # to match wrapped cupy arrays, they get dealt with later
-    if getattr(X, "_fsproxy_slow_type", None) is np.ndarray:
+    if isinstance_cudf_pandas(X, np.ndarray):
         return np.ndarray
 
     try:

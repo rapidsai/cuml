@@ -32,9 +32,11 @@ if TYPE_CHECKING:
     from pandas import Series as pdSeries
 else:
     cudf = gpu_only_import("cudf")
+    cudf_pandas = gpu_only_import("cudf.pandas")
     cp = gpu_only_import("cupy")
     np = cpu_only_import("numpy")
     pdSeries = cpu_only_import_from("pandas", "Series")
+    from cudf_pandas import is_proxy_object
 
 
 class LabelEncoder(Base):
@@ -231,7 +233,9 @@ class LabelEncoder(Base):
         This is functionally equivalent to (but faster than)
         `LabelEncoder().fit(y).transform(y)`
         """
-
+        if cudf.get_option("mode.pandas_compatible"):
+            if is_proxy_object(y):
+                y = y.as_gpu_object()
         y = cudf.Series(y)
         self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
 
