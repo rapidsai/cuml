@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuda/std/functional>
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
@@ -124,7 +125,7 @@ struct GLMBase : GLMDims {
                                        sample_weights,
                                        sample_weights + n_samples,
                                        (T)0,
-                                       thrust::plus<T>());
+                                       cuda::std::plus<T>());
   }
 
   /*

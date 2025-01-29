@@ -4,7 +4,7 @@ WarningsAsErrors: '*'
 HeaderFilterRegex: ''
 AnalyzeTemporaryDtors: false
 FormatStyle:     none
-CheckOptions:    
+CheckOptions:
   - key:             cert-dcl16-c.NewSuffixes
     value:           'L;LL;LU;LLU'
   - key:             cppcoreguidelines-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
@@ -142,4 +142,3 @@ CheckOptions:
   - key:             readability-identifier-naming.TypedefSuffix
     value:           ''
 ...
-
