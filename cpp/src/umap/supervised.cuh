@@ -301,8 +301,8 @@ void perform_general_intersection(const raft::handle_t& handle,
     handle, y_inputs, y_inputs, knn_graph, params->target_n_neighbors, params, stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
+  CUML_LOG_DEBUG("Target kNN Graph");
   if (ML::default_logger().should_log(ML::level_enum::trace)) {
-    CUML_LOG_TRACE("Target kNN Graph");
     std::stringstream ss1, ss2;
     ss1 << raft::arr2Str(
       y_knn_indices.data(), rgraph_coo->n_rows * params->target_n_neighbors, "knn_indices", stream);
