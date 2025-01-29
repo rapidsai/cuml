@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -133,6 +133,10 @@ def test_unsupervised_neighbors(transformer, estimator, classification_data):
     pipeline.fit(X_train)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:The default value of `data_on_host` "
+    'will change from False to "auto" in 25.06'
+)
 def test_umap_with_logistic_regression(classification_data):
     X_train, X_test, y_train, y_test = classification_data
     # Create pipeline with UMAP for dimensionality reduction and logistic regression

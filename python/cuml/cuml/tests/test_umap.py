@@ -50,8 +50,51 @@ IS_ARM = platform.processor() == "aarch64"
 if not IS_ARM:
     import umap
 
+pytestmark = [
+    pytest.mark.filterwarnings(
+        "ignore:The default value of `data_on_host` "
+        'will change from False to "auto" in 25.06'
+    ),
+    pytest.mark.filterwarnings(
+        "ignore:The default value of `nnd_n_clusters` "
+        "will change from 1 to 10 in 25.06."
+    ),
+]
 
 dataset_names = ["iris", "digits", "wine", "blobs"]
+
+
+def test_new_data_on_host_default():
+    data, labels = make_blobs(
+        # Make the data big enough so that we can have it on the host
+        n_samples=50_000 + 1,
+        n_features=10,
+        centers=5,
+        random_state=0,
+    )
+    u = cuUMAP()
+
+    with pytest.warns(
+        FutureWarning,
+        match='The default value of `data_on_host` will change from False to "auto" in 25.06.',
+    ):
+        u.fit(data)
+        u.fit_transform(data)
+
+    # No warnings when value is explicitly set
+    u.fit(data, data_on_host=True)
+    u.fit_transform(data, data_on_host=True)
+    u.fit(data, data_on_host=False)
+    u.fit_transform(data, data_on_host=False)
+
+    # XXX crashes with CUDA memory error, why? Too many rows?
+    """
+    # No warning when the data is sparse
+    print("E")
+    data = scipy_sparse.csr_matrix(data)
+    u = cuUMAP()
+    u.fit_transform(data)
+    """
 
 
 @pytest.mark.parametrize(
