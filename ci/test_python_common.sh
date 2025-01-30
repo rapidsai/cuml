@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -17,7 +17,7 @@ rapids-dependency-file-generator \
   --prepend-channel "${CPP_CHANNEL}" \
   --prepend-channel "${PYTHON_CHANNEL}" | tee env.yaml
 
-rapids-mamba-retry env create --quiet --yes -f env.yaml -n test
+rapids-mamba-retry env create --yes -f env.yaml -n test
 
 # Temporarily allow unbound variables for conda activation.
 set +u
