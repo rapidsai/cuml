@@ -3,11 +3,11 @@ RAPIDS Forest Inference Library (FIL) provides accelerated inference for
 tree-based machine learning models. Unlike packages like XGBoost,
 LightGBM, or even Scikit-Learn/cuML's random forest implementations, FIL
 cannot be used to _train_ forest models. Instead, its goal is to speed up
-inference using forest models trained by all of those packages. 
+inference using forest models trained by all of those packages.
 
 This directory contains an experimental new implementation of FIL which
 provides both CPU and GPU execution. Its GPU implementation also offers
-improved performance relative to the existing implementation in many but not all cases. 
+improved performance relative to the existing implementation in many but not all cases.
 
 For Python usage information and more extensive information on
 parameter-tuning and other end-user functionality, check out
