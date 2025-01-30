@@ -212,8 +212,6 @@ dependencies:
         packages:
           - c-compiler
           - cxx-compiler
-          - fmt>=11.0.2,<12
-          - spdlog>=1.14.1,<1.15
     specific:
       - output_types: conda
         matrices:

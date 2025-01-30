@@ -66,12 +66,10 @@ requirements:
     - libcusolver-dev
     - libcusparse-dev
     {% endif %}
-    - fmt {{ fmt_version }}
     - libcumlprims ={{ minor_version }}
     - libcuvs ={{ minor_version }}
     - libraft-headers ={{ minor_version }}
     - librmm ={{ minor_version }}
-    - spdlog {{ spdlog_version }}
     - treelite {{ treelite_version }}
 
 outputs:
