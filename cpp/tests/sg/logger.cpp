@@ -17,6 +17,7 @@
 #include <cuml/common/logger.hpp>
 
 #include <gtest/gtest.h>
+#include <rapids_logger/logger.hpp>
 
 #include <string>
 
@@ -29,15 +30,15 @@ TEST(Logger, Test)
   CUML_LOG_WARN("This is a warning message");
   CUML_LOG_INFO("This is an info message");
 
-  default_logger().set_level(ML::level_enum::warn);
-  ASSERT_EQ(ML::level_enum::warn, default_logger().level());
-  default_logger().set_level(ML::level_enum::info);
-  ASSERT_EQ(ML::level_enum::info, default_logger().level());
+  default_logger().set_level(rapids_logger::level_enum::warn);
+  ASSERT_EQ(rapids_logger::level_enum::warn, default_logger().level());
+  default_logger().set_level(rapids_logger::level_enum::info);
+  ASSERT_EQ(rapids_logger::level_enum::info, default_logger().level());
 
-  ASSERT_FALSE(default_logger().should_log(ML::level_enum::trace));
-  ASSERT_FALSE(default_logger().should_log(ML::level_enum::debug));
-  ASSERT_TRUE(default_logger().should_log(ML::level_enum::info));
-  ASSERT_TRUE(default_logger().should_log(ML::level_enum::warn));
+  ASSERT_FALSE(default_logger().should_log(rapids_logger::level_enum::trace));
+  ASSERT_FALSE(default_logger().should_log(rapids_logger::level_enum::debug));
+  ASSERT_TRUE(default_logger().should_log(rapids_logger::level_enum::info));
+  ASSERT_TRUE(default_logger().should_log(rapids_logger::level_enum::warn));
 }
 
 std::string logged = "";
@@ -52,20 +53,21 @@ class LoggerTest : public ::testing::Test {
   {
     flushCount = 0;
     logged     = "";
-    default_logger().set_level(ML::level_enum::trace);
+    default_logger().set_level(rapids_logger::level_enum::trace);
   }
 
   void TearDown() override
   {
     default_logger().sinks().pop_back();
-    default_logger().set_level(ML::level_enum::info);
+    default_logger().set_level(rapids_logger::level_enum::info);
   }
 };
 
 TEST_F(LoggerTest, callback)
 {
   std::string testMsg;
-  default_logger().sinks().push_back(std::make_shared<callback_sink_mt>(exampleCallback));
+  default_logger().sinks().push_back(
+    std::make_shared<rapids_logger::callback_sink_mt>(exampleCallback));
 
   testMsg = "This is a critical message";
   CUML_LOG_CRITICAL(testMsg.c_str());
@@ -91,7 +93,7 @@ TEST_F(LoggerTest, callback)
 TEST_F(LoggerTest, flush)
 {
   default_logger().sinks().push_back(
-    std::make_shared<callback_sink_mt>(exampleCallback, exampleFlush));
+    std::make_shared<rapids_logger::callback_sink_mt>(exampleCallback, exampleFlush));
   default_logger().flush();
   ASSERT_EQ(1, flushCount);
 }

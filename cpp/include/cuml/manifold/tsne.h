@@ -94,7 +94,7 @@ struct TSNEParams {
   long long random_state = -1;
 
   // verbosity level for logging messages during execution
-  level_enum verbosity = ML::level_enum::info;
+  rapids_logger::level_enum verbosity = rapids_logger::level_enum::info;
 
   // Embedding initializer algorithm
   TSNE_INIT init = TSNE_INIT::RANDOM;
