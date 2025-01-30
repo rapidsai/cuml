@@ -1082,7 +1082,7 @@ class CumlArray:
                     index = CudfIndex(index)
 
         if isinstance(X, CudfSeries):
-            if X.null_count != 0:
+            if X.null_count != 0 or bool(X.isnull().any()):
                 raise ValueError(
                     "Error: cuDF Series has missing/null values, "
                     "which are not supported by cuML."
