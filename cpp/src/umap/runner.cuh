@@ -456,18 +456,13 @@ void _transform(const raft::handle_t& handle,
 
   raft::sparse::convert::sorted_coo_to_csr(&graph_coo, row_ind.data(), stream);
 
-  rmm::device_uvector<value_t> vals_normed(graph_coo.safe_nnz, stream);
-  RAFT_CUDA_TRY(
-    cudaMemsetAsync(vals_normed.data(), 0, graph_coo.safe_nnz * sizeof(value_t), stream));
+  rmm::device_uvector<value_t> vals_normed(graph_coo.nnz, stream);
+  RAFT_CUDA_TRY(cudaMemsetAsync(vals_normed.data(), 0, graph_coo.nnz * sizeof(value_t), stream));
 
   CUML_LOG_DEBUG("Performing L1 normalization");
 
-  raft::sparse::linalg::csr_row_normalize_l1<value_t>(row_ind.data(),
-                                                      graph_coo.vals(),
-                                                      graph_coo.safe_nnz,
-                                                      graph_coo.n_rows,
-                                                      vals_normed.data(),
-                                                      stream);
+  raft::sparse::linalg::csr_row_normalize_l1<value_t>(
+    row_ind.data(), graph_coo.vals(), graph_coo.nnz, graph_coo.n_rows, vals_normed.data(), stream);
 
   init_transform<TPB_X, value_t><<<grid_n, blk, 0, stream>>>(graph_coo.cols(),
                                                              vals_normed.data(),
@@ -502,7 +497,7 @@ void _transform(const raft::handle_t& handle,
   raft::linalg::unaryOp<value_t>(
     graph_coo.vals(),
     graph_coo.vals(),
-    graph_coo.safe_nnz,
+    graph_coo.nnz,
     [=] __device__(value_t input) {
       if (input < (max / float(n_epochs)))
         return 0.0f;
@@ -525,7 +520,7 @@ void _transform(const raft::handle_t& handle,
   rmm::device_uvector<value_t> epochs_per_sample(nnz, stream);
 
   SimplSetEmbedImpl::make_epochs_per_sample(
-    comp_coo.vals(), comp_coo.safe_nnz, n_epochs, epochs_per_sample.data(), stream);
+    comp_coo.vals(), comp_coo.nnz, n_epochs, epochs_per_sample.data(), stream);
 
   CUML_LOG_DEBUG("Performing optimization");
 
@@ -542,7 +537,7 @@ void _transform(const raft::handle_t& handle,
                                                      embedding_n,
                                                      comp_coo.rows(),
                                                      comp_coo.cols(),
-                                                     comp_coo.safe_nnz,
+                                                     comp_coo.nnz,
                                                      epochs_per_sample.data(),
                                                      params->repulsion_strength,
                                                      params,
