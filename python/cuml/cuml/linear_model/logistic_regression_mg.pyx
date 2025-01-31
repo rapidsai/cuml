@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -387,7 +387,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                         qnpams,
                         <bool> self.standardization,
                         <int> self._num_classes,
-                        <double*> &objective32,
+                        <double*> &objective64,
                         <int*> &num_iters)
                 else:
                     assert self.index_dtype == np.int64, f"unsupported index dtype: {self.index_dtype}"
@@ -403,7 +403,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                         qnpams,
                         <bool> self.standardization,
                         <int> self._num_classes,
-                        <double*> &objective32,
+                        <double*> &objective64,
                         <int*> &num_iters)
 
             self.solver_model.objective = objective64
