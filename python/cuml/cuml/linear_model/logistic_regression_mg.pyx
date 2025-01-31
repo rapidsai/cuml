@@ -263,7 +263,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef float objective32
-        cdef float objective64
+        cdef double objective64
         cdef int num_iters
 
         cdef vector[float] c_classes_
