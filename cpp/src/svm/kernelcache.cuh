@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ CUML_KERNEL void mapColumnIndicesToSVRSpace(
 }
 
 template <typename math_t>
-struct select_at_index : public thrust::unary_function<int, math_t> {
+struct select_at_index {
   const math_t* dot_;
   select_at_index(const math_t* dot) : dot_(dot) {}
 

@@ -417,6 +417,17 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
         )
 
 
+def test_ridge_and_least_squares_equal_when_alpha_is_0():
+    X, y = make_regression(n_samples=5, n_features=4, random_state=0)
+
+    ridge = cuRidge(alpha=0.0, fit_intercept=False)
+    ols = cuLinearRegression(fit_intercept=False)
+
+    ridge.fit(X, y)
+    ols.fit(X, y)
+    assert array_equal(ridge.coef_, ols.coef_)
+
+
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
 @pytest.mark.parametrize(

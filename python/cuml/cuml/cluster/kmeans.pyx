@@ -288,7 +288,7 @@ class KMeans(UniversalBase,
 
     @generate_docstring()
     @enable_device_interop
-    def fit(self, X, sample_weight=None, convert_dtype=True) -> "KMeans":
+    def fit(self, X, y=None, sample_weight=None, convert_dtype=True) -> "KMeans":
         """
         Compute k-means clustering with X.
 
@@ -427,7 +427,7 @@ class KMeans(UniversalBase,
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
     @enable_device_interop
-    def fit_predict(self, X, sample_weight=None) -> CumlArray:
+    def fit_predict(self, X, y=None, sample_weight=None) -> CumlArray:
         """
         Compute cluster centers and predict cluster index for each sample.
 
