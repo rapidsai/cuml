@@ -65,6 +65,7 @@ option(USE_CCACHE "Cache build artifacts with ccache" OFF)
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
 option(CUDA_STATIC_MATH_LIBRARIES "Statically link the CUDA math libraries" OFF)
 option(CUML_USE_CUVS_STATIC "Build and statically link the CUVS library" OFF)
+option(CUML_USE_RAFT_STATIC "Build and statically link the RAFT library" OFF)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
 option(CUML_EXPORT_TREELITE_LINKAGE "Whether to publicly or privately link treelite to libcuml++" OFF)
 option(CUML_USE_CUMLPRIMS_MG_STATIC "Build and statically link the cumlprims_mg library" OFF)
@@ -99,6 +100,7 @@ message(VERBOSE "CUML_CPP: Cache build artifacts with ccache: ${USE_CCACHE}")
 message(VERBOSE "CUML_CPP: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
 message(VERBOSE "CUML_CPP: Statically link the CUDA math libraries: ${CUDA_STATIC_MATH_LIBRARIES}")
 message(VERBOSE "CUML_CPP: Build and statically link CUVS libraries: ${CUML_USE_CUVS_STATIC}")
+message(VERBOSE "CUML_CPP: Build and statically link RAFT library: ${CUML_USE_RAFT_STATIC}")
 message(VERBOSE "CUML_CPP: Build and statically link Treelite library: ${CUML_USE_TREELITE_STATIC}")
 
 set(CUML_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Can specify individual algorithms or groups in a semicolon-separated list.")
@@ -113,7 +115,7 @@ message(VERBOSE "CUML_CPP: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 set(LIBCUML_LOGGING_LEVEL
     "DEBUG"
     CACHE STRING "Choose the logging level."
-)                                                                                                
+)
 set_property(
   CACHE LIBCUML_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL"
                                        "OFF"
@@ -420,6 +422,27 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/hdbscan/hdbscan.cu
         src/hdbscan/condensed_hierarchy.cu
         src/hdbscan/prediction_data.cu)
+
+    # When using GCC 13, some maybe-uninitialized warnings appear from CCCL and are treated as errors.
+    # See this issue: https://github.com/rapidsai/cuml/issues/6225
+    set_property(
+      SOURCE src/hdbscan/condensed_hierarchy.cu
+      APPEND_STRING
+      PROPERTY COMPILE_FLAGS
+      " -Xcompiler=-Wno-maybe-uninitialized"
+    )
+    set_property(
+      SOURCE src/hdbscan/hdbscan.cu
+      APPEND_STRING
+      PROPERTY COMPILE_FLAGS
+      " -Xcompiler=-Wno-maybe-uninitialized"
+    )
+    set_property(
+      SOURCE src/hdbscan/prediction_data.cu
+      APPEND_STRING
+      PROPERTY COMPILE_FLAGS
+      " -Xcompiler=-Wno-maybe-uninitialized"
+    )
   endif()
 
   if(all_algo OR holtwinters_algo)
@@ -701,7 +724,7 @@ endif()
 
 if(BUILD_CUML_TESTS)
   include(CTest)
-  add_subdirectory(test)
+  add_subdirectory(tests)
 endif()
 
 ##############################################################################

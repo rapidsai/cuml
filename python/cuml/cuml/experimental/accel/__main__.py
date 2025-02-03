@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 import click
 import code
+import joblib
+import pickle
 import os
 import runpy
 import sys
@@ -31,13 +33,49 @@ from . import install
     default=False,
     help="Turn strict mode for hyperparameters on.",
 )
+@click.option(
+    "--convert-to-sklearn",
+    type=click.Path(exists=True),
+    required=False,
+    help="Path to a pickled accelerated estimator to convert to a sklearn estimator.",
+)
+@click.option(
+    "--format",
+    "format",
+    type=click.Choice(["pickle", "joblib"], case_sensitive=False),
+    default="pickle",
+    help="Format to save the converted sklearn estimator.",
+)
+@click.option(
+    "--output",
+    type=click.Path(writable=True),
+    default="converted_sklearn_model.pkl",
+    help="Output path for the converted sklearn estimator file.",
+)
 @click.argument("args", nargs=-1)
-def main(module, strict, args):
+def main(module, strict, convert_to_sklearn, format, output, args):
 
     if strict:
         os.environ["CUML_ACCEL_STRICT_MODE"] = "ON"
 
     install()
+
+    # If the user requested a conversion, handle it and exit
+    if convert_to_sklearn:
+
+        with open(convert_to_sklearn, "rb") as f:
+            if format == "pickle":
+                serializer = pickle
+            elif format == "joblib":
+                serializer = joblib
+            accelerated_estimator = serializer.load(f)
+
+        sklearn_estimator = accelerated_estimator.as_sklearn()
+
+        with open(output, "wb") as f:
+            serializer.dump(sklearn_estimator, f)
+
+        sys.exit()
 
     if module:
         (module,) = module
