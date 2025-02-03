@@ -24,6 +24,17 @@ set +u
 conda activate test
 set -u
 
+LIBCUDF_CHANNEL=$(rapids-get-pr-conda-artifact libcudf 17890 cpp)
+PYLIBCUDF_CHANNEL=$(rapids-get-pr-conda-artifact pylibcudf 17890 python)
+CUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 17890 python)
+
+rapids-mamba-retry install \
+  --channel "${LIBCUDF_CHANNEL}" \
+  --channel "${PYLIBCUDF_CHANNEL}" \
+  --channel "${CUDF_CHANNEL}" \
+  cudf libcudf pylibcudf
+
+
 # dask and other tests sporadically run into this issue in ARM tests
 # exception=ImportError('/opt/conda/envs/test/lib/python3.10/site-packages/cuml/internals/../../../.././libgomp.so.1: cannot allocate memory in static TLS block')>)
 # this should avoid that/opt/conda/lib
