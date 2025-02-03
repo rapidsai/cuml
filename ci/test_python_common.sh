@@ -8,12 +8,16 @@ set -euo pipefail
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
+LIBCUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 17890 cpp)
+CUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 17890 python)
 
 rapids-logger "Generate Python testing dependencies"
 rapids-dependency-file-generator \
   --output conda \
   --file-key test_python \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" \
+  --prepend-channel "${LIBCUDF_CHANNEL}" \
+  --prepend-channel "${CUDF_CHANNEL}" \
   --prepend-channel "${CPP_CHANNEL}" \
   --prepend-channel "${PYTHON_CHANNEL}" | tee env.yaml
 
@@ -24,13 +28,12 @@ set +u
 conda activate test
 set -u
 
-LIBCUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 17890 cpp)
-CUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 17890 python)
 
-rapids-mamba-retry install \
-  --channel "${LIBCUDF_CHANNEL}" \
-  --channel "${CUDF_CHANNEL}" \
-  cudf libcudf pylibcudf --force-reinstall
+
+# rapids-mamba-retry install \
+#   --channel "${LIBCUDF_CHANNEL}" \
+#   --channel "${CUDF_CHANNEL}" \
+  # cudf libcudf pylibcudf --force-reinstall --ignore-cache
 
 
 # dask and other tests sporadically run into this issue in ARM tests
