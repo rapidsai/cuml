@@ -24,13 +24,11 @@ set +u
 conda activate test
 set -u
 
-LIBCUDF_CHANNEL=$(rapids-get-pr-conda-artifact libcudf 17890 cpp)
-PYLIBCUDF_CHANNEL=$(rapids-get-pr-conda-artifact pylibcudf 17890 python)
+LIBCUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 17890 cpp)
 CUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 17890 python)
 
 rapids-mamba-retry install \
   --channel "${LIBCUDF_CHANNEL}" \
-  --channel "${PYLIBCUDF_CHANNEL}" \
   --channel "${CUDF_CHANNEL}" \
   cudf libcudf pylibcudf
 
