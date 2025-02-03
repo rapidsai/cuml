@@ -388,7 +388,7 @@ dependencies:
               - *libcusparse114
   cuda_wheels:
     specific:
-      - output_types: pyproject
+      - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
