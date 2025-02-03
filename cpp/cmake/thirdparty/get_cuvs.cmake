@@ -53,8 +53,8 @@ function(find_and_configure_cuvs)
         SOURCE_SUBDIR          cpp
         EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
         OPTIONS
-          "BUILD_TESTS OFF"
-          "BUILD_BENCH OFF"
+          "BUILD_CAGRA_HNSWLIB OFF"
+          "BUILD_CUVS_BENCH OFF"
           "BUILD_MG_ALGOS ${CUVS_BUILD_MG_ALGOS}"
 
     )
