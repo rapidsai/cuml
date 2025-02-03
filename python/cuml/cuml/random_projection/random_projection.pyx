@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2024, NVIDIA CORPORATION.
+# Copyright (c) 2018-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -322,7 +322,7 @@ cdef class BaseRandomProjection():
         return X_new
 
     @cuml.internals.api_base_return_array(get_output_type=False)
-    def fit_transform(self, X, convert_dtype=True):
+    def fit_transform(self, X, y=None, convert_dtype=True):
         return self.fit(X).transform(X, convert_dtype)
 
 

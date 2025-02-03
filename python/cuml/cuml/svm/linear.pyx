@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,12 +30,14 @@ from cuml.internals.base_helpers import BaseMetaClass
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+from cuml.internals.logger cimport level_enum
+from cuml.internals.logger import level_enum as py_level_enum
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as cppbool
-from cuda.ccudart cimport(
+from cuda.bindings.cyruntime cimport(
     cudaMemcpyAsync,
     cudaMemcpyKind,
 )
@@ -69,7 +71,7 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM" nogil:
         int max_iter
         int linesearch_max_iter
         int lbfgs_memory
-        int verbose
+        level_enum verbose
         double C
         double grad_tol
         double change_tol
@@ -203,6 +205,18 @@ class LSVMPWrapper(LSVMPWrapper_):
             self._setparam('loss', Loss.SQUARED_EPSILON_INSENSITIVE)
         else:
             raise ValueError(f"Unknown loss string value: {loss}")
+
+    @property
+    def verbose(self):
+        # Reverse ordering of log levels to convert spdlog level values to
+        # Scikit-Learn log level values
+        return 6 - int(self._getparam('verbose'))
+
+    @verbose.setter
+    def verbose(self, level: int):
+        # Reverse ordering of log levels to convert spdlog level values to
+        # Scikit-Learn log level values
+        self._setparam('verbose', py_level_enum(6 - level))
 
 
 # Add properties for parameters with a trivial conversion

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 # distutils: language = c++
 
+import copy
 import os
 import inspect
 import numbers
@@ -24,7 +25,7 @@ from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import_from,
-    null_decorator
+    null_decorator,
 )
 np = cpu_only_import('numpy')
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
@@ -40,6 +41,7 @@ import cuml.common
 from cuml.common.sparse_utils import is_sparse
 import cuml.internals.logger as logger
 import cuml.internals
+from cuml.internals import api_context_managers
 import cuml.internals.input_utils
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
@@ -72,6 +74,39 @@ cp = gpu_only_import('cupy')
 IF GPUBUILD == 1:
     import pylibraft.common.handle
     import cuml.common.cuda
+
+
+class VerbosityDescriptor:
+    """Descriptor for ensuring correct type is used for verbosity
+
+    This descriptor ensures that when the 'verbose' attribute of a cuML
+    estimator is accessed external to the cuML API, an integer is returned
+    (consistent with Scikit-Learn's API for verbosity). Internal to the API, an
+    enum is used. Scikit-Learn's numerical values for verbosity are the inverse
+    of those used by spdlog, so the numerical value is also inverted internal
+    to the cuML API. This ensures that cuML code treats verbosity values as
+    expected for an spdlog-based codebase.
+    """
+    def __get__(self, obj, cls=None):
+        if api_context_managers.in_internal_api():
+            return logger.level_enum(6 - obj._verbose)
+        else:
+            return obj._verbose
+
+    def __set__(self, obj, value):
+        if api_context_managers.in_internal_api():
+            assert isinstance(value, logger.level_enum), (
+                "The log level should always be provided as a level_enum, "
+                "not an integer"
+            )
+            obj._verbose = 6 - int(value)
+        else:
+            if isinstance(value, logger.level_enum):
+                raise ValueError(
+                    "The log level should always be provided as an integer, "
+                    "not using the enum"
+                    )
+            obj._verbose = value
 
 
 class Base(TagsMixin,
@@ -223,18 +258,30 @@ class Base(TagsMixin,
         ELSE:
             self.handle = None
 
+        # The following manipulation of the root_cm ensures that the verbose
+        # descriptor sees any set or get of the verbose attribute as happening
+        # internal to the cuML API. Currently, __init__ calls do not take place
+        # within an api context manager, so setting "verbose" here would
+        # otherwise appear to be external to the cuML API. This behavior will
+        # be corrected with the update of cuML's API context manager
+        # infrastructure in https://github.com/rapidsai/cuml/pull/6189.
+        GlobalSettings().prev_root_cm = GlobalSettings().root_cm
+        GlobalSettings().root_cm = True
         IF GPUBUILD == 1:
             # Internally, self.verbose follows the spdlog/c++ standard of
             # 0 is most logging, and logging decreases from there.
             # So if the user passes an int value for logging, we convert it.
             if verbose is True:
-                self.verbose = logger.level_debug
+                self.verbose = logger.level_enum.debug
             elif verbose is False:
-                self.verbose = logger.level_info
+                self.verbose = logger.level_enum.info
             else:
-                self.verbose = verbose
+                self.verbose = logger.level_enum(6 - verbose)
         ELSE:
-            self.verbose = verbose
+            self.verbose = logger.level_enum(6 - verbose)
+        # Please see above note on manipulation of the root_cm. This should be
+        # rendered unnecessary with https://github.com/rapidsai/cuml/pull/6189.
+        GlobalSettings().root_cm = GlobalSettings().prev_root_cm
 
         self.output_type = _check_output_type_str(
             cuml.global_settings.output_type
@@ -251,6 +298,8 @@ class Base(TagsMixin,
         nvtx_benchmark = os.getenv('NVTX_BENCHMARK')
         if nvtx_benchmark and nvtx_benchmark.lower() == 'true':
             self.set_nvtx_annotations()
+
+    verbose = VerbosityDescriptor()
 
     def __repr__(self):
         """
@@ -298,6 +347,14 @@ class Base(TagsMixin,
         variables = self._get_param_names()
         for key in variables:
             var_value = getattr(self, key, None)
+            # We are currently internal to the cuML API, but the value we
+            # return will immediately be returned external to the API, so we
+            # must perform the translation from enum to integer before
+            # returning the value. Ordinarily, this is handled by
+            # VerbosityDescriptor for direct access to the verbose
+            # attribute.
+            if key == "verbose":
+                var_value = 6 - int(var_value)
             params[key] = var_value
         return params
 
@@ -315,6 +372,9 @@ class Base(TagsMixin,
             if key not in variables:
                 raise ValueError("Bad param '%s' passed to set_params" % key)
             else:
+                # Switch verbose to enum since we are now internal to cuML API
+                if key == "verbose":
+                    value = logger.level_enum(6 - int(value))
                 setattr(self, key, value)
         return self
 
@@ -851,3 +911,80 @@ class UniversalBase(Base):
                 raise ex
 
             raise ex
+
+    def as_sklearn(self, deepcopy=False):
+        """
+        Convert the current GPU-accelerated estimator into a scikit-learn estimator.
+
+        This method imports and builds an equivalent CPU-backed scikit-learn model,
+        transferring all necessary parameters from the GPU representation to the
+        CPU model. After this conversion, the returned object should be a fully
+        compatible scikit-learn estimator, allowing you to use it in standard
+        scikit-learn pipelines and workflows.
+
+        Parameters
+        ----------
+        deepcopy : boolean (default=False)
+            Whether to return a deepcopy of the internal scikit-learn estimator of
+            the cuML models. cuML models internally have CPU based estimators that
+            could be updated. If you intend to use both the cuML and the scikit-learn
+            estimators after using the method in parallel, it is recommended to set
+            this to True to avoid one overwriting data of the other.
+
+        Returns
+        -------
+        sklearn.base.BaseEstimator
+            A scikit-learn compatible estimator instance that mirrors the trained
+            state of the current GPU-accelerated estimator.
+
+        """
+        self.import_cpu_model()
+        self.build_cpu_model()
+        self.gpu_to_cpu()
+        if deepcopy:
+            return copy.deepcopy(self._cpu_model)
+        else:
+            return self._cpu_model
+
+    @classmethod
+    def from_sklearn(cls, model):
+        """
+        Create a GPU-accelerated estimator from a scikit-learn estimator.
+
+        This class method takes an existing scikit-learn estimator and converts it
+        into the corresponding GPU-backed estimator. It imports any required CPU
+        model definitions, stores the given scikit-learn model internally, and then
+        transfers the model parameters and state onto the GPU.
+
+        Parameters
+        ----------
+        model : sklearn.base.BaseEstimator
+            A fitted scikit-learn estimator from which to create the GPU-accelerated
+            version.
+
+        Returns
+        -------
+        cls
+            A new instance of the GPU-accelerated estimator class that mirrors the
+            state of the input scikit-learn estimator.
+
+        Notes
+        -----
+        - `output_type` of the estimator is set to "numpy"
+            by default, as these cannot be inferred from training arguments. If
+            something different is required, then please use cuML's output_type
+            configuration utilities.
+        """
+        estimator = cls()
+        estimator.import_cpu_model()
+        estimator._cpu_model = model
+        estimator.cpu_to_gpu()
+
+        # we need to set an output type here since
+        # we cannot infer from training args.
+        # Setting to numpy seems like a reasonable default for matching the
+        # deserialized class by default.
+        estimator.output_type = "numpy"
+        estimator.output_mem_type = MemoryType.host
+
+        return estimator

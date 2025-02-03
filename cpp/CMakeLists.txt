@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2024, NVIDIA CORPORATION.
+# Copyright (c) 2018-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -65,6 +65,7 @@ option(USE_CCACHE "Cache build artifacts with ccache" OFF)
 option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
 option(CUDA_STATIC_MATH_LIBRARIES "Statically link the CUDA math libraries" OFF)
 option(CUML_USE_CUVS_STATIC "Build and statically link the CUVS library" OFF)
+option(CUML_USE_RAFT_STATIC "Build and statically link the RAFT library" OFF)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
 option(CUML_EXPORT_TREELITE_LINKAGE "Whether to publicly or privately link treelite to libcuml++" OFF)
 option(CUML_USE_CUMLPRIMS_MG_STATIC "Build and statically link the cumlprims_mg library" OFF)
@@ -99,6 +100,7 @@ message(VERBOSE "CUML_CPP: Cache build artifacts with ccache: ${USE_CCACHE}")
 message(VERBOSE "CUML_CPP: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
 message(VERBOSE "CUML_CPP: Statically link the CUDA math libraries: ${CUDA_STATIC_MATH_LIBRARIES}")
 message(VERBOSE "CUML_CPP: Build and statically link CUVS libraries: ${CUML_USE_CUVS_STATIC}")
+message(VERBOSE "CUML_CPP: Build and statically link RAFT library: ${CUML_USE_RAFT_STATIC}")
 message(VERBOSE "CUML_CPP: Build and statically link Treelite library: ${CUML_USE_TREELITE_STATIC}")
 
 set(CUML_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Can specify individual algorithms or groups in a semicolon-separated list.")
@@ -108,6 +110,17 @@ message(VERBOSE "CUML_CPP: Building libcuml++ with algorithms: '${CUML_ALGORITHM
 set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
 set_property(CACHE RMM_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL" "OFF")
 message(VERBOSE "CUML_CPP: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
+
+# Set logging level
+set(LIBCUML_LOGGING_LEVEL
+    "DEBUG"
+    CACHE STRING "Choose the logging level."
+)
+set_property(
+  CACHE LIBCUML_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL"
+                                       "OFF"
+)
+message(VERBOSE "CUML: LIBCUML_LOGGING_LEVEL = '${LIBCUML_LOGGING_LEVEL}'.")
 
 if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs to
@@ -220,6 +233,12 @@ endif()
 rapids_cpm_init()
 rapids_cmake_install_lib_dir(lib_dir)
 
+include(${rapids-cmake-dir}/cpm/rapids_logger.cmake)
+rapids_cpm_rapids_logger()
+rapids_make_logger(
+  ML EXPORT_SET cuml-exports LOGGER_HEADER_DIR include/cuml/common/ LOGGER_MACRO_PREFIX CUML LOGGER_TARGET cuml_logger
+)
+
 if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   find_package(Threads)
 endif()
@@ -291,8 +310,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # single GPU components
   # common components
-  add_library(${CUML_CPP_TARGET}
-              src/common/logger.cpp)
+  add_library(${CUML_CPP_TARGET})
   if (CUML_ENABLE_GPU)
     target_compile_definitions(${CUML_CPP_TARGET} PUBLIC CUML_ENABLE_GPU)
   endif()
@@ -404,6 +422,27 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/hdbscan/hdbscan.cu
         src/hdbscan/condensed_hierarchy.cu
         src/hdbscan/prediction_data.cu)
+
+    # When using GCC 13, some maybe-uninitialized warnings appear from CCCL and are treated as errors.
+    # See this issue: https://github.com/rapidsai/cuml/issues/6225
+    set_property(
+      SOURCE src/hdbscan/condensed_hierarchy.cu
+      APPEND_STRING
+      PROPERTY COMPILE_FLAGS
+      " -Xcompiler=-Wno-maybe-uninitialized"
+    )
+    set_property(
+      SOURCE src/hdbscan/hdbscan.cu
+      APPEND_STRING
+      PROPERTY COMPILE_FLAGS
+      " -Xcompiler=-Wno-maybe-uninitialized"
+    )
+    set_property(
+      SOURCE src/hdbscan/prediction_data.cu
+      APPEND_STRING
+      PROPERTY COMPILE_FLAGS
+      " -Xcompiler=-Wno-maybe-uninitialized"
+    )
   endif()
 
   if(all_algo OR holtwinters_algo)
@@ -564,6 +603,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
                 "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
   )
+  target_compile_definitions(${CUML_CPP_TARGET} PUBLIC "CUML_LOG_ACTIVE_LEVEL=CUML_LOG_LEVEL_${LIBCUML_LOGGING_LEVEL}")
 
   target_include_directories(${CUML_CPP_TARGET}
     PUBLIC
@@ -602,6 +642,9 @@ if(BUILD_CUML_CPP_LIBRARY)
   # These are always private:
   list(APPEND _cuml_cpp_private_libs
     raft::raft
+    rmm::rmm_logger_impl
+    raft::raft_logger_impl
+    cuml_logger_impl
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}>
     ${TREELITE_LIBS}
@@ -628,8 +671,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC  rmm::rmm rmm::rmm_logger ${CUVS_LIB}
             ${_cuml_cpp_public_libs}
+            cuml_logger
     PRIVATE ${_cuml_cpp_private_libs}
-                   rmm::rmm_logger_impl
   )
 
   # If we export the libdmlc symbols, they can lead to weird crashes with other
@@ -681,7 +724,7 @@ endif()
 
 if(BUILD_CUML_TESTS)
   include(CTest)
-  add_subdirectory(test)
+  add_subdirectory(tests)
 endif()
 
 ##############################################################################

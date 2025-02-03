@@ -1,19 +1,17 @@
 #!/bin/bash
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 
 set -euo pipefail
 
 mkdir -p ./dist
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
-RAPIDS_PY_WHEEL_NAME="cuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 ./dist
-
-# On arm also need to install CMake because treelite needs to be compiled (no wheels available for arm).
-if [[ "$(arch)" == "aarch64" ]]; then
-    python -m pip install cmake
-fi
+RAPIDS_PY_WHEEL_NAME="cuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 python ./dist
+RAPIDS_PY_WHEEL_NAME="libcuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp ./dist
 
 # echo to expand wildcard before adding `[extra]` requires for pip
-python -m pip install $(echo ./dist/cuml*.whl)[test]
+python -m pip install \
+  ./dist/libcuml*.whl \
+  "$(echo ./dist/cuml*.whl)[test]"
 
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
 mkdir -p "${RAPIDS_TESTS_DIR}"

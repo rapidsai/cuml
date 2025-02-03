@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -417,6 +417,17 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
         )
 
 
+def test_ridge_and_least_squares_equal_when_alpha_is_0():
+    X, y = make_regression(n_samples=5, n_features=4, random_state=0)
+
+    ridge = cuRidge(alpha=0.0, fit_intercept=False)
+    ols = cuLinearRegression(fit_intercept=False)
+
+    ridge.fit(X, y)
+    ols.fit(X, y)
+    assert array_equal(ridge.coef_, ols.coef_)
+
+
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("algorithm", ["eig", "svd"])
 @pytest.mark.parametrize(
@@ -629,7 +640,7 @@ def test_logistic_regression_model_default(dtype):
 
 
 @given(
-    dtype=floating_dtypes(sizes=(32, 64)),
+    dtype=st.sampled_from((np.float32, np.float64)),
     order=st.sampled_from(("C", "F")),
     sparse_input=st.booleans(),
     fit_intercept=st.booleans(),
@@ -661,7 +672,7 @@ def test_logistic_regression_model_digits(
     assert score >= acceptable_score
 
 
-@given(dtype=floating_dtypes(sizes=(32, 64)))
+@given(dtype=st.sampled_from((np.float32, np.float64)))
 def test_logistic_regression_sparse_only(dtype, nlp_20news):
 
     # sklearn score with max_iter = 10000
@@ -685,7 +696,7 @@ def test_logistic_regression_sparse_only(dtype, nlp_20news):
 @given(
     dataset=split_datasets(
         standard_classification_datasets(
-            dtypes=floating_dtypes(sizes=(32, 64)),
+            dtypes=st.sampled_from((np.float32, np.float64)),
             n_classes=st.sampled_from((2, 10)),
             n_features=st.just(20),
             n_informative=st.just(10),
@@ -727,7 +738,7 @@ def test_logistic_regression_decision_function(
 @given(
     dataset=split_datasets(
         standard_classification_datasets(
-            dtypes=floating_dtypes(sizes=(32, 64)),
+            dtypes=st.sampled_from((np.float32, np.float64)),
             n_classes=st.sampled_from((2, 10)),
             n_features=st.just(20),
             n_informative=st.just(10),
