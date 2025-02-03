@@ -30,7 +30,7 @@ CUDF_CHANNEL=$(rapids-get-pr-conda-artifact cudf 17890 python)
 rapids-mamba-retry install \
   --channel "${LIBCUDF_CHANNEL}" \
   --channel "${CUDF_CHANNEL}" \
-  cudf libcudf pylibcudf
+  cudf libcudf pylibcudf --force-reinstall
 
 
 # dask and other tests sporadically run into this issue in ARM tests
