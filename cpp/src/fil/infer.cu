@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -220,10 +220,11 @@ See https://rapids.ai/start.html as well as cmake defaults.
 template <int NITEMS, typename real_t>
 size_t block_reduce_footprint_host()
 {
-  return sizeof(
-    typename cub::
-      BlockReduce<vec<NITEMS, real_t>, FIL_TPB, cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, 600>::
-        TempStorage);
+  return sizeof(typename cub::BlockReduce<vec<NITEMS, real_t>,
+                                          FIL_TPB,
+                                          cub::BLOCK_REDUCE_WARP_REDUCTIONS,
+                                          1,
+                                          1>::TempStorage);
 }
 
 template <int NITEMS, typename real_t>
@@ -233,8 +234,7 @@ size_t block_reduce_best_class_footprint_host()
                                           FIL_TPB,
                                           cub::BLOCK_REDUCE_WARP_REDUCTIONS,
                                           1,
-                                          1,
-                                          600>::TempStorage);
+                                          1>::TempStorage);
 }
 
 // the device template should achieve the best performance, using up-to-date
