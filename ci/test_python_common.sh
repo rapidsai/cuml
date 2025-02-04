@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -8,6 +8,12 @@ set -euo pipefail
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
 PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
+LIBRMM_CHANNEL=$(_rapids-get-pr-artifact rmm 1808 cpp conda)
+LIBRAFT_CHANNEL=$(_rapids-get-pr-artifact raft 2566 cpp conda)
+LIBCUVS_CHANNEL=$(_rapids-get-pr-artifact cuvs 644 cpp conda)
+PYLIBRMM_CHANNEL=$(_rapids-get-pr-artifact rmm 1808 python conda)
+PYLIBRAFT_CHANNEL=$(_rapids-get-pr-artifact libraft 2566 python conda)
+PYLIBCUVS_CHANNEL=$(_rapids-get-pr-artifact cuvs 644 python conda)
 
 rapids-logger "Generate Python testing dependencies"
 rapids-dependency-file-generator \
@@ -15,6 +21,12 @@ rapids-dependency-file-generator \
   --file-key test_python \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" \
   --prepend-channel "${CPP_CHANNEL}" \
+  --prepend-channel "${LIBRMM_CHANNEL}" \
+  --prepend-channel "${LIBRAFT_CHANNEL}" \
+  --prepend-channel "${LIBCUVS_CHANNEL}" \
+  --prepend-channel "${PYLIBRMM_CHANNEL}" \
+  --prepend-channel "${PYLIBRAFT_CHANNEL}" \
+  --prepend-channel "${PYLIBCUVS_CHANNEL}" \
   --prepend-channel "${PYTHON_CHANNEL}" | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test
