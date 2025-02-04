@@ -50,8 +50,10 @@ def load_library():
         # libraft must be loaded before libcuml++ because libcuml++
         # references its symbols
         import libraft
+        import rapids_logger
 
         libraft.load_library()
+        rapids_logger.load_library()
     except ModuleNotFoundError:
         # 'libcuml++' has a runtime dependency on 'libraft'. However,
         # that dependency might be satisfied by the 'libraft' conda package
