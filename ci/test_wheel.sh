@@ -18,8 +18,8 @@ echo "librmm-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${LIBRMM_WHEEL_DIR}/librmm
 echo "rmm-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${PYLIBRMM_WHEEL_DIR}/rmm_*.whl)" >> /tmp/constraints.txt
 echo "libraft-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${LIBRAFT_WHEEL_DIR}/libraft_*.whl)" >> /tmp/constraints.txt
 echo "raft-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${PYLIBRAFT_WHEEL_DIR}/raft_*.whl)" >> /tmp/constraints.txt
-echo "libcuvs-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${LIBRAFT_WHEEL_DIR}/libcuvs_*.whl)" >> /tmp/constraints.txt
-echo "cuvs-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${PYLIBRAFT_WHEEL_DIR}/cuvs_*.whl)" >> /tmp/constraints.txt
+echo "libcuvs-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${LIBCUVS_WHEEL_DIR}/libcuvs_*.whl)" >> /tmp/constraints.txt
+echo "cuvs-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo ${PYLIBCUVS_WHEEL_DIR}/cuvs_*.whl)" >> /tmp/constraints.txt
 
 export PIP_CONSTRAINT="/tmp/constraints.txt"
 
