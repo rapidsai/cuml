@@ -12,7 +12,7 @@ LIBRMM_CHANNEL=$(_rapids-get-pr-artifact rmm 1808 cpp conda)
 LIBRAFT_CHANNEL=$(_rapids-get-pr-artifact raft 2566 cpp conda)
 LIBCUVS_CHANNEL=$(_rapids-get-pr-artifact cuvs 644 cpp conda)
 PYLIBRMM_CHANNEL=$(_rapids-get-pr-artifact rmm 1808 python conda)
-PYLIBRAFT_CHANNEL=$(_rapids-get-pr-artifact libraft 2566 python conda)
+PYLIBRAFT_CHANNEL=$(_rapids-get-pr-artifact raft 2566 python conda)
 PYLIBCUVS_CHANNEL=$(_rapids-get-pr-artifact cuvs 644 python conda)
 
 rapids-logger "Generate Python testing dependencies"
