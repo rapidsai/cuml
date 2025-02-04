@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ function(find_and_configure_treelite)
 
     rapids_cpm_find(Treelite ${PKG_VERSION}
         GLOBAL_TARGETS       ${TREELITE_LIBS}
+        BUILD_EXPORT_SET     cuml-exports
         INSTALL_EXPORT_SET   cuml-exports
         CPM_ARGS
             GIT_REPOSITORY   https://github.com/dmlc/treelite.git
@@ -78,7 +79,7 @@ function(find_and_configure_treelite)
     rapids_export_find_package_root(BUILD Treelite [=[${CMAKE_CURRENT_LIST_DIR}]=] EXPORT_SET cuml-exports)
 endfunction()
 
-find_and_configure_treelite(VERSION     4.3.0
-                        PINNED_TAG  575e4208f2b18e40d818c338ecb95d7a26e69aab
+find_and_configure_treelite(VERSION     4.4.1
+                        PINNED_TAG  386bd0de99f5a66584c7e58221ee38ce606ad1ae
                         EXCLUDE_FROM_ALL  ${CUML_EXCLUDE_TREELITE_FROM_ALL}
                         BUILD_STATIC_LIBS ${CUML_USE_TREELITE_STATIC})

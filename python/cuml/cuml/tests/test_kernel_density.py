@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 from cuml.testing.utils import as_type
 from sklearn.model_selection import GridSearchCV
+import os
 import pytest
 from hypothesis.extra.numpy import arrays
 from hypothesis import given, settings, assume, strategies as st
@@ -81,6 +82,10 @@ metrics_strategy = st.sampled_from(
 )
 
 
+@pytest.mark.skipif(
+    os.environ.get("CUDA_VERSION") == "12.0.1",
+    reason="Flaky hypothesis CI failure: https://github.com/rapidsai/cuml/issues/6173",
+)
 @settings(deadline=None)
 @given(
     array_strategy(),

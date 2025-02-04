@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ def cuda_kernel_factory(nvrtc_kernel_str, dtypes, kernel_name=None):
         nvrtc_kernel_str,
     )
 
-    if logger.should_log_for(logger.level_debug):
+    if logger.should_log_for(logger.level_enum.debug):
         logger.debug(str(nvrtc_kernel_str))
 
     return cp.RawKernel(nvrtc_kernel_str, kernel_name)

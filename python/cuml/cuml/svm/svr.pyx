@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from libcpp cimport nullptr
 from cuml.svm.svm_base import SVMBase
+from cuml.internals.logger cimport level_enum
 
 cdef extern from "cuml/matrix/kernelparams.h" namespace "MLCommon::Matrix":
     enum KernelType:
@@ -57,7 +58,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         int max_iter
         int nochange_steps
         double tol
-        int verbosity
+        level_enum verbosity
         double epsilon
         SvmType svmType
 

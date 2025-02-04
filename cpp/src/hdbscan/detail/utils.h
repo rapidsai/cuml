@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@
 #include <rmm/exec_policy.hpp>
 
 #include <cub/cub.cuh>
+#include <cuda/functional>
 #include <thrust/copy.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
@@ -75,19 +76,11 @@ void cub_segmented_reduce(const value_t* in,
 {
   rmm::device_uvector<char> d_temp_storage(0, stream);
   size_t temp_storage_bytes = 0;
-  cub_reduce_func(
-    nullptr, temp_storage_bytes, in, out, n_segments, offsets, offsets + 1, stream, false);
+  cub_reduce_func(nullptr, temp_storage_bytes, in, out, n_segments, offsets, offsets + 1, stream);
   d_temp_storage.resize(temp_storage_bytes, stream);
 
-  cub_reduce_func(d_temp_storage.data(),
-                  temp_storage_bytes,
-                  in,
-                  out,
-                  n_segments,
-                  offsets,
-                  offsets + 1,
-                  stream,
-                  false);
+  cub_reduce_func(
+    d_temp_storage.data(), temp_storage_bytes, in, out, n_segments, offsets, offsets + 1, stream);
 }
 
 /**
@@ -114,9 +107,10 @@ Common::CondensedHierarchy<value_idx, value_t> make_cluster_tree(
     thrust_policy,
     sizes,
     sizes + condensed_tree.get_n_edges(),
-    cuda::proclaim_return_type<bool>([=] __device__(value_idx a) -> bool { return a > 1; }),
-    0,
-    thrust::plus<value_idx>());
+    cuda::proclaim_return_type<value_idx>(
+      [=] __device__(value_idx a) -> value_idx { return static_cast<value_idx>(a > 1); }),
+    static_cast<value_idx>(0),
+    cuda::std::plus<value_idx>());
 
   // remove leaves from condensed tree
   rmm::device_uvector<value_idx> cluster_parents(cluster_tree_edges, stream);
