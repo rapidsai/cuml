@@ -119,32 +119,43 @@ inline void launcher(const raft::handle_t& handle,
     // TODO:  use nndescent from cuvs
     RAFT_EXPECTS(static_cast<size_t>(n_neighbors) <= params->nn_descent_params.graph_degree,
                  "n_neighbors should be smaller than the graph degree computed by nn descent");
+    RAFT_EXPECTS(params->nn_descent_params.return_distances,
+                 "return_distances for nn descent should be set to true to be used for UMAP");
 
     auto graph = get_graph_nnd(handle, inputsA, params);
 
-    auto indices_d = raft::make_device_matrix<int64_t, int64_t>(
-      handle, inputsA.n, params->nn_descent_params.graph_degree);
+    // `graph.graph()` is a host array (n x graph_degree).
+    // Slice and copy to a temporary host array (n x n_neighbors), then copy
+    // that to the output device array `out.knn_indices` (n x n_neighbors).
+    // TODO: force graph_degree = n_neighbors so the temporary host array and
+    // slice isn't necessary.
+    auto temp_indices_h = raft::make_host_matrix<int64_t, int64_t>(inputsA.n, n_neighbors);
+    size_t graph_degree = params->nn_descent_params.graph_degree;
+#pragma omp parallel for
+    for (size_t i = 0; i < static_cast<size_t>(inputsA.n); i++) {
+      for (int j = 0; j < n_neighbors; j++) {
+        auto target                 = temp_indices_h.data_handle();
+        auto source                 = graph.graph().data_handle();
+        target[i * n_neighbors + j] = source[i * graph_degree + j];
+      }
+    }
+    raft::copy(
+      handle,
+      raft::make_device_matrix_view(out.knn_indices, inputsA.n, static_cast<uint64_t>(n_neighbors)),
+      temp_indices_h.view());
 
-    raft::copy(indices_d.data_handle(),
-               graph.graph().data_handle(),
-               inputsA.n * params->nn_descent_params.graph_degree,
-               stream);
-
+    // `graph.distances()` is a device array (n x graph_degree).
+    // Slice and copy to the output device array `out.knn_dists` (n x n_neighbors).
+    // TODO: force graph_degree = n_neighbors so this slice isn't necessary.
     raft::matrix::slice_coordinates coords{static_cast<int64_t>(0),
                                            static_cast<int64_t>(0),
                                            static_cast<int64_t>(inputsA.n),
                                            static_cast<int64_t>(n_neighbors)};
-
-    RAFT_EXPECTS(graph.distances().has_value(),
-                 "return_distances for nn descent should be set to true to be used for UMAP");
-    auto out_knn_dists_view =
-      raft::make_device_matrix_view(out.knn_dists, inputsA.n, static_cast<uint64_t>(n_neighbors));
     raft::matrix::slice<float, int64_t, raft::row_major>(
-      handle, raft::make_const_mdspan(graph.distances().value()), out_knn_dists_view, coords);
-    auto out_knn_indices_view =
-      raft::make_device_matrix_view(out.knn_indices, inputsA.n, static_cast<uint64_t>(n_neighbors));
-    raft::matrix::slice<int64_t, int64_t, raft::row_major>(
-      handle, raft::make_const_mdspan(indices_d.view()), out_knn_indices_view, coords);
+      handle,
+      raft::make_const_mdspan(graph.distances().value()),
+      raft::make_device_matrix_view(out.knn_dists, inputsA.n, static_cast<uint64_t>(n_neighbors)),
+      coords);
   }
 }
 
