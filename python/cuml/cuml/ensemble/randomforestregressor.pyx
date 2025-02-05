@@ -35,6 +35,7 @@ from cuml.internals.logger cimport level_enum
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.common import input_to_cuml_array
+from cuml.internals.utils import check_random_seed
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.ensemble.randomforest_common import _obtain_fil_model
@@ -446,7 +447,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         if self.random_state is None:
             seed_val = <uintptr_t>NULL
         else:
-            seed_val = <uintptr_t>self.random_state
+            seed_val = <uintptr_t>check_random_seed(self.random_state)
 
         rf_params = set_rf_params(<int> self.max_depth,
                                   <int> self.max_leaves,
