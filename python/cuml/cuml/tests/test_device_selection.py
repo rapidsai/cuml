@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -977,11 +977,11 @@ def test_hdbscan_methods(train_device, infer_device):
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 def test_kmeans_methods(train_device, infer_device):
     n_clusters = 20
-    ref_model = skKMeans(n_clusters=n_clusters)
+    ref_model = skKMeans(n_clusters=n_clusters, random_state=42)
     ref_model.fit(X_train_blob)
     ref_output = ref_model.predict(X_test_blob)
 
-    model = KMeans(n_clusters=n_clusters)
+    model = KMeans(n_clusters=n_clusters, random_state=42)
     with using_device_type(train_device):
         model.fit(X_train_blob)
     with using_device_type(infer_device):
