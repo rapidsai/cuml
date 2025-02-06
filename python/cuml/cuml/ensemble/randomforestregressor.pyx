@@ -15,6 +15,8 @@
 #
 # distutils: language = c++
 
+
+import sys
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.safe_imports import (
@@ -28,7 +30,9 @@ nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 rmm = gpu_only_import('rmm')
 
 from cuml.internals.array import CumlArray
+from cuml.internals.global_settings import GlobalSettings
 import cuml.internals
+from cuml.internals import logger
 
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.logger cimport level_enum
@@ -253,6 +257,19 @@ class RandomForestRegressor(BaseRandomForestModel,
     """
 
     _cpu_estimator_import_path = 'sklearn.ensemble.RandomForestRegressor'
+
+    _hyperparam_interop_translator = {
+        "criterion": "NotImplemented",
+        "oob_score": {
+            True: "NotImplemented",
+        },
+        "max_depth": {
+            None: 16,
+        },
+        "max_samples": {
+            None: 1.0,
+        },
+    }
 
     @device_interop_preparation
     def __init__(self, *,
@@ -761,3 +778,35 @@ class RandomForestRegressor(BaseRandomForestModel,
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
+
+    def cpu_to_gpu(self):
+        # treelite does an internal isinstance check to detect an sklearn
+        # RF, which proxymodule interferes with. We work around that
+        # temporarily here just for treelite internal check and
+        # restore the __class__ at the end of the method.
+        if GlobalSettings().accelerator_active:
+            cls_cahed = self._cpu_model.__class__
+            self._cpu_model.__class__ = sys.modules['sklearn.ensemble'].RandomForestRegressor
+
+        super().cpu_to_gpu()
+
+        if GlobalSettings().accelerator_active:
+            self._cpu_model.__class__ = cls_cahed
+
+    @classmethod
+    def _hyperparam_translator(cls, **kwargs):
+        kwargs, gpuaccel = super(RandomForestRegressor, cls)._hyperparam_translator(**kwargs)
+
+        if "max_samples" in kwargs:
+            if isinstance(kwargs["max_samples"], int):
+                logger.warn(
+                    f"Integer value of max_samples={kwargs['max_samples']}"
+                    "not supported, changed to 1.0."
+                )
+                kwargs["max_samples"] = 1.0
+
+        # determinism requires only 1 cuda stream
+        if "random_state" in kwargs:
+            kwargs["n_streams"] = 1
+
+        return kwargs, gpuaccel

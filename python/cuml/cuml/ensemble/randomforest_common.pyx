@@ -16,6 +16,7 @@
 import treelite.sklearn
 from cuml.internals.safe_imports import gpu_only_import
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.global_settings import GlobalSettings
 
 cp = gpu_only_import('cupy')
 import math
@@ -92,7 +93,7 @@ class BaseRandomForestModel(UniversalBase):
                           "class_weight": class_weight}
 
         for key, vals in sklearn_params.items():
-            if vals:
+            if vals and not GlobalSettings().accelerator_active:
                 raise TypeError(
                     " The Scikit-learn variable ", key,
                     " is not supported in cuML,"
@@ -101,7 +102,7 @@ class BaseRandomForestModel(UniversalBase):
                     "api.html#random-forest) for more information")
 
         for key in kwargs.keys():
-            if key not in self._param_names:
+            if key not in self._param_names and not GlobalSettings().accelerator_active:
                 raise TypeError(
                     " The variable ", key,
                     " is not supported in cuML,"
