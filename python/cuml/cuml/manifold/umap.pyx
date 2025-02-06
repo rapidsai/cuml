@@ -335,6 +335,22 @@ class UMAP(UniversalBase,
     _cpu_estimator_import_path = 'umap.UMAP'
     embedding_ = CumlArrayDescriptor(order='C')
 
+    _hyperparam_interop_translator = {
+        "metric": {
+            "sokalsneath": "NotImplemented",
+            "rogerstanimoto": "NotImplemented",
+            "sokalmichener": "NotImplemented",
+            "yule": "NotImplemented",
+            "ll_dirichlet": "NotImplemented",
+            "russellrao": "NotImplemented",
+            "kulsinski": "NotImplemented",
+            "dice": "NotImplemented",
+            "wminkowski": "NotImplemented",
+            "mahalanobis": "NotImplemented",
+            "haversine": "NotImplemented",
+        }
+    }
+
     @device_interop_preparation
     def __init__(self, *,
                  n_neighbors=15,
