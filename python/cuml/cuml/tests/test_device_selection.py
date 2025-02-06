@@ -51,8 +51,11 @@ from sklearn.decomposition import PCA as skPCA
 from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
 from sklearn.cluster import KMeans as skKMeans
 from sklearn.cluster import DBSCAN as skDBSCAN
+from sklearn.ensemble import RandomForestClassifier as skRFC
+from sklearn.ensemble import RandomForestRegressor as skRFR
 from sklearn.datasets import make_regression, make_blobs
 from sklearn.manifold import TSNE as refTSNE
+from sklearn.metrics import accuracy_score, r2_score
 from pytest_cases import fixture_union, fixture
 from importlib import import_module
 import inspect
@@ -136,11 +139,12 @@ def make_reg_dataset():
         n_samples=2000, n_features=20, n_informative=18, random_state=0
     )
     X_train, X_test = X[:1800], X[1800:]
-    y_train, _ = y[:1800], y[1800:]
+    y_train, y_test = y[:1800], y[1800:]
     return (
         X_train.astype(np.float32),
         y_train.astype(np.float32),
         X_test.astype(np.float32),
+        y_test.astype(np.float32),
     )
 
 
@@ -153,16 +157,17 @@ def make_blob_dataset():
         cluster_std=1.0,
     )
     X_train, X_test = X[:1800], X[1800:]
-    y_train, _ = y[:1800], y[1800:]
+    y_train, y_test = y[:1800], y[1800:]
     return (
         X_train.astype(np.float32),
         y_train.astype(np.float32),
         X_test.astype(np.float32),
+        y_test.astype(np.float32),
     )
 
 
-X_train_reg, y_train_reg, X_test_reg = make_reg_dataset()
-X_train_blob, y_train_blob, X_test_blob = make_blob_dataset()
+X_train_reg, y_train_reg, X_test_reg, y_test_reg = make_reg_dataset()
+X_train_blob, y_train_blob, X_test_blob, y_test_blob = make_blob_dataset()
 
 
 def check_trustworthiness(cuml_embedding, test_data):
@@ -1017,18 +1022,62 @@ def test_dbscan_methods(train_device, infer_device):
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 def test_random_forest_regressor(train_device, infer_device):
-    model = RandomForestRegressor()
+    ref_model = skRFR(
+        n_estimators=40,
+        max_depth=16,
+        min_samples_split=2,
+        max_features=1.0,
+        random_state=10,
+    )
+    model = RandomForestRegressor(
+        max_features=1.0,
+        max_depth=16,
+        n_bins=64,
+        n_estimators=40,
+        n_streams=1,
+        random_state=10,
+    )
+    ref_model.fit(X_train_reg, y_train_reg)
+    ref_output = ref_model.predict(X_test_reg)
+
     with using_device_type(train_device):
         model.fit(X_train_reg, y_train_reg)
     with using_device_type(infer_device):
-        _ = model.predict(X_test_reg)
+        output = model.predict(X_test_reg)
+
+    cuml_acc = r2_score(y_test_reg, output)
+    sk_acc = r2_score(y_test_reg, ref_output)
+
+    assert np.abs(cuml_acc - sk_acc) <= 0.05
 
 
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 def test_random_forest_classifier(train_device, infer_device):
-    model = RandomForestClassifier()
+    ref_model = skRFC(
+        n_estimators=40,
+        max_depth=16,
+        min_samples_split=2,
+        max_features=1.0,
+        random_state=10,
+    )
+    model = RandomForestClassifier(
+        max_features=1.0,
+        max_depth=16,
+        n_bins=64,
+        n_estimators=40,
+        n_streams=1,
+        random_state=10,
+    )
+    ref_model.fit(X_train_blob, y_train_blob)
+    ref_output = ref_model.predict(X_test_blob)
+
     with using_device_type(train_device):
         model.fit(X_train_blob, y_train_blob)
     with using_device_type(infer_device):
-        _ = model.predict(X_test_blob)
+        output = model.predict(X_test_blob)
+
+    cuml_acc = accuracy_score(y_test_blob, output)
+    ref_acc = accuracy_score(y_test_blob, ref_output)
+
+    assert cuml_acc == ref_acc
