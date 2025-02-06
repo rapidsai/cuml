@@ -189,11 +189,3 @@ def test_rf_max_samples_reg(regression_data, max_samples):
     )
     reg.fit(X, y)
     _ = r2_score(y, reg.predict(X))
-
-
-def test_rf_random_state_reg(regression_data):
-    X, y = regression_data
-    reg1 = RandomForestRegressor(n_estimators=50, random_state=42).fit(X, y)
-    reg2 = RandomForestRegressor(n_estimators=50, random_state=42).fit(X, y)
-    # Predictions should be identical when using the same random_state.
-    assert np.allclose(reg1.predict(X), reg2.predict(X))

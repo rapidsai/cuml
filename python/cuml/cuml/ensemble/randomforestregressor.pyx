@@ -785,13 +785,17 @@ class RandomForestRegressor(BaseRandomForestModel,
         # temporarily here just for treelite internal check and
         # restore the __class__ at the end of the method.
         if GlobalSettings().accelerator_active:
-            cls_cahed = self._cpu_model.__class__
-            self._cpu_model.__class__ = sys.modules['sklearn.ensemble'].RandomForestRegressor
+            with self._cpu_model_class_lock:
+                original_class = self._cpu_model.__class__
+                self._cpu_model.__class__ = sys.modules['sklearn.ensemble'].RandomForestRegressor
 
-        super().cpu_to_gpu()
+                try:
+                    super().cpu_to_gpu()
+                finally:
+                    self._cpu_model.__class__ = original_class
 
-        if GlobalSettings().accelerator_active:
-            self._cpu_model.__class__ = cls_cahed
+        else:
+            super().cpu_to_gpu()
 
     @classmethod
     def _hyperparam_translator(cls, **kwargs):

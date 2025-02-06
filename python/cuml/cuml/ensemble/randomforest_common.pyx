@@ -159,6 +159,7 @@ class BaseRandomForestModel(UniversalBase):
         self.model_pbuf_bytes = bytearray()
         self.treelite_handle = None
         self.treelite_serialized_model = None
+        self._cpu_model_class_lock = threading.RLock()
 
     def _get_max_feat_val(self) -> float:
         if isinstance(self.max_features, int):
