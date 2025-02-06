@@ -28,8 +28,8 @@ namespace RandomInit {
 
 using namespace ML;
 
-template <typename T>
-void launcher(uint64_t n, int d, UMAPParams* params, T* embedding, cudaStream_t stream)
+template <typename T, typename nnz_t>
+void launcher(nnz_t n, int d, UMAPParams* params, T* embedding, cudaStream_t stream)
 {
   uint64_t seed = params->random_state;
 

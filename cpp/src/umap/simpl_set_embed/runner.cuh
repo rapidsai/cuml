@@ -22,15 +22,13 @@
 
 #include <raft/sparse/coo.hpp>
 
-#include <stdint.h>
-
 namespace UMAPAlgo {
 
 namespace SimplSetEmbed {
 
 using namespace ML;
 
-template <int TPB_X, typename T>
+template <typename T, typename nnz_t, nnz_t TPB_X>
 void run(int m,
          int n,
          raft::sparse::COO<T>* coo,
@@ -40,7 +38,7 @@ void run(int m,
          int algorithm = 0)
 {
   switch (algorithm) {
-    case 0: SimplSetEmbed::Algo::launcher<TPB_X, T>(m, n, coo, params, embedding, stream);
+    case 0: SimplSetEmbed::Algo::launcher<T, nnz_t, TPB_X>(m, n, coo, params, embedding, stream);
   }
 }
 }  // namespace SimplSetEmbed

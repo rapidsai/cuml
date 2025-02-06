@@ -30,7 +30,6 @@
 
 #include <cuda_runtime.h>
 
-#include <stdint.h>
 #include <stdio.h>
 
 #include <string>
@@ -80,7 +79,7 @@ static const float MIN_K_DIST_SCALE   = 1e-3;
  * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
  *
  */
-template <int TPB_X, typename value_t>
+template <typename value_t, typename nnz_t, nnz_t TPB_X>
 CUML_KERNEL void smooth_knn_dist_kernel(const value_t* knn_dists,
                                         int n,
                                         float mean_dist,
@@ -93,8 +92,8 @@ CUML_KERNEL void smooth_knn_dist_kernel(const value_t* knn_dists,
 {
   // row-based matrix 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
-  uint64_t i =
-    static_cast<uint64_t>(row) * n_neighbors;  // each thread processes one row of the dist matrix
+  nnz_t i =
+    static_cast<nnz_t>(row) * n_neighbors;  // each thread processes one row of the dist matrix
 
   if (row < n) {
     float target = __log2f(n_neighbors) * bandwidth;
@@ -192,7 +191,7 @@ CUML_KERNEL void smooth_knn_dist_kernel(const value_t* knn_dists,
  *
  * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
  */
-template <uint64_t TPB_X, typename value_idx, typename value_t>
+template <typename value_t, typename value_idx, typename nnz_t, nnz_t TPB_X>
 CUML_KERNEL void compute_membership_strength_kernel(
   const value_idx* knn_indices,
   const float* knn_dists,  // nn outputs
@@ -202,11 +201,11 @@ CUML_KERNEL void compute_membership_strength_kernel(
   int* rows,
   int* cols,  // result coo
   int n_neighbors,
-  uint64_t to_process)
+  nnz_t to_process)
 {  // model params
 
   // row-based matrix is best
-  uint64_t idx = (blockIdx.x * TPB_X) + threadIdx.x;
+  nnz_t idx = (blockIdx.x * TPB_X) + threadIdx.x;
 
   if (idx < to_process) {
     int row = idx / n_neighbors;  // one neighbor per thread
@@ -239,8 +238,8 @@ CUML_KERNEL void compute_membership_strength_kernel(
 /*
  * Sets up and runs the knn dist smoothing
  */
-template <uint64_t TPB_X, typename value_idx, typename value_t>
-void smooth_knn_dist(uint64_t n,
+template <typename value_t, typename value_idx, typename nnz_t, nnz_t TPB_X>
+void smooth_knn_dist(nnz_t n,
                      const value_idx* knn_indices,
                      const float* knn_dists,
                      value_t* rhos,
@@ -256,7 +255,7 @@ void smooth_knn_dist(uint64_t n,
   rmm::device_uvector<value_t> dist_means_dev(n_neighbors, stream);
 
   raft::stats::mean(
-    dist_means_dev.data(), knn_dists, uint64_t{1}, n * n_neighbors, false, false, stream);
+    dist_means_dev.data(), knn_dists, nnz_t{1}, n * n_neighbors, false, false, stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   value_t mean_dist = 0.0;
@@ -266,7 +265,7 @@ void smooth_knn_dist(uint64_t n,
   /**
    * Smooth kNN distances to be continuous
    */
-  smooth_knn_dist_kernel<TPB_X><<<grid, blk, 0, stream>>>(
+  smooth_knn_dist_kernel<value_t, nnz_t, TPB_X><<<grid, blk, 0, stream>>>(
     knn_dists, n, mean_dist, sigmas, rhos, n_neighbors, local_connectivity);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
@@ -287,8 +286,8 @@ void smooth_knn_dist(uint64_t n,
  * @param params UMAPParams config object
  * @param stream cuda stream to use for device operations
  */
-template <uint64_t TPB_X, typename value_idx, typename value_t>
-void launcher(uint64_t n,
+template <typename value_t, typename value_idx, typename nnz_t, nnz_t TPB_X>
+void launcher(nnz_t n,
               const value_idx* knn_indices,
               const value_t* knn_dists,
               int n_neighbors,
@@ -304,15 +303,15 @@ void launcher(uint64_t n,
   RAFT_CUDA_TRY(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(value_t), stream));
   RAFT_CUDA_TRY(cudaMemsetAsync(rhos.data(), 0, n * sizeof(value_t), stream));
 
-  smooth_knn_dist<TPB_X, value_idx, value_t>(n,
-                                             knn_indices,
-                                             knn_dists,
-                                             rhos.data(),
-                                             sigmas.data(),
-                                             params,
-                                             n_neighbors,
-                                             params->local_connectivity,
-                                             stream);
+  smooth_knn_dist<value_t, value_idx, nnz_t, TPB_X>(n,
+                                                    knn_indices,
+                                                    knn_dists,
+                                                    rhos.data(),
+                                                    sigmas.data(),
+                                                    params,
+                                                    n_neighbors,
+                                                    params->local_connectivity,
+                                                    stream);
 
   raft::sparse::COO<value_t> in(stream, n * n_neighbors, n, n);
 
@@ -331,19 +330,20 @@ void launcher(uint64_t n,
    * Compute graph of membership strengths
    */
 
-  uint64_t to_process = static_cast<uint64_t>(in.n_rows) * n_neighbors;
+  nnz_t to_process = static_cast<nnz_t>(in.n_rows) * n_neighbors;
   dim3 grid_elm(raft::ceildiv(to_process, TPB_X), 1, 1);
   dim3 blk_elm(TPB_X, 1, 1);
 
-  compute_membership_strength_kernel<TPB_X><<<grid_elm, blk_elm, 0, stream>>>(knn_indices,
-                                                                              knn_dists,
-                                                                              sigmas.data(),
-                                                                              rhos.data(),
-                                                                              in.vals(),
-                                                                              in.rows(),
-                                                                              in.cols(),
-                                                                              n_neighbors,
-                                                                              to_process);
+  compute_membership_strength_kernel<value_t, value_idx, nnz_t, TPB_X>
+    <<<grid_elm, blk_elm, 0, stream>>>(knn_indices,
+                                       knn_dists,
+                                       sigmas.data(),
+                                       rhos.data(),
+                                       in.vals(),
+                                       in.rows(),
+                                       in.cols(),
+                                       n_neighbors,
+                                       to_process);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   if (ML::default_logger().should_log(ML::level_enum::debug)) {

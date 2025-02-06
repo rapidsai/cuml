@@ -98,7 +98,7 @@ DI T truncate_gradient(T const rounding_factor, T const x)
   return (rounding_factor + x) - rounding_factor;
 }
 
-template <typename T, uint64_t TPB_X, uint64_t n_components>
+template <typename T, typename nnz_t, nnz_t TPB_X, nnz_t n_components>
 CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            T* head_buffer,
                                            T const* tail_embedding,
@@ -106,7 +106,7 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            int tail_n,
                                            const int* head,
                                            const int* tail,
-                                           uint64_t nnz,
+                                           nnz_t nnz,
                                            T const* epochs_per_sample,
                                            T* epoch_of_next_negative_sample,
                                            T* epoch_of_next_sample,
@@ -119,7 +119,7 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            T nsr_inv,
                                            T rounding)
 {
-  uint64_t row = (blockIdx.x * TPB_X) + threadIdx.x;
+  nnz_t row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row >= nnz) return;
   auto _epoch_of_next_sample = epoch_of_next_sample[row];
   if (_epoch_of_next_sample > epoch) return;
@@ -128,8 +128,8 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
   /**
    * Positive sample stage (attractive forces)
    */
-  uint64_t j       = head[row];
-  uint64_t k       = tail[row];
+  nnz_t j          = head[row];
+  nnz_t k          = tail[row];
   T const* current = head_embedding + (j * n_components);
   T const* other   = tail_embedding + (k * n_components);
 
@@ -171,11 +171,11 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
   /**
    * Negative sampling stage
    */
-  raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)row, 0);
+  raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (nnz_t)row, 0);
   for (int p = 0; p < n_neg_samples; p++) {
-    uint64_t r;
+    nnz_t r;
     gen.next(r);
-    uint64_t t               = r % tail_n;
+    nnz_t t                  = r % tail_n;
     T const* negative_sample = tail_embedding + (t * n_components);
     T negative_sample_reg[n_components];
     for (int i = 0; i < n_components; ++i) {
@@ -211,7 +211,7 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
     _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
 }
 
-template <typename T, uint64_t TPB_X, bool use_shared_mem>
+template <typename T, typename nnz_t, nnz_t TPB_X, bool use_shared_mem>
 CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        T* head_buffer,
                                        T const* tail_embedding,
@@ -219,7 +219,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        int tail_n,
                                        const int* head,
                                        const int* tail,
-                                       uint64_t nnz,
+                                       nnz_t nnz,
                                        T const* epochs_per_sample,
                                        T* epoch_of_next_negative_sample,
                                        T* epoch_of_next_sample,
@@ -233,7 +233,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        T rounding)
 {
   extern __shared__ T embedding_shared_mem_updates[];
-  uint64_t row = (blockIdx.x * TPB_X) + threadIdx.x;
+  nnz_t row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row >= nnz) return;
   auto _epoch_of_next_sample = epoch_of_next_sample[row];
   if (_epoch_of_next_sample > epoch) return;
@@ -242,10 +242,10 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
   /**
    * Positive sample stage (attractive forces)
    */
-  uint64_t n_components = params.n_components;
+  nnz_t n_components = params.n_components;
 
-  uint64_t j       = head[row];
-  uint64_t k       = tail[row];
+  nnz_t j          = head[row];
+  nnz_t k          = tail[row];
   T const* current = head_embedding + (j * n_components);
   T const* other   = tail_embedding + (k * n_components);
 
@@ -293,11 +293,11 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
   /**
    * Negative sampling stage
    */
-  raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)row, 0);
+  raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (nnz_t)row, 0);
   for (int p = 0; p < n_neg_samples; p++) {
-    uint64_t r;
+    nnz_t r;
     gen.next(r);
-    uint64_t t               = r % tail_n;
+    nnz_t t                  = r % tail_n;
     T const* negative_sample = tail_embedding + (t * n_components);
     dist_squared             = rdist<T>(current, negative_sample, n_components);
     // repulsive force between two vertices
@@ -350,7 +350,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
  * @param rounding:    Floating rounding factor used to truncate the gradient update for
  *                     deterministic result.
  */
-template <typename T, uint64_t TPB_X>
+template <typename T, typename nnz_t, nnz_t TPB_X>
 void call_optimize_batch_kernel(T const* head_embedding,
                                 T* head_buffer,
                                 T const* tail_embedding,
@@ -358,7 +358,7 @@ void call_optimize_batch_kernel(T const* head_embedding,
                                 int tail_n,
                                 const int* head,
                                 const int* tail,
-                                uint64_t nnz,
+                                nnz_t nnz,
                                 T const* epochs_per_sample,
                                 T* epoch_of_next_negative_sample,
                                 T* epoch_of_next_sample,
@@ -379,28 +379,29 @@ void call_optimize_batch_kernel(T const* head_embedding,
   T nsr_inv           = T(1.0) / params->negative_sample_rate;
   if (params->n_components == 2) {
     // multicore implementation with registers
-    optimize_batch_kernel_reg<T, TPB_X, 2><<<grid, blk, 0, stream>>>(head_embedding,
-                                                                     head_buffer,
-                                                                     tail_embedding,
-                                                                     tail_buffer,
-                                                                     tail_n,
-                                                                     head,
-                                                                     tail,
-                                                                     nnz,
-                                                                     epochs_per_sample,
-                                                                     epoch_of_next_negative_sample,
-                                                                     epoch_of_next_sample,
-                                                                     alpha,
-                                                                     n,
-                                                                     gamma,
-                                                                     seed,
-                                                                     move_other,
-                                                                     *params,
-                                                                     nsr_inv,
-                                                                     rounding);
+    optimize_batch_kernel_reg<T, nnz_t, TPB_X, 2>
+      <<<grid, blk, 0, stream>>>(head_embedding,
+                                 head_buffer,
+                                 tail_embedding,
+                                 tail_buffer,
+                                 tail_n,
+                                 head,
+                                 tail,
+                                 nnz,
+                                 epochs_per_sample,
+                                 epoch_of_next_negative_sample,
+                                 epoch_of_next_sample,
+                                 alpha,
+                                 n,
+                                 gamma,
+                                 seed,
+                                 move_other,
+                                 *params,
+                                 nsr_inv,
+                                 rounding);
   } else if (use_shared_mem) {
     // multicore implementation with shared memory
-    optimize_batch_kernel<T, TPB_X, true>
+    optimize_batch_kernel<T, nnz_t, TPB_X, true>
       <<<grid, blk, requiredSize, stream>>>(head_embedding,
                                             head_buffer,
                                             tail_embedding,
@@ -422,25 +423,26 @@ void call_optimize_batch_kernel(T const* head_embedding,
                                             rounding);
   } else {
     // multicore implementation without shared memory
-    optimize_batch_kernel<T, TPB_X, false><<<grid, blk, 0, stream>>>(head_embedding,
-                                                                     head_buffer,
-                                                                     tail_embedding,
-                                                                     tail_buffer,
-                                                                     tail_n,
-                                                                     head,
-                                                                     tail,
-                                                                     nnz,
-                                                                     epochs_per_sample,
-                                                                     epoch_of_next_negative_sample,
-                                                                     epoch_of_next_sample,
-                                                                     alpha,
-                                                                     n,
-                                                                     gamma,
-                                                                     seed,
-                                                                     move_other,
-                                                                     *params,
-                                                                     nsr_inv,
-                                                                     rounding);
+    optimize_batch_kernel<T, nnz_t, TPB_X, false>
+      <<<grid, blk, 0, stream>>>(head_embedding,
+                                 head_buffer,
+                                 tail_embedding,
+                                 tail_buffer,
+                                 tail_n,
+                                 head,
+                                 tail,
+                                 nnz,
+                                 epochs_per_sample,
+                                 epoch_of_next_negative_sample,
+                                 epoch_of_next_sample,
+                                 alpha,
+                                 n,
+                                 gamma,
+                                 seed,
+                                 move_other,
+                                 *params,
+                                 nsr_inv,
+                                 rounding);
   }
 }
 }  // namespace Algo

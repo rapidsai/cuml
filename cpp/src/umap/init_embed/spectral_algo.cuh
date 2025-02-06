@@ -44,9 +44,9 @@ using namespace ML;
 /**
  * Performs a spectral layout initialization
  */
-template <typename T>
+template <typename T, typename nnz_t>
 void launcher(const raft::handle_t& handle,
-              uint64_t n,
+              nnz_t n,
               int d,
               raft::sparse::COO<float>* coo,
               UMAPParams* params,
@@ -54,7 +54,7 @@ void launcher(const raft::handle_t& handle,
 {
   cudaStream_t stream = handle.get_stream();
 
-  ASSERT(n > static_cast<uint64_t>(params->n_components),
+  ASSERT(n > static_cast<nnz_t>(params->n_components),
          "Spectral layout requires n_samples > n_components");
 
   rmm::device_uvector<T> tmp_storage(n * params->n_components, stream);

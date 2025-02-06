@@ -168,7 +168,7 @@ class TSNE_runner {
   {
     distance_and_perplexity();
 
-    const auto NNZ  = (value_idx)COO_Matrix.nnz;
+    const auto NNZ  = static_cast<value_idx>(COO_Matrix.nnz);
     auto* VAL       = COO_Matrix.vals();
     const auto* COL = COO_Matrix.cols();
     const auto* ROW = COO_Matrix.rows();
