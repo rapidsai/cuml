@@ -58,10 +58,9 @@ def load_library():
         libraft.load_library()
         libcuvs.load_library()
     except ModuleNotFoundError:
-        # These runtime dependencies might be satisfied by the 'libcuvs' conda package
-        # (which does not have any Python modules), instead of the 'libcuvs' wheel.
-        # In that situation, assume that the libraries are in a place where the loader
-        # can find them.
+        # These runtime dependencies might be satisfied by conda packages (which do not
+        # have any Python modules) instead of wheels.  In that situation, assume that
+        # the libraries are in a place where the loader can find them.
         pass
 
     prefer_system_installation = (
