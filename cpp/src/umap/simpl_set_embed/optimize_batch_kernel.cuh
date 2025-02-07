@@ -103,7 +103,7 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            T* head_buffer,
                                            T const* tail_embedding,
                                            T* tail_buffer,
-                                           int tail_n,
+                                           MLCommon::FastIntDiv tail_n,
                                            const int* head,
                                            const int* tail,
                                            nnz_t nnz,
@@ -173,7 +173,7 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
    */
   raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (nnz_t)row, 0);
   for (int p = 0; p < n_neg_samples; p++) {
-    nnz_t r;
+    int r;
     gen.next(r);
     nnz_t t                  = r % tail_n;
     T const* negative_sample = tail_embedding + (t * n_components);
@@ -216,7 +216,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        T* head_buffer,
                                        T const* tail_embedding,
                                        T* tail_buffer,
-                                       int tail_n,
+                                       MLCommon::FastIntDiv tail_n,
                                        const int* head,
                                        const int* tail,
                                        nnz_t nnz,
@@ -295,7 +295,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
    */
   raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (nnz_t)row, 0);
   for (int p = 0; p < n_neg_samples; p++) {
-    nnz_t r;
+    int r;
     gen.next(r);
     nnz_t t                  = r % tail_n;
     T const* negative_sample = tail_embedding + (t * n_components);
