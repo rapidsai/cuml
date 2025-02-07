@@ -59,7 +59,7 @@ def load_library():
         libcuvs.load_library()
     except ModuleNotFoundError:
         # These runtime dependencies might be satisfied by conda packages (which do not
-        # have any Python modules) instead of wheels.  In that situation, assume that
+        # have any Python modules) instead of wheels. In that situation, assume that
         # the libraries are in a place where the loader can find them.
         pass
 
