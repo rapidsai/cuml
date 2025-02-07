@@ -47,37 +47,21 @@ def _load_wheel_installation(soname: str):
 def load_library():
     """Dynamically load libcuml++.so and its dependencies"""
     try:
-        # libraft must be loaded before libcuml++ because libcuml++
-        # references its symbols
-        import libraft
+        # These libraries must all be loaded before libcuml
         import rapids_logger
-
-        libraft.load_library()
-        rapids_logger.load_library()
-    except ModuleNotFoundError:
-        # 'libcuml++' has a runtime dependency on 'libraft'. However,
-        # that dependency might be satisfied by the 'libraft' conda package
-        # (which does not have any Python modules), instead of the
-        # 'libraft' wheel.
-        #
-        # In that situation, assume that 'libraft.so' is in a place where
-        # the loader can find it.
-        pass
-
-    try:
-        # libcuvs must be loaded before libcuml++ because libcuml++
-        # references its symbols
+        import librmm
+        import libraft
         import libcuvs
 
+        rapids_logger.load_library()
+        librmm.load_library()
+        libraft.load_library()
         libcuvs.load_library()
     except ModuleNotFoundError:
-        # 'libcuml++' has a runtime dependency on 'libcuvs'. However,
-        # that dependency might be satisfied by the 'libcuvs' conda package
-        # (which does not have any Python modules), instead of the
-        # 'libcuvs' wheel.
-        #
-        # In that situation, assume that 'libcuvs.so' is in a place where
-        # the loader can find it.
+        # These runtime dependencies might be satisfied by the 'libcuvs' conda package
+        # (which does not have any Python modules), instead of the 'libcuvs' wheel.
+        # In that situation, assume that the libraries are in a place where the loader
+        # can find them.
         pass
 
     prefer_system_installation = (
