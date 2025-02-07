@@ -18,6 +18,7 @@
 
 # distutils: language = c++
 import sys
+import threading
 
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
@@ -315,6 +316,10 @@ class RandomForestClassifier(BaseRandomForestModel,
         state["treelite_handle"] = None
         state["split_criterion"] = self.split_criterion
         state["handle"] = self.handle
+
+        if "_cpu_model_class_lock" in state:
+            del state["_cpu_model_class_lock"]
+
         return state
 
     def __setstate__(self, state):
@@ -337,6 +342,7 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         self.treelite_serialized_model = state["treelite_serialized_model"]
         self.__dict__.update(state)
+        self._cpu_model_class_lock = threading.RLock()
 
     def __del__(self):
         self._reset_forest_data()
