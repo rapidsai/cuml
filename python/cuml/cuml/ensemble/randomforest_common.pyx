@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import threading
 import treelite.sklearn
 from cuml.internals.safe_imports import gpu_only_import
 from cuml.internals.api_decorators import device_interop_preparation
