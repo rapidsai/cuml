@@ -483,39 +483,20 @@ class UMAP(UniversalBase,
             umap_params.verbosity = <level_enum> self.verbose
             umap_params.a = <float> self.a
             umap_params.b = <float> self.b
+            umap_params.target_n_neighbors = <int> self.target_n_neighbors
+            umap_params.target_weight = <float> self.target_weight
+            umap_params.random_state = <uint64_t> check_random_seed(self.random_state)
+            umap_params.deterministic = <bool> self.deterministic
+
             if self.init == "spectral":
                 umap_params.init = <int> 1
             else:  # self.init == "random"
                 umap_params.init = <int> 0
-            umap_params.target_n_neighbors = <int> self.target_n_neighbors
+
             if self.target_metric == "euclidean":
                 umap_params.target_metric = MetricType.EUCLIDEAN
             else:  # self.target_metric == "categorical"
                 umap_params.target_metric = MetricType.CATEGORICAL
-            if self.build_algo == "brute_force_knn":
-                umap_params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
-            else:  # self.init == "nn_descent"
-                umap_params.build_algo = graph_build_algo.NN_DESCENT
-                if self.build_kwds is None:
-                    umap_params.nn_descent_params.graph_degree = <uint64_t> 64
-                    umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> 128
-                    umap_params.nn_descent_params.max_iterations = <uint64_t> 20
-                    umap_params.nn_descent_params.termination_threshold = <float> 0.0001
-                    umap_params.nn_descent_params.return_distances = <bool> True
-                    umap_params.nn_descent_params.n_clusters = <uint64_t> 1
-                else:
-                    umap_params.nn_descent_params.graph_degree = <uint64_t> self.build_kwds.get("nnd_graph_degree", 64)
-                    umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> self.build_kwds.get("nnd_intermediate_graph_degree", 128)
-                    umap_params.nn_descent_params.max_iterations = <uint64_t> self.build_kwds.get("nnd_max_iterations", 20)
-                    umap_params.nn_descent_params.termination_threshold = <float> self.build_kwds.get("nnd_termination_threshold", 0.0001)
-                    umap_params.nn_descent_params.return_distances = <bool> self.build_kwds.get("nnd_return_distances", True)
-                    if self.build_kwds.get("nnd_n_clusters", 1) < 1:
-                        logger.info("Negative number of nnd_n_clusters not allowed. Changing nnd_n_clusters to 1")
-                    umap_params.nn_descent_params.n_clusters = <uint64_t> self.build_kwds.get("nnd_n_clusters", 1)
-
-            umap_params.target_weight = <float> self.target_weight
-            umap_params.random_state = <uint64_t> check_random_seed(self.random_state)
-            umap_params.deterministic = <bool> self.deterministic
 
             try:
                 umap_params.metric = metric_parsing[self.metric.lower()]
@@ -532,6 +513,21 @@ class UMAP(UniversalBase,
                 umap_params.p = <float> 2.0
             else:
                 umap_params.p = <float>self.metric_kwds.get('p')
+
+            if self.build_algo == "brute_force_knn":
+                umap_params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
+            else:
+                umap_params.build_algo = graph_build_algo.NN_DESCENT
+                build_kwds = self.build_kwds or {}
+                umap_params.nn_descent_params.graph_degree = <uint64_t> build_kwds.get("nnd_graph_degree", 64)
+                umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> build_kwds.get("nnd_intermediate_graph_degree", 128)
+                umap_params.nn_descent_params.max_iterations = <uint64_t> build_kwds.get("nnd_max_iterations", 20)
+                umap_params.nn_descent_params.termination_threshold = <float> build_kwds.get("nnd_termination_threshold", 0.0001)
+                umap_params.nn_descent_params.return_distances = <bool> build_kwds.get("nnd_return_distances", True)
+                umap_params.nn_descent_params.n_clusters = <uint64_t> build_kwds.get("nnd_n_clusters", 1)
+                # Forward metric & metric_kwds to nn_descent
+                umap_params.nn_descent_params.metric = <RaftDistanceType> umap_params.metric
+                umap_params.nn_descent_params.metric_arg = umap_params.p
 
             cdef uintptr_t callback_ptr = 0
             if self.callback:
