@@ -15,7 +15,13 @@
 # limitations under the License.
 #
 
+
 # distutils: language = c++
+import sys
+import threading
+
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import,
@@ -29,10 +35,13 @@ rmm = gpu_only_import('rmm')
 
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.global_settings import GlobalSettings
 import cuml.internals
+from cuml.internals import logger
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.common import input_to_cuml_array
+from cuml.internals.utils import check_random_seed
 
 from cuml.internals.logger cimport level_enum
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
@@ -247,6 +256,22 @@ class RandomForestClassifier(BaseRandomForestModel,
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html>`_.
     """
 
+    _cpu_estimator_import_path = 'sklearn.ensemble.RandomForestClassifier'
+
+    _hyperparam_interop_translator = {
+        "criterion": "NotImplemented",
+        "oob_score": {
+            True: "NotImplemented",
+        },
+        "max_depth": {
+            None: 16,
+        },
+        "max_samples": {
+            None: 1.0,
+        },
+    }
+
+    @device_interop_preparation
     def __init__(self, *, split_criterion=0, handle=None, verbose=False,
                  output_type=None,
                  **kwargs):
@@ -291,6 +316,10 @@ class RandomForestClassifier(BaseRandomForestModel,
         state["treelite_handle"] = None
         state["split_criterion"] = self.split_criterion
         state["handle"] = self.handle
+
+        if "_cpu_model_class_lock" in state:
+            del state["_cpu_model_class_lock"]
+
         return state
 
     def __setstate__(self, state):
@@ -313,6 +342,7 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         self.treelite_serialized_model = state["treelite_serialized_model"]
         self.__dict__.update(state)
+        self._cpu_model_class_lock = threading.RLock()
 
     def __del__(self):
         self._reset_forest_data()
@@ -336,6 +366,9 @@ class RandomForestClassifier(BaseRandomForestModel,
         self.treelite_handle = None
         self.treelite_serialized_model = None
         self.n_cols = None
+
+    def get_attr_names(self):
+        return []
 
     def convert_to_treelite_model(self):
         """
@@ -417,6 +450,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     @cuml.internals.api_base_return_any(set_output_type=False,
                                         set_output_dtype=True,
                                         set_n_features_in=False)
+    @enable_device_interop
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
@@ -428,7 +462,6 @@ class RandomForestClassifier(BaseRandomForestModel,
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
         # Track the labels to see if update is necessary
@@ -451,7 +484,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         if self.random_state is None:
             seed_val = <uintptr_t>NULL
         else:
-            seed_val = <uintptr_t>self.random_state
+            seed_val = <uintptr_t>check_random_seed(self.random_state)
 
         rf_params = set_rf_params(<int> self.max_depth,
                                   <int> self.max_leaves,
@@ -555,6 +588,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     @cuml.internals.api_base_return_array(get_output_dtype=True)
+    @enable_device_interop
     def predict(self, X, predict_model="GPU", threshold=0.5,
                 algo='auto', convert_dtype=True,
                 fil_sparse_format='auto') -> CumlArray:
@@ -827,3 +861,39 @@ class RandomForestClassifier(BaseRandomForestModel,
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
+
+    def cpu_to_gpu(self):
+        # treelite does an internal isinstance check to detect an sklearn
+        # RF, which proxymodule interferes with. We work around that
+        # temporarily here just for treelite internal check and
+        # restore the __class__ at the end of the method.
+        if GlobalSettings().accelerator_active:
+            with self._cpu_model_class_lock:
+                original_class = self._cpu_model.__class__
+                self._cpu_model.__class__ = sys.modules['sklearn.ensemble'].RandomForestClassifier
+
+                try:
+                    super().cpu_to_gpu()
+                finally:
+                    self._cpu_model.__class__ = original_class
+
+        else:
+            super().cpu_to_gpu()
+
+    @classmethod
+    def _hyperparam_translator(cls, **kwargs):
+        kwargs, gpuaccel = super(RandomForestClassifier, cls)._hyperparam_translator(**kwargs)
+
+        if "max_samples" in kwargs:
+            if isinstance(kwargs["max_samples"], int):
+                logger.warn(
+                    f"Integer value of max_samples={kwargs['max_samples']}"
+                    "not supported, changed to 1.0."
+                )
+                kwargs["max_samples"] = 1.0
+
+        # determinism requires only 1 cuda stream
+        if "random_state" in kwargs:
+            kwargs["n_streams"] = 1
+
+        return kwargs, gpuaccel
