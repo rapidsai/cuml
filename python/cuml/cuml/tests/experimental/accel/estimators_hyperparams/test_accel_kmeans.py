@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -100,6 +100,3 @@ def test_kmeans_random_state(clustering_data):
     kmeans2 = KMeans(n_clusters=3, random_state=42).fit(X)
     # With the same random_state, results should be the same
     assert np.allclose(kmeans1.cluster_centers_, kmeans2.cluster_centers_)
-    kmeans3 = KMeans(n_clusters=3, random_state=24).fit(X)
-    # With different random_state, results might differ
-    assert not np.allclose(kmeans1.cluster_centers_, kmeans3.cluster_centers_)

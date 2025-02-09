@@ -6,8 +6,8 @@
 Below is a quick and simple checklist for developers to determine whether an algorithm is complete and ready for release. Most of these items contain more detailed descriptions in their corresponding developer guide. The checklist is broken down by layer (C++ or Python) and categorized further into
 
 - **Design:** All algorithms should be designed with an eye on maintainability, performance, readability, and robustness.
-- **Testing:** The goal for automated testing is to increase both the spread and the depth of code coverage as much as possible in order to ease time spent fixing bugs and developing new features. Additionally, a very important factor for a tool like `cuml` is to provide testing with multiple datasets that really stress the mathematical behavior of the algorithms. A comprehensive set of tests lowers the possibility for regressions and the introduction of bugs as the code evolves between versions. This covers both correctness & performance. 
-- **Documentation:** User-facing documentation should be complete and descriptive. Developer-facing documentation should be used for constructs which are complex and/or not immediately obvious. 
+- **Testing:** The goal for automated testing is to increase both the spread and the depth of code coverage as much as possible in order to ease time spent fixing bugs and developing new features. Additionally, a very important factor for a tool like `cuml` is to provide testing with multiple datasets that really stress the mathematical behavior of the algorithms. A comprehensive set of tests lowers the possibility for regressions and the introduction of bugs as the code evolves between versions. This covers both correctness & performance.
+- **Documentation:** User-facing documentation should be complete and descriptive. Developer-facing documentation should be used for constructs which are complex and/or not immediately obvious.
 - **Performance:** Algorithms should be [benchmarked] and profiled regularly to spot potential bottlenecks, performance regressions, and memory problems.
 
 ### C++
@@ -38,12 +38,12 @@ Below is a quick and simple checklist for developers to determine whether an alg
 #### Design
 
 - Python class is as "near drop-in replacement" for Scikit-learn (or relevant industry standard) API as possible. This means parameters have the same names as Scikit-learn, and where differences exist, they are clearly documented in docstrings.
-- It is recommended to open an initial PR with the API design if there are going to be significant differences with reference APIs, or lack of a reference API, to have a discussion about it. 
+- It is recommended to open an initial PR with the API design if there are going to be significant differences with reference APIs, or lack of a reference API, to have a discussion about it.
 - Python class is pickleable and a test has been added to `cuml/tests/test_pickle.py`
 - APIs use `input_to_cuml_array` to accept flexible inputs and check their datatypes and use `cumlArray.to_output()` to return configurable outputs.
 - Any internal parameters or array-based instance variables use `CumlArray`
 
-#### Testing 
+#### Testing
 
 - Pytests for wrapper functionality against Scikit-learn using relevant datasets
 - Stress tests against reasonable inputs (e.g short-wide, tall-narrow, different numerical precision)
@@ -60,7 +60,7 @@ Below is a quick and simple checklist for developers to determine whether an alg
 
 ## Review Checklist
 
-Aside from the general algorithm expectations outlined in the checklists above, code reviewers should use the following checklist to make sure the algorithm meets cuML standards. 
+Aside from the general algorithm expectations outlined in the checklists above, code reviewers should use the following checklist to make sure the algorithm meets cuML standards.
 
 ### All
 
@@ -71,7 +71,7 @@ Aside from the general algorithm expectations outlined in the checklists above, 
 - Changes to the public API will not have a negative impact to existing users between minor versions (eg. large changes to very popular public APIs go through a deprecation cycle to preserve backwards compatibility)
 - Where it is reasonable to do so, unexpected inputs fail gracefully and provide actionable feedback to the user
 - Automated tests properly exercise the changes in the PR
-- New algorithms provide benchmarks (both C++ and Python) 
+- New algorithms provide benchmarks (both C++ and Python)
 
 
 ### C++
@@ -80,4 +80,4 @@ Aside from the general algorithm expectations outlined in the checklists above, 
 
 ### Python
 
-- Look at the list of slowest PyTests printed in the CI logs and check that any newly committed PyTests are not going to have a significant impact on the end-to-end execution. 
+- Look at the list of slowest PyTests printed in the CI logs and check that any newly committed PyTests are not going to have a significant impact on the end-to-end execution.

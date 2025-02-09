@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -104,8 +104,7 @@ void compute_stabilities(const raft::handle_t& handle,
                              int,
                              const value_idx*,
                              const value_idx*,
-                             cudaStream_t,
-                             bool) =
+                             cudaStream_t) =
     cub::DeviceSegmentedReduce::Min<const value_t*, value_t*, const value_idx*, const value_idx*>;
   Utils::cub_segmented_reduce(lambdas,
                               births_parent_min.data() + 1,

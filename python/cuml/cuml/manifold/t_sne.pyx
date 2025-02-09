@@ -31,9 +31,9 @@ from cuml.internals.base import UniversalBase
 from pylibraft.common.handle cimport handle_t
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.utils import check_random_seed
 from cuml.internals import logger
 from cuml.internals cimport logger
-
 
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
@@ -413,7 +413,7 @@ class TSNE(UniversalBase,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')
     @enable_device_interop
-    def fit(self, X, convert_dtype=True, knn_graph=None) -> "TSNE":
+    def fit(self, X, y=None, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
 
@@ -578,7 +578,7 @@ class TSNE(UniversalBase,
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.api_base_fit_transform()
     @enable_device_interop
-    def fit_transform(self, X, convert_dtype=True,
+    def fit_transform(self, X, y=None, convert_dtype=True,
                       knn_graph=None) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed output.
@@ -596,7 +596,7 @@ class TSNE(UniversalBase,
     def _build_tsne_params(self, algo):
         cdef long long seed = -1
         if self.random_state is not None:
-            seed = self.random_state
+            seed = check_random_seed(self.random_state)
 
         cdef TSNEParams* params = new TSNEParams()
         params.dim = <int> self.n_components

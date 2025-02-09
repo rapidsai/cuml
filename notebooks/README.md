@@ -9,7 +9,7 @@ documentation tree.
 
 ## Additional notebooks
 Notebook Title | Status | Description
---- | --- | --- 
+--- | --- | ---
 [ARIMA Demo](arima_demo.ipynb) | Working | Forecast using ARIMA on time-series data.
 [Forest Inference Demo](forest_inference_demo.ipynb) | Working | Save and load an XGBoost model into FIL and infer on new data.
 [KMeans Demo](kmeans_demo.ipynb) | Working | Predict using k-means, visualize and compare the results with Scikit-learn's k-means.

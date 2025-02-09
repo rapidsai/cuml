@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 ##########################################
 # cuML black listed function call Tester #
 ##########################################
@@ -40,7 +40,7 @@ done
 
 for cond_black_listed in cudaMemcpy cudaMemset; do
     TMP=`git --no-pager diff --ignore-submodules -w --minimal -U0 -S"$cond_black_listed" $PR_TARGET_BRANCH | grep '^+' | grep -v '^+++' | grep -P "$cond_black_listed(?!Async)"`
-    
+
     if [ "$TMP" != "" ]; then
         for filename in `git --no-pager diff --ignore-submodules -w --minimal --name-only -S"$cond_black_listed" $PR_TARGET_BRANCH`; do
             basefilename=$(basename -- "$filename")

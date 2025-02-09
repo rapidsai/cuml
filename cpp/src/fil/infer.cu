@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -210,20 +210,16 @@ the CUDA compute capability of the device chosen for computation.
 TODO (levsnv): run a test kernel during forest init to determine the compute capability
 chosen for the inference, for an accurate sizeof(BlockReduce::TempStorage),
 which is used in determining max NITEMS or max input data columns.
-
-600 is the __CUDA_ARCH__ for Pascal (6.0) GPUs, which is not defined in
-host code.
-6.0 is the earliest compute capability supported by FIL and RAPIDS in general.
-See https://rapids.ai/start.html as well as cmake defaults.
 */
 // values below are defaults as of this change.
 template <int NITEMS, typename real_t>
 size_t block_reduce_footprint_host()
 {
-  return sizeof(
-    typename cub::
-      BlockReduce<vec<NITEMS, real_t>, FIL_TPB, cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, 600>::
-        TempStorage);
+  return sizeof(typename cub::BlockReduce<vec<NITEMS, real_t>,
+                                          FIL_TPB,
+                                          cub::BLOCK_REDUCE_WARP_REDUCTIONS,
+                                          1,
+                                          1>::TempStorage);
 }
 
 template <int NITEMS, typename real_t>
@@ -233,8 +229,7 @@ size_t block_reduce_best_class_footprint_host()
                                           FIL_TPB,
                                           cub::BLOCK_REDUCE_WARP_REDUCTIONS,
                                           1,
-                                          1,
-                                          600>::TempStorage);
+                                          1>::TempStorage);
 }
 
 // the device template should achieve the best performance, using up-to-date

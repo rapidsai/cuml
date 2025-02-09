@@ -115,7 +115,7 @@ message(VERBOSE "CUML_CPP: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 set(LIBCUML_LOGGING_LEVEL
     "DEBUG"
     CACHE STRING "Choose the logging level."
-)                                                                                                
+)
 set_property(
   CACHE LIBCUML_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WARN" "ERROR" "CRITICAL"
                                        "OFF"
@@ -724,7 +724,7 @@ endif()
 
 if(BUILD_CUML_TESTS)
   include(CTest)
-  add_subdirectory(test)
+  add_subdirectory(tests)
 endif()
 
 ##############################################################################

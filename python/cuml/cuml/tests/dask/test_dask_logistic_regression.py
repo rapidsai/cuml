@@ -34,8 +34,6 @@ cp = gpu_only_import("cupy")
 dask_cudf = gpu_only_import("dask_cudf")
 cudf = gpu_only_import("cudf")
 
-pytestmark = pytest.mark.mg
-
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     workers = c.has_what().keys()

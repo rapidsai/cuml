@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@
 #include <rmm/exec_policy.hpp>
 
 #include <cub/cub.cuh>
+#include <cuda/std/functional>
 #include <thrust/copy.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
@@ -223,7 +224,7 @@ void excess_of_mass(const raft::handle_t& handle,
                                  cuda::proclaim_return_type<value_t>(
                                    [=] __device__(value_idx a) -> value_t { return stability[a]; }),
                                  0.0,
-                                 thrust::plus<value_t>());
+                                 cuda::std::plus<value_t>());
     }
 
     if (subtree_stability > node_stability || cluster_sizes_h[node] > max_cluster_size) {

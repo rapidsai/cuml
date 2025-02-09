@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -72,6 +72,7 @@ cdef extern from "treelite/c_api.h":
                                           const char* filename) except +
     cdef int TreeliteDeserializeModelFromBytes(const char* bytes_seq, size_t len,
                                                TreeliteModelHandle* out) except +
+    cdef int TreeliteSerializeModelToBytes(TreeliteModelHandle handle, const char** out_bytes, size_t* out_bytes_len)
     cdef int TreeliteGetHeaderField(
             TreeliteModelHandle model, const char * name, TreelitePyBufferFrame* out_frame) except +
     cdef const char* TreeliteGetLastError()
@@ -191,6 +192,17 @@ cdef class TreeliteModel():
         cdef TreeliteModel model = TreeliteModel()
         model.set_handle(handle)
         return model
+
+    def to_treelite_bytes(self) -> bytes:
+        assert self.handle != NULL
+        cdef const char* out_bytes
+        cdef size_t out_bytes_len
+        cdef int res = TreeliteSerializeModelToBytes(self.handle, &out_bytes, &out_bytes_len)
+        cdef str err_msg
+        if res < 0:
+            err_msg = TreeliteGetLastError().decode("UTF-8")
+            raise RuntimeError(f"Failed to serialize Treelite model ({err_msg})")
+        return out_bytes[:out_bytes_len]
 
     @classmethod
     def from_filename(cls, filename, model_type="xgboost_ubj"):

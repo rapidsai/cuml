@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
 
 nbcuda = gpu_only_import_from("numba", "cuda")
+cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
 pdDF = cpu_only_import_from("pandas", "DataFrame")
 
 
@@ -446,11 +447,14 @@ def test_tocupy_missing_values_handling():
     assert str(array.dtype) == "float64"
     assert cp.isnan(array[1])
 
-    with pytest.raises(ValueError):
-        df = cudf.Series(data=[7, None, 3])
-        array, n_rows, n_cols, dtype = input_to_cupy_array(
-            df, fail_on_null=True
-        )
+    # cudf.pandas now mimics pandas better for handling None, so we don't
+    # need to fail and raise this error when cudf.pandas is active.
+    if not cudf_pandas_active:
+        with pytest.raises(ValueError):
+            df = cudf.Series(data=[7, None, 3])
+            array, n_rows, n_cols, dtype = input_to_cupy_array(
+                df, fail_on_null=True
+            )
 
 
 @pytest.mark.cudf_pandas

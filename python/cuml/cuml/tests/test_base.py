@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -196,3 +196,48 @@ def test_base_children__get_param_names(child_class: str):
                 continue
 
             assert name in param_names
+
+
+# We explicitly skip the models in `cuml.tsa` since they match the statsmodels
+# interface rather than the sklearn interface (https://github.com/rapidsai/cuml/issues/6258).
+# Also skip a few classes that don't match this interface intentionally, since their sklearn
+# equivalents are also exceptions.
+@pytest.mark.parametrize(
+    "cls",
+    [
+        cls
+        for cls in all_base_children.values()
+        if not cls.__module__.startswith("cuml.tsa.")
+        and cls
+        not in {
+            cuml.preprocessing.LabelBinarizer,
+            cuml.preprocessing.LabelEncoder,
+        }
+    ],
+)
+def test_sklearn_methods_with_required_y_parameter(cls):
+    optional_params = {
+        inspect.Parameter.KEYWORD_ONLY,
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        inspect.Parameter.VAR_KEYWORD,
+    }
+    for name in [
+        "fit",
+        "partial_fit",
+        "score",
+        "fit_transform",
+        "fit_predict",
+    ]:
+        if (method := getattr(cls, name, None)) is None:
+            # Method not defined, skip
+            continue
+        params = list(inspect.signature(method).parameters.values())
+        # Assert method has a 2nd parameter named y, which is required by sklearn
+        assert (
+            len(params) > 2 and params[2].name == "y"
+        ), f"`{name}` requires a `y` parameter, even if it's ignored"
+        # Check that all remaining parameters are optional
+        for param in params[3:]:
+            assert (
+                param.kind in optional_params
+            ), f"`{name}` parameter `{param.name}` must be optional"

@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2024, NVIDIA CORPORATION.
+# Copyright (c) 2018-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,6 +34,12 @@ if(DISABLE_DEPRECATION_WARNINGS)
     list(APPEND CUML_CXX_FLAGS -Wno-deprecated-declarations -DRAFT_HIDE_DEPRECATION_WARNINGS)
     list(APPEND CUML_CUDA_FLAGS -Wno-deprecated-declarations -Xcompiler=-Wno-deprecated-declarations -DRAFT_HIDE_DEPRECATION_WARNINGS)
 endif()
+
+# Allow invalid CUDA kernels in the short term
+if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 12.8.0)
+    list(APPEND CUML_CUDA_FLAGS -static-global-template-stub=false)
+endif()
+
 
 # make sure we produce smallest binary size
 list(APPEND CUML_CUDA_FLAGS -Xfatbin=-compress-all)

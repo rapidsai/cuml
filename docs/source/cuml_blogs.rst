@@ -28,4 +28,3 @@ Academic Papers
 ---------------
 
 * `Machine Learning in Python: Main developments and technology trends in data science, machine learning, and artificial intelligence (Sebastian Raschka, Joshua Patterson, Corey Nolet) <https://arxiv.org/abs/2002.04803>`_
-

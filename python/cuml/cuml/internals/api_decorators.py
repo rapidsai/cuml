@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -365,7 +365,25 @@ def device_interop_preparation(init_func):
         # Save all kwargs
         self._full_kwargs = kwargs
         # Generate list of available cuML hyperparameters
-        gpu_hyperparams = list(inspect.signature(init_func).parameters.keys())
+
+        from cuml.ensemble.randomforest_common import BaseRandomForestModel
+
+        # Random Forest models init signature is a combination of the
+        # parameters in BaseRandomForest and the regressor/classifier classes
+        # so we need to join their init hyperparameters.
+        gpu_hyperparams = []
+        if isinstance(self, BaseRandomForestModel):
+            gpu_hyperparams.extend(
+                list(
+                    inspect.signature(
+                        BaseRandomForestModel.__init__
+                    ).parameters.keys()
+                )
+            )
+
+        gpu_hyperparams.extend(
+            list(inspect.signature(init_func).parameters.keys())
+        )
 
         # Filter provided parameters for cuML estimator initialization
         filtered_kwargs = {}

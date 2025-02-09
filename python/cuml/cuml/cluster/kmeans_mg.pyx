@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ from cuml.common import input_to_cuml_array
 
 from cuml.cluster import KMeans
 from cuml.cluster.kmeans_utils cimport params as KMeansParams
+from cuml.internals.utils import check_random_seed
 
 
 cdef extern from "cuml/cluster/kmeans_mg.hpp" \
@@ -128,6 +129,8 @@ class KMeansMG(KMeans):
                                     check_rows=n_rows)
 
         cdef uintptr_t sample_weight_ptr = sample_weight_m.ptr
+
+        self._seed = check_random_seed(self.random_state)
 
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
             self.cluster_centers_ = CumlArray.zeros(shape=(self.n_clusters,

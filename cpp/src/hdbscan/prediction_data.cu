@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -130,7 +130,7 @@ void generate_prediction_data(const raft::handle_t& handle,
 
   // this is to find maximum lambdas of all children under a parent
   cudaError_t (*reduce_func)(
-    void*, size_t&, const float*, float*, int, const int*, const int*, cudaStream_t, bool) =
+    void*, size_t&, const float*, float*, int, const int*, const int*, cudaStream_t) =
     cub::DeviceSegmentedReduce::Max<const float*, float*, const int*, const int*>;
   detail::Utils::cub_segmented_reduce(lambdas,
                                       prediction_data.get_deaths(),

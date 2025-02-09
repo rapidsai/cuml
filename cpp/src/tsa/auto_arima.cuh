@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -181,7 +181,7 @@ inline void divide_by_mask_execute(const DataT* d_in,
  * a matrix from its index. This makes possible a 2d scan with thrust.
  * Found in thrust/examples/scan_matrix_by_rows.cu
  */
-struct which_col : thrust::unary_function<int, int> {
+struct which_col {
   MLCommon::FastIntDiv divisor;
   __host__ which_col(int col_length) : divisor(col_length) {}
   __host__ __device__ int operator()(int idx) const { return idx / divisor; }
