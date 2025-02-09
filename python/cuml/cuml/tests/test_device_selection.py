@@ -37,6 +37,7 @@ from cuml.internals.mem_type import MemoryType
 from cuml.decomposition import PCA, TruncatedSVD
 from cuml.cluster import KMeans
 from cuml.cluster import DBSCAN
+from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
 from cuml.svm import SVC, SVR
 from cuml.common.device_selection import DeviceType, using_device_type
 from cuml.testing.utils import assert_dbscan_equal
@@ -52,9 +53,12 @@ from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
 from sklearn.cluster import KMeans as skKMeans
 from sklearn.cluster import DBSCAN as skDBSCAN
 from sklearn.datasets import make_regression, make_classification, make_blobs
+from sklearn.ensemble import RandomForestClassifier as skRFC
+from sklearn.ensemble import RandomForestRegressor as skRFR
 from sklearn.svm import SVC as skSVC
 from sklearn.svm import SVR as skSVR
 from sklearn.manifold import TSNE as refTSNE
+from sklearn.metrics import accuracy_score, r2_score
 from pytest_cases import fixture_union, fixture
 from importlib import import_module
 import inspect
@@ -138,11 +142,12 @@ def make_reg_dataset():
         n_samples=2000, n_features=20, n_informative=18, random_state=0
     )
     X_train, X_test = X[:1800], X[1800:]
-    y_train, _ = y[:1800], y[1800:]
+    y_train, y_test = y[:1800], y[1800:]
     return (
         X_train.astype(np.float32),
         y_train.astype(np.float32),
         X_test.astype(np.float32),
+        y_test.astype(np.float32),
     )
 
 
@@ -172,14 +177,16 @@ def make_blob_dataset():
         cluster_std=1.0,
     )
     X_train, X_test = X[:1800], X[1800:]
-    y_train, _ = y[:1800], y[1800:]
+    y_train, y_test = y[:1800], y[1800:]
     return (
         X_train.astype(np.float32),
         y_train.astype(np.float32),
         X_test.astype(np.float32),
+        y_test.astype(np.float32),
     )
 
 
+<<<<<<< HEAD
 X_train_reg, y_train_reg, X_test_reg = make_reg_dataset()
 X_train_class, y_train_class, X_test_class = make_classification_dataset(2)
 (
@@ -188,6 +195,10 @@ X_train_class, y_train_class, X_test_class = make_classification_dataset(2)
     X_test_multiclass,
 ) = make_classification_dataset(5)
 X_train_blob, y_train_blob, X_test_blob = make_blob_dataset()
+=======
+X_train_reg, y_train_reg, X_test_reg, y_test_reg = make_reg_dataset()
+X_train_blob, y_train_blob, X_test_blob, y_test_blob = make_blob_dataset()
+>>>>>>> branch-25.04
 
 
 def check_trustworthiness(cuml_embedding, test_data):
@@ -1041,6 +1052,7 @@ def test_dbscan_methods(train_device, infer_device):
 
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
+<<<<<<< HEAD
 @pytest.mark.parametrize("decision_function_shape", ["ovo", "ovr"])
 @pytest.mark.parametrize("class_type", ["single_class", "multi_class"])
 @pytest.mark.parametrize("probability", [True, False])
@@ -1102,9 +1114,69 @@ def test_svr_methods(train_device, infer_device):
     ref_output = ref_model.predict(X_test_reg)
 
     model = SVR()
+=======
+def test_random_forest_regressor(train_device, infer_device):
+    ref_model = skRFR(
+        n_estimators=40,
+        max_depth=16,
+        min_samples_split=2,
+        max_features=1.0,
+        random_state=10,
+    )
+    model = RandomForestRegressor(
+        max_features=1.0,
+        max_depth=16,
+        n_bins=64,
+        n_estimators=40,
+        n_streams=1,
+        random_state=10,
+    )
+    ref_model.fit(X_train_reg, y_train_reg)
+    ref_output = ref_model.predict(X_test_reg)
+
+>>>>>>> branch-25.04
     with using_device_type(train_device):
         model.fit(X_train_reg, y_train_reg)
     with using_device_type(infer_device):
         output = model.predict(X_test_reg)
 
+<<<<<<< HEAD
     np.testing.assert_allclose(ref_output, output, rtol=0.15)
+=======
+    cuml_acc = r2_score(y_test_reg, output)
+    sk_acc = r2_score(y_test_reg, ref_output)
+
+    assert np.abs(cuml_acc - sk_acc) <= 0.05
+
+
+@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
+@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
+def test_random_forest_classifier(train_device, infer_device):
+    ref_model = skRFC(
+        n_estimators=40,
+        max_depth=16,
+        min_samples_split=2,
+        max_features=1.0,
+        random_state=10,
+    )
+    model = RandomForestClassifier(
+        max_features=1.0,
+        max_depth=16,
+        n_bins=64,
+        n_estimators=40,
+        n_streams=1,
+        random_state=10,
+    )
+    ref_model.fit(X_train_blob, y_train_blob)
+    ref_output = ref_model.predict(X_test_blob)
+
+    with using_device_type(train_device):
+        model.fit(X_train_blob, y_train_blob)
+    with using_device_type(infer_device):
+        output = model.predict(X_test_blob)
+
+    cuml_acc = accuracy_score(y_test_blob, output)
+    ref_acc = accuracy_score(y_test_blob, ref_output)
+
+    assert cuml_acc == ref_acc
+>>>>>>> branch-25.04
