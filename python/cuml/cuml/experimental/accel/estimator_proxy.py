@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -277,6 +277,7 @@ def intercept(
                 ),
             )
 
+    ProxyEstimator.__name__ = original_class_a.__name__
     logger.debug(
         f"Created proxy estimator: ({module_b}, {original_class_name}, {ProxyEstimator})"
     )
