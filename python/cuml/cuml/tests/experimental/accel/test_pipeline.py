@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ from sklearn.neighbors import (
     KNeighborsClassifier,
     KNeighborsRegressor,
 )
-from sklearn.pipeline import Pipeline
+from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, mean_squared_error
@@ -145,3 +145,12 @@ def test_umap_with_logistic_regression(classification_data):
     # Fit and predict
     pipeline.fit(X_train, y_train)
     pipeline.predict(X_test)
+
+
+def test_automatic_step_naming():
+    # The automatically generated names of estimators should be the
+    # same with and without accelerator.
+    pipeline = make_pipeline(PCA(), LogisticRegression())
+
+    assert "pca" in pipeline.named_steps
+    assert "logisticregression" in pipeline.named_steps
