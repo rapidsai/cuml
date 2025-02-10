@@ -148,6 +148,8 @@ def test_proxy_facade():
 
     # A random estimator, shouldn't matter which one as all are proxied
     # the same way.
+    # We need an instance to get access to the `_cpu_model_class`
+    # but we want to compare to the PCA class
     pca = PCA()
     for attr in (
         "__module__",
@@ -164,6 +166,6 @@ def test_proxy_facade():
         except AttributeError:
             pass
         else:
-            proxy_value = getattr(pca, attr)
+            proxy_value = getattr(PCA, attr)
 
             assert original_value == proxy_value
