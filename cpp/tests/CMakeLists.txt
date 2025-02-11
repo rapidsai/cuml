@@ -107,10 +107,6 @@ endfunction()
 
 ##############################################################################
 # - build ml_test executable -------------------------------------------------
-if(all_algo)
-  ConfigureTest(PREFIX SG NAME LOGGER_TEST  sg/logger.cpp ML_INCLUDE)
-endif()
-
 if(all_algo OR dbscan_algo)
   ConfigureTest(PREFIX SG NAME DBSCAN_TEST  sg/dbscan_test.cu ML_INCLUDE)
 endif()
