@@ -36,7 +36,7 @@ from cuml.internals.input_utils import determine_array_type_full
 from cuml.common import using_output_type
 from cuml.internals.logger import warn
 from cuml.internals.logger cimport level_enum
-from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.array_sparse import SparseCumlArray, SparseCumlArrayInput
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.available_devices import is_cuda_available
@@ -113,7 +113,8 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
 
 class SVMBase(UniversalBase,
-              FMajorInputTagMixin):
+              FMajorInputTagMixin,
+              SparseInputTagMixin):
     """
     Base class for Support Vector Machines
 
@@ -417,7 +418,10 @@ class SVMBase(UniversalBase,
             # the model is not fitted in this case
             return None
 
-        n_support = self.n_support_.sum()
+        if isinstance(self.n_support_, int):
+            n_support = self.n_support_
+        else:
+            n_support = self.n_support_.sum()
 
         if self.dtype == np.float32:
             model_f = new SvmModel[float]()

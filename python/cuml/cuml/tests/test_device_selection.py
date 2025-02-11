@@ -1111,9 +1111,7 @@ def test_random_forest_classifier(train_device, infer_device):
     assert cuml_acc == ref_acc
 
 
-pytest.mark.parametrize("train_device", ["cpu", "gpu"])
-
-
+@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("decision_function_shape", ["ovo", "ovr"])
 @pytest.mark.parametrize("class_type", ["single_class", "multi_class"])
