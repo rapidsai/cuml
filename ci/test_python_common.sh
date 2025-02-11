@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -7,6 +7,7 @@ set -euo pipefail
 
 rapids-logger "Downloading artifacts from previous jobs"
 CPP_CHANNEL=$(rapids-download-conda-from-s3 cpp)
+PYTHON_CHANNEL=$(rapids-download-conda-from-s3 python)
 
 rapids-logger "Generate Python testing dependencies"
 rapids-dependency-file-generator \
