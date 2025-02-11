@@ -71,7 +71,7 @@ dependencies:
 - sphinx-markdown-tables
 - statsmodels
 - sysroot_linux-64==2.28
-- treelite==4.3.0
+- treelite==4.4.1
 - umap-learn==0.5.6
 - xgboost>=2.1.0
 name: all_cuda-128_arch-x86_64

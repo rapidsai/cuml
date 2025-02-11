@@ -12,13 +12,16 @@ on:
       sha:
         required: true
         type: string
+      build_type:
+        type: string
+        default: nightly
 
 jobs:
   conda-cpp-checks:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@nvks-runners
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@branch-25.04
     with:
-      build_type: nightly
+      build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
@@ -26,35 +29,35 @@ jobs:
       symbol_exclusions: raft_cutlass
   conda-cpp-tests:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@nvks-runners
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@branch-25.04
     with:
-      build_type: nightly
+      build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
   conda-python-tests-singlegpu:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@nvks-runners
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.04
     with:
-      build_type: nightly
+      build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: "ci/test_python_singlegpu.sh"
   conda-python-tests-dask:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@nvks-runners
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.04
     with:
-      build_type: nightly
+      build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: "ci/test_python_dask.sh"
   wheel-tests-cuml:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@nvks-runners
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.04
     with:
-      build_type: nightly
+      build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
