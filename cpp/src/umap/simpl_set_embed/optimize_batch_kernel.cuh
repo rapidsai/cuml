@@ -98,7 +98,7 @@ DI T truncate_gradient(T const rounding_factor, T const x)
   return (rounding_factor + x) - rounding_factor;
 }
 
-template <typename T, typename nnz_t, nnz_t TPB_X, nnz_t n_components>
+template <typename T, typename nnz_t, int TPB_X, nnz_t n_components>
 CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            T* head_buffer,
                                            T const* tail_embedding,
@@ -119,7 +119,7 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            T nsr_inv,
                                            T rounding)
 {
-  nnz_t row = (blockIdx.x * TPB_X) + threadIdx.x;
+  nnz_t row = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
   if (row >= nnz) return;
   auto _epoch_of_next_sample = epoch_of_next_sample[row];
   if (_epoch_of_next_sample > epoch) return;
@@ -211,7 +211,7 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
     _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
 }
 
-template <typename T, typename nnz_t, nnz_t TPB_X, bool use_shared_mem>
+template <typename T, typename nnz_t, int TPB_X, bool use_shared_mem>
 CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        T* head_buffer,
                                        T const* tail_embedding,
@@ -233,7 +233,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        T rounding)
 {
   extern __shared__ T embedding_shared_mem_updates[];
-  nnz_t row = (blockIdx.x * TPB_X) + threadIdx.x;
+  nnz_t row = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
   if (row >= nnz) return;
   auto _epoch_of_next_sample = epoch_of_next_sample[row];
   if (_epoch_of_next_sample > epoch) return;
@@ -350,7 +350,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
  * @param rounding:    Floating rounding factor used to truncate the gradient update for
  *                     deterministic result.
  */
-template <typename T, typename nnz_t, nnz_t TPB_X>
+template <typename T, typename nnz_t, int TPB_X>
 void call_optimize_batch_kernel(T const* head_embedding,
                                 T* head_buffer,
                                 T const* tail_embedding,

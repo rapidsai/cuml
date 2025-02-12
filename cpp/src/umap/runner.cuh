@@ -91,7 +91,7 @@ inline void find_ab(UMAPParams* params, cudaStream_t stream)
   Optimize::find_params_ab(params, stream);
 }
 
-template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, nnz_t TPB_X>
+template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
 void _get_graph(const raft::handle_t& handle,
                 const umap_inputs& inputs,
                 UMAPParams* params,
@@ -148,7 +148,7 @@ void _get_graph(const raft::handle_t& handle,
   raft::common::nvtx::pop_range();
 }
 
-template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, nnz_t TPB_X>
+template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
 void _get_graph_supervised(const raft::handle_t& handle,
                            const umap_inputs& inputs,
                            UMAPParams* params,
@@ -239,7 +239,7 @@ void _get_graph_supervised(const raft::handle_t& handle,
   raft::common::nvtx::pop_range();
 }
 
-template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, nnz_t TPB_X>
+template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
 void _refine(const raft::handle_t& handle,
              const umap_inputs& inputs,
              UMAPParams* params,
@@ -255,7 +255,7 @@ void _refine(const raft::handle_t& handle,
   SimplSetEmbed::run<value_t, nnz_t, TPB_X>(inputs.n, inputs.d, graph, params, embeddings, stream);
 }
 
-template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, nnz_t TPB_X>
+template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
 void _init_and_refine(const raft::handle_t& handle,
                       const umap_inputs& inputs,
                       UMAPParams* params,
@@ -273,7 +273,7 @@ void _init_and_refine(const raft::handle_t& handle,
   SimplSetEmbed::run<value_t, nnz_t, TPB_X>(inputs.n, inputs.d, graph, params, embeddings, stream);
 }
 
-template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, nnz_t TPB_X>
+template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
 void _fit(const raft::handle_t& handle,
           const umap_inputs& inputs,
           UMAPParams* params,
@@ -311,7 +311,7 @@ void _fit(const raft::handle_t& handle,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, nnz_t TPB_X>
+template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
 void _fit_supervised(const raft::handle_t& handle,
                      const umap_inputs& inputs,
                      UMAPParams* params,
@@ -352,7 +352,7 @@ void _fit_supervised(const raft::handle_t& handle,
 /**
  *
  */
-template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, nnz_t TPB_X>
+template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
 void _transform(const raft::handle_t& handle,
                 const umap_inputs& inputs,
                 umap_inputs& orig_x_inputs,
@@ -411,7 +411,7 @@ void _transform(const raft::handle_t& handle,
   RAFT_CUDA_TRY(cudaMemsetAsync(sigmas.data(), 0, inputs.n * sizeof(value_t), stream));
   RAFT_CUDA_TRY(cudaMemsetAsync(rhos.data(), 0, inputs.n * sizeof(value_t), stream));
 
-  dim3 grid_n(raft::ceildiv(inputs.n, TPB_X), 1, 1);
+  dim3 grid_n(raft::ceildiv(inputs.n, static_cast<nnz_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   FuzzySimplSetImpl::smooth_knn_dist<value_t, value_idx, nnz_t, TPB_X>(inputs.n,
@@ -431,7 +431,7 @@ void _transform(const raft::handle_t& handle,
 
   nnz_t nnz = static_cast<nnz_t>(inputs.n) * params->n_neighbors;
 
-  dim3 grid_nnz(raft::ceildiv(nnz, TPB_X), 1, 1);
+  dim3 grid_nnz(raft::ceildiv(nnz, static_cast<nnz_t>(TPB_X)), 1, 1);
 
   CUML_LOG_DEBUG("Executing fuzzy simplicial set");
 

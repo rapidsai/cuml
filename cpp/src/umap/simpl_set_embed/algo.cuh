@@ -194,7 +194,7 @@ T create_gradient_rounding_factor(
  * positive weights (neighbors in the 1-skeleton) and repelling
  * negative weights (non-neighbors in the 1-skeleton).
  */
-template <typename T, typename nnz_t, nnz_t TPB_X>
+template <typename T, typename nnz_t, int TPB_X>
 void optimize_layout(T* head_embedding,
                      int head_n,
                      T* tail_embedding,
@@ -246,7 +246,7 @@ void optimize_layout(T* head_embedding,
     d_tail_buffer = tail_buffer.data();
   }
 
-  dim3 grid(raft::ceildiv(nnz, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(nnz, static_cast<nnz_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   uint64_t seed = params->random_state;
 
@@ -295,7 +295,7 @@ void optimize_layout(T* head_embedding,
  * the fuzzy set cross entropy between the embeddings
  * and their 1-skeletons.
  */
-template <typename T, typename nnz_t, nnz_t TPB_X>
+template <typename T, typename nnz_t, int TPB_X>
 void launcher(
   int m, int n, raft::sparse::COO<T>* in, UMAPParams* params, T* embedding, cudaStream_t stream)
 {

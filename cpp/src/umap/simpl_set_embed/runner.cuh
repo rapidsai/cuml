@@ -28,7 +28,7 @@ namespace SimplSetEmbed {
 
 using namespace ML;
 
-template <typename T, typename nnz_t, nnz_t TPB_X>
+template <typename T, typename nnz_t, int TPB_X>
 void run(int m,
          int n,
          raft::sparse::COO<T>* coo,

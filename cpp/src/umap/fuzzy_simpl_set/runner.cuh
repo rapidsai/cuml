@@ -38,7 +38,7 @@ using namespace ML;
  * @param stream cuda stream
  * @param algorithm algo type to choose
  */
-template <typename T, typename value_idx, typename nnz_t, nnz_t TPB_X>
+template <typename T, typename value_idx, typename nnz_t, int TPB_X>
 void run(int n,
          const value_idx* knn_indices,
          const T* knn_dists,

@@ -79,7 +79,7 @@ static const float MIN_K_DIST_SCALE   = 1e-3;
  * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
  *
  */
-template <typename value_t, typename nnz_t, nnz_t TPB_X>
+template <typename value_t, typename nnz_t, int TPB_X>
 CUML_KERNEL void smooth_knn_dist_kernel(const value_t* knn_dists,
                                         int n,
                                         float mean_dist,
@@ -191,7 +191,7 @@ CUML_KERNEL void smooth_knn_dist_kernel(const value_t* knn_dists,
  *
  * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
  */
-template <typename value_t, typename value_idx, typename nnz_t, nnz_t TPB_X>
+template <typename value_t, typename value_idx, typename nnz_t, int TPB_X>
 CUML_KERNEL void compute_membership_strength_kernel(
   const value_idx* knn_indices,
   const float* knn_dists,  // nn outputs
@@ -205,7 +205,7 @@ CUML_KERNEL void compute_membership_strength_kernel(
 {  // model params
 
   // row-based matrix is best
-  nnz_t idx = (blockIdx.x * TPB_X) + threadIdx.x;
+  nnz_t idx = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
 
   if (idx < to_process) {
     int row = idx / n_neighbors;  // one neighbor per thread
@@ -238,7 +238,7 @@ CUML_KERNEL void compute_membership_strength_kernel(
 /*
  * Sets up and runs the knn dist smoothing
  */
-template <typename value_t, typename value_idx, typename nnz_t, nnz_t TPB_X>
+template <typename value_t, typename value_idx, typename nnz_t, int TPB_X>
 void smooth_knn_dist(nnz_t n,
                      const value_idx* knn_indices,
                      const float* knn_dists,
@@ -249,7 +249,7 @@ void smooth_knn_dist(nnz_t n,
                      float local_connectivity,
                      cudaStream_t stream)
 {
-  dim3 grid(raft::ceildiv(n, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(n, static_cast<nnz_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   rmm::device_uvector<value_t> dist_means_dev(n_neighbors, stream);
@@ -286,7 +286,7 @@ void smooth_knn_dist(nnz_t n,
  * @param params UMAPParams config object
  * @param stream cuda stream to use for device operations
  */
-template <typename value_t, typename value_idx, typename nnz_t, nnz_t TPB_X>
+template <typename value_t, typename value_idx, typename nnz_t, int TPB_X>
 void launcher(nnz_t n,
               const value_idx* knn_indices,
               const value_t* knn_dists,
@@ -331,7 +331,7 @@ void launcher(nnz_t n,
    */
 
   nnz_t to_process = static_cast<nnz_t>(in.n_rows) * n_neighbors;
-  dim3 grid_elm(raft::ceildiv(to_process, TPB_X), 1, 1);
+  dim3 grid_elm(raft::ceildiv(to_process, static_cast<nnz_t>(TPB_X)), 1, 1);
   dim3 blk_elm(TPB_X, 1, 1);
 
   compute_membership_strength_kernel<value_t, value_idx, nnz_t, TPB_X>
