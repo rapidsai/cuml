@@ -61,16 +61,28 @@ int qn_fit(const raft::handle_t& handle,
   if (l2 == 0) {
     GLMWithData<T, LossFunction> lossWith(&loss, X, y, Z);
 
-    return qn_minimize(
-      handle, w0, fx, num_iters, lossWith, l1, opt_param, static_cast<level_enum>(pams.verbose));
+    return qn_minimize(handle,
+                       w0,
+                       fx,
+                       num_iters,
+                       lossWith,
+                       l1,
+                       opt_param,
+                       static_cast<rapids_logger::level_enum>(pams.verbose));
 
   } else {
     Tikhonov<T> reg(l2);
     RegularizedGLM<T, LossFunction, decltype(reg)> obj(&loss, &reg);
     GLMWithData<T, decltype(obj)> lossWith(&obj, X, y, Z);
 
-    return qn_minimize(
-      handle, w0, fx, num_iters, lossWith, l1, opt_param, static_cast<level_enum>(pams.verbose));
+    return qn_minimize(handle,
+                       w0,
+                       fx,
+                       num_iters,
+                       lossWith,
+                       l1,
+                       opt_param,
+                       static_cast<rapids_logger::level_enum>(pams.verbose));
   }
 }
 

@@ -66,7 +66,7 @@ struct LinearSVMParams {
    */
   int lbfgs_memory = 5;
   /** Triggers extra output when greater than zero. */
-  level_enum verbose = level_enum::off;
+  rapids_logger::level_enum verbose = rapids_logger::level_enum::off;
   /**
    * The constant scaling factor of the main term in the loss function.
    * (You can also think of that as the inverse factor of the penalty term).
