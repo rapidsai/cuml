@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ void truncCompExpVars(const raft::handle_t& handle,
                       math_t* components,
                       math_t* explained_var,
                       math_t* explained_var_ratio,
+                      math_t* noise_vars,
                       const paramsTSVDTemplate<enum_solver>& prms,
                       cudaStream_t stream)
 {
@@ -67,6 +68,20 @@ void truncCompExpVars(const raft::handle_t& handle,
                                 prms.n_components,
                                 std::size_t(1),
                                 stream);
+
+  // Compute the scalar noise_vars defined as (pseudocode)
+  // (n_components < min(n_cols, n_rows)) ? explained_var_all[n_components:].mean() : 0
+  if (prms.n_components < prms.n_cols && prms.n_components < prms.n_rows) {
+    raft::stats::mean(noise_vars,
+                      explained_var_all.data() + prms.n_components,
+                      std::size_t{1},
+                      prms.n_cols - prms.n_components,
+                      false,
+                      true,
+                      stream);
+  } else {
+    raft::matrix::setValue(noise_vars, noise_vars, math_t{0}, 1, stream);
+  }
 }
 
 /**
@@ -116,7 +131,7 @@ void pcaFit(const raft::handle_t& handle,
   raft::stats::cov(
     handle, cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true, stream);
   truncCompExpVars(
-    handle, cov.data(), components, explained_var, explained_var_ratio, prms, stream);
+    handle, cov.data(), components, explained_var, explained_var_ratio, noise_vars, prms, stream);
 
   math_t scalar = (prms.n_rows - 1);
   raft::matrix::seqRoot(explained_var, singular_vals, scalar, n_components, stream, true);

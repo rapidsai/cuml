@@ -24,7 +24,7 @@ IF GPUBUILD == 1:
     from libcpp.memory cimport make_shared, shared_ptr
     from libcpp cimport bool
 
-    cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
+    cdef extern from "rapids_logger/logger.hpp" namespace "rapids_logger" nogil:
 
         cpdef enum class level_enum:
             trace
@@ -42,14 +42,14 @@ IF GPUBUILD == 1:
         ctypedef shared_ptr[sink] sink_ptr
 
     # Spoof the logger as a namespace to get the sink_vector generated correctly.
-    cdef extern from "cuml/common/logger.hpp" namespace "ML::logger" nogil:
+    cdef extern from "rapids_logger/logger.hpp" namespace "rapids_logger::logger" nogil:
 
         cdef cppclass sink_vector:
             void push_back(const sink_ptr& sink) except +
             void pop_back() except +
             void clear()
 
-    cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
+    cdef extern from "rapids_logger/logger.hpp" namespace "rapids_logger" nogil:
         cdef cppclass logger:
             logger(string name, string filename) except +
             void set_level(level_enum log_level) except +
@@ -61,17 +61,16 @@ IF GPUBUILD == 1:
             bool should_log(level_enum msg_level) except +
             void log(level_enum lvl, const string& fmt, ...)
             const sink_vector& sinks() const
-            # string getPattern() const
-            # void flush()
-
-        cdef logger& default_logger() except +
-        cdef string default_pattern() except +
 
         ctypedef void(*log_callback_t)(int, const char*) except * with gil
         ctypedef void(*flush_callback_t)() except * with gil
 
         cdef cppclass callback_sink_mt:
             callback_sink_mt(log_callback_t callback, flush_callback_t flush) except +
+
+    cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
+        cdef logger& default_logger() except +
+        cdef string default_pattern() except +
 
     cdef void _log_callback(int lvl, const char * msg) with gil
     cdef void _log_flush() with gil

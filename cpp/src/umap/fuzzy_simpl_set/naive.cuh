@@ -316,7 +316,7 @@ void launcher(nnz_t n,
   raft::sparse::COO<value_t> in(stream, n * n_neighbors, n, n);
 
   // check for logging in order to avoid the potentially costly `arr2Str` call!
-  if (ML::default_logger().should_log(ML::level_enum::debug)) {
+  if (ML::default_logger().should_log(rapids_logger::level_enum::debug)) {
     CUML_LOG_DEBUG("Smooth kNN Distances");
     auto str = raft::arr2Str(sigmas.data(), 25, "sigmas", stream);
     CUML_LOG_DEBUG("%s", str.c_str());
@@ -346,7 +346,7 @@ void launcher(nnz_t n,
                                        to_process);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  if (ML::default_logger().should_log(ML::level_enum::debug)) {
+  if (ML::default_logger().should_log(rapids_logger::level_enum::debug)) {
     CUML_LOG_DEBUG("Compute Membership Strength");
     std::stringstream ss;
     ss << in;

@@ -339,7 +339,7 @@ void launcher(
 
   make_epochs_per_sample(out.vals(), out.nnz, n_epochs, epochs_per_sample.data(), stream);
 
-  if (ML::default_logger().should_log(ML::level_enum::debug)) {
+  if (ML::default_logger().should_log(rapids_logger::level_enum::debug)) {
     std::stringstream ss;
     ss << raft::arr2Str(epochs_per_sample.data(), out.nnz, "epochs_per_sample", stream);
     CUML_LOG_DEBUG(ss.str().c_str());

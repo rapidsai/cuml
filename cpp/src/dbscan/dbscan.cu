@@ -35,7 +35,7 @@ void fit(const raft::handle_t& handle,
          float* sample_weight,
          size_t max_bytes_per_batch,
          EpsNnMethod eps_nn_method,
-         level_enum verbosity,
+         rapids_logger::level_enum verbosity,
          bool opg)
 {
   if (opg)
@@ -82,7 +82,7 @@ void fit(const raft::handle_t& handle,
          double* sample_weight,
          size_t max_bytes_per_batch,
          EpsNnMethod eps_nn_method,
-         level_enum verbosity,
+         rapids_logger::level_enum verbosity,
          bool opg)
 {
   if (opg)
@@ -129,7 +129,7 @@ void fit(const raft::handle_t& handle,
          float* sample_weight,
          size_t max_bytes_per_batch,
          EpsNnMethod eps_nn_method,
-         level_enum verbosity,
+         rapids_logger::level_enum verbosity,
          bool opg)
 {
   if (opg)
@@ -176,7 +176,7 @@ void fit(const raft::handle_t& handle,
          double* sample_weight,
          size_t max_bytes_per_batch,
          EpsNnMethod eps_nn_method,
-         level_enum verbosity,
+         rapids_logger::level_enum verbosity,
          bool opg)
 {
   if (opg)

@@ -43,7 +43,7 @@ function(find_and_configure_raft)
     message(VERBOSE "CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
 
     rapids_cpm_find(raft ${PKG_VERSION}
-      GLOBAL_TARGETS      raft::raft raft::raft_logger raft::raft_logger_impl
+      GLOBAL_TARGETS      raft::raft
       BUILD_EXPORT_SET    cuml-exports
       INSTALL_EXPORT_SET  cuml-exports
       COMPONENTS          ${RAFT_COMPONENTS}

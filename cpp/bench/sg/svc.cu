@@ -100,8 +100,8 @@ std::vector<SvcParams<D>> getInputs()
   p.blobs.seed           = 12345ULL;
 
   // SvmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity})
-  p.svm_param =
-    ML::SVM::SvmParameter{1, 200, 100, 100, 1e-3, ML::level_enum::info, 0, ML::SVM::C_SVC};
+  p.svm_param = ML::SVM::SvmParameter{
+    1, 200, 100, 100, 1e-3, rapids_logger::level_enum::info, 0, ML::SVM::C_SVC};
   p.model = ML::SVM::SvmModel<D>{0, 0, 0, nullptr, {}, nullptr, 0, nullptr};
 
   std::vector<Triplets> rowcols = {{50000, 2, 2}, {2048, 100000, 2}, {50000, 1000, 2}};
