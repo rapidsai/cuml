@@ -1,7 +1,12 @@
 ---
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 
 repos:
+    - repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v5.0.0
+      hooks:
+          - id: trailing-whitespace
+          - id: end-of-file-fixer
     - repo: https://github.com/psf/black
       rev: 22.10.0
       hooks:
@@ -69,8 +74,7 @@ repos:
                 CMakeLists[.]txt$|
                 CMakeLists_standalone[.]txt$|
                 [.]flake8[.]cython$|
-                meta[.]yaml$|
-                setup[.]cfg$
+                meta[.]yaml$
           exclude: |
             (?x)
                 cpp/src/tsne/cannylab/bh[.]cu$|
@@ -78,7 +82,7 @@ repos:
         - id: verify-alpha-spec
           args: ["--fix", "--mode=release"]
     - repo: https://github.com/rapidsai/dependency-file-generator
-      rev: v1.16.0
+      rev: v1.17.0
       hooks:
           - id: rapids-dependency-file-generator
             args: ["--clean"]

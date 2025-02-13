@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals import logger
 from cuml.testing.utils import array_equal
 from scipy.sparse import csr_matrix, load_npz, save_npz
 import random
@@ -32,8 +33,6 @@ np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
 dask_cudf = gpu_only_import("dask_cudf")
 cudf = gpu_only_import("cudf")
-
-pytestmark = pytest.mark.mg
 
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
@@ -80,9 +79,13 @@ def _prep_training_data_sparse(c, X_train, y_train, partitions_per_worker):
     X_da = da.from_array(X_train, chunks=(target_chunk_sizes, -1))
     y_da = da.from_array(y_train, chunks=target_chunk_sizes)
 
-    X_da, y_da = dask_utils.persist_across_workers(
-        c, [X_da, y_da], workers=workers
-    )
+    # todo (dgd): Dask nightly packages break persisting
+    # sparse arrays before using them.
+    # https://github.com/rapidsai/cuml/issues/6168
+
+    # X_da, y_da = dask_utils.persist_across_workers(
+    #     c, [X_da, y_da], workers=workers
+    # )
     return X_da, y_da
 
 
@@ -193,8 +196,10 @@ def test_lbfgs_init(client):
         assert qnpams["fit_intercept"] == fit_intercept
         assert qnpams["max_iter"] == max_iter
         assert qnpams["linesearch_max_iter"] == linesearch_max_iter
-        assert (
-            qnpams["verbose"] == 5 if verbose is True else 4
+        assert qnpams["verbose"] == (
+            logger.level_enum.debug
+            if verbose is True
+            else logger.level_enum.info
         )  # cuml Verbosity Levels
         assert (
             lr.output_type == "input" if output_type is None else output_type

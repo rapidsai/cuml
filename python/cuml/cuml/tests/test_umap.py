@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -197,7 +197,7 @@ def test_umap_transform_on_digits_sparse(
 
     fitter = cuUMAP(
         n_neighbors=15,
-        verbose=logger.level_info,
+        verbose=logger.level_enum.info,
         init="random",
         n_epochs=0,
         min_dist=0.01,
@@ -236,7 +236,7 @@ def test_umap_transform_on_digits(target_metric):
 
     fitter = cuUMAP(
         n_neighbors=15,
-        verbose=logger.level_debug,
+        verbose=logger.level_enum.debug,
         init="random",
         n_epochs=0,
         min_dist=0.01,
@@ -842,7 +842,10 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
 
 @pytest.mark.parametrize("data_on_host", [True, False])
 @pytest.mark.parametrize("num_clusters", [0, 3, 5])
-def test_umap_trustworthiness_on_batch_nnd(data_on_host, num_clusters):
+@pytest.mark.parametrize("fit_then_transform", [False, True])
+def test_umap_trustworthiness_on_batch_nnd(
+    data_on_host, num_clusters, fit_then_transform
+):
 
     digits = datasets.load_digits()
 
@@ -853,9 +856,15 @@ def test_umap_trustworthiness_on_batch_nnd(data_on_host, num_clusters):
         build_kwds={"nnd_n_clusters": num_clusters},
     )
 
-    cuml_embedding = cuml_model.fit_transform(
-        digits.data, convert_dtype=True, data_on_host=data_on_host
-    )
+    if fit_then_transform:
+        cuml_model.fit(
+            digits.data, convert_dtype=True, data_on_host=data_on_host
+        )
+        cuml_embedding = cuml_model.transform(digits.data)
+    else:
+        cuml_embedding = cuml_model.fit_transform(
+            digits.data, convert_dtype=True, data_on_host=data_on_host
+        )
 
     cuml_trust = trustworthiness(digits.data, cuml_embedding, n_neighbors=10)
 

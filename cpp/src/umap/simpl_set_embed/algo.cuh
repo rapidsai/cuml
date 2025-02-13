@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -341,10 +341,10 @@ void launcher(
 
   make_epochs_per_sample(out.vals(), out.nnz, n_epochs, epochs_per_sample.data(), stream);
 
-  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
+  if (ML::default_logger().should_log(ML::level_enum::trace)) {
     std::stringstream ss;
     ss << raft::arr2Str(epochs_per_sample.data(), out.nnz, "epochs_per_sample", stream);
-    CUML_LOG_DEBUG(ss.str().c_str());
+    CUML_LOG_TRACE(ss.str().c_str());
   }
 
   optimize_layout<TPB_X, T>(embedding,

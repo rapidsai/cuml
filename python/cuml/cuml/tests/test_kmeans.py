@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ def get_data_consistency_test():
 @pytest.fixture
 def random_state():
     random_state = random.randint(0, 10**6)
-    with logger.set_level(logger.level_debug):
+    with logger.set_level(logger.level_enum.debug):
         logger.debug("Random seed: {}".format(random_state))
     return random_state
 
@@ -171,7 +171,7 @@ def test_weighted_kmeans(nrows, ncols, nclusters, max_weight, random_state):
     sk_kmeans.fit(cp.asnumpy(X), sample_weight=wt)
     sk_score = sk_kmeans.score(cp.asnumpy(X))
 
-    assert abs(cu_score - sk_score) <= cluster_std * 1.5
+    assert cu_score - sk_score <= cluster_std * 1.5
 
 
 @pytest.mark.parametrize("nrows", [1000, 10000])
@@ -418,5 +418,6 @@ def test_fit_transform_weighted_kmeans(
     sk_transf = sk_kmeans.fit_transform(cp.asnumpy(X), sample_weight=wt)
     sk_score = sk_kmeans.score(cp.asnumpy(X))
 
-    assert abs(cu_score - sk_score) <= cluster_std * 1.5
+    # we fail if cuML's score is significantly worse than sklearn's
+    assert cu_score - sk_score <= cluster_std * 1.5
     assert sk_transf.shape == cuml_transf.shape

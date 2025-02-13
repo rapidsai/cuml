@@ -4,7 +4,7 @@ These instructions outline how to run multi-node multi-GPU cuML on devices with 
 
 The steps in this wiki post have been largely adapted from the [Experiments in High Performance Networking with UCX and DGX](https://blog.dask.org/2019/06/09/ucx-dgx) blog by Matthew Rocklin and Rick Zamora.
 
-## 1. Install UCX 
+## 1. Install UCX
 
 ### From Conda
 
@@ -19,7 +19,7 @@ Install autogen if it's not already installed:
 sudo apt-get install autogen autoconf libtool
 ```
 
-Optionally install `gdrcopy` for faster GPU-Network card data transfer: 
+Optionally install `gdrcopy` for faster GPU-Network card data transfer:
 
 From the [ucx wiki](https://github.com/openucx/ucx/wiki/NVIDIA-GPU-Support), `gdrcopy` can be installed, and might be necessary, to enable faster GPU-Network card data transfer.
 
@@ -160,7 +160,7 @@ If you configured UCX with the `gdrcopy` option, you should also expect to see t
 #       error handling: none
 ```
 
-To better understand the CUDA-based transports in UCX, refer to [this wiki](https://github.com/openucx/ucx/wiki/NVIDIA-GPU-Support) for more details. 
+To better understand the CUDA-based transports in UCX, refer to [this wiki](https://github.com/openucx/ucx/wiki/NVIDIA-GPU-Support) for more details.
 
 
 ## 2. Install ucx-py
@@ -184,11 +184,11 @@ make -j install
 
 ## 3. Install NCCL
 
-It's important that NCCL 2.4+ be installed and no previous versions of NCCL are conflicting on your library path. This will cause compile errors during the build of cuML. 
+It's important that NCCL 2.4+ be installed and no previous versions of NCCL are conflicting on your library path. This will cause compile errors during the build of cuML.
 
 
 ```bash
-conda install -c nvidia nccl 
+conda install -c nvidia nccl
 ```
 
 Create the file `.nccl.conf` in your home dir with the following:
@@ -196,7 +196,7 @@ Create the file `.nccl.conf` in your home dir with the following:
 NCCL_SOCKET_IFNAME=ib0
 ```
 
-## 4. Enable IP over IB interface at ib0 
+## 4. Enable IP over IB interface at ib0
 
 Follow the instructions at [this link](https://docs.oracle.com/cd/E19436-01/820-3522-10/ch4-linux.html#50536461_82843) to create an IP interface for the IB devices.
 
@@ -210,20 +210,20 @@ You can verify the interface was created properly with `ifconfig ib0`
 The output should look like this:
 
 ```
-ib0       Link encap:UNSPEC  HWaddr 80-00-00-68-FE-80-00-00-00-00-00-00-00-00-00-00  
+ib0       Link encap:UNSPEC  HWaddr 80-00-00-68-FE-80-00-00-00-00-00-00-00-00-00-00
           inet addr:10.0.0.50  Bcast:10.0.0.255  Mask:255.255.255.0
           inet6 addr: fe80::526b:4b03:f5:ce9c/64 Scope:Link
           UP BROADCAST RUNNING MULTICAST  MTU:65520  Metric:1
           RX packets:2655 errors:0 dropped:0 overruns:0 frame:0
           TX packets:2697 errors:0 dropped:10 overruns:0 carrier:0
-          collisions:0 txqueuelen:256 
+          collisions:0 txqueuelen:256
           RX bytes:183152 (183.1 KB)  TX bytes:194696 (194.6 KB)
 
 ```
 
 ## 5.  Set UCX environment vars
 
-Use `ibstatus` to see your open IB devices. Output will look like this: 
+Use `ibstatus` to see your open IB devices. Output will look like this:
 
 ```
 Infiniband device 'mlx5_0' port 1 status:
@@ -263,7 +263,7 @@ Infiniband device 'mlx5_3' port 1 status:
 	link_layer:	 InfiniBand
 
 ```
- 
+
 Put the devices and ports in a `UCX_NET_DEVICES` environment variable:
 
 
@@ -387,5 +387,3 @@ final_size: 16
 final_size: 16
 final_size: 16
 ```
-
-

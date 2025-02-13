@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -313,13 +313,13 @@ void launcher(int n,
 
   raft::sparse::COO<value_t> in(stream, n * n_neighbors, n, n);
 
+  CUML_LOG_DEBUG("Smooth kNN Distances");
   // check for logging in order to avoid the potentially costly `arr2Str` call!
-  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
-    CUML_LOG_DEBUG("Smooth kNN Distances");
+  if (ML::default_logger().should_log(ML::level_enum::trace)) {
     auto str = raft::arr2Str(sigmas.data(), 25, "sigmas", stream);
-    CUML_LOG_DEBUG("%s", str.c_str());
+    CUML_LOG_TRACE("%s", str.c_str());
     str = raft::arr2Str(rhos.data(), 25, "rhos", stream);
-    CUML_LOG_DEBUG("%s", str.c_str());
+    CUML_LOG_TRACE("%s", str.c_str());
   }
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());
@@ -342,11 +342,11 @@ void launcher(int n,
                                                                               n_neighbors);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
-    CUML_LOG_DEBUG("Compute Membership Strength");
+  CUML_LOG_DEBUG("Compute Membership Strength");
+  if (ML::default_logger().should_log(ML::level_enum::trace)) {
     std::stringstream ss;
     ss << in;
-    CUML_LOG_DEBUG(ss.str().c_str());
+    CUML_LOG_TRACE(ss.str().c_str());
   }
 
   /**

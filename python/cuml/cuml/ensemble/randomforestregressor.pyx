@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,9 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 # distutils: language = c++
 
+
+import sys
+import threading
+
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import,
@@ -27,12 +32,16 @@ nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 rmm = gpu_only_import('rmm')
 
 from cuml.internals.array import CumlArray
+from cuml.internals.global_settings import GlobalSettings
 import cuml.internals
+from cuml.internals import logger
 
 from cuml.internals.mixins import RegressorMixin
+from cuml.internals.logger cimport level_enum
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.common import input_to_cuml_array
+from cuml.internals.utils import check_random_seed
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.ensemble.randomforest_common import _obtain_fil_model
@@ -59,7 +68,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   int,
                   float*,
                   RF_params,
-                  int) except +
+                  level_enum) except +
 
     cdef void fit(handle_t& handle,
                   RandomForestMetaData[double, double]*,
@@ -68,7 +77,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                   int,
                   double*,
                   RF_params,
-                  int) except +
+                  level_enum) except +
 
     cdef void predict(handle_t& handle,
                       RandomForestMetaData[float, float] *,
@@ -76,7 +85,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       int,
                       int,
                       float*,
-                      int) except +
+                      level_enum) except +
 
     cdef void predict(handle_t& handle,
                       RandomForestMetaData[double, double]*,
@@ -84,21 +93,21 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       int,
                       int,
                       double*,
-                      int) except +
+                      level_enum) except +
 
     cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[float, float]*,
                           float*,
                           int,
                           float*,
-                          int) except +
+                          level_enum) except +
 
     cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[double, double]*,
                           double*,
                           int,
                           double*,
-                          int) except +
+                          level_enum) except +
 
 
 class RandomForestRegressor(BaseRandomForestModel,
@@ -249,6 +258,22 @@ class RandomForestRegressor(BaseRandomForestModel,
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html>`_.
     """
 
+    _cpu_estimator_import_path = 'sklearn.ensemble.RandomForestRegressor'
+
+    _hyperparam_interop_translator = {
+        "criterion": "NotImplemented",
+        "oob_score": {
+            True: "NotImplemented",
+        },
+        "max_depth": {
+            None: 16,
+        },
+        "max_samples": {
+            None: 1.0,
+        },
+    }
+
+    @device_interop_preparation
     def __init__(self, *,
                  split_criterion=2,
                  accuracy_metric='r2',
@@ -289,18 +314,21 @@ class RandomForestRegressor(BaseRandomForestModel,
                 state["rf_params64"] = rf_forest64.rf_params
 
         state['n_cols'] = self.n_cols
-        state["verbose"] = self.verbose
+        state["_verbose"] = self._verbose
         state["treelite_serialized_model"] = self.treelite_serialized_model
         state['handle'] = self.handle
         state["treelite_handle"] = None
         state["split_criterion"] = self.split_criterion
+
+        if "_cpu_model_class_lock" in state:
+            del state["_cpu_model_class_lock"]
 
         return state
 
     def __setstate__(self, state):
         super(RandomForestRegressor, self).__init__(
             split_criterion=state["split_criterion"],
-            handle=state["handle"], verbose=state['verbose'])
+            handle=state["handle"], verbose=state['_verbose'])
         cdef  RandomForestMetaData[float, float] *rf_forest = \
             new RandomForestMetaData[float, float]()
         cdef  RandomForestMetaData[double, double] *rf_forest64 = \
@@ -316,6 +344,7 @@ class RandomForestRegressor(BaseRandomForestModel,
 
         self.treelite_serialized_model = state["treelite_serialized_model"]
         self.__dict__.update(state)
+        self._cpu_model_class_lock = threading.RLock()
 
     def __del__(self):
         self._reset_forest_data()
@@ -339,6 +368,9 @@ class RandomForestRegressor(BaseRandomForestModel,
         self.treelite_handle = None
         self.treelite_serialized_model = None
         self.n_cols = None
+
+    def get_attr_names(self):
+        return []
 
     def convert_to_treelite_model(self):
         """
@@ -411,6 +443,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         domain="cuml_python")
     @generate_docstring()
     @cuml.internals.api_base_return_any_skipall
+    @enable_device_interop
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Regression on the input data
@@ -437,7 +470,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         if self.random_state is None:
             seed_val = <uintptr_t>NULL
         else:
-            seed_val = <uintptr_t>self.random_state
+            seed_val = <uintptr_t>check_random_seed(self.random_state)
 
         rf_params = set_rf_params(<int> self.max_depth,
                                   <int> self.max_leaves,
@@ -462,7 +495,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                 <int> self.n_cols,
                 <float*> y_ptr,
                 rf_params,
-                <int> self.verbose)
+                <level_enum> self.verbose)
 
         else:
             rf_params64 = rf_params
@@ -473,7 +506,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                 <int> self.n_cols,
                 <double*> y_ptr,
                 rf_params64,
-                <int> self.verbose)
+                <level_enum> self.verbose)
         # make sure that the `fit` is complete before the following delete
         # call happens
         self.handle.sync()
@@ -508,7 +541,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                     <int> n_rows,
                     <int> n_cols,
                     <float*> preds_ptr,
-                    <int> self.verbose)
+                    <level_enum> self.verbose)
 
         elif self.dtype == np.float64:
             predict(handle_[0],
@@ -517,7 +550,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                     <int> n_rows,
                     <int> n_cols,
                     <double*> preds_ptr,
-                    <int> self.verbose)
+                    <level_enum> self.verbose)
         else:
             raise TypeError("supports only float32 and float64 input,"
                             " but input of type '%s' passed."
@@ -533,6 +566,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
+    @enable_device_interop
     def predict(self, X, predict_model="GPU",
                 algo='auto', convert_dtype=True,
                 fil_sparse_format='auto') -> CumlArray:
@@ -685,7 +719,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                                     <float*> y_ptr,
                                     <int> n_rows,
                                     <float*> preds_ptr,
-                                    <int> self.verbose)
+                                    <level_enum> self.verbose)
 
         elif self.dtype == np.float64:
             self.temp_stats = score(handle_[0],
@@ -693,7 +727,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                                     <double*> y_ptr,
                                     <int> n_rows,
                                     <double*> preds_ptr,
-                                    <int> self.verbose)
+                                    <level_enum> self.verbose)
 
         if self.accuracy_metric == 'median_ae':
             stats = self.temp_stats['median_abs_error']
@@ -750,3 +784,39 @@ class RandomForestRegressor(BaseRandomForestModel,
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
+
+    def cpu_to_gpu(self):
+        # treelite does an internal isinstance check to detect an sklearn
+        # RF, which proxymodule interferes with. We work around that
+        # temporarily here just for treelite internal check and
+        # restore the __class__ at the end of the method.
+        if GlobalSettings().accelerator_active:
+            with self._cpu_model_class_lock:
+                original_class = self._cpu_model.__class__
+                self._cpu_model.__class__ = sys.modules['sklearn.ensemble'].RandomForestRegressor
+
+                try:
+                    super().cpu_to_gpu()
+                finally:
+                    self._cpu_model.__class__ = original_class
+
+        else:
+            super().cpu_to_gpu()
+
+    @classmethod
+    def _hyperparam_translator(cls, **kwargs):
+        kwargs, gpuaccel = super(RandomForestRegressor, cls)._hyperparam_translator(**kwargs)
+
+        if "max_samples" in kwargs:
+            if isinstance(kwargs["max_samples"], int):
+                logger.warn(
+                    f"Integer value of max_samples={kwargs['max_samples']}"
+                    "not supported, changed to 1.0."
+                )
+                kwargs["max_samples"] = 1.0
+
+        # determinism requires only 1 cuda stream
+        if "random_state" in kwargs:
+            kwargs["n_streams"] = 1
+
+        return kwargs, gpuaccel

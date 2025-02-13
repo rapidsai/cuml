@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -109,7 +109,7 @@ IS_ARM = platform.processor() == "aarch64"
 @pytest.fixture(scope="module")
 def random_state():
     random_state = random.randint(0, 10**6)
-    with logger.set_level(logger.level_debug):
+    with logger.set_level(logger.level_enum.debug):
         logger.debug("Random seed: {}".format(random_state))
     return random_state
 
@@ -163,6 +163,8 @@ def test_r2_score(datatype, use_handle):
     np.testing.assert_almost_equal(score, 0.98, decimal=7)
 
 
+# Ignore FutureWarning: Using `__dataframe__` is deprecated
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_sklearn_search():
     """Test ensures scoring function works with sklearn machinery"""
     import numpy as np
