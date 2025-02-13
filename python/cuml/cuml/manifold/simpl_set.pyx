@@ -328,8 +328,7 @@ def simplicial_set_embedding(
 
     cdef UMAPParams* umap_params = new UMAPParams()
     umap_params.n_components = <int> n_components
-    umap_params.initial_alpha = <float> initial_alpha
-    umap_params.learning_rate = <float> initial_alpha
+    umap_params.initial_alpha = <int> initial_alpha
     umap_params.a = <float> a
     umap_params.b = <float> b
 

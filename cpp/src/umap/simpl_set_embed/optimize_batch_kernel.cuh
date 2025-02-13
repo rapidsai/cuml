@@ -198,6 +198,8 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
       auto grad_d = T(0.0);
       if (repulsive_grad_coeff > T(0.0))
         grad_d = clip<T>(repulsive_grad_coeff * diff, T(-4.0), T(4.0));
+      else
+        grad_d = T(4.0);
       grads[d] += grad_d * alpha;
     }
   }
@@ -313,6 +315,8 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
       auto grad_d = T(0.0);
       if (repulsive_grad_coeff > T(0.0))
         grad_d = clip<T>(repulsive_grad_coeff * (current[d] - negative_sample[d]), T(-4.0), T(4.0));
+      else
+        grad_d = T(4.0);
       grad_d *= alpha;
       if (use_shared_mem) {
         current_buffer[d * TPB_X] += grad_d;
