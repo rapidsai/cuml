@@ -476,6 +476,7 @@ class UMAP(UniversalBase,
             umap_params.n_components = <int> self.n_components
             umap_params.n_epochs = <int> self.n_epochs if self.n_epochs else 0
             umap_params.learning_rate = <float> self.learning_rate
+            umap_params.initial_alpha = <float> self.learning_rate
             umap_params.min_dist = <float> self.min_dist
             umap_params.spread = <float> self.spread
             umap_params.set_op_mix_ratio = <float> self.set_op_mix_ratio
