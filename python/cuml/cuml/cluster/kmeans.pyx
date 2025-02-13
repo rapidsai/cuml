@@ -51,6 +51,7 @@ from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common import input_to_cuml_array
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.global_settings import GlobalSettings
 
 # from sklearn.utils._openmp_helpers import _openmp_effective_n_threads
 _openmp_effective_n_threads = safe_import_from(
@@ -233,12 +234,13 @@ class KMeans(UniversalBase,
             params.oversampling_factor = <double>self.oversampling_factor
             n_init = self.n_init
             if n_init == "warn":
-                warnings.warn(
-                    "The default value of `n_init` will change from"
-                    " 1 to 'auto' in 25.04. Set the value of `n_init`"
-                    " explicitly to suppress this warning.",
-                    FutureWarning,
-                )
+                if not GlobalSettings().accelerator_active:
+                    warnings.warn(
+                        "The default value of `n_init` will change from"
+                        " 1 to 'auto' in 25.04. Set the value of `n_init`"
+                        " explicitly to suppress this warning.",
+                        FutureWarning,
+                    )
                 n_init = 1
             if n_init == "auto":
                 if self.init in ("k-means||", "scalable-k-means++"):

@@ -207,17 +207,10 @@ def intercept(
             self._cpu_model_class = (
                 original_class_a  # Store a reference to the original class
             )
-            # Get the arguments and default values from the cuml class, then
-            # combine with the user provided values
-            resolved_args = inspect.signature(class_b)
-            resolved_args = resolved_args.bind(*args, **kwargs)
-            resolved_args.apply_defaults()
 
-            kwargs, self._gpuaccel = self._hyperparam_translator(
-                **resolved_args.arguments
-            )
+            kwargs, self._gpuaccel = self._hyperparam_translator(**kwargs)
 
-            super().__init__(**kwargs)
+            super().__init__(*args, **kwargs)
 
             self._cpu_hyperparams = list(
                 inspect.signature(
