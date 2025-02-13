@@ -18,13 +18,13 @@ dependencies:
 - gcc_linux-64=13.*
 - libcublas-dev
 - libcufft-dev
-- libcumlprims==25.2.*,>=0.0.0a0
+- libcumlprims==25.2.*
 - libcurand-dev
 - libcusolver-dev
 - libcusparse-dev
-- libcuvs==25.2.*,>=0.0.0a0
-- libraft-headers==25.2.*,>=0.0.0a0
-- librmm==25.2.*,>=0.0.0a0
+- libcuvs==25.2.*
+- libraft-headers==25.2.*
+- librmm==25.2.*
 - ninja
 - spdlog>=1.14.1,<1.15
 - sysroot_linux-64==2.28
