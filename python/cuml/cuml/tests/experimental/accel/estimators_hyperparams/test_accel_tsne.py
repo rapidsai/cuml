@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,8 +24,9 @@ from sklearn.preprocessing import StandardScaler
 
 pytestmark = pytest.mark.skipif(
     not GlobalSettings().accelerator_active,
-    reason="Tests take a long time on CI without GPU acceleration"
+    reason="Tests take a long time on CI without GPU acceleration",
 )
+
 
 @pytest.fixture(scope="module")
 def synthetic_data():

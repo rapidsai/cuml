@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 
 # Support invoking test_python_singlegpu.sh outside the script directory
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
@@ -47,4 +47,3 @@ fi
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
-
