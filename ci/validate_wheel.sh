@@ -12,10 +12,10 @@ rapids-logger "validate packages with 'pydistcheck'"
 
 pydistcheck \
     --inspect \
-    "$(echo ${wheel_dir_relative_path}/*.whl)"
+    "$(echo "${wheel_dir_relative_path}"/*.whl)"
 
 rapids-logger "validate packages with 'twine'"
 
 twine check \
     --strict \
-    "$(echo ${wheel_dir_relative_path}/*.whl)"
+    "$(echo "${wheel_dir_relative_path}"/*.whl)"
