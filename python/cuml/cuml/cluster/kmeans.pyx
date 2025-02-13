@@ -206,12 +206,6 @@ class KMeans(UniversalBase,
     <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
     """
 
-    _hyperparam_interop_translator = {
-        "n_init": {
-            "warn": "auto",
-        },
-    }
-
     _cpu_estimator_import_path = 'sklearn.cluster.KMeans'
     labels_ = CumlArrayDescriptor(order='C')
     cluster_centers_ = CumlArrayDescriptor(order='C')
