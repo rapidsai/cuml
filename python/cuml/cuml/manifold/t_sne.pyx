@@ -31,9 +31,9 @@ from cuml.internals.base import UniversalBase
 from pylibraft.common.handle cimport handle_t
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.utils import check_random_seed
 from cuml.internals import logger
 from cuml.internals cimport logger
-
 
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
@@ -596,7 +596,7 @@ class TSNE(UniversalBase,
     def _build_tsne_params(self, algo):
         cdef long long seed = -1
         if self.random_state is not None:
-            seed = self.random_state
+            seed = check_random_seed(self.random_state)
 
         cdef TSNEParams* params = new TSNEParams()
         params.dim = <int> self.n_components

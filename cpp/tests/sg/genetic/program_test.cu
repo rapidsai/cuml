@@ -642,7 +642,7 @@ TEST_F(GeneticProgramTest, ProgramExecution)
   MLCommon::CompareApprox<float> compApprox(tolerance);
 
   // Enable debug logging
-  ML::default_logger().set_level(ML::level_enum::info);
+  ML::default_logger().set_level(rapids_logger::level_enum::info);
 
   // Allocate memory
   std::vector<float> h_ypred(n_progs * n_samples, 0.0f);

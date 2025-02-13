@@ -39,10 +39,10 @@ struct SvmParameter {
   //! maximum number of outer SMO iterations. Use -1 to let the SMO solver set
   //! a default value (100*n_rows).
   int max_iter;
-  int nochange_steps;    //<! Number of steps to continue with non-changing diff
-  double tol;            //!< Tolerance used to stop fitting.
-  level_enum verbosity;  //!< Print information about training
-  double epsilon;        //!< epsilon parameter for epsilon-SVR
+  int nochange_steps;                   //<! Number of steps to continue with non-changing diff
+  double tol;                           //!< Tolerance used to stop fitting.
+  rapids_logger::level_enum verbosity;  //!< Print information about training
+  double epsilon;                       //!< epsilon parameter for epsilon-SVR
   SvmType svmType;
 };
 
