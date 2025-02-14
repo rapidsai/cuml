@@ -11,7 +11,7 @@ cuda_compiler:
   - nvcc  # [os.environ.get("RAPIDS_CUDA_VERSION", "").startswith("11")]
 
 cmake_version:
-  - ">=3.26.4,!=3.30.0"
+  - ">=3.30.4"
 
 c_stdlib:
   - sysroot
