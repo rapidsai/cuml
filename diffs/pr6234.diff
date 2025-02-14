@@ -36,7 +36,7 @@ index 5a59ff3db5..bd4f758440 100644
 +    raft::matrix::setValue(noise_vars, noise_vars, math_t{0}, 1, stream);
 +  }
  }
- 
+
  /**
 @@ -116,7 +131,7 @@ void pcaFit(const raft::handle_t& handle,
    raft::stats::cov(
@@ -44,7 +44,7 @@ index 5a59ff3db5..bd4f758440 100644
    truncCompExpVars(
 -    handle, cov.data(), components, explained_var, explained_var_ratio, prms, stream);
 +    handle, cov.data(), components, explained_var, explained_var_ratio, noise_vars, prms, stream);
- 
+
    math_t scalar = (prms.n_rows - 1);
    raft::matrix::seqRoot(explained_var, singular_vals, scalar, n_components, stream, true);
 diff --git a/cpp/src/pca/pca_mg.cu b/cpp/src/pca/pca_mg.cu
@@ -60,11 +60,11 @@ index 158b16464c..7974328ab1 100644
   * you may not use this file except in compliance with the License.
 @@ -69,7 +69,7 @@ void fit_impl(raft::handle_t& handle,
    Stats::opg::cov(handle, cov, input_data, input_desc, mu_data, true, streams, n_streams);
- 
+
    ML::truncCompExpVars<T, mg_solver>(
 -    handle, cov.ptr, components, explained_var, explained_var_ratio, prms, streams[0]);
 +    handle, cov.ptr, components, explained_var, explained_var_ratio, noise_vars, prms, streams[0]);
- 
+
    T scalar = (prms.n_rows - 1);
    raft::matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components, streams[0], true);
 @@ -128,9 +128,6 @@ void fit_impl(raft::handle_t& handle,
@@ -80,7 +80,7 @@ index 158b16464c..7974328ab1 100644
 @@ -194,6 +191,20 @@ void fit_impl(raft::handle_t& handle,
                                    std::size_t(1),
                                    stream);
- 
+
 +    // Compute the scalar noise_vars defined as (pseudocode)
 +    // (n_components < min(n_cols, n_rows)) ? explained_var_all[n_components:].mean() : 0
 +    if (prms.n_components < prms.n_cols && prms.n_components < prms.n_rows) {
@@ -137,11 +137,11 @@ index 10db9a4f7b..ee384f825c 100644
 -
          skl_res = getattr(skpca, attr)
          assert array_equal(cuml_res, skl_res, 1e-3, with_sign=with_sign)
- 
+
 @@ -304,6 +304,22 @@ def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse, cupy_input):
          assert array_equal(i_sparse, X.todense(), 1e-1, with_sign=True)
- 
- 
+
+
 +@pytest.mark.parametrize(
 +    "n_samples, n_features",
 +    [
