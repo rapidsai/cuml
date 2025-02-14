@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 #pragma once
+
+#include <stdint.h>
 
 namespace ML {
 
@@ -55,8 +57,8 @@ struct knn_graph {
 template <typename T>
 struct manifold_inputs_t {
   T* y;
-  int n;
-  int d;
+  uint64_t n;
+  uint64_t d;
 
   manifold_inputs_t(T* y_, int n_, int d_) : y(y_), n(n_), d(d_) {}
 

@@ -101,14 +101,14 @@ void reset_local_connectivity(raft::sparse::COO<T>* in_coo,
  * and this will update the fuzzy simplicial set to respect that label
  * data.
  */
-template <typename value_t, int TPB_X>
+template <typename value_t, typename nnz_t, int TPB_X>
 void categorical_simplicial_set_intersection(raft::sparse::COO<value_t>* graph_coo,
                                              value_t* target,
                                              cudaStream_t stream,
                                              float far_dist     = 5.0,
                                              float unknown_dist = 1.0)
 {
-  dim3 grid(raft::ceildiv(graph_coo->nnz, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(graph_coo->nnz, static_cast<nnz_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   fast_intersection_kernel<TPB_X, value_t><<<grid, blk, 0, stream>>>(graph_coo->rows(),
                                                                      graph_coo->cols(),
@@ -119,7 +119,7 @@ void categorical_simplicial_set_intersection(raft::sparse::COO<value_t>* graph_c
                                                                      far_dist);
 }
 
-template <typename value_t, int TPB_X>
+template <typename value_t, typename nnz_t, int TPB_X>
 CUML_KERNEL void sset_intersection_kernel(int* row_ind1,
                                           int* cols1,
                                           value_t* vals1,
@@ -177,7 +177,7 @@ CUML_KERNEL void sset_intersection_kernel(int* row_ind1,
  * Computes the CSR column index pointer and values
  * for the general simplicial set intersecftion.
  */
-template <typename T, int TPB_X>
+template <typename T, typename nnz_t, int TPB_X>
 void general_simplicial_set_intersection(int* row1_ind,
                                          raft::sparse::COO<T>* in1,
                                          int* row2_ind,
@@ -233,31 +233,31 @@ void general_simplicial_set_intersection(int* row1_ind,
   T left_min  = max(min1 / 2.0, 1e-8);
   T right_min = max(min2 / 2.0, 1e-8);
 
-  dim3 grid(raft::ceildiv(in1->nnz, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(in1->nnz, static_cast<nnz_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  sset_intersection_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(row1_ind,
-                                                               in1->cols(),
-                                                               in1->vals(),
-                                                               in1->nnz,
-                                                               row2_ind,
-                                                               in2->cols(),
-                                                               in2->vals(),
-                                                               in2->nnz,
-                                                               result_ind.data(),
-                                                               result->cols(),
-                                                               result->vals(),
-                                                               result->nnz,
-                                                               left_min,
-                                                               right_min,
-                                                               in1->n_rows,
-                                                               weight);
+  sset_intersection_kernel<T, nnz_t, TPB_X><<<grid, blk, 0, stream>>>(row1_ind,
+                                                                      in1->cols(),
+                                                                      in1->vals(),
+                                                                      in1->nnz,
+                                                                      row2_ind,
+                                                                      in2->cols(),
+                                                                      in2->vals(),
+                                                                      in2->nnz,
+                                                                      result_ind.data(),
+                                                                      result->cols(),
+                                                                      result->vals(),
+                                                                      result->nnz,
+                                                                      left_min,
+                                                                      right_min,
+                                                                      in1->n_rows,
+                                                                      weight);
   RAFT_CUDA_TRY(cudaGetLastError());
 
-  dim3 grid_n(raft::ceildiv(result->nnz, TPB_X), 1, 1);
+  dim3 grid_n(raft::ceildiv(result->nnz, static_cast<nnz_t>(TPB_X)), 1, 1);
 }
 
-template <int TPB_X, typename T>
+template <typename T, typename nnz_t, int TPB_X>
 void perform_categorical_intersection(T* y,
                                       raft::sparse::COO<T>* rgraph_coo,
                                       raft::sparse::COO<T>* final_coo,
@@ -267,7 +267,7 @@ void perform_categorical_intersection(T* y,
   float far_dist = 1.0e12;  // target weight
   if (params->target_weight < 1.0) far_dist = 2.5 * (1.0 / (1.0 - params->target_weight));
 
-  categorical_simplicial_set_intersection<T, TPB_X>(rgraph_coo, y, stream, far_dist);
+  categorical_simplicial_set_intersection<T, nnz_t, TPB_X>(rgraph_coo, y, stream, far_dist);
 
   raft::sparse::COO<T> comp_coo(stream);
   raft::sparse::op::coo_remove_zeros<T>(rgraph_coo, &comp_coo, stream);
@@ -277,7 +277,7 @@ void perform_categorical_intersection(T* y,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
-template <int TPB_X, typename value_idx, typename value_t>
+template <typename value_idx, typename value_t, typename nnz_t, int TPB_X>
 void perform_general_intersection(const raft::handle_t& handle,
                                   value_t* y,
                                   raft::sparse::COO<value_t>* rgraph_coo,
@@ -317,13 +317,13 @@ void perform_general_intersection(const raft::handle_t& handle,
    */
   raft::sparse::COO<value_t> ygraph_coo(stream);
 
-  FuzzySimplSet::run<TPB_X, value_idx, value_t>(rgraph_coo->n_rows,
-                                                y_knn_indices.data(),
-                                                y_knn_dists.data(),
-                                                params->target_n_neighbors,
-                                                &ygraph_coo,
-                                                params,
-                                                stream);
+  FuzzySimplSet::run<value_t, value_idx, nnz_t, TPB_X>(rgraph_coo->n_rows,
+                                                       y_knn_indices.data(),
+                                                       y_knn_dists.data(),
+                                                       params->target_n_neighbors,
+                                                       &ygraph_coo,
+                                                       params,
+                                                       stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   if (ML::default_logger().should_log(rapids_logger::level_enum::debug)) {
@@ -349,13 +349,13 @@ void perform_general_intersection(const raft::handle_t& handle,
   raft::sparse::convert::sorted_coo_to_csr(rgraph_coo, xrow_ind.data(), stream);
 
   raft::sparse::COO<value_t> result_coo(stream);
-  general_simplicial_set_intersection<value_t, TPB_X>(xrow_ind.data(),
-                                                      rgraph_coo,
-                                                      yrow_ind.data(),
-                                                      &cygraph_coo,
-                                                      &result_coo,
-                                                      params->target_weight,
-                                                      stream);
+  general_simplicial_set_intersection<value_t, nnz_t, TPB_X>(xrow_ind.data(),
+                                                             rgraph_coo,
+                                                             yrow_ind.data(),
+                                                             &cygraph_coo,
+                                                             &result_coo,
+                                                             params->target_weight,
+                                                             stream);
 
   /**
    * Remove zeros
