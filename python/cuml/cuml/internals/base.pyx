@@ -888,6 +888,12 @@ class UniversalBase(Base):
             # that are not in the cuML estimator in the host estimator
             if GlobalSettings().accelerator_active or self._experimental_dispatching:
 
+                # we don't want to special sklearn dispatch cloning function
+                # so that cloning works with this class as a regular estimator
+                # without __sklearn_clone__
+                if attr == "__sklearn_clone__":
+                    raise ex
+
                 self.import_cpu_model()
                 if hasattr(self._cpu_model_class, attr):
 
@@ -910,3 +916,27 @@ class UniversalBase(Base):
                 raise ex
 
             raise ex
+
+    def get_params(self, deep=True):
+        """
+        If accelerator is active, we return the params of the CPU estimator
+        being helf by the class, otherwise we just call the regular
+        get_params of the Base class.
+        """
+        if GlobalSettings().accelerator_active or self._experimental_dispatching:
+            return self._cpu_hyperparams_dict
+        else:
+            return super().get_params(deep=deep)
+
+    def set_params(self, **params):
+        """
+        For setting parameters, when the accelerator is active, we translate
+        the parameters to set the GPU params, and also update the
+        params of the CPU class. Otherwise dispatching to the CPU class after
+        updating params of the GPU estimator will dispatch to an estimator
+        with outdated params.
+        """
+        self._cpu_hyperparams_dict.update(params)
+        params, gpuaccel = super._hyperparam_translator(params)
+        super().set_params(params)
+        return self
