@@ -209,7 +209,7 @@ int main(int argc, char* argv[])
                   nullptr,
                   max_bytes_per_batch,
                   ML::Dbscan::EpsNnMethod::BRUTE_FORCE,
-                  ML::level_enum::off);
+                  rapids_logger::level_enum::off);
   CUDA_RT_CALL(cudaMemcpyAsync(
     h_labels.data(), d_labels, nRows * sizeof(int), cudaMemcpyDeviceToHost, stream));
   CUDA_RT_CALL(cudaStreamSynchronize(stream));

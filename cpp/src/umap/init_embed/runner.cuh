@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ namespace InitEmbed {
 
 using namespace ML;
 
-template <typename T>
+template <typename T, typename nnz_t>
 void run(const raft::handle_t& handle,
          int n,
          int d,
@@ -43,9 +43,9 @@ void run(const raft::handle_t& handle,
     /**
      * Initial algo uses FAISS indices
      */
-    case 0: RandomInit::launcher(n, d, params, embedding, handle.get_stream()); break;
+    case 0: RandomInit::launcher<T, nnz_t>(n, d, params, embedding, handle.get_stream()); break;
 
-    case 1: SpectralInit::launcher(handle, n, d, coo, params, embedding); break;
+    case 1: SpectralInit::launcher<T, nnz_t>(handle, n, d, coo, params, embedding); break;
   }
 }
 }  // namespace InitEmbed

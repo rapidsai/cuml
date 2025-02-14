@@ -58,7 +58,7 @@ class GeneticEvolutionTest : public ::testing::Test {
  protected:
   void SetUp() override
   {
-    ML::default_logger().set_level(ML::level_enum::info);
+    ML::default_logger().set_level(rapids_logger::level_enum::info);
 
     // Set training param vals
     hyper_params.population_size       = 5000;

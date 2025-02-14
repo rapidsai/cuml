@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -140,3 +140,32 @@ def test_k_neighbors_regressor():
         for metric in ["euclidean", "manhattan"]:
             knr = KNeighborsRegressor().fit(X, y)
             knr.predict(X)
+
+
+def test_proxy_facade():
+    # Check that the proxy estimator pretends to look like the
+    # class it is proxying
+
+    # A random estimator, shouldn't matter which one as all are proxied
+    # the same way.
+    # We need an instance to get access to the `_cpu_model_class`
+    # but we want to compare to the PCA class
+    pca = PCA()
+    for attr in (
+        "__module__",
+        "__name__",
+        "__qualname__",
+        "__doc__",
+        "__annotate__",
+        "__type_params__",
+    ):
+        # if the original class has this attribute, the proxy should
+        # have it as well and the values should match
+        try:
+            original_value = getattr(pca._cpu_model_class, attr)
+        except AttributeError:
+            pass
+        else:
+            proxy_value = getattr(PCA, attr)
+
+            assert original_value == proxy_value

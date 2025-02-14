@@ -299,6 +299,26 @@ def intercept(
                 ),
             )
 
+    # Help make the proxy class look more like the original class
+    for attr in (
+        "__module__",
+        "__name__",
+        "__qualname__",
+        "__doc__",
+        "__annotate__",
+        "__type_params__",
+    ):
+        try:
+            value = getattr(original_class_a, attr)
+        except AttributeError:
+            pass
+        else:
+            setattr(ProxyEstimator, attr, value)
+
+    ProxyEstimator.__init__.__signature__ = inspect.signature(
+        original_class_a.__init__
+    )
+
     logger.debug(
         f"Created proxy estimator: ({module_b}, {original_class_name}, {ProxyEstimator})"
     )
