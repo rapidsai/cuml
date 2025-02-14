@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -102,7 +102,7 @@ def _build_and_save_xgboost(
     dtrain = xgb.DMatrix(X_train, label=y_train)
 
     # instantiate params
-    params = {"eval_metric": "error", "max_depth": 25}
+    params = {"eval_metric": "error", "max_depth": 25, "device": "cuda"}
 
     # learning task params
     if classification:

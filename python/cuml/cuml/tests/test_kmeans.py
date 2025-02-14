@@ -171,7 +171,11 @@ def test_weighted_kmeans(nrows, ncols, nclusters, max_weight, random_state):
     sk_kmeans.fit(cp.asnumpy(X), sample_weight=wt)
     sk_score = sk_kmeans.score(cp.asnumpy(X))
 
-    assert cu_score - sk_score <= cluster_std * 1.5
+    if cu_score < sk_score:
+        relative_tolerance = 0.1  # allow 10% difference
+        diff = abs(cu_score - sk_score)
+        avg_score = (abs(cu_score) + abs(sk_score)) / 2.0
+        assert diff / avg_score <= relative_tolerance
 
 
 @pytest.mark.parametrize("nrows", [1000, 10000])
@@ -419,5 +423,10 @@ def test_fit_transform_weighted_kmeans(
     sk_score = sk_kmeans.score(cp.asnumpy(X))
 
     # we fail if cuML's score is significantly worse than sklearn's
-    assert cu_score - sk_score <= cluster_std * 1.5
+    if cu_score < sk_score:
+        relative_tolerance = 0.1  # allow 10% difference
+        diff = abs(cu_score - sk_score)
+        avg_score = (abs(cu_score) + abs(sk_score)) / 2.0
+        assert diff / avg_score <= relative_tolerance
+
     assert sk_transf.shape == cuml_transf.shape
