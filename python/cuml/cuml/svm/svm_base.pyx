@@ -28,7 +28,7 @@ from libc.stdint cimport uintptr_t
 import cuml.internals
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.base import Base
+from cuml.internals.base import UniversalBase
 from cuml.common.exceptions import NotFittedError
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
@@ -36,8 +36,10 @@ from cuml.internals.input_utils import determine_array_type_full
 from cuml.common import using_output_type
 from cuml.internals.logger import warn
 from cuml.internals.logger cimport level_enum
-from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.array_sparse import SparseCumlArray, SparseCumlArrayInput
+from cuml.internals.mem_type import MemoryType
+from cuml.internals.available_devices import is_cuda_available
 from libcpp cimport bool
 
 
@@ -110,8 +112,9 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
                                      SvmModel[math_t] &m) except +
 
 
-class SVMBase(Base,
-              FMajorInputTagMixin):
+class SVMBase(UniversalBase,
+              FMajorInputTagMixin,
+              SparseInputTagMixin):
     """
     Base class for Support Vector Machines
 
@@ -215,12 +218,12 @@ class SVMBase(Base,
 
     """
 
-    dual_coef_ = CumlArrayDescriptor()
-    support_ = CumlArrayDescriptor()
-    support_vectors_ = CumlArrayDescriptor()
-    _intercept_ = CumlArrayDescriptor()
-    _internal_coef_ = CumlArrayDescriptor()
-    _unique_labels_ = CumlArrayDescriptor()
+    dual_coef_ = CumlArrayDescriptor(order='F')
+    support_ = CumlArrayDescriptor(order='F')
+    support_vectors_ = CumlArrayDescriptor(order='F')
+    _intercept_ = CumlArrayDescriptor(order='F')
+    _internal_coef_ = CumlArrayDescriptor(order='F')
+    _unique_labels_ = CumlArrayDescriptor(order='F')
 
     def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='auto', coef0=0.0, tol=1e-3, cache_size=1024.0,
@@ -244,7 +247,7 @@ class SVMBase(Base,
 
         # Parameter to indicate if model has been correctly fitted
         # fit_status == -1 indicates that the model is not yet fitted
-        self._fit_status_ = -1
+        self.fit_status_ = -1
 
         # Attributes (parameters of the fitted model)
         self.dual_coef_ = None
@@ -254,7 +257,7 @@ class SVMBase(Base,
         self.n_support_ = None
 
         self._c_kernel = self._get_c_kernel(kernel)
-        self._gamma_val = None  # the actual numerical value used for training
+        self._gamma = None  # the actual numerical value used for training
         self.coef_ = None  # value of the coef_ attribute, only for lin kernel
         self.dtype = None
         self._model = None  # structure of the model parameters
@@ -290,7 +293,7 @@ class SVMBase(Base,
             else:
                 raise TypeError("Unknown type for SVC class")
             try:
-                del self._fit_status_
+                del self.fit_status_
             except AttributeError:
                 pass
 
@@ -323,26 +326,26 @@ class SVMBase(Base,
         """
         if type(self.gamma) is str:
             if self.gamma == 'auto':
-                return 1 / self.n_cols
+                return 1 / self.n_features_in_
             elif self.gamma == 'scale':
                 if isinstance(X, SparseCumlArray):
                     # account for zero values
                     data_cupy = cupy.asarray(X.data).copy()
-                    num_elements = self.n_cols * self.n_rows
+                    num_elements = self.n_features_in_ * self.n_rows
                     extended_mean = data_cupy.mean()*X.nnz/num_elements
                     data_cupy = (data_cupy - extended_mean)**2
                     x_var = (data_cupy.sum() + (num_elements-X.nnz)*extended_mean*extended_mean)/num_elements
                 else:
                     x_var = cupy.asarray(X).var().item()
-                return 1 / (self.n_cols * x_var)
+                return 1 / (self.n_features_in_ * x_var)
             else:
                 raise ValueError("Not implemented gamma option: " + self.gamma)
         else:
             return self.gamma
 
     def _calc_coef(self):
-        if (self.n_support_ == 0):
-            return cupy.zeros((1, self.n_cols), dtype=self.dtype)
+        if self.n_support_ == 0:
+            return cupy.zeros((1, self.n_features_in_), dtype=self.dtype)
         with using_output_type("cupy"):
             return cupy.dot(self.dual_coef_, self.support_vectors_)
 
@@ -383,10 +386,10 @@ class SVMBase(Base,
         """ Wrap the kernel parameters in a KernelParams obtect """
         cdef KernelParams _kernel_params
         if X is not None:
-            self._gamma_val = self._calc_gamma_val(X)
+            self._gamma = self._calc_gamma_val(X)
         _kernel_params.kernel = self._c_kernel
         _kernel_params.degree = self.degree
-        _kernel_params.gamma = self._gamma_val
+        _kernel_params.gamma = self._gamma
         _kernel_params.coef0 = self.coef0
         return _kernel_params
 
@@ -414,10 +417,16 @@ class SVMBase(Base,
         if self.dual_coef_ is None:
             # the model is not fitted in this case
             return None
+
+        if isinstance(self.n_support_, int):
+            n_support = self.n_support_
+        else:
+            n_support = self.n_support_.sum()
+
         if self.dtype == np.float32:
             model_f = new SvmModel[float]()
-            model_f.n_support = self.n_support_
-            model_f.n_cols = self.n_cols
+            model_f.n_support = n_support
+            model_f.n_cols = self.n_features_in_
             model_f.b = self._intercept_.item()
             model_f.dual_coefs = \
                 <float*><size_t>self.dual_coef_.ptr
@@ -430,17 +439,18 @@ class SVMBase(Base,
                 model_f.support_matrix.data = <float*><uintptr_t>self.support_vectors_.ptr
             model_f.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
-            model_f.n_classes = self.n_classes_
-            if self.n_classes_ > 0:
-                model_f.unique_labels = \
-                    <float*><uintptr_t>self._unique_labels_.ptr
-            else:
-                model_f.unique_labels = NULL
+            if hasattr(self, 'n_classes_'):
+                model_f.n_classes = self.n_classes_
+                if self.n_classes_ > 0:
+                    model_f.unique_labels = \
+                        <float*><uintptr_t>self._unique_labels_.ptr
+                else:
+                    model_f.unique_labels = NULL
             return <uintptr_t>model_f
         else:
             model_d = new SvmModel[double]()
-            model_d.n_support = self.n_support_
-            model_d.n_cols = self.n_cols
+            model_d.n_support = n_support
+            model_d.n_cols = self.n_features_in_
             model_d.b = self._intercept_.item()
             model_d.dual_coefs = \
                 <double*><size_t>self.dual_coef_.ptr
@@ -453,12 +463,13 @@ class SVMBase(Base,
                 model_d.support_matrix.data = <double*><uintptr_t>self.support_vectors_.ptr
             model_d.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
-            model_d.n_classes = self.n_classes_
-            if self.n_classes_ > 0:
-                model_d.unique_labels = \
-                    <double*><uintptr_t>self._unique_labels_.ptr
-            else:
-                model_d.unique_labels = NULL
+            if hasattr(self, 'n_classes_'):
+                model_d.n_classes = self.n_classes_
+                if self.n_classes_ > 0:
+                    model_d.unique_labels = \
+                        <double*><uintptr_t>self._unique_labels_.ptr
+                else:
+                    model_d.unique_labels = NULL
             return <uintptr_t>model_d
 
     def _unpack_svm_model(self, b, n_support, dual_coefs, support_idx, nnz, indptr, indices, data, n_classes, unique_labels):
@@ -481,7 +492,7 @@ class SVMBase(Base,
             if nnz == -1:
                 self.support_vectors_ = CumlArray(
                     data=data,
-                    shape=(self.n_support_, self.n_cols),
+                    shape=(self.n_support_, self.n_features_in_),
                     dtype=self.dtype,
                     order='F')
             else:
@@ -503,7 +514,7 @@ class SVMBase(Base,
                     indices=indices,
                     data=data,
                     nnz=nnz,
-                    shape=(self.n_support_, self.n_cols))
+                    shape=(self.n_support_, self.n_features_in_))
                 self.support_vectors_ = SparseCumlArray(data=sparse_input)
 
         self.n_classes_ = n_classes
@@ -677,6 +688,12 @@ class SVMBase(Base,
             "epsilon",
         ]
 
+    def get_attr_names(self):
+        attr_names = ["fit_status_", "n_features_in_", "shape_fit_"]
+        if self.kernel == "linear":
+            attr_names.append("coef_")
+        return attr_names
+
     def __getstate__(self):
         state = self.__dict__.copy()
         del state['handle']
@@ -689,3 +706,68 @@ class SVMBase(Base,
         self.__dict__.update(state)
         self._model = self._get_svm_model()
         self._freeSvmBuffers = False
+
+    def gpu_to_cpu(self):
+        super().gpu_to_cpu()
+
+        intercept_ = self._intercept_.to_output('numpy')
+        dual_coef_ = self.dual_coef_.to_output('numpy')
+        support_= self.support_.to_output('numpy')
+        support_vectors_ = self.support_vectors_.to_output('numpy')
+
+        if hasattr(self, 'n_classes_') and self.n_classes_ == 2:
+            intercept_ = -1.0 * intercept_
+            dual_coef_ = -1.0 * dual_coef_
+
+        self._cpu_model._n_support = np.array([self.n_support_, 0], dtype=np.int32)
+        self._cpu_model._intercept_ = np.ascontiguousarray(intercept_, dtype=np.float64)
+        self._cpu_model._dual_coef_ = np.ascontiguousarray(dual_coef_, dtype=np.float64)
+        self._cpu_model.support_ = np.ascontiguousarray(support_, dtype=np.int32)
+        self._cpu_model.support_vectors_ = np.ascontiguousarray(support_vectors_, dtype=np.float64)
+
+        self._cpu_model._probA = np.empty(0, dtype=np.float64)
+        self._cpu_model._probB = np.empty(0, dtype=np.float64)
+        self._cpu_model._gamma = self._gamma
+
+    def cpu_to_gpu(self):
+        super().cpu_to_gpu()
+
+        self.n_support_ = self._cpu_model.n_support_
+
+        intercept_ = self._cpu_model._intercept_
+        dual_coef_ = self._cpu_model._dual_coef_
+
+        if hasattr(self, 'n_classes_') and self.n_classes_ == 2:
+            intercept_ = -1.0 * intercept_
+            dual_coef_ = -1.0 * dual_coef_
+
+        self._intercept_ = input_to_cuml_array(
+            intercept_,
+            convert_to_mem_type=(MemoryType.host,
+                                 MemoryType.device)[is_cuda_available()],
+            convert_to_dtype=np.float64,
+            order='F')[0]
+        self.dual_coef_ = input_to_cuml_array(
+            dual_coef_,
+            convert_to_mem_type=(MemoryType.host,
+                                 MemoryType.device)[is_cuda_available()],
+            convert_to_dtype=np.float64,
+            order='F')[0]
+        self.support_ = input_to_cuml_array(
+            self._cpu_model.support_,
+            convert_to_mem_type=(MemoryType.host,
+                                 MemoryType.device)[is_cuda_available()],
+            convert_to_dtype=np.int32,
+            order='F')[0]
+        self.support_vectors_ = input_to_cuml_array(
+            self._cpu_model.support_vectors_,
+            convert_to_mem_type=(MemoryType.host,
+                                 MemoryType.device)[is_cuda_available()],
+            convert_to_dtype=np.float64,
+            order='F')[0]
+
+        self._probA = np.empty(0, dtype=np.float64)
+        self._probB = np.empty(0, dtype=np.float64)
+        self._gamma = self._cpu_model._gamma
+
+        self._model = self._get_svm_model()

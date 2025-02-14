@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -113,21 +113,6 @@ class MulticlassClassifier(Base, ClassifierMixin):
         self.strategy = strategy
         self.estimator = estimator
 
-    @property
-    @cuml.internals.api_base_return_array_skipall
-    def classes_(self):
-        return self.multiclass_estimator.classes_
-
-    @property
-    @cuml.internals.api_base_return_any_skipall
-    def n_classes_(self):
-        return self.multiclass_estimator.n_classes_
-
-    @generate_docstring(y="dense_anydtype")
-    def fit(self, X, y) -> "MulticlassClassifier":
-        """
-        Fit a multiclass classifier.
-        """
         if not has_sklearn():
             raise ImportError(
                 "Scikit-learn is needed to use "
@@ -151,6 +136,16 @@ class MulticlassClassifier(Base, ClassifierMixin):
                 '{"ovr", "ovo"}'
             )
 
+    @property
+    @cuml.internals.api_base_return_array_skipall
+    def classes_(self):
+        return self.multiclass_estimator.classes_
+
+    @generate_docstring(y="dense_anydtype")
+    def fit(self, X, y) -> "MulticlassClassifier":
+        """
+        Fit a multiclass classifier.
+        """
         X = input_to_host_array_with_sparse_support(X)
 
         y = input_to_host_array(y).array

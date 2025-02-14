@@ -419,6 +419,8 @@ Support Vector Machines
 .. autoclass:: cuml.svm.SVR
     :members:
 
+.. autoclass:: cuml.svm.SVC
+
 .. autoclass:: cuml.svm.LinearSVC
     :members:
 
