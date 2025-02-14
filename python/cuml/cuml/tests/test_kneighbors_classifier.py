@@ -218,8 +218,6 @@ def test_predict_large_n_classes(datatype):
     assert array_equal(y_hat.astype(np.int32), y_test.astype(np.int32))
 
 
-# Ignore FutureWarning: Using `__dataframe__` is deprecated
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize("n_samples", [100])
 @pytest.mark.parametrize("n_features", [40])
 @pytest.mark.parametrize("n_neighbors", [4])
