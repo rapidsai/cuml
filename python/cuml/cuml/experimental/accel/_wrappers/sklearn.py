@@ -133,13 +133,13 @@ KNeighborsRegressor = intercept(
 ###############################################################################
 
 
-NearestNeighbors = intercept(
+RandomForestRegressor = intercept(
     original_module="sklearn.ensemble",
     accelerated_module="cuml.ensemble",
     original_class_name="RandomForestRegressor",
 )
 
-KNeighborsClassifier = intercept(
+RandomForestClassifier = intercept(
     original_module="sklearn.ensemble",
     accelerated_module="cuml.ensemble",
     original_class_name="RandomForestClassifier",
