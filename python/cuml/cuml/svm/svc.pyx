@@ -817,7 +817,7 @@ class SVC(SVMBase,
     @classmethod
     def _get_param_names(cls):
         params = super()._get_param_names() + \
-            ["probability", "random_state", "class_weight", "decision_function_shape"]
+            ["probability", "random_state", "class_weight", "decision_function_shape", "multiclass_strategy"]
 
         # Ignore "epsilon" since its not used in the constructor
         if ("epsilon" in params):
