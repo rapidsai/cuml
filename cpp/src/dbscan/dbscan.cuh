@@ -108,7 +108,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
                    size_t max_mbytes_per_batch,
                    EpsNnMethod eps_nn_method,
                    cudaStream_t stream,
-                   level_enum verbosity)
+                   rapids_logger::level_enum verbosity)
 {
   raft::common::nvtx::range fun_scope("ML::Dbscan::Fit");
   ML::default_logger().set_level(verbosity);

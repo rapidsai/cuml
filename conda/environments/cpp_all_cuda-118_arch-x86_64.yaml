@@ -12,7 +12,6 @@ dependencies:
 - cuda-version=11.8
 - cudatoolkit
 - cxx-compiler
-- fmt>=11.0.2,<12
 - gcc_linux-64=11.*
 - libcublas-dev=11.11.3.6
 - libcublas=11.11.3.6
@@ -30,6 +29,5 @@ dependencies:
 - librmm==25.4.*,>=0.0.0a0
 - ninja
 - nvcc_linux-64=11.8
-- spdlog>=1.14.1,<1.15
 - sysroot_linux-64==2.28
 name: cpp_all_cuda-118_arch-x86_64

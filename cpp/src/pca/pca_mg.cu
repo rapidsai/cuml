@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ void fit_impl(raft::handle_t& handle,
   Stats::opg::cov(handle, cov, input_data, input_desc, mu_data, true, streams, n_streams);
 
   ML::truncCompExpVars<T, mg_solver>(
-    handle, cov.ptr, components, explained_var, explained_var_ratio, prms, streams[0]);
+    handle, cov.ptr, components, explained_var, explained_var_ratio, noise_vars, prms, streams[0]);
 
   T scalar = (prms.n_rows - 1);
   raft::matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components, streams[0], true);
@@ -128,9 +128,6 @@ void fit_impl(raft::handle_t& handle,
              streams,
              n_streams,
              verbose);
-    for (std::uint32_t i = 0; i < n_streams; i++) {
-      handle.sync_stream(streams[i]);
-    }
   } else if (prms.algorithm == mg_solver::QR) {
     const raft::handle_t& h = handle;
     cudaStream_t stream     = h.get_stream();
@@ -193,6 +190,20 @@ void fit_impl(raft::handle_t& handle,
                                   prms.n_components,
                                   std::size_t(1),
                                   stream);
+
+    // Compute the scalar noise_vars defined as (pseudocode)
+    // (n_components < min(n_cols, n_rows)) ? explained_var_all[n_components:].mean() : 0
+    if (prms.n_components < prms.n_cols && prms.n_components < prms.n_rows) {
+      raft::stats::mean(noise_vars,
+                        explained_var_all.data() + prms.n_components,
+                        std::size_t{1},
+                        prms.n_cols - prms.n_components,
+                        false,
+                        true,
+                        stream);
+    } else {
+      raft::matrix::setValue(noise_vars, noise_vars, T{0}, 1, stream);
+    }
 
     raft::linalg::transpose(vMatrix.data(), prms.n_cols, stream);
     raft::matrix::truncZeroOrigin(

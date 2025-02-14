@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,7 +50,6 @@ if(BUILD_CUML_BENCH)
       benchmark::benchmark
       ${TREELITE_LIBS}
       raft::raft
-      rmm::rmm_logger_impl
   )
 
   target_include_directories(${CUML_CPP_BENCH_TARGET}

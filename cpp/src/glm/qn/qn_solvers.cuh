@@ -148,7 +148,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T>& param,
                              int* k,                   // output iterations
                              SimpleVec<T>& workspace,  // scratch space
                              cudaStream_t stream,
-                             level_enum verbosity = 0)
+                             rapids_logger::level_enum verbosity = 0)
 {
   int n                    = x.len;
   const int workspace_size = lbfgs_workspace_size(param, n);
@@ -278,7 +278,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T>& param,
                              int* k,
                              SimpleVec<T>& workspace,  // scratch space
                              cudaStream_t stream,
-                             const level_enum verbosity = 0)
+                             const rapids_logger::level_enum verbosity = 0)
 {
   int n                    = x.len;
   const int workspace_size = owlqn_workspace_size(param, n);
@@ -419,7 +419,7 @@ inline int qn_minimize(const raft::handle_t& handle,
                        LossFunction& loss,
                        const T l1,
                        const LBFGSParam<T>& opt_param,
-                       const level_enum verbosity = 0)
+                       const rapids_logger::level_enum verbosity = 0)
 {
   // TODO should the worksapce allocation happen outside?
   cudaStream_t stream = handle.get_stream();

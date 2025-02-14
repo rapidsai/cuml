@@ -43,7 +43,7 @@ typedef enum cumlSvmKernelType { LINEAR, POLYNOMIAL, RBF, TANH } cumlSvmKernelTy
  * @param [in] tol tolerance to stop fitting
  * @param [in] verbosity Fine grained control over logging of useful information
  *   as algorithm executes. Currently passing anything greater than or equal to
- *   ML::level_enum::info will make it execute quietly
+ *   rapids_logger::level_enum::info will make it execute quietly
  * @param [in] kernel type of kernel (LINEAR, POLYNOMIAL, RBF or TANH)
  * @param [in] degree of polynomial kernel (ignored by others)
  * @param [in] gamma multiplier in the RBF, POLYNOMIAL and TANH kernels

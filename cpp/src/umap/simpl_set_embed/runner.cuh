@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ namespace SimplSetEmbed {
 
 using namespace ML;
 
-template <int TPB_X, typename T>
+template <typename T, typename nnz_t, int TPB_X>
 void run(int m,
          int n,
          raft::sparse::COO<T>* coo,
@@ -38,7 +38,7 @@ void run(int m,
          int algorithm = 0)
 {
   switch (algorithm) {
-    case 0: SimplSetEmbed::Algo::launcher<TPB_X, T>(m, n, coo, params, embedding, stream);
+    case 0: SimplSetEmbed::Algo::launcher<T, nnz_t, TPB_X>(m, n, coo, params, embedding, stream);
   }
 }
 }  // namespace SimplSetEmbed
