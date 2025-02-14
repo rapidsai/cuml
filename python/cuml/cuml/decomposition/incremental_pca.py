@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,11 @@ import cuml.internals
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.common import input_to_cuml_array
 from cuml import Base
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.safe_imports import cpu_only_import
 import numbers
 
@@ -195,6 +200,10 @@ class IncrementalPCA(PCA):
         0.0037122774558343763
     """
 
+    _cpu_estimator_import_path = "sklearn.decomposition.IncrementalPCA"
+    _hyperparam_interop_translator = {}
+
+    @device_interop_preparation
     def __init__(
         self,
         *,
@@ -218,6 +227,7 @@ class IncrementalPCA(PCA):
         self.batch_size = batch_size
         self._sparse_model = True
 
+    @enable_device_interop
     def fit(self, X, y=None, convert_dtype=True) -> "IncrementalPCA":
         """
         Fit the model with X, using minibatches of size batch_size.
@@ -255,10 +265,10 @@ class IncrementalPCA(PCA):
                 check_dtype=[cp.float32, cp.float64],
             )
 
-        n_samples, n_features = X.shape
+        n_samples, self.n_features_in_ = X.shape
 
         if self.batch_size is None:
-            self.batch_size_ = 5 * n_features
+            self.batch_size_ = 5 * self.n_features_in_
         else:
             self.batch_size_ = self.batch_size
 
@@ -305,25 +315,30 @@ class IncrementalPCA(PCA):
 
             self._set_output_type(X)
 
-            X, n_samples, n_features, self.dtype = input_to_cupy_array(
+            (
+                X,
+                n_samples,
+                self.n_features_in_,
+                self.dtype,
+            ) = input_to_cupy_array(
                 X, order="K", check_dtype=[cp.float32, cp.float64]
             )
         else:
-            n_samples, n_features = X.shape
+            n_samples, self.n_features_in_ = X.shape
 
         if not hasattr(self, "components_"):
             self.components_ = None
 
         if self.n_components is None:
             if self.components_ is None:
-                self.n_components_ = min(n_samples, n_features)
+                self.n_components_ = min(n_samples, self.n_features_in_)
             else:
                 self.n_components_ = self.components_.shape[0]
-        elif not 1 <= self.n_components <= n_features:
+        elif not 1 <= self.n_components <= self.n_features_in_:
             raise ValueError(
                 "n_components=%r invalid for n_features=%d, need "
                 "more rows than columns for IncrementalPCA "
-                "processing" % (self.n_components, n_features)
+                "processing" % (self.n_components, self.n_features_in_)
             )
         elif not self.n_components <= n_samples:
             raise ValueError(
@@ -394,7 +409,7 @@ class IncrementalPCA(PCA):
         self.explained_variance_ratio_ = explained_variance_ratio[
             : self.n_components_
         ]
-        if self.n_components_ < n_features:
+        if self.n_components_ < self.n_features_in_:
             self.noise_variance_ = explained_variance[
                 self.n_components_ :
             ].mean()
@@ -403,6 +418,7 @@ class IncrementalPCA(PCA):
 
         return self
 
+    @enable_device_interop
     def transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Apply dimensionality reduction to X.
@@ -678,16 +694,17 @@ def _svd_flip(u, v, u_based_decision=True):
     u_adjusted, v_adjusted : arrays with the same dimensions as the input.
 
     """
+    xpy = GlobalSettings().xpy
     if u_based_decision:
         # columns of u, rows of v
-        max_abs_cols = cp.argmax(cp.abs(u), axis=0)
-        signs = cp.sign(u[max_abs_cols, list(range(u.shape[1]))])
+        max_abs_cols = xpy.argmax(xpy.abs(u), axis=0)
+        signs = xpy.sign(u[max_abs_cols, list(range(u.shape[1]))])
         u *= signs
-        v *= signs[:, cp.newaxis]
+        v *= signs[:, xpy.newaxis]
     else:
         # rows of v, columns of u
-        max_abs_rows = cp.argmax(cp.abs(v), axis=1)
-        signs = cp.sign(v[list(range(v.shape[0])), max_abs_rows])
+        max_abs_rows = xpy.argmax(xpy.abs(v), axis=1)
+        signs = xpy.sign(v[list(range(v.shape[0])), max_abs_rows])
         u *= signs
-        v *= signs[:, cp.newaxis]
+        v *= signs[:, xpy.newaxis]
     return u, v
