@@ -66,6 +66,8 @@ files:
       - cuda_version
       - docs
       - py_version
+      - depends_on_cuml
+      - depends_on_libcuml
   test_cpp:
     output: none
     includes:
