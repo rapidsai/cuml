@@ -288,7 +288,7 @@ def test_rand_index_score(name, nrows):
     params = default_base.copy()
     params.update(pat[1])
 
-    cuml_kmeans = cuml.KMeans(n_clusters=params["n_clusters"])
+    cuml_kmeans = cuml.KMeans(n_clusters=params["n_clusters"], n_init="auto")
 
     X, y = pat[0]
 
