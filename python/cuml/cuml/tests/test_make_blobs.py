@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
 
 import cuml
 import pytest
+from cuml import global_settings
+from cuml.common.device_selection import using_device_type
 from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
 
 # Testing parameters for scalar parameter tests
 
@@ -55,6 +55,7 @@ random_state = [None, 9]
 @pytest.mark.parametrize("shuffle", shuffle)
 @pytest.mark.parametrize("random_state", random_state)
 @pytest.mark.parametrize("order", ["F", "C"])
+@pytest.mark.parametrize("device", ["gpu", "cpu"])
 def test_make_blobs_scalar_parameters(
     dtype,
     n_samples,
@@ -65,31 +66,36 @@ def test_make_blobs_scalar_parameters(
     shuffle,
     random_state,
     order,
+    device,
 ):
 
-    out, labels = cuml.make_blobs(
-        dtype=dtype,
-        n_samples=n_samples,
-        n_features=n_features,
-        centers=centers,
-        cluster_std=0.001,
-        center_box=center_box,
-        shuffle=shuffle,
-        random_state=random_state,
-        order=order,
-    )
+    with using_device_type(device):
 
-    assert out.shape == (n_samples, n_features), "out shape mismatch"
-    assert labels.shape == (n_samples,), "labels shape mismatch"
+        out, labels = cuml.make_blobs(
+            dtype=dtype,
+            n_samples=n_samples,
+            n_features=n_features,
+            centers=centers,
+            cluster_std=0.001,
+            center_box=center_box,
+            shuffle=shuffle,
+            random_state=random_state,
+            order=order,
+        )
 
-    if order == "F":
-        assert out.flags["F_CONTIGUOUS"]
-    elif order == "C":
-        assert out.flags["C_CONTIGUOUS"]
+        assert out.shape == (n_samples, n_features), "out shape mismatch"
+        assert labels.shape == (n_samples,), "labels shape mismatch"
 
-    if centers is None:
-        assert cp.unique(labels).shape == (3,), "unexpected number of clusters"
-    elif centers <= n_samples:
-        assert cp.unique(labels).shape == (
-            centers,
-        ), "unexpected number of clusters"
+        if order == "F":
+            assert out.flags["F_CONTIGUOUS"]
+        elif order == "C":
+            assert out.flags["C_CONTIGUOUS"]
+
+        if centers is None:
+            assert global_settings.xpy.unique(labels).shape == (
+                3,
+            ), "unexpected number of clusters"
+        elif centers <= n_samples:
+            assert global_settings.xpy.unique(labels).shape == (
+                centers,
+            ), "unexpected number of clusters"
