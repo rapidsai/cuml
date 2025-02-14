@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -126,4 +126,21 @@ KNeighborsRegressor = intercept(
     original_module="sklearn.neighbors",
     accelerated_module="cuml.neighbors",
     original_class_name="KNeighborsRegressor",
+)
+
+###############################################################################
+#                              Ensemble  Estimators                           #
+###############################################################################
+
+
+NearestNeighbors = intercept(
+    original_module="sklearn.ensemble",
+    accelerated_module="cuml.ensemble",
+    original_class_name="RandomForestRegressor",
+)
+
+KNeighborsClassifier = intercept(
+    original_module="sklearn.ensemble",
+    accelerated_module="cuml.ensemble",
+    original_class_name="RandomForestClassifier",
 )
