@@ -280,11 +280,15 @@ class PCA(UniversalBase,
     _hyperparam_interop_translator = {
         "svd_solver": {
             "arpack": "full",
-            "randomized": "full"
+            "randomized": "full",
+            "covariance_eigh": "full"
         },
         "iterated_power": {
             "auto": 15,
         },
+        "n_components": {
+            "mle": "NotImplemented"
+        }
     }
 
     @device_interop_preparation

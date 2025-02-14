@@ -36,7 +36,7 @@ def pca_data():
     return X, y
 
 
-@pytest.mark.parametrize("n_components", [2, 5, 8, 10])
+@pytest.mark.parametrize("n_components", [2, 5, "mle"])
 def test_pca_n_components(pca_data, n_components):
     X, _ = pca_data
     pca = PCA(n_components=n_components).fit(X)
@@ -56,7 +56,7 @@ def test_pca_n_components(pca_data, n_components):
 
 
 @pytest.mark.parametrize(
-    "svd_solver", ["auto", "full", "arpack", "randomized"]
+    "svd_solver", ["auto", "full", "arpack", "randomized", "covariance_eigh"]
 )
 def test_pca_svd_solver(pca_data, svd_solver):
     X, _ = pca_data
