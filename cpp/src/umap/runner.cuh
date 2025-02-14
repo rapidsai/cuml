@@ -100,54 +100,52 @@ void _get_graph(const raft::handle_t& handle,
   raft::common::nvtx::range fun_scope("umap::supervised::_get_graph");
   cudaStream_t stream = handle.get_stream();
 
-  int k = params->n_neighbors;
+  int n_neighbors       = params->n_neighbors;
+  nnz_t n_x_n_neighbors = static_cast<nnz_t>(inputs.n) * n_neighbors;
 
   ML::default_logger().set_level(params->verbosity);
 
-  CUML_LOG_DEBUG("n_neighbors=%d", params->n_neighbors);
+  raft::sparse::COO<value_t> fss_graph(stream);
+  {
+    raft::sparse::COO<value_t> strengths(stream, n_x_n_neighbors, inputs.n, inputs.n);
+    {
+      std::unique_ptr<rmm::device_uvector<value_idx>> knn_indices_b = nullptr;
+      std::unique_ptr<rmm::device_uvector<value_t>> knn_dists_b     = nullptr;
+      knn_graph<value_idx, value_t> knn_graph(inputs.n, n_neighbors);
+      /* If not given precomputed knn graph, compute it */
+      if (inputs.alloc_knn_graph()) {
+        /* Allocate workspace for kNN graph */
+        knn_indices_b = std::make_unique<rmm::device_uvector<value_idx>>(n_x_n_neighbors, stream);
+        knn_dists_b   = std::make_unique<rmm::device_uvector<value_t>>(n_x_n_neighbors, stream);
+        knn_graph.knn_indices = knn_indices_b->data();
+        knn_graph.knn_dists   = knn_dists_b->data();
+      }
 
-  raft::common::nvtx::push_range("umap::knnGraph");
-  std::unique_ptr<rmm::device_uvector<value_idx>> knn_indices_b = nullptr;
-  std::unique_ptr<rmm::device_uvector<value_t>> knn_dists_b     = nullptr;
+      CUML_LOG_DEBUG("Computing KNN Graph");
+      raft::common::nvtx::push_range("umap::knnGraph");
+      kNNGraph::run<value_idx, value_t, umap_inputs>(
+        handle, inputs, inputs, knn_graph, n_neighbors, params, stream);
+      raft::common::nvtx::pop_range();
 
-  knn_graph<value_idx, value_t> knn_graph(inputs.n, k);
-
-  /**
-   * If not given precomputed knn graph, compute it
-   */
-  if (inputs.alloc_knn_graph()) {
-    /**
-     * Allocate workspace for kNN graph
-     */
-    knn_indices_b =
-      std::make_unique<rmm::device_uvector<value_idx>>(static_cast<nnz_t>(inputs.n) * k, stream);
-    knn_dists_b =
-      std::make_unique<rmm::device_uvector<value_t>>(static_cast<nnz_t>(inputs.n) * k, stream);
-
-    knn_graph.knn_indices = knn_indices_b->data();
-    knn_graph.knn_dists   = knn_dists_b->data();
+      CUML_LOG_DEBUG("Computing fuzzy simplicial set");
+      raft::common::nvtx::push_range("umap::simplicial_set");
+      FuzzySimplSetImpl::compute_membership_strength<value_t, value_idx, nnz_t, TPB_X>(
+        inputs.n,
+        knn_graph.knn_indices,
+        knn_graph.knn_dists,
+        n_neighbors,
+        &strengths,
+        params,
+        stream);
+    }
+    FuzzySimplSetImpl::symmetrize<value_t>(
+      &strengths, &fss_graph, params->set_op_mix_ratio, stream);
+    raft::common::nvtx::pop_range();
   }
 
-  CUML_LOG_DEBUG("Calling knn graph run");
-
-  kNNGraph::run<value_idx, value_t, umap_inputs>(
-    handle, inputs, inputs, knn_graph, k, params, stream);
-  raft::common::nvtx::pop_range();
-
-  CUML_LOG_DEBUG("Done. Calling fuzzy simplicial set");
-
-  raft::common::nvtx::push_range("umap::simplicial_set");
-  raft::sparse::COO<value_t> fss_graph(stream);
-  FuzzySimplSet::run<value_t, value_idx, nnz_t, TPB_X>(
-    inputs.n, knn_graph.knn_indices, knn_graph.knn_dists, k, &fss_graph, params, stream);
-
-  CUML_LOG_DEBUG("Done. Calling remove zeros");
-
-  /**
-   * Remove zeros from simplicial set
-   */
+  /* Canonicalize output graph */
+  raft::sparse::op::coo_sort<value_t>(&fss_graph, stream);
   raft::sparse::op::coo_remove_zeros<value_t>(&fss_graph, graph, stream);
-  raft::common::nvtx::pop_range();
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
@@ -156,91 +154,29 @@ void _get_graph_supervised(const raft::handle_t& handle,
                            UMAPParams* params,
                            raft::sparse::COO<value_t, int>* graph)
 {
-  raft::common::nvtx::range fun_scope("umap::supervised::_get_graph_supervised");
-  cudaStream_t stream = handle.get_stream();
-
-  int k = params->n_neighbors;
-
-  ML::default_logger().set_level(params->verbosity);
-
   if (params->target_n_neighbors == -1) params->target_n_neighbors = params->n_neighbors;
 
-  raft::common::nvtx::push_range("umap::knnGraph");
-  std::unique_ptr<rmm::device_uvector<value_idx>> knn_indices_b = nullptr;
-  std::unique_ptr<rmm::device_uvector<value_t>> knn_dists_b     = nullptr;
-
-  knn_graph<value_idx, value_t> knn_graph(inputs.n, k);
-
-  /**
-   * If not given precomputed knn graph, compute it
-   */
-  if (inputs.alloc_knn_graph()) {
-    /**
-     * Allocate workspace for kNN graph
-     */
-    knn_indices_b =
-      std::make_unique<rmm::device_uvector<value_idx>>(static_cast<nnz_t>(inputs.n) * k, stream);
-    knn_dists_b =
-      std::make_unique<rmm::device_uvector<value_t>>(static_cast<nnz_t>(inputs.n) * k, stream);
-
-    knn_graph.knn_indices = knn_indices_b->data();
-    knn_graph.knn_dists   = knn_dists_b->data();
-  }
-
-  kNNGraph::run<value_idx, value_t, umap_inputs>(
-    handle, inputs, inputs, knn_graph, k, params, stream);
-
-  raft::common::nvtx::pop_range();
-
-  /**
-   * Allocate workspace for fuzzy simplicial set.
-   */
-  raft::common::nvtx::push_range("umap::simplicial_set");
-
-  raft::sparse::COO<value_t> fss_graph(stream);
-  {
-    raft::sparse::COO<value_t> fss_graph_tmp(stream);
-    /**
-     * Run Fuzzy simplicial set
-     */
-    // int nnz = n*k*2;
-    FuzzySimplSet::run<value_t, value_idx, nnz_t, TPB_X>(inputs.n,
-                                                         knn_graph.knn_indices,
-                                                         knn_graph.knn_dists,
-                                                         params->n_neighbors,
-                                                         &fss_graph_tmp,
-                                                         params,
-                                                         stream);
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
-
-    raft::sparse::op::coo_remove_zeros<value_t>(&fss_graph_tmp, &fss_graph, stream);
-  }
+  cudaStream_t stream = handle.get_stream();
 
   raft::sparse::COO<value_t> ci_graph(stream);
-  /**
-   * If target metric is 'categorical', perform
-   * categorical simplicial set intersection.
-   */
-  if (params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
-    CUML_LOG_DEBUG("Performing categorical intersection");
-    Supervised::perform_categorical_intersection<value_t, nnz_t, TPB_X>(
-      inputs.y, &fss_graph, &ci_graph, params, stream);
+  {
+    raft::sparse::COO<value_t> fss_graph(stream);
+    _get_graph<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(handle, inputs, params, &fss_graph);
 
-    /**
-     * Otherwise, perform general simplicial set intersection
-     */
-  } else {
-    CUML_LOG_DEBUG("Performing general intersection");
-    Supervised::perform_general_intersection<value_idx, value_t, nnz_t, TPB_X>(
-      handle, inputs.y, &fss_graph, &ci_graph, params, stream);
+    if (params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
+      CUML_LOG_DEBUG("Performing categorical intersection");
+      Supervised::perform_categorical_intersection<value_t, nnz_t, TPB_X>(
+        inputs.y, &fss_graph, &ci_graph, params, stream);
+    } else {
+      CUML_LOG_DEBUG("Performing general intersection");
+      Supervised::perform_general_intersection<value_idx, value_t, nnz_t, TPB_X>(
+        handle, inputs.y, &fss_graph, &ci_graph, params, stream);
+    }
   }
 
-  /**
-   * Remove zeros
-   */
+  /* Canonicalize output graph */
   raft::sparse::op::coo_sort<value_t>(&ci_graph, stream);
   raft::sparse::op::coo_remove_zeros<value_t>(&ci_graph, graph, stream);
-  raft::common::nvtx::pop_range();
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
