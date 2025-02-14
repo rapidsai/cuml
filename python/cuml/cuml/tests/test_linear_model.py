@@ -728,8 +728,6 @@ def test_logistic_regression_decision_function(
     sklog.classes_ = np.arange(num_classes)
 
     cu_dec_func = culog.decision_function(X_test)
-    if cu_dec_func.shape[0] > 2:  # num_classes
-        cu_dec_func = cu_dec_func.T
     sk_dec_func = sklog.decision_function(X_test)
 
     assert array_equal(cu_dec_func, sk_dec_func)

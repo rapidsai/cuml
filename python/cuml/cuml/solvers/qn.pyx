@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -662,7 +662,9 @@ class QN(Base,
         Returns
         ----------
         y: array-like (device)
-            Dense matrix (floats or doubles) of shape (n_samples, n_classes)
+            Dense matrix (floats or doubles) of shape (n_samples,), or
+            (n_samples, n_classes) if more than 2 classes.
+
         """
         coefs = self.coef_
         dtype = coefs.dtype
@@ -776,7 +778,7 @@ class QN(Base,
 
         del X_m
 
-        return scores
+        return scores.to_output("array").T
 
     @generate_docstring(
         X='dense_sparse',
