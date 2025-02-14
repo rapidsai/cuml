@@ -320,8 +320,8 @@ class DBSCAN(UniversalBase,
 
             # metric
             metric_parsing = {
-                "L2": DistanceType.L2SqrtUnexpanded,
-                "euclidean": DistanceType.L2SqrtUnexpanded,
+                "L2": DistanceType.L2SqrtExpanded,
+                "euclidean": DistanceType.L2SqrtExpanded,
                 "cosine": DistanceType.CosineExpanded,
                 "precomputed": DistanceType.Precomputed
             }
