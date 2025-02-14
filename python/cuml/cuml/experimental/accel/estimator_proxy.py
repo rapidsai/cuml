@@ -208,14 +208,29 @@ def intercept(
             self._cpu_model_class = (
                 original_class_a  # Store a reference to the original class
             )
+            signature = inspect.signature(self._cpu_model_class.__init__)
+
+            # Keep the original passed hyperparameters so that we know what
+            # to use in get_params, and also can do later conversions if we
+            # need.
+            self._cpu_hyperparams_dict = {
+                name: param.default
+                for name, param in signature.parameters.items()
+                if name != "self"
+            }
+            self._cpu_hyperparams_dict.update(kwargs)
+
             kwargs, self._gpuaccel = self._hyperparam_translator(**kwargs)
             super().__init__(*args, **kwargs)
 
-            self._cpu_hyperparams = list(
-                inspect.signature(
-                    self._cpu_model_class.__init__
-                ).parameters.keys()
-            )
+            # _cpu_hyperparams is expected to be a list in the UniversalBase
+            # methods.
+            self._cpu_hyperparams = list(self._cpu_hyperparams_dict.keys())
+
+            # Importing and building the model here ensures a more uniform
+            # behavior of when do we import CPU classes.
+            self.import_cpu_model()
+            self.build_cpu_model()
 
         def __repr__(self):
             """
@@ -227,7 +242,10 @@ def intercept(
                 A string representation indicating that this is a wrapped
                  version of the original CPU-based estimator.
             """
-            return f"wrapped {self._cpu_model_class}"
+            self.import_cpu_model()
+            self.build_cpu_model()
+            self.gpu_to_cpu()
+            return self._cpu_model.__repr__()
 
         def __str__(self):
             """
@@ -239,7 +257,10 @@ def intercept(
                 A string representation indicating that this is a wrapped
                  version of the original CPU-based estimator.
             """
-            return f"ProxyEstimator of {self._cpu_model_class}"
+            self.import_cpu_model()
+            self.build_cpu_model()
+            self.gpu_to_cpu()
+            return self._cpu_model.__str__()
 
         def __getstate__(self):
             """
