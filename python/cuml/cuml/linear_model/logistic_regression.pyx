@@ -22,16 +22,17 @@ from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
 import pprint
 
-import cuml.internals
 from cuml.solvers import QN
 from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin, SparseInputTagMixin
-from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
+from cuml.common import set_output_type
+from cuml.common import convert_cuml_arrays
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 cp = gpu_only_import('cupy')
@@ -186,8 +187,7 @@ class LogisticRegression(UniversalBase,
     """
 
     _cpu_estimator_import_path = 'sklearn.linear_model.LogisticRegression'
-    classes_ = CumlArrayDescriptor(order='F')
-    class_weight = CumlArrayDescriptor(order='F')
+    classes_ = CumlArrayDescriptor(order='F', dtype="<i4")
     expl_spec_weights_ = CumlArrayDescriptor(order='F')
 
     _hyperparam_interop_translator = {
@@ -286,8 +286,8 @@ class LogisticRegression(UniversalBase,
             self.verb_prefix = ""
 
     @generate_docstring(X='dense_sparse')
-    @cuml.internals.api_base_return_any(set_output_dtype=True)
     @enable_device_interop
+    @set_output_type("X")
     def fit(self, X, y, sample_weight=None,
             convert_dtype=True) -> "LogisticRegression":
         """
@@ -302,11 +302,11 @@ class LogisticRegression(UniversalBase,
         # since calling input_to_cuml_array again in QN has no cost
         # Not needed to check dtype since qn class checks it already
         y_m, n_rows, _, _ = input_to_cuml_array(y)
-        self.classes_ = cp.unique(y_m)
+        self.classes_ = cp.asarray(cp.unique(y_m), dtype="<i4")
         self._num_classes = len(self.classes_)
 
         if self._num_classes == 2:
-            if self.classes_[0] != 0 or self.classes_[1] != 1:
+            if not (self.classes_.to_device_array() == cp.array((0, 1))).all():
                 raise ValueError("Only values of 0 and 1 are"
                                  " supported for binary classification.")
 
@@ -322,12 +322,12 @@ class LogisticRegression(UniversalBase,
                                                           n_rows))
 
             def check_expl_spec_weights():
-                with cuml.using_output_type("numpy"):
-                    for c in self.expl_spec_weights_:
-                        i = np.searchsorted(self.classes_, c)
-                        if i >= self._num_classes or self.classes_[i] != c:
-                            msg = "Class label {} not present.".format(c)
-                            raise ValueError(msg)
+                np_classes = self.classes_.to_host_array()
+                for c in self.expl_spec_weights_.to_host_array():
+                    i = np.searchsorted(np_classes, c)
+                    if i >= self._num_classes or np_classes[i] != c:
+                        msg = "Class label {} not present.".format(c)
+                        raise ValueError(msg)
 
             if self.class_weight is not None:
                 if self.class_weight == 'balanced':
@@ -390,6 +390,7 @@ class LogisticRegression(UniversalBase,
                                        'description': 'Confidence score',
                                        'shape': '(n_samples, n_classes)'})
     @enable_device_interop
+    @convert_cuml_arrays()
     def decision_function(self, X, convert_dtype=True) -> CumlArray:
         """
         Gives confidence score for X
@@ -405,8 +406,8 @@ class LogisticRegression(UniversalBase,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    @cuml.internals.api_base_return_array(get_output_dtype=True)
     @enable_device_interop
+    @convert_cuml_arrays()
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
@@ -421,15 +422,16 @@ class LogisticRegression(UniversalBase,
                                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
     @enable_device_interop
+    @convert_cuml_arrays()
     def predict_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the class probabilities for each class in X
         """
-        return self._predict_proba_impl(
+        return CumlArray(self._predict_proba_impl(
             X,
             convert_dtype=convert_dtype,
             log_proba=False
-        )
+        ))
 
     @generate_docstring(X='dense_sparse',
                         return_values={'name': 'preds',
@@ -438,16 +440,17 @@ class LogisticRegression(UniversalBase,
                                                        class probabilities',
                                        'shape': '(n_samples, n_classes)'})
     @enable_device_interop
+    @convert_cuml_arrays()
     def predict_log_proba(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the log class probabilities for each class in X
 
         """
-        return self._predict_proba_impl(
+        return CumlArray(self._predict_proba_impl(
             X,
             convert_dtype=convert_dtype,
             log_proba=True
-        )
+        ))
 
     def _predict_proba_impl(self,
                             X,
@@ -529,7 +532,7 @@ class LogisticRegression(UniversalBase,
         return self
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @convert_cuml_arrays()
     def coef_(self):
         return self.solver_model.coef_
 
@@ -538,7 +541,7 @@ class LogisticRegression(UniversalBase,
         self.solver_model.coef_ = value
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @convert_cuml_arrays()
     def intercept_(self):
         return self.solver_model.intercept_
 

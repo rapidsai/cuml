@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.common import convert_cuml_arrays
 
 
 IF GPUBUILD == 1:
@@ -59,8 +60,8 @@ class LinearPredictMixin:
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    @cuml.internals.api_base_return_array_skipall
     @enable_device_interop
+    @convert_cuml_arrays()
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.
@@ -109,7 +110,7 @@ class LinearPredictMixin:
                             <size_t>_n_rows,
                             <size_t>_n_cols,
                             <float*>_coef_ptr,
-                            <float>self.intercept_,
+                            <float>self.intercept_.to_device_array(),
                             <float*>_preds_ptr)
             else:
                 gemmPredict(handle_[0],
@@ -117,7 +118,7 @@ class LinearPredictMixin:
                             <size_t>_n_rows,
                             <size_t>_n_cols,
                             <double*>_coef_ptr,
-                            <double>self.intercept_,
+                            <double>self.intercept_.to_device_array(),
                             <double*>_preds_ptr)
 
         self.handle.sync()
