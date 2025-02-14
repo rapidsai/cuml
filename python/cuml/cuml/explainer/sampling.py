@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -91,7 +91,10 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
     X = imp.fit_transform(X)
 
     kmeans = KMeans(
-        n_clusters=k, random_state=random_state, output_type=_output_dtype_str
+        n_clusters=k,
+        random_state=random_state,
+        output_type=_output_dtype_str,
+        n_init="auto",
     ).fit(X)
 
     if round_values:

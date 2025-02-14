@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -63,7 +63,10 @@ def test_end_to_end(
         X_train, y_train = X, y
 
     cumlModel = cumlKMeans(
-        init="k-means||", n_clusters=nclusters, random_state=10
+        init="k-means||",
+        n_clusters=nclusters,
+        random_state=10,
+        n_init="auto",
     )
 
     cumlModel.fit(X_train)
@@ -120,7 +123,7 @@ def test_large_data_no_overflow(nrows_per_part, ncols, nclusters, client):
     X.compute_chunk_sizes().persist()
 
     cumlModel = cumlKMeans(
-        init="k-means||", n_clusters=nclusters, random_state=10
+        init="k-means||", n_clusters=nclusters, random_state=10, n_init="auto"
     )
 
     cumlModel.fit(X_train)
@@ -171,7 +174,11 @@ def test_weighted_kmeans(nrows, ncols, nclusters, n_parts, client):
         wt[cp.argmax(cp.array(y.compute()) == i).item()] = 5000.0
 
     cumlModel = cumlKMeans(
-        verbose=0, init="k-means||", n_clusters=nclusters, random_state=10
+        verbose=0,
+        init="k-means||",
+        n_clusters=nclusters,
+        random_state=10,
+        n_init="auto",
     )
 
     chunk_parts = int(nrows / n_parts)
@@ -237,7 +244,10 @@ def test_transform(nrows, ncols, nclusters, n_parts, input_type, client):
         labels = cp.squeeze(y_train.compute())
 
     cumlModel = cumlKMeans(
-        init="k-means||", n_clusters=nclusters, random_state=10
+        init="k-means||",
+        n_clusters=nclusters,
+        random_state=10,
+        n_init="auto",
     )
 
     cumlModel.fit(X_train)
@@ -302,7 +312,10 @@ def test_score(nrows, ncols, nclusters, n_parts, input_type, client):
         X_train, y_train = X, y
 
     cumlModel = cumlKMeans(
-        init="k-means||", n_clusters=nclusters, random_state=10
+        init="k-means||",
+        n_clusters=nclusters,
+        random_state=10,
+        n_init="auto",
     )
 
     cumlModel.fit(X_train)
