@@ -884,13 +884,13 @@ void larsFit(const raft::handle_t& handle,
              idx_t* active_idx,
              math_t* alphas,
              idx_t* n_active,
-             math_t* Gram         = nullptr,
-             int max_iter         = 500,
-             math_t* coef_path    = nullptr,
-             level_enum verbosity = ML::level_enum::off,
-             idx_t ld_X           = 0,
-             idx_t ld_G           = 0,
-             math_t eps           = -1)
+             math_t* Gram                        = nullptr,
+             int max_iter                        = 500,
+             math_t* coef_path                   = nullptr,
+             rapids_logger::level_enum verbosity = rapids_logger::level_enum::off,
+             idx_t ld_X                          = 0,
+             idx_t ld_G                          = 0,
+             math_t eps                          = -1)
 {
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");

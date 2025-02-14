@@ -38,9 +38,7 @@ IF GPUBUILD == 1:
     from cuml.cluster.kmeans_utils cimport params as KMeansParams
     from cuml.cluster.kmeans_utils cimport KMeansPlusPlus, Random, Array
     from cuml.cluster cimport kmeans_utils
-
-    # Avoid potential future conflicts with cuml's level enum
-    ctypedef kmeans_utils.level_enum raft_level_enum
+    from cuml.internals.logger cimport level_enum
 
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -214,7 +212,7 @@ class KMeans(UniversalBase,
             # so we need to pass a dummy value here. Its value does not matter as the
             # seed is only used during fitting
             params.rng_state.seed = <int>getattr(self, "_seed", 0)
-            params.verbosity = <raft_level_enum>(<int>self.verbose)
+            params.verbosity = <level_enum>(<int>self.verbose)
             params.metric = DistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
             params.batch_samples = <int>self.max_samples_per_batch
             params.oversampling_factor = <double>self.oversampling_factor

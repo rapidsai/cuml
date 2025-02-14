@@ -101,13 +101,13 @@ struct RF_params {
 void preprocess_labels(int n_rows,
                        std::vector<int>& labels,
                        std::map<int, int>& labels_map,
-                       level_enum verbosity = ML::level_enum::info);
+                       rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 
 /* Revert preprocessing effect, if needed. */
 void postprocess_labels(int n_rows,
                         std::vector<int>& labels,
                         std::map<int, int>& labels_map,
-                        level_enum verbosity = ML::level_enum::info);
+                        rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 
 template <class T, class L>
 struct RandomForestMetaData {
@@ -147,7 +147,7 @@ void fit(const raft::handle_t& user_handle,
          int* labels,
          int n_unique_labels,
          RF_params rf_params,
-         level_enum verbosity = ML::level_enum::info);
+         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 void fit(const raft::handle_t& user_handle,
          RandomForestClassifierD*& forest,
          double* input,
@@ -156,7 +156,7 @@ void fit(const raft::handle_t& user_handle,
          int* labels,
          int n_unique_labels,
          RF_params rf_params,
-         level_enum verbosity = ML::level_enum::info);
+         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 
 void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierF* forest,
@@ -164,27 +164,27 @@ void predict(const raft::handle_t& user_handle,
              int n_rows,
              int n_cols,
              int* predictions,
-             level_enum verbosity = ML::level_enum::info);
+             rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierD* forest,
              const double* input,
              int n_rows,
              int n_cols,
              int* predictions,
-             level_enum verbosity = ML::level_enum::info);
+             rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 
 RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestClassifierF* forest,
                  const int* ref_labels,
                  int n_rows,
                  const int* predictions,
-                 level_enum verbosity = ML::level_enum::info);
+                 rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestClassifierD* forest,
                  const int* ref_labels,
                  int n_rows,
                  const int* predictions,
-                 level_enum verbosity = ML::level_enum::info);
+                 rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 
 RF_params set_rf_params(int max_depth,
                         int max_leaves,
@@ -213,7 +213,7 @@ void fit(const raft::handle_t& user_handle,
          int n_cols,
          float* labels,
          RF_params rf_params,
-         level_enum verbosity = ML::level_enum::info);
+         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 void fit(const raft::handle_t& user_handle,
          RandomForestRegressorD*& forest,
          double* input,
@@ -221,7 +221,7 @@ void fit(const raft::handle_t& user_handle,
          int n_cols,
          double* labels,
          RF_params rf_params,
-         level_enum verbosity = ML::level_enum::info);
+         rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 
 void predict(const raft::handle_t& user_handle,
              const RandomForestRegressorF* forest,
@@ -229,25 +229,25 @@ void predict(const raft::handle_t& user_handle,
              int n_rows,
              int n_cols,
              float* predictions,
-             level_enum verbosity = ML::level_enum::info);
+             rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 void predict(const raft::handle_t& user_handle,
              const RandomForestRegressorD* forest,
              const double* input,
              int n_rows,
              int n_cols,
              double* predictions,
-             level_enum verbosity = ML::level_enum::info);
+             rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 
 RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestRegressorF* forest,
                  const float* ref_labels,
                  int n_rows,
                  const float* predictions,
-                 level_enum verbosity = ML::level_enum::info);
+                 rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestRegressorD* forest,
                  const double* ref_labels,
                  int n_rows,
                  const double* predictions,
-                 level_enum verbosity = ML::level_enum::info);
+                 rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 };  // namespace ML

@@ -71,6 +71,7 @@ requirements:
     - scikit-build-core >=0.10.0
     - treelite {{ treelite_version }}
     - rapids-build-backend>=0.3.0,<0.4.0.dev0
+    - rapids-logger =0.1
   run:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
@@ -92,6 +93,7 @@ requirements:
     - raft-dask ={{ minor_version }}
     - rapids-dask-dependency ={{ minor_version }}
     - treelite {{ treelite_version }}
+    - rapids-logger =0.1
 
 tests:
   requirements:

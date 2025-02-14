@@ -68,7 +68,7 @@ void larsFit(const raft::handle_t& handle,
              math_t* Gram,
              int max_iter,
              math_t* coef_path,
-             level_enum verbosity,
+             rapids_logger::level_enum verbosity,
              idx_t ld_X,
              idx_t ld_G,
              math_t eps);
