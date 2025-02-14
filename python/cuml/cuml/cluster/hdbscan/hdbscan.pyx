@@ -771,7 +771,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         """
         Fit HDBSCAN model from features.
         """
-
+        self._all_finite = True
         X_m, n_rows, n_cols, self.dtype = \
             input_to_cuml_array(X, order='C',
                                 check_dtype=[np.float32],
@@ -1163,7 +1163,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
     def get_attr_names(self):
         attr_names = ['labels_', 'probabilities_', 'cluster_persistence_',
                       'condensed_tree_', 'single_linkage_tree_',
-                      'outlier_scores_']
+                      'outlier_scores_', '_all_finite']
         if self.gen_min_span_tree:
             attr_names = attr_names + ['minimum_spanning_tree_']
         if self.prediction_data:
