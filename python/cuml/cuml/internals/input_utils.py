@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -530,6 +530,8 @@ def input_to_host_array(
 
 
 def input_to_host_array_with_sparse_support(X):
+    if X is None:
+        return X
     try:
         if scipy_sparse.isspmatrix(X):
             return X
