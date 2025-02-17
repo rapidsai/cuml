@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.internals.safe_imports import gpu_only_import
 from cupyx import lapack, geterr, seterr
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.base import Base
+from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
@@ -101,7 +101,7 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None):
         return dual_coefs.T
 
 
-class KernelRidge(Base, RegressorMixin):
+class KernelRidge(UniversalBase, RegressorMixin):
     """
     Kernel ridge regression (KRR) performs l2 regularised ridge regression
     using the kernel trick. The kernel trick allows the estimator to learn a
@@ -225,6 +225,9 @@ class KernelRidge(Base, RegressorMixin):
         self.degree = degree
         self.coef0 = coef0
         self.kernel_params = kernel_params
+
+    def get_attr_names(self):
+        return ['dual_coef_', 'X_fit_']
 
     @classmethod
     def _get_param_names(cls):
