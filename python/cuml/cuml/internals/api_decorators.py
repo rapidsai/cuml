@@ -60,7 +60,7 @@ def _find_arg(sig, arg_name, default_position):
     # Otherwise use argument in list by position
     elif arg_name is ...:
         index = int(_has_self(sig)) + default_position
-        return params[index], index, None
+        return params[index], index, inspect._empty
     else:
         raise ValueError(f"Unable to find parameter '{arg_name}'.")
 
