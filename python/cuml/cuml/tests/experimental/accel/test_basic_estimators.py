@@ -169,3 +169,15 @@ def test_proxy_facade():
             proxy_value = getattr(PCA, attr)
 
             assert original_value == proxy_value
+
+
+def test_defaults_args_only_methods():
+    # Check that estimator methods that take no arguments work
+    # These are slightly weird because basically everything else takes
+    # a X as input.
+    X = np.random.rand(1000, 3)
+    y = X[:, 0] + np.sin(6 * np.pi * X[:, 1]) + 0.1 * np.random.randn(1000)
+
+    nn = NearestNeighbors(metric="chebyshev", n_neighbors=3)
+    nn.fit(X[:, 0].reshape((-1, 1)), y)
+    nn.kneighbors()
