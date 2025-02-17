@@ -1034,3 +1034,13 @@ def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
         assert not array_equal(X, X_copy)
     else:
         assert array_equal(X, X_copy)
+
+
+def test_logistic_regression_with_string_labels():
+    n_rows = 100
+    classes = np.array(["setosa", "versicolor", "virginica"], dtype="U10")
+    X = np.random.rand(n_rows, 20)
+    y = np.random.choice(classes, size=n_rows)
+    clf = cuLog().fit(X, y)
+    del clf
+    # did not crash
