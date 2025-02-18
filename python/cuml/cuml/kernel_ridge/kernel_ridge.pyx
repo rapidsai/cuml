@@ -23,6 +23,10 @@ from cuml.internals.safe_imports import gpu_only_import
 from cupyx import lapack, geterr, seterr
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import UniversalBase
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
 from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
@@ -204,6 +208,7 @@ class KernelRidge(UniversalBase, RegressorMixin):
 
     dual_coef_ = CumlArrayDescriptor()
 
+    @device_interop_preparation
     def __init__(
         self,
         *,
@@ -250,6 +255,7 @@ class KernelRidge(UniversalBase, RegressorMixin):
                                 filter_params=True, **params)
 
     @generate_docstring()
+    @enable_device_interop
     def fit(self, X, y, sample_weight=None,
             convert_dtype=True) -> "KernelRidge":
 
@@ -286,6 +292,7 @@ class KernelRidge(UniversalBase, RegressorMixin):
         self.X_fit_ = X_m
         return self
 
+    @enable_device_interop
     def predict(self, X):
         """
         Predict using the kernel ridge model.
