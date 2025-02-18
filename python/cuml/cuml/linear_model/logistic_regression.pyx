@@ -302,16 +302,16 @@ class LogisticRegression(UniversalBase,
         # since calling input_to_cuml_array again in QN has no cost
         # Not needed to check dtype since qn class checks it already
         if isinstance(y, np.ndarray) and y.dtype.kind in 'SU':
-            self.classes__, y = np.unique(y, return_inverse=True)
-            self.numeric_classes_ = np.arange(len(self.classes__))
+            classes, y = np.unique(y, return_inverse=True)
+            self.classes_ = np.arange(len(classes))
             y_m, n_rows, _, _ = input_to_cuml_array(y)
         else:
             y_m, n_rows, _, _ = input_to_cuml_array(y)
-            self.numeric_classes_ = cp.unique(y_m)
-        self._num_classes = len(self.numeric_classes_)
+            self.classes_ = cp.unique(y_m)
+        self._num_classes = len(self.classes_)
 
         if self._num_classes == 2:
-            if self.numeric_classes_[0] != 0 or self.numeric_classes_[1] != 1:
+            if self.classes_[0] != 0 or self.classes_[1] != 1:
                 raise ValueError("Only values of 0 and 1 are"
                                  " supported for binary classification.")
 
@@ -329,8 +329,8 @@ class LogisticRegression(UniversalBase,
             def check_expl_spec_weights():
                 with cuml.using_output_type("numpy"):
                     for c in self.expl_spec_weights_:
-                        i = np.searchsorted(self.numeric_classes_, c)
-                        if i >= self._num_classes or self.numeric_classes_[i] != c:
+                        i = np.searchsorted(self.classes_, c)
+                        if i >= self._num_classes or self.classes_[i] != c:
                             msg = "Class label {} not present.".format(c)
                             raise ValueError(msg)
 
@@ -458,7 +458,7 @@ class LogisticRegression(UniversalBase,
                             X,
                             convert_dtype=False,
                             log_proba=False) -> CumlArray:
-        _num_classes = self.numeric_classes_.shape[0]
+        _num_classes = self.classes_.shape[0]
 
         scores = cp.asarray(
             self.decision_function(X, convert_dtype=convert_dtype), order="F"
@@ -550,21 +550,6 @@ class LogisticRegression(UniversalBase,
     @intercept_.setter
     def intercept_(self, value):
         self.solver_model.intercept_ = value
-
-    @property
-    def classes_(self):
-        if hasattr(self, 'classes__'):
-            return self.classes__
-        else:
-            return self.numeric_classes_
-
-    @classes_.setter
-    def classes_(self, value):
-        if isinstance(value, np.ndarray) and value.dtype.kind in 'SU':
-            self.classes__ = value
-            self.numeric_classes_ = np.arange(len(np.unique(value)))
-        else:
-            self.numeric_classes_ = value
 
     @classmethod
     def _get_param_names(cls):
