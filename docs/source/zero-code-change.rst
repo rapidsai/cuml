@@ -7,18 +7,28 @@ to import equivalent cuML functionality, simply invoke your existing,
 unaltered Python script as follows, and cuML will accelerate as much of the
 code as possible with NVIDIA GPUs, falling back to CPU where necessary:
 
-.. code-block:: terminal
+.. code-block::
+
     python -m cuml.accel unchanged_script.py
 
 The same functionality is available in Jupyter notebooks using the
 following magic at the beginning of the notebook (before other imports):
 
-.. code-bloc:: jupyter
+.. code-block::
+
    %load_ext cuml.accel
    import sklearn
 
 **``cuml.accel`` is currently a beta feature and will continue to improve over
 time.**
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   zero-code-change-limitations.rst
+   zero-code-change-benchmarks.rst
+
 
 FAQs
 ----
@@ -54,7 +64,7 @@ contrast, cuML defaults to ordinary device memory, which can offer improved
 performance but requires slightly more care to avoid exhausting the GPU VRAM.
 
 3. What does ``cuml.accel`` accelerate?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ``cuml.accel`` is designed to provide zero code change acceleration of any
 Scikit-Learn-like estimator which has an equivalent cuML implementation,
 including estimators from Scikit-Learn, UMAP-Learn, and HDBScan. Currently,
