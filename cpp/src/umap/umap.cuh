@@ -34,7 +34,7 @@ static const int TPB_X = 256;
 
 inline bool dispatch_to_uint64_t(int n_rows, int n_neighbors, int n_components)
 {
-  uint64_t nnz1 = static_cast<uint64_t>(n_rows) * n_neighbors;
+  uint64_t nnz1 = 2 * static_cast<uint64_t>(n_rows) * n_neighbors;
   uint64_t nnz2 = static_cast<uint64_t>(n_rows) * n_components;
   return nnz1 > std::numeric_limits<int32_t>::max() || nnz2 > std::numeric_limits<int32_t>::max();
 }
