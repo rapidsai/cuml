@@ -531,7 +531,7 @@ def input_to_host_array(
 
 def input_to_host_array_with_sparse_support(X):
     if X is None:
-        return X
+        return None
     try:
         if scipy_sparse.isspmatrix(X):
             return X

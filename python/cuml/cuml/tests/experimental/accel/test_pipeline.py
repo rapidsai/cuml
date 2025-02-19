@@ -169,5 +169,3 @@ def test_pipeline_adding_none_value_as_labels(classification_data):
 
     pipeline = make_pipeline(TruncatedSVD(n_components=20))
     pipeline.fit_transform(X_train)
-
-    # did not crash
