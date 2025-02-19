@@ -119,8 +119,10 @@ void _get_graph(const raft::handle_t& handle,
     /**
      * Allocate workspace for kNN graph
      */
-    knn_indices_b = std::make_unique<rmm::device_uvector<value_idx>>(inputs.n * k, stream);
-    knn_dists_b   = std::make_unique<rmm::device_uvector<value_t>>(inputs.n * k, stream);
+    knn_indices_b =
+      std::make_unique<rmm::device_uvector<value_idx>>(static_cast<nnz_t>(inputs.n) * k, stream);
+    knn_dists_b =
+      std::make_unique<rmm::device_uvector<value_t>>(static_cast<nnz_t>(inputs.n) * k, stream);
 
     knn_graph.knn_indices = knn_indices_b->data();
     knn_graph.knn_dists   = knn_dists_b->data();
@@ -176,8 +178,10 @@ void _get_graph_supervised(const raft::handle_t& handle,
     /**
      * Allocate workspace for kNN graph
      */
-    knn_indices_b = std::make_unique<rmm::device_uvector<value_idx>>(inputs.n * k, stream);
-    knn_dists_b   = std::make_unique<rmm::device_uvector<value_t>>(inputs.n * k, stream);
+    knn_indices_b =
+      std::make_unique<rmm::device_uvector<value_idx>>(static_cast<nnz_t>(inputs.n) * k, stream);
+    knn_dists_b =
+      std::make_unique<rmm::device_uvector<value_t>>(static_cast<nnz_t>(inputs.n) * k, stream);
 
     knn_graph.knn_indices = knn_indices_b->data();
     knn_graph.knn_dists   = knn_dists_b->data();
@@ -386,8 +390,10 @@ void _transform(const raft::handle_t& handle,
     /**
      * Allocate workspace for kNN graph
      */
-    knn_indices_b = std::make_unique<rmm::device_uvector<value_idx>>(inputs.n * k, stream);
-    knn_dists_b   = std::make_unique<rmm::device_uvector<value_t>>(inputs.n * k, stream);
+    knn_indices_b =
+      std::make_unique<rmm::device_uvector<value_idx>>(static_cast<nnz_t>(inputs.n) * k, stream);
+    knn_dists_b =
+      std::make_unique<rmm::device_uvector<value_t>>(static_cast<nnz_t>(inputs.n) * k, stream);
 
     knn_graph.knn_indices = knn_indices_b->data();
     knn_graph.knn_dists   = knn_dists_b->data();
@@ -408,10 +414,12 @@ void _transform(const raft::handle_t& handle,
    */
   rmm::device_uvector<value_t> sigmas(inputs.n, stream);
   rmm::device_uvector<value_t> rhos(inputs.n, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(sigmas.data(), 0, inputs.n * sizeof(value_t), stream));
-  RAFT_CUDA_TRY(cudaMemsetAsync(rhos.data(), 0, inputs.n * sizeof(value_t), stream));
+  RAFT_CUDA_TRY(
+    cudaMemsetAsync(sigmas.data(), 0, static_cast<nnz_t>(inputs.n) * sizeof(value_t), stream));
+  RAFT_CUDA_TRY(
+    cudaMemsetAsync(rhos.data(), 0, static_cast<nnz_t>(inputs.n) * sizeof(value_t), stream));
 
-  dim3 grid_n(raft::ceildiv(inputs.n, static_cast<nnz_t>(TPB_X)), 1, 1);
+  dim3 grid_n(raft::ceildiv(inputs.n, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   FuzzySimplSetImpl::smooth_knn_dist<value_t, value_idx, nnz_t, TPB_X>(inputs.n,
@@ -463,8 +471,12 @@ void _transform(const raft::handle_t& handle,
 
   CUML_LOG_DEBUG("Performing L1 normalization");
 
-  raft::sparse::linalg::csr_row_normalize_l1<value_t>(
-    row_ind.data(), graph_coo.vals(), graph_coo.nnz, graph_coo.n_rows, vals_normed.data(), stream);
+  raft::sparse::linalg::csr_row_normalize_l1<value_t>(row_ind.data(),
+                                                      graph_coo.vals(),
+                                                      static_cast<nnz_t>(graph_coo.nnz),
+                                                      graph_coo.n_rows,
+                                                      vals_normed.data(),
+                                                      stream);
 
   init_transform<TPB_X, value_t><<<grid_n, blk, 0, stream>>>(graph_coo.cols(),
                                                              vals_normed.data(),
