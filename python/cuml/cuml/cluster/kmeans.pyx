@@ -203,9 +203,6 @@ class KMeans(UniversalBase,
             # it to the default value.
             "k-means++": "scalable-k-means++",
         },
-        "algorithm": {
-            "elkan": "NotImplemented",
-        },
     }
 
     _cpu_estimator_import_path = 'sklearn.cluster.KMeans'
