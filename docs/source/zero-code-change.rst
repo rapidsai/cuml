@@ -131,6 +131,11 @@ being processed. As with cuML itself, you will generally see the most benefit
 when ``cuml.accel`` is used on large datasets. Please see
 `Zero Code Change Benchmarks <0cc_benchmarks.rst>`_ for some representative benchmarks.
 
+Please note that the first time an estimator method is called in a Python
+process, there may be some overhead due to JIT compilation of cupy kernels. To
+get an accurate sense of performance, run the method once on a small subset of
+data before measuring runtime on a full-scale dataset.
+
 6. Will I run out of GPU memory if I use ``cuml.accel``?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ``cuml.accel`` will use CUDA `managed memory <https://developer.nvidia.com/blog/unified-memory-cuda-beginners/>`_ for allocations on NVIDIA GPUs. This means that host memory can be used to augment GPU memory, and data will be migrated automatically as necessary. This does not mean that ``cuml.accel`` is entirely impervious to OOM errors, however. Very large datasets can exhaust the entirety of both host and device memory. Additionally, if device memory is heavily oversubscribed, it can lead to slow execution. ``cuml.accel`` is designed to minimize both possibilities, but if you observe OOM errors or slow execution on data that should fit in combined host plus device memory for your system, please `report it <https://github.com/rapidsai/cuml/issues/new?template=bug_report.md>`_, and the RAPIDS team will investigate.
