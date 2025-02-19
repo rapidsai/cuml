@@ -139,10 +139,9 @@ inline void launcher(const raft::handle_t& handle,
         target[i * n_neighbors + j] = source[i * graph_degree + j];
       }
     }
-    raft::copy(
-      handle,
-      raft::make_device_matrix_view(out.knn_indices, inputsA.n, static_cast<uint64_t>(n_neighbors)),
-      temp_indices_h.view());
+    raft::copy(handle,
+               raft::make_device_matrix_view(out.knn_indices, inputsA.n, n_neighbors),
+               temp_indices_h.view());
 
     // `graph.distances()` is a device array (n x graph_degree).
     // Slice and copy to the output device array `out.knn_dists` (n x n_neighbors).
@@ -154,7 +153,7 @@ inline void launcher(const raft::handle_t& handle,
     raft::matrix::slice<float, int64_t, raft::row_major>(
       handle,
       raft::make_const_mdspan(graph.distances().value()),
-      raft::make_device_matrix_view(out.knn_dists, inputsA.n, static_cast<uint64_t>(n_neighbors)),
+      raft::make_device_matrix_view(out.knn_dists, inputsA.n, n_neighbors),
       coords);
   }
 }
