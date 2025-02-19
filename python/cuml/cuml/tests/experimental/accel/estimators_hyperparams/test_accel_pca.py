@@ -42,9 +42,10 @@ def test_pca_n_components(pca_data, n_components):
     pca = PCA(n_components=n_components).fit(X)
     X_transformed = pca.transform(X)
     # Check the shape of the transformed data
-    assert (
-        X_transformed.shape[1] == n_components
-    ), f"Expected {n_components} components, got {X_transformed.shape[1]}"
+    if n_components != "mle":
+        assert (
+            X_transformed.shape[1] == n_components
+        ), f"Expected {n_components} components, got {X_transformed.shape[1]}"
     # Check that explained variance ratios sum up appropriately
     total_variance = np.sum(pca.explained_variance_ratio_)
     assert (
