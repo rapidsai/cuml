@@ -35,6 +35,7 @@
 
 #include <cuvs/distance/distance.hpp>
 #include <cuvs/neighbors/brute_force.hpp>
+#include <stdint.h>
 
 #include <iostream>
 

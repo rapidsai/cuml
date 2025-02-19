@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -72,13 +72,13 @@ def test_pca_fit(datatype, input_type, name, use_handle):
         "components_",
         "explained_variance_",
         "explained_variance_ratio_",
+        "noise_variance_",
     ]:
         with_sign = False if attr in ["components_"] else True
         print(attr)
         print(getattr(cupca, attr))
         print(getattr(skpca, attr))
         cuml_res = getattr(cupca, attr)
-
         skl_res = getattr(skpca, attr)
         assert array_equal(cuml_res, skl_res, 1e-3, with_sign=with_sign)
 
@@ -302,6 +302,22 @@ def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse, cupy_input):
             assert isinstance(i_sparse, cp.ndarray)
 
         assert array_equal(i_sparse, X.todense(), 1e-1, with_sign=True)
+
+
+@pytest.mark.parametrize(
+    "n_samples, n_features",
+    [
+        pytest.param(9, 20, id="n_samples <= n_components"),
+        pytest.param(20, 10, id="n_features <= n_components"),
+    ],
+)
+def test_noise_variance_zero(n_samples, n_features):
+    X, _ = make_blobs(
+        n_samples=n_samples, n_features=n_features, random_state=0
+    )
+    cupca = cuPCA(n_components=10)
+    cupca.fit(X)
+    assert cupca.noise_variance_.item() == 0
 
 
 def test_exceptions():
