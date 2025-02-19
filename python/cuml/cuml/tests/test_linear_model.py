@@ -1043,4 +1043,12 @@ def test_logistic_regression_with_string_labels():
     y = np.random.choice(classes, size=n_rows)
     clf = cuLog().fit(X, y)
     del clf
-    # did not crash
+
+
+def test_binary_logistic_regression_odd_values():
+    n_rows = 100
+    classes = np.array([4, 9])
+    X = np.random.rand(n_rows, 20)
+    y = np.random.choice(classes, size=n_rows)
+    clf = cuLog().fit(X, y)
+    del clf

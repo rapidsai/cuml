@@ -24,6 +24,7 @@ import pprint
 
 import cuml.internals
 from cuml.solvers import QN
+from cuml.preprocessing import LabelEncoder
 from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin, SparseInputTagMixin
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -301,19 +302,14 @@ class LogisticRegression(UniversalBase,
         # Converting y to device array here to use `unique` function
         # since calling input_to_cuml_array again in QN has no cost
         # Not needed to check dtype since qn class checks it already
-        if isinstance(y, np.ndarray) and y.dtype.kind in 'SU':
-            self.classes__, y = cp.unique(y, return_inverse=True)
-            self.numeric_classes_ = cp.arange(len(self.classes__))
-            y_m, n_rows, _, _ = input_to_cuml_array(y)
-        else:
-            y_m, n_rows, _, _ = input_to_cuml_array(y)
-            self.numeric_classes_ = cp.unique(y_m)
-        self._num_classes = len(self.numeric_classes_)
 
-        if self._num_classes == 2:
-            if self.numeric_classes_[0] != 0 or self.numeric_classes_[1] != 1:
-                raise ValueError("Only values of 0 and 1 are"
-                                 " supported for binary classification.")
+        with using_output_type('cupy'):
+            enc = LabelEncoder()
+            y = enc.fit_transform(y)
+            self.classes__ = enc.classes_.to_numpy()
+        self.numeric_classes_ = cp.arange(len(self.classes__))
+        y_m, n_rows, _, _ = input_to_cuml_array(y)
+        self._num_classes = len(self.numeric_classes_)
 
         if sample_weight is not None or self.class_weight is not None:
             if sample_weight is None:
@@ -552,7 +548,6 @@ class LogisticRegression(UniversalBase,
         self.solver_model.intercept_ = value
 
     @property
-    @cuml.internals.api_base_return_array_skipall
     def classes_(self):
         if hasattr(self, 'classes__'):
             return self.classes__
