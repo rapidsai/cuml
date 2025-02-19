@@ -487,7 +487,6 @@ class NearestNeighbors(UniversalBase,
                            return_values=[('dense', '(n_samples, n_features)'),
                                           ('dense',
                                            '(n_samples, n_features)')])
-    @api_base_return_generic(input_arg=None)
     @enable_device_interop
     def kneighbors(
         self,
