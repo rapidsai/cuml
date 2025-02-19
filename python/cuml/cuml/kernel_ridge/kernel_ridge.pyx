@@ -207,6 +207,7 @@ class KernelRidge(UniversalBase, RegressorMixin):
     """
 
     dual_coef_ = CumlArrayDescriptor()
+    _cpu_estimator_import_path = "sklearn.kernel_ridge.KernelRidge"
 
     @device_interop_preparation
     def __init__(
