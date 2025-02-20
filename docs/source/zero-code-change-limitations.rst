@@ -128,7 +128,7 @@ can also visually inspect the resulting cluster assignments.
 ^^^^^^^^^^^^^^^^^^^
 * Algorithm Limitations:
     * GPU HDBSCAN uses a parallel MST implementation, which means the results are not deterministic when there are duplicates in the mutual reachability graph.
-    * CPU HDBSCAN offers many choices of algorithms whereas GPU HDBSCAN uses a single implementation.
+    * CPU HDBSCAN offers many choices of different algorithms whereas GPU HDBSCAN uses a single implementation. Everything except `algorithm="auto"` will fallback to the CPU.
     * GPU HDBSCAN supports all functions in the CPU `hdbscan.prediction` module except `approximate_predict_score`.
     * CPU HDBSCAN offers a `hdbscan.branches` module that GPU HDBCAN does not.
 
@@ -138,4 +138,4 @@ can also visually inspect the resulting cluster assignments.
     * Custom metric functions (callable metrics) are not supported on GPU.
 
 * Learned Attributes Limitations:
-    * GPU HDBSCAN does not learn attributes `branch_detection_data_`, `examplers_`, and `relative_validity_`
+    * GPU HDBSCAN does not learn attributes `branch_detection_data_`, `examplers_`, and `relative_validity_`.
