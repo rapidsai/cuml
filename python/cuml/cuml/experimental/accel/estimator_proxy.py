@@ -15,6 +15,7 @@
 #
 
 
+import importlib.util
 import inspect
 import sys
 import types
@@ -175,6 +176,11 @@ def intercept(
     >>> model = ProxyEstimator()
 
     """
+
+    library_to_check = original_module.split(".")[0]
+
+    if importlib.util.find_spec(library_to_check) is None:
+        return False
 
     if accelerated_class_name is None:
         accelerated_class_name = original_class_name
