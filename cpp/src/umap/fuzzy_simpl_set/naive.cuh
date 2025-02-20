@@ -348,12 +348,14 @@ void launcher(nnz_t n,
                                        to_process);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
+  /*
   if (ML::default_logger().should_log(rapids_logger::level_enum::debug)) {
     CUML_LOG_DEBUG("Compute Membership Strength");
     std::stringstream ss;
     ss << in;
     CUML_LOG_DEBUG(ss.str().c_str());
   }
+  */
 
   /**
    * Combines all the fuzzy simplicial sets into a global
