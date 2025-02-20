@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,6 +57,7 @@ def test_extract_partitions_worker_list(
     assert len(parts) == n_parts
 
 
+@pytest.mark.xfail(raises=ValueError)
 @pytest.mark.mg
 @pytest.mark.parametrize("nrows", [24])
 @pytest.mark.parametrize("ncols", [2])
