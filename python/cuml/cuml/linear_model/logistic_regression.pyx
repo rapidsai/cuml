@@ -455,9 +455,7 @@ class LogisticRegression(UniversalBase,
                             log_proba=False) -> CumlArray:
         _num_classes = self.classes_.shape[0]
 
-        scores = cp.asarray(
-            self.decision_function(X, convert_dtype=convert_dtype), order="F"
-        ).T
+        scores = self.decision_function(X, convert_dtype=convert_dtype).to_output("cupy")
         if _num_classes == 2:
             proba = cp.zeros((scores.shape[0], 2))
             proba[:, 1] = 1 / (1 + cp.exp(-scores.ravel()))
