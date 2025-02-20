@@ -124,5 +124,19 @@ can also visually inspect the resulting cluster assignments.
 ``umap.UMAP``
 ^^^^^^^^^^^^^
 
+* Algorithm Limitations:
+    * The following parameters are not supported : "low_memory", "angular_rp_forest", "transform_seed", "tqdm_kwds", "unique", "densmap", "dens_lambda", "dens_frac", "dens_var_shift", "output_dens", "disconnection_distance".
+    * Parallelism during the optimization stage implies numerical imprecisions.
+    * There may be cases where cuML's UMAP may not achieve the same level of trustworthiness as the reference implementation.
+    * Reproducibility with the use of a seed ("random_state" parameter) comes at the relative expense of performance.
+
+* Distance Metrics:
+    * Only the following metrics are supported : "l1", "cityblock", "taxicab", "manhattan", "euclidean", "l2", "sqeuclidean", "canberra", "minkowski", "chebyshev", "linf", "cosine", "correlation", "hellinger", "hamming", "jaccard".
+    * Other metrics will trigger a CPU fallback, namely : "sokalsneath", "rogerstanimoto", "sokalmichener", "yule", "ll_dirichlet", "russellrao", "kulsinski", "dice", "wminkowski", "mahalanobis", "haversine".
+
+* Embeddings initialization methods :
+    * Only the following initialization methods are supported : "spectral" and "random".
+    * Other initialization methods will trigger a CPU fallback, namely : "pca", "tswspectral".
+
 ``hdbscan.HDBSCAN``
 ^^^^^^^^^^^^^^^^^^^

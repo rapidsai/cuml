@@ -348,6 +348,10 @@ class UMAP(UniversalBase,
             "wminkowski": "NotImplemented",
             "mahalanobis": "NotImplemented",
             "haversine": "NotImplemented",
+        },
+        "init": {
+            "pca": "NotImplemented",
+            "tswspectral": "NotImplemented"
         }
     }
 
