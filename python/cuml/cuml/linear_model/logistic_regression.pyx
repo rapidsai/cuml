@@ -27,6 +27,7 @@ from cuml.solvers import QN
 from cuml.preprocessing import LabelEncoder
 from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.input_utils import determine_array_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
@@ -37,7 +38,7 @@ from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 cp = gpu_only_import('cupy')
 np = cpu_only_import('numpy')
-
+cudf = gpu_only_import('cudf')
 
 supported_penalties = ["l1", "l2", None, "none", "elasticnet"]
 
@@ -306,10 +307,10 @@ class LogisticRegression(UniversalBase,
         with using_output_type('cupy'):
             enc = LabelEncoder()
             y = enc.fit_transform(y)
-            self.classes__ = enc.classes_.to_numpy()
-        self.numeric_classes_ = cp.arange(len(self.classes__))
+            self.classes__ = enc.classes_
+        self._num_classes = len(self.classes__)
+        self.numeric_classes_ = cp.arange(self._num_classes)
         y_m, n_rows, _, _ = input_to_cuml_array(y)
-        self._num_classes = len(self.numeric_classes_)
 
         if sample_weight is not None or self.class_weight is not None:
             if sample_weight is None:
@@ -406,14 +407,18 @@ class LogisticRegression(UniversalBase,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    @cuml.internals.api_base_return_array(get_output_dtype=True)
-    @enable_device_interop
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    @cuml.internals.api_base_return_any(get_output_dtype=True)
+    def predict(self, X, convert_dtype=True)-> CumlArray:
         """
         Predicts the y for X.
 
         """
-        return self.solver_model.predict(X, convert_dtype=convert_dtype)
+        predictions = self.solver_model.predict(X, convert_dtype=convert_dtype)
+        predictions = predictions.to_output('cupy', output_dtype=np.int64)
+        predictions = cudf.Series(self.classes__).iloc[predictions]
+        is_numeric = predictions.dtype != np.object_
+        out_type = determine_array_type(X)
+        return CumlArray(predictions).to_output(out_type) if is_numeric else predictions
 
     @generate_docstring(X='dense_sparse',
                         return_values={'name': 'preds',
@@ -549,18 +554,13 @@ class LogisticRegression(UniversalBase,
 
     @property
     def classes_(self):
-        if hasattr(self, 'classes__'):
-            return self.classes__
-        else:
-            return self.numeric_classes_
+        return self.classes__
 
     @classes_.setter
     def classes_(self, value):
-        if isinstance(value, np.ndarray) and value.dtype.kind in 'SU':
-            self.classes__ = value
-            self.numeric_classes_ = cp.arange(len(value))
-        else:
-            self.numeric_classes_ = cp.array(value)
+        self.classes__ = value
+        self._num_classes = len(value)
+        self.numeric_classes_ = cp.arange(self._num_classes)
 
     @classmethod
     def _get_param_names(cls):
