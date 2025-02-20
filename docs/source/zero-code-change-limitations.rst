@@ -133,8 +133,12 @@ When choosing split thresholds, the ``cuml.accel`` random forest considers only 
 as threshold candidates, whereas the scikit-learn random forest considers all possible
 feature values from the training data. As a result, the ``cuml.accel`` random forest
 may choose different split thresholds from the scikit-learn counterpart, leading to
-different tree structure. You can tune the fineness of the quantiles by adjusting the
-``n_bins`` parameter.
+different tree structure. Nevertheless, we expect the output to be
+*equivalent* in the sense that the quality of results will be approximately
+as good or better than that obtained without ``cuml.accel``. Common
+measures of quality for random forests include RMSE (Root Mean Squared Error, for
+regression) and Log Loss (for classification). You can use functions from the
+``sklearn.metrics`` module to obtain these measures.
 
 Some parameters have limited support:
 * ``max_samples`` must be float, not integer.
