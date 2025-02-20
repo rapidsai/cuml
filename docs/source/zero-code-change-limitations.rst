@@ -71,11 +71,55 @@ can also visually inspect the resulting cluster assignments.
 ``sklearn.neighbors.NearestNeighbors``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+* Algorithm Limitations:
+    * The "kd_tree" and "ball_tree" algorithms are not implemented in CUDA. When specified, the implementation will automatically fall back to using the "brute" force algorithm.
+
+* Distance Metrics:
+    * Only Minkowski-family metrics (euclidean, manhattan, minkowski) and cosine similarity are GPU-accelerated
+    * Not all metrics are supported for algorithms.
+    * The "mahalanobis" metric is not supported on GPU and will trigger a fallback to CPU implementation.
+    * The "nan_euclidean" metric for handling missing values is not supported on GPU.
+    * Custom metric functions (callable metrics) are not supported on GPU.
+
+* Other Limitations:
+    * Only the "uniform" weighting strategy is supported. Other weighting schemes will cause fallback to CPU
+    * The "radius" parameter for radius-based neighbor searches is not implemented and will be ignored
+
 ``sklearn.neighbors.KNeighborsClassifier``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+* Algorithm Limitations:
+    * The "kd_tree" and "ball_tree" algorithms are not implemented in CUDA. When specified, the implementation will automatically fall back to using the "brute" force algorithm.
+
+* Distance Metrics:
+    * Only Minkowski-family metrics (euclidean, manhattan, minkowski) and cosine similarity are GPU-accelerated
+    * Not all metrics are supported for algorithms.
+    * The "mahalanobis" metric is not supported on GPU and will trigger a fallback to CPU implementation.
+    * The "nan_euclidean" metric for handling missing values is not supported on GPU.
+    * Custom metric functions (callable metrics) are not supported on GPU.
+
+* Other Limitations:
+    * Only the "uniform" weighting strategy is supported for vote counting.
+    * Distance-based weights ("distance" option) will trigger CPU fallback.
+    * Custom weight functions are not supported on GPU.
+
 ``sklearn.neighbors.KNeighborsRegressor``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* Algorithm Limitations:
+    * The "kd_tree" and "ball_tree" algorithms are not implemented in CUDA. When specified, the implementation will automatically fall back to using the "brute" force algorithm.
+
+* Distance Metrics:
+    * Only Minkowski-family metrics (euclidean, manhattan, minkowski) and cosine similarity are GPU-accelerated
+    * Not all metrics are supported for algorithms.
+    * The "mahalanobis" metric is not supported on GPU and will trigger a fallback to CPU implementation.
+    * The "nan_euclidean" metric for handling missing values is not supported on GPU.
+    * Custom metric functions (callable metrics) are not supported on GPU.
+
+* Regression-Specific Limitations:
+    * Only the "uniform" weighting strategy is supported for prediction averaging.
+    * Distance-based prediction weights ("distance" option) will trigger CPU fallback.
+    * Custom weight functions are not supported on GPU.
 
 ``umap.UMAP``
 ^^^^^^^^^^^^^
