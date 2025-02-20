@@ -127,7 +127,7 @@ can also visually inspect the resulting cluster assignments.
 * Algorithm Limitations:
     * The following parameters are not supported : "low_memory", "angular_rp_forest", "transform_seed", "tqdm_kwds", "unique", "densmap", "dens_lambda", "dens_frac", "dens_var_shift", "output_dens", "disconnection_distance".
     * Parallelism during the optimization stage implies numerical imprecisions.
-    * There may be cases where cuML's UMAP may not achieve the same level of trustworthiness as the reference implementation.
+    * There may be cases where cuML's UMAP may not achieve the same level of quality as the reference implementation. The trustworthiness score can be used to assess to what extent the local structure is retained in embedding.
     * Reproducibility with the use of a seed ("random_state" parameter) comes at the relative expense of performance.
 
 * Distance Metrics:
