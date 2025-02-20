@@ -61,6 +61,7 @@ from cuml import Ridge as cuRidge
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
+pd = cpu_only_import("pandas")
 cudf = gpu_only_import("cudf")
 rmm = gpu_only_import("rmm")
 
@@ -807,6 +808,61 @@ def test_logistic_regression_input_type_consistency(constructor, dtype):
     assert isinstance(clf.predict_proba(X), type(X))
     expected_type = cudf.Series if constructor == cudf.DataFrame else type(X)
     assert isinstance(clf.predict(X), expected_type)
+
+
+@pytest.mark.parametrize(
+    "y_kind", ["object", "fixed-string", "int32", "float32"]
+)
+@pytest.mark.parametrize("output_type", ["numpy", "cupy", "cudf", "pandas"])
+def test_logistic_regression_complex_classes(y_kind, output_type):
+    """Test that LogisticRegression handles non-numeric or non-monotonically
+    increasing classes properly in both `fit` and `predict`"""
+    if output_type == "cupy" and y_kind in ("object", "fixed-string"):
+        pytest.skip("cupy doesn't support strings!")
+
+    X, y_inds = make_classification(
+        n_samples=100,
+        n_features=20,
+        n_informative=10,
+        n_classes=3,
+        random_state=0,
+    )
+    if y_kind == "object":
+        classes = np.array(["apple", "banana", "carrot"], dtype="object")
+        df_dtype = "object"
+    elif y_kind == "fixed-string":
+        classes = np.array(["apple", "banana", "carrot"], dtype="U")
+        df_dtype = "object"
+    else:
+        classes = np.array([10, 20, 30], dtype=y_kind)
+        df_dtype = classes.dtype
+
+    y = classes.take(y_inds)
+
+    cu_model = cuLog(output_type=output_type)
+    sk_model = skLog()
+
+    cu_model.fit(X, y)
+    sk_model.fit(X, y)
+
+    np.testing.assert_array_equal(
+        cu_model.classes_, sk_model.classes_, strict=True
+    )
+
+    res = cu_model.predict(X)
+    sol = sk_model.predict(X)
+    if output_type == "numpy":
+        assert res.dtype == sol.dtype
+        assert isinstance(res, np.ndarray)
+    elif output_type == "cupy":
+        assert res.dtype == sol.dtype
+        assert isinstance(res, cp.ndarray)
+    elif output_type == "pandas":
+        assert res.dtype == df_dtype
+        assert isinstance(res, pd.Series)
+    elif output_type == "cudf":
+        assert res.dtype == df_dtype
+        assert isinstance(res, cudf.Series)
 
 
 @pytest.mark.parametrize("train_dtype", [np.float32, np.float64])
