@@ -998,7 +998,7 @@ class UniversalBase(Base):
     def get_params(self, deep=True):
         """
         If accelerator is active, we return the params of the CPU estimator
-        being helf by the class, otherwise we just call the regular
+        being held by the class, otherwise we just call the regular
         get_params of the Base class.
         """
         if GlobalSettings().accelerator_active or self._experimental_dispatching:
