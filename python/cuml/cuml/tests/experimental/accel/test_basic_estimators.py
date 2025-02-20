@@ -14,6 +14,7 @@
 
 import pytest
 import numpy as np
+import cupy as cp
 from sklearn.datasets import make_classification, make_regression, make_blobs
 from sklearn.linear_model import (
     LinearRegression,
@@ -26,6 +27,7 @@ from sklearn.cluster import KMeans, DBSCAN
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.manifold import TSNE
+from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors import (
     NearestNeighbors,
     KNeighborsClassifier,
@@ -169,3 +171,25 @@ def test_proxy_facade():
             proxy_value = getattr(PCA, attr)
 
             assert original_value == proxy_value
+
+
+def test_kernel_ridge():
+    rng = np.random.RandomState(42)
+
+    X = 5 * rng.rand(10000, 1)
+    y = np.sin(X).ravel()
+
+    kr = GridSearchCV(
+        KernelRidge(kernel="rbf", gamma=0.1),
+        param_grid={
+            "alpha": [1e0, 0.1, 1e-2, 1e-3],
+            "gamma": np.logspace(-2, 2, 5),
+        },
+    )
+    kr.fit(X, y)
+
+    y_pred = kr.predict(X)
+
+    assert not isinstance(
+        y_pred, cp.ndarray
+    ), f"y_pred should be a np.ndarray, but is a {type(y_pred)}"
