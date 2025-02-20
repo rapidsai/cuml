@@ -57,8 +57,8 @@ struct knn_graph {
 template <typename T>
 struct manifold_inputs_t {
   T* y;
-  uint64_t n;
-  uint64_t d;
+  int n;
+  int d;
 
   manifold_inputs_t(T* y_, int n_, int d_) : y(y_), n(n_), d(d_) {}
 
