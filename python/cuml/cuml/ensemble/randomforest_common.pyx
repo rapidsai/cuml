@@ -339,10 +339,6 @@ class BaseRandomForestModel(UniversalBase):
                                       else None),
                     check_rows=self.n_rows, check_cols=1)
 
-        if self.dtype == np.float64:
-            warnings.warn("To use pickling first train using float32 data "
-                          "to fit the estimator")
-
         max_feature_val = self._get_max_feat_val()
         if isinstance(self.min_samples_leaf, float):
             self.min_samples_leaf = \
