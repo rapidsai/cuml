@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -90,6 +90,9 @@ unsupervised_estimators = [
 ]
 
 
+@pytest.mark.filterwarnings(
+    "ignore:The default value of `n_init` will change from 1 to 'auto' in 25.04"
+)
 @pytest.mark.parametrize("estimator_name", estimators)
 def test_UniversalBase_estimators(estimator_name):
     # importing dynamically will also implicitly test that cuML
