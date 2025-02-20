@@ -126,6 +126,33 @@ For more algorithmic details, see :class:`cuml.TruncatedSVD`.
     * Parameters for the ``"randomized"`` solver like ``random_state``,
       ``n_oversamples``, ``power_iteration_normalizer`` are ignored.
 
+``sklearn.ensemble.RandomForestClassifier`` / ``sklearn.ensemble.RandomForestRegressor``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The random forest in ``cuml.accel`` uses a different algorithm to find tree node splits.
+When choosing split thresholds, the ``cuml.accel`` random forest considers only quantiles
+as threshold candidates, whereas the scikit-learn random forest considers all possible
+feature values from the training data. As a result, the ``cuml.accel`` random forest
+may choose different split thresholds from the scikit-learn counterpart, leading to
+different tree structure. You can tune the fineness of the quantiles by adjusting the
+``n_bins`` parameter.
+
+Some parameters have limited support:
+* ``max_samples`` must be float, not integer.
+
+The following parameters are not supported:
+* ``min_weight_fraction_leaf``
+* ``monotonic_cst``
+* ``ccp_alpha``
+* ``class_weight``
+* ``warm_start``
+* ``oob_score``
+
+TODO(hcho3): Add the list of supported ``criterion``, once the PR for mapping ``split_criterion``
+to ``criterion`` lands.
+
+TODO(hcho3): If the PR mapping ``max_leaves`` to ``max_leaf_nodes`` lands, add explanation about
+the behavior of ``max_leaf_nodes``. The cuML RF treats this parameter as a "soft constraint".
+
 ``sklearn.kernel_ridge.KernelRidge``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

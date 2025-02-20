@@ -76,6 +76,8 @@ the following estimators are mostly or entirely accelerated when run under
     * ``sklearn.cluster.DBSCAN``
     * ``sklearn.decomposition.PCA``
     * ``sklearn.decomposition.TruncatedSVD``
+    * ``sklearn.ensemble.RandomForestClassifier``
+    * ``sklearn.ensemble.RandomForestRegressor``
     * ``sklearn.kernel_ridge.KernelRidge``
     * ``sklearn.linear_model.LinearRegression``
     * ``sklearn.linear_model.LogisticRegression``
