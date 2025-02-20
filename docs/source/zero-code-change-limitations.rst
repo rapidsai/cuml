@@ -44,8 +44,70 @@ can also visually inspect the resulting cluster assignments.
 ``sklearn.decomposition.PCA``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+The ``PCA`` implementation used by ``cuml.accel`` uses different SVD solvers
+than the ones in Scikit-Learn, which may result in numeric differences in the
+``components_`` and ``explained_variance_`` values. These differences should be
+small for ``svd_solver`` values of ``"auto"``, ``"full"``, or ``"arpack"``, but
+may be larger for randomized or less-numerically-stable solvers like
+``"randomized"`` or ``"covariance_eigh"``.
+
+Likewise, note that the implementation in ``cuml.accel`` currently may result
+in some of the vectors in ``components_`` having inverted signs. This result is
+not incorrect, but can make it harder to do direct numeric comparisons without
+first normalizing the signs. One common way of handling this is by normalizing
+the first non-zero values in each vector to be positive. You might find the
+following ``numpy`` function useful for this.
+
+.. code-block:: python
+
+    import numpy as np
+
+    def normalize(components):
+        """Normalize the sign of components for easier numeric comparison"""
+        nonzero = components != 0
+        inds = np.where(nonzero.any(axis=1), nonzero.argmax(axis=1), 0)[:, None]
+        first_nonzero = np.take_along_axis(components, inds, 1)
+        return np.sign(first_nonzero) * components
+
+For more algorithmic details, see :class:`cuml.PCA`.
+
+* Algorithm Limitation:
+    * ``n_components="mle"`` will fallback to Scikit-Learn.
+    * Parameters for the ``"randomized"`` solver like ``random_state``,
+      ``n_oversamples``, ``power_iteration_normalizer`` are ignored.
+
 ``sklearn.decomposition.TruncatedSVD``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``TruncatedSVD`` implementation used by ``cuml.accel`` uses different SVD
+solvers than the ones in Scikit-Learn, which may result in numeric differences
+in the ``components_`` and ``explained_variance_`` values. These differences
+should be small for ``algorithm="arpack"``, but may be larger for
+``algorithm="randomized"``.
+
+Likewise, note that the implementation in ``cuml.accel`` currently may result
+in some of the vectors in ``components_`` having inverted signs. This result is
+not incorrect, but can make it harder to do direct numeric comparisons without
+first normalizing the signs. One common way of handling this is by normalizing
+the first non-zero values in each vector to be positive. You might find the
+following ``numpy`` function useful for this.
+
+.. code-block:: python
+
+    import numpy as np
+
+    def normalize(components):
+        """Normalize the sign of components for easier numeric comparison"""
+        nonzero = components != 0
+        inds = np.where(nonzero.any(axis=1), nonzero.argmax(axis=1), 0)[:, None]
+        first_nonzero = np.take_along_axis(components, inds, 1)
+        return np.sign(first_nonzero) * components
+
+For more algorithmic details, see :class:`cuml.TruncatedSVD`.
+
+* Algorithm Limitation:
+    * Parameters for the ``"randomized"`` solver like ``random_state``,
+      ``n_oversamples``, ``power_iteration_normalizer`` are ignored.
 
 ``sklearn.kernel_ridge.KernelRidge``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
