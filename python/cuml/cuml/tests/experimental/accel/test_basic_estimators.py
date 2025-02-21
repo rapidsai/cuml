@@ -173,7 +173,7 @@ def test_proxy_facade():
 
             assert original_value == proxy_value
 
-            
+
 def test_proxy_clone():
     # Test that cloning a proxy estimator preserves parameters, even those we
     # translate for the cuml class
@@ -239,6 +239,7 @@ def test_defaults_args_only_methods():
 
 def test_kernel_ridge():
     import cupy as cp
+
     rng = np.random.RandomState(42)
 
     X = 5 * rng.rand(10000, 1)
