@@ -45,16 +45,16 @@ def install():
             _install_for_library(library_name)
         except ModuleNotFoundError as error:  # underlying package not installed (expected)
             logger.debug(
-                f"cuML: Did not to accelerator for {library_name}, the underlying library is not installed: {error}"
+                f"cuML: Did not install accelerator for {library_name}, the underlying library is not installed: {error}"
             )
         except Exception as error:  # something else went wrong
             failed_to_accelerate.append(library_name)
             logger.error(
-                f"cuML: Failed to install accelerator for {library_name}: {error}"
+                f"cuML: Failed to install accelerator for {library_name}: {error}."
             )
         else:
             accelerated_libraries.append(library_name)
-            logger.info(f"cuML: Installed accelerator for {library_name}...")
+            logger.info(f"cuML: Installed accelerator for {library_name}.")
 
     GlobalSettings().accelerated_libraries = accelerated_libraries
     GlobalSettings().accelerator_loaded = any(accelerated_libraries)
@@ -63,12 +63,12 @@ def install():
     if GlobalSettings().accelerator_loaded:
         if any(failed_to_accelerate):
             logger.warn(
-                f"cuML: Accelerator initialized, some installations failed...: {', '.join(failed_to_accelerate)}"
+                f"cuML: Accelerator initialized, some installations failed: {', '.join(failed_to_accelerate)}"
             )
         else:
-            logger.info("cuML: Accelerator successfully initialized...")
+            logger.info("cuML: Accelerator successfully initialized.")
     else:
-        logger.warn("cuML: Accelerator failed to initialize...")
+        logger.warn("cuML: Accelerator failed to initialize.")
 
     set_global_output_type("numpy")
 
