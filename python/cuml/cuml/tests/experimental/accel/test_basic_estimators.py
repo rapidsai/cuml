@@ -216,17 +216,6 @@ def test_proxy_params():
     assert set(params.keys()) == expected_params
 
 
-def test_hyperparam_input_matching():
-    from cuml.linear_model import LogisticRegression
-
-    model = LogisticRegression(solver="qn")
-    model.import_cpu_model()
-    model.build_cpu_model()
-    model.gpu_to_cpu()
-    print(model._cpu_model.solver)
-    assert False
-
-
 def test_roundtrip():
     import cuml
     from sklearn import cluster
