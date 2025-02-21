@@ -130,6 +130,42 @@ For more algorithmic details, see :class:`cuml.TruncatedSVD`.
 ``sklearn.manifold.TSNE``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
+* Algorithm Limitations:
+    * The "learning_rate" parameter cannot be used with value "auto", and will default to 200.0.
+
+
+* Distance Metrics:
+    * Only the following metrics are supported : "l1", "cityblock", "manhattan", "euclidean", "l2", "sqeuclidean", "minkowski", "chebyshev", "cosine", "correlation".
+    * The "precomputed" option, or the use of function as metric is not supported
+
+
+While the exact numerical output for TSNE may differ from that obtained without cuml.accel,
+we expect the output to be equivalent in the sense that the quality of results will be approximately as good or better
+than that obtained without cuml.accel in most cases. Common measure of results quality for TSNE are the KL divergence and the trustworthiness score.
+You can obtain it by doing the following :
+
+.. code-block:: python
+
+    from sklearn.manifold import TSNE as refTSNE  #  with cuml.accel off
+    from cuml.manifold import TSNE
+    from cuml.metrics import trustworthiness
+
+    n_neighbors = 90
+
+    ref_model = refTSNE() #  with perplexity == 30.0
+    ref_embeddings = ref_model.fit_transform(X)
+
+    model = TSNE(n_neighbors=n_neighbors)
+    embeddings = model.fit_transform(X)
+
+    ref_score = trustworthiness(X, ref_embeddings, n_neighbors=n_neighbors)
+    score = trustworthiness(X, embeddings, n_neighbors=n_neighbors)
+
+    tol = 0.1
+    assert score >= (ref_score - tol)
+    assert model.kl_divergence_ <= ref_model.kl_divergence_ + tol
+
+
 ``sklearn.neighbors.NearestNeighbors``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
