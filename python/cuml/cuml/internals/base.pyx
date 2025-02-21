@@ -619,7 +619,7 @@ class UniversalBase(Base):
     _experimental_dispatching = False
 
     def import_cpu_model(self):
-        # skip the CPU estimator has been imported already
+        # skip if the CPU estimator has been imported already
         if hasattr(self, '_cpu_model_class'):
             return
         if hasattr(self, '_cpu_estimator_import_path'):

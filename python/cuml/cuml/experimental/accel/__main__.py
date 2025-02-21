@@ -28,12 +28,6 @@ from . import install
 @click.command()
 @click.option("-m", "module", required=False, help="Module to run")
 @click.option(
-    "--strict",
-    is_flag=True,
-    default=False,
-    help="Turn strict mode for hyperparameters on.",
-)
-@click.option(
     "--convert-to-sklearn",
     type=click.Path(exists=True),
     required=False,
@@ -53,11 +47,9 @@ from . import install
     help="Output path for the converted sklearn estimator file.",
 )
 @click.argument("args", nargs=-1)
-def main(module, strict, convert_to_sklearn, format, output, args):
+def main(module, convert_to_sklearn, format, output, args):
 
-    if strict:
-        os.environ["CUML_ACCEL_STRICT_MODE"] = "ON"
-
+    # Enable acceleration
     install()
 
     # If the user requested a conversion, handle it and exit

@@ -38,6 +38,7 @@ from cuml.decomposition import PCA, TruncatedSVD
 from cuml.cluster import KMeans
 from cuml.cluster import DBSCAN
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
+from cuml.kernel_ridge import KernelRidge
 from cuml.common.device_selection import DeviceType, using_device_type
 from cuml.testing.utils import assert_dbscan_equal
 from hdbscan import HDBSCAN as refHDBSCAN
@@ -49,6 +50,7 @@ from sklearn.linear_model import LogisticRegression as skLogisticRegression
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.decomposition import PCA as skPCA
 from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
+from sklearn.kernel_ridge import KernelRidge as skKernelRidge
 from sklearn.cluster import KMeans as skKMeans
 from sklearn.cluster import DBSCAN as skDBSCAN
 from sklearn.ensemble import RandomForestClassifier as skRFC
@@ -827,6 +829,23 @@ def test_elasticnet_methods(train_device, infer_device):
         model.fit(X_train_reg, y_train_reg)
     with using_device_type(infer_device):
         output = model.score(X_train_reg, y_train_reg)
+
+    tol = 0.01
+    assert ref_output - tol <= output <= ref_output + tol
+
+
+@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
+@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
+def test_kernelridge_methods(train_device, infer_device):
+    ref_model = skKernelRidge()
+    ref_model.fit(X_train_reg, y_train_reg)
+    ref_output = ref_model.score(X_test_reg, y_test_reg)
+
+    model = KernelRidge()
+    with using_device_type(train_device):
+        model.fit(X_train_reg, y_train_reg)
+    with using_device_type(infer_device):
+        output = model.score(X_test_reg, y_test_reg)
 
     tol = 0.01
     assert ref_output - tol <= output <= ref_output + tol
