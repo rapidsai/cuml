@@ -16,6 +16,7 @@
 
 import pytest
 import numpy as np
+import cuml
 from sklearn.datasets import make_blobs
 from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score
@@ -103,6 +104,11 @@ def test_kmeans_random_state(clustering_data):
 
 
 def test_kmeans_init_parameter():
+    # Testing the hyper-parameter translation only makes sense if the
+    # accelerator is active.
+    if not cuml.experimental.accel.GlobalSettings().accelerator_active:
+        pytest.skip("Skipping test because accelerator is not active")
+
     # Check that not passing a value for a constructor argument and passing the
     # scikit-learn default value leads to the same behavior.
     X, y = make_blobs(
