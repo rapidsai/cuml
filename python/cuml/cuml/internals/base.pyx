@@ -1002,10 +1002,20 @@ class UniversalBase(Base):
 
     def get_params(self, deep=True):
         """
-        If accelerator is active, we return the params of the CPU estimator
-        being held by the class, otherwise we just call the regular
-        get_params of the Base class.
+        Get parameters for this estimator.
+
+        Parameters
+        ----------
+        deep : bool, default=True
+            If True, will return the parameters for this estimator and
+            contained subobjects that are estimators.
+
+        Returns
+        -------
+        params : dict
+            Parameter names mapped to their values.
         """
+
         if GlobalSettings().accelerator_active or self._experimental_dispatching:
             return self._cpu_model.get_params(deep=deep)
         else:
@@ -1013,11 +1023,17 @@ class UniversalBase(Base):
 
     def set_params(self, **params):
         """
-        For setting parameters, when the accelerator is active, we translate
-        the parameters to set the GPU params, and also update the
-        params of the CPU class. Otherwise dispatching to the CPU class after
-        updating params of the GPU estimator will dispatch to an estimator
-        with outdated params.
+        Set parameters for this estimator.
+
+        Parameters
+        ----------
+        **params : dict
+            Estimator parameters
+
+        Returns
+        -------
+        self : estimator instance
+            The estimnator instance
         """
         self._cpu_model.set_params(**params)
         params, gpuaccel = self._hyperparam_translator(**params)
