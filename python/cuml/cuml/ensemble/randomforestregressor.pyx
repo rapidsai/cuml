@@ -261,7 +261,9 @@ class RandomForestRegressor(BaseRandomForestModel,
     _cpu_estimator_import_path = 'sklearn.ensemble.RandomForestRegressor'
 
     _hyperparam_interop_translator = {
-        "criterion": "NotImplemented",
+        "criterion": {
+            "NotImplemented",
+        },
         "oob_score": {
             True: "NotImplemented",
         },
@@ -275,7 +277,7 @@ class RandomForestRegressor(BaseRandomForestModel,
 
     @device_interop_preparation
     def __init__(self, *,
-                 split_criterion=2,
+                 split_criterion=None,
                  accuracy_metric='r2',
                  handle=None,
                  verbose=False,
