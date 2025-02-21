@@ -19,7 +19,6 @@ add_module_gpu_default("accuracy.pyx" ${accuracy_algo} ${metrics_algo})
 add_module_gpu_default("hinge_loss.pyx" ${hinge_loss_algo} ${metrics_algo})
 add_module_gpu_default("kl_divergence.pyx" ${kl_divergence_algo} ${metrics_algo})
 add_module_gpu_default("pairwise_distances.pyx" ${pairwise_distances_algo} ${metrics_algo})
-add_module_gpu_default("regression.pyx" ${regression_algo} ${metrics_algo})
 add_module_gpu_default("trustworthiness.pyx" ${trustworthiness_algo} ${metrics_algo})
 
 rapids_cython_create_modules(
