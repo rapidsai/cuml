@@ -33,13 +33,15 @@ def _install_for_library(library_name):
 
 def install():
     """Enable cuML Accelerator Mode."""
-    logger.info("cuML: Installing accelerator...")
+    logger.debug("cuML: Installing accelerator...")
     libraries_to_accelerate = ["sklearn", "umap", "hdbscan"]
     accelerated_libraries = []
     failed_to_accelerate = []
     for library_name in libraries_to_accelerate:
-        logger.debug(f"cuML: Installing accelerator for {library_name}...")
         try:
+            logger.debug(
+                f"cuML: Attempt to install accelerator for {library_name}..."
+            )
             _install_for_library(library_name)
         except (
             ModuleNotFoundError,
@@ -61,15 +63,16 @@ def install():
     GlobalSettings().accelerator_loaded = any(accelerated_libraries)
     GlobalSettings().accelerator_active = any(accelerated_libraries)
 
-    if GlobalSettings().accelerator_loaded:
-        if any(failed_to_accelerate):
-            logger.warn(
-                f"cuML: Accelerator initialized, some installations failed: {', '.join(failed_to_accelerate)}"
-            )
-        else:
-            logger.info("cuML: Accelerator successfully initialized.")
-    else:
-        logger.warn("cuML: Accelerator failed to initialize.")
+    if any(accelerated_libraries) and not any(failed_to_accelerate):
+        logger.info("cuML: Successfully initialized accelerator.")
+    elif any(accelerated_libraries) and any(failed_to_accelerate):
+        logger.warn(
+            "cuML: Accelerator initialized, but failed to initialize for some libraries."
+        )
+    elif not any(accelerated_libraries) and not any(failed_to_accelerate):
+        logger.warn(
+            "cuML: Accelerator failed to initialize, because none of the underlying libraries are installed."
+        )
 
     set_global_output_type("numpy")
 
