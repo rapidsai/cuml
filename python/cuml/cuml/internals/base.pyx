@@ -705,6 +705,11 @@ class UniversalBase(Base):
             ]
         ):
             for attr in self.get_attr_names():
+                cuml_param_names = self._get_param_names()
+                for param, value in self._cpu_model.get_params().items():
+                    if param in cuml_param_names:
+                        self.set_params(**{param: value})
+
                 # check presence of attribute
                 if hasattr(self._cpu_model, attr) or \
                     isinstance(getattr(type(self._cpu_model),
