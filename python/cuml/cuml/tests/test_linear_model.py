@@ -811,7 +811,7 @@ def test_logistic_regression_input_type_consistency(constructor, dtype):
 
 
 @pytest.mark.parametrize(
-    "y_kind", ["object", "fixed-string", "int32", "float32"]
+    "y_kind", ["object", "fixed-string", "int32", "float32", "float16"]
 )
 @pytest.mark.parametrize("output_type", ["numpy", "cupy", "cudf", "pandas"])
 def test_logistic_regression_complex_classes(y_kind, output_type):
@@ -819,6 +819,8 @@ def test_logistic_regression_complex_classes(y_kind, output_type):
     increasing classes properly in both `fit` and `predict`"""
     if output_type == "cupy" and y_kind in ("object", "fixed-string"):
         pytest.skip("cupy doesn't support strings!")
+    elif output_type in ("cudf", "pandas") and y_kind == "float16":
+        pytest.skip("float16 dtype not supported")
 
     X, y_inds = make_classification(
         n_samples=100,

@@ -302,14 +302,21 @@ class LogisticRegression(UniversalBase,
         # but we need to explicitly set `output_type` or we'll get an error
         # on init since `output_type` would default to `mirror`.
         enc = LabelEncoder(output_type="cudf")
-        y_is_fixed_length_str = getattr(getattr(y, "dtype", None), "kind", None) == "U"
+        y_orig_dtype = getattr(y, "dtype", None)
         y = enc.fit_transform(y).to_cupy()
+        if y_orig_dtype is None:
+            y_orig_dtype = y.dtype
         n_rows = len(y)
-        self.classes_ = enc.classes_.to_numpy()
-        # Scikit-Learn prefers fixed-length strings for classes if the original
-        # dtype was fixed-length strings. Fixup the dtype here in that case.
-        if y_is_fixed_length_str:
-            self.classes_ = self.classes_.astype("U")
+        classes = enc.classes_.to_numpy()
+
+        # TODO: LabelEncoder doesn't currently map dtypes the same way as it
+        # does in scikit-learn. Until that's fixed we fix them up here.
+        if y_orig_dtype.kind == "U":
+            classes = classes.astype("U")
+        elif y_orig_dtype == "float16":
+            classes = classes.astype("float16")
+        self.classes_ = classes
+
         self._num_classes = len(self.classes_)
 
         if sample_weight is not None or self.class_weight is not None:

@@ -44,6 +44,9 @@ def _to_cudf_series(y, **kwargs):
     elif isinstance(y, (np.ndarray, cp.ndarray)):
         if y.ndim == 2 and y.shape[-1] == 1:
             y = y.flatten()
+    if getattr(y, "dtype", None) == "float16":
+        # Upcast float16 since cudf cannot handle them yet
+        y = y.astype("float32")
     return cudf.Series(y, **kwargs)
 
 
