@@ -619,7 +619,7 @@ class UniversalBase(Base):
     _experimental_dispatching = False
 
     def import_cpu_model(self):
-        # skip the CPU estimator has been imported already
+        # skip if the CPU estimator has been imported already
         if hasattr(self, '_cpu_model_class'):
             return
         if hasattr(self, '_cpu_estimator_import_path'):
@@ -640,17 +640,20 @@ class UniversalBase(Base):
             inspect.signature(self._cpu_model_class.__init__).parameters.keys()
         )
 
-    def build_cpu_model(self):
+    def build_cpu_model(self, **kwargs):
         if hasattr(self, '_cpu_model'):
             return
-        filtered_kwargs = {}
-        for keyword, arg in self._full_kwargs.items():
-            if keyword in self._cpu_hyperparams:
-                filtered_kwargs[keyword] = arg
-            else:
-                logger.info("Unused keyword parameter: {} "
-                            "during CPU estimator "
-                            "initialization".format(keyword))
+        if kwargs:
+            filtered_kwargs = kwargs
+        else:
+            filtered_kwargs = {}
+            for keyword, arg in self._full_kwargs.items():
+                if keyword in self._cpu_hyperparams:
+                    filtered_kwargs[keyword] = arg
+                else:
+                    logger.info("Unused keyword parameter: {} "
+                                "during CPU estimator "
+                                "initialization".format(keyword))
 
         # initialize model
         self._cpu_model = self._cpu_model_class(**filtered_kwargs)
@@ -984,6 +987,8 @@ class UniversalBase(Base):
         estimator = cls()
         estimator.import_cpu_model()
         estimator._cpu_model = model
+        params, gpuaccel = cls._hyperparam_translator(**model.get_params())
+        estimator.set_params(**params)
         estimator.cpu_to_gpu()
 
         # we need to set an output type here since
@@ -998,11 +1003,11 @@ class UniversalBase(Base):
     def get_params(self, deep=True):
         """
         If accelerator is active, we return the params of the CPU estimator
-        being helf by the class, otherwise we just call the regular
+        being held by the class, otherwise we just call the regular
         get_params of the Base class.
         """
         if GlobalSettings().accelerator_active or self._experimental_dispatching:
-            return self._cpu_hyperparams_dict
+            return self._cpu_model.get_params(deep=deep)
         else:
             return super().get_params(deep=deep)
 
@@ -1014,7 +1019,8 @@ class UniversalBase(Base):
         updating params of the GPU estimator will dispatch to an estimator
         with outdated params.
         """
-        self._cpu_hyperparams_dict.update(params)
-        params, gpuaccel = super._hyperparam_translator(params)
-        super().set_params(params)
+        self._cpu_model.set_params(**params)
+        params, gpuaccel = self._hyperparam_translator(**params)
+        params = {key: params[key] for key in self._get_param_names() if key in params}
+        super().set_params(**params)
         return self

@@ -14,6 +14,7 @@
 
 import pytest
 import numpy as np
+from sklearn import clone
 from sklearn.datasets import make_classification, make_regression, make_blobs
 from sklearn.linear_model import (
     LinearRegression,
@@ -26,6 +27,7 @@ from sklearn.cluster import KMeans, DBSCAN
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.manifold import TSNE
+from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors import (
     NearestNeighbors,
     KNeighborsClassifier,
@@ -169,3 +171,90 @@ def test_proxy_facade():
             proxy_value = getattr(PCA, attr)
 
             assert original_value == proxy_value
+
+
+def test_proxy_clone():
+    # Test that cloning a proxy estimator preserves parameters, even those we
+    # translate for the cuml class
+    pca = PCA(n_components=42, svd_solver="arpack")
+    pca_clone = clone(pca)
+
+    assert pca.get_params() == pca_clone.get_params()
+
+
+def test_proxy_params():
+    # Test that parameters match between constructor and get_params()
+    # Mix of default and non-default values
+    pca = PCA(
+        n_components=5,
+        copy=False,
+        # Pass in an argument and set it to its default value
+        whiten=False,
+    )
+
+    params = pca.get_params()
+    assert params["n_components"] == 5
+    assert params["copy"] is False
+    assert params["whiten"] is False
+    # A parameter we never touched, should be the default
+    assert params["tol"] == 0.0
+
+    # Check that get_params doesn't return any unexpected parameters
+    expected_params = set(
+        [
+            "n_components",
+            "copy",
+            "whiten",
+            "tol",
+            "svd_solver",
+            "n_oversamples",
+            "random_state",
+            "iterated_power",
+            "power_iteration_normalizer",
+        ]
+    )
+    assert set(params.keys()) == expected_params
+
+
+def test_hyperparam_input_matching():
+    from cuml.linear_model import LogisticRegression
+
+    model = LogisticRegression(solver='qn')
+    model.import_cpu_model()
+    model.build_cpu_model()
+    model.gpu_to_cpu()
+    print(model._cpu_model.solver)
+    assert False
+
+
+def test_roundtrip():
+    import cuml
+    from sklearn import cluster
+
+    km = cluster.KMeans(n_clusters=13)
+    ckm = cuml.KMeans.from_sklearn(km)
+
+    assert ckm.n_clusters == 13
+
+
+def test_kernel_ridge():
+    import cupy as cp
+    rng = np.random.RandomState(42)
+
+    X = 5 * rng.rand(10000, 1)
+    y = np.sin(X).ravel()
+
+    kr = GridSearchCV(
+        KernelRidge(kernel="rbf", gamma=0.1),
+        param_grid={
+            "alpha": [1e0, 0.1, 1e-2, 1e-3],
+            "gamma": np.logspace(-2, 2, 5),
+        },
+    )
+    kr.fit(X, y)
+
+    y_pred = kr.predict(X)
+
+    assert not isinstance(
+        y_pred, cp.ndarray
+    ), f"y_pred should be a np.ndarray, but is a {type(y_pred)}"
