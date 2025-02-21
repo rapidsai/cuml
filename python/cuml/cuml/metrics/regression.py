@@ -104,12 +104,14 @@ def r2_score(
         Sample weights.
     multioutput : {'raw_values', 'uniform_average', 'variance_weighted'} or array-like of shape (n_outputs,)
         How to aggregate multioutput scores. One of:
+
         - 'uniform_average': Scores of all outputs are averaged with uniform weight.
-           This is the default.
+          This is the default.
         - 'variance_weighted': Scores of all outputs are averaged, weighted by the
-           variances of each individual output.
+          variances of each individual output.
         - 'raw_values': Full set of scores in case of multioutput input.
         - array-like: Weights to use when averaging scores of all outputs.
+
     force_finite : bool, default=True
         Flag indicating if ``NaN`` and ``-Inf`` scores resulting from constant
         data should be replaced with real numbers (``1.0`` if prediction is
