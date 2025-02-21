@@ -16,6 +16,7 @@
 
 
 import importlib
+import rmm
 
 from .magics import load_ipython_extension
 
@@ -33,6 +34,7 @@ def _install_for_library(library_name):
 
 def install():
     """Enable cuML Accelerator Mode."""
+    rmm.mr.set_current_device_resource(rmm.mr.ManagedMemoryResource())
     logger.set_level(logger.level_enum.info)
     logger.set_pattern("%v")
 
