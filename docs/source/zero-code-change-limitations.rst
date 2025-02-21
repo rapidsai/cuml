@@ -186,5 +186,45 @@ For more algorithmic details, see :class:`cuml.TruncatedSVD`.
 ``umap.UMAP``
 ^^^^^^^^^^^^^
 
+* Algorithm Limitations:
+    * The following parameters are not supported : "low_memory", "angular_rp_forest", "transform_seed", "tqdm_kwds", "unique", "densmap", "dens_lambda", "dens_frac", "dens_var_shift", "output_dens", "disconnection_distance".
+    * Parallelism during the optimization stage implies numerical imprecisions.
+    * There may be cases where cuML's UMAP may not achieve the same level of quality as the reference implementation. The trustworthiness score can be used to assess to what extent the local structure is retained in embedding.
+    * Reproducibility with the use of a seed ("random_state" parameter) comes at the relative expense of performance.
+
+* Distance Metrics:
+    * Only the following metrics are supported : "l1", "cityblock", "taxicab", "manhattan", "euclidean", "l2", "sqeuclidean", "canberra", "minkowski", "chebyshev", "linf", "cosine", "correlation", "hellinger", "hamming", "jaccard".
+    * Other metrics will trigger a CPU fallback, namely : "sokalsneath", "rogerstanimoto", "sokalmichener", "yule", "ll_dirichlet", "russellrao", "kulsinski", "dice", "wminkowski", "mahalanobis", "haversine".
+
+* Embeddings initialization methods :
+    * Only the following initialization methods are supported : "spectral" and "random".
+    * Other initialization methods will trigger a CPU fallback, namely : "pca", "tswspectral".
+
+While the exact numerical output for UMAP may differ from that obtained without cuml.accel,
+we expect the output to be equivalent in the sense that the quality of results will be approximately as good or better
+than that obtained without cuml.accel in most cases. A common measure of results quality for UMAP is the trustworthiness score.
+You can obtain the trustworthiness by doing the following :
+
+.. code-block:: python
+
+    from umap import UMAP as refUMAP  #  with cuml.accel off
+    from cuml.manifold import UMAP
+    from cuml.metrics import trustworthiness
+
+    n_neighbors = 15
+
+    ref_model = refUMAP(n_neighbors=n_neighbors)
+    ref_embeddings = ref_model.fit_transform(X)
+
+    model = UMAP(n_neighbors=n_neighbors)
+    embeddings = model.fit_transform(X)
+
+    ref_score = trustworthiness(X, ref_embeddings, n_neighbors=n_neighbors)
+    score = trustworthiness(X, embeddings, n_neighbors=n_neighbors)
+
+    tol = 0.1
+    assert score >= (ref_score - tol)
+
+
 ``hdbscan.HDBSCAN``
 ^^^^^^^^^^^^^^^^^^^
