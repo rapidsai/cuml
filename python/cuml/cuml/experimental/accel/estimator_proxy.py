@@ -22,11 +22,7 @@ import types
 from cuml.internals.mem_type import MemoryType
 from cuml.internals import logger
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.safe_imports import (
-    gpu_only_import,
-    cpu_only_import,
-    UnavailableError,
-)
+from cuml.internals.safe_imports import gpu_only_import, cpu_only_import
 from typing import Optional, Tuple, Dict, Any, Type, List
 
 
@@ -183,10 +179,14 @@ def intercept(
     if accelerated_class_name is None:
         accelerated_class_name = original_class_name
 
+    # Import the original host module and cuML
     module_a = cpu_only_import(original_module)
+    module_b = gpu_only_import(accelerated_module)
+
+    # Store a reference to the original (CPU) class
     original_class_a = getattr(module_a, original_class_name)
 
-    module_b = gpu_only_import(accelerated_module)
+    # Get the class from cuML so ProxyEstimator inherits from it
     class_b = getattr(module_b, accelerated_class_name)
 
     class ProxyEstimator(class_b):

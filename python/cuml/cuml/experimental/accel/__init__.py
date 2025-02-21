@@ -22,6 +22,7 @@ from .magics import load_ipython_extension
 from cuml.internals import logger
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import set_global_output_type
+from cuml.internals.safe_imports import UnavailableError
 
 __all__ = ["load_ipython_extension", "install"]
 
@@ -43,7 +44,10 @@ def install():
         logger.debug(f"cuML: Installing accelerator for {library_name}...")
         try:
             _install_for_library(library_name)
-        except ModuleNotFoundError as error:  # underlying package not installed (expected)
+        except (
+            ModuleNotFoundError,
+            UnavailableError,
+        ) as error:  # underlying package not installed (expected)
             logger.debug(
                 f"cuML: Did not install accelerator for {library_name}, the underlying library is not installed: {error}"
             )
