@@ -1,0 +1,43 @@
+diff --git a/conda/environments/all_cuda-118_arch-x86_64.yaml b/conda/environments/all_cuda-118_arch-x86_64.yaml
+index e28661971e..82813cbb53 100644
+--- a/conda/environments/all_cuda-118_arch-x86_64.yaml
++++ b/conda/environments/all_cuda-118_arch-x86_64.yaml
+@@ -70,9 +70,9 @@ dependencies:
+ - scikit-learn==1.5.*
+ - scipy>=1.8.0
+ - seaborn
+-- sphinx
+ - sphinx-copybutton
+ - sphinx-markdown-tables
++- sphinx<8.2.0
+ - statsmodels
+ - sysroot_linux-64==2.28
+ - treelite==4.4.1
+diff --git a/conda/environments/all_cuda-128_arch-x86_64.yaml b/conda/environments/all_cuda-128_arch-x86_64.yaml
+index 9bbc7e50c4..1c1b3e8b18 100644
+--- a/conda/environments/all_cuda-128_arch-x86_64.yaml
++++ b/conda/environments/all_cuda-128_arch-x86_64.yaml
+@@ -66,9 +66,9 @@ dependencies:
+ - scikit-learn==1.5.*
+ - scipy>=1.8.0
+ - seaborn
+-- sphinx
+ - sphinx-copybutton
+ - sphinx-markdown-tables
++- sphinx<8.2.0
+ - statsmodels
+ - sysroot_linux-64==2.28
+ - treelite==4.4.1
+diff --git a/dependencies.yaml b/dependencies.yaml
+index 9d1bb64f41..43a8648d7f 100644
+--- a/dependencies.yaml
++++ b/dependencies.yaml
+@@ -439,7 +439,7 @@ dependencies:
+           - pydata-sphinx-theme!=0.14.2
+           - recommonmark
+           - &scikit_learn scikit-learn==1.5.*
+-          - sphinx
++          - sphinx<8.2.0
+           - sphinx-copybutton
+           - sphinx-markdown-tables
+       - output_types: conda
