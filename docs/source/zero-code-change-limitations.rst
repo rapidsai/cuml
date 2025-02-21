@@ -145,7 +145,7 @@ You can obtain the trustworthiness by doing the following :
 
 .. code-block:: python
 
-    from umap import UMAP as refUMAP
+    from umap import UMAP as refUMAP  #  with cuml.accel off
     from cuml.manifold import UMAP
     from cuml.metrics import trustworthiness
 
