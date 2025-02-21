@@ -41,6 +41,23 @@ can also visually inspect the resulting cluster assignments.
 ``sklearn.cluster.DBSCAN``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+The ``DBSCAN`` implementation used by ``cuml.accel`` uses a brute force algorithm
+for the epsilon-neighborhood search. By default scikit-learn determines the
+algorithm to use based on the shape of the data and which metric is used. All algorithms
+are exact, this means the choice is a question of computational efficiency.
+
+To check that the resulting trained estimator is equivalent to the scikit-learn
+estimator, you can evaluate the similarity of the clustering result on samples
+not used to train the estimator. Both ``adjusted_rand_score`` and ``adjusted_mutual_info_score``
+give a single score that should be above ``0.9``. For low dimensional data you
+can also visually inspect the resulting cluster assignments.
+
+``cuml.accel`` will fallback to scikit-learn for the following parameters:
+
+* The ``"manhattan"``, ``"chebyshev"`` and ``"minkowski"`` metrics.
+* The ``"ball_tree"`` and ``"kd_tree"`` algorithms.
+
+
 ``sklearn.decomposition.PCA``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -202,7 +219,7 @@ You can obtain it by doing the following :
     * Custom weight functions are not supported on GPU.
 
 ``sklearn.neighbors.KNeighborsRegressor``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * Algorithm Limitations:
     * The "kd_tree" and "ball_tree" algorithms are not implemented in CUDA. When specified, the implementation will automatically fall back to using the "brute" force algorithm.
