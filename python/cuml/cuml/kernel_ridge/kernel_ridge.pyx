@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,11 @@ from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.internals.safe_imports import gpu_only_import
 from cupyx import lapack, geterr, seterr
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.base import Base
+from cuml.internals.base import UniversalBase
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
 from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
@@ -101,7 +105,7 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None):
         return dual_coefs.T
 
 
-class KernelRidge(Base, RegressorMixin):
+class KernelRidge(UniversalBase, RegressorMixin):
     """
     Kernel ridge regression (KRR) performs l2 regularised ridge regression
     using the kernel trick. The kernel trick allows the estimator to learn a
@@ -203,7 +207,9 @@ class KernelRidge(Base, RegressorMixin):
     """
 
     dual_coef_ = CumlArrayDescriptor()
+    _cpu_estimator_import_path = "sklearn.kernel_ridge.KernelRidge"
 
+    @device_interop_preparation
     def __init__(
         self,
         *,
@@ -226,6 +232,9 @@ class KernelRidge(Base, RegressorMixin):
         self.coef0 = coef0
         self.kernel_params = kernel_params
 
+    def get_attr_names(self):
+        return ['dual_coef_', 'X_fit_']
+
     @classmethod
     def _get_param_names(cls):
         return super()._get_param_names() + [
@@ -247,6 +256,7 @@ class KernelRidge(Base, RegressorMixin):
                                 filter_params=True, **params)
 
     @generate_docstring()
+    @enable_device_interop
     def fit(self, X, y, sample_weight=None,
             convert_dtype=True) -> "KernelRidge":
 
@@ -283,6 +293,7 @@ class KernelRidge(Base, RegressorMixin):
         self.X_fit_ = X_m
         return self
 
+    @enable_device_interop
     def predict(self, X):
         """
         Predict using the kernel ridge model.

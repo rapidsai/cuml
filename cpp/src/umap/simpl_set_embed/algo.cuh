@@ -57,9 +57,9 @@ using namespace ML;
  * @param result: an array of number of epochs per sample, one for each 1-simplex
  * @param stream cuda stream
  */
-template <typename T, typename idx_t>
+template <typename T, typename idx_t, typename nnz_t>
 void make_epochs_per_sample(
-  T* weights, idx_t weights_n, int n_epochs, T* result, cudaStream_t stream)
+  T* weights, idx_t weights_n, nnz_t n_epochs, T* result, cudaStream_t stream)
 {
   thrust::device_ptr<T> d_weights = thrust::device_pointer_cast(weights);
   T weights_max =

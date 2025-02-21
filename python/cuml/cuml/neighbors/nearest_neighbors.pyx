@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import math
 import cuml.internals
 from cuml.internals.base import UniversalBase
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals import api_base_return_generic
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
@@ -691,6 +692,9 @@ class NearestNeighbors(UniversalBase,
             if out_type in {'cupy', 'numpy', 'numba'}:
                 I_ndarr = I_ndarr[:, 1:]
                 D_ndarr = D_ndarr[:, 1:]
+            elif out_type == "cuml":
+                I_ndarr = CumlArray.from_input(I_ndarr[:, 1:], force_contiguous=True)
+                D_ndarr = CumlArray.from_input(D_ndarr[:, 1:], force_contiguous=True)
             else:
                 I_ndarr.drop(I_ndarr.columns[0], axis=1)
                 D_ndarr.drop(D_ndarr.columns[0], axis=1)
