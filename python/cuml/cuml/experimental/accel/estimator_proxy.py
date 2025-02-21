@@ -183,12 +183,8 @@ def intercept(
     if accelerated_class_name is None:
         accelerated_class_name = original_class_name
 
-    try:
-        module_a = cpu_only_import(original_module)
-        original_class_a = getattr(module_a, original_class_name)
-    except (ImportError, UnavailableError):
-        # Failed to import dependencies, skip installing the intercept
-        return
+    module_a = cpu_only_import(original_module)
+    original_class_a = getattr(module_a, original_class_name)
 
     module_b = gpu_only_import(accelerated_module)
     class_b = getattr(module_b, accelerated_class_name)

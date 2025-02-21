@@ -28,7 +28,6 @@ __all__ = ["load_ipython_extension", "install"]
 
 def _install_for_library(library_name):
     importlib.import_module(f"._wrappers.{library_name}", __name__)
-    return True
 
 
 def install():
@@ -36,23 +35,40 @@ def install():
     logger.set_level(logger.level_enum.info)
     logger.set_pattern("%v")
 
-    logger.info("cuML: Installing experimental accelerator...")
-    loader_sklearn = _install_for_library(library_name="sklearn")
-    loader_umap = _install_for_library(library_name="umap")
-    loader_hdbscan = _install_for_library(library_name="hdbscan")
+    logger.info("cuML: Installing accelerator...")
+    libraries_to_accelerate = ["sklearn", "umap", "hdbscan"]
+    accelerated_libraries = []
+    failed_to_accelerate = []
+    for library_name in libraries_to_accelerate:
+        logger.debug(f"cuML: Installing accelerator for {library_name}...")
+        try:
+            _install_for_library(library_name)
+        except ModuleNotFoundError as error:  # underlying package not installed (expected)
+            logger.debug(
+                f"cuML: Did not to accelerator for {library_name}, the underlying library is not installed: {error}"
+            )
+        except Exception as error:  # something else went wrong
+            failed_to_accelerate.append(library_name)
+            logger.error(
+                f"cuML: Failed to install accelerator for {library_name}: {error}"
+            )
+        else:
+            accelerated_libraries.append(library_name)
+            logger.info(f"cuML: Installed accelerator for {library_name}...")
 
-    GlobalSettings().accelerator_loaded = all(
-        [loader_sklearn, loader_umap, loader_hdbscan]
-    )
-
-    GlobalSettings().accelerator_active = True
+    GlobalSettings().accelerated_libraries = accelerated_libraries
+    GlobalSettings().accelerator_loaded = any(accelerated_libraries)
+    GlobalSettings().accelerator_active = any(accelerated_libraries)
 
     if GlobalSettings().accelerator_loaded:
-        logger.info(
-            "cuML: experimental accelerator successfully initialized..."
-        )
+        if any(failed_to_accelerate):
+            logger.warn(
+                f"cuML: Accelerator initialized, some installations failed...: {', '.join(failed_to_accelerate)}"
+            )
+        else:
+            logger.info("cuML: Accelerator successfully initialized...")
     else:
-        logger.info("cuML: experimental accelerator failed to initialize...")
+        logger.warn("cuML: Accelerator failed to initialize...")
 
     set_global_output_type("numpy")
 
