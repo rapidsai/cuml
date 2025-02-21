@@ -1,0 +1,58 @@
+diff --git a/python/cuml/cuml/linear_model/logistic_regression.pyx b/python/cuml/cuml/linear_model/logistic_regression.pyx
+index e968093c8e..92caf21ff3 100644
+--- a/python/cuml/cuml/linear_model/logistic_regression.pyx
++++ b/python/cuml/cuml/linear_model/logistic_regression.pyx
+@@ -455,9 +455,7 @@ class LogisticRegression(UniversalBase,
+                             log_proba=False) -> CumlArray:
+         _num_classes = self.classes_.shape[0]
+ 
+-        scores = cp.asarray(
+-            self.decision_function(X, convert_dtype=convert_dtype), order="F"
+-        ).T
++        scores = self.decision_function(X, convert_dtype=convert_dtype).to_output("cupy")
+         if _num_classes == 2:
+             proba = cp.zeros((scores.shape[0], 2))
+             proba[:, 1] = 1 / (1 + cp.exp(-scores.ravel()))
+diff --git a/python/cuml/cuml/solvers/qn.pyx b/python/cuml/cuml/solvers/qn.pyx
+index 72f51c25b2..91bf02474e 100644
+--- a/python/cuml/cuml/solvers/qn.pyx
++++ b/python/cuml/cuml/solvers/qn.pyx
+@@ -1,4 +1,4 @@
+-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
++# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License");
+ # you may not use this file except in compliance with the License.
+@@ -662,7 +662,9 @@ class QN(Base,
+         Returns
+         ----------
+         y: array-like (device)
+-            Dense matrix (floats or doubles) of shape (n_samples, n_classes)
++            Dense matrix (floats or doubles) of shape (n_samples,), or
++            (n_samples, n_classes) if more than 2 classes.
++
+         """
+         coefs = self.coef_
+         dtype = coefs.dtype
+@@ -776,7 +778,7 @@ class QN(Base,
+ 
+         del X_m
+ 
+-        return scores
++        return scores.to_output("array").T
+ 
+     @generate_docstring(
+         X='dense_sparse',
+diff --git a/python/cuml/cuml/tests/test_linear_model.py b/python/cuml/cuml/tests/test_linear_model.py
+index cb9074088d..f840c27ddd 100644
+--- a/python/cuml/cuml/tests/test_linear_model.py
++++ b/python/cuml/cuml/tests/test_linear_model.py
+@@ -728,8 +728,6 @@ def test_logistic_regression_decision_function(
+     sklog.classes_ = np.arange(num_classes)
+ 
+     cu_dec_func = culog.decision_function(X_test)
+-    if cu_dec_func.shape[0] > 2:  # num_classes
+-        cu_dec_func = cu_dec_func.T
+     sk_dec_func = sklog.decision_function(X_test)
+ 
+     assert array_equal(cu_dec_func, sk_dec_func)
