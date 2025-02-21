@@ -865,6 +865,28 @@ def test_logistic_regression_complex_classes(y_kind, output_type):
         assert isinstance(res, cudf.Series)
 
 
+@pytest.mark.parametrize("y_kind", ["pandas", "cudf"])
+def test_logistic_regression_categorical_y(y_kind):
+    X, y_inds = make_classification(
+        n_samples=100,
+        n_features=20,
+        n_informative=10,
+        n_classes=3,
+        random_state=0,
+    )
+    categories = np.array(["apple", "banana", "carrot"], dtype="object")
+    y = pd.Series(pd.Categorical.from_codes(y_inds, categories))
+    if y_kind == "cudf":
+        y = cudf.Series(y)
+
+    model = cuLog(output_type="numpy")
+    model.fit(X, y)
+    np.testing.assert_array_equal(model.classes_, categories, strict=True)
+    res = model.predict(X)
+    assert isinstance(res, np.ndarray)
+    assert res.dtype == "object"
+
+
 @pytest.mark.parametrize("train_dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("test_dtype", [np.float64, np.float32])
 def test_linreg_predict_convert_dtype(train_dtype, test_dtype):
