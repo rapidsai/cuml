@@ -232,10 +232,13 @@ def test_weighted_linear_regression(
     # set weight per sample to be from 1 to max_weight
     if distribution == "uniform":
         wt = np.random.randint(1, high=max_weight, size=len(X_train))
+        wt_test = np.random.randint(1, high=max_weight, size=len(X_test))
     elif distribution == "exponential":
         wt = np.random.exponential(size=len(X_train))
+        wt_test = np.random.exponential(size=len(X_test))
     else:
         wt = np.random.lognormal(size=len(X_train))
+        wt_test = np.random.lognormal(size=len(X_test))
 
     # Initialization of cuML's linear regression model
     cuols = cuLinearRegression(
@@ -253,6 +256,11 @@ def test_weighted_linear_regression(
     skols_predict = skols.predict(X_test)
 
     assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
+
+    # Compare weighted scores
+    sk_score = skols.score(X_test, y_test, sample_weight=wt_test)
+    cu_score = cuols.score(X_test, y_test, sample_weight=wt_test)
+    np.testing.assert_almost_equal(cu_score, sk_score)
 
 
 @pytest.mark.skipif(
