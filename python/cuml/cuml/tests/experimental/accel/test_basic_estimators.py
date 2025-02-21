@@ -14,7 +14,8 @@
 
 import pytest
 import numpy as np
-from sklearn import clone
+from sklearn import clone, cluster
+import cuml
 from sklearn.datasets import make_classification, make_regression, make_blobs
 from sklearn.linear_model import (
     LinearRegression,
@@ -217,8 +218,6 @@ def test_proxy_params():
 
 
 def test_roundtrip():
-    import cuml
-    from sklearn import cluster
 
     km = cluster.KMeans(n_clusters=13)
     ckm = cuml.KMeans.from_sklearn(km)
