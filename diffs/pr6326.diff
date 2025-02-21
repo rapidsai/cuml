@@ -1,0 +1,57 @@
+diff --git a/python/cuml/cuml/internals/input_utils.py b/python/cuml/cuml/internals/input_utils.py
+index f06841e2f9..58b82fe549 100644
+--- a/python/cuml/cuml/internals/input_utils.py
++++ b/python/cuml/cuml/internals/input_utils.py
+@@ -1,5 +1,5 @@
+ #
+-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
++# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License");
+ # you may not use this file except in compliance with the License.
+@@ -530,6 +530,8 @@ def input_to_host_array(
+ 
+ 
+ def input_to_host_array_with_sparse_support(X):
++    if X is None:
++        return None
+     try:
+         if scipy_sparse.isspmatrix(X):
+             return X
+diff --git a/python/cuml/cuml/tests/experimental/accel/test_pipeline.py b/python/cuml/cuml/tests/experimental/accel/test_pipeline.py
+index 76af0ef6d9..c472fdc1d5 100644
+--- a/python/cuml/cuml/tests/experimental/accel/test_pipeline.py
++++ b/python/cuml/cuml/tests/experimental/accel/test_pipeline.py
+@@ -31,6 +31,7 @@
+     KNeighborsClassifier,
+     KNeighborsRegressor,
+ )
++from sklearn.preprocessing import Normalizer
+ from sklearn.pipeline import Pipeline, make_pipeline
+ from sklearn.datasets import make_classification, make_regression
+ from sklearn.model_selection import train_test_split
+@@ -38,6 +39,7 @@
+ from umap import UMAP
+ import hdbscan
+ import numpy as np
++import scipy as sp
+ 
+ 
+ @pytest.fixture
+@@ -154,3 +156,16 @@ def test_automatic_step_naming():
+ 
+     assert "pca" in pipeline.named_steps
+     assert "logisticregression" in pipeline.named_steps
++
++
++def test_pipeline_adding_none_value_as_labels(classification_data):
++    X_train, _, _, _ = classification_data
++    X_train = sp.sparse.csr_matrix(X_train)
++
++    # Since cuML's TruncatedSVD does not handle sparse data,
++    # the task will be automatically dispatched to Scikit-Learn.
++    # If no labels are provided, Scikit-Learn's pipeline adds
++    # y=None as the default labels.
++
++    pipeline = make_pipeline(TruncatedSVD(n_components=20))
++    pipeline.fit_transform(X_train)

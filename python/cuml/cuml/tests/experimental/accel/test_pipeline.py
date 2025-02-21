@@ -31,6 +31,7 @@ from sklearn.neighbors import (
     KNeighborsClassifier,
     KNeighborsRegressor,
 )
+from sklearn.preprocessing import Normalizer
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
@@ -38,6 +39,7 @@ from sklearn.metrics import accuracy_score, mean_squared_error
 from umap import UMAP
 import hdbscan
 import numpy as np
+import scipy as sp
 
 
 @pytest.fixture
@@ -154,3 +156,16 @@ def test_automatic_step_naming():
 
     assert "pca" in pipeline.named_steps
     assert "logisticregression" in pipeline.named_steps
+
+
+def test_pipeline_adding_none_value_as_labels(classification_data):
+    X_train, _, _, _ = classification_data
+    X_train = sp.sparse.csr_matrix(X_train)
+
+    # Since cuML's TruncatedSVD does not handle sparse data,
+    # the task will be automatically dispatched to Scikit-Learn.
+    # If no labels are provided, Scikit-Learn's pipeline adds
+    # y=None as the default labels.
+
+    pipeline = make_pipeline(TruncatedSVD(n_components=20))
+    pipeline.fit_transform(X_train)
