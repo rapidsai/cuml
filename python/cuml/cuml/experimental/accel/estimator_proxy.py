@@ -208,7 +208,9 @@ def intercept(
                 original_class_a  # Store a reference to the original class
             )
 
-            translated_kwargs, self._gpuaccel = self._hyperparam_translator(**kwargs)
+            translated_kwargs, self._gpuaccel = self._hyperparam_translator(
+                **kwargs
+            )
             super().__init__(*args, **translated_kwargs)
 
             self._cpu_hyperparams = list(

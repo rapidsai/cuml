@@ -219,7 +219,7 @@ def test_proxy_params():
 def test_hyperparam_input_matching():
     from cuml.linear_model import LogisticRegression
 
-    model = LogisticRegression(solver='qn')
+    model = LogisticRegression(solver="qn")
     model.import_cpu_model()
     model.build_cpu_model()
     model.gpu_to_cpu()
@@ -239,6 +239,7 @@ def test_roundtrip():
 
 def test_kernel_ridge():
     import cupy as cp
+
     rng = np.random.RandomState(42)
 
     X = 5 * rng.rand(10000, 1)
