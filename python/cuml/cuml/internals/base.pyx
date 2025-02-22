@@ -847,37 +847,32 @@ class UniversalBase(Base):
 
     def __getattr__(self, attr):
         try:
-            res = super().__getattr__(attr)
-            return res
-
-        except AttributeError as ex:
+            return super().__getattr__(attr)
+        except AttributeError:
             # When using cuml.experimental.accel or setting the
             # self._experimental_dispatching flag to True, we look for methods
             # that are not in the cuML estimator in the host estimator
-            if GlobalSettings().accelerator_active or self._experimental_dispatching:
-
+            gs = GlobalSettings()
+            if gs.accelerator_active or self._experimental_dispatching:
                 self.import_cpu_model()
                 if hasattr(self._cpu_model_class, attr):
-
                     # we turn off and cache the dispatching variables off so that
                     # build_cpu_model and gpu_to_cpu don't recurse infinitely
-                    cached_dispatching = self._experimental_dispatching
-                    cached_accelerator_active = GlobalSettings().accelerator_active
+                    orig_dispatching = self._experimental_dispatching
+                    orig_accelerator_active = gs.accelerator_active
+
                     self._experimental_dispatching = False
-                    GlobalSettings().accelerator_active = False
-
-                    self.build_cpu_model()
-                    self.gpu_to_cpu()
-
-                    # restore the dispatching variables back on
-                    self._experimental_dispatching = cached_dispatching
-                    GlobalSettings().accelerator_active = cached_accelerator_active
+                    gs.accelerator_active = False
+                    try:
+                        self.build_cpu_model()
+                        self.gpu_to_cpu()
+                    finally:
+                        # Reset back to original values
+                        self._experimental_dispatching = orig_dispatching
+                        gs.accelerator_active = orig_accelerator_active
 
                     return getattr(self._cpu_model, attr)
-
-                raise ex
-
-            raise ex
+            raise
 
     def as_sklearn(self, deepcopy=False):
         """
