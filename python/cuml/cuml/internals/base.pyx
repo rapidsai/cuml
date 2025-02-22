@@ -658,41 +658,16 @@ class UniversalBase(Base):
     def gpu_to_cpu(self):
         # transfer attributes from GPU to CPU estimator
         for attr in self.get_attr_names():
-            # check presence of attribute
-            if hasattr(self, attr) or \
-               isinstance(getattr(type(self), attr, None), property):
-                # get the cuml attribute
-                if hasattr(self, attr):
-                    cu_attr = getattr(self, attr)
-                else:
-                    cu_attr = getattr(type(self), attr).fget(self)
-                # if the cuml attribute is a CumlArrayDescriptorMeta
-                if hasattr(cu_attr, 'get_input_value'):
-                    # extract the actual value from the
-                    # CumlArrayDescriptorMeta
-                    cu_attr_value = cu_attr.get_input_value()
-                    # check if descriptor is empty
-                    if cu_attr_value is not None:
-                        if cu_attr.input_type == 'cuml':
-                            # transform cumlArray to numpy and set it
-                            # as an attribute in the CPU estimator
-                            setattr(self._cpu_model, attr,
-                                    cu_attr_value.to_output('numpy'))
-                        else:
-                            # transfer all other types of attributes
-                            # directly
-                            setattr(self._cpu_model, attr,
-                                    cu_attr_value)
-                elif isinstance(cu_attr, CumlArray):
+            if hasattr(self, attr):
+                cu_attr = getattr(self, attr)
+                if isinstance(cu_attr, CumlArray):
                     # transform cumlArray to numpy and set it
                     # as an attribute in the CPU estimator
-                    setattr(self._cpu_model, attr,
-                            cu_attr.to_output('numpy'))
+                    setattr(self._cpu_model, attr, cu_attr.to_output('numpy'))
                 elif isinstance(cu_attr, cp_ndarray):
                     # transform cupy to numpy and set it
                     # as an attribute in the CPU estimator
-                    setattr(self._cpu_model, attr,
-                            cp.asnumpy(cu_attr))
+                    setattr(self._cpu_model, attr, cp.asnumpy(cu_attr))
                 else:
                     # transfer all other types of attributes directly
                     setattr(self._cpu_model, attr, cu_attr)
@@ -705,16 +680,8 @@ class UniversalBase(Base):
             ]
         ):
             for attr in self.get_attr_names():
-                # check presence of attribute
-                if hasattr(self._cpu_model, attr) or \
-                    isinstance(getattr(type(self._cpu_model),
-                                       attr, None), property):
-                    # get the cpu attribute
-                    if hasattr(self._cpu_model, attr):
-                        cpu_attr = getattr(self._cpu_model, attr)
-                    else:
-                        cpu_attr = getattr(type(self._cpu_model),
-                                           attr).fget(self._cpu_model)
+                if hasattr(self._cpu_model, attr):
+                    cpu_attr = getattr(self._cpu_model, attr)
                     # if the cpu attribute is an array
                     if isinstance(cpu_attr, np.ndarray):
                         # get data order wished for by
