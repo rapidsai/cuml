@@ -313,14 +313,16 @@ void launcher(int n,
 
   raft::sparse::COO<value_t> in(stream, n * n_neighbors, n, n);
 
-  CUML_LOG_DEBUG("Smooth kNN Distances");
+  /*
   // check for logging in order to avoid the potentially costly `arr2Str` call!
   if (ML::default_logger().should_log(ML::level_enum::trace)) {
+    CUML_LOG_DEBUG("Smooth kNN Distances");
     auto str = raft::arr2Str(sigmas.data(), 25, "sigmas", stream);
     CUML_LOG_TRACE("%s", str.c_str());
     str = raft::arr2Str(rhos.data(), 25, "rhos", stream);
     CUML_LOG_TRACE("%s", str.c_str());
   }
+  */
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
@@ -342,12 +344,14 @@ void launcher(int n,
                                                                               n_neighbors);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  CUML_LOG_DEBUG("Compute Membership Strength");
+  /*
   if (ML::default_logger().should_log(ML::level_enum::trace)) {
+    CUML_LOG_DEBUG("Compute Membership Strength");
     std::stringstream ss;
     ss << in;
     CUML_LOG_TRACE(ss.str().c_str());
   }
+  */
 
   /**
    * Combines all the fuzzy simplicial sets into a global
