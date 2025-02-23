@@ -698,7 +698,7 @@ class RandomForestRegressor(BaseRandomForestModel,
 
         # shortcut for default accuracy metric of r^2
         if self.accuracy_metric == "r2":
-            stats = r2_score(y_m, preds, handle=self.handle)
+            stats = r2_score(y_m, preds)
             self.handle.sync()
             del y_m
             del preds_m
