@@ -207,7 +207,14 @@ def intercept(
             self._cpu_model_class = (
                 original_class_a  # Store a reference to the original class
             )
-            kwargs, self._gpuaccel = self._hyperparam_translator(**kwargs)
+
+            sklearn_args = inspect.signature(self._cpu_model_class)
+            sklearn_args = sklearn_args.bind(*args, **kwargs)
+            sklearn_args.apply_defaults()
+
+            kwargs, self._gpuaccel = self._hyperparam_translator(
+                **sklearn_args.arguments
+            )
             super().__init__(*args, **kwargs)
 
             self._cpu_hyperparams = list(
