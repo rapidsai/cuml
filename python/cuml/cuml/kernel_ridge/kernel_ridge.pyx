@@ -21,11 +21,13 @@ import warnings
 from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.internals.safe_imports import gpu_only_import
 from cupyx import lapack, geterr, seterr
+from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import UniversalBase
 from cuml.internals.api_decorators import (
     device_interop_preparation,
     enable_device_interop,
+    api_base_return_array,
 )
 from cuml.internals.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
@@ -293,6 +295,7 @@ class KernelRidge(UniversalBase, RegressorMixin):
         self.X_fit_ = X_m
         return self
 
+    @api_base_return_array()
     @enable_device_interop
     def predict(self, X):
         """
@@ -315,4 +318,4 @@ class KernelRidge(UniversalBase, RegressorMixin):
             X, check_dtype=[np.float32, np.float64])
 
         K = self._get_kernel(X_m, self.X_fit_)
-        return cp.dot(cp.asarray(K), cp.asarray(self.dual_coef_))
+        return CumlArray(cp.dot(cp.asarray(K), cp.asarray(self.dual_coef_)))
