@@ -1,0 +1,1356 @@
+diff --git a/python/cuml/cuml/ensemble/randomforestregressor.pyx b/python/cuml/cuml/ensemble/randomforestregressor.pyx
+index fac26b0dc0..895d8e3a9f 100644
+--- a/python/cuml/cuml/ensemble/randomforestregressor.pyx
++++ b/python/cuml/cuml/ensemble/randomforestregressor.pyx
+@@ -698,7 +698,7 @@ class RandomForestRegressor(BaseRandomForestModel,
+ 
+         # shortcut for default accuracy metric of r^2
+         if self.accuracy_metric == "r2":
+-            stats = r2_score(y_m, preds, handle=self.handle)
++            stats = r2_score(y_m, preds)
+             self.handle.sync()
+             del y_m
+             del preds_m
+diff --git a/python/cuml/cuml/internals/mixins.py b/python/cuml/cuml/internals/mixins.py
+index c47dc56754..aad89e3962 100644
+--- a/python/cuml/cuml/internals/mixins.py
++++ b/python/cuml/cuml/internals/mixins.py
+@@ -1,5 +1,5 @@
+ #
+-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
++# Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License");
+ # you may not use this file except in compliance with the License.
+@@ -200,7 +200,7 @@ class RegressorMixin:
+     )
+     @api_base_return_any_skipall
+     @enable_device_interop
+-    def score(self, X, y, **kwargs):
++    def score(self, X, y, sample_weight=None, **kwargs):
+         """
+         Scoring function for regression estimators
+ 
+@@ -209,13 +209,8 @@ def score(self, X, y, **kwargs):
+         """
+         from cuml.metrics.regression import r2_score
+ 
+-        if hasattr(self, "handle"):
+-            handle = self.handle
+-        else:
+-            handle = None
+-
+         preds = self.predict(X, **kwargs)
+-        return r2_score(y, preds, handle=handle)
++        return r2_score(y, preds, sample_weight=sample_weight)
+ 
+     @staticmethod
+     def _more_static_tags():
+diff --git a/python/cuml/cuml/metrics/CMakeLists.txt b/python/cuml/cuml/metrics/CMakeLists.txt
+index a56575ccb8..2896622fd8 100644
+--- a/python/cuml/cuml/metrics/CMakeLists.txt
++++ b/python/cuml/cuml/metrics/CMakeLists.txt
+@@ -19,7 +19,6 @@ add_module_gpu_default("accuracy.pyx" ${accuracy_algo} ${metrics_algo})
+ add_module_gpu_default("hinge_loss.pyx" ${hinge_loss_algo} ${metrics_algo})
+ add_module_gpu_default("kl_divergence.pyx" ${kl_divergence_algo} ${metrics_algo})
+ add_module_gpu_default("pairwise_distances.pyx" ${pairwise_distances_algo} ${metrics_algo})
+-add_module_gpu_default("regression.pyx" ${regression_algo} ${metrics_algo})
+ add_module_gpu_default("trustworthiness.pyx" ${trustworthiness_algo} ${metrics_algo})
+ 
+ rapids_cython_create_modules(
+diff --git a/python/cuml/cuml/metrics/regression.pxd b/python/cuml/cuml/metrics/regression.pxd
+deleted file mode 100644
+index 3ac43d7fd8..0000000000
+--- a/python/cuml/cuml/metrics/regression.pxd
++++ /dev/null
+@@ -1,29 +0,0 @@
+-#
+-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+-#
+-# Licensed under the Apache License, Version 2.0 (the "License");
+-# you may not use this file except in compliance with the License.
+-# You may obtain a copy of the License at
+-#
+-#     http://www.apache.org/licenses/LICENSE-2.0
+-#
+-# Unless required by applicable law or agreed to in writing, software
+-# distributed under the License is distributed on an "AS IS" BASIS,
+-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-# See the License for the specific language governing permissions and
+-# limitations under the License.
+-#
+-
+-from pylibraft.common.handle cimport handle_t
+-
+-cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
+-
+-    float r2_score_py(const handle_t& handle,
+-                      float *y,
+-                      float *y_hat,
+-                      int n) except +
+-
+-    double r2_score_py(const handle_t& handle,
+-                       double *y,
+-                       double *y_hat,
+-                       int n) except +
+diff --git a/python/cuml/cuml/metrics/regression.py b/python/cuml/cuml/metrics/regression.py
+new file mode 100644
+index 0000000000..b33d566408
+--- /dev/null
++++ b/python/cuml/cuml/metrics/regression.py
+@@ -0,0 +1,379 @@
++#
++# Copyright (c) 2019-2025, NVIDIA CORPORATION.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#
++
++import warnings
++
++import cuml.internals
++from cuml.internals.input_utils import input_to_cupy_array
++from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
++
++np = cpu_only_import("numpy")
++cp = gpu_only_import("cupy")
++
++
++def _normalize_regression_metric_args(
++    y_true, y_pred, sample_weight, multioutput
++):
++    """
++    Helper function to normalize inputs to a regression metric.
++
++    Validates inputs and coerces all arrays to cupy of proper shape and dtype.
++    """
++    # Coerce inputs to cupy arrays
++    float_or_int = [np.float32, np.float64, np.int32, np.int64]
++    y_true, n_rows, n_cols, _ = input_to_cupy_array(
++        y_true, check_dtype=float_or_int
++    )
++    y_pred, _, _, _ = input_to_cupy_array(
++        y_pred, check_dtype=float_or_int, check_rows=n_rows, check_cols=n_cols
++    )
++    if sample_weight is not None:
++        sample_weight, _, _, _ = input_to_cupy_array(
++            sample_weight,
++            check_dtype=float_or_int,
++            check_rows=n_rows,
++            check_cols=1,
++        )
++
++    # Ensure y_true & y_pred are 2D and sample_weight is 1D
++    if y_true.ndim == 1:
++        y_true = y_true.reshape((-1, 1))
++
++    if y_pred.ndim == 1:
++        y_pred = y_pred.reshape((-1, 1))
++
++    if sample_weight is not None:
++        sample_weight = sample_weight.reshape(-1)
++
++    # Validate multioutput, and maybe coerce to a cupy array
++    valid_multioutput = ("raw_values", "uniform_average", "variance_weighted")
++    if isinstance(multioutput, str):
++        if multioutput not in valid_multioutput:
++            raise ValueError(
++                f"Valid `multioutput` values are {valid_multioutput}, got {multioutput=}"
++            )
++    elif multioutput is not None:
++        if n_cols == 1:
++            raise ValueError(
++                "Custom weights are useful only in multi-output cases."
++            )
++        multioutput, _, _, _ = input_to_cupy_array(
++            multioutput, check_rows=n_cols
++        )
++
++    return y_true, y_pred, sample_weight, multioutput
++
++
++@cuml.internals.api_return_any()
++def r2_score(
++    y_true,
++    y_pred,
++    *,
++    sample_weight=None,
++    multioutput="uniform_average",
++    force_finite=True,
++    **kwargs,
++):
++    """:math:`R^2` (coefficient of determination) regression score function.
++
++    Best possible score is 1.0 and it can be negative (because the
++    model can be arbitrarily worse). In the general case when the true y is
++    non-constant, a constant model that always predicts the average y
++    disregarding the input features would get a :math:`R^2` score of 0.0.
++
++    Parameters
++    ----------
++    y_true : array-like of shape (n_samples,) or (n_samples, n_outputs)
++        Ground truth (correct) target values.
++    y_pred : array-like of shape (n_samples,) or (n_samples, n_outputs)
++        Estimated target values.
++    sample_weight : array-like of shape (n_samples,)
++        Sample weights.
++    multioutput : {'raw_values', 'uniform_average', 'variance_weighted'} or array-like of shape (n_outputs,)
++        How to aggregate multioutput scores. One of:
++
++        - 'uniform_average': Scores of all outputs are averaged with uniform weight.
++          This is the default.
++        - 'variance_weighted': Scores of all outputs are averaged, weighted by the
++          variances of each individual output.
++        - 'raw_values': Full set of scores in case of multioutput input.
++        - array-like: Weights to use when averaging scores of all outputs.
++
++    force_finite : bool, default=True
++        Flag indicating if ``NaN`` and ``-Inf`` scores resulting from constant
++        data should be replaced with real numbers (``1.0`` if prediction is
++        perfect, ``0.0`` otherwise). Default is ``True``.
++
++    Returns
++    -------
++    z : float or ndarray of floats
++        The :math:`R^2` score or ndarray of scores if 'multioutput' is
++        'raw_values'.
++    """
++    if kwargs:
++        warnings.warn(
++            "`convert_dtype` and `handle` were deprecated from `r2_score` and will "
++            "be removed in a future release.",
++            FutureWarning,
++        )
++
++    (
++        y_true,
++        y_pred,
++        sample_weight,
++        multioutput,
++    ) = _normalize_regression_metric_args(
++        y_true, y_pred, sample_weight, multioutput
++    )
++
++    weight = 1.0 if sample_weight is None else sample_weight[:, None]
++    numerator = cp.sum(weight * (y_true - y_pred) ** 2, axis=0)
++    denominator = cp.sum(
++        weight
++        * (y_true - cp.average(y_true, axis=0, weights=sample_weight)) ** 2,
++        axis=0,
++    )
++
++    nonzero_denominator = denominator != 0
++
++    if not force_finite:
++        output_scores = 1 - (numerator / denominator)
++    else:
++        # numerator == 0 -> 1
++        # denominator == 0 -> 0
++        # else -> 1 - (numerator / denominator)
++        nonzero_numerator = numerator != 0
++        output_scores = cp.ones([y_true.shape[1]], dtype=numerator.dtype)
++        valid_score = nonzero_denominator & nonzero_numerator
++        output_scores[valid_score] = 1 - (
++            numerator[valid_score] / denominator[valid_score]
++        )
++        output_scores[nonzero_numerator & ~nonzero_denominator] = 0.0
++
++    if isinstance(multioutput, str):
++        if multioutput == "raw_values":
++            return output_scores
++        elif multioutput == "uniform_average":
++            avg_weights = None
++        elif multioutput == "variance_weighted":
++            avg_weights = denominator
++            if not cp.any(nonzero_denominator):
++                # All weights are zero, _average would raise a ZeroDiv error.
++                # This only happens when all y are constant (or 1-element long)
++                # Since weights are all equal, fall back to uniform weights.
++                avg_weights = None
++    else:
++        avg_weights = multioutput
++
++    result = cp.average(output_scores, weights=avg_weights)
++    if result.size == 1:
++        return float(result)
++    return result
++
++
++def _mse(y_true, y_pred, sample_weight, multioutput, squared):
++    """Helper to compute the mean squared error"""
++    output_errors = cp.average(
++        (y_true - y_pred) ** 2, axis=0, weights=sample_weight
++    )
++
++    if isinstance(multioutput, str):
++        if multioutput == "raw_values":
++            return output_errors
++        elif multioutput == "uniform_average":
++            multioutput = None
++
++    out = cp.average(output_errors, weights=multioutput)
++    return float(out if squared else cp.sqrt(out))
++
++
++@cuml.internals.api_return_any()
++def mean_squared_error(
++    y_true,
++    y_pred,
++    sample_weight=None,
++    multioutput="uniform_average",
++    squared=True,
++):
++    """Mean squared error regression loss
++
++    Be careful when using this metric with float32 inputs as the result can be
++    slightly incorrect because of floating point precision if the input is
++    large enough. float64 will have lower numerical error.
++
++    Parameters
++    ----------
++    y_true : array-like (device or host) shape = (n_samples,)
++        or (n_samples, n_outputs)
++        Ground truth (correct) target values.
++    y_pred : array-like (device or host) shape = (n_samples,)
++        or (n_samples, n_outputs)
++        Estimated target values.
++    sample_weight : array-like (device or host) shape = (n_samples,), optional
++        Sample weights.
++    multioutput : string in ['raw_values', 'uniform_average'] \
++            (default='uniform_average')
++        or array-like of shape (n_outputs)
++        Defines aggregating of multiple output values.
++        Array-like value defines weights used to average errors.
++        'raw_values' :
++        Returns a full set of errors in case of multioutput input.
++        'uniform_average' :
++        Errors of all outputs are averaged with uniform weight.
++    squared : boolean value, optional (default = True)
++        If True returns MSE value, if False returns RMSE value.
++
++    Returns
++    -------
++    loss : float or ndarray of floats
++        A non-negative floating point value (the best value is 0.0), or an
++        array of floating point values, one for each individual target.
++    """
++    (
++        y_true,
++        y_pred,
++        sample_weight,
++        multioutput,
++    ) = _normalize_regression_metric_args(
++        y_true, y_pred, sample_weight, multioutput
++    )
++    return _mse(y_true, y_pred, sample_weight, multioutput, squared)
++
++
++@cuml.internals.api_return_any()
++def mean_absolute_error(
++    y_true, y_pred, sample_weight=None, multioutput="uniform_average"
++):
++    """Mean absolute error regression loss
++
++    Be careful when using this metric with float32 inputs as the result can be
++    slightly incorrect because of floating point precision if the input is
++    large enough. float64 will have lower numerical error.
++
++    Parameters
++    ----------
++    y_true : array-like (device or host) shape = (n_samples,)
++        or (n_samples, n_outputs)
++        Ground truth (correct) target values.
++    y_pred : array-like (device or host) shape = (n_samples,)
++        or (n_samples, n_outputs)
++        Estimated target values.
++    sample_weight : array-like (device or host) shape = (n_samples,), optional
++        Sample weights.
++    multioutput : string in ['raw_values', 'uniform_average']
++        or array-like of shape (n_outputs)
++        Defines aggregating of multiple output values.
++        Array-like value defines weights used to average errors.
++        'raw_values' :
++        Returns a full set of errors in case of multioutput input.
++        'uniform_average' :
++        Errors of all outputs are averaged with uniform weight.
++
++    Returns
++    -------
++    loss : float or ndarray of floats
++        If multioutput is ‘raw_values’, then mean absolute error is returned
++        for each output separately. If multioutput is ‘uniform_average’ or an
++        ndarray of weights, then the weighted average of all output errors is
++        returned.
++
++        MAE output is non-negative floating point. The best value is 0.0.
++    """
++    (
++        y_true,
++        y_pred,
++        sample_weight,
++        multioutput,
++    ) = _normalize_regression_metric_args(
++        y_true, y_pred, sample_weight, multioutput
++    )
++
++    output_errors = cp.average(
++        cp.abs(y_pred - y_true), axis=0, weights=sample_weight
++    )
++    if isinstance(multioutput, str):
++        if multioutput == "raw_values":
++            return output_errors
++        elif multioutput == "uniform_average":
++            multioutput = None
++
++    out = cp.average(output_errors, weights=multioutput)
++    return float(out)
++
++
++@cuml.internals.api_return_any()
++def mean_squared_log_error(
++    y_true,
++    y_pred,
++    sample_weight=None,
++    multioutput="uniform_average",
++    squared=True,
++):
++    """Mean squared log error regression loss
++
++    Be careful when using this metric with float32 inputs as the result can be
++    slightly incorrect because of floating point precision if the input is
++    large enough. float64 will have lower numerical error.
++
++    Parameters
++    ----------
++    y_true : array-like (device or host) shape = (n_samples,)
++        or (n_samples, n_outputs)
++        Ground truth (correct) target values.
++    y_pred : array-like (device or host) shape = (n_samples,)
++        or (n_samples, n_outputs)
++        Estimated target values.
++    sample_weight : array-like (device or host) shape = (n_samples,), optional
++        Sample weights.
++    multioutput : string in ['raw_values', 'uniform_average']
++        or array-like of shape (n_outputs)
++        Defines aggregating of multiple output values.
++        Array-like value defines weights used to average errors.
++        'raw_values' :
++        Returns a full set of errors in case of multioutput input.
++        'uniform_average' :
++        Errors of all outputs are averaged with uniform weight.
++    squared : boolean value, optional (default = True)
++        If True returns MSE value, if False returns RMSE value.
++
++    Returns
++    -------
++    loss : float or ndarray of floats
++        A non-negative floating point value (the best value is 0.0), or an
++        array of floating point values, one for each individual target.
++    """
++    (
++        y_true,
++        y_pred,
++        sample_weight,
++        multioutput,
++    ) = _normalize_regression_metric_args(
++        y_true, y_pred, sample_weight, multioutput
++    )
++
++    if cp.less(y_true, 0).any() or cp.less(y_pred, 0).any():
++        raise ValueError(
++            "Mean Squared Logarithmic Error cannot be used when "
++            "targets contain negative values."
++        )
++
++    return _mse(
++        cp.log1p(y_true),
++        cp.log1p(y_pred),
++        sample_weight,
++        multioutput,
++        squared,
++    )
+diff --git a/python/cuml/cuml/metrics/regression.pyx b/python/cuml/cuml/metrics/regression.pyx
+deleted file mode 100644
+index b88573e144..0000000000
+--- a/python/cuml/cuml/metrics/regression.pyx
++++ /dev/null
+@@ -1,306 +0,0 @@
+-#
+-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+-#
+-# Licensed under the Apache License, Version 2.0 (the "License");
+-# you may not use this file except in compliance with the License.
+-# You may obtain a copy of the License at
+-#
+-#     http://www.apache.org/licenses/LICENSE-2.0
+-#
+-# Unless required by applicable law or agreed to in writing, software
+-# distributed under the License is distributed on an "AS IS" BASIS,
+-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-# See the License for the specific language governing permissions and
+-# limitations under the License.
+-#
+-
+-# distutils: language = c++
+-
+-from cuml.internals.safe_imports import cpu_only_import
+-np = cpu_only_import('numpy')
+-from cuml.internals.safe_imports import gpu_only_import
+-cp = gpu_only_import('cupy')
+-
+-from libc.stdint cimport uintptr_t
+-
+-import cuml.internals
+-from pylibraft.common.handle import Handle
+-from pylibraft.common.handle cimport handle_t
+-from cuml.metrics cimport regression
+-from cuml.internals.input_utils import input_to_cuml_array
+-
+-
+-@cuml.internals.api_return_any()
+-def r2_score(y, y_hat, convert_dtype=True, handle=None) -> float:
+-    """
+-    Calculates r2 score between y and y_hat
+-
+-    Parameters
+-    ----------
+-        y : array-like (device or host) shape = (n_samples, 1)
+-            Dense vector (floats or doubles) of shape (n_samples, 1).
+-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
+-            ndarray, cuda array interface compliant array like CuPy
+-
+-        y_hat : array-like (device or host) shape = (n_samples, 1)
+-            Dense vector (floats or doubles) of shape (n_samples, 1).
+-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
+-            ndarray, cuda array interface compliant array like CuPy
+-
+-        convert_dtype : bool, optional (default = False)
+-            When set to True, the fit method will, when necessary, convert
+-            y_hat to be the same data type as y if they differ. This
+-            will increase memory used for the method.
+-
+-    Returns
+-    -------
+-        trustworthiness score : double
+-            Trustworthiness of the low-dimensional embedding
+-    """
+-    handle = Handle() if handle is None else handle
+-    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+-
+-    y_m, n_rows, _, ytype = \
+-        input_to_cuml_array(y,
+-                            convert_to_dtype=(np.float32 if convert_dtype
+-                                              else None),
+-                            check_dtype=[np.float32, np.float64],
+-                            check_cols=1)
+-    cdef uintptr_t y_ptr = y_m.ptr
+-
+-    y_m2, *_ = \
+-        input_to_cuml_array(y_hat, check_dtype=ytype,
+-                            convert_to_dtype=(ytype if convert_dtype
+-                                              else None),
+-                            check_rows=n_rows, check_cols=1)
+-    cdef uintptr_t y_hat_ptr = y_m2.ptr
+-
+-    cdef float result_f32
+-    cdef double result_f64
+-
+-    n = len(y)
+-
+-    if y_m.dtype == 'float32':
+-
+-        result_f32 = regression.r2_score_py(handle_[0],
+-                                            <float*> y_ptr,
+-                                            <float*> y_hat_ptr,
+-                                            <int> n)
+-
+-        result = result_f32
+-
+-    else:
+-        result_f64 = regression.r2_score_py(handle_[0],
+-                                            <double*> y_ptr,
+-                                            <double*> y_hat_ptr,
+-                                            <int> n)
+-
+-        result = result_f64
+-
+-    del y_m
+-    del y_m2
+-
+-    return result
+-
+-
+-def _prepare_input_reg(y_true, y_pred, sample_weight, multioutput):
+-    """
+-    Helper function to avoid code duplication for regression metrics.
+-    Converts inputs to CumlArray and check multioutput parameter validity.
+-    """
+-    allowed_d_types = [np.float32, np.float64, np.int32, np.int64]
+-    y_true = y_true.squeeze() if len(y_true.shape) > 1 else y_true
+-    y_true, n_rows, n_cols, _ = \
+-        input_to_cuml_array(y_true, check_dtype=allowed_d_types)
+-
+-    y_pred = y_pred.squeeze() if len(y_pred.shape) > 1 else y_pred
+-    y_pred, _, _, _ = \
+-        input_to_cuml_array(y_pred, check_dtype=allowed_d_types,
+-                            check_rows=n_rows, check_cols=n_cols)
+-
+-    if sample_weight is not None:
+-        sample_weight, _, _, _ = \
+-            input_to_cuml_array(sample_weight, check_dtype=allowed_d_types,
+-                                check_rows=n_rows, check_cols=n_cols)
+-
+-    raw_multioutput = False
+-    allowed_multioutput_str = ('raw_values', 'uniform_average',
+-                               'variance_weighted')
+-    if isinstance(multioutput, str):
+-        if multioutput not in allowed_multioutput_str:
+-            raise ValueError("Allowed 'multioutput' string values are {}. "
+-                             "You provided multioutput={!r}"
+-                             .format(allowed_multioutput_str, multioutput))
+-        elif multioutput == 'raw_values':
+-            raw_multioutput = True
+-        elif multioutput == 'uniform_average':
+-            # pass None as weights to np.average: uniform mean
+-            multioutput = None
+-    elif multioutput is not None:
+-        multioutput, _, _, _ = \
+-            input_to_cuml_array(multioutput, check_dtype=allowed_d_types)
+-        if n_cols == 1:
+-            raise ValueError("Custom weights are useful only in "
+-                             "multi-output cases.")
+-
+-    return y_true, y_pred, sample_weight, multioutput, raw_multioutput
+-
+-
+-def _mse(y_true, y_pred, sample_weight, multioutput, squared, raw_multioutput):
+-    """Helper to compute the mean squared error"""
+-    output_errors = cp.subtract(y_true, y_pred)
+-    output_errors = cp.multiply(output_errors, output_errors)
+-
+-    output_errors = cp.average(output_errors, axis=0, weights=sample_weight)
+-
+-    if raw_multioutput:
+-        return output_errors
+-
+-    mse = cp.average(output_errors, weights=multioutput)
+-    return mse if squared else cp.sqrt(mse)
+-
+-
+-@cuml.internals.api_return_any()
+-def mean_squared_error(y_true, y_pred,
+-                       sample_weight=None,
+-                       multioutput='uniform_average',
+-                       squared=True):
+-    """Mean squared error regression loss
+-
+-    Be careful when using this metric with float32 inputs as the result can be
+-    slightly incorrect because of floating point precision if the input is
+-    large enough. float64 will have lower numerical error.
+-
+-    Parameters
+-    ----------
+-    y_true : array-like (device or host) shape = (n_samples,)
+-        or (n_samples, n_outputs)
+-        Ground truth (correct) target values.
+-    y_pred : array-like (device or host) shape = (n_samples,)
+-        or (n_samples, n_outputs)
+-        Estimated target values.
+-    sample_weight : array-like (device or host) shape = (n_samples,), optional
+-        Sample weights.
+-    multioutput : string in ['raw_values', 'uniform_average'] \
+-            (default='uniform_average')
+-        or array-like of shape (n_outputs)
+-        Defines aggregating of multiple output values.
+-        Array-like value defines weights used to average errors.
+-        'raw_values' :
+-        Returns a full set of errors in case of multioutput input.
+-        'uniform_average' :
+-        Errors of all outputs are averaged with uniform weight.
+-    squared : boolean value, optional (default = True)
+-        If True returns MSE value, if False returns RMSE value.
+-
+-    Returns
+-    -------
+-    loss : float or ndarray of floats
+-        A non-negative floating point value (the best value is 0.0), or an
+-        array of floating point values, one for each individual target.
+-    """
+-    y_true, y_pred, sample_weight, multioutput, raw_multioutput = \
+-        _prepare_input_reg(y_true, y_pred, sample_weight, multioutput)
+-
+-    return _mse(y_true, y_pred, sample_weight, multioutput, squared,
+-                raw_multioutput)
+-
+-
+-@cuml.internals.api_return_any()
+-def mean_absolute_error(y_true, y_pred,
+-                        sample_weight=None,
+-                        multioutput='uniform_average'):
+-    """Mean absolute error regression loss
+-
+-    Be careful when using this metric with float32 inputs as the result can be
+-    slightly incorrect because of floating point precision if the input is
+-    large enough. float64 will have lower numerical error.
+-
+-    Parameters
+-    ----------
+-    y_true : array-like (device or host) shape = (n_samples,)
+-        or (n_samples, n_outputs)
+-        Ground truth (correct) target values.
+-    y_pred : array-like (device or host) shape = (n_samples,)
+-        or (n_samples, n_outputs)
+-        Estimated target values.
+-    sample_weight : array-like (device or host) shape = (n_samples,), optional
+-        Sample weights.
+-    multioutput : string in ['raw_values', 'uniform_average']
+-        or array-like of shape (n_outputs)
+-        Defines aggregating of multiple output values.
+-        Array-like value defines weights used to average errors.
+-        'raw_values' :
+-        Returns a full set of errors in case of multioutput input.
+-        'uniform_average' :
+-        Errors of all outputs are averaged with uniform weight.
+-
+-    Returns
+-    -------
+-    loss : float or ndarray of floats
+-        If multioutput is ‘raw_values’, then mean absolute error is returned
+-        for each output separately. If multioutput is ‘uniform_average’ or an
+-        ndarray of weights, then the weighted average of all output errors is
+-        returned.
+-
+-        MAE output is non-negative floating point. The best value is 0.0.
+-    """
+-    y_true, y_pred, sample_weight, multioutput, raw_multioutput = \
+-        _prepare_input_reg(y_true, y_pred, sample_weight, multioutput)
+-
+-    output_errors = cp.abs(cp.subtract(y_pred, y_true))
+-    output_errors = cp.average(output_errors, axis=0, weights=sample_weight)
+-
+-    if raw_multioutput:
+-        return output_errors
+-
+-    return cp.average(output_errors, weights=multioutput)
+-
+-
+-@cuml.internals.api_return_any()
+-def mean_squared_log_error(y_true, y_pred,
+-                           sample_weight=None,
+-                           multioutput='uniform_average',
+-                           squared=True):
+-    """Mean squared log error regression loss
+-
+-    Be careful when using this metric with float32 inputs as the result can be
+-    slightly incorrect because of floating point precision if the input is
+-    large enough. float64 will have lower numerical error.
+-
+-    Parameters
+-    ----------
+-    y_true : array-like (device or host) shape = (n_samples,)
+-        or (n_samples, n_outputs)
+-        Ground truth (correct) target values.
+-    y_pred : array-like (device or host) shape = (n_samples,)
+-        or (n_samples, n_outputs)
+-        Estimated target values.
+-    sample_weight : array-like (device or host) shape = (n_samples,), optional
+-        Sample weights.
+-    multioutput : string in ['raw_values', 'uniform_average']
+-        or array-like of shape (n_outputs)
+-        Defines aggregating of multiple output values.
+-        Array-like value defines weights used to average errors.
+-        'raw_values' :
+-        Returns a full set of errors in case of multioutput input.
+-        'uniform_average' :
+-        Errors of all outputs are averaged with uniform weight.
+-    squared : boolean value, optional (default = True)
+-        If True returns MSE value, if False returns RMSE value.
+-
+-    Returns
+-    -------
+-    loss : float or ndarray of floats
+-        A non-negative floating point value (the best value is 0.0), or an
+-        array of floating point values, one for each individual target.
+-    """
+-    y_true, y_pred, sample_weight, multioutput, raw_multioutput = \
+-        _prepare_input_reg(y_true, y_pred, sample_weight, multioutput)
+-
+-    if cp.less(y_true, 0).any() or cp.less(y_pred, 0).any():
+-        raise ValueError("Mean Squared Logarithmic Error cannot be used when "
+-                         "targets contain negative values.")
+-
+-    return _mse(cp.log1p(y_true), cp.log1p(y_pred), sample_weight, multioutput,
+-                squared, raw_multioutput)
+diff --git a/python/cuml/cuml/tests/test_linear_model.py b/python/cuml/cuml/tests/test_linear_model.py
+index f840c27ddd..f3b873a8da 100644
+--- a/python/cuml/cuml/tests/test_linear_model.py
++++ b/python/cuml/cuml/tests/test_linear_model.py
+@@ -232,10 +232,13 @@ def test_weighted_linear_regression(
+     # set weight per sample to be from 1 to max_weight
+     if distribution == "uniform":
+         wt = np.random.randint(1, high=max_weight, size=len(X_train))
++        wt_test = np.random.randint(1, high=max_weight, size=len(X_test))
+     elif distribution == "exponential":
+         wt = np.random.exponential(size=len(X_train))
++        wt_test = np.random.exponential(size=len(X_test))
+     else:
+         wt = np.random.lognormal(size=len(X_train))
++        wt_test = np.random.lognormal(size=len(X_test))
+ 
+     # Initialization of cuML's linear regression model
+     cuols = cuLinearRegression(
+@@ -254,6 +257,11 @@ def test_weighted_linear_regression(
+ 
+     assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
+ 
++    # Compare weighted scores
++    sk_score = skols.score(X_test, y_test, sample_weight=wt_test)
++    cu_score = cuols.score(X_test, y_test, sample_weight=wt_test)
++    np.testing.assert_almost_equal(cu_score, sk_score)
++
+ 
+ @pytest.mark.skipif(
+     rmm._cuda.gpu.runtimeGetVersion() < 11000,
+diff --git a/python/cuml/cuml/tests/test_mbsgd_regressor.py b/python/cuml/cuml/tests/test_mbsgd_regressor.py
+index 7ed39bfbb8..7e41ffafff 100644
+--- a/python/cuml/cuml/tests/test_mbsgd_regressor.py
++++ b/python/cuml/cuml/tests/test_mbsgd_regressor.py
+@@ -1,4 +1,4 @@
+-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
++# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License");
+ # you may not use this file except in compliance with the License.
+@@ -100,9 +100,7 @@ def test_mbsgd_regressor_vs_skl(lrate, penalty, make_dataset):
+ 
+         cu_mbsgd_regressor.fit(X_train, y_train)
+         cu_pred = cu_mbsgd_regressor.predict(X_test)
+-        cu_r2 = r2_score(
+-            cp.asnumpy(cu_pred), cp.asnumpy(y_test), convert_dtype=datatype
+-        )
++        cu_r2 = r2_score(cu_pred, y_test)
+ 
+         skl_sgd_regressor = SGDRegressor(
+             learning_rate=lrate,
+@@ -116,7 +114,7 @@ def test_mbsgd_regressor_vs_skl(lrate, penalty, make_dataset):
+ 
+         skl_sgd_regressor.fit(cp.asnumpy(X_train), cp.asnumpy(y_train).ravel())
+         skl_pred = skl_sgd_regressor.predict(cp.asnumpy(X_test))
+-        skl_r2 = r2_score(skl_pred, cp.asnumpy(y_test), convert_dtype=datatype)
++        skl_r2 = r2_score(skl_pred, y_test)
+         assert abs(cu_r2 - skl_r2) <= 0.021
+ 
+ 
+@@ -146,7 +144,7 @@ def test_mbsgd_regressor(lrate, penalty, make_dataset):
+ 
+     cu_mbsgd_regressor.fit(X_train, y_train)
+     cu_pred = cu_mbsgd_regressor.predict(X_test)
+-    cu_r2 = r2_score(cu_pred, y_test, convert_dtype=datatype)
++    cu_r2 = r2_score(cu_pred, y_test)
+ 
+     assert cu_r2 >= 0.88
+ 
+@@ -157,9 +155,7 @@ def test_mbsgd_regressor_default(make_dataset):
+     cu_mbsgd_regressor = cumlMBSGRegressor(batch_size=nrows / 100)
+     cu_mbsgd_regressor.fit(X_train, y_train)
+     cu_pred = cu_mbsgd_regressor.predict(X_test)
+-    cu_r2 = r2_score(
+-        cp.asnumpy(cu_pred), cp.asnumpy(y_test), convert_dtype=datatype
+-    )
++    cu_r2 = r2_score(cu_pred, y_test)
+ 
+     assert cu_r2 > 0.9
+ 
+diff --git a/python/cuml/cuml/tests/test_metrics.py b/python/cuml/cuml/tests/test_metrics.py
+index 40ea25ed35..5b6e1a14a5 100644
+--- a/python/cuml/cuml/tests/test_metrics.py
++++ b/python/cuml/cuml/tests/test_metrics.py
+@@ -15,6 +15,8 @@
+ #
+ 
+ import platform
++
++import sklearn.metrics
+ from cuml.metrics.cluster import v_measure_score
+ from sklearn.metrics.cluster import v_measure_score as sklearn_v_measure_score
+ from scipy.special import rel_entr as scipy_kl_divergence
+@@ -34,16 +36,8 @@
+ from cuml.metrics import roc_auc_score
+ from cuml.common.sparsefuncs import csr_row_normalize_l1
+ from cuml.common import has_scipy
+-from sklearn.metrics import mean_squared_log_error as sklearn_msle
+-from sklearn.metrics import mean_absolute_error as sklearn_mae
+ from cuml.metrics import confusion_matrix
+ from sklearn.metrics import confusion_matrix as sk_confusion_matrix
+-from sklearn.metrics import mean_squared_error as sklearn_mse
+-from cuml.metrics.regression import (
+-    mean_squared_error,
+-    mean_squared_log_error,
+-    mean_absolute_error,
+-)
+ from cuml.model_selection import train_test_split
+ from cuml.metrics.cluster import entropy
+ from cuml.metrics import kl_divergence as cu_kl_divergence
+@@ -83,7 +77,6 @@
+ 
+ import random
+ from itertools import chain, permutations
+-from functools import partial
+ 
+ import cuml
+ import cuml.internals.logger as logger
+@@ -147,22 +140,6 @@ def labeled_clusters(request, random_state):
+     )
+ 
+ 
+-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+-@pytest.mark.parametrize("use_handle", [True, False])
+-def test_r2_score(datatype, use_handle):
+-    a = np.array([0.1, 0.2, 0.3, 0.4, 0.5], dtype=datatype)
+-    b = np.array([0.12, 0.22, 0.32, 0.42, 0.52], dtype=datatype)
+-
+-    a_dev = cuda.to_device(a)
+-    b_dev = cuda.to_device(b)
+-
+-    handle, stream = get_handle(use_handle)
+-
+-    score = cuml.metrics.r2_score(a_dev, b_dev, handle=handle)
+-
+-    np.testing.assert_almost_equal(score, 0.98, decimal=7)
+-
+-
+ # Ignore FutureWarning: Using `__dataframe__` is deprecated
+ @pytest.mark.filterwarnings("ignore::FutureWarning")
+ def test_sklearn_search():
+@@ -550,17 +527,6 @@ def test_completeness_score_big_array(use_handle, input_range):
+     np.testing.assert_almost_equal(score, ref, decimal=4)
+ 
+ 
+-def test_regression_metrics():
+-    y_true = np.arange(50, dtype=int)
+-    y_pred = y_true + 1
+-    assert_almost_equal(mean_squared_error(y_true, y_pred), 1.0)
+-    assert_almost_equal(
+-        mean_squared_log_error(y_true, y_pred),
+-        mean_squared_error(np.log(1 + y_true), np.log(1 + y_pred)),
+-    )
+-    assert_almost_equal(mean_absolute_error(y_true, y_pred), 1.0)
+-
+-
+ @pytest.mark.parametrize("n_samples", [50, stress_param(500000)])
+ @pytest.mark.parametrize(
+     "y_dtype", [np.int32, np.int64, np.float32, np.float64]
+@@ -568,135 +534,199 @@ def test_regression_metrics():
+ @pytest.mark.parametrize(
+     "pred_dtype", [np.int32, np.int64, np.float32, np.float64]
+ )
+-@pytest.mark.parametrize("function", ["mse", "mae", "msle"])
+-def test_regression_metrics_random_with_mixed_dtypes(
+-    n_samples, y_dtype, pred_dtype, function
+-):
+-    y_true, _, _, _ = generate_random_labels(
+-        lambda rng: rng.randint(0, 1000, n_samples).astype(y_dtype)
+-    )
+-
+-    y_pred, _, _, _ = generate_random_labels(
+-        lambda rng: rng.randint(0, 1000, n_samples).astype(pred_dtype)
+-    )
+-
+-    cuml_reg, sklearn_reg = {
+-        "mse": (mean_squared_error, sklearn_mse),
+-        "mae": (mean_absolute_error, sklearn_mae),
+-        "msle": (mean_squared_log_error, sklearn_msle),
+-    }[function]
++@pytest.mark.parametrize(
++    "func",
++    [
++        "r2_score",
++        "mean_squared_error",
++        "mean_absolute_error",
++        "mean_squared_log_error",
++    ],
++)
++def test_regression_metrics(n_samples, y_dtype, pred_dtype, func):
++    rng = np.random.RandomState(42)
++    y_true = rng.randint(10, 1000, n_samples).astype(y_dtype)
++    y_pred = (rng.randint(-5, 5, n_samples) + y_true).astype(pred_dtype)
+ 
+-    res = cuml_reg(y_true, y_pred, multioutput="raw_values")
+-    ref = sklearn_reg(y_true, y_pred, multioutput="raw_values")
+-    cp.testing.assert_array_almost_equal(res, ref, decimal=2)
++    cu_metric = getattr(cuml.metrics, func)
++    sk_metric = getattr(sklearn.metrics, func)
+ 
++    res = cu_metric(y_true, y_pred)
++    ref = sk_metric(y_true, y_pred)
++    assert_almost_equal(res, ref)
+ 
+-@pytest.mark.parametrize("function", ["mse", "mse_not_squared", "mae", "msle"])
+-def test_regression_metrics_at_limits(function):
+-    y_true = np.array([0.0], dtype=float)
+-    y_pred = np.array([0.0], dtype=float)
+ 
+-    cuml_reg = {
+-        "mse": mean_squared_error,
+-        "mse_not_squared": partial(mean_squared_error, squared=False),
+-        "mae": mean_absolute_error,
+-        "msle": mean_squared_log_error,
+-    }[function]
++@pytest.mark.parametrize(
++    "func",
++    [
++        "r2_score",
++        "mean_squared_error",
++        "mean_absolute_error",
++        "mean_squared_log_error",
++    ],
++)
++def test_regression_metrics_cudf(func):
++    a = cudf.Series([1.1, 2.2, 3.3, 4.4])
++    b = cudf.Series([0.1, 0.2, 0.3, 0.4])
+ 
+-    assert_almost_equal(cuml_reg(y_true, y_pred), 0.00, decimal=2)
++    cu_metric = getattr(cuml.metrics, func)
++    err1 = cu_metric(a, b)
++    err2 = cu_metric(a.values, b.values)
++    assert err1 == err2
+ 
+ 
+ @pytest.mark.parametrize(
+-    "inputs",
++    "func",
+     [
+-        ([-1.0], [-1.0]),
+-        ([1.0, 2.0, 3.0], [1.0, -2.0, 3.0]),
+-        ([1.0, -2.0, 3.0], [1.0, 2.0, 3.0]),
++        "r2_score",
++        "mean_squared_error",
++        "mean_absolute_error",
++        "mean_squared_log_error",
+     ],
+ )
+-def test_mean_squared_log_error_exceptions(inputs):
+-    with pytest.raises(ValueError):
+-        mean_squared_log_error(np.array(inputs[0]), np.array(inputs[1]))
++def test_regression_metrics_zero_error(func):
++    y_true = y_pred = np.ones(3)
+ 
++    cu_metric = getattr(cuml.metrics, func)
++    sk_metric = getattr(sklearn.metrics, func)
+ 
+-def test_multioutput_regression():
++    res = cu_metric(y_true, y_pred)
++    ref = sk_metric(y_true, y_pred)
++    assert_almost_equal(res, ref)
++
++
++@pytest.mark.parametrize(
++    "func",
++    [
++        "r2_score",
++        "mean_squared_error",
++        "mean_absolute_error",
++        "mean_squared_log_error",
++    ],
++)
++def test_regression_metrics_multioutput(func):
+     y_true = np.array([[1, 0, 0, 1], [0, 1, 1, 1], [1, 1, 0, 1]])
+     y_pred = np.array([[0, 0, 0, 1], [1, 0, 1, 1], [0, 0, 0, 1]])
+ 
+-    error = mean_squared_error(y_true, y_pred)
+-    assert_almost_equal(error, (1.0 + 2.0 / 3) / 4.0)
++    cu_metric = getattr(cuml.metrics, func)
++    sk_metric = getattr(sklearn.metrics, func)
+ 
+-    error = mean_squared_error(y_true, y_pred, squared=False)
+-    assert_almost_equal(error, 0.645, decimal=2)
++    res = cu_metric(y_true, y_pred)
++    sol = sk_metric(y_true, y_pred)
++    assert_almost_equal(res, sol)
+ 
+-    error = mean_squared_log_error(y_true, y_pred)
+-    assert_almost_equal(error, 0.200, decimal=2)
+ 
+-    # mean_absolute_error and mean_squared_error are equal because
+-    # it is a binary problem.
+-    error = mean_absolute_error(y_true, y_pred)
+-    assert_almost_equal(error, (1.0 + 2.0 / 3) / 4.0)
++@pytest.mark.parametrize(
++    "func",
++    [
++        "r2_score",
++        "mean_squared_error",
++        "mean_absolute_error",
++        "mean_squared_log_error",
++    ],
++)
++def test_regression_metrics_multioutput_raw_values(func):
++    y_true = np.array([[1, 2], [2.5, 1], [4.5, 3], [5, 7]], dtype=float)
++    y_pred = np.array([[1, 1], [2, 1], [5, 4], [5, 6.5]], dtype=float)
+ 
++    cu_metric = getattr(cuml.metrics, func)
++    sk_metric = getattr(sklearn.metrics, func)
+ 
+-def test_regression_metrics_multioutput_array():
+-    y_true = np.array([[1, 2], [2.5, -1], [4.5, 3], [5, 7]], dtype=float)
+-    y_pred = np.array([[1, 1], [2, -1], [5, 4], [5, 6.5]], dtype=float)
++    res = cu_metric(y_true, y_pred, multioutput="raw_values")
++    sol = sk_metric(y_true, y_pred, multioutput="raw_values")
++    cp.testing.assert_array_almost_equal(res, sol)
+ 
+-    mse = mean_squared_error(y_true, y_pred, multioutput="raw_values")
+-    mae = mean_absolute_error(y_true, y_pred, multioutput="raw_values")
+ 
+-    cp.testing.assert_array_almost_equal(mse, [0.125, 0.5625], decimal=2)
+-    cp.testing.assert_array_almost_equal(mae, [0.25, 0.625], decimal=2)
++@pytest.mark.parametrize(
++    "func",
++    [
++        "r2_score",
++        "mean_squared_error",
++        "mean_absolute_error",
++        "mean_squared_log_error",
++    ],
++)
++def test_regression_metrics_multioutput_custom_weights(func):
++    y_true = np.array([[1, 2], [2.5, 1], [4.5, 3], [5, 7]], dtype=float)
++    y_pred = np.array([[1, 1], [2, 1], [5, 4], [5, 6.5]], dtype=float)
++    multioutput = np.array([0.3, 0.7])
+ 
+-    weights = np.array([0.4, 0.6], dtype=float)
+-    msew = mean_squared_error(y_true, y_pred, multioutput=weights)
+-    rmsew = mean_squared_error(
+-        y_true, y_pred, multioutput=weights, squared=False
+-    )
+-    assert_almost_equal(msew, 0.39, decimal=2)
+-    assert_almost_equal(rmsew, 0.62, decimal=2)
+-
+-    y_true = np.array([[0, 0]] * 4, dtype=int)
+-    y_pred = np.array([[1, 1]] * 4, dtype=int)
+-    mse = mean_squared_error(y_true, y_pred, multioutput="raw_values")
+-    mae = mean_absolute_error(y_true, y_pred, multioutput="raw_values")
+-    cp.testing.assert_array_almost_equal(mse, [1.0, 1.0], decimal=2)
+-    cp.testing.assert_array_almost_equal(mae, [1.0, 1.0], decimal=2)
+-
+-    y_true = np.array([[0.5, 1], [1, 2], [7, 6]])
+-    y_pred = np.array([[0.5, 2], [1, 2.5], [8, 8]])
+-    msle = mean_squared_log_error(y_true, y_pred, multioutput="raw_values")
+-    msle2 = mean_squared_error(
+-        np.log(1 + y_true), np.log(1 + y_pred), multioutput="raw_values"
+-    )
+-    cp.testing.assert_array_almost_equal(msle, msle2, decimal=2)
++    cu_metric = getattr(cuml.metrics, func)
++    sk_metric = getattr(sklearn.metrics, func)
+ 
++    res = cu_metric(y_true, y_pred, multioutput=multioutput)
++    sol = sk_metric(y_true, y_pred, multioutput=multioutput)
++    assert_almost_equal(res, sol)
+ 
+-@pytest.mark.parametrize("function", ["mse", "mae"])
+-def test_regression_metrics_custom_weights(function):
+-    y_true = np.array([1, 2, 2.5, -1], dtype=float)
+-    y_pred = np.array([1, 1, 2, -1], dtype=float)
++
++@pytest.mark.parametrize(
++    "func",
++    [
++        "r2_score",
++        "mean_squared_error",
++        "mean_absolute_error",
++        "mean_squared_log_error",
++    ],
++)
++@pytest.mark.parametrize("multioutput", [False, True])
++def test_regression_metrics_sample_weight(multioutput, func):
++    y_true = np.array([[1, 2], [2.5, 1], [4.5, 3], [5, 7]], dtype=float)
++    y_pred = np.array([[1, 1], [2, 1], [5, 4], [5, 6.5]], dtype=float)
++    if not multioutput:
++        y_true = y_true[:, 0]
++        y_pred = y_pred[:, 0]
+     weights = np.array([0.2, 0.25, 0.4, 0.15], dtype=float)
+ 
+-    cuml_reg, sklearn_reg = {
+-        "mse": (mean_squared_error, sklearn_mse),
+-        "mae": (mean_absolute_error, sklearn_mae),
+-    }[function]
++    cu_metric = getattr(cuml.metrics, func)
++    sk_metric = getattr(sklearn.metrics, func)
+ 
+-    score = cuml_reg(y_true, y_pred, sample_weight=weights)
+-    ref = sklearn_reg(y_true, y_pred, sample_weight=weights)
+-    assert_almost_equal(score, ref, decimal=2)
++    res = cu_metric(y_true, y_pred, sample_weight=weights)
++    sol = sk_metric(y_true, y_pred, sample_weight=weights)
++    assert_almost_equal(res, sol)
+ 
+ 
+-def test_mse_vs_msle_custom_weights():
+-    y_true = np.array([0.5, 2, 7, 6], dtype=float)
+-    y_pred = np.array([0.5, 1, 8, 8], dtype=float)
+-    weights = np.array([0.2, 0.25, 0.4, 0.15], dtype=float)
+-    msle = mean_squared_log_error(y_true, y_pred, sample_weight=weights)
+-    msle2 = mean_squared_error(
+-        np.log(1 + y_true), np.log(1 + y_pred), sample_weight=weights
++@pytest.mark.parametrize("true, pred", [(1, 1), (0, 0)])
++def test_r2_score_force_finite(true, pred):
++    y_true = np.array([true] * 3, dtype="float64")
++    y_pred = np.array([pred] * 3, dtype="float64")
++
++    res = cuml.metrics.r2_score(y_true, y_pred)
++    sol = sklearn.metrics.r2_score(y_true, y_pred)
++    assert_almost_equal(res, sol)
++
++    with pytest.warns(RuntimeWarning):
++        res = cuml.metrics.r2_score(y_true, y_pred, force_finite=False)
++        sol = sklearn.metrics.r2_score(y_true, y_pred, force_finite=False)
++
++    assert_almost_equal(res, sol)
++
++
++def test_r2_score_multioutput_variance_weighted():
++    y_true = np.array([[1, 2], [2.5, 1], [4.5, 3], [5, 7]], dtype=float)
++    y_pred = np.array([[1, 1], [2, 1], [5, 4], [5, 6.5]], dtype=float)
++
++    res = cuml.metrics.r2_score(
++        y_true, y_pred, multioutput="variance_weighted"
++    )
++    sol = sklearn.metrics.r2_score(
++        y_true, y_pred, multioutput="variance_weighted"
+     )
+-    assert_almost_equal(msle, msle2, decimal=2)
++    assert_almost_equal(res, sol)
++
++
++@pytest.mark.parametrize(
++    "inputs",
++    [
++        ([-1.0], [-1.0]),
++        ([1.0, 2.0, 3.0], [1.0, -2.0, 3.0]),
++        ([1.0, -2.0, 3.0], [1.0, 2.0, 3.0]),
++    ],
++)
++def test_mean_squared_log_error_negative_values(inputs):
++    with pytest.raises(ValueError, match="targets contain negative values"):
++        cuml.metrics.mean_squared_log_error(
++            np.array(inputs[0]), np.array(inputs[1])
++        )
+ 
+ 
+ @pytest.mark.parametrize("use_handle", [True, False])
+@@ -1645,22 +1675,6 @@ def test_kl_divergence(nfeatures, input_type, dtypeP, dtypeQ):
+     cp.testing.assert_array_almost_equal(cu_res, sk_res)
+ 
+ 
+-def test_mean_squared_error():
+-    y1 = np.array([[1], [2], [3]])
+-    y2 = y1.squeeze()
+-
+-    assert mean_squared_error(y1, y2) == 0
+-    assert mean_squared_error(y2, y1) == 0
+-
+-
+-def test_mean_squared_error_cudf_series():
+-    a = cudf.Series([1.1, 2.2, 3.3, 4.4])
+-    b = cudf.Series([0.1, 0.2, 0.3, 0.4])
+-    err1 = mean_squared_error(a, b)
+-    err2 = mean_squared_error(a.values, b.values)
+-    assert err1 == err2
+-
+-
+ @pytest.mark.parametrize("beta", [0.0, 0.5, 1.0, 2.0])
+ def test_v_measure_score(beta):
+     labels_true = np.array([0, 0, 1, 1], dtype=np.int32)
+diff --git a/python/cuml/cuml/tests/test_random_forest.py b/python/cuml/cuml/tests/test_random_forest.py
+index 653d1a7cf5..76ffe70224 100644
+--- a/python/cuml/cuml/tests/test_random_forest.py
++++ b/python/cuml/cuml/tests/test_random_forest.py
+@@ -1,4 +1,4 @@
+-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
++# Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License");
+ # you may not use this file except in compliance with the License.
+@@ -453,8 +453,8 @@ def test_rf_regression(
+     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
+     fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
+ 
+-    cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype)
+-    fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
++    cu_r2 = r2_score(y_test, cu_preds)
++    fil_r2 = r2_score(y_test, fil_preds)
+     # Initialize, fit and predict using
+     # sklearn's random forest regression model
+     if X.shape[0] < 1000:  # mode != "stress"
+@@ -467,7 +467,7 @@ def test_rf_regression(
+         )
+         sk_model.fit(X_train, y_train)
+         sk_preds = sk_model.predict(X_test)
+-        sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype)
++        sk_r2 = r2_score(y_test, sk_preds)
+         assert fil_r2 >= (sk_r2 - 0.07)
+     assert fil_r2 >= (cu_r2 - 0.02)
+ 
+@@ -589,7 +589,7 @@ def test_rf_regression_float64(large_reg, datatype):
+     cuml_model = curfr()
+     cuml_model.fit(X_train, y_train)
+     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
+-    cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype[0])
++    cu_r2 = r2_score(y_test, cu_preds)
+ 
+     # sklearn random forest classification model
+     # initialization, fit and predict
+@@ -597,7 +597,7 @@ def test_rf_regression_float64(large_reg, datatype):
+         sk_model = skrfr(max_depth=16, random_state=10)
+         sk_model.fit(X_train, y_train)
+         sk_preds = sk_model.predict(X_test)
+-        sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype[0])
++        sk_r2 = r2_score(y_test, sk_preds)
+         assert cu_r2 >= (sk_r2 - 0.09)
+ 
+     # predict using cuML's GPU based prediction
+@@ -605,7 +605,7 @@ def test_rf_regression_float64(large_reg, datatype):
+         X_test, predict_model="GPU", convert_dtype=True
+     )
+     fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
+-    fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype[0])
++    fil_r2 = r2_score(y_test, fil_preds)
+     assert fil_r2 >= (cu_r2 - 0.02)
+ 
+ 
+@@ -874,16 +874,14 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
+             algo=algo,
+         )
+         fil_preds = np.reshape(fil_preds, np.shape(y_test))
+-        fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
++        fil_r2 = r2_score(y_test, fil_preds)
+ 
+         fil_model = cuml_model.convert_to_fil_model()
+ 
+         with cuml.using_output_type("numpy"):
+             fil_model_preds = fil_model.predict(X_test)
+             fil_model_preds = np.reshape(fil_model_preds, np.shape(y_test))
+-            fil_model_r2 = r2_score(
+-                y_test, fil_model_preds, convert_dtype=datatype
+-            )
++            fil_model_r2 = r2_score(y_test, fil_model_preds)
+             assert fil_r2 == fil_model_r2
+ 
+         tl_model = cuml_model.convert_to_treelite_model()
+@@ -901,7 +899,7 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
+             )
+             sk_model.fit(X_train, y_train)
+             sk_preds = sk_model.predict(X_test)
+-            sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype)
++            sk_r2 = r2_score(y_test, sk_preds)
+             assert fil_r2 >= (sk_r2 - 0.08)
+ 
+ 
