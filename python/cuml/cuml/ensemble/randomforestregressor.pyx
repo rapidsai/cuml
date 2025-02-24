@@ -260,9 +260,11 @@ class RandomForestRegressor(BaseRandomForestModel,
 
     _cpu_estimator_import_path = 'sklearn.ensemble.RandomForestRegressor'
 
+    _default_split_criterion = "mse"
+
     _hyperparam_interop_translator = {
         "criterion": {
-            "NotImplemented",
+            "friedman_mse": "NotImplemented",
         },
         "oob_score": {
             True: "NotImplemented",
