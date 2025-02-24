@@ -14,7 +14,9 @@
 
 import pytest
 import numpy as np
-from sklearn import clone
+from sklearn import clone, cluster
+import cuml
+from cuml.internals.global_settings import GlobalSettings
 from sklearn.datasets import make_classification, make_regression, make_blobs
 from sklearn.linear_model import (
     LinearRegression,
@@ -228,6 +230,10 @@ def test_defaults_args_only_methods():
     nn.kneighbors()
 
 
+@pytest.mark.skipif(
+    not GlobalSettings().accelerator_active,
+    reason="Test designed to test output type of cuml.accel"
+)
 def test_kernel_ridge():
     import cupy as cp
 
