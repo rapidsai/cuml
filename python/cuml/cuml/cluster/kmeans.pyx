@@ -155,7 +155,7 @@ class KMeans(UniversalBase,
            Added 'auto' option for `n_init`.
 
         .. versionchanged:: 25.04
-            Default value for `n_init` will change from 1 to `'auto'` in version 25.02.
+            Default value for `n_init` will change from 1 to `'auto'` in version 25.04.
 
     oversampling_factor : float64 (default = 2.0)
         The amount of points to sample
