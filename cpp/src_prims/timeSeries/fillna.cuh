@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,8 @@
 
 #include <cub/cub.cuh>
 #include <cuda_runtime.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/transform_iterator.h>
 
 #include <linalg/batched/matrix.cuh>
 
@@ -122,15 +124,14 @@ void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream)
   rmm::device_uvector<FillnaTemp> indices_bwd(batch_size * n_obs, stream);
   FillnaTempMaker<true, T> transform_op_fwd(data, batch_size, n_obs);
   FillnaTempMaker<false, T> transform_op_bwd(data, batch_size, n_obs);
-  cub::CountingInputIterator<int> counting(0);
+  thrust::counting_iterator<int> counting(0);
   FillnaOp scan_op;
 
   // Iterators wrapping the data with metadata (valid, first of its series)
-  cub::TransformInputIterator<FillnaTemp, FillnaTempMaker<true, T>, cub::CountingInputIterator<int>>
-    itr_fwd(counting, transform_op_fwd);
-  cub::
-    TransformInputIterator<FillnaTemp, FillnaTempMaker<false, T>, cub::CountingInputIterator<int>>
-      itr_bwd(counting, transform_op_bwd);
+  thrust::transform_iterator<FillnaTempMaker<true, T>, thrust::counting_iterator<int>> itr_fwd(
+    counting, transform_op_fwd);
+  thrust::transform_iterator<FillnaTempMaker<false, T>, thrust::counting_iterator<int>> itr_bwd(
+    counting, transform_op_bwd);
 
   // Allocate temporary storage
   size_t temp_storage_bytes = 0;
