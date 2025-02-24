@@ -20,7 +20,7 @@ While cuml.accel tries to provide as much acceleration as cuML-specific scripts,
 .. image:: img/overall_overhead.png
    :alt: Overall overhead
 
-Two important aspects arise immediately: training typically is quite computationally expensive, so the cost of transferring data from CPU and GPU and the machinery of cuml.accel have overheads that don't affect the acceleration and running time significantly. But even here, one can immediately notice that the overhead is more significant for tasks that are simpler, for example training KNeighbors modeks. There, using cuML directly can be significantly faster if one wants to get the maximum performance of a GPU, though it's important to note that the difference in execution time is the difference of computing in seconds vs miliseconds.
+Two important aspects arise immediately: training typically is quite computationally expensive, so the cost of transferring data from CPU to GPU and the machinery of ``cuml.accel`` have overheads that don't affect the acceleration and running time significantly. But even here, one can immediately notice that the overhead is more significant for tasks that are simpler, for example training ``KNeighbors`` models. There, using cuML directly can be significantly faster if one wants to get the maximum performance of a GPU, though it's important to note that the difference in execution time is the difference of computing in seconds vs milliseconds.
 
 It’s also important to note how dataset shape influences these gains. For skinny datasets—where you have relatively few features but many rows—GPU acceleration still provides a great performance boost, although the relative advantage may be more modest for simpler algorithms that are already quite fast on CPU.
 
