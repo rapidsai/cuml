@@ -276,7 +276,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     }
 
     @device_interop_preparation
-    def __init__(self, *, split_criterion=0, handle=None, verbose=False,
+    def __init__(self, *, split_criterion=None, handle=None, verbose=False,
                  output_type=None,
                  **kwargs):
 
