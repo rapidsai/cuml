@@ -4,15 +4,12 @@ Known Limitations
 General Limitations
 ~~~~~~~~~~~~~~~~~~~
 
-TODO(wphicks): Fill this in
-TODO(wphicks): Pickle
+* Ingestion of lists of numbers by estimator functions is unsupported. Convert lists to structured formats (e.g., NumPy arrays or Pandas DataFrames) to ensure compatibility. This limitation will be removed in the next version of the cuML Accelerator.
+* Labels provided as arrays of strings are not supported. Pre-encode string labels into numerical or categorical formats (e.g., using scikit-learn’s LabelEncoder) prior to processing. This limitation will be removed in the next version of the cuML Accelerator.
+* The accelerator has been tested with scikit-learn 1.5.2. Compatibility with other versions is not guaranteed, so verify your environment before deployment. Supported version will be updated to 1.6.0 in the RAPIDS 25.04 release, and multiple version support is being explored.
 
 Algorithm-Specific Limitations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-TODO(wphicks): Fills these in. Document when each will fall back to CPU, how to
-assess equivalence with CPU implementations, and significant differences in
-algorithm, as well as any other known issues.
 
 ``umap.UMAP``
 ^^^^^^^^^^^^^
