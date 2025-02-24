@@ -22,6 +22,15 @@ import numpy as np
 from cuml.internals.global_settings import GlobalSettings
 from sklearn.datasets import make_classification, make_regression
 
+pytestmark = [
+    pytest.mark.filterwarnings(
+        "ignore:Starting from version 22.04, the default method of TSNE is 'fft'."
+    ),
+    pytest.mark.filterwarnings(
+        "ignore:The default value of `n_init` will change from 1 to 'auto' in 25.04"
+    ),
+]
+
 
 estimators = [
     "KMeans",
@@ -90,9 +99,6 @@ unsupervised_estimators = [
 ]
 
 
-@pytest.mark.filterwarnings(
-    "ignore:The default value of `n_init` will change from 1 to 'auto' in 25.04"
-)
 @pytest.mark.parametrize("estimator_name", estimators)
 def test_UniversalBase_estimators(estimator_name):
     # importing dynamically will also implicitly test that cuML
