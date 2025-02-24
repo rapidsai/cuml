@@ -854,7 +854,7 @@ class UniversalBase(Base):
     def __getattr__(self, attr):
         try:
             return super().__getattr__(attr)
-        except AttributeError:
+        except AttributeError as ex:
             # When using cuml.experimental.accel or setting the
             # self._experimental_dispatching flag to True, we look for methods
             # that are not in the cuML estimator in the host estimator
