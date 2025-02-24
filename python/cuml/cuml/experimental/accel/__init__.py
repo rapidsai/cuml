@@ -55,16 +55,17 @@ def _is_concurrent_managed_access_supported():
     return supports_managed_access != 0
 
 
-def install():
+def install(disable_uvm=False):
     """Enable cuML Accelerator Mode."""
     logger.set_level(logger.level_enum.info)
     logger.set_pattern("%v")
 
-    if _is_concurrent_managed_access_supported():
-        logger.debug("cuML: Enabling managed memory...")
-        rmm.mr.set_current_device_resource(rmm.mr.ManagedMemoryResource())
-    else:
-        logger.warn("cuML: Could not enable managed memory.")
+    if not disable_uvm:
+        if _is_concurrent_managed_access_supported():
+            logger.debug("cuML: Enabling managed memory...")
+            rmm.mr.set_current_device_resource(rmm.mr.ManagedMemoryResource())
+        else:
+            logger.warn("cuML: Could not enable managed memory.")
 
     logger.info("cuML: Installing accelerator...")
     libraries_to_accelerate = ["sklearn", "umap", "hdbscan"]

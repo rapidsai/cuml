@@ -46,11 +46,17 @@ from . import install
     default="converted_sklearn_model.pkl",
     help="Output path for the converted sklearn estimator file.",
 )
+@click.option(
+    "--disable-uvm",
+    is_flag=True,
+    default=False,
+    help="Disable UVM (managed memory) allocations.",
+)
 @click.argument("args", nargs=-1)
-def main(module, convert_to_sklearn, format, output, args):
+def main(module, convert_to_sklearn, format, output, disable_uvm, args):
 
     # Enable acceleration
-    install()
+    install(disable_uvm=disable_uvm)
 
     # If the user requested a conversion, handle it and exit
     if convert_to_sklearn:
