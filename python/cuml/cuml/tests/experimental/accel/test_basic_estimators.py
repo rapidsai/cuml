@@ -17,6 +17,7 @@ import numpy as np
 from sklearn import clone, cluster
 import cuml
 from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.safe_imports import gpu_only_import
 from sklearn.datasets import make_classification, make_regression, make_blobs
 from sklearn.linear_model import (
     LinearRegression,
@@ -42,6 +43,8 @@ from sklearn.metrics import (
     accuracy_score,
 )
 from scipy.sparse import random as sparse_random
+
+cp = gpu_only_import("cupy")
 
 
 def test_kmeans():
@@ -232,10 +235,9 @@ def test_defaults_args_only_methods():
 
 @pytest.mark.skipif(
     not GlobalSettings().accelerator_active,
-    reason="Test designed to test output type of cuml.accel"
+    reason="Test designed to test output type of cuml.accel",
 )
 def test_kernel_ridge():
-    import cupy as cp
 
     rng = np.random.RandomState(42)
 
