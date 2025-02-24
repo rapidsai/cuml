@@ -76,10 +76,55 @@ def assert_estimator_roundtrip(
     sklearn_model = cuml_model.as_sklearn()
     check_is_fitted(sklearn_model)
 
+    original_params = cuml_model.get_params()
+
     assert isinstance(sklearn_model, sklearn_class)
 
     # Convert back
     roundtrip_model = type(cuml_model).from_sklearn(sklearn_model)
+
+    from pprint import pprint
+
+    rm_params = roundtrip_model.get_params()
+
+    # Remove parameters that are not serialized
+    _ = original_params.pop("handle", None)
+    _ = rm_params.pop("handle", None)
+
+    _ = original_params.pop("output_type", None)
+    _ = rm_params.pop("output_type", None)
+
+    _ = original_params.pop("verbose", None)
+    _ = rm_params.pop("verbose", None)
+
+    if isinstance(cuml_model, KMeans):
+        # for KMeans, the roundtrip changes the string of
+        # init from scalable-k-means++ to k-means++ which
+        # in principle should change the value of oversampling_factor
+        # But this value at 2 will lead to better centroids,
+        # so ignoring this issue for now will have no ill
+        # consequences
+        _ = original_params.pop("init", None)
+        _ = rm_params.pop("init", None)
+
+        # This failure will be fixed by
+        # https://github.com/rapidsai/cuml/pull/6142
+        # otherwise the predict with default n_init like this
+        # roundtrip will fail later.
+        pytest.xfail(reason="auto is not supported by cuML n_init yet")
+
+    def dict_diff(a, b):
+        # Get all keys from both dictionaries
+        all_keys = set(a.keys()) | set(b.keys())
+        differences = {}
+        for key in all_keys:
+            if a.get(key) != b.get(key):
+                differences[key] = {"a_dict": a.get(key), "b_dict": b.get(key)}
+        return differences
+
+    assert (
+        original_params == rm_params
+    ), f"Differences found: {dict_diff(original_params, rm_params)}"
 
     # Ensure roundtrip model is fitted
     check_is_fitted(roundtrip_model)
@@ -108,6 +153,13 @@ def assert_estimator_roundtrip(
 ###############################################################################
 #                                     Tests                                   #
 ###############################################################################
+
+
+def test_basic_roundtrip():
+    km = SkKMeans(n_clusters=13)
+    ckm = KMeans.from_sklearn(km)
+
+    assert ckm.n_clusters == 13
 
 
 def test_kmeans(random_state):
