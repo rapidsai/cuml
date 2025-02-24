@@ -62,6 +62,8 @@ memory usage. ``cuml.accel`` will automatically use `unified or managed memory <
 for allocations in order to reduce the risk of CUDA OOM errors. In
 contrast, cuML defaults to ordinary device memory, which can offer improved
 performance but requires slightly more care to avoid exhausting the GPU VRAM.
+If you experience unexpectedly slow performance with ``cuml.accel``, you can
+try disabling the use of unified memory with the ``--disable-uvm`` flag.
 
 3. What does ``cuml.accel`` accelerate?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
