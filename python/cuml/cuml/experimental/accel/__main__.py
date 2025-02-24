@@ -22,6 +22,8 @@ import os
 import runpy
 import sys
 
+from cuml.internals import logger
+
 from . import install
 
 
@@ -46,8 +48,21 @@ from . import install
     default="converted_sklearn_model.pkl",
     help="Output path for the converted sklearn estimator file.",
 )
+@click.option(
+    "-v",
+    "--verbose",
+    count=True,
+    help="Increase output verbosity (can be used multiple times, e.g. -vv). Default shows warnings only.",
+)
 @click.argument("args", nargs=-1)
-def main(module, convert_to_sklearn, format, output, args):
+def main(module, convert_to_sklearn, format, output, verbose, args):
+    default_logger_level_index = list(logger.level_enum).index(
+        logger.level_enum.warn
+    )
+    logger_level_index = max(0, default_logger_level_index - verbose)
+    logger_level = list(logger.level_enum)[logger_level_index]
+    logger.set_level(logger_level)
+    logger.set_pattern("%v")
 
     # Enable acceleration
     install()
