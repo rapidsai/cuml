@@ -26,9 +26,9 @@ sccache --zero-stats
 RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION) rapids-conda-retry build \
   --no-test \
   --channel "${CPP_CHANNEL}" \
-  conda/recipes/cuml
+  conda/recipes/cuml 2>&1 | tee telemetry-artifacts/build.log
 
-sccache --show-adv-stats
+sccache --show-adv-stats | tee telemetry-artifacts/sccache-stats.txt
 
 # Build cuml-cpu only in CUDA 11 jobs since it only depends on python
 # version
