@@ -208,15 +208,19 @@ def intercept(
                 original_class_a  # Store a reference to the original class
             )
 
-            kwargs, self._gpuaccel = self._hyperparam_translator(**kwargs)
-
-            super().__init__(*args, **kwargs)
+            translated_kwargs, self._gpuaccel = self._hyperparam_translator(
+                **kwargs
+            )
+            super().__init__(*args, **translated_kwargs)
 
             self._cpu_hyperparams = list(
                 inspect.signature(
                     self._cpu_model_class.__init__
                 ).parameters.keys()
             )
+
+            self.import_cpu_model()
+            self.build_cpu_model(**kwargs)
 
         def __repr__(self):
             """
@@ -228,7 +232,7 @@ def intercept(
                 A string representation indicating that this is a wrapped
                  version of the original CPU-based estimator.
             """
-            return f"wrapped {self._cpu_model_class}"
+            return self._cpu_model.__repr__()
 
         def __str__(self):
             """
@@ -240,7 +244,7 @@ def intercept(
                 A string representation indicating that this is a wrapped
                  version of the original CPU-based estimator.
             """
-            return f"ProxyEstimator of {self._cpu_model_class}"
+            return self._cpu_model.__str__()
 
         def __getstate__(self):
             """

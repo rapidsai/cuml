@@ -14,7 +14,10 @@
 
 import pytest
 import numpy as np
-import cupy as cp
+from sklearn import clone, cluster
+import cuml
+from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.safe_imports import gpu_only_import
 from sklearn.datasets import make_classification, make_regression, make_blobs
 from sklearn.linear_model import (
     LinearRegression,
@@ -39,6 +42,8 @@ from sklearn.metrics import (
     accuracy_score,
 )
 from scipy.sparse import random as sparse_random
+
+cp = gpu_only_import("cupy")
 
 
 def test_kmeans():
@@ -172,6 +177,49 @@ def test_proxy_facade():
             assert original_value == proxy_value
 
 
+def test_proxy_clone():
+    # Test that cloning a proxy estimator preserves parameters, even those we
+    # translate for the cuml class
+    pca = PCA(n_components=42, svd_solver="arpack")
+    pca_clone = clone(pca)
+
+    assert pca.get_params() == pca_clone.get_params()
+
+
+def test_proxy_params():
+    # Test that parameters match between constructor and get_params()
+    # Mix of default and non-default values
+    pca = PCA(
+        n_components=5,
+        copy=False,
+        # Pass in an argument and set it to its default value
+        whiten=False,
+    )
+
+    params = pca.get_params()
+    assert params["n_components"] == 5
+    assert params["copy"] is False
+    assert params["whiten"] is False
+    # A parameter we never touched, should be the default
+    assert params["tol"] == 0.0
+
+    # Check that get_params doesn't return any unexpected parameters
+    expected_params = set(
+        [
+            "n_components",
+            "copy",
+            "whiten",
+            "tol",
+            "svd_solver",
+            "n_oversamples",
+            "random_state",
+            "iterated_power",
+            "power_iteration_normalizer",
+        ]
+    )
+    assert set(params.keys()) == expected_params
+
+
 def test_defaults_args_only_methods():
     # Check that estimator methods that take no arguments work
     # These are slightly weird because basically everything else takes
@@ -184,7 +232,12 @@ def test_defaults_args_only_methods():
     nn.kneighbors()
 
 
+@pytest.mark.skipif(
+    not GlobalSettings().accelerator_active,
+    reason="Test designed to test output type of cuml.accel",
+)
 def test_kernel_ridge():
+
     rng = np.random.RandomState(42)
 
     X = 5 * rng.rand(10000, 1)

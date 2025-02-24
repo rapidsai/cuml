@@ -73,7 +73,7 @@ def main(module, convert_to_sklearn, format, output, args):
         (module,) = module
         # run the module passing the remaining arguments
         # as if it were run with python -m <module> <args>
-        sys.argv[:] = [module] + args  # not thread safe?
+        sys.argv[:] = [module, *args.args]  # not thread safe?
         runpy.run_module(module, run_name="__main__")
     elif len(args) >= 1:
         # Remove ourself from argv and continue

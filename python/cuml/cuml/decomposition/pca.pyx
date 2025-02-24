@@ -288,6 +288,12 @@ class PCA(UniversalBase,
         },
         "n_components": {
             "mle": "NotImplemented"
+        },
+        "tol": {
+            # tolerance controls tolerance of different solvers
+            # between sklearn and cuML, so at least the default
+            # value needs to be translated.
+            0.0: 1e-7
         }
     }
 
