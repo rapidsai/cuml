@@ -16,7 +16,6 @@
 
 
 import importlib
-import rmm
 
 from .magics import load_ipython_extension
 
@@ -24,7 +23,9 @@ from cuda.bindings import runtime
 from cuml.internals import logger
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import set_global_output_type
-from cuml.internals.safe_imports import UnavailableError
+from cuml.internals.safe_imports import UnavailableError, gpu_only_import
+
+rmm = gpu_only_import("rmm")
 
 __all__ = ["load_ipython_extension", "install"]
 
@@ -60,8 +61,10 @@ def install():
     logger.set_pattern("%v")
 
     if _is_concurrent_managed_access_supported():
-        logger.info("cuML: Enabling managed memory...")
+        logger.debug("cuML: Enabling managed memory...")
         rmm.mr.set_current_device_resource(rmm.mr.ManagedMemoryResource())
+    else:
+        logger.warn("cuML: Could not enable managed memory.")
 
     logger.info("cuML: Installing accelerator...")
     libraries_to_accelerate = ["sklearn", "umap", "hdbscan"]
