@@ -18,8 +18,8 @@ rapids-logger "Begin cpp build"
 sccache --zero-stats
 
 RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild \
-  conda/recipes/libcuml
+  conda/recipes/libcuml 2>&1 | tee telemetry-artifacts/build.log
 
-sccache --show-adv-stats
+sccache --show-adv-stats | tee telemetry-artifacts/sccache-stats.txt
 
 rapids-upload-conda-to-s3 cpp
