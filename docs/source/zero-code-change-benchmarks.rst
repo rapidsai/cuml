@@ -15,7 +15,7 @@ Algorithms like HDBSCAN, t-SNE, and UMAP often see speedups anywhere from 60× t
 Comparison of cuML and cuml.accel
 ---------------------------------
 
-One question about cuml.accel is: how does it compare to using cuML directly? The answer varies, but in cases where the models are compared with the same parameters and data sizes, the overhead is quite small when it comes to training models:
+While cuml.accel tries to provide as much acceleration as cuML-specific scripts, there is some overhead relative to direct cuML invocations. While the exact amount of overhead depends on the estimator, parameters, and data size, the overhead is typically quite low for model training:
 
 .. image:: img/overall_overhead.png
    :alt: Overall overhead
