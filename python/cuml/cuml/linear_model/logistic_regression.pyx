@@ -492,7 +492,9 @@ class LogisticRegression(UniversalBase,
         return l1_strength, l2_strength
 
     def _build_class_weights(self, class_weight):
-        if class_weight == 'balanced':
+        if class_weight is None:
+            self.class_weight = None
+        elif class_weight == 'balanced':
             self.class_weight = 'balanced'
         else:
             classes = list(class_weight.keys())
@@ -522,7 +524,9 @@ class LogisticRegression(UniversalBase,
             class_weight = params.pop('class_weight')
             self._build_class_weights(class_weight)
 
-        # Update solver
+        # if the user is setting the solver, then
+        # it cannot be propagated to the solver model itself.
+        _ = params.pop("solver", None)
         self.solver_model.set_params(**params)
         return self
 

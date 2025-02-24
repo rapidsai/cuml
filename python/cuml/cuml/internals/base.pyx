@@ -548,7 +548,10 @@ class Base(TagsMixin,
         """
         gpuaccel = True
         # Copy it so we can modify it
-        translations = dict(cls.__bases__[0]._hyperparam_interop_translator)
+        # we need to explicitly use UniversalBase because not all estimator
+        # have it as the first parent in their MRO/inheritance, like
+        # linear_regression
+        translations = dict(UniversalBase._hyperparam_interop_translator)
         # Allow the derived class to overwrite the base class
         translations.update(cls._hyperparam_interop_translator)
         for parameter_name, value in kwargs.items():
@@ -988,6 +991,7 @@ class UniversalBase(Base):
         estimator.import_cpu_model()
         estimator._cpu_model = model
         params, gpuaccel = cls._hyperparam_translator(**model.get_params())
+        params = {key: params[key] for key in cls._get_param_names() if key in params}
         estimator.set_params(**params)
         estimator.cpu_to_gpu()
 
@@ -1015,7 +1019,6 @@ class UniversalBase(Base):
         params : dict
             Parameter names mapped to their values.
         """
-
         if GlobalSettings().accelerator_active or self._experimental_dispatching:
             return self._cpu_model.get_params(deep=deep)
         else:
@@ -1035,8 +1038,9 @@ class UniversalBase(Base):
         self : estimator instance
             The estimnator instance
         """
-        self._cpu_model.set_params(**params)
-        params, gpuaccel = self._hyperparam_translator(**params)
-        params = {key: params[key] for key in self._get_param_names() if key in params}
+        if GlobalSettings().accelerator_active or self._experimental_dispatching:
+            self._cpu_model.set_params(**params)
+            params, gpuaccel = self._hyperparam_translator(**params)
+            params = {key: params[key] for key in self._get_param_names() if key in params}
         super().set_params(**params)
         return self
