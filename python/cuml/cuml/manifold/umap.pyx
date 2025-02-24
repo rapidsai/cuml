@@ -404,7 +404,7 @@ class UMAP(UniversalBase,
             self.init = init
         else:
             gs = GlobalSettings()
-            if not(gs.accelerator_active or self._experimental_dispatching):
+            if not (gs.accelerator_active or self._experimental_dispatching):
                 raise Exception(f"Initialization strategy not supported: {init}")
 
         if a is None or b is None:
@@ -432,7 +432,7 @@ class UMAP(UniversalBase,
             self.target_metric = target_metric
         else:
             gs = GlobalSettings()
-            if not(gs.accelerator_active or self._experimental_dispatching):
+            if not (gs.accelerator_active or self._experimental_dispatching):
                 raise Exception(f"Invalid target metric: {target_metric}")
 
         self.callback = callback  # prevent callback destruction
