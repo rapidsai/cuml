@@ -22,37 +22,57 @@ from .magics import load_ipython_extension
 from cuml.internals import logger
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import set_global_output_type
+from cuml.internals.safe_imports import UnavailableError
 
 __all__ = ["load_ipython_extension", "install"]
 
 
 def _install_for_library(library_name):
     importlib.import_module(f"._wrappers.{library_name}", __name__)
-    return True
 
 
 def install():
     """Enable cuML Accelerator Mode."""
-    logger.set_level(logger.level_enum.info)
-    logger.set_pattern("%v")
+    logger.debug("cuML: Installing accelerator...")
+    libraries_to_accelerate = ["sklearn", "umap", "hdbscan"]
+    accelerated_libraries = []
+    failed_to_accelerate = []
+    for library_name in libraries_to_accelerate:
+        try:
+            logger.debug(
+                f"cuML: Attempt to install accelerator for {library_name}..."
+            )
+            _install_for_library(library_name)
+        except (
+            ModuleNotFoundError,
+            UnavailableError,
+        ) as error:  # underlying package not installed (expected)
+            logger.debug(
+                f"cuML: Did not install accelerator for {library_name}, the underlying library is not installed: {error}"
+            )
+        except Exception as error:  # something else went wrong
+            failed_to_accelerate.append(library_name)
+            logger.error(
+                f"cuML: Failed to install accelerator for {library_name}: {error}."
+            )
+        else:
+            accelerated_libraries.append(library_name)
+            logger.info(f"cuML: Installed accelerator for {library_name}.")
 
-    logger.info("cuML: Installing experimental accelerator...")
-    loader_sklearn = _install_for_library(library_name="sklearn")
-    loader_umap = _install_for_library(library_name="umap")
-    loader_hdbscan = _install_for_library(library_name="hdbscan")
+    GlobalSettings().accelerated_libraries = accelerated_libraries
+    GlobalSettings().accelerator_loaded = any(accelerated_libraries)
+    GlobalSettings().accelerator_active = any(accelerated_libraries)
 
-    GlobalSettings().accelerator_loaded = all(
-        [loader_sklearn, loader_umap, loader_hdbscan]
-    )
-
-    GlobalSettings().accelerator_active = True
-
-    if GlobalSettings().accelerator_loaded:
-        logger.info(
-            "cuML: experimental accelerator successfully initialized..."
+    if any(accelerated_libraries) and not any(failed_to_accelerate):
+        logger.info("cuML: Successfully initialized accelerator.")
+    elif any(accelerated_libraries) and any(failed_to_accelerate):
+        logger.warn(
+            "cuML: Accelerator initialized, but failed to initialize for some libraries."
         )
-    else:
-        logger.info("cuML: experimental accelerator failed to initialize...")
+    elif not any(accelerated_libraries) and not any(failed_to_accelerate):
+        logger.warn(
+            "cuML: Accelerator failed to initialize, because none of the underlying libraries are installed."
+        )
 
     set_global_output_type("numpy")
 

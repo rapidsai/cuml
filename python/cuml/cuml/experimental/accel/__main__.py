@@ -22,17 +22,13 @@ import os
 import runpy
 import sys
 
+from cuml.internals import logger
+
 from . import install
 
 
 @click.command()
 @click.option("-m", "module", required=False, help="Module to run")
-@click.option(
-    "--strict",
-    is_flag=True,
-    default=False,
-    help="Turn strict mode for hyperparameters on.",
-)
 @click.option(
     "--convert-to-sklearn",
     type=click.Path(exists=True),
@@ -52,12 +48,23 @@ from . import install
     default="converted_sklearn_model.pkl",
     help="Output path for the converted sklearn estimator file.",
 )
+@click.option(
+    "-v",
+    "--verbose",
+    count=True,
+    help="Increase output verbosity (can be used multiple times, e.g. -vv). Default shows warnings only.",
+)
 @click.argument("args", nargs=-1)
-def main(module, strict, convert_to_sklearn, format, output, args):
+def main(module, convert_to_sklearn, format, output, verbose, args):
+    default_logger_level_index = list(logger.level_enum).index(
+        logger.level_enum.warn
+    )
+    logger_level_index = max(0, default_logger_level_index - verbose)
+    logger_level = list(logger.level_enum)[logger_level_index]
+    logger.set_level(logger_level)
+    logger.set_pattern("%v")
 
-    if strict:
-        os.environ["CUML_ACCEL_STRICT_MODE"] = "ON"
-
+    # Enable acceleration
     install()
 
     # If the user requested a conversion, handle it and exit
@@ -81,7 +88,7 @@ def main(module, strict, convert_to_sklearn, format, output, args):
         (module,) = module
         # run the module passing the remaining arguments
         # as if it were run with python -m <module> <args>
-        sys.argv[:] = [module] + args  # not thread safe?
+        sys.argv[:] = [module, *args.args]  # not thread safe?
         runpy.run_module(module, run_name="__main__")
     elif len(args) >= 1:
         # Remove ourself from argv and continue
