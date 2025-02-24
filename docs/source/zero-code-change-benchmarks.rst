@@ -4,7 +4,7 @@ cuml.accel: Zero Code Change Acceleration Benchmarks
 Training
 --------
 
-One of the biggest advantages of cuML is how much faster training becomes, which is true as well when using the cuML Accelerator, with no code changes!
+One of the biggest advantages of cuML is how much faster training becomes. This is true as well when using the cuML Accelerator, with no code changes!
 
 Algorithms like HDBSCAN, t-SNE, and UMAP often see speedups anywhere from 60× to over 300×, transforming tasks that could take hours or even days into minutes. Even more conventional methods such as KMeans and Random Forests can achieve training speedups of 15× to 80×, while models like LogisticRegression, Lasso, PCA, and Ridge still benefit significantly (typically in the 2×–10× range). The following benchmarks are a summary of the type of speedups that can be seen in datasets that range from 8 to 512 columns.
 
