@@ -247,7 +247,7 @@ limitations:
 
 Another important consideration is that unlike more complex models, like manifold
 or clustering algorithms, are quite efficient and fast to run. Even on larger
-datasets, the execution time can many times be measured in seconds, so taking that
+datasets, the execution time can often be measured in seconds, so taking that
 into consideration will be important for example when evaluating results as seen
 in `Zero Code Change Benchmarks <0cc_benchmarks.rst>`_
 
