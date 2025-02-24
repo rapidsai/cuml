@@ -216,20 +216,6 @@ to ``criterion`` lands.
 TODO(hcho3): If the PR mapping ``max_leaves`` to ``max_leaf_nodes`` lands, add explanation about
 the behavior of ``max_leaf_nodes``. The cuML RF treats this parameter as a "soft constraint".
 
-``sklearn.kernel_ridge.KernelRidge``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Kernel Ridge in cuML is a CuPy-based that matches Scikit-learn implementation quite close,
-with two main limitations:
-
-* ``kernel``: Callable arguments that Scikit-learn accepts are not fully tested. cuML
-    uses Numba callables to implement this feature. Better compatibility with general
-    callables is a work in progress. If you have special interest in a specific callable,
-    it would be highly benefitial if you raise an issue in the repo so the RAPIDS team
-    can work on it and prioritize it.
-* cuML's KernelRidge only implements dense inputs currently, so cuml.accel offers no
-    acceleration for sparse inputs to model training.
-
 ``sklearn.linear_model.LinearRegression``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -244,9 +230,8 @@ limitations:
 * cuML's Linear Regression only implements dense inputs currently, so cuml.accel offers no
     acceleration for sparse inputs to model training.
 
-
-Another important consideration is that unlike more complex models, like manifold
-or clustering algorithms, are quite efficient and fast to run. Even on larger
+Another important consideration is that, unlike more complex models, like manifold
+or clustering algorithms, linear models are quite efficient and fast to run. Even on larger
 datasets, the execution time can many times be measured in seconds, so taking that
 into consideration will be important for example when evaluating results as seen
 in `Zero Code Change Benchmarks <0cc_benchmarks.rst>`_
