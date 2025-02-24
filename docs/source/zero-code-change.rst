@@ -1,8 +1,8 @@
-cuml.accel: Zero Code Change Acceleration for Scikit-Learn
-==========================================================
+cuml.accel: Zero Code Change Acceleration for Scikit-Learn, UMAP and HDBSCAN
+============================================================================
 
-Starting in RAPIDS 25.02, cuML offers a new way to accelerate existing code
-based on Scikit-Learn, UMAP-Learn, and HDBScan. Instead of rewriting that code
+Starting in RAPIDS 25.02.01, cuML offers a new way to accelerate existing code
+based on Scikit-Learn, UMAP-Learn, and HDBSCAN. Instead of rewriting that code
 to import equivalent cuML functionality, simply invoke your existing,
 unaltered Python script as follows, and cuML will accelerate as much of the
 code as possible with NVIDIA GPUs, falling back to CPU where necessary:
@@ -40,7 +40,7 @@ the data scientists developing a pipeline do not have access to NVIDIA GPUs,
 but you want the cost and time savings of running that pipeline on NVIDIA GPUs
 in production. Rather than going through a manual migration to cuML every time
 the pipeline is updated, ``cuml.accel`` allows you to immediately deploy
-unaltered Scikit-Learn, UMAP-Learn, and HDBScan code on NVIDIA GPUs.
+unaltered Scikit-Learn, UMAP-Learn, and HDBSCAN code on NVIDIA GPUs.
 Furthermore, ``cuml.accel`` will automatically fall back to CPU execution for
 anything which is implemented in Scikit-Learn but not yet accelerated by cuML.
 
@@ -67,10 +67,14 @@ performance but requires slightly more care to avoid exhausting the GPU VRAM.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ``cuml.accel`` is designed to provide zero code change acceleration of any
 Scikit-Learn-like estimator which has an equivalent cuML implementation,
-including estimators from Scikit-Learn, UMAP-Learn, and HDBScan. Currently,
+including estimators from Scikit-Learn, UMAP-Learn, and HDBSCAN. Currently,
 the following estimators are mostly or entirely accelerated when run under
 ``cuml.accel``:
 
+* UMAP-Learn
+    * ``umap.UMAP``
+* HDBSCAN
+    * ``hdbscan.HDBSCAN``
 * Scikit-Learn
     * ``sklearn.cluster.KMeans``
     * ``sklearn.cluster.DBSCAN``
@@ -88,14 +92,22 @@ the following estimators are mostly or entirely accelerated when run under
     * ``sklearn.neighbors.NearestNeighbors``
     * ``sklearn.neighbors.KNeighborsClassifier``
     * ``sklearn.neighbors.KNeighborsRegressor``
-* UMAP-Learn
-    * ``umap.UMAP``
-* HDBScan
-    * ``hdbscan.HDBSCAN``
 
 This list will continue to expand as ``cuml.accel`` development
-continues.Please see `Zero Code Change Limitations <0cc_limitations.rst>`_
+continues to cover all algorithms present in cuML.
+Please see `Zero Code Change Limitations <0cc_limitations.rst>`_
 for known limitations.
+
+Currently the following algorithms are next in our roadmap for the next version
+of cuml.accel:
+
+* AgglomerativeClustering
+* SVC and SVR support vector machine models.
+* IncrementalPCA
+* Naive Bayes models
+
+If there are specific models that you'd love to have GPU-accelerated, please
+contact us in the cuML Github repository!
 
 4. Will I get the same results as I do without ``cuml.accel``?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -161,12 +173,21 @@ Bugs affecting ``cuml.accel`` can be reported via the `cuML issue tracker <https
 
 10. If I serialize a model using ``cuml.accel``, can I load it without ``cuml.accel``?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-This is a common use case for ``cuml.accel``, since it may be useful to train
+This is a common use case for ``cuml.accel`` and cuML in general, since it may be useful to train
 a model using NVIDIA GPUs but deploy it for inference in an environment that
-does not have access to NVIDIA GPUs. Currently, models serialized with
-``cuml.accel`` need to be converted to pure Scikit-Learn (or UMAP/HDBScan/...)
-models using the following invocation:
+does not have access to NVIDIA GPUs.
 
-TODO(wphicks): FILL THIS OUT
+Currently, models serialized with
+``cuml.accel`` need to be converted to pure Scikit-Learn (or UMAP/HDBSCAN/...).
+After serializing a model, using either pickle or joblib, for example to `model_pickled.pkl`,
+that model can then be converted to a regular sklearn/umap-learn/hdbscan pickled model with:
+
+```bash
+python -m cuml.accel --convert-to-sklearn model_pickled.pkl --format pickle --output converted_model.pkl
+```
+
+
+The `converted_model.pkl` is now a regular pickled/joblib serialized model,
+that can be deserialized and used in a computer/environment without cuML or GPUs.
 
 This conversion step should become unnecessary in a future release of cuML.
