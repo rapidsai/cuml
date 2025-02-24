@@ -16,11 +16,9 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import, safe_import_from
+from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
-nearest_neighbors = safe_import_from('umap.umap_', 'nearest_neighbors')
-DISCONNECTION_DISTANCES = safe_import_from('umap.umap_', 'DISCONNECTION_DISTANCES')
 
 import joblib
 import warnings
@@ -905,6 +903,7 @@ class UMAP(UniversalBase,
 
     @property
     def _disconnection_distance(self):
+        from umap.umap_ import DISCONNECTION_DISTANCES
         self.disconnection_distance = DISCONNECTION_DISTANCES.get(self.metric, np.inf)
         return self.disconnection_distance
 
@@ -913,6 +912,7 @@ class UMAP(UniversalBase,
         self.disconnection_distance = value
 
     def gpu_to_cpu(self):
+        from umap.umap_ import nearest_neighbors
         if hasattr(self, 'knn_dists') and hasattr(self, 'knn_indices'):
             self._knn_dists = self.knn_dists
             self._knn_indices = self.knn_indices

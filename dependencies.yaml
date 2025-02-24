@@ -211,7 +211,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &cmake_ver cmake>=3.26.4,!=3.30.0
+          - &cmake_ver cmake>=3.30.4
           - ninja
       - output_types: conda
         packages:
@@ -439,7 +439,7 @@ dependencies:
           - pydata-sphinx-theme!=0.14.2
           - recommonmark
           - &scikit_learn scikit-learn==1.5.*
-          - sphinx
+          - sphinx<8.2.0
           - sphinx-copybutton
           - sphinx-markdown-tables
       - output_types: conda

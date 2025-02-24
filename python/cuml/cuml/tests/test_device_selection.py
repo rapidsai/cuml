@@ -38,6 +38,8 @@ from cuml.decomposition import PCA, TruncatedSVD
 from cuml.cluster import KMeans
 from cuml.cluster import DBSCAN
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
+from cuml.svm import SVC, SVR
+from cuml.kernel_ridge import KernelRidge
 from cuml.common.device_selection import DeviceType, using_device_type
 from cuml.testing.utils import assert_dbscan_equal
 from hdbscan import HDBSCAN as refHDBSCAN
@@ -49,11 +51,14 @@ from sklearn.linear_model import LogisticRegression as skLogisticRegression
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.decomposition import PCA as skPCA
 from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
+from sklearn.kernel_ridge import KernelRidge as skKernelRidge
 from sklearn.cluster import KMeans as skKMeans
 from sklearn.cluster import DBSCAN as skDBSCAN
+from sklearn.datasets import make_regression, make_classification, make_blobs
 from sklearn.ensemble import RandomForestClassifier as skRFC
 from sklearn.ensemble import RandomForestRegressor as skRFR
-from sklearn.datasets import make_regression, make_blobs
+from sklearn.svm import SVC as skSVC
+from sklearn.svm import SVR as skSVR
 from sklearn.manifold import TSNE as refTSNE
 from sklearn.metrics import accuracy_score, r2_score
 from pytest_cases import fixture_union, fixture
@@ -148,6 +153,23 @@ def make_reg_dataset():
     )
 
 
+def make_classification_dataset(n_classes=2):
+    X, y = make_classification(
+        n_samples=2000,
+        n_features=20,
+        n_informative=18,
+        n_classes=n_classes,
+        random_state=0,
+    )
+    X_train, X_test = X[:1800], X[1800:]
+    y_train, _ = y[:1800], y[1800:]
+    return (
+        X_train.astype(np.float32),
+        y_train.astype(np.float32),
+        X_test.astype(np.float32),
+    )
+
+
 def make_blob_dataset():
     X, y = make_blobs(
         n_samples=2000,
@@ -166,6 +188,14 @@ def make_blob_dataset():
     )
 
 
+X_train_class, y_train_class, X_test_class = make_classification_dataset(
+    n_classes=2
+)
+(
+    X_train_multiclass,
+    y_train_multiclass,
+    X_test_multiclass,
+) = make_classification_dataset(n_classes=5)
 X_train_reg, y_train_reg, X_test_reg, y_test_reg = make_reg_dataset()
 X_train_blob, y_train_blob, X_test_blob, y_test_blob = make_blob_dataset()
 
@@ -834,6 +864,23 @@ def test_elasticnet_methods(train_device, infer_device):
 
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
 @pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
+def test_kernelridge_methods(train_device, infer_device):
+    ref_model = skKernelRidge()
+    ref_model.fit(X_train_reg, y_train_reg)
+    ref_output = ref_model.score(X_test_reg, y_test_reg)
+
+    model = KernelRidge()
+    with using_device_type(train_device):
+        model.fit(X_train_reg, y_train_reg)
+    with using_device_type(infer_device):
+        output = model.score(X_test_reg, y_test_reg)
+
+    tol = 0.01
+    assert ref_output - tol <= output <= ref_output + tol
+
+
+@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
+@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
 def test_ridge_methods(train_device, infer_device):
     ref_model = skRidge()
     ref_model.fit(X_train_reg, y_train_reg)
@@ -1081,3 +1128,74 @@ def test_random_forest_classifier(train_device, infer_device):
     ref_acc = accuracy_score(y_test_blob, ref_output)
 
     assert cuml_acc == ref_acc
+
+
+@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
+@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
+@pytest.mark.parametrize("decision_function_shape", ["ovo", "ovr"])
+@pytest.mark.parametrize("class_type", ["single_class", "multi_class"])
+@pytest.mark.parametrize("probability", [True, False])
+def test_svc_methods(
+    train_device,
+    infer_device,
+    decision_function_shape,
+    class_type,
+    probability,
+):
+    if class_type == "single_class":
+        X_train = X_train_class
+        y_train = y_train_class
+        X_test = X_test_class
+    elif class_type == "multi_class":
+        X_train = X_train_multiclass
+        y_train = y_train_multiclass
+        X_test = X_test_multiclass
+
+    ref_model = skSVC(
+        probability=probability,
+        decision_function_shape=decision_function_shape,
+    )
+    ref_model.fit(X_train, y_train)
+    if probability:
+        ref_output = ref_model.predict_proba(X_test)
+    else:
+        ref_output = ref_model.predict(X_test)
+
+    model = SVC(
+        probability=probability,
+        decision_function_shape=decision_function_shape,
+    )
+    with using_device_type(train_device):
+        model.fit(X_train, y_train)
+    with using_device_type(infer_device):
+        if probability:
+            output = model.predict_proba(X_test)
+        else:
+            output = model.predict(X_test)
+
+    if probability:
+        eps = 0.25
+        mismatches = (
+            (output <= ref_output - eps) | (output >= ref_output + eps)
+        ).sum()
+        outlier_percentage = mismatches / ref_output.size
+        assert outlier_percentage < 0.03
+    else:
+        correct_percentage = (ref_output == output).sum() / ref_output.size
+        assert correct_percentage > 0.9
+
+
+@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
+@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
+def test_svr_methods(train_device, infer_device):
+    ref_model = skSVR()
+    ref_model.fit(X_train_reg, y_train_reg)
+    ref_output = ref_model.predict(X_test_reg)
+
+    model = SVR()
+    with using_device_type(train_device):
+        model.fit(X_train_reg, y_train_reg)
+    with using_device_type(infer_device):
+        output = model.predict(X_test_reg)
+
+    np.testing.assert_allclose(ref_output, output, rtol=0.15)

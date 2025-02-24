@@ -57,12 +57,6 @@ TruncatedSVD = intercept(
 #                              Linear Estimators                              #
 ###############################################################################
 
-KernelRidge = intercept(
-    original_module="sklearn.kernel_ridge",
-    accelerated_module="cuml.kernel_ridge",
-    original_class_name="KernelRidge",
-)
-
 LinearRegression = intercept(
     original_module="sklearn.linear_model",
     accelerated_module="cuml.linear_model",

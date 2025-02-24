@@ -548,7 +548,10 @@ class Base(TagsMixin,
         """
         gpuaccel = True
         # Copy it so we can modify it
-        translations = dict(cls.__bases__[0]._hyperparam_interop_translator)
+        # we need to explicitly use UniversalBase because not all estimator
+        # have it as the first parent in their MRO/inheritance, like
+        # linear_regression
+        translations = dict(UniversalBase._hyperparam_interop_translator)
         # Allow the derived class to overwrite the base class
         translations.update(cls._hyperparam_interop_translator)
         for parameter_name, value in kwargs.items():
@@ -619,7 +622,7 @@ class UniversalBase(Base):
     _experimental_dispatching = False
 
     def import_cpu_model(self):
-        # skip the CPU estimator has been imported already
+        # skip if the CPU estimator has been imported already
         if hasattr(self, '_cpu_model_class'):
             return
         if hasattr(self, '_cpu_estimator_import_path'):
@@ -640,17 +643,20 @@ class UniversalBase(Base):
             inspect.signature(self._cpu_model_class.__init__).parameters.keys()
         )
 
-    def build_cpu_model(self):
+    def build_cpu_model(self, **kwargs):
         if hasattr(self, '_cpu_model'):
             return
-        filtered_kwargs = {}
-        for keyword, arg in self._full_kwargs.items():
-            if keyword in self._cpu_hyperparams:
-                filtered_kwargs[keyword] = arg
-            else:
-                logger.info("Unused keyword parameter: {} "
-                            "during CPU estimator "
-                            "initialization".format(keyword))
+        if kwargs:
+            filtered_kwargs = kwargs
+        else:
+            filtered_kwargs = {}
+            for keyword, arg in self._full_kwargs.items():
+                if keyword in self._cpu_hyperparams:
+                    filtered_kwargs[keyword] = arg
+                else:
+                    logger.info("Unused keyword parameter: {} "
+                                "during CPU estimator "
+                                "initialization".format(keyword))
 
         # initialize model
         self._cpu_model = self._cpu_model_class(**filtered_kwargs)
@@ -658,41 +664,16 @@ class UniversalBase(Base):
     def gpu_to_cpu(self):
         # transfer attributes from GPU to CPU estimator
         for attr in self.get_attr_names():
-            # check presence of attribute
-            if hasattr(self, attr) or \
-               isinstance(getattr(type(self), attr, None), property):
-                # get the cuml attribute
-                if hasattr(self, attr):
-                    cu_attr = getattr(self, attr)
-                else:
-                    cu_attr = getattr(type(self), attr).fget(self)
-                # if the cuml attribute is a CumlArrayDescriptorMeta
-                if hasattr(cu_attr, 'get_input_value'):
-                    # extract the actual value from the
-                    # CumlArrayDescriptorMeta
-                    cu_attr_value = cu_attr.get_input_value()
-                    # check if descriptor is empty
-                    if cu_attr_value is not None:
-                        if cu_attr.input_type == 'cuml':
-                            # transform cumlArray to numpy and set it
-                            # as an attribute in the CPU estimator
-                            setattr(self._cpu_model, attr,
-                                    cu_attr_value.to_output('numpy'))
-                        else:
-                            # transfer all other types of attributes
-                            # directly
-                            setattr(self._cpu_model, attr,
-                                    cu_attr_value)
-                elif isinstance(cu_attr, CumlArray):
+            if hasattr(self, attr):
+                cu_attr = getattr(self, attr)
+                if isinstance(cu_attr, CumlArray):
                     # transform cumlArray to numpy and set it
                     # as an attribute in the CPU estimator
-                    setattr(self._cpu_model, attr,
-                            cu_attr.to_output('numpy'))
+                    setattr(self._cpu_model, attr, cu_attr.to_output('numpy'))
                 elif isinstance(cu_attr, cp_ndarray):
                     # transform cupy to numpy and set it
                     # as an attribute in the CPU estimator
-                    setattr(self._cpu_model, attr,
-                            cp.asnumpy(cu_attr))
+                    setattr(self._cpu_model, attr, cp.asnumpy(cu_attr))
                 else:
                     # transfer all other types of attributes directly
                     setattr(self._cpu_model, attr, cu_attr)
@@ -705,16 +686,8 @@ class UniversalBase(Base):
             ]
         ):
             for attr in self.get_attr_names():
-                # check presence of attribute
-                if hasattr(self._cpu_model, attr) or \
-                    isinstance(getattr(type(self._cpu_model),
-                                       attr, None), property):
-                    # get the cpu attribute
-                    if hasattr(self._cpu_model, attr):
-                        cpu_attr = getattr(self._cpu_model, attr)
-                    else:
-                        cpu_attr = getattr(type(self._cpu_model),
-                                           attr).fget(self._cpu_model)
+                if hasattr(self._cpu_model, attr):
+                    cpu_attr = getattr(self._cpu_model, attr)
                     # if the cpu attribute is an array
                     if isinstance(cpu_attr, np.ndarray):
                         # get data order wished for by
@@ -785,7 +758,7 @@ class UniversalBase(Base):
         if device_type == DeviceType.device:
             # call the function from the GPU estimator
             if GlobalSettings().accelerator_active:
-                logger.info(f"cuML: Performing {func_name} in GPU")
+                logger.debug(f"cuML: Performing {func_name} in GPU")
             return gpu_func(self, *args, **kwargs)
 
         # CPU case
@@ -808,7 +781,7 @@ class UniversalBase(Base):
             # get the function from the CPU estimator
             cpu_func = getattr(self._cpu_model, func_name)
             # call the function from the CPU estimator
-            logger.info(f"cuML: Performing {func_name} in CPU")
+            logger.debug(f"cuML: Performing {func_name} in CPU")
             res = cpu_func(*args, **kwargs)
 
             # CPU training
@@ -880,37 +853,38 @@ class UniversalBase(Base):
 
     def __getattr__(self, attr):
         try:
-            res = super().__getattr__(attr)
-            return res
-
+            return super().__getattr__(attr)
         except AttributeError as ex:
             # When using cuml.experimental.accel or setting the
             # self._experimental_dispatching flag to True, we look for methods
             # that are not in the cuML estimator in the host estimator
-            if GlobalSettings().accelerator_active or self._experimental_dispatching:
+            gs = GlobalSettings()
+            if gs.accelerator_active or self._experimental_dispatching:
+                # we don't want to special sklearn dispatch cloning function
+                # so that cloning works with this class as a regular estimator
+                # without __sklearn_clone__
+                if attr == "__sklearn_clone__":
+                    raise ex
 
                 self.import_cpu_model()
                 if hasattr(self._cpu_model_class, attr):
-
                     # we turn off and cache the dispatching variables off so that
                     # build_cpu_model and gpu_to_cpu don't recurse infinitely
-                    cached_dispatching = self._experimental_dispatching
-                    cached_accelerator_active = GlobalSettings().accelerator_active
+                    orig_dispatching = self._experimental_dispatching
+                    orig_accelerator_active = gs.accelerator_active
+
                     self._experimental_dispatching = False
-                    GlobalSettings().accelerator_active = False
-
-                    self.build_cpu_model()
-                    self.gpu_to_cpu()
-
-                    # restore the dispatching variables back on
-                    self._experimental_dispatching = cached_dispatching
-                    GlobalSettings().accelerator_active = cached_accelerator_active
+                    gs.accelerator_active = False
+                    try:
+                        self.build_cpu_model()
+                        self.gpu_to_cpu()
+                    finally:
+                        # Reset back to original values
+                        self._experimental_dispatching = orig_dispatching
+                        gs.accelerator_active = orig_accelerator_active
 
                     return getattr(self._cpu_model, attr)
-
-                raise ex
-
-            raise ex
+            raise
 
     def as_sklearn(self, deepcopy=False):
         """
@@ -978,6 +952,9 @@ class UniversalBase(Base):
         estimator = cls()
         estimator.import_cpu_model()
         estimator._cpu_model = model
+        params, gpuaccel = cls._hyperparam_translator(**model.get_params())
+        params = {key: params[key] for key in cls._get_param_names() if key in params}
+        estimator.set_params(**params)
         estimator.cpu_to_gpu()
 
         # we need to set an output type here since
@@ -988,3 +965,44 @@ class UniversalBase(Base):
         estimator.output_mem_type = MemoryType.host
 
         return estimator
+
+    def get_params(self, deep=True):
+        """
+        Get parameters for this estimator.
+
+        Parameters
+        ----------
+        deep : bool, default=True
+            If True, will return the parameters for this estimator and
+            contained subobjects that are estimators.
+
+        Returns
+        -------
+        params : dict
+            Parameter names mapped to their values.
+        """
+        if GlobalSettings().accelerator_active or self._experimental_dispatching:
+            return self._cpu_model.get_params(deep=deep)
+        else:
+            return super().get_params(deep=deep)
+
+    def set_params(self, **params):
+        """
+        Set parameters for this estimator.
+
+        Parameters
+        ----------
+        **params : dict
+            Estimator parameters
+
+        Returns
+        -------
+        self : estimator instance
+            The estimnator instance
+        """
+        if GlobalSettings().accelerator_active or self._experimental_dispatching:
+            self._cpu_model.set_params(**params)
+            params, gpuaccel = self._hyperparam_translator(**params)
+            params = {key: params[key] for key in self._get_param_names() if key in params}
+        super().set_params(**params)
+        return self

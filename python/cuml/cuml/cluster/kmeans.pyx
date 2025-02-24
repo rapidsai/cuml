@@ -196,6 +196,15 @@ class KMeans(UniversalBase,
     <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
     """
 
+    _hyperparam_interop_translator = {
+        "init": {
+            # k-means++ would work, but setting it explicitly changes the configuration
+            # of the estimator compared to not specifying it. So we explicitly translate
+            # it to the default value.
+            "k-means++": "scalable-k-means++",
+        },
+    }
+
     _cpu_estimator_import_path = 'sklearn.cluster.KMeans'
     labels_ = CumlArrayDescriptor(order='C')
     cluster_centers_ = CumlArrayDescriptor(order='C')
