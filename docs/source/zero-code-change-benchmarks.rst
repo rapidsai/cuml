@@ -16,22 +16,22 @@ In the following chart, we see the relative speedup obtained by running the same
    :alt: Overall speedup
 
 
-Comparison of cuML and cuml.accel
----------------------------------
+What’s the overhead compared to invoking cuML directly?
+-------------------------------------------------------
 
-While cuml.accel tries to provide as much acceleration as cuML-specific scripts, there is some overhead relative to direct cuML invocations. While the exact amount of overhead depends on the estimator, parameters, and data size, the overhead is typically quite low for model training:
+While cuml.accel tries to provide as much acceleration as cuML-specific scripts, there is some overhead relative to direct cuML invocations. So one might reasonably wonder at what point it makes sense to rewrite code and invoke cuML directly to squeeze out every bit of performance. While the exact amount of overhead depends on the estimator, parameters, and data size, the overhead is typically quite low for model training, some algorithms have a bit more overhead than others:
 
 .. image:: img/overall_overhead.png
    :alt: Overall overhead
 
-Two important aspects arise immediately: training typically is quite computationally expensive, so the cost of transferring data from CPU to GPU and the machinery of ``cuml.accel`` have overheads that don't affect the acceleration and running time significantly. But even here, one can immediately notice that the overhead is more significant for tasks that are simpler, for example training ``KNeighbors`` models. There, using cuML directly can be significantly faster if one wants to get the maximum performance of a GPU, though it's important to note that the difference in execution time is the difference of computing in seconds vs milliseconds.
+The differences can be attributed to one main factr: training typically is quite computationally expensive. So the cost of transferring data from CPU to GPU and the machinery of the cuML Accelerator overheads don't affect the runtime significantly. But even here, one can immediately notice that the overhead is more significant for tasks that are simpler, for example training ``KNeighbors`` models. There, using cuML directly can be significantly faster if one wants to get the maximum performance of a GPU, though it's important to note that the difference in execution time is the difference of computing in seconds vs milliseconds.
 
-It’s also important to note how dataset shape influences these gains. For skinny datasets — where you have relatively few features but many rows — GPU acceleration still provides a great performance boost, although the relative advantage may be more modest for simpler algorithms that are already quite fast on CPU.
+It’s also important to note how dataset shape influences these gains. For skinny datasets — where you have relatively few features but many rows — GPU acceleration still provides a great performance boost, although the relative advantage may be more modest for simpler algorithms that are already quite fast on CPU. The following benchmark shows speedups for datasets with 8 and 16 features:
 
 .. image:: img/skinny_speedup.png
    :alt: Skinny speedup
 
-Wide datasets, on the other hand truly showcase the accelerator’s strengths. High-dimensional tasks often require intense computation and can bog down CPU-based workflows. In these cases, the cuML Accelerator steps in to deliver some of its most dramatic speedups, especially for dimension reduction methods (t-SNE, UMAP) and other math-heavy operations. It's not uncommon that a task that was unfeasible to achieve before, like incorporating UMAP and HDBSCAN in complex, high dimensional workflows, can now easily be achieved thanks to cuML and ``cuml.accel``:
+Wide datasets, on the other hand truly showcase the accelerator’s strengths. High-dimensional tasks often require intense computation and can bog down CPU-based workflows. In these cases, the cuML Accelerator steps in to deliver some of its most dramatic speedups, especially for dimension reduction methods (t-SNE, UMAP) and other math-heavy operations. It's not uncommon that a task that was unfeasible to achieve before, like incorporating UMAP and HDBSCAN in complex, high dimensional workflows, can now easily be achieved thanks to cuML and ``cuml.accel``. The following benchmark shows those speedups for datasets with 128, 256 and 512 features:
 
 .. image:: img/wide_speedup.png
    :alt: Wide speedup
@@ -41,15 +41,14 @@ Inference
 ----------
 
 
-While the accelerator also speeds up inference, the gains tend to be smaller in absolute terms because inference is usually much faster than training to begin with. Still, seeing a 2×–7× improvement (as with KNeighbors or RandomForest) can be critical if you’re running large-scale or real-time predictions.  However, for large-batch or repeated inference scenarios, the GPU acceleration can provide significant value.
+While the accelerator also speeds up inference, the gains tend to be smaller in absolute terms because inference is usually much faster than training to begin with. Still, a 2×–7× improvement (as with KNeighbors or RandomForest) can be critical ifor running large-scale or real-time predictions.  Especially for large-batch or repeated inference scenarios, the GPU acceleration can provide significant value.
 
 
 .. image:: img/inference_speedup.png
    :alt: Inference Speedup
 
 
-The main caveat is that data transfer overhead becomes a bigger slice of total runtime when inference itself is quick. If you’re doing tiny batches of predictions one at a time, the overhead can reduce your net benefit, and the speed between CPU and GPU can be withing statistical margin of error. The overhead can be significant in that case, in which using cuML directly with GPU inputs (like CuPy) can provide a significant advantage over using cuml.accel.
-
+For smaller datasets, the data transfer becomes a bigger slice of the total runtime, which means that especially for many tiny batches, the overhead might eat up most (or all!) of the benefit from running an accelerated algorithm on the GPU. In those cases it becomes especially important to avoid unnecessary data transfers, e.g., by explicitly keeping inputs and outputs on the GPU, for instance in the form of cupy arrays. This is not possible in the accelerator mode which is why, for these workflows, it might be more advisable to invoke cuML directly with GPU native data types to preserve those speedups.
 
 .. image:: img/inference_overhead.png
    :alt: Inference overhead
