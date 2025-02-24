@@ -48,7 +48,12 @@ from . import install
     default="converted_sklearn_model.pkl",
     help="Output path for the converted sklearn estimator file.",
 )
-@click.option("-v", "--verbose", count=True)
+@click.option(
+    "-v",
+    "--verbose",
+    count=True,
+    help="Increase output verbosity (can be used multiple times, e.g. -vv). Default shows warnings only.",
+)
 @click.argument("args", nargs=-1)
 def main(module, convert_to_sklearn, format, output, verbose, args):
     default_logger_level_index = list(logger.level_enum).index(
