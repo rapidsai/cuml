@@ -203,7 +203,7 @@ regression) and Log Loss (for classification). You can use functions from the
 Some parameters have limited support:
 * ``max_samples`` must be float, not integer.
 
-The following parameters are not supported:
+The following parameters are not supported and will trigger a CPU fallback:
 * ``min_weight_fraction_leaf``
 * ``monotonic_cst``
 * ``ccp_alpha``
@@ -211,11 +211,9 @@ The following parameters are not supported:
 * ``warm_start``
 * ``oob_score``
 
-TODO(hcho3): Add the list of supported ``criterion``, once the PR for mapping ``split_criterion``
-to ``criterion`` lands.
-
-TODO(hcho3): If the PR mapping ``max_leaves`` to ``max_leaf_nodes`` lands, add explanation about
-the behavior of ``max_leaf_nodes``. The cuML RF treats this parameter as a "soft constraint".
+The following values for ``criterion`` will trigger a CPU fallback:
+* ``log_loss``
+* ``friedman_mse``
 
 ``sklearn.linear_model.LinearRegression``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -225,7 +223,7 @@ between cuML.accel and Scikit-learn will be quite close, with the following
 limitations:
 
 * multi-output target is not currently supported.
-* ``positive`` parameter to force positive coefficents is not currently supported,
+* ``positive`` parameter to force positive coefficients is not currently supported,
   and cuml.accel will not accelerate Linear Regression if the parameter is set to
   ``True``
 * cuML's Linear Regression only implements dense inputs currently, so cuml.accel offers no
@@ -253,7 +251,7 @@ the results should be comparible between implementations.
 
 Similar to Linear Regression, Elastic Net has the following limitations:
 
-*``positive`` parameter to force positive coefficents is not currently supported,
+*``positive`` parameter to force positive coefficients is not currently supported,
   and cuml.accel will not accelerate Elastic Net if the parameter is set to
   ``True``
 * ``warm_start`` parameter is not supported for GPU acceleration.
@@ -266,7 +264,7 @@ Similar to Linear Regression, Elastic Net has the following limitations:
 
 Similar to Linear Regression, Elastic Net has the following limitations:
 
-*``positive`` parameter to force positive coefficents is not currently supported,
+*``positive`` parameter to force positive coefficients is not currently supported,
   and cuml.accel will not accelerate Elastic Net if the parameter is set to
   ``True``
 * ``solver`` all solver parameter values are translated to `eig` to use the

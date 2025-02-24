@@ -19,6 +19,20 @@ following magic at the beginning of the notebook (before other imports):
    %load_ext cuml.accel
    import sklearn
 
+You can see an example of this in
+`KMeans Digits Notebook <zero_code_change_examples/plot_kmeans_digits.ipynb>`_, where an unmodified
+Scikit-Learn example notebook is used to demonstrate how ``cuml.accel`` can be
+used in Jupyter.
+
+In any Python environment, the following code snippet can also be used to
+activate ``cuml.accel`` if it is run prior to importing the module you wish to
+accelerate:
+
+.. code-block::
+   from cuml.accel import install
+   install()
+   import sklearn
+
 **``cuml.accel`` is currently a beta feature and will continue to improve over
 time.**
 
