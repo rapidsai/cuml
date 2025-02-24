@@ -1,12 +1,16 @@
 cuml.accel: Zero Code Change Acceleration Benchmarks
 ====================================================
 
+cuML offers accelerated inference and training for classical ML models using NVIDIA GPUs. With cuml.accel, you can get the benefit of similar acceleration in existing Scikit-Learn, UMAP, and HDBScan scripts without changing a line of code. While the exact speedup depends on the model, dataset size, and hyperparameters, the following benchmarks should give a general sense of the benefit you're likely to observe when using `cuml.accel.`
+
 Training
 --------
 
-One of the biggest advantages of cuML is how much faster training becomes. This is true as well when using the cuML Accelerator, with no code changes!
+While both training and inference benefit from GPU acceleration, cuML tends to offer even more significant gains for training than inference. Training times 2-80 times faster are typical for cuML, especially with large datasets. `cuml.accel` offers similar speedups without requiring any cuML-specific code changes.
 
-Algorithms like HDBSCAN, t-SNE, and UMAP often see speedups anywhere from 60× to over 300×, transforming tasks that could take hours or even days into minutes. Even more conventional methods such as KMeans and Random Forests can achieve training speedups of 15× to 80×, while models like LogisticRegression, Lasso, PCA, and Ridge still benefit significantly (typically in the 2×–10× range). The following benchmarks are a summary of the type of speedups that can be seen in datasets that range from 8 to 512 columns.
+Relatively complex manifold algorithms like HDBSCAN, t-SNE, and UMAP tend to see the largest benefit from `cuml.accel`. Speedups of 60x to 300x are typical for realistic workloads. Simpler algorithms like KMeans and Random Forest can also see speedups of 15x to 80x. Even the simplest ML algorithms, like Logistic Regression, Lasso, PCA, and Ridge will typically have speedusp of 2x to 10x.
+
+In the following chart, we see the relative speedup obtained by running the same code with and without `cuml.accel`. The datasets for these workloads range in width from 8 to 512 features. As we can see `cuml.accel` offered the most benefit for HDBSCAN, with a 179x speedup, but even KNeighborsRegressor saw a 2x speedup.
 
 .. image:: img/overall_speedup.png
    :alt: Overall speedup
