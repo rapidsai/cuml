@@ -14,6 +14,65 @@ TODO(wphicks): Fills these in. Document when each will fall back to CPU, how to
 assess equivalence with CPU implementations, and significant differences in
 algorithm, as well as any other known issues.
 
+``umap.UMAP``
+^^^^^^^^^^^^^
+
+* Algorithm Limitations:
+    * There may be cases where cuML's UMAP may not achieve the same level of quality as the reference implementation. The trustworthiness score can be used to assess to what extent the local structure is retained in embedding. The upcoming 25.04 and 25.06 will contain significant improvements to both performance and numerical accuracy for cuML's UMAP.
+    * The following parameters are not supported : "low_memory", "angular_rp_forest", "transform_seed", "tqdm_kwds", "unique", "densmap", "dens_lambda", "dens_frac", "dens_var_shift", "output_dens", "disconnection_distance".
+    * Parallelism during the optimization stage implies numerical imprecisions, which can lead to difference in the results between CPU and GPU in general.
+    * Reproducibility with the use of a seed ("random_state" parameter) comes at the relative expense of performance.
+
+* Distance Metrics:
+    * Only the following metrics are supported : "l1", "cityblock", "taxicab", "manhattan", "euclidean", "l2", "sqeuclidean", "canberra", "minkowski", "chebyshev", "linf", "cosine", "correlation", "hellinger", "hamming", "jaccard".
+    * Other metrics will trigger a CPU fallback, namely : "sokalsneath", "rogerstanimoto", "sokalmichener", "yule", "ll_dirichlet", "russellrao", "kulsinski", "dice", "wminkowski", "mahalanobis", "haversine".
+
+* Embeddings initialization methods :
+    * Only the following initialization methods are supported : "spectral" and "random".
+    * Other initialization methods will trigger a CPU fallback, namely : "pca", "tswspectral".
+
+While the exact numerical output for UMAP may differ from that obtained without cuml.accel,
+we expect the output to be equivalent in the sense that the quality of results will be approximately as good or better
+than that obtained without cuml.accel in most cases. A common measure of results quality for UMAP is the trustworthiness score.
+You can obtain the trustworthiness by doing the following :
+
+.. code-block:: python
+
+    from umap import UMAP as refUMAP  #  with cuml.accel off
+    from cuml.manifold import UMAP
+    from cuml.metrics import trustworthiness
+
+    n_neighbors = 15
+
+    ref_model = refUMAP(n_neighbors=n_neighbors)
+    ref_embeddings = ref_model.fit_transform(X)
+
+    model = UMAP(n_neighbors=n_neighbors)
+    embeddings = model.fit_transform(X)
+
+    ref_score = trustworthiness(X, ref_embeddings, n_neighbors=n_neighbors)
+    score = trustworthiness(X, embeddings, n_neighbors=n_neighbors)
+
+    tol = 0.1
+    assert score >= (ref_score - tol)
+
+
+``hdbscan.HDBSCAN``
+^^^^^^^^^^^^^^^^^^^
+* Algorithm Limitations:
+    * GPU HDBSCAN uses a parallel MST implementation, which means the results are not deterministic when there are duplicates in the mutual reachability graph.
+    * CPU HDBSCAN offers many choices of different algorithms whereas GPU HDBSCAN uses a single implementation. Everything except `algorithm="auto"` will fallback to the CPU.
+    * GPU HDBSCAN supports all functions in the CPU `hdbscan.prediction` module except `approximate_predict_score`.
+    * CPU HDBSCAN offers a `hdbscan.branches` module that GPU HDBCAN does not.
+
+* Distance Metrics
+    * Only euclidean distance is GPU-accelerated.
+    * precompute distance matrix is not supported on GPU.
+    * Custom metric functions (callable metrics) are not supported on GPU.
+
+* Learned Attributes Limitations:
+    * GPU HDBSCAN does not learn attributes `branch_detection_data_`, `examplers_`, and `relative_validity_`.
+
 
 ``sklearn.cluster.KMeans``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -160,20 +219,82 @@ the behavior of ``max_leaf_nodes``. The cuML RF treats this parameter as a "soft
 ``sklearn.kernel_ridge.KernelRidge``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Kernel Ridge in cuML is a CuPy-based that matches Scikit-learn implementation quite close,
+with two main limitations:
+
+* ``kernel``: Callable arguments that Scikit-learn accepts are not fully tested. cuML
+    uses Numba callables to implement this feature. Better compatibility with general
+    callables is a work in progress. If you have special interest in a specific callable,
+    it would be highly benefitial if you raise an issue in the repo so the RAPIDS team
+    can work on it and prioritize it.
+* cuML's KernelRidge only implements dense inputs currently, so cuml.accel offers no
+    acceleration for sparse inputs to model training.
+
 ``sklearn.linear_model.LinearRegression``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Linear Regression is one of the simpler estimators, where functionality and results
+between cuML.accel and Scikit-learn will be quite close, with the following
+limitations:
+
+* multi-output target is not currently supported.
+* ``positive`` parameter to force positive coefficents is not currently supported,
+  and cuml.accel will not accelerate Linear Regression if the parameter is set to
+  ``True``
+* cuML's Linear Regression only implements dense inputs currently, so cuml.accel offers no
+    acceleration for sparse inputs to model training.
+
+
+Another important consideration is that unlike more complex models, like manifold
+or clustering algorithms, are quite efficient and fast to run. Even on larger
+datasets, the execution time can many times be measured in seconds, so taking that
+into consideration will be important for example when evaluating results as seen
+in `Zero Code Change Benchmarks <0cc_benchmarks.rst>`_
 
 ``sklearn.linear_model.LogisticRegression``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+cuML's Logistic Regression main difference from Scikit-learn is the solver that is
+used to train the model. cuML using a Quasi-Newton set of solvers (L-BFGS or OWL-QN)
+which themselves have algorithmic differences from the solvers of sklearn. Even then,
+the results should be comparible between implementations.
+
+* Regardless of which `solver` the original Logist Regression model uses, cuml.accel
+  will use `qn` as described above.
+
 ``sklearn.linear_model.ElasticNet``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Similar to Linear Regression, Elastic Net has the following limitations:
+
+*``positive`` parameter to force positive coefficents is not currently supported,
+  and cuml.accel will not accelerate Elastic Net if the parameter is set to
+  ``True``
+* ``warm_start`` parameter is not supported for GPU acceleration.
+* ``precompute`` parameter is not supported.
+* cuML's ElasticNet only implements dense inputs currently, so cuml.accel offers no
+    acceleration for sparse inputs to model training.
 
 ``sklearn.linear_model.Ridge``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Similar to Linear Regression, Elastic Net has the following limitations:
+
+*``positive`` parameter to force positive coefficents is not currently supported,
+  and cuml.accel will not accelerate Elastic Net if the parameter is set to
+  ``True``
+* ``solver`` all solver parameter values are translated to `eig` to use the
+  eigendecomposition of the covariance matrix.
+* cuML's Ridge only implements dense inputs currently, so cuml.accel offers no
+  acceleration for sparse inputs to model training.
+
 ``sklearn.linear_model.Lasso``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* ``precompute`` parameter is not supported.
+* cuML's Lasso only implements dense inputs currently, so cuml.accel offers no
+    acceleration for sparse inputs to model training.
+
 
 ``sklearn.manifold.TSNE``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -266,62 +387,3 @@ You can obtain it by doing the following :
     * Only the "uniform" weighting strategy is supported for prediction averaging.
     * Distance-based prediction weights ("distance" option) will trigger CPU fallback.
     * Custom weight functions are not supported on GPU.
-
-``umap.UMAP``
-^^^^^^^^^^^^^
-
-* Algorithm Limitations:
-    * The following parameters are not supported : "low_memory", "angular_rp_forest", "transform_seed", "tqdm_kwds", "unique", "densmap", "dens_lambda", "dens_frac", "dens_var_shift", "output_dens", "disconnection_distance".
-    * Parallelism during the optimization stage implies numerical imprecisions.
-    * There may be cases where cuML's UMAP may not achieve the same level of quality as the reference implementation. The trustworthiness score can be used to assess to what extent the local structure is retained in embedding.
-    * Reproducibility with the use of a seed ("random_state" parameter) comes at the relative expense of performance.
-
-* Distance Metrics:
-    * Only the following metrics are supported : "l1", "cityblock", "taxicab", "manhattan", "euclidean", "l2", "sqeuclidean", "canberra", "minkowski", "chebyshev", "linf", "cosine", "correlation", "hellinger", "hamming", "jaccard".
-    * Other metrics will trigger a CPU fallback, namely : "sokalsneath", "rogerstanimoto", "sokalmichener", "yule", "ll_dirichlet", "russellrao", "kulsinski", "dice", "wminkowski", "mahalanobis", "haversine".
-
-* Embeddings initialization methods :
-    * Only the following initialization methods are supported : "spectral" and "random".
-    * Other initialization methods will trigger a CPU fallback, namely : "pca", "tswspectral".
-
-While the exact numerical output for UMAP may differ from that obtained without cuml.accel,
-we expect the output to be equivalent in the sense that the quality of results will be approximately as good or better
-than that obtained without cuml.accel in most cases. A common measure of results quality for UMAP is the trustworthiness score.
-You can obtain the trustworthiness by doing the following :
-
-.. code-block:: python
-
-    from umap import UMAP as refUMAP  #  with cuml.accel off
-    from cuml.manifold import UMAP
-    from cuml.metrics import trustworthiness
-
-    n_neighbors = 15
-
-    ref_model = refUMAP(n_neighbors=n_neighbors)
-    ref_embeddings = ref_model.fit_transform(X)
-
-    model = UMAP(n_neighbors=n_neighbors)
-    embeddings = model.fit_transform(X)
-
-    ref_score = trustworthiness(X, ref_embeddings, n_neighbors=n_neighbors)
-    score = trustworthiness(X, embeddings, n_neighbors=n_neighbors)
-
-    tol = 0.1
-    assert score >= (ref_score - tol)
-
-
-``hdbscan.HDBSCAN``
-^^^^^^^^^^^^^^^^^^^
-* Algorithm Limitations:
-    * GPU HDBSCAN uses a parallel MST implementation, which means the results are not deterministic when there are duplicates in the mutual reachability graph.
-    * CPU HDBSCAN offers many choices of different algorithms whereas GPU HDBSCAN uses a single implementation. Everything except `algorithm="auto"` will fallback to the CPU.
-    * GPU HDBSCAN supports all functions in the CPU `hdbscan.prediction` module except `approximate_predict_score`.
-    * CPU HDBSCAN offers a `hdbscan.branches` module that GPU HDBCAN does not.
-
-* Distance Metrics
-    * Only euclidean distance is GPU-accelerated.
-    * precompute distance matrix is not supported on GPU.
-    * Custom metric functions (callable metrics) are not supported on GPU.
-
-* Learned Attributes Limitations:
-    * GPU HDBSCAN does not learn attributes `branch_detection_data_`, `examplers_`, and `relative_validity_`.
