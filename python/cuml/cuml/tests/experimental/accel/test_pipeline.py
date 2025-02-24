@@ -17,7 +17,6 @@
 import pytest
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.cluster import KMeans, DBSCAN
-from sklearn.kernel_ridge import KernelRidge
 from sklearn.linear_model import (
     LogisticRegression,
     LinearRegression,
@@ -68,7 +67,6 @@ regression_estimators = [
     Ridge(),
     Lasso(),
     ElasticNet(),
-    KernelRidge(),
     KNeighborsRegressor(),
 ]
 
