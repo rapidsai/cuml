@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,12 +29,25 @@ if TYPE_CHECKING:
     import cudf
     import cupy as cp
     import numpy as np
-    from pandas import Series as pdSeries
 else:
     cudf = gpu_only_import("cudf")
     cp = gpu_only_import("cupy")
     np = cpu_only_import("numpy")
-    pdSeries = cpu_only_import_from("pandas", "Series")
+    pd = cpu_only_import("pandas")
+
+
+def _to_cudf_series(y, **kwargs):
+    if isinstance(y, (pd.DataFrame, cudf.DataFrame)):
+        if len(y.columns) != 1:
+            raise ValueError(f"`y` must be 1 dimensional, got {y.shape}")
+        y = y.iloc[:, 0]
+    elif isinstance(y, (np.ndarray, cp.ndarray)):
+        if y.ndim == 2 and y.shape[-1] == 1:
+            y = y.flatten()
+    if getattr(y, "dtype", None) == "float16":
+        # Upcast float16 since cudf cannot handle them yet
+        y = y.astype("float32")
+    return cudf.Series(y, **kwargs)
 
 
 class LabelEncoder(Base):
@@ -181,7 +194,11 @@ class LabelEncoder(Base):
 
         if _classes is None:
             # dedupe and sort
-            y = cudf.Series(y).drop_duplicates().sort_values(ignore_index=True)
+            y = (
+                _to_cudf_series(y)
+                .drop_duplicates()
+                .sort_values(ignore_index=True)
+            )
             self.classes_ = y
         else:
             self.classes_ = _classes
@@ -215,7 +232,7 @@ class LabelEncoder(Base):
         """
         check_is_fitted(self)
 
-        y = cudf.Series(y, dtype="category")
+        y = _to_cudf_series(y, dtype="category")
 
         encoded = y.cat.set_categories(self.classes_).cat.codes
 
@@ -232,7 +249,7 @@ class LabelEncoder(Base):
         `LabelEncoder().fit(y).transform(y)`
         """
 
-        y = cudf.Series(y)
+        y = _to_cudf_series(y)
         self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
 
         y = y.astype("category")
@@ -257,8 +274,8 @@ class LabelEncoder(Base):
         """
         # check LabelEncoder is fitted
         check_is_fitted(self)
-        # check input type is cudf.Series
-        y = cudf.Series(y)
+
+        y = _to_cudf_series(y)
 
         # check if ord_label out of bound
         ord_label = y.unique()
