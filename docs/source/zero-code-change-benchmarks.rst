@@ -29,8 +29,6 @@ It’s also important to note how dataset shape influences these gains. For skin
 
 Wide datasets, on the other hand, truly showcase the accelerator’s strengths. High-dimensional tasks often require intense computation and can bog down CPU-based workflows. In these cases, the cuML Accelerator steps in to deliver some of its most dramatic speedups, especially for dimension reduction methods (t-SNE, UMAP) and other math-heavy operations. It's not uncommon that a task that was unfeasible to achieve before, like incorporating UMAP and HDBSCAN in complex, high dimensional workflows, can now easily be achieved thanks to cuML and cuml.accel:
 
-![](img/wide_speedup.png)
-
 .. image:: img/wide_speedup.png
    :alt: Wide speedup
 
@@ -42,15 +40,12 @@ Inference
 While the accelerator also speeds up inference, the gains tend to be smaller in absolute terms because inference is usually much faster than training to begin with. Still, seeing a 2×–7× improvement (as with KNeighbors or RandomForest) can be critical if you’re running large-scale or real-time predictions.  However, for large-batch or repeated inference scenarios, the GPU acceleration can provide significant value.
 
 
-![](img/inference_speedup.png)
-
 .. image:: img/inference_speedup.png
    :alt: Inference Speedup
 
 
 The main caveat is that data transfer overhead becomes a bigger slice of total runtime when inference itself is quick. If you’re doing tiny batches of predictions one at a time, the overhead can reduce your net benefit, and the speed between CPU and GPU can be withing statistical margin of error. The overhead can be significant in that case, in which using cuML directly with GPU inputs (like CuPy) can provide a significant advantage over using cuml.accel.
 
-![](img/inference_overhead.png)
 
 .. image:: img/inference_overhead.png
    :alt: Inference overhead
