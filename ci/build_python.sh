@@ -9,6 +9,8 @@ source rapids-configure-sccache
 
 source rapids-date-string
 
+source rapids-telemetry-setup
+
 export CMAKE_GENERATOR=Ninja
 
 rapids-print-env
@@ -23,12 +25,12 @@ sccache --zero-stats
 
 # TODO: Remove `--no-test` flag once importing on a CPU
 # node works correctly
-RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION) rapids-conda-retry build \
+RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION) rapids-telemetry-record build.log rapids-conda-retry build \
   --no-test \
   --channel "${CPP_CHANNEL}" \
   conda/recipes/cuml
 
-sccache --show-adv-stats
+rapids-telemetry-record sccache-stats.txt sccache --show-adv-stats
 
 # Build cuml-cpu only in CUDA 12 jobs since it only depends on python
 # version

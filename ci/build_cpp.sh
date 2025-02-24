@@ -9,6 +9,8 @@ source rapids-configure-sccache
 
 source rapids-date-string
 
+source rapids-telemetry-setup
+
 export CMAKE_GENERATOR=Ninja
 
 rapids-print-env
@@ -17,9 +19,9 @@ rapids-logger "Begin cpp build"
 
 sccache --zero-stats
 
-RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry build \
+RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-telemetry-record build.log rapids-conda-retry build \
   conda/recipes/libcuml
 
-sccache --show-adv-stats
+rapids-telemetry-record sccache-stats.txt sccache --show-adv-stats
 
 rapids-upload-conda-to-s3 cpp
