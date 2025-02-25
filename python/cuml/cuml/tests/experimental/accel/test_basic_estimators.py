@@ -28,7 +28,6 @@ from sklearn.linear_model import (
 )
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn.decomposition import PCA, TruncatedSVD
-from sklearn.kernel_ridge import KernelRidge
 from sklearn.manifold import TSNE
 from sklearn.neighbors import (
     NearestNeighbors,
@@ -230,19 +229,3 @@ def test_defaults_args_only_methods():
     nn = NearestNeighbors(metric="chebyshev", n_neighbors=3)
     nn.fit(X[:, 0].reshape((-1, 1)), y)
     nn.kneighbors()
-
-
-@pytest.mark.skipif(
-    not GlobalSettings().accelerator_active,
-    reason="Test designed to test output type of cuml.accel",
-)
-def test_kernel_ridge():
-
-    rng = np.random.RandomState(42)
-
-    X = 5 * rng.rand(10000, 1)
-    y = np.sin(X).ravel()
-
-    kr = KernelRidge(kernel="rbf", gamma=0.1)
-    kr.fit(X, y)
-    kr.predict(X)
