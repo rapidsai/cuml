@@ -5,4 +5,3 @@
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../python/cuml/cuml/tests
 
 python -m pytest -p cudf.pandas -p cuml.experimental.accel --cache-clear "$@"  experimental/accel/
-

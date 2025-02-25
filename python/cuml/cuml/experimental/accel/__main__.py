@@ -57,9 +57,12 @@ import sys
     help="Turn on cudf.pandas alongside cuml.accel.",
 )
 @click.argument("args", nargs=-1)
-def main(module, convert_to_sklearn, format, output, verbose, cudf_pandas, args):
+def main(
+    module, convert_to_sklearn, format, output, verbose, cudf_pandas, args
+):
     if cudf_pandas:
         import cudf.pandas
+
         cudf.pandas.install()
 
     # avoid importing cuML before cuDF.pandas
