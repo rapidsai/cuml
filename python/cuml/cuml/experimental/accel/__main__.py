@@ -22,10 +22,6 @@ import os
 import runpy
 import sys
 
-from cuml.internals import logger
-
-from . import install
-
 
 @click.command()
 @click.option("-m", "module", required=False, help="Module to run")
@@ -66,10 +62,32 @@ from . import install
     count=True,
     help="Increase output verbosity (can be used multiple times, e.g. -vv). Default shows warnings only.",
 )
+@click.option(
+    "--cudf-pandas",
+    is_flag=True,
+    default=False,
+    help="Turn on cudf.pandas alongside cuml.accel.",
+)
 @click.argument("args", nargs=-1)
 def main(
-    module, convert_to_sklearn, format, output, disable_uvm, verbose, args
+    module,
+    convert_to_sklearn,
+    format,
+    output,
+    disable_uvm,
+    verbose,
+    cudf_pandas,
+    args,
 ):
+    if cudf_pandas:
+        import cudf.pandas
+
+        cudf.pandas.install()
+
+    # avoid importing cuML before cuDF.pandas
+    from cuml.internals import logger
+    from . import install
+
     default_logger_level_index = list(logger.level_enum).index(
         logger.level_enum.warn
     )
