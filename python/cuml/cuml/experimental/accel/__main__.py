@@ -61,7 +61,9 @@ from . import install
     help="Increase output verbosity (can be used multiple times, e.g. -vv). Default shows warnings only.",
 )
 @click.argument("args", nargs=-1)
-def main(module, convert_to_sklearn, format, output, disable_uvm, verbose, args):
+def main(
+    module, convert_to_sklearn, format, output, disable_uvm, verbose, args
+):
     default_logger_level_index = list(logger.level_enum).index(
         logger.level_enum.warn
     )
