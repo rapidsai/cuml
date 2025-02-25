@@ -265,6 +265,7 @@ class RandomForestRegressor(BaseRandomForestModel,
     _hyperparam_interop_translator = {
         "criterion": {
             "friedman_mse": "NotImplemented",
+            "absolute_error": "NotImplemented",
         },
         "oob_score": {
             True: "NotImplemented",
