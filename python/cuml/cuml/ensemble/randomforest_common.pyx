@@ -73,7 +73,7 @@ class BaseRandomForestModel(UniversalBase):
     classes_ = CumlArrayDescriptor()
 
     @device_interop_preparation
-    def __init__(self, *, split_criterion, n_streams=4, n_estimators=100,
+    def __init__(self, *, split_criterion=None, n_streams=4, n_estimators=100,
                  max_depth=16, handle=None, max_features='sqrt', n_bins=128,
                  bootstrap=True,
                  verbose=False, min_samples_leaf=1, min_samples_split=2,
@@ -85,8 +85,7 @@ class BaseRandomForestModel(UniversalBase):
                  criterion=None,
                  max_batch_size=4096, **kwargs):
 
-        sklearn_params = {"criterion": criterion,
-                          "min_weight_fraction_leaf": min_weight_fraction_leaf,
+        sklearn_params = {"min_weight_fraction_leaf": min_weight_fraction_leaf,
                           "max_leaf_nodes": max_leaf_nodes,
                           "min_impurity_split": min_impurity_split,
                           "oob_score": oob_score, "n_jobs": n_jobs,
@@ -128,6 +127,25 @@ class BaseRandomForestModel(UniversalBase):
 
         if max_depth <= 0:
             raise ValueError("Must specify max_depth >0 ")
+        if split_criterion is None:
+            if criterion is None:
+                split_criterion = type(self)._default_split_criterion
+            else:
+                if criterion == "squared_error":
+                    split_criterion = "mse"
+                elif criterion == "poisson":
+                    split_criterion = "poisson"
+                elif criterion == "gini":
+                    split_criterion = "gini"
+                elif criterion == "entropy":
+                    split_criterion = "entropy"
+                else:
+                    raise NotImplementedError(
+                        f'Split criterion {criterion} is not yet supported in'
+                        ' cuML. See'
+                        ' https://docs.rapids.ai/api/cuml/nightly/api.html#random-forest'
+                        ' for full information on supported criteria.'
+                    )
 
         if (str(split_criterion) not in
                 BaseRandomForestModel.criterion_dict.keys()):
