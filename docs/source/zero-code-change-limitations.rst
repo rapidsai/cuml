@@ -233,7 +233,7 @@ Another important consideration is that, unlike more complex models, like manifo
 or clustering algorithms, linear models are quite efficient and fast to run. Even on larger
 datasets, the execution time can many times be measured in seconds, so taking that
 into consideration will be important for example when evaluating results as seen
-in `Zero Code Change Benchmarks <0cc_benchmarks.rst>`_
+in `Zero Code Change Benchmarks <zero-code-change-benchmarks.rst>`_
 
 ``sklearn.linear_model.LogisticRegression``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

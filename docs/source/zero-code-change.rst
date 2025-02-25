@@ -111,7 +111,7 @@ the following estimators are mostly or entirely accelerated when run under
 
 This list will continue to expand as ``cuml.accel`` development
 continues to cover all algorithms present in cuML.
-Please see `Zero Code Change Limitations <0cc_limitations.rst>`_
+Please see `Zero Code Change Limitations <zero-code-change-limitations.rst>`_
 for known limitations.
 
 Currently the following algorithms are next in our roadmap for the next version
@@ -146,7 +146,7 @@ way on GPU than on CPU in order to make efficient use of the GPU's highly
 parallel compute capabilities. In such cases, ``cuml.accel`` will translate
 hyperparameters appropriately to maintain equivalence with the CPU
 implementation. Differences of this kind are noted in the corresponding entry
-of `Zero Code Change Limitations <0cc_limitations.rst>`_ for that
+of `Zero Code Change Limitations <zero-code-change-limitations.rst>`_ for that
 estimator.
 
 If you discover a use case where the quality of results obtained with
@@ -159,7 +159,7 @@ RAPIDS team will investigate.
 This depends on the individual algorithm being accelerated and the dataset
 being processed. As with cuML itself, you will generally see the most benefit
 when ``cuml.accel`` is used on large datasets. Please see
-`Zero Code Change Benchmarks <0cc_benchmarks.rst>`_ for some representative benchmarks.
+`Zero Code Change Benchmarks <zero-code-change-benchmarks.rst>`_ for some representative benchmarks.
 
 Please note that the first time an estimator method is called in a Python
 process, there may be some overhead due to JIT compilation of cupy kernels. To
