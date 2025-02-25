@@ -84,7 +84,7 @@ try disabling the use of unified memory with the ``--disable-uvm`` flag.
 ``cuml.accel`` is designed to provide zero code change acceleration of any
 Scikit-Learn-like estimator which has an equivalent cuML implementation,
 including estimators from Scikit-Learn, UMAP-Learn, and HDBSCAN. Currently,
-the following estimators are mostly or entirely accelerated when run under
+the following estimators are mostly or entirely accelerated when run with
 ``cuml.accel``:
 
 * UMAP-Learn
@@ -114,16 +114,9 @@ continues to cover all algorithms present in cuML.
 Please see `Zero Code Change Limitations <zero-code-change-limitations.rst>`_
 for known limitations.
 
-Currently the following algorithms are next in our roadmap for the next version
-of cuml.accel:
-
-* AgglomerativeClustering
-* SVC and SVR support vector machine models.
-* IncrementalPCA
-* Naive Bayes models
-
-If there are specific models that you'd love to have GPU-accelerated, please
-contact us in the cuML Github repository!
+If there are specific models that you are particularly interested in seeing
+prioritized for cuML, please request them via an `issue <https://github.com/rapidsai/cuml/issues/new?template=feature_request.md>`_ in
+the cuML Githb repository.
 
 4. Will I get the same results as I do without ``cuml.accel``?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -17,14 +17,14 @@ In the following chart, we see the relative speedup obtained by running the same
 
 
 What’s the overhead compared to invoking cuML directly?
--------------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 While cuml.accel tries to provide as much acceleration as cuML-specific scripts, there is some overhead relative to direct cuML invocations. So one might reasonably wonder at what point it makes sense to rewrite code and invoke cuML directly to squeeze out every bit of performance. While the exact amount of overhead depends on the estimator, parameters, and data size, the overhead is typically quite low for model training, some algorithms have a bit more overhead than others:
 
 .. image:: img/overall_overhead.png
    :alt: Overall overhead
 
-The differences can be attributed to one main factr: training typically is quite computationally expensive. So the cost of transferring data from CPU to GPU and the machinery of the cuML Accelerator overheads don't affect the runtime significantly. But even here, one can immediately notice that the overhead is more significant for tasks that are simpler, for example training ``KNeighbors`` models. There, using cuML directly can be significantly faster if one wants to get the maximum performance of a GPU, though it's important to note that the difference in execution time is the difference of computing in seconds vs milliseconds.
+The differences can be attributed to one main factor: training typically is quite computationally expensive. So the cost of transferring data from CPU to GPU and the machinery of the cuML Accelerator overheads don't affect the runtime significantly. But even here, one can immediately notice that the overhead is more significant for tasks that are simpler, for example training ``KNeighbors`` models. There, using cuML directly can be significantly faster if one wants to get the maximum performance of a GPU, though it's important to note that the difference in execution time is the difference of computing in seconds vs milliseconds.
 
 It’s also important to note how dataset shape influences these gains. For skinny datasets — where you have relatively few features but many rows — GPU acceleration still provides a great performance boost, although the relative advantage may be more modest for simpler algorithms that are already quite fast on CPU. The following benchmark shows speedups for datasets with 8 and 16 features:
 
@@ -41,7 +41,7 @@ Inference
 ----------
 
 
-While the accelerator also speeds up inference, the gains tend to be smaller in absolute terms because inference is usually much faster than training to begin with. Still, a 2×–7× improvement (as with KNeighbors or RandomForest) can be critical ifor running large-scale or real-time predictions.  Especially for large-batch or repeated inference scenarios, the GPU acceleration can provide significant value.
+While the accelerator also speeds up inference, the gains tend to be smaller in absolute terms because inference is usually much faster than training to begin with. Still, a 2×–7× improvement (as with KNeighbors or RandomForest) can be critical for running large-scale or real-time predictions.  Especially for large-batch or repeated inference scenarios, the GPU acceleration can provide significant value.
 
 
 .. image:: img/inference_speedup.png
