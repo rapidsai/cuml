@@ -263,7 +263,6 @@ class RandomForestClassifier(BaseRandomForestModel,
     _hyperparam_interop_translator = {
         "criterion": {
             "log_loss": "NotImplemented",
-            "absolute_error": "NotImplemented",
         },
         "oob_score": {
             True: "NotImplemented",
@@ -277,7 +276,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     }
 
     @device_interop_preparation
-    def __init__(self, *, split_criterion=None, handle=None, verbose=False,
+    def __init__(self, *, split_criterion=0, handle=None, verbose=False,
                  output_type=None,
                  **kwargs):
 
@@ -888,6 +887,11 @@ class RandomForestClassifier(BaseRandomForestModel,
     @classmethod
     def _hyperparam_translator(cls, **kwargs):
         kwargs, gpuaccel = super(RandomForestClassifier, cls)._hyperparam_translator(**kwargs)
+
+        if "criterion" in kwargs:
+            kwargs["split_criterion"] = cls._criterion_to_split_criterion(
+                kwargs.pop("criterion")
+            )
 
         if "max_samples" in kwargs:
             if isinstance(kwargs["max_samples"], int):

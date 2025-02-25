@@ -260,7 +260,7 @@ class RandomForestRegressor(BaseRandomForestModel,
 
     _cpu_estimator_import_path = 'sklearn.ensemble.RandomForestRegressor'
 
-    _default_split_criterion = "mse"
+    _default_split_criterion = "gini"
 
     _hyperparam_interop_translator = {
         "criterion": {
@@ -280,7 +280,7 @@ class RandomForestRegressor(BaseRandomForestModel,
 
     @device_interop_preparation
     def __init__(self, *,
-                 split_criterion=None,
+                 split_criterion=2,
                  accuracy_metric='r2',
                  handle=None,
                  verbose=False,
@@ -811,6 +811,11 @@ class RandomForestRegressor(BaseRandomForestModel,
     @classmethod
     def _hyperparam_translator(cls, **kwargs):
         kwargs, gpuaccel = super(RandomForestRegressor, cls)._hyperparam_translator(**kwargs)
+
+        if "criterion" in kwargs:
+            kwargs["split_criterion"] = cls._criterion_to_split_criterion(
+                kwargs.pop("criterion")
+            )
 
         if "max_samples" in kwargs:
             if isinstance(kwargs["max_samples"], int):

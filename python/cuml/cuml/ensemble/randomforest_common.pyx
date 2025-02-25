@@ -72,8 +72,33 @@ class BaseRandomForestModel(UniversalBase):
 
     classes_ = CumlArrayDescriptor()
 
+    @classmethod
+    def _criterion_to_split_criterion(cls, criterion):
+        """Translate sklearn-style criterion string to cuML equivalent"""
+        if criterion is None:
+            split_criterion = cls._default_split_criterion
+        else:
+            if criterion == "squared_error":
+                split_criterion = "mse"
+            elif criterion == "absolute_error":
+                split_criterion = "mae"
+            elif criterion == "poisson":
+                split_criterion = "poisson"
+            elif criterion == "gini":
+                split_criterion = "gini"
+            elif criterion == "entropy":
+                split_criterion = "entropy"
+            else:
+                raise NotImplementedError(
+                    f'Split criterion {criterion} is not yet supported in'
+                    ' cuML. See'
+                    ' https://docs.rapids.ai/api/cuml/nightly/api.html#random-forest'
+                    ' for full information on supported criteria.'
+                )
+        return criterion
+
     @device_interop_preparation
-    def __init__(self, *, split_criterion=None, n_streams=4, n_estimators=100,
+    def __init__(self, *, split_criterion, n_streams=4, n_estimators=100,
                  max_depth=16, handle=None, max_features='sqrt', n_bins=128,
                  bootstrap=True,
                  verbose=False, min_samples_leaf=1, min_samples_split=2,
@@ -137,6 +162,12 @@ class BaseRandomForestModel(UniversalBase):
         else:
             self.split_criterion = \
                 BaseRandomForestModel.criterion_dict[str(split_criterion)]
+
+        if self.split_criterion == MAE:
+            raise NotImplementedError(
+                "cuML does not currently support mean average error as a"
+                " RandomForest split criterion"
+            )
 
         self.min_samples_leaf = min_samples_leaf
         self.min_samples_split = min_samples_split
