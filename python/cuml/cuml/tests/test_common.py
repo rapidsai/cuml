@@ -19,6 +19,10 @@ import numpy as np
 import cuml
 from cuml.datasets import make_blobs
 
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The default value of `n_init` will change from 1 to 'auto' in 25.04"
+)
+
 
 @pytest.mark.parametrize(
     "Estimator",

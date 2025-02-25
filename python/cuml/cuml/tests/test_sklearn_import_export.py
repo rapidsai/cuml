@@ -162,6 +162,9 @@ def test_basic_roundtrip():
     assert ckm.n_clusters == 13
 
 
+@pytest.mark.filterwarnings(
+    "ignore:The default value of `n_init` will change from 1 to 'auto' in 25.04"
+)
 def test_kmeans(random_state):
     # Using sklearn directly for demonstration
     X, _ = make_blobs(
@@ -235,6 +238,9 @@ def test_lasso(random_state):
     assert_estimator_roundtrip(original, SkLasso, X, y)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:Starting from version 22.04, the default method of TSNE is 'fft'."
+)
 def test_tsne(random_state):
     # TSNE is a bit tricky as it is non-deterministic. For test simplicity:
     X = np.random.RandomState(random_state).rand(50, 5)
