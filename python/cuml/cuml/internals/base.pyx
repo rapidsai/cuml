@@ -758,7 +758,7 @@ class UniversalBase(Base):
         if device_type == DeviceType.device:
             # call the function from the GPU estimator
             if GlobalSettings().accelerator_active:
-                logger.info(f"cuML: Performing {func_name} in GPU")
+                logger.debug(f"cuML: Performing {func_name} in GPU")
             return gpu_func(self, *args, **kwargs)
 
         # CPU case
@@ -781,7 +781,7 @@ class UniversalBase(Base):
             # get the function from the CPU estimator
             cpu_func = getattr(self._cpu_model, func_name)
             # call the function from the CPU estimator
-            logger.info(f"cuML: Performing {func_name} in CPU")
+            logger.debug(f"cuML: Performing {func_name} in CPU")
             res = cpu_func(*args, **kwargs)
 
             # CPU training
