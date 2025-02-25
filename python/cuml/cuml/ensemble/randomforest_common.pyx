@@ -127,6 +127,25 @@ class BaseRandomForestModel(UniversalBase):
 
         if max_depth <= 0:
             raise ValueError("Must specify max_depth >0 ")
+        if split_criterion is None:
+            if criterion is None:
+                split_criterion = type(self)._default_split_criterion
+            else:
+                if criterion == "squared_error":
+                    split_criterion = "mse"
+                elif criterion == "poisson":
+                    split_criterion = "poisson"
+                elif criterion == "gini":
+                    split_criterion = "gini"
+                elif criterion == "entropy":
+                    split_criterion = "entropy"
+                else:
+                    raise NotImplementedError(
+                        f'Split criterion {criterion} is not yet supported in'
+                        ' cuML. See'
+                        ' https://docs.rapids.ai/api/cuml/nightly/api.html#random-forest'
+                        ' for full information on supported criteria.'
+                    )
 
         if (str(split_criterion) not in
                 BaseRandomForestModel.criterion_dict.keys()):
