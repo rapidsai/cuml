@@ -20,14 +20,43 @@ from cuml.internals.safe_imports import gpu_only_import
 
 cudf = gpu_only_import("cudf")
 
+MAX_DOWNLOAD_ATTEMPTS = 4
+DOWNLOAD_DELAY = 1  # seconds
+
+
+def ensure_treebank_data():
+    """
+    Ensure the NLTK treebank dataset is available.
+    Tries to download it up to MAX_DOWNLOAD_ATTEMPTS times.
+    """
+    import nltk
+
+    for attempt in range(MAX_DOWNLOAD_ATTEMPTS):
+        try:
+            nltk.data.find("corpora/treebank")
+            return True
+
+        except LookupError:
+            nltk.download("treebank", quiet=True)
+            time.sleep(DOWNLOAD_DELAY)
+
+    return False
+
 
 def get_words():
     """
     Returns list of words from nltk treebank
+    If the dataset isn’t available even after MAX_DOWNLOAD_ATTEMPTS attempts,
+    issues a warning and then skips the test.
     """
-    import nltk
 
-    nltk.download("treebank")
+    if not ensure_treebank_data():
+        msg = (f"Could not download NLTK treebank dataset after "
+               "{MAX_DOWNLOAD_ATTEMPTS} attempts. Skipping test.")
+
+        warnings.warn(msg, UserWarning)
+        pytest.skip(msg)
+
     from nltk.corpus import treebank
 
     word_ls = []
