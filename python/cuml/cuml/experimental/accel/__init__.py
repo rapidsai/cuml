@@ -19,10 +19,13 @@ import importlib
 
 from .magics import load_ipython_extension
 
+from cuda.bindings import runtime
 from cuml.internals import logger
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import set_global_output_type
-from cuml.internals.safe_imports import UnavailableError
+from cuml.internals.safe_imports import UnavailableError, gpu_only_import
+
+rmm = gpu_only_import("rmm")
 
 __all__ = ["load_ipython_extension", "install"]
 
@@ -31,8 +34,39 @@ def _install_for_library(library_name):
     importlib.import_module(f"._wrappers.{library_name}", __name__)
 
 
-def install():
+def _is_concurrent_managed_access_supported():
+    """Check the availability of concurrent managed access (UVM).
+
+    Note that WSL2 does not support managed memory.
+    """
+
+    # Ensure CUDA is initialized before checking cudaDevAttrConcurrentManagedAccess
+    runtime.cudaFree(0)
+
+    device_id = 0
+    err, supports_managed_access = runtime.cudaDeviceGetAttribute(
+        runtime.cudaDeviceAttr.cudaDevAttrConcurrentManagedAccess, device_id
+    )
+    if err != runtime.cudaError_t.cudaSuccess:
+        logger.error(
+            f"Failed to check cudaDevAttrConcurrentManagedAccess with error {err}"
+        )
+        return False
+    return supports_managed_access != 0
+
+
+def install(disable_uvm=False):
     """Enable cuML Accelerator Mode."""
+    logger.set_level(logger.level_enum.info)
+    logger.set_pattern("%v")
+
+    if not disable_uvm:
+        if _is_concurrent_managed_access_supported():
+            logger.debug("cuML: Enabling managed memory...")
+            rmm.mr.set_current_device_resource(rmm.mr.ManagedMemoryResource())
+        else:
+            logger.warn("cuML: Could not enable managed memory.")
+
     logger.debug("cuML: Installing accelerator...")
     libraries_to_accelerate = ["sklearn", "umap", "hdbscan"]
     accelerated_libraries = []
