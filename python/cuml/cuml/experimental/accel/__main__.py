@@ -55,13 +55,21 @@ from . import install
     help="Output path for the converted sklearn estimator file.",
 )
 @click.option(
+    "--disable-uvm",
+    is_flag=True,
+    default=False,
+    help="Disable UVM (managed memory) allocations.",
+)
+@click.option(
     "-v",
     "--verbose",
     count=True,
     help="Increase output verbosity (can be used multiple times, e.g. -vv). Default shows warnings only.",
 )
 @click.argument("args", nargs=-1)
-def main(module, strict, convert_to_sklearn, format, output, verbose, args):
+def main(
+    module, convert_to_sklearn, format, output, disable_uvm, verbose, args
+):
     default_logger_level_index = list(logger.level_enum).index(
         logger.level_enum.warn
     )
@@ -70,7 +78,7 @@ def main(module, strict, convert_to_sklearn, format, output, verbose, args):
     logger.set_level(logger_level)
     logger.set_pattern("%v")
 
-    install()
+    install(disable_uvm=disable_uvm)
 
     # If the user requested a conversion, handle it and exit
     if convert_to_sklearn:
