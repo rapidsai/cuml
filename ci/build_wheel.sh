@@ -21,6 +21,6 @@ rapids-pip-retry wheel \
     -v \
     --no-deps \
     --disable-pip-version-check \
-    . 2>&1 | tee ../../telemetry-artifacts/build.log
+    . 2>&1 | tee ${GITHUB_WORKSPACE}/telemetry-artifacts/build.log
 
-sccache --show-adv-stats | tee ../../telemetry-artifacts/sccache-stats.txt
+sccache --show-adv-stats | tee ${GITHUB_WORKSPACE}/telemetry-artifacts/sccache-stats.txt
