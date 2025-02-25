@@ -85,7 +85,8 @@ class BaseRandomForestModel(UniversalBase):
                  criterion=None,
                  max_batch_size=4096, **kwargs):
 
-        sklearn_params = {"min_weight_fraction_leaf": min_weight_fraction_leaf,
+        sklearn_params = {"criterion": criterion,
+                          "min_weight_fraction_leaf": min_weight_fraction_leaf,
                           "max_leaf_nodes": max_leaf_nodes,
                           "min_impurity_split": min_impurity_split,
                           "oob_score": oob_score, "n_jobs": n_jobs,
@@ -127,26 +128,6 @@ class BaseRandomForestModel(UniversalBase):
 
         if max_depth <= 0:
             raise ValueError("Must specify max_depth >0 ")
-        if split_criterion is None:
-            if criterion is not None:
-                # TODO: Cover possibilities from all estimators
-                if criterion == "squared_error":
-                    split_criterion = "mse"
-                elif criterion == "absolute_error":
-                    split_criterion = "mae"
-                elif criterion == "poisson":
-                    split_criterion = "poisson"
-                else:
-                    raise NotImplementedError(
-                        f'Split criterion {criterion} is not yet supported in'
-                        ' cuML. See'
-                        ' https://docs.rapids.ai/api/cuml/nightly/api.html#random-forest'
-                        ' for full information on supported criteria.'
-                    )
-
-            if split_criterion is None:
-                # TODO implement this
-                split_criterion = type(self)._default_split_criterion
 
         if (str(split_criterion) not in
                 BaseRandomForestModel.criterion_dict.keys()):
