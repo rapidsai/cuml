@@ -7,7 +7,7 @@ to import equivalent cuML functionality, simply invoke your existing,
 unaltered Python script as follows, and cuML will accelerate as much of the
 code as possible with NVIDIA GPUs, falling back to CPU where necessary:
 
-.. code-block::
+.. code-block:: console
 
     python -m cuml.accel unchanged_script.py
 
@@ -28,7 +28,8 @@ In any Python environment, the following code snippet can also be used to
 activate ``cuml.accel`` if it is run prior to importing the module you wish to
 accelerate:
 
-.. code-block::
+.. code-block:: python
+
    from cuml.accel import install
    install()
    import sklearn
@@ -207,9 +208,9 @@ Currently, models serialized with
 After serializing a model, using either pickle or joblib, for example to `model_pickled.pkl`,
 that model can then be converted to a regular sklearn/umap-learn/hdbscan pickled model with:
 
-```bash
-python -m cuml.accel --convert-to-sklearn model_pickled.pkl --format pickle --output converted_model.pkl
-```
+.. code-block:: console
+
+    python -m cuml.accel --convert-to-sklearn model_pickled.pkl --format pickle --output converted_model.pkl
 
 
 The `converted_model.pkl` is now a regular pickled/joblib serialized model,
