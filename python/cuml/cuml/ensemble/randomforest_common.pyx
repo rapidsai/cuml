@@ -133,6 +133,8 @@ class BaseRandomForestModel(UniversalBase):
             else:
                 if criterion == "squared_error":
                     split_criterion = "mse"
+                elif criterion == "absolute_error":
+                    split_criterion = "mae"
                 elif criterion == "poisson":
                     split_criterion = "poisson"
                 elif criterion == "gini":
