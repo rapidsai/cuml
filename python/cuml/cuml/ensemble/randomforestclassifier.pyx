@@ -258,12 +258,8 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     _cpu_estimator_import_path = 'sklearn.ensemble.RandomForestClassifier'
 
-    _default_split_criterion = "gini"
-
     _hyperparam_interop_translator = {
-        "criterion": {
-            "log_loss": "NotImplemented",
-        },
+        "criterion": "NotImplemented",
         "oob_score": {
             True: "NotImplemented",
         },
