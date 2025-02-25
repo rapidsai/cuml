@@ -556,18 +556,14 @@ class Base(TagsMixin,
         translations.update(cls._hyperparam_interop_translator)
         for parameter_name, value in kwargs.items():
             if parameter_name in translations:
-                # If the value can't be hashed, it is probably a complicated value
-                # (like a NumPy array) that we can't translate.
                 try:
-                    translate_this = value in translations[parameter_name]
-                except TypeError:
-                    translate_this = False
-
-                if translate_this:
-                    if translations[parameter_name][value] == "NotImplemented":
+                    remapping = translations[parameter_name][value]
+                    if remapping == "NotImplemented":
                         gpuaccel = False
                     else:
-                        kwargs[parameter_name] = translations[parameter_name][value]
+                        kwargs[parameter_name] = remapping
+                except (KeyError, TypeError):
+                    pass  # Parameter value not found in translation dictionary
 
         return kwargs, gpuaccel
 
