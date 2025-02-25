@@ -24,6 +24,7 @@ Support for Windows is possible in the near future.
    cuml_intro.rst
    api.rst
    user_guide.rst
+   zero-code-change.rst
    cuml_blogs.rst
 
 
