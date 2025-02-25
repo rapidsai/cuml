@@ -52,6 +52,7 @@ from cuml.internals.utils import check_random_seed
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.global_settings import GlobalSettings
 
 rmm = gpu_only_import('rmm')
 
@@ -348,6 +349,13 @@ class UMAP(UniversalBase,
             "wminkowski": "NotImplemented",
             "mahalanobis": "NotImplemented",
             "haversine": "NotImplemented",
+        },
+        "init": {
+            "pca": "NotImplemented",
+            "tswspectral": "NotImplemented"
+        },
+        "target_metric": {
+            "l2": "euclidean"
         }
     }
 
@@ -397,7 +405,9 @@ class UMAP(UniversalBase,
         if init == "spectral" or init == "random":
             self.init = init
         else:
-            raise Exception("Initialization strategy not supported: %d" % init)
+            gs = GlobalSettings()
+            if not (gs.accelerator_active or self._experimental_dispatching):
+                raise Exception(f"Initialization strategy not supported: {init}")
 
         if a is None or b is None:
             a, b = type(self).find_ab_params(spread, min_dist)
@@ -423,7 +433,9 @@ class UMAP(UniversalBase,
         if target_metric == "euclidean" or target_metric == "categorical":
             self.target_metric = target_metric
         else:
-            raise Exception("Invalid target metric: {}" % target_metric)
+            gs = GlobalSettings()
+            if not (gs.accelerator_active or self._experimental_dispatching):
+                raise Exception(f"Invalid target metric: {target_metric}")
 
         self.callback = callback  # prevent callback destruction
         self.embedding_ = None
