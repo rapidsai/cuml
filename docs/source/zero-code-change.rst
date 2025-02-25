@@ -174,8 +174,24 @@ data before measuring runtime on a full-scale dataset.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Both projects serve a similar role. Just as ``cuml.accel`` offers zero code
 change acceleration for Scikit-Learn and similar packages, ``cudf.pandas``
-offers zero code change acceleration for Pandas. They can be used together by
-TODO(wphicks): FILL THIS IN ONCE THIS MECHANISM HAS BEEN IMPLEMENTED.
+offers zero code change acceleration for Pandas.
+
+Using them together is supported as an experimental feature. To do this from the
+CLI, the flag ``-cudf-pandas`` can be added to the ``cuml.accel`` call:
+
+.. code-block::
+   python -m cuml.accel --cudf-pandas
+
+For Jupyter notebooks, use the following to turn on both:
+
+.. code-block::
+
+   %load_ext cudf.pandas
+   from cuml.experimental.accel import install
+   install()
+
+A single magic invocation will be available in the next version of cuML.
+
 
 8. What happens if something in my script is not implemented in cuML?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
