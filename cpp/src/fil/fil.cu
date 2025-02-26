@@ -162,6 +162,8 @@ struct forest {
     proba_ssp_.sizeof_real           = sizeof(real_t);
     class_ssp_                       = proba_ssp_;
 
+    if (algo_ == algo_t::BATCH_TREE_REORG) { algo_ = algo_t::TREE_REORG; }
+
     int device          = h.get_device();
     cudaStream_t stream = h.get_stream();
     init_shmem_size(device);
@@ -392,7 +394,7 @@ struct dense_forest<dense_node<real_t>> : forest<real_t> {
             const forest_params_t* params)
   {
     this->init_common(h, cat_sets, vector_leaf, params);
-    if (this->algo_ == algo_t::NAIVE) this->algo_ = algo_t::BATCH_TREE_REORG;
+    if (this->algo_ == algo_t::NAIVE) this->algo_ = algo_t::TREE_REORG;
     /* The following line is added to disable BATCH_TREE_REORG mode. Currently
      * there is a bug in the implementation of this mode which causes a batch
      * of trees to be marked as complete before every tree has reached a leaf
@@ -523,9 +525,8 @@ void check_params(const forest_params_t* params, bool dense)
   switch (params->algo) {
     case algo_t::ALGO_AUTO:
     case algo_t::NAIVE:
-    case algo_t::TREE_REORG:
-    case algo_t::BATCH_TREE_REORG: break;
-    default: ASSERT(false, "algo should be ALGO_AUTO, NAIVE, TREE_REORG or BATCH_TREE_REORG");
+    case algo_t::TREE_REORG: break;
+    default: ASSERT(false, "algo should be ALGO_AUTO, NAIVE, or TREE_REORG");
   }
   switch (params->leaf_algo) {
     case leaf_algo_t::FLOAT_UNARY_BINARY:
