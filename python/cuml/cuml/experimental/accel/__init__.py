@@ -56,8 +56,6 @@ def _is_concurrent_managed_access_supported():
 
 def install(disable_uvm=False):
     """Enable cuML Accelerator Mode."""
-    logger.set_level(logger.level_enum.info)
-    logger.set_pattern("%v")
 
     if not disable_uvm:
         if _is_concurrent_managed_access_supported():
