@@ -555,13 +555,15 @@ class Base(TagsMixin,
         # Allow the derived class to overwrite the base class
         translations.update(cls._hyperparam_interop_translator)
         for parameter_name, value in kwargs.items():
-
             if parameter_name in translations:
-                if value in translations[parameter_name]:
-                    if translations[parameter_name][value] == "NotImplemented":
+                try:
+                    remapping = translations[parameter_name][value]
+                    if remapping == "NotImplemented":
                         gpuaccel = False
                     else:
-                        kwargs[parameter_name] = translations[parameter_name][value]
+                        kwargs[parameter_name] = remapping
+                except (KeyError, TypeError):
+                    pass  # Parameter value not found in translation dictionary
 
         return kwargs, gpuaccel
 
