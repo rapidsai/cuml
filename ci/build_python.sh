@@ -9,6 +9,8 @@ source rapids-configure-sccache
 
 source rapids-date-string
 
+source rapids-telemetry-setup
+
 export CMAKE_GENERATOR=Ninja
 
 rapids-print-env
@@ -26,9 +28,9 @@ sccache --zero-stats
 RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION) rapids-conda-retry build \
   --no-test \
   --channel "${CPP_CHANNEL}" \
-  conda/recipes/cuml 2>&1 | tee telemetry-artifacts/build.log
+  conda/recipes/cuml 2>&1 | tee ${GITHUB_WORKSPACE}/telemetry-artifacts/build.log
 
-sccache --show-adv-stats | tee telemetry-artifacts/sccache-stats.txt
+sccache --show-adv-stats | tee ${GITHUB_WORKSPACE}/telemetry-artifacts/sccache-stats.txt
 
 # Build cuml-cpu only in CUDA 11 jobs since it only depends on python
 # version

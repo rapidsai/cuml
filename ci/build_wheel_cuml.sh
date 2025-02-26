@@ -29,6 +29,8 @@ EXCLUDE_ARGS=(
   --exclude "librapids_logger.so"
 )
 
+source rapids-telemetry-setup
+
 sccache --zero-stats
 
 export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DSINGLEGPU=OFF;-DUSE_LIBCUML_WHEEL=ON"

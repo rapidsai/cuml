@@ -43,6 +43,8 @@ EXCLUDE_ARGS=(
   --exclude "librapids_logger.so"
 )
 
+source rapids-telemetry-setup
+
 sccache --zero-stats
 
 export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/"
