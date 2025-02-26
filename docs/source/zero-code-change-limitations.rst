@@ -251,7 +251,7 @@ the results should be comparible between implementations.
 
 Similar to Linear Regression, Elastic Net has the following limitations:
 
-*``positive`` parameter to force positive coefficients is not currently supported,
+* ``positive`` parameter to force positive coefficients is not currently supported,
   and cuml.accel will not accelerate Elastic Net if the parameter is set to
   ``True``
 * ``warm_start`` parameter is not supported for GPU acceleration.
@@ -264,7 +264,7 @@ Similar to Linear Regression, Elastic Net has the following limitations:
 
 Similar to Linear Regression, Elastic Net has the following limitations:
 
-*``positive`` parameter to force positive coefficients is not currently supported,
+* ``positive`` parameter to force positive coefficients is not currently supported,
   and cuml.accel will not accelerate Elastic Net if the parameter is set to
   ``True``
 * ``solver`` all solver parameter values are translated to `eig` to use the
