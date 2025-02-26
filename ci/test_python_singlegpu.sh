@@ -18,8 +18,7 @@ rapids-logger "pytest cuml single GPU"
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml" \
   --cov-config=../../.coveragerc \
   --cov=cuml \
-  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml" \
-  --cov-report=term
+  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml"
 
   rapids-logger "pytest cuml accelerator"
 ./ci/run_cuml_singlegpu_accel_pytests.sh \
@@ -28,8 +27,7 @@ rapids-logger "pytest cuml single GPU"
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel.xml" \
   --cov-config=../../../../.coveragerc \
   --cov=cuml \
-  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-accel-coverage.xml" \
-  --cov-report=term
+  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-accel-coverage.xml"
 
 
 if [ "${RAPIDS_BUILD_TYPE}" == "nightly" ]; then
@@ -41,7 +39,6 @@ if [ "${RAPIDS_BUILD_TYPE}" == "nightly" ]; then
     --cov-config=../../.coveragerc \
     --cov=cuml \
     --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-memleak-coverage.xml" \
-    --cov-report=term \
     -m "memleak"
 fi
 
