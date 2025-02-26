@@ -128,10 +128,16 @@ void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream)
   FillnaOp scan_op;
 
   // Iterators wrapping the data with metadata (valid, first of its series)
-  thrust::transform_iterator<FillnaTempMaker<true, T>, thrust::counting_iterator<int>> itr_fwd(
-    counting, transform_op_fwd);
-  thrust::transform_iterator<FillnaTempMaker<false, T>, thrust::counting_iterator<int>> itr_bwd(
-    counting, transform_op_bwd);
+  thrust::transform_iterator<FillnaTempMaker<true, T>,
+                             thrust::counting_iterator<int>,
+                             thrust::use_default,
+                             FillnaTemp>
+    itr_fwd(counting, transform_op_fwd);
+  thrust::transform_iterator<FillnaTempMaker<false, T>,
+                             thrust::counting_iterator<int>,
+                             thrust::use_default,
+                             FillnaTemp>
+    itr_bwd(counting, transform_op_bwd);
 
   // Allocate temporary storage
   size_t temp_storage_bytes = 0;
