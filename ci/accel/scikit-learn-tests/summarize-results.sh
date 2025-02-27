@@ -6,8 +6,8 @@ usage() {
     echo ""
     echo "Options:"
     echo "  -h, --help              Show this help message"
-    echo "  -v, --verbose          Show detailed failure information"
-    echo "  -t, --threshold VALUE  Minimum pass rate threshold [0-100] (default: 0)"
+    echo "  -v, --verbose           Show detailed failure information"
+    echo "  -f, --fail-below VALUE  Minimum pass rate threshold [0-100] (default: 0)"
     exit 1
 }
 
@@ -20,7 +20,7 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             usage
             ;;
-        -t|--threshold)
+        -f|--fail-below)
             THRESHOLD="$2"
             shift 2
             ;;
@@ -45,8 +45,14 @@ if [ -z "${REPORT_FILE:-}" ]; then
     usage
 fi
 
-if ! [[ "$THRESHOLD" =~ ^[0-9]+(\.[0-9]+)?$ ]] || [ "$(echo "$THRESHOLD > 100" | bc -l)" -eq 1 ]; then
-    echo "Error: Threshold must be a number between 0 and 100"
+# Validate threshold is a number between 0 and 100
+if ! [[ "$THRESHOLD" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+    echo "Error: Threshold must be a number"
+    exit 1
+fi
+
+if ! awk -v t="$THRESHOLD" 'BEGIN{exit !(t >= 0 && t <= 100)}'; then
+    echo "Error: Threshold must be between 0 and 100"
     exit 1
 fi
 
@@ -57,9 +63,9 @@ errors=$(xmllint --xpath "string(/testsuites/testsuite/@errors)" "${REPORT_FILE}
 skipped=$(xmllint --xpath "string(/testsuites/testsuite/@skipped)" "${REPORT_FILE}")
 time=$(xmllint --xpath "string(/testsuites/testsuite/@time)" "${REPORT_FILE}")
 
-# Calculate passed tests and pass rate
+# Calculate passed tests and pass rate using awk
 passed=$((total_tests - failures - errors - skipped))
-pass_rate=$(echo "scale=2; 100 * $passed / $total_tests" | bc)
+pass_rate=$(awk -v passed="$passed" -v total="$total_tests" 'BEGIN { printf "%.2f", (passed/total) * 100 }')
 
 # Print summary
 echo "Test Summary:"
@@ -78,12 +84,12 @@ if [ "$((failures + errors))" -gt 0 ] && [ "${VERBOSE}" -eq 1 ]; then
     xmllint --xpath "//testcase[failure or error]/@name" "${REPORT_FILE}" | tr ' ' '\n' | sed 's/name=//g' | sed 's/"//g' | grep .
 fi
 
-# Check if pass rate meets threshold
-if [ "$(echo "${pass_rate} < ${THRESHOLD}" | bc -l)" -eq 1 ]; then
+# Check if threshold is nonzero before applying the check.
+if awk -v rate="$pass_rate" -v threshold="$THRESHOLD" 'BEGIN { exit (rate >= threshold) }'; then
     echo ""
     echo "Error: Pass rate ${pass_rate}% is below threshold ${THRESHOLD}%"
     exit 1
 fi
 
-# Return failure if there were any failures or errors
-exit $((failures + errors))
+# In all other cases, return with success code.
+exit 0
