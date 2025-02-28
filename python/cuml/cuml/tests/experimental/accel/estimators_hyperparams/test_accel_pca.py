@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,15 +36,16 @@ def pca_data():
     return X, y
 
 
-@pytest.mark.parametrize("n_components", [2, 5, 8, 10])
+@pytest.mark.parametrize("n_components", [2, 5, "mle"])
 def test_pca_n_components(pca_data, n_components):
     X, _ = pca_data
     pca = PCA(n_components=n_components).fit(X)
     X_transformed = pca.transform(X)
     # Check the shape of the transformed data
-    assert (
-        X_transformed.shape[1] == n_components
-    ), f"Expected {n_components} components, got {X_transformed.shape[1]}"
+    if n_components != "mle":
+        assert (
+            X_transformed.shape[1] == n_components
+        ), f"Expected {n_components} components, got {X_transformed.shape[1]}"
     # Check that explained variance ratios sum up appropriately
     total_variance = np.sum(pca.explained_variance_ratio_)
     assert (
@@ -56,7 +57,7 @@ def test_pca_n_components(pca_data, n_components):
 
 
 @pytest.mark.parametrize(
-    "svd_solver", ["auto", "full", "arpack", "randomized"]
+    "svd_solver", ["auto", "full", "arpack", "randomized", "covariance_eigh"]
 )
 def test_pca_svd_solver(pca_data, svd_solver):
     X, _ = pca_data

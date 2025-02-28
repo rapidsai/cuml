@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -200,7 +200,7 @@ class RegressorMixin:
     )
     @api_base_return_any_skipall
     @enable_device_interop
-    def score(self, X, y, **kwargs):
+    def score(self, X, y, sample_weight=None, **kwargs):
         """
         Scoring function for regression estimators
 
@@ -209,13 +209,8 @@ class RegressorMixin:
         """
         from cuml.metrics.regression import r2_score
 
-        if hasattr(self, "handle"):
-            handle = self.handle
-        else:
-            handle = None
-
         preds = self.predict(X, **kwargs)
-        return r2_score(y, preds, handle=handle)
+        return r2_score(y, preds, sample_weight=sample_weight)
 
     @staticmethod
     def _more_static_tags():

@@ -14,6 +14,10 @@
 
 import pytest
 import numpy as np
+from sklearn import clone, cluster
+import cuml
+from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.safe_imports import gpu_only_import
 from sklearn.datasets import make_classification, make_regression, make_blobs
 from sklearn.linear_model import (
     LinearRegression,
@@ -24,7 +28,6 @@ from sklearn.linear_model import (
 )
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn.decomposition import PCA, TruncatedSVD
-from sklearn.kernel_ridge import KernelRidge
 from sklearn.manifold import TSNE
 from sklearn.neighbors import (
     NearestNeighbors,
@@ -38,6 +41,8 @@ from sklearn.metrics import (
     accuracy_score,
 )
 from scipy.sparse import random as sparse_random
+
+cp = gpu_only_import("cupy")
 
 
 def test_kmeans():
@@ -169,3 +174,58 @@ def test_proxy_facade():
             proxy_value = getattr(PCA, attr)
 
             assert original_value == proxy_value
+
+
+def test_proxy_clone():
+    # Test that cloning a proxy estimator preserves parameters, even those we
+    # translate for the cuml class
+    pca = PCA(n_components=42, svd_solver="arpack")
+    pca_clone = clone(pca)
+
+    assert pca.get_params() == pca_clone.get_params()
+
+
+def test_proxy_params():
+    # Test that parameters match between constructor and get_params()
+    # Mix of default and non-default values
+    pca = PCA(
+        n_components=5,
+        copy=False,
+        # Pass in an argument and set it to its default value
+        whiten=False,
+    )
+
+    params = pca.get_params()
+    assert params["n_components"] == 5
+    assert params["copy"] is False
+    assert params["whiten"] is False
+    # A parameter we never touched, should be the default
+    assert params["tol"] == 0.0
+
+    # Check that get_params doesn't return any unexpected parameters
+    expected_params = set(
+        [
+            "n_components",
+            "copy",
+            "whiten",
+            "tol",
+            "svd_solver",
+            "n_oversamples",
+            "random_state",
+            "iterated_power",
+            "power_iteration_normalizer",
+        ]
+    )
+    assert set(params.keys()) == expected_params
+
+
+def test_defaults_args_only_methods():
+    # Check that estimator methods that take no arguments work
+    # These are slightly weird because basically everything else takes
+    # a X as input.
+    X = np.random.rand(1000, 3)
+    y = X[:, 0] + np.sin(6 * np.pi * X[:, 1]) + 0.1 * np.random.randn(1000)
+
+    nn = NearestNeighbors(metric="chebyshev", n_neighbors=3)
+    nn.fit(X[:, 0].reshape((-1, 1)), y)
+    nn.kneighbors()

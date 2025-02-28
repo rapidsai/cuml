@@ -24,13 +24,14 @@ import pprint
 
 import cuml.internals
 from cuml.solvers import QN
+from cuml.preprocessing import LabelEncoder
 from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin, SparseInputTagMixin
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger
-from cuml.common import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array
 from cuml.common import using_output_type
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
@@ -186,7 +187,6 @@ class LogisticRegression(UniversalBase,
     """
 
     _cpu_estimator_import_path = 'sklearn.linear_model.LogisticRegression'
-    classes_ = CumlArrayDescriptor(order='F')
     class_weight = CumlArrayDescriptor(order='F')
     expl_spec_weights_ = CumlArrayDescriptor(order='F')
 
@@ -286,7 +286,7 @@ class LogisticRegression(UniversalBase,
             self.verb_prefix = ""
 
     @generate_docstring(X='dense_sparse')
-    @cuml.internals.api_base_return_any(set_output_dtype=True)
+    @cuml.internals.api_base_return_any()
     @enable_device_interop
     def fit(self, X, y, sample_weight=None,
             convert_dtype=True) -> "LogisticRegression":
@@ -298,17 +298,26 @@ class LogisticRegression(UniversalBase,
         if hasattr(X, 'index'):
             self.feature_names_in_ = X.index
 
-        # Converting y to device array here to use `unique` function
-        # since calling input_to_cuml_array again in QN has no cost
-        # Not needed to check dtype since qn class checks it already
-        y_m, n_rows, _, _ = input_to_cuml_array(y)
-        self.classes_ = cp.unique(y_m)
-        self._num_classes = len(self.classes_)
+        # LabelEncoder currently always returns cudf (ignoring output_type),
+        # but we need to explicitly set `output_type` or we'll get an error
+        # on init since `output_type` would default to `mirror`.
+        enc = LabelEncoder(output_type="cudf")
+        y_orig_dtype = getattr(y, "dtype", None)
+        y = enc.fit_transform(y).to_cupy()
+        if y_orig_dtype is None:
+            y_orig_dtype = y.dtype
+        n_rows = len(y)
+        classes = enc.classes_.to_numpy()
 
-        if self._num_classes == 2:
-            if self.classes_[0] != 0 or self.classes_[1] != 1:
-                raise ValueError("Only values of 0 and 1 are"
-                                 " supported for binary classification.")
+        # TODO: LabelEncoder doesn't currently map dtypes the same way as it
+        # does in scikit-learn. Until that's fixed we fix them up here.
+        if y_orig_dtype.kind == "U":
+            classes = classes.astype("U")
+        elif y_orig_dtype == "float16":
+            classes = classes.astype("float16")
+        self.classes_ = classes
+
+        self._num_classes = len(self.classes_)
 
         if sample_weight is not None or self.class_weight is not None:
             if sample_weight is None:
@@ -331,9 +340,7 @@ class LogisticRegression(UniversalBase,
 
             if self.class_weight is not None:
                 if self.class_weight == 'balanced':
-                    class_weight = n_rows / \
-                                   (self._num_classes *
-                                    cp.bincount(y_m.to_output('cupy')))
+                    class_weight = n_rows / (self._num_classes * cp.bincount(y))
                     class_weight = CumlArray(class_weight)
                 else:
                     check_expl_spec_weights()
@@ -345,8 +352,7 @@ class LogisticRegression(UniversalBase,
                         self.class_weight = class_weight
                     else:
                         class_weight = self.class_weight
-                out = y_m.to_output('cupy')
-                sample_weight *= class_weight[out].to_output('cupy')
+                sample_weight *= class_weight[y].to_output('cupy')
                 sample_weight = CumlArray(sample_weight)
 
         if self._num_classes > 2:
@@ -362,7 +368,7 @@ class LogisticRegression(UniversalBase,
         if logger.should_log_for(logger.level_enum.debug):
             logger.debug(self.verb_prefix + "Calling QN fit " + str(loss))
 
-        self.solver_model.fit(X, y_m, sample_weight=sample_weight,
+        self.solver_model.fit(X, y, sample_weight=sample_weight,
                               convert_dtype=convert_dtype)
 
         # coefficients and intercept are contained in the same array
@@ -405,14 +411,64 @@ class LogisticRegression(UniversalBase,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    @cuml.internals.api_base_return_array(get_output_dtype=True)
+    @cuml.internals.api_base_return_any()
     @enable_device_interop
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the y for X.
 
         """
-        return self.solver_model.predict(X, convert_dtype=convert_dtype)
+        indices = self.solver_model.predict(X, convert_dtype=convert_dtype)
+
+        # TODO: Scikit-Learn's `LogisticRegression.predict` returns the same
+        # dtype as the input classes, _and_ natively supports non-numeric
+        # dtypes. CumlArray doesn't currently support wrapping containers with
+        # non-numeric dtypes. As such, we cannot rely on the normal decorators
+        # to handle output conversion, and need to handle output coercion
+        # internally. This is a hack.
+        output_type = self._get_output_type(X)
+
+        is_numeric = self.classes_.dtype.kind in 'ifu'
+        nclasses = len(self.classes_)
+
+        # Choose a smaller index type when possible
+        ind_dtype = np.int32 if nclasses <= np.iinfo(np.int32).max else np.int64
+
+        if is_numeric:
+            if (self.classes_ == np.arange(nclasses)).all():
+                # Fast path for common case of monotonically increasing numeric classes
+                out = indices.to_output("cupy", output_dtype=self.classes_.dtype)
+            else:
+                # Classes are not monotonically increasing from 0, we need to
+                # do a transform.
+                out = cp.asarray(self.classes_).take(
+                    indices.to_output("cupy", output_dtype=ind_dtype)
+                )
+
+            # Numeric types can always rely on CumlArray's output_type handling
+            return CumlArray(out).to_output(output_type)
+        else:
+            # Non-numeric classes. We use cudf since it supports all types, and will
+            # error appropriately later on when converting to outputs like `cupy`
+            # that don't support strings.
+            import cudf
+            out = (
+                cudf.Series(self.classes_).take(
+                    indices.to_output("cupy", output_dtype=ind_dtype)
+                ).reset_index(drop=True)
+            )
+            if output_type in ("cudf", "df_obj", "series"):
+                return out
+            elif output_type == "dataframe":
+                return out.to_frame()
+            elif output_type == "pandas":
+                return out.to_pandas()
+            elif output_type in ("numpy", "array"):
+                return out.to_numpy(dtype=self.classes_.dtype)
+            else:
+                raise TypeError(
+                    f"{output_type=} doesn't support objects of dtype {self.classes_.dtype!r}"
+                )
 
     @generate_docstring(X='dense_sparse',
                         return_values={'name': 'preds',
@@ -455,9 +511,7 @@ class LogisticRegression(UniversalBase,
                             log_proba=False) -> CumlArray:
         _num_classes = self.classes_.shape[0]
 
-        scores = cp.asarray(
-            self.decision_function(X, convert_dtype=convert_dtype), order="F"
-        ).T
+        scores = self.decision_function(X, convert_dtype=convert_dtype).to_output("cupy")
         if _num_classes == 2:
             proba = cp.zeros((scores.shape[0], 2))
             proba[:, 1] = 1 / (1 + cp.exp(-scores.ravel()))
@@ -494,7 +548,9 @@ class LogisticRegression(UniversalBase,
         return l1_strength, l2_strength
 
     def _build_class_weights(self, class_weight):
-        if class_weight == 'balanced':
+        if class_weight is None:
+            self.class_weight = None
+        elif class_weight == 'balanced':
             self.class_weight = 'balanced'
         else:
             classes = list(class_weight.keys())
@@ -524,9 +580,24 @@ class LogisticRegression(UniversalBase,
             class_weight = params.pop('class_weight')
             self._build_class_weights(class_weight)
 
-        # Update solver
+        # if the user is setting the solver, then
+        # it cannot be propagated to the solver model itself.
+        _ = params.pop("solver", None)
         self.solver_model.set_params(**params)
         return self
+
+    @property
+    def classes_(self):
+        return self._classes
+
+    @classes_.setter
+    def classes_(self, value):
+        if isinstance(value, CumlArray):
+            # XXX: The default cpu_to_gpu converts all numpy arrays on CPU
+            # to CumlArrays, which we don't want. For now we hack around this
+            # by explicitly converting classes_ back to numpy.
+            value = value.to_output("numpy")
+        self._classes = value
 
     @property
     @cuml.internals.api_base_return_array_skipall

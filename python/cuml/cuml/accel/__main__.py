@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2022, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,8 @@
 # limitations under the License.
 #
 
-from pylibraft.common.handle cimport handle_t
+from cuml.experimental.accel.__main__ import main
 
-cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 
-    float r2_score_py(const handle_t& handle,
-                      float *y,
-                      float *y_hat,
-                      int n) except +
-
-    double r2_score_py(const handle_t& handle,
-                       double *y,
-                       double *y_hat,
-                       int n) except +
+if __name__ == "__main__":
+    main()
