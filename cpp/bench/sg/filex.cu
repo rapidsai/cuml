@@ -169,25 +169,6 @@ class FILEX : public RegressionFixture<float> {
       if (p_rest.use_experimental) { break; }
     }
 
-    std::cout << "Optimal configuration: \n";
-    std::cout << "  Storage type: ";
-    if (optimal_storage_type == ML::fil::storage_type_t::DENSE) {
-      std::cout << "DENSE\n";
-    } else if (optimal_storage_type == ML::fil::storage_type_t::SPARSE) {
-      std::cout << "SPARSE\n";
-    } else {
-      std::cout << "SPARSE8\n";
-    }
-    std::cout << "  Algorithm type: ";
-    if (optimal_algo_type == ML::fil::algo_t::NAIVE) {
-      std::cout << "NAIVE\n";
-    } else if (optimal_algo_type == ML::fil::algo_t::TREE_REORG) {
-      std::cout << "TREE_REORG\n";
-    } else {
-      std::cout << "BATCH_TREE_REORG\n";
-    }
-    std::cout << "  Chunk size: " << optimal_chunk_size << "\n";
-
     // Build optimal FIL tree
     tl_params.storage_type     = optimal_storage_type;
     tl_params.algo             = optimal_algo_type;
