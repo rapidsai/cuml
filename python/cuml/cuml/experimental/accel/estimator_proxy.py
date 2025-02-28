@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -207,14 +207,20 @@ def intercept(
             self._cpu_model_class = (
                 original_class_a  # Store a reference to the original class
             )
-            kwargs, self._gpuaccel = self._hyperparam_translator(**kwargs)
-            super().__init__(*args, **kwargs)
+
+            translated_kwargs, self._gpuaccel = self._hyperparam_translator(
+                **kwargs
+            )
+            super().__init__(*args, **translated_kwargs)
 
             self._cpu_hyperparams = list(
                 inspect.signature(
                     self._cpu_model_class.__init__
                 ).parameters.keys()
             )
+
+            self.import_cpu_model()
+            self.build_cpu_model(**kwargs)
 
         def __repr__(self):
             """
@@ -226,7 +232,7 @@ def intercept(
                 A string representation indicating that this is a wrapped
                  version of the original CPU-based estimator.
             """
-            return f"wrapped {self._cpu_model_class}"
+            return self._cpu_model.__repr__()
 
         def __str__(self):
             """
@@ -238,7 +244,7 @@ def intercept(
                 A string representation indicating that this is a wrapped
                  version of the original CPU-based estimator.
             """
-            return f"ProxyEstimator of {self._cpu_model_class}"
+            return self._cpu_model.__str__()
 
         def __getstate__(self):
             """
@@ -276,6 +282,26 @@ def intercept(
                     self.__getstate__(),
                 ),
             )
+
+    # Help make the proxy class look more like the original class
+    for attr in (
+        "__module__",
+        "__name__",
+        "__qualname__",
+        "__doc__",
+        "__annotate__",
+        "__type_params__",
+    ):
+        try:
+            value = getattr(original_class_a, attr)
+        except AttributeError:
+            pass
+        else:
+            setattr(ProxyEstimator, attr, value)
+
+    ProxyEstimator.__init__.__signature__ = inspect.signature(
+        original_class_a.__init__
+    )
 
     logger.debug(
         f"Created proxy estimator: ({module_b}, {original_class_name}, {ProxyEstimator})"

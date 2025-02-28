@@ -44,6 +44,7 @@ dependencies:
 - libcuvs==25.2.*,>=0.0.0a0
 - libraft==25.2.*,>=0.0.0a0
 - librmm==25.2.*,>=0.0.0a0
+- matplotlib
 - nbsphinx
 - ninja
 - nltk
@@ -71,9 +72,9 @@ dependencies:
 - scipy>=1.8.0
 - seaborn
 - spdlog>=1.14.1,<1.15
-- sphinx
 - sphinx-copybutton
 - sphinx-markdown-tables
+- sphinx<8.2.0
 - statsmodels
 - sysroot_linux-64==2.28
 - treelite==4.4.1

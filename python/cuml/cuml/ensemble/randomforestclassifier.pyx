@@ -258,8 +258,12 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     _cpu_estimator_import_path = 'sklearn.ensemble.RandomForestClassifier'
 
+    _default_split_criterion = "gini"
+
     _hyperparam_interop_translator = {
-        "criterion": "NotImplemented",
+        "criterion": {
+            "log_loss": "NotImplemented",
+        },
         "oob_score": {
             True: "NotImplemented",
         },
@@ -883,6 +887,11 @@ class RandomForestClassifier(BaseRandomForestModel,
     @classmethod
     def _hyperparam_translator(cls, **kwargs):
         kwargs, gpuaccel = super(RandomForestClassifier, cls)._hyperparam_translator(**kwargs)
+
+        if "criterion" in kwargs:
+            kwargs["split_criterion"] = cls._criterion_to_split_criterion(
+                kwargs.pop("criterion")
+            )
 
         if "max_samples" in kwargs:
             if isinstance(kwargs["max_samples"], int):

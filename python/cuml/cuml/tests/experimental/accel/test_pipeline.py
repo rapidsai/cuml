@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 import pytest
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.cluster import KMeans, DBSCAN
-from sklearn.kernel_ridge import KernelRidge
 from sklearn.linear_model import (
     LogisticRegression,
     LinearRegression,
@@ -31,13 +30,15 @@ from sklearn.neighbors import (
     KNeighborsClassifier,
     KNeighborsRegressor,
 )
-from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import Normalizer
+from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, mean_squared_error
 from umap import UMAP
 import hdbscan
 import numpy as np
+import scipy as sp
 
 
 @pytest.fixture
@@ -66,7 +67,6 @@ regression_estimators = [
     Ridge(),
     Lasso(),
     ElasticNet(),
-    KernelRidge(),
     KNeighborsRegressor(),
 ]
 
@@ -145,3 +145,25 @@ def test_umap_with_logistic_regression(classification_data):
     # Fit and predict
     pipeline.fit(X_train, y_train)
     pipeline.predict(X_test)
+
+
+def test_automatic_step_naming():
+    # The automatically generated names of estimators should be the
+    # same with and without accelerator.
+    pipeline = make_pipeline(PCA(), LogisticRegression())
+
+    assert "pca" in pipeline.named_steps
+    assert "logisticregression" in pipeline.named_steps
+
+
+def test_pipeline_adding_none_value_as_labels(classification_data):
+    X_train, _, _, _ = classification_data
+    X_train = sp.sparse.csr_matrix(X_train)
+
+    # Since cuML's TruncatedSVD does not handle sparse data,
+    # the task will be automatically dispatched to Scikit-Learn.
+    # If no labels are provided, Scikit-Learn's pipeline adds
+    # y=None as the default labels.
+
+    pipeline = make_pipeline(TruncatedSVD(n_components=20))
+    pipeline.fit_transform(X_train)

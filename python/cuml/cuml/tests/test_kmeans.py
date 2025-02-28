@@ -67,6 +67,24 @@ def random_state():
     return random_state
 
 
+def test_n_init_deprecation():
+    X, y = make_blobs(
+        random_state=0,
+    )
+
+    # Warn about default changing
+    kmeans = cuml.KMeans()
+    with pytest.warns(
+        FutureWarning, match="The default value of `n_init` will change from"
+    ):
+        kmeans.fit(X)
+
+    # No warning when explicitly set to integer or 'auto'
+    for n_init in ("auto", 2):
+        kmeans = cuml.KMeans(n_init=n_init)
+        kmeans.fit(X)
+
+
 @pytest.mark.xfail
 def test_n_init_cluster_consistency(random_state):
 
@@ -127,7 +145,9 @@ def test_traditional_kmeans_plus_plus_init(
     cuml_kmeans.fit(X)
     cu_score = cuml_kmeans.score(X)
 
-    kmeans = cluster.KMeans(random_state=random_state, n_clusters=nclusters)
+    kmeans = cluster.KMeans(
+        random_state=random_state, n_clusters=nclusters, n_init=1
+    )
     kmeans.fit(cp.asnumpy(X))
     sk_score = kmeans.score(cp.asnumpy(X))
 
@@ -167,7 +187,9 @@ def test_weighted_kmeans(nrows, ncols, nclusters, max_weight, random_state):
     cuml_kmeans.fit(X, sample_weight=wt)
     cu_score = cuml_kmeans.score(X)
 
-    sk_kmeans = cluster.KMeans(random_state=random_state, n_clusters=nclusters)
+    sk_kmeans = cluster.KMeans(
+        random_state=random_state, n_clusters=nclusters, n_init=1
+    )
     sk_kmeans.fit(cp.asnumpy(X), sample_weight=wt)
     sk_score = sk_kmeans.score(cp.asnumpy(X))
 
@@ -196,6 +218,7 @@ def test_kmeans_clusters_blobs(
         n_clusters=nclusters,
         random_state=random_state,
         output_type="numpy",
+        n_init=1,
     )
 
     preds = cuml_kmeans.fit_predict(X)
@@ -327,6 +350,7 @@ def test_all_kmeans_params(
         oversampling_factor=oversampling_factor,
         max_samples_per_batch=max_samples_per_batch,
         output_type="cupy",
+        n_init=1,
     )
 
     cuml_kmeans.fit_predict(X)
@@ -355,6 +379,7 @@ def test_score(nrows, ncols, nclusters, random_state):
         n_clusters=nclusters,
         random_state=random_state,
         output_type="numpy",
+        n_init=1,
     )
 
     cuml_kmeans.fit(X)

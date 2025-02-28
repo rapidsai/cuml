@@ -432,11 +432,12 @@ dependencies:
           - ipykernel
           - nbsphinx
           - numpydoc
+          - matplotlib
           # https://github.com/pydata/pydata-sphinx-theme/issues/1539
           - pydata-sphinx-theme!=0.14.2
           - recommonmark
           - &scikit_learn scikit-learn==1.5.*
-          - sphinx
+          - sphinx<8.2.0
           - sphinx-copybutton
           - sphinx-markdown-tables
       - output_types: conda

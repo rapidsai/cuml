@@ -260,8 +260,13 @@ class RandomForestRegressor(BaseRandomForestModel,
 
     _cpu_estimator_import_path = 'sklearn.ensemble.RandomForestRegressor'
 
+    _default_split_criterion = "gini"
+
     _hyperparam_interop_translator = {
-        "criterion": "NotImplemented",
+        "criterion": {
+            "friedman_mse": "NotImplemented",
+            "absolute_error": "NotImplemented",
+        },
         "oob_score": {
             True: "NotImplemented",
         },
@@ -698,7 +703,7 @@ class RandomForestRegressor(BaseRandomForestModel,
 
         # shortcut for default accuracy metric of r^2
         if self.accuracy_metric == "r2":
-            stats = r2_score(y_m, preds, handle=self.handle)
+            stats = r2_score(y_m, preds)
             self.handle.sync()
             del y_m
             del preds_m
@@ -806,6 +811,11 @@ class RandomForestRegressor(BaseRandomForestModel,
     @classmethod
     def _hyperparam_translator(cls, **kwargs):
         kwargs, gpuaccel = super(RandomForestRegressor, cls)._hyperparam_translator(**kwargs)
+
+        if "criterion" in kwargs:
+            kwargs["split_criterion"] = cls._criterion_to_split_criterion(
+                kwargs.pop("criterion")
+            )
 
         if "max_samples" in kwargs:
             if isinstance(kwargs["max_samples"], int):

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -453,8 +453,8 @@ def test_rf_regression(
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
     fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
 
-    cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype)
-    fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
+    cu_r2 = r2_score(y_test, cu_preds)
+    fil_r2 = r2_score(y_test, fil_preds)
     # Initialize, fit and predict using
     # sklearn's random forest regression model
     if X.shape[0] < 1000:  # mode != "stress"
@@ -467,7 +467,7 @@ def test_rf_regression(
         )
         sk_model.fit(X_train, y_train)
         sk_preds = sk_model.predict(X_test)
-        sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype)
+        sk_r2 = r2_score(y_test, sk_preds)
         assert fil_r2 >= (sk_r2 - 0.07)
     assert fil_r2 >= (cu_r2 - 0.02)
 
@@ -589,7 +589,7 @@ def test_rf_regression_float64(large_reg, datatype):
     cuml_model = curfr()
     cuml_model.fit(X_train, y_train)
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
-    cu_r2 = r2_score(y_test, cu_preds, convert_dtype=datatype[0])
+    cu_r2 = r2_score(y_test, cu_preds)
 
     # sklearn random forest classification model
     # initialization, fit and predict
@@ -597,7 +597,7 @@ def test_rf_regression_float64(large_reg, datatype):
         sk_model = skrfr(max_depth=16, random_state=10)
         sk_model.fit(X_train, y_train)
         sk_preds = sk_model.predict(X_test)
-        sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype[0])
+        sk_r2 = r2_score(y_test, sk_preds)
         assert cu_r2 >= (sk_r2 - 0.09)
 
     # predict using cuML's GPU based prediction
@@ -605,7 +605,7 @@ def test_rf_regression_float64(large_reg, datatype):
         X_test, predict_model="GPU", convert_dtype=True
     )
     fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
-    fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype[0])
+    fil_r2 = r2_score(y_test, fil_preds)
     assert fil_r2 >= (cu_r2 - 0.02)
 
 
@@ -874,16 +874,14 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
             algo=algo,
         )
         fil_preds = np.reshape(fil_preds, np.shape(y_test))
-        fil_r2 = r2_score(y_test, fil_preds, convert_dtype=datatype)
+        fil_r2 = r2_score(y_test, fil_preds)
 
         fil_model = cuml_model.convert_to_fil_model()
 
         with cuml.using_output_type("numpy"):
             fil_model_preds = fil_model.predict(X_test)
             fil_model_preds = np.reshape(fil_model_preds, np.shape(y_test))
-            fil_model_r2 = r2_score(
-                y_test, fil_model_preds, convert_dtype=datatype
-            )
+            fil_model_r2 = r2_score(y_test, fil_model_preds)
             assert fil_r2 == fil_model_r2
 
         tl_model = cuml_model.convert_to_treelite_model()
@@ -901,7 +899,7 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
             )
             sk_model.fit(X_train, y_train)
             sk_preds = sk_model.predict(X_test)
-            sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype)
+            sk_r2 = r2_score(y_test, sk_preds)
             assert fil_r2 >= (sk_r2 - 0.08)
 
 
