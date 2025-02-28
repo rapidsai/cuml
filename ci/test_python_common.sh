@@ -41,6 +41,4 @@ rapids-logger "Check GPU usage"
 nvidia-smi
 
 # Enable hypothesis testing for nightly test runs.
-if [ "${RAPIDS_BUILD_TYPE}" == "nightly" ]; then
-  export HYPOTHESIS_ENABLED="true"
-fi
+export HYPOTHESIS_ENABLED="true"
