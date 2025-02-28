@@ -21,7 +21,7 @@ rapids-logger "Running scikit-learn tests with cuML acceleration"
 
 # Run the tests
 ./ci/accel/scikit-learn-tests/run-tests.sh \
-    --relevant-only \
+    --select relevant \
     --path "${RAPIDS_TESTS_DIR}/scikit-learn" \
     -- \
     --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel-scikit-learn.xml" || true
@@ -29,7 +29,7 @@ rapids-logger "Running scikit-learn tests with cuML acceleration"
 # Analyze results and check pass rate threshold
 rapids-logger "Analyzing test results"
 ./ci/accel/scikit-learn-tests/summarize-results.sh \
-    --threshold=50 \
+    --fail-below 50 \
     "${RAPIDS_TESTS_DIR}/junit-cuml-accel-scikit-learn.xml"
 
 rapids-logger "Test script exiting with value: $EXITCODE"

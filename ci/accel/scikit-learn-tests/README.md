@@ -14,7 +14,7 @@ This suite provides infrastructure to build, run, and analyze tests for scikit-l
   Executes scikit-learn tests using GPU-accelerated paths.
   Options:
   - `-p, --path`             : Specify the scikit-learn source location
-  - `--relevant-only`        : Run only tests that are relevant for GPU acceleration
+  - `--select [minimal|relevant|all]` : Select tests based on predefined groups from a YAML config (default: all)
   - `-- [pytest-args]`       : Pass additional arguments directly to pytest
 
 - `summarize-results.sh`
@@ -31,13 +31,13 @@ This suite provides infrastructure to build, run, and analyze tests for scikit-l
 ```
 
 ### 2. Run tests
-For GPU-accelerated tests only:
+For a specific test selection:
 ```bash
-./run-tests.sh --relevant-only -p ./scikit-learn -- [additional pytest options]
+./run-tests.sh --select relevant -p ./scikit-learn -- [additional pytest options]
 ```
 Or, to run all tests:
 ```bash
-./run-tests.sh -p ./scikit-learn -- [additional pytest options]
+./run-tests.sh --select all -p ./scikit-learn -- [additional pytest options]
 ```
 
 ### 3. Summarize test results
