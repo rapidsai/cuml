@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,7 +84,8 @@ struct decision_forest_builder {
     auto set = bitset{set_storage, max_node_categories};
     std::for_each(vec_begin, vec_end, [&set](auto&& cat_index) { set.set(cat_index); });
 
-    add_node(node_value, tl_node_id, depth, false, default_to_distant_child, true, feature, offset, false);
+    add_node(
+      node_value, tl_node_id, depth, false, default_to_distant_child, true, feature, offset, false);
   }
 
   /* Add a leaf node with vector output */
@@ -92,22 +93,20 @@ struct decision_forest_builder {
   void add_leaf_vector_node(iter_t vec_begin,
                             iter_t vec_end,
                             std::optional<int> tl_node_id = std::nullopt,
-                            std::size_t depth = std::size_t{1})
+                            std::size_t depth             = std::size_t{1})
   {
     auto leaf_index = typename node_type::index_type(vector_output_.size() / output_size_);
     std::copy(vec_begin, vec_end, std::back_inserter(vector_output_));
 
-    add_node(
-      leaf_index,
-      tl_node_id,
-      depth,
-      true,
-      false,
-      false,
-      typename node_type::metadata_storage_type{},
-      typename node_type::offset_type{},
-      false
-    );
+    add_node(leaf_index,
+             tl_node_id,
+             depth,
+             true,
+             false,
+             false,
+             typename node_type::metadata_storage_type{},
+             typename node_type::offset_type{},
+             false);
   }
 
   /* Add a node to the model */
@@ -186,16 +185,6 @@ struct decision_forest_builder {
                            int device                       = 0,
                            raft_proto::cuda_stream stream   = raft_proto::cuda_stream{})
   {
-    std::cout << "      BEGIN get_decision_forest\n";
-    std::cout << "            nodes_.size() " << nodes_.size() << "\n";
-    std::cout << "            root_node_indexes_.size() " << root_node_indexes_.size() << "\n";
-    std::cout << "            node_id_mapping_.size() " << node_id_mapping_.size() << "\n";
-    std::cout << "            num_feature " << num_feature << "\n";
-    std::cout << "            num_class " << num_class << "\n";
-    std::cout << "            max_num_categories_ " << max_num_categories_ << "\n";
-    std::cout << "            vector_output_.size() " << vector_output_.size() << "\n";
-    std::cout << "            categorical_storage_.size() " << categorical_storage_.size() << "\n";
-    std::cout << "            output_size_ " << output_size_ << "\n";
     // Allow narrowing for preprocessing constants. They are stored as doubles
     // for consistency in the builder but must be converted to the proper types
     // for the concrete forest model.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,35 +56,33 @@ struct treelite_importer {
   auto static constexpr const traversal_order = []() constexpr {
     if constexpr (layout == tree_layout::depth_first) {
       return ML::experimental::forest::forest_order::depth_first;
-    } else {
+    } else if constexpr (layout == tree_layout::breadth_first) {
       return ML::experimental::forest::forest_order::breadth_first;
+    } else if constexpr (layout == tree_layout::layered_children_together) {
+      return ML::experimental::forest::forest_order::layered_children_together;
+    } else {
+      static_assert(layout == tree_layout::depth_first,
+                    "Layout not yet implemented in treelite importer for FIL");
     }
   }();
 
-  auto get_node_count(treelite::Model const& tl_model) {
+  auto get_node_count(treelite::Model const& tl_model)
+  {
     return ML::experimental::forest::tree_accumulate(
-      tl_model,
-      index_type{},
-      [](auto&& count, auto&& tree) {
-        return count + tree.num_nodes;
-      }
-    );
+      tl_model, index_type{}, [](auto&& count, auto&& tree) { return count + tree.num_nodes; });
   }
 
   /* Return vector of offsets between each node and its most distant child */
   auto get_offsets(treelite::Model const& tl_model)
   {
-    auto node_count = get_node_count(tl_model);
-    auto result = std::vector<index_type>(node_count);
+    auto node_count     = get_node_count(tl_model);
+    auto result         = std::vector<index_type>(node_count);
     auto parent_indexes = std::vector<index_type>{};
     parent_indexes.reserve(node_count);
     ML::experimental::forest::node_transform<traversal_order>(
       tl_model,
       std::back_inserter(parent_indexes),
-      [](auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
-        return parent_index;
-      }
-    );
+      [](auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) { return parent_index; });
     for (auto i = std::size_t{}; i < node_count; ++i) {
       result[parent_indexes[i]] = i - parent_indexes[i];
     }
@@ -114,6 +112,7 @@ struct treelite_importer {
 
   auto get_num_feature(treelite::Model const& tl_model)
   {
+    std::cout << "get_num_feature: " << tl_model.num_feature << "\n";
     return static_cast<index_type>(tl_model.num_feature);
   }
 
@@ -123,12 +122,8 @@ struct treelite_importer {
       tl_model,
       index_type{},
       [](auto&& cur_accum, auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
-        return std::max(
-          cur_accum,
-          static_cast<index_type>(node.max_num_categories())
-        );
-      }
-    );
+        return std::max(cur_accum, static_cast<index_type>(node.max_num_categories()));
+      });
   }
 
   auto get_num_categorical_nodes(treelite::Model const& tl_model)
@@ -138,8 +133,7 @@ struct treelite_importer {
       index_type{},
       [](auto&& cur_accum, auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
         return cur_accum + static_cast<index_type>(node.is_categorical());
-      }
-    );
+      });
   }
 
   auto get_num_leaf_vector_nodes(treelite::Model const& tl_model)
@@ -149,12 +143,9 @@ struct treelite_importer {
       index_type{},
       [](auto&& cur_accum, auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
         auto accum = cur_accum;
-        if (node.is_leaf() && node.get_output().size() > 1) {
-          ++accum;
-        }
+        if (node.is_leaf() && node.get_output().size() > 1) { ++accum; }
         return accum;
-      }
-    );
+      });
   }
 
   auto get_average_factor(treelite::Model const& tl_model)
@@ -272,20 +263,18 @@ struct treelite_importer {
           detail::decision_forest_builder<forest_model_t>(max_num_categories, align_bytes);
         auto node_index = index_type{};
         ML::experimental::forest::node_for_each<traversal_order>(
-          tl_model, 
+          tl_model,
           [&builder, &offsets, &node_index](
-            auto&& tree_id,
-            auto&& node,
-            auto&& depth,
-            auto&& parent_index
-          ) {
+            auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
             if (node.is_leaf()) {
               auto output = node.get_output();
               builder.set_output_size(output.size());
               if (output.size() > index_type{1}) {
-                builder.add_leaf_vector_node(std::begin(output), std::end(output), node.get_treelite_id());
+                builder.add_leaf_vector_node(
+                  std::begin(output), std::end(output), node.get_treelite_id(), depth);
               } else {
-                builder.add_node(typename forest_model_t::io_type(output[0]), node.get_treelite_id(), true);
+                builder.add_node(
+                  typename forest_model_t::io_type(output[0]), node.get_treelite_id(), depth, true);
               }
             } else {
               if (node.is_categorical()) {
@@ -293,12 +282,14 @@ struct treelite_importer {
                 builder.add_categorical_node(std::begin(categories),
                                              std::end(categories),
                                              node.get_treelite_id(),
+                                             depth,
                                              node.default_distant(),
                                              node.get_feature(),
                                              offsets[node_index]);
               } else {
                 builder.add_node(typename forest_model_t::threshold_type(node.threshold()),
                                  node.get_treelite_id(),
+                                 depth,
                                  false,
                                  node.default_distant(),
                                  false,
@@ -308,8 +299,7 @@ struct treelite_importer {
               }
             }
             ++node_index;
-          }
-        );
+          });
 
         builder.set_average_factor(get_average_factor(tl_model));
         builder.set_bias(get_bias(tl_model));
@@ -400,10 +390,7 @@ struct treelite_importer {
     auto use_double_thresholds = use_double_precision.value_or(uses_double_thresholds(tl_model));
 
     auto offsets    = get_offsets(tl_model);
-    auto max_offset = *std::max_element(
-      std::begin(offsets),
-      std::end(offsets)
-    );
+    auto max_offset = *std::max_element(std::begin(offsets), std::end(offsets));
 
     auto variant_index = get_forest_variant_index(use_double_thresholds,
                                                   max_offset,
@@ -412,7 +399,8 @@ struct treelite_importer {
                                                   max_num_categories,
                                                   num_leaf_vector_nodes,
                                                   layout);
-    auto num_class     = get_num_class(tl_model);
+    std::cout << "variant_index: " << variant_index << "\n";
+    auto num_class = get_num_class(tl_model);
     return forest_model{import_to_specific_variant<index_type{}>(variant_index,
                                                                  tl_model,
                                                                  num_class,
@@ -465,6 +453,10 @@ auto import_from_treelite_model(treelite::Model const& tl_model,
       break;
     case tree_layout::breadth_first:
       result = treelite_importer<tree_layout::breadth_first>{}.import(
+        tl_model, align_bytes, use_double_precision, dev_type, device, stream);
+      break;
+    case tree_layout::layered_children_together:
+      result = treelite_importer<tree_layout::layered_children_together>{}.import(
         tl_model, align_bytes, use_double_precision, dev_type, device, stream);
       break;
   }

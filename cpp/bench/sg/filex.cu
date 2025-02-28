@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -103,9 +103,9 @@ class FILEX : public RegressionFixture<float> {
       allowed_storage_types.push_back(ML::fil::storage_type_t::SPARSE8);
     }
     auto allowed_layouts = std::vector<ML::experimental::fil::tree_layout>{
+      ML::experimental::fil::tree_layout::depth_first,
       ML::experimental::fil::tree_layout::breadth_first,
-      // ML::experimental::fil::tree_layout::depth_first,
-    };
+      ML::experimental::fil::tree_layout::layered_children_together};
     auto min_time = std::numeric_limits<std::int64_t>::max();
 
     // Iterate through storage type, algorithm type, and chunk sizes and find optimum
@@ -197,7 +197,7 @@ class FILEX : public RegressionFixture<float> {
     tl_params.algo             = optimal_algo_type;
     tl_params.threads_per_tree = optimal_chunk_size;
     ML::fil::from_treelite(*handle, &forest_variant, model, &tl_params);
-    forest      = std::get<ML::fil::forest_t<float>>(forest_variant);
+    forest = std::get<ML::fil::forest_t<float>>(forest_variant);
     std::cout << "5\n";
     filex_model = ML::experimental::fil::import_from_treelite_handle(
       model, optimal_layout, 128, false, raft_proto::device_type::gpu, 0, stream);

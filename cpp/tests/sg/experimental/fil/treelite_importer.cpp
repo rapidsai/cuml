@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuml/experimental/fil/detail/raft_proto/device_type.hpp>
 #include <cuml/experimental/fil/postproc_ops.hpp>
 #include <cuml/experimental/fil/tree_layout.hpp>
 #include <cuml/experimental/fil/treelite_importer.hpp>
@@ -266,7 +267,36 @@ TEST(TreeliteImporter, depth_first)
   ASSERT_FALSE(fil_model.has_vector_leaves());
   ASSERT_EQ(fil_model.row_postprocessing(), row_op::disable);
   ASSERT_EQ(fil_model.elem_postprocessing(), element_op::disable);
-  // ASSERT_EQ(fil_model.memory_type();
+  ASSERT_EQ(fil_model.memory_type(), raft_proto::device_type::cpu);
+  ASSERT_EQ(fil_model.device_index(), 0);
+  ASSERT_FALSE(fil_model.is_double_precision());
+}
+
+TEST(TreeliteImporter, breadth_first)
+{
+  auto fil_model = import_from_treelite_model(*SAMPLE_FOREST, tree_layout::breadth_first);
+  ASSERT_EQ(fil_model.num_features(), 7);
+  ASSERT_EQ(fil_model.num_outputs(), 1);
+  ASSERT_EQ(fil_model.num_trees(), 6);
+  ASSERT_FALSE(fil_model.has_vector_leaves());
+  ASSERT_EQ(fil_model.row_postprocessing(), row_op::disable);
+  ASSERT_EQ(fil_model.elem_postprocessing(), element_op::disable);
+  ASSERT_EQ(fil_model.memory_type(), raft_proto::device_type::cpu);
+  ASSERT_EQ(fil_model.device_index(), 0);
+  ASSERT_FALSE(fil_model.is_double_precision());
+}
+
+TEST(TreeliteImporter, layered_children_together)
+{
+  auto fil_model =
+    import_from_treelite_model(*SAMPLE_FOREST, tree_layout::layered_children_together);
+  ASSERT_EQ(fil_model.num_features(), 7);
+  ASSERT_EQ(fil_model.num_outputs(), 1);
+  ASSERT_EQ(fil_model.num_trees(), 6);
+  ASSERT_FALSE(fil_model.has_vector_leaves());
+  ASSERT_EQ(fil_model.row_postprocessing(), row_op::disable);
+  ASSERT_EQ(fil_model.elem_postprocessing(), element_op::disable);
+  ASSERT_EQ(fil_model.memory_type(), raft_proto::device_type::cpu);
   ASSERT_EQ(fil_model.device_index(), 0);
   ASSERT_FALSE(fil_model.is_double_precision());
 }
