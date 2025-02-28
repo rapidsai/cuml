@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 from cuml import Base
 from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
 from cuml.common.exceptions import NotFittedError
+from cuml.internals.array import CumlArray
 from cuml.internals.safe_imports import (
     cpu_only_import,
     cpu_only_import_from,
@@ -34,20 +35,6 @@ else:
     cp = gpu_only_import("cupy")
     np = cpu_only_import("numpy")
     pd = cpu_only_import("pandas")
-
-
-def _to_cudf_series(y, **kwargs):
-    if isinstance(y, (pd.DataFrame, cudf.DataFrame)):
-        if len(y.columns) != 1:
-            raise ValueError(f"`y` must be 1 dimensional, got {y.shape}")
-        y = y.iloc[:, 0]
-    elif isinstance(y, (np.ndarray, cp.ndarray)):
-        if y.ndim == 2 and y.shape[-1] == 1:
-            y = y.flatten()
-    if getattr(y, "dtype", None) == "float16":
-        # Upcast float16 since cudf cannot handle them yet
-        y = y.astype("float32")
-    return cudf.Series(y, **kwargs)
 
 
 class LabelEncoder(Base):
@@ -195,7 +182,8 @@ class LabelEncoder(Base):
         if _classes is None:
             # dedupe and sort
             y = (
-                _to_cudf_series(y)
+                CumlArray.from_input(y)
+                .to_output("cudf")
                 .drop_duplicates()
                 .sort_values(ignore_index=True)
             )
@@ -232,7 +220,7 @@ class LabelEncoder(Base):
         """
         check_is_fitted(self)
 
-        y = _to_cudf_series(y, dtype="category")
+        y = CumlArray.from_input(y, dtype="category").to_output("cudf")
 
         encoded = y.cat.set_categories(self.classes_).cat.codes
 
@@ -249,7 +237,7 @@ class LabelEncoder(Base):
         `LabelEncoder().fit(y).transform(y)`
         """
 
-        y = _to_cudf_series(y)
+        y = CumlArray.from_input(y).to_output("cudf")
         self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
 
         y = y.astype("category")
@@ -275,7 +263,7 @@ class LabelEncoder(Base):
         # check LabelEncoder is fitted
         check_is_fitted(self)
 
-        y = _to_cudf_series(y)
+        y = CumlArray.from_input(y).to_output("cudf")
 
         # check if ord_label out of bound
         ord_label = y.unique()
