@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import inspect
 import math
 import pytest
 from sklearn.metrics.pairwise import pairwise_kernels as skl_pairwise_kernels
+import cuml
 from cuml.metrics import pairwise_kernels, PAIRWISE_KERNEL_FUNCTIONS
 from cuml import KernelRidge as cuKernelRidge
 from cuml.internals.safe_imports import cpu_only_import
@@ -302,6 +303,23 @@ def test_estimator(kernel_arg, arrays, gamma, degree, coef0):
         assert np.allclose(
             as_type("numpy", pred), skl_pred, atol=1e-2, rtol=1e-2
         )
+
+
+def test_predict_output_type():
+    rng = np.random.RandomState(42)
+
+    X = 5 * rng.rand(10000, 1)
+    y = np.sin(X).ravel()
+
+    kr = cuKernelRidge(kernel="rbf", gamma=0.1)
+    kr.fit(X, y)
+
+    res = kr.predict(X)
+    assert isinstance(res, np.ndarray)
+
+    with cuml.using_output_type("cupy"):
+        res = kr.predict(X)
+    assert isinstance(res, cp.ndarray)
 
 
 def test_precomputed():

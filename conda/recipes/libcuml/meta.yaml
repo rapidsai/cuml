@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2024, NVIDIA CORPORATION.
+# Copyright (c) 2018-2025, NVIDIA CORPORATION.
 
 {% set version = environ['RAPIDS_PACKAGE_VERSION'].lstrip('v') %}
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
@@ -14,9 +14,7 @@ source:
 
 build:
   ignore_run_exports_from:
-    {% if cuda_major == "11" %}
-    - {{ compiler('cuda11') }}
-    {% endif %}
+    - {{ compiler('cuda') }}
   script_env:
     - AWS_ACCESS_KEY_ID
     - AWS_SECRET_ACCESS_KEY
@@ -38,7 +36,7 @@ requirements:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     {% if cuda_major == "11" %}
-    - {{ compiler('cuda11') }} ={{ cuda_version }}
+    - {{ compiler('cuda') }} ={{ cuda_version }}
     {% else %}
     - {{ compiler('cuda') }}
     {% endif %}
@@ -68,12 +66,11 @@ requirements:
     - libcusolver-dev
     - libcusparse-dev
     {% endif %}
-    - fmt {{ fmt_version }}
     - libcumlprims ={{ minor_version }}
     - libcuvs ={{ minor_version }}
     - libraft-headers ={{ minor_version }}
     - librmm ={{ minor_version }}
-    - spdlog {{ spdlog_version }}
+    - rapids-logger =0.1
     - treelite {{ treelite_version }}
 
 outputs:
@@ -84,10 +81,8 @@ outputs:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }}
-        {% else %}
         - {{ compiler('cuda') }}
+        {% if cuda_major != "11" %}
         - cuda-cudart-dev
         {% endif %}
     requirements:
@@ -118,6 +113,7 @@ outputs:
         - libcumlprims ={{ minor_version }}
         - libcuvs ={{ minor_version }}
         - librmm ={{ minor_version }}
+        - rapids-logger =0.1
         - treelite {{ treelite_version }}
     about:
       home: https://rapids.ai/
@@ -131,10 +127,8 @@ outputs:
       number: {{ GIT_DESCRIBE_NUMBER }}
       string: cuda{{ cuda_major }}_{{ date_string }}_{{ GIT_DESCRIBE_HASH }}_{{ GIT_DESCRIBE_NUMBER }}
       ignore_run_exports_from:
-        {% if cuda_major == "11" %}
-        - {{ compiler('cuda11') }}
-        {% else %}
         - {{ compiler('cuda') }}
+        {% if cuda_major != "11" %}
         - cuda-cudart-dev
         {% endif %}
     requirements:

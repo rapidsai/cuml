@@ -61,6 +61,7 @@ from cuml import Ridge as cuRidge
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
+pd = cpu_only_import("pandas")
 cudf = gpu_only_import("cudf")
 rmm = gpu_only_import("rmm")
 
@@ -232,10 +233,13 @@ def test_weighted_linear_regression(
     # set weight per sample to be from 1 to max_weight
     if distribution == "uniform":
         wt = np.random.randint(1, high=max_weight, size=len(X_train))
+        wt_test = np.random.randint(1, high=max_weight, size=len(X_test))
     elif distribution == "exponential":
         wt = np.random.exponential(size=len(X_train))
+        wt_test = np.random.exponential(size=len(X_test))
     else:
         wt = np.random.lognormal(size=len(X_train))
+        wt_test = np.random.lognormal(size=len(X_test))
 
     # Initialization of cuML's linear regression model
     cuols = cuLinearRegression(
@@ -253,6 +257,11 @@ def test_weighted_linear_regression(
     skols_predict = skols.predict(X_test)
 
     assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
+
+    # Compare weighted scores
+    sk_score = skols.score(X_test, y_test, sample_weight=wt_test)
+    cu_score = cuols.score(X_test, y_test, sample_weight=wt_test)
+    np.testing.assert_almost_equal(cu_score, sk_score)
 
 
 @pytest.mark.skipif(
@@ -415,6 +424,17 @@ def test_ridge_regression_model(datatype, algorithm, nrows, column_info):
         assert array_equal(
             skridge_predict, curidge_predict, 1e-1, with_sign=True
         )
+
+
+def test_ridge_and_least_squares_equal_when_alpha_is_0():
+    X, y = make_regression(n_samples=5, n_features=4, random_state=0)
+
+    ridge = cuRidge(alpha=0.0, fit_intercept=False)
+    ols = cuLinearRegression(fit_intercept=False)
+
+    ridge.fit(X, y)
+    ols.fit(X, y)
+    assert array_equal(ridge.coef_, ols.coef_)
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -717,8 +737,6 @@ def test_logistic_regression_decision_function(
     sklog.classes_ = np.arange(num_classes)
 
     cu_dec_func = culog.decision_function(X_test)
-    if cu_dec_func.shape[0] > 2:  # num_classes
-        cu_dec_func = cu_dec_func.T
     sk_dec_func = sklog.decision_function(X_test)
 
     assert array_equal(cu_dec_func, sk_dec_func)
@@ -790,6 +808,90 @@ def test_logistic_regression_input_type_consistency(constructor, dtype):
     assert isinstance(clf.predict_proba(X), type(X))
     expected_type = cudf.Series if constructor == cudf.DataFrame else type(X)
     assert isinstance(clf.predict(X), expected_type)
+
+
+@pytest.mark.parametrize(
+    "y_kind", ["object", "fixed-string", "int32", "float32", "float16"]
+)
+@pytest.mark.parametrize("output_type", ["numpy", "cupy", "cudf", "pandas"])
+def test_logistic_regression_complex_classes(y_kind, output_type):
+    """Test that LogisticRegression handles non-numeric or non-monotonically
+    increasing classes properly in both `fit` and `predict`"""
+    if output_type == "cupy" and y_kind in ("object", "fixed-string"):
+        pytest.skip("cupy doesn't support strings!")
+    elif output_type in ("cudf", "pandas") and y_kind == "float16":
+        pytest.skip("float16 dtype not supported")
+
+    X, y_inds = make_classification(
+        n_samples=100,
+        n_features=20,
+        n_informative=10,
+        n_classes=3,
+        random_state=0,
+    )
+    if y_kind == "object":
+        classes = np.array(["apple", "banana", "carrot"], dtype="object")
+        df_dtype = "object"
+    elif y_kind == "fixed-string":
+        classes = np.array(["apple", "banana", "carrot"], dtype="U")
+        df_dtype = "object"
+    else:
+        classes = np.array([10, 20, 30], dtype=y_kind)
+        df_dtype = classes.dtype
+
+    y = classes.take(y_inds)
+
+    cu_model = cuLog(output_type=output_type)
+    sk_model = skLog()
+
+    cu_model.fit(X, y)
+    sk_model.fit(X, y)
+
+    np.testing.assert_array_equal(
+        cu_model.classes_, sk_model.classes_, strict=True
+    )
+
+    res = cu_model.predict(X)
+    sol = sk_model.predict(X)
+    if output_type == "numpy":
+        assert res.dtype == sol.dtype
+        assert isinstance(res, np.ndarray)
+    elif output_type == "cupy":
+        assert res.dtype == sol.dtype
+        assert isinstance(res, cp.ndarray)
+    elif output_type == "pandas":
+        assert res.dtype == df_dtype
+        # TODO: this check works around a bug in cuml's output handling
+        # currently where isinstance(res, pd.Series) would fail
+        # if `cudf.pandas` is active. Writing the check odd for now
+        # to get this fix in, can switch back to `isinstance(res, pd.Series)`
+        # once that's fixed.
+        assert type(res).__module__.startswith("pandas")
+    elif output_type == "cudf":
+        assert res.dtype == df_dtype
+        assert isinstance(res, cudf.Series)
+
+
+@pytest.mark.parametrize("y_kind", ["pandas", "cudf"])
+def test_logistic_regression_categorical_y(y_kind):
+    X, y_inds = make_classification(
+        n_samples=100,
+        n_features=20,
+        n_informative=10,
+        n_classes=3,
+        random_state=0,
+    )
+    categories = np.array(["apple", "banana", "carrot"], dtype="object")
+    y = pd.Series(pd.Categorical.from_codes(y_inds, categories))
+    if y_kind == "cudf":
+        y = cudf.Series(y)
+
+    model = cuLog(output_type="numpy")
+    model.fit(X, y)
+    np.testing.assert_array_equal(model.classes_, categories, strict=True)
+    res = model.predict(X)
+    assert isinstance(res, np.ndarray)
+    assert res.dtype == "object"
 
 
 @pytest.mark.parametrize("train_dtype", [np.float32, np.float64])

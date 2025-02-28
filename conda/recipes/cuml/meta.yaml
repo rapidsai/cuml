@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2024, NVIDIA CORPORATION.
+# Copyright (c) 2018-2025, NVIDIA CORPORATION.
 
 {% set version = environ['RAPIDS_PACKAGE_VERSION'].lstrip('v') %}
 {% set minor_version = version.split('.')[0] + '.' + version.split('.')[1] %}
@@ -33,10 +33,8 @@ build:
     - SCCACHE_S3_KEY_PREFIX=cuml-linux64 # [linux64]
     - SCCACHE_S3_USE_SSL
   ignore_run_exports_from:
-    {% if cuda_major == "11" %}
-    - {{ compiler('cuda11') }}
-    {% else %}
     - {{ compiler('cuda') }}
+    {% if cuda_major != "11" %}
     - cuda-cudart-dev
     {% endif %}
     - cuda-python
@@ -46,7 +44,7 @@ requirements:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     {% if cuda_major == "11" %}
-    - {{ compiler('cuda11') }} ={{ cuda_version }}
+    - {{ compiler('cuda') }} ={{ cuda_version }}
     {% else %}
     - {{ compiler('cuda') }}
     {% endif %}
@@ -73,6 +71,7 @@ requirements:
     - scikit-build-core >=0.10.0
     - treelite {{ treelite_version }}
     - rapids-build-backend>=0.3.0,<0.4.0.dev0
+    - rapids-logger =0.1
   run:
     - {{ pin_compatible('cuda-version', max_pin='x', min_pin='x') }}
     {% if cuda_major == "11" %}
@@ -94,6 +93,7 @@ requirements:
     - raft-dask ={{ minor_version }}
     - rapids-dask-dependency ={{ minor_version }}
     - treelite {{ treelite_version }}
+    - rapids-logger =0.1
 
 tests:
   requirements:

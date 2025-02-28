@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -174,7 +174,7 @@ CUML_KERNEL void kpss_stationarity_check_kernel(bool* results,
  * Found in thrust/examples/scan_matrix_by_rows.cu
  */
 template <typename IdxT>
-struct which_col : thrust::unary_function<IdxT, IdxT> {
+struct which_col {
   IdxT col_length;
   __host__ __device__ which_col(IdxT col_length_) : col_length(col_length_) {}
   __host__ __device__ IdxT operator()(IdxT idx) const { return idx / col_length; }

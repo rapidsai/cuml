@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,16 +55,18 @@ def _find_arg(sig, arg_name, default_position):
 
     # Check for default name in input args
     if arg_name in sig.parameters:
-        return arg_name, params.index(arg_name)
+        param = sig.parameters[arg_name]
+        return arg_name, params.index(arg_name), param.default
     # Otherwise use argument in list by position
     elif arg_name is ...:
         index = int(_has_self(sig)) + default_position
-        return params[index], index
+        param = params[index]
+        return param, index, sig.parameters[param].default
     else:
         raise ValueError(f"Unable to find parameter '{arg_name}'.")
 
 
-def _get_value(args, kwargs, name, index):
+def _get_value(args, kwargs, name, index, default_value):
     """Determine value for a given set of args, kwargs, name and index."""
     try:
         return kwargs[name]
@@ -72,10 +74,13 @@ def _get_value(args, kwargs, name, index):
         try:
             return args[index]
         except IndexError:
-            raise IndexError(
-                f"Specified arg idx: {index}, and argument name: {name}, "
-                "were not found in args or kwargs."
-            )
+            if default_value is not inspect._empty:
+                return default_value
+            else:
+                raise IndexError(
+                    f"Specified arg idx: {index}, and argument name: {name}, "
+                    "were not found in args or kwargs."
+                )
 
 
 def _make_decorator_function(
@@ -166,7 +171,7 @@ def _make_decorator_function(
                         if self_val is None:
                             assert input_val is not None
                             out_type = iu.determine_array_type(input_val)
-                        elif input_val is None:
+                        elif input_val is None or input_val is inspect._empty:
                             out_type = self_val.output_type
                             if out_type == "input":
                                 out_type = self_val._input_type
@@ -365,7 +370,25 @@ def device_interop_preparation(init_func):
         # Save all kwargs
         self._full_kwargs = kwargs
         # Generate list of available cuML hyperparameters
-        gpu_hyperparams = list(inspect.signature(init_func).parameters.keys())
+
+        from cuml.ensemble.randomforest_common import BaseRandomForestModel
+
+        # Random Forest models init signature is a combination of the
+        # parameters in BaseRandomForest and the regressor/classifier classes
+        # so we need to join their init hyperparameters.
+        gpu_hyperparams = []
+        if isinstance(self, BaseRandomForestModel):
+            gpu_hyperparams.extend(
+                list(
+                    inspect.signature(
+                        BaseRandomForestModel.__init__
+                    ).parameters.keys()
+                )
+            )
+
+        gpu_hyperparams.extend(
+            list(inspect.signature(init_func).parameters.keys())
+        )
 
         # Filter provided parameters for cuML estimator initialization
         filtered_kwargs = {}

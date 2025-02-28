@@ -52,7 +52,7 @@ cuML provides experimental support for running selected estimators and operators
    * - Regression and Classification
      - Ridge
 
-If a CUDA-enabled GPU is available on the system, cuML will default to using it. Users can configure CPU or GPU execution for supported operators via context managers or global configuration. 
+If a CUDA-enabled GPU is available on the system, cuML will default to using it. Users can configure CPU or GPU execution for supported operators via context managers or global configuration.
 
 .. code-block:: python
 
@@ -418,6 +418,8 @@ Support Vector Machines
 
 .. autoclass:: cuml.svm.SVR
     :members:
+
+.. autoclass:: cuml.svm.SVC
 
 .. autoclass:: cuml.svm.LinearSVC
     :members:

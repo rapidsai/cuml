@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,7 +116,9 @@ struct forest {
       // if n_items was not provided, try from 1 to MAX_N_ITEMS. Otherwise, use as-is.
       int min_n_items = ssp.n_items == 0 ? 1 : ssp.n_items;
       int max_n_items =
-        ssp.n_items == 0 ? (algo_ == algo_t::BATCH_TREE_REORG ? MAX_N_ITEMS : 1) : ssp.n_items;
+        // we force this to 1 to avoid running into the BATCH_TREE_REORG issue
+        // ssp.n_items == 0 ? (algo_ == algo_t::BATCH_TREE_REORG ? MAX_N_ITEMS : 1) : ssp.n_items;
+        ssp.n_items == 0 ? 1 : ssp.n_items;
       for (bool cols_in_shmem : {false, true}) {
         ssp.cols_in_shmem = cols_in_shmem;
         for (ssp.n_items = min_n_items; ssp.n_items <= max_n_items; ++ssp.n_items) {
@@ -391,6 +393,14 @@ struct dense_forest<dense_node<real_t>> : forest<real_t> {
   {
     this->init_common(h, cat_sets, vector_leaf, params);
     if (this->algo_ == algo_t::NAIVE) this->algo_ = algo_t::BATCH_TREE_REORG;
+    /* The following line is added to disable BATCH_TREE_REORG mode. Currently
+     * there is a bug in the implementation of this mode which causes a batch
+     * of trees to be marked as complete before every tree has reached a leaf
+     * node. At best, this results in a crash due to a bad memory access, but
+     * it can also silently impact the final output of the model. No issue has
+     * been logged for this workaround because we will be migrating to the new
+     * FIL codebase which is not impacted by this bug. */
+    if (this->algo_ == algo_t::BATCH_TREE_REORG) { this->algo_ = algo_t::TREE_REORG; }
 
     int num_nodes = forest_num_nodes(this->num_trees_, this->depth_);
     nodes_.resize(num_nodes, h.get_stream());

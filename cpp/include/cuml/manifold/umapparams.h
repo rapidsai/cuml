@@ -117,7 +117,7 @@ class UMAPParams {
   /**
    * Control logging level during algorithm execution
    */
-  level_enum verbosity = level_enum::info;
+  rapids_logger::level_enum verbosity = rapids_logger::level_enum::info;
 
   /**
    *  More specific parameters controlling the embedding. If None these

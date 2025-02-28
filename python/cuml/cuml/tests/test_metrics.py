@@ -15,6 +15,8 @@
 #
 
 import platform
+
+import sklearn.metrics
 from cuml.metrics.cluster import v_measure_score
 from sklearn.metrics.cluster import v_measure_score as sklearn_v_measure_score
 from scipy.special import rel_entr as scipy_kl_divergence
@@ -34,16 +36,8 @@ from cuml.metrics import precision_recall_curve
 from cuml.metrics import roc_auc_score
 from cuml.common.sparsefuncs import csr_row_normalize_l1
 from cuml.common import has_scipy
-from sklearn.metrics import mean_squared_log_error as sklearn_msle
-from sklearn.metrics import mean_absolute_error as sklearn_mae
 from cuml.metrics import confusion_matrix
 from sklearn.metrics import confusion_matrix as sk_confusion_matrix
-from sklearn.metrics import mean_squared_error as sklearn_mse
-from cuml.metrics.regression import (
-    mean_squared_error,
-    mean_squared_log_error,
-    mean_absolute_error,
-)
 from cuml.model_selection import train_test_split
 from cuml.metrics.cluster import entropy
 from cuml.metrics import kl_divergence as cu_kl_divergence
@@ -83,7 +77,6 @@ import pytest
 
 import random
 from itertools import chain, permutations
-from functools import partial
 
 import cuml
 import cuml.internals.logger as logger
@@ -147,22 +140,8 @@ def labeled_clusters(request, random_state):
     )
 
 
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("use_handle", [True, False])
-def test_r2_score(datatype, use_handle):
-    a = np.array([0.1, 0.2, 0.3, 0.4, 0.5], dtype=datatype)
-    b = np.array([0.12, 0.22, 0.32, 0.42, 0.52], dtype=datatype)
-
-    a_dev = cuda.to_device(a)
-    b_dev = cuda.to_device(b)
-
-    handle, stream = get_handle(use_handle)
-
-    score = cuml.metrics.r2_score(a_dev, b_dev, handle=handle)
-
-    np.testing.assert_almost_equal(score, 0.98, decimal=7)
-
-
+# Ignore FutureWarning: Using `__dataframe__` is deprecated
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_sklearn_search():
     """Test ensures scoring function works with sklearn machinery"""
     import numpy as np
@@ -286,7 +265,7 @@ def test_rand_index_score(name, nrows):
     params = default_base.copy()
     params.update(pat[1])
 
-    cuml_kmeans = cuml.KMeans(n_clusters=params["n_clusters"])
+    cuml_kmeans = cuml.KMeans(n_clusters=params["n_clusters"], n_init="auto")
 
     X, y = pat[0]
 
@@ -548,17 +527,6 @@ def test_completeness_score_big_array(use_handle, input_range):
     np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
-def test_regression_metrics():
-    y_true = np.arange(50, dtype=int)
-    y_pred = y_true + 1
-    assert_almost_equal(mean_squared_error(y_true, y_pred), 1.0)
-    assert_almost_equal(
-        mean_squared_log_error(y_true, y_pred),
-        mean_squared_error(np.log(1 + y_true), np.log(1 + y_pred)),
-    )
-    assert_almost_equal(mean_absolute_error(y_true, y_pred), 1.0)
-
-
 @pytest.mark.parametrize("n_samples", [50, stress_param(500000)])
 @pytest.mark.parametrize(
     "y_dtype", [np.int32, np.int64, np.float32, np.float64]
@@ -566,42 +534,184 @@ def test_regression_metrics():
 @pytest.mark.parametrize(
     "pred_dtype", [np.int32, np.int64, np.float32, np.float64]
 )
-@pytest.mark.parametrize("function", ["mse", "mae", "msle"])
-def test_regression_metrics_random_with_mixed_dtypes(
-    n_samples, y_dtype, pred_dtype, function
-):
-    y_true, _, _, _ = generate_random_labels(
-        lambda rng: rng.randint(0, 1000, n_samples).astype(y_dtype)
+@pytest.mark.parametrize(
+    "func",
+    [
+        "r2_score",
+        "mean_squared_error",
+        "mean_absolute_error",
+        "mean_squared_log_error",
+    ],
+)
+def test_regression_metrics(n_samples, y_dtype, pred_dtype, func):
+    rng = np.random.RandomState(42)
+    y_true = rng.randint(10, 1000, n_samples).astype(y_dtype)
+    y_pred = (rng.randint(-5, 5, n_samples) + y_true).astype(pred_dtype)
+
+    cu_metric = getattr(cuml.metrics, func)
+    sk_metric = getattr(sklearn.metrics, func)
+
+    res = cu_metric(y_true, y_pred)
+    ref = sk_metric(y_true, y_pred)
+    assert_almost_equal(res, ref)
+
+
+@pytest.mark.parametrize(
+    "func",
+    [
+        "r2_score",
+        "mean_squared_error",
+        "mean_absolute_error",
+        "mean_squared_log_error",
+    ],
+)
+def test_regression_metrics_cudf(func):
+    a = cudf.Series([1.1, 2.2, 3.3, 4.4])
+    b = cudf.Series([0.1, 0.2, 0.3, 0.4])
+
+    cu_metric = getattr(cuml.metrics, func)
+    err1 = cu_metric(a, b)
+    err2 = cu_metric(a.values, b.values)
+    assert err1 == err2
+
+
+@pytest.mark.parametrize(
+    "func",
+    [
+        "r2_score",
+        "mean_squared_error",
+        "mean_absolute_error",
+        "mean_squared_log_error",
+    ],
+)
+def test_regression_metrics_zero_error(func):
+    y_true = y_pred = np.ones(3)
+
+    cu_metric = getattr(cuml.metrics, func)
+    sk_metric = getattr(sklearn.metrics, func)
+
+    res = cu_metric(y_true, y_pred)
+    ref = sk_metric(y_true, y_pred)
+    assert_almost_equal(res, ref)
+
+
+@pytest.mark.parametrize(
+    "func",
+    [
+        "r2_score",
+        "mean_squared_error",
+        "mean_absolute_error",
+        "mean_squared_log_error",
+    ],
+)
+def test_regression_metrics_multioutput(func):
+    y_true = np.array([[1, 0, 0, 1], [0, 1, 1, 1], [1, 1, 0, 1]])
+    y_pred = np.array([[0, 0, 0, 1], [1, 0, 1, 1], [0, 0, 0, 1]])
+
+    cu_metric = getattr(cuml.metrics, func)
+    sk_metric = getattr(sklearn.metrics, func)
+
+    res = cu_metric(y_true, y_pred)
+    sol = sk_metric(y_true, y_pred)
+    assert_almost_equal(res, sol)
+
+
+@pytest.mark.parametrize(
+    "func",
+    [
+        "r2_score",
+        "mean_squared_error",
+        "mean_absolute_error",
+        "mean_squared_log_error",
+    ],
+)
+def test_regression_metrics_multioutput_raw_values(func):
+    y_true = np.array([[1, 2], [2.5, 1], [4.5, 3], [5, 7]], dtype=float)
+    y_pred = np.array([[1, 1], [2, 1], [5, 4], [5, 6.5]], dtype=float)
+
+    cu_metric = getattr(cuml.metrics, func)
+    sk_metric = getattr(sklearn.metrics, func)
+
+    res = cu_metric(y_true, y_pred, multioutput="raw_values")
+    sol = sk_metric(y_true, y_pred, multioutput="raw_values")
+    cp.testing.assert_array_almost_equal(res, sol)
+
+
+@pytest.mark.parametrize(
+    "func",
+    [
+        "r2_score",
+        "mean_squared_error",
+        "mean_absolute_error",
+        "mean_squared_log_error",
+    ],
+)
+def test_regression_metrics_multioutput_custom_weights(func):
+    y_true = np.array([[1, 2], [2.5, 1], [4.5, 3], [5, 7]], dtype=float)
+    y_pred = np.array([[1, 1], [2, 1], [5, 4], [5, 6.5]], dtype=float)
+    multioutput = np.array([0.3, 0.7])
+
+    cu_metric = getattr(cuml.metrics, func)
+    sk_metric = getattr(sklearn.metrics, func)
+
+    res = cu_metric(y_true, y_pred, multioutput=multioutput)
+    sol = sk_metric(y_true, y_pred, multioutput=multioutput)
+    assert_almost_equal(res, sol)
+
+
+@pytest.mark.parametrize(
+    "func",
+    [
+        "r2_score",
+        "mean_squared_error",
+        "mean_absolute_error",
+        "mean_squared_log_error",
+    ],
+)
+@pytest.mark.parametrize("multioutput", [False, True])
+def test_regression_metrics_sample_weight(multioutput, func):
+    y_true = np.array([[1, 2], [2.5, 1], [4.5, 3], [5, 7]], dtype=float)
+    y_pred = np.array([[1, 1], [2, 1], [5, 4], [5, 6.5]], dtype=float)
+    if not multioutput:
+        y_true = y_true[:, 0]
+        y_pred = y_pred[:, 0]
+    weights = np.array([0.2, 0.25, 0.4, 0.15], dtype=float)
+
+    cu_metric = getattr(cuml.metrics, func)
+    sk_metric = getattr(sklearn.metrics, func)
+
+    res = cu_metric(y_true, y_pred, sample_weight=weights)
+    sol = sk_metric(y_true, y_pred, sample_weight=weights)
+    assert_almost_equal(res, sol)
+
+
+@pytest.mark.parametrize("true, pred", [(1, 1), (0, 0)])
+def test_r2_score_force_finite(true, pred):
+    y_true = np.array([true] * 3, dtype="float64")
+    y_pred = np.array([pred] * 3, dtype="float64")
+
+    res = cuml.metrics.r2_score(y_true, y_pred)
+    sol = sklearn.metrics.r2_score(y_true, y_pred)
+    assert_almost_equal(res, sol)
+
+    with pytest.warns(RuntimeWarning):
+        res = cuml.metrics.r2_score(y_true, y_pred, force_finite=False)
+        sol = sklearn.metrics.r2_score(y_true, y_pred, force_finite=False)
+
+    assert_almost_equal(res, sol)
+
+
+def test_r2_score_multioutput_variance_weighted():
+    y_true = np.array([[1, 2], [2.5, 1], [4.5, 3], [5, 7]], dtype=float)
+    y_pred = np.array([[1, 1], [2, 1], [5, 4], [5, 6.5]], dtype=float)
+
+    res = cuml.metrics.r2_score(
+        y_true, y_pred, multioutput="variance_weighted"
     )
-
-    y_pred, _, _, _ = generate_random_labels(
-        lambda rng: rng.randint(0, 1000, n_samples).astype(pred_dtype)
+    sol = sklearn.metrics.r2_score(
+        y_true, y_pred, multioutput="variance_weighted"
     )
-
-    cuml_reg, sklearn_reg = {
-        "mse": (mean_squared_error, sklearn_mse),
-        "mae": (mean_absolute_error, sklearn_mae),
-        "msle": (mean_squared_log_error, sklearn_msle),
-    }[function]
-
-    res = cuml_reg(y_true, y_pred, multioutput="raw_values")
-    ref = sklearn_reg(y_true, y_pred, multioutput="raw_values")
-    cp.testing.assert_array_almost_equal(res, ref, decimal=2)
-
-
-@pytest.mark.parametrize("function", ["mse", "mse_not_squared", "mae", "msle"])
-def test_regression_metrics_at_limits(function):
-    y_true = np.array([0.0], dtype=float)
-    y_pred = np.array([0.0], dtype=float)
-
-    cuml_reg = {
-        "mse": mean_squared_error,
-        "mse_not_squared": partial(mean_squared_error, squared=False),
-        "mae": mean_absolute_error,
-        "msle": mean_squared_log_error,
-    }[function]
-
-    assert_almost_equal(cuml_reg(y_true, y_pred), 0.00, decimal=2)
+    assert_almost_equal(res, sol)
 
 
 @pytest.mark.parametrize(
@@ -612,89 +722,11 @@ def test_regression_metrics_at_limits(function):
         ([1.0, -2.0, 3.0], [1.0, 2.0, 3.0]),
     ],
 )
-def test_mean_squared_log_error_exceptions(inputs):
-    with pytest.raises(ValueError):
-        mean_squared_log_error(np.array(inputs[0]), np.array(inputs[1]))
-
-
-def test_multioutput_regression():
-    y_true = np.array([[1, 0, 0, 1], [0, 1, 1, 1], [1, 1, 0, 1]])
-    y_pred = np.array([[0, 0, 0, 1], [1, 0, 1, 1], [0, 0, 0, 1]])
-
-    error = mean_squared_error(y_true, y_pred)
-    assert_almost_equal(error, (1.0 + 2.0 / 3) / 4.0)
-
-    error = mean_squared_error(y_true, y_pred, squared=False)
-    assert_almost_equal(error, 0.645, decimal=2)
-
-    error = mean_squared_log_error(y_true, y_pred)
-    assert_almost_equal(error, 0.200, decimal=2)
-
-    # mean_absolute_error and mean_squared_error are equal because
-    # it is a binary problem.
-    error = mean_absolute_error(y_true, y_pred)
-    assert_almost_equal(error, (1.0 + 2.0 / 3) / 4.0)
-
-
-def test_regression_metrics_multioutput_array():
-    y_true = np.array([[1, 2], [2.5, -1], [4.5, 3], [5, 7]], dtype=float)
-    y_pred = np.array([[1, 1], [2, -1], [5, 4], [5, 6.5]], dtype=float)
-
-    mse = mean_squared_error(y_true, y_pred, multioutput="raw_values")
-    mae = mean_absolute_error(y_true, y_pred, multioutput="raw_values")
-
-    cp.testing.assert_array_almost_equal(mse, [0.125, 0.5625], decimal=2)
-    cp.testing.assert_array_almost_equal(mae, [0.25, 0.625], decimal=2)
-
-    weights = np.array([0.4, 0.6], dtype=float)
-    msew = mean_squared_error(y_true, y_pred, multioutput=weights)
-    rmsew = mean_squared_error(
-        y_true, y_pred, multioutput=weights, squared=False
-    )
-    assert_almost_equal(msew, 0.39, decimal=2)
-    assert_almost_equal(rmsew, 0.62, decimal=2)
-
-    y_true = np.array([[0, 0]] * 4, dtype=int)
-    y_pred = np.array([[1, 1]] * 4, dtype=int)
-    mse = mean_squared_error(y_true, y_pred, multioutput="raw_values")
-    mae = mean_absolute_error(y_true, y_pred, multioutput="raw_values")
-    cp.testing.assert_array_almost_equal(mse, [1.0, 1.0], decimal=2)
-    cp.testing.assert_array_almost_equal(mae, [1.0, 1.0], decimal=2)
-
-    y_true = np.array([[0.5, 1], [1, 2], [7, 6]])
-    y_pred = np.array([[0.5, 2], [1, 2.5], [8, 8]])
-    msle = mean_squared_log_error(y_true, y_pred, multioutput="raw_values")
-    msle2 = mean_squared_error(
-        np.log(1 + y_true), np.log(1 + y_pred), multioutput="raw_values"
-    )
-    cp.testing.assert_array_almost_equal(msle, msle2, decimal=2)
-
-
-@pytest.mark.parametrize("function", ["mse", "mae"])
-def test_regression_metrics_custom_weights(function):
-    y_true = np.array([1, 2, 2.5, -1], dtype=float)
-    y_pred = np.array([1, 1, 2, -1], dtype=float)
-    weights = np.array([0.2, 0.25, 0.4, 0.15], dtype=float)
-
-    cuml_reg, sklearn_reg = {
-        "mse": (mean_squared_error, sklearn_mse),
-        "mae": (mean_absolute_error, sklearn_mae),
-    }[function]
-
-    score = cuml_reg(y_true, y_pred, sample_weight=weights)
-    ref = sklearn_reg(y_true, y_pred, sample_weight=weights)
-    assert_almost_equal(score, ref, decimal=2)
-
-
-def test_mse_vs_msle_custom_weights():
-    y_true = np.array([0.5, 2, 7, 6], dtype=float)
-    y_pred = np.array([0.5, 1, 8, 8], dtype=float)
-    weights = np.array([0.2, 0.25, 0.4, 0.15], dtype=float)
-    msle = mean_squared_log_error(y_true, y_pred, sample_weight=weights)
-    msle2 = mean_squared_error(
-        np.log(1 + y_true), np.log(1 + y_pred), sample_weight=weights
-    )
-    assert_almost_equal(msle, msle2, decimal=2)
+def test_mean_squared_log_error_negative_values(inputs):
+    with pytest.raises(ValueError, match="targets contain negative values"):
+        cuml.metrics.mean_squared_log_error(
+            np.array(inputs[0]), np.array(inputs[1])
+        )
 
 
 @pytest.mark.parametrize("use_handle", [True, False])
@@ -1641,22 +1673,6 @@ def test_kl_divergence(nfeatures, input_type, dtypeP, dtypeQ):
         cu_res = cu_kl_divergence(P, Q, convert_dtype=False)
 
     cp.testing.assert_array_almost_equal(cu_res, sk_res)
-
-
-def test_mean_squared_error():
-    y1 = np.array([[1], [2], [3]])
-    y2 = y1.squeeze()
-
-    assert mean_squared_error(y1, y2) == 0
-    assert mean_squared_error(y2, y1) == 0
-
-
-def test_mean_squared_error_cudf_series():
-    a = cudf.Series([1.1, 2.2, 3.3, 4.4])
-    b = cudf.Series([0.1, 0.2, 0.3, 0.4])
-    err1 = mean_squared_error(a, b)
-    err2 = mean_squared_error(a.values, b.values)
-    assert err1 == err2
 
 
 @pytest.mark.parametrize("beta", [0.0, 0.5, 1.0, 2.0])

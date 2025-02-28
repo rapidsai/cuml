@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,11 +16,14 @@
 
 # distutils: language = c++
 
+import warnings
+
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
 rmm = gpu_only_import('rmm')
 from cuml.internals.safe_imports import safe_import_from, return_false
+from cuml.internals.utils import check_random_seed
 import typing
 
 IF GPUBUILD == 1:
@@ -37,9 +40,7 @@ IF GPUBUILD == 1:
     from cuml.cluster.kmeans_utils cimport params as KMeansParams
     from cuml.cluster.kmeans_utils cimport KMeansPlusPlus, Random, Array
     from cuml.cluster cimport kmeans_utils
-
-    # Avoid potential future conflicts with cuml's level enum
-    ctypedef kmeans_utils.level_enum raft_level_enum
+    from cuml.internals.logger cimport level_enum
 
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -50,6 +51,7 @@ from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common import input_to_cuml_array
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.global_settings import GlobalSettings
 
 # from sklearn.utils._openmp_helpers import _openmp_effective_n_threads
 _openmp_effective_n_threads = safe_import_from(
@@ -96,7 +98,7 @@ class KMeans(UniversalBase,
         3  4.0  3.0
         >>>
         >>> # Calling fit
-        >>> kmeans_float = KMeans(n_clusters=2)
+        >>> kmeans_float = KMeans(n_clusters=2, n_init="auto")
         >>> kmeans_float.fit(b)
         KMeans()
         >>>
@@ -144,10 +146,17 @@ class KMeans(UniversalBase,
          - If an ndarray is passed, it should be of
            shape (`n_clusters`, `n_features`) and gives the initial centers.
 
-    n_init: int (default = 1)
+    n_init: 'auto' or int (default = 1)
         Number of instances the k-means algorithm will be called with
         different seeds. The final results will be from the instance
         that produces lowest inertia out of n_init instances.
+
+        .. versionadded:: 25.02
+           Added 'auto' option for `n_init`.
+
+        .. versionchanged:: 25.04
+            Default value for `n_init` will change from 1 to `'auto'` in version 25.04.
+
     oversampling_factor : float64 (default = 2.0)
         The amount of points to sample
         in scalable k-means++ initialization for potential centroids.
@@ -197,6 +206,15 @@ class KMeans(UniversalBase,
     <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
     """
 
+    _hyperparam_interop_translator = {
+        "init": {
+            # k-means++ would work, but setting it explicitly changes the configuration
+            # of the estimator compared to not specifying it. So we explicitly translate
+            # it to the default value.
+            "k-means++": "scalable-k-means++",
+        },
+    }
+
     _cpu_estimator_import_path = 'sklearn.cluster.KMeans'
     labels_ = CumlArrayDescriptor(order='C')
     cluster_centers_ = CumlArrayDescriptor(order='C')
@@ -209,12 +227,31 @@ class KMeans(UniversalBase,
             params.init = self._params_init
             params.max_iter = <int>self.max_iter
             params.tol = <double>self.tol
-            params.verbosity = <raft_level_enum>(<int>self.verbose)
-            params.rng_state.seed = self.random_state
+            # After transferring from one device to another `_seed` might not be set
+            # so we need to pass a dummy value here. Its value does not matter as the
+            # seed is only used during fitting
+            params.rng_state.seed = <int>getattr(self, "_seed", 0)
+            params.verbosity = <level_enum>(<int>self.verbose)
             params.metric = DistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
             params.batch_samples = <int>self.max_samples_per_batch
             params.oversampling_factor = <double>self.oversampling_factor
-            params.n_init = <int>self.n_init
+            n_init = self.n_init
+            if n_init == "warn":
+                if not GlobalSettings().accelerator_active:
+                    warnings.warn(
+                        "The default value of `n_init` will change from"
+                        " 1 to 'auto' in 25.04. Set the value of `n_init`"
+                        " explicitly to suppress this warning.",
+                        FutureWarning,
+                    )
+                n_init = 1
+            if n_init == "auto":
+                if self.init in ("k-means||", "scalable-k-means++"):
+                    params.n_init = 1
+                else:
+                    params.n_init = 10
+            else:
+                params.n_init = <int>n_init
             return <size_t>params
         ELSE:
             return None
@@ -222,7 +259,7 @@ class KMeans(UniversalBase,
     @device_interop_preparation
     def __init__(self, *, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
                  verbose=False, random_state=1,
-                 init='scalable-k-means++', n_init=1, oversampling_factor=2.0,
+                 init='scalable-k-means++', n_init="warn", oversampling_factor=2.0,
                  max_samples_per_batch=1<<15, convert_dtype=True,
                  output_type=None):
         super().__init__(handle=handle,
@@ -284,7 +321,7 @@ class KMeans(UniversalBase,
 
     @generate_docstring()
     @enable_device_interop
-    def fit(self, X, sample_weight=None, convert_dtype=True) -> "KMeans":
+    def fit(self, X, y=None, sample_weight=None, convert_dtype=True) -> "KMeans":
         """
         Compute k-means clustering with X.
 
@@ -307,6 +344,7 @@ class KMeans(UniversalBase,
                                                   else None),
                                 check_dtype=check_dtype)
 
+        self._seed = check_random_seed(self.random_state)
         self.feature_names_in_ = _X_m.index
 
         IF GPUBUILD == 1:
@@ -422,7 +460,7 @@ class KMeans(UniversalBase,
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
     @enable_device_interop
-    def fit_predict(self, X, sample_weight=None) -> CumlArray:
+    def fit_predict(self, X, y=None, sample_weight=None) -> CumlArray:
         """
         Compute cluster centers and predict cluster index for each sample.
 

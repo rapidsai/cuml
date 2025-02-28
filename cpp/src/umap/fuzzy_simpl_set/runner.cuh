@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ using namespace ML;
  * @param stream cuda stream
  * @param algorithm algo type to choose
  */
-template <int TPB_X, typename value_idx, typename T>
+template <typename T, typename value_idx, typename nnz_t, int TPB_X>
 void run(int n,
          const value_idx* knn_indices,
          const T* knn_dists,
@@ -50,7 +50,7 @@ void run(int n,
 {
   switch (algorithm) {
     case 0:
-      Naive::launcher<TPB_X, value_idx, T>(
+      Naive::launcher<T, value_idx, nnz_t, TPB_X>(
         n, knn_indices, knn_dists, n_neighbors, coo, params, stream);
       break;
   }

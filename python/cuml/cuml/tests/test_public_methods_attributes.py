@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,15 @@ import numpy as np
 
 from cuml.internals.global_settings import GlobalSettings
 from sklearn.datasets import make_classification, make_regression
+
+pytestmark = [
+    pytest.mark.filterwarnings(
+        "ignore:Starting from version 22.04, the default method of TSNE is 'fft'."
+    ),
+    pytest.mark.filterwarnings(
+        "ignore:The default value of `n_init` will change from 1 to 'auto' in 25.04"
+    ),
+]
 
 
 estimators = [

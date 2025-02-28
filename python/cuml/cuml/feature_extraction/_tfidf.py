@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -182,7 +182,7 @@ class TfidfTransformer(Base):
         del self.__df
 
     @cuml.internals.api_base_return_any_skipall
-    def fit(self, X) -> "TfidfTransformer":
+    def fit(self, X, y=None) -> "TfidfTransformer":
         """Learn the idf vector (global term weights).
 
         Parameters
@@ -251,7 +251,7 @@ class TfidfTransformer(Base):
         return X
 
     @cuml.internals.api_base_return_any_skipall
-    def fit_transform(self, X, copy=True):
+    def fit_transform(self, X, y=None, copy=True):
         """
         Fit TfidfTransformer to X, then transform X.
         Equivalent to fit(X).transform(X).
