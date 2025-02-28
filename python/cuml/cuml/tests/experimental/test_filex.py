@@ -184,7 +184,9 @@ def test_fil_classification(
             xgb_preds_int = xgb_preds.argmax(axis=1)
         xgb_acc = accuracy_score(y_validation, xgb_preds_int)
 
-        fm = ForestInference.load(model_path, output_class=True)
+        fm = ForestInference.load(
+            model_path, output_class=True, layout="layered"
+        )
     with using_device_type(infer_device):
         fil_preds = np.reshape(
             np.asarray(fm.predict(X_validation, threshold=0.50)),
@@ -369,7 +371,7 @@ def test_fil_skl_classification(
         skl_acc = accuracy_score(y_validation, skl_preds_int)
 
         fm = ForestInference.load_from_sklearn(
-            skl_model, precision=precision, output_class=True
+            skl_model, precision=precision, output_class=True, layout="layered"
         )
     with using_device_type(infer_device):
         fil_preds = np.asarray(fm.predict(X_validation, threshold=0.50))

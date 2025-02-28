@@ -112,7 +112,6 @@ struct treelite_importer {
 
   auto get_num_feature(treelite::Model const& tl_model)
   {
-    std::cout << "get_num_feature: " << tl_model.num_feature << "\n";
     return static_cast<index_type>(tl_model.num_feature);
   }
 
@@ -399,8 +398,7 @@ struct treelite_importer {
                                                   max_num_categories,
                                                   num_leaf_vector_nodes,
                                                   layout);
-    std::cout << "variant_index: " << variant_index << "\n";
-    auto num_class = get_num_class(tl_model);
+    auto num_class     = get_num_class(tl_model);
     return forest_model{import_to_specific_variant<index_type{}>(variant_index,
                                                                  tl_model,
                                                                  num_class,

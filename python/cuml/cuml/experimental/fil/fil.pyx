@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -161,10 +161,14 @@ cdef class ForestInference_impl():
         else:
             dev_type = raft_proto_device_t.cpu
         cdef fil_tree_layout tree_layout
-        if layout.lower() == 'breadth_first':
-            tree_layout = fil_tree_layout.breadth_first
-        else:
+        if layout.lower() == 'depth_first':
             tree_layout = fil_tree_layout.depth_first
+        elif layout.lower() == 'breadth_first':
+            tree_layout = fil_tree_layout.breadth_first
+        elif layout.lower() == 'layered':
+            tree_layout = fil_tree_layout.layered_children_together
+        else:
+            raise RuntimeError(f'Unrecognized tree layout {layout}')
 
         self.model = import_from_treelite_handle(
             <TreeliteModelHandle><uintptr_t>model_handle,

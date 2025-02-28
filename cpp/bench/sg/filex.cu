@@ -68,7 +68,6 @@ class FILEX : public RegressionFixture<float> {
 
     ML::build_treelite_forest(&model, &rf_model, params.ncols);
 
-    std::cout << "1\n";
     auto filex_model = ML::experimental::fil::import_from_treelite_handle(
       model,
       ML::experimental::fil::tree_layout::breadth_first,
@@ -77,7 +76,6 @@ class FILEX : public RegressionFixture<float> {
       raft_proto::device_type::gpu,
       0,
       stream);
-    std::cout << "2\n";
 
     ML::fil::treelite_params_t tl_params = {
       .algo              = ML::fil::algo_t::NAIVE,
@@ -121,10 +119,8 @@ class FILEX : public RegressionFixture<float> {
       for (auto algo_type : allowed_algo_types) {
         tl_params.algo = algo_type;
         for (auto layout : allowed_layouts) {
-          std::cout << "3\n";
           filex_model = ML::experimental::fil::import_from_treelite_handle(
             model, layout, 128, false, raft_proto::device_type::gpu, 0, stream);
-          std::cout << "4\n";
           for (auto chunk_size = 1; chunk_size <= 32; chunk_size *= 2) {
             if (!p_rest.use_experimental) {
               tl_params.threads_per_tree = chunk_size;
@@ -197,11 +193,9 @@ class FILEX : public RegressionFixture<float> {
     tl_params.algo             = optimal_algo_type;
     tl_params.threads_per_tree = optimal_chunk_size;
     ML::fil::from_treelite(*handle, &forest_variant, model, &tl_params);
-    forest = std::get<ML::fil::forest_t<float>>(forest_variant);
-    std::cout << "5\n";
+    forest      = std::get<ML::fil::forest_t<float>>(forest_variant);
     filex_model = ML::experimental::fil::import_from_treelite_handle(
       model, optimal_layout, 128, false, raft_proto::device_type::gpu, 0, stream);
-    std::cout << "6\n";
 
     handle->sync_stream();
     handle->sync_stream_pool();
@@ -293,8 +287,18 @@ std::vector<Params> getInputs()
   using ML::fil::algo_t;
   using ML::fil::storage_type_t;
   std::vector<FilBenchParams> var_params = {
+    {(int)1e6, 20, 1, 10, 1000, storage_type_t::DENSE, false},
+    {(int)1e6, 20, 1, 10, 1000, storage_type_t::DENSE, true},
     {(int)1e6, 20, 1, 3, 1000, storage_type_t::DENSE, false},
-    {(int)1e6, 20, 1, 3, 1000, storage_type_t::DENSE, true}};
+    {(int)1e6, 20, 1, 3, 1000, storage_type_t::DENSE, true},
+    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, false},
+    {(int)1e6, 20, 1, 28, 1000, storage_type_t::SPARSE, true},
+    {(int)1e6, 20, 1, 10, 100, storage_type_t::DENSE, false},
+    {(int)1e6, 20, 1, 10, 100, storage_type_t::DENSE, true},
+    {(int)1e6, 20, 1, 10, 10000, storage_type_t::DENSE, false},
+    {(int)1e6, 20, 1, 10, 10000, storage_type_t::DENSE, true},
+    {(int)1e6, 200, 1, 10, 1000, storage_type_t::DENSE, false},
+    {(int)1e6, 200, 1, 10, 1000, storage_type_t::DENSE, true}};
   for (auto& i : var_params) {
     p.data.nrows               = i.nrows;
     p.data.ncols               = i.ncols;
