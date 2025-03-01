@@ -26,12 +26,6 @@ import sys
 @click.command()
 @click.option("-m", "module", required=False, help="Module to run")
 @click.option(
-    "--strict",
-    is_flag=True,
-    default=False,
-    help="Turn strict mode for hyperparameters on.",
-)
-@click.option(
     "--convert-to-sklearn",
     type=click.Path(exists=True),
     required=False,
