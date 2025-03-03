@@ -13,9 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 # distutils: language = c++
 
+
+import sys
+import threading
+
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import,
@@ -27,7 +32,9 @@ nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 rmm = gpu_only_import('rmm')
 
 from cuml.internals.array import CumlArray
+from cuml.internals.global_settings import GlobalSettings
 import cuml.internals
+from cuml.internals import logger
 
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.logger cimport level_enum
@@ -251,6 +258,27 @@ class RandomForestRegressor(BaseRandomForestModel,
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html>`_.
     """
 
+    _cpu_estimator_import_path = 'sklearn.ensemble.RandomForestRegressor'
+
+    _default_split_criterion = "gini"
+
+    _hyperparam_interop_translator = {
+        "criterion": {
+            "friedman_mse": "NotImplemented",
+            "absolute_error": "NotImplemented"
+        },
+        "oob_score": {
+            True: "NotImplemented",
+        },
+        "max_depth": {
+            None: 16,
+        },
+        "max_samples": {
+            None: 1.0,
+        },
+    }
+
+    @device_interop_preparation
     def __init__(self, *,
                  split_criterion=2,
                  accuracy_metric='r2',
@@ -297,6 +325,9 @@ class RandomForestRegressor(BaseRandomForestModel,
         state["treelite_handle"] = None
         state["split_criterion"] = self.split_criterion
 
+        if "_cpu_model_class_lock" in state:
+            del state["_cpu_model_class_lock"]
+
         return state
 
     def __setstate__(self, state):
@@ -318,6 +349,7 @@ class RandomForestRegressor(BaseRandomForestModel,
 
         self.treelite_serialized_model = state["treelite_serialized_model"]
         self.__dict__.update(state)
+        self._cpu_model_class_lock = threading.RLock()
 
     def __del__(self):
         self._reset_forest_data()
@@ -341,6 +373,9 @@ class RandomForestRegressor(BaseRandomForestModel,
         self.treelite_handle = None
         self.treelite_serialized_model = None
         self.n_cols = None
+
+    def get_attr_names(self):
+        return []
 
     def convert_to_treelite_model(self):
         """
@@ -413,6 +448,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         domain="cuml_python")
     @generate_docstring()
     @cuml.internals.api_base_return_any_skipall
+    @enable_device_interop
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Regression on the input data
@@ -535,6 +571,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
+    @enable_device_interop
     def predict(self, X, predict_model="GPU",
                 algo='auto', convert_dtype=True,
                 fil_sparse_format='auto') -> CumlArray:
@@ -666,7 +703,7 @@ class RandomForestRegressor(BaseRandomForestModel,
 
         # shortcut for default accuracy metric of r^2
         if self.accuracy_metric == "r2":
-            stats = r2_score(y_m, preds, handle=self.handle)
+            stats = r2_score(y_m, preds)
             self.handle.sync()
             del y_m
             del preds_m
@@ -752,3 +789,44 @@ class RandomForestRegressor(BaseRandomForestModel,
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
+
+    def cpu_to_gpu(self):
+        # treelite does an internal isinstance check to detect an sklearn
+        # RF, which proxymodule interferes with. We work around that
+        # temporarily here just for treelite internal check and
+        # restore the __class__ at the end of the method.
+        if GlobalSettings().accelerator_active:
+            with self._cpu_model_class_lock:
+                original_class = self._cpu_model.__class__
+                self._cpu_model.__class__ = sys.modules['sklearn.ensemble'].RandomForestRegressor
+
+                try:
+                    super().cpu_to_gpu()
+                finally:
+                    self._cpu_model.__class__ = original_class
+
+        else:
+            super().cpu_to_gpu()
+
+    @classmethod
+    def _hyperparam_translator(cls, **kwargs):
+        kwargs, gpuaccel = super(RandomForestRegressor, cls)._hyperparam_translator(**kwargs)
+
+        if "criterion" in kwargs:
+            kwargs["split_criterion"] = cls._criterion_to_split_criterion(
+                kwargs.pop("criterion")
+            )
+
+        if "max_samples" in kwargs:
+            if isinstance(kwargs["max_samples"], int):
+                logger.warn(
+                    f"Integer value of max_samples={kwargs['max_samples']}"
+                    "not supported, changed to 1.0."
+                )
+                kwargs["max_samples"] = 1.0
+
+        # determinism requires only 1 cuda stream
+        if "random_state" in kwargs:
+            kwargs["n_streams"] = 1
+
+        return kwargs, gpuaccel

@@ -29,6 +29,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import determine_array_type_full
 from cuml.internals.mixins import RegressorMixin
+from cuml.internals.api_decorators import device_interop_preparation, enable_device_interop
 from cuml.common.doc_utils import generate_docstring
 from pylibraft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
@@ -228,6 +229,10 @@ class SVR(SVMBase, RegressorMixin):
         Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
 
     """
+
+    _cpu_estimator_import_path = 'sklearn.svm.SVR'
+
+    @device_interop_preparation
     def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, epsilon=0.1,
                  cache_size=1024.0, max_iter=-1, nochange_steps=1000,
@@ -251,6 +256,7 @@ class SVR(SVMBase, RegressorMixin):
         self.svmType = EPSILON_SVR
 
     @generate_docstring()
+    @enable_device_interop
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVR":
         """
         Fit the model with X and y.
@@ -259,14 +265,15 @@ class SVR(SVMBase, RegressorMixin):
         # we need to check whether out input X is sparse
         # In that case we don't want to make a dense copy
         _array_type, is_sparse = determine_array_type_full(X)
+        self._sparse = is_sparse
 
         if is_sparse:
             X_m = SparseCumlArray(X)
             self.n_rows = X_m.shape[0]
-            self.n_cols = X_m.shape[1]
+            self.n_features_in_ = X_m.shape[1]
             self.dtype = X_m.dtype
         else:
-            X_m, self.n_rows, self.n_cols, self.dtype = \
+            X_m, self.n_rows, self.n_features_in_, self.dtype = \
                 input_to_cuml_array(X, order='F')
 
         convert_to_dtype = self.dtype if convert_dtype else None
@@ -295,7 +302,7 @@ class SVR(SVMBase, RegressorMixin):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef int n_rows = self.n_rows
-        cdef int n_cols = self.n_cols
+        cdef int n_cols = self.n_features_in_
         cdef int n_nnz = X_m.nnz if is_sparse else -1
         cdef uintptr_t X_indptr = X_m.indptr.ptr if is_sparse else X_m.ptr
         cdef uintptr_t X_indices = X_m.indices.ptr if is_sparse else X_m.ptr
@@ -329,7 +336,7 @@ class SVR(SVMBase, RegressorMixin):
             raise TypeError('Input data type should be float32 or float64')
 
         self._unpack_model()
-        self._fit_status_ = 0
+        self.fit_status_ = 0
         self.handle.sync()
 
         del X_m
@@ -341,6 +348,7 @@ class SVR(SVMBase, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
+    @enable_device_interop
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the values for X.
@@ -348,3 +356,11 @@ class SVR(SVMBase, RegressorMixin):
         """
 
         return super(SVR, self).predict(X, False, convert_dtype)
+
+    def get_attr_names(self):
+        return super().get_attr_names() + ["_sparse"]
+
+    def cpu_to_gpu(self):
+        self.dtype = np.float64
+
+        super().cpu_to_gpu()

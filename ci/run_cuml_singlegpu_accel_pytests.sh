@@ -4,4 +4,4 @@
 # Support invoking run_cuml_singlegpu_pytests.sh outside the script directory
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../python/cuml/cuml/tests/experimental/accel || exit 1
 
-python -m pytest -p cuml.experimental.accel --cache-clear "$@" .
+python -m pytest -p cuml.accel --cache-clear "$@" .

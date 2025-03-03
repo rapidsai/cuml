@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@
 #include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <stdint.h>
 
 #include <cstddef>
 
@@ -96,16 +98,15 @@ DI T truncate_gradient(T const rounding_factor, T const x)
   return (rounding_factor + x) - rounding_factor;
 }
 
-template <typename T, int TPB_X, int n_components>
+template <typename T, typename nnz_t, int TPB_X, nnz_t n_components>
 CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            T* head_buffer,
-                                           int head_n,
                                            T const* tail_embedding,
                                            T* tail_buffer,
-                                           const MLCommon::FastIntDiv tail_n,
+                                           MLCommon::FastIntDiv tail_n,
                                            const int* head,
                                            const int* tail,
-                                           int nnz,
+                                           nnz_t nnz,
                                            T const* epochs_per_sample,
                                            T* epoch_of_next_negative_sample,
                                            T* epoch_of_next_sample,
@@ -118,7 +119,7 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            T nsr_inv,
                                            T rounding)
 {
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  nnz_t row = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
   if (row >= nnz) return;
   auto _epoch_of_next_sample = epoch_of_next_sample[row];
   if (_epoch_of_next_sample > epoch) return;
@@ -127,8 +128,8 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
   /**
    * Positive sample stage (attractive forces)
    */
-  int j            = head[row];
-  int k            = tail[row];
+  nnz_t j          = head[row];
+  nnz_t k          = tail[row];
   T const* current = head_embedding + (j * n_components);
   T const* other   = tail_embedding + (k * n_components);
 
@@ -170,11 +171,11 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
   /**
    * Negative sampling stage
    */
-  raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)row, 0);
+  raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (nnz_t)row, 0);
   for (int p = 0; p < n_neg_samples; p++) {
     int r;
     gen.next(r);
-    int t                    = r % tail_n;
+    nnz_t t                  = r % tail_n;
     T const* negative_sample = tail_embedding + (t * n_components);
     T negative_sample_reg[n_components];
     for (int i = 0; i < n_components; ++i) {
@@ -210,16 +211,15 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
     _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
 }
 
-template <typename T, int TPB_X, bool use_shared_mem>
+template <typename T, typename nnz_t, int TPB_X, bool use_shared_mem>
 CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        T* head_buffer,
-                                       int head_n,
                                        T const* tail_embedding,
                                        T* tail_buffer,
-                                       const MLCommon::FastIntDiv tail_n,
+                                       MLCommon::FastIntDiv tail_n,
                                        const int* head,
                                        const int* tail,
-                                       int nnz,
+                                       nnz_t nnz,
                                        T const* epochs_per_sample,
                                        T* epoch_of_next_negative_sample,
                                        T* epoch_of_next_sample,
@@ -233,7 +233,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        T rounding)
 {
   extern __shared__ T embedding_shared_mem_updates[];
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
+  nnz_t row = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
   if (row >= nnz) return;
   auto _epoch_of_next_sample = epoch_of_next_sample[row];
   if (_epoch_of_next_sample > epoch) return;
@@ -242,17 +242,19 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
   /**
    * Positive sample stage (attractive forces)
    */
-  int j            = head[row];
-  int k            = tail[row];
-  T const* current = head_embedding + (j * params.n_components);
-  T const* other   = tail_embedding + (k * params.n_components);
+  nnz_t n_components = params.n_components;
 
-  T* cur_write = head_buffer + (j * params.n_components);
-  T* oth_write = tail_buffer + (k * params.n_components);
+  nnz_t j          = head[row];
+  nnz_t k          = tail[row];
+  T const* current = head_embedding + (j * n_components);
+  T const* other   = tail_embedding + (k * n_components);
+
+  T* cur_write = head_buffer + (j * n_components);
+  T* oth_write = tail_buffer + (k * n_components);
 
   T* current_buffer{nullptr};
   if (use_shared_mem) { current_buffer = (T*)embedding_shared_mem_updates + threadIdx.x; }
-  auto dist_squared = rdist<T>(current, other, params.n_components);
+  auto dist_squared = rdist<T>(current, other, n_components);
   // Attractive force between the two vertices, since they
   // are connected by an edge in the 1-skeleton.
   auto attractive_grad_coeff = T(0.0);
@@ -264,7 +266,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
    * (update `other` embedding only if we are
    * performing unsupervised training).
    */
-  for (int d = 0; d < params.n_components; d++) {
+  for (int d = 0; d < n_components; d++) {
     auto grad_d = clip<T>(attractive_grad_coeff * (current[d] - other[d]), T(-4.0), T(4.0));
     grad_d *= alpha;
     if (use_shared_mem) {
@@ -279,7 +281,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
   // storing gradients for negative samples back to global memory
   if (use_shared_mem && move_other) {
     __syncthreads();
-    for (int d = 0; d < params.n_components; d++) {
+    for (int d = 0; d < n_components; d++) {
       auto grad = current_buffer[d * TPB_X];
       raft::myAtomicAdd<T>((T*)oth_write + d, truncate_gradient(rounding, -grad));
     }
@@ -291,13 +293,13 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
   /**
    * Negative sampling stage
    */
-  raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)row, 0);
+  raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (nnz_t)row, 0);
   for (int p = 0; p < n_neg_samples; p++) {
     int r;
     gen.next(r);
-    int t                    = r % tail_n;
-    T const* negative_sample = tail_embedding + (t * params.n_components);
-    dist_squared             = rdist<T>(current, negative_sample, params.n_components);
+    nnz_t t                  = r % tail_n;
+    T const* negative_sample = tail_embedding + (t * n_components);
+    dist_squared             = rdist<T>(current, negative_sample, n_components);
     // repulsive force between two vertices
     auto repulsive_grad_coeff = T(0.0);
     if (dist_squared > T(0.0)) {
@@ -309,7 +311,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
      * (which has been negatively sampled) by updating
      * their 'weights' to push them farther in Euclidean space.
      */
-    for (int d = 0; d < params.n_components; d++) {
+    for (int d = 0; d < n_components; d++) {
       auto grad_d = T(0.0);
       if (repulsive_grad_coeff > T(0.0))
         grad_d = clip<T>(repulsive_grad_coeff * (current[d] - negative_sample[d]), T(-4.0), T(4.0));
@@ -327,7 +329,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
   // storing gradients for positive samples back to global memory
   if (use_shared_mem) {
     __syncthreads();
-    for (int d = 0; d < params.n_components; d++) {
+    for (int d = 0; d < n_components; d++) {
       raft::myAtomicAdd<T>((T*)cur_write + d,
                            truncate_gradient(rounding, current_buffer[d * TPB_X]));
     }
@@ -348,16 +350,15 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
  * @param rounding:    Floating rounding factor used to truncate the gradient update for
  *                     deterministic result.
  */
-template <typename T, int TPB_X>
+template <typename T, typename nnz_t, int TPB_X>
 void call_optimize_batch_kernel(T const* head_embedding,
                                 T* head_buffer,
-                                int head_n,
                                 T const* tail_embedding,
                                 T* tail_buffer,
-                                const MLCommon::FastIntDiv& tail_n,
+                                int tail_n,
                                 const int* head,
                                 const int* tail,
-                                int nnz,
+                                nnz_t nnz,
                                 T const* epochs_per_sample,
                                 T* epoch_of_next_negative_sample,
                                 T* epoch_of_next_sample,
@@ -378,32 +379,31 @@ void call_optimize_batch_kernel(T const* head_embedding,
   T nsr_inv           = T(1.0) / params->negative_sample_rate;
   if (params->n_components == 2) {
     // multicore implementation with registers
-    optimize_batch_kernel_reg<T, TPB_X, 2><<<grid, blk, 0, stream>>>(head_embedding,
-                                                                     head_buffer,
-                                                                     head_n,
-                                                                     tail_embedding,
-                                                                     tail_buffer,
-                                                                     tail_n,
-                                                                     head,
-                                                                     tail,
-                                                                     nnz,
-                                                                     epochs_per_sample,
-                                                                     epoch_of_next_negative_sample,
-                                                                     epoch_of_next_sample,
-                                                                     alpha,
-                                                                     n,
-                                                                     gamma,
-                                                                     seed,
-                                                                     move_other,
-                                                                     *params,
-                                                                     nsr_inv,
-                                                                     rounding);
+    optimize_batch_kernel_reg<T, nnz_t, TPB_X, 2>
+      <<<grid, blk, 0, stream>>>(head_embedding,
+                                 head_buffer,
+                                 tail_embedding,
+                                 tail_buffer,
+                                 tail_n,
+                                 head,
+                                 tail,
+                                 nnz,
+                                 epochs_per_sample,
+                                 epoch_of_next_negative_sample,
+                                 epoch_of_next_sample,
+                                 alpha,
+                                 n,
+                                 gamma,
+                                 seed,
+                                 move_other,
+                                 *params,
+                                 nsr_inv,
+                                 rounding);
   } else if (use_shared_mem) {
     // multicore implementation with shared memory
-    optimize_batch_kernel<T, TPB_X, true>
+    optimize_batch_kernel<T, nnz_t, TPB_X, true>
       <<<grid, blk, requiredSize, stream>>>(head_embedding,
                                             head_buffer,
-                                            head_n,
                                             tail_embedding,
                                             tail_buffer,
                                             tail_n,
@@ -423,26 +423,26 @@ void call_optimize_batch_kernel(T const* head_embedding,
                                             rounding);
   } else {
     // multicore implementation without shared memory
-    optimize_batch_kernel<T, TPB_X, false><<<grid, blk, 0, stream>>>(head_embedding,
-                                                                     head_buffer,
-                                                                     head_n,
-                                                                     tail_embedding,
-                                                                     tail_buffer,
-                                                                     tail_n,
-                                                                     head,
-                                                                     tail,
-                                                                     nnz,
-                                                                     epochs_per_sample,
-                                                                     epoch_of_next_negative_sample,
-                                                                     epoch_of_next_sample,
-                                                                     alpha,
-                                                                     n,
-                                                                     gamma,
-                                                                     seed,
-                                                                     move_other,
-                                                                     *params,
-                                                                     nsr_inv,
-                                                                     rounding);
+    optimize_batch_kernel<T, nnz_t, TPB_X, false>
+      <<<grid, blk, 0, stream>>>(head_embedding,
+                                 head_buffer,
+                                 tail_embedding,
+                                 tail_buffer,
+                                 tail_n,
+                                 head,
+                                 tail,
+                                 nnz,
+                                 epochs_per_sample,
+                                 epoch_of_next_negative_sample,
+                                 epoch_of_next_sample,
+                                 alpha,
+                                 n,
+                                 gamma,
+                                 seed,
+                                 move_other,
+                                 *params,
+                                 nsr_inv,
+                                 rounding);
   }
 }
 }  // namespace Algo

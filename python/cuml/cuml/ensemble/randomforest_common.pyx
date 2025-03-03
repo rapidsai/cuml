@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import threading
+import treelite.sklearn
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.global_settings import GlobalSettings
+
 cp = gpu_only_import('cupy')
 import math
 import warnings
@@ -24,7 +29,7 @@ np = cpu_only_import('numpy')
 from cuml import ForestInference
 from cuml.fil.fil import TreeliteModel
 from pylibraft.common.handle import Handle
-from cuml.internals.base import Base
+from cuml.internals.base import UniversalBase
 from cuml.internals.array import CumlArray
 from cuml.common.exceptions import NotFittedError
 import cuml.internals
@@ -39,7 +44,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.prims.label.classlabels import make_monotonic, check_labels
 
 
-class BaseRandomForestModel(Base):
+class BaseRandomForestModel(UniversalBase):
     _param_names = ['n_estimators', 'max_depth', 'handle',
                     'max_features', 'n_bins',
                     'split_criterion', 'min_samples_leaf',
@@ -67,6 +72,32 @@ class BaseRandomForestModel(Base):
 
     classes_ = CumlArrayDescriptor()
 
+    @classmethod
+    def _criterion_to_split_criterion(cls, criterion):
+        """Translate sklearn-style criterion string to cuML equivalent"""
+        if criterion is None:
+            split_criterion = cls._default_split_criterion
+        else:
+            if criterion == "squared_error":
+                split_criterion = "mse"
+            elif criterion == "absolute_error":
+                split_criterion = "mae"
+            elif criterion == "poisson":
+                split_criterion = "poisson"
+            elif criterion == "gini":
+                split_criterion = "gini"
+            elif criterion == "entropy":
+                split_criterion = "entropy"
+            else:
+                raise NotImplementedError(
+                    f'Split criterion {criterion} is not yet supported in'
+                    ' cuML. See'
+                    ' https://docs.rapids.ai/api/cuml/nightly/api.html#random-forest'
+                    ' for full information on supported criteria.'
+                )
+        return criterion
+
+    @device_interop_preparation
     def __init__(self, *, split_criterion, n_streams=4, n_estimators=100,
                  max_depth=16, handle=None, max_features='sqrt', n_bins=128,
                  bootstrap=True,
@@ -88,7 +119,7 @@ class BaseRandomForestModel(Base):
                           "class_weight": class_weight}
 
         for key, vals in sklearn_params.items():
-            if vals:
+            if vals and not GlobalSettings().accelerator_active:
                 raise TypeError(
                     " The Scikit-learn variable ", key,
                     " is not supported in cuML,"
@@ -97,7 +128,7 @@ class BaseRandomForestModel(Base):
                     "api.html#random-forest) for more information")
 
         for key in kwargs.keys():
-            if key not in self._param_names:
+            if key not in self._param_names and not GlobalSettings().accelerator_active:
                 raise TypeError(
                     " The variable ", key,
                     " is not supported in cuML,"
@@ -132,6 +163,11 @@ class BaseRandomForestModel(Base):
         else:
             self.split_criterion = \
                 BaseRandomForestModel.criterion_dict[str(split_criterion)]
+        if self.split_criterion == MAE:
+            raise NotImplementedError(
+                "cuML does not currently support mean average error as a"
+                " RandomForest split criterion"
+            )
 
         self.min_samples_leaf = min_samples_leaf
         self.min_samples_split = min_samples_split
@@ -154,6 +190,7 @@ class BaseRandomForestModel(Base):
         self.model_pbuf_bytes = bytearray()
         self.treelite_handle = None
         self.treelite_serialized_model = None
+        self._cpu_model_class_lock = threading.RLock()
 
     def _get_max_feat_val(self) -> float:
         if isinstance(self.max_features, int):
@@ -267,6 +304,24 @@ class BaseRandomForestModel(Base):
 
         self.treelite_handle = <uintptr_t> tl_handle
         return self.treelite_handle
+
+    def cpu_to_gpu(self):
+        tl_model = treelite.sklearn.import_model(self._cpu_model)
+        self._temp = TreeliteModel.from_treelite_bytes(tl_model.serialize_bytes())
+        self.treelite_serialized_model = treelite_serialize(self._temp.handle)
+        self._obtain_treelite_handle()
+        self.dtype = np.float64
+        self.update_labels = False
+        super().cpu_to_gpu()
+
+    def gpu_to_cpu(self):
+        self._obtain_treelite_handle()
+        tl_model = TreeliteModel.from_treelite_model_handle(
+            self.treelite_handle,
+            take_handle_ownership=False)
+        tl_bytes = tl_model.to_treelite_bytes()
+        tl_model2 = treelite.Model.deserialize_bytes(tl_bytes)
+        self._cpu_model = treelite.sklearn.export_model(tl_model2)
 
     @cuml.internals.api_base_return_generic(set_output_type=True,
                                             set_n_features_in=True,

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -17,7 +17,8 @@ rapids-logger "Begin cpp build"
 
 sccache --zero-stats
 
-RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry mambabuild conda/recipes/libcuml
+RAPIDS_PACKAGE_VERSION=$(rapids-generate-version) rapids-conda-retry build \
+  conda/recipes/libcuml
 
 sccache --show-adv-stats
 

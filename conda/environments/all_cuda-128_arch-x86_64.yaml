@@ -9,7 +9,7 @@ channels:
 dependencies:
 - c-compiler
 - certifi
-- cmake>=3.26.4,!=3.30.0
+- cmake>=3.30.4
 - cuda-cudart-dev
 - cuda-nvcc
 - cuda-profiler-api
@@ -24,7 +24,6 @@ dependencies:
 - dask-cudf==25.4.*,>=0.0.0a0
 - dask-ml
 - doxygen=1.9.1
-- fmt>=11.0.2,<12
 - gcc_linux-64=13.*
 - graphviz
 - hdbscan>=0.8.39,<0.8.40
@@ -60,16 +59,16 @@ dependencies:
 - raft-dask==25.4.*,>=0.0.0a0
 - rapids-build-backend>=0.3.0,<0.4.0.dev0
 - rapids-dask-dependency==25.4.*,>=0.0.0a0
+- rapids-logger==0.1.*,>=0.0.0a0
 - recommonmark
 - rmm==25.4.*,>=0.0.0a0
 - scikit-build-core>=0.10.0
 - scikit-learn==1.5.*
 - scipy>=1.8.0
 - seaborn
-- spdlog>=1.14.1,<1.15
-- sphinx
 - sphinx-copybutton
 - sphinx-markdown-tables
+- sphinx<8.2.0
 - statsmodels
 - sysroot_linux-64==2.28
 - treelite==4.4.1

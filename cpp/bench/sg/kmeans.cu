@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include <raft/random/rng_state.hpp>
 
 #include <cuvs/distance/distance.hpp>
+#include <rapids_logger/logger.hpp>
 
 #include <utility>
 
@@ -92,7 +93,7 @@ std::vector<Params> getInputs()
   p.kmeans.init                            = ML::kmeans::KMeansParams::InitMethod(0);
   p.kmeans.max_iter                        = 300;
   p.kmeans.tol                             = 1e-4;
-  p.kmeans.verbosity                       = raft::level_enum::info;
+  p.kmeans.verbosity                       = rapids_logger::level_enum::info;
   p.kmeans.metric                          = cuvs::distance::DistanceType::L2Expanded;
   p.kmeans.rng_state                       = raft::random::RngState(p.blobs.seed);
   p.kmeans.inertia_check                   = true;

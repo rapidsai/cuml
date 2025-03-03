@@ -16,11 +16,9 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import, safe_import_from
+from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
-nearest_neighbors = safe_import_from('umap.umap_', 'nearest_neighbors')
-DISCONNECTION_DISTANCES = safe_import_from('umap.umap_', 'DISCONNECTION_DISTANCES')
 
 import joblib
 import warnings
@@ -52,6 +50,7 @@ from cuml.internals.utils import check_random_seed
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.global_settings import GlobalSettings
 
 rmm = gpu_only_import('rmm')
 
@@ -335,6 +334,29 @@ class UMAP(UniversalBase,
     _cpu_estimator_import_path = 'umap.UMAP'
     embedding_ = CumlArrayDescriptor(order='C')
 
+    _hyperparam_interop_translator = {
+        "metric": {
+            "sokalsneath": "NotImplemented",
+            "rogerstanimoto": "NotImplemented",
+            "sokalmichener": "NotImplemented",
+            "yule": "NotImplemented",
+            "ll_dirichlet": "NotImplemented",
+            "russellrao": "NotImplemented",
+            "kulsinski": "NotImplemented",
+            "dice": "NotImplemented",
+            "wminkowski": "NotImplemented",
+            "mahalanobis": "NotImplemented",
+            "haversine": "NotImplemented",
+        },
+        "init": {
+            "pca": "NotImplemented",
+            "tswspectral": "NotImplemented"
+        },
+        "target_metric": {
+            "l2": "euclidean"
+        }
+    }
+
     @device_interop_preparation
     def __init__(self, *,
                  n_neighbors=15,
@@ -381,7 +403,9 @@ class UMAP(UniversalBase,
         if init == "spectral" or init == "random":
             self.init = init
         else:
-            raise Exception("Initialization strategy not supported: %d" % init)
+            gs = GlobalSettings()
+            if not (gs.accelerator_active or self._experimental_dispatching):
+                raise Exception(f"Initialization strategy not supported: {init}")
 
         if a is None or b is None:
             a, b = type(self).find_ab_params(spread, min_dist)
@@ -407,7 +431,9 @@ class UMAP(UniversalBase,
         if target_metric == "euclidean" or target_metric == "categorical":
             self.target_metric = target_metric
         else:
-            raise Exception("Invalid target metric: {}" % target_metric)
+            gs = GlobalSettings()
+            if not (gs.accelerator_active or self._experimental_dispatching):
+                raise Exception(f"Invalid target metric: {target_metric}")
 
         self.callback = callback  # prevent callback destruction
         self.embedding_ = None
@@ -889,6 +915,7 @@ class UMAP(UniversalBase,
 
     @property
     def _disconnection_distance(self):
+        from umap.umap_ import DISCONNECTION_DISTANCES
         self.disconnection_distance = DISCONNECTION_DISTANCES.get(self.metric, np.inf)
         return self.disconnection_distance
 
@@ -897,6 +924,7 @@ class UMAP(UniversalBase,
         self.disconnection_distance = value
 
     def gpu_to_cpu(self):
+        from umap.umap_ import nearest_neighbors
         if hasattr(self, 'knn_dists') and hasattr(self, 'knn_indices'):
             self._knn_dists = self.knn_dists
             self._knn_indices = self.knn_indices

@@ -65,7 +65,7 @@ repos:
             pass_filenames: false
             language: python
     - repo: https://github.com/rapidsai/pre-commit-hooks
-      rev: v0.4.0
+      rev: v0.5.0
       hooks:
         - id: verify-copyright
           files: |
@@ -80,6 +80,8 @@ repos:
                 cpp/src/tsne/cannylab/bh[.]cu$|
                 python/cuml/cuml/_thirdparty
         - id: verify-alpha-spec
+        - id: verify-codeowners
+          args: [--fix, --project-prefix=cuml]
     - repo: https://github.com/rapidsai/dependency-file-generator
       rev: v1.17.0
       hooks:

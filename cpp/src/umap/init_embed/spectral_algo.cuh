@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,8 @@
 #include <thrust/execution_policy.h>
 #include <thrust/extrema.h>
 
+#include <stdint.h>
+
 #include <iostream>
 
 namespace UMAPAlgo {
@@ -42,9 +44,9 @@ using namespace ML;
 /**
  * Performs a spectral layout initialization
  */
-template <typename T>
+template <typename T, typename nnz_t>
 void launcher(const raft::handle_t& handle,
-              int n,
+              nnz_t n,
               int d,
               raft::sparse::COO<float>* coo,
               UMAPParams* params,
@@ -52,7 +54,8 @@ void launcher(const raft::handle_t& handle,
 {
   cudaStream_t stream = handle.get_stream();
 
-  ASSERT(n > params->n_components, "Spectral layout requires n_samples > n_components");
+  ASSERT(n > static_cast<nnz_t>(params->n_components),
+         "Spectral layout requires n_samples > n_components");
 
   rmm::device_uvector<T> tmp_storage(n * params->n_components, stream);
 

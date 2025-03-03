@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,22 +19,12 @@ from libcpp cimport bool
 
 from cuml.common.rng_state cimport RngState
 from cuml.metrics.distance_type cimport DistanceType
+from cuml.internals.logger cimport level_enum
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace \
         "cuvs::cluster::kmeans::params":
     enum InitMethod:
         KMeansPlusPlus, Random, Array
-
-cdef extern from "raft/core/logger.hpp" namespace "raft":
-    cdef enum class level_enum:
-        trace
-        debug
-        info
-        warn
-        error
-        critical
-        off
-        n_levels
 
 cdef extern from "cuvs/cluster/kmeans.hpp" namespace \
         "cuvs::cluster::kmeans":
