@@ -301,7 +301,8 @@ cdef class ForestInference_impl():
                 chunk_specification
             )
 
-        self.raft_proto_handle.synchronize()
+        if GlobalSettings().device_type == DeviceType.device:
+            self.raft_proto_handle.synchronize()
 
         return preds
 
