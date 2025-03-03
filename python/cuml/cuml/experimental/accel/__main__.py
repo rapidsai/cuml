@@ -56,9 +56,22 @@ import sys
     count=True,
     help="Increase output verbosity (can be used multiple times, e.g. -vv). Default shows warnings only.",
 )
+@click.option(
+    "--cudf-pandas",
+    is_flag=True,
+    default=False,
+    help="Turn on cudf.pandas alongside cuml.accel.",
+)
 @click.argument("args", nargs=-1)
 def main(
-    module, convert_to_sklearn, format, output, disable_uvm, verbose, args
+    module,
+    convert_to_sklearn,
+    format,
+    output,
+    disable_uvm,
+    verbose,
+    cudf_pandas,
+    args,
 ):
     if cudf_pandas:
         import cudf.pandas
