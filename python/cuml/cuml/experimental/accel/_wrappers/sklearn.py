@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,12 +56,6 @@ TruncatedSVD = intercept(
 ###############################################################################
 #                              Linear Estimators                              #
 ###############################################################################
-
-KernelRidge = intercept(
-    original_module="sklearn.kernel_ridge",
-    accelerated_module="cuml.kernel_ridge",
-    original_class_name="KernelRidge",
-)
 
 LinearRegression = intercept(
     original_module="sklearn.linear_model",
@@ -126,4 +120,21 @@ KNeighborsRegressor = intercept(
     original_module="sklearn.neighbors",
     accelerated_module="cuml.neighbors",
     original_class_name="KNeighborsRegressor",
+)
+
+###############################################################################
+#                              Ensemble  Estimators                           #
+###############################################################################
+
+
+RandomForestRegressor = intercept(
+    original_module="sklearn.ensemble",
+    accelerated_module="cuml.ensemble",
+    original_class_name="RandomForestRegressor",
+)
+
+RandomForestClassifier = intercept(
+    original_module="sklearn.ensemble",
+    accelerated_module="cuml.ensemble",
+    original_class_name="RandomForestClassifier",
 )

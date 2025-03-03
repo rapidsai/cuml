@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -299,7 +299,10 @@ def test_cluster_pickle(tmpdir, datatype, keys, data_size):
     def create_mod():
         nrows, ncols, n_info = data_size
         X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
-        model = cluster_models[keys]()
+        if keys == "KMeans":
+            model = cluster_models[keys](n_init="auto")
+        else:
+            model = cluster_models[keys]()
         model.fit(X_train)
         result["cluster"] = model.predict(X_test)
         return model, X_test

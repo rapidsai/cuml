@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -157,6 +157,12 @@ class ElasticNet(UniversalBase,
         "warm_start": {
             True: "NotImplemented",
         },
+        "tol": {
+            # tolerance controls tolerance of different solvers
+            # between sklearn and cuML, so at least the default
+            # value needs to be translated.
+            0.0001: 0.001
+        }
     }
 
     @device_interop_preparation

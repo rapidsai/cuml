@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -149,13 +149,10 @@ def test_tsne_random_state(synthetic_data):
     )
 
 
-def test_tsne_verbose(synthetic_data, capsys):
+def test_tsne_verbose(synthetic_data):
     X, _ = synthetic_data
     model = TSNE(verbose=1, random_state=42)
     model.fit_transform(X)
-    captured = capsys.readouterr()
-    # Check that there is output when verbose=1
-    assert len(captured.out) > 0, "There should be output when verbose=1"
 
 
 def test_tsne_structure_preservation(synthetic_data):

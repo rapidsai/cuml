@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -100,9 +100,7 @@ def test_mbsgd_regressor_vs_skl(lrate, penalty, make_dataset):
 
         cu_mbsgd_regressor.fit(X_train, y_train)
         cu_pred = cu_mbsgd_regressor.predict(X_test)
-        cu_r2 = r2_score(
-            cp.asnumpy(cu_pred), cp.asnumpy(y_test), convert_dtype=datatype
-        )
+        cu_r2 = r2_score(cu_pred, y_test)
 
         skl_sgd_regressor = SGDRegressor(
             learning_rate=lrate,
@@ -116,7 +114,7 @@ def test_mbsgd_regressor_vs_skl(lrate, penalty, make_dataset):
 
         skl_sgd_regressor.fit(cp.asnumpy(X_train), cp.asnumpy(y_train).ravel())
         skl_pred = skl_sgd_regressor.predict(cp.asnumpy(X_test))
-        skl_r2 = r2_score(skl_pred, cp.asnumpy(y_test), convert_dtype=datatype)
+        skl_r2 = r2_score(skl_pred, y_test)
         assert abs(cu_r2 - skl_r2) <= 0.021
 
 
@@ -146,7 +144,7 @@ def test_mbsgd_regressor(lrate, penalty, make_dataset):
 
     cu_mbsgd_regressor.fit(X_train, y_train)
     cu_pred = cu_mbsgd_regressor.predict(X_test)
-    cu_r2 = r2_score(cu_pred, y_test, convert_dtype=datatype)
+    cu_r2 = r2_score(cu_pred, y_test)
 
     assert cu_r2 >= 0.88
 
@@ -157,9 +155,7 @@ def test_mbsgd_regressor_default(make_dataset):
     cu_mbsgd_regressor = cumlMBSGRegressor(batch_size=nrows / 100)
     cu_mbsgd_regressor.fit(X_train, y_train)
     cu_pred = cu_mbsgd_regressor.predict(X_test)
-    cu_r2 = r2_score(
-        cp.asnumpy(cu_pred), cp.asnumpy(y_test), convert_dtype=datatype
-    )
+    cu_r2 = r2_score(cu_pred, y_test)
 
     assert cu_r2 > 0.9
 
