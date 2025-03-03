@@ -320,9 +320,9 @@ void launcher(nnz_t n,
   if (ML::default_logger().should_log(rapids_logger::level_enum::debug)) {
     CUML_LOG_DEBUG("Smooth kNN Distances");
     auto str = raft::arr2Str(sigmas.data(), 25, "sigmas", stream);
-    CUML_LOG_DEBUG("%s", str.c_str());
+    CUML_LOG_TRACE("%s", str.c_str());
     str = raft::arr2Str(rhos.data(), 25, "rhos", stream);
-    CUML_LOG_DEBUG("%s", str.c_str());
+    CUML_LOG_TRACE("%s", str.c_str());
   }
   */
 
@@ -353,7 +353,7 @@ void launcher(nnz_t n,
     CUML_LOG_DEBUG("Compute Membership Strength");
     std::stringstream ss;
     ss << in;
-    CUML_LOG_DEBUG(ss.str().c_str());
+    CUML_LOG_TRACE(ss.str().c_str());
   }
   */
 
