@@ -22,10 +22,6 @@ import os
 import runpy
 import sys
 
-from cuml.internals import logger
-
-from . import install
-
 
 @click.command()
 @click.option("-m", "module", required=False, help="Module to run")
@@ -64,6 +60,15 @@ from . import install
 def main(
     module, convert_to_sklearn, format, output, disable_uvm, verbose, args
 ):
+    if cudf_pandas:
+        import cudf.pandas
+
+        cudf.pandas.install()
+
+    # avoid importing cuML before cuDF.pandas
+    from cuml.internals import logger
+    from . import install
+
     default_logger_level_index = list(logger.level_enum).index(
         logger.level_enum.warn
     )

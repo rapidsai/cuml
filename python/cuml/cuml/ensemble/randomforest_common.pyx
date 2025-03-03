@@ -110,8 +110,7 @@ class BaseRandomForestModel(UniversalBase):
                  criterion=None,
                  max_batch_size=4096, **kwargs):
 
-        sklearn_params = {"criterion": criterion,
-                          "min_weight_fraction_leaf": min_weight_fraction_leaf,
+        sklearn_params = {"min_weight_fraction_leaf": min_weight_fraction_leaf,
                           "max_leaf_nodes": max_leaf_nodes,
                           "min_impurity_split": min_impurity_split,
                           "oob_score": oob_score, "n_jobs": n_jobs,
@@ -163,6 +162,12 @@ class BaseRandomForestModel(UniversalBase):
         else:
             self.split_criterion = \
                 BaseRandomForestModel.criterion_dict[str(split_criterion)]
+        if self.split_criterion == MAE:
+            raise NotImplementedError(
+                "cuML does not currently support mean average error as a"
+                " RandomForest split criterion"
+            )
+
         if self.split_criterion == MAE:
             raise NotImplementedError(
                 "cuML does not currently support mean average error as a"
@@ -368,10 +373,6 @@ class BaseRandomForestModel(UniversalBase):
                     convert_to_dtype=(self.dtype if convert_dtype
                                       else None),
                     check_rows=self.n_rows, check_cols=1)
-
-        if self.dtype == np.float64:
-            warnings.warn("To use pickling first train using float32 data "
-                          "to fit the estimator")
 
         max_feature_val = self._get_max_feat_val()
         if isinstance(self.min_samples_leaf, float):

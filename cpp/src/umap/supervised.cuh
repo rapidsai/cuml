@@ -307,10 +307,10 @@ void perform_general_intersection(const raft::handle_t& handle,
     std::stringstream ss1, ss2;
     ss1 << raft::arr2Str(
       y_knn_indices.data(), rgraph_coo->n_rows * params->target_n_neighbors, "knn_indices", stream);
-    CUML_LOG_DEBUG("%s", ss1.str().c_str());
+    CUML_LOG_TRACE("%s", ss1.str().c_str());
     ss2 << raft::arr2Str(
       y_knn_dists.data(), rgraph_coo->n_rows * params->target_n_neighbors, "knn_dists", stream);
-    CUML_LOG_DEBUG("%s", ss2.str().c_str());
+    CUML_LOG_TRACE("%s", ss2.str().c_str());
   }
   */
 
@@ -329,7 +329,11 @@ void perform_general_intersection(const raft::handle_t& handle,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   /*
+<<<<<<< HEAD
   if (ML::default_logger().should_log(rapids_logger::level_enum::debug)) {
+=======
+  if (ML::default_logger().should_log(ML::level_enum::debug)) {
+>>>>>>> branch-25.02
     CUML_LOG_DEBUG("Target Fuzzy Simplicial Set");
     std::stringstream ss;
     ss << ygraph_coo;
