@@ -94,13 +94,12 @@ def set_level(level):
         return context_object
 
 
-def get_level():
+def get_level() -> level_enum:
     """
     Get the current logging level.
     """
     IF GPUBUILD == 1:
-        prev = default_logger().level()
-        return prev.value
+        return default_logger().level()
 
 
 cdef class PatternSetter:
