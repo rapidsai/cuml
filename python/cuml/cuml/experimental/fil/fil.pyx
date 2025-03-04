@@ -1459,6 +1459,8 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         if GlobalSettings().device_type is DeviceType.device:
             max_chunk_size = min(max_chunk_size, 32)
 
+        max_chunk_size = min(max_chunk_size, batch_size)
+
         infer = getattr(self, predict_method)
 
         optimal_layout = 'depth_first'
