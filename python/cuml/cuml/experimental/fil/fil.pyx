@@ -510,12 +510,19 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             with using_device_type('cpu'):
                 self._load_to_fil(device_id=self.device_id)
 
+    @staticmethod
+    def _get_default_align_bytes():
+        if GlobalSettings().device_type == DeviceType.host:
+            return 64
+        else:
+            return 128
+
     @property
     def align_bytes(self):
         try:
             return self._align_bytes_
         except AttributeError:
-            self._align_bytes_ = 0
+            self._align_bytes_ = self._get_default_align_bytes()
             return self._align_bytes_
 
     @align_bytes.setter
@@ -525,7 +532,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         except AttributeError:
             old_value = value
         if value is None:
-            self._align_bytes_ = 0
+            self._align_bytes_ = self._get_default_align_bytes()
         else:
             self._align_bytes_ = value
         if self.align_bytes != old_value:
@@ -1457,7 +1464,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         optimal_layout = 'depth_first'
         optimal_chunk_size = 1
 
-        valid_layouts = ('depth_first', 'breadth_first')
+        valid_layouts = ('depth_first', 'breadth_first', 'layered')
         chunk_size = 1
         valid_chunk_sizes = []
         while chunk_size <= max_chunk_size:
