@@ -53,7 +53,7 @@ struct BoolToIntFunctor {
 void cumulative_sum_helper(const bool* mask, int* cumul, int mask_size, cudaStream_t stream)
 {
   BoolToIntFunctor conversion_op;
-  thrust::transform_iterator<BoolToIntFunctor, const bool*, thrust::use_default, bool> itr(
+  thrust::transform_iterator<BoolToIntFunctor, const bool*, thrust::use_default, int> itr(
     mask, conversion_op);
 
   // Determine temporary storage size
