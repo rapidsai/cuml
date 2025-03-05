@@ -95,7 +95,7 @@ requirements:
     - treelite {{ treelite_version }}
     - rapids-logger =0.1
 
-tests:
+test:
   requirements:
     - cuda-version ={{ cuda_version }}
   imports:
