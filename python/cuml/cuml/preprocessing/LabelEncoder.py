@@ -44,6 +44,9 @@ def _to_cudf_series(y, **kwargs):
     elif isinstance(y, (np.ndarray, cp.ndarray)):
         if y.ndim == 2 and y.shape[-1] == 1:
             y = y.flatten()
+        if not y.dtype.isnative:
+            # cudf doesn't support byte-swapped arrays as inputs, coerce to native
+            y = y.astype(y.dtype.newbyteorder("="))
     if getattr(y, "dtype", None) == "float16":
         # Upcast float16 since cudf cannot handle them yet
         y = y.astype("float32")
