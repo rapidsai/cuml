@@ -56,6 +56,18 @@ def test_logger():
         logger.info("This is an info message")
 
 
+def test_set_level_get_level():
+    orig = logger.get_level()
+    assert isinstance(orig, logger.level_enum)
+
+    with logger.set_level(logger.level_enum.trace):
+        level = logger.get_level()
+        assert isinstance(level, logger.level_enum)
+        assert level == logger.level_enum.trace
+
+    assert logger.get_level() == orig
+
+
 def test_redirected_logger():
     new_stdout = StringIO()
 

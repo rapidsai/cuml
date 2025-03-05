@@ -109,6 +109,14 @@ def set_level(level):
         return context_object
 
 
+def get_level() -> level_enum:
+    """
+    Get the current logging level.
+    """
+    IF GPUBUILD == 1:
+        return default_logger().level()
+
+
 cdef class PatternSetter:
     """Internal "context manager" object for restoring previous log pattern"""
 
