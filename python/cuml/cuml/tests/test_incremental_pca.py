@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,9 @@
 # limitations under the License.
 #
 
+from cuml import global_settings
 from cuml.common.exceptions import NotFittedError
+from cuml.common.device_selection import using_device_type
 from cuml.testing.utils import array_equal
 from cuml.decomposition.incremental_pca import _svd_flip
 from cuml.decomposition import IncrementalPCA as cuIPCA
@@ -40,6 +42,7 @@ cupyx = gpu_only_import("cupyx")
         (500, 250, 14, True, 0.07, "csr", 1, True),
     ],
 )
+@pytest.mark.parametrize("device", ["gpu", "cpu"])
 @pytest.mark.no_bad_cuml_array_check
 def test_fit(
     nrows,
@@ -50,48 +53,53 @@ def test_fit(
     sparse_format,
     batch_size_divider,
     whiten,
+    device,
 ):
+    with using_device_type(device):
 
-    if sparse_format == "csc":
-        pytest.skip(
-            "cupyx.scipy.sparse.csc.csc_matrix does not support"
-            " indexing as of cupy 7.6.0"
+        if sparse_format == "csc":
+            pytest.skip(
+                "cupyx.scipy.sparse.csc.csc_matrix does not support"
+                " indexing as of cupy 7.6.0"
+            )
+
+        if sparse_input:
+            X = global_settings.xsparse.random(
+                nrows,
+                ncols,
+                density=density,
+                random_state=10,
+                format=sparse_format,
+            )
+        else:
+            X, _ = make_blobs(
+                n_samples=nrows, n_features=ncols, random_state=10
+            )
+
+        cu_ipca = cuIPCA(
+            n_components=n_components,
+            whiten=whiten,
+            batch_size=int(nrows / batch_size_divider),
         )
+        cu_ipca.fit(X)
+        cu_t = cu_ipca.transform(X)
+        cu_inv = cu_ipca.inverse_transform(cu_t)
 
-    if sparse_input:
-        X = cupyx.scipy.sparse.random(
-            nrows,
-            ncols,
-            density=density,
-            random_state=10,
-            format=sparse_format,
+        sk_ipca = skIPCA(
+            n_components=n_components,
+            whiten=whiten,
+            batch_size=int(nrows / batch_size_divider),
         )
-    else:
-        X, _ = make_blobs(n_samples=nrows, n_features=ncols, random_state=10)
+        if device == "gpu":
+            if sparse_input:
+                X = X.get()
+            else:
+                X = cp.asnumpy(X)
+        sk_ipca.fit(X)
+        sk_t = sk_ipca.transform(X)
+        sk_inv = sk_ipca.inverse_transform(sk_t)
 
-    cu_ipca = cuIPCA(
-        n_components=n_components,
-        whiten=whiten,
-        batch_size=int(nrows / batch_size_divider),
-    )
-    cu_ipca.fit(X)
-    cu_t = cu_ipca.transform(X)
-    cu_inv = cu_ipca.inverse_transform(cu_t)
-
-    sk_ipca = skIPCA(
-        n_components=n_components,
-        whiten=whiten,
-        batch_size=int(nrows / batch_size_divider),
-    )
-    if sparse_input:
-        X = X.get()
-    else:
-        X = cp.asnumpy(X)
-    sk_ipca.fit(X)
-    sk_t = sk_ipca.transform(X)
-    sk_inv = sk_ipca.inverse_transform(sk_t)
-
-    assert array_equal(cu_inv, sk_inv, 5e-5, with_sign=True)
+        assert array_equal(cu_inv, sk_inv, 5e-5, with_sign=True)
 
 
 @pytest.mark.parametrize(
@@ -105,62 +113,69 @@ def test_fit(
         (5000, 4, 2, 0.1, 100, False),
     ],
 )
+@pytest.mark.parametrize("device", ["gpu", "cpu"])
 @pytest.mark.no_bad_cuml_array_check
 def test_partial_fit(
-    nrows, ncols, n_components, density, batch_size_divider, whiten
+    nrows, ncols, n_components, density, batch_size_divider, whiten, device
 ):
 
-    X, _ = make_blobs(n_samples=nrows, n_features=ncols, random_state=10)
+    with using_device_type(device):
+        X, _ = make_blobs(n_samples=nrows, n_features=ncols, random_state=10)
 
-    cu_ipca = cuIPCA(n_components=n_components, whiten=whiten)
+        cu_ipca = cuIPCA(n_components=n_components, whiten=whiten)
 
-    sample_size = int(nrows / batch_size_divider)
-    for i in range(0, nrows, sample_size):
-        cu_ipca.partial_fit(X[i : i + sample_size].copy())
+        sample_size = int(nrows / batch_size_divider)
+        for i in range(0, nrows, sample_size):
+            cu_ipca.partial_fit(X[i : i + sample_size].copy())
 
-    cu_t = cu_ipca.transform(X)
-    cu_inv = cu_ipca.inverse_transform(cu_t)
+        cu_t = cu_ipca.transform(X)
+        cu_inv = cu_ipca.inverse_transform(cu_t)
 
-    sk_ipca = skIPCA(n_components=n_components, whiten=whiten)
+        sk_ipca = skIPCA(n_components=n_components, whiten=whiten)
 
-    X = cp.asnumpy(X)
+        if device == "gpu":
+            X = cp.asnumpy(X)
 
-    for i in range(0, nrows, sample_size):
-        sk_ipca.partial_fit(X[i : i + sample_size].copy())
+        for i in range(0, nrows, sample_size):
+            sk_ipca.partial_fit(X[i : i + sample_size].copy())
 
-    sk_t = sk_ipca.transform(X)
-    sk_inv = sk_ipca.inverse_transform(sk_t)
+        sk_t = sk_ipca.transform(X)
+        sk_inv = sk_ipca.inverse_transform(sk_t)
 
-    assert array_equal(cu_inv, sk_inv, 6e-5, with_sign=True)
-
-
-def test_exceptions():
-    X = cupyx.scipy.sparse.eye(10)
-    ipca = cuIPCA()
-    with pytest.raises(TypeError):
-        ipca.partial_fit(X)
-
-    X = X.toarray()
-    with pytest.raises(NotFittedError):
-        ipca.transform(X)
-
-    with pytest.raises(NotFittedError):
-        ipca.inverse_transform(X)
-
-    with pytest.raises(ValueError):
-        cuIPCA(n_components=8).fit(X[:5])
-
-    with pytest.raises(ValueError):
-        cuIPCA(n_components=8).fit(X[:, :5])
+        assert array_equal(cu_inv, sk_inv, 6e-5, with_sign=True)
 
 
-def test_svd_flip():
-    x = cp.array(range(-10, 80)).reshape((9, 10))
-    u, s, v = cp.linalg.svd(x, full_matrices=False)
-    u_true, v_true = _svd_flip(u, v, u_based_decision=True)
-    reco_true = cp.dot(u_true * s, v_true)
-    u_false, v_false = _svd_flip(u, v, u_based_decision=False)
-    reco_false = cp.dot(u_false * s, v_false)
+@pytest.mark.parametrize("device", ["gpu", "cpu"])
+def test_exceptions(device):
+    with using_device_type(device):
+        X = global_settings.xsparse.eye(10)
+        ipca = cuIPCA()
+        with pytest.raises(TypeError):
+            ipca.partial_fit(X)
 
-    assert array_equal(reco_true, x)
-    assert array_equal(reco_false, x)
+        X = X.toarray()
+        with pytest.raises(ValueError):
+            ipca.transform(X)
+
+        with pytest.raises(ValueError):
+            ipca.inverse_transform(X)
+
+        with pytest.raises(ValueError):
+            cuIPCA(n_components=8).fit(X[:5])
+
+        with pytest.raises(ValueError):
+            cuIPCA(n_components=8).fit(X[:, :5])
+
+
+@pytest.mark.parametrize("device", ["gpu", "cpu"])
+def test_svd_flip(device):
+    with using_device_type(device):
+        x = global_settings.xpy.array(range(-10, 80)).reshape((9, 10))
+        u, s, v = global_settings.xpy.linalg.svd(x, full_matrices=False)
+        u_true, v_true = _svd_flip(u, v, u_based_decision=True)
+        reco_true = global_settings.xpy.dot(u_true * s, v_true)
+        u_false, v_false = _svd_flip(u, v, u_based_decision=False)
+        reco_false = global_settings.xpy.dot(u_false * s, v_false)
+
+        assert array_equal(reco_true, x)
+        assert array_equal(reco_false, x)
