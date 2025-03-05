@@ -90,7 +90,7 @@ class VerbosityDescriptor:
     """
     def __get__(self, obj, cls=None):
         if api_context_managers.in_internal_api():
-            return logger.level_enum(6 - obj._verbose)
+            return logger._verbose_to_level(obj._verbose)
         else:
             return obj._verbose
 
@@ -100,7 +100,7 @@ class VerbosityDescriptor:
                 "The log level should always be provided as a level_enum, "
                 "not an integer"
             )
-            obj._verbose = 6 - int(value)
+            obj._verbose = logger._verbose_from_level(value)
         else:
             if isinstance(value, logger.level_enum):
                 raise ValueError(
@@ -268,18 +268,7 @@ class Base(TagsMixin,
         # infrastructure in https://github.com/rapidsai/cuml/pull/6189.
         GlobalSettings().prev_root_cm = GlobalSettings().root_cm
         GlobalSettings().root_cm = True
-        IF GPUBUILD == 1:
-            # Internally, self.verbose follows the spdlog/c++ standard of
-            # 0 is most logging, and logging decreases from there.
-            # So if the user passes an int value for logging, we convert it.
-            if verbose is True:
-                self.verbose = logger.level_enum.debug
-            elif verbose is False:
-                self.verbose = logger.level_enum.info
-            else:
-                self.verbose = logger.level_enum(6 - verbose)
-        ELSE:
-            self.verbose = logger.level_enum(6 - verbose)
+        self.verbose = logger._verbose_to_level(verbose)
         # Please see above note on manipulation of the root_cm. This should be
         # rendered unnecessary with https://github.com/rapidsai/cuml/pull/6189.
         GlobalSettings().root_cm = GlobalSettings().prev_root_cm
@@ -355,7 +344,7 @@ class Base(TagsMixin,
             # VerbosityDescriptor for direct access to the verbose
             # attribute.
             if key == "verbose":
-                var_value = 6 - int(var_value)
+                var_value = logger._verbose_from_level(var_value)
             params[key] = var_value
         return params
 
@@ -375,7 +364,7 @@ class Base(TagsMixin,
             else:
                 # Switch verbose to enum since we are now internal to cuML API
                 if key == "verbose":
-                    value = logger.level_enum(6 - int(value))
+                    value = logger._verbose_to_level(value)
                 setattr(self, key, value)
         return self
 
