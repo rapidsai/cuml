@@ -1211,7 +1211,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
     // The gain may actually be NaN. If so, a comparison between the result and
     // ground truth would yield false, even if they are both (correctly) NaNs.
-    if(!std::isnan(ground_truth_gain) || !std::isnan(hypothesis_gain) {
+    if (!std::isnan(ground_truth_gain) || !std::isnan(hypothesis_gain)) {
       ASSERT_NEAR(ground_truth_gain, hypothesis_gain, params.tolerance);
     }
   }
