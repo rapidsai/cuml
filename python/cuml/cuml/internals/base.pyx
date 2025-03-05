@@ -39,6 +39,7 @@ except ImportError:
 import cuml
 import cuml.common
 from cuml.common.sparse_utils import is_sparse
+from cuml.common.array_descriptor import CumlArrayDescriptor
 import cuml.internals.logger as logger
 import cuml.internals
 from cuml.internals import api_context_managers
@@ -664,55 +665,40 @@ class UniversalBase(Base):
         self._cpu_model = self._cpu_model_class(**filtered_kwargs)
 
     def gpu_to_cpu(self):
-        # transfer attributes from GPU to CPU estimator
-        for attr in self.get_attr_names():
-            if hasattr(self, attr):
-                cu_attr = getattr(self, attr)
-                if isinstance(cu_attr, CumlArray):
-                    # transform cumlArray to numpy and set it
-                    # as an attribute in the CPU estimator
-                    setattr(self._cpu_model, attr, cu_attr.to_output('numpy'))
-                elif isinstance(cu_attr, cp_ndarray):
-                    # transform cupy to numpy and set it
-                    # as an attribute in the CPU estimator
-                    setattr(self._cpu_model, attr, cp.asnumpy(cu_attr))
-                else:
-                    # transfer all other types of attributes directly
-                    setattr(self._cpu_model, attr, cu_attr)
+        """Transfer attributes from GPU estimator to CPU estimator."""
+        for name in self.get_attr_names():
+            try:
+                value = getattr(self, name)
+            except AttributeError:
+                # Skip missing attributes
+                continue
+
+            # Coerce all arrays to numpy
+            if isinstance(value, CumlArray):
+                value = value.to_output("numpy")
+            elif isinstance(value, cp_ndarray):
+                value = cp.asnumpy(value)
+
+            setattr(self._cpu_model, name, value)
 
     def cpu_to_gpu(self):
-        # transfer attributes from CPU to GPU estimator
-        with using_memory_type(
-            (MemoryType.host, MemoryType.device)[
-                is_cuda_available()
-            ]
-        ):
-            for attr in self.get_attr_names():
-                if hasattr(self._cpu_model, attr):
-                    cpu_attr = getattr(self._cpu_model, attr)
-                    # if the cpu attribute is an array
-                    if isinstance(cpu_attr, np.ndarray):
-                        # get data order wished for by
-                        # CumlArrayDescriptor
-                        if hasattr(self, attr + '_order'):
-                            order = getattr(self, attr + '_order')
-                        else:
-                            order = 'K'
-                        # transfer array to gpu and set it as a cuml
-                        # attribute
-                        cuml_array = input_to_cuml_array(
-                            cpu_attr,
-                            order=order,
-                            convert_to_mem_type=(
-                                MemoryType.host,
-                                MemoryType.device
-                            )[is_cuda_available()]
-                        )[0]
-                        setattr(self, attr, cuml_array)
-                    else:
-                        # transfer all other types of attributes
-                        # directly
-                        setattr(self, attr, cpu_attr)
+        """Transfer attributes from CPU estimator to GPU estimator."""
+        mem_type = MemoryType.device if is_cuda_available() else MemoryType.host
+        with using_memory_type(mem_type):
+            for name in self.get_attr_names():
+                try:
+                    value = getattr(self._cpu_model, name)
+                except AttributeError:
+                    # Skip missing attributes
+                    continue
+
+                if isinstance(value, np.ndarray):
+                    # Coerce arrays to CumlArrays with the proper order
+                    descriptor = getattr(type(self), name, None)
+                    order = descriptor.order if isinstance(descriptor, CumlArrayDescriptor) else "K"
+                    value = input_to_cuml_array(value, order=order, convert_to_mem_type=mem_type)[0]
+
+                setattr(self, name, value)
 
     def args_to_cpu(self, *args, **kwargs):
         # put all the args on host
