@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 from cuml.testing.utils import as_type
 from sklearn.model_selection import GridSearchCV
-import os
 import pytest
 from hypothesis.extra.numpy import arrays
 from hypothesis import given, settings, assume, strategies as st
@@ -82,10 +81,6 @@ metrics_strategy = st.sampled_from(
 )
 
 
-@pytest.mark.skipif(
-    os.environ.get("CUDA_VERSION") == "12.0.1",
-    reason="Flaky hypothesis CI failure: https://github.com/rapidsai/cuml/issues/6173",
-)
 @settings(deadline=None)
 @given(
     array_strategy(),
@@ -101,9 +96,8 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
         # cosine is numerically unstable at high dimensions
         # for both cuml and sklearn
         assume(X.shape[1] <= 20)
-    kde = KernelDensity(kernel=kernel, metric=metric, bandwidth=bandwidth).fit(
-        X, sample_weight=sample_weight
-    )
+    kde = KernelDensity(kernel=kernel, metric=metric, bandwidth=bandwidth)
+    kde.fit(X, sample_weight=sample_weight)
     cuml_prob = kde.score_samples(X)
     cuml_prob_test = kde.score_samples(X_test)
 
