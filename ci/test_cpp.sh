@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -39,4 +39,4 @@ export GTEST_OUTPUT=xml:${RAPIDS_TESTS_DIR}/
 ./ci/run_ctests.sh -j9 && EXITCODE=$? || EXITCODE=$?;
 
 rapids-logger "Test script exiting with value: $EXITCODE"
-exit ${EXITCODE}
+exit "${EXITCODE}"

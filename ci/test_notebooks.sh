@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 set -euo pipefail
 
 . /opt/conda/etc/profile.d/conda.sh
@@ -40,17 +40,19 @@ SKIPNBS="cuml_benchmarks.ipynb"
 NBTEST="$(realpath "$(dirname "$0")/utils/nbtest.sh")"
 
 cd notebooks
+
+# shellcheck disable=SC2044
 for nb in $(find . -name "*.ipynb"); do
     nbBasename=$(basename "${nb}")
     # Skip all NBs that use dask (in the code or even in their name)
-    if ((echo "${nb}" | grep -qi dask) || \
-        (grep -q dask "${nb}")); then
+    if (echo "${nb}" | grep -qi dask) || \
+        (grep -q dask "${nb}"); then
         echo "--------------------------------------------------------------------------------"
         echo "SKIPPING: ${nb} (suspected Dask usage, not currently automatable)"
         echo "--------------------------------------------------------------------------------"
     elif (echo " ${SKIPNBS} " | grep -q " ${nbBasename} "); then
         echo "--------------------------------------------------------------------------------"
-        echo "SKIPPING: "${nb}" (listed in skip list)"
+        echo "SKIPPING: ${nb} (listed in skip list)"
         echo "--------------------------------------------------------------------------------"
     else
         nvidia-smi
