@@ -283,7 +283,7 @@ def test_estimator(kernel_arg, arrays, gamma, degree, coef0):
         X = (X - as_type("numpy", X).min()) + 1.0
 
     model.fit(X, y, sample_weight)
-    pred = model.predict(X_test).get()
+    pred = model.predict(X_test)
     if dtype == np.float64:
         # For a convex optimisation problem we should arrive at gradient norm 0
         # If the solution has converged correctly
@@ -301,7 +301,10 @@ def test_estimator(kernel_arg, arrays, gamma, degree, coef0):
 
         skl_pred = skl_model.predict(as_type("numpy", X_test))
         assert np.allclose(
-            as_type("numpy", pred), skl_pred, atol=1e-2, rtol=1e-2
+            as_type("numpy", pred).squeeze(),
+            skl_pred.squeeze(),
+            atol=1e-2,
+            rtol=1e-2,
         )
 
 

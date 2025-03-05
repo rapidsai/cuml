@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -135,9 +135,9 @@ def find_ab_params(spread, min_dist):
 
 
 metric_parsing = {
-    "l2": DistanceType.L2SqrtUnexpanded,
-    "euclidean": DistanceType.L2SqrtUnexpanded,
-    "sqeuclidean": DistanceType.L2Unexpanded,
+    "l2": DistanceType.L2SqrtExpanded,
+    "euclidean": DistanceType.L2SqrtExpanded,
+    "sqeuclidean": DistanceType.L2Expanded,
     "cityblock": DistanceType.L1,
     "l1": DistanceType.L1,
     "manhattan": DistanceType.L1,
@@ -162,8 +162,8 @@ DENSE_SUPPORTED_METRICS = [
     DistanceType.HellingerExpanded,
     # DistanceType.JaccardExpanded,  # not supported
     DistanceType.L1,
-    DistanceType.L2SqrtUnexpanded,
-    DistanceType.L2Unexpanded,
+    DistanceType.L2SqrtExpanded,
+    DistanceType.L2Expanded,
     DistanceType.Linf,
     DistanceType.LpUnexpanded,
 ]
@@ -177,8 +177,8 @@ SPARSE_SUPPORTED_METRICS = [
     DistanceType.HellingerExpanded,
     DistanceType.JaccardExpanded,
     DistanceType.L1,
-    DistanceType.L2SqrtUnexpanded,
-    DistanceType.L2Unexpanded,
+    DistanceType.L2SqrtExpanded,
+    DistanceType.L2Expanded,
     DistanceType.Linf,
     DistanceType.LpUnexpanded,
 ]
