@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,12 +61,20 @@ def tophat_log_kernel(x, h):
 
 
 @cp.fuse()
-def epanechnikov_log_kernel(x, h):
+def _epanechnikov_log_kernel(x, h, h_squared):
     # don't call log(0) otherwise we get NaNs
-    z = cp.maximum(1.0 - (x * x) / (h * h), 1e-30)
+    z = cp.maximum(1.0 - (x * x) / h_squared, 1e-30)
     y = (x < h) * cp.log(z)
     y += (x >= h) * np.finfo(y.dtype).min
     return y
+
+
+def epanechnikov_log_kernel(x, h):
+    # TODO: Due to https://github.com/cupy/cupy/issues/8536 cupy.fuse errors when trying
+    # to compile the elementwise operation in epanechnikov. Handling `h * h` on host
+    # (where `h` is a host scalar) seems to work around the bug completely. Once the upstream
+    # issue is fixed this can be reverted.
+    return _epanechnikov_log_kernel(x, h, h * h)
 
 
 @cp.fuse()
