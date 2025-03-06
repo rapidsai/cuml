@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -66,7 +66,6 @@ class CumlArrayDescriptor:
 
     def __set_name__(self, owner, name):
         self.name = name
-        setattr(owner, name + "_order", self.order)
 
     def _get_meta(
         self, instance, throw_on_missing=False
