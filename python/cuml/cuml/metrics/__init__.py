@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,11 +19,10 @@ from cuml.metrics.regression import r2_score
 from cuml.metrics.regression import mean_squared_error
 from cuml.metrics.regression import mean_squared_log_error
 from cuml.metrics.regression import mean_absolute_error
-from cuml.metrics.accuracy import accuracy_score
 from cuml.metrics.cluster.adjusted_rand_index import adjusted_rand_score
 from cuml.metrics._ranking import roc_auc_score
 from cuml.metrics._ranking import precision_recall_curve
-from cuml.metrics._classification import log_loss
+from cuml.metrics._classification import log_loss, accuracy_score
 from cuml.metrics.cluster.homogeneity_score import (
     cython_homogeneity_score as homogeneity_score,
 )

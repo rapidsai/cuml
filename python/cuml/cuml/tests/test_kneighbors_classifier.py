@@ -99,7 +99,8 @@ def test_neighborhood_predictions(
 @pytest.mark.parametrize("ncols", [50, 100])
 @pytest.mark.parametrize("n_neighbors", [2, 5, 10])
 @pytest.mark.parametrize("n_clusters", [2, 5, 10])
-def test_score(nrows, ncols, n_neighbors, n_clusters, datatype):
+@pytest.mark.parametrize("weighted", [False, True])
+def test_score(nrows, ncols, n_neighbors, n_clusters, datatype, weighted):
 
     X, y = make_blobs(
         n_samples=nrows,
@@ -112,10 +113,18 @@ def test_score(nrows, ncols, n_neighbors, n_clusters, datatype):
     X = X.astype(np.float32)
     X_train, X_test, y_train, y_test = _build_train_test_data(X, y, datatype)
 
+    if weighted:
+        sample_weight = np.random.default_rng(42).uniform(
+            0.5, 1, size=len(X_test)
+        )
+    else:
+        sample_weight = None
+
     knn_cu = cuKNN(n_neighbors=n_neighbors)
     knn_cu.fit(X_train, y_train)
 
-    assert knn_cu.score(X_test, y_test) >= (1.0 - 0.004)
+    score = knn_cu.score(X_test, y_test, sample_weight=sample_weight)
+    assert score >= (1.0 - 0.004)
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
