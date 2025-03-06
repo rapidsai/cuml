@@ -44,6 +44,21 @@ IF GPUBUILD == 1:
             sys.stdout.flush()
 
 
+def _verbose_to_level(verbose: bool | int) -> level_enum:
+    """Parse the common `verbose` parameter into a `level_enum`."""
+    if verbose is True:
+        return level_enum.debug
+    elif verbose is False:
+        return level_enum.info
+    else:
+        return level_enum(6 - verbose)
+
+
+def _verbose_from_level(level: level_enum) -> int:
+    """Convert a `level_enum` back into an equivalent `verbose` parameter value."""
+    return 6 - int(level)
+
+
 cdef class LogLevelSetter:
     """Internal "context manager" object for restoring previous log level"""
 
