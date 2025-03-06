@@ -32,6 +32,7 @@ requirements:
   run:
     - python x.x
     - numpy>=1.23,<3.0a0
+    - packaging
     - pandas
     - scikit-learn=1.5.*
     - hdbscan>=0.8.39,<0.8.40
