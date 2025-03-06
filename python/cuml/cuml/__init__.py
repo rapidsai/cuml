@@ -62,9 +62,7 @@ if is_cuda_available():
     from cuml.linear_model.mbsgd_regressor import MBSGDRegressor
 
     from cuml.manifold.t_sne import TSNE
-    from cuml.metrics.accuracy import accuracy_score
-    from cuml.metrics.cluster.adjusted_rand_index import adjusted_rand_score
-    from cuml.metrics.regression import r2_score
+    from cuml.metrics import accuracy_score, r2_score, adjusted_rand_score
     from cuml.model_selection import train_test_split
 
     from cuml.naive_bayes.naive_bayes import MultinomialNB
