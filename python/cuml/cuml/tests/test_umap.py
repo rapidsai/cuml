@@ -715,9 +715,12 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
         ("canberra", True),
     ],
 )
-def test_umap_distance_metrics_fit_transform_trust(metric, supported):
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
+def test_umap_distance_metrics_fit_transform_trust(
+    metric, supported, build_algo
+):
     data, labels = make_blobs(
-        n_samples=1000, n_features=64, centers=5, random_state=42
+        n_samples=500, n_features=64, centers=5, random_state=42
     )
 
     if metric == "jaccard":
@@ -727,7 +730,11 @@ def test_umap_distance_metrics_fit_transform_trust(metric, supported):
         n_neighbors=10, min_dist=0.01, metric=metric, init="random"
     )
     cuml_model = cuUMAP(
-        n_neighbors=10, min_dist=0.01, metric=metric, init="random"
+        n_neighbors=10,
+        min_dist=0.01,
+        metric=metric,
+        init="random",
+        build_algo=build_algo,
     )
     if not supported:
         with pytest.raises(NotImplementedError):
