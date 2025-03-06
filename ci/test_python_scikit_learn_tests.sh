@@ -21,7 +21,6 @@ rapids-logger "Running scikit-learn tests with cuML acceleration"
 
 # Run the tests
 ./ci/accel/scikit-learn-tests/run-tests.sh \
-    --select relevant \
     --path "${RAPIDS_TESTS_DIR}/scikit-learn" \
     -- \
     --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel-scikit-learn.xml" || true

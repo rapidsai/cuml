@@ -1,16 +1,14 @@
 minimal:
-  - "sklearn/linear_model/tests/test_logistic.py"
-  - "sklearn/cluster/tests/test_k_means.py"
-  - "sklearn/manifold/tests/test_t_sne.py"
+  - sklearn/linear_model/tests/test_logistic.py
+  - sklearn/cluster/tests/test_k_means.py
+  - sklearn/manifold/tests/test_t_sne.py
 relevant:
-  - "sklearn/cluster/tests/test_k_means.py"
-  - "sklearn/cluster/tests/test_dbscan.py"
-  - "sklearn/decomposition/tests/test_pca.py"
-  - "sklearn/decomposition/tests/test_truncated_svd.py"
-  - "sklearn/linear_model/tests/test_logistic.py"
-  - "sklearn/linear_model/tests/test_ridge.py"
-  - "sklearn/ensemble/tests/test_forest.py"
-  - "sklearn/manifold/tests/test_t_sne.py"
-  - "sklearn/neighbors/tests/test_neighbors.py"
-all:
-  - "**"
+  - sklearn/cluster/tests/test_k_means.py
+  - sklearn/cluster/tests/test_dbscan.py
+  - sklearn/decomposition/tests/test_pca.py
+  - sklearn/decomposition/tests/test_truncated_svd.py
+  - sklearn/linear_model/tests/test_logistic.py
+  - sklearn/linear_model/tests/test_ridge.py
+  - sklearn/ensemble/tests/test_forest.py
+  - sklearn/manifold/tests/test_t_sne.py
+  - sklearn/neighbors/tests/test_neighbors.py
