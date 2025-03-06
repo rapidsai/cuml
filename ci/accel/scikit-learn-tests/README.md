@@ -13,8 +13,8 @@ This suite provides infrastructure to build, run, and analyze tests for scikit-l
 - `run-tests.sh`
   Executes scikit-learn tests using GPU-accelerated paths.
   Options:
-  - `-p, --path`             : Specify the scikit-learn source location
-  - `--select [minimal|relevant|all]` : Select tests based on predefined groups from a YAML config (default: all)
+  - `-p, --path`             : Specify the scikit-learn source location (default: ./scikit-learn)
+  - `--select [minimal|relevant]` : Select tests based on predefined groups from a YAML config (default: run all tests)
   - `-- [pytest-args]`       : Pass additional arguments directly to pytest
 
 - `summarize-results.sh`
@@ -25,6 +25,9 @@ This suite provides infrastructure to build, run, and analyze tests for scikit-l
 
 ## Usage
 
+### Important Note
+The `run-tests.sh` script must be executed from within its parent directory. This ensures proper resolution of test paths and configuration files.
+
 ### 1. Build scikit-learn
 ```bash
 ./build.sh --scikit-learn-version 1.5.2
@@ -33,11 +36,16 @@ This suite provides infrastructure to build, run, and analyze tests for scikit-l
 ### 2. Run tests
 For a specific test selection:
 ```bash
-./run-tests.sh --select relevant -p ./scikit-learn -- [additional pytest options]
+./run-tests.sh --select minimal -p ./scikit-learn
 ```
 Or, to run all tests:
 ```bash
-./run-tests.sh --select all -p ./scikit-learn -- [additional pytest options]
+./run-tests.sh -p ./scikit-learn
+```
+
+You can also pass additional pytest arguments:
+```bash
+./run-tests.sh --select relevant -p ./scikit-learn -- -v -k "test_logistic"
 ```
 
 ### 3. Summarize test results
