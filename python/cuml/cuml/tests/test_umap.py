@@ -36,6 +36,7 @@ from cuml.testing.utils import (
     stress_param,
 )
 from cuml.manifold.umap import UMAP as cuUMAP
+from cuml.internals import GraphBasedDimRedCallback
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
 
@@ -869,3 +870,33 @@ def test_umap_trustworthiness_on_batch_nnd(
     cuml_trust = trustworthiness(digits.data, cuml_embedding, n_neighbors=10)
 
     assert cuml_trust > 0.9
+
+
+def test_callback():
+    class Callback(GraphBasedDimRedCallback):
+        preprocess_event, epoch_event, train_event = False, 0, False
+
+        def __init__(self, skip_init=False):
+            if not skip_init:
+                super().__init__()
+
+        def check(self):
+            assert self.preprocess_event
+            assert self.epoch_event > 10
+            assert self.train_event
+
+        def on_preprocess_end(self, embeddings):
+            self.preprocess_event = True
+
+        def on_epoch_end(self, embeddings):
+            self.epoch_event += 1
+
+        def on_train_end(self, embeddings):
+            self.train_event = True
+
+    digits = datasets.load_digits()
+
+    callback = Callback()
+    reducer = cuUMAP(n_components=2, callback=callback)
+    reducer.fit(digits.data)
+    callback.check()
