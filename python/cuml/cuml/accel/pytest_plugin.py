@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,15 @@
 # limitations under the License.
 #
 
-from ..estimator_proxy import intercept
+from cuml.accel.core import install
 
 
-HDBSCAN = intercept(
-    original_module="hdbscan",
-    accelerated_module="cuml.cluster",
-    original_class_name="HDBSCAN",
-)
+def pytest_load_initial_conftests(early_config, parser, args):
+    # https://docs.pytest.org/en/7.1.x/reference/\
+    # reference.html#pytest.hookspec.pytest_load_initial_conftests
+    try:
+        install()
+    except RuntimeError:
+        raise RuntimeError(
+            "An existing plugin has already loaded sklearn. Interposing failed."
+        )

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 
-from ..estimator_proxy import intercept
+from cuml.accel.estimator_proxy import intercept
 
 
-UMAP = intercept(
-    original_module="umap",
-    accelerated_module="cuml.manifold",
-    original_class_name="UMAP",
+HDBSCAN = intercept(
+    original_module="hdbscan",
+    accelerated_module="cuml.cluster",
+    original_class_name="HDBSCAN",
 )
