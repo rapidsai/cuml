@@ -16,6 +16,7 @@
 
 import pytest
 import numpy as np
+import cuml
 from sklearn.datasets import make_blobs
 from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score
@@ -100,3 +101,25 @@ def test_kmeans_random_state(clustering_data):
     kmeans2 = KMeans(n_clusters=3, random_state=42).fit(X)
     # With the same random_state, results should be the same
     assert np.allclose(kmeans1.cluster_centers_, kmeans2.cluster_centers_)
+
+
+def test_kmeans_init_parameter():
+    # Testing the hyper-parameter translation only makes sense if the
+    # accelerator is active.
+    if not cuml.experimental.accel.GlobalSettings().accelerator_active:
+        pytest.skip("Skipping test because accelerator is not active")
+
+    # Check that not passing a value for a constructor argument and passing the
+    # scikit-learn default value leads to the same behavior.
+    X, y = make_blobs(
+        n_samples=300, centers=3, cluster_std=1.0, random_state=42
+    )
+    km1 = KMeans(init="k-means++")
+    km1.fit(X, y)
+    # Check that the translation of "k-means++" worked.
+    assert km1.init == "scalable-k-means++"
+
+    km2 = KMeans()
+    km2.fit(X, y)
+    # No init parameter should lead to the cuml default being used.
+    assert km2.init == "scalable-k-means++"

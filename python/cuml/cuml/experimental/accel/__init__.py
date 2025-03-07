@@ -19,10 +19,13 @@ import importlib
 
 from .magics import load_ipython_extension
 
+from cuda.bindings import runtime
 from cuml.internals import logger
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import set_global_output_type
-from cuml.internals.safe_imports import UnavailableError
+from cuml.internals.safe_imports import UnavailableError, gpu_only_import
+
+rmm = gpu_only_import("rmm")
 
 __all__ = ["load_ipython_extension", "install"]
 
@@ -31,18 +34,48 @@ def _install_for_library(library_name):
     importlib.import_module(f"._wrappers.{library_name}", __name__)
 
 
-def install():
+def _is_concurrent_managed_access_supported():
+    """Check the availability of concurrent managed access (UVM).
+
+    Note that WSL2 does not support managed memory.
+    """
+
+    # Ensure CUDA is initialized before checking cudaDevAttrConcurrentManagedAccess
+    runtime.cudaFree(0)
+
+    device_id = 0
+    err, supports_managed_access = runtime.cudaDeviceGetAttribute(
+        runtime.cudaDeviceAttr.cudaDevAttrConcurrentManagedAccess, device_id
+    )
+    if err != runtime.cudaError_t.cudaSuccess:
+        logger.error(
+            f"Failed to check cudaDevAttrConcurrentManagedAccess with error {err}"
+        )
+        return False
+    return supports_managed_access != 0
+
+
+def install(disable_uvm=False):
     """Enable cuML Accelerator Mode."""
     logger.set_level(logger.level_enum.info)
     logger.set_pattern("%v")
 
-    logger.info("cuML: Installing accelerator...")
+    if not disable_uvm:
+        if _is_concurrent_managed_access_supported():
+            logger.debug("cuML: Enabling managed memory...")
+            rmm.mr.set_current_device_resource(rmm.mr.ManagedMemoryResource())
+        else:
+            logger.warn("cuML: Could not enable managed memory.")
+
+    logger.debug("cuML: Installing accelerator...")
     libraries_to_accelerate = ["sklearn", "umap", "hdbscan"]
     accelerated_libraries = []
     failed_to_accelerate = []
     for library_name in libraries_to_accelerate:
-        logger.debug(f"cuML: Installing accelerator for {library_name}...")
         try:
+            logger.debug(
+                f"cuML: Attempt to install accelerator for {library_name}..."
+            )
             _install_for_library(library_name)
         except (
             ModuleNotFoundError,
@@ -64,15 +97,16 @@ def install():
     GlobalSettings().accelerator_loaded = any(accelerated_libraries)
     GlobalSettings().accelerator_active = any(accelerated_libraries)
 
-    if GlobalSettings().accelerator_loaded:
-        if any(failed_to_accelerate):
-            logger.warn(
-                f"cuML: Accelerator initialized, some installations failed: {', '.join(failed_to_accelerate)}"
-            )
-        else:
-            logger.info("cuML: Accelerator successfully initialized.")
-    else:
-        logger.warn("cuML: Accelerator failed to initialize.")
+    if any(accelerated_libraries) and not any(failed_to_accelerate):
+        logger.info("cuML: Successfully initialized accelerator.")
+    elif any(accelerated_libraries) and any(failed_to_accelerate):
+        logger.warn(
+            "cuML: Accelerator initialized, but failed to initialize for some libraries."
+        )
+    elif not any(accelerated_libraries) and not any(failed_to_accelerate):
+        logger.warn(
+            "cuML: Accelerator failed to initialize, because none of the underlying libraries are installed."
+        )
 
     set_global_output_type("numpy")
 

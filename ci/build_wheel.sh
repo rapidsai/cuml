@@ -8,6 +8,7 @@ package_dir=$2
 
 source rapids-configure-sccache
 source rapids-date-string
+source rapids-telemetry-setup
 
 rapids-generate-version > ./VERSION
 
@@ -21,6 +22,12 @@ rapids-pip-retry wheel \
     -v \
     --no-deps \
     --disable-pip-version-check \
+<<<<<<< HEAD
     . 2>&1 | tee ../../telemetry-artifacts/build.log
 
 sccache --show-adv-stats | tee ../../telemetry-artifacts/sccache-stats.txt
+=======
+    . 2>&1 | tee ${GITHUB_WORKSPACE}/telemetry-artifacts/build.log
+
+sccache --show-adv-stats | tee ${GITHUB_WORKSPACE}/telemetry-artifacts/sccache-stats.txt
+>>>>>>> 8c29ddcdc12d827f81dd8c684c892922350513a2

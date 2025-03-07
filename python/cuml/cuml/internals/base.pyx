@@ -555,13 +555,15 @@ class Base(TagsMixin,
         # Allow the derived class to overwrite the base class
         translations.update(cls._hyperparam_interop_translator)
         for parameter_name, value in kwargs.items():
-
             if parameter_name in translations:
-                if value in translations[parameter_name]:
-                    if translations[parameter_name][value] == "NotImplemented":
+                try:
+                    remapping = translations[parameter_name][value]
+                    if remapping == "NotImplemented":
                         gpuaccel = False
                     else:
-                        kwargs[parameter_name] = translations[parameter_name][value]
+                        kwargs[parameter_name] = remapping
+                except (KeyError, TypeError):
+                    pass  # Parameter value not found in translation dictionary
 
         return kwargs, gpuaccel
 
@@ -758,7 +760,7 @@ class UniversalBase(Base):
         if device_type == DeviceType.device:
             # call the function from the GPU estimator
             if GlobalSettings().accelerator_active:
-                logger.info(f"cuML: Performing {func_name} in GPU")
+                logger.debug(f"cuML: Performing {func_name} in GPU")
             return gpu_func(self, *args, **kwargs)
 
         # CPU case
@@ -781,7 +783,7 @@ class UniversalBase(Base):
             # get the function from the CPU estimator
             cpu_func = getattr(self._cpu_model, func_name)
             # call the function from the CPU estimator
-            logger.info(f"cuML: Performing {func_name} in CPU")
+            logger.debug(f"cuML: Performing {func_name} in CPU")
             res = cpu_func(*args, **kwargs)
 
             # CPU training

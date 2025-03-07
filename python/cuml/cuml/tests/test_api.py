@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -237,6 +237,8 @@ def test_fit_function(dataset, model_name):
         model = models[model_name](np.random.normal(0.0, 1.0, (10,)))
     elif model_name in ["RandomForestClassifier", "RandomForestRegressor"]:
         model = models[model_name](n_bins=32)
+    elif model_name == "KMeans":
+        model = models[model_name](n_init="auto")
     else:
         if n_pos_args_constr == 1:
             model = models[model_name]()
