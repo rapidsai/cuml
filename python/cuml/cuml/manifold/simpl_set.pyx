@@ -29,6 +29,7 @@ from cuml.manifold.umap_utils import GraphHolder, find_ab_params, \
 
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.internals.array import CumlArray
+from cuml.internals import logger
 
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
@@ -165,7 +166,7 @@ def fuzzy_simplicial_set(X,
         umap_params.p = <float> 2.0
     else:
         umap_params.p = <float> metric_kwds.get("p", 2.0)
-    umap_params.verbosity = verbose
+    umap_params.verbosity = logger._verbose_to_level(verbose)
 
     X_m, _, _, _ = \
         input_to_cuml_array(X,
@@ -366,7 +367,7 @@ def simplicial_set_embedding(
         umap_params.target_metric = MetricType.CATEGORICAL
     umap_params.target_weight = <float> output_metric_kwds['p'] \
         if 'p' in output_metric_kwds else 0.5
-    umap_params.verbosity = verbose
+    umap_params.verbosity = logger._verbose_to_level(verbose)
 
     X_m, _, _, _ = \
         input_to_cuml_array(data,

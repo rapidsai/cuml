@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -78,12 +78,20 @@ IF GPUBUILD == 1:
 
         cdef DefaultGraphBasedDimRedCallback native_callback
 
-        def __init__(self):
+        def __cinit__(self):
             self.native_callback.pyCallbackClass = <PyObject *><void*>self
 
+        def __reduce__(self):
+            return (type(self), ())
+
         def get_native_callback(self):
-            if self.native_callback.pyCallbackClass == NULL:
-                raise ValueError(
-                    "You need to call `super().__init__` in your callback."
-                )
             return <uintptr_t>&(self.native_callback)
+
+        def on_preprocess_end(self, embeddings):
+            pass
+
+        def on_epoch_end(self, embeddings):
+            pass
+
+        def on_train_end(self, embeddings):
+            pass

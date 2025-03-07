@@ -56,6 +56,9 @@ jobs:
         uses: rapidsai/shared-actions/check_nightly_success/dispatch@main
         with:
           repo: cuml
+          # TODO: remove this once upstream issues in RAFT are resolved on 11.4.
+          # The limit was temporarily increased to unblock work.
+          max_days_without_success: 30
   changed-files:
     secrets: inherit
     needs: telemetry-setup

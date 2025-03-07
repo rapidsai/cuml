@@ -226,6 +226,24 @@ def test_labelencoder_fit_transform_input_types(length, cardinality, kind):
     cudf.testing.assert_index_equal(encoder.classes_, sol.cat.categories)
 
 
+@pytest.mark.parametrize("kind", ["cupy", "numpy", "pandas"])
+def test_labelencoder_fit_transform_byteswapped(kind):
+    dtype = np.dtype("i4").newbyteorder()
+    native = np.array([1, 2, 1, 3, 2, 1], dtype="i4")
+    x = native.astype(dtype)
+    if kind == "cupy":
+        x = cp.array(x)
+    elif kind == "pandas":
+        x = pd.Series(x)
+
+    encoder = LabelEncoder()
+    res = encoder.fit_transform(x)
+    sol = cudf.Series(native).astype("category")
+
+    cudf.testing.assert_series_equal(res, sol.cat.codes)
+    cudf.testing.assert_index_equal(encoder.classes_, sol.cat.categories)
+
+
 @pytest.mark.parametrize("use_fit_transform", [False, True])
 @pytest.mark.parametrize(
     "orig_label, ord_label, expected_reverted, bad_ord_label",

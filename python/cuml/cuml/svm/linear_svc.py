@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+from cuml.common import input_to_cuml_array
 from cuml.internals.mixins import ClassifierMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
 from cuml.svm.svc import apply_class_weight
@@ -196,6 +197,7 @@ class LinearSVC(LinearSVM, ClassifierMixin):
         )
 
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "LinearSVM":
+        X = input_to_cuml_array(X, order="F").array
         sample_weight = apply_class_weight(
             self.handle,
             sample_weight,

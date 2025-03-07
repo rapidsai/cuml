@@ -444,28 +444,15 @@ class UMAP(UniversalBase,
         self._input_hash = None
         self._small_data = False
 
-        self.precomputed_knn = extract_knn_infos(precomputed_knn,
-                                                 n_neighbors)
-
-        # We need to set this log level here so that it is propagated in time
-        # for the logger.info call below. We cannot use the verbose parameter
-        # directly because Base.__init__ contains the logic for converting
-        # boolean values to suitable integers. We access self._verbose instead
-        # of self.verbose because due to the same issues described in
-        # Base.__init__'s logic for setting verbose, this code is not
-        # considered to be within a root context and therefore considered
-        # external. Rather than mucking with the decorator, for this specific
-        # case since we're trying to set the properties of the underlying
-        # logger we may as well access our underlying value directly and
-        # perform the necessary arithmetic.
-        logger.set_level(logger.level_enum(6 - self._verbose))
+        self.precomputed_knn = extract_knn_infos(precomputed_knn, n_neighbors)
 
         if build_algo == "auto" or build_algo == "brute_force_knn" or build_algo == "nn_descent":
             if self.deterministic and build_algo == "auto":
                 # TODO: for now, users should be able to see the same results as previous version
                 # (i.e. running brute force knn) when they explicitly pass random_state
                 # https://github.com/rapidsai/cuml/issues/5985
-                logger.info("build_algo set to brute_force_knn because random_state is given")
+                with logger.set_level(logger._verbose_to_level(verbose)):
+                    logger.info("build_algo set to brute_force_knn because random_state is given")
                 self.build_algo ="brute_force_knn"
             else:
                 self.build_algo = build_algo

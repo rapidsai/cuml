@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ import cuml.internals.logger as logger
 import cuml
 import cuml.svm as cu
 import sklearn.svm as sk
-from cuml.testing.utils import unit_param, quality_param, stress_param
+from cuml.testing.utils import unit_param, quality_param, stress_param, as_type
 from queue import Empty
 import cuml.model_selection as dsel
 import cuml.datasets as data
@@ -409,3 +409,19 @@ def test_classification_2(datatype, dims, nclasses):
 @pytest.mark.parametrize("class_weight", [{0: 0.5, 1: 1.5}])
 def test_classification_3(datatype, dims, class_weight):
     run_classification(datatype, "l2", "hinge", dims, 2, class_weight)
+
+
+@pytest.mark.parametrize("kind", ["numpy", "pandas", "cupy", "cudf"])
+@pytest.mark.parametrize("weighted", [False, True])
+def test_linear_svc_input_types(kind, weighted):
+    X, y = data.make_classification()
+    if weighted:
+        sample_weight = np.random.default_rng(42).random(X.shape[0])
+    else:
+        sample_weight = None
+    X, y, sample_weight = as_type(kind, X, y, sample_weight)
+    model = cu.LinearSVC()
+    model.fit(X, y, sample_weight=sample_weight)
+    y_pred = model.predict(X)
+    # predict output type matches input type
+    assert type(y_pred).__module__.split(".")[0] == kind
