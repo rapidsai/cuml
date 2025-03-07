@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2025, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,13 @@
 # limitations under the License.
 #
 
-from cuml.experimental.accel import (
-    install,
-    load_ipython_extension,
-    pytest_load_initial_conftests,
+from cuml.accel.core import install
+from cuml.accel.magics import load_ipython_extension
+from cuml.accel.pytest_plugin import pytest_load_initial_conftests
+
+
+__all__ = (
+    "install",
+    "load_ipython_extension",
+    "pytest_load_initial_conftests",
 )
