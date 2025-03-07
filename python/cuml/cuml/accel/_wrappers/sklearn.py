@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from ..estimator_proxy import intercept
+from cuml.accel.estimator_proxy import intercept
 
 
 ###############################################################################

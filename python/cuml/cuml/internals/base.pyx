@@ -832,9 +832,10 @@ class UniversalBase(Base):
         try:
             return super().__getattr__(attr)
         except AttributeError as ex:
-            # When using cuml.experimental.accel or setting the
-            # self._experimental_dispatching flag to True, we look for methods
-            # that are not in the cuML estimator in the host estimator
+
+            # When using cuml.accel or setting the self._experimental_dispatching
+            # flag to True, we look for methods that are not in the cuML estimator
+            # in the host estimator
             gs = GlobalSettings()
             if gs.accelerator_active or self._experimental_dispatching:
                 # we don't want to special sklearn dispatch cloning function
