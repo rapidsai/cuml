@@ -40,10 +40,10 @@
 
 namespace ML::detail {
 #if CCCL_MAJOR_VERSION >= 3
-using cuda::maximum;
-using cuda::minimum;
+using cuda::maximum<>;
+using cuda::minimum<>;
 #else
-using thrust::maximum;
-using thrust::minimum;
+using thrust::maximum<>;
+using thrust::minimum<>;
 #endif
 }  // namespace ML::detail
