@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/common/logger.hpp>
+#include <cuml/common/utils.hpp>
 
 #include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
@@ -667,7 +668,7 @@ void calcMaxStep(const raft::handle_t& handle,
       return val;
     };
     raft::linalg::mapThenReduce(
-      gamma, n_inactive, huge, map, cub::Min(), stream, cor + n_active, a_vec);
+      gamma, n_inactive, huge, map, ML::detail::minimum{}, stream, cor + n_active, a_vec);
   }
 }
 

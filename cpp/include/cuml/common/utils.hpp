@@ -21,7 +21,9 @@
 #include <raft/core/error.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuda/functional>
 #include <cuda_runtime.h>
+#include <thrust/functional.h>
 
 #include <execinfo.h>
 
@@ -35,3 +37,13 @@
 #else
 #define CUML_KERNEL static
 #endif
+
+namespace ML::detail {
+#if CCCL_MAJOR_VERSION >= 3
+using cuda::maximum;
+using cuda::minimum;
+#else
+using thrust::maximum;
+using thrust::minimum;
+#endif
+}  // namespace ML::detail
