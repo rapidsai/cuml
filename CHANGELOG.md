@@ -1,3 +1,77 @@
+# cuml 25.02.00 (13 Feb 2025)
+
+## 🚨 Breaking Changes
+
+- update pip devcontainers to UCX 1.18 ([#6249](https://github.com/rapidsai/cuml/pull/6249)) [@jameslamb](https://github.com/jameslamb)
+
+## 🐛 Bug Fixes
+
+- Fix dask logistic regression segfault/hang due to wrongly typed variable ([#6281](https://github.com/rapidsai/cuml/pull/6281)) [@dantegd](https://github.com/dantegd)
+- Log UMAP arrays at trace verbosity level. ([#6274](https://github.com/rapidsai/cuml/pull/6274)) [@csadorf](https://github.com/csadorf)
+- Ensure all method signatures are sklearn compatible ([#6260](https://github.com/rapidsai/cuml/pull/6260)) [@jcrist](https://github.com/jcrist)
+- Fix UMAP transform illegal memory access error when data_on_host=True ([#6259](https://github.com/rapidsai/cuml/pull/6259)) [@csadorf](https://github.com/csadorf)
+- Ignore cudf&#39;s __dataframe__ deprecation. ([#6229](https://github.com/rapidsai/cuml/pull/6229)) [@bdice](https://github.com/bdice)
+- Fix for porter stemmer for cuDF change and ARIMA pytest adjustments ([#6227](https://github.com/rapidsai/cuml/pull/6227)) [@dantegd](https://github.com/dantegd)
+- Avoid duplicate log entries ([#6222](https://github.com/rapidsai/cuml/pull/6222)) [@jcrist](https://github.com/jcrist)
+- Further fixes for Scipy 1.15 update for PR and nightly CI ([#6213](https://github.com/rapidsai/cuml/pull/6213)) [@dantegd](https://github.com/dantegd)
+- Update setulb call from Scipy for updated signature of 1.15 ([#6207](https://github.com/rapidsai/cuml/pull/6207)) [@dantegd](https://github.com/dantegd)
+- Adjust test_kmeans to avoid false positive failures ([#6193](https://github.com/rapidsai/cuml/pull/6193)) [@dantegd](https://github.com/dantegd)
+- Adjust margin of logistic regression `log_proba` pytest to avoid false positive failures ([#6188](https://github.com/rapidsai/cuml/pull/6188)) [@dantegd](https://github.com/dantegd)
+- Skip flaky test of kernel_density in nightly job of CUDA 12.0.1 ([#6184](https://github.com/rapidsai/cuml/pull/6184)) [@dantegd](https://github.com/dantegd)
+- Try to reduce network usage in cuML tests. ([#6174](https://github.com/rapidsai/cuml/pull/6174)) [@bdice](https://github.com/bdice)
+- cuML dask fixes to unblock CI ([#6170](https://github.com/rapidsai/cuml/pull/6170)) [@dantegd](https://github.com/dantegd)
+- Remap BATCH_TREE_REORG to TREE_REORG in FIL ([#6161](https://github.com/rapidsai/cuml/pull/6161)) [@wphicks](https://github.com/wphicks)
+
+## 📖 Documentation
+
+- Fixes github link from pyx files ([#6202](https://github.com/rapidsai/cuml/pull/6202)) [@thomasjpfan](https://github.com/thomasjpfan)
+
+## 🚀 New Features
+
+- Allow CUDA ODR violations in 25.02 ([#6264](https://github.com/rapidsai/cuml/pull/6264)) [@robertmaynard](https://github.com/robertmaynard)
+- Define block size for sm_120 ([#6250](https://github.com/rapidsai/cuml/pull/6250)) [@robertmaynard](https://github.com/robertmaynard)
+- Support `alpha=0` in `Ridge` ([#6236](https://github.com/rapidsai/cuml/pull/6236)) [@jcrist](https://github.com/jcrist)
+- Add `as_sklearn` and `from_sklearn` APIs to serialize to CPU sklearn-estimators for supported models ([#6102](https://github.com/rapidsai/cuml/pull/6102)) [@dantegd](https://github.com/dantegd)
+
+## 🛠️ Improvements
+
+- Use `rapids-pip-retry` in CI jobs that might need retries ([#6293](https://github.com/rapidsai/cuml/pull/6293)) [@gforsyth](https://github.com/gforsyth)
+- Avoid large device allocation in UMAP with nndescent ([#6292](https://github.com/rapidsai/cuml/pull/6292)) [@jcrist](https://github.com/jcrist)
+- Revert CUDA 12.8 shared workflow branch changes ([#6282](https://github.com/rapidsai/cuml/pull/6282)) [@vyasr](https://github.com/vyasr)
+- Build and test with CUDA 12.8.0 ([#6266](https://github.com/rapidsai/cuml/pull/6266)) [@bdice](https://github.com/bdice)
+- update pip devcontainers to UCX 1.18 ([#6249](https://github.com/rapidsai/cuml/pull/6249)) [@jameslamb](https://github.com/jameslamb)
+- Drop deprecated thrust features and replace with libcu++ ones ([#6248](https://github.com/rapidsai/cuml/pull/6248)) [@miscco](https://github.com/miscco)
+- Add upper bound to prevent usage of numba 0.61.0 ([#6244](https://github.com/rapidsai/cuml/pull/6244)) [@galipremsagar](https://github.com/galipremsagar)
+- Normalize whitespace ([#6238](https://github.com/rapidsai/cuml/pull/6238)) [@bdice](https://github.com/bdice)
+- Rename cpp/test to cpp/tests. ([#6237](https://github.com/rapidsai/cuml/pull/6237)) [@bdice](https://github.com/bdice)
+- Use cuda.bindings layout. ([#6233](https://github.com/rapidsai/cuml/pull/6233)) [@bdice](https://github.com/bdice)
+- Skip dispatching to GPU for unimplemented metrics in UMAP ([#6224](https://github.com/rapidsai/cuml/pull/6224)) [@betatim](https://github.com/betatim)
+- Use GCC 13 in CUDA 12 conda builds. ([#6221](https://github.com/rapidsai/cuml/pull/6221)) [@bdice](https://github.com/bdice)
+- declare cuda-python dependency for wheels, other small packaging changes ([#6217](https://github.com/rapidsai/cuml/pull/6217)) [@jameslamb](https://github.com/jameslamb)
+- Bump Treelite to 4.4.1 ([#6212](https://github.com/rapidsai/cuml/pull/6212)) [@hcho3](https://github.com/hcho3)
+- Support raft&#39;s logger targets ([#6208](https://github.com/rapidsai/cuml/pull/6208)) [@vyasr](https://github.com/vyasr)
+- Use rapids-cmake for the logger ([#6205](https://github.com/rapidsai/cuml/pull/6205)) [@vyasr](https://github.com/vyasr)
+- consolidate pytest config in pyproject.toml ([#6201](https://github.com/rapidsai/cuml/pull/6201)) [@jameslamb](https://github.com/jameslamb)
+- introduce libcuml wheels ([#6199](https://github.com/rapidsai/cuml/pull/6199)) [@jameslamb](https://github.com/jameslamb)
+- Check if nightlies have succeeded recently enough ([#6196](https://github.com/rapidsai/cuml/pull/6196)) [@vyasr](https://github.com/vyasr)
+- Remove sphinx pinning ([#6195](https://github.com/rapidsai/cuml/pull/6195)) [@vyasr](https://github.com/vyasr)
+- simplify wheel CI scripts, other small packaging changes ([#6190](https://github.com/rapidsai/cuml/pull/6190)) [@jameslamb](https://github.com/jameslamb)
+- Update for raft logger changes ([#6187](https://github.com/rapidsai/cuml/pull/6187)) [@vyasr](https://github.com/vyasr)
+- update telemetry actions to fluent-bit friendly style ([#6186](https://github.com/rapidsai/cuml/pull/6186)) [@msarahan](https://github.com/msarahan)
+- HDBSCAN and KMeans API improvements for improving CPU interoperability ([#6181](https://github.com/rapidsai/cuml/pull/6181)) [@dantegd](https://github.com/dantegd)
+- CPU/GPU interop with RandomForest ([#6175](https://github.com/rapidsai/cuml/pull/6175)) [@hcho3](https://github.com/hcho3)
+- Update version references in workflow ([#6172](https://github.com/rapidsai/cuml/pull/6172)) [@AyodeAwe](https://github.com/AyodeAwe)
+- gate telemetry dispatch calls on TELEMETRY_ENABLED env var ([#6171](https://github.com/rapidsai/cuml/pull/6171)) [@msarahan](https://github.com/msarahan)
+- Use rapids-logger to generate the cuml logger ([#6162](https://github.com/rapidsai/cuml/pull/6162)) [@vyasr](https://github.com/vyasr)
+- Use estimator tags to improve sparse error handling ([#6151](https://github.com/rapidsai/cuml/pull/6151)) [@dantegd](https://github.com/dantegd)
+- FEA Add support for accepting a Numpy RandomState ([#6150](https://github.com/rapidsai/cuml/pull/6150)) [@betatim](https://github.com/betatim)
+- prefer system install of UCX in pip devcontainers, update outdated RAPIDS references ([#6149](https://github.com/rapidsai/cuml/pull/6149)) [@jameslamb](https://github.com/jameslamb)
+- Improve infrastructure for experimental dispatching of non existing methods in cuML ([#6148](https://github.com/rapidsai/cuml/pull/6148)) [@dantegd](https://github.com/dantegd)
+- Adapt to rmm logger changes ([#6147](https://github.com/rapidsai/cuml/pull/6147)) [@vyasr](https://github.com/vyasr)
+- Require approval to run CI on draft PRs ([#6145](https://github.com/rapidsai/cuml/pull/6145)) [@bdice](https://github.com/bdice)
+- Add breaking change workflow trigger ([#6130](https://github.com/rapidsai/cuml/pull/6130)) [@AyodeAwe](https://github.com/AyodeAwe)
+- Switch to native traceback in `cuml` ([#6078](https://github.com/rapidsai/cuml/pull/6078)) [@galipremsagar](https://github.com/galipremsagar)
+
 # cuml 24.12.00 (11 Dec 2024)
 
 ## 🚨 Breaking Changes

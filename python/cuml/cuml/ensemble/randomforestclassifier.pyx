@@ -262,7 +262,7 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     _hyperparam_interop_translator = {
         "criterion": {
-            "log_loss": "NotImplemented"
+            "log_loss": "NotImplemented",
         },
         "oob_score": {
             True: "NotImplemented",

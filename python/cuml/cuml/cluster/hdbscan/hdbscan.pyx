@@ -386,8 +386,6 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         feature array. If metric is a string or callable, it must be one of
         the options allowed by metrics.pairwise.pairwise_distances for its
         metric parameter.
-        If metric is "precomputed", X is assumed to be a distance matrix and
-        must be square.
 
     p : int, optional (default=2)
         p value to use if using the minkowski metric.
