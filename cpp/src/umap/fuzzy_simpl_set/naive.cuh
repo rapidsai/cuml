@@ -275,7 +275,7 @@ void compute_membership_strength(nnz_t n,
                                  const value_idx* knn_indices,
                                  const value_t* knn_dists,
                                  int n_neighbors,
-                                 raft::sparse::COO<value_t>* out,
+                                 raft::sparse::COO<value_t>& out,
                                  UMAPParams* params,
                                  cudaStream_t stream)
 {
@@ -302,7 +302,7 @@ void compute_membership_strength(nnz_t n,
   /**
    * Compute graph of membership strengths
    */
-  nnz_t to_process = static_cast<nnz_t>(out->n_rows) * n_neighbors;
+  nnz_t to_process = static_cast<nnz_t>(out.n_rows) * n_neighbors;
   dim3 grid_elm(raft::ceildiv(to_process, static_cast<nnz_t>(TPB_X)), 1, 1);
   dim3 blk_elm(TPB_X, 1, 1);
 
@@ -311,17 +311,17 @@ void compute_membership_strength(nnz_t n,
                                        knn_dists,
                                        sigmas.data(),
                                        rhos.data(),
-                                       out->vals(),
-                                       out->rows(),
-                                       out->cols(),
+                                       out.vals(),
+                                       out.rows(),
+                                       out.cols(),
                                        n_neighbors,
                                        to_process);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
 template <typename value_t>
-void symmetrize(raft::sparse::COO<value_t>* in,
-                raft::sparse::COO<value_t>* out,
+void symmetrize(raft::sparse::COO<value_t>& in,
+                raft::sparse::COO<value_t>& out,
                 float set_op_mix_ratio,
                 cudaStream_t stream)
 {
@@ -330,8 +330,8 @@ void symmetrize(raft::sparse::COO<value_t>* in,
    * one via a fuzzy union. (Symmetrize knn graph).
    */
   raft::sparse::linalg::coo_symmetrize<value_t>(
-    in,
-    out,
+    &in,
+    &out,
     [set_op_mix_ratio] __device__(int row, int col, value_t result, value_t transpose) {
       value_t prod_matrix = result * transpose;
       value_t res         = set_op_mix_ratio * (result + transpose - prod_matrix) +
@@ -372,10 +372,10 @@ void launcher(nnz_t n,
     raft::sparse::COO<value_t> strengths(stream, n * n_neighbors, n, n);
 
     compute_membership_strength<value_t, value_idx, nnz_t, TPB_X>(
-      n, knn_indices, knn_dists, n_neighbors, &strengths, params, stream);
+      n, knn_indices, knn_dists, n_neighbors, strengths, params, stream);
 
-    symmetrize<value_t>(&strengths, out, params->set_op_mix_ratio, stream);
-  }
+    symmetrize<value_t>(strengths, *out, params->set_op_mix_ratio, stream);
+  }  // end strengths scope
 
   raft::sparse::op::coo_sort<value_t>(out, stream);
 }

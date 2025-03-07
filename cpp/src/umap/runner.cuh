@@ -105,6 +105,7 @@ void _get_graph(const raft::handle_t& handle,
 
   ML::default_logger().set_level(params->verbosity);
 
+  /* Nested scopes used here to drop resources earlier, reducing device memory usage */
   raft::sparse::COO<value_t> fss_graph(stream);
   {
     raft::sparse::COO<value_t> strengths(stream, n_x_n_neighbors, inputs.n, inputs.n);
@@ -134,14 +135,13 @@ void _get_graph(const raft::handle_t& handle,
         knn_graph.knn_indices,
         knn_graph.knn_dists,
         n_neighbors,
-        &strengths,
+        strengths,
         params,
         stream);
-    }
-    FuzzySimplSetImpl::symmetrize<value_t>(
-      &strengths, &fss_graph, params->set_op_mix_ratio, stream);
+    }  // end knn_indices_b & knn_dists_b scope
+    FuzzySimplSetImpl::symmetrize<value_t>(strengths, fss_graph, params->set_op_mix_ratio, stream);
     raft::common::nvtx::pop_range();
-  }
+  }  // end strengths scope
 
   /* Canonicalize output graph */
   raft::sparse::op::coo_sort<value_t>(&fss_graph, stream);
@@ -158,6 +158,7 @@ void _get_graph_supervised(const raft::handle_t& handle,
 
   cudaStream_t stream = handle.get_stream();
 
+  /* Nested scopes used here to drop resources earlier, reducing device memory usage */
   raft::sparse::COO<value_t> ci_graph(stream);
   {
     raft::sparse::COO<value_t> fss_graph(stream);
@@ -172,7 +173,7 @@ void _get_graph_supervised(const raft::handle_t& handle,
       Supervised::perform_general_intersection<value_idx, value_t, nnz_t, TPB_X>(
         handle, inputs.y, &fss_graph, &ci_graph, params, stream);
     }
-  }
+  }  // end fss_graph scope
 
   /* Canonicalize output graph */
   raft::sparse::op::coo_sort<value_t>(&ci_graph, stream);
