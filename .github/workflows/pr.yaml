@@ -216,13 +216,13 @@ jobs:
   devcontainer:
     needs: telemetry-setup
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@branch-25.04
+    uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@gha-tools-for-devcontainer
     with:
       arch: '["amd64"]'
       cuda: '["12.8"]'
       extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
       build_command: |
-        source rapids-telemetry-setup
+        source rapids-telemetry-setup;
         sccache --zero-stats;
         rapids-telemetry-record build.log build-all --verbose;
         rapids-telemetry-record sccache-stats.txt sccache --show-adv-stats;
