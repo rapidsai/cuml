@@ -17,17 +17,11 @@ cd "${package_dir}"
 sccache --zero-stats
 
 rapids-logger "Building '${package_name}' wheel"
-rapids-pip-retry wheel \
+rapids-telemetry-record build.log rapids-pip-retry wheel \
     -w dist \
     -v \
     --no-deps \
     --disable-pip-version-check \
-<<<<<<< HEAD
-    . 2>&1 | tee ../../telemetry-artifacts/build.log
+    .
 
-sccache --show-adv-stats | tee ../../telemetry-artifacts/sccache-stats.txt
-=======
-    . 2>&1 | tee ${GITHUB_WORKSPACE}/telemetry-artifacts/build.log
-
-sccache --show-adv-stats | tee ${GITHUB_WORKSPACE}/telemetry-artifacts/sccache-stats.txt
->>>>>>> 8c29ddcdc12d827f81dd8c684c892922350513a2
+rapids-telemetry-record sccache-stats.txt sccache --show-adv-stats
