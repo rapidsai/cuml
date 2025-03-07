@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,14 @@ from cuml.common.exceptions import NotFittedError
 from cuml.internals.import_utils import has_sklearn
 from cuml.internals.import_utils import has_lightgbm, has_shap
 from cuml.explainer.tree_shap import TreeExplainer
-from hypothesis import given, settings, assume, HealthCheck, strategies as st
+from hypothesis import (
+    example,
+    given,
+    settings,
+    assume,
+    HealthCheck,
+    strategies as st,
+)
 from cuml.internals.safe_imports import gpu_only_import
 import json
 import pytest
@@ -914,6 +921,17 @@ def check_efficiency_interactions(expected_value, pred, shap_values):
     max_examples=20,
     suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large],
 )
+@example(
+    params=(
+        pd.DataFrame(np.ones((10, 5), dtype=np.float32)),
+        np.ones(10, dtype=np.float32),
+        curfr(max_features=1.0, random_state=0, n_streams=1, n_bins=10).fit(
+            np.ones((10, 5), dtype=np.float32), np.ones(10, dtype=np.float32)
+        ),
+        np.ones(10, dtype=np.float32),
+    ),
+    interactions_method="shapley-interactions",
+)
 @given(
     shap_strategy(),
     st.sampled_from(["shapley-interactions", "shapley-taylor"]),
@@ -989,6 +1007,7 @@ def test_different_algorithms_different_output():
 
 
 @settings(deadline=None)
+@example(input_type="numpy")
 @given(st.sampled_from(["numpy", "cupy", "cudf", "pandas"]))
 def test_input_types(input_type):
     # simple test to not crash on different input data-frames

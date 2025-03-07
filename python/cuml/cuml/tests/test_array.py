@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ from cuml.testing.utils import (
     squeezed_shape,
     to_nparray,
 )
-from hypothesis import assume, given, settings
+from hypothesis import assume, example, given, settings
 from hypothesis import strategies as st
 
 cp = gpu_only_import("cupy")
@@ -125,6 +125,14 @@ def _assert_equal(array_like, cuml_array):
     )
 
 
+@example(
+    input_type="numpy",
+    dtype=np.float32,
+    shape=(10, 10),
+    order="C",
+    mem_type="device",
+    force_gc=False,
+)
 @given(
     input_type=cuml_array_input_types(),
     dtype=cuml_array_dtypes(),
@@ -164,6 +172,13 @@ def test_array_init(input_type, dtype, shape, order, mem_type, force_gc):
     _assert_equal(input_array_copy, cuml_array)
 
 
+@example(
+    data_type=bytes,
+    dtype=np.float32,
+    shape=(10, 10),
+    order="C",
+    mem_type="device",
+)
 @given(
     data_type=st.sampled_from([bytes, bytearray, memoryview]),
     dtype=cuml_array_dtypes(),
@@ -193,6 +208,13 @@ def test_array_init_from_bytes(data_type, dtype, shape, order, mem_type):
     assert cp.all(cp.asarray(array_copy) == array_copy)
 
 
+@example(
+    input_type="numpy",
+    dtype=np.float32,
+    shape=(10, 10),
+    order="C",
+    mem_type="device",
+)
 @given(
     input_type=cuml_array_input_types(),
     dtype=cuml_array_dtypes(),
@@ -226,6 +248,7 @@ def test_array_mem_type(input_type, dtype, shape, order, mem_type):
         )
 
 
+@example(inp=np.array([1, 2, 3]), indices=slice(1, 3), mem_type="device")
 @given(
     inp=cuml_array_inputs(),
     indices=st.slices(10),  # TODO: should be basic_indices() as shown below
@@ -263,6 +286,7 @@ def test_get_set_item(inp, indices, mem_type):
         _assert_equal(inp, ary)
 
 
+@example(shape=(10, 10), dtype=np.float32, order="C", mem_type="device")
 @given(
     shape=cuml_array_shapes(),
     dtype=cuml_array_dtypes(),
@@ -278,6 +302,7 @@ def test_create_empty(shape, dtype, order, mem_type):
         assert ary.dtype == np.dtype(dtype)
 
 
+@example(shape=(10, 10), dtype=np.float32, order="C", mem_type="device")
 @given(
     shape=cuml_array_shapes(),
     dtype=cuml_array_dtypes(),
@@ -293,6 +318,7 @@ def test_create_zeros(shape, dtype, order, mem_type):
         assert mem_type.xpy.all(test == mem_type.xpy.asarray(ary))
 
 
+@example(shape=(10, 10), dtype=np.float32, order="C", mem_type="device")
 @given(
     shape=cuml_array_shapes(),
     dtype=cuml_array_dtypes(),
@@ -308,6 +334,7 @@ def test_create_ones(shape, dtype, order, mem_type):
         assert mem_type.xpy.all(test == mem_type.xpy.asarray(ary))
 
 
+@example(shape=(10, 10), dtype=np.float32, order="C", mem_type="device")
 @given(
     shape=cuml_array_shapes(),
     dtype=cuml_array_dtypes(),
@@ -332,6 +359,7 @@ def cudf_compatible_dtypes(dtype):
     return dtype not in UNSUPPORTED_CUDF_DTYPES
 
 
+@example(inp=np.array([1, 2, 3]), input_mem_type="device", output_type="cupy")
 @given(
     inp=cuml_array_inputs(),
     input_mem_type=cuml_array_mem_types(),
@@ -391,6 +419,7 @@ def test_output(inp, input_mem_type, output_type):
     assert_data_equal_(res)
 
 
+@example(inp=np.array([1, 2, 3]), output_type="cupy", mem_type="device")
 @given(
     inp=cuml_array_inputs(),
     output_type=cuml_array_output_types(),
@@ -441,6 +470,14 @@ def test_end_to_end_conversion_via_intermediate(inp, output_type, mem_type):
         _assert_equal(inp, array2)
 
 
+@example(
+    output_type="cupy",
+    shape=(10, 10),
+    dtype=np.float32,
+    order="C",
+    out_dtype=np.float32,
+    mem_type="device",
+)
 @given(
     output_type=cuml_array_output_types(),
     shape=cuml_array_shapes(),
@@ -472,6 +509,7 @@ def test_output_dtype(output_type, shape, dtype, order, out_dtype, mem_type):
             res.dtype is out_dtype
 
 
+@example(inp=np.array([1, 2, 3]), mem_type="device")
 @given(inp=cuml_array_inputs(), mem_type=cuml_array_mem_types())
 @settings(deadline=None)
 def test_array_interface(inp, mem_type):
@@ -522,6 +560,11 @@ def test_array_interface(inp, mem_type):
         )
 
 
+@example(
+    inp=np.array([1, 2, 3]),
+    to_serialize_mem_type="device",
+    from_serialize_mem_type="device",
+)
 @given(
     inp=cuml_array_inputs(),
     to_serialize_mem_type=cuml_array_mem_types(),
@@ -561,6 +604,11 @@ def test_serialize(inp, to_serialize_mem_type, from_serialize_mem_type):
 
 
 @pytest.mark.parametrize("protocol", [4, 5])
+@example(
+    inp=np.array([1, 2, 3]),
+    to_serialize_mem_type="device",
+    from_serialize_mem_type="device",
+)
 @given(
     inp=cuml_array_inputs(),
     to_serialize_mem_type=cuml_array_mem_types(),
@@ -601,6 +649,7 @@ def test_pickle(protocol, inp, to_serialize_mem_type, from_serialize_mem_type):
         assert ary.order == b.order
 
 
+@example(inp=np.array([1, 2, 3]), mem_type="device")
 @given(inp=cuml_array_inputs(), mem_type=cuml_array_mem_types())
 @settings(deadline=None)
 def test_deepcopy(inp, mem_type):
@@ -633,6 +682,7 @@ def test_deepcopy(inp, mem_type):
 
 
 @pytest.mark.parametrize("operation", [operator.add, operator.sub])
+@example(a=np.array([1, 2, 3]), mem_type="device")
 @given(
     a=cuml_array_inputs(),
     mem_type=cuml_array_mem_types(),
@@ -652,6 +702,7 @@ def test_cumlary_binops(operation, a, mem_type):
 
 
 @pytest.mark.parametrize("order", ["F", "C"])
+@example(mem_type="device")
 @given(mem_type=cuml_array_mem_types())
 @settings(deadline=None)
 def test_sliced_array_owner(order, mem_type):
@@ -701,6 +752,7 @@ def test_sliced_array_owner(order, mem_type):
     )
 
 
+@example(input_type="numpy", dtype=np.float32, shape=(10, 10), order="C")
 @given(
     input_type=cuml_array_input_types(),
     dtype=cuml_array_dtypes(),
@@ -713,6 +765,7 @@ def test_array_to_memory_order(input_type, dtype, shape, order):
     assert array_to_memory_order(input_array, default=order) == order
 
 
+@example(input_type="numpy", dtype=np.float32, shape=(10, 10), order="C")
 @given(
     input_type=st.sampled_from(("cupy", "numpy")),
     dtype=cuml_array_dtypes(),
