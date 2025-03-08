@@ -51,6 +51,28 @@ We use [https://docs.pytest.org/en/latest/]() for writing and running tests. To 
 
 Some tests are run against inputs generated with [hypothesis](https://hypothesis.works/). See the `cuml/testing/strategies.py` module for custom strategies that can be used to test cuml estimators with diverse inputs. For example, use the `regression_datasets()` strategy to test random regression problems.
 
+When using hypothesis for testing, you must include at least one explicit example using the `@example` decorator alongside any `@given` strategies. This ensures that:
+1. Every test has at least one deterministic test case that always runs
+2. Critical edge cases are documented and tested consistently
+3. Test failures can be reproduced reliably
+
+Note: While the explicit examples will always run in CI, the hypothesis-generated test cases (from `@given` strategies) only run during nightly testing by default. This ensures fast CI runs while still maintaining thorough testing coverage.
+
+Example of a valid hypothesis test:
+```python
+@example(dtype=np.float32, sparse_input=False)  # baseline case, runs as part of PR CI
+@example(dtype=np.float64, sparse_input=True)   # edge case, runs as part of PR CI
+@given(
+    dtype=st.sampled_from((np.float32, np.float64)),
+    sparse_input=st.booleans()
+)  # strategy-based cases, only runs during nightly tests
+def test_my_estimator(dtype, sparse_input):
+    # Test implementation
+    pass
+```
+
+The test collection will fail if any test uses `@given` without an accompanying `@example`.
+
 ## Device and Host memory allocations
 TODO: talk about enabling RMM here when it is ready
 
