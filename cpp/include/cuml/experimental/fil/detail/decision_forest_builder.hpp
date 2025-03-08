@@ -122,13 +122,7 @@ struct decision_forest_builder {
     typename node_type::offset_type offset            = typename node_type::offset_type{},
     bool is_inclusive                                 = false)
   {
-    if (is_inclusive) { val = std::nextafter(val, std::numeric_limits<value_t>::infinity()); }
-    nodes_.emplace_back(
-      val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset);
-    // 0 indicates the lack of ID mapping for a particular node
-    node_id_mapping_.push_back(static_cast<index_type>(tl_node_id.value_or(0)));
     if (depth == std::size_t{}) {
-      root_node_indexes_.push_back(cur_node_index_);
       if (alignment_ != index_type{}) {
         if (cur_node_index_ % alignment_ != index_type{}) {
           auto padding = (alignment_ - cur_node_index_ % alignment_);
@@ -137,7 +131,14 @@ struct decision_forest_builder {
           }
         }
       }
+      root_node_indexes_.push_back(cur_node_index_);
     }
+
+    if (is_inclusive) { val = std::nextafter(val, std::numeric_limits<value_t>::infinity()); }
+    nodes_.emplace_back(
+      val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset);
+    // 0 indicates the lack of ID mapping for a particular node
+    node_id_mapping_.push_back(static_cast<index_type>(tl_node_id.value_or(0)));
     ++cur_node_index_;
   }
 

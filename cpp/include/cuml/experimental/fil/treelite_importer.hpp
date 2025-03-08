@@ -258,6 +258,12 @@ struct treelite_importer {
     if constexpr (variant_index != std::variant_size_v<decision_forest_variant>) {
       if (variant_index == target_variant_index) {
         using forest_model_t = std::variant_alternative_t<variant_index, decision_forest_variant>;
+        if constexpr (traversal_order ==
+                      ML::experimental::forest::forest_order::layered_children_together) {
+          // Cannot align whole trees with layered traversal order, since trees
+          // are mingled together
+          align_bytes = index_type{};
+        }
         auto builder =
           detail::decision_forest_builder<forest_model_t>(max_num_categories, align_bytes);
         auto node_index = index_type{};
