@@ -33,6 +33,8 @@ tmp/
 wheels/
 wheelhouse/
 _skbuild/
+junit-*.xml
+
 
 ## files pickled in notebook when ran during python docstring generation
 docs/source/*.model
@@ -73,3 +75,6 @@ compile_commands.json
 # ref: https://github.com/rapidsai/cuml/pull/6201
 pytest.ini
 !python/cuml/cuml/benchmark/automated/pytest.ini
+
+# testing
+ci/**/scikit-learn/
