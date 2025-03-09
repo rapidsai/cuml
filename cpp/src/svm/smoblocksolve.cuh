@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 
 #include "smo_sets.cuh"
 
+#include <cuml/common/utils.hpp>
 #include <cuml/svm/svm_parameter.h>
 
 #include <raft/util/cuda_utils.cuh>
@@ -201,7 +202,7 @@ CUML_KERNEL __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
     // mask values outside of X_upper
     math_t f_tmp = in_upper(a, y, C) ? f : INFINITY;
     Pair pair{f_tmp, tid};
-    Pair res = BlockReduce(temp_storage.pair).Reduce(pair, cub::Min(), n_ws);
+    Pair res = BlockReduce(temp_storage.pair).Reduce(pair, ML::detail::minimum{}, n_ws);
     if (tid == 0) {
       f_u = res.val;
       u   = res.key;
@@ -211,7 +212,7 @@ CUML_KERNEL __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
     __syncthreads();  // needed because we are reusing the shared memory buffer
                       // and also the u shared value
     math_t Kui   = kernel[u * n_ws + tid];
-    math_t f_max = BlockReduceFloat(temp_storage.single).Reduce(f_tmp, cub::Max(), n_ws);
+    math_t f_max = BlockReduceFloat(temp_storage.single).Reduce(f_tmp, ML::detail::maximum{}, n_ws);
 
     if (tid == 0) {
       // f_max-f_u is used to check stopping condition.
@@ -231,7 +232,7 @@ CUML_KERNEL __launch_bounds__(WSIZE) void SmoBlockSolve(math_t* y_array,
       f_tmp = -INFINITY;
     }
     pair = Pair{f_tmp, tid};
-    res  = BlockReduce(temp_storage.pair).Reduce(pair, cub::Max(), n_ws);
+    res  = BlockReduce(temp_storage.pair).Reduce(pair, ML::detail::maximum{}, n_ws);
     if (tid == 0) { l = res.key; }
     __syncthreads();
     math_t Kli = kernel[l * n_ws + tid];

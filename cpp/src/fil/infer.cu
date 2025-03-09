@@ -379,7 +379,7 @@ __device__ __forceinline__ void block_softmax(Iterator begin, Iterator end, void
 {
   // subtract max before exponentiating for numerical stability
   using value_type = typename std::iterator_traits<Iterator>::value_type;
-  value_type max   = allreduce_shmem(begin, end, vectorized(cub::Max()), tmp_storage);
+  value_type max   = allreduce_shmem(begin, end, vectorized(ML::detail::maximum{}), tmp_storage);
   for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
     *it = vectorized(shifted_exp())(*it, max);
   // sum of exponents

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ CUML_KERNEL void logSoftmaxKernel(
       etaMax = raft::max<T>(myEta, etaMax);
     }
   }
-  T tmpMax = WarpRed(shm.warpStore[threadIdx.y]).Reduce(etaMax, cub::Max());
+  T tmpMax = WarpRed(shm.warpStore[threadIdx.y]).Reduce(etaMax, ML::detail::maximum<T>{});
   if (threadIdx.x == 0) { shm.sh_val[threadIdx.y] = tmpMax; }
   __syncthreads();
   etaMax = shm.sh_val[threadIdx.y];

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuml/common/utils.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/datasets/make_regression.hpp>
 #include <cuml/svm/linear.hpp>
@@ -165,7 +166,7 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
       params.nRowsTest,
       T(0),
       [] __device__(const T yOut) { return raft::abs<T>(1.0 - yOut); },
-      cub::Max(),
+      ML::detail::maximum{},
       stream,
       yOut.data());
     T error = errorBuf.value(stream);
