@@ -377,3 +377,15 @@ class Ridge(UniversalBase,
 
     def get_attr_names(self):
         return ['intercept_', 'coef_', 'n_features_in_', 'feature_names_in_']
+
+    def _should_dispatch_cpu(self, func_name, *args, **kwargs):
+        """
+        Dispatch to CPU implementation when:
+        1. Multi-target regression is detected (y has more than 1 column)
+        2. For fit-related functions only (fit, fit_transform, fit_predict)
+        """
+        if func_name == "fit" and len(args) > 1:
+            y_m, _, _, _ = input_to_cuml_array(args[1])
+
+            # Check if we have multiple targets
+            return len(y_m.shape) > 1 and y_m.shape[1] > 1
