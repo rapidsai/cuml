@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include <cuml/experimental/fil/forest_model.hpp>
 #include <cuml/experimental/fil/postproc_ops.hpp>
 #include <cuml/experimental/fil/tree_layout.hpp>
+#include <cuml/experimental/forest/integrations/treelite.hpp>
 
 #include <treelite/c_api.h>
 #include <treelite/enum/task_type.h>
@@ -30,9 +31,6 @@
 #include <treelite/tree.h>
 
 #include <cmath>
-#include <cstddef>
-#include <queue>
-#include <stack>
 #include <variant>
 
 namespace ML {
@@ -40,49 +38,6 @@ namespace experimental {
 namespace fil {
 
 namespace detail {
-/** A template for storing nodes in either a depth or breadth-first traversal
- */
-template <tree_layout layout, typename T>
-struct traversal_container {
-  using backing_container_t =
-    std::conditional_t<layout == tree_layout::depth_first, std::stack<T>, std::queue<T>>;
-  void add(T const& val) { data_.push(val); }
-  void add(T const& hot, T const& distant)
-  {
-    if constexpr (layout == tree_layout::depth_first) {
-      data_.push(distant);
-      data_.push(hot);
-    } else {
-      data_.push(hot);
-      data_.push(distant);
-    }
-  }
-  auto next()
-  {
-    if constexpr (std::is_same_v<backing_container_t, std::stack<T>>) {
-      auto result = data_.top();
-      data_.pop();
-      return result;
-    } else {
-      auto result = data_.front();
-      data_.pop();
-      return result;
-    }
-  }
-  auto peek()
-  {
-    if constexpr (std::is_same_v<backing_container_t, std::stack<T>>) {
-      return data_.top();
-    } else {
-      return data_.front();
-    }
-  }
-  [[nodiscard]] auto empty() { return data_.empty(); }
-  auto size() { return data_.size(); }
-
- private:
-  backing_container_t data_;
-};
 
 struct postproc_params_t {
   element_op element = element_op::disable;
@@ -98,193 +53,39 @@ struct postproc_params_t {
  */
 template <tree_layout layout>
 struct treelite_importer {
-  template <typename tl_threshold_t, typename tl_output_t>
-  struct treelite_node {
-    treelite::Tree<tl_threshold_t, tl_output_t> const& tree;
-    int node_id;
-    index_type parent_index;
-    index_type own_index;
-
-    auto is_leaf() { return tree.IsLeaf(node_id); }
-
-    auto get_output()
-    {
-      auto result = std::vector<tl_output_t>{};
-      if (tree.HasLeafVector(node_id)) {
-        result = tree.LeafVector(node_id);
-      } else {
-        result.push_back(tree.LeafValue(node_id));
-      }
-      return result;
+  auto static constexpr const traversal_order = []() constexpr {
+    if constexpr (layout == tree_layout::depth_first) {
+      return ML::experimental::forest::forest_order::depth_first;
+    } else if constexpr (layout == tree_layout::breadth_first) {
+      return ML::experimental::forest::forest_order::breadth_first;
+    } else if constexpr (layout == tree_layout::layered_children_together) {
+      return ML::experimental::forest::forest_order::layered_children_together;
+    } else {
+      static_assert(layout == tree_layout::depth_first,
+                    "Layout not yet implemented in treelite importer for FIL");
     }
+  }();
 
-    auto get_categories() { return tree.CategoryList(node_id); }
-
-    auto get_feature() { return tree.SplitIndex(node_id); }
-
-    auto is_categorical()
-    {
-      return tree.NodeType(node_id) == treelite::TreeNodeType::kCategoricalTestNode;
-    }
-
-    auto default_distant()
-    {
-      auto result        = false;
-      auto default_child = tree.DefaultChild(node_id);
-      if (is_categorical()) {
-        if (tree.CategoryListRightChild(node_id)) {
-          result = (default_child == tree.RightChild(node_id));
-        } else {
-          result = (default_child == tree.LeftChild(node_id));
-        }
-      } else {
-        auto tl_operator = tree.ComparisonOp(node_id);
-        if (tl_operator == treelite::Operator::kLT || tl_operator == treelite::Operator::kLE) {
-          result = (default_child == tree.LeftChild(node_id));
-        } else {
-          result = (default_child == tree.RightChild(node_id));
-        }
-      }
-      return result;
-    }
-
-    auto threshold() { return tree.Threshold(node_id); }
-
-    auto categories()
-    {
-      auto result = decltype(tree.CategoryList(node_id)){};
-      if (is_categorical()) { result = tree.CategoryList(node_id); }
-      return result;
-    }
-
-    auto is_inclusive()
-    {
-      auto tl_operator = tree.ComparisonOp(node_id);
-      return tl_operator == treelite::Operator::kGT || tl_operator == treelite::Operator::kLE;
-    }
-  };
-
-  template <typename tl_threshold_t, typename tl_output_t, typename lambda_t>
-  void node_for_each(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree, lambda_t&& lambda)
+  auto get_node_count(treelite::Model const& tl_model)
   {
-    using node_index_t = decltype(tl_tree.LeftChild(0));
-    auto to_be_visited = detail::traversal_container<layout, node_index_t>{};
-    to_be_visited.add(node_index_t{});
-
-    auto parent_indices = detail::traversal_container<layout, index_type>{};
-    auto cur_index      = index_type{};
-    parent_indices.add(cur_index);
-
-    while (!to_be_visited.empty()) {
-      auto node_id        = to_be_visited.next();
-      auto remaining_size = to_be_visited.size();
-
-      auto tl_node = treelite_node<tl_threshold_t, tl_output_t>{
-        tl_tree, node_id, parent_indices.next(), cur_index};
-      lambda(tl_node, node_id);
-
-      if (!tl_tree.IsLeaf(node_id)) {
-        auto tl_left_id  = tl_tree.LeftChild(node_id);
-        auto tl_right_id = tl_tree.RightChild(node_id);
-        auto tl_operator = tl_tree.ComparisonOp(node_id);
-        if (!tl_node.is_categorical()) {
-          if (tl_operator == treelite::Operator::kLT || tl_operator == treelite::Operator::kLE) {
-            to_be_visited.add(tl_right_id, tl_left_id);
-          } else if (tl_operator == treelite::Operator::kGT ||
-                     tl_operator == treelite::Operator::kGE) {
-            to_be_visited.add(tl_left_id, tl_right_id);
-          } else {
-            throw model_import_error("Unrecognized Treelite operator");
-          }
-        } else {
-          if (tl_tree.CategoryListRightChild(node_id)) {
-            to_be_visited.add(tl_left_id, tl_right_id);
-          } else {
-            to_be_visited.add(tl_right_id, tl_left_id);
-          }
-        }
-        parent_indices.add(cur_index, cur_index);
-      }
-      ++cur_index;
-    }
+    return ML::experimental::forest::tree_accumulate(
+      tl_model, index_type{}, [](auto&& count, auto&& tree) { return count + tree.num_nodes; });
   }
 
-  template <typename tl_threshold_t, typename tl_output_t, typename iter_t, typename lambda_t>
-  void node_transform(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree,
-                      iter_t output_iter,
-                      lambda_t&& lambda)
+  /* Return vector of offsets between each node and its most distant child */
+  auto get_offsets(treelite::Model const& tl_model)
   {
-    node_for_each(tl_tree, [&output_iter, &lambda](auto&& tl_node, int tl_node_id) {
-      *output_iter = lambda(tl_node);
-      ++output_iter;
-    });
-  }
-
-  template <typename tl_threshold_t, typename tl_output_t, typename T, typename lambda_t>
-  auto node_accumulate(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree,
-                       T init,
-                       lambda_t&& lambda)
-  {
-    auto result = init;
-    node_for_each(tl_tree, [&result, &lambda](auto&& tl_node, int tl_node_id) {
-      result = lambda(result, tl_node);
-    });
-    return result;
-  }
-
-  template <typename tl_threshold_t, typename tl_output_t>
-  auto get_nodes(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree)
-  {
-    auto result = std::vector<treelite_node<tl_threshold_t, tl_output_t>>{};
-    result.reserve(tl_tree.num_nodes);
-    node_transform(tl_tree, std::back_inserter(result), [](auto&& node) { return node; });
-    return result;
-  }
-
-  template <typename tl_threshold_t, typename tl_output_t>
-  auto get_offsets(treelite::Tree<tl_threshold_t, tl_output_t> const& tl_tree)
-  {
-    auto result = std::vector<index_type>(tl_tree.num_nodes);
-    auto nodes  = get_nodes(tl_tree);
-    for (auto i = index_type{}; i < nodes.size(); ++i) {
-      // Current index should always be greater than or equal to parent index.
-      // Later children will overwrite values set by earlier children, ensuring
-      // that most distant offset is used.
-      result[nodes[i].parent_index] = index_type{i - nodes[i].parent_index};
+    auto node_count     = get_node_count(tl_model);
+    auto result         = std::vector<index_type>(node_count);
+    auto parent_indexes = std::vector<index_type>{};
+    parent_indexes.reserve(node_count);
+    ML::experimental::forest::node_transform<traversal_order>(
+      tl_model,
+      std::back_inserter(parent_indexes),
+      [](auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) { return parent_index; });
+    for (auto i = std::size_t{}; i < node_count; ++i) {
+      result[parent_indexes[i]] = i - parent_indexes[i];
     }
-
-    return result;
-  }
-
-  template <typename lambda_t>
-  void tree_for_each(treelite::Model const& tl_model, lambda_t&& lambda)
-  {
-    std::visit(
-      [&lambda](auto&& concrete_tl_model) {
-        std::for_each(
-          std::begin(concrete_tl_model.trees), std::end(concrete_tl_model.trees), lambda);
-      },
-      tl_model.variant_);
-  }
-
-  template <typename iter_t, typename lambda_t>
-  void tree_transform(treelite::Model const& tl_model, iter_t output_iter, lambda_t&& lambda)
-  {
-    std::visit(
-      [&output_iter, &lambda](auto&& concrete_tl_model) {
-        std::transform(std::begin(concrete_tl_model.trees),
-                       std::end(concrete_tl_model.trees),
-                       output_iter,
-                       lambda);
-      },
-      tl_model.variant_);
-  }
-
-  template <typename T, typename lambda_t>
-  auto tree_accumulate(treelite::Model const& tl_model, T init, lambda_t&& lambda)
-  {
-    auto result = init;
-    tree_for_each(tl_model, [&result, &lambda](auto&& tree) { result = lambda(result, tree); });
     return result;
   }
 
@@ -293,15 +94,6 @@ struct treelite_importer {
     auto result = index_type{};
     std::visit([&result](auto&& concrete_tl_model) { result = concrete_tl_model.trees.size(); },
                tl_model.variant_);
-    return result;
-  }
-
-  auto get_offsets(treelite::Model const& tl_model)
-  {
-    auto result = std::vector<std::vector<index_type>>{};
-    result.reserve(num_trees(tl_model));
-    tree_transform(
-      tl_model, std::back_inserter(result), [this](auto&& tree) { return get_offsets(tree); });
     return result;
   }
 
@@ -325,33 +117,34 @@ struct treelite_importer {
 
   auto get_max_num_categories(treelite::Model const& tl_model)
   {
-    return tree_accumulate(tl_model, index_type{}, [this](auto&& accum, auto&& tree) {
-      return node_accumulate(tree, accum, [](auto&& cur_accum, auto&& tl_node) {
-        auto result = cur_accum;
-        for (auto&& cat : tl_node.categories()) {
-          result = (cat + 1 > result) ? cat + 1 : result;
-        }
-        return result;
+    return ML::experimental::forest::node_accumulate<traversal_order>(
+      tl_model,
+      index_type{},
+      [](auto&& cur_accum, auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
+        return std::max(cur_accum, static_cast<index_type>(node.max_num_categories()));
       });
-    });
   }
 
   auto get_num_categorical_nodes(treelite::Model const& tl_model)
   {
-    return tree_accumulate(tl_model, index_type{}, [this](auto&& accum, auto&& tree) {
-      return node_accumulate(tree, accum, [](auto&& cur_accum, auto&& tl_node) {
-        return cur_accum + tl_node.is_categorical();
+    return ML::experimental::forest::node_accumulate<traversal_order>(
+      tl_model,
+      index_type{},
+      [](auto&& cur_accum, auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
+        return cur_accum + static_cast<index_type>(node.is_categorical());
       });
-    });
   }
 
   auto get_num_leaf_vector_nodes(treelite::Model const& tl_model)
   {
-    return tree_accumulate(tl_model, index_type{}, [this](auto&& accum, auto&& tree) {
-      return node_accumulate(tree, accum, [](auto&& cur_accum, auto&& tl_node) {
-        return cur_accum + (tl_node.is_leaf() && tl_node.get_output().size() > 1);
+    return ML::experimental::forest::node_accumulate<traversal_order>(
+      tl_model,
+      index_type{},
+      [](auto&& cur_accum, auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
+        auto accum = cur_accum;
+        if (node.is_leaf() && node.get_output().size() > 1) { ++accum; }
+        return accum;
       });
-    });
   }
 
   auto get_average_factor(treelite::Model const& tl_model)
@@ -455,7 +248,7 @@ struct treelite_importer {
                                   index_type num_class,
                                   index_type num_feature,
                                   index_type max_num_categories,
-                                  std::vector<std::vector<index_type>> const& offsets,
+                                  std::vector<index_type> const& offsets,
                                   index_type align_bytes           = index_type{},
                                   raft_proto::device_type mem_type = raft_proto::device_type::cpu,
                                   int device                       = 0,
@@ -465,47 +258,53 @@ struct treelite_importer {
     if constexpr (variant_index != std::variant_size_v<decision_forest_variant>) {
       if (variant_index == target_variant_index) {
         using forest_model_t = std::variant_alternative_t<variant_index, decision_forest_variant>;
+        if constexpr (traversal_order ==
+                      ML::experimental::forest::forest_order::layered_children_together) {
+          // Cannot align whole trees with layered traversal order, since trees
+          // are mingled together
+          align_bytes = index_type{};
+        }
         auto builder =
           detail::decision_forest_builder<forest_model_t>(max_num_categories, align_bytes);
-        auto tree_count = num_trees(tl_model);
-        auto tree_index = index_type{};
-        tree_for_each(tl_model, [this, &builder, &tree_index, &offsets](auto&& tree) {
-          builder.start_new_tree();
-          auto node_index = index_type{};
-          node_for_each(
-            tree, [&builder, &tree_index, &node_index, &offsets](auto&& node, int tl_node_id) {
-              if (node.is_leaf()) {
-                auto output = node.get_output();
-                builder.set_output_size(output.size());
-                if (output.size() > index_type{1}) {
-                  builder.add_leaf_vector_node(std::begin(output), std::end(output), tl_node_id);
-                } else {
-                  builder.add_node(typename forest_model_t::io_type(output[0]), tl_node_id, true);
-                }
+        auto node_index = index_type{};
+        ML::experimental::forest::node_for_each<traversal_order>(
+          tl_model,
+          [&builder, &offsets, &node_index](
+            auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
+            if (node.is_leaf()) {
+              auto output = node.get_output();
+              builder.set_output_size(output.size());
+              if (output.size() > index_type{1}) {
+                builder.add_leaf_vector_node(
+                  std::begin(output), std::end(output), node.get_treelite_id(), depth);
               } else {
-                if (node.is_categorical()) {
-                  auto categories = node.get_categories();
-                  builder.add_categorical_node(std::begin(categories),
-                                               std::end(categories),
-                                               tl_node_id,
-                                               node.default_distant(),
-                                               node.get_feature(),
-                                               offsets[tree_index][node_index]);
-                } else {
-                  builder.add_node(typename forest_model_t::threshold_type(node.threshold()),
-                                   tl_node_id,
-                                   false,
-                                   node.default_distant(),
-                                   false,
-                                   node.get_feature(),
-                                   offsets[tree_index][node_index],
-                                   node.is_inclusive());
-                }
+                builder.add_node(
+                  typename forest_model_t::io_type(output[0]), node.get_treelite_id(), depth, true);
               }
-              ++node_index;
-            });
-          ++tree_index;
-        });
+            } else {
+              if (node.is_categorical()) {
+                auto categories = node.get_categories();
+                builder.add_categorical_node(std::begin(categories),
+                                             std::end(categories),
+                                             node.get_treelite_id(),
+                                             depth,
+                                             node.default_distant(),
+                                             node.get_feature(),
+                                             offsets[node_index]);
+              } else {
+                builder.add_node(typename forest_model_t::threshold_type(node.threshold()),
+                                 node.get_treelite_id(),
+                                 depth,
+                                 false,
+                                 node.default_distant(),
+                                 false,
+                                 node.get_feature(),
+                                 offsets[node_index],
+                                 node.is_inclusive());
+              }
+            }
+            ++node_index;
+          });
 
         builder.set_average_factor(get_average_factor(tl_model));
         builder.set_bias(get_bias(tl_model));
@@ -566,7 +365,7 @@ struct treelite_importer {
     if (tl_model.task_type == treelite::TaskType::kMultiClf) {
       // Must be either vector leaf or grove-per-class
       if (tl_model.leaf_vector_shape[1] > 1) {  // vector-leaf
-        ASSERT(tl_model.leaf_vector_shape[1] == tl_model.num_class[0],
+        ASSERT(tl_model.leaf_vector_shape[1] == int(tl_model.num_class[0]),
                "Vector leaf must be equal to num_class = %d",
                tl_model.num_class[0]);
         auto tree_count = num_trees(tl_model);
@@ -576,7 +375,7 @@ struct treelite_importer {
       } else {  // grove-per-class
         auto tree_count = num_trees(tl_model);
         for (decltype(tree_count) tree_id = 0; tree_id < tree_count; ++tree_id) {
-          ASSERT(tl_model.class_id[tree_id] == tree_id % tl_model.num_class[0],
+          ASSERT(tl_model.class_id[tree_id] == int(tree_id % tl_model.num_class[0]),
                  "Tree %d has invalid class assignment",
                  tree_id);
         }
@@ -596,19 +395,7 @@ struct treelite_importer {
     auto use_double_thresholds = use_double_precision.value_or(uses_double_thresholds(tl_model));
 
     auto offsets    = get_offsets(tl_model);
-    auto max_offset = std::accumulate(
-      std::begin(offsets),
-      std::end(offsets),
-      index_type{},
-      [&offsets](auto&& cur_max, auto&& tree_offsets) {
-        return std::max(cur_max,
-                        *std::max_element(std::begin(tree_offsets), std::end(tree_offsets)));
-      });
-    auto tree_sizes = std::vector<index_type>{};
-    std::transform(std::begin(offsets),
-                   std::end(offsets),
-                   std::back_inserter(tree_sizes),
-                   [](auto&& tree_offsets) { return tree_offsets.size(); });
+    auto max_offset = *std::max_element(std::begin(offsets), std::end(offsets));
 
     auto variant_index = get_forest_variant_index(use_double_thresholds,
                                                   max_offset,
@@ -670,6 +457,10 @@ auto import_from_treelite_model(treelite::Model const& tl_model,
       break;
     case tree_layout::breadth_first:
       result = treelite_importer<tree_layout::breadth_first>{}.import(
+        tl_model, align_bytes, use_double_precision, dev_type, device, stream);
+      break;
+    case tree_layout::layered_children_together:
+      result = treelite_importer<tree_layout::layered_children_together>{}.import(
         tl_model, align_bytes, use_double_precision, dev_type, device, stream);
       break;
   }

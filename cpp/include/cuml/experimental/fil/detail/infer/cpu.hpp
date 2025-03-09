@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -147,6 +147,10 @@ CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 4)
 CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 5)
 CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 6)
 CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 7)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 8)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 9)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 10)
+CUML_FIL_INFER_ALL(extern template, raft_proto::device_type::cpu, 11)
 
 }  // namespace inference
 }  // namespace detail

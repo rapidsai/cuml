@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -172,7 +172,8 @@ struct alignas(
   {
     if constexpr (layout == tree_layout::depth_first) {
       return offset_type{1} + condition * (aligned_data.inner_data.distant_offset - offset_type{1});
-    } else if constexpr (layout == tree_layout::breadth_first) {
+    } else if constexpr (layout == tree_layout::breadth_first ||
+                         layout == tree_layout::layered_children_together) {
       return condition * offset_type{1} + (aligned_data.inner_data.distant_offset - offset_type{1});
     } else {
       static_assert(layout == tree_layout::depth_first);

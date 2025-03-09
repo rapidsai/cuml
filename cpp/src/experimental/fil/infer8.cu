@@ -13,20 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
+#include <cuml/experimental/fil/detail/device_initialization/gpu.cuh>
+#include <cuml/experimental/fil/detail/infer/gpu.cuh>
+#include <cuml/experimental/fil/detail/specializations/device_initialization_macros.hpp>
+#include <cuml/experimental/fil/detail/specializations/infer_macros.hpp>
 namespace ML {
 namespace experimental {
 namespace fil {
-enum class tree_layout : unsigned char {
-  depth_first   = 0,
-  breadth_first = 1,
-  // Traverse forest by proceeding through the root nodes of each tree first,
-  // followed by the hot and distant children of those root nodes for each tree,
-  // and so forth. This traversal order ensures that all nodes of a
-  // particular tree at a particular depth are traversed together.
-  layered_children_together = 2
-};
-
+namespace detail {
+namespace inference {
+CUML_FIL_INFER_ALL(template, raft_proto::device_type::gpu, 8)
 }
+namespace device_initialization {
+CUML_FIL_INITIALIZE_DEVICE(template, 8)
+}
+}  // namespace detail
+}  // namespace fil
 }  // namespace experimental
 }  // namespace ML

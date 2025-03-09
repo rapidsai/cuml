@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,4 +16,5 @@
 cdef extern from "cuml/experimental/fil/tree_layout.hpp" namespace "ML::experimental::fil" nogil:
     cdef enum tree_layout:
         depth_first "ML::experimental::fil::tree_layout::depth_first",
-        breadth_first "ML::experimental::fil::tree_layout::breadth_first"
+        breadth_first "ML::experimental::fil::tree_layout::breadth_first",
+        layered_children_together "ML::experimental::fil::tree_layout::layered_children_together"

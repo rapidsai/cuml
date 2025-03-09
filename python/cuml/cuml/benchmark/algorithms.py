@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -511,6 +511,7 @@ def all_algorithms():
                 output_class=False,
                 precision="float32",
                 infer_type="default",
+                model_type="xgboost_ubj",
             ),
             name="FILEX-Optimized",
             accepts_labels=False,

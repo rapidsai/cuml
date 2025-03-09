@@ -383,7 +383,11 @@ if(BUILD_CUML_CPP_LIBRARY)
           src/experimental/fil/infer4.cu
           src/experimental/fil/infer5.cu
           src/experimental/fil/infer6.cu
-          src/experimental/fil/infer7.cu)
+          src/experimental/fil/infer7.cu
+          src/experimental/fil/infer8.cu
+          src/experimental/fil/infer9.cu
+          src/experimental/fil/infer10.cu
+          src/experimental/fil/infer11.cu)
     endif()
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
@@ -395,7 +399,11 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/experimental/fil/infer4.cpp
         src/experimental/fil/infer5.cpp
         src/experimental/fil/infer6.cpp
-        src/experimental/fil/infer7.cpp)
+        src/experimental/fil/infer7.cpp
+        src/experimental/fil/infer8.cpp
+        src/experimental/fil/infer9.cpp
+        src/experimental/fil/infer10.cpp
+        src/experimental/fil/infer11.cpp)
   endif()
 
   # todo: organize linear models better
