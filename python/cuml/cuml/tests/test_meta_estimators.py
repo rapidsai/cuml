@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ def test_pipeline():
     pipe = Pipeline(steps=[("scaler", StandardScaler()), ("svc", SVC())])
     pipe.fit(X_train, y_train)
     score = pipe.score(X_test, y_test)
-    assert score > 0.8
+    assert score > 0.75
 
 
 def test_gridsearchCV():

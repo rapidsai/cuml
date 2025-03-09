@@ -246,8 +246,7 @@ Metrics (regression, classification, and distance)
   .. automodule:: cuml.metrics.regression
     :members:
 
-  .. automodule:: cuml.metrics.accuracy
-    :members:
+  .. autofunction:: cuml.metrics.accuracy_score
 
   .. autofunction:: cuml.metrics.confusion_matrix
 
