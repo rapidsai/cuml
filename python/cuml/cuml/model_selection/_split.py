@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from typing import Optional, Union, List, Tuple
+from typing import Optional, Union, List, Tuple, TYPE_CHECKING
 
 from cuml.common import input_to_cuml_array
 from cuml.internals.input_utils import (
@@ -31,10 +31,13 @@ from cuml.internals.safe_imports import (
 
 cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
 np = cpu_only_import("numpy")
 
 cuda = gpu_only_import_from("numba", "cuda")
+
+
+if TYPE_CHECKING:
+    import cupy as cp
 
 
 def _compute_stratify_split_indices(
