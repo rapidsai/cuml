@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2024, NVIDIA CORPORATION.
+# Copyright (c) 2018-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -148,6 +148,28 @@ def pytest_addoption(parser):
 
 def pytest_collection_modifyitems(config, items):
 
+    # Check for hypothesis tests without examples
+    tests_without_examples = []
+    for item in items:
+        if isinstance(item, pytest.Function):
+            # Check if function has @given decorator
+            has_given = hasattr(item.obj, "hypothesis")
+            # Check if function has @example decorator
+            has_example = hasattr(item.obj, "hypothesis_explicit_examples")
+
+            if has_given and not has_example:
+                tests_without_examples.append(
+                    f"Test {item.name} uses @given but has no @example cases."
+                )
+
+    if tests_without_examples:
+        msg = (
+            "\nCollection failed because the following tests lack examples:\n"
+            + "\n".join(f"  - {e}" for e in tests_without_examples)
+        )
+        raise pytest.UsageError(msg)
+
+    # Handle test categories (unit/quality/stress)
     should_run_quality = config.getoption("--run_quality")
     should_run_stress = config.getoption("--run_stress")
 
