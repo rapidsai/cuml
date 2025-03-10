@@ -21,9 +21,9 @@
 #include <raft/core/error.hpp>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cub/cub.cuh>
 #include <cuda/functional>
 #include <cuda_runtime.h>
-#include <thrust/functional.h>
 
 #include <execinfo.h>
 
@@ -40,10 +40,10 @@
 
 namespace ML::detail {
 #if CCCL_MAJOR_VERSION >= 3
-using cuda::maximum<>;
-using cuda::minimum<>;
+using maximum = cuda::maximum<void>;
+using minimum = cuda::minimum<void>;
 #else
-using thrust::maximum<>;
-using thrust::minimum<>;
+using maximum = cub::Max;
+using minimum = cub::Min;
 #endif
 }  // namespace ML::detail

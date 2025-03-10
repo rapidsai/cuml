@@ -157,7 +157,7 @@ CUML_KERNEL void predictProba(T* out, const T* z, const int nRows, const int nCl
       maxVal = raft::max<T>(maxVal, t);
     }
     j -= BX;
-    maxVal = WarpRed(warpStore).Reduce(maxVal, ML::detail::maximum<T>{});
+    maxVal = WarpRed(warpStore).Reduce(maxVal, ML::detail::maximum{});
     maxVal = cub::ShuffleIndex<BX>(maxVal, 0, 0xFFFFFFFFU);
   }
   // At this point, either `j` refers to the last valid column idx worked
