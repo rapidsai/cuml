@@ -67,9 +67,9 @@ def test_blobs_cluster(nrows, n_feats, build_algo):
     data, labels = datasets.make_blobs(
         n_samples=nrows, n_features=n_feats, centers=5, random_state=0
     )
-    embedding = cuUMAP(build_algo=build_algo, build_kwds={"nnd_graph_degree": 15}).fit_transform(
-        data, convert_dtype=True
-    )
+    embedding = cuUMAP(
+        build_algo=build_algo, build_kwds={"nnd_graph_degree": 15}
+    ).fit_transform(data, convert_dtype=True)
 
     if nrows < 500000:
         score = adjusted_rand_score(labels, KMeans(5).fit_predict(embedding))
@@ -96,7 +96,12 @@ def test_umap_fit_transform_score(nrows, n_feats, build_algo):
     )
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.1)
-    cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, build_algo=build_algo, build_kwds={"nnd_graph_degree": 10})
+    cuml_model = cuUMAP(
+        n_neighbors=10,
+        min_dist=0.01,
+        build_algo=build_algo,
+        build_kwds={"nnd_graph_degree": 10},
+    )
 
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
@@ -335,7 +340,7 @@ def test_umap_data_formats(
         n_components=2,
         target_metric=target_metric,
         build_algo=build_algo,
-        build_kwds={"nnd_graph_degree": 3}
+        build_kwds={"nnd_graph_degree": 3},
     )
 
     embeds = umap.fit_transform(X)
@@ -358,7 +363,11 @@ def test_umap_fit_transform_score_default(target_metric, build_algo):
     )
 
     model = umap.UMAP(target_metric=target_metric)
-    cuml_model = cuUMAP(target_metric=target_metric, build_algo=build_algo, build_kwds={"nnd_graph_degree": 15})
+    cuml_model = cuUMAP(
+        target_metric=target_metric,
+        build_algo=build_algo,
+        build_kwds={"nnd_graph_degree": 15},
+    )
 
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
@@ -385,7 +394,9 @@ def test_umap_fit_transform_against_fit_and_transform(build_algo):
     First test the default option does not hash the input
     """
 
-    cuml_model = cuUMAP(build_algo=build_algo, build_kwds={"nnd_graph_degree": 15})
+    cuml_model = cuUMAP(
+        build_algo=build_algo, build_kwds={"nnd_graph_degree": 15}
+    )
 
     ft_embedding = cuml_model.fit_transform(data, convert_dtype=True)
     fit_embedding_same_input = cuml_model.transform(data, convert_dtype=True)
@@ -554,7 +565,12 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
 def test_exp_decay_params(build_algo):
     def compare_exp_decay_params(a=None, b=None, min_dist=0.1, spread=1.0):
         cuml_model = cuUMAP(
-            a=a, b=b, min_dist=min_dist, spread=spread, build_algo=build_algo, build_kwds={"nnd_graph_degree": 15}
+            a=a,
+            b=b,
+            min_dist=min_dist,
+            spread=spread,
+            build_algo=build_algo,
+            build_kwds={"nnd_graph_degree": 15},
         )
         state = cuml_model.__getstate__()
         cuml_a, cuml_b = state["a"], state["b"]
@@ -586,7 +602,7 @@ def test_umap_knn_graph(n_neighbors, build_algo):
             init="random",
             n_neighbors=n_neighbors,
             build_algo=build_algo,
-            build_kwds={"nnd_graph_degree": n_neighbors}
+            build_kwds={"nnd_graph_degree": n_neighbors},
         )
         return model.fit_transform(
             data, knn_graph=knn_graph, convert_dtype=True
@@ -598,7 +614,7 @@ def test_umap_knn_graph(n_neighbors, build_algo):
             init="random",
             n_neighbors=n_neighbors,
             build_algo=build_algo,
-            build_kwds={"nnd_graph_degree": n_neighbors}
+            build_kwds={"nnd_graph_degree": n_neighbors},
         )
         model.fit(data, knn_graph=knn_graph, convert_dtype=True)
         return model.transform(data, convert_dtype=True)
@@ -679,7 +695,7 @@ def test_umap_precomputed_knn(precomputed_type, sparse_input, build_algo):
         n_neighbors=n_neighbors,
         precomputed_knn=precomputed_knn,
         build_algo=build_algo,
-        build_kwds={"nnd_graph_degree": n_neighbors}
+        build_kwds={"nnd_graph_degree": n_neighbors},
     )
     embedding = model.fit_transform(data)
     trust = trustworthiness(data, embedding, n_neighbors=n_neighbors)
