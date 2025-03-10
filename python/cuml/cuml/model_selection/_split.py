@@ -41,12 +41,12 @@ if TYPE_CHECKING:
 
 
 def _compute_stratify_split_indices(
-    indices: cp.ndarray,
+    indices: "cp.ndarray",
     stratify: CumlArray,
     n_train: int,
     n_test: int,
-    random_state: cp.random.RandomState,
-) -> Tuple[cp.ndarray]:
+    random_state: "cp.random.RandomState",
+) -> "Tuple[cp.ndarray]":
     """
     Compute the indices for stratified split based on stratify keys.
     Based on scikit-learn stratified split implementation.
@@ -186,7 +186,7 @@ def train_test_split(
     train_size: Optional[Union[float, int]] = None,
     shuffle: bool = True,
     random_state: Optional[
-        Union[int, cp.random.RandomState, np.random.RandomState]
+        Union[int, "cp.random.RandomState", np.random.RandomState]
     ] = None,
     stratify=None,
 ):
