@@ -12,15 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
-from typing import Optional, Union, List, Tuple, TYPE_CHECKING
+from typing import Optional, Union, List, Tuple
 
 from cuml.common import input_to_cuml_array
 from cuml.internals.input_utils import (
     determine_array_type,
     determine_df_obj_type,
-    output_to_df_obj_like,
 )
+from cuml.internals.output_utils import output_to_df_obj_like
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.array import array_to_memory_order, CumlArray
 from cuml.internals.safe_imports import (
@@ -31,22 +32,19 @@ from cuml.internals.safe_imports import (
 
 cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")
+cupyx = gpu_only_import("cupyx")
 np = cpu_only_import("numpy")
 
 cuda = gpu_only_import_from("numba", "cuda")
 
 
-if TYPE_CHECKING:
-    import cupy as cp
-
-
 def _compute_stratify_split_indices(
-    indices: "cp.ndarray",
+    indices: cp.ndarray,
     stratify: CumlArray,
     n_train: int,
     n_test: int,
-    random_state: "cp.random.RandomState",
-) -> "Tuple[cp.ndarray]":
+    random_state: cp.random.RandomState,
+) -> Tuple[cp.ndarray]:
     """
     Compute the indices for stratified split based on stratify keys.
     Based on scikit-learn stratified split implementation.
@@ -186,7 +184,7 @@ def train_test_split(
     train_size: Optional[Union[float, int]] = None,
     shuffle: bool = True,
     random_state: Optional[
-        Union[int, "cp.random.RandomState", np.random.RandomState]
+        Union[int, cp.random.RandomState, np.random.RandomState]
     ] = None,
     stratify=None,
 ):
