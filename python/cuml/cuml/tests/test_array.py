@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -728,3 +728,20 @@ def test_order_to_strides(input_type, dtype, shape, order):
         np.array(_order_to_strides(order, shape, dtype))
         == np.array(input_array.strides)
     )
+
+
+@pytest.mark.parametrize("kind", ["dataframe", "series"])
+def test_output_pandas(kind):
+    """Check that `output_type=pandas` matches the user-facing pandas.
+
+    If `cudf.pandas` is enabled we want to output a `cudf.pandas` proxy, not
+    the original raw `pandas` object (like `cudf_obj.to_pandas()` does)."""
+    if kind == "series":
+        shape = 10
+        exp_type = pd.Series
+    else:
+        shape = (10, 3)
+        exp_type = pd.DataFrame
+    arr = CumlArray.from_input(cp.ones(shape))
+    out = arr.to_output("pandas")
+    assert isinstance(out, exp_type)
