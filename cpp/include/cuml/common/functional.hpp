@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,22 +16,15 @@
 
 #pragma once
 
-#include <cuml/common/logger.hpp>
+#include <cub/thread/thread_operators.cuh>
+#include <cuda/functional>
 
-#include <raft/core/error.hpp>
-#include <raft/util/cudart_utils.hpp>
-
-#include <cuda_runtime.h>
-
-#include <execinfo.h>
-
-#include <cstdio>
-#include <sstream>
-#include <stdexcept>
-#include <string>
-
-#ifdef __CUDACC__
-#define CUML_KERNEL __global__ static
+namespace ML::detail {
+#if CCCL_MAJOR_VERSION >= 3
+using maximum = cuda::maximum<void>;
+using minimum = cuda::minimum<void>;
 #else
-#define CUML_KERNEL static
+using maximum = cub::Max;
+using minimum = cub::Min;
 #endif
+}  // namespace ML::detail

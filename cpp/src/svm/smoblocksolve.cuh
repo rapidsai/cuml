@@ -20,6 +20,7 @@
 
 #include "smo_sets.cuh"
 
+#include <cuml/common/functional.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/svm/svm_parameter.h>
 

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuml/common/functional.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/datasets/make_regression.hpp>

@@ -16,6 +16,7 @@
 
 #include <common/nvtx.hpp>
 
+#include <cuml/common/functional.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/linear_model/glm.hpp>
 #include <cuml/svm/linear.hpp>

@@ -17,6 +17,7 @@
 #include "common.cuh"
 #include "internal.cuh"
 
+#include <cuml/common/functional.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/fil/multi_sum.cuh>
 

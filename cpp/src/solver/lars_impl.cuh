@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cuml/common/functional.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 
