@@ -72,8 +72,8 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
-      FORK             rapidsai
-      PINNED_TAG       branch-${CUML_BRANCH_VERSION_raft}
+      FORK             jinsolp
+      PINNED_TAG       batchnnd-dedup
       EXCLUDE_FROM_ALL ${CUML_EXCLUDE_RAFT_FROM_ALL}
       # When PINNED_TAG above doesn't match cuml,
       # force local raft clone in build directory
