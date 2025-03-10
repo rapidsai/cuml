@@ -1,4 +1,5 @@
-# Copyright (c) 2018-2025, NVIDIA CORPORATION.
+#
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,19 +12,4 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import pytest
-import pickle
-
-from cuml.internals import GraphBasedDimRedCallback
-
-
-class CustomCallback(GraphBasedDimRedCallback):
-    pass
-
-
-def test_callback_pickleable():
-    obj = CustomCallback()
-    buf = pickle.dumps(obj)
-    obj2 = pickle.loads(buf)
-    assert isinstance(obj2, CustomCallback)
+#

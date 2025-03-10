@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,11 @@
 # limitations under the License.
 #
 
+from cuml.accel.estimator_proxy import intercept
 
-try:
-    from IPython.core.magic import Magics, cell_magic, magics_class
 
-    def load_ipython_extension(ip):
-        from . import install
-
-        install()
-
-except ImportError:
-
-    def load_ipython_extension(ip):
-        pass
+UMAP = intercept(
+    original_module="umap",
+    accelerated_module="cuml.manifold",
+    original_class_name="UMAP",
+)
