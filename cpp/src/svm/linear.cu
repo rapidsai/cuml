@@ -16,6 +16,7 @@
 
 #include <common/nvtx.hpp>
 
+#include <cuml/common/functional.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/linear_model/glm.hpp>
 #include <cuml/svm/linear.hpp>
@@ -158,7 +159,7 @@ CUML_KERNEL void predictProba(T* out, const T* z, const int nRows, const int nCl
       maxVal = raft::max<T>(maxVal, t);
     }
     j -= BX;
-    maxVal = WarpRed(warpStore).Reduce(maxVal, cub::Max());
+    maxVal = WarpRed(warpStore).Reduce(maxVal, ML::detail::maximum{});
     maxVal = cub::ShuffleIndex<BX>(maxVal, 0, 0xFFFFFFFFU);
   }
   // At this point, either `j` refers to the last valid column idx worked
