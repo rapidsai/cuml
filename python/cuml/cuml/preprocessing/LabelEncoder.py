@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
 from cuml import Base
@@ -209,7 +207,7 @@ class LabelEncoder(Base):
         self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
         return self
 
-    def transform(self, y) -> cudf.Series:
+    def transform(self, y) -> "cudf.Series":
         """
         Transform an input into its categorical keys.
 
@@ -244,7 +242,7 @@ class LabelEncoder(Base):
 
         return encoded
 
-    def fit_transform(self, y, z=None) -> cudf.Series:
+    def fit_transform(self, y, z=None) -> "cudf.Series":
         """
         Simultaneously fit and transform an input
 
@@ -260,7 +258,7 @@ class LabelEncoder(Base):
 
         return y.cat.codes
 
-    def inverse_transform(self, y: cudf.Series) -> cudf.Series:
+    def inverse_transform(self, y: cudf.Series) -> "cudf.Series":
         """
         Revert ordinal label to original label
 
