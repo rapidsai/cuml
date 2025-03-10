@@ -98,7 +98,7 @@ def _get_base_return_type(class_name, attr):
             return "base"
     except Exception:
         raise AssertionError(
-            f"Failed to determine return type for {class_name}.{attr}. This is a bug in cuML, please report it."
+            f"Failed to determine return type for {attr} (class = '${class_name}'). This is a bug in cuML, please report it."
         )
 
     return None
