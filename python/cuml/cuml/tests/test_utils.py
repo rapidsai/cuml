@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ from hypothesis.extra.numpy import (
     floating_dtypes,
     integer_dtypes,
 )
-from hypothesis import target
+from hypothesis import example, target
 from hypothesis import strategies as st
 from hypothesis import given, note
 from cuml.testing.utils import array_equal, assert_array_equal
@@ -28,6 +28,7 @@ from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import("numpy")
 
 
+@example(array=np.array([1, 2, 3]), tol=1e-4)
 @given(
     arrays(
         dtype=st.one_of(floating_dtypes(), integer_dtypes()),
@@ -48,6 +49,11 @@ def test_array_equal_same_array(array, tol):
     assert_array_equal(array, array, tol)
 
 
+@example(
+    arrays=(np.array([1, 2, 3]), np.array([1, 2, 3])),
+    unit_tol=1e-4,
+    with_sign=False,
+)
 @given(
     arrays=array_shapes().flatmap(
         lambda shape: st.tuples(

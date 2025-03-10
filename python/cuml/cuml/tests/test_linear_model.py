@@ -323,6 +323,8 @@ def test_linear_regression_model_default(dataset):
 @given(
     split_datasets(regression_datasets(dtypes=floating_dtypes(sizes=(32, 64))))
 )
+@example(small_regression_dataset(np.float32))
+@example(small_regression_dataset(np.float64))
 def test_linear_regression_model_default_generalized(dataset):
 
     X_train, X_test, y_train, _ = dataset
@@ -599,6 +601,8 @@ def test_logistic_regression(
     penalty=st.sampled_from((None, "l1", "l2", "elasticnet")),
     l1_ratio=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0)),
 )
+@example(dtype=np.float32, penalty=None, l1_ratio=None)
+@example(dtype=np.float64, penalty=None, l1_ratio=None)
 def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
     if penalty == "elasticnet":
         assume(l1_ratio is not None)
@@ -655,6 +659,34 @@ def test_logistic_regression_model_default(dtype):
     fit_intercept=st.booleans(),
     penalty=st.sampled_from((None, "l1", "l2")),
 )
+@example(
+    dtype=np.float32,
+    order="C",
+    sparse_input=False,
+    fit_intercept=True,
+    penalty=None,
+)
+@example(
+    dtype=np.float64,
+    order="C",
+    sparse_input=False,
+    fit_intercept=True,
+    penalty=None,
+)
+@example(
+    dtype=np.float32,
+    order="F",
+    sparse_input=False,
+    fit_intercept=True,
+    penalty=None,
+)
+@example(
+    dtype=np.float64,
+    order="F",
+    sparse_input=False,
+    fit_intercept=True,
+    penalty=None,
+)
 def test_logistic_regression_model_digits(
     dtype, order, sparse_input, fit_intercept, penalty
 ):
@@ -682,6 +714,7 @@ def test_logistic_regression_model_digits(
 
 
 @given(dtype=st.sampled_from((np.float32, np.float64)))
+@example(dtype=np.float32)
 def test_logistic_regression_sparse_only(dtype, nlp_20news):
 
     # sklearn score with max_iter = 10000
@@ -713,6 +746,26 @@ def test_logistic_regression_sparse_only(dtype, nlp_20news):
     ),
     fit_intercept=st.booleans(),
     sparse_input=st.booleans(),
+)
+@example(
+    dataset=small_classification_dataset(np.float32),
+    fit_intercept=True,
+    sparse_input=False,
+)
+@example(
+    dataset=small_classification_dataset(np.float32),
+    fit_intercept=False,
+    sparse_input=True,
+)
+@example(
+    dataset=small_classification_dataset(np.float64),
+    fit_intercept=True,
+    sparse_input=False,
+)
+@example(
+    dataset=small_classification_dataset(np.float64),
+    fit_intercept=False,
+    sparse_input=True,
 )
 def test_logistic_regression_decision_function(
     dataset, fit_intercept, sparse_input
@@ -753,6 +806,26 @@ def test_logistic_regression_decision_function(
     ),
     fit_intercept=st.booleans(),
     sparse_input=st.booleans(),
+)
+@example(
+    dataset=small_classification_dataset(np.float32),
+    fit_intercept=True,
+    sparse_input=False,
+)
+@example(
+    dataset=small_classification_dataset(np.float32),
+    fit_intercept=False,
+    sparse_input=True,
+)
+@example(
+    dataset=small_classification_dataset(np.float64),
+    fit_intercept=True,
+    sparse_input=False,
+)
+@example(
+    dataset=small_classification_dataset(np.float64),
+    fit_intercept=False,
+    sparse_input=True,
 )
 def test_logistic_regression_predict_proba(
     dataset, fit_intercept, sparse_input
@@ -861,12 +934,7 @@ def test_logistic_regression_complex_classes(y_kind, output_type):
         assert isinstance(res, cp.ndarray)
     elif output_type == "pandas":
         assert res.dtype == df_dtype
-        # TODO: this check works around a bug in cuml's output handling
-        # currently where isinstance(res, pd.Series) would fail
-        # if `cudf.pandas` is active. Writing the check odd for now
-        # to get this fix in, can switch back to `isinstance(res, pd.Series)`
-        # once that's fixed.
-        assert type(res).__module__.startswith("pandas")
+        assert isinstance(res, pd.Series)
     elif output_type == "cudf":
         assert res.dtype == df_dtype
         assert isinstance(res, cudf.Series)
@@ -917,6 +985,10 @@ def test_linreg_predict_convert_dtype(train_dtype, test_dtype):
     ),
     test_dtype=floating_dtypes(sizes=(32, 64)),
 )
+@example(dataset=small_regression_dataset(np.float32), test_dtype=np.float32)
+@example(dataset=small_regression_dataset(np.float32), test_dtype=np.float64)
+@example(dataset=small_regression_dataset(np.float64), test_dtype=np.float32)
+@example(dataset=small_regression_dataset(np.float64), test_dtype=np.float64)
 def test_ridge_predict_convert_dtype(dataset, test_dtype):
     assume(cuml_compatible_dataset(*dataset))
     X_train, X_test, y_train, _ = dataset
@@ -933,6 +1005,18 @@ def test_ridge_predict_convert_dtype(dataset, test_dtype):
         )
     ),
     test_dtype=floating_dtypes(sizes=(32, 64)),
+)
+@example(
+    dataset=small_classification_dataset(np.float32), test_dtype=np.float32
+)
+@example(
+    dataset=small_classification_dataset(np.float32), test_dtype=np.float64
+)
+@example(
+    dataset=small_classification_dataset(np.float64), test_dtype=np.float32
+)
+@example(
+    dataset=small_classification_dataset(np.float64), test_dtype=np.float64
 )
 def test_logistic_predict_convert_dtype(dataset, test_dtype):
     X_train, X_test, y_train, y_test = dataset

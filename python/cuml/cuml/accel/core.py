@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-
 import importlib
-
-from .magics import load_ipython_extension
 
 from cuda.bindings import runtime
 from cuml.internals import logger
@@ -27,11 +24,9 @@ from cuml.internals.safe_imports import UnavailableError, gpu_only_import
 
 rmm = gpu_only_import("rmm")
 
-__all__ = ["load_ipython_extension", "install"]
-
 
 def _install_for_library(library_name):
-    importlib.import_module(f"._wrappers.{library_name}", __name__)
+    importlib.import_module(f"cuml.accel._wrappers.{library_name}", __name__)
 
 
 def _is_concurrent_managed_access_supported():

@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ from cuml.internals.safe_imports import (
     gpu_only_import,
     gpu_only_import_from,
 )
+from cuml.internals.output_utils import cudf_to_pandas
 from cuml.preprocessing import LabelEncoder
 
 np = cpu_only_import("numpy")
@@ -642,7 +643,7 @@ def _get_output(
     elif output_type == "numpy":
         return cp.asnumpy(out.to_cupy(na_value=np.nan, dtype=dtype))
     elif output_type == "pandas":
-        return out.to_pandas()
+        return cudf_to_pandas(out)
     else:
         raise ValueError("Unsupported output type.")
 

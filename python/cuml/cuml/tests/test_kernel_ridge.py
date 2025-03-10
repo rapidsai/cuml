@@ -14,7 +14,7 @@
 #
 from cuml.testing.utils import as_type
 from hypothesis.extra.numpy import arrays
-from hypothesis import given, settings, assume, strategies as st
+from hypothesis import example, given, settings, assume, strategies as st
 from sklearn.kernel_ridge import KernelRidge as sklKernelRidge
 import inspect
 import math
@@ -187,6 +187,12 @@ def array_strategy(draw):
     return as_type(type, X, Y)
 
 
+@example(
+    kernel_arg=("linear", {}),
+    XY=as_type(
+        "numpy", np.array([[1.0, 2.0], [3.0, 4.0]]), np.array([[1.5, 2.5]])
+    ),
+)
 @given(kernel_arg_strategy(), array_strategy())
 @settings(deadline=None)
 @pytest.mark.skip("https://github.com/rapidsai/cuml/issues/5177")
@@ -250,6 +256,20 @@ def estimator_array_strategy(draw):
     return (*as_type(type, X, y, X_test, alpha, sample_weight), dtype)
 
 
+@example(
+    kernel_arg=("linear", {}),
+    arrays=(
+        np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]),  # X
+        np.array([1.0, 2.0, 3.0]),  # y
+        np.array([[2.0, 3.0], [4.0, 5.0]]),  # X_test
+        np.array([0.1]),  # alpha
+        None,  # sample_weight
+        np.float32,  # dtype
+    ),
+    gamma=1.0,
+    degree=1,
+    coef0=0.0,
+)
 @given(
     kernel_arg_strategy(),
     estimator_array_strategy(),
