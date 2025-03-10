@@ -74,11 +74,8 @@ IF GPUBUILD == 1:
     from libc.stdlib cimport free
     from cuml.manifold.umap_utils cimport *
     from pylibraft.common.handle cimport handle_t
-    from cuml.manifold.umap_utils import GraphHolder, find_ab_params, \
-        metric_parsing, DENSE_SUPPORTED_METRICS, SPARSE_SUPPORTED_METRICS
-
-    from cuml.manifold.simpl_set import fuzzy_simplicial_set, \
-        simplicial_set_embedding
+    from cuml.manifold.umap_utils import GraphHolder, find_ab_params, coerce_metric
+    from cuml.manifold.simpl_set import fuzzy_simplicial_set, simplicial_set_embedding
 
     cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
 
@@ -498,16 +495,9 @@ class UMAP(UniversalBase,
             else:  # self.target_metric == "categorical"
                 umap_params.target_metric = MetricType.CATEGORICAL
 
-            try:
-                umap_params.metric = metric_parsing[self.metric.lower()]
-                if sparse:
-                    if umap_params.metric not in SPARSE_SUPPORTED_METRICS:
-                        raise NotImplementedError(f"Metric '{self.metric}' not supported for sparse inputs.")
-                elif umap_params.metric not in DENSE_SUPPORTED_METRICS:
-                    raise NotImplementedError(f"Metric '{self.metric}' not supported for dense inputs.")
-
-            except KeyError:
-                raise ValueError(f"Invalid value for metric: {self.metric}")
+            umap_params.metric = coerce_metric(
+                self.metric, sparse=sparse, build_algo=self.build_algo
+            )
 
             if self.metric_kwds is None:
                 umap_params.p = <float> 2.0

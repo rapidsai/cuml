@@ -699,25 +699,36 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
 
 
 @pytest.mark.parametrize(
-    "metric,supported",
+    "metric,build_algo,supported",
     [
-        ("l2", True),
-        ("euclidean", True),
-        ("sqeuclidean", True),
-        ("l1", True),
-        ("manhattan", True),
-        ("minkowski", True),
-        ("chebyshev", True),
-        ("cosine", True),
-        ("correlation", True),
-        ("jaccard", False),
-        ("hamming", True),
-        ("canberra", True),
+        ("l2", "brute_force_knn", True),
+        ("euclidean", "brute_force_knn", True),
+        ("sqeuclidean", "brute_force_knn", True),
+        ("l1", "brute_force_knn", True),
+        ("manhattan", "brute_force_knn", True),
+        ("minkowski", "brute_force_knn", True),
+        ("chebyshev", "brute_force_knn", True),
+        ("cosine", "brute_force_knn", True),
+        ("correlation", "brute_force_knn", True),
+        ("jaccard", "brute_force_knn", False),
+        ("hamming", "brute_force_knn", True),
+        ("canberra", "brute_force_knn", True),
+        ("l2", "nn_descent", True),
+        ("euclidean", "nn_descent", True),
+        ("sqeuclidean", "nn_descent", False),
+        ("l1", "nn_descent", False),
+        ("manhattan", "nn_descent", False),
+        ("minkowski", "nn_descent", False),
+        ("chebyshev", "nn_descent", False),
+        ("cosine", "nn_descent", False),
+        ("correlation", "nn_descent", False),
+        ("jaccard", "nn_descent", False),
+        ("hamming", "nn_descent", False),
+        ("canberra", "nn_descent", False),
     ],
 )
-@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_umap_distance_metrics_fit_transform_trust(
-    metric, supported, build_algo
+    metric, build_algo, supported
 ):
     data, labels = make_blobs(
         n_samples=500, n_features=64, centers=5, random_state=42
