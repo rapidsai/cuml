@@ -8,6 +8,7 @@ package_dir=$2
 
 source rapids-configure-sccache
 source rapids-date-string
+source rapids-telemetry-setup
 
 rapids-generate-version > ./VERSION
 
@@ -16,11 +17,11 @@ cd "${package_dir}"
 sccache --zero-stats
 
 rapids-logger "Building '${package_name}' wheel"
-rapids-pip-retry wheel \
+rapids-telemetry-record build.log rapids-pip-retry wheel \
     -w dist \
     -v \
     --no-deps \
     --disable-pip-version-check \
     .
 
-sccache --show-adv-stats
+rapids-telemetry-record sccache-stats.txt sccache --show-adv-stats
