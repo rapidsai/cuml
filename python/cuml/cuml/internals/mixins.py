@@ -236,20 +236,15 @@ class ClassifierMixin:
     )
     @api_base_return_any_skipall
     @enable_device_interop
-    def score(self, X, y, **kwargs):
+    def score(self, X, y, sample_weight=None, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.
 
         """
-        from cuml.metrics.accuracy import accuracy_score
-
-        if hasattr(self, "handle"):
-            handle = self.handle
-        else:
-            handle = None
+        from cuml.metrics import accuracy_score
 
         preds = self.predict(X, **kwargs)
-        return accuracy_score(y, preds, handle=handle)
+        return accuracy_score(y, preds, sample_weight=sample_weight)
 
     @staticmethod
     def _more_static_tags():
