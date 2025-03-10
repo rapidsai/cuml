@@ -270,6 +270,77 @@ void smooth_knn_dist(nnz_t n,
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
+template <typename value_t, typename value_idx, typename nnz_t, int TPB_X>
+void compute_membership_strength(nnz_t n,
+                                 const value_idx* knn_indices,
+                                 const value_t* knn_dists,
+                                 int n_neighbors,
+                                 raft::sparse::COO<value_t>& out,
+                                 UMAPParams* params,
+                                 cudaStream_t stream)
+{
+  /**
+   * Calculate mean distance through a parallel reduction
+   */
+  rmm::device_uvector<value_t> sigmas(n, stream);
+  rmm::device_uvector<value_t> rhos(n, stream);
+  RAFT_CUDA_TRY(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(value_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(rhos.data(), 0, n * sizeof(value_t), stream));
+
+  smooth_knn_dist<value_t, value_idx, nnz_t, TPB_X>(n,
+                                                    knn_indices,
+                                                    knn_dists,
+                                                    rhos.data(),
+                                                    sigmas.data(),
+                                                    params,
+                                                    n_neighbors,
+                                                    params->local_connectivity,
+                                                    stream);
+
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+  /**
+   * Compute graph of membership strengths
+   */
+  nnz_t to_process = static_cast<nnz_t>(out.n_rows) * n_neighbors;
+  dim3 grid_elm(raft::ceildiv(to_process, static_cast<nnz_t>(TPB_X)), 1, 1);
+  dim3 blk_elm(TPB_X, 1, 1);
+
+  compute_membership_strength_kernel<value_t, value_idx, nnz_t, TPB_X>
+    <<<grid_elm, blk_elm, 0, stream>>>(knn_indices,
+                                       knn_dists,
+                                       sigmas.data(),
+                                       rhos.data(),
+                                       out.vals(),
+                                       out.rows(),
+                                       out.cols(),
+                                       n_neighbors,
+                                       to_process);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+template <typename value_t>
+void symmetrize(raft::sparse::COO<value_t>& in,
+                raft::sparse::COO<value_t>& out,
+                float set_op_mix_ratio,
+                cudaStream_t stream)
+{
+  /**
+   * Combines all the fuzzy simplicial sets into a global
+   * one via a fuzzy union. (Symmetrize knn graph).
+   */
+  raft::sparse::linalg::coo_symmetrize<value_t>(
+    &in,
+    &out,
+    [set_op_mix_ratio] __device__(int row, int col, value_t result, value_t transpose) {
+      value_t prod_matrix = result * transpose;
+      value_t res         = set_op_mix_ratio * (result + transpose - prod_matrix) +
+                    (1.0 - set_op_mix_ratio) * prod_matrix;
+      return res;
+    },
+    stream);
+}
+
 /**
  * Given a set of X, a neighborhood size, and a measure of distance, compute
  * the fuzzy simplicial set (here represented as a fuzzy graph in the form of
@@ -295,83 +366,16 @@ void launcher(nnz_t n,
               UMAPParams* params,
               cudaStream_t stream)
 {
-  /**
-   * Calculate mean distance through a parallel reduction
-   */
-  rmm::device_uvector<value_t> sigmas(n, stream);
-  rmm::device_uvector<value_t> rhos(n, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(value_t), stream));
-  RAFT_CUDA_TRY(cudaMemsetAsync(rhos.data(), 0, n * sizeof(value_t), stream));
+  /* Nested scope so `strengths` is dropped before the `coo_sort` call to
+   * reduce device memory usage. */
+  {
+    raft::sparse::COO<value_t> strengths(stream, n * n_neighbors, n, n);
 
-  smooth_knn_dist<value_t, value_idx, nnz_t, TPB_X>(n,
-                                                    knn_indices,
-                                                    knn_dists,
-                                                    rhos.data(),
-                                                    sigmas.data(),
-                                                    params,
-                                                    n_neighbors,
-                                                    params->local_connectivity,
-                                                    stream);
+    compute_membership_strength<value_t, value_idx, nnz_t, TPB_X>(
+      n, knn_indices, knn_dists, n_neighbors, strengths, params, stream);
 
-  raft::sparse::COO<value_t> in(stream, n * n_neighbors, n, n);
-
-  /*
-  // check for logging in order to avoid the potentially costly `arr2Str` call!
-  if (ML::default_logger().should_log(rapids_logger::level_enum::debug)) {
-    CUML_LOG_DEBUG("Smooth kNN Distances");
-    auto str = raft::arr2Str(sigmas.data(), 25, "sigmas", stream);
-    CUML_LOG_DEBUG("%s", str.c_str());
-    str = raft::arr2Str(rhos.data(), 25, "rhos", stream);
-    CUML_LOG_DEBUG("%s", str.c_str());
-  }
-  */
-
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
-
-  /**
-   * Compute graph of membership strengths
-   */
-
-  nnz_t to_process = static_cast<nnz_t>(in.n_rows) * n_neighbors;
-  dim3 grid_elm(raft::ceildiv(to_process, static_cast<nnz_t>(TPB_X)), 1, 1);
-  dim3 blk_elm(TPB_X, 1, 1);
-
-  compute_membership_strength_kernel<value_t, value_idx, nnz_t, TPB_X>
-    <<<grid_elm, blk_elm, 0, stream>>>(knn_indices,
-                                       knn_dists,
-                                       sigmas.data(),
-                                       rhos.data(),
-                                       in.vals(),
-                                       in.rows(),
-                                       in.cols(),
-                                       n_neighbors,
-                                       to_process);
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
-
-  /*
-  if (ML::default_logger().should_log(rapids_logger::level_enum::debug)) {
-    CUML_LOG_DEBUG("Compute Membership Strength");
-    std::stringstream ss;
-    ss << in;
-    CUML_LOG_DEBUG(ss.str().c_str());
-  }
-  */
-
-  /**
-   * Combines all the fuzzy simplicial sets into a global
-   * one via a fuzzy union. (Symmetrize knn graph).
-   */
-  float set_op_mix_ratio = params->set_op_mix_ratio;
-  raft::sparse::linalg::coo_symmetrize<value_t>(
-    &in,
-    out,
-    [set_op_mix_ratio] __device__(int row, int col, value_t result, value_t transpose) {
-      value_t prod_matrix = result * transpose;
-      value_t res         = set_op_mix_ratio * (result + transpose - prod_matrix) +
-                    (1.0 - set_op_mix_ratio) * prod_matrix;
-      return res;
-    },
-    stream);
+    symmetrize<value_t>(strengths, *out, params->set_op_mix_ratio, stream);
+  }  // end strengths scope
 
   raft::sparse::op::coo_sort<value_t>(out, stream);
 }
