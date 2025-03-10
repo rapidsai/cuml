@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
@@ -21,7 +22,6 @@ from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.safe_imports import (
     cpu_only_import,
-    cpu_only_import_from,
     gpu_only_import,
 )
 
