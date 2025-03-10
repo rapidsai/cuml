@@ -258,7 +258,7 @@ class LabelEncoder(Base):
 
         return y.cat.codes
 
-    def inverse_transform(self, y: cudf.Series) -> "cudf.Series":
+    def inverse_transform(self, y: "cudf.Series") -> "cudf.Series":
         """
         Revert ordinal label to original label
 
