@@ -92,6 +92,44 @@ inline void find_ab(UMAPParams* params, cudaStream_t stream)
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
+void _get_strengths(const raft::handle_t& handle,
+                    const umap_inputs& inputs,
+                    UMAPParams* params,
+                    raft::sparse::COO<value_t>& strengths)
+{
+  cudaStream_t stream = handle.get_stream();
+
+  int n_neighbors       = params->n_neighbors;
+  nnz_t n_x_n_neighbors = static_cast<nnz_t>(inputs.n) * n_neighbors;
+
+  strengths.allocate(n_x_n_neighbors, inputs.n, inputs.n, true, stream);
+
+  std::unique_ptr<rmm::device_uvector<value_idx>> knn_indices_b = nullptr;
+  std::unique_ptr<rmm::device_uvector<value_t>> knn_dists_b     = nullptr;
+  knn_graph<value_idx, value_t> knn_graph(inputs.n, n_neighbors);
+  /* If not given precomputed knn graph, compute it */
+  if (inputs.alloc_knn_graph()) {
+    /* Allocate workspace for kNN graph */
+    knn_indices_b = std::make_unique<rmm::device_uvector<value_idx>>(n_x_n_neighbors, stream);
+    knn_dists_b   = std::make_unique<rmm::device_uvector<value_t>>(n_x_n_neighbors, stream);
+    knn_graph.knn_indices = knn_indices_b->data();
+    knn_graph.knn_dists   = knn_dists_b->data();
+  }
+
+  CUML_LOG_DEBUG("Computing KNN Graph");
+  raft::common::nvtx::push_range("umap::knnGraph");
+  kNNGraph::run<value_idx, value_t, umap_inputs>(
+    handle, inputs, inputs, knn_graph, n_neighbors, params, stream);
+  raft::common::nvtx::pop_range();
+
+  CUML_LOG_DEBUG("Computing fuzzy simplicial set");
+  raft::common::nvtx::push_range("umap::simplicial_set");
+  FuzzySimplSetImpl::compute_membership_strength<value_t, value_idx, nnz_t, TPB_X>(
+    inputs.n, knn_graph.knn_indices, knn_graph.knn_dists, n_neighbors, strengths, params, stream);
+  raft::common::nvtx::pop_range();
+}
+
+template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
 void _get_graph(const raft::handle_t& handle,
                 const umap_inputs& inputs,
                 UMAPParams* params,
@@ -100,47 +138,15 @@ void _get_graph(const raft::handle_t& handle,
   raft::common::nvtx::range fun_scope("umap::supervised::_get_graph");
   cudaStream_t stream = handle.get_stream();
 
-  int n_neighbors       = params->n_neighbors;
-  nnz_t n_x_n_neighbors = static_cast<nnz_t>(inputs.n) * n_neighbors;
-
   ML::default_logger().set_level(params->verbosity);
 
   /* Nested scopes used here to drop resources earlier, reducing device memory usage */
   raft::sparse::COO<value_t> fss_graph(stream);
   {
-    raft::sparse::COO<value_t> strengths(stream, n_x_n_neighbors, inputs.n, inputs.n);
-    {
-      std::unique_ptr<rmm::device_uvector<value_idx>> knn_indices_b = nullptr;
-      std::unique_ptr<rmm::device_uvector<value_t>> knn_dists_b     = nullptr;
-      knn_graph<value_idx, value_t> knn_graph(inputs.n, n_neighbors);
-      /* If not given precomputed knn graph, compute it */
-      if (inputs.alloc_knn_graph()) {
-        /* Allocate workspace for kNN graph */
-        knn_indices_b = std::make_unique<rmm::device_uvector<value_idx>>(n_x_n_neighbors, stream);
-        knn_dists_b   = std::make_unique<rmm::device_uvector<value_t>>(n_x_n_neighbors, stream);
-        knn_graph.knn_indices = knn_indices_b->data();
-        knn_graph.knn_dists   = knn_dists_b->data();
-      }
-
-      CUML_LOG_DEBUG("Computing KNN Graph");
-      raft::common::nvtx::push_range("umap::knnGraph");
-      kNNGraph::run<value_idx, value_t, umap_inputs>(
-        handle, inputs, inputs, knn_graph, n_neighbors, params, stream);
-      raft::common::nvtx::pop_range();
-
-      CUML_LOG_DEBUG("Computing fuzzy simplicial set");
-      raft::common::nvtx::push_range("umap::simplicial_set");
-      FuzzySimplSetImpl::compute_membership_strength<value_t, value_idx, nnz_t, TPB_X>(
-        inputs.n,
-        knn_graph.knn_indices,
-        knn_graph.knn_dists,
-        n_neighbors,
-        strengths,
-        params,
-        stream);
-    }  // end knn_indices_b & knn_dists_b scope
+    raft::sparse::COO<value_t> strengths(stream);
+    _get_strengths<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
+      handle, inputs, params, strengths);
     FuzzySimplSetImpl::symmetrize<value_t>(strengths, fss_graph, params->set_op_mix_ratio, stream);
-    raft::common::nvtx::pop_range();
   }  // end strengths scope
 
   /* Canonicalize output graph */
