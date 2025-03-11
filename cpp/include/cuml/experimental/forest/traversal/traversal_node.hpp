@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,11 +36,12 @@ struct parentless_node_exception : std::exception {
 template <typename id_t = std::size_t>
 struct traversal_node {
  public:
-  using id_type = id_t;
-  virtual bool is_leaf() const = 0;
-  virtual id_type hot_child() const = 0;
+  using id_type                         = id_t;
+  virtual bool is_leaf() const          = 0;
+  virtual id_type hot_child() const     = 0;
   virtual id_type distant_child() const = 0;
-  virtual id_type parent() const {
+  virtual id_type parent() const
+  {
     throw parentless_node_exception();
     return id_type{};
   }

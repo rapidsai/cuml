@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include <cuml/experimental/fil/detail/postprocessor.hpp>
 #include <cuml/experimental/fil/detail/raft_proto/ceildiv.hpp>
 #include <cuml/experimental/fil/infer_kind.hpp>
+
 #include <omp.h>
 
 #include <algorithm>
@@ -131,10 +132,10 @@ void infer_kernel_cpu(forest_t const& forest,
           } else {
             auto const default_num_outputs = forest.num_outputs();
             if constexpr (has_vector_leaves) {
-              auto output_offset =
-                (row_index * num_outputs * num_grove +
-                 tree_index * default_num_outputs * num_grove * (infer_type == infer_kind::per_tree) +
-                 grove_index);
+              auto output_offset = (row_index * num_outputs * num_grove +
+                                    tree_index * default_num_outputs * num_grove *
+                                      (infer_type == infer_kind::per_tree) +
+                                    grove_index);
               for (auto output_index = index_type{}; output_index < default_num_outputs;
                    ++output_index) {
                 output_workspace[output_offset + output_index * num_grove] +=
@@ -153,7 +154,7 @@ void infer_kernel_cpu(forest_t const& forest,
       }    // Rows
     }      // Tasks
 
-  // Sum over grove and postprocess
+    // Sum over grove and postprocess
 #pragma omp for
     for (auto row_index = index_type{}; row_index < row_count; ++row_index) {
       for (auto output_index = index_type{}; output_index < num_outputs; ++output_index) {
