@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
 #
 from cuml.internals.safe_imports import cpu_only_import
 import cuml.internals.logger as logger
-from cudf.utils.dtypes import min_signed_type
 from cuml.internals.type_utils import CUPY_SPARSE_DTYPES
 import numbers
 from cuml.internals.safe_imports import gpu_only_import
@@ -256,7 +255,7 @@ class _VectorizerMixin:
         of documents.
         """
         remaining_docs = count_df["doc_id"].unique()
-        dtype = min_signed_type(n_doc)
+        dtype = cudf.utils.dtypes.min_signed_type(n_doc)
         doc_ids = cudf.DataFrame(
             data={"all_ids": cp.arange(0, n_doc, dtype=dtype)}, dtype=dtype
         )
