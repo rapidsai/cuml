@@ -25,7 +25,7 @@ cupyx = gpu_only_import('cupyx')
 
 from cuml.manifold.umap_utils cimport *
 from cuml.manifold.umap_utils import GraphHolder, find_ab_params, \
-    metric_parsing
+    coerce_metric
 
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.internals.array import CumlArray
@@ -158,10 +158,7 @@ def fuzzy_simplicial_set(X,
     umap_params.deterministic = <bool> deterministic
     umap_params.set_op_mix_ratio = <float> set_op_mix_ratio
     umap_params.local_connectivity = <float> local_connectivity
-    try:
-        umap_params.metric = metric_parsing[metric.lower()]
-    except KeyError:
-        raise ValueError(f"Invalid value for metric: {metric}")
+    umap_params.metric = coerce_metric(metric)
     if metric_kwds is None:
         umap_params.p = <float> 2.0
     else:
@@ -329,7 +326,8 @@ def simplicial_set_embedding(
 
     cdef UMAPParams* umap_params = new UMAPParams()
     umap_params.n_components = <int> n_components
-    umap_params.initial_alpha = <int> initial_alpha
+    umap_params.initial_alpha = <float> initial_alpha
+    umap_params.learning_rate = <float> initial_alpha
     umap_params.a = <float> a
     umap_params.b = <float> b
 
@@ -353,10 +351,8 @@ def simplicial_set_embedding(
             umap_params.init = <int> 1
         else:
             raise ValueError("Invalid initialization strategy")
-    try:
-        umap_params.metric = metric_parsing[metric.lower()]
-    except KeyError:
-        raise ValueError(f"Invalid value for metric: {metric}")
+
+    umap_params.metric = coerce_metric(metric)
     if metric_kwds is None:
         umap_params.p = <float> 2.0
     else:
