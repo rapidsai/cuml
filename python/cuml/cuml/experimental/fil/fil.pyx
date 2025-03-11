@@ -117,7 +117,7 @@ cdef class ForestInference_impl():
             raft_handle,
             tl_model,
             *,
-            layout='layered',
+            layout='depth_first',
             align_bytes=0,
             use_double_precision=None,
             mem_type=None,
@@ -479,7 +479,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         See :ref:`verbosity-levels` for more info.
     output_class : boolean
         True for classifier models, false for regressors.
-    layout : {'breadth_first', 'depth_first', 'layered'}, default='layered'
+    layout : {'breadth_first', 'depth_first', 'layered'}, default='depth_first'
         The in-memory layout to be used during inference for nodes of the
         forest model. This parameter is available purely for runtime
         optimization. For performance-critical applications, it is
@@ -518,7 +518,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         if GlobalSettings().device_type == DeviceType.host:
             return 64
         else:
-            return 128
+            return 0
 
     @property
     def align_bytes(self):
@@ -651,7 +651,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         try:
             return self._layout_
         except AttributeError:
-            self._layout_ = 'layered'
+            self._layout_ = 'depth_first'
         return self._layout_
 
     @layout.setter
@@ -674,7 +674,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             verbose=False,
             is_classifier=False,
             output_class=None,
-            layout='layered',
+            layout='depth_first',
             default_chunk_size=None,
             align_bytes=None,
             precision='single',
@@ -774,7 +774,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             verbose=False,
             default_chunk_size=None,
             align_bytes=None,
-            layout='layered',
+            layout='depth_first',
             device_id=0,
             handle=None):
         """Load a model into FIL from a serialized model file.
@@ -839,7 +839,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             Pad each tree with empty nodes until its in-memory size is a multiple
             of the given value. If None, use 128 for GPU and 64 for CPU. For almost
             all use cases, this should be left as the default (None).
-        layout : {'breadth_first', 'depth_first', 'layered'}, default='layered'
+        layout : {'breadth_first', 'depth_first', 'layered'}, default='depth_first'
             The in-memory layout to be used during inference for nodes of the
             forest model. This parameter is available purely for runtime
             optimization. For performance-critical applications, it is
@@ -911,7 +911,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             verbose=False,
             default_chunk_size=None,
             align_bytes=None,
-            layout='layered',
+            layout='depth_first',
             device_id=0,
             handle=None):
         """Load a Scikit-Learn forest model to FIL
@@ -974,7 +974,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             Pad each tree with empty nodes until its in-memory size is a multiple
             of the given value. If None, use 128 for GPU and 64 for CPU. For almost
             all use cases, this should be left as the default (None).
-        layout : {'breadth_first', 'depth_first', 'layered'}, default='layered'
+        layout : {'breadth_first', 'depth_first', 'layered'}, default='depth_first'
             The in-memory layout to be used during inference for nodes of the
             forest model. This parameter is available purely for runtime
             optimization. For performance-critical applications, it is
@@ -1033,7 +1033,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             verbose=False,
             default_chunk_size=None,
             align_bytes=None,
-            layout='layered',
+            layout='depth_first',
             device_id=0,
             handle=None):
         """Load a Treelite model to FIL
@@ -1096,7 +1096,7 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             Pad each tree with empty nodes until its in-memory size is a multiple
             of the given value. If None, use 128 for GPU and 64 for CPU. For almost
             all use cases, this should be left as the default (None).
-        layout : {'breadth_first', 'depth_first', 'layered'}, default='layered'
+        layout : {'breadth_first', 'depth_first', 'layered'}, default='depth_first'
             The in-memory layout to be used during inference for nodes of the
             forest model. This parameter is available purely for runtime
             optimization. For performance-critical applications, it is
