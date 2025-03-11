@@ -148,17 +148,18 @@ def mean_variance_axis(X, axis):
     else:
         _raise_typeerror(X)
 
-
-ufunc_dic = {
-    'min': np.min,
-    'max': np.max,
-    'nanmin': np.nanmin,
-    'nanmax': np.nanmax
-}
+# this is function to avoid attribute access at import time in CPU-only environments
+def ufunc_dic():
+    return {
+        'min': np.min,
+        'max': np.max,
+        'nanmin': np.nanmin,
+        'nanmax': np.nanmax
+    }
 
 
 def _minor_reduce(X, min_or_max):
-    fminmax = ufunc_dic[min_or_max]
+    fminmax = ufunc_dic()[min_or_max]
 
     major_index = np.flatnonzero(np.diff(X.indptr))
     values = cpu_np.zeros(major_index.shape[0], dtype=X.dtype)
@@ -209,7 +210,7 @@ def _sparse_min_or_max(X, axis, min_or_max):
             raise ValueError("zero-size array to reduction operation")
         if X.nnz == 0:
             return X.dtype.type(0)
-        fminmax = ufunc_dic[min_or_max]
+        fminmax = ufunc_dic()[min_or_max]
         m = fminmax(X.data)
         if np.isnan(m):
             if 'nan' in min_or_max:
