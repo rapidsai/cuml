@@ -208,6 +208,8 @@ def coerce_metric(
     kind = "sparse" if sparse else "dense"
     supported = _SUPPORTED_METRICS[build_algo][kind]
     if out not in supported:
-        raise NotImplementedError(f"Metric {metric!r} not supported for {kind} inputs.")
+        raise NotImplementedError(
+            f"Metric {metric!r} not supported for {kind} inputs with {build_algo=}"
+        )
 
     return out
