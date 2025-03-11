@@ -3,8 +3,7 @@ coverage:
   status:
     project: off
     patch: off
-comment:
-  behavior: new
+comment: false
 
 # Suggested workaround to fix "missing base report" issue when using Squash and
 # Merge Strategy in GitHub. See this comment from CodeCov support about this
