@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
 import numpy as np
-from sklearn import clone, cluster
-import cuml
-from cuml.internals.global_settings import GlobalSettings
+from sklearn import clone
+import cuml  # noqa: F401
+from cuml.internals.global_settings import GlobalSettings  # noqa: F401
 from cuml.internals.safe_imports import gpu_only_import
 from sklearn.datasets import make_classification, make_regression, make_blobs
 from sklearn.linear_model import (
@@ -34,13 +33,6 @@ from sklearn.neighbors import (
     KNeighborsClassifier,
     KNeighborsRegressor,
 )
-from sklearn.metrics import (
-    mean_squared_error,
-    r2_score,
-    adjusted_rand_score,
-    accuracy_score,
-)
-from scipy.sparse import random as sparse_random
 
 cp = gpu_only_import("cupy")
 
