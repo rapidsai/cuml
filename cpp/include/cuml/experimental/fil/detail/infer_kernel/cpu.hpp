@@ -21,7 +21,17 @@
 #include <cuml/experimental/fil/detail/raft_proto/ceildiv.hpp>
 #include <cuml/experimental/fil/infer_kind.hpp>
 
+#ifdef _OPENMP
 #include <omp.h>
+#else
+#ifdef omp_get_max_threads
+#if omp_get_max_threads() != 1
+#error "Inconsistent placeholders for omp_get_max_threads"
+#endif
+#else
+#define omp_get_max_threads() 1
+#endif
+#endif
 
 #include <algorithm>
 #include <cstddef>
