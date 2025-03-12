@@ -101,6 +101,7 @@ from cuml.internals.global_settings import (
     _global_settings_data,
 )
 
+from cuml.common.device_selection import using_device_type
 from cuml.internals.memory_utils import (
     set_global_output_type,
     using_output_type,
@@ -197,4 +198,5 @@ __all__ = [
     "make_classification",
     "make_regression",
     "stationarity",
+    "using_device_type",
 ]
