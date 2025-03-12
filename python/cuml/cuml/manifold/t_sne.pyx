@@ -359,9 +359,6 @@ class TSNE(UniversalBase,
             raise ValueError("post_momentum = {} should be more than "
                              "pre_momentum = {}".format(post_momentum,
                                                         pre_momentum))
-        if method == "fft":
-            warnings.warn("Starting from version 22.04, the default method "
-                          "of TSNE is 'fft'.")
 
         self.n_components = n_components
         self.perplexity = perplexity
