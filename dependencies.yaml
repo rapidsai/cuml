@@ -483,7 +483,6 @@ dependencies:
           - dask-ml
           - hdbscan>=0.8.39,<0.8.40
           - hypothesis>=6.0,<7
-          - meson-python  # required to build scikit-learn from source
           - nltk
           - numpydoc
           - pytest==7.*

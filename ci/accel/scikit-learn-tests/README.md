@@ -1,21 +1,18 @@
 # scikit-learn Acceleration Tests
 
-This suite provides infrastructure to build, run, and analyze tests for scikit-learn with cuML acceleration support.
+This suite provides infrastructure to run and analyze tests for scikit-learn with cuML acceleration support.
 
 ## Components
 
-- `build.sh`
-  Clones and builds the scikit-learn repository.
-  Options:
-  - `--scikit-learn-version` : Specify the scikit-learn version to test (default: 1.5.2)
-  - `-p, --path`             : Custom path for the scikit-learn source (default: ./scikit-learn)
-
 - `run-tests.sh`
-  Executes scikit-learn tests using GPU-accelerated paths.
-  Options:
-  - `-p, --path`             : Specify the scikit-learn source location (default: ./scikit-learn)
-  - `--select [minimal|relevant]` : Select tests based on predefined groups from a YAML config (default: run all tests)
-  - `-- [pytest-args]`       : Pass additional arguments directly to pytest
+  Executes scikit-learn tests using GPU-accelerated paths. Any arguments passed to the script are forwarded directly to pytest.
+
+  Example usage:
+  ```bash
+  ./run-tests.sh                     # Run all tests
+  ./run-tests.sh -v -k test_kmeans   # Run specific test with verbosity
+  ./run-tests.sh -x --pdb            # Stop on first failure and debug
+  ```
 
 - `summarize-results.sh`
   Analyzes test results from an XML report file and prints a summary.
@@ -25,35 +22,19 @@ This suite provides infrastructure to build, run, and analyze tests for scikit-l
 
 ## Usage
 
-### Important Note
-The `run-tests.sh` script must be executed from within its parent directory. This ensures proper resolution of test paths and configuration files.
-
-### 1. Build scikit-learn
+### 1. Run tests
+Run all tests:
 ```bash
-./build.sh --scikit-learn-version 1.5.2
+./run-tests.sh
 ```
 
-### 2. Run tests
-For a specific test selection:
+Run specific tests using pytest arguments:
 ```bash
-./run-tests.sh --select minimal -p ./scikit-learn
-```
-Or, to run all tests:
-```bash
-./run-tests.sh -p ./scikit-learn
+./run-tests.sh -v -k "test_logistic"
 ```
 
-You can also pass additional pytest arguments:
-```bash
-./run-tests.sh --select relevant -p ./scikit-learn -- -v -k "test_logistic"
-```
-
-### 3. Summarize test results
+### 2. Summarize test results
 Generate a summary from the XML report with a pass rate threshold:
 ```bash
 ./summarize-results.sh -v -f 80 report.xml
 ```
-
-## CI Integration
-
-This suite integrates with the cuML CI pipeline via scripts such as `ci/test_python_scikit_learn_tests.sh`.

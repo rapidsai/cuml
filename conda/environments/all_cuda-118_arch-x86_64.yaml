@@ -43,7 +43,6 @@ dependencies:
 - libcuvs==25.4.*,>=0.0.0a0
 - libraft==25.4.*,>=0.0.0a0
 - librmm==25.4.*,>=0.0.0a0
-- meson-python
 - nbsphinx
 - ninja
 - nltk
