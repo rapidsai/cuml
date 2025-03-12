@@ -221,3 +221,13 @@ def test_defaults_args_only_methods():
     nn = NearestNeighbors(metric="chebyshev", n_neighbors=3)
     nn.fit(X[:, 0].reshape((-1, 1)), y)
     nn.kneighbors()
+
+
+def test_positional_arg_estimators_work():
+    """Some sklearn estimators take positional args, check that these
+    are handled properly"""
+    pca = PCA(42)
+    assert pca.n_components == 42
+
+    svd = TruncatedSVD(42)
+    assert svd.n_components == 42
