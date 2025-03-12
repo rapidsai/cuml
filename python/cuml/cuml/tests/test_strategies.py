@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,14 +28,17 @@ from cuml.testing.strategies import (
     standard_regression_datasets,
 )
 from cuml.testing.utils import normalized_shape, series_squeezed_shape
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import floating_dtypes, integer_dtypes
+from sklearn.datasets import make_regression
+from sklearn.datasets import make_classification
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
 
 
+@example(input_type="series", dtype="float32", shape=(10,), order="C")
 @given(
     input_type=cuml_array_input_types(),
     dtype=cuml_array_dtypes(),
@@ -58,6 +61,7 @@ def test_cuml_array_input_elements(input_type, dtype, shape, order):
         assert input_array.flags[layout_flag]
 
 
+@example(array_input=np.ones(10, dtype="float32"))
 @given(cuml_array_inputs())
 @settings(deadline=None)
 def test_cuml_array_inputs(array_input):
@@ -70,6 +74,12 @@ def test_cuml_array_inputs(array_input):
     )
 
 
+@example(
+    dataset=(
+        np.ones((10, 5), dtype=np.float32),
+        np.ones((10, 1), dtype=np.float32),
+    )
+)
 @given(standard_datasets())
 def test_standard_datasets_default(dataset):
     X, y = dataset
@@ -80,6 +90,12 @@ def test_standard_datasets_default(dataset):
     assert (y.ndim == 0) or (y.ndim in (1, 2) and y.shape[0] <= 200)
 
 
+@example(
+    dataset=(
+        np.ones((10, 30), dtype=np.float32),
+        np.ones((10, 1), dtype=np.float32),
+    )
+)
 @given(
     standard_datasets(
         dtypes=floating_dtypes(sizes=(32,)),
@@ -97,6 +113,14 @@ def test_standard_datasets(dataset):
     assert y.shape[1] == 1
 
 
+@example(
+    split_dataset=(
+        np.ones((10, 5), dtype=np.float64),
+        np.ones((5, 5), dtype=np.float64),
+        np.ones(10, dtype=np.float64),
+        np.ones(5, dtype=np.float64),
+    )
+)
 @given(split_datasets(standard_datasets()))
 @settings(suppress_health_check=list(HealthCheck))
 def test_split_datasets(split_dataset):
@@ -111,6 +135,12 @@ def test_split_datasets(split_dataset):
     assert (y_train.ndim == 0) or (2 <= (len(y_train) + len(y_test)) <= 200)
 
 
+@example(
+    dataset=(
+        np.ones((10, 5), dtype=np.float32),
+        np.ones((10, 1), dtype=np.float32),
+    )
+)
 @given(standard_regression_datasets())
 def test_standard_regression_datasets_default(dataset):
     X, y = dataset
@@ -121,6 +151,7 @@ def test_standard_regression_datasets_default(dataset):
     assert X.dtype == y.dtype
 
 
+@example(dataset=make_regression(n_samples=1, n_features=5, random_state=0))
 @given(
     standard_regression_datasets(
         dtypes=floating_dtypes(sizes=64),
@@ -155,6 +186,12 @@ def test_standard_regression_datasets(dataset):
     assert (y == y_cmp).all()
 
 
+@example(
+    dataset=(
+        np.ones((10, 5), dtype=np.float32),
+        np.ones((10, 1), dtype=np.float32),
+    )
+)
 @given(regression_datasets())
 def test_regression_datasets(dataset):
     X, y = dataset
@@ -165,6 +202,14 @@ def test_regression_datasets(dataset):
     assert (y.ndim == 0) or (y.ndim in (1, 2) and y.shape[0] <= 200)
 
 
+@example(
+    split_dataset=(
+        np.ones((10, 5), dtype=np.float64),
+        np.ones((5, 5), dtype=np.float64),
+        np.ones(10, dtype=np.float64),
+        np.ones(5, dtype=np.float64),
+    )
+)
 @given(split_datasets(regression_datasets()))
 @settings(
     suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large]
@@ -178,6 +223,9 @@ def test_split_regression_datasets(split_dataset):
     assert 2 <= (len(X_train) + len(X_test)) <= 200
 
 
+@example(
+    dataset=(np.ones((10, 5), dtype=np.float32), np.ones(10, dtype=np.int32))
+)
 @given(standard_classification_datasets())
 def test_standard_classification_datasets_default(dataset):
     X, y = dataset
@@ -189,6 +237,9 @@ def test_standard_classification_datasets_default(dataset):
     assert np.issubdtype(y.dtype, np.integer)
 
 
+@example(
+    dataset=make_classification(n_samples=1, n_features=5, random_state=0)
+)
 @given(
     standard_classification_datasets(
         dtypes=floating_dtypes(sizes=64),
