@@ -106,7 +106,7 @@ def test_kmeans_random_state(clustering_data):
 def test_kmeans_init_parameter():
     # Testing the hyper-parameter translation only makes sense if the
     # accelerator is active.
-    if not cuml.experimental.accel.GlobalSettings().accelerator_active:
+    if not cuml.GlobalSettings().accelerator_active:
         pytest.skip("Skipping test because accelerator is not active")
 
     # Check that not passing a value for a constructor argument and passing the
