@@ -189,3 +189,15 @@ def test_rf_max_samples_reg(regression_data, max_samples):
     )
     reg.fit(X, y)
     _ = r2_score(y, reg.predict(X))
+
+
+def test_oob_score(regression_data):
+    X, y = regression_data
+    reg = RandomForestRegressor(
+        oob_score=True,
+        n_estimators=50,
+    )
+    reg.fit(X, y)
+
+    # Check attribute exists and is a float
+    assert isinstance(reg.oob_score_, float)
