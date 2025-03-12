@@ -100,7 +100,6 @@ namespace forest {
  */
 auto static constexpr const SAMPLE_COL_COUNT         = 7;
 auto static constexpr const SAMPLE_TREE_COUNT        = 6;
-auto static constexpr const SAMPLE_CLASS_COUNT       = 3;
 auto static constexpr const SAMPLE_CATEGORICAL_COUNT = 5;
 auto static const SAMPLE_FOREST                      = []() {
   auto metadata = treelite::model_builder::Metadata{
