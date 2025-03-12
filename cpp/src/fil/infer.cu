@@ -24,7 +24,7 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <thrust/functional.h>
+#include <cuda/std/functional>
 
 #include <algorithm>
 #include <cmath>
@@ -82,13 +82,13 @@ struct vec {
   __host__ __device__ T operator[](int i) const { return data[i]; }
   friend __host__ __device__ vec<N, T> operator+(const vec<N, T>& a, const vec<N, T>& b)
   {
-    return vectorized(cub::Sum())(a, b);
+    return vectorized(cuda::std::plus<T>{})(a, b);
   }
   friend __host__ __device__ void operator+=(vec<N, T>& a, const vec<N, T>& b) { a = a + b; }
   template <typename Vec>
   friend __host__ __device__ vec<N, T> operator/(vec<N, T>& a, const Vec& b)
   {
-    return vectorized(thrust::divides<T>())(a, vec<N, T>(b));
+    return vectorized(cuda::std::divides<T>())(a, vec<N, T>(b));
   }
   template <typename Vec>
   friend __host__ __device__ void operator/=(vec<N, T>& a, const Vec& b)
@@ -296,7 +296,7 @@ struct tree_aggregator_t {
       // ensure input columns can be overwritten (no threads traversing trees)
       __syncthreads();
       if (log2_threads_per_tree == 0) {
-        acc = block_reduce(acc, vectorized(cub::Sum()), tmp_storage);
+        acc = block_reduce(acc, vectorized(cuda::std::plus{}), tmp_storage);
       } else {
         auto per_thread         = (vec<NITEMS, real_t>*)tmp_storage;
         per_thread[threadIdx.x] = acc;
@@ -384,7 +384,7 @@ __device__ __forceinline__ void block_softmax(Iterator begin, Iterator end, void
   for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
     *it = vectorized(shifted_exp())(*it, max);
   // sum of exponents
-  value_type soe = allreduce_shmem(begin, end, vectorized(cub::Sum()), tmp_storage);
+  value_type soe = allreduce_shmem(begin, end, vectorized(cuda::std::plus{}), tmp_storage);
   // softmax phase 2: normalization
   for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
     *it /= soe;

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 #
 
 from inspect import Parameter, signature
-import typing
 
 from cuml.internals.api_decorators import (
     api_base_return_generic,
@@ -25,8 +24,6 @@ from cuml.internals.api_decorators import (
     api_return_any,
     _deprecate_pos_args,
 )
-from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base_return_types import _get_base_return_type
 from cuml.internals.constants import CUML_WRAPPED_FLAG
 

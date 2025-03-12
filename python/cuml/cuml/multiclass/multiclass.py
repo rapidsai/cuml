@@ -24,11 +24,6 @@ from cuml.common import (
     input_to_host_array,
     input_to_host_array_with_sparse_support,
 )
-from cuml.internals.input_utils import (
-    input_to_cupy_array,
-    determine_array_type_full,
-)
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals import _deprecate_pos_args
 
 

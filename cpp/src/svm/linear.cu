@@ -38,6 +38,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 
+#include <cuda/std/functional>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -176,7 +177,7 @@ CUML_KERNEL void predictProba(T* out, const T* z, const int nRows, const int nCl
     j -= BX;
     t = rowIn[j];
   }
-  smSum = WarpRed(warpStore).Reduce(smSum, cub::Sum());
+  smSum = WarpRed(warpStore).Reduce(smSum, cuda::std::plus{});
   smSum = cub::ShuffleIndex<BX>(smSum, 0, 0xFFFFFFFFU);
 
   // Now, either `j` refers to the first valid column idx worked by the
@@ -290,7 +291,7 @@ void predictLinear(const raft::handle_t& handle,
 
   if (fitIntercept)
     raft::linalg::matrixVectorOp(
-      out, out, w + nCols * coefCols, coefCols, nRows, true, true, cub::Sum(), stream);
+      out, out, w + nCols * coefCols, coefCols, nRows, true, true, cuda::std::plus{}, stream);
 }
 
 /** A helper struct for selecting handle/stream depending on whether omp parallel is active. */
