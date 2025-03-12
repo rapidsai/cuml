@@ -25,7 +25,35 @@
 
 namespace ML {
 
-using nn_index_params = raft::neighbors::experimental::nn_descent::index_params;
+struct nn_index_params {
+  /**
+   * Internally, nn-descent builds an all-neighbors knn graph of
+   * dimensions (N, intermediate_graph_degree) before selecting the final
+   * `n_neighbors` neighbors. It's recommended that
+   * `intermediate_graph_degree` >= 1.5 * n_neighbors. If 0, defaults
+   * to `1.5 * n_neighbors`.
+   */
+  size_t intermediate_graph_degree = 0;
+
+  /**
+   * The number of iterations that nn-descent will refine the graph for. More
+   * iterations produce a better quality graph at cost of performance.
+   */
+  size_t max_iterations = 20;
+
+  /**
+   * The delta at which nn-descent will terminate its iterations.
+   */
+  float termination_threshold = 0.0001;
+
+  /**
+   * The `nn-descent algorithm supports batching a dataset to reduce GPU memory usage.
+   * The default (1) means no batching. Increasing the number will split the data into
+   * `n_clusters` batches. Increasing `n_clusters` too high can result in excess overhead,
+   * as well as decrease recall.
+   */
+  size_t n_clusters = 1;
+};
 
 class UMAPParams {
  public:

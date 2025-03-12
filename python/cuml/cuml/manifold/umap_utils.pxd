@@ -41,18 +41,12 @@ cdef extern from "cuml/common/callback.hpp" namespace "ML::Internals":
     cdef cppclass GraphBasedDimRedCallback
 
 
-cdef extern from "raft/neighbors/nn_descent_types.hpp" namespace "raft::neighbors::experimental::nn_descent":
-    cdef struct index_params:
-        uint64_t graph_degree,
+cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
+    cdef struct nn_index_params:
         uint64_t intermediate_graph_degree,
         uint64_t max_iterations,
         float termination_threshold,
-        bool return_distances,
         uint64_t n_clusters,
-        RaftDistanceType metric,
-        float metric_arg
-
-cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
 
     cdef cppclass UMAPParams:
         int n_neighbors,
@@ -80,7 +74,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         DistanceType metric,
         float p,
         GraphBasedDimRedCallback * callback,
-        index_params nn_descent_params
+        nn_index_params nn_descent_params
 
 cdef extern from "raft/sparse/coo.hpp":
     cdef cppclass COO "raft::sparse::COO<float, int>":

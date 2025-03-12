@@ -297,10 +297,20 @@ class UMAP(UniversalBase,
         'nn_descent']. 'auto' chooses to run with brute force knn if number of data rows is
         smaller than or equal to 50K. Otherwise, runs with nn descent.
     build_kwds: dict (optional, default=None)
-        Build algorithm argument {'nnd_graph_degree': 64, 'nnd_intermediate_graph_degree': 128,
-        'nnd_max_iterations': 20, 'nnd_termination_threshold': 0.0001, 'nnd_return_distances': True,
-        'nnd_n_clusters': 1}
-        Note that nnd_n_clusters > 1 will result in batch-building with NN Descent.
+        Extra options for specific build algorithms. Options for
+        ``build_algo='nn_descent'`` are:
+
+        * ``nnd_n_clusters``: The number of clusters to use. Defaults to 1. If set
+          higher, nn-descent will split the input data into ``nnd_n_clusters`` batches
+          when constructing the KNN graph. Increasing this can help reduce GPU memory
+          usage (especially if ``data_on_host=True``, at the cost of performance.
+        * ``nnd_intermediate_graph_degree``: The size of the intermediate graph.
+          If 0 (the default), will be inferred as ``1.5 * n_neighbors``.
+        * ``nnd_max_iterations``: The number of iterations to refine the KNN
+          graph for. Defaults to 20, increasing may produce a better quality
+          graph at the cost of performance.
+        * ``nnd_termination_threshold``: The termination threshold for refining
+          the KNN graph. Defaults to 0.001.
 
     Notes
     -----
@@ -510,15 +520,10 @@ class UMAP(UniversalBase,
             else:
                 umap_params.build_algo = graph_build_algo.NN_DESCENT
                 build_kwds = self.build_kwds or {}
-                umap_params.nn_descent_params.graph_degree = <uint64_t> build_kwds.get("nnd_graph_degree", 64)
-                umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> build_kwds.get("nnd_intermediate_graph_degree", 128)
+                umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> build_kwds.get("nnd_intermediate_graph_degree", 0)
                 umap_params.nn_descent_params.max_iterations = <uint64_t> build_kwds.get("nnd_max_iterations", 20)
                 umap_params.nn_descent_params.termination_threshold = <float> build_kwds.get("nnd_termination_threshold", 0.0001)
-                umap_params.nn_descent_params.return_distances = <bool> build_kwds.get("nnd_return_distances", True)
                 umap_params.nn_descent_params.n_clusters = <uint64_t> build_kwds.get("nnd_n_clusters", 1)
-                # Forward metric & metric_kwds to nn_descent
-                umap_params.nn_descent_params.metric = <RaftDistanceType> umap_params.metric
-                umap_params.nn_descent_params.metric_arg = umap_params.p
 
             cdef uintptr_t callback_ptr = 0
             if self.callback:
@@ -657,8 +662,7 @@ class UMAP(UniversalBase,
                 <handle_t*> <size_t> self.handle.getHandle()
             fss_graph = GraphHolder.new_graph(handle_.get_stream())
             cdef UMAPParams* umap_params = \
-                <UMAPParams*> <size_t> self._build_umap_params(
-                                                               self.sparse_fit)
+                <UMAPParams*> <size_t> self._build_umap_params(self.sparse_fit)
             if self.sparse_fit:
                 fit_sparse(handle_[0],
                            <int*><uintptr_t> self._raw_data.indptr.ptr,
@@ -816,8 +820,7 @@ class UMAP(UniversalBase,
 
         IF GPUBUILD == 1:
             cdef UMAPParams* umap_params = \
-                <UMAPParams*> <size_t> self._build_umap_params(
-                                                               self.sparse_fit)
+                <UMAPParams*> <size_t> self._build_umap_params(self.sparse_fit)
             cdef handle_t * handle_ = \
                 <handle_t*> <size_t> self.handle.getHandle()
             if self.sparse_fit:
