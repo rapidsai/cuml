@@ -24,20 +24,15 @@ from sklearn.linear_model import (
     Ridge,
     Lasso,
 )
-from sklearn.manifold import TSNE
 from sklearn.neighbors import (
     NearestNeighbors,
     KNeighborsClassifier,
     KNeighborsRegressor,
 )
-from sklearn.preprocessing import Normalizer
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, mean_squared_error
 from umap import UMAP
-import hdbscan
-import numpy as np
 import scipy as sp
 
 

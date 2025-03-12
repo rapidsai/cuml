@@ -1,11 +1,10 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 
 import certifi
 import pytest
 from ssl import create_default_context
 from urllib.request import build_opener, HTTPSHandler, install_opener
 
-from dask_cuda import initialize
 from dask_cuda import LocalCUDACluster
 from dask_cuda.utils_test import IncreasedCloseTimeoutNanny
 from dask.distributed import Client

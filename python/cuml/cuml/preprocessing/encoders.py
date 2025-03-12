@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 import warnings
-from typing import List, Optional, TypeVar
+from typing import Optional
 
 import cuml.internals.logger as logger
 from cuml import Base

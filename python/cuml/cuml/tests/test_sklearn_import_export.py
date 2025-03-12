@@ -34,7 +34,7 @@ from numpy.testing import assert_allclose
 
 from sklearn.datasets import make_blobs, make_classification, make_regression
 from sklearn.utils.validation import check_is_fitted
-from sklearn.cluster import KMeans as SkKMeans, DBSCAN as SkDBSCAN
+from sklearn.cluster import KMeans as SkKMeans
 from sklearn.decomposition import PCA as SkPCA, TruncatedSVD as SkTruncatedSVD
 from sklearn.linear_model import (
     LinearRegression as SkLinearRegression,
@@ -43,8 +43,6 @@ from sklearn.linear_model import (
     Ridge as SkRidge,
     Lasso as SkLasso,
 )
-from sklearn.manifold import TSNE as SkTSNE
-from sklearn.neighbors import NearestNeighbors as SkNearestNeighbors
 
 ###############################################################################
 #                              Helper functions                               #
@@ -82,8 +80,6 @@ def assert_estimator_roundtrip(
 
     # Convert back
     roundtrip_model = type(cuml_model).from_sklearn(sklearn_model)
-
-    from pprint import pprint
 
     rm_params = roundtrip_model.get_params()
 

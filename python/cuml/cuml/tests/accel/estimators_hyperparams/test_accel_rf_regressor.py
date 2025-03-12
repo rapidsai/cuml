@@ -15,7 +15,6 @@
 #
 
 import pytest
-import numpy as np
 from sklearn.datasets import make_regression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score

@@ -22,7 +22,6 @@ from cuml.internals.input_utils import (
     determine_df_obj_type,
 )
 from cuml.internals.output_utils import output_to_df_obj_like
-from cuml.internals.mem_type import MemoryType
 from cuml.internals.array import array_to_memory_order, CumlArray
 from cuml.internals.safe_imports import (
     cpu_only_import,

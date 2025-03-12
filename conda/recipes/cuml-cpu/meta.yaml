@@ -34,7 +34,8 @@ requirements:
     - numpy>=1.23,<3.0a0
     - packaging
     - pandas
-    - scikit-learn=1.5.*
+    - packaging
+    - scikit-learn==1.5.*
     - hdbscan>=0.8.39,<0.8.40
     - umap-learn=0.5.6
     - nvtx

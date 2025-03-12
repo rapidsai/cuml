@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from contextlib import nullcontext
 from functools import lru_cache
 
 from packaging.version import Version

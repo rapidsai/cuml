@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,7 +44,6 @@ import cuml.datasets
 from cuml.internals.safe_imports import cpu_only_import
 import os
 import functools
-import gzip
 from cuml.internals.safe_imports import gpu_only_import
 
 cudf = gpu_only_import("cudf")

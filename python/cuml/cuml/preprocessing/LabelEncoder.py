@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING
 
 from cuml import Base
 from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
-from cuml.common.exceptions import NotFittedError
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import,
