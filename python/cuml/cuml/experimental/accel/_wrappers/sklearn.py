@@ -46,6 +46,13 @@ PCA = intercept(
 )
 
 
+IncrementalPCA = intercept(
+    original_module="sklearn.decomposition",
+    accelerated_module="cuml.decomposition",
+    original_class_name="IncrementalPCA",
+)
+
+
 TruncatedSVD = intercept(
     original_module="sklearn.decomposition",
     accelerated_module="cuml.decomposition",
