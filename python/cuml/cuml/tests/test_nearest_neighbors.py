@@ -38,7 +38,7 @@ from cuml.datasets import make_blobs
 from sklearn.metrics import pairwise_distances
 from cuml.metrics import pairwise_distances as cuPW
 
-from cuml.internals import logger
+from cuml.internals import logger  # noqa: F401
 
 from cuml.internals.safe_imports import gpu_only_import
 

@@ -125,7 +125,6 @@ def _training_data_to_numpy(X, y):
 
 def _build_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking"""
-    from cuml.internals.import_utils import has_xgboost
 
     train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
@@ -185,7 +184,6 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking with optimal
     parameters"""
     with using_device_type("gpu"):
-        from cuml.internals.import_utils import has_xgboost
 
         train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
@@ -376,7 +374,6 @@ class GtilWrapper:
 
 def _build_gtil_classifier(m, data, args, tmpdir):
     """Setup function for treelite classification benchmarking"""
-    from cuml.internals.import_utils import has_xgboost
 
     max_depth = args["max_depth"]
     num_rounds = args["num_rounds"]

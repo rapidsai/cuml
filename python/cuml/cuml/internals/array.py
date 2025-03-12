@@ -16,7 +16,6 @@
 
 import copy
 import operator
-import pickle
 from typing import Tuple
 
 from cuml.internals.global_settings import GlobalSettings
