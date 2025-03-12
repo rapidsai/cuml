@@ -32,7 +32,6 @@ requirements:
   run:
     - python x.x
     - numpy>=1.23,<3.0a0
-    - packaging
     - pandas
     - packaging
     - scikit-learn==1.5.*

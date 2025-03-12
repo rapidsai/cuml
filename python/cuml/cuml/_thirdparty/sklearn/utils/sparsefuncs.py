@@ -148,7 +148,7 @@ def mean_variance_axis(X, axis):
     else:
         _raise_typeerror(X)
 
-# this is function to avoid attribute access at import time in CPU-only environments
+# this is a function to avoid attribute access at import time in CPU-only environments
 def ufunc_dic():
     return {
         'min': np.min,
