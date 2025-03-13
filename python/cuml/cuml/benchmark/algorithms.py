@@ -54,13 +54,13 @@ import cuml.metrics
 import cuml.decomposition
 import cuml.experimental
 import cuml.naive_bayes
-from cuml.dask import (
+from cuml.dask import (  # noqa: F401
     neighbors,
     cluster,
     manifold,
     decomposition,
     linear_model,
-)  # noqa: F401
+)
 from cuml.internals.import_utils import has_hdbscan, has_umap
 from cuml.internals.safe_imports import cpu_only_import
 

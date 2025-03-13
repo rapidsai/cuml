@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,8 +30,6 @@ from sklearn.linear_model import (
 )
 from sklearn.neighbors import (
     NearestNeighbors,
-    KNeighborsClassifier,
-    KNeighborsRegressor,
 )
 from sklearn.base import is_classifier, is_regressor
 from hdbscan import HDBSCAN

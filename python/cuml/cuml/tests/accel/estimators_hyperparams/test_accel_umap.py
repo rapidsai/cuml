@@ -15,7 +15,6 @@
 #
 
 import pytest
-import numpy as np
 from sklearn.datasets import make_swiss_roll
 from umap import UMAP
 from sklearn.manifold import trustworthiness

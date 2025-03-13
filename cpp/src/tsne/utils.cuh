@@ -15,6 +15,8 @@
  */
 
 #pragma once
+
+#include <cuml/common/functional.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 
@@ -168,9 +170,11 @@ CUML_KERNEL void min_max_kernel(
   }
 
   value_t block_min, block_max;
-  if (find_min) { block_min = BlockReduce(temp_storage_min).Reduce(thread_min, cub::Min()); }
+  if (find_min) {
+    block_min = BlockReduce(temp_storage_min).Reduce(thread_min, ML::detail::minimum{});
+  }
 
-  block_max = BlockReduce(temp_storage_max).Reduce(thread_max, cub::Max());
+  block_max = BlockReduce(temp_storage_max).Reduce(thread_max, ML::detail::maximum{});
 
   // results stored in first thread of block
 
