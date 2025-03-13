@@ -101,17 +101,16 @@ namespace fil {
  * |                 14  15            |
  * |-----------------------------------|
  */
-auto static constexpr const SAMPLE_COL_COUNT         = 7;
-auto static constexpr const SAMPLE_TREE_COUNT        = 6;
-auto static constexpr const SAMPLE_CATEGORICAL_COUNT = 5;
-auto static const SAMPLE_FOREST                      = []() {
+auto static constexpr const SAMPLE_COL_COUNT  = 7;
+auto static constexpr const SAMPLE_TREE_COUNT = 6;
+auto static const SAMPLE_FOREST               = []() {
   auto metadata = treelite::model_builder::Metadata{
     SAMPLE_COL_COUNT,
     treelite::TaskType::kRegressor,
     true,
     1,
-                         {1},
-                         {1, 1},
+                  {1},
+                  {1, 1},
   };
   auto tree_annotation =
     treelite::model_builder::TreeAnnotation{SAMPLE_TREE_COUNT,
