@@ -14,15 +14,12 @@
 # limitations under the License.
 #
 
-from inspect import Parameter, signature
-
 from cuml.internals.api_decorators import (
     api_base_return_generic,
     api_base_return_array,
     api_base_return_sparse_array,
     api_base_return_any,
     api_return_any,
-    _deprecate_pos_args,
 )
 from cuml.internals.base_return_types import _get_base_return_type
 from cuml.internals.constants import CUML_WRAPPED_FLAG
@@ -51,84 +48,40 @@ def _wrap_attribute(class_name: str, attribute_name: str, attribute, **kwargs):
     return attribute
 
 
-def _check_and_wrap_init(attribute, **kwargs):
-
-    # Check if the decorator has already been added
-    if attribute.__dict__.get(_deprecate_pos_args.FLAG_NAME):
-        return attribute
-
-    # Get the signature to test if all args are keyword only
-    sig = signature(attribute)
-
-    incorrect_params = [
-        n
-        for n, p in sig.parameters.items()
-        if n != "self"
-        and (
-            p.kind == Parameter.POSITIONAL_ONLY
-            or p.kind == Parameter.POSITIONAL_OR_KEYWORD
-        )
-    ]
-
-    assert len(incorrect_params) == 0, (
-        "Error in `{}`!. Positional arguments for estimators (that derive "
-        "from `Base`) have been deprecated but parameters '{}' can still "
-        "be used as positional arguments. Please specify all parameters "
-        "after `self` as keyword only by using the `*` argument"
-    ).format(attribute.__qualname__, ", ".join(incorrect_params))
-
-    return _deprecate_pos_args(**kwargs)(attribute)
-
-
 class BaseMetaClass(type):
     """
-    Metaclass for all estimators in cuML. This metaclass will get called for
-    estimators deriving from `cuml.common.Base` as well as
-    `cuml.dask.common.BaseEstimator`. It serves 2 primary functions:
+    Metaclass for all estimators in cuML.
 
-     1. Set the `@_deprecate_pos_args()` decorator on all `__init__` functions
-     2. Wrap any functions and properties in the API decorators
-        [`cuml.common.Base` only]
-
+    This metaclass will get called for estimators deriving from `cuml.common.Base`
+    as well as `cuml.dask.common.BaseEstimator`. It automatically wraps methods and
+    properties in the API decorators (`cuml.common.Base` only).
     """
 
-    def __new__(cls, classname, bases, classDict):
+    def __new__(cls, classname, bases, namespace):
+        # Skip wrapping methods in dask estimators
+        if not namespace["__module__"].startswith("cuml.dask"):
+            for name, attribute in namespace.items():
+                if callable(attribute):
+                    # Wrap method
+                    namespace[name] = _wrap_attribute(
+                        classname, name, attribute
+                    )
 
-        is_dask_module = classDict["__module__"].startswith("cuml.dask")
-
-        for attributeName, attribute in classDict.items():
-
-            # If attributeName is `__init__`, wrap in the decorator to
-            # deprecate positional args
-            if attributeName == "__init__":
-                attribute = _check_and_wrap_init(attribute, version="21.06")
-                classDict[attributeName] = attribute
-
-            # For now, skip all additional processing if we are a dask
-            # estimator
-            if is_dask_module:
-                continue
-
-            # Must be a function
-            if callable(attribute):
-
-                classDict[attributeName] = _wrap_attribute(
-                    classname, attributeName, attribute
-                )
-
-            elif isinstance(attribute, property):
-                # Need to wrap the getter if it exists
-                if hasattr(attribute, "fget") and attribute.fget is not None:
-                    classDict[attributeName] = attribute.getter(
+                elif (
+                    isinstance(attribute, property)
+                    and attribute.fget is not None
+                ):
+                    # Wrap property getters
+                    namespace[name] = attribute.getter(
                         _wrap_attribute(
                             classname,
-                            attributeName,
+                            name,
                             attribute.fget,
                             input_arg=None,
                         )
                     )
 
-        return type.__new__(cls, classname, bases, classDict)
+        return type.__new__(cls, classname, bases, namespace)
 
 
 class _tags_class_and_instance:

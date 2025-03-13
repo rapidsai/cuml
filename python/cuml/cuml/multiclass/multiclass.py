@@ -24,7 +24,6 @@ from cuml.common import (
     input_to_host_array,
     input_to_host_array_with_sparse_support,
 )
-from cuml.internals import _deprecate_pos_args
 
 
 class MulticlassClassifier(Base, ClassifierMixin):
@@ -55,8 +54,8 @@ class MulticlassClassifier(Base, ClassifierMixin):
         ...                            random_state=137)
 
         >>> cls = MulticlassClassifier(LogisticRegression(), strategy='ovo')
-        >>> cls.fit(X,y)
-        MulticlassClassifier()
+        >>> cls.fit(X, y)
+        MulticlassClassifier(estimator=LogisticRegression())
         >>> cls.predict(X)
         array([1, 1, 1, 1, 1, 1, 2, 1, 1, 2])
 
@@ -92,7 +91,6 @@ class MulticlassClassifier(Base, ClassifierMixin):
 
     """
 
-    @_deprecate_pos_args(version="21.06")
     def __init__(
         self,
         estimator,
@@ -216,8 +214,8 @@ class OneVsRestClassifier(MulticlassClassifier):
         ...                            random_state=137)
 
         >>> cls = OneVsRestClassifier(LogisticRegression())
-        >>> cls.fit(X,y)
-        OneVsRestClassifier()
+        >>> cls.fit(X, y)
+        OneVsRestClassifier(estimator=LogisticRegression())
         >>> cls.predict(X)
         array([1, 1, 1, 1, 1, 1, 2, 1, 1, 2])
 
@@ -243,7 +241,6 @@ class OneVsRestClassifier(MulticlassClassifier):
         :ref:`output-data-type-configuration` for more info.
     """
 
-    @_deprecate_pos_args(version="21.06")
     def __init__(
         self, estimator, *args, handle=None, verbose=False, output_type=None
     ):
@@ -292,8 +289,8 @@ class OneVsOneClassifier(MulticlassClassifier):
         ...                            random_state=137)
 
         >>> cls = OneVsOneClassifier(LogisticRegression())
-        >>> cls.fit(X,y)
-        OneVsOneClassifier()
+        >>> cls.fit(X, y)
+        OneVsOneClassifier(estimator=LogisticRegression())
         >>> cls.predict(X)
         array([1, 1, 1, 1, 1, 1, 2, 1, 1, 2])
 
@@ -318,7 +315,6 @@ class OneVsOneClassifier(MulticlassClassifier):
         :ref:`output-data-type-configuration` for more info.
     """
 
-    @_deprecate_pos_args(version="21.06")
     def __init__(
         self, estimator, *args, handle=None, verbose=False, output_type=None
     ):

@@ -10,7 +10,6 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
-from ....internals import _deprecate_pos_args
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals.array_sparse import SparseCumlArray
 from ..utils.validation import FLOAT_DTYPES
@@ -232,7 +231,6 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
 
     statistics_ = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="21.06")
     def __init__(self, *, missing_values=np.nan, strategy="mean",
                  fill_value=None, copy=True, add_indicator=False):
         super().__init__(
@@ -537,7 +535,6 @@ class MissingIndicator(TransformerMixin,
     """
     features_ = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="21.06")
     def __init__(self, *, missing_values=np.nan, features="missing-only",
                  sparse="auto", error_on_new=True):
         self.missing_values = missing_values

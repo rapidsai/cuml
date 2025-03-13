@@ -25,7 +25,6 @@
 # limitations under the License.
 #
 
-from ....internals import _deprecate_pos_args
 from ....internals.memory_utils import using_output_type
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals.array_sparse import SparseCumlArray
@@ -152,7 +151,6 @@ class KBinsDiscretizer(TransformerMixin,
     bin_edges_internal_ = CumlArrayDescriptor()
     n_bins_ = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="21.06")
     def __init__(self, n_bins=5, *, encode='onehot', strategy='quantile'):
         self.n_bins = n_bins
         self.encode = encode
