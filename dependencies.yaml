@@ -205,6 +205,7 @@ dependencies:
           # clang 15 required by libcudacxx.
           - clang==15.0.7
           - clang-tools==15.0.7
+          - llvm-openmp==15.0.7
           - ninja
           - tomli
   common_build:
