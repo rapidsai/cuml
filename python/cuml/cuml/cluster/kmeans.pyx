@@ -254,7 +254,7 @@ class KMeans(UniversalBase,
     @device_interop_preparation
     def __init__(self, *, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
                  verbose=False, random_state=1,
-                 init='scalable-k-means++', n_init="warn", oversampling_factor=2.0,
+                 init='scalable-k-means++', n_init="auto", oversampling_factor=2.0,
                  max_samples_per_batch=1<<15, convert_dtype=True,
                  output_type=None):
         super().__init__(handle=handle,
