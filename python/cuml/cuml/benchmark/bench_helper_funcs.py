@@ -125,7 +125,6 @@ def _training_data_to_numpy(X, y):
 
 def _build_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking"""
-    from cuml.internals.import_utils import has_xgboost
 
     train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
@@ -185,7 +184,6 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking with optimal
     parameters"""
     with using_device_type("gpu"):
-        from cuml.internals.import_utils import has_xgboost
 
         train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
@@ -203,7 +201,7 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
         n_feature = data[0].shape[1]
         train_size = data[0].shape[0]
         model_name = (
-            f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
+            f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.ubj"
         )
         model_path = os.path.join(tmpdir, model_name)
         bst = xgb.train(params, dtrain, num_rounds)
@@ -247,6 +245,7 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
         allowed_layout_types = ["breadth_first"]
         if experimental:
             allowed_layout_types.append("depth_first")
+            allowed_layout_types.append("layered")
         for algo in allowed_algo_types:
             fil_kwargs["algo"] = algo
             for layout in allowed_layout_types:
@@ -376,14 +375,13 @@ class GtilWrapper:
 
 def _build_gtil_classifier(m, data, args, tmpdir):
     """Setup function for treelite classification benchmarking"""
-    from cuml.internals.import_utils import has_xgboost
 
     max_depth = args["max_depth"]
     num_rounds = args["num_rounds"]
     infer_type = args.get("infer_type", "default")
     n_feature = data[0].shape[1]
     train_size = data[0].shape[0]
-    model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.model"
+    model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.ubj"
     model_path = os.path.join(tmpdir, model_name)
 
     bst = xgb.Booster()

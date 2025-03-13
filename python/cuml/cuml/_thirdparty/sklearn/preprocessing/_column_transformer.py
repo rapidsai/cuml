@@ -14,7 +14,6 @@ from ....thirdparty_adapters import check_array
 from ..utils.validation import check_is_fitted
 from ..utils.skl_dependencies import TransformerMixin, BaseComposition, \
     BaseEstimator
-from cuml.internals import _deprecate_pos_args
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import _global_settings_data
 import cuml
@@ -554,9 +553,9 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
     """
     _required_parameters = ['transformers']
 
-    @_deprecate_pos_args(version="0.20")
     def __init__(self,
                  transformers=None,
+                 *,
                  remainder='drop',
                  sparse_threshold=0.3,
                  n_jobs=None,

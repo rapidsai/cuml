@@ -74,11 +74,8 @@ IF GPUBUILD == 1:
     from libc.stdlib cimport free
     from cuml.manifold.umap_utils cimport *
     from pylibraft.common.handle cimport handle_t
-    from cuml.manifold.umap_utils import GraphHolder, find_ab_params, \
-        metric_parsing, DENSE_SUPPORTED_METRICS, SPARSE_SUPPORTED_METRICS
-
-    from cuml.manifold.simpl_set import fuzzy_simplicial_set, \
-        simplicial_set_embedding
+    from cuml.manifold.umap_utils import GraphHolder, find_ab_params, coerce_metric
+    from cuml.manifold.simpl_set import fuzzy_simplicial_set, simplicial_set_embedding
 
     cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
 
@@ -444,28 +441,15 @@ class UMAP(UniversalBase,
         self._input_hash = None
         self._small_data = False
 
-        self.precomputed_knn = extract_knn_infos(precomputed_knn,
-                                                 n_neighbors)
-
-        # We need to set this log level here so that it is propagated in time
-        # for the logger.info call below. We cannot use the verbose parameter
-        # directly because Base.__init__ contains the logic for converting
-        # boolean values to suitable integers. We access self._verbose instead
-        # of self.verbose because due to the same issues described in
-        # Base.__init__'s logic for setting verbose, this code is not
-        # considered to be within a root context and therefore considered
-        # external. Rather than mucking with the decorator, for this specific
-        # case since we're trying to set the properties of the underlying
-        # logger we may as well access our underlying value directly and
-        # perform the necessary arithmetic.
-        logger.set_level(logger.level_enum(6 - self._verbose))
+        self.precomputed_knn = extract_knn_infos(precomputed_knn, n_neighbors)
 
         if build_algo == "auto" or build_algo == "brute_force_knn" or build_algo == "nn_descent":
             if self.deterministic and build_algo == "auto":
                 # TODO: for now, users should be able to see the same results as previous version
                 # (i.e. running brute force knn) when they explicitly pass random_state
                 # https://github.com/rapidsai/cuml/issues/5985
-                logger.info("build_algo set to brute_force_knn because random_state is given")
+                with logger.set_level(logger._verbose_to_level(verbose)):
+                    logger.info("build_algo set to brute_force_knn because random_state is given")
                 self.build_algo ="brute_force_knn"
             else:
                 self.build_algo = build_algo
@@ -486,6 +470,7 @@ class UMAP(UniversalBase,
             umap_params.n_components = <int> self.n_components
             umap_params.n_epochs = <int> self.n_epochs if self.n_epochs else 0
             umap_params.learning_rate = <float> self.learning_rate
+            umap_params.initial_alpha = <float> self.learning_rate
             umap_params.min_dist = <float> self.min_dist
             umap_params.spread = <float> self.spread
             umap_params.set_op_mix_ratio = <float> self.set_op_mix_ratio
@@ -496,55 +481,44 @@ class UMAP(UniversalBase,
             umap_params.verbosity = <level_enum> self.verbose
             umap_params.a = <float> self.a
             umap_params.b = <float> self.b
-            if self.init == "spectral":
-                umap_params.init = <int> 1
-            else:  # self.init == "random"
-                umap_params.init = <int> 0
             umap_params.target_n_neighbors = <int> self.target_n_neighbors
-            if self.target_metric == "euclidean":
-                umap_params.target_metric = MetricType.EUCLIDEAN
-            else:  # self.target_metric == "categorical"
-                umap_params.target_metric = MetricType.CATEGORICAL
-            if self.build_algo == "brute_force_knn":
-                umap_params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
-            else:  # self.init == "nn_descent"
-                umap_params.build_algo = graph_build_algo.NN_DESCENT
-                if self.build_kwds is None:
-                    umap_params.nn_descent_params.graph_degree = <uint64_t> 64
-                    umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> 128
-                    umap_params.nn_descent_params.max_iterations = <uint64_t> 20
-                    umap_params.nn_descent_params.termination_threshold = <float> 0.0001
-                    umap_params.nn_descent_params.return_distances = <bool> True
-                    umap_params.nn_descent_params.n_clusters = <uint64_t> 1
-                else:
-                    umap_params.nn_descent_params.graph_degree = <uint64_t> self.build_kwds.get("nnd_graph_degree", 64)
-                    umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> self.build_kwds.get("nnd_intermediate_graph_degree", 128)
-                    umap_params.nn_descent_params.max_iterations = <uint64_t> self.build_kwds.get("nnd_max_iterations", 20)
-                    umap_params.nn_descent_params.termination_threshold = <float> self.build_kwds.get("nnd_termination_threshold", 0.0001)
-                    umap_params.nn_descent_params.return_distances = <bool> self.build_kwds.get("nnd_return_distances", True)
-                    if self.build_kwds.get("nnd_n_clusters", 1) < 1:
-                        logger.info("Negative number of nnd_n_clusters not allowed. Changing nnd_n_clusters to 1")
-                    umap_params.nn_descent_params.n_clusters = <uint64_t> self.build_kwds.get("nnd_n_clusters", 1)
-
             umap_params.target_weight = <float> self.target_weight
             umap_params.random_state = <uint64_t> check_random_seed(self.random_state)
             umap_params.deterministic = <bool> self.deterministic
 
-            try:
-                umap_params.metric = metric_parsing[self.metric.lower()]
-                if sparse:
-                    if umap_params.metric not in SPARSE_SUPPORTED_METRICS:
-                        raise NotImplementedError(f"Metric '{self.metric}' not supported for sparse inputs.")
-                elif umap_params.metric not in DENSE_SUPPORTED_METRICS:
-                    raise NotImplementedError(f"Metric '{self.metric}' not supported for dense inputs.")
+            if self.init == "spectral":
+                umap_params.init = <int> 1
+            else:  # self.init == "random"
+                umap_params.init = <int> 0
 
-            except KeyError:
-                raise ValueError(f"Invalid value for metric: {self.metric}")
+            if self.target_metric == "euclidean":
+                umap_params.target_metric = MetricType.EUCLIDEAN
+            else:  # self.target_metric == "categorical"
+                umap_params.target_metric = MetricType.CATEGORICAL
+
+            umap_params.metric = coerce_metric(
+                self.metric, sparse=sparse, build_algo=self.build_algo
+            )
 
             if self.metric_kwds is None:
                 umap_params.p = <float> 2.0
             else:
                 umap_params.p = <float>self.metric_kwds.get('p')
+
+            if self.build_algo == "brute_force_knn":
+                umap_params.build_algo = graph_build_algo.BRUTE_FORCE_KNN
+            else:
+                umap_params.build_algo = graph_build_algo.NN_DESCENT
+                build_kwds = self.build_kwds or {}
+                umap_params.nn_descent_params.graph_degree = <uint64_t> build_kwds.get("nnd_graph_degree", 64)
+                umap_params.nn_descent_params.intermediate_graph_degree = <uint64_t> build_kwds.get("nnd_intermediate_graph_degree", 128)
+                umap_params.nn_descent_params.max_iterations = <uint64_t> build_kwds.get("nnd_max_iterations", 20)
+                umap_params.nn_descent_params.termination_threshold = <float> build_kwds.get("nnd_termination_threshold", 0.0001)
+                umap_params.nn_descent_params.return_distances = <bool> build_kwds.get("nnd_return_distances", True)
+                umap_params.nn_descent_params.n_clusters = <uint64_t> build_kwds.get("nnd_n_clusters", 1)
+                # Forward metric & metric_kwds to nn_descent
+                umap_params.nn_descent_params.metric = <RaftDistanceType> umap_params.metric
+                umap_params.nn_descent_params.metric_arg = umap_params.p
 
             cdef uintptr_t callback_ptr = 0
             if self.callback:

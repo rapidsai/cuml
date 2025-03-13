@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ from libc.stdint cimport uintptr_t
 
 import cuml.internals
 from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals import _deprecate_pos_args
 from cuml.common import using_output_type
 from cuml.internals.base import Base
 from cuml.internals.array import CumlArray
@@ -122,9 +121,7 @@ class ExponentialSmoothing(Base):
         ...                     3, 4, 5, 6, 7, 8, 9,
         ...                     10, 11, 12, 13, 14],
         ...                     dtype=cp.float64)
-        >>> cu_hw = ExponentialSmoothing(data, seasonal_periods=12)
-        >>> cu_hw.fit()
-        ExponentialSmoothing()
+        >>> cu_hw = ExponentialSmoothing(data, seasonal_periods=12).fit()
         >>> cu_pred = cu_hw.forecast(4)
         >>> print('Forecasted points:', cu_pred) # doctest: +SKIP
         Forecasted points :
@@ -183,7 +180,6 @@ class ExponentialSmoothing(Base):
     season = CumlArrayDescriptor()
     SSE = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="21.06")
     def __init__(self, endog, *, seasonal="additive",
                  seasonal_periods=2, start_periods=2,
                  ts_num=1, eps=2.24e-3, handle=None,

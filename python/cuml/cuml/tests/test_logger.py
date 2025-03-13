@@ -13,10 +13,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 from contextlib import redirect_stdout
-import cuml.internals.logger as logger
 from io import StringIO, TextIOWrapper, BytesIO
+
+import pytest
+
+import cuml.internals.logger as logger
+
+
+@pytest.mark.parametrize(
+    "verbose, level, verbose_numeric",
+    [
+        (False, logger.level_enum.info, 4),
+        (True, logger.level_enum.debug, 5),
+        (0, logger.level_enum.off, 0),
+        (1, logger.level_enum.critical, 1),
+        (2, logger.level_enum.error, 2),
+        (3, logger.level_enum.warn, 3),
+        (4, logger.level_enum.info, 4),
+        (5, logger.level_enum.debug, 5),
+        (6, logger.level_enum.trace, 6),
+    ],
+)
+def test_verbose_to_from_level(verbose, level, verbose_numeric):
+    assert logger._verbose_to_level(verbose) == level
+    assert logger._verbose_from_level(level) == verbose_numeric
 
 
 def test_logger():

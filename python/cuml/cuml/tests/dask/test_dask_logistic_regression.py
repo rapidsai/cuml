@@ -17,13 +17,13 @@ from cuml.internals.safe_imports import gpu_only_import
 import pytest
 from cuml.dask.common import utils as dask_utils
 from functools import partial
-from sklearn.metrics import accuracy_score, mean_squared_error
+from sklearn.metrics import accuracy_score
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals import logger
 from cuml.testing.utils import array_equal
-from scipy.sparse import csr_matrix, load_npz, save_npz
+from scipy.sparse import csr_matrix
 import random
 
 random.seed(0)
