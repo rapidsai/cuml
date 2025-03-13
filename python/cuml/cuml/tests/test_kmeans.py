@@ -67,24 +67,6 @@ def random_state():
     return random_state
 
 
-def test_n_init_deprecation():
-    X, y = make_blobs(
-        random_state=0,
-    )
-
-    # Warn about default changing
-    kmeans = cuml.KMeans()
-    with pytest.warns(
-        FutureWarning, match="The default value of `n_init` will change from"
-    ):
-        kmeans.fit(X)
-
-    # No warning when explicitly set to integer or 'auto'
-    for n_init in ("auto", 2):
-        kmeans = cuml.KMeans(n_init=n_init)
-        kmeans.fit(X)
-
-
 @pytest.mark.xfail
 def test_n_init_cluster_consistency(random_state):
 
