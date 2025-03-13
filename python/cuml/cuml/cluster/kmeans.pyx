@@ -146,10 +146,14 @@ class KMeans(UniversalBase,
          - If an ndarray is passed, it should be of
            shape (`n_clusters`, `n_features`) and gives the initial centers.
 
-    n_init: 'auto' or int (default = 1)
+    n_init: 'auto' or int (default = 'auto')
         Number of instances the k-means algorithm will be called with
         different seeds. The final results will be from the instance
         that produces lowest inertia out of n_init instances.
+
+        When `n_init='auto'`, the number of runs depends on the value of
+        `init`: 1 if using `init='"k-means||"` or `init="scalable-k-means++"`;
+        10 otherwise.
 
         .. versionadded:: 25.02
            Added 'auto' option for `n_init`.
@@ -235,23 +239,14 @@ class KMeans(UniversalBase,
             params.metric = DistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
             params.batch_samples = <int>self.max_samples_per_batch
             params.oversampling_factor = <double>self.oversampling_factor
-            n_init = self.n_init
-            if n_init == "warn":
-                if not GlobalSettings().accelerator_active:
-                    warnings.warn(
-                        "The default value of `n_init` will change from"
-                        " 1 to 'auto' in 25.04. Set the value of `n_init`"
-                        " explicitly to suppress this warning.",
-                        FutureWarning,
-                    )
-                n_init = 1
-            if n_init == "auto":
+
+            if self.n_init == "auto":
                 if self.init in ("k-means||", "scalable-k-means++"):
                     params.n_init = 1
                 else:
                     params.n_init = 10
             else:
-                params.n_init = <int>n_init
+                params.n_init = <int>self.n_init
             return <size_t>params
         ELSE:
             return None
