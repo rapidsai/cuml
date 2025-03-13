@@ -125,8 +125,8 @@ def r2_score(
     """
     if kwargs:
         warnings.warn(
-            "`convert_dtype` and `handle` were deprecated from `r2_score` and will "
-            "be removed in a future release.",
+            "`convert_dtype` and `handle` were deprecated from `r2_score` in version "
+            "25.02.01 and will be removed in 25.06.",
             FutureWarning,
         )
 

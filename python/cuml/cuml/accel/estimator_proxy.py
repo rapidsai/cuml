@@ -184,6 +184,8 @@ def intercept(
     # Store a reference to the original (CPU) class
     original_class_a = getattr(module_a, original_class_name)
 
+    original_class_sig = inspect.signature(original_class_a)
+
     # Get the class from cuML so ProxyEstimator inherits from it
     class_b = getattr(module_b, accelerated_class_name)
 
@@ -201,23 +203,22 @@ def intercept(
 
         """
 
+        _cpu_model_class = original_class_a
+        _cpu_hyperparams = list(original_class_sig.parameters.keys())
+
         def __init__(self, *args, **kwargs):
-            self._cpu_model_class = (
-                original_class_a  # Store a reference to the original class
-            )
-
+            # The cuml signature may not align with the sklearn signature.
+            # Additionally, some sklearn models support positional arguments.
+            # To work around this, we
+            # - Bind arguments to the sklearn signature
+            # - Convert the arguments to named parameters
+            # - Translate them to cuml equivalents
+            # - Then forward them on to the cuml class
+            bound = original_class_sig.bind_partial(*args, **kwargs)
             translated_kwargs, self._gpuaccel = self._hyperparam_translator(
-                **kwargs
+                **bound.arguments
             )
-            super().__init__(*args, **translated_kwargs)
-
-            self._cpu_hyperparams = list(
-                inspect.signature(
-                    self._cpu_model_class.__init__
-                ).parameters.keys()
-            )
-
-            self.import_cpu_model()
+            super().__init__(**translated_kwargs)
             self.build_cpu_model(**kwargs)
 
         def __repr__(self):

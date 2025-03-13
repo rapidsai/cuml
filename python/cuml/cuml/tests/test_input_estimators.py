@@ -22,7 +22,6 @@ from cuml.datasets import make_regression
 from cuml.model_selection import train_test_split
 from cuml.testing.utils import (
     ClassEnumerator,
-    get_classes_from_package,
 )
 from functools import lru_cache
 

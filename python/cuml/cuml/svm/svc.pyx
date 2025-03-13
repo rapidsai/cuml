@@ -591,10 +591,11 @@ class SVC(SVMBase,
         """
         if self.multiclass_strategy != "warn":
             self.decision_function_shape = self.multiclass_strategy
-            warnings.warn('Parameter "multiclass_strategy" has been'
-                          ' deprecated. Please use the'
-                          ' "decision_function_shape" parameter instead.',
-                          FutureWarning)
+            warnings.warn(
+                "`multiclass_strategy` was deprecated in 25.04 and will be "
+                "removed in 25.06. Please use `decision_function_shape` instead",
+                FutureWarning
+            )
 
         self.n_classes_ = self._get_num_classes(y)
 

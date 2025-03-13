@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@ from cuml.internals import logger
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals import _deprecate_pos_args
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
 from cuml.common import input_to_cuml_array
@@ -184,7 +183,6 @@ class AutoARIMA(Base):
 
     d_y = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="21.06")
     def __init__(self,
                  endog,
                  *,

@@ -13,12 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import functools
 import itertools
 import numpy as np
 import pathlib
 import treelite.sklearn
-import warnings
 from libcpp cimport bool
 from libc.stdint cimport uint32_t, uintptr_t
 
@@ -337,55 +335,6 @@ class _AutoIterations:
         return result
 
 
-def _handle_legacy_fil_args(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        if kwargs.get('threshold', None) is not None:
-            raise FutureWarning(
-                'Parameter "threshold" has been deprecated.'
-                ' To use a threshold for binary classification, pass'
-                ' the "threshold" keyword directly to the predict method.'
-            )
-        if kwargs.get('algo', None) is not None:
-            warnings.warn(
-                'Parameter "algo" has been deprecated. Its use is no longer'
-                ' necessary to achieve optimal performance with FIL.',
-                FutureWarning
-            )
-        if kwargs.get('storage_type', None) is not None:
-            warnings.warn(
-                'Parameter "storage_type" has been deprecated. The correct'
-                ' storage type will be used automatically.',
-                FutureWarning
-            )
-        if kwargs.get('blocks_per_sm', None) is not None:
-            warnings.warn(
-                'Parameter "blocks_per_sm" has been deprecated. Its use is no'
-                ' longer necessary to achieve optimal performance with FIL.',
-                FutureWarning
-            )
-        if kwargs.get('threads_per_tree', None) is not None:
-            warnings.warn(
-                'Parameter "threads_per_tree" has been deprecated. Pass'
-                ' the "chunk_size" keyword argument to the predict method for'
-                ' equivalent functionality.',
-                FutureWarning
-            )
-        if kwargs.get('n_items', None) is not None:
-            warnings.warn(
-                'Parameter "n_items" has been deprecated. Its use is no'
-                ' longer necessary to achieve optimal performance with FIL.',
-                FutureWarning
-            )
-        if kwargs.get('compute_shape_str', None) is not None:
-            warnings.warn(
-                'Parameter "compute_shape_str" has been deprecated.',
-                FutureWarning
-            )
-        return func(*args, **kwargs)
-    return wrapper
-
-
 class ForestInference(UniversalBase, CMajorInputTagMixin):
     """
     ForestInference provides accelerated inference for forest models on both
@@ -560,27 +509,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             self._reload_model()
 
     @property
-    def output_class(self):
-        warnings.warn(
-            '"output_class" has been renamed "is_classifier".'
-            ' Support for the old parameter name will be removed in an'
-            ' upcoming version.',
-            FutureWarning
-        )
-        return self.is_classifier
-
-    @output_class.setter
-    def output_class(self, value):
-        if value is not None:
-            warnings.warn(
-                '"output_class" has been renamed "is_classifier".'
-                ' Support for the old parameter name will be removed in an'
-                ' upcoming version.',
-                FutureWarning
-            )
-        self.is_classifier = value
-
-    @property
     def is_classifier(self):
         try:
             return self._is_classifier_
@@ -740,7 +668,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         return self.forest.num_trees()
 
     @classmethod
-    @_handle_legacy_fil_args
     def load(
             cls,
             path,
@@ -878,7 +805,6 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
         )
 
     @classmethod
-    @_handle_legacy_fil_args
     def load_from_sklearn(
             cls,
             skl_model,

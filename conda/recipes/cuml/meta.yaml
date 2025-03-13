@@ -88,6 +88,7 @@ requirements:
     - libcuml ={{ version }}
     - libcumlprims ={{ minor_version }}
     - numpy >=1.23,<3.0a0
+    - packaging
     - pylibraft ={{ minor_version }}
     - python x.x
     - raft-dask ={{ minor_version }}
@@ -95,7 +96,7 @@ requirements:
     - treelite {{ treelite_version }}
     - rapids-logger =0.1
 
-tests:
+test:
   requirements:
     - cuda-version ={{ cuda_version }}
   imports:

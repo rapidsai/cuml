@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,15 +19,15 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from cuml.cluster import KMeans, DBSCAN
 from cuml.decomposition import TruncatedSVD
-from cuml.kernel_ridge import KernelRidge
-from cuml.linear_model import (
+from cuml.kernel_ridge import KernelRidge  # noqa: F401
+from cuml.linear_model import (  # noqa: F401
     LinearRegression,
     LogisticRegression,
     ElasticNet,
     Ridge,
     Lasso,
 )
-from cuml.neighbors import (
+from cuml.neighbors import (  # noqa: F401
     NearestNeighbors,
     KNeighborsClassifier,
     KNeighborsRegressor,
