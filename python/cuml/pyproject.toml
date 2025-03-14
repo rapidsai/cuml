@@ -138,7 +138,7 @@ test = [
     "pytest-cov",
     "pytest-xdist",
     "pytest==7.*",
-    "scikit-learn>=1.5.*",
+    "scikit-learn>=1.5",
     "seaborn",
     "statsmodels",
     "umap-learn==0.5.6",
