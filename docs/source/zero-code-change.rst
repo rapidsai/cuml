@@ -176,7 +176,7 @@ CLI, the flag ``--cudf-pandas`` can be added to the ``cuml.accel`` call:
 .. code-block::
    python -m cuml.accel --cudf-pandas
 
-For Jupyter notebooks, use the following to turn on both:
+For Jupyter notebooks, use the following approach to turn on both:
 
 .. code-block::
 
