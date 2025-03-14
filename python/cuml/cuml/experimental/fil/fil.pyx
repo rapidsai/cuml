@@ -707,6 +707,12 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             handle=None):
         """Load a model into FIL from a serialized model file.
 
+        *WARNING*: In previous versions of FIL, this was an instance method,
+        not a classmethod. As of RAPIDS 25.04, models should be loaded by
+        calling `my_model = ForestInference.load(...)`. Calling `.load` will
+        return a _new_ ForestInference instance. It will not modify an instance
+        in place.
+
         Parameters
         ----------
         path : str
@@ -842,6 +848,12 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             handle=None):
         """Load a Scikit-Learn forest model to FIL
 
+        *WARNING*: In previous versions of FIL, this was an instance method,
+        not a classmethod. As of RAPIDS 25.04, models should be loaded by
+        calling `my_model = ForestInference.load_from_sklearn(...)`. Calling
+        `.load_from_sklearn` will return a _new_ ForestInference instance. It
+        will not modify an instance in place.
+
         Parameters
         ----------
         skl_model
@@ -962,6 +974,12 @@ class ForestInference(UniversalBase, CMajorInputTagMixin):
             device_id=0,
             handle=None):
         """Load a Treelite model to FIL
+
+        *WARNING*: In previous versions of FIL, this was an instance method,
+        not a classmethod. As of RAPIDS 25.04, models should be loaded by
+        calling `my_model = ForestInference.load_from_treelite_model(...)`.
+        Calling `.load_from_treelite_model` will return a _new_ ForestInference
+        instance. It will not modify an instance in place.
 
         Parameters
         ----------
