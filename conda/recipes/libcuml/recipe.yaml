@@ -91,16 +91,34 @@ outputs:
       script:
         content: |
           cmake --install cpp/build
+      dynamic_linking:
+        overlinking_behavior: "error"
       string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
     requirements:
       build:
         - cmake ${{ cmake_version }}
+        - ${{ stdlib("c") }}
       host:
         - cuda-version =${{ cuda_version }}
         - rapids-logger =0.1
+        - libcumlprims =${{ minor_version }}
+        - libcuvs =${{ minor_version }}
+        - treelite ${{ treelite_version }}
         - if: cuda_major == "11"
-          then: cudatoolkit
-          else: cuda-cudart-dev
+          then:
+            - cudatoolkit
+            - libcublas ${{ cuda11_libcublas_run_version }}
+            - libcufft ${{ cuda11_libcufft_run_version }}
+            - libcurand ${{ cuda11_libcurand_run_version }}
+            - libcusolver ${{ cuda11_libcusolver_run_version }}
+            - libcusparse ${{ cuda11_libcusparse_run_version }}
+          else:
+            - cuda-cudart-dev
+            - libcublas
+            - libcufft
+            - libcurand
+            - libcusolver
+            - libcusparse
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - if: cuda_major == "11"
@@ -129,6 +147,11 @@ outputs:
           - cuda-version
           - flatbuffers
           - libcurand
+          - librmm
+          - libcusparse
+          - libcufft
+          - libcublas
+          - libcusolver
           - if: cuda_major == "11"
             then:
               - cudatoolkit
@@ -148,9 +171,11 @@ outputs:
     requirements:
       build:
         - cmake ${{ cmake_version }}
+        - ${{ stdlib("c") }}
       host:
         - cuda-version =${{ cuda_version }}
         - rapids-logger =0.1
+        - ${{ pin_subpackage("libcuml", exact=True) }}
         - if: cuda_major == "11"
           then: cudatoolkit
           else: cuda-cudart-dev
@@ -160,6 +185,16 @@ outputs:
         - if: cuda_major == "11"
           then: cudatoolkit
           else: cuda-cudart
+      ignore_run_exports:
+        by_name:
+          - cuda-cudart
+          - cuda-version
+          - libcublas
+          - libcufft
+          - libcurand
+          - libcusolver
+          - libcusparse
+          - librmm
     about:
       homepage: ${{ load_from_file("python/libcuml/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libcuml/pyproject.toml").project.license.text }}
