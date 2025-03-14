@@ -25,7 +25,7 @@ else:
     del libcuml
 
 from cuml.internals.base import Base, UniversalBase
-from cuml.internals.available_devices import is_cuda_available
+from cuml.internals.available_devices import is_cuda_available, GPU_ENABLED
 
 # GPU only packages
 
@@ -44,8 +44,6 @@ if is_cuda_available():
 
     from cuml.decomposition.incremental_pca import IncrementalPCA
 
-    from cuml.fil.fil import ForestInference
-
     from cuml.ensemble.randomforestclassifier import RandomForestClassifier
     from cuml.ensemble.randomforestregressor import RandomForestRegressor
 
@@ -54,7 +52,6 @@ if is_cuda_available():
     from cuml.explainer.tree_shap import TreeExplainer
 
     import cuml.feature_extraction
-    from cuml.fil import fil
 
     from cuml.kernel_ridge.kernel_ridge import KernelRidge
 
@@ -108,6 +105,11 @@ from cuml.internals.memory_utils import (
 
 from cuml.cluster.hdbscan import HDBSCAN
 
+# FIL is currently not built in cuml-cpu distributions, even though it can be
+# used in a CPU-only environment. Only import if the build supports it.
+if GPU_ENABLED:
+    from cuml.experimental.fil import fil
+    from cuml.experimental.fil.fil import ForestInference
 from cuml.decomposition.pca import PCA
 from cuml.decomposition.tsvd import TruncatedSVD
 
