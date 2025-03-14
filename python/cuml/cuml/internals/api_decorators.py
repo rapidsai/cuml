@@ -35,8 +35,11 @@ from cuml.internals.api_context_managers import set_api_output_type
 from cuml.internals.constants import CUML_WRAPPED_FLAG
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import using_output_type
+from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.type_utils import _DecoratorType
 from cuml.internals import logger
+
+np = cpu_only_import("numpy")
 
 
 def _wrap_once(wrapped, *args, **kwargs):
@@ -80,6 +83,13 @@ def _get_value(args, kwargs, name, index, default_value):
                     f"Specified arg idx: {index}, and argument name: {name}, "
                     "were not found in args or kwargs."
                 )
+
+
+def support_array_like(value):
+    if isinstance(value, (list, tuple)):
+        return np.asarray(value)
+    else:
+        return value
 
 
 def _make_decorator_function(
@@ -149,6 +159,8 @@ def _make_decorator_function(
 
                     if input_arg_:
                         input_val = _get_value(args, kwargs, *input_arg_)
+                        if GlobalSettings().accelerator_active:
+                            input_val = support_array_like(input_val)
                     else:
                         input_val = None
                     if target_arg_:
