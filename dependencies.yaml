@@ -275,6 +275,7 @@ dependencies:
           - scipy>=1.8.0
           - packaging
           - rapids-dask-dependency==25.6.*,>=0.0.0a0
+          - &scikit_learn scikit-learn>=1.5.*
           - *treelite
       - output_types: requirements
         packages:
@@ -438,7 +439,7 @@ dependencies:
           # https://github.com/pydata/pydata-sphinx-theme/issues/1539
           - pydata-sphinx-theme!=0.14.2
           - recommonmark
-          - &scikit_learn scikit-learn==1.5.*
+          - *scikit_learn
           - sphinx<8.2.0
           - sphinx-copybutton
           - sphinx-markdown-tables
@@ -475,6 +476,14 @@ dependencies:
         packages:
           - *cmake_ver
   test_python:
+    specific:
+      - output_types: [conda, requirements]
+        matrices:
+          - matrix: {dependencies: "oldest"}
+            packages:
+              - scikit-learn==1.5.*
+          - matrix:
+            packages:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
