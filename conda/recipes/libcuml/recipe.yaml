@@ -93,6 +93,11 @@ outputs:
           cmake --install cpp/build
       dynamic_linking:
         overlinking_behavior: "error"
+      prefix_detection:
+        ignore:
+          # See https://github.com/rapidsai/build-planning/issues/160
+          - lib/libcuml++.so
+          - lib/libcuml.so
       string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
     requirements:
       build:
