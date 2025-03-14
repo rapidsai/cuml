@@ -299,6 +299,10 @@ def is_array_like(X):
                 PandasDataFrame,
             ),
         )
+        or (
+            isinstance(X, (list, tuple))
+            and GlobalSettings().accelerator_active
+        )
     ):
         return True
 

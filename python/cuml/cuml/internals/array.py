@@ -247,6 +247,14 @@ class CumlArray:
                 self._array_interface = data.__array_interface__
                 self._mem_type = MemoryType.host
                 self._owner = data
+            elif (
+                isinstance(data, (list, tuple))
+                and GlobalSettings().accelerator_active
+            ):
+                data = np.asarray(data)
+                self._owner = data
+                self._array_interface = data.__array_interface__
+                self._mem_type = MemoryType.host
             else:  # Must construct array interface
                 if dtype is None:
                     if hasattr(data, "dtype"):
