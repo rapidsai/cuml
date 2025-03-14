@@ -1,5 +1,7 @@
 # FIL - RAPIDS Forest Inference Library
 
+**NOTE**: As of RAPIDS 25.04, this version of FIL is deprecated. Please see the README in `cuml/fil` for the latest version of FIL.
+
 The Forest Inference Library provides a lightweight, flexible API to
 infer (predict) results from a tree-based model ensemble on GPU. The
 tree ensemble can be either gradient-boosted decision tree (GBDT) or
