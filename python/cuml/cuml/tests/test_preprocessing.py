@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ from sklearn.impute import (
     SimpleImputer as skSimpleImputer,
 )
 
-from cuml.testing.test_preproc_utils import (
+from cuml.testing.test_preproc_utils import (  # noqa: F401
     clf_dataset,
     int_dataset,
     blobs_dataset,
@@ -87,7 +87,7 @@ from cuml.testing.test_preproc_utils import (
     sparse_int_dataset,
     sparse_imputer_dataset,
     sparse_dataset_with_coo,
-)  # noqa: F401
+)
 from cuml.testing.test_preproc_utils import assert_allclose
 from cuml.metrics import pairwise_kernels
 

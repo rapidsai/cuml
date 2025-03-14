@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 
 set -euo pipefail
 
@@ -23,20 +23,20 @@ sccache --zero-stats
 
 # TODO: Remove `--no-test` flag once importing on a CPU
 # node works correctly
-RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION) rapids-conda-retry mambabuild \
+RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION) rapids-conda-retry build \
   --no-test \
   --channel "${CPP_CHANNEL}" \
   conda/recipes/cuml
 
 sccache --show-adv-stats
 
-# Build cuml-cpu only in CUDA 11 jobs since it only depends on python
+# Build cuml-cpu only in CUDA 12 jobs since it only depends on python
 # version
 RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
-if [[ ${RAPIDS_CUDA_MAJOR} == "11" ]]; then
+if [[ ${RAPIDS_CUDA_MAJOR} == "12" ]]; then
   sccache --zero-stats
 
-  RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION) rapids-conda-retry mambabuild \
+  RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION) rapids-conda-retry build \
   --no-test \
   conda/recipes/cuml-cpu
 

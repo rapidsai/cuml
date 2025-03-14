@@ -534,21 +534,20 @@ def test_precision_xgboost(
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-@pytest.mark.parametrize("threads_per_tree", [2, 4, 8, 16, 32])
-def test_threads_per_tree(
-    train_device, infer_device, threads_per_tree, small_classifier_and_preds
+@pytest.mark.parametrize("layout", ["depth_first", "breadth_first", "layered"])
+@pytest.mark.parametrize("chunk_size", [2, 4, 8, 16, 32])
+def test_performance_hyperparameters(
+    train_device, infer_device, layout, chunk_size, small_classifier_and_preds
 ):
     with using_device_type(train_device):
         model_path, model_type, X, xgb_preds = small_classifier_and_preds
         fm = ForestInference.load(
-            model_path, output_class=True, model_type=model_type
+            model_path, layout=layout, output_class=True, model_type=model_type
         )
 
     with using_device_type(infer_device):
-        fil_preds = np.asarray(fm.predict(X, chunk_size=threads_per_tree))
-        fil_proba = np.asarray(
-            fm.predict_proba(X, chunk_size=threads_per_tree)
-        )
+        fil_preds = np.asarray(fm.predict(X, chunk_size=chunk_size))
+        fil_proba = np.asarray(fm.predict_proba(X, chunk_size=chunk_size))
         fil_proba = np.reshape(fil_proba, xgb_preds.shape)
 
         np.testing.assert_allclose(

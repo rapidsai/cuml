@@ -23,6 +23,7 @@ jobs:
       - conda-python-build
       - conda-python-tests-singlegpu
       - conda-python-tests-dask
+      - conda-python-scikit-learn-accel-tests
       - conda-notebook-tests
       - docs-build
       - telemetry-setup
@@ -56,6 +57,9 @@ jobs:
         uses: rapidsai/shared-actions/check_nightly_success/dispatch@main
         with:
           repo: cuml
+          # TODO: remove this once upstream issues in RAFT are resolved on 11.4.
+          # The limit was temporarily increased to unblock work.
+          max_days_without_success: 30
   changed-files:
     secrets: inherit
     needs: telemetry-setup
@@ -159,6 +163,14 @@ jobs:
     with:
       build_type: pull-request
       script: "ci/test_python_dask.sh"
+  conda-python-scikit-learn-accel-tests:
+    needs: [conda-python-build, changed-files]
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.04
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+    with:
+      build_type: pull-request
+      script: "ci/test_python_scikit_learn_tests.sh"
   conda-notebook-tests:
     needs: [conda-python-build, changed-files]
     secrets: inherit

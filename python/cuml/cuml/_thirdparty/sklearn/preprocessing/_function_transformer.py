@@ -12,7 +12,6 @@ import cuml
 from ....internals.array_sparse import SparseCumlArray
 from ..utils.skl_dependencies import TransformerMixin, BaseEstimator
 from ..utils.validation import _allclose_dense_sparse
-from ....internals import _deprecate_pos_args
 
 
 def _identity(X):
@@ -72,7 +71,6 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
            [1.0986..., 1.3862...]])
     """
 
-    @_deprecate_pos_args(version="0.20")
     def __init__(self, *, func=None, inverse_func=None, accept_sparse=False,
                  check_inverse=True, kw_args=None, inv_kw_args=None):
         self.func = func

@@ -32,6 +32,7 @@ from cuml.internals.array import CumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger
 from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.output_utils import cudf_to_pandas
 from cuml.common import using_output_type
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
@@ -462,7 +463,7 @@ class LogisticRegression(UniversalBase,
             elif output_type == "dataframe":
                 return out.to_frame()
             elif output_type == "pandas":
-                return out.to_pandas()
+                return cudf_to_pandas(out)
             elif output_type in ("numpy", "array"):
                 return out.to_numpy(dtype=self.classes_.dtype)
             else:
