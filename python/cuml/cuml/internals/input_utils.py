@@ -355,6 +355,7 @@ def input_to_cuml_array(
     * cuda array interface compliant array (like Cupy) - returns a
         reference unless `deepcopy`=True.
     * numba device array - returns a reference unless deepcopy=True
+    * Scalar values - converted to array of appropriate shape
 
     Parameters
     ----------
@@ -412,6 +413,19 @@ def input_to_cuml_array(
         A new CumlArray and associated data.
 
     """
+    # Handle scalar values by converting to array
+    if np.isscalar(X):
+        if check_rows:
+            X = np.full(
+                check_rows,
+                X,
+                dtype=convert_to_dtype if convert_to_dtype else None,
+            )
+        else:
+            X = np.array(
+                [X], dtype=convert_to_dtype if convert_to_dtype else None
+            )
+
     arr = CumlArray.from_input(
         X,
         order=order,
