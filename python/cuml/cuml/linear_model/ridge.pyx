@@ -378,12 +378,19 @@ class Ridge(UniversalBase,
         Dispatch to CPU implementation when:
         1. Multi-target regression is detected (y has more than 1 column or is 2D)
         2. For fit-related functions only (fit, fit_transform, fit_predict)
+        3. When using SVD solver with wide datasets (n_features > n_samples)
         """
         if func_name == "fit" and len(args) > 1:
             y_m, _, _, _ = input_to_cuml_array(args[1])
+            X_m, n_rows, n_features, _ = input_to_cuml_array(args[0])
 
             # Check if we have multiple targets or 2D array
-            return len(y_m.shape) > 1
+            if len(y_m.shape) > 1:
+                return True
+
+            # Check for wide datasets with SVD solver
+            if self.solver == 'svd' and n_features > n_rows:
+                return True
         return False
 
     def cpu_to_gpu(self):
