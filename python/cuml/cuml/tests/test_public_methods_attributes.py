@@ -26,9 +26,6 @@ pytestmark = [
     pytest.mark.filterwarnings(
         "ignore:Starting from version 22.04, the default method of TSNE is 'fft'."
     ),
-    pytest.mark.filterwarnings(
-        "ignore:The default value of `n_init` will change from 1 to 'auto' in 25.04"
-    ),
 ]
 
 
