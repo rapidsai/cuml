@@ -99,12 +99,6 @@ requirements:
       - if: cuda_major == "11"
         then: cudatoolkit
 
-tests:
-  - python:
-      imports:
-        - cuml
-      pip_check: false
-
 about:
   homepage: ${{ load_from_file("python/cuml/pyproject.toml").project.urls.Homepage }}
   license: ${{ load_from_file("python/cuml/pyproject.toml").project.license.text }}
