@@ -43,7 +43,7 @@ cache:
         SCCACHE_REGION: ${{ env.get("SCCACHE_REGION", default="") }}
         SCCACHE_S3_USE_SSL: ${{ env.get("SCCACHE_S3_USE_SSL", default="") }}
         SCCACHE_S3_NO_CREDENTIALS: ${{ env.get("SCCACHE_S3_NO_CREDENTIALS", default="") }}
-        SCCACHE_S3_KEY_PREFIX: libcuml-${{ env.get("RAPIDS_CONDA_ARCH") }}
+        SCCACHE_S3_KEY_PREFIX: libcuml/${{ env.get("RAPIDS_CONDA_ARCH") }}/${{ cuda_major }}
 
   requirements:
     build:
