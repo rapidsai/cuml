@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,10 +44,10 @@ import pytest
 
 from cuml.internals.safe_imports import gpu_only_import
 
-from cuml.testing.test_preproc_utils import (
+from cuml.testing.test_preproc_utils import (  # noqa: F401
     clf_dataset,
     sparse_clf_dataset,
-)  # noqa: F401
+)
 
 cudf = gpu_only_import("cudf")
 np = cpu_only_import("numpy")

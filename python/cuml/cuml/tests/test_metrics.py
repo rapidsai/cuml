@@ -185,12 +185,12 @@ def test_sklearn_search():
         ("cupy", "numpy", "int64", "int32"),
         ("numpy", "cupy", "float16", "float32"),
         ("cudf", "cudf", "int32", "int64"),
-        ("numpy", "cudf", "object", "object"),
-        ("numpy", "cudf", "object", "category"),
-        ("cudf", "numpy", "category", "object"),
-        ("cudf", "cudf", "object", "object"),
-        ("cudf", "cudf", "object", "category"),
-        ("cudf", "cudf", "category", "object"),
+        ("numpy", "cudf", "str", "str"),
+        ("numpy", "cudf", "str", "category"),
+        ("cudf", "numpy", "category", "str"),
+        ("cudf", "cudf", "str", "str"),
+        ("cudf", "cudf", "str", "category"),
+        ("cudf", "cudf", "category", "str"),
         ("cudf", "cudf", "category", "category"),
     ],
 )
@@ -213,8 +213,8 @@ def test_accuracy_score(
     np_true = rng.randint(0, 3, N)
     np_pred = (rng.randint(0, 2, N) + np_true) % 3
     np_weight = rng.random(N).astype(weight_dtype) if weight_kind else None
-    if true_dtype in ("object", "category"):
-        assert pred_dtype in ("object", "category")
+    if true_dtype in ("str", "category"):
+        assert pred_dtype in ("str", "category")
         labels = np.array(["a", "b", "c"], dtype="object")
         np_true = labels.take(np_true)
         np_pred = labels.take(np_pred)

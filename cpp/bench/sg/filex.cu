@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,9 +101,9 @@ class FILEX : public RegressionFixture<float> {
       allowed_storage_types.push_back(ML::fil::storage_type_t::SPARSE8);
     }
     auto allowed_layouts = std::vector<ML::experimental::fil::tree_layout>{
-      ML::experimental::fil::tree_layout::breadth_first,
       ML::experimental::fil::tree_layout::depth_first,
-    };
+      ML::experimental::fil::tree_layout::breadth_first,
+      ML::experimental::fil::tree_layout::layered_children_together};
     auto min_time = std::numeric_limits<std::int64_t>::max();
 
     // Iterate through storage type, algorithm type, and chunk sizes and find optimum
