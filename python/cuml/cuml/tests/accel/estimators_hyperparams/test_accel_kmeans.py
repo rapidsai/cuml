@@ -20,6 +20,7 @@ import cuml
 from sklearn.datasets import make_blobs
 from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score
+from scipy.sparse import csr_matrix
 
 
 @pytest.fixture(scope="module")
@@ -123,3 +124,37 @@ def test_kmeans_init_parameter():
     km2.fit(X, y)
     # No init parameter should lead to the cuml default being used.
     assert km2.init == "scalable-k-means++"
+
+
+def test_kmeans_sparse_cpu_dispatch():
+    """Test that sparse inputs are dispatched to CPU in accel mode"""
+    if not cuml.GlobalSettings().accelerator_active:
+        pytest.skip("Skipping test because accelerator is not active")
+
+    # Generate dense data
+    X, y = make_blobs(
+        n_samples=100,
+        n_features=10,
+        centers=3,
+        cluster_std=1.0,
+        random_state=42,
+    )
+
+    # Convert to sparse matrix
+    X_sparse = csr_matrix(X)
+
+    # Create KMeans instance
+    kmeans = KMeans(n_clusters=3, random_state=42)
+
+    # Fit with sparse input
+    kmeans.fit(X_sparse)
+
+    # Verify that the model was fitted on CPU
+    # This can be checked by verifying the model's attributes are numpy arrays
+    assert isinstance(kmeans.cluster_centers_, np.ndarray)
+    assert isinstance(kmeans.labels_, np.ndarray)
+
+    # Verify predictions work with sparse input
+    preds = kmeans.predict(X_sparse)
+    assert isinstance(preds, np.ndarray)
+    assert len(preds) == X_sparse.shape[0]
