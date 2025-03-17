@@ -317,11 +317,15 @@ class BaseRandomForestModel(UniversalBase):
         # accelerator is active.
         # We only transfer "simple" attributes, not np.ndarrays or DecisionTree
         # instances, as these could be used by the GPU model to make predictions.
-        # Which means they need to be of the type that the GPU model expects.
+        # The list of names below is hand vetted.
         if GlobalSettings().accelerator_active:
-            for name, value in vars(self._cpu_model).items():
-                if not name.startswith('_') and name.endswith('_') and isinstance(value, (int, float)):
-                    setattr(self, name, value)
+            for name in ('n_features_in_', 'n_outputs_', 'n_classes_', 'oob_score_'):
+                # Not all attributes are always present
+                try:
+                    value = getattr(self._cpu_model, name)
+                except AttributeError:
+                    continue
+                setattr(self, name, value)
 
     def gpu_to_cpu(self):
         self._obtain_treelite_handle()
