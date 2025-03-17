@@ -536,7 +536,7 @@ def input_to_host_array_with_sparse_support(X):
     if X is None:
         return None
     try:
-        if scipy_sparse.isspmatrix(X):
+        if scipy_sparse.issparse(X):
             return X
     except UnavailableError:
         pass
