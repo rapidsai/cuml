@@ -44,6 +44,7 @@
 #include <gtest/gtest.h>
 #include <test_utils.h>
 
+#include <cmath>
 #include <cstddef>
 #include <memory>
 #include <random>
@@ -1208,7 +1209,11 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
                                                   NumLeftOfBin(cdf_hist, params.max_n_bins - 1),
                                                   NumLeftOfBin(cdf_hist, split_bin_index));
 
-    ASSERT_NEAR(ground_truth_gain, hypothesis_gain, params.tolerance);
+    // The gain may actually be NaN. If so, a comparison between the result and
+    // ground truth would yield false, even if they are both (correctly) NaNs.
+    if (!std::isnan(ground_truth_gain) || !std::isnan(hypothesis_gain)) {
+      ASSERT_NEAR(ground_truth_gain, hypothesis_gain, params.tolerance);
+    }
   }
 };
 
