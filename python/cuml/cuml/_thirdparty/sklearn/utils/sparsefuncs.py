@@ -11,6 +11,7 @@
 # This code is under BSD 3 clause license.
 # Authors mentioned above do not endorse or promote this production.
 
+import numpy
 
 from ....thirdparty_adapters.sparsefuncs_fast import (
     csr_mean_variance_axis0 as _csr_mean_var_axis0,
@@ -21,7 +22,7 @@ from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.internals.safe_imports import cpu_only_import_from
 cpu_sp = cpu_only_import_from('scipy', 'sparse')
 gpu_sp = gpu_only_import_from('cupyx.scipy', 'sparse')
-np = gpu_only_import('cupy')
+np = gpu_only_import('cupy', alt=numpy)
 cpu_np = cpu_only_import('numpy')
 
 
@@ -148,18 +149,17 @@ def mean_variance_axis(X, axis):
     else:
         _raise_typeerror(X)
 
-# this is a function to avoid attribute access at import time in CPU-only environments
-def ufunc_dic():
-    return {
-        'min': np.min,
-        'max': np.max,
-        'nanmin': np.nanmin,
-        'nanmax': np.nanmax
-    }
+
+ufunc_dic = {
+    'min': np.min,
+    'max': np.max,
+    'nanmin': np.nanmin,
+    'nanmax': np.nanmax
+}
 
 
 def _minor_reduce(X, min_or_max):
-    fminmax = ufunc_dic()[min_or_max]
+    fminmax = ufunc_dic[min_or_max]
 
     major_index = np.flatnonzero(np.diff(X.indptr))
     values = cpu_np.zeros(major_index.shape[0], dtype=X.dtype)
@@ -210,7 +210,7 @@ def _sparse_min_or_max(X, axis, min_or_max):
             raise ValueError("zero-size array to reduction operation")
         if X.nnz == 0:
             return X.dtype.type(0)
-        fminmax = ufunc_dic()[min_or_max]
+        fminmax = ufunc_dic[min_or_max]
         m = fminmax(X.data)
         if np.isnan(m):
             if 'nan' in min_or_max:
