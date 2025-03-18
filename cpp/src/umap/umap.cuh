@@ -216,19 +216,18 @@ inline void _transform(const raft::handle_t& handle,
                        float* X,
                        int n,
                        int d,
-                       float* orig_X,
-                       int orig_n,
-                       float* embedding,
-                       int embedding_n,
+                       float* trained_X,
+                       float* trained_embeddings,
+                       int n_trained,
                        UMAPParams* params,
                        float* transformed)
 {
   RAFT_EXPECTS(params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN,
                "build algo nn_descent not supported for transform()");
   manifold_dense_inputs_t<float> inputs(X, nullptr, n, d);
-  manifold_dense_inputs_t<float> orig_inputs(orig_X, nullptr, orig_n, d);
+  manifold_dense_inputs_t<float> trained_inputs(trained_X, nullptr, n_trained, d);
   UMAPAlgo::_transform<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, nnz_t, TPB_X>(
-    handle, inputs, orig_inputs, embedding, embedding_n, params, transformed);
+    handle, inputs, trained_inputs, trained_embeddings, params, transformed);
 }
 
 template <typename nnz_t>
@@ -239,13 +238,12 @@ inline void _transform_sparse(const raft::handle_t& handle,
                               size_t nnz,
                               int n,
                               int d,
-                              int* orig_x_indptr,
-                              int* orig_x_indices,
-                              float* orig_x_data,
-                              size_t orig_nnz,
-                              int orig_n,
-                              float* embedding,
-                              int embedding_n,
+                              int* trained_indptr,
+                              int* trained_indices,
+                              float* trained_data,
+                              size_t trained_nnz,
+                              float* trained_embedding,
+                              int n_trained,
                               UMAPParams* params,
                               float* transformed)
 {
@@ -253,12 +251,12 @@ inline void _transform_sparse(const raft::handle_t& handle,
                "build algo nn_descent not supported for transform()");
   manifold_sparse_inputs_t<knn_indices_sparse_t, float> inputs(
     indptr, indices, data, nullptr, nnz, n, d);
-  manifold_sparse_inputs_t<knn_indices_sparse_t, float> orig_x_inputs(
-    orig_x_indptr, orig_x_indices, orig_x_data, nullptr, orig_nnz, orig_n, d);
+  manifold_sparse_inputs_t<knn_indices_sparse_t, float> trained_inputs(
+    trained_indptr, trained_indices, trained_data, nullptr, trained_nnz, n_trained, d);
 
   UMAPAlgo::
     _transform<knn_indices_sparse_t, float, manifold_sparse_inputs_t<int, float>, nnz_t, TPB_X>(
-      handle, inputs, orig_x_inputs, embedding, embedding_n, params, transformed);
+      handle, inputs, trained_inputs, trained_embedding, params, transformed);
 }
 
 }  // namespace UMAP

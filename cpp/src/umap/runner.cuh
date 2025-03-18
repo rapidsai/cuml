@@ -62,7 +62,6 @@ CUML_KERNEL void init_transform(int* indices,
                                 T* weights,
                                 int n,
                                 const T* embeddings,
-                                int embeddings_n,
                                 int n_components,
                                 T* result,
                                 int n_neighbors)
@@ -359,9 +358,8 @@ void _fit_supervised(const raft::handle_t& handle,
 template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
 void _transform(const raft::handle_t& handle,
                 const umap_inputs& inputs,
-                umap_inputs& orig_x_inputs,
-                value_t* embedding,
-                int embedding_n,
+                umap_inputs& fitted_inputs,
+                value_t* fitted_embeddings,
                 UMAPParams* params,
                 value_t* transformed)
 {
@@ -400,7 +398,7 @@ void _transform(const raft::handle_t& handle,
   }
 
   kNNGraph::run<value_idx, value_t, umap_inputs>(
-    handle, orig_x_inputs, inputs, knn_graph, k, params, stream);
+    handle, fitted_inputs, inputs, knn_graph, k, params, stream);
 
   raft::common::nvtx::pop_range();
 
@@ -481,8 +479,7 @@ void _transform(const raft::handle_t& handle,
   init_transform<TPB_X, value_t><<<grid_n, blk, 0, stream>>>(graph_coo.cols(),
                                                              vals_normed.data(),
                                                              graph_coo.n_rows,
-                                                             embedding,
-                                                             embedding_n,
+                                                             fitted_embeddings,
                                                              params->n_components,
                                                              transformed,
                                                              params->n_neighbors);
@@ -547,8 +544,8 @@ void _transform(const raft::handle_t& handle,
 
   SimplSetEmbedImpl::optimize_layout<value_t, nnz_t, TPB_X>(transformed,
                                                             inputs.n,
-                                                            embedding,
-                                                            orig_x_inputs.n,
+                                                            fitted_embeddings,
+                                                            fitted_inputs.n,
                                                             comp_coo.rows(),
                                                             comp_coo.cols(),
                                                             comp_coo.nnz,
