@@ -43,6 +43,7 @@ time.**
 
    zero-code-change-limitations.rst
    zero-code-change-benchmarks.rst
+   zero_code_change_examples/plot_kmeans_digits.ipynb
 
 
 FAQs
@@ -174,6 +175,7 @@ Using them together is supported as an experimental feature. To do this from the
 CLI, the flag ``--cudf-pandas`` can be added to the ``cuml.accel`` call:
 
 .. code-block::
+
    python -m cuml.accel --cudf-pandas
 
 For Jupyter notebooks, use the following approach to turn on both:
