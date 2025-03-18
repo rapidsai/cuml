@@ -16,7 +16,7 @@ ARGS=$*
 
 # NOTE: ensure all dir changes are relative to the location of this
 # script, and that this script resides in the repo dir!
-REPODIR=$(cd $(dirname $0); pwd)
+REPODIR=$(cd "$(dirname $0)"; pwd)
 
 VALIDTARGETS="clean libcuml cuml cuml-cpu cpp-mgtests prims bench prims-bench cppdocs pydocs"
 VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov --ccache --configure-only -h --help "
@@ -96,11 +96,21 @@ export CMAKE_GENERATOR="${CMAKE_GENERATOR:=Ninja}"
 CUML_EXTRA_CMAKE_ARGS=${CUML_EXTRA_CMAKE_ARGS:=""}
 
 function hasArg {
-    (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
+    (( NUMARGS != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
 
+# Check for valid usage
+if (( NUMARGS != 0 )); then
+    for a in ${ARGS}; do
+    if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
+        echo "Invalid option or formatting, check --help: ${a}"
+        exit 1
+    fi
+    done
+fi
+
 function completeBuild {
-    (( ${NUMARGS} == 0 )) && return
+    (( NUMARGS == 0 )) && return
     for a in ${ARGS}; do
         if (echo " ${VALIDTARGETS} " | grep -q " ${a} "); then
           false; return

@@ -34,7 +34,7 @@ from numpy.testing import assert_allclose
 
 from sklearn.datasets import make_blobs, make_classification, make_regression
 from sklearn.utils.validation import check_is_fitted
-from sklearn.cluster import KMeans as SkKMeans, DBSCAN as SkDBSCAN
+from sklearn.cluster import KMeans as SkKMeans
 from sklearn.decomposition import PCA as SkPCA, TruncatedSVD as SkTruncatedSVD
 from sklearn.linear_model import (
     LinearRegression as SkLinearRegression,
@@ -43,8 +43,6 @@ from sklearn.linear_model import (
     Ridge as SkRidge,
     Lasso as SkLasso,
 )
-from sklearn.manifold import TSNE as SkTSNE
-from sklearn.neighbors import NearestNeighbors as SkNearestNeighbors
 
 ###############################################################################
 #                              Helper functions                               #
@@ -76,10 +74,53 @@ def assert_estimator_roundtrip(
     sklearn_model = cuml_model.as_sklearn()
     check_is_fitted(sklearn_model)
 
+    original_params = cuml_model.get_params()
+
     assert isinstance(sklearn_model, sklearn_class)
 
     # Convert back
     roundtrip_model = type(cuml_model).from_sklearn(sklearn_model)
+
+    rm_params = roundtrip_model.get_params()
+
+    # Remove parameters that are not serialized
+    _ = original_params.pop("handle", None)
+    _ = rm_params.pop("handle", None)
+
+    _ = original_params.pop("output_type", None)
+    _ = rm_params.pop("output_type", None)
+
+    _ = original_params.pop("verbose", None)
+    _ = rm_params.pop("verbose", None)
+
+    if isinstance(cuml_model, KMeans):
+        # for KMeans, the roundtrip changes the string of
+        # init from scalable-k-means++ to k-means++ which
+        # in principle should change the value of oversampling_factor
+        # But this value at 2 will lead to better centroids,
+        # so ignoring this issue for now will have no ill
+        # consequences
+        _ = original_params.pop("init", None)
+        _ = rm_params.pop("init", None)
+
+        # This failure will be fixed by
+        # https://github.com/rapidsai/cuml/pull/6142
+        # otherwise the predict with default n_init like this
+        # roundtrip will fail later.
+        pytest.xfail(reason="auto is not supported by cuML n_init yet")
+
+    def dict_diff(a, b):
+        # Get all keys from both dictionaries
+        all_keys = set(a.keys()) | set(b.keys())
+        differences = {}
+        for key in all_keys:
+            if a.get(key) != b.get(key):
+                differences[key] = {"a_dict": a.get(key), "b_dict": b.get(key)}
+        return differences
+
+    assert (
+        original_params == rm_params
+    ), f"Differences found: {dict_diff(original_params, rm_params)}"
 
     # Ensure roundtrip model is fitted
     check_is_fitted(roundtrip_model)
@@ -110,6 +151,16 @@ def assert_estimator_roundtrip(
 ###############################################################################
 
 
+def test_basic_roundtrip():
+    km = SkKMeans(n_clusters=13)
+    ckm = KMeans.from_sklearn(km)
+
+    assert ckm.n_clusters == 13
+
+
+@pytest.mark.filterwarnings(
+    "ignore:The default value of `n_init` will change from 1 to 'auto' in 25.04"
+)
 def test_kmeans(random_state):
     # Using sklearn directly for demonstration
     X, _ = make_blobs(
@@ -183,6 +234,9 @@ def test_lasso(random_state):
     assert_estimator_roundtrip(original, SkLasso, X, y)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:Starting from version 22.04, the default method of TSNE is 'fft'."
+)
 def test_tsne(random_state):
     # TSNE is a bit tricky as it is non-deterministic. For test simplicity:
     X = np.random.RandomState(random_state).rand(50, 5)

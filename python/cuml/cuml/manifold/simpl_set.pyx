@@ -16,7 +16,6 @@
 
 # distutils: language = c++
 
-import warnings
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
@@ -25,10 +24,11 @@ cupyx = gpu_only_import('cupyx')
 
 from cuml.manifold.umap_utils cimport *
 from cuml.manifold.umap_utils import GraphHolder, find_ab_params, \
-    metric_parsing
+    coerce_metric
 
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.internals.array import CumlArray
+from cuml.internals import logger
 
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.handle import Handle
@@ -157,15 +157,12 @@ def fuzzy_simplicial_set(X,
     umap_params.deterministic = <bool> deterministic
     umap_params.set_op_mix_ratio = <float> set_op_mix_ratio
     umap_params.local_connectivity = <float> local_connectivity
-    try:
-        umap_params.metric = metric_parsing[metric.lower()]
-    except KeyError:
-        raise ValueError(f"Invalid value for metric: {metric}")
+    umap_params.metric = coerce_metric(metric)
     if metric_kwds is None:
         umap_params.p = <float> 2.0
     else:
         umap_params.p = <float> metric_kwds.get("p", 2.0)
-    umap_params.verbosity = verbose
+    umap_params.verbosity = logger._verbose_to_level(verbose)
 
     X_m, _, _, _ = \
         input_to_cuml_array(X,
@@ -231,7 +228,6 @@ def simplicial_set_embedding(
     metric_kwds=None,
     output_metric="euclidean",
     output_metric_kwds=None,
-    repulsion_strength=None,
     convert_dtype=True,
     verbose=False,
 ):
@@ -328,18 +324,10 @@ def simplicial_set_embedding(
 
     cdef UMAPParams* umap_params = new UMAPParams()
     umap_params.n_components = <int> n_components
-    umap_params.initial_alpha = <int> initial_alpha
+    umap_params.initial_alpha = <float> initial_alpha
+    umap_params.learning_rate = <float> initial_alpha
     umap_params.a = <float> a
     umap_params.b = <float> b
-
-    if repulsion_strength:
-        gamma = repulsion_strength
-        warnings.simplefilter(action="always", category=FutureWarning)
-        warnings.warn('Parameter "repulsion_strength" has been'
-                      ' deprecated. It will be removed in version 24.12.'
-                      ' Please use the "gamma" parameter instead.',
-                      FutureWarning)
-
     umap_params.repulsion_strength = <float> gamma
     umap_params.negative_sample_rate = <int> negative_sample_rate
     umap_params.n_epochs = <int> n_epochs
@@ -352,10 +340,8 @@ def simplicial_set_embedding(
             umap_params.init = <int> 1
         else:
             raise ValueError("Invalid initialization strategy")
-    try:
-        umap_params.metric = metric_parsing[metric.lower()]
-    except KeyError:
-        raise ValueError(f"Invalid value for metric: {metric}")
+
+    umap_params.metric = coerce_metric(metric)
     if metric_kwds is None:
         umap_params.p = <float> 2.0
     else:
@@ -366,7 +352,7 @@ def simplicial_set_embedding(
         umap_params.target_metric = MetricType.CATEGORICAL
     umap_params.target_weight = <float> output_metric_kwds['p'] \
         if 'p' in output_metric_kwds else 0.5
-    umap_params.verbosity = verbose
+    umap_params.verbosity = logger._verbose_to_level(verbose)
 
     X_m, _, _, _ = \
         input_to_cuml_array(data,

@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,4 +68,4 @@ function(find_and_configure_gputreeshap)
 
 endfunction()
 
-find_and_configure_gputreeshap(PINNED_TAG 9d32df85f822f186b5fbf53a9a1fa0251d0cd755)
+find_and_configure_gputreeshap(PINNED_TAG 9382a8af94c0863de0944e65199a16fdf5f96a6d)

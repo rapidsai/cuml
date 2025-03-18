@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ from cuml.datasets import make_regression
 from cuml.model_selection import train_test_split
 from cuml.testing.utils import (
     ClassEnumerator,
-    get_classes_from_package,
 )
 from functools import lru_cache
 
@@ -115,7 +114,10 @@ def test_estimators_all_dtypes(model_name, dtype):
 
     X_train, y_train, X_test = make_dataset(dtype, nrows, ncols, ninfo)
     print(model_name)
-    model = models[model_name]()
+    if model_name == "KMeans":
+        model = models[model_name](n_init="auto")
+    else:
+        model = models[model_name]()
     sign = inspect.signature(model.fit)
     if "y" in sign.parameters:
         model.fit(X=X_train, y=y_train)

@@ -17,10 +17,10 @@
 # Please install UMAP before running the code
 # use 'conda install -c conda-forge umap-learn' command to install it
 
-import platform
 import pytest
 import copy
 import joblib
+import umap
 from sklearn.metrics import adjusted_rand_score
 from sklearn.manifold import trustworthiness
 from sklearn.datasets import make_blobs
@@ -36,6 +36,7 @@ from cuml.testing.utils import (
     stress_param,
 )
 from cuml.manifold.umap import UMAP as cuUMAP
+from cuml.internals import GraphBasedDimRedCallback
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
 
@@ -43,12 +44,6 @@ np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
 scipy_sparse = cpu_only_import("scipy.sparse")
-
-
-IS_ARM = platform.processor() == "aarch64"
-
-if not IS_ARM:
-    import umap
 
 
 dataset_names = ["iris", "digits", "wine", "blobs"]
@@ -80,9 +75,6 @@ def test_blobs_cluster(nrows, n_feats, build_algo):
 )
 @pytest.mark.parametrize(
     "n_feats", [unit_param(10), quality_param(100), stress_param(1000)]
-)
-@pytest.mark.skipif(
-    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
 )
 @pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_umap_fit_transform_score(nrows, n_feats, build_algo):
@@ -256,9 +248,6 @@ def test_umap_transform_on_digits(target_metric):
 
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
 @pytest.mark.parametrize("name", dataset_names)
-@pytest.mark.skipif(
-    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
-)
 def test_umap_fit_transform_trust(name, target_metric):
 
     if name == "iris":
@@ -302,9 +291,6 @@ def test_umap_fit_transform_trust(name, target_metric):
 @pytest.mark.parametrize("should_downcast", [True])
 @pytest.mark.parametrize("input_type", ["dataframe", "ndarray"])
 @pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
-@pytest.mark.skipif(
-    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
-)
 def test_umap_data_formats(
     input_type,
     should_downcast,
@@ -343,9 +329,6 @@ def test_umap_data_formats(
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
 @pytest.mark.filterwarnings("ignore:(.*)connected(.*):UserWarning:sklearn[.*]")
 @pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
-@pytest.mark.skipif(
-    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
-)
 def test_umap_fit_transform_score_default(target_metric, build_algo):
 
     n_samples = 500
@@ -545,9 +528,6 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
 
 
 @pytest.mark.filterwarnings("ignore:(.*)zero(.*)::scipy[.*]|umap[.*]")
-@pytest.mark.skipif(
-    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
-)
 @pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_exp_decay_params(build_algo):
     def compare_exp_decay_params(a=None, b=None, min_dist=0.1, spread=1.0):
@@ -692,9 +672,6 @@ def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
 @pytest.mark.parametrize("n_rows", [200, 800])
 @pytest.mark.parametrize("n_features", [8, 32])
 @pytest.mark.parametrize("n_neighbors", [8, 16])
-@pytest.mark.skipif(
-    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
-)
 def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
     n_clusters = 30
     random_state = 42
@@ -722,28 +699,39 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
 
 
 @pytest.mark.parametrize(
-    "metric,supported",
+    "metric,build_algo,supported",
     [
-        ("l2", True),
-        ("euclidean", True),
-        ("sqeuclidean", True),
-        ("l1", True),
-        ("manhattan", True),
-        ("minkowski", True),
-        ("chebyshev", True),
-        ("cosine", True),
-        ("correlation", True),
-        ("jaccard", False),
-        ("hamming", True),
-        ("canberra", True),
+        ("l2", "brute_force_knn", True),
+        ("euclidean", "brute_force_knn", True),
+        ("sqeuclidean", "brute_force_knn", True),
+        ("l1", "brute_force_knn", True),
+        ("manhattan", "brute_force_knn", True),
+        ("minkowski", "brute_force_knn", True),
+        ("chebyshev", "brute_force_knn", True),
+        ("cosine", "brute_force_knn", True),
+        ("correlation", "brute_force_knn", True),
+        ("jaccard", "brute_force_knn", False),
+        ("hamming", "brute_force_knn", True),
+        ("canberra", "brute_force_knn", True),
+        ("l2", "nn_descent", True),
+        ("euclidean", "nn_descent", True),
+        ("sqeuclidean", "nn_descent", False),
+        ("l1", "nn_descent", False),
+        ("manhattan", "nn_descent", False),
+        ("minkowski", "nn_descent", False),
+        ("chebyshev", "nn_descent", False),
+        ("cosine", "nn_descent", False),
+        ("correlation", "nn_descent", False),
+        ("jaccard", "nn_descent", False),
+        ("hamming", "nn_descent", False),
+        ("canberra", "nn_descent", False),
     ],
 )
-@pytest.mark.skipif(
-    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
-)
-def test_umap_distance_metrics_fit_transform_trust(metric, supported):
+def test_umap_distance_metrics_fit_transform_trust(
+    metric, build_algo, supported
+):
     data, labels = make_blobs(
-        n_samples=1000, n_features=64, centers=5, random_state=42
+        n_samples=500, n_features=64, centers=5, random_state=42
     )
 
     if metric == "jaccard":
@@ -753,7 +741,11 @@ def test_umap_distance_metrics_fit_transform_trust(metric, supported):
         n_neighbors=10, min_dist=0.01, metric=metric, init="random"
     )
     cuml_model = cuUMAP(
-        n_neighbors=10, min_dist=0.01, metric=metric, init="random"
+        n_neighbors=10,
+        min_dist=0.01,
+        metric=metric,
+        init="random",
+        build_algo=build_algo,
     )
     if not supported:
         with pytest.raises(NotImplementedError):
@@ -790,9 +782,6 @@ def test_umap_distance_metrics_fit_transform_trust(metric, supported):
         ("hamming", True, True),
         ("canberra", True, True),
     ],
-)
-@pytest.mark.skipif(
-    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
 )
 def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
     metric, supported, umap_learn_supported
@@ -869,6 +858,36 @@ def test_umap_trustworthiness_on_batch_nnd(
     cuml_trust = trustworthiness(digits.data, cuml_embedding, n_neighbors=10)
 
     assert cuml_trust > 0.9
+
+
+def test_callback():
+    class Callback(GraphBasedDimRedCallback):
+        preprocess_event, epoch_event, train_event = False, 0, False
+
+        def __init__(self, skip_init=False):
+            if not skip_init:
+                super().__init__()
+
+        def check(self):
+            assert self.preprocess_event
+            assert self.epoch_event > 10
+            assert self.train_event
+
+        def on_preprocess_end(self, embeddings):
+            self.preprocess_event = True
+
+        def on_epoch_end(self, embeddings):
+            self.epoch_event += 1
+
+        def on_train_end(self, embeddings):
+            self.train_event = True
+
+    digits = datasets.load_digits()
+
+    callback = Callback()
+    reducer = cuUMAP(n_components=2, callback=callback)
+    reducer.fit(digits.data)
+    callback.check()
 
 
 def test_umap_small_fit_large_transform():

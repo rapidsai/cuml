@@ -15,7 +15,6 @@
 #
 
 from collections import namedtuple
-from typing import Literal
 
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
@@ -614,27 +613,3 @@ def sparse_scipy_to_cp(sp, dtype):
     v = cp.asarray(values, dtype=dtype)
 
     return cupyx.scipy.sparse.coo_matrix((v, (r, c)), sp.shape)
-
-
-def output_to_df_obj_like(
-    X_out: CumlArray, X_in, output_type: Literal["series", "dataframe"]
-):
-    """Cast CumlArray `X_out` to the dataframe / series type as `X_in`
-    `CumlArray` abstracts away the dataframe / series metadata, when API
-    methods needs to return a dataframe / series matching original input
-    metadata, this function can copy input metadata to output.
-    """
-
-    if output_type not in ["series", "dataframe"]:
-        raise ValueError(
-            f'output_type must be either "series" or "dataframe" : {output_type}'
-        )
-
-    out = None
-    if output_type == "series":
-        out = X_out.to_output("series")
-        out.name = X_in.name
-    elif output_type == "dataframe":
-        out = X_out.to_output("dataframe")
-        out.columns = X_in.columns
-    return out

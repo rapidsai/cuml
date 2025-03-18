@@ -29,6 +29,7 @@ dependencies:
 - libcuvs==25.4.*,>=0.0.0a0
 - libraft-headers==25.4.*,>=0.0.0a0
 - librmm==25.4.*,>=0.0.0a0
+- llvm-openmp==15.0.7
 - ninja
 - nvcc_linux-64=11.8
 - sysroot_linux-64==2.28

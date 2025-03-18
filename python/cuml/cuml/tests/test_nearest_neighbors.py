@@ -38,7 +38,7 @@ from cuml.datasets import make_blobs
 from sklearn.metrics import pairwise_distances
 from cuml.metrics import pairwise_distances as cuPW
 
-from cuml.internals import logger
+from cuml.internals import logger  # noqa: F401
 
 from cuml.internals.safe_imports import gpu_only_import
 
@@ -617,14 +617,12 @@ def test_nearest_neighbors_sparse(
         a = a.astype("bool").astype("float32")
         b = b.astype("bool").astype("float32")
 
-    logger.set_level(logger.level_enum.debug)
     nn = cuKNN(
         metric=metric,
         p=2.0,
         n_neighbors=n_neighbors,
         algorithm="brute",
         output_type="numpy",
-        verbose=logger.level_enum.debug,
         algo_params={
             "batch_size_index": batch_size_index,
             "batch_size_query": batch_size_query,
