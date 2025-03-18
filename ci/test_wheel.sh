@@ -8,10 +8,15 @@ RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 RAPIDS_PY_WHEEL_NAME="cuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 python ./dist
 RAPIDS_PY_WHEEL_NAME="libcuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp ./dist
 
+# generate constraints, the constraints will limit the version of the
+# dependencies that can be installed later on when installing the wheel
+rapids-generate-pip-constraints py_test_cudf ./constraints.txt
+
 # echo to expand wildcard before adding `[extra]` requires for pip
 rapids-pip-retry install \
   ./dist/libcuml*.whl \
-  "$(echo ./dist/cuml*.whl)[test]"
+  "$(echo ./dist/cuml*.whl)[test]" \
+  --constraint ./constraints.txt
 
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
 mkdir -p "${RAPIDS_TESTS_DIR}"
