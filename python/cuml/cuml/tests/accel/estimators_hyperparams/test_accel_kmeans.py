@@ -151,6 +151,7 @@ def test_kmeans_sparse_cpu_dispatch():
 
     # Verify that the model was fitted on CPU
     # This can be checked by verifying the model's attributes are numpy arrays
+    assert hasattr(kmeans, "_cpu_model")
     assert isinstance(kmeans.cluster_centers_, np.ndarray)
     assert isinstance(kmeans.labels_, np.ndarray)
 
