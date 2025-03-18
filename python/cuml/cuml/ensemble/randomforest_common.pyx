@@ -26,8 +26,8 @@ import typing
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from cuml import ForestInference
-from cuml.fil.fil import TreeliteModel
+from cuml.fil import ForestInference
+from cuml.legacy.fil.fil import TreeliteModel
 from pylibraft.common.handle import Handle
 from cuml.internals.base import UniversalBase
 from cuml.internals.array import CumlArray
