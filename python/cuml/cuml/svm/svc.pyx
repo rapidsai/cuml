@@ -43,15 +43,17 @@ from cuml.internals.input_utils import input_to_cupy_array, determine_array_type
 from cuml.preprocessing import LabelEncoder
 from libcpp cimport nullptr
 from cuml.svm.svm_base import SVMBase
-from cuml.internals.import_utils import has_sklearn
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.api_decorators import device_interop_preparation, enable_device_interop
 
 from sklearn.svm import SVC as skSVC
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
+from sklearn.calibration import CalibratedClassifierCV
+
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.available_devices import is_cuda_available
+from cuml.multiclass import MulticlassClassifier
 
 
 class cpuModelSVC(skSVC):
@@ -104,11 +106,6 @@ class cpuModelSVC(skSVC):
             return super().predict_proba(X)
         else:
             return self.multi_class_model.predict_proba(X)
-
-
-if has_sklearn():
-    from cuml.multiclass import MulticlassClassifier
-    from sklearn.calibration import CalibratedClassifierCV
 
 
 cdef extern from "raft/distance/distance_types.hpp" \
@@ -497,8 +494,6 @@ class SVC(SVMBase,
         if sample_weight is not None:
             warn("Sample weights are currently ignored for multi class "
                  "classification")
-        if not has_sklearn():
-            raise RuntimeError("Scikit-learn is needed to fit multiclass SVM")
 
         params = self.get_params()
         strategy = params.pop('decision_function_shape', 'ovo')
@@ -541,10 +536,6 @@ class SVC(SVMBase,
         # https://github.com/rapidsai/cuml/issues/2608
         X = input_to_host_array_with_sparse_support(X)
         y = input_to_host_array(y).array
-
-        if not has_sklearn():
-            raise RuntimeError(
-                "Scikit-learn is needed to use SVM probabilities")
 
         if self.n_classes_ == 2:
             estimator = SVC(**params)

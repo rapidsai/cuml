@@ -23,11 +23,9 @@ from joblib import Parallel
 import functools
 import timeit
 import numbers
-from cuml.internals.import_utils import has_sklearn
 
-if has_sklearn():
-    from sklearn.base import clone
-    from sklearn.utils import Bunch
+from sklearn.base import clone
+from sklearn.utils import Bunch
 from contextlib import contextmanager
 from collections import defaultdict
 import warnings
@@ -561,9 +559,6 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
                  n_jobs=None,
                  transformer_weights=None,
                  verbose=False):
-        if not has_sklearn():
-            raise ImportError("Scikit-learn is needed to use the "
-                              "Column Transformer")
         if not transformers:
             warnings.warn('Transformers are required')
         self.transformers = transformers

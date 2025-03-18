@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 from cuml.common import input_to_cuml_array
 from cuml.internals.array import CumlArray
-from cuml.internals.import_utils import has_sklearn
 from cuml.internals.input_utils import determine_array_type
 from cuml.fil.fil import TreeliteModel
 from cuml.ensemble import RandomForestRegressor as curfr
@@ -28,12 +27,9 @@ from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 import treelite
 
-if has_sklearn():
-    from sklearn.ensemble import RandomForestRegressor as sklrfr
-    from sklearn.ensemble import RandomForestClassifier as sklrfc
-else:
-    sklrfr = object
-    sklrfc = object
+from sklearn.ensemble import RandomForestRegressor as sklrfr
+from sklearn.ensemble import RandomForestClassifier as sklrfc
+
 
 cdef extern from "treelite/c_api.h":
     cdef struct TreelitePyBufferFrame:
