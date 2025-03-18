@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -209,6 +209,7 @@ class UMAPParametrizableTest : public ::testing::Test {
                           n_samples,
                           umap_params.n_components,
                           X,
+                          n_samples,
                           model_embedding,
                           n_samples,
                           &umap_params,
