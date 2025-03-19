@@ -699,7 +699,7 @@ class UniversalBase(Base):
         new_kwargs = dict()
         for kw, arg in kwargs.items():
             # if array-like, ensure array-like is on the host
-            if is_array_like(arg):
+            if is_array_like(arg, accept_lists=GlobalSettings().accelerator_active):
                 new_kwargs[kw] = input_to_host_array_with_sparse_support(arg)
             # if Real or string or NoneType, pass as is
             elif isinstance(arg, (numbers.Real, str, type(None))):
