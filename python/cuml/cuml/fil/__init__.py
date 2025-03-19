@@ -14,5 +14,6 @@
 # limitations under the License.
 #
 
-from cuml.experimental.fil.fil import ForestInference
-from cuml.experimental.fil import fil
+from cuml.fil.fil import ForestInference
+
+__all__ = [ForestInference]

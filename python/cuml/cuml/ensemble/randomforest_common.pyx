@@ -26,7 +26,7 @@ import typing
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from cuml.fil import ForestInference
+from cuml.legacy.fil.fil import ForestInference
 from cuml.legacy.fil.fil import TreeliteModel
 from pylibraft.common.handle import Handle
 from cuml.internals.base import UniversalBase
@@ -422,8 +422,10 @@ class BaseRandomForestModel(UniversalBase):
             _check_fil_parameter_validity(depth=self.max_depth,
                                           fil_sparse_format=fil_sparse_format,
                                           algo=algo)
-        fil_model = ForestInference(handle=self.handle, verbose=self.verbose,
-                                    output_type=self.output_type)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', FutureWarning)
+            fil_model = ForestInference(handle=self.handle, verbose=self.verbose,
+                                        output_type=self.output_type)
         tl_to_fil_model = \
             fil_model.load_using_treelite_handle(treelite_handle,
                                                  output_class=output_class,
@@ -524,8 +526,10 @@ def _obtain_fil_model(treelite_handle, depth,
                                       fil_sparse_format=fil_sparse_format,
                                       algo=algo)
 
-    # Use output_type="input" to prevent an error
-    fil_model = ForestInference(output_type="input")
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', FutureWarning)
+        # Use output_type="input" to prevent an error
+        fil_model = ForestInference(output_type="input")
 
     tl_to_fil_model = \
         fil_model.load_using_treelite_handle(treelite_handle,

@@ -108,8 +108,8 @@ from cuml.cluster.hdbscan import HDBSCAN
 # FIL is currently not built in cuml-cpu distributions, even though it can be
 # used in a CPU-only environment. Only import if the build supports it.
 if GPU_ENABLED:
-    from cuml.experimental.fil import fil
-    from cuml.experimental.fil.fil import ForestInference
+    from cuml.fil import ForestInference
+    from cuml.fil import fil
 from cuml.decomposition.pca import PCA
 from cuml.decomposition.tsvd import TruncatedSVD
 
@@ -143,6 +143,7 @@ __all__ = [
     # Modules
     "common",
     "feature_extraction",
+    "fil",
     "metrics",
     "multiclass",
     "naive_bayes",
