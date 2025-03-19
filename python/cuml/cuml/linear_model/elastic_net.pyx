@@ -28,6 +28,7 @@ from cuml.internals.logger import warn
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.common import input_to_cuml_array
 
 
 class ElasticNet(UniversalBase,
@@ -260,11 +261,11 @@ class ElasticNet(UniversalBase,
         Fit the model with X and y.
 
         """
-        self.n_features_in_ = X.shape[1] if X.ndim == 2 else 1
-        if hasattr(X, 'index'):
-            self.feature_names_in_ = X.index
+        X_m, _, self.n_features_in_, self.dtype = input_to_cuml_array(X)
+        if hasattr(X_m, 'index'):
+            self.feature_names_in_ = X_m.index
 
-        self.solver_model.fit(X, y, convert_dtype=convert_dtype,
+        self.solver_model.fit(X_m, y, convert_dtype=convert_dtype,
                               sample_weight=sample_weight)
         if isinstance(self.solver_model, QN):
             coefs = self.solver_model.coef_
