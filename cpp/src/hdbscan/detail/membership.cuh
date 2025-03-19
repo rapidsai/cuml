@@ -77,7 +77,7 @@ void get_probabilities(const raft::handle_t& handle,
                              size_t&,
                              const value_t*,
                              value_t*,
-                             int,
+                             int64_t,
                              const value_idx*,
                              const value_idx*,
                              cudaStream_t) =
