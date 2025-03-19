@@ -385,7 +385,7 @@ class Ridge(UniversalBase,
         2. For fit-related functions only (fit, fit_transform, fit_predict)
         """
         if func_name == "fit" and len(args) > 1:
-            y_m, _, _, _ = input_to_cuml_array(args[1])
+            y_m, _, _, _ = input_to_cuml_array(args[1], convert_to_mem_type=False)
 
             # Check if we have multiple targets or 2D array
             return len(y_m.shape) > 1
