@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -242,6 +242,10 @@ CUML_FIL_INITIALIZE_DEVICE(extern template, 4)
 CUML_FIL_INITIALIZE_DEVICE(extern template, 5)
 CUML_FIL_INITIALIZE_DEVICE(extern template, 6)
 CUML_FIL_INITIALIZE_DEVICE(extern template, 7)
+CUML_FIL_INITIALIZE_DEVICE(extern template, 8)
+CUML_FIL_INITIALIZE_DEVICE(extern template, 9)
+CUML_FIL_INITIALIZE_DEVICE(extern template, 10)
+CUML_FIL_INITIALIZE_DEVICE(extern template, 11)
 
 }  // namespace device_initialization
 }  // namespace detail

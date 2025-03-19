@@ -52,7 +52,6 @@ from sklearn.metrics.cluster import completeness_score as sk_completeness_score
 from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.metrics import log_loss as sklearn_log_loss
-from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.datasets import make_classification, make_blobs
 from sklearn.metrics import hinge_loss as sk_hinge
 from cuml.internals.safe_imports import cpu_only_import_from
@@ -69,9 +68,7 @@ from cuml.testing.utils import (
 )
 from cuml.metrics.cluster import silhouette_samples as cu_silhouette_samples
 from cuml.metrics.cluster import silhouette_score as cu_silhouette_score
-from cuml.metrics import accuracy_score as cu_acc_score
 from cuml.metrics.cluster import adjusted_rand_score as cu_ars
-from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.internals.safe_imports import cpu_only_import
 import pytest
 
@@ -182,62 +179,104 @@ def test_sklearn_search():
 
 
 @pytest.mark.parametrize(
-    "nrows", [unit_param(30), quality_param(5000), stress_param(500000)]
+    "true_kind, pred_kind, true_dtype, pred_dtype",
+    [
+        ("cupy", "cupy", "int32", "int32"),
+        ("cupy", "numpy", "int64", "int32"),
+        ("numpy", "cupy", "float16", "float32"),
+        ("cudf", "cudf", "int32", "int64"),
+        ("numpy", "cudf", "str", "str"),
+        ("numpy", "cudf", "str", "category"),
+        ("cudf", "numpy", "category", "str"),
+        ("cudf", "cudf", "str", "str"),
+        ("cudf", "cudf", "str", "category"),
+        ("cudf", "cudf", "category", "str"),
+        ("cudf", "cudf", "category", "category"),
+    ],
 )
 @pytest.mark.parametrize(
-    "ncols", [unit_param(10), quality_param(100), stress_param(200)]
+    "weight_kind, weight_dtype",
+    [(None, None), ("cupy", "float32"), ("numpy", "float64")],
 )
-@pytest.mark.parametrize(
-    "n_info", [unit_param(7), quality_param(50), stress_param(100)]
-)
-@pytest.mark.parametrize("datatype", [np.float32])
-def test_accuracy(nrows, ncols, n_info, datatype):
+@pytest.mark.parametrize("normalize", [True, False])
+def test_accuracy_score(
+    true_kind,
+    pred_kind,
+    true_dtype,
+    pred_dtype,
+    weight_kind,
+    weight_dtype,
+    normalize,
+):
+    N = 30
+    rng = np.random.RandomState(42)
+    np_true = rng.randint(0, 3, N)
+    np_pred = (rng.randint(0, 2, N) + np_true) % 3
+    np_weight = rng.random(N).astype(weight_dtype) if weight_kind else None
+    if true_dtype in ("str", "category"):
+        assert pred_dtype in ("str", "category")
+        labels = np.array(["a", "b", "c"], dtype="object")
+        np_true = labels.take(np_true)
+        np_pred = labels.take(np_pred)
+    else:
+        np_true = np_true.astype(true_dtype)
+        np_pred = np_pred.astype(pred_dtype)
 
-    use_handle = True
-    train_rows = np.int32(nrows * 0.8)
-    X, y = make_classification(
-        n_samples=nrows,
-        n_features=ncols,
-        n_clusters_per_class=1,
-        n_informative=n_info,
-        random_state=123,
-        n_classes=5,
+    def convert(x, kind, dtype):
+        if kind == "cupy":
+            return cp.array(x, dtype=dtype)
+        elif kind == "cudf":
+            return cudf.Series(x).astype(dtype)
+        else:
+            return x
+
+    true = convert(np_true, true_kind, true_dtype)
+    pred = convert(np_pred, pred_kind, true_dtype)
+    weight = (
+        convert(np_weight, weight_kind, weight_dtype) if weight_kind else None
     )
 
-    X_test = np.asarray(X[train_rows:, 0:]).astype(datatype)
-    y_test = np.asarray(
-        y[
-            train_rows:,
-        ]
-    ).astype(np.int32)
-    X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
-    y_train = np.asarray(
-        y[
-            0:train_rows,
-        ]
-    ).astype(np.int32)
-    # Create a handle for the cuml model
-    handle, stream = get_handle(use_handle, n_streams=8)
-
-    # Initialize, fit and predict using cuML's
-    # random forest classification model
-    cuml_model = curfc(
-        max_features=1.0,
-        n_bins=8,
-        split_criterion=0,
-        min_samples_leaf=2,
-        n_estimators=40,
-        handle=handle,
-        max_leaves=-1,
-        max_depth=16,
+    sol = sklearn.metrics.accuracy_score(
+        np_true, np_pred, sample_weight=np_weight, normalize=normalize
     )
+    res = cuml.metrics.accuracy_score(
+        true, pred, sample_weight=weight, normalize=normalize
+    )
+    assert isinstance(res, float)
+    np.testing.assert_allclose(res, sol)
 
-    cuml_model.fit(X_train, y_train)
-    cu_predict = cuml_model.predict(X_test)
-    cu_acc = cu_acc_score(y_test, cu_predict)
-    cu_acc_using_sk = sk_acc_score(y_test, cu_predict)
-    # compare the accuracy of the two models
-    assert array_equal(cu_acc, cu_acc_using_sk)
+
+@pytest.mark.parametrize("true_kind", ["pandas", "cudf"])
+@pytest.mark.parametrize("pred_kind", ["pandas", "cudf"])
+def test_accuracy_score_index_unaligned(true_kind, pred_kind):
+    """Check that accuracy_score ignores the index of the input."""
+    pd = pytest.importorskip("pandas")
+    true_ns = pd if true_kind == "pandas" else cudf
+    pred_ns = pd if pred_kind == "pandas" else cudf
+
+    true = true_ns.Series([1, 2, 1, 2], index=[10, 2, 4, 6])
+    pred = pred_ns.Series([1, 2, 2, 1], index=[2, 4, 6, 8])
+    assert cuml.metrics.accuracy_score(true, pred) == 0.5
+
+
+def test_accuracy_score_errors():
+    arr_3 = np.array([1, 2, 3])
+    arr_4 = np.array([1, 2, 3, 4])
+    arr_3x3 = np.ones((3, 3))
+
+    with pytest.raises(ValueError, match="Expected 3 rows"):
+        cuml.metrics.accuracy_score(arr_3, arr_4)
+
+    with pytest.raises(ValueError, match="Expected 3 rows"):
+        cuml.metrics.accuracy_score(arr_3, arr_3, sample_weight=arr_4)
+
+    for true, pred, sw in [
+        (arr_3x3, arr_3, None),
+        (arr_3, arr_3x3, None),
+        (arr_3, arr_3, arr_3x3),
+    ]:
+        with pytest.raises(ValueError, match="Expected 1 column"):
+            cuml.metrics.accuracy_score(true, pred, sample_weight=sw)
 
 
 dataset_names = ["noisy_circles", "noisy_moons", "aniso"] + [

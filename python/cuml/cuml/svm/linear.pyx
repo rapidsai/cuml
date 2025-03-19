@@ -31,7 +31,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.logger cimport level_enum
-from cuml.internals.logger import level_enum as py_level_enum
+from cuml.internals import logger
 from pylibraft.common.handle cimport handle_t
 from pylibraft.common.interruptible import cuda_interruptible
 from cuml.common import input_to_cuml_array
@@ -208,15 +208,11 @@ class LSVMPWrapper(LSVMPWrapper_):
 
     @property
     def verbose(self):
-        # Reverse ordering of log levels to convert spdlog level values to
-        # Scikit-Learn log level values
-        return 6 - int(self._getparam('verbose'))
+        return logger._verbose_from_level(self._getparams('verbose'))
 
     @verbose.setter
     def verbose(self, level: int):
-        # Reverse ordering of log levels to convert spdlog level values to
-        # Scikit-Learn log level values
-        self._setparam('verbose', py_level_enum(6 - level))
+        self._setparam('verbose', logger._verbose_to_level(level))
 
 
 # Add properties for parameters with a trivial conversion

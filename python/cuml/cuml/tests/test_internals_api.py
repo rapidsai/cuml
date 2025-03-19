@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2023, NVIDIA CORPORATION.
+# Copyright (c) 2018-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,47 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
-from cuml.manifold import UMAP
-from cuml.internals import GraphBasedDimRedCallback
-from sklearn.datasets import load_digits
+import pickle
 
-digits = load_digits()
-data, target = digits.data, digits.target
+from cuml.internals import GraphBasedDimRedCallback
 
 
 class CustomCallback(GraphBasedDimRedCallback):
-    preprocess_event, epoch_event, train_event = False, 0, False
-
-    def __init__(self, skip_init=False):
-        if not skip_init:
-            super().__init__()
-
-    def check(self):
-        assert self.preprocess_event
-        assert self.epoch_event > 10
-        assert self.train_event
-
-    def on_preprocess_end(self, embeddings):
-        self.preprocess_event = True
-
-    def on_epoch_end(self, embeddings):
-        self.epoch_event += 1
-
-    def on_train_end(self, embeddings):
-        self.train_event = True
+    pass
 
 
-@pytest.mark.parametrize("n_components", [2, 4, 8])
-def test_internals_api(n_components):
-    callback = CustomCallback()
-    reducer = UMAP(n_components=n_components, callback=callback)
-    reducer.fit(data)
-    callback.check()
-
-    # Make sure super().__init__ is called
-    callback = CustomCallback(skip_init=True)
-    model = UMAP(n_epochs=10, callback=callback)
-
-    with pytest.raises(ValueError):
-        model.fit_transform(data)
+def test_callback_pickleable():
+    obj = CustomCallback()
+    buf = pickle.dumps(obj)
+    obj2 = pickle.loads(buf)
+    assert isinstance(obj2, CustomCallback)

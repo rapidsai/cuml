@@ -34,7 +34,7 @@ from numpy.testing import assert_allclose
 
 from sklearn.datasets import make_blobs, make_classification, make_regression
 from sklearn.utils.validation import check_is_fitted
-from sklearn.cluster import KMeans as SkKMeans, DBSCAN as SkDBSCAN
+from sklearn.cluster import KMeans as SkKMeans
 from sklearn.decomposition import PCA as SkPCA, TruncatedSVD as SkTruncatedSVD
 from sklearn.linear_model import (
     LinearRegression as SkLinearRegression,
@@ -43,8 +43,6 @@ from sklearn.linear_model import (
     Ridge as SkRidge,
     Lasso as SkLasso,
 )
-from sklearn.manifold import TSNE as SkTSNE
-from sklearn.neighbors import NearestNeighbors as SkNearestNeighbors
 
 ###############################################################################
 #                              Helper functions                               #
@@ -83,8 +81,6 @@ def assert_estimator_roundtrip(
     # Convert back
     roundtrip_model = type(cuml_model).from_sklearn(sklearn_model)
 
-    from pprint import pprint
-
     rm_params = roundtrip_model.get_params()
 
     # Remove parameters that are not serialized
@@ -106,12 +102,6 @@ def assert_estimator_roundtrip(
         # consequences
         _ = original_params.pop("init", None)
         _ = rm_params.pop("init", None)
-
-        # This failure will be fixed by
-        # https://github.com/rapidsai/cuml/pull/6142
-        # otherwise the predict with default n_init like this
-        # roundtrip will fail later.
-        pytest.xfail(reason="auto is not supported by cuML n_init yet")
 
     def dict_diff(a, b):
         # Get all keys from both dictionaries
@@ -162,9 +152,6 @@ def test_basic_roundtrip():
     assert ckm.n_clusters == 13
 
 
-@pytest.mark.filterwarnings(
-    "ignore:The default value of `n_init` will change from 1 to 'auto' in 25.04"
-)
 def test_kmeans(random_state):
     # Using sklearn directly for demonstration
     X, _ = make_blobs(

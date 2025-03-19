@@ -24,6 +24,7 @@ from libc.stdint cimport uint64_t, uintptr_t, int64_t
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 from cuml.metrics.distance_type cimport DistanceType
+from cuml.metrics.raft_distance_type cimport DistanceType as RaftDistanceType
 from cuml.internals.logger cimport level_enum
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":
@@ -39,6 +40,7 @@ cdef extern from "cuml/common/callback.hpp" namespace "ML::Internals":
 
     cdef cppclass GraphBasedDimRedCallback
 
+
 cdef extern from "raft/neighbors/nn_descent_types.hpp" namespace "raft::neighbors::experimental::nn_descent":
     cdef struct index_params:
         uint64_t graph_degree,
@@ -47,6 +49,8 @@ cdef extern from "raft/neighbors/nn_descent_types.hpp" namespace "raft::neighbor
         float termination_threshold,
         bool return_distances,
         uint64_t n_clusters,
+        RaftDistanceType metric,
+        float metric_arg
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
 

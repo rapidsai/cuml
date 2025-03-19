@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 from cuml.internals.device_support import GPU_ENABLED
-from cuml.internals.safe_imports import gpu_only_import_from, UnavailableError
+from cuml.internals.safe_imports import UnavailableError
 
 
 from functools import cache
@@ -26,7 +26,7 @@ def gpu_available_no_context_creation():
     creating a CUDA context. We check for CuPy presence as a proxy of that.
     """
     try:
-        import cupy
+        import cupy  # noqa: F401
 
         return True
     except ImportError:
