@@ -71,3 +71,9 @@ out = fil_model.predict(input_data)
 # Starting in RAPIDS 25.06, the following can be used to obtain the old output shape
 out = out.flatten()
 ```
+
+To use these new behaviors immediately, the `ForestInference` estimator can be imported from the `experimental` namespace:
+
+```python
+from cuml.experimental.fil import ForestInference
+```
