@@ -10,7 +10,7 @@ RAPIDS_PY_WHEEL_NAME="libcuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-f
 
 # generate constraints, the constraints will limit the version of the
 # dependencies that can be installed later on when installing the wheel
-rapids-generate-pip-constraints py_test_cudf ./constraints.txt
+rapids-generate-pip-constraints test_python ./constraints.txt
 
 # echo to expand wildcard before adding `[extra]` requires for pip
 rapids-pip-retry install \
