@@ -295,7 +295,12 @@ class LogisticRegression(UniversalBase,
         Fit the model with X and y.
 
         """
-        self.n_features_in_ = X.shape[1] if X.ndim == 2 else 1
+        X, n_rows, self.n_features_in_, self.dtype = \
+            input_to_cuml_array(X,
+                                convert_to_dtype=(np.float32 if convert_dtype
+                                                  else None),
+                                check_dtype=[np.float32, np.float64])
+
         if hasattr(X, 'index'):
             self.feature_names_in_ = X.index
 
