@@ -893,11 +893,11 @@ class SVC(SVMBase,
                         gpu_est = turn_cpu_into_gpu(cpu_est, params)
                     else:
                         if self.decision_function_shape == 'ovr':
-                            gpu_est = OneVsRestClassifier(SVC)
+                            gpu_est = OneVsRestClassifier(SVC(output_type=self.output_type))
                             gpu_est.label_binarizer_ = LabelBinarizer(sparse_output=True)
                             gpu_est.label_binarizer_.fit(classes)
                         elif self.decision_function_shape == 'ovo':
-                            gpu_est = OneVsOneClassifier(SVC)
+                            gpu_est = OneVsOneClassifier(SVC(output_type=self.output_type))
                             gpu_est.pairwise_indices_ = None
                         else:
                             raise ValueError
@@ -972,11 +972,11 @@ class SVC(SVMBase,
                     else:
                         classes = self.classes_.to_output('numpy').astype(np.int32)
                         if self.decision_function_shape == 'ovr':
-                            cpu_est = OneVsRestClassifier(skSVC)
+                            cpu_est = OneVsRestClassifier(skSVC())
                             cpu_est.label_binarizer_ = LabelBinarizer(sparse_output=True)
                             cpu_est.label_binarizer_.fit(classes)
                         elif self.decision_function_shape == 'ovo':
-                            cpu_est = OneVsOneClassifier(skSVC)
+                            cpu_est = OneVsOneClassifier(skSVC())
                             cpu_est.pairwise_indices_ = None
                         else:
                             raise ValueError
@@ -1003,11 +1003,11 @@ class SVC(SVMBase,
             classes = self.classes_.to_output('numpy').astype(np.int32)
 
             if self.decision_function_shape == 'ovr':
-                self._cpu_model.multi_class_model = OneVsRestClassifier(skSVC)
+                self._cpu_model.multi_class_model = OneVsRestClassifier(skSVC())
                 self._cpu_model.multi_class_model.label_binarizer_ = LabelBinarizer(sparse_output=True)
                 self._cpu_model.multi_class_model.label_binarizer_.fit(classes)
             elif self.decision_function_shape == 'ovo':
-                self._cpu_model.multi_class_model = OneVsOneClassifier(skSVC)
+                self._cpu_model.multi_class_model = OneVsOneClassifier(skSVC())
                 self._cpu_model.multi_class_model.pairwise_indices_ = None
             else:
                 raise ValueError
