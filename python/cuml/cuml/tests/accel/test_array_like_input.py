@@ -14,64 +14,10 @@
 # limitations under the License.
 #
 
-import pytest
 import numpy as np
-import cupy as cp
 from cuml.internals.array import CumlArray
-from cuml.internals.api_decorators import support_array_like
-from cuml.internals.global_settings import GlobalSettings
 
 
-@pytest.mark.skipif(
-    not GlobalSettings().accelerator_active,
-    reason="These tests require an active accelerator",
-)
-def test_support_array_like():
-    """Test the support_array_like function for converting list/tuple inputs to numpy arrays."""
-    # Test with list input
-    test_list = [1, 2, 3]
-    result = support_array_like(test_list)
-    assert isinstance(result, np.ndarray)
-    np.testing.assert_array_equal(result, np.array(test_list))
-
-    # Test with tuple input
-    test_tuple = (1, 2, 3)
-    result = support_array_like(test_tuple)
-    assert isinstance(result, np.ndarray)
-    np.testing.assert_array_equal(result, np.array(test_tuple))
-
-    # Test with numpy array input (should be returned as is)
-    test_array = np.array([1, 2, 3])
-    result = support_array_like(test_array)
-    assert isinstance(result, np.ndarray)
-    np.testing.assert_array_equal(result, test_array)
-
-    # Test with cupy array input (should be returned as is)
-    test_cupy = cp.array([1, 2, 3])
-    result = support_array_like(test_cupy)
-    assert isinstance(result, cp.ndarray)
-    cp.testing.assert_array_equal(result, test_cupy)
-
-
-@pytest.mark.skipif(
-    not GlobalSettings().accelerator_active,
-    reason="These tests require an active accelerator",
-)
-@pytest.mark.parametrize(
-    "test_input,expected_dtype",
-    [
-        ([1, 2, 3], np.int64),
-        ((1, 2, 3), np.int64),
-        ([[1, 2], [3, 4]], np.int64),
-        (((1, 2), (3, 4)), np.int64),
-        ([(1, 2), [3, 4]], np.int64),
-        ([1.0, 2.0, 3.0], np.float64),
-        ([], np.float64),
-        ((), np.float64),
-        ([1], np.int64),
-        ((1,), np.int64),
-    ],
-)
 def test_cumlarray_list_tuple_input(test_input, expected_dtype):
     """Test CumlArray initialization with list/tuple inputs when accelerator is active."""
     cuml_array = CumlArray(test_input)

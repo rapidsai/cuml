@@ -71,25 +71,26 @@ def _find_arg(sig, arg_name, default_position):
 def _get_value(args, kwargs, name, index, default_value):
     """Determine value for a given set of args, kwargs, name and index."""
     try:
-        return kwargs[name]
+        value = kwargs[name]
     except KeyError:
         try:
-            return args[index]
+            value = args[index]
         except IndexError:
             if default_value is not inspect._empty:
-                return default_value
+                value = default_value
             else:
                 raise IndexError(
                     f"Specified arg idx: {index}, and argument name: {name}, "
                     "were not found in args or kwargs."
                 )
 
-
-def support_array_like(value):
-    if isinstance(value, (list, tuple)):
+    # Support array-like inputs in accel mode
+    if GlobalSettings().accelerator_active and isinstance(
+        value, (list, tuple)
+    ):
         return np.asarray(value)
-    else:
-        return value
+
+    return value
 
 
 def _make_decorator_function(
@@ -159,8 +160,6 @@ def _make_decorator_function(
 
                     if input_arg_:
                         input_val = _get_value(args, kwargs, *input_arg_)
-                        if GlobalSettings().accelerator_active:
-                            input_val = support_array_like(input_val)
                     else:
                         input_val = None
                     if target_arg_:
