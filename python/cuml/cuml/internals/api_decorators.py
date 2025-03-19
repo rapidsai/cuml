@@ -68,7 +68,7 @@ def _find_arg(sig, arg_name, default_position):
         raise ValueError(f"Unable to find parameter '{arg_name}'.")
 
 
-def _get_value(args, kwargs, name, index, default_value):
+def _get_value(args, kwargs, name, index, default_value, accept_lists=False):
     """Determine value for a given set of args, kwargs, name and index."""
     try:
         value = kwargs[name]
@@ -83,11 +83,8 @@ def _get_value(args, kwargs, name, index, default_value):
                     f"Specified arg idx: {index}, and argument name: {name}, "
                     "were not found in args or kwargs."
                 )
-
-    # Support array-like inputs in accel mode
-    if GlobalSettings().accelerator_active and isinstance(
-        value, (list, tuple)
-    ):
+    # Accept list/tuple inputs when requested
+    if accept_lists and isinstance(value, (list, tuple)):
         return np.asarray(value)
 
     return value
@@ -154,16 +151,29 @@ def _make_decorator_function(
             def wrapper(*args, **kwargs):
                 # Wraps the decorated function, executed at runtime.
 
+                # Accept list/tuple inputs when accelerator is active
+                accept_lists = GlobalSettings().accelerator_active
+
                 with context_manager_cls(func, args) as cm:
 
                     self_val = args[0] if has_self else None
 
                     if input_arg_:
-                        input_val = _get_value(args, kwargs, *input_arg_)
+                        input_val = _get_value(
+                            args,
+                            kwargs,
+                            *input_arg_,
+                            accept_lists=accept_lists,
+                        )
                     else:
                         input_val = None
                     if target_arg_:
-                        target_val = _get_value(args, kwargs, *target_arg_)
+                        target_val = _get_value(
+                            args,
+                            kwargs,
+                            *target_arg_,
+                            accept_lists=accept_lists,
+                        )
                     else:
                         target_val = None
 
