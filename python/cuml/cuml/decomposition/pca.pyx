@@ -428,14 +428,16 @@ class PCA(UniversalBase,
         Fit the model with X. y is currently ignored.
 
         """
+        X_m, n_rows, n_cols, _ = input_to_cuml_array(X,
+                                                     convert_to_dtype=(np.float32 if convert_dtype else None),
+                                                     check_dtype=[np.float32, np.float64])
+
         if self.n_components is None:
             logger.warn(
                 'Warning(`fit`): As of v0.16, PCA invoked without an'
                 ' n_components argument defaults to using'
                 ' min(n_samples, n_features) rather than 1'
             )
-            n_rows = X.shape[0]
-            n_cols = X.shape[1]
             self.n_components_ = min(n_rows, n_cols)
         else:
             self.n_components_ = self.n_components
@@ -446,11 +448,10 @@ class PCA(UniversalBase,
             X = sparse_scipy_to_cp(X, dtype=None)
             return self._sparse_fit(X)
 
-        X_m, self.n_samples_, self.n_features_in_, self.dtype = \
-            input_to_cuml_array(X,
-                                convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None),
-                                check_dtype=[np.float32, np.float64])
+        # Store values from input_to_cuml_array call
+        self.n_samples_ = n_rows
+        self.n_features_in_ = n_cols
+        self.dtype = X_m.dtype
         cdef uintptr_t _input_ptr = X_m.ptr
         self.feature_names_in_ = X_m.index
 
