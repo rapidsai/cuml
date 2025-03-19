@@ -192,6 +192,10 @@ class BaseRandomForestModel(UniversalBase):
         self.treelite_serialized_model = None
         self._cpu_model_class_lock = threading.RLock()
 
+    def __len__(self):
+        """Return the number of estimators in the ensemble."""
+        return self.n_estimators
+
     def _get_max_feat_val(self) -> float:
         if isinstance(self.max_features, int):
             return self.max_features/self.n_cols
