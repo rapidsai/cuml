@@ -243,7 +243,7 @@ jobs:
       extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
       build_command: |
         sccache -z;
-        build-all --verbose;
+        build-all --verbose -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON;
         sccache -s;
 
   telemetry-summarize:

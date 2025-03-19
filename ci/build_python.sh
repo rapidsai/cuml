@@ -37,7 +37,6 @@ if [[ ${RAPIDS_CUDA_MAJOR} == "12" ]]; then
   sccache --zero-stats
 
   RAPIDS_PACKAGE_VERSION=$(head -1 ./VERSION) rapids-conda-retry build \
-  --no-test \
   conda/recipes/cuml-cpu
 
   sccache --show-adv-stats
