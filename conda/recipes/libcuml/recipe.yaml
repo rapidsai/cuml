@@ -200,6 +200,8 @@ outputs:
           - libcusolver
           - libcusparse
           - librmm
+          - if: cuda_major == "11"
+            then: cudatoolkit
     about:
       homepage: ${{ load_from_file("python/libcuml/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libcuml/pyproject.toml").project.license.text }}
