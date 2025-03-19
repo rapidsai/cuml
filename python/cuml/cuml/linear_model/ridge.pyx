@@ -380,9 +380,7 @@ class Ridge(UniversalBase,
 
     def _should_dispatch_cpu(self, func_name, *args, **kwargs):
         """
-        Dispatch to CPU implementation when:
-        1. Multi-target regression is detected (y has more than 1 column or is 2D)
-        2. For fit-related functions only (fit, fit_transform, fit_predict)
+        Dispatch fit() function to CPU implementation for multi-target regression.
         """
         if func_name == "fit" and len(args) > 1:
             y_m, _, _, _ = input_to_cuml_array(args[1], convert_to_mem_type=False)
