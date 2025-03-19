@@ -112,11 +112,11 @@ outputs:
         - if: cuda_major == "11"
           then:
             - cudatoolkit
-            - libcublas ${{ cuda11_libcublas_run_version }}
-            - libcufft ${{ cuda11_libcufft_run_version }}
-            - libcurand ${{ cuda11_libcurand_run_version }}
-            - libcusolver ${{ cuda11_libcusolver_run_version }}
-            - libcusparse ${{ cuda11_libcusparse_run_version }}
+            - libcublas ${{ cuda11_libcublas_host_version }}
+            - libcufft ${{ cuda11_libcufft_host_version }}
+            - libcurand ${{ cuda11_libcurand_host_version }}
+            - libcusolver ${{ cuda11_libcusolver_host_version }}
+            - libcusparse ${{ cuda11_libcusparse_host_version }}
           else:
             - cuda-cudart-dev
             - libcublas
