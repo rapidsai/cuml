@@ -11,6 +11,7 @@
 # This code is under BSD 3 clause license.
 # Authors mentioned above do not endorse or promote this production.
 
+import numpy
 
 from ....thirdparty_adapters.sparsefuncs_fast import (
     csr_mean_variance_axis0 as _csr_mean_var_axis0,
@@ -21,7 +22,7 @@ from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.internals.safe_imports import cpu_only_import_from
 cpu_sp = cpu_only_import_from('scipy', 'sparse')
 gpu_sp = gpu_only_import_from('cupyx.scipy', 'sparse')
-np = gpu_only_import('cupy')
+np = gpu_only_import('cupy', alt=numpy)
 cpu_np = cpu_only_import('numpy')
 
 
