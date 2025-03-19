@@ -73,6 +73,11 @@ def main(
     cudf_pandas,
     args,
 ):
+    if cudf_pandas:
+        import cudf.pandas
+
+        cudf.pandas.install()
+
     # avoid importing cuML before cuDF.pandas
     from cuml.internals import logger
     from cuml.accel.core import install
