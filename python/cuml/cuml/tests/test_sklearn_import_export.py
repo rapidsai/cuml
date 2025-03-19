@@ -103,12 +103,6 @@ def assert_estimator_roundtrip(
         _ = original_params.pop("init", None)
         _ = rm_params.pop("init", None)
 
-        # This failure will be fixed by
-        # https://github.com/rapidsai/cuml/pull/6142
-        # otherwise the predict with default n_init like this
-        # roundtrip will fail later.
-        pytest.xfail(reason="auto is not supported by cuML n_init yet")
-
     def dict_diff(a, b):
         # Get all keys from both dictionaries
         all_keys = set(a.keys()) | set(b.keys())
@@ -158,9 +152,6 @@ def test_basic_roundtrip():
     assert ckm.n_clusters == 13
 
 
-@pytest.mark.filterwarnings(
-    "ignore:The default value of `n_init` will change from 1 to 'auto' in 25.04"
-)
 def test_kmeans(random_state):
     # Using sklearn directly for demonstration
     X, _ = make_blobs(
