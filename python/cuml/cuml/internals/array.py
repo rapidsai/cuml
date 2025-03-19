@@ -1112,6 +1112,12 @@ class CumlArray:
             # usage of dataframe interchange protocol once ready.
             X = X.to_numpy()
             deepcopy = False
+        elif (  # we accept lists and tuples in accel mode
+            GlobalSettings().accelerator_active
+            and isinstance(X, (list, tuple))
+        ):
+            X = np.asarray(X)
+            deepcopy = False
 
         requested_order = (order, None)[fail_on_order]
         arr = cls(X, index=index, order=requested_order, validate=False)
