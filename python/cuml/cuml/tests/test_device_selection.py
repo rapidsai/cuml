@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import platform
 from cuml.testing.test_preproc_utils import to_output_type
 from cuml.testing.utils import array_equal
 
@@ -43,6 +42,7 @@ from cuml.kernel_ridge import KernelRidge
 from cuml.common.device_selection import DeviceType, using_device_type
 from cuml.testing.utils import assert_dbscan_equal
 from hdbscan import HDBSCAN as refHDBSCAN
+from umap import UMAP as refUMAP
 from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
 from sklearn.linear_model import Ridge as skRidge
 from sklearn.linear_model import ElasticNet as skElasticNet
@@ -74,12 +74,6 @@ from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import("numpy")
 pd = cpu_only_import("pandas")
 cudf = gpu_only_import("cudf")
-
-
-IS_ARM = platform.processor() == "aarch64"
-
-if not IS_ARM:
-    from umap import UMAP as refUMAP
 
 
 def assert_membership_vectors(cu_vecs, sk_vecs):
@@ -455,15 +449,10 @@ def umap_test_data(request):
         "random_state": 42,
     }
 
-    # todo: remove after https://github.com/rapidsai/cuml/issues/5441 is
-    # fixed
-    if not IS_ARM:
-        ref_model = refUMAP(**kwargs)
-        ref_model.fit(X_train_blob, y_train_blob)
-        ref_embedding = ref_model.transform(X_test_blob)
-        ref_trust = trustworthiness(X_test_blob, ref_embedding, n_neighbors=12)
-    else:
-        ref_trust = 0.0
+    ref_model = refUMAP(**kwargs)
+    ref_model.fit(X_train_blob, y_train_blob)
+    ref_embedding = ref_model.transform(X_test_blob)
+    ref_trust = trustworthiness(X_test_blob, ref_embedding, n_neighbors=12)
 
     input_type = request.param["input_type"]
 
@@ -618,8 +607,6 @@ def test_train_cpu_infer_cpu(test_data):
     cuEstimator = test_data["cuEstimator"]
     if cuEstimator is Lasso:
         pytest.skip("https://github.com/rapidsai/cuml/issues/5298")
-    if cuEstimator is UMAP and IS_ARM:
-        pytest.skip("https://github.com/rapidsai/cuml/issues/5441")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("cpu"):
         if "y_train" in test_data:
@@ -654,8 +641,6 @@ def test_train_gpu_infer_cpu(test_data):
 
 def test_train_cpu_infer_gpu(test_data):
     cuEstimator = test_data["cuEstimator"]
-    if cuEstimator is UMAP and IS_ARM:
-        pytest.skip("https://github.com/rapidsai/cuml/issues/5441")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("cpu"):
         if "y_train" in test_data:
@@ -673,8 +658,6 @@ def test_train_cpu_infer_gpu(test_data):
 
 def test_train_gpu_infer_gpu(test_data):
     cuEstimator = test_data["cuEstimator"]
-    if cuEstimator is UMAP and IS_ARM:
-        pytest.skip("https://github.com/rapidsai/cuml/issues/5441")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("gpu"):
         if "y_train" in test_data:
@@ -732,8 +715,6 @@ def test_pickle_interop(tmp_path, test_data):
     ],
 )
 def test_hyperparams_defaults(estimator):
-    if estimator is UMAP and IS_ARM:
-        pytest.skip("https://github.com/rapidsai/cuml/issues/5441")
     model = estimator()
     cu_signature = inspect.signature(model.__init__).parameters
 
@@ -897,9 +878,6 @@ def test_ridge_methods(train_device, infer_device):
 
 
 @pytest.mark.parametrize("device", ["cpu", "gpu"])
-@pytest.mark.skipif(
-    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
-)
 def test_umap_methods(device):
     ref_model = refUMAP(n_neighbors=12)
     ref_embedding = ref_model.fit_transform(X_train_blob, y_train_blob)
