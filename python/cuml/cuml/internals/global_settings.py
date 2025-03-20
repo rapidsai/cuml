@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -134,3 +134,7 @@ class GlobalSettings:
     @property
     def xpy(self):
         return self.memory_type.xpy
+
+    @property
+    def xsparse(self):
+        return self.memory_type.xsparse

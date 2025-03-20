@@ -49,6 +49,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common import input_to_cuml_array
+from cuml.common.sparse_utils import is_sparse
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.global_settings import GlobalSettings
@@ -746,3 +747,12 @@ class KMeans(UniversalBase,
         return ['cluster_centers_', 'labels_', 'inertia_',
                 'n_iter_', 'n_features_in_', '_n_threads',
                 "feature_names_in_", "_n_features_out"]
+
+    def _should_dispatch_cpu(self, func_name, *args, **kwargs):
+        """
+        Dispatch to CPU implementation when sparse arrays are detected in the input
+        """
+        if func_name == "fit" and len(args) > 0:
+            X = args[0]
+            return is_sparse(X)
+        return False

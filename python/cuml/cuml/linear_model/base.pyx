@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,8 +74,9 @@ class LinearPredictMixin:
                 "Please fit the model first."
             )
         self.dtype = self.coef_.dtype
-        if len(self.coef_.shape) == 2 and self.coef_.shape[0] > 1:
-            # Handle multi-target prediction in Python.
+        multi_target = (len(self.coef_.shape) == 2 and self.coef_.shape[0] > 1)
+        intercept_is_scalar = isinstance(self.intercept_, (int, float, np.number))
+        if multi_target or not intercept_is_scalar:
             coef_arr = CumlArray.from_input(self.coef_).to_output('array')
             X_arr = CumlArray.from_input(
                 X,
@@ -83,10 +84,24 @@ class LinearPredictMixin:
                 convert_to_dtype=(self.dtype if convert_dtype else None),
                 check_cols=self.n_features_in_
             ).to_output('array')
-            intercept_arr = CumlArray.from_input(
-                self.intercept_
-            ).to_output('array')
-            preds_arr = X_arr @ coef_arr + intercept_arr
+            if intercept_is_scalar:  # support scalar inercept_ values
+                intercept_ = self.intercept_
+            else:
+                intercept_ = CumlArray.from_input(
+                    self.intercept_,
+                    convert_to_dtype=self.dtype if isinstance(self.intercept_, float) else False
+                ).to_output('array')
+            # Ensure coefficient array has correct shape for matrix
+            # multiplication. This is a workaround specifically for the Ridge
+            # estimator where the cuml implementation of Ridge uses a 2D coef_
+            # array with shape (c, n) whereas the sklearn Ridge uses a coef_
+            # array with shape (n,c).
+            if len(coef_arr.shape) == 2:
+                n_rows, n_features = X_arr.shape[0], X_arr.shape[1]
+                if coef_arr.shape[0] != n_features and coef_arr.shape[1] == n_features:
+                    coef_arr = coef_arr.T  # transpose
+
+            preds_arr = X_arr @ coef_arr + intercept_
             return preds_arr
 
         # Handle single-target prediction in C++

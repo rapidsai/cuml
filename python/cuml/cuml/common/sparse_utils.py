@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,8 +36,8 @@ def is_sparse(X):
     is_sparse : boolean
         is the input sparse?
     """
-    is_scipy_sparse = has_scipy() and scipy.sparse.isspmatrix(X)
-    return cupyx.scipy.sparse.isspmatrix(X) or is_scipy_sparse
+    is_scipy_sparse = has_scipy() and scipy.sparse.issparse(X)
+    return cupyx.scipy.sparse.issparse(X) or is_scipy_sparse
 
 
 def is_dense(X):
