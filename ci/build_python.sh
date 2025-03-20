@@ -42,7 +42,6 @@ rattler-build build --recipe conda/recipes/cuml \
                     "${RATTLER_CHANNELS[@]}"
 
 sccache --show-adv-stats
-sccache --zero-stats
 
 # Build cuml-cpu only in CUDA 12 jobs since it only depends on python
 # version
