@@ -20,7 +20,6 @@ from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
 
-import sys
 import joblib
 import warnings
 
