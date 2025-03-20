@@ -39,9 +39,10 @@ requirements:
     - umap-learn=0.5.6
     - nvtx
 
-tests:                                 # [linux64]
-  imports:                             # [linux64]
-    - cuml                             # [linux64]
+test:
+  # test that the package is installable and these modules are importable
+  imports:
+    - cuml
 
 about:
   home: https://rapids.ai/

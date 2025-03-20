@@ -27,7 +27,6 @@ from cuml.dask.common.utils import get_client
 from dask_cudf import Series as dcSeries
 from dask.dataframe import Series as daskSeries
 from dask.dataframe import DataFrame as daskDataFrame
-from cudf import Series
 from cuml.internals.safe_imports import gpu_only_import_from
 from collections import OrderedDict
 from cuml.internals.memory_utils import with_cupy_rmm
@@ -197,7 +196,7 @@ def _get_datatype_from_inputs(data):
 
 @with_cupy_rmm
 def concatenate(objs, axis=0):
-    if isinstance(objs[0], DataFrame) or isinstance(objs[0], Series):
+    if isinstance(objs[0], DataFrame) or isinstance(objs[0], cudf.Series):
         if len(objs) == 1:
             return objs[0]
         else:
