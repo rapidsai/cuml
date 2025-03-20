@@ -388,9 +388,3 @@ class Ridge(UniversalBase,
             # Check if we have multiple targets or 2D array
             return len(y_m.shape) > 1
         return False
-
-    def cpu_to_gpu(self):
-        super().cpu_to_gpu()
-        intercept_ = getattr(self._cpu_model, 'intercept_', None)
-        if intercept_ is not None and isinstance(self.intercept_, float):
-            setattr(self, 'intercept_', intercept_)
