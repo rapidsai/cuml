@@ -32,7 +32,8 @@ rattler-build build --recipe conda/recipes/libcuml \
 
 sccache --show-adv-stats
 
-# remove build_cache directory
+# remove build_cache directory to avoid uploading the entire source tree
+# tracked in https://github.com/prefix-dev/rattler-build/issues/1424
 rm -rf "$RAPIDS_CONDA_BLD_OUTPUT_DIR"/build_cache
 
 rapids-upload-conda-to-s3 cpp
