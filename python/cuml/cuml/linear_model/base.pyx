@@ -64,7 +64,6 @@ class LinearPredictMixin:
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.
-
         """
         self.dtype = self.coef_.dtype
 
@@ -73,29 +72,39 @@ class LinearPredictMixin:
                 "LinearModel.predict() cannot be called before fit(). "
                 "Please fit the model first."
             )
-        self.dtype = self.coef_.dtype
+
         multi_target = (len(self.coef_.shape) == 2 and self.coef_.shape[0] > 1)
-        intercept_is_scalar = isinstance(self.intercept_, (int, float, np.number))
-        if multi_target or not intercept_is_scalar:
-            coef_arr = CumlArray.from_input(self.coef_).to_output('array')
-            X_arr = CumlArray.from_input(
-                X,
-                check_dtype=self.dtype,
-                convert_to_dtype=(self.dtype if convert_dtype else None),
-                check_cols=self.n_features_in_
+        if multi_target:
+            return self._predict_multi_target(X, convert_dtype)
+        else:
+            return self._predict_single_target(X, convert_dtype)
+
+    def _predict_multi_target(self, X, convert_dtype=True) -> CumlArray:
+        """
+        Predict for multi-target case.
+        """
+        coef_arr = CumlArray.from_input(self.coef_).to_output('array')
+        X_arr = CumlArray.from_input(
+            X,
+            check_dtype=self.dtype,
+            convert_to_dtype=(self.dtype if convert_dtype else None),
+            check_cols=self.n_features_in_
+        ).to_output('array')
+        if isinstance(self.intercept_, (int, float, np.number)):
+            intercept_ = self.intercept_
+        else:
+            intercept_ = CumlArray.from_input(
+                self.intercept_,
+                convert_to_dtype=self.dtype if isinstance(self.intercept_, float) else False
             ).to_output('array')
-            if intercept_is_scalar:  # support scalar inercept_ values
-                intercept_ = self.intercept_
-            else:
-                intercept_ = CumlArray.from_input(
-                    self.intercept_,
-                    convert_to_dtype=self.dtype if isinstance(self.intercept_, float) else False
-                ).to_output('array')
 
-            preds_arr = X_arr @ coef_arr + intercept_
-            return preds_arr
+        preds_arr = X_arr @ coef_arr + intercept_
+        return preds_arr
 
-        # Handle single-target prediction in C++
+    def _predict_single_target(self, X, convert_dtype=True) -> CumlArray:
+        """
+        Predict for single-target case using C++ implementation.
+        """
         X_m, _n_rows, _n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype

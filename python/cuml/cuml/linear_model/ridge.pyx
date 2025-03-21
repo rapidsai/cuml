@@ -379,51 +379,32 @@ class Ridge(UniversalBase,
     def get_attr_names(self):
         return ['intercept_', 'coef_', 'n_features_in_', 'feature_names_in_']
 
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted values',
-                                       'shape': '(n_samples, 1)'})
-    @api_base_return_array_skipall
-    @enable_device_interop
-    def predict(self, X, convert_dtype=True) -> CumlArray:
-        """
-        Predicts `y` values for `X`.
-        """
-        if self.coef_ is None:
-            raise ValueError(
-                "LinearModel.predict() cannot be called before fit(). "
-                "Please fit the model first."
-            )
+    def _predict_multi_target(self, X, convert_dtype=True) -> CumlArray:
 
-        # Set dtype from coef_ as done in base class
-        self.dtype = self.coef_.dtype
-
-        # Only handle multi-target case here, let super() handle single-target
-        if len(self.coef_.shape) == 2 and self.coef_.shape[0] > 1:
-            coef_arr = CumlArray.from_input(self.coef_).to_output('array')
-            X_arr = CumlArray.from_input(
-                X,
-                check_dtype=self.dtype,
-                convert_to_dtype=(self.dtype if convert_dtype else None),
-                check_cols=self.n_features_in_
+        """
+        Predict for multi-target case.
+        """
+        coef_arr = CumlArray.from_input(self.coef_).to_output('array')
+        X_arr = CumlArray.from_input(
+            X,
+            check_dtype=self.dtype,
+            convert_to_dtype=(self.dtype if convert_dtype else None),
+            check_cols=self.n_features_in_
+        ).to_output('array')
+        if isinstance(self.intercept_, (int, float, np.number)):
+            intercept_ = self.intercept_
+        else:
+            intercept_ = CumlArray.from_input(
+                self.intercept_,
+                convert_to_dtype=self.dtype if isinstance(self.intercept_, float) else False
             ).to_output('array')
-            if isinstance(self.intercept_, (int, float, np.number)):
-                intercept_ = self.intercept_
-            else:
-                intercept_ = CumlArray.from_input(
-                    self.intercept_,
-                    convert_to_dtype=self.dtype if isinstance(self.intercept_, float) else False
-                ).to_output('array')
 
-            # For multi-target, we need to transpose coef_ for matrix multiplication
-            # X: (n_samples, n_features)
-            # coef_: (n_targets, n_features)
-            # We want: (n_samples, n_targets)
-            preds_arr = X_arr @ coef_arr.T + intercept_
-            return preds_arr
-
-        # Let super() handle single-target case
-        return super().predict(X, convert_dtype)
+        # For multi-target, we need to transpose coef_ for matrix multiplication
+        # X: (n_samples, n_features)
+        # coef_: (n_targets, n_features)
+        # We want: (n_samples, n_targets)
+        preds_arr = X_arr @ coef_arr.T + intercept_
+        return preds_arr
 
     def _should_dispatch_cpu(self, func_name, *args, **kwargs):
         """
