@@ -91,15 +91,6 @@ class LinearPredictMixin:
                     self.intercept_,
                     convert_to_dtype=self.dtype if isinstance(self.intercept_, float) else False
                 ).to_output('array')
-            # Ensure coefficient array has correct shape for matrix
-            # multiplication. This is a workaround specifically for the Ridge
-            # estimator where the cuml implementation of Ridge uses a 2D coef_
-            # array with shape (c, n) whereas the sklearn Ridge uses a coef_
-            # array with shape (n,c).
-            if len(coef_arr.shape) == 2:
-                n_rows, n_features = X_arr.shape[0], X_arr.shape[1]
-                if coef_arr.shape[0] != n_features and coef_arr.shape[1] == n_features:
-                    coef_arr = coef_arr.T  # transpose
 
             preds_arr = X_arr @ coef_arr + intercept_
             return preds_arr

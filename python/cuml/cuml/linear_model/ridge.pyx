@@ -378,6 +378,13 @@ class Ridge(UniversalBase,
     def get_attr_names(self):
         return ['intercept_', 'coef_', 'n_features_in_', 'feature_names_in_']
 
+    def cpu_to_gpu(self):
+        """Transfer attributes from CPU estimator to GPU estimator."""
+        super().cpu_to_gpu()
+        # Special handling for coef_ to match cuML's shape (c, n) vs sklearn's (n, c)
+        if hasattr(self, 'coef_') and len(self.coef_.shape) == 2:
+            self.coef_ = self.coef_.T
+
     def _should_dispatch_cpu(self, func_name, *args, **kwargs):
         """
         Dispatch fit() function to CPU implementation for multi-target regression.
