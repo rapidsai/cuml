@@ -17,6 +17,7 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.global_settings import GlobalSettings
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
@@ -378,6 +379,20 @@ class Ridge(UniversalBase,
 
     def get_attr_names(self):
         return ['intercept_', 'coef_', 'n_features_in_', 'feature_names_in_']
+
+    def _predict_single_target(self, X, convert_dtype=True) -> CumlArray:
+        """
+        Predict for single-target case.
+        """
+        preds = super()._predict_single_target(X, convert_dtype)
+        if GlobalSettings().accelerator_active:
+            # Ensure predictions are shape (n, 1) in accel mode
+            if len(preds.shape) == 1:
+                # Convert to array, reshape, then back to CumlArray
+                arr = preds.to_output('array')
+                arr = arr.reshape(-1, 1)
+                preds = CumlArray.from_input(arr, order='F')
+        return preds
 
     def _predict_multi_target(self, X, convert_dtype=True) -> CumlArray:
 
