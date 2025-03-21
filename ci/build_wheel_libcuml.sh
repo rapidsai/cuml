@@ -48,7 +48,6 @@ EXCLUDE_ARGS=(
 export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DCPM_cumlprims_mg_SOURCE=${GITHUB_WORKSPACE}/cumlprims_mg/"
 ./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
-mkdir -p ${package_dir}/final_dist
 python -m auditwheel repair \
     "${EXCLUDE_ARGS[@]}" \
     -w "${wheel_dir}" \
