@@ -25,7 +25,7 @@ Support for Windows is possible in the near future.
    api.rst
    user_guide.rst
    cuml_blogs.rst
-
+   developers/index.rst
 
 Indices and tables
 ==================
