@@ -113,6 +113,18 @@ class LinearPredictMixin:
         cdef uintptr_t _X_ptr = X_m.ptr
         cdef uintptr_t _coef_ptr = self.coef_.ptr
 
+        # Assume intercept is a scalar for single-target case
+        if isinstance(self.intercept_, CumlArray):
+            try:
+                intercept = self.intercept_.item()
+            except (ValueError, TypeError):
+                raise ValueError(
+                    "For single-target prediction, intercept must be a scalar "
+                    "or size-1 array"
+                )
+        else:
+            intercept = self.intercept_
+
         preds = CumlArray.zeros(_n_rows, dtype=dtype, index=X_m.index)
         cdef uintptr_t _preds_ptr = preds.ptr
 
@@ -124,7 +136,7 @@ class LinearPredictMixin:
                             <size_t>_n_rows,
                             <size_t>_n_cols,
                             <float*>_coef_ptr,
-                            <float>self.intercept_,
+                            <float>intercept,
                             <float*>_preds_ptr)
             else:
                 gemmPredict(handle_[0],
@@ -132,7 +144,7 @@ class LinearPredictMixin:
                             <size_t>_n_rows,
                             <size_t>_n_cols,
                             <double*>_coef_ptr,
-                            <double>self.intercept_,
+                            <double>intercept,
                             <double*>_preds_ptr)
 
         self.handle.sync()
