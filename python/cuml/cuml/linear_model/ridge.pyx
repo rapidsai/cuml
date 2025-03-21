@@ -261,7 +261,6 @@ class Ridge(UniversalBase,
     def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "Ridge":
         """
         Fit the model with X and y.
-
         """
         self.algo = self._get_algorithm_int(self.solver)
 
@@ -307,7 +306,12 @@ class Ridge(UniversalBase,
 
         self.n_alpha = 1
 
-        self.coef_ = CumlArray.zeros(self.n_features_in_, dtype=self.dtype)
+        # Initialize coef_ with correct shape based on y
+        if len(y_m.shape) == 2:
+            assert y_m.shape == (n_rows, 1)
+            self.coef_ = CumlArray.zeros((1, self.n_features_in_), dtype=self.dtype)
+        else:
+            self.coef_ = CumlArray.zeros(self.n_features_in_, dtype=self.dtype)
         cdef uintptr_t _coef_ptr = self.coef_.ptr
 
         cdef float _c_intercept_f32
@@ -385,13 +389,11 @@ class Ridge(UniversalBase,
         Predict for single-target case.
         """
         preds = super()._predict_single_target(X, convert_dtype)
-        if GlobalSettings().accelerator_active:
-            # Ensure predictions are shape (n, 1) in accel mode
-            if len(preds.shape) == 1:
-                # Convert to array, reshape, then back to CumlArray
-                arr = preds.to_output('array')
-                arr = arr.reshape(-1, 1)
-                preds = CumlArray.from_input(arr, order='F')
+        # If coef_ is 2D with shape (1, n_features), ensure predictions are also 2D
+        if len(self.coef_.shape) == 2 and len(preds.shape) == 1:
+            arr = preds.to_output('array')
+            arr = arr.reshape(-1, 1)
+            preds = CumlArray.from_input(arr, order='F')
         return preds
 
     def _predict_multi_target(self, X, convert_dtype=True) -> CumlArray:
