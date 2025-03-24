@@ -7,19 +7,25 @@ mkdir -p ./dist
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
 RAPIDS_PY_WHEEL_NAME="cuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 python ./dist
 RAPIDS_PY_WHEEL_NAME="libcuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-s3 cpp ./dist
+RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
+mkdir -p "${RAPIDS_TESTS_DIR}"
+
+# Install just minimal dependencies first
+rapids-pip-retry install \
+  ./dist/libcuml*.whl \
+  ./dist/cuml*.whl
+
+# Try to import cuml with just a minimal install"
+rapids-logger "Importing cuml with minimal dependencies"
+python -c "import cuml"
 
 # echo to expand wildcard before adding `[extra]` requires for pip
 rapids-pip-retry install \
-  ./dist/libcuml*.whl \
   "$(echo ./dist/cuml*.whl)[test]"
-
-RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
-mkdir -p "${RAPIDS_TESTS_DIR}"
 
 EXITCODE=0
 trap "EXITCODE=1" ERR
 set +e
-
 
 rapids-logger "pytest cuml single GPU"
 ./ci/run_cuml_singlegpu_pytests.sh \
