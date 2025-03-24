@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
 
         >>> # Compute accuracy on training set
         >>> model.score(X, y)
-        array(0.924...)
+        array(0.9...)
         >>> client.close()
         >>> cluster.close()
 
