@@ -47,68 +47,68 @@ from cuml.internals.import_utils import has_sklearn
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.api_decorators import device_interop_preparation, enable_device_interop
 
-from sklearn.svm import SVC as skSVC
-from sklearn.preprocessing import LabelBinarizer
-from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.available_devices import is_cuda_available
-
-
-class cpuModelSVC(skSVC):
-    def fit(self, X, y, sample_weight=None):
-        self.classes_ = np.unique(y)
-        self.n_classes_ = len(self.classes_)
-
-        if self.probability:
-            params = self.get_params()
-            params["probability"] = False
-
-            if self.n_classes_ == 2:
-                estimator = skSVC(**params)
-            else:
-                if self.decision_function_shape == 'ovr':
-                    estimator = OneVsRestClassifier(skSVC(**params))
-                elif self.decision_function_shape == 'ovo':
-                    estimator = OneVsOneClassifier(skSVC(**params))
-                else:
-                    raise ValueError
-
-            self.prob_svc = CalibratedClassifierCV(estimator,
-                                                   cv=5,
-                                                   method='sigmoid')
-            self.prob_svc.fit(X, y)
-        elif self.n_classes_ == 2:
-            super().fit(X, y, sample_weight)
-        else:
-            params = self.get_params()
-            if self.decision_function_shape == 'ovr':
-                self.multi_class_model = OneVsRestClassifier(skSVC(**params))
-            elif self.decision_function_shape == 'ovo':
-                self.multi_class_model = OneVsOneClassifier(skSVC(**params))
-            else:
-                raise ValueError
-            self.multi_class_model.fit(X, y)
-
-    def predict(self, X):
-        if self.probability:
-            return self.prob_svc.predict(X)
-        elif self.n_classes_ == 2:
-            return super().predict(X)
-        else:
-            return self.multi_class_model.predict(X)
-
-    def predict_proba(self, X):
-        if self.probability:
-            return self.prob_svc.predict_proba(X)
-        elif self.n_classes_ == 2:
-            return super().predict_proba(X)
-        else:
-            return self.multi_class_model.predict_proba(X)
-
 
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
     from sklearn.calibration import CalibratedClassifierCV
+    from sklearn.svm import SVC as skSVC
+    from sklearn.preprocessing import LabelBinarizer
+    from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
+
+    # TODO: this is a hack to support the current cuml.accel design - we should
+    # refactor so normal sklearn.svm classes may be used instead.
+    class _CPUModelSVC(skSVC):
+        def fit(self, X, y, sample_weight=None):
+            self.classes_ = np.unique(y)
+            self.n_classes_ = len(self.classes_)
+
+            if self.probability:
+                params = self.get_params()
+                params["probability"] = False
+
+                if self.n_classes_ == 2:
+                    estimator = skSVC(**params)
+                else:
+                    if self.decision_function_shape == 'ovr':
+                        estimator = OneVsRestClassifier(skSVC(**params))
+                    elif self.decision_function_shape == 'ovo':
+                        estimator = OneVsOneClassifier(skSVC(**params))
+                    else:
+                        raise ValueError
+
+                self.prob_svc = CalibratedClassifierCV(
+                    estimator, cv=5, method='sigmoid'
+                )
+                self.prob_svc.fit(X, y)
+            elif self.n_classes_ == 2:
+                super().fit(X, y, sample_weight)
+            else:
+                params = self.get_params()
+                if self.decision_function_shape == 'ovr':
+                    self.multi_class_model = OneVsRestClassifier(skSVC(**params))
+                elif self.decision_function_shape == 'ovo':
+                    self.multi_class_model = OneVsOneClassifier(skSVC(**params))
+                else:
+                    raise ValueError
+                self.multi_class_model.fit(X, y)
+
+        def predict(self, X):
+            if self.probability:
+                return self.prob_svc.predict(X)
+            elif self.n_classes_ == 2:
+                return super().predict(X)
+            else:
+                return self.multi_class_model.predict(X)
+
+        def predict_proba(self, X):
+            if self.probability:
+                return self.prob_svc.predict_proba(X)
+            elif self.n_classes_ == 2:
+                return super().predict_proba(X)
+            else:
+                return self.multi_class_model.predict_proba(X)
 
 
 cdef extern from "raft/distance/distance_types.hpp" \
@@ -404,7 +404,7 @@ class SVC(SVMBase,
 
     """
 
-    _cpu_estimator_import_path = 'cuml.svm.cpuModelSVC'
+    _cpu_estimator_import_path = 'cuml.svm.svc._CPUModelSVC'
 
     class_weight_ = CumlArrayDescriptor(order='F')
 
