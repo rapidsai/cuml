@@ -21,6 +21,7 @@ python -c "import cuml"
 
 # echo to expand wildcard before adding `[extra]` requires for pip
 rapids-pip-retry install \
+   ./dist/libcuml*.whl \
   "$(echo ./dist/cuml*.whl)[test]"
 
 EXITCODE=0
