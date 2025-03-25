@@ -759,8 +759,8 @@ class ForestInference(Base,
                  output_type=None,
                  verbose=False):
         warnings.warn(
-            "This version of ForestInference is deprecated. Please use `import"
-            " ForestInference from cuml` to import the new ForestInference"
+            "This version of ForestInference is deprecated. Please use `from"
+            " cuml.fil import ForestInference` to import the new ForestInference"
             " implementation.",
             FutureWarning
         )
