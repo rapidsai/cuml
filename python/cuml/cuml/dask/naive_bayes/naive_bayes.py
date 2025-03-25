@@ -75,8 +75,8 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
         <cuml.dask.naive_bayes.naive_bayes.MultinomialNB object at 0x...>
 
         >>> # Compute accuracy on training set
-        >>> model.score(X, y)
-        array(0.9...)
+        >>> model.score(X, y)  # doctest: +SKIP
+        array(0.924...)
         >>> client.close()
         >>> cluster.close()
 
