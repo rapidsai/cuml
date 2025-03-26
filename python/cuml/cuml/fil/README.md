@@ -1,79 +1,79 @@
 # FIL - RAPIDS Forest Inference Library
 
-The Forest Inference Library provides a lightweight, flexible API to
-infer (predict) results from a tree-based model ensemble on GPU. The
-tree ensemble can be either gradient-boosted decision tree (GBDT) or
-random forest (RF) models trained in XGBoost, cuML, scikit-learn, or
-LightGBM.
-
-# Code sample
-
-Starting with an XGBoost classification model saved in the file
-"xgb.mod," we want to use that model to infer on a large dataset of
-test samples.
+The Forest Inference Library is a subset of cuML designed to accelerate inference for tree-based models regardless of what framework they are trained on. FIL can accelerate XGBoost models, Scikit-Learn/cuML `RandomForest` models, LightGBM models, and any other model that can be converted to Treelite. An example invocation is shown below:
 
 ```python
 from cuml import ForestInference
 
-fm = ForestInference.load(filename=model_path,
-                          output_class=True,
-                          threshold=0.50,
-                          model_type='xgboost')
-
-X = ... load test samples as a numpy or cupy array ...
-
-y_out = fm.predict(X)
-
+fil_model = ForestInference.load("./my_xgboost_classifier.ubj", output_class=True)
+class_predictions = fil_model.predict(input_data)
 ```
 
-See [the sample notebook](https://github.com/rapidsai/cuml/blob/main/notebooks/forest_inference_demo.ipynb) for much more detail and runnable samples.
+FIL typically offers speedups of 80x or more relative to native inference with e.g. a Scikit-Learn `RandomForest` model on CPU.
 
-Additionally, FIL can be called directly from C or C++ code. See [the API docs here](https://docs.rapids.ai/api/libcuml/nightly/namespaceML_1_1fil.html)
+## Optional CPU Execution
+While FIL offers the most benefit for large models and batch sizes by taking advantage of the speed and parallelism of NVIDIA GPUs, it can also be used to speed up inference on CPUs. This can be convenient for testing in environments without access to GPUs. It can also be useful for deployments which experience dramatic shifts in traffic. When the number of incoming inference requests is low, CPU execution can be used. When traffic spikes, the deployment can seamlessly scale up onto GPUs in order to handle the additional load as cheaply as possible without significantly increasing latency.
 
-# Features
+## Optimizing Hyperparameters
+FIL has a number of performance hyperparameters which can be used to get the maximum performance for a specific model and batch size. These can be tuned manually, but the built-in `.optimize` method makes it easy to quickly set those hyperparameters to the optimal value for a specific use case:
 
-* Input model source: XGBoost (binary format), cuML RandomForest, scikit-learn RandomForest and similar classes, LightGBM
-* Model types: Regression, Binary Classification, Multi-class Classification
-* Tree storage types: Dense or sparse tree storage (see Sparse Forests with FIL blog below)
-* Input formats: Dense, row-major, FP32 arrays on GPU or CPU (e.g. NumPy, cuPy, or other data formats supported by cuML). Trees are expected to be trained for float32 inputs. There may be rounding differences if trees were trained for float64 inputs.
-* High performance batch inference
-* Input parsing based on (Treelite)[https://github.com/dmlc/treelite]
+```python
+fil_model.optimize(batch_size=1_000_000)
+output = fil_model.predict(input_data)
+```
 
-Upcoming features:
+This method will optimize the `layout` hyperparameter, which determines the order in which tree nodes are arranged in memory as well as `default_chunk_size`, which determines the granularity of parallelization during inference.
 
-* Support for multi-class random forests from scikit-learn
-* Support for 8-byte sparse nodes to reduce memory usage for small trees is experimental
-* Categorical features for LightGBM models
+Additionally, you may wish to experiment with the `align_bytes` parameter. Its default value is typically close enough to optimal that it is not automatically searched during auto-optimization, but to squeeze the most performance possible out of FIL, try either 0 or 128 on GPU and 0 or 64 on CPU.
 
-# Benchmarks and performance notes
+### Deprecated `load` Parameters
+As of RAPIDS 25.04, the following hyperparameters accepted by the `.load` method of previous versions of FIL have been deprecated.
 
-(1) The core data format supported by FIL is an FP32, (row-major)[https://en.wikipedia.org/wiki/Row-_and_column-major_order] array on
-GPU. All other input types will be automatically converted to this
-format internally, but you will get the lowest latency if you use that
-format to start with.
+- `threshold` (will raise a `DeprecationWarning` if used; pass to `.predict` instead)
+- `algo` (ignored, but a warning will be logged)
+- `storage_type` (ignored, but a warning will be logged)
+- `blocks_per_sm` (ignored, but a warning will be logged)
+- `threads_per_tree` (ignored, but a warning will be logged)
+- `n_items` (ignored, but a warning will be logged)
+- `compute_shape_str` (ignored, but a warning will be logged)
 
-(2) FIL is optimized for high-throughput, batch inference, so its
-performance benefits become more pronounced as the size of the test
-data X grows. Larger, more complex models (e.g. those with more trees)
-will also see a greater boost as they can fully occupy a large GPU.
+### New `load` Parameters
+As of RAPIDS 25.04, the following new hyperparameters can be passed to the `.load` method
 
-The chart below shows how performance (measured in microseconds per
-row) varies as the number of input rows increases, comparing both
-CPU-based inference (XGBoost CPU inference, and the optimized treelite
-library) and GPU-based inference (XGBoost and FIL).
+- `layout`: Replaces the functionality of `algo` and specifies the in-memory layout of nodes in FIL forests. One of `'depth_first'` (default), `'layered'` or `'breadth_first'`.
+- `align_bytes`: If specified, trees will be padded such that their in-memory size is a multiple of this value. This can sometimes improve performance by guaranteeing that memory reads from trees begin on a cache line boundary.
 
-![FIL Performance Chart](./fil_performance_nrows.png)
+### New Prediction Parameters
+As of RAPIDS 25.04, all prediction methods accept a `chunk_size` parameter, which determines how batches are further subdivided for parallel processing. The optimal value depends on hardware, model, and batch size, and it is difficult to predict in advance. Typically, it is best to use the `.optimize` method to determine the best chunk size for a given batch size. If `chunk_size` must be set manually, the only general rule of thumb is that larger batch sizes generally benefit from larger chunk sizes. On GPU, `chunk_size` can be any power of 2 from 1 to 32. On CPU, `chunk_size` can be any power of 2, but values above 512 rarely offer any benefit.
 
-(_Benchmarks were run on a DGX1-Volta system with 2x 20-core
-Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz CPUs and a single V100-32gb
-GPU, using FIL 0.9.)
+Additionally, `threshold` has been converted from a `.load` parameter to a `.predict` parameter.
 
+## Extra Prediction Modes
+To gain additional insight on how models arrive at their inference decision, FIL now includes the `.predict_per_tree` and `.apply` methods. The first returns the output for every single tree in the ensemble individually. The second returns the ID of the leaf node obtained for every tree in the ensemble.
 
-# Blogs and further references
+## Upcoming Changes
+In RAPIDS 25.06, the shape of output arrays will change slightly for some models. Binary classifiers will return an array of solely the probabilities of the positive class for `predict_proba` calls. This both reduces memory requirements and improves performance. To convert to the old format, the following snippet can be used:
 
-* [RAPIDS Forest Inference Library: Prediction at 100 million rows per second](https://medium.com/rapids-ai/rapids-forest-inference-library-prediction-at-100-million-rows-per-second-19558890bc35)
-* [Sparse Forests with FIL](https://medium.com/rapids-ai/sparse-forests-with-fil-ffbb42b0c7e3
-)
-* [GBM Inferencing on GPU, 2018 talk (earlier research work)](https://on-demand.gputechconf.com/gtc/2018/presentation/s8873-gbm-inferencing-on-gpu-v2.pdf)
-* [Sample Notebook](https://github.com/rapidsai/cuml/blob/branch-0.16/notebooks/forest_inference_demo.ipynb)
-* [GTC 2021 talk](https://www.nvidia.com/en-us/on-demand/session/gtcspring21-s31296/)
+```python
+import numpy as np  # Use cupy or numpy depending on which you use for input data
+
+out = fil_model.predict_proba(input_data)
+# Starting in RAPIDS 25.06, the following can be used to obtain the old output shape
+out = np.stack([1 - out, out], axis=1)
+```
+
+Additionally, `.predict` calls will output two-dimensional arrays beginning in 25.06. This is in preparation for supporting multi-target regression and classification models. The old shape can be obtained via the following snippet:
+
+```python
+import numpy as np  # Use cupy or numpy depending on which you use for input data
+
+out = fil_model.predict(input_data)
+# Starting in RAPIDS 25.06, the following can be used to obtain the old output shape
+out = out.flatten()
+```
+
+To use these new behaviors immediately, the `ForestInference` estimator can be imported from the `experimental` namespace:
+
+```python
+from cuml.experimental.fil import ForestInference
+```

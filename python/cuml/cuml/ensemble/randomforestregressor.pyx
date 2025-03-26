@@ -47,7 +47,7 @@ from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.ensemble.randomforest_common import _obtain_fil_model
 from cuml.ensemble.randomforest_shared cimport *
 
-from cuml.fil.fil import TreeliteModel
+from cuml.legacy.fil.fil import TreeliteModel
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint64_t
