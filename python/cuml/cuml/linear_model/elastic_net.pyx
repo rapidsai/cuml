@@ -264,6 +264,13 @@ class ElasticNet(UniversalBase,
         if hasattr(X, 'index'):
             self.feature_names_in_ = X.index
 
+        # Check for multi-target regression
+        if (self.solver in ['cd', 'qn']) and y.ndim > 1 and y.shape[1] > 1:
+            raise ValueError(
+                f"The {self.solver} solver does not support "
+                "multi-target regression."
+            )
+
         self.solver_model.fit(X, y, convert_dtype=convert_dtype,
                               sample_weight=sample_weight)
         if isinstance(self.solver_model, QN):
