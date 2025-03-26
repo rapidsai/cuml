@@ -127,7 +127,10 @@ class LinearPredictMixin:
 
         # If coef_ is 2D with shape (1, n_features), ensure predictions are also 2D
         if len(self.coef_.shape) == 2:
-            assert self.coef_.shape == (_n_rows, 1)
+            # coef_ is 2D with shape (1, n_features), but this function only
+            # handles single-target prediction. For multi-target prediction, use
+            # _predict_multi_target() instead.
+            assert self.coef_.shape == (1, _n_cols)
             preds = CumlArray.zeros((_n_rows, 1), dtype=dtype, index=X_m.index)
         else:
             preds = CumlArray.zeros(_n_rows, dtype=dtype, index=X_m.index)
