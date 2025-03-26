@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@ from libcpp.vector cimport vector
 from libcpp.string cimport string
 
 from pylibraft.common.handle import Handle
-from cuml import ForestInference
 from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
 cimport cuml.common.cuda

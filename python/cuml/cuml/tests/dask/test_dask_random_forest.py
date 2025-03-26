@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 #
 
 
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -323,7 +323,7 @@ def test_rf_classification_dask_fil_predict_proba(
 def test_rf_concatenation_dask(client, model_type):
     n_workers = len(client.scheduler_info()["workers"])
 
-    from cuml.fil.fil import TreeliteModel
+    from cuml.legacy.fil.fil import TreeliteModel
 
     X, y = make_classification(
         n_samples=n_workers * 200, n_features=30, random_state=123, n_classes=2

@@ -29,6 +29,7 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free as c_free
 
 import cuml.internals
+import warnings
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
@@ -757,6 +758,12 @@ class ForestInference(Base,
                  handle=None,
                  output_type=None,
                  verbose=False):
+        warnings.warn(
+            "This version of ForestInference is deprecated. Please use `from"
+            " cuml.fil import ForestInference` to import the new ForestInference"
+            " implementation.",
+            FutureWarning
+        )
         super().__init__(handle=handle,
                          verbose=verbose,
                          output_type=output_type)
