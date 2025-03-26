@@ -134,18 +134,17 @@ void transform(const raft::handle_t& handle,
                float* X,
                int n,
                int d,
-               float* orig_X,
-               int orig_n,
-               float* embedding,
-               int embedding_n,
+               float* trained_X,
+               float* trained_embeddings,
+               int n_trained,
                UMAPParams* params,
                float* transformed)
 {
   if (dispatch_to_uint64_t(n, params->n_neighbors, params->n_components))
     _transform<uint64_t>(
-      handle, X, n, d, orig_X, orig_n, embedding, embedding_n, params, transformed);
+      handle, X, n, d, trained_X, trained_embeddings, n_trained, params, transformed);
   else
-    _transform<int>(handle, X, n, d, orig_X, orig_n, embedding, embedding_n, params, transformed);
+    _transform<int>(handle, X, n, d, trained_X, trained_embeddings, n_trained, params, transformed);
 }
 
 void transform_sparse(const raft::handle_t& handle,
@@ -155,13 +154,12 @@ void transform_sparse(const raft::handle_t& handle,
                       size_t nnz,
                       int n,
                       int d,
-                      int* orig_x_indptr,
-                      int* orig_x_indices,
-                      float* orig_x_data,
-                      size_t orig_nnz,
-                      int orig_n,
-                      float* embedding,
-                      int embedding_n,
+                      int* trained_indptr,
+                      int* trained_indices,
+                      float* trained_data,
+                      size_t trained_nnz,
+                      float* trained_embedding,
+                      int n_trained,
                       UMAPParams* params,
                       float* transformed)
 {
@@ -173,13 +171,12 @@ void transform_sparse(const raft::handle_t& handle,
                                 nnz,
                                 n,
                                 d,
-                                orig_x_indptr,
-                                orig_x_indices,
-                                orig_x_data,
-                                orig_nnz,
-                                orig_n,
-                                embedding,
-                                embedding_n,
+                                trained_indptr,
+                                trained_indices,
+                                trained_data,
+                                trained_nnz,
+                                trained_embedding,
+                                n_trained,
                                 params,
                                 transformed);
   else
@@ -190,13 +187,12 @@ void transform_sparse(const raft::handle_t& handle,
                            nnz,
                            n,
                            d,
-                           orig_x_indptr,
-                           orig_x_indices,
-                           orig_x_data,
-                           orig_nnz,
-                           orig_n,
-                           embedding,
-                           embedding_n,
+                           trained_indptr,
+                           trained_indices,
+                           trained_data,
+                           trained_nnz,
+                           trained_embedding,
+                           n_trained,
                            params,
                            transformed);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -168,10 +168,9 @@ void fit_sparse(const raft::handle_t& handle,
  * @param[in] X: pointer to input array to be inferred
  * @param[in] n: n_samples of input array to be inferred
  * @param[in] d: n_features of input array to be inferred
- * @param[in] orig_X: pointer to original training array
- * @param[in] orig_n: number of rows in original training array
- * @param[in] embedding: pointer to embedding created during training
- * @param[in] embedding_n: number of rows in embedding created during training
+ * @param[in] trained_X: pointer to original training array
+ * @param[in] trained_embeddings: pointer to embedding created during training
+ * @param[in] n_trained: number of rows in original training input
  * @param[in] params: pointer to ML::UMAPParams object
  * @param[out] transformed: pointer to embedding produced through projection
  */
@@ -179,10 +178,9 @@ void transform(const raft::handle_t& handle,
                float* X,
                int n,
                int d,
-               float* orig_X,
-               int orig_n,
-               float* embedding,
-               int embedding_n,
+               float* trained_X,
+               float* trained_embeddings,
+               int n_trained,
                UMAPParams* params,
                float* transformed);
 
@@ -196,13 +194,12 @@ void transform(const raft::handle_t& handle,
  * @param[in] nnz: number of stored values of input array to be inferred
  * @param[in] n: n_samples of input array
  * @param[in] d: n_features of input array
- * @param[in] orig_x_indptr: pointer to index pointer array of original training array
- * @param[in] orig_x_indices: pointer to index array of original training array
- * @param[in] orig_x_data: pointer to data array of original training array
- * @param[in] orig_nnz: number of stored values of original training array
- * @param[in] orig_n: number of rows in original training array
- * @param[in] embedding: pointer to embedding created during training
- * @param[in] embedding_n: number of rows in embedding created during training
+ * @param[in] trained_indptr: pointer to index pointer array of original training array
+ * @param[in] trained_indices: pointer to index array of original training array
+ * @param[in] trained_data: pointer to data array of original training array
+ * @param[in] trained_nnz: number of stored values of original training array
+ * @param[in] trained_embedding: pointer to embedding created during training
+ * @param[in] n_trained: number of rows in original training input
  * @param[in] params: pointer to ML::UMAPParams object
  * @param[out] transformed: pointer to embedding produced through projection
  */
@@ -213,13 +210,12 @@ void transform_sparse(const raft::handle_t& handle,
                       size_t nnz,
                       int n,
                       int d,
-                      int* orig_x_indptr,
-                      int* orig_x_indices,
-                      float* orig_x_data,
-                      size_t orig_nnz,
-                      int orig_n,
-                      float* embedding,
-                      int embedding_n,
+                      int* trained_indptr,
+                      int* trained_indices,
+                      float* trained_data,
+                      size_t trained_nnz,
+                      float* trained_embedding,
+                      int n_trained,
                       UMAPParams* params,
                       float* transformed);
 
