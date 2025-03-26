@@ -29,8 +29,14 @@ EXCLUDE_ARGS=(
   --exclude "librapids_logger.so"
 )
 
+source rapids-telemetry-setup
+
+sccache --zero-stats
+
 export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DSINGLEGPU=OFF;-DUSE_LIBCUML_WHEEL=ON"
-./ci/build_wheel.sh "${package_name}" "${package_dir}"
+rapids-telemetry-record build.log ./ci/build_wheel.sh "${package_name}" "${package_dir}"
+
+rapids-telemetry-record sccache-stats.txt sccache --show-adv-stats
 
 mkdir -p ${package_dir}/final_dist
 python -m auditwheel repair \
