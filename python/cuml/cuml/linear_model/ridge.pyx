@@ -384,45 +384,6 @@ class Ridge(UniversalBase,
     def get_attr_names(self):
         return ['intercept_', 'coef_', 'n_features_in_', 'feature_names_in_']
 
-    def _predict_single_target(self, X, convert_dtype=True) -> CumlArray:
-        """
-        Predict for single-target case.
-        """
-        preds = super()._predict_single_target(X, convert_dtype)
-        # If coef_ is 2D with shape (1, n_features), ensure predictions are also 2D
-        if len(self.coef_.shape) == 2 and len(preds.shape) == 1:
-            arr = preds.to_output('array')
-            arr = arr.reshape(-1, 1)
-            preds = CumlArray.from_input(arr, order='F')
-        return preds
-
-    def _predict_multi_target(self, X, convert_dtype=True) -> CumlArray:
-
-        """
-        Predict for multi-target case.
-        """
-        coef_arr = CumlArray.from_input(self.coef_).to_output('array')
-        X_arr = CumlArray.from_input(
-            X,
-            check_dtype=self.dtype,
-            convert_to_dtype=(self.dtype if convert_dtype else None),
-            check_cols=self.n_features_in_
-        ).to_output('array')
-        if isinstance(self.intercept_, (int, float, np.number)):
-            intercept_ = self.intercept_
-        else:
-            intercept_ = CumlArray.from_input(
-                self.intercept_,
-                convert_to_dtype=self.dtype if isinstance(self.intercept_, float) else False
-            ).to_output('array')
-
-        # For multi-target, we need to transpose coef_ for matrix multiplication
-        # X: (n_samples, n_features)
-        # coef_: (n_targets, n_features)
-        # We want: (n_samples, n_targets)
-        preds_arr = X_arr @ coef_arr.T + intercept_
-        return preds_arr
-
     def _should_dispatch_cpu(self, func_name, *args, **kwargs):
         """
         Dispatch fit() function to CPU implementation for multi-target regression.

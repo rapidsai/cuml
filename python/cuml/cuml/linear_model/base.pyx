@@ -98,7 +98,7 @@ class LinearPredictMixin:
                 convert_to_dtype=self.dtype if isinstance(self.intercept_, float) else False
             ).to_output('array')
 
-        preds_arr = X_arr @ coef_arr + intercept_
+        preds_arr = X_arr @ coef_arr.T + intercept_
         return preds_arr
 
     def _predict_single_target(self, X, convert_dtype=True) -> CumlArray:
@@ -148,5 +148,11 @@ class LinearPredictMixin:
                             <double*>_preds_ptr)
 
         self.handle.sync()
+
+        # If coef_ is 2D with shape (1, n_features), ensure predictions are also 2D
+        if len(self.coef_.shape) == 2 and len(preds.shape) == 1:
+            arr = preds.to_output('array')
+            arr = arr.reshape(-1, 1)
+            preds = CumlArray.from_input(arr, order='F')
 
         return preds
