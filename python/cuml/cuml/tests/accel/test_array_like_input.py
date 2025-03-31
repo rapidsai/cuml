@@ -18,6 +18,8 @@ import numpy as np
 import pytest
 from cuml.internals.array import CumlArray
 from cuml.internals.global_settings import GlobalSettings
+from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import Ridge
 
 
 @pytest.mark.parametrize(
@@ -108,3 +110,47 @@ def test_cumlarray_from_input_with_dtype(dtype):
     np.testing.assert_array_equal(
         arr.to_output("numpy"), np.array([1, 2, 3], dtype=dtype)
     )
+
+
+def test_logistic_regression_list_input():
+    """Test LogisticRegression with list input."""
+    if not GlobalSettings().accelerator_active:
+        pytest.skip("Skipping test because accelerator is not active")
+
+    # Create simple binary classification data
+    X = [[1, 2], [3, 4], [5, 6]]
+    y = [0, 1, 0]
+
+    # Fit model
+    model = LogisticRegression()
+    model.fit(X, y)
+
+    # Make predictions
+    X_test = [[2, 3], [4, 5]]
+    preds = model.predict(X_test)
+
+    # Verify predictions
+    assert isinstance(preds, np.ndarray)
+    assert all(pred in [0, 1] for pred in preds)
+
+
+def test_ridge_list_input():
+    """Test Ridge regression with list input."""
+    if not GlobalSettings().accelerator_active:
+        pytest.skip("Skipping test because accelerator is not active")
+
+    # Create simple regression data
+    X = [[1, 2], [3, 4], [5, 6]]
+    y = [2, 4, 6]
+
+    # Fit model
+    model = Ridge(alpha=1.0)
+    model.fit(X, y)
+
+    # Make predictions
+    X_test = [[2, 3], [4, 5]]
+    preds = model.predict(X_test)
+
+    # Verify predictions
+    assert isinstance(preds, np.ndarray)
+    assert all(isinstance(pred, (np.floating, float)) for pred in preds)
