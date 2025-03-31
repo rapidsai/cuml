@@ -175,12 +175,4 @@ def _to_cudf(arr):
 
 
 def to_dask_cudf(dask_arr, client=None):
-    client = default_client() if client is None else client
-
-    elms = [_to_cudf(dp) for dp in dask_arr.to_delayed().flatten()]
-    dfs = client.compute(elms)
-
-    meta = client.submit(_get_meta, dfs[0])
-    meta_local = meta.result()
-
-    return dd.from_delayed(dfs, meta=meta_local)
+    return dd.from_dask_array(dask_arr)

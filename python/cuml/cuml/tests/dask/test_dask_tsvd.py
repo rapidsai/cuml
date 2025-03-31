@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import cudf
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
 from cuml.internals.safe_imports import gpu_only_import
 from cuml.testing.utils import array_equal, unit_param, stress_param
@@ -60,6 +61,7 @@ def test_pca_fit(data_info, input_type, client):
 
     if input_type == "dataframe":
         X_train = to_dask_cudf(X)
+        assert type(X_train._meta) is cudf.DataFrame
         X_cpu = X_train.compute().to_pandas().values
     elif input_type == "array":
         X_train = X
