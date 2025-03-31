@@ -26,8 +26,8 @@ import typing
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from cuml import ForestInference
-from cuml.fil.fil import TreeliteModel
+from cuml.legacy.fil.fil import ForestInference
+from cuml.legacy.fil.fil import TreeliteModel
 from pylibraft.common.handle import Handle
 from cuml.internals.base import UniversalBase
 from cuml.internals.array import CumlArray
@@ -110,8 +110,7 @@ class BaseRandomForestModel(UniversalBase):
                  criterion=None,
                  max_batch_size=4096, **kwargs):
 
-        sklearn_params = {"criterion": criterion,
-                          "min_weight_fraction_leaf": min_weight_fraction_leaf,
+        sklearn_params = {"min_weight_fraction_leaf": min_weight_fraction_leaf,
                           "max_leaf_nodes": max_leaf_nodes,
                           "min_impurity_split": min_impurity_split,
                           "oob_score": oob_score, "n_jobs": n_jobs,
@@ -169,6 +168,12 @@ class BaseRandomForestModel(UniversalBase):
                 " RandomForest split criterion"
             )
 
+        if self.split_criterion == MAE:
+            raise NotImplementedError(
+                "cuML does not currently support mean average error as a"
+                " RandomForest split criterion"
+            )
+
         self.min_samples_leaf = min_samples_leaf
         self.min_samples_split = min_samples_split
         self.min_impurity_decrease = min_impurity_decrease
@@ -191,6 +196,10 @@ class BaseRandomForestModel(UniversalBase):
         self.treelite_handle = None
         self.treelite_serialized_model = None
         self._cpu_model_class_lock = threading.RLock()
+
+    def __len__(self):
+        """Return the number of estimators in the ensemble."""
+        return self.n_estimators
 
     def _get_max_feat_val(self) -> float:
         if isinstance(self.max_features, int):
@@ -395,10 +404,6 @@ class BaseRandomForestModel(UniversalBase):
             self.n_outputs_ = y_m.shape[1]
         self.n_features_in_ = X_m.shape[1]
 
-        if self.dtype == np.float64:
-            warnings.warn("To use pickling first train using float32 data "
-                          "to fit the estimator")
-
         max_feature_val = self._get_max_feat_val()
         if isinstance(self.min_samples_leaf, float):
             self.min_samples_leaf = \
@@ -448,8 +453,10 @@ class BaseRandomForestModel(UniversalBase):
             _check_fil_parameter_validity(depth=self.max_depth,
                                           fil_sparse_format=fil_sparse_format,
                                           algo=algo)
-        fil_model = ForestInference(handle=self.handle, verbose=self.verbose,
-                                    output_type=self.output_type)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', FutureWarning)
+            fil_model = ForestInference(handle=self.handle, verbose=self.verbose,
+                                        output_type=self.output_type)
         tl_to_fil_model = \
             fil_model.load_using_treelite_handle(treelite_handle,
                                                  output_class=output_class,
@@ -550,8 +557,10 @@ def _obtain_fil_model(treelite_handle, depth,
                                       fil_sparse_format=fil_sparse_format,
                                       algo=algo)
 
-    # Use output_type="input" to prevent an error
-    fil_model = ForestInference(output_type="input")
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', FutureWarning)
+        # Use output_type="input" to prevent an error
+        fil_model = ForestInference(output_type="input")
 
     tl_to_fil_model = \
         fil_model.load_using_treelite_handle(treelite_handle,
