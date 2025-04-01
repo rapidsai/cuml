@@ -57,9 +57,6 @@ jobs:
         uses: rapidsai/shared-actions/check_nightly_success/dispatch@main
         with:
           repo: cuml
-          # TODO: remove this once upstream issues in RAFT are resolved on 11.4.
-          # The limit was temporarily increased to unblock work.
-          max_days_without_success: 30
   changed-files:
     secrets: inherit
     needs: telemetry-setup
@@ -232,7 +229,7 @@ jobs:
       extra-repo-deploy-key: CUMLPRIMS_SSH_PRIVATE_DEPLOY_KEY
       build_command: |
         sccache -z;
-        build-all --verbose;
+        build-all --verbose -DBUILD_TESTS=ON -DBUILD_BENCHMARKS=ON;
         sccache -s;
 
   telemetry-summarize:

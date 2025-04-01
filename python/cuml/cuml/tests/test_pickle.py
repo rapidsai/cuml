@@ -418,6 +418,7 @@ def test_unfit_pickle(model_name):
 @pytest.mark.filterwarnings(
     "ignore:Transformers((.|\n)*):UserWarning:" "cuml[.*]"
 )
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_unfit_clone(model_name):
     if model_name in unfit_clone_xfail:
         pytest.xfail()

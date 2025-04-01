@@ -511,6 +511,7 @@ def all_algorithms():
                 output_class=False,
                 precision="float32",
                 infer_type="default",
+                model_type="xgboost_ubj",
             ),
             name="FILEX-Optimized",
             accepts_labels=False,

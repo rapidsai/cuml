@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -381,39 +381,55 @@ using preset_decision_forest = decision_forest<
 }  // namespace detail
 
 /** A variant containing all standard decision_forest instantiations */
-using decision_forest_variant =
-  std::variant<detail::preset_decision_forest<
-                 std::variant_alternative_t<0, detail::specialization_variant>::layout,
-                 std::variant_alternative_t<0, detail::specialization_variant>::is_double_precision,
-                 std::variant_alternative_t<0, detail::specialization_variant>::has_large_trees>,
-               detail::preset_decision_forest<
-                 std::variant_alternative_t<1, detail::specialization_variant>::layout,
-                 std::variant_alternative_t<1, detail::specialization_variant>::is_double_precision,
-                 std::variant_alternative_t<1, detail::specialization_variant>::has_large_trees>,
-               detail::preset_decision_forest<
-                 std::variant_alternative_t<2, detail::specialization_variant>::layout,
-                 std::variant_alternative_t<2, detail::specialization_variant>::is_double_precision,
-                 std::variant_alternative_t<2, detail::specialization_variant>::has_large_trees>,
-               detail::preset_decision_forest<
-                 std::variant_alternative_t<3, detail::specialization_variant>::layout,
-                 std::variant_alternative_t<3, detail::specialization_variant>::is_double_precision,
-                 std::variant_alternative_t<3, detail::specialization_variant>::has_large_trees>,
-               detail::preset_decision_forest<
-                 std::variant_alternative_t<4, detail::specialization_variant>::layout,
-                 std::variant_alternative_t<4, detail::specialization_variant>::is_double_precision,
-                 std::variant_alternative_t<4, detail::specialization_variant>::has_large_trees>,
-               detail::preset_decision_forest<
-                 std::variant_alternative_t<5, detail::specialization_variant>::layout,
-                 std::variant_alternative_t<5, detail::specialization_variant>::is_double_precision,
-                 std::variant_alternative_t<5, detail::specialization_variant>::has_large_trees>,
-               detail::preset_decision_forest<
-                 std::variant_alternative_t<6, detail::specialization_variant>::layout,
-                 std::variant_alternative_t<6, detail::specialization_variant>::is_double_precision,
-                 std::variant_alternative_t<6, detail::specialization_variant>::has_large_trees>,
-               detail::preset_decision_forest<
-                 std::variant_alternative_t<7, detail::specialization_variant>::layout,
-                 std::variant_alternative_t<7, detail::specialization_variant>::is_double_precision,
-                 std::variant_alternative_t<7, detail::specialization_variant>::has_large_trees>>;
+using decision_forest_variant = std::variant<
+  detail::preset_decision_forest<
+    std::variant_alternative_t<0, detail::specialization_variant>::layout,
+    std::variant_alternative_t<0, detail::specialization_variant>::is_double_precision,
+    std::variant_alternative_t<0, detail::specialization_variant>::has_large_trees>,
+  detail::preset_decision_forest<
+    std::variant_alternative_t<1, detail::specialization_variant>::layout,
+    std::variant_alternative_t<1, detail::specialization_variant>::is_double_precision,
+    std::variant_alternative_t<1, detail::specialization_variant>::has_large_trees>,
+  detail::preset_decision_forest<
+    std::variant_alternative_t<2, detail::specialization_variant>::layout,
+    std::variant_alternative_t<2, detail::specialization_variant>::is_double_precision,
+    std::variant_alternative_t<2, detail::specialization_variant>::has_large_trees>,
+  detail::preset_decision_forest<
+    std::variant_alternative_t<3, detail::specialization_variant>::layout,
+    std::variant_alternative_t<3, detail::specialization_variant>::is_double_precision,
+    std::variant_alternative_t<3, detail::specialization_variant>::has_large_trees>,
+  detail::preset_decision_forest<
+    std::variant_alternative_t<4, detail::specialization_variant>::layout,
+    std::variant_alternative_t<4, detail::specialization_variant>::is_double_precision,
+    std::variant_alternative_t<4, detail::specialization_variant>::has_large_trees>,
+  detail::preset_decision_forest<
+    std::variant_alternative_t<5, detail::specialization_variant>::layout,
+    std::variant_alternative_t<5, detail::specialization_variant>::is_double_precision,
+    std::variant_alternative_t<5, detail::specialization_variant>::has_large_trees>,
+  detail::preset_decision_forest<
+    std::variant_alternative_t<6, detail::specialization_variant>::layout,
+    std::variant_alternative_t<6, detail::specialization_variant>::is_double_precision,
+    std::variant_alternative_t<6, detail::specialization_variant>::has_large_trees>,
+  detail::preset_decision_forest<
+    std::variant_alternative_t<7, detail::specialization_variant>::layout,
+    std::variant_alternative_t<7, detail::specialization_variant>::is_double_precision,
+    std::variant_alternative_t<7, detail::specialization_variant>::has_large_trees>,
+  detail::preset_decision_forest<
+    std::variant_alternative_t<8, detail::specialization_variant>::layout,
+    std::variant_alternative_t<8, detail::specialization_variant>::is_double_precision,
+    std::variant_alternative_t<8, detail::specialization_variant>::has_large_trees>,
+  detail::preset_decision_forest<
+    std::variant_alternative_t<9, detail::specialization_variant>::layout,
+    std::variant_alternative_t<9, detail::specialization_variant>::is_double_precision,
+    std::variant_alternative_t<9, detail::specialization_variant>::has_large_trees>,
+  detail::preset_decision_forest<
+    std::variant_alternative_t<10, detail::specialization_variant>::layout,
+    std::variant_alternative_t<10, detail::specialization_variant>::is_double_precision,
+    std::variant_alternative_t<10, detail::specialization_variant>::has_large_trees>,
+  detail::preset_decision_forest<
+    std::variant_alternative_t<11, detail::specialization_variant>::layout,
+    std::variant_alternative_t<11, detail::specialization_variant>::is_double_precision,
+    std::variant_alternative_t<11, detail::specialization_variant>::has_large_trees>>;
 
 /**
  * Determine the variant index of the decision_forest type to used based on
