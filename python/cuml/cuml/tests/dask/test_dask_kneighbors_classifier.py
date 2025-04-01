@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -182,14 +182,7 @@ def test_predict_proba(dataset, datatype, parameters, client):
     d_probas = da.compute(d_probas)[0]
 
     if datatype == "dask_cudf":
-        d_probas = list(
-            map(
-                lambda o: o.to_numpy()
-                if isinstance(o, DataFrame)
-                else o.to_numpy()[..., np.newaxis],
-                d_probas,
-            )
-        )
+        d_probas = tuple(x.to_numpy() for x in d_probas)
 
     check_probabilities(l_probas, d_probas)
 
