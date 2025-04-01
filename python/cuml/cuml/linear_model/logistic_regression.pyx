@@ -617,8 +617,7 @@ class LogisticRegression(UniversalBase,
         self._classes = value
 
     @property
-    @cuml.internals.api_base_return_array_skipall
-    def coef_(self):
+    def coef_(self) -> CumlArray:
         return self.solver_model.coef_
 
     @coef_.setter
@@ -626,8 +625,7 @@ class LogisticRegression(UniversalBase,
         self.solver_model.coef_ = value
 
     @property
-    @cuml.internals.api_base_return_array_skipall
-    def intercept_(self):
+    def intercept_(self) -> CumlArray:
         return self.solver_model.intercept_
 
     @intercept_.setter

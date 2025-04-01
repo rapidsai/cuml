@@ -277,6 +277,9 @@ class ElasticNet(UniversalBase,
                 shape=(coefs.shape[1],)
             )
             self.intercept_ = self.solver_model.intercept_.item()
+        else:
+            self.coef_ = self.solver_model.coef_
+            self.intercept_ = self.solver_model.intercept_
 
         return self
 
