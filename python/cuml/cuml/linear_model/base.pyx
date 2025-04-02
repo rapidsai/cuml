@@ -84,19 +84,22 @@ class LinearPredictMixin:
         Predict for multi-target case.
         """
         coef_arr = CumlArray.from_input(self.coef_).to_output('array')
-        X_arr = CumlArray.from_input(
+        X_m = CumlArray.from_input(
             X,
             check_dtype=self.dtype,
             convert_to_dtype=(self.dtype if convert_dtype else None),
             check_cols=self.n_features_in_
-        ).to_output('array')
+        )
+        X_arr = X_m.to_output('array')
         if isinstance(self.intercept_, (int, float, np.number)):
             intercept_ = self.intercept_
         else:
             intercept_ = CumlArray.from_input(self.intercept_).to_output('array')
 
         preds_arr = X_arr @ coef_arr.T + intercept_
-        return preds_arr
+
+        # Preserve the input's index in the prediction output
+        return CumlArray(preds_arr, index=X_m.index)
 
     def _predict_single_target(self, X, convert_dtype=True) -> CumlArray:
         """
