@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -146,14 +146,26 @@ def remove_item_plus_one(arr, item):
     return loc
 
 
+def get_clang_tidy_version():
+    result = subprocess.run(["clang-tidy", "--version"], capture_output=True, text=True, check=True)
+    match = re.search(r"version ([0-9]+\.[0-9]+\.[0-9]+)", result.stdout)
+    return match.group(1).strip()
+
+
 def get_clang_includes(exe):
     dir = os.getenv("CONDA_PREFIX")
     if dir is None:
         ret = subprocess.check_output("which %s 2>&1" % exe, shell=True)
         ret = ret.decode("utf-8")
         dir = os.path.dirname(os.path.dirname(ret))
-    header = os.path.join(dir, "include", "ClangHeaders")
-    return ["-I", header]
+    headers = [
+        "-I",
+        os.path.join(dir, "include", "ClangHeaders"),
+        # Also include main clang include directory for omp.h
+        "-I",
+        os.path.join(dir, "lib", "clang", get_clang_tidy_version(), "include")
+    ]
+    return headers
 
 
 def get_tidy_args(cmd, exe):

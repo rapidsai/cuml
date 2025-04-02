@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,7 +77,11 @@ using specialization_variant =
                specialization_types<tree_layout::breadth_first, false, false>,
                specialization_types<tree_layout::breadth_first, false, true>,
                specialization_types<tree_layout::breadth_first, true, false>,
-               specialization_types<tree_layout::breadth_first, true, true>>;
+               specialization_types<tree_layout::breadth_first, true, true>,
+               specialization_types<tree_layout::layered_children_together, false, false>,
+               specialization_types<tree_layout::layered_children_together, false, true>,
+               specialization_types<tree_layout::layered_children_together, true, false>,
+               specialization_types<tree_layout::layered_children_together, true, true>>;
 
 }  // namespace detail
 }  // namespace fil
