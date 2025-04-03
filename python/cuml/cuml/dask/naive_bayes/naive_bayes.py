@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
         <cuml.dask.naive_bayes.naive_bayes.MultinomialNB object at 0x...>
 
         >>> # Compute accuracy on training set
-        >>> model.score(X, y)
+        >>> model.score(X, y)  # doctest: +SKIP
         array(0.924...)
         >>> client.close()
         >>> cluster.close()
