@@ -1121,6 +1121,18 @@ def test_svc_methods(
     class_type,
     probability,
 ):
+    import pynvml
+
+    pynvml.nvmlInit()
+    handle = pynvml.nvmlDeviceGetHandleByIndex(0)  # GPU 0
+    info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+
+    print(
+        f"Used: {info.used // 1024 ** 2} MB / Total: {info.total // 1024 ** 2} MB"
+    )
+
+    pynvml.nvmlShutdown()
+
     if class_type == "single_class":
         X_train = X_train_class
         y_train = y_train_class
