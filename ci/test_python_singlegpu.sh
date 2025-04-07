@@ -12,18 +12,33 @@ trap "EXITCODE=1" ERR
 set +e
 
 rapids-logger "pytest cuml single GPU"
+# Run all tests except test_svc_methods in the main test suite
 ./ci/run_cuml_singlegpu_pytests.sh \
   --numprocesses=8 \
   --dist=worksteal \
+  -k 'not test_svc_methods' \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml" \
   --cov-config=../../.coveragerc \
   --cov=cuml \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml"
 
-  rapids-logger "pytest cuml accelerator"
+# Run test_svc_methods separately due to known issues with CUDA 11.8
+# See: https://github.com/rapidsai/cuml/issues/6480
+# The tests segfault in decision_function on CUDA 11.8.
+./ci/run_cuml_singlegpu_pytests.sh \
+  -k 'test_svc_methods' \
+  --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-svc.xml" \
+  --cov-config=../../.coveragerc \
+  --cov=cuml \
+  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-svc-coverage.xml"
+
+rapids-logger "pytest cuml accelerator"
+# Skip test_svc_methods in accelerator tests due to known issues with CUDA 11.8
+# See: https://github.com/rapidsai/cuml/issues/6480
 ./ci/run_cuml_singlegpu_accel_pytests.sh \
   --numprocesses=8 \
   --dist=worksteal \
+  -k 'not test_svc_methods' \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel.xml" \
   --cov-config=../../../.coveragerc \
   --cov=cuml \
