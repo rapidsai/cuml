@@ -204,7 +204,7 @@ def test_onehot_drop_one_of_each(client):
             "Some categories [a-zA-Z, ]* were not found",
         ],
         [
-            DataFrame({"chars": "b", "int": 3}),
+            DataFrame({"chars": ["b"], "int": [3]}),
             "Wrong input for parameter `drop`.",
         ],
     ],
