@@ -701,8 +701,8 @@ class UniversalBase(Base):
             # if array-like, ensure array-like is on the host
             if is_array_like(arg):
                 new_kwargs[kw] = input_to_host_array_with_sparse_support(arg)
-            # if Real or string, pass as is
-            elif isinstance(arg, (numbers.Real, str)):
+            # if Real or string or NoneType, pass as is
+            elif isinstance(arg, (numbers.Real, str, type(None))):
                 new_kwargs[kw] = arg
             else:
                 raise ValueError(f"Unable to process argument {kw}")
