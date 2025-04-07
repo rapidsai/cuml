@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,3 +39,12 @@ IF GPUBUILD == 1:
 
 ELSE:
     GPU_ENABLED = False
+
+    import warnings
+    warnings.warn(
+        "`cuml-cpu` is deprecated in favor of `cuml.accel`, cuML's new Zero Code "
+        "Change Acceleration layer. The final release of `cuml-cpu` is version 25.04. "
+        "To learn more about `cuml.accel` please see "
+        "https://docs.rapids.ai/api/cuml/stable/zero-code-change/",
+        FutureWarning
+    )

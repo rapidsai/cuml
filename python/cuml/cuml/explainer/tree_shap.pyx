@@ -17,7 +17,7 @@
 from cuml.common import input_to_cuml_array
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import determine_array_type
-from cuml.fil.fil import TreeliteModel
+from cuml.legacy.fil.fil import TreeliteModel
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble import RandomForestClassifier as curfc
 

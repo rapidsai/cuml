@@ -56,7 +56,9 @@ from cuml.internals.available_devices import is_cuda_available
 from cuml.multiclass import MulticlassClassifier
 
 
-class cpuModelSVC(skSVC):
+# TODO: this is a hack to support the current cuml.accel design - we should
+# refactor so normal sklearn.svm classes may be used instead.
+class _CPUModelSVC(skSVC):
     def fit(self, X, y, sample_weight=None):
         self.classes_ = np.unique(y)
         self.n_classes_ = len(self.classes_)
@@ -75,9 +77,9 @@ class cpuModelSVC(skSVC):
                 else:
                     raise ValueError
 
-            self.prob_svc = CalibratedClassifierCV(estimator,
-                                                   cv=5,
-                                                   method='sigmoid')
+            self.prob_svc = CalibratedClassifierCV(
+                estimator, cv=5, method='sigmoid'
+            )
             self.prob_svc.fit(X, y)
         elif self.n_classes_ == 2:
             super().fit(X, y, sample_weight)
@@ -401,7 +403,7 @@ class SVC(SVMBase,
 
     """
 
-    _cpu_estimator_import_path = 'cuml.svm.cpuModelSVC'
+    _cpu_estimator_import_path = 'cuml.svm.svc._CPUModelSVC'
 
     class_weight_ = CumlArrayDescriptor(order='F')
 

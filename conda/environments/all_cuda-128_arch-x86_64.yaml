@@ -3,7 +3,6 @@
 channels:
 - rapidsai
 - rapidsai-nightly
-- dask/label/dev
 - conda-forge
 - nvidia
 dependencies:
@@ -40,6 +39,7 @@ dependencies:
 - libcuvs==25.6.*,>=0.0.0a0
 - libraft==25.6.*,>=0.0.0a0
 - librmm==25.6.*,>=0.0.0a0
+- matplotlib
 - nbsphinx
 - ninja
 - nltk
