@@ -962,7 +962,7 @@ def test_quantile_transformer(
         ignore_implicit_zeros=ignore_implicit_zeros,
         # The results should be equivalent, but do not need to be the same.
         # -> use a different random state.
-        random_state=42+1,
+        random_state=42 + 1,
         copy=True,
     )
     sk_t_X = transformer.fit_transform(X_np)
