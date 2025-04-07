@@ -1126,11 +1126,6 @@ def test_svc_methods(
     pynvml.nvmlInit()
     handle = pynvml.nvmlDeviceGetHandleByIndex(0)  # GPU 0
     info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-
-    print(
-        f"Used: {info.used // 1024 ** 2} MB / Total: {info.total // 1024 ** 2} MB"
-    )
-
     pynvml.nvmlShutdown()
 
     if class_type == "single_class":
@@ -1174,6 +1169,10 @@ def test_svc_methods(
     else:
         correct_percentage = (ref_output == output).sum() / ref_output.size
         assert correct_percentage > 0.9
+
+    raise ValueError(
+        f"Used: {info.used // 1024 ** 2} MB / Total: {info.total // 1024 ** 2} MB"
+    )
 
 
 @pytest.mark.parametrize("train_device", ["cpu", "gpu"])
