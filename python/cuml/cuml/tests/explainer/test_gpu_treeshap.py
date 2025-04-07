@@ -149,6 +149,7 @@ def count_categorical_split(tl_model):
     ],
 )
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
+@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
 @pytest.mark.skipif(not has_shap(), reason="need to install shap")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_regressor(objective):
@@ -223,6 +224,7 @@ def test_xgb_regressor(objective):
     ],
 )
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
+@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
 @pytest.mark.skipif(not has_shap(), reason="need to install shap")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_classifier(objective, n_classes):
@@ -478,6 +480,7 @@ def test_sklearn_rf_classifier(n_classes):
 
 
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
+@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
 def test_xgb_toy_categorical():
     X = pd.DataFrame(
         {
@@ -511,6 +514,7 @@ def test_xgb_toy_categorical():
 
 @pytest.mark.parametrize("n_classes", [2, 3])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
+@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_classifier_with_categorical(n_classes):
     n_samples = 100
@@ -572,6 +576,7 @@ def test_xgb_classifier_with_categorical(n_classes):
 
 
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
+@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
 @pytest.mark.skipif(not has_sklearn(), reason="need to install scikit-learn")
 def test_xgb_regressor_with_categorical():
     n_samples = 100
