@@ -1039,7 +1039,6 @@ def test_quantile_transformer_sparse(
 @pytest.mark.parametrize("n_quantiles", [30, 100])
 @pytest.mark.parametrize("output_distribution", ["uniform", "normal"])
 @pytest.mark.parametrize("ignore_implicit_zeros", [False, True])
-@pytest.mark.parametrize("subsample", [100])
 def test_quantile_transform(
     failure_logger,
     nan_filled_positive,  # noqa: F811
@@ -1047,7 +1046,6 @@ def test_quantile_transform(
     n_quantiles,
     output_distribution,
     ignore_implicit_zeros,
-    subsample,
 ):
     X_np, X = nan_filled_positive
 
@@ -1057,7 +1055,6 @@ def test_quantile_transform(
         n_quantiles=n_quantiles,
         output_distribution=output_distribution,
         ignore_implicit_zeros=ignore_implicit_zeros,
-        subsample=subsample,
         random_state=42,
         copy=True,
     )
@@ -1069,8 +1066,9 @@ def test_quantile_transform(
         n_quantiles=n_quantiles,
         output_distribution=output_distribution,
         ignore_implicit_zeros=ignore_implicit_zeros,
-        subsample=subsample,
-        random_state=42,
+        # The results should be equivalent, but do not need to be the same.
+        # -> use a different random state.
+        random_state=42 + 1,
         copy=True,
     )
 
