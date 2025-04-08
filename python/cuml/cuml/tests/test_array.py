@@ -803,5 +803,5 @@ def test_output_pandas(kind):
 def test_output_cudf_maintain_nan():
     expected = cp.array([[1.1, cp.nan], [cp.nan, 2.2]])
     # to_cupy would raise if NaN was converted to null
-    result = CumlArray.to_output("cudf").to_cupy()
+    result = CumlArray.from_input(expected).to_output("cudf").to_cupy()
     assert cp.array_equal(result, expected)
