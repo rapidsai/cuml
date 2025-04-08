@@ -66,8 +66,8 @@ if is_cuda_available():
     # https://github.com/MarcoGorelli/cython-lint/issues/80 is resolved.
 else:
     # if no GPU is present, we import the UMAP equivalents
-    from umap.umap_ import fuzzy_simplicial_set  # no-cython-lint
-    from umap.umap_ import simplicial_set_embedding  # no-cython-lint
+    from cuml.manifold.simpl_set_cpu_fallback import fuzzy_simplicial_set  # no-cython-lint
+    from cuml.manifold.simpl_set_cpu_fallback import simplicial_set_embedding  # no-cython-lint
 
 
 IF GPUBUILD == 1:
@@ -75,7 +75,6 @@ IF GPUBUILD == 1:
     from cuml.manifold.umap_utils cimport *
     from pylibraft.common.handle cimport handle_t
     from cuml.manifold.umap_utils import GraphHolder, find_ab_params, coerce_metric
-    from cuml.manifold.simpl_set import fuzzy_simplicial_set, simplicial_set_embedding
 
     cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
 

@@ -147,9 +147,9 @@ def fuzzy_simplicial_set(X,
             rs = random_state
         else:
             rs = np.random.RandomState(random_state)
-        random_state = rs.randint(low=np.iinfo(np.int32).min,
-                                  high=np.iinfo(np.int32).max,
-                                  dtype=np.int32)
+        random_state = rs.randint(low=0,
+                                  high=np.iinfo(np.uint64).max,
+                                  dtype=np.uint64)
 
     cdef UMAPParams* umap_params = new UMAPParams()
     umap_params.n_neighbors = <int> n_neighbors
@@ -318,9 +318,9 @@ def simplicial_set_embedding(
             rs = random_state
         else:
             rs = np.random.RandomState(random_state)
-        random_state = rs.randint(low=np.iinfo(np.int32).min,
-                                  high=np.iinfo(np.int32).max,
-                                  dtype=np.int32)
+        random_state = rs.randint(low=0,
+                                  high=np.iinfo(np.uint64).max,
+                                  dtype=np.uint64)
 
     cdef UMAPParams* umap_params = new UMAPParams()
     umap_params.n_components = <int> n_components
