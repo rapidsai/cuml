@@ -15,10 +15,12 @@
 #
 import numbers
 import numpy as np
+import cupy as cp
 
 
 def check_random_seed(seed):
     """Turn a np.random.RandomState instance into a seed.
+
     Parameters
     ----------
     seed : None | int | instance of RandomState
@@ -36,4 +38,8 @@ def check_random_seed(seed):
         return seed.randint(
             low=0, high=np.iinfo(np.uint32).max, dtype=np.uint32
         )
+    if isinstance(seed, cp.random.RandomState):
+        return seed.randint(
+            low=0, high=np.iinfo(cp.uint32).max, dtype=cp.uint32
+        ).get()
     raise ValueError("%r cannot be used to create a seed." % seed)

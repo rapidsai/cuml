@@ -24,6 +24,7 @@ from cuml.internals.safe_imports import (
     gpu_only_import_from,
     null_decorator,
 )
+from cuml.internals.utils import check_random_seed
 
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
@@ -31,31 +32,26 @@ cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
 
 
-def _generate_hypercube(samples, dimensions, rng):
+def _generate_hypercube(samples, dimensions, random_state):
     """Returns distinct binary samples of length dimensions"""
     if not has_sklearn():
         raise RuntimeError(
-            "Scikit-learn is needed to run \
-                           make_classification."
+            "Scikit-learn is needed to run make_classification."
         )
 
     from sklearn.utils.random import (
         sample_without_replacement,
-        check_random_state,
     )
-
-    # Least worst way to derive a Numpy random state from a cupy random state?
-    rs = check_random_state(int(rng.randint(dimensions)))
 
     if dimensions > 30:
         return np.hstack(
             [
-                rs.randint(2, size=(samples, dimensions - 30)),
-                _generate_hypercube(samples, 30, rng),
+                random_state.randint(2, size=(samples, dimensions - 30)),
+                _generate_hypercube(samples, 30, random_state),
             ]
         )
     out = sample_without_replacement(
-        2**dimensions, samples, random_state=rs
+        2**dimensions, samples, random_state=random_state
     ).astype(dtype=">u4", copy=False)
     out = np.unpackbits(out.view(">u1")).reshape((-1, 32))[:, -dimensions:]
     return out
@@ -287,8 +283,9 @@ def make_classification(
 
     # Build the polytope whose vertices become cluster centroids
     if _centroids is None:
+        np_generator = np.random.RandomState(check_random_seed(generator))
         centroids = cp.array(
-            _generate_hypercube(n_clusters, n_informative, generator)
+            _generate_hypercube(n_clusters, n_informative, np_generator)
         ).astype(dtype, copy=False)
     else:
         centroids = _centroids
