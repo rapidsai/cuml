@@ -13,9 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 import numbers
 import numpy as np
-import cupy as cp
+from cuml.internals.safe_imports import gpu_only_import
+
+cp = gpu_only_import("cupy")
 
 
 def check_random_seed(seed):
