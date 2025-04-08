@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,18 +39,23 @@ def _generate_hypercube(samples, dimensions, rng):
                            make_classification."
         )
 
-    from sklearn.utils.random import sample_without_replacement
+    from sklearn.utils.random import (
+        sample_without_replacement,
+        check_random_state,
+    )
+
+    # Least worst way to derive a Numpy random state from a cupy random state?
+    rs = check_random_state(int(rng.randint(dimensions)))
 
     if dimensions > 30:
         return np.hstack(
             [
-                np.random.randint(2, size=(samples, dimensions - 30)),
+                rs.randint(2, size=(samples, dimensions - 30)),
                 _generate_hypercube(samples, 30, rng),
             ]
         )
-    random_state = int(rng.randint(dimensions))
     out = sample_without_replacement(
-        2**dimensions, samples, random_state=random_state
+        2**dimensions, samples, random_state=rs
     ).astype(dtype=">u4", copy=False)
     out = np.unpackbits(out.view(">u1")).reshape((-1, 32))[:, -dimensions:]
     return out
