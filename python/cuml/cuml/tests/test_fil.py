@@ -133,7 +133,7 @@ def _build_and_save_xgboost(
 )
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_fil_classification(
     n_rows, n_columns, num_rounds, n_classes, tmp_path
@@ -206,7 +206,7 @@ def test_fil_classification(
     "max_depth", [unit_param(3), unit_param(7), stress_param(11)]
 )
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
     # settings
@@ -471,7 +471,7 @@ def small_classifier_and_preds(tmpdir_factory, request):
 
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 @pytest.mark.parametrize(
     "algo",
     [
@@ -504,7 +504,7 @@ def test_output_algos(algo, small_classifier_and_preds):
 
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 @pytest.mark.parametrize("precision", ["native", "float32", "float64"])
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_precision_xgboost(precision, small_classifier_and_preds):
@@ -525,7 +525,7 @@ def test_precision_xgboost(precision, small_classifier_and_preds):
 
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 @pytest.mark.parametrize(
     "storage_type", [False, True, "auto", "dense", "sparse", "sparse8"]
 )
@@ -548,7 +548,7 @@ def test_output_storage_type(storage_type, small_classifier_and_preds):
 
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 @pytest.mark.parametrize("storage_type", ["dense", "sparse"])
 @pytest.mark.parametrize("blocks_per_sm", [1, 2, 3, 4])
 @pytest.mark.filterwarnings("ignore::FutureWarning")
@@ -573,7 +573,7 @@ def test_output_blocks_per_sm(
 
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 @pytest.mark.parametrize("threads_per_tree", [2, 4, 8, 16, 32, 64, 128, 256])
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_threads_per_tree(threads_per_tree, small_classifier_and_preds):
@@ -601,7 +601,7 @@ def test_threads_per_tree(threads_per_tree, small_classifier_and_preds):
 
 @pytest.mark.parametrize("output_class", [True, False])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_thresholding(output_class, small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
@@ -620,7 +620,7 @@ def test_thresholding(output_class, small_classifier_and_preds):
 
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_output_args(small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds

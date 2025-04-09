@@ -135,7 +135,7 @@ def _build_and_save_xgboost(
 )
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 def test_fil_classification(
     train_device,
     infer_device,
@@ -230,7 +230,7 @@ def test_fil_classification(
     "max_depth", [unit_param(3), unit_param(7), stress_param(11)]
 )
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 def test_fil_regression(
     train_device,
     infer_device,
@@ -513,7 +513,7 @@ def small_classifier_and_preds(tmpdir_factory, request):
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
 @pytest.mark.parametrize("precision", ["native", "float32", "float64"])
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 def test_precision_xgboost(
     train_device, infer_device, precision, small_classifier_and_preds
 ):
@@ -539,7 +539,7 @@ def test_precision_xgboost(
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 @pytest.mark.parametrize("layout", ["depth_first", "breadth_first", "layered"])
 @pytest.mark.parametrize("chunk_size", [2, 4, 8, 16, 32])
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 def test_performance_hyperparameters(
     train_device, infer_device, layout, chunk_size, small_classifier_and_preds
 ):
@@ -566,7 +566,7 @@ def test_performance_hyperparameters(
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 def test_output_args(train_device, infer_device, small_classifier_and_preds):
     with using_device_type(train_device):
         model_path, model_type, X, xgb_preds = small_classifier_and_preds
@@ -727,7 +727,7 @@ def test_lightgbm(
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
 @pytest.mark.parametrize("num_boost_round", [10, 100])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 def test_predict_per_tree(
     train_device, infer_device, n_classes, num_boost_round, tmp_path
 ):
@@ -789,7 +789,7 @@ def test_predict_per_tree(
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("n_classes", [5, 25])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 def test_predict_per_tree_with_vector_leaf(
     train_device, infer_device, n_classes, tmp_path
 ):
@@ -836,7 +836,7 @@ def test_predict_per_tree_with_vector_leaf(
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
 @pytest.mark.skipif(not has_xgboost(), reason="need to install xgboost")
-@pytest.mark.xfail(reason="xgboost's allocator doesn't work with older drivers")
+@pytest.mark.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 def test_apply(train_device, infer_device, n_classes, tmp_path):
     n_rows = 1000
     n_columns = 30

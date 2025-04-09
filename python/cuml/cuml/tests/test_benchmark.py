@@ -197,7 +197,7 @@ def test_real_algos_runner(algo_name):
 
     # TODO(hcho3): Remove once XGBoost works with older drivers
     if algo_name == "FIL":
-        pytest.xfail(reason="xgboost's allocator doesn't work with older drivers")
+        pytest.xfail(reason="https://github.com/dmlc/xgboost/issues/11397")
 
     runner = AccuracyComparisonRunner(
         [50], [5], dataset_name="classification", test_fraction=0.20
