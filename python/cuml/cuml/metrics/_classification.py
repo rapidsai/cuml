@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,119 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import warnings
 
-from cuml.internals.input_utils import input_to_cupy_array
 import cuml.internals
+from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.safe_imports import gpu_only_import
 
 cp = gpu_only_import("cupy")
+cudf = gpu_only_import("cudf")
 np = cpu_only_import("numpy")
+
+
+def _input_to_cupy_or_cudf_series(x, check_rows=None):
+    """Coerce the input to a 1D cupy array or cudf Series.
+
+    For classification problems we need to support the full range
+    of supported input dtypes. cupy cannot support string labels,
+    and cudf cannot support float16. To handle this, we prefer cudf
+    if the input is cudf, otherwise try to coerce to cupy, falling
+    back to cudf if the dtype isn't supported.
+    """
+    if isinstance(x, cudf.Series):
+        # Drop the index so comparisons don't try to align on index
+        out = x.reset_index(drop=True)
+        n_cols = 1
+    else:
+        try:
+            out, _, n_cols, _ = input_to_cupy_array(x)
+            out = out.squeeze()  # ensure 1D
+        except ValueError:
+            # Unsupported dtype, use cudf instead
+            # Drop the index so comparisons don't try to align on index
+            out = cudf.Series(x, nan_as_null=False, copy=False).reset_index(
+                drop=True
+            )
+            n_cols = 1
+
+    n_rows = len(out)
+
+    if n_cols > 1:
+        raise ValueError(f"Expected 1 column but got {n_cols} columns.")
+    if check_rows is not None and n_rows != check_rows:
+        raise ValueError(f"Expected {check_rows} rows but got {n_rows} rows.")
+
+    return out
+
+
+@cuml.internals.api_return_any()
+def accuracy_score(
+    y_true, y_pred, *, sample_weight=None, normalize=True, **kwargs
+):
+    """
+    Accuracy classification score.
+
+    Parameters
+    ----------
+    y_true : array-like of shape (n_samples,)
+        Ground truth (correct) labels.
+    y_pred : array-like of shape (n_samples,)
+        Predicted labels.
+    sample_weight : array-like of shape (n_samples,)
+        Sample weights.
+    normalize : bool
+        If ``False``, return the number of correctly classified samples.
+        Otherwise, return the fraction of correctly classified samples.
+
+    Returns
+    -------
+    score : float
+        The fraction of correctly classified samples, or the number of correctly
+        classified samples if ``normalize == False``.
+    """
+
+    if kwargs:
+        warnings.warn(
+            "`convert_dtype` and `handle` were deprecated from `accuracy_score` "
+            "in version 25.04 and will be removed in 25.06.",
+            FutureWarning,
+        )
+
+    y_true = _input_to_cupy_or_cudf_series(y_true)
+    y_pred = _input_to_cupy_or_cudf_series(y_pred, check_rows=len(y_true))
+
+    # Categorical dtypes in cudf currently don't coerce nicely on equality,
+    # we need to manually cast to cudf.Series and align dtypes.
+    # This whole code block can be removed once
+    # https://github.com/rapidsai/cudf/issues/18196 is resolved.
+    if y_true.dtype == "category":
+        if y_pred.dtype != y_true.dtype:
+            y_pred = cudf.Series(y_pred, copy=False, nan_as_null=False).astype(
+                y_true.dtype
+            )
+    elif y_pred.dtype == "category":
+        y_true = cudf.Series(y_true, copy=False, nan_as_null=False).astype(
+            y_pred.dtype
+        )
+
+    if sample_weight is not None:
+        sample_weight = input_to_cupy_array(
+            sample_weight,
+            check_dtype=[np.float32, np.float64, np.int32, np.int64],
+            check_cols=1,
+            check_rows=len(y_true),
+        ).array.squeeze()  # ensure 1D
+
+    correct = y_true == y_pred
+
+    if normalize:
+        return float(cp.average(correct, weights=sample_weight))
+    elif sample_weight is not None:
+        return float(cp.dot(correct, sample_weight))
+    else:
+        return float(cp.count_nonzero(correct))
 
 
 @cuml.internals.api_return_any()

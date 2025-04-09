@@ -211,7 +211,7 @@ class RandomForest {
                int n_cols,
                L* predictions,
                const RandomForestMetaData<T, L>* forest,
-               level_enum verbosity) const
+               rapids_logger::level_enum verbosity) const
   {
     ML::default_logger().set_level(verbosity);
     this->error_checking(input, predictions, n_rows, n_cols, true);
@@ -277,7 +277,7 @@ class RandomForest {
                           const L* ref_labels,
                           int n_rows,
                           const L* predictions,
-                          level_enum verbosity,
+                          rapids_logger::level_enum verbosity,
                           int rf_type = RF_type::CLASSIFICATION)
   {
     ML::default_logger().set_level(verbosity);
@@ -286,7 +286,7 @@ class RandomForest {
     if (rf_type == RF_type::CLASSIFICATION) {  // task classifiation: get classification metrics
       float accuracy = raft::stats::accuracy(predictions, ref_labels, n_rows, stream);
       stats          = set_rf_metrics_classification(accuracy);
-      if (ML::default_logger().should_log(ML::level_enum::debug)) print(stats);
+      if (ML::default_logger().should_log(rapids_logger::level_enum::debug)) print(stats);
 
       /* TODO: Potentially augment RF_metrics w/ more metrics (e.g., precision, F1, etc.).
         For non binary classification problems (i.e., one target and  > 2 labels), need avg.
@@ -301,7 +301,7 @@ class RandomForest {
                                       mean_squared_error,
                                       median_abs_error);
       stats = set_rf_metrics_regression(mean_abs_error, mean_squared_error, median_abs_error);
-      if (ML::default_logger().should_log(ML::level_enum::debug)) print(stats);
+      if (ML::default_logger().should_log(rapids_logger::level_enum::debug)) print(stats);
     }
 
     return stats;

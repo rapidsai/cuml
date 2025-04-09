@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import platform
 from cuml.testing.test_preproc_utils import to_output_type
 from cuml.testing.utils import array_equal
 
@@ -38,10 +37,12 @@ from cuml.decomposition import PCA, TruncatedSVD
 from cuml.cluster import KMeans
 from cuml.cluster import DBSCAN
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
+from cuml.svm import SVC, SVR
 from cuml.kernel_ridge import KernelRidge
 from cuml.common.device_selection import DeviceType, using_device_type
 from cuml.testing.utils import assert_dbscan_equal
 from hdbscan import HDBSCAN as refHDBSCAN
+from umap import UMAP as refUMAP
 from sklearn.neighbors import NearestNeighbors as skNearestNeighbors
 from sklearn.linear_model import Ridge as skRidge
 from sklearn.linear_model import ElasticNet as skElasticNet
@@ -53,9 +54,11 @@ from sklearn.decomposition import TruncatedSVD as skTruncatedSVD
 from sklearn.kernel_ridge import KernelRidge as skKernelRidge
 from sklearn.cluster import KMeans as skKMeans
 from sklearn.cluster import DBSCAN as skDBSCAN
+from sklearn.datasets import make_regression, make_classification, make_blobs
 from sklearn.ensemble import RandomForestClassifier as skRFC
 from sklearn.ensemble import RandomForestRegressor as skRFR
-from sklearn.datasets import make_regression, make_blobs
+from sklearn.svm import SVC as skSVC
+from sklearn.svm import SVR as skSVR
 from sklearn.manifold import TSNE as refTSNE
 from sklearn.metrics import accuracy_score, r2_score
 from pytest_cases import fixture_union, fixture
@@ -69,14 +72,9 @@ import cuml
 from cuml.internals.safe_imports import cpu_only_import
 
 np = cpu_only_import("numpy")
+cp = gpu_only_import("cupy")
 pd = cpu_only_import("pandas")
 cudf = gpu_only_import("cudf")
-
-
-IS_ARM = platform.processor() == "aarch64"
-
-if not IS_ARM:
-    from umap import UMAP as refUMAP
 
 
 def assert_membership_vectors(cu_vecs, sk_vecs):
@@ -150,6 +148,23 @@ def make_reg_dataset():
     )
 
 
+def make_classification_dataset(n_classes=2):
+    X, y = make_classification(
+        n_samples=2000,
+        n_features=20,
+        n_informative=18,
+        n_classes=n_classes,
+        random_state=0,
+    )
+    X_train, X_test = X[:1800], X[1800:]
+    y_train, _ = y[:1800], y[1800:]
+    return (
+        X_train.astype(np.float32),
+        y_train.astype(np.float32),
+        X_test.astype(np.float32),
+    )
+
+
 def make_blob_dataset():
     X, y = make_blobs(
         n_samples=2000,
@@ -168,6 +183,14 @@ def make_blob_dataset():
     )
 
 
+X_train_class, y_train_class, X_test_class = make_classification_dataset(
+    n_classes=2
+)
+(
+    X_train_multiclass,
+    y_train_multiclass,
+    X_test_multiclass,
+) = make_classification_dataset(n_classes=5)
 X_train_reg, y_train_reg, X_test_reg, y_test_reg = make_reg_dataset()
 X_train_blob, y_train_blob, X_test_blob, y_test_blob = make_blob_dataset()
 
@@ -427,15 +450,10 @@ def umap_test_data(request):
         "random_state": 42,
     }
 
-    # todo: remove after https://github.com/rapidsai/cuml/issues/5441 is
-    # fixed
-    if not IS_ARM:
-        ref_model = refUMAP(**kwargs)
-        ref_model.fit(X_train_blob, y_train_blob)
-        ref_embedding = ref_model.transform(X_test_blob)
-        ref_trust = trustworthiness(X_test_blob, ref_embedding, n_neighbors=12)
-    else:
-        ref_trust = 0.0
+    ref_model = refUMAP(**kwargs)
+    ref_model.fit(X_train_blob, y_train_blob)
+    ref_embedding = ref_model.transform(X_test_blob)
+    ref_trust = trustworthiness(X_test_blob, ref_embedding, n_neighbors=12)
 
     input_type = request.param["input_type"]
 
@@ -590,8 +608,6 @@ def test_train_cpu_infer_cpu(test_data):
     cuEstimator = test_data["cuEstimator"]
     if cuEstimator is Lasso:
         pytest.skip("https://github.com/rapidsai/cuml/issues/5298")
-    if cuEstimator is UMAP and IS_ARM:
-        pytest.skip("https://github.com/rapidsai/cuml/issues/5441")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("cpu"):
         if "y_train" in test_data:
@@ -626,8 +642,6 @@ def test_train_gpu_infer_cpu(test_data):
 
 def test_train_cpu_infer_gpu(test_data):
     cuEstimator = test_data["cuEstimator"]
-    if cuEstimator is UMAP and IS_ARM:
-        pytest.skip("https://github.com/rapidsai/cuml/issues/5441")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("cpu"):
         if "y_train" in test_data:
@@ -645,8 +659,6 @@ def test_train_cpu_infer_gpu(test_data):
 
 def test_train_gpu_infer_gpu(test_data):
     cuEstimator = test_data["cuEstimator"]
-    if cuEstimator is UMAP and IS_ARM:
-        pytest.skip("https://github.com/rapidsai/cuml/issues/5441")
     model = cuEstimator(**test_data["kwargs"])
     with using_device_type("gpu"):
         if "y_train" in test_data:
@@ -704,8 +716,6 @@ def test_pickle_interop(tmp_path, test_data):
     ],
 )
 def test_hyperparams_defaults(estimator):
-    if estimator is UMAP and IS_ARM:
-        pytest.skip("https://github.com/rapidsai/cuml/issues/5441")
     model = estimator()
     cu_signature = inspect.signature(model.__init__).parameters
 
@@ -869,9 +879,6 @@ def test_ridge_methods(train_device, infer_device):
 
 
 @pytest.mark.parametrize("device", ["cpu", "gpu"])
-@pytest.mark.skipif(
-    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
-)
 def test_umap_methods(device):
     ref_model = refUMAP(n_neighbors=12)
     ref_embedding = ref_model.fit_transform(X_train_blob, y_train_blob)
@@ -1101,3 +1108,82 @@ def test_random_forest_classifier(train_device, infer_device):
     ref_acc = accuracy_score(y_test_blob, ref_output)
 
     assert cuml_acc == ref_acc
+
+
+@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
+@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
+@pytest.mark.parametrize("decision_function_shape", ["ovo", "ovr"])
+@pytest.mark.parametrize("class_type", ["single_class", "multi_class"])
+@pytest.mark.parametrize("probability", [True, False])
+def test_svc_methods(
+    train_device,
+    infer_device,
+    decision_function_shape,
+    class_type,
+    probability,
+):
+    # Skip on CUDA 11.8 due to segfaults in decision_function
+    # See: https://github.com/rapidsai/cuml/issues/6480
+    if 11080 <= cp.cuda.runtime.runtimeGetVersion() < 11090:
+        pytest.skip(
+            "Skipping test_svc_methods on CUDA 11.8 due to segfaults in "
+            "decision_function (#6480)"
+        )
+
+    if class_type == "single_class":
+        X_train = X_train_class
+        y_train = y_train_class
+        X_test = X_test_class
+    elif class_type == "multi_class":
+        X_train = X_train_multiclass
+        y_train = y_train_multiclass
+        X_test = X_test_multiclass
+
+    ref_model = skSVC(
+        probability=probability,
+        decision_function_shape=decision_function_shape,
+    )
+    ref_model.fit(X_train, y_train)
+    if probability:
+        ref_output = ref_model.predict_proba(X_test)
+    else:
+        ref_output = ref_model.predict(X_test)
+
+    model = SVC(
+        probability=probability,
+        decision_function_shape=decision_function_shape,
+    )
+    with using_device_type(train_device):
+        model.fit(X_train, y_train)
+    with using_device_type(infer_device):
+        if probability:
+            output = model.predict_proba(X_test)
+        else:
+            output = model.predict(X_test)
+
+    if probability:
+        eps = 0.25
+        mismatches = (
+            (output <= ref_output - eps) | (output >= ref_output + eps)
+        ).sum()
+        outlier_percentage = mismatches / ref_output.size
+        assert outlier_percentage < 0.03
+    else:
+        correct_percentage = (ref_output == output).sum() / ref_output.size
+        assert correct_percentage > 0.9
+
+
+@pytest.mark.parametrize("train_device", ["cpu", "gpu"])
+@pytest.mark.parametrize("infer_device", ["cpu", "gpu"])
+def test_svr_methods(train_device, infer_device):
+    ref_model = skSVR()
+    ref_model.fit(X_train_reg, y_train_reg)
+    ref_output = ref_model.predict(X_test_reg)
+
+    model = SVR()
+    with using_device_type(train_device):
+        model.fit(X_train_reg, y_train_reg)
+    with using_device_type(infer_device):
+        output = model.predict(X_test_reg)
+
+    np.testing.assert_allclose(ref_output, output, rtol=0.15)

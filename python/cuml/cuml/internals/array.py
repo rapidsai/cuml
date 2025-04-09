@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +16,13 @@
 
 import copy
 import operator
-import pickle
+from typing import Tuple
 
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
 from cuml.internals.memory_utils import class_with_cupy_rmm, with_cupy_rmm
+from cuml.internals.output_utils import cudf_to_pandas
 from cuml.internals.safe_imports import (
     cpu_only_import,
     cpu_only_import_from,
@@ -32,7 +33,6 @@ from cuml.internals.safe_imports import (
     safe_import,
     safe_import_from,
 )
-from typing import Tuple
 
 cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")
@@ -247,6 +247,14 @@ class CumlArray:
                 self._array_interface = data.__array_interface__
                 self._mem_type = MemoryType.host
                 self._owner = data
+            elif (  # we accept lists and tuples in accel mode
+                GlobalSettings().accelerator_active
+                and isinstance(data, (list, tuple))
+            ):
+                data = np.asarray(data)
+                self._owner = data
+                self._array_interface = data.__array_interface__
+                self._mem_type = MemoryType.host
             else:  # Must construct array interface
                 if dtype is None:
                     if hasattr(data, "dtype"):
@@ -669,9 +677,11 @@ class CumlArray:
                         output_mem_type == MemoryType.host
                         and arr._mem_type != MemoryType.host
                     ):
-                        return cudf.Series(
-                            arr, dtype=output_dtype, index=self.index
-                        ).to_pandas()
+                        return cudf_to_pandas(
+                            cudf.Series(
+                                arr, dtype=output_dtype, index=self.index
+                            )
+                        )
                     else:
                         return output_mem_type.xdf.Series(
                             arr, dtype=output_dtype, index=self.index
@@ -702,7 +712,7 @@ class CumlArray:
                 output_mem_type.is_host_accessible
                 and not self.mem_type.is_host_accessible
             ):
-                out_index = self.index.to_pandas()
+                out_index = cudf_to_pandas(self.index)
             else:
                 out_index = self.index
             try:
@@ -1072,7 +1082,7 @@ class CumlArray:
             if convert_to_mem_type is MemoryType.host and isinstance(
                 index, CudfIndex
             ):
-                index = index.to_pandas()
+                index = cudf_to_pandas(index)
             elif convert_to_mem_type is MemoryType.device and isinstance(
                 index, PandasIndex
             ):
@@ -1101,6 +1111,12 @@ class CumlArray:
             # temporarily use this codepath to avoid errors, substitute
             # usage of dataframe interchange protocol once ready.
             X = X.to_numpy()
+            deepcopy = False
+        elif (  # we accept lists and tuples in accel mode
+            GlobalSettings().accelerator_active
+            and isinstance(X, (list, tuple))
+        ):
+            X = np.asarray(X)
             deepcopy = False
 
         requested_order = (order, None)[fail_on_order]

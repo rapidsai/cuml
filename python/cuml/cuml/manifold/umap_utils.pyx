@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 #
 
 # distutils: language = c++
+
+from typing import Literal
 
 from rmm.pylibrmm.memory_resource cimport get_current_device_resource
 from pylibraft.common.handle cimport handle_t
@@ -134,10 +136,10 @@ def find_ab_params(spread, min_dist):
     return params[0], params[1]
 
 
-metric_parsing = {
-    "l2": DistanceType.L2SqrtUnexpanded,
-    "euclidean": DistanceType.L2SqrtUnexpanded,
-    "sqeuclidean": DistanceType.L2Unexpanded,
+_METRICS = {
+    "l2": DistanceType.L2SqrtExpanded,
+    "euclidean": DistanceType.L2SqrtExpanded,
+    "sqeuclidean": DistanceType.L2Expanded,
     "cityblock": DistanceType.L1,
     "l1": DistanceType.L1,
     "manhattan": DistanceType.L1,
@@ -153,32 +155,61 @@ metric_parsing = {
     "canberra": DistanceType.Canberra
 }
 
+_SUPPORTED_METRICS = {
+    "nn_descent": {
+        "sparse": frozenset(),
+        "dense": frozenset((DistanceType.L2SqrtExpanded,))
+    },
+    "brute_force_knn": {
+        "sparse": frozenset((
+            DistanceType.Canberra,
+            DistanceType.CorrelationExpanded,
+            DistanceType.CosineExpanded,
+            DistanceType.HammingUnexpanded,
+            DistanceType.HellingerExpanded,
+            DistanceType.JaccardExpanded,
+            DistanceType.L1,
+            DistanceType.L2SqrtExpanded,
+            DistanceType.L2Expanded,
+            DistanceType.Linf,
+            DistanceType.LpUnexpanded,
+        )),
+        "dense": frozenset((
+            DistanceType.Canberra,
+            DistanceType.CorrelationExpanded,
+            DistanceType.CosineExpanded,
+            DistanceType.HammingUnexpanded,
+            DistanceType.HellingerExpanded,
+            # DistanceType.JaccardExpanded,  # not supported
+            DistanceType.L1,
+            DistanceType.L2SqrtExpanded,
+            DistanceType.L2Expanded,
+            DistanceType.Linf,
+            DistanceType.LpUnexpanded,
+        ))
+    }
+}
 
-DENSE_SUPPORTED_METRICS = [
-    DistanceType.Canberra,
-    DistanceType.CorrelationExpanded,
-    DistanceType.CosineExpanded,
-    DistanceType.HammingUnexpanded,
-    DistanceType.HellingerExpanded,
-    # DistanceType.JaccardExpanded,  # not supported
-    DistanceType.L1,
-    DistanceType.L2SqrtUnexpanded,
-    DistanceType.L2Unexpanded,
-    DistanceType.Linf,
-    DistanceType.LpUnexpanded,
-]
 
+def coerce_metric(
+    metric: str,
+    sparse: bool = False,
+    build_algo: Literal["brute_force_knn", "nn_descent"] = "brute_force_knn",
+) -> DistanceType:
+    """Coerce a metric string to a `DistanceType`.
 
-SPARSE_SUPPORTED_METRICS = [
-    DistanceType.Canberra,
-    DistanceType.CorrelationExpanded,
-    DistanceType.CosineExpanded,
-    DistanceType.HammingUnexpanded,
-    DistanceType.HellingerExpanded,
-    DistanceType.JaccardExpanded,
-    DistanceType.L1,
-    DistanceType.L2SqrtUnexpanded,
-    DistanceType.L2Unexpanded,
-    DistanceType.Linf,
-    DistanceType.LpUnexpanded,
-]
+    Also checks that the metric is valid and supported.
+    """
+    try:
+        out = _METRICS[metric.lower()]
+    except KeyError:
+        raise ValueError(f"Invalid value for metric: {metric!r}")
+
+    kind = "sparse" if sparse else "dense"
+    supported = _SUPPORTED_METRICS[build_algo][kind]
+    if out not in supported:
+        raise NotImplementedError(
+            f"Metric {metric!r} not supported for {kind} inputs with {build_algo=}"
+        )
+
+    return out

@@ -18,7 +18,6 @@ import contextlib
 import functools
 import inspect
 import typing
-import warnings
 
 # TODO: Try to resolve circular import that makes this necessary:
 from cuml.internals import input_utils as iu
@@ -36,8 +35,11 @@ from cuml.internals.api_context_managers import set_api_output_type
 from cuml.internals.constants import CUML_WRAPPED_FLAG
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import using_output_type
-from cuml.internals.type_utils import _DecoratorType, wraps_typed
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.type_utils import _DecoratorType
 from cuml.internals import logger
+
+np = cpu_only_import("numpy")
 
 
 def _wrap_once(wrapped, *args, **kwargs):
@@ -66,21 +68,26 @@ def _find_arg(sig, arg_name, default_position):
         raise ValueError(f"Unable to find parameter '{arg_name}'.")
 
 
-def _get_value(args, kwargs, name, index, default_value):
+def _get_value(args, kwargs, name, index, default_value, accept_lists=False):
     """Determine value for a given set of args, kwargs, name and index."""
     try:
-        return kwargs[name]
+        value = kwargs[name]
     except KeyError:
         try:
-            return args[index]
+            value = args[index]
         except IndexError:
             if default_value is not inspect._empty:
-                return default_value
+                value = default_value
             else:
                 raise IndexError(
                     f"Specified arg idx: {index}, and argument name: {name}, "
                     "were not found in args or kwargs."
                 )
+    # Accept list/tuple inputs when requested
+    if accept_lists and isinstance(value, (list, tuple)):
+        return np.asarray(value)
+
+    return value
 
 
 def _make_decorator_function(
@@ -144,16 +151,29 @@ def _make_decorator_function(
             def wrapper(*args, **kwargs):
                 # Wraps the decorated function, executed at runtime.
 
+                # Accept list/tuple inputs when accelerator is active
+                accept_lists = GlobalSettings().accelerator_active
+
                 with context_manager_cls(func, args) as cm:
 
                     self_val = args[0] if has_self else None
 
                     if input_arg_:
-                        input_val = _get_value(args, kwargs, *input_arg_)
+                        input_val = _get_value(
+                            args,
+                            kwargs,
+                            *input_arg_,
+                            accept_lists=accept_lists,
+                        )
                     else:
                         input_val = None
                     if target_arg_:
-                        target_val = _get_value(args, kwargs, *target_arg_)
+                        target_val = _get_value(
+                            args,
+                            kwargs,
+                            *target_arg_,
+                            accept_lists=accept_lists,
+                        )
                     else:
                         target_val = None
 
@@ -281,77 +301,6 @@ def mirror_args(
     updated=functools.WRAPPER_UPDATES,
 ) -> typing.Callable[[_DecoratorType], _DecoratorType]:
     return _wrap_once(wrapped=wrapped, assigned=assigned, updated=updated)
-
-
-class _deprecate_pos_args:
-    """
-    Decorator that issues a warning when using positional args that should be
-    keyword args. Mimics sklearn's `_deprecate_positional_args` with added
-    functionality.
-
-    For any class that derives from `cuml.Base`, this decorator will be
-    automatically added to `__init__`. In this scenario, its assumed that all
-    arguments are keyword arguments. To override the functionality this
-    decorator can be manually added, allowing positional arguments if
-    necessary.
-
-    Parameters
-    ----------
-    version : str
-        This version will be specified in the warning message as the
-        version when positional arguments will be removed
-
-    """
-
-    FLAG_NAME: typing.ClassVar[str] = "__cuml_deprecated_pos"
-
-    def __init__(self, version: str):
-
-        self._version = version
-
-    def __call__(self, func: _DecoratorType) -> _DecoratorType:
-
-        sig = inspect.signature(func)
-        kwonly_args = []
-        all_args = []
-
-        # Store all the positional and keyword only args
-        for name, param in sig.parameters.items():
-            if param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD:
-                all_args.append(name)
-            elif param.kind == inspect.Parameter.KEYWORD_ONLY:
-                kwonly_args.append(name)
-
-        @wraps_typed(func)
-        def inner_f(*args, **kwargs):
-            extra_args = len(args) - len(all_args)
-            if extra_args > 0:
-                # ignore first 'self' argument for instance methods
-                args_msg = [
-                    "{}={}".format(name, arg)
-                    for name, arg in zip(
-                        kwonly_args[:extra_args], args[-extra_args:]
-                    )
-                ]
-                warnings.warn(
-                    "Pass {} as keyword args. From version {}, "
-                    "passing these as positional arguments will "
-                    "result in an error".format(
-                        ", ".join(args_msg), self._version
-                    ),
-                    FutureWarning,
-                    stacklevel=2,
-                )
-
-            # Convert all positional args to keyword
-            kwargs.update({k: arg for k, arg in zip(sig.parameters, args)})
-
-            return func(**kwargs)
-
-        # Set this flag to prevent auto adding this decorator twice
-        inner_f.__dict__[_deprecate_pos_args.FLAG_NAME] = True
-
-        return inner_f
 
 
 def device_interop_preparation(init_func):

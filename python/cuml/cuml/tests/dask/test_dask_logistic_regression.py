@@ -17,13 +17,13 @@ from cuml.internals.safe_imports import gpu_only_import
 import pytest
 from cuml.dask.common import utils as dask_utils
 from functools import partial
-from sklearn.metrics import accuracy_score, mean_squared_error
+from sklearn.metrics import accuracy_score
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals import logger
 from cuml.testing.utils import array_equal
-from scipy.sparse import csr_matrix, load_npz, save_npz
+from scipy.sparse import csr_matrix
 import random
 
 random.seed(0)
@@ -409,29 +409,23 @@ def test_n_classes_small(client):
     X = np.array([(1, 2), (1, 3)], np.float32)
     y = np.array([1.0, 0.0], np.float32)
     lr = assert_small(X=X, y=y, n_classes=2)
-    assert np.array_equal(
-        lr.classes_.to_numpy(), np.array([0.0, 1.0], np.float32)
-    )
+    assert np.array_equal(lr.classes_, np.array([0.0, 1.0], np.float32))
 
     X = np.array([(1, 2), (1, 3), (1, 2.5)], np.float32)
     y = np.array([1.0, 0.0, 1.0], np.float32)
     lr = assert_small(X=X, y=y, n_classes=2)
-    assert np.array_equal(
-        lr.classes_.to_numpy(), np.array([0.0, 1.0], np.float32)
-    )
+    assert np.array_equal(lr.classes_, np.array([0.0, 1.0], np.float32))
 
     X = np.array([(1, 2), (1, 2.5), (1, 3)], np.float32)
     y = np.array([1.0, 1.0, 0.0], np.float32)
     lr = assert_small(X=X, y=y, n_classes=2)
-    assert np.array_equal(
-        lr.classes_.to_numpy(), np.array([0.0, 1.0], np.float32)
-    )
+    assert np.array_equal(lr.classes_, np.array([0.0, 1.0], np.float32))
 
     X = np.array([(1, 2), (1, 3), (1, 2.5)], np.float32)
     y = np.array([10.0, 50.0, 20.0], np.float32)
     lr = assert_small(X=X, y=y, n_classes=3)
     assert np.array_equal(
-        lr.classes_.to_numpy(), np.array([10.0, 20.0, 50.0], np.float32)
+        lr.classes_, np.array([10.0, 20.0, 50.0], np.float32)
     )
 
 

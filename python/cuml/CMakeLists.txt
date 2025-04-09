@@ -12,7 +12,7 @@
 # the License.
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
 
 include(../../rapids_config.cmake)
 
@@ -144,7 +144,7 @@ add_subdirectory(cuml/decomposition)
 add_subdirectory(cuml/ensemble)
 add_subdirectory(cuml/explainer)
 add_subdirectory(cuml/experimental/fil)
-add_subdirectory(cuml/fil)
+add_subdirectory(cuml/legacy/fil)
 add_subdirectory(cuml/kernel_ridge)
 add_subdirectory(cuml/linear_model)
 add_subdirectory(cuml/manifold)

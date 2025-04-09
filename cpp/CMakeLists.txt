@@ -14,7 +14,7 @@
 # limitations under the License.
 #=============================================================================
 
-cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
 
 include(../rapids_config.cmake)
 
@@ -234,10 +234,8 @@ rapids_cpm_init()
 rapids_cmake_install_lib_dir(lib_dir)
 
 include(${rapids-cmake-dir}/cpm/rapids_logger.cmake)
-rapids_cpm_rapids_logger()
-rapids_make_logger(
-  ML EXPORT_SET cuml-exports LOGGER_HEADER_DIR include/cuml/common/ LOGGER_MACRO_PREFIX CUML LOGGER_TARGET cuml_logger
-)
+rapids_cpm_rapids_logger(BUILD_EXPORT_SET cuml-exports INSTALL_EXPORT_SET cuml-exports)
+create_logger_macros(CUML "ML::default_logger()" include/cuml/common)
 
 if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   find_package(Threads)
@@ -385,7 +383,11 @@ if(BUILD_CUML_CPP_LIBRARY)
           src/experimental/fil/infer4.cu
           src/experimental/fil/infer5.cu
           src/experimental/fil/infer6.cu
-          src/experimental/fil/infer7.cu)
+          src/experimental/fil/infer7.cu
+          src/experimental/fil/infer8.cu
+          src/experimental/fil/infer9.cu
+          src/experimental/fil/infer10.cu
+          src/experimental/fil/infer11.cu)
     endif()
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
@@ -397,7 +399,11 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/experimental/fil/infer4.cpp
         src/experimental/fil/infer5.cpp
         src/experimental/fil/infer6.cpp
-        src/experimental/fil/infer7.cpp)
+        src/experimental/fil/infer7.cpp
+        src/experimental/fil/infer8.cpp
+        src/experimental/fil/infer9.cpp
+        src/experimental/fil/infer10.cpp
+        src/experimental/fil/infer11.cpp)
   endif()
 
   # todo: organize linear models better
@@ -608,6 +614,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_include_directories(${CUML_CPP_TARGET}
     PUBLIC
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/metrics>
@@ -642,9 +649,6 @@ if(BUILD_CUML_CPP_LIBRARY)
   # These are always private:
   list(APPEND _cuml_cpp_private_libs
     raft::raft
-    rmm::rmm_logger_impl
-    raft::raft_logger_impl
-    cuml_logger_impl
     $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}>
     ${TREELITE_LIBS}
@@ -669,9 +673,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   )
 
   target_link_libraries(${CUML_CPP_TARGET}
-    PUBLIC  rmm::rmm rmm::rmm_logger ${CUVS_LIB}
+    PUBLIC  rapids_logger::rapids_logger rmm::rmm ${CUVS_LIB}
             ${_cuml_cpp_public_libs}
-            cuml_logger
     PRIVATE ${_cuml_cpp_private_libs}
   )
 

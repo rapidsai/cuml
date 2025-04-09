@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -189,30 +189,59 @@ def _array_to_similarity_mat(x):
 
 @pytest.mark.parametrize("length", [10, 1000])
 @pytest.mark.parametrize("cardinality", [5, 10, 50])
-@pytest.mark.parametrize("dtype", ["cupy", "numpy", "pd"])
-def test_labelencoder_fit_transform_cupy_numpy_pd(length, cardinality, dtype):
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "cupy",
+        "numpy",
+        "cupy-2D",
+        "numpy-2D",
+        "pd.Series",
+        "pd.DataFrame",
+        "cudf.Series",
+        "cudf.DataFrame",
+    ],
+)
+def test_labelencoder_fit_transform_input_types(length, cardinality, kind):
     """Try encoding with various types"""
-    x = cp.random.choice(cardinality, (length,))
-    # to series
-    if dtype == "numpy":
-        x = x.get()
-    elif dtype == "pd":
-        x = pd.Series(x.get())
-    encoded = LabelEncoder().fit_transform(x)
+    raw = np.random.choice(cardinality, (length,))
+    if kind.startswith("numpy"):
+        x = raw if kind == "numpy" else raw[:, None]
+    elif kind.startswith("cupy"):
+        x = cp.asarray(raw if kind == "cupy" else raw[:, None])
+    elif kind.startswith("pd."):
+        x = pd.Series(raw)
+        if kind == "pd.DataFrame":
+            x = x.to_frame()
+    elif kind.startswith("cudf."):
+        x = cudf.Series(raw)
+        if kind == "cudf.DataFrame":
+            x = x.to_frame()
 
-    if dtype == "pd":
-        x_arr = _df_to_similarity_mat(x)
-    else:
-        x_arr = _array_to_similarity_mat(x)
+    encoder = LabelEncoder()
+    res = encoder.fit_transform(x)
+    sol = cudf.Series(raw).astype("category")
 
-    encoded_arr = _array_to_similarity_mat(encoded.values)
+    cudf.testing.assert_series_equal(res, sol.cat.codes)
+    cudf.testing.assert_index_equal(encoder.classes_, sol.cat.categories)
 
-    # to array
-    if dtype == "numpy" or dtype == "pd":
-        encoded_arr = encoded_arr.get()
-    if dtype == "pd":
-        x = x.to_numpy()
-    assert ((encoded_arr == encoded_arr.T) == (x == x_arr.T)).all()
+
+@pytest.mark.parametrize("kind", ["cupy", "numpy", "pandas"])
+def test_labelencoder_fit_transform_byteswapped(kind):
+    dtype = np.dtype("i4").newbyteorder()
+    native = np.array([1, 2, 1, 3, 2, 1], dtype="i4")
+    x = native.astype(dtype)
+    if kind == "cupy":
+        x = cp.array(x)
+    elif kind == "pandas":
+        x = pd.Series(x)
+
+    encoder = LabelEncoder()
+    res = encoder.fit_transform(x)
+    sol = cudf.Series(native).astype("category")
+
+    cudf.testing.assert_series_equal(res, sol.cat.codes)
+    cudf.testing.assert_index_equal(encoder.classes_, sol.cat.categories)
 
 
 @pytest.mark.parametrize("use_fit_transform", [False, True])

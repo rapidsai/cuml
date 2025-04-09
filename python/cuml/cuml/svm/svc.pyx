@@ -28,10 +28,12 @@ cuda = gpu_only_import_from('numba', 'cuda')
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
+import warnings
 import cuml.internals
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.logger import warn
 from cuml.internals.logger cimport level_enum
 from pylibraft.common.handle cimport handle_t
@@ -43,10 +45,70 @@ from libcpp cimport nullptr
 from cuml.svm.svm_base import SVMBase
 from cuml.internals.import_utils import has_sklearn
 from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.api_decorators import device_interop_preparation, enable_device_interop
+
+from cuml.internals.mem_type import MemoryType
+from cuml.internals.available_devices import is_cuda_available
 
 if has_sklearn():
     from cuml.multiclass import MulticlassClassifier
     from sklearn.calibration import CalibratedClassifierCV
+    from sklearn.svm import SVC as skSVC
+    from sklearn.preprocessing import LabelBinarizer
+    from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
+
+    # TODO: this is a hack to support the current cuml.accel design - we should
+    # refactor so normal sklearn.svm classes may be used instead.
+    class _CPUModelSVC(skSVC):
+        def fit(self, X, y, sample_weight=None):
+            self.classes_ = np.unique(y)
+            self.n_classes_ = len(self.classes_)
+
+            if self.probability:
+                params = self.get_params()
+                params["probability"] = False
+
+                if self.n_classes_ == 2:
+                    estimator = skSVC(**params)
+                else:
+                    if self.decision_function_shape == 'ovr':
+                        estimator = OneVsRestClassifier(skSVC(**params))
+                    elif self.decision_function_shape == 'ovo':
+                        estimator = OneVsOneClassifier(skSVC(**params))
+                    else:
+                        raise ValueError
+
+                self.prob_svc = CalibratedClassifierCV(
+                    estimator, cv=5, method='sigmoid'
+                )
+                self.prob_svc.fit(X, y)
+            elif self.n_classes_ == 2:
+                super().fit(X, y, sample_weight)
+            else:
+                params = self.get_params()
+                if self.decision_function_shape == 'ovr':
+                    self.multi_class_model = OneVsRestClassifier(skSVC(**params))
+                elif self.decision_function_shape == 'ovo':
+                    self.multi_class_model = OneVsOneClassifier(skSVC(**params))
+                else:
+                    raise ValueError
+                self.multi_class_model.fit(X, y)
+
+        def predict(self, X):
+            if self.probability:
+                return self.prob_svc.predict(X)
+            elif self.n_classes_ == 2:
+                return super().predict(X)
+            else:
+                return self.multi_class_model.predict(X)
+
+        def predict_proba(self, X):
+            if self.probability:
+                return self.prob_svc.predict_proba(X)
+            elif self.n_classes_ == 2:
+                return super().predict_proba(X)
+            else:
+                return self.multi_class_model.predict_proba(X)
 
 
 cdef extern from "raft/distance/distance_types.hpp" \
@@ -260,11 +322,14 @@ class SVC(SVMBase,
     max_iter : int (default = -1)
         Limit the number of outer iterations in the solver.
         If -1 (default) then ``max_iter=100*n_samples``
-    multiclass_strategy : str ('ovo' or 'ovr', default 'ovo')
+    decision_function_shape : str ('ovo' or 'ovr', default 'ovo')
         Multiclass classification strategy. ``'ovo'`` uses `OneVsOneClassifier
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
         while ``'ovr'`` selects `OneVsRestClassifier
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html>`_
+
+        .. versionadded:: 25.02
+          The parameter `multiclass_strategy` was renamed to `decision_function_shape`.
     nochange_steps : int (default = 1000)
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
@@ -284,6 +349,14 @@ class SVC(SVMBase,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
+    multiclass_strategy
+        Multiclass classification strategy. ``'ovo'`` uses `OneVsOneClassifier
+        <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
+        while ``'ovr'`` selects `OneVsRestClassifier
+        <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsRestClassifier.html>`_
+
+        .. versionchanged:: 25.02
+            Renamed to `decision_function_shape`. Will be removed in later versions.
 
     Attributes
     ----------
@@ -331,11 +404,17 @@ class SVC(SVMBase,
 
     """
 
+    _cpu_estimator_import_path = 'cuml.svm.svc._CPUModelSVC'
+
+    class_weight_ = CumlArrayDescriptor(order='F')
+
+    @device_interop_preparation
     def __init__(self, *, handle=None, C=1, kernel='rbf', degree=3,
                  gamma='scale', coef0=0.0, tol=1e-3, cache_size=1024.0,
                  max_iter=-1, nochange_steps=1000, verbose=False,
                  output_type=None, probability=False, random_state=None,
-                 class_weight=None, multiclass_strategy='ovo'):
+                 class_weight=None, decision_function_shape='ovo',
+                 multiclass_strategy="warn"):
         super().__init__(
             handle=handle,
             C=C,
@@ -356,6 +435,8 @@ class SVC(SVMBase,
             warn("Random state is currently ignored by probabilistic SVC")
         self.class_weight = class_weight
         self.svmType = C_SVC
+
+        self.decision_function_shape = decision_function_shape
         self.multiclass_strategy = multiclass_strategy
 
     @property
@@ -367,6 +448,15 @@ class SVC(SVMBase,
             return self.multiclass_svc.classes_
         else:
             return self._unique_labels_
+
+    @classes_.setter
+    def classes_(self, value):
+        if self.probability:
+            self.prob_svc.classes_ = value
+        elif self.n_classes_ > 2:
+            self.multiclass_svc.classes_ = value
+        else:
+            self._unique_labels_ = CumlArray.from_input(value, convert_to_dtype=self.dtype)
 
     @property
     @cuml.internals.api_base_return_array_skipall
@@ -411,8 +501,7 @@ class SVC(SVMBase,
             raise RuntimeError("Scikit-learn is needed to fit multiclass SVM")
 
         params = self.get_params()
-        strategy = params.pop('multiclass_strategy', 'ovo')
-
+        strategy = params.pop('decision_function_shape', 'ovo')
         self.multiclass_svc = MulticlassClassifier(
             estimator=SVC(**params), handle=self.handle, verbose=self.verbose,
             output_type=self.output_type, strategy=strategy)
@@ -438,7 +527,7 @@ class SVC(SVMBase,
                     ].support_ = cp.nonzero(cond)[0][ovo_support]
                     estimator_index += 1
 
-        self._fit_status_ = 0
+        self.fit_status_ = 0
         return self
 
     def _fit_proba(self, X, y, sample_weight) -> "SVC":
@@ -457,7 +546,17 @@ class SVC(SVMBase,
             raise RuntimeError(
                 "Scikit-learn is needed to use SVM probabilities")
 
-        self.prob_svc = CalibratedClassifierCV(SVC(**params),
+        if self.n_classes_ == 2:
+            estimator = SVC(**params)
+        else:
+            if self.decision_function_shape == 'ovr':
+                estimator = OneVsRestClassifier(SVC(**params))
+            elif self.decision_function_shape == 'ovo':
+                estimator = OneVsOneClassifier(SVC(**params))
+            else:
+                raise ValueError
+
+        self.prob_svc = CalibratedClassifierCV(estimator,
                                                cv=5,
                                                method='sigmoid')
 
@@ -479,22 +578,31 @@ class SVC(SVMBase,
             # Fit the model, sample_weight is either None or a numpy array
             self.prob_svc.fit(X, y, sample_weight=sample_weight)
 
-        self._fit_status_ = 0
+        self.fit_status_ = 0
         return self
 
     @generate_docstring(y='dense_anydtype')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
+    @enable_device_interop
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.
 
         """
+        if self.multiclass_strategy != "warn":
+            self.decision_function_shape = self.multiclass_strategy
+            warnings.warn(
+                "`multiclass_strategy` was deprecated in 25.04 and will be "
+                "removed in 25.06. Please use `decision_function_shape` instead",
+                FutureWarning
+            )
 
         self.n_classes_ = self._get_num_classes(y)
 
         # we need to check whether input X is sparse
         # In that case we don't want to make a dense copy
         _array_type, is_sparse = determine_array_type_full(X)
+        self._sparse = is_sparse
 
         if self.probability:
             return self._fit_proba(X, y, sample_weight)
@@ -505,10 +613,10 @@ class SVC(SVMBase,
         if is_sparse:
             X_m = SparseCumlArray(X)
             self.n_rows = X_m.shape[0]
-            self.n_cols = X_m.shape[1]
+            self.n_features_in_ = X_m.shape[1]
             self.dtype = X_m.dtype
         else:
-            X_m, self.n_rows, self.n_cols, self.dtype = \
+            X_m, self.n_rows, self.n_features_in_, self.dtype = \
                 input_to_cuml_array(X, order='F')
 
         # Fit binary classifier
@@ -539,7 +647,7 @@ class SVC(SVMBase,
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef int n_rows = self.n_rows
-        cdef int n_cols = self.n_cols
+        cdef int n_cols = self.n_features_in_
 
         cdef int n_nnz = X_m.nnz if is_sparse else -1
         cdef uintptr_t X_indptr = X_m.indptr.ptr if is_sparse else X_m.ptr
@@ -586,7 +694,7 @@ class SVC(SVMBase,
             raise TypeError('Input data type should be float32 or float64')
 
         self._unpack_model()
-        self._fit_status_ = 0
+        self.fit_status_ = 0
         self.handle.sync()
 
         del X_m
@@ -598,6 +706,7 @@ class SVC(SVMBase,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
+    @enable_device_interop
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the class labels for X. The returned y values are the class
@@ -625,6 +734,7 @@ class SVC(SVMBase,
                                        'description': 'Predicted \
                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
+    @enable_device_interop
     def predict_proba(self, X, log=False) -> CumlArray:
         """
         Predicts the class probabilities for X.
@@ -662,6 +772,7 @@ class SVC(SVMBase,
                                        probabilities',
                                        'shape': '(n_samples, n_classes)'})
     @cuml.internals.api_base_return_array_skipall
+    @enable_device_interop
     def predict_log_proba(self, X) -> CumlArray:
         """
         Predicts the log probabilities for X (returns log(predict_proba(x)).
@@ -676,6 +787,7 @@ class SVC(SVMBase,
                                        'description': 'Decision function \
                                        values',
                                        'shape': '(n_samples, 1)'})
+    @enable_device_interop
     def decision_function(self, X) -> CumlArray:
         """
         Calculates the decision function values for X.
@@ -706,11 +818,210 @@ class SVC(SVMBase,
     @classmethod
     def _get_param_names(cls):
         params = super()._get_param_names() + \
-            ["probability", "random_state", "class_weight",
-             "multiclass_strategy"]
+            ["probability", "random_state", "class_weight", "decision_function_shape", "multiclass_strategy"]
 
         # Ignore "epsilon" since its not used in the constructor
         if ("epsilon" in params):
             params.remove("epsilon")
 
         return params
+
+    def get_attr_names(self):
+        return super().get_attr_names() + ["classes_", "_sparse"]
+
+    def cpu_to_gpu(self):
+        self.dtype = np.float64
+        self.target_dtype = np.int64
+        self.probability = self._cpu_model.probability
+        self.n_classes_ = self._cpu_model.n_classes_
+        self.decision_function_shape = self._cpu_model.decision_function_shape
+
+        def turn_cpu_into_gpu(cpu_est, params):
+            gpu_est = SVC(**params)
+            gpu_est.dtype = np.float64
+            gpu_est.target_dtype = np.int64
+            gpu_est.n_classes_ = 2
+
+            # n_classes == 2 in this case
+            intercept_ = -1.0 * cpu_est._intercept_
+            dual_coef_ = -1.0 * cpu_est._dual_coef_
+
+            gpu_est.n_support_ = cpu_est.n_support_.sum()
+
+            gpu_est._intercept_ = input_to_cuml_array(
+                intercept_,
+                convert_to_mem_type=(MemoryType.host,
+                                     MemoryType.device)[is_cuda_available()],
+                convert_to_dtype=np.float64,
+                order='F')[0]
+            gpu_est.dual_coef_ = input_to_cuml_array(
+                dual_coef_,
+                convert_to_mem_type=(MemoryType.host,
+                                     MemoryType.device)[is_cuda_available()],
+                convert_to_dtype=np.float64,
+                order='F')[0]
+            gpu_est.support_ = input_to_cuml_array(
+                cpu_est.support_,
+                convert_to_mem_type=(MemoryType.host,
+                                     MemoryType.device)[is_cuda_available()],
+                convert_to_dtype=np.int32,
+                order='F')[0]
+            gpu_est.support_vectors_ = input_to_cuml_array(
+                cpu_est.support_vectors_,
+                convert_to_mem_type=(MemoryType.host,
+                                     MemoryType.device)[is_cuda_available()],
+                convert_to_dtype=np.float64,
+                order='F')[0]
+            gpu_est._unique_labels_ = input_to_cuml_array(
+                np.array(cpu_est.classes_, dtype=np.float64),
+                deepcopy=True,
+                convert_to_mem_type=(MemoryType.host,
+                                     MemoryType.device)[is_cuda_available()],
+                convert_to_dtype=np.float64,
+                order='F')[0]
+
+            gpu_est._probA = cp.empty(0, dtype=np.float64)
+            gpu_est._probB = cp.empty(0, dtype=np.float64)
+            gpu_est._gamma = cpu_est._gamma
+            gpu_est.fit_status_ = cpu_est.fit_status_
+            gpu_est.n_features_in_ = cpu_est.n_features_in_
+            gpu_est._sparse = cpu_est._sparse
+
+            gpu_est._model = gpu_est._get_svm_model()
+            return gpu_est
+
+        if self.probability:
+            if not hasattr(self, 'prob_svc'):
+                classes = self._cpu_model.classes_
+
+                def convert_calibrator(cpu_calibrator, params):
+                    import copy
+                    gpu_calibrator = copy.copy(cpu_calibrator)
+                    cpu_est = cpu_calibrator.estimator
+                    if isinstance(cpu_est, skSVC):
+                        gpu_est = turn_cpu_into_gpu(cpu_est, params)
+                    else:
+                        if self.decision_function_shape == 'ovr':
+                            gpu_est = OneVsRestClassifier(SVC(output_type=self.output_type))
+                            gpu_est.label_binarizer_ = LabelBinarizer(sparse_output=True)
+                            gpu_est.label_binarizer_.fit(classes)
+                        elif self.decision_function_shape == 'ovo':
+                            gpu_est = OneVsOneClassifier(SVC(output_type=self.output_type))
+                            gpu_est.pairwise_indices_ = None
+                        else:
+                            raise ValueError
+                        gpu_est.classes_ = classes
+                        estimators = cpu_est.estimators_
+                        gpu_est.estimators_ = [turn_cpu_into_gpu(est, params) for est in estimators]
+
+                    gpu_calibrator.estimator = gpu_est
+                    return gpu_calibrator
+
+                params = self.get_params()
+                params = {key: value for key, value, in params.items() if key in self._cpu_hyperparams}
+                params["probability"] = False
+                params["output_type"] = "numpy"
+                self.prob_svc = CalibratedClassifierCV(SVC(**params),
+                                                       cv=5,
+                                                       method='sigmoid')
+                self.prob_svc.classes_ = classes
+                calibrators = self._cpu_model.prob_svc.calibrated_classifiers_
+                self.prob_svc.calibrated_classifiers_ = [convert_calibrator(cal, params) for cal in calibrators]
+        elif self.n_classes_ == 2:
+            super().cpu_to_gpu()
+        elif self.n_classes_ > 2:
+            if not hasattr(self, 'multiclass_svc'):
+                params = self.get_params()
+                strategy = params.pop('decision_function_shape', 'ovo')
+                self.multiclass_svc = \
+                    MulticlassClassifier(estimator=SVC(**params), handle=self.handle,
+                                         verbose=self.verbose, output_type=self.output_type,
+                                         strategy=strategy)
+
+                self.multiclass_svc.multiclass_estimator.classes_ = self._cpu_model.classes_
+                estimators = self._cpu_model.multi_class_model.estimators_
+                self.multiclass_svc.multiclass_estimator.estimators_ = [turn_cpu_into_gpu(est, params) for est in estimators]
+
+                if strategy == 'ovr':
+                    self.multiclass_svc.multiclass_estimator.label_binarizer_ = LabelBinarizer(sparse_output=True)
+                    self.multiclass_svc.multiclass_estimator.label_binarizer_.fit(self._cpu_model.classes_)
+                elif strategy == 'ovo':
+                    self.multiclass_svc.multiclass_estimator.pairwise_indices_ = None
+                else:
+                    raise ValueError
+
+    def gpu_to_cpu(self):
+        self._cpu_model.n_classes_ = self.n_classes_
+        self._cpu_model.decision_function_shape = self.decision_function_shape
+
+        def turn_gpu_into_cpu(gpu_est, params):
+            cpu_est = skSVC(**params)
+            cpu_est.support_ = gpu_est.support_.to_output('numpy').astype(np.int32)
+            cpu_est.support_vectors_ = np.ascontiguousarray(gpu_est.support_vectors_.to_output('numpy').astype(np.float64))
+            cpu_est._n_support = np.array([gpu_est.n_support_, 0]).astype(np.int32)
+            cpu_est._dual_coef_ = -1.0 * np.ascontiguousarray(gpu_est.dual_coef_.to_output('numpy').astype(np.float64))
+            cpu_est._intercept_ = -1.0 * gpu_est.intercept_.to_output('numpy').astype(np.float64)
+            cpu_est.classes_ = gpu_est.classes_.to_output('numpy').astype(np.int32)
+            cpu_est.n_classes_ = 2
+            cpu_est._probA = np.empty(0, dtype=np.float64)
+            cpu_est._probB = np.empty(0, dtype=np.float64)
+            cpu_est.fit_status_ = gpu_est.fit_status_
+            cpu_est._sparse = gpu_est._sparse
+            cpu_est._gamma = gpu_est._gamma
+            return cpu_est
+
+        if self.probability:
+            if not hasattr(self._cpu_model, 'prob_svc'):
+                def convert_calibrator(gpu_calibrator, params):
+                    import copy
+                    cpu_calibrator = copy.copy(gpu_calibrator)
+                    gpu_est = gpu_calibrator.estimator
+                    if isinstance(gpu_est, SVC):
+                        cpu_est = turn_gpu_into_cpu(gpu_est, params)
+                    else:
+                        classes = self.classes_.to_output('numpy').astype(np.int32)
+                        if self.decision_function_shape == 'ovr':
+                            cpu_est = OneVsRestClassifier(skSVC())
+                            cpu_est.label_binarizer_ = LabelBinarizer(sparse_output=True)
+                            cpu_est.label_binarizer_.fit(classes)
+                        elif self.decision_function_shape == 'ovo':
+                            cpu_est = OneVsOneClassifier(skSVC())
+                            cpu_est.pairwise_indices_ = None
+                        else:
+                            raise ValueError
+                        cpu_est.classes_ = classes
+                        estimators = gpu_est.estimators_
+                        cpu_est.estimators_ = [turn_gpu_into_cpu(est, params) for est in estimators]
+
+                    cpu_calibrator.estimator = cpu_est
+                    return cpu_calibrator
+
+                params = self.get_params()
+                params = {key: value for key, value, in params.items() if key in self._cpu_hyperparams}
+                params["probability"] = False
+                self._cpu_model.prob_svc = CalibratedClassifierCV(skSVC(**params),
+                                                                  cv=5,
+                                                                  method='sigmoid')
+                self._cpu_model.prob_svc.classes_ = self.classes_
+                calibrators = self.prob_svc.calibrated_classifiers_
+                self._cpu_model.prob_svc.calibrated_classifiers_ = [convert_calibrator(cal, params) for cal in calibrators]
+        elif self.n_classes_ == 2:
+            super().gpu_to_cpu()
+        elif self.n_classes_ > 2:
+            estimators = self.multiclass_svc.multiclass_estimator.estimators_
+            classes = self.classes_.to_output('numpy').astype(np.int32)
+
+            if self.decision_function_shape == 'ovr':
+                self._cpu_model.multi_class_model = OneVsRestClassifier(skSVC())
+                self._cpu_model.multi_class_model.label_binarizer_ = LabelBinarizer(sparse_output=True)
+                self._cpu_model.multi_class_model.label_binarizer_.fit(classes)
+            elif self.decision_function_shape == 'ovo':
+                self._cpu_model.multi_class_model = OneVsOneClassifier(skSVC())
+                self._cpu_model.multi_class_model.pairwise_indices_ = None
+            else:
+                raise ValueError
+            self._cpu_model.multi_class_model.classes_ = classes
+
+            params = self.get_params()
+            params = {key: value for key, value, in params.items() if key in self._cpu_hyperparams}
+            self._cpu_model.multi_class_model.estimators_ = [turn_gpu_into_cpu(est, params) for est in estimators]

@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from contextlib import nullcontext
 from functools import lru_cache
 
 from packaging.version import Version
@@ -52,6 +51,7 @@ from sklearn.datasets import (
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.linear_model import LogisticRegression as skLog
 from sklearn.linear_model import Ridge as skRidge
+from sklearn.linear_model import ElasticNet as skElasticNet
 from sklearn.model_selection import train_test_split
 
 from cuml import ElasticNet as cuElasticNet
@@ -61,6 +61,7 @@ from cuml import Ridge as cuRidge
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
+pd = cpu_only_import("pandas")
 cudf = gpu_only_import("cudf")
 rmm = gpu_only_import("rmm")
 
@@ -322,6 +323,8 @@ def test_linear_regression_model_default(dataset):
 @given(
     split_datasets(regression_datasets(dtypes=floating_dtypes(sizes=(32, 64))))
 )
+@example(small_regression_dataset(np.float32))
+@example(small_regression_dataset(np.float64))
 def test_linear_regression_model_default_generalized(dataset):
 
     X_train, X_test, y_train, _ = dataset
@@ -598,6 +601,8 @@ def test_logistic_regression(
     penalty=st.sampled_from((None, "l1", "l2", "elasticnet")),
     l1_ratio=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0)),
 )
+@example(dtype=np.float32, penalty=None, l1_ratio=None)
+@example(dtype=np.float64, penalty=None, l1_ratio=None)
 def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
     if penalty == "elasticnet":
         assume(l1_ratio is not None)
@@ -654,6 +659,34 @@ def test_logistic_regression_model_default(dtype):
     fit_intercept=st.booleans(),
     penalty=st.sampled_from((None, "l1", "l2")),
 )
+@example(
+    dtype=np.float32,
+    order="C",
+    sparse_input=False,
+    fit_intercept=True,
+    penalty=None,
+)
+@example(
+    dtype=np.float64,
+    order="C",
+    sparse_input=False,
+    fit_intercept=True,
+    penalty=None,
+)
+@example(
+    dtype=np.float32,
+    order="F",
+    sparse_input=False,
+    fit_intercept=True,
+    penalty=None,
+)
+@example(
+    dtype=np.float64,
+    order="F",
+    sparse_input=False,
+    fit_intercept=True,
+    penalty=None,
+)
 def test_logistic_regression_model_digits(
     dtype, order, sparse_input, fit_intercept, penalty
 ):
@@ -681,6 +714,7 @@ def test_logistic_regression_model_digits(
 
 
 @given(dtype=st.sampled_from((np.float32, np.float64)))
+@example(dtype=np.float32)
 def test_logistic_regression_sparse_only(dtype, nlp_20news):
 
     # sklearn score with max_iter = 10000
@@ -712,6 +746,26 @@ def test_logistic_regression_sparse_only(dtype, nlp_20news):
     ),
     fit_intercept=st.booleans(),
     sparse_input=st.booleans(),
+)
+@example(
+    dataset=small_classification_dataset(np.float32),
+    fit_intercept=True,
+    sparse_input=False,
+)
+@example(
+    dataset=small_classification_dataset(np.float32),
+    fit_intercept=False,
+    sparse_input=True,
+)
+@example(
+    dataset=small_classification_dataset(np.float64),
+    fit_intercept=True,
+    sparse_input=False,
+)
+@example(
+    dataset=small_classification_dataset(np.float64),
+    fit_intercept=False,
+    sparse_input=True,
 )
 def test_logistic_regression_decision_function(
     dataset, fit_intercept, sparse_input
@@ -752,6 +806,26 @@ def test_logistic_regression_decision_function(
     ),
     fit_intercept=st.booleans(),
     sparse_input=st.booleans(),
+)
+@example(
+    dataset=small_classification_dataset(np.float32),
+    fit_intercept=True,
+    sparse_input=False,
+)
+@example(
+    dataset=small_classification_dataset(np.float32),
+    fit_intercept=False,
+    sparse_input=True,
+)
+@example(
+    dataset=small_classification_dataset(np.float64),
+    fit_intercept=True,
+    sparse_input=False,
+)
+@example(
+    dataset=small_classification_dataset(np.float64),
+    fit_intercept=False,
+    sparse_input=True,
 )
 def test_logistic_regression_predict_proba(
     dataset, fit_intercept, sparse_input
@@ -809,6 +883,85 @@ def test_logistic_regression_input_type_consistency(constructor, dtype):
     assert isinstance(clf.predict(X), expected_type)
 
 
+@pytest.mark.parametrize(
+    "y_kind", ["object", "fixed-string", "int32", "float32", "float16"]
+)
+@pytest.mark.parametrize("output_type", ["numpy", "cupy", "cudf", "pandas"])
+def test_logistic_regression_complex_classes(y_kind, output_type):
+    """Test that LogisticRegression handles non-numeric or non-monotonically
+    increasing classes properly in both `fit` and `predict`"""
+    if output_type == "cupy" and y_kind in ("object", "fixed-string"):
+        pytest.skip("cupy doesn't support strings!")
+    elif output_type in ("cudf", "pandas") and y_kind == "float16":
+        pytest.skip("float16 dtype not supported")
+
+    X, y_inds = make_classification(
+        n_samples=100,
+        n_features=20,
+        n_informative=10,
+        n_classes=3,
+        random_state=0,
+    )
+    if y_kind == "object":
+        classes = np.array(["apple", "banana", "carrot"], dtype="object")
+        df_dtype = "object"
+    elif y_kind == "fixed-string":
+        classes = np.array(["apple", "banana", "carrot"], dtype="U")
+        df_dtype = "object"
+    else:
+        classes = np.array([10, 20, 30], dtype=y_kind)
+        df_dtype = classes.dtype
+
+    y = classes.take(y_inds)
+
+    cu_model = cuLog(output_type=output_type)
+    sk_model = skLog()
+
+    cu_model.fit(X, y)
+    sk_model.fit(X, y)
+
+    np.testing.assert_array_equal(
+        cu_model.classes_, sk_model.classes_, strict=True
+    )
+
+    res = cu_model.predict(X)
+    sol = sk_model.predict(X)
+    if output_type == "numpy":
+        assert res.dtype == sol.dtype
+        assert isinstance(res, np.ndarray)
+    elif output_type == "cupy":
+        assert res.dtype == sol.dtype
+        assert isinstance(res, cp.ndarray)
+    elif output_type == "pandas":
+        assert res.dtype == df_dtype
+        assert isinstance(res, pd.Series)
+    elif output_type == "cudf":
+        assert res.dtype == df_dtype
+        assert isinstance(res, cudf.Series)
+
+
+@pytest.mark.parametrize("y_kind", ["pandas", "cudf"])
+def test_logistic_regression_categorical_y(y_kind):
+    X, y_inds = make_classification(
+        n_samples=100,
+        n_features=20,
+        n_informative=10,
+        n_classes=3,
+        random_state=0,
+    )
+    categories = np.array(["apple", "banana", "carrot"], dtype="object")
+    y = pd.Series(pd.Categorical.from_codes(y_inds, categories))
+    if y_kind == "cudf":
+        y = cudf.Series(y)
+
+    model = cuLog(output_type="numpy")
+    model.fit(X, y)
+    np.testing.assert_array_equal(model.classes_, categories, strict=True)
+    res = model.predict(X)
+    assert isinstance(res, np.ndarray)
+    assert res.dtype == "object"
+
+
 @pytest.mark.parametrize("train_dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("test_dtype", [np.float64, np.float32])
 def test_linreg_predict_convert_dtype(train_dtype, test_dtype):
@@ -832,6 +985,10 @@ def test_linreg_predict_convert_dtype(train_dtype, test_dtype):
     ),
     test_dtype=floating_dtypes(sizes=(32, 64)),
 )
+@example(dataset=small_regression_dataset(np.float32), test_dtype=np.float32)
+@example(dataset=small_regression_dataset(np.float32), test_dtype=np.float64)
+@example(dataset=small_regression_dataset(np.float64), test_dtype=np.float32)
+@example(dataset=small_regression_dataset(np.float64), test_dtype=np.float64)
 def test_ridge_predict_convert_dtype(dataset, test_dtype):
     assume(cuml_compatible_dataset(*dataset))
     X_train, X_test, y_train, _ = dataset
@@ -848,6 +1005,18 @@ def test_ridge_predict_convert_dtype(dataset, test_dtype):
         )
     ),
     test_dtype=floating_dtypes(sizes=(32, 64)),
+)
+@example(
+    dataset=small_classification_dataset(np.float32), test_dtype=np.float32
+)
+@example(
+    dataset=small_classification_dataset(np.float32), test_dtype=np.float64
+)
+@example(
+    dataset=small_classification_dataset(np.float64), test_dtype=np.float32
+)
+@example(
+    dataset=small_classification_dataset(np.float64), test_dtype=np.float64
 )
 def test_logistic_predict_convert_dtype(dataset, test_dtype):
     X_train, X_test, y_train, y_test = dataset
@@ -1040,3 +1209,50 @@ def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
         assert not array_equal(X, X_copy)
     else:
         assert array_equal(X, X_copy)
+
+
+@pytest.mark.parametrize("ntargets", [1, 2])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("solver", ["cd", "qn"])
+@pytest.mark.parametrize(
+    "nrows", [unit_param(1000), quality_param(5000), stress_param(500000)]
+)
+@pytest.mark.parametrize(
+    "column_info",
+    [
+        unit_param([20, 10]),
+        quality_param([100, 50]),
+        stress_param([1000, 500]),
+    ],
+)
+def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
+    ncols, n_info = column_info
+    X_train, X_test, y_train, y_test = make_regression_dataset(
+        datatype, nrows, ncols, n_info, n_targets=ntargets
+    )
+
+    # Initialization of cuML's elastic net model
+    cuelastic = cuElasticNet(alpha=0.1, l1_ratio=0.5, solver=solver)
+
+    if ntargets > 1:
+        with pytest.raises(
+            ValueError,
+            match="The .* solver does not support multi-target regression.",
+        ):
+            cuelastic.fit(X_train, y_train)
+        return
+
+    # fit and predict cuml elastic net model
+    cuelastic.fit(X_train, y_train)
+    cuelastic_predict = cuelastic.predict(X_test)
+
+    if nrows < 500000:
+        # sklearn elastic net model initialization, fit and predict
+        skelastic = skElasticNet(alpha=0.1, l1_ratio=0.5)
+        skelastic.fit(X_train, y_train)
+
+        skelastic_predict = skelastic.predict(X_test)
+
+        assert array_equal(
+            skelastic_predict, cuelastic_predict, 3e-0, with_sign=True
+        )

@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,33 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import pytest
+import umap.distances as dist
+from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
+from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
 
-import platform
+from cuml.datasets import make_blobs
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.manifold.umap import UMAP
+from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
 from cuml.manifold.umap import (
     simplicial_set_embedding as cu_simplicial_set_embedding,
 )
-from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
-from cuml.neighbors import NearestNeighbors
-from cuml.manifold.umap import UMAP
-from cuml.internals.safe_imports import gpu_only_import
-import pytest
-from cuml.datasets import make_blobs
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.metrics import trustworthiness
+from cuml.neighbors import NearestNeighbors
+
 
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
-
-
-IS_ARM = platform.processor() == "aarch64"
-
-if not IS_ARM:
-    from umap.umap_ import (
-        simplicial_set_embedding as ref_simplicial_set_embedding,
-    )
-    from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
-    import umap.distances as dist
 
 
 def correctness_dense(a, b, rtol=0.1, threshold=0.95):
@@ -60,9 +52,6 @@ def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
 @pytest.mark.parametrize("n_features", [8, 32])
 @pytest.mark.parametrize("n_neighbors", [8, 16])
 @pytest.mark.parametrize("precomputed_nearest_neighbors", [False, True])
-@pytest.mark.skipif(
-    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
-)
 def test_fuzzy_simplicial_set(
     n_rows, n_features, n_neighbors, precomputed_nearest_neighbors
 ):
@@ -123,9 +112,6 @@ def test_fuzzy_simplicial_set(
 @pytest.mark.parametrize("n_features", [8, 32])
 @pytest.mark.parametrize("n_neighbors", [8, 16])
 @pytest.mark.parametrize("n_components", [2, 5])
-@pytest.mark.skipif(
-    IS_ARM, reason="https://github.com/rapidsai/cuml/issues/5441"
-)
 def test_simplicial_set_embedding(
     n_rows, n_features, n_neighbors, n_components
 ):

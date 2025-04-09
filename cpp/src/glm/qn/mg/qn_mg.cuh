@@ -65,8 +65,14 @@ int qn_fit_mg(const raft::handle_t& handle,
 
   auto obj_function =
     GLMWithDataMG(handle, rank, n_ranks, n_samples, &regularizer_obj, X, y, Z, stder_p);
-  return ML::GLM::detail::qn_minimize(
-    handle, w0, fx, num_iters, obj_function, l1, opt_param, static_cast<level_enum>(pams.verbose));
+  return ML::GLM::detail::qn_minimize(handle,
+                                      w0,
+                                      fx,
+                                      num_iters,
+                                      obj_function,
+                                      l1,
+                                      opt_param,
+                                      static_cast<rapids_logger::level_enum>(pams.verbose));
 }
 
 template <typename T>

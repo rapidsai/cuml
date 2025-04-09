@@ -172,13 +172,13 @@ change acceleration for Scikit-Learn and similar packages, ``cudf.pandas``
 offers zero code change acceleration for Pandas.
 
 Using them together is supported as an experimental feature. To do this from the
-CLI, the flag ``-cudf-pandas`` can be added to the ``cuml.accel`` call:
+CLI, the flag ``--cudf-pandas`` can be added to the ``cuml.accel`` call:
 
 .. code-block::
 
    python -m cuml.accel --cudf-pandas
 
-For Jupyter notebooks, use the following to turn on both:
+For Jupyter notebooks, use the following approach to turn on both:
 
 .. code-block::
 

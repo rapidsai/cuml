@@ -18,8 +18,6 @@
 
 #include "optimize_batch_kernel.cuh"
 
-#include <common/fast_int_div.cuh>
-
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
 
@@ -38,6 +36,7 @@
 
 #include <curand.h>
 #include <math.h>
+#include <stdint.h>
 
 #include <cstdlib>
 #include <string>
@@ -58,8 +57,9 @@ using namespace ML;
  * @param result: an array of number of epochs per sample, one for each 1-simplex
  * @param stream cuda stream
  */
-template <typename T>
-void make_epochs_per_sample(T* weights, int weights_n, int n_epochs, T* result, cudaStream_t stream)
+template <typename T, typename idx_t, typename nnz_t>
+void make_epochs_per_sample(
+  T* weights, idx_t weights_n, nnz_t n_epochs, T* result, cudaStream_t stream)
 {
   thrust::device_ptr<T> d_weights = thrust::device_pointer_cast(weights);
   T weights_max =
@@ -99,7 +99,7 @@ void optimization_iteration_finalization(
 /**
  * Update the embeddings and clear the buffers when using deterministic algorithm.
  */
-template <typename T>
+template <typename T, typename nnz_t>
 void apply_embedding_updates(T* head_embedding,
                              T* head_buffer,
                              int head_n,
@@ -111,27 +111,26 @@ void apply_embedding_updates(T* head_embedding,
                              rmm::cuda_stream_view stream)
 {
   ASSERT(params->deterministic, "Only used when deterministic is set to true.");
+  nnz_t n_components = params->n_components;
   if (move_other) {
-    auto n_components = params->n_components;
-    thrust::for_each(
-      rmm::exec_policy(stream),
-      thrust::make_counting_iterator(0u),
-      thrust::make_counting_iterator(0u) + std::max(head_n, tail_n) * params->n_components,
-      [=] __device__(uint32_t i) {
-        if (i < head_n * n_components) {
-          head_embedding[i] += head_buffer[i];
-          head_buffer[i] = 0.0f;
-        }
-        if (i < tail_n * n_components) {
-          tail_embedding[i] += tail_buffer[i];
-          tail_buffer[i] = 0.0f;
-        }
-      });
+    thrust::for_each(rmm::exec_policy(stream),
+                     thrust::make_counting_iterator(0u),
+                     thrust::make_counting_iterator(0u) + std::max(head_n, tail_n) * n_components,
+                     [=] __device__(uint32_t i) {
+                       if (i < head_n * n_components) {
+                         head_embedding[i] += head_buffer[i];
+                         head_buffer[i] = 0.0f;
+                       }
+                       if (i < tail_n * n_components) {
+                         tail_embedding[i] += tail_buffer[i];
+                         tail_buffer[i] = 0.0f;
+                       }
+                     });
   } else {
     // No need to update reference embedding
     thrust::for_each(rmm::exec_policy(stream),
                      thrust::make_counting_iterator(0u),
-                     thrust::make_counting_iterator(0u) + head_n * params->n_components,
+                     thrust::make_counting_iterator(0u) + head_n * n_components,
                      [=] __device__(uint32_t i) {
                        head_embedding[i] += head_buffer[i];
                        head_buffer[i] = 0.0f;
@@ -168,9 +167,9 @@ T create_rounding_factor(T max_abs, int n)
   return std::ldexp(static_cast<T>(1.0), exp);
 }
 
-template <typename T>
+template <typename T, typename nnz_t>
 T create_gradient_rounding_factor(
-  const int* head, int nnz, int n_samples, T alpha, rmm::cuda_stream_view stream)
+  const int* head, nnz_t nnz, int n_samples, T alpha, rmm::cuda_stream_view stream)
 {
   rmm::device_uvector<T> buffer(n_samples, stream);
   // calculate the maximum number of edges connected to 1 vertex.
@@ -195,14 +194,14 @@ T create_gradient_rounding_factor(
  * positive weights (neighbors in the 1-skeleton) and repelling
  * negative weights (non-neighbors in the 1-skeleton).
  */
-template <int TPB_X, typename T>
+template <typename T, typename nnz_t, int TPB_X>
 void optimize_layout(T* head_embedding,
                      int head_n,
                      T* tail_embedding,
                      int tail_n,
                      const int* head,
                      const int* tail,
-                     int nnz,
+                     nnz_t nnz,
                      T* epochs_per_sample,
                      float gamma,
                      UMAPParams* params,
@@ -233,12 +232,13 @@ void optimize_layout(T* head_embedding,
   T* d_head_buffer = head_embedding;
   T* d_tail_buffer = tail_embedding;
   if (params->deterministic) {
-    head_buffer.resize(head_n * params->n_components, stream_view);
+    nnz_t n_components = params->n_components;
+    head_buffer.resize(head_n * n_components, stream_view);
     RAFT_CUDA_TRY(
       cudaMemsetAsync(head_buffer.data(), '\0', sizeof(T) * head_buffer.size(), stream));
     // No need for tail if it's not being written.
     if (move_other) {
-      tail_buffer.resize(tail_n * params->n_components, stream_view);
+      tail_buffer.resize(tail_n * n_components, stream_view);
       RAFT_CUDA_TRY(
         cudaMemsetAsync(tail_buffer.data(), '\0', sizeof(T) * tail_buffer.size(), stream));
     }
@@ -246,46 +246,44 @@ void optimize_layout(T* head_embedding,
     d_tail_buffer = tail_buffer.data();
   }
 
-  dim3 grid(raft::ceildiv(nnz, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(nnz, static_cast<nnz_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
   uint64_t seed = params->random_state;
 
-  T rounding = create_gradient_rounding_factor<T>(head, nnz, head_n, alpha, stream_view);
+  T rounding = create_gradient_rounding_factor<T, nnz_t>(head, nnz, head_n, alpha, stream_view);
 
-  MLCommon::FastIntDiv tail_n_fast(tail_n);
   for (int n = 0; n < n_epochs; n++) {
-    call_optimize_batch_kernel<T, TPB_X>(head_embedding,
-                                         d_head_buffer,
-                                         head_n,
-                                         tail_embedding,
-                                         d_tail_buffer,
-                                         tail_n_fast,
-                                         head,
-                                         tail,
-                                         nnz,
-                                         epochs_per_sample,
-                                         epoch_of_next_negative_sample.data(),
-                                         epoch_of_next_sample.data(),
-                                         alpha,
-                                         gamma,
-                                         seed,
-                                         move_other,
-                                         params,
-                                         n,
-                                         grid,
-                                         blk,
-                                         stream,
-                                         rounding);
+    call_optimize_batch_kernel<T, nnz_t, TPB_X>(head_embedding,
+                                                d_head_buffer,
+                                                tail_embedding,
+                                                d_tail_buffer,
+                                                tail_n,
+                                                head,
+                                                tail,
+                                                nnz,
+                                                epochs_per_sample,
+                                                epoch_of_next_negative_sample.data(),
+                                                epoch_of_next_sample.data(),
+                                                alpha,
+                                                gamma,
+                                                seed,
+                                                move_other,
+                                                params,
+                                                n,
+                                                grid,
+                                                blk,
+                                                stream,
+                                                rounding);
     if (params->deterministic) {
-      apply_embedding_updates(head_embedding,
-                              d_head_buffer,
-                              head_n,
-                              tail_embedding,
-                              d_tail_buffer,
-                              tail_n,
-                              params,
-                              move_other,
-                              stream_view);
+      apply_embedding_updates<T, nnz_t>(head_embedding,
+                                        d_head_buffer,
+                                        head_n,
+                                        tail_embedding,
+                                        d_tail_buffer,
+                                        tail_n,
+                                        params,
+                                        move_other,
+                                        stream_view);
     }
     RAFT_CUDA_TRY(cudaGetLastError());
     optimization_iteration_finalization(params, head_embedding, alpha, n, n_epochs, seed);
@@ -297,11 +295,11 @@ void optimize_layout(T* head_embedding,
  * the fuzzy set cross entropy between the embeddings
  * and their 1-skeletons.
  */
-template <int TPB_X, typename T>
+template <typename T, typename nnz_t, int TPB_X>
 void launcher(
   int m, int n, raft::sparse::COO<T>* in, UMAPParams* params, T* embedding, cudaStream_t stream)
 {
-  int nnz = in->nnz;
+  nnz_t nnz = in->nnz;
 
   /**
    * Find vals.max()
@@ -342,25 +340,25 @@ void launcher(
   make_epochs_per_sample(out.vals(), out.nnz, n_epochs, epochs_per_sample.data(), stream);
 
   /*
-  if (ML::default_logger().should_log(ML::level_enum::debug)) {
+  if (ML::default_logger().should_log(rapids_logger::level_enum::debug)) {
     std::stringstream ss;
     ss << raft::arr2Str(epochs_per_sample.data(), out.nnz, "epochs_per_sample", stream);
     CUML_LOG_TRACE(ss.str().c_str());
   }
   */
 
-  optimize_layout<TPB_X, T>(embedding,
-                            m,
-                            embedding,
-                            m,
-                            out.rows(),
-                            out.cols(),
-                            out.nnz,
-                            epochs_per_sample.data(),
-                            params->repulsion_strength,
-                            params,
-                            n_epochs,
-                            stream);
+  optimize_layout<T, nnz_t, TPB_X>(embedding,
+                                   m,
+                                   embedding,
+                                   m,
+                                   out.rows(),
+                                   out.cols(),
+                                   out.nnz,
+                                   epochs_per_sample.data(),
+                                   params->repulsion_strength,
+                                   params,
+                                   n_epochs,
+                                   stream);
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }

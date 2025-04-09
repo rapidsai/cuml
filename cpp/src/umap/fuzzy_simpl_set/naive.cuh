@@ -79,7 +79,7 @@ static const float MIN_K_DIST_SCALE   = 1e-3;
  * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
  *
  */
-template <int TPB_X, typename value_t>
+template <typename value_t, typename nnz_t, int TPB_X>
 CUML_KERNEL void smooth_knn_dist_kernel(const value_t* knn_dists,
                                         int n,
                                         float mean_dist,
@@ -92,7 +92,8 @@ CUML_KERNEL void smooth_knn_dist_kernel(const value_t* knn_dists,
 {
   // row-based matrix 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
-  int i   = row * n_neighbors;  // each thread processes one row of the dist matrix
+  nnz_t i =
+    static_cast<nnz_t>(row) * n_neighbors;  // each thread processes one row of the dist matrix
 
   if (row < n) {
     float target = __log2f(n_neighbors) * bandwidth;
@@ -190,7 +191,7 @@ CUML_KERNEL void smooth_knn_dist_kernel(const value_t* knn_dists,
  *
  * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
  */
-template <int TPB_X, typename value_idx, typename value_t>
+template <typename value_t, typename value_idx, typename nnz_t, int TPB_X>
 CUML_KERNEL void compute_membership_strength_kernel(
   const value_idx* knn_indices,
   const float* knn_dists,  // nn outputs
@@ -199,14 +200,14 @@ CUML_KERNEL void compute_membership_strength_kernel(
   value_t* vals,
   int* rows,
   int* cols,  // result coo
-  int n,
-  int n_neighbors)
+  int n_neighbors,
+  nnz_t to_process)
 {  // model params
 
   // row-based matrix is best
-  int idx = (blockIdx.x * TPB_X) + threadIdx.x;
+  nnz_t idx = (blockIdx.x * static_cast<nnz_t>(TPB_X)) + threadIdx.x;
 
-  if (idx < n * n_neighbors) {
+  if (idx < to_process) {
     int row = idx / n_neighbors;  // one neighbor per thread
 
     double cur_rho   = rhos[row];
@@ -237,8 +238,8 @@ CUML_KERNEL void compute_membership_strength_kernel(
 /*
  * Sets up and runs the knn dist smoothing
  */
-template <int TPB_X, typename value_idx, typename value_t>
-void smooth_knn_dist(int n,
+template <typename value_t, typename value_idx, typename nnz_t, int TPB_X>
+void smooth_knn_dist(nnz_t n,
                      const value_idx* knn_indices,
                      const float* knn_dists,
                      value_t* rhos,
@@ -248,12 +249,13 @@ void smooth_knn_dist(int n,
                      float local_connectivity,
                      cudaStream_t stream)
 {
-  dim3 grid(raft::ceildiv(n, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(n, static_cast<nnz_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   rmm::device_uvector<value_t> dist_means_dev(n_neighbors, stream);
 
-  raft::stats::mean(dist_means_dev.data(), knn_dists, 1, n_neighbors * n, false, false, stream);
+  raft::stats::mean(
+    dist_means_dev.data(), knn_dists, nnz_t{1}, n * n_neighbors, false, false, stream);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   value_t mean_dist = 0.0;
@@ -263,9 +265,80 @@ void smooth_knn_dist(int n,
   /**
    * Smooth kNN distances to be continuous
    */
-  smooth_knn_dist_kernel<TPB_X><<<grid, blk, 0, stream>>>(
+  smooth_knn_dist_kernel<value_t, nnz_t, TPB_X><<<grid, blk, 0, stream>>>(
     knn_dists, n, mean_dist, sigmas, rhos, n_neighbors, local_connectivity);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+template <typename value_t, typename value_idx, typename nnz_t, int TPB_X>
+void compute_membership_strength(nnz_t n,
+                                 const value_idx* knn_indices,
+                                 const value_t* knn_dists,
+                                 int n_neighbors,
+                                 raft::sparse::COO<value_t>& out,
+                                 UMAPParams* params,
+                                 cudaStream_t stream)
+{
+  /**
+   * Calculate mean distance through a parallel reduction
+   */
+  rmm::device_uvector<value_t> sigmas(n, stream);
+  rmm::device_uvector<value_t> rhos(n, stream);
+  RAFT_CUDA_TRY(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(value_t), stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(rhos.data(), 0, n * sizeof(value_t), stream));
+
+  smooth_knn_dist<value_t, value_idx, nnz_t, TPB_X>(n,
+                                                    knn_indices,
+                                                    knn_dists,
+                                                    rhos.data(),
+                                                    sigmas.data(),
+                                                    params,
+                                                    n_neighbors,
+                                                    params->local_connectivity,
+                                                    stream);
+
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+  /**
+   * Compute graph of membership strengths
+   */
+  nnz_t to_process = static_cast<nnz_t>(out.n_rows) * n_neighbors;
+  dim3 grid_elm(raft::ceildiv(to_process, static_cast<nnz_t>(TPB_X)), 1, 1);
+  dim3 blk_elm(TPB_X, 1, 1);
+
+  compute_membership_strength_kernel<value_t, value_idx, nnz_t, TPB_X>
+    <<<grid_elm, blk_elm, 0, stream>>>(knn_indices,
+                                       knn_dists,
+                                       sigmas.data(),
+                                       rhos.data(),
+                                       out.vals(),
+                                       out.rows(),
+                                       out.cols(),
+                                       n_neighbors,
+                                       to_process);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
+template <typename value_t>
+void symmetrize(raft::sparse::COO<value_t>& in,
+                raft::sparse::COO<value_t>& out,
+                float set_op_mix_ratio,
+                cudaStream_t stream)
+{
+  /**
+   * Combines all the fuzzy simplicial sets into a global
+   * one via a fuzzy union. (Symmetrize knn graph).
+   */
+  raft::sparse::linalg::coo_symmetrize<value_t>(
+    &in,
+    &out,
+    [set_op_mix_ratio] __device__(int row, int col, value_t result, value_t transpose) {
+      value_t prod_matrix = result * transpose;
+      value_t res         = set_op_mix_ratio * (result + transpose - prod_matrix) +
+                    (1.0 - set_op_mix_ratio) * prod_matrix;
+      return res;
+    },
+    stream);
 }
 
 /**
@@ -284,8 +357,8 @@ void smooth_knn_dist(int n,
  * @param params UMAPParams config object
  * @param stream cuda stream to use for device operations
  */
-template <int TPB_X, typename value_idx, typename value_t>
-void launcher(int n,
+template <typename value_t, typename value_idx, typename nnz_t, int TPB_X>
+void launcher(nnz_t n,
               const value_idx* knn_indices,
               const value_t* knn_dists,
               int n_neighbors,
@@ -293,81 +366,16 @@ void launcher(int n,
               UMAPParams* params,
               cudaStream_t stream)
 {
-  /**
-   * Calculate mean distance through a parallel reduction
-   */
-  rmm::device_uvector<value_t> sigmas(n, stream);
-  rmm::device_uvector<value_t> rhos(n, stream);
-  RAFT_CUDA_TRY(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(value_t), stream));
-  RAFT_CUDA_TRY(cudaMemsetAsync(rhos.data(), 0, n * sizeof(value_t), stream));
+  /* Nested scope so `strengths` is dropped before the `coo_sort` call to
+   * reduce device memory usage. */
+  {
+    raft::sparse::COO<value_t> strengths(stream, n * n_neighbors, n, n);
 
-  smooth_knn_dist<TPB_X, value_idx, value_t>(n,
-                                             knn_indices,
-                                             knn_dists,
-                                             rhos.data(),
-                                             sigmas.data(),
-                                             params,
-                                             n_neighbors,
-                                             params->local_connectivity,
-                                             stream);
+    compute_membership_strength<value_t, value_idx, nnz_t, TPB_X>(
+      n, knn_indices, knn_dists, n_neighbors, strengths, params, stream);
 
-  raft::sparse::COO<value_t> in(stream, n * n_neighbors, n, n);
-
-  /*
-  // check for logging in order to avoid the potentially costly `arr2Str` call!
-  if (ML::default_logger().should_log(ML::level_enum::trace)) {
-    CUML_LOG_DEBUG("Smooth kNN Distances");
-    auto str = raft::arr2Str(sigmas.data(), 25, "sigmas", stream);
-    CUML_LOG_TRACE("%s", str.c_str());
-    str = raft::arr2Str(rhos.data(), 25, "rhos", stream);
-    CUML_LOG_TRACE("%s", str.c_str());
-  }
-  */
-
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
-
-  /**
-   * Compute graph of membership strengths
-   */
-
-  dim3 grid_elm(raft::ceildiv(n * n_neighbors, TPB_X), 1, 1);
-  dim3 blk_elm(TPB_X, 1, 1);
-
-  compute_membership_strength_kernel<TPB_X><<<grid_elm, blk_elm, 0, stream>>>(knn_indices,
-                                                                              knn_dists,
-                                                                              sigmas.data(),
-                                                                              rhos.data(),
-                                                                              in.vals(),
-                                                                              in.rows(),
-                                                                              in.cols(),
-                                                                              in.n_rows,
-                                                                              n_neighbors);
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
-
-  /*
-  if (ML::default_logger().should_log(ML::level_enum::trace)) {
-    CUML_LOG_DEBUG("Compute Membership Strength");
-    std::stringstream ss;
-    ss << in;
-    CUML_LOG_TRACE(ss.str().c_str());
-  }
-  */
-
-  /**
-   * Combines all the fuzzy simplicial sets into a global
-   * one via a fuzzy union. (Symmetrize knn graph).
-   */
-  float set_op_mix_ratio = params->set_op_mix_ratio;
-  raft::sparse::linalg::coo_symmetrize<value_t>(
-    &in,
-    out,
-    [set_op_mix_ratio] __device__(int row, int col, value_t result, value_t transpose) {
-      value_t prod_matrix = result * transpose;
-      value_t res         = set_op_mix_ratio * (result + transpose - prod_matrix) +
-                    (1.0 - set_op_mix_ratio) * prod_matrix;
-      return res;
-    },
-    stream);
+    symmetrize<value_t>(strengths, *out, params->set_op_mix_ratio, stream);
+  }  // end strengths scope
 
   raft::sparse::op::coo_sort<value_t>(out, stream);
 }

@@ -26,8 +26,8 @@ import typing
 
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
-from cuml import ForestInference
-from cuml.fil.fil import TreeliteModel
+from cuml.legacy.fil.fil import ForestInference
+from cuml.legacy.fil.fil import TreeliteModel
 from pylibraft.common.handle import Handle
 from cuml.internals.base import UniversalBase
 from cuml.internals.array import CumlArray
@@ -162,6 +162,11 @@ class BaseRandomForestModel(UniversalBase):
         else:
             self.split_criterion = \
                 BaseRandomForestModel.criterion_dict[str(split_criterion)]
+        if self.split_criterion == MAE:
+            raise NotImplementedError(
+                "cuML does not currently support mean average error as a"
+                " RandomForest split criterion"
+            )
 
         if self.split_criterion == MAE:
             raise NotImplementedError(
@@ -191,6 +196,10 @@ class BaseRandomForestModel(UniversalBase):
         self.treelite_handle = None
         self.treelite_serialized_model = None
         self._cpu_model_class_lock = threading.RLock()
+
+    def __len__(self):
+        """Return the number of estimators in the ensemble."""
+        return self.n_estimators
 
     def _get_max_feat_val(self) -> float:
         if isinstance(self.max_features, int):
@@ -313,6 +322,19 @@ class BaseRandomForestModel(UniversalBase):
         self.dtype = np.float64
         self.update_labels = False
         super().cpu_to_gpu()
+        # Set fitted attributes not transferred by treelite, but only when the
+        # accelerator is active.
+        # We only transfer "simple" attributes, not np.ndarrays or DecisionTree
+        # instances, as these could be used by the GPU model to make predictions.
+        # The list of names below is hand vetted.
+        if GlobalSettings().accelerator_active:
+            for name in ('n_features_in_', 'n_outputs_', 'n_classes_', 'oob_score_'):
+                # Not all attributes are always present
+                try:
+                    value = getattr(self._cpu_model, name)
+                except AttributeError:
+                    continue
+                setattr(self, name, value)
 
     def gpu_to_cpu(self):
         self._obtain_treelite_handle()
@@ -321,7 +343,14 @@ class BaseRandomForestModel(UniversalBase):
             take_handle_ownership=False)
         tl_bytes = tl_model.to_treelite_bytes()
         tl_model2 = treelite.Model.deserialize_bytes(tl_bytes)
+        # Make sure the CPU model's hyper-parameters are preserved, treelite
+        # does not roundtrip hyper-parameters.
+        params = {}
+        if hasattr(self, "_cpu_model"):
+            params = self._cpu_model.get_params()
+
         self._cpu_model = treelite.sklearn.export_model(tl_model2)
+        self._cpu_model.set_params(**params)
 
     @cuml.internals.api_base_return_generic(set_output_type=True,
                                             set_n_features_in=True,
@@ -355,7 +384,7 @@ class BaseRandomForestModel(UniversalBase):
                 raise TypeError("The labels `y` need to be of dtype"
                                 " `int32`")
             self.classes_ = cp.unique(y_m)
-            self.num_classes = len(self.classes_)
+            self.num_classes = self.n_classes_ = len(self.classes_)
             self.use_monotonic = not check_labels(
                 y_m, cp.arange(self.num_classes, dtype=np.int32))
             if self.use_monotonic:
@@ -368,6 +397,12 @@ class BaseRandomForestModel(UniversalBase):
                     convert_to_dtype=(self.dtype if convert_dtype
                                       else None),
                     check_rows=self.n_rows, check_cols=1)
+
+        if len(y_m.shape) == 1:
+            self.n_outputs_ = 1
+        else:
+            self.n_outputs_ = y_m.shape[1]
+        self.n_features_in_ = X_m.shape[1]
 
         max_feature_val = self._get_max_feat_val()
         if isinstance(self.min_samples_leaf, float):
@@ -418,8 +453,10 @@ class BaseRandomForestModel(UniversalBase):
             _check_fil_parameter_validity(depth=self.max_depth,
                                           fil_sparse_format=fil_sparse_format,
                                           algo=algo)
-        fil_model = ForestInference(handle=self.handle, verbose=self.verbose,
-                                    output_type=self.output_type)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', FutureWarning)
+            fil_model = ForestInference(handle=self.handle, verbose=self.verbose,
+                                        output_type=self.output_type)
         tl_to_fil_model = \
             fil_model.load_using_treelite_handle(treelite_handle,
                                                  output_class=output_class,
@@ -520,8 +557,10 @@ def _obtain_fil_model(treelite_handle, depth,
                                       fil_sparse_format=fil_sparse_format,
                                       algo=algo)
 
-    # Use output_type="input" to prevent an error
-    fil_model = ForestInference(output_type="input")
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', FutureWarning)
+        # Use output_type="input" to prevent an error
+        fil_model = ForestInference(output_type="input")
 
     tl_to_fil_model = \
         fil_model.load_using_treelite_handle(treelite_handle,

@@ -24,8 +24,6 @@ exclude =
 extend-ignore =
     # handled by black
     E501, W503, E203
-    # imported but unused
-    F401
     # redefinition of unused
     F811
 

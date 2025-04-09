@@ -40,9 +40,7 @@ IF GPUBUILD == 1:
     from cuml.cluster.kmeans_utils cimport params as KMeansParams
     from cuml.cluster.kmeans_utils cimport KMeansPlusPlus, Random, Array
     from cuml.cluster cimport kmeans_utils
-
-    # Avoid potential future conflicts with cuml's level enum
-    ctypedef kmeans_utils.level_enum raft_level_enum
+    from cuml.internals.logger cimport level_enum
 
 from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -51,6 +49,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.mixins import ClusterMixin
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common import input_to_cuml_array
+from cuml.common.sparse_utils import is_sparse
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.global_settings import GlobalSettings
@@ -148,10 +147,14 @@ class KMeans(UniversalBase,
          - If an ndarray is passed, it should be of
            shape (`n_clusters`, `n_features`) and gives the initial centers.
 
-    n_init: 'auto' or int (default = 1)
+    n_init: 'auto' or int (default = 'auto')
         Number of instances the k-means algorithm will be called with
         different seeds. The final results will be from the instance
         that produces lowest inertia out of n_init instances.
+
+        When `n_init='auto'`, the number of runs depends on the value of
+        `init`: 1 if using `init='"k-means||"` or `init="scalable-k-means++"`;
+        10 otherwise.
 
         .. versionadded:: 25.02
            Added 'auto' option for `n_init`.
@@ -233,27 +236,18 @@ class KMeans(UniversalBase,
             # so we need to pass a dummy value here. Its value does not matter as the
             # seed is only used during fitting
             params.rng_state.seed = <int>getattr(self, "_seed", 0)
-            params.verbosity = <raft_level_enum>(<int>self.verbose)
+            params.verbosity = <level_enum>(<int>self.verbose)
             params.metric = DistanceType.L2Expanded   # distance metric as squared L2: @todo - support other metrics # noqa: E501
             params.batch_samples = <int>self.max_samples_per_batch
             params.oversampling_factor = <double>self.oversampling_factor
-            n_init = self.n_init
-            if n_init == "warn":
-                if not GlobalSettings().accelerator_active:
-                    warnings.warn(
-                        "The default value of `n_init` will change from"
-                        " 1 to 'auto' in 25.04. Set the value of `n_init`"
-                        " explicitly to suppress this warning.",
-                        FutureWarning,
-                    )
-                n_init = 1
-            if n_init == "auto":
+
+            if self.n_init == "auto":
                 if self.init in ("k-means||", "scalable-k-means++"):
                     params.n_init = 1
                 else:
                     params.n_init = 10
             else:
-                params.n_init = <int>n_init
+                params.n_init = <int>self.n_init
             return <size_t>params
         ELSE:
             return None
@@ -261,7 +255,7 @@ class KMeans(UniversalBase,
     @device_interop_preparation
     def __init__(self, *, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
                  verbose=False, random_state=1,
-                 init='scalable-k-means++', n_init="warn", oversampling_factor=2.0,
+                 init='scalable-k-means++', n_init="auto", oversampling_factor=2.0,
                  max_samples_per_batch=1<<15, convert_dtype=True,
                  output_type=None):
         super().__init__(handle=handle,
@@ -753,3 +747,12 @@ class KMeans(UniversalBase,
         return ['cluster_centers_', 'labels_', 'inertia_',
                 'n_iter_', 'n_features_in_', '_n_threads',
                 "feature_names_in_", "_n_features_out"]
+
+    def _should_dispatch_cpu(self, func_name, *args, **kwargs):
+        """
+        Dispatch to CPU implementation when sparse arrays are detected in the input
+        """
+        if func_name == "fit" and len(args) > 0:
+            X = args[0]
+            return is_sparse(X)
+        return False

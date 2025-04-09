@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,14 @@
 #include "common.cuh"
 #include "internal.cuh"
 
+#include <cuml/common/functional.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/fil/multi_sum.cuh>
 
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <thrust/functional.h>
+#include <cuda/std/functional>
 
 #include <algorithm>
 #include <cmath>
@@ -81,13 +82,13 @@ struct vec {
   __host__ __device__ T operator[](int i) const { return data[i]; }
   friend __host__ __device__ vec<N, T> operator+(const vec<N, T>& a, const vec<N, T>& b)
   {
-    return vectorized(cub::Sum())(a, b);
+    return vectorized(cuda::std::plus<T>{})(a, b);
   }
   friend __host__ __device__ void operator+=(vec<N, T>& a, const vec<N, T>& b) { a = a + b; }
   template <typename Vec>
   friend __host__ __device__ vec<N, T> operator/(vec<N, T>& a, const Vec& b)
   {
-    return vectorized(thrust::divides<T>())(a, vec<N, T>(b));
+    return vectorized(cuda::std::divides<T>())(a, vec<N, T>(b));
   }
   template <typename Vec>
   friend __host__ __device__ void operator/=(vec<N, T>& a, const Vec& b)
@@ -210,20 +211,16 @@ the CUDA compute capability of the device chosen for computation.
 TODO (levsnv): run a test kernel during forest init to determine the compute capability
 chosen for the inference, for an accurate sizeof(BlockReduce::TempStorage),
 which is used in determining max NITEMS or max input data columns.
-
-600 is the __CUDA_ARCH__ for Pascal (6.0) GPUs, which is not defined in
-host code.
-6.0 is the earliest compute capability supported by FIL and RAPIDS in general.
-See https://rapids.ai/start.html as well as cmake defaults.
 */
 // values below are defaults as of this change.
 template <int NITEMS, typename real_t>
 size_t block_reduce_footprint_host()
 {
-  return sizeof(
-    typename cub::
-      BlockReduce<vec<NITEMS, real_t>, FIL_TPB, cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, 600>::
-        TempStorage);
+  return sizeof(typename cub::BlockReduce<vec<NITEMS, real_t>,
+                                          FIL_TPB,
+                                          cub::BLOCK_REDUCE_WARP_REDUCTIONS,
+                                          1,
+                                          1>::TempStorage);
 }
 
 template <int NITEMS, typename real_t>
@@ -233,8 +230,7 @@ size_t block_reduce_best_class_footprint_host()
                                           FIL_TPB,
                                           cub::BLOCK_REDUCE_WARP_REDUCTIONS,
                                           1,
-                                          1,
-                                          600>::TempStorage);
+                                          1>::TempStorage);
 }
 
 // the device template should achieve the best performance, using up-to-date
@@ -300,7 +296,7 @@ struct tree_aggregator_t {
       // ensure input columns can be overwritten (no threads traversing trees)
       __syncthreads();
       if (log2_threads_per_tree == 0) {
-        acc = block_reduce(acc, vectorized(cub::Sum()), tmp_storage);
+        acc = block_reduce(acc, vectorized(cuda::std::plus{}), tmp_storage);
       } else {
         auto per_thread         = (vec<NITEMS, real_t>*)tmp_storage;
         per_thread[threadIdx.x] = acc;
@@ -384,11 +380,11 @@ __device__ __forceinline__ void block_softmax(Iterator begin, Iterator end, void
 {
   // subtract max before exponentiating for numerical stability
   using value_type = typename std::iterator_traits<Iterator>::value_type;
-  value_type max   = allreduce_shmem(begin, end, vectorized(cub::Max()), tmp_storage);
+  value_type max   = allreduce_shmem(begin, end, vectorized(ML::detail::maximum{}), tmp_storage);
   for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
     *it = vectorized(shifted_exp())(*it, max);
   // sum of exponents
-  value_type soe = allreduce_shmem(begin, end, vectorized(cub::Sum()), tmp_storage);
+  value_type soe = allreduce_shmem(begin, end, vectorized(cuda::std::plus{}), tmp_storage);
   // softmax phase 2: normalization
   for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
     *it /= soe;

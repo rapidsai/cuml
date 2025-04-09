@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 
 # Support invoking test_python_singlegpu.sh outside the script directory
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
@@ -18,29 +18,29 @@ rapids-logger "pytest cuml single GPU"
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml" \
   --cov-config=../../.coveragerc \
   --cov=cuml \
-  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml" \
-  --cov-report=term
+  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml"
 
   rapids-logger "pytest cuml accelerator"
 ./ci/run_cuml_singlegpu_accel_pytests.sh \
   --numprocesses=8 \
   --dist=worksteal \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel.xml" \
-  --cov-config=../../../../.coveragerc \
+  --cov-config=../../../.coveragerc \
   --cov=cuml \
-  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-accel-coverage.xml" \
-  --cov-report=term
+  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-accel-coverage.xml"
 
-rapids-logger "memory leak pytests"
 
-./ci/run_cuml_singlegpu_memleak_pytests.sh \
-  --numprocesses=1 \
-  --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-memleak.xml" \
-  --cov-config=../../.coveragerc \
-  --cov=cuml \
-  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-memleak-coverage.xml" \
-  --cov-report=term \
-  -m "memleak"
+if [ "${RAPIDS_BUILD_TYPE}" == "nightly" ]; then
+  rapids-logger "memory leak pytests"
+
+  ./ci/run_cuml_singlegpu_memleak_pytests.sh \
+    --numprocesses=1 \
+    --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-memleak.xml" \
+    --cov-config=../../.coveragerc \
+    --cov=cuml \
+    --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-memleak-coverage.xml" \
+    -m "memleak"
+fi
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}

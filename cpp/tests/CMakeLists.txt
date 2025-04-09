@@ -56,10 +56,7 @@ function(ConfigureTest)
     CUDA::cusparse${_ctk_static_suffix}
     $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
     rmm::rmm
-    rmm::rmm_logger
     raft::raft
-    raft::raft_logger
-    test_logger_impls
     GTest::gtest
     GTest::gtest_main
     GTest::gmock
@@ -108,15 +105,8 @@ function(ConfigureTest)
 
 endfunction()
 
-add_library(test_logger_impls OBJECT)
-target_link_libraries(test_logger_impls PRIVATE rmm::rmm_logger_impl raft::raft_logger_impl)
-
 ##############################################################################
 # - build ml_test executable -------------------------------------------------
-if(all_algo)
-  ConfigureTest(PREFIX SG NAME LOGGER_TEST  sg/logger.cpp ML_INCLUDE)
-endif()
-
 if(all_algo OR dbscan_algo)
   ConfigureTest(PREFIX SG NAME DBSCAN_TEST  sg/dbscan_test.cu ML_INCLUDE)
 endif()
@@ -132,6 +122,9 @@ if(all_algo OR fil_algo)
   ConfigureTest(PREFIX SG NAME MULTI_SUM_TEST  sg/multi_sum_test.cu ML_INCLUDE)
   ConfigureTest(PREFIX SG NAME HOST_BUFFER_TEST  sg/experimental/fil/raft_proto/buffer.cpp ML_INCLUDE)
   ConfigureTest(PREFIX SG NAME DEVICE_BUFFER_TEST  sg/experimental/fil/raft_proto/buffer.cu ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME FOREST_TRAVERSAL_TEST sg/experimental/forest/traversal_forest.cpp ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME TREELITE_TRAVERSAL_TEST sg/experimental/forest/treelite_traversal.cpp ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME TREELITE_IMPORTER_TEST sg/experimental/fil/treelite_importer.cpp ML_INCLUDE)
 endif()
 
 # todo: organize linear models better
@@ -182,7 +175,7 @@ if(all_algo OR pca_algo)
 endif()
 
 if(all_algo OR randomforest_algo)
-  ConfigureTest(PREFIX SG NAME RF_TEST  sg/rf_test.cu ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME RF_TEST  sg/rf_test.cu ML_INCLUDE GPUS 1 PERCENT 100)
 endif()
 
 if(all_algo OR randomprojection_algo)

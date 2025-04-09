@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +38,6 @@ from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 import cuml.internals.logger as logger
 from cuml.common import has_scipy
 from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals import _deprecate_pos_args
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
@@ -307,7 +306,6 @@ class ARIMA(Base):
     sma_ = CumlArrayDescriptor()
     sigma2_ = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="21.06")
     def __init__(self,
                  endog,
                  *,

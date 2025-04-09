@@ -246,8 +246,7 @@ Metrics (regression, classification, and distance)
   .. automodule:: cuml.metrics.regression
     :members:
 
-  .. automodule:: cuml.metrics.accuracy
-    :members:
+  .. autofunction:: cuml.metrics.accuracy_score
 
   .. autofunction:: cuml.metrics.confusion_matrix
 
@@ -400,6 +399,7 @@ Forest Inferencing
 
 .. autoclass:: cuml.ForestInference
     :members:
+    :inherited-members:
 
 Coordinate Descent
 ------------------
@@ -418,6 +418,8 @@ Support Vector Machines
 
 .. autoclass:: cuml.svm.SVR
     :members:
+
+.. autoclass:: cuml.svm.SVC
 
 .. autoclass:: cuml.svm.LinearSVC
     :members:

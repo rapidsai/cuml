@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,12 +24,6 @@ from cuml.common import (
     input_to_host_array,
     input_to_host_array_with_sparse_support,
 )
-from cuml.internals.input_utils import (
-    input_to_cupy_array,
-    determine_array_type_full,
-)
-from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals import _deprecate_pos_args
 
 
 class MulticlassClassifier(Base, ClassifierMixin):
@@ -60,8 +54,8 @@ class MulticlassClassifier(Base, ClassifierMixin):
         ...                            random_state=137)
 
         >>> cls = MulticlassClassifier(LogisticRegression(), strategy='ovo')
-        >>> cls.fit(X,y)
-        MulticlassClassifier()
+        >>> cls.fit(X, y)
+        MulticlassClassifier(estimator=LogisticRegression())
         >>> cls.predict(X)
         array([1, 1, 1, 1, 1, 1, 2, 1, 1, 2])
 
@@ -97,7 +91,6 @@ class MulticlassClassifier(Base, ClassifierMixin):
 
     """
 
-    @_deprecate_pos_args(version="21.06")
     def __init__(
         self,
         estimator,
@@ -113,21 +106,6 @@ class MulticlassClassifier(Base, ClassifierMixin):
         self.strategy = strategy
         self.estimator = estimator
 
-    @property
-    @cuml.internals.api_base_return_array_skipall
-    def classes_(self):
-        return self.multiclass_estimator.classes_
-
-    @property
-    @cuml.internals.api_base_return_any_skipall
-    def n_classes_(self):
-        return self.multiclass_estimator.n_classes_
-
-    @generate_docstring(y="dense_anydtype")
-    def fit(self, X, y) -> "MulticlassClassifier":
-        """
-        Fit a multiclass classifier.
-        """
         if not has_sklearn():
             raise ImportError(
                 "Scikit-learn is needed to use "
@@ -151,6 +129,16 @@ class MulticlassClassifier(Base, ClassifierMixin):
                 '{"ovr", "ovo"}'
             )
 
+    @property
+    @cuml.internals.api_base_return_array_skipall
+    def classes_(self):
+        return self.multiclass_estimator.classes_
+
+    @generate_docstring(y="dense_anydtype")
+    def fit(self, X, y) -> "MulticlassClassifier":
+        """
+        Fit a multiclass classifier.
+        """
         X = input_to_host_array_with_sparse_support(X)
 
         y = input_to_host_array(y).array
@@ -226,8 +214,8 @@ class OneVsRestClassifier(MulticlassClassifier):
         ...                            random_state=137)
 
         >>> cls = OneVsRestClassifier(LogisticRegression())
-        >>> cls.fit(X,y)
-        OneVsRestClassifier()
+        >>> cls.fit(X, y)
+        OneVsRestClassifier(estimator=LogisticRegression())
         >>> cls.predict(X)
         array([1, 1, 1, 1, 1, 1, 2, 1, 1, 2])
 
@@ -253,7 +241,6 @@ class OneVsRestClassifier(MulticlassClassifier):
         :ref:`output-data-type-configuration` for more info.
     """
 
-    @_deprecate_pos_args(version="21.06")
     def __init__(
         self, estimator, *args, handle=None, verbose=False, output_type=None
     ):
@@ -302,8 +289,8 @@ class OneVsOneClassifier(MulticlassClassifier):
         ...                            random_state=137)
 
         >>> cls = OneVsOneClassifier(LogisticRegression())
-        >>> cls.fit(X,y)
-        OneVsOneClassifier()
+        >>> cls.fit(X, y)
+        OneVsOneClassifier(estimator=LogisticRegression())
         >>> cls.predict(X)
         array([1, 1, 1, 1, 1, 1, 2, 1, 1, 2])
 
@@ -328,7 +315,6 @@ class OneVsOneClassifier(MulticlassClassifier):
         :ref:`output-data-type-configuration` for more info.
     """
 
-    @_deprecate_pos_args(version="21.06")
     def __init__(
         self, estimator, *args, handle=None, verbose=False, output_type=None
     ):

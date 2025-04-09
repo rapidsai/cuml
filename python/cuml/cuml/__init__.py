@@ -25,7 +25,7 @@ else:
     del libcuml
 
 from cuml.internals.base import Base, UniversalBase
-from cuml.internals.available_devices import is_cuda_available
+from cuml.internals.available_devices import is_cuda_available, GPU_ENABLED
 
 # GPU only packages
 
@@ -44,8 +44,6 @@ if is_cuda_available():
 
     from cuml.decomposition.incremental_pca import IncrementalPCA
 
-    from cuml.fil.fil import ForestInference
-
     from cuml.ensemble.randomforestclassifier import RandomForestClassifier
     from cuml.ensemble.randomforestregressor import RandomForestRegressor
 
@@ -54,7 +52,6 @@ if is_cuda_available():
     from cuml.explainer.tree_shap import TreeExplainer
 
     import cuml.feature_extraction
-    from cuml.fil import fil
 
     from cuml.kernel_ridge.kernel_ridge import KernelRidge
 
@@ -62,9 +59,7 @@ if is_cuda_available():
     from cuml.linear_model.mbsgd_regressor import MBSGDRegressor
 
     from cuml.manifold.t_sne import TSNE
-    from cuml.metrics.accuracy import accuracy_score
-    from cuml.metrics.cluster.adjusted_rand_index import adjusted_rand_score
-    from cuml.metrics.regression import r2_score
+    from cuml.metrics import accuracy_score, r2_score, adjusted_rand_score
     from cuml.model_selection import train_test_split
 
     from cuml.naive_bayes.naive_bayes import MultinomialNB
@@ -110,6 +105,11 @@ from cuml.internals.memory_utils import (
 
 from cuml.cluster.hdbscan import HDBSCAN
 
+# FIL is currently not built in cuml-cpu distributions, even though it can be
+# used in a CPU-only environment. Only import if the build supports it.
+if GPU_ENABLED:
+    from cuml.fil import ForestInference
+    from cuml.fil import fil
 from cuml.decomposition.pca import PCA
 from cuml.decomposition.tsvd import TruncatedSVD
 
@@ -143,6 +143,7 @@ __all__ = [
     # Modules
     "common",
     "feature_extraction",
+    "fil",
     "metrics",
     "multiclass",
     "naive_bayes",
