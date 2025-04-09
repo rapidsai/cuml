@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@
 
 #include <cub/cub.cuh>
 #include <thrust/fill.h>
+#include <thrust/unique.h>
 
 #include <iostream>
 #include <memory>
@@ -35,8 +36,31 @@ namespace ML {
 namespace DT {
 
 template <typename T>
-__attribute__((visibility("hidden"))) __global__ void computeQuantilesKernel(
-  T* quantiles, int* n_bins, const T* sorted_data, const int max_n_bins, const int n_rows);
+__global__ void computeQuantilesKernel(
+  T* quantiles, int* n_bins, const T* sorted_data, const int max_n_bins, const int n_rows)
+{
+  double bin_width = static_cast<double>(n_rows) / max_n_bins;
+
+  for (int bin = threadIdx.x; bin < max_n_bins; bin += blockDim.x) {
+    // get index by interpolation
+    int idx        = int(round((bin + 1) * bin_width)) - 1;
+    idx            = min(max(0, idx), n_rows - 1);
+    quantiles[bin] = sorted_data[idx];
+  }
+
+  __syncthreads();
+
+  if (threadIdx.x == 0) {
+    // make quantiles unique, in-place
+    // thrust::seq to explicitly disable cuda dynamic parallelism here
+    auto new_last = thrust::unique(thrust::seq, quantiles, quantiles + max_n_bins);
+    // get the unique count
+    *n_bins = new_last - quantiles;
+  }
+
+  __syncthreads();
+  return;
+}
 
 template <typename T>
 using QuantileReturnValue = std::tuple<ML::DT::Quantiles<T, int>,
