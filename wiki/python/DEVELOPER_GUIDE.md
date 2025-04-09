@@ -47,31 +47,65 @@ The examples in the documentation are checked through doctest. To skip the check
 Examples subject to numerical imprecision, or that can't be reproduced consistently should be skipped.
 
 ## Testing and Unit Testing
-We use [https://docs.pytest.org/en/latest/]() for writing and running tests. To see existing examples, refer to any of the `test_*.py` files in the folder `cuml/tests`.
+We use [pytest](https://docs.pytest.org/en/latest/) for writing and running tests. To see existing examples, refer to any of the `test_*.py` files in the folder `cuml/tests`.
 
-Some tests are run against inputs generated with [hypothesis](https://hypothesis.works/). See the `cuml/testing/strategies.py` module for custom strategies that can be used to test cuml estimators with diverse inputs. For example, use the `regression_datasets()` strategy to test random regression problems.
+### Test Organization
+- Keep all tests for a single estimator in one file, with exceptions for:
+  - Performance testing/benchmarking
+  - Generic estimator checks (e.g., `test_base.py`)
+- Use small, focused datasets for correctness testing
+- Only parametrize scale when it triggers alternate code paths
 
-When using hypothesis for testing, you must include at least one explicit example using the `@example` decorator alongside any `@given` strategies. This ensures that:
-1. Every test has at least one deterministic test case that always runs
-2. Critical edge cases are documented and tested consistently
-3. Test failures can be reproduced reliably
+### Test Input Generation
+We support three main approaches for test input generation:
 
-Note: While the explicit examples will always run in CI, the hypothesis-generated test cases (from `@given` strategies) only run during nightly testing by default. This ensures fast CI runs while still maintaining thorough testing coverage.
+1. **Fixtures** (`@pytest.fixture`):
+   - For shared setup/teardown code and resources
+   - Examples: random seeds, clients, loading test datasets
+   ```python
+   @pytest.fixture(scope="module")
+   def random_state():
+       return 42
+   ```
 
-Example of a valid hypothesis test:
-```python
-@example(dtype=np.float32, sparse_input=False)  # baseline case, runs as part of PR CI
-@example(dtype=np.float64, sparse_input=True)   # edge case, runs as part of PR CI
-@given(
-    dtype=st.sampled_from((np.float32, np.float64)),
-    sparse_input=st.booleans()
-)  # strategy-based cases, only runs during nightly tests
-def test_my_estimator(dtype, sparse_input):
-    # Test implementation
-    pass
-```
+2. **Parametrization** (`@pytest.mark.parametrize`):
+   - For testing specific input combinations
+   - Good for hyperparameters and configurations
+   ```python
+   @pytest.mark.parametrize("solver", ["svd", "eig"])
+   def test_estimator(solver):
+       pass
+   ```
 
-The test collection will fail if any test uses `@given` without an accompanying `@example`.
+3. **Hypothesis** (`@given`):
+   - For property-based testing with random inputs
+   - Must include at least one `@example` for deterministic testing
+   - Preferred for dataset generation
+   ```python
+   @example(dataset=small_regression_dataset(np.float32))
+   @given(dataset=standard_regression_datasets())
+   def test_estimator(dataset):
+       pass
+   ```
+
+### Testing Guidelines
+
+1. **Accuracy Testing**
+   - Compare against recorded reference values when possible
+   - Document origin of reference values
+   - Use appropriate quality metrics for equivalent but different results
+   - Ensure reproducibility rather than using retry logic
+
+2. **Minimize resources**
+   - Use minimal dataset sizes
+   - Only test different scales if they would actually hit different code paths
+
+3. **Best Practices**
+   - Write small, focused tests
+   - Avoid duplication between test files
+   - Choose appropriate input generation method
+   - Make tests reproducible
+   - Document test assumptions and requirements
 
 ## Device and Host memory allocations
 TODO: talk about enabling RMM here when it is ready
