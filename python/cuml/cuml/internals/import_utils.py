@@ -160,15 +160,6 @@ def has_scipy(raise_if_unavailable=False, min_version=None):
             raise ImportError("Scipy is not available.")
 
 
-def has_sklearn():
-    try:
-        import sklearn  # NOQA
-
-        return True
-    except ImportError:
-        return False
-
-
 def has_hdbscan(raise_if_unavailable=False):
     try:
         import hdbscan  # NOQA

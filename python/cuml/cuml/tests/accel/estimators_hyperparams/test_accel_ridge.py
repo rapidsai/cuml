@@ -14,11 +14,13 @@
 # limitations under the License.
 #
 
+from packaging.version import Version
 
 import cuml
 
 import pytest
 import numpy as np
+import sklearn
 from sklearn.datasets import make_regression
 from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score
@@ -213,9 +215,15 @@ def test_ridge_solver_attribute_after_fit(solver, expected_solver_):
     model = Ridge(solver=solver, positive=positive, random_state=42)
     X, y = make_regression(n_samples=10, n_features=2, random_state=42)
     model.fit(X, y)
-    assert (
-        model.solver_ == expected_solver_
-    ), f"solver_ should be '{expected_solver_}' after fit"
+
+    if Version(sklearn.__version__) >= Version("1.5.0"):
+        assert (
+            model.solver_ == expected_solver_
+        ), f"solver_ should be '{expected_solver_}' after fit"
+    else:
+        assert not hasattr(
+            model, "solver_"
+        ), "solver_ attribute should not be set in scikit-learn versions before 1.5.0"
 
 
 def test_ridge_solver_attribute_invalid(regression_data):

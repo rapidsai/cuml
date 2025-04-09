@@ -314,6 +314,17 @@ class KMeans(UniversalBase,
                                       else None),
                     check_dtype=[np.float32, np.float64]
                 )
+    """
+    @classmethod
+    def _hyperparam_translator(cls, **kwargs):
+        kwargs, gpuaccel = super()._hyperparam_translator(**kwargs)
+
+        if "n_init" in kwargs:
+            if Version(sklearn.__version__) == Version('1.3.2'):
+                if kwargs['n_init'] == 'warn':
+                    kwargs['n_init'] = 10
+
+        return kwargs, gpuaccel"""
 
     @generate_docstring()
     @enable_device_interop

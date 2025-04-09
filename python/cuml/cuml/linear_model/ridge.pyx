@@ -16,11 +16,15 @@
 
 # distutils: language = c++
 
+from packaging.version import Version
+
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
 import warnings
+
+import sklearn
 
 from libc.stdint cimport uintptr_t
 
@@ -33,6 +37,7 @@ from cuml.linear_model.base import LinearPredictMixin
 from cuml.common import input_to_cuml_array
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.global_settings import GlobalSettings
 
 
 IF GPUBUILD == 1:
@@ -249,15 +254,18 @@ class Ridge(UniversalBase,
         Select the solver based on the input solver and set both solver_ and algo attributes.
         """
         if solver == 'auto':
-            self.solver_ = 'eig'
+            solver_ = 'eig'
         elif solver in ("eig", "svd", "cd"):
-            self.solver_ = solver
+            solver_ = solver
         else:
             # TODO (csadorf): this should be a ValueError, but using using
             # TypeError for backwards compatibility
             raise TypeError(f"solver {solver!r} is not supported")
 
-        self.algo = {'svd': 0, 'eig': 1, 'cd': 2}[self.solver_]
+        if not GlobalSettings().accelerator_active or Version(sklearn.__version__) >= Version('1.5.0'):
+            self.solver_ = solver_
+
+        self.algo = {'svd': 0, 'eig': 1, 'cd': 2}[solver_]
 
     @generate_docstring()
     @enable_device_interop

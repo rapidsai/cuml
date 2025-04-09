@@ -17,7 +17,7 @@
 
 from packaging.version import Version
 
-MIN_SKLEARN_VERSION = Version('1.5')
+MIN_SKLEARN_VERSION = Version('1.3.2')
 
 
 try:

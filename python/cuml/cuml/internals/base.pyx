@@ -930,7 +930,18 @@ class UniversalBase(Base):
         estimator = cls()
         estimator.import_cpu_model()
         estimator._cpu_model = model
-        params, gpuaccel = cls._hyperparam_translator(**model.get_params())
+
+        # Remove params that are set to their default values. This mirrors the
+        # behaviour when creating the estimator in `as_sklearn`.
+        sklearn_signature = inspect.signature(model.__init__)
+        params = model.get_params()
+        # We use list() so we can modify `params` inside the loop
+        for name in list(params.keys()):
+            value = params[name]
+            if value == sklearn_signature.parameters[name].default:
+                params.pop(name)
+
+        params, gpuaccel = cls._hyperparam_translator(**params)
         params = {key: params[key] for key in cls._get_param_names() if key in params}
         estimator.set_params(**params)
         estimator.cpu_to_gpu()

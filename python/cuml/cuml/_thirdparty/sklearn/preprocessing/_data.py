@@ -60,7 +60,14 @@ from itertools import combinations_with_replacement as combinations_w_r
 from cuml.internals.safe_imports import cpu_only_import
 cpu_np = cpu_only_import('numpy')
 np = gpu_only_import('cupy')
-resample = cpu_only_import_from('sklearn.utils._indexing', 'resample')
+
+# In scikit-learn 1.4.x the `resample` function was available in
+# `sklearn.utils`, but got moved to `sklearn.utils._indexing` in 1.5.
+try:
+    resample = cpu_only_import_from('sklearn.utils._indexing', 'resample')
+except ModuleNotFoundError:
+    resample = cpu_only_import_from('sklearn.utils', 'resample')
+
 sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
 stats = cpu_only_import_from('scipy', 'stats')
 

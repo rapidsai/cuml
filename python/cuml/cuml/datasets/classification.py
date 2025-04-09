@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,9 @@
 # limitations under the License.
 #
 
+from sklearn.utils.random import sample_without_replacement
+
 import cuml.internals
-from cuml.internals.import_utils import has_sklearn
 from cuml.datasets.utils import _create_rs_generator
 
 from cuml.internals.safe_imports import gpu_only_import
@@ -33,14 +34,6 @@ np = cpu_only_import("numpy")
 
 def _generate_hypercube(samples, dimensions, rng):
     """Returns distinct binary samples of length dimensions"""
-    if not has_sklearn():
-        raise RuntimeError(
-            "Scikit-learn is needed to run \
-                           make_classification."
-        )
-
-    from sklearn.utils.random import sample_without_replacement
-
     if dimensions > 30:
         return np.hstack(
             [
