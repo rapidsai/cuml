@@ -37,6 +37,7 @@ from cuml.linear_model.base import LinearPredictMixin
 from cuml.common import input_to_cuml_array
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.global_settings import GlobalSettings
 
 
 IF GPUBUILD == 1:
@@ -261,7 +262,7 @@ class Ridge(UniversalBase,
             # TypeError for backwards compatibility
             raise TypeError(f"solver {solver!r} is not supported")
 
-        if Version(sklearn.__version__) >= Version('1.5.0'):
+        if not GlobalSettings().accelerator_active or Version(sklearn.__version__) >= Version('1.5.0'):
             self.solver_ = solver_
 
         self.algo = {'svd': 0, 'eig': 1, 'cd': 2}[solver_]
