@@ -31,7 +31,8 @@ from cuml.cluster.hdbscan.prediction import (
 from sklearn.datasets import make_blobs
 
 from cuml.metrics import adjusted_rand_score
-from cuml.testing.utils import get_pattern, array_equal
+from cuml.testing.datasets import get_pattern
+from cuml.testing.utils import array_equal
 
 from cuml.internals.safe_imports import cpu_only_import
 

@@ -17,8 +17,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import pairwise_distances
 from sklearn.datasets import make_blobs
 from sklearn.cluster import DBSCAN as skDBSCAN
+from cuml.testing.datasets import get_pattern
 from cuml.testing.utils import (
-    get_pattern,
     unit_param,
     quality_param,
     stress_param,
