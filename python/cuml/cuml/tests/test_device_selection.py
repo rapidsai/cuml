@@ -70,9 +70,9 @@ import itertools as it
 import pytest
 import cuml
 from cuml.internals.safe_imports import cpu_only_import
+import gc
 
 np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
 pd = cpu_only_import("pandas")
 cudf = gpu_only_import("cudf")
 
@@ -1122,13 +1122,7 @@ def test_svc_methods(
     class_type,
     probability,
 ):
-    # Skip on CUDA 11.8 due to segfaults in decision_function
-    # See: https://github.com/rapidsai/cuml/issues/6480
-    if 11080 <= cp.cuda.runtime.runtimeGetVersion() < 11090:
-        pytest.skip(
-            "Skipping test_svc_methods on CUDA 11.8 due to segfaults in "
-            "decision_function (#6480)"
-        )
+    gc.collect()  # mitigation for https://github.com/rapidsai/cuml/issues/6480
 
     if class_type == "single_class":
         X_train = X_train_class
