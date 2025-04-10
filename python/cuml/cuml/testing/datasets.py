@@ -13,8 +13,6 @@
 # limitations under the License.
 #
 
-from functools import lru_cache
-
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.internals.array import elements_in_representable_range
 from cuml.testing.strategies import (
@@ -99,45 +97,8 @@ def cuml_compatible_dataset(X_train, X_test, y_train, _=None):
     )
 
 
-def _generate_regression_data(nrows, ncols, n_info, **kwargs):
-    """Generate regression data using sklearn's make_regression.
-
-    Parameters
-    ----------
-    nrows : int
-        Number of samples
-    ncols : int
-        Number of features
-    n_info : int
-        Number of informative features
-    **kwargs : dict
-        Additional arguments passed to make_regression
-
-    Returns
-    -------
-    tuple
-        Train-test split of generated data
-    """
-    X, y = make_regression(
-        n_samples=nrows,
-        n_features=ncols,
-        n_informative=n_info,
-        random_state=0,
-        **kwargs,
-    )
-    return train_test_split(X, y, train_size=0.8, random_state=10)
-
-
-@lru_cache(maxsize=4)  # Cache up to 4 dataset generations
-def _get_cached_regression_data(nrows, ncols, n_info, **kwargs):
-    """Cached version of _generate_regression_data."""
-    return _generate_regression_data(nrows, ncols, n_info, **kwargs)
-
-
 def make_regression_dataset(datatype, nrows, ncols, n_info, **kwargs):
     """Create a regression dataset with specified parameters.
-
-    Uses caching for datasets under 4GB total size.
 
     Parameters
     ----------
@@ -157,13 +118,19 @@ def make_regression_dataset(datatype, nrows, ncols, n_info, **kwargs):
     tuple
         Train-test split arrays cast to specified datatype
     """
-    # Use cached version for datasets under 4GB
-    if nrows * ncols < 1e8:
-        dataset = _get_cached_regression_data(nrows, ncols, n_info, **kwargs)
-    else:
-        dataset = _generate_regression_data(nrows, ncols, n_info, **kwargs)
-
-    return map(lambda arr: arr.astype(datatype), dataset)
+    X, y = make_regression(
+        n_samples=nrows,
+        n_features=ncols,
+        n_informative=n_info,
+        random_state=0,
+        **kwargs,
+    )
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=0.8, random_state=10
+    )
+    return tuple(
+        arr.astype(datatype) for arr in (X_train, X_test, y_train, y_test)
+    )
 
 
 def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
