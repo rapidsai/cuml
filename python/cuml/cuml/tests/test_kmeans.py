@@ -17,14 +17,14 @@ from cuml.internals.safe_imports import gpu_only_import
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import adjusted_rand_score
 from sklearn import cluster
+from cuml.datasets import make_blobs
 from cuml.testing.utils import (
-    get_pattern,
     unit_param,
     quality_param,
     stress_param,
     array_equal,
 )
-from cuml.datasets import make_blobs
+from cuml.testing.datasets import make_blobs, get_pattern
 import pytest
 import random
 

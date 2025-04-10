@@ -56,9 +56,9 @@ from sklearn.datasets import make_classification, make_blobs
 from sklearn.metrics import hinge_loss as sk_hinge
 from cuml.internals.safe_imports import cpu_only_import_from
 from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.testing.datasets import get_pattern
 from cuml.testing.utils import (
     get_handle,
-    get_pattern,
     array_equal,
     unit_param,
     quality_param,

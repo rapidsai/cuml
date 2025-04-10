@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ from sklearn.metrics import pairwise_distances
 from sklearn.datasets import make_blobs
 from sklearn.cluster import DBSCAN as skDBSCAN
 from cuml.testing.utils import (
-    get_pattern,
     unit_param,
     quality_param,
     stress_param,
@@ -30,6 +29,7 @@ from cuml.testing.utils import get_handle
 import pytest
 from cuml.internals.safe_imports import cpu_only_import_from
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.testing.datasets import get_pattern
 
 np = cpu_only_import("numpy")
 assert_raises = cpu_only_import_from("numpy.testing", "assert_raises")
