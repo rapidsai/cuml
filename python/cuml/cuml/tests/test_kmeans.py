@@ -24,7 +24,7 @@ from cuml.testing.utils import (
     stress_param,
     array_equal,
 )
-from cuml.testing.datasets import make_blobs, get_pattern
+from cuml.testing.datasets import make_blobs, make_pattern_dataset
 import pytest
 import random
 
@@ -225,7 +225,7 @@ def test_kmeans_sklearn_comparison(name, nrows, random_state):
         "n_clusters": 3,
     }
 
-    pat = get_pattern(name, nrows)
+    pat = make_pattern_dataset(name, nrows)
 
     params = default_base.copy()
     params.update(pat[1])
@@ -270,7 +270,7 @@ def test_kmeans_sklearn_comparison_default(name, nrows, random_state):
         "n_clusters": 3,
     }
 
-    pat = get_pattern(name, nrows)
+    pat = make_pattern_dataset(name, nrows)
 
     params = default_base.copy()
     params.update(pat[1])

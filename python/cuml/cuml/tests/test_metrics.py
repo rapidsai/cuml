@@ -56,7 +56,7 @@ from sklearn.datasets import make_classification, make_blobs
 from sklearn.metrics import hinge_loss as sk_hinge
 from cuml.internals.safe_imports import cpu_only_import_from
 from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.testing.datasets import get_pattern
+from cuml.testing.datasets import make_pattern_dataset
 from cuml.testing.utils import (
     get_handle,
     array_equal,
@@ -299,7 +299,7 @@ def test_rand_index_score(name, nrows):
         "n_clusters": 3,
     }
 
-    pat = get_pattern(name, nrows)
+    pat = make_pattern_dataset(name, nrows)
 
     params = default_base.copy()
     params.update(pat[1])
@@ -1608,7 +1608,9 @@ def test_sparse_pairwise_distances_output_types(input_type, output_type):
     # Use the global manager object.
     with cuml.using_output_type(output_type):
         S = sparse_pairwise_distances(X, Y, metric="euclidean")
-        if output_type == "cudf":
+        if output_type == "input":
+            assert isinstance(S, type(X))
+        elif output_type == "cudf":
             assert isinstance(S, cudf.DataFrame)
         elif output_type == "numpy":
             assert isinstance(S, np.ndarray)
