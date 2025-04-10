@@ -17,6 +17,7 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.global_settings import GlobalSettings
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import_from
 cuda = gpu_only_import_from('numba', 'cuda')
@@ -28,6 +29,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import RegressorMixin, FMajorInputTagMixin
 from cuml.internals.array import CumlArray
+from cuml.internals.api_decorators import api_base_return_array_skipall
 from cuml.common.doc_utils import generate_docstring
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.common import input_to_cuml_array
@@ -264,7 +266,6 @@ class Ridge(UniversalBase,
     def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "Ridge":
         """
         Fit the model with X and y.
-
         """
         self._select_solver(self.solver)
 
@@ -310,7 +311,12 @@ class Ridge(UniversalBase,
 
         self.n_alpha = 1
 
-        self.coef_ = CumlArray.zeros(self.n_features_in_, dtype=self.dtype)
+        # Initialize coef_ with correct shape based on y
+        if len(y_m.shape) == 2:
+            assert y_m.shape == (n_rows, 1)
+            self.coef_ = CumlArray.zeros((1, self.n_features_in_), dtype=self.dtype)
+        else:
+            self.coef_ = CumlArray.zeros(self.n_features_in_, dtype=self.dtype)
         cdef uintptr_t _coef_ptr = self.coef_.ptr
 
         cdef float _c_intercept_f32
@@ -372,3 +378,14 @@ class Ridge(UniversalBase,
 
     def get_attr_names(self):
         return ['intercept_', 'coef_', 'n_features_in_', 'feature_names_in_', 'solver_']
+
+    def _should_dispatch_cpu(self, func_name, *args, **kwargs):
+        """
+        Dispatch fit() function to CPU implementation for multi-target regression.
+        """
+        if func_name == "fit" and len(args) > 1:
+            y_m, _, _, _ = input_to_cuml_array(args[1], convert_to_mem_type=False)
+
+            # Check if we have multiple targets or 2D array
+            return len(y_m.shape) > 1
+        return False
