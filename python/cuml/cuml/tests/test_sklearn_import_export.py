@@ -27,11 +27,15 @@ from cuml.linear_model import (
 )
 from cuml.manifold import TSNE
 from cuml.neighbors import NearestNeighbors
+from cuml.internals.base import UniversalBase
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
 from cuml.testing.utils import array_equal
 
 from numpy.testing import assert_allclose
 
+from sklearn.base import BaseEstimator
 from sklearn.datasets import make_blobs, make_classification, make_regression
 from sklearn.utils.validation import check_is_fitted
 from sklearn.cluster import KMeans as SkKMeans
@@ -256,3 +260,76 @@ def test_nearest_neighbors(random_state):
     dist_roundtrip, ind_roundtrip = roundtrip_model.kneighbors(X)
     assert_allclose(dist_original, dist_roundtrip)
     assert_allclose(ind_original, ind_roundtrip)
+
+
+def test_mismatching_default_values():
+    # Check that round-tripping works when different versions of scikit-learn
+    # have different default values for the same hyper-parameter.
+    class SklearnEstimatorV1(BaseEstimator):
+        def __init__(self, foo=42):
+            super().__init__()
+            self.foo = foo
+
+        def fit(self, X, y):
+            self.bar_ = 42
+
+        def transform(self, X):
+            return X
+
+    class SklearnEstimatorV2(BaseEstimator):
+        def __init__(self, foo="auto"):
+            super().__init__()
+            self.foo = foo
+
+        def fit(self, X, y):
+            self.bar_ = 42
+
+        def transform(self, X):
+            return X
+
+    class CuMLEstimator(UniversalBase):
+        _cpu_model_class = SklearnEstimatorV1
+        _cpu_hyperparams = ["foo"]
+
+        @device_interop_preparation
+        def __init__(
+            self, foo=42, handle=None, verbose=False, output_type=None
+        ):
+            super().__init__(
+                handle=handle, verbose=verbose, output_type=output_type
+            )
+            self.foo = foo
+
+        @enable_device_interop
+        def fit(self, X, y, convert_dtype=True, sample_weight=None):
+            self.bar_ = 42
+
+        def transform(self, X):
+            return X
+
+        @classmethod
+        def _get_param_names(cls):
+            return super()._get_param_names() + ["foo"]
+
+        def get_attr_names(self):
+            return ["bar_"]
+
+    X = np.asarray([[1, 2, 3], [4, 5, 6]])
+    y = np.asarray([1, 2])
+
+    # Check against v1 of the scikit-learn estimator
+    cml = CuMLEstimator()
+    assert_estimator_roundtrip(cml, SklearnEstimatorV1, X, y=y, transform=True)
+
+    cml = CuMLEstimator(foo=12)
+    assert_estimator_roundtrip(cml, SklearnEstimatorV1, X, y=y, transform=True)
+
+    # Check against v2 of the scikit-learn estimator
+    CuMLEstimator._cpu_model_class = SklearnEstimatorV2
+
+    # With explicit value for `foo`
+    cml = CuMLEstimator(foo=12)
+    assert_estimator_roundtrip(cml, SklearnEstimatorV2, X, y=y, transform=True)
+
+    cml = CuMLEstimator()
+    assert_estimator_roundtrip(cml, SklearnEstimatorV2, X, y=y, transform=True)
