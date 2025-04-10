@@ -313,13 +313,19 @@ def create_synthetic_dataset(
     return X_train, X_test, y_train, y_test
 
 
-def get_pattern(name, n_samples):
+def make_pattern_dataset(name, n_samples):
     """Get a specific pattern dataset for clustering.
 
     Parameters
     ----------
     name : str
-        Name of the pattern to generate
+        Name of the pattern to generate. One of:
+        - 'noisy_circles'
+        - 'noisy_moons'
+        - 'varied'
+        - 'blobs'
+        - 'aniso'
+        - 'no_structure'
     n_samples : int
         Number of samples to generate
 
@@ -392,5 +398,5 @@ __all__ = [
     "sklearn_compatible_dataset",
     "cuml_compatible_dataset",
     # Utilities
-    "get_pattern",
+    "make_pattern_dataset",
 ]
