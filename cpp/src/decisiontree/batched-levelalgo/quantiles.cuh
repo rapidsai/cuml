@@ -36,7 +36,7 @@ namespace ML {
 namespace DT {
 
 template <typename T>
-__global__ void computeQuantilesKernel(
+static __global__ void computeQuantilesKernel(
   T* quantiles, int* n_bins, const T* sorted_data, const int max_n_bins, const int n_rows)
 {
   double bin_width = static_cast<double>(n_rows) / max_n_bins;

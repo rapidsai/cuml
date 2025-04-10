@@ -89,14 +89,14 @@ DI void partitionSamples(const Dataset<DataT, LabelT, IdxT>& dataset,
   }
 }
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-__global__ void nodeSplitKernel(const IdxT max_depth,
-                                const IdxT min_samples_leaf,
-                                const IdxT min_samples_split,
-                                const IdxT max_leaves,
-                                const DataT min_impurity_decrease,
-                                const Dataset<DataT, LabelT, IdxT> dataset,
-                                const NodeWorkItem* work_items,
-                                const Split<DataT, IdxT>* splits)
+static __global__ void nodeSplitKernel(const IdxT max_depth,
+                                       const IdxT min_samples_leaf,
+                                       const IdxT min_samples_split,
+                                       const IdxT max_leaves,
+                                       const DataT min_impurity_decrease,
+                                       const Dataset<DataT, LabelT, IdxT> dataset,
+                                       const NodeWorkItem* work_items,
+                                       const Split<DataT, IdxT>* splits)
 {
   extern __shared__ char smem[];
   const auto work_item = work_items[blockIdx.x];
@@ -133,11 +133,11 @@ void launchNodeSplitKernel(const IdxT max_depth,
 }
 
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
-__global__ void leafKernel(ObjectiveT objective,
-                           DatasetT dataset,
-                           const NodeT* tree,
-                           const InstanceRange* instance_ranges,
-                           DataT* leaves)
+static __global__ void leafKernel(ObjectiveT objective,
+                                  DatasetT dataset,
+                                  const NodeT* tree,
+                                  const InstanceRange* instance_ranges,
+                                  DataT* leaves)
 {
   using BinT = typename ObjectiveT::BinT;
   extern __shared__ char shared_memory[];
@@ -213,23 +213,23 @@ template <typename DataT,
           int TPB,
           typename ObjectiveT,
           typename BinT>
-__global__ void computeSplitKernel(BinT* histograms,
-                                   IdxT max_n_bins,
-                                   IdxT max_depth,
-                                   IdxT min_samples_split,
-                                   IdxT max_leaves,
-                                   const Dataset<DataT, LabelT, IdxT> dataset,
-                                   const Quantiles<DataT, IdxT> quantiles,
-                                   const NodeWorkItem* work_items,
-                                   IdxT colStart,
-                                   const IdxT* colids,
-                                   int* done_count,
-                                   int* mutex,
-                                   volatile Split<DataT, IdxT>* splits,
-                                   ObjectiveT objective,
-                                   IdxT treeid,
-                                   const WorkloadInfo<IdxT>* workload_info,
-                                   uint64_t seed)
+static __global__ void computeSplitKernel(BinT* histograms,
+                                          IdxT max_n_bins,
+                                          IdxT max_depth,
+                                          IdxT min_samples_split,
+                                          IdxT max_leaves,
+                                          const Dataset<DataT, LabelT, IdxT> dataset,
+                                          const Quantiles<DataT, IdxT> quantiles,
+                                          const NodeWorkItem* work_items,
+                                          IdxT colStart,
+                                          const IdxT* colids,
+                                          int* done_count,
+                                          int* mutex,
+                                          volatile Split<DataT, IdxT>* splits,
+                                          ObjectiveT objective,
+                                          IdxT treeid,
+                                          const WorkloadInfo<IdxT>* workload_info,
+                                          uint64_t seed)
 {
   // dynamic shared memory
   extern __shared__ char smem[];
