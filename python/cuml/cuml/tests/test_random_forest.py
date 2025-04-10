@@ -472,6 +472,11 @@ def test_rf_regression(
     assert fil_r2 >= (cu_r2 - 0.02)
 
 
+@pytest.mark.skipif(
+    cudf_pandas_active,
+    reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
+    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+)
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 def test_rf_classification_seed(small_clf, datatype):
 
