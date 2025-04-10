@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -231,7 +231,7 @@ def test_onehot_drop_one_of_each(as_array):
             "Some categories [0-9a-zA-Z, ]* were not found",
         ],
         [
-            DataFrame({"chars": "b", "int": 3}),
+            DataFrame({"chars": ["b"], "int": [3]}),
             "Wrong input for parameter `drop`.",
         ],
     ],
