@@ -707,9 +707,15 @@ class CumlArray:
                 out_index = cudf_to_pandas(self.index)
             else:
                 out_index = self.index
+            if output_mem_type.is_device_accessible:
+                # Do not convert NaNs to nulls in cuDF
+                df_kwargs = {"nan_as_null": False}
+            else:
+                df_kwargs = {}
             try:
-                result = output_mem_type.xdf.DataFrame(arr, index=out_index)
-                return result
+                return output_mem_type.xdf.DataFrame(
+                    arr, index=out_index, **df_kwargs
+                )
             except TypeError:
                 raise ValueError("Unsupported dtype for DataFrame")
 
