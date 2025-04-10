@@ -14,13 +14,13 @@
 # limitations under the License.
 #
 
-from cuml.testing.datasets import create_synthetic_dataset
+from cuml.testing.datasets import with_dtype
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn import datasets
-from sklearn.datasets import make_regression as skl_make_reg
-from sklearn.datasets import make_classification as skl_make_clas
+from sklearn.datasets import make_regression, make_classification
 from sklearn.datasets import fetch_california_housing
 from sklearn.datasets import fetch_20newsgroups
+from sklearn.model_selection import train_test_split
 from sklearn.utils import Bunch
 from datetime import timedelta
 from math import ceil
@@ -353,27 +353,24 @@ def failure_logger(request):
 
 @pytest.fixture(scope="session")
 def exact_shap_regression_dataset():
-    return create_synthetic_dataset(
-        generator=skl_make_reg,
-        n_samples=101,
-        n_features=11,
-        test_size=3,
-        random_state_generator=42,
-        random_state_train_test_split=42,
-        noise=0.1,
+    X, y = with_dtype(
+        make_regression(
+            n_samples=101, n_features=11, noise=0.1, random_state=42
+        ),
+        np.float32,
     )
+    return train_test_split(X, y, test_size=3, random_state=42)
 
 
 @pytest.fixture(scope="session")
 def exact_shap_classification_dataset():
-    return create_synthetic_dataset(
-        generator=skl_make_clas,
-        n_samples=101,
-        n_features=11,
-        test_size=3,
-        random_state_generator=42,
-        random_state_train_test_split=42,
+    X, y = with_dtype(
+        make_classification(
+            n_samples=101, n_features=11, n_classes=2, random_state=42
+        ),
+        np.float32,
     )
+    return train_test_split(X, y, test_size=3, random_state=42)
 
 
 def get_gpu_memory():

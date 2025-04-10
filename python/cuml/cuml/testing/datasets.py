@@ -35,7 +35,6 @@ from sklearn.datasets import (
 from sklearn.model_selection import train_test_split
 
 np = cpu_only_import("numpy")
-skl_make_reg = make_regression  # Alias for create_synthetic_dataset
 
 
 def sklearn_compatible_dataset(X_train, X_test, y_train, _=None):
@@ -258,61 +257,6 @@ def small_classification_dataset(datatype):
     return X_train, X_test, y_train, y_test
 
 
-def create_synthetic_dataset(
-    generator=skl_make_reg,
-    n_samples=100,
-    n_features=10,
-    test_size=0.25,
-    random_state_generator=None,
-    random_state_train_test_split=None,
-    dtype=np.float32,
-    **kwargs,
-):
-    """Create a synthetic dataset using the specified generator.
-
-    Parameters
-    ----------
-    generator : callable, default=skl_make_reg
-        Function to generate the dataset
-    n_samples : int, default=100
-        Number of samples
-    n_features : int, default=10
-        Number of features
-    test_size : float, default=0.25
-        Fraction of dataset to use for testing
-    random_state_generator : int, optional
-        Random state for dataset generation
-    random_state_train_test_split : int, optional
-        Random state for train-test split
-    dtype : numpy.dtype, default=np.float32
-        Data type to cast the arrays to
-    **kwargs : dict
-        Additional arguments passed to the generator
-
-    Returns
-    -------
-    tuple
-        Train-test split arrays cast to specified datatype
-    """
-    X, y = generator(
-        n_samples=n_samples,
-        n_features=n_features,
-        random_state=random_state_generator,
-        **kwargs,
-    )
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=random_state_train_test_split
-    )
-
-    X_train = X_train.astype(dtype)
-    X_test = X_test.astype(dtype)
-    y_train = y_train.astype(dtype)
-    y_test = y_test.astype(dtype)
-
-    return X_train, X_test, y_train, y_test
-
-
 def make_pattern_dataset(name, n_samples):
     """Get a specific pattern dataset for clustering.
 
@@ -378,12 +322,29 @@ def make_pattern_dataset(name, n_samples):
     return [data, params]
 
 
+def with_dtype(data, dtype):
+    """Convert dataset arrays to specified dtype.
+
+    Parameters
+    ----------
+    data : sequence
+        Sequence of arrays to convert (e.g. (X, y) or (X_train, X_test, y_train, y_test))
+    dtype : numpy.dtype
+        Data type to convert arrays to
+
+    Returns
+    -------
+    tuple
+        Sequence with arrays converted to specified dtype
+    """
+    return tuple(arr.astype(dtype) for arr in data)
+
+
 __all__ = [
     # Dataset compatibility
     "sklearn_compatible_dataset",
     "cuml_compatible_dataset",
     # Dataset generation
-    "create_synthetic_dataset",
     "make_classification",
     "make_classification_dataset",
     "make_pattern_dataset",
@@ -398,4 +359,6 @@ __all__ = [
     "standard_classification_datasets",
     "standard_datasets",
     "standard_regression_datasets",
+    # Utilities
+    "with_dtype",
 ]
