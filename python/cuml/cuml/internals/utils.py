@@ -13,12 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 import numbers
 import numpy as np
+from cuml.internals.safe_imports import gpu_only_import
+
+cp = gpu_only_import("cupy")
 
 
 def check_random_seed(seed):
     """Turn a np.random.RandomState instance into a seed.
+
     Parameters
     ----------
     seed : None | int | instance of RandomState
@@ -36,4 +41,8 @@ def check_random_seed(seed):
         return seed.randint(
             low=0, high=np.iinfo(np.uint32).max, dtype=np.uint32
         )
+    if isinstance(seed, cp.random.RandomState):
+        return seed.randint(
+            low=0, high=np.iinfo(cp.uint32).max, dtype=cp.uint32
+        ).get()
     raise ValueError("%r cannot be used to create a seed." % seed)
