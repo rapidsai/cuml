@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.testing.utils import create_synthetic_dataset
+from cuml.testing.datasets import create_synthetic_dataset
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn import datasets
 from sklearn.datasets import make_regression as skl_make_reg

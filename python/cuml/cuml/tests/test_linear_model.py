@@ -12,29 +12,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from functools import lru_cache
 
 from packaging.version import Version
 import pytest
 import sklearn
-from cuml.internals.array import elements_in_representable_range
 from cuml.internals.safe_imports import (
     cpu_only_import,
     cpu_only_import_from,
     gpu_only_import,
 )
-from cuml.testing.strategies import (
+from cuml.testing.datasets import (
     regression_datasets,
     split_datasets,
     standard_classification_datasets,
     standard_regression_datasets,
+    small_classification_dataset,
+    small_regression_dataset,
+    make_regression_dataset,
+    make_classification_dataset,
+    sklearn_compatible_dataset,
+    cuml_compatible_dataset,
+    make_classification,
+    make_regression,
 )
 from cuml.testing.utils import (
     array_difference,
     array_equal,
     quality_param,
-    small_classification_dataset,
-    small_regression_dataset,
     stress_param,
     unit_param,
 )
@@ -45,8 +49,6 @@ from hypothesis.extra.numpy import floating_dtypes
 from sklearn.datasets import (
     load_breast_cancer,
     load_digits,
-    make_classification,
-    make_regression,
 )
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.linear_model import LogisticRegression as skLog
@@ -66,78 +68,6 @@ cudf = gpu_only_import("cudf")
 rmm = gpu_only_import("rmm")
 
 csr_matrix = cpu_only_import_from("scipy.sparse", "csr_matrix")
-
-
-def _make_regression_dataset_uncached(nrows, ncols, n_info, **kwargs):
-    X, y = make_regression(
-        **kwargs,
-        n_samples=nrows,
-        n_features=ncols,
-        n_informative=n_info,
-        random_state=0,
-    )
-    return train_test_split(X, y, train_size=0.8, random_state=10)
-
-
-@lru_cache(4)
-def _make_regression_dataset_from_cache(nrows, ncols, n_info, **kwargs):
-    return _make_regression_dataset_uncached(nrows, ncols, n_info, **kwargs)
-
-
-def make_regression_dataset(datatype, nrows, ncols, n_info, **kwargs):
-    if nrows * ncols < 1e8:  # Keep cache under 4 GB
-        dataset = _make_regression_dataset_from_cache(
-            nrows, ncols, n_info, **kwargs
-        )
-    else:
-        dataset = _make_regression_dataset_uncached(
-            nrows, ncols, n_info, **kwargs
-        )
-
-    return map(lambda arr: arr.astype(datatype), dataset)
-
-
-def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
-    X, y = make_classification(
-        n_samples=nrows,
-        n_features=ncols,
-        n_informative=n_info,
-        n_classes=num_classes,
-        random_state=0,
-    )
-    X = X.astype(datatype)
-    y = y.astype(np.int32)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=0.8, random_state=10
-    )
-
-    return X_train, X_test, y_train, y_test
-
-
-def sklearn_compatible_dataset(X_train, X_test, y_train, _=None):
-    return (
-        X_train.shape[1] >= 1
-        and (X_train > 0).any()
-        and (y_train > 0).any()
-        and all(
-            np.isfinite(x).all()
-            for x in (X_train, X_test, y_train)
-            if x is not None
-        )
-    )
-
-
-def cuml_compatible_dataset(X_train, X_test, y_train, _=None):
-    return (
-        X_train.shape[0] >= 2
-        and X_train.shape[1] >= 1
-        and np.isfinite(X_train).all()
-        and all(
-            elements_in_representable_range(x, np.float32)
-            for x in (X_train, X_test, y_train)
-            if x is not None
-        )
-    )
 
 
 _ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]

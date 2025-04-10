@@ -21,10 +21,8 @@ import numpydoc.docscrape
 
 from pylibraft.common.cuda import Stream
 
-from cuml.testing.utils import (
-    get_classes_from_package,
-    small_classification_dataset,
-)
+from cuml.testing.datasets import small_classification_dataset
+from cuml.testing.utils import get_classes_from_package
 from cuml._thirdparty.sklearn.utils.skl_dependencies import (
     BaseEstimator as sklBaseEstimator,
 )

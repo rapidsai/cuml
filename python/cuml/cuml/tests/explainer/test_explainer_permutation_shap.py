@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 from cuml.testing.utils import (
     ClassEnumerator,
     get_shap_values,
-    create_synthetic_dataset,
 )
 from cuml import PermutationExplainer
 import sklearn.neighbors
@@ -26,6 +25,7 @@ import pytest
 from cuml.internals.safe_imports import cpu_only_import
 import cuml
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.testing.datasets import create_synthetic_dataset
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")

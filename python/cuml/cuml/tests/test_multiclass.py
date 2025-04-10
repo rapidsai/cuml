@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@ from cuml import multiclass as cu_multiclass
 import sys
 import pytest
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.testing.datasets import make_classification_dataset
 
 np = cpu_only_import("numpy")
 
 
 # As tests directory is not a module, we need to add it to the path
 sys.path.insert(0, ".")
-from test_linear_model import make_classification_dataset  # noqa: E402
 
 
 @pytest.mark.parametrize("strategy", ["ovr", "ovo"])
