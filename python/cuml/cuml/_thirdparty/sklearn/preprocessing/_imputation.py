@@ -29,7 +29,7 @@ import warnings
 
 from cuml.internals.safe_imports import cpu_only_import
 numpy = cpu_only_import('numpy')
-np = gpu_only_import('cupy')
+np = gpu_only_import('cupy', alt=numpy)
 sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
 
 

@@ -6,7 +6,7 @@ set -euo pipefail
 package_name="cuml"
 package_dir="python/cuml"
 
-RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen ${RAPIDS_CUDA_VERSION})"
+RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 
 # Download the libcuml wheel built in the previous step and make it
 # available for pip to find.

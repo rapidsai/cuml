@@ -383,7 +383,11 @@ if(BUILD_CUML_CPP_LIBRARY)
           src/experimental/fil/infer4.cu
           src/experimental/fil/infer5.cu
           src/experimental/fil/infer6.cu
-          src/experimental/fil/infer7.cu)
+          src/experimental/fil/infer7.cu
+          src/experimental/fil/infer8.cu
+          src/experimental/fil/infer9.cu
+          src/experimental/fil/infer10.cu
+          src/experimental/fil/infer11.cu)
     endif()
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
@@ -395,7 +399,11 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/experimental/fil/infer4.cpp
         src/experimental/fil/infer5.cpp
         src/experimental/fil/infer6.cpp
-        src/experimental/fil/infer7.cpp)
+        src/experimental/fil/infer7.cpp
+        src/experimental/fil/infer8.cpp
+        src/experimental/fil/infer9.cpp
+        src/experimental/fil/infer10.cpp
+        src/experimental/fil/infer11.cpp)
   endif()
 
   # todo: organize linear models better
@@ -601,7 +609,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
                 "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
   )
-  target_compile_definitions(${CUML_CPP_TARGET} PUBLIC "CUML_LOG_ACTIVE_LEVEL=CUML_LOG_LEVEL_${LIBCUML_LOGGING_LEVEL}")
+  target_compile_definitions(${CUML_CPP_TARGET} PUBLIC "CUML_LOG_ACTIVE_LEVEL=RAPIDS_LOGGER_LOG_LEVEL_${LIBCUML_LOGGING_LEVEL}")
 
   target_include_directories(${CUML_CPP_TARGET}
     PUBLIC

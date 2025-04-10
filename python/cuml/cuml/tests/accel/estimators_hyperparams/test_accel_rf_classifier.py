@@ -208,3 +208,15 @@ def test_rf_random_state(classification_data):
     clf2 = RandomForestClassifier(n_estimators=50, random_state=42).fit(X, y)
     # Predictions should be identical with the same random_state.
     assert np.array_equal(clf1.predict(X), clf2.predict(X))
+
+
+def test_oob_score(classification_data):
+    X, y = classification_data
+    clf = RandomForestClassifier(
+        oob_score=True,
+        n_estimators=50,
+    )
+    clf.fit(X, y)
+
+    # Check attribute exists and is a float
+    assert isinstance(clf.oob_score_, float)
