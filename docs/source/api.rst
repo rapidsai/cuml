@@ -399,6 +399,7 @@ Forest Inferencing
 
 .. autoclass:: cuml.ForestInference
     :members:
+    :inherited-members:
 
 Coordinate Descent
 ------------------
