@@ -31,7 +31,7 @@ from cuml.cluster.hdbscan.prediction import (
 from sklearn.datasets import make_blobs
 
 from cuml.metrics import adjusted_rand_score
-from cuml.testing.datasets import get_pattern
+from cuml.testing.datasets import make_pattern_dataset
 from cuml.testing.utils import array_equal
 
 from cuml.internals.safe_imports import cpu_only_import
@@ -363,7 +363,7 @@ def test_hdbscan_cluster_patterns(
 ):
 
     # This also tests duplicate data points
-    X, y = get_pattern(dataset, nrows)[0]
+    X, y = make_pattern_dataset(dataset, nrows)[0]
 
     cuml_agg = HDBSCAN(
         verbose=logger.level_enum.info,
@@ -426,7 +426,7 @@ def test_hdbscan_cluster_patterns_extract_clusters(
 ):
 
     # This also tests duplicate data points
-    X, y = get_pattern(dataset, nrows)[0]
+    X, y = make_pattern_dataset(dataset, nrows)[0]
 
     cuml_agg = HDBSCAN(
         verbose=logger.level_enum.info,
