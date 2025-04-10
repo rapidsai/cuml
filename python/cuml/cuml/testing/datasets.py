@@ -379,24 +379,23 @@ def make_pattern_dataset(name, n_samples):
 
 
 __all__ = [
-    # Dataset strategies
-    "standard_datasets",
-    "standard_regression_datasets",
-    "standard_classification_datasets",
-    "split_datasets",
-    "regression_datasets",
-    "combined_datasets_strategy",
-    # Dataset generation
-    "make_regression_dataset",
-    "make_classification_dataset",
-    "make_regression",
-    "make_classification",
-    "create_synthetic_dataset",
-    "small_regression_dataset",
-    "small_classification_dataset",
     # Dataset compatibility
     "sklearn_compatible_dataset",
     "cuml_compatible_dataset",
-    # Utilities
+    # Dataset generation
+    "create_synthetic_dataset",
+    "make_classification",
+    "make_classification_dataset",
     "make_pattern_dataset",
+    "make_regression",
+    "make_regression_dataset",
+    "small_classification_dataset",
+    "small_regression_dataset",
+    # Dataset strategies
+    "combined_datasets_strategy",
+    "regression_datasets",
+    "split_datasets",
+    "standard_classification_datasets",
+    "standard_datasets",
+    "standard_regression_datasets",
 ]
