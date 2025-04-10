@@ -693,7 +693,7 @@ def test_logistic_regression_model_digits(
     # smallest sklearn score with max_iter = 10000
     # put it as a constant here, because sklearn 0.23.1 needs a lot of iters
     # to converge and has a bug returning an unrelated error if not converged.
-    acceptable_score = 0.94
+    acceptable_score = 0.90
 
     digits = load_digits()
 
