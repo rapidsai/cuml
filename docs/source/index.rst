@@ -25,7 +25,6 @@ cuML is only supported on Linux operating systems.
    zero-code-change.rst
    cuml_blogs.rst
 
-
 Indices and tables
 ==================
 
