@@ -14,10 +14,8 @@
 # limitations under the License.
 #
 
-import functools
 import os
 import subprocess
-import time
 from datetime import timedelta
 from math import ceil
 from ssl import create_default_context
@@ -40,6 +38,7 @@ from sklearn.datasets import (
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn.utils import Bunch
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
@@ -310,28 +309,27 @@ def random_seed(request):
 # =============================================================================
 
 
-@functools.cache
-def get_boston_data():
-    n_retries = 3
-    url = "https://raw.githubusercontent.com/scikit-learn/scikit-learn/baf828ca126bcb2c0ad813226963621cafe38adb/sklearn/datasets/data/boston_house_prices.csv"  # noqa: E501
-    for _ in range(n_retries):
-        try:
-            return pd.read_csv(url, header=None)
-        except Exception:
-            time.sleep(1)
-    raise RuntimeError(
-        f"Failed to download file from {url} after {n_retries} retries."
-    )
+def dataset_fetch_retry(func, attempts=3, min_wait=1, max_wait=10):
+    """Decorator for retrying dataset fetching operations with exponential backoff."""
+    return retry(
+        stop=stop_after_attempt(attempts),
+        wait=wait_exponential(multiplier=min_wait, max=max_wait),
+        reraise=True,
+    )(func)
 
 
 @pytest.fixture(scope="session")
 def nlp_20news():
-    try:
-        twenty_train = fetch_20newsgroups(
+    @dataset_fetch_retry
+    def _fetch_20news():
+        return fetch_20newsgroups(
             subset="train", shuffle=True, random_state=42
         )
-    except:  # noqa E722
-        pytest.xfail(reason="Error fetching 20 newsgroup dataset")
+
+    try:
+        twenty_train = _fetch_20news()
+    except Exception as e:
+        pytest.xfail(f"Error fetching 20 newsgroup dataset: {str(e)}")
 
     count_vect = CountVectorizer()
     X = count_vect.fit_transform(twenty_train.data)
@@ -342,10 +340,14 @@ def nlp_20news():
 
 @pytest.fixture(scope="session")
 def housing_dataset():
+    @dataset_fetch_retry
+    def _fetch_housing():
+        return fetch_california_housing()
+
     try:
-        data = fetch_california_housing()
-    except:  # noqa E722
-        pytest.xfail(reason="Error fetching housing dataset")
+        data = _fetch_housing()
+    except Exception as e:
+        pytest.xfail(f"Error fetching housing dataset: {str(e)}")
 
     X = cp.array(data["data"])
     y = cp.array(data["target"])
@@ -359,10 +361,17 @@ def deprecated_boston_dataset():
     # dataset was removed in Scikit-learn 1.2, we should change it for a
     # better dataset for tests, see
     # https://github.com/rapidsai/cuml/issues/5158
+
+    @dataset_fetch_retry
+    def _get_boston_data():
+        url = "https://raw.githubusercontent.com/scikit-learn/scikit-learn/baf828ca126bcb2c0ad813226963621cafe38adb/sklearn/datasets/data/boston_house_prices.csv"  # noqa: E501
+        return pd.read_csv(url, header=None)
+
     try:
-        df = get_boston_data()
-    except:  # noqa E722
-        pytest.xfail(reason="Error fetching Boston housing dataset")
+        df = _get_boston_data()
+    except Exception as e:
+        pytest.xfail(f"Error fetching Boston housing dataset: {str(e)}")
+
     n_samples = int(df[0][0])
     data = df[list(np.arange(13))].values[2:n_samples].astype(np.float64)
     targets = df[13].values[2:n_samples].astype(np.float64)
