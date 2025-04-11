@@ -224,7 +224,7 @@ def small_classification_dataset(datatype):
     return X_train, X_test, y_train, y_test
 
 
-def make_pattern_dataset(name, n_samples):
+def make_pattern(name, n_samples):
     """Get a specific pattern dataset for clustering.
 
     Parameters
@@ -314,7 +314,7 @@ __all__ = [
     # Dataset generation
     "make_classification",
     "make_classification_dataset",
-    "make_pattern_dataset",
+    "make_pattern",
     "make_regression",
     "make_regression_dataset",
     "small_classification_dataset",

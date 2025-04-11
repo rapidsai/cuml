@@ -17,7 +17,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import pairwise_distances
 from sklearn.datasets import make_blobs
 from sklearn.cluster import DBSCAN as skDBSCAN
-from cuml.testing.datasets import make_pattern_dataset
+from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import (
     unit_param,
     quality_param,
@@ -165,7 +165,7 @@ def test_dbscan_sklearn_comparison(name, nrows, eps, client):
     }
 
     n_samples = nrows
-    pat = make_pattern_dataset(name, n_samples)
+    pat = make_pattern(name, n_samples)
     params = default_base.copy()
     params.update(pat[1])
     X, y = pat[0]
@@ -211,7 +211,7 @@ def test_dbscan_default(name, client):
         "n_clusters": 2,
     }
     n_samples = 500
-    pat = make_pattern_dataset(name, n_samples)
+    pat = make_pattern(name, n_samples)
     params = default_base.copy()
     params.update(pat[1])
     X, y = pat[0]
@@ -285,7 +285,7 @@ def test_dbscan_no_calc_core_point_indices(client):
 
     params = {"eps": 1.1, "min_samples": 4}
     n_samples = 1000
-    pat = make_pattern_dataset("noisy_moons", n_samples)
+    pat = make_pattern("noisy_moons", n_samples)
 
     X, y = pat[0]
 
