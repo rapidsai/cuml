@@ -266,9 +266,10 @@ def test_mismatching_default_values():
     # Check that round-tripping works when different versions of scikit-learn
     # have different default values for the same hyper-parameter.
     class SklearnEstimatorV1(BaseEstimator):
-        def __init__(self, foo=42):
+        def __init__(self, n_init=42, solver="lbfgs"):
             super().__init__()
-            self.foo = foo
+            self.n_init = n_init
+            self.solver = solver
 
         def fit(self, X, y):
             self.bar_ = 42
@@ -277,9 +278,10 @@ def test_mismatching_default_values():
             return X
 
     class SklearnEstimatorV2(BaseEstimator):
-        def __init__(self, foo="auto"):
+        def __init__(self, n_init="auto", solver="auto"):
             super().__init__()
-            self.foo = foo
+            self.n_init = n_init
+            self.solver = solver
 
         def fit(self, X, y):
             self.bar_ = 42
@@ -288,17 +290,25 @@ def test_mismatching_default_values():
             return X
 
     class CuMLEstimator(UniversalBase):
+        # Setting these by hand as `import_cpu_model` is a bit tricky to use with
+        # classes defined in a test function.
         _cpu_model_class = SklearnEstimatorV1
-        _cpu_hyperparams = ["foo"]
+        _cpu_hyperparams = ["n_init", "solver"]
 
         @device_interop_preparation
         def __init__(
-            self, foo=42, handle=None, verbose=False, output_type=None
+            self,
+            n_init=42,
+            solver="qn",
+            handle=None,
+            verbose=False,
+            output_type=None,
         ):
             super().__init__(
                 handle=handle, verbose=verbose, output_type=output_type
             )
-            self.foo = foo
+            self.n_init = n_init
+            self.solver = solver
 
         @enable_device_interop
         def fit(self, X, y, convert_dtype=True, sample_weight=None):
@@ -309,7 +319,7 @@ def test_mismatching_default_values():
 
         @classmethod
         def _get_param_names(cls):
-            return super()._get_param_names() + ["foo"]
+            return super()._get_param_names() + ["n_init", "solver"]
 
         def get_attr_names(self):
             return ["bar_"]
@@ -321,15 +331,15 @@ def test_mismatching_default_values():
     cml = CuMLEstimator()
     assert_estimator_roundtrip(cml, SklearnEstimatorV1, X, y=y, transform=True)
 
-    cml = CuMLEstimator(foo=12)
+    cml = CuMLEstimator(n_init=12)
     assert_estimator_roundtrip(cml, SklearnEstimatorV1, X, y=y, transform=True)
 
     # Check against v2 of the scikit-learn estimator
     CuMLEstimator._cpu_model_class = SklearnEstimatorV2
 
-    # With explicit value for `foo`
-    cml = CuMLEstimator(foo=12)
+    # XXX In this case should we pass "auto" or 42 to the scikit-learn constructor?
+    cml = CuMLEstimator()
     assert_estimator_roundtrip(cml, SklearnEstimatorV2, X, y=y, transform=True)
 
-    cml = CuMLEstimator()
+    cml = CuMLEstimator(n_init=12)
     assert_estimator_roundtrip(cml, SklearnEstimatorV2, X, y=y, transform=True)

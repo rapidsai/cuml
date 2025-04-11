@@ -641,14 +641,23 @@ class UniversalBase(Base):
         if kwargs:
             filtered_kwargs = kwargs
         else:
+            # XXX Which way around should this be, get_params updated with kwargs
+            # XXX or kwargs updated with get_params?
+            all_kwargs = self.get_params()
+            all_kwargs.update(self._full_kwargs)
+
             filtered_kwargs = {}
-            for keyword, arg in self._full_kwargs.items():
+            for keyword, arg in all_kwargs.items():
+                # These are cuml specific arguments that should not be passed
+                # to scikit-learn
+                if keyword in ("output_type", "handle"):
+                    continue
                 if keyword in self._cpu_hyperparams:
                     filtered_kwargs[keyword] = arg
                 else:
-                    logger.info("Unused keyword parameter: {} "
-                                "during CPU estimator "
-                                "initialization".format(keyword))
+                    logger.debug("Unused keyword parameter: {} "
+                                 "during CPU estimator "
+                                 "initialization".format(keyword))
 
         # initialize model
         self._cpu_model = self._cpu_model_class(**filtered_kwargs)
