@@ -162,6 +162,8 @@ struct forest {
     proba_ssp_.sizeof_real           = sizeof(real_t);
     class_ssp_                       = proba_ssp_;
 
+    if (algo_ == algo_t::BATCH_TREE_REORG) { algo_ = algo_t::TREE_REORG; }
+
     int device          = h.get_device();
     cudaStream_t stream = h.get_stream();
     init_shmem_size(device);
@@ -392,7 +394,7 @@ struct dense_forest<dense_node<real_t>> : forest<real_t> {
             const forest_params_t* params)
   {
     this->init_common(h, cat_sets, vector_leaf, params);
-    if (this->algo_ == algo_t::NAIVE) this->algo_ = algo_t::BATCH_TREE_REORG;
+    if (this->algo_ == algo_t::NAIVE) this->algo_ = algo_t::TREE_REORG;
     /* The following line is added to disable BATCH_TREE_REORG mode. Currently
      * there is a bug in the implementation of this mode which causes a batch
      * of trees to be marked as complete before every tree has reached a leaf
@@ -523,9 +525,8 @@ void check_params(const forest_params_t* params, bool dense)
   switch (params->algo) {
     case algo_t::ALGO_AUTO:
     case algo_t::NAIVE:
-    case algo_t::TREE_REORG:
-    case algo_t::BATCH_TREE_REORG: break;
-    default: ASSERT(false, "algo should be ALGO_AUTO, NAIVE, TREE_REORG or BATCH_TREE_REORG");
+    case algo_t::TREE_REORG: break;
+    default: ASSERT(false, "algo should be ALGO_AUTO, NAIVE, or TREE_REORG");
   }
   switch (params->leaf_algo) {
     case leaf_algo_t::FLOAT_UNARY_BINARY:
@@ -593,8 +594,9 @@ void init(const raft::handle_t& h,
           const std::vector<real_t>& vector_leaf,
           const int* trees,
           const fil_node_t* nodes,
-          const forest_params_t* params)
+          forest_params_t* params)
 {
+  if (params->algo == algo_t::BATCH_TREE_REORG) { params->algo = algo_t::TREE_REORG; }
   check_params(params, node_traits<fil_node_t>::IS_DENSE);
   using forest_type = typename node_traits<fil_node_t>::forest;
   forest_type* f    = new forest_type(h);
@@ -609,35 +611,35 @@ template void init<dense_node<float>, float>(const raft::handle_t& h,
                                              const std::vector<float>& vector_leaf,
                                              const int* trees,
                                              const dense_node<float>* nodes,
-                                             const forest_params_t* params);
+                                             forest_params_t* params);
 template void init<dense_node<double>, double>(const raft::handle_t& h,
                                                forest_t<double>* pf,
                                                const categorical_sets& cat_sets,
                                                const std::vector<double>& vector_leaf,
                                                const int* trees,
                                                const dense_node<double>* nodes,
-                                               const forest_params_t* params);
+                                               forest_params_t* params);
 template void init<sparse_node16<float>, float>(const raft::handle_t& h,
                                                 forest_t<float>* pf,
                                                 const categorical_sets& cat_sets,
                                                 const std::vector<float>& vector_leaf,
                                                 const int* trees,
                                                 const sparse_node16<float>* nodes,
-                                                const forest_params_t* params);
+                                                forest_params_t* params);
 template void init<sparse_node16<double>, double>(const raft::handle_t& h,
                                                   forest_t<double>* pf,
                                                   const categorical_sets& cat_sets,
                                                   const std::vector<double>& vector_leaf,
                                                   const int* trees,
                                                   const sparse_node16<double>* nodes,
-                                                  const forest_params_t* params);
+                                                  forest_params_t* params);
 template void init<sparse_node8, float>(const raft::handle_t& h,
                                         forest_t<float>* pf,
                                         const categorical_sets& cat_sets,
                                         const std::vector<float>& vector_leaf,
                                         const int* trees,
                                         const sparse_node8* nodes,
-                                        const forest_params_t* params);
+                                        forest_params_t* params);
 
 template <typename real_t>
 void free(const raft::handle_t& h, forest_t<real_t> f)
