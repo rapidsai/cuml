@@ -27,16 +27,12 @@ import hypothesis
 import pandas as pd
 import pytest
 from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-from cuml.testing.datasets import with_dtype
 from sklearn import datasets
 from sklearn.datasets import (
     fetch_20newsgroups,
     fetch_california_housing,
-    make_classification,
-    make_regression,
 )
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.model_selection import train_test_split
 from sklearn.utils import Bunch
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -472,45 +468,3 @@ def supervised_learning_dataset(request, deprecated_boston_dataset):
     }
 
     return datasets_dict[request.param].data
-
-
-@pytest.fixture(scope="session")
-def exact_shap_regression_dataset():
-    """Generate a synthetic regression dataset for SHAP testing.
-
-    This fixture creates a synthetic regression dataset with known
-    properties for testing SHAP (SHapley Additive exPlanations) values.
-
-    Returns
-    -------
-    tuple
-        (X_train, X_test, y_train, y_test) split of the synthetic dataset
-    """
-    X, y = with_dtype(
-        make_regression(
-            n_samples=101, n_features=11, noise=0.1, random_state=42
-        ),
-        np.float32,
-    )
-    return train_test_split(X, y, test_size=3, random_state=42)
-
-
-@pytest.fixture(scope="session")
-def exact_shap_classification_dataset():
-    """Generate a synthetic classification dataset for SHAP testing.
-
-    This fixture creates a synthetic classification dataset with known
-    properties for testing SHAP (SHapley Additive exPlanations) values.
-
-    Returns
-    -------
-    tuple
-        (X_train, X_test, y_train, y_test) split of the synthetic dataset
-    """
-    X, y = with_dtype(
-        make_classification(
-            n_samples=101, n_features=11, n_classes=2, random_state=42
-        ),
-        np.float32,
-    )
-    return train_test_split(X, y, test_size=3, random_state=42)
