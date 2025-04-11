@@ -15,7 +15,7 @@
 
 import pytest
 import numpy as np
-
+import sklearn
 from cuml.cluster import KMeans, DBSCAN
 from cuml.decomposition import PCA, TruncatedSVD
 from cuml.linear_model import (
@@ -262,7 +262,7 @@ def test_nearest_neighbors(random_state):
     assert_allclose(ind_original, ind_roundtrip)
 
 
-def test_mismatching_default_values():
+def test_mismatching_default_values(monkeypatch):
     # Check that round-tripping works when different versions of scikit-learn
     # have different default values for the same hyper-parameter.
     class SklearnEstimatorV1(BaseEstimator):
@@ -272,9 +272,11 @@ def test_mismatching_default_values():
             self.solver = solver
 
         def fit(self, X, y):
+            assert self.solver == "lbfgs"
             self.bar_ = 42
 
         def transform(self, X):
+            assert self.solver == "lbfgs"
             return X
 
     class SklearnEstimatorV2(BaseEstimator):
@@ -284,9 +286,11 @@ def test_mismatching_default_values():
             self.solver = solver
 
         def fit(self, X, y):
+            assert self.solver in ("auto", "lbfgs")
             self.bar_ = 42
 
         def transform(self, X):
+            assert self.solver in ("auto", "lbfgs")
             return X
 
     class CuMLEstimator(UniversalBase):
@@ -294,6 +298,20 @@ def test_mismatching_default_values():
         # classes defined in a test function.
         _cpu_model_class = SklearnEstimatorV1
         _cpu_hyperparams = ["n_init", "solver"]
+
+        # scikit-learn -> cuml
+        _hyperparam_interop_translator = {
+            "solver": {"lbfgs": "qn", "auto": "qn"},
+        }
+        # cuml -> scikit-learn
+        _reverse_hyperparam_interop_translator = {
+            "1.5": {
+                "solver": {"qn": "lbfgs"},
+            },
+            "1.4": {
+                "solver": {"qn": "auto"},
+            },
+        }
 
         @device_interop_preparation
         def __init__(
@@ -312,9 +330,11 @@ def test_mismatching_default_values():
 
         @enable_device_interop
         def fit(self, X, y, convert_dtype=True, sample_weight=None):
+            assert self.solver == "qn"
             self.bar_ = 42
 
         def transform(self, X):
+            assert self.solver == "qn"
             return X
 
         @classmethod
@@ -329,17 +349,37 @@ def test_mismatching_default_values():
 
     # Check against v1 of the scikit-learn estimator
     cml = CuMLEstimator()
-    assert_estimator_roundtrip(cml, SklearnEstimatorV1, X, y=y, transform=True)
+    # skl = cml.as_sklearn()
+    # skl.transform(X)
 
-    cml = CuMLEstimator(n_init=12)
-    assert_estimator_roundtrip(cml, SklearnEstimatorV1, X, y=y, transform=True)
+    # Set the version to something independent of what is actually installed
+    with monkeypatch.context() as m:
+        m.setattr(sklearn, "__version__", "1.4.2")
+        skl = SklearnEstimatorV1()
+        cml1 = CuMLEstimator.from_sklearn(skl)
+        skl1 = cml1.as_sklearn()
+        assert skl1.get_params()["solver"] == "auto"
+        cml1.fit(X, y)
 
-    # Check against v2 of the scikit-learn estimator
-    CuMLEstimator._cpu_model_class = SklearnEstimatorV2
+        assert_estimator_roundtrip(
+            cml, SklearnEstimatorV1, X, y=y, transform=True
+        )
 
-    # XXX In this case should we pass "auto" or 42 to the scikit-learn constructor?
-    cml = CuMLEstimator()
-    assert_estimator_roundtrip(cml, SklearnEstimatorV2, X, y=y, transform=True)
+        cml = CuMLEstimator(n_init=12)
+        assert_estimator_roundtrip(
+            cml, SklearnEstimatorV1, X, y=y, transform=True
+        )
 
-    cml = CuMLEstimator(n_init=12)
-    assert_estimator_roundtrip(cml, SklearnEstimatorV2, X, y=y, transform=True)
+        # Check against v2 of the scikit-learn estimator
+        CuMLEstimator._cpu_model_class = SklearnEstimatorV2
+
+        # XXX In this case should we pass "auto" or 42 to the scikit-learn constructor?
+        cml = CuMLEstimator()
+        assert_estimator_roundtrip(
+            cml, SklearnEstimatorV2, X, y=y, transform=True
+        )
+
+        cml = CuMLEstimator(n_init=12)
+        assert_estimator_roundtrip(
+            cml, SklearnEstimatorV2, X, y=y, transform=True
+        )
