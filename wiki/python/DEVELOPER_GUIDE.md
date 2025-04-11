@@ -107,6 +107,23 @@ We support three main approaches for test input generation:
    - Make tests reproducible
    - Document test assumptions and requirements
 
+### Running Tests
+Tests must be run from the `python/cuml/` directory or one of its subdirectories. First build the package, then execute tests.
+
+```bash
+./build.sh
+cd python/cuml/
+pytest  # Run all tests
+```
+
+Common options:
+- `pytest cuml/tests/test_kmeans.py` - Run specific file
+- `pytest -k "test_kmeans"` - Run tests matching pattern
+- `pytest --run_unit` - Run only unit tests
+- `pytest -v` - Verbose output
+
+Running pytest from outside the `python/cuml/` directory will result in import errors.
+
 ## Device and Host memory allocations
 TODO: talk about enabling RMM here when it is ready
 
