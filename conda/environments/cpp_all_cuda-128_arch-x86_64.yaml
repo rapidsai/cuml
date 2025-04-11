@@ -3,7 +3,6 @@
 channels:
 - rapidsai
 - rapidsai-nightly
-- dask/label/dev
 - conda-forge
 - nvidia
 dependencies:
@@ -17,13 +16,13 @@ dependencies:
 - gcc_linux-64=13.*
 - libcublas-dev
 - libcufft-dev
-- libcumlprims==25.4.*,>=0.0.0a0
+- libcumlprims==25.6.*,>=0.0.0a0
 - libcurand-dev
 - libcusolver-dev
 - libcusparse-dev
-- libcuvs==25.4.*,>=0.0.0a0
-- libraft-headers==25.4.*,>=0.0.0a0
-- librmm==25.4.*,>=0.0.0a0
+- libcuvs==25.6.*,>=0.0.0a0
+- libraft-headers==25.6.*,>=0.0.0a0
+- librmm==25.6.*,>=0.0.0a0
 - ninja
 - sysroot_linux-64==2.28
 name: cpp_all_cuda-128_arch-x86_64

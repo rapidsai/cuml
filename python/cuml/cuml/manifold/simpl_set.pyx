@@ -16,7 +16,6 @@
 
 # distutils: language = c++
 
-import warnings
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
@@ -229,7 +228,6 @@ def simplicial_set_embedding(
     metric_kwds=None,
     output_metric="euclidean",
     output_metric_kwds=None,
-    repulsion_strength=None,
     convert_dtype=True,
     verbose=False,
 ):
@@ -330,15 +328,6 @@ def simplicial_set_embedding(
     umap_params.learning_rate = <float> initial_alpha
     umap_params.a = <float> a
     umap_params.b = <float> b
-
-    if repulsion_strength:
-        gamma = repulsion_strength
-        warnings.simplefilter(action="always", category=FutureWarning)
-        warnings.warn('Parameter "repulsion_strength" has been'
-                      ' deprecated. It will be removed in version 24.12.'
-                      ' Please use the "gamma" parameter instead.',
-                      FutureWarning)
-
     umap_params.repulsion_strength = <float> gamma
     umap_params.negative_sample_rate = <int> negative_sample_rate
     umap_params.n_epochs = <int> n_epochs

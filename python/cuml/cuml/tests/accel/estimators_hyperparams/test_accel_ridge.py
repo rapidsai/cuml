@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,11 +15,13 @@
 #
 
 
+import cuml
+
 import pytest
 import numpy as np
 from sklearn.datasets import make_regression
 from sklearn.linear_model import Ridge
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import r2_score
 from sklearn.preprocessing import StandardScaler
 
 
@@ -152,3 +154,75 @@ def test_ridge_positive(regression_data):
     assert np.all(
         model.coef_ >= 0
     ), "All coefficients should be non-negative when positive=True"
+
+
+@pytest.mark.skipif(
+    not cuml.GlobalSettings().accelerator_active,
+    reason="Skipping test because accelerator is not active",
+)
+def test_ridge_solver_attribute_default():
+    """Test that the solver attribute is correct when not specified."""
+    model = Ridge(random_state=42)
+    assert model.solver == "auto", "Default solver should be 'auto'"
+
+
+@pytest.mark.skipif(
+    not cuml.GlobalSettings().accelerator_active,
+    reason="Skipping test because accelerator is not active",
+)
+@pytest.mark.parametrize(
+    "solver,expected",
+    [
+        ("auto", "auto"),
+        ("cholesky", "eig"),
+        ("lsqr", "eig"),
+        ("sag", "eig"),
+        ("saga", "eig"),
+        ("lbfgs", "lbfgs"),
+        ("sparse_cg", "eig"),
+    ],
+)
+def test_ridge_solver_attribute_initialization(solver, expected):
+    """Test that the solver attribute is translated correctly."""
+    model = Ridge(solver=solver, random_state=42)
+    assert (
+        model.solver == expected
+    ), f"{solver} solver should be translated to '{expected}'"
+
+
+@pytest.mark.skipif(
+    not cuml.GlobalSettings().accelerator_active,
+    reason="Skipping test because accelerator is not active",
+)
+@pytest.mark.parametrize(
+    "solver,expected_solver_",
+    [
+        ("auto", "eig"),
+        ("cholesky", "eig"),
+        ("lsqr", "eig"),
+        ("sag", "eig"),
+        ("saga", "eig"),
+        ("lbfgs", "lbfgs"),
+        ("sparse_cg", "eig"),
+    ],
+)
+def test_ridge_solver_attribute_after_fit(solver, expected_solver_):
+    """Test that the solver_ attribute is set correctly after fit."""
+    # Set positive=True for lbfgs solver as it's required
+    positive = solver == "lbfgs"
+    model = Ridge(solver=solver, positive=positive, random_state=42)
+    X, y = make_regression(n_samples=10, n_features=2, random_state=42)
+    model.fit(X, y)
+    assert (
+        model.solver_ == expected_solver_
+    ), f"solver_ should be '{expected_solver_}' after fit"
+
+
+def test_ridge_solver_attribute_invalid(regression_data):
+    """Test behavior with invalid solver."""
+    X, y = regression_data
+
+    # Test invalid solver
+    with pytest.raises(TypeError, match=r".*solver.*invalid.*"):
+        model = Ridge(solver="invalid", random_state=42)
+        model.fit(X, y)

@@ -18,10 +18,8 @@ from typing import TYPE_CHECKING
 
 from cuml import Base
 from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
-from cuml.common.exceptions import NotFittedError
 from cuml.internals.safe_imports import (
     cpu_only_import,
-    cpu_only_import_from,
     gpu_only_import,
 )
 
@@ -209,7 +207,7 @@ class LabelEncoder(Base):
         self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
         return self
 
-    def transform(self, y) -> cudf.Series:
+    def transform(self, y):
         """
         Transform an input into its categorical keys.
 
@@ -244,7 +242,7 @@ class LabelEncoder(Base):
 
         return encoded
 
-    def fit_transform(self, y, z=None) -> cudf.Series:
+    def fit_transform(self, y, z=None):
         """
         Simultaneously fit and transform an input
 
@@ -260,7 +258,7 @@ class LabelEncoder(Base):
 
         return y.cat.codes
 
-    def inverse_transform(self, y: cudf.Series) -> cudf.Series:
+    def inverse_transform(self, y: "cudf.Series"):
         """
         Revert ordinal label to original label
 

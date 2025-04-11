@@ -3,7 +3,6 @@
 channels:
 - rapidsai
 - rapidsai-nightly
-- dask/label/dev
 - conda-forge
 - nvidia
 dependencies:
@@ -15,13 +14,13 @@ dependencies:
 - cuda-profiler-api
 - cuda-python>=12.6.2,<13.0a0
 - cuda-version=12.8
-- cudf==25.4.*,>=0.0.0a0
+- cudf==25.6.*,>=0.0.0a0
 - cupy>=12.0.0
-- cuvs==25.4.*,>=0.0.0a0
+- cuvs==25.6.*,>=0.0.0a0
 - cxx-compiler
 - cython>=3.0.0
-- dask-cuda==25.4.*,>=0.0.0a0
-- dask-cudf==25.4.*,>=0.0.0a0
+- dask-cuda==25.6.*,>=0.0.0a0
+- dask-cudf==25.6.*,>=0.0.0a0
 - dask-ml
 - doxygen=1.9.1
 - gcc_linux-aarch64=13.*
@@ -33,13 +32,14 @@ dependencies:
 - joblib>=0.11
 - libcublas-dev
 - libcufft-dev
-- libcumlprims==25.4.*,>=0.0.0a0
+- libcumlprims==25.6.*,>=0.0.0a0
 - libcurand-dev
 - libcusolver-dev
 - libcusparse-dev
-- libcuvs==25.4.*,>=0.0.0a0
-- libraft==25.4.*,>=0.0.0a0
-- librmm==25.4.*,>=0.0.0a0
+- libcuvs==25.6.*,>=0.0.0a0
+- libraft==25.6.*,>=0.0.0a0
+- librmm==25.6.*,>=0.0.0a0
+- matplotlib
 - nbsphinx
 - ninja
 - nltk
@@ -48,7 +48,7 @@ dependencies:
 - numpydoc
 - packaging
 - pydata-sphinx-theme!=0.14.2
-- pylibraft==25.4.*,>=0.0.0a0
+- pylibraft==25.6.*,>=0.0.0a0
 - pynndescent
 - pytest-benchmark
 - pytest-cases
@@ -56,12 +56,12 @@ dependencies:
 - pytest-xdist
 - pytest==7.*
 - python>=3.10,<3.13
-- raft-dask==25.4.*,>=0.0.0a0
+- raft-dask==25.6.*,>=0.0.0a0
 - rapids-build-backend>=0.3.0,<0.4.0.dev0
-- rapids-dask-dependency==25.4.*,>=0.0.0a0
+- rapids-dask-dependency==25.6.*,>=0.0.0a0
 - rapids-logger==0.1.*,>=0.0.0a0
 - recommonmark
-- rmm==25.4.*,>=0.0.0a0
+- rmm==25.6.*,>=0.0.0a0
 - scikit-build-core>=0.10.0
 - scikit-learn==1.5.*
 - scipy>=1.8.0
@@ -73,5 +73,5 @@ dependencies:
 - sysroot_linux-aarch64==2.28
 - treelite==4.4.1
 - umap-learn==0.5.6
-- xgboost>=2.1.0
+- xgboost>=2.1.0,<3.0.0
 name: all_cuda-128_arch-aarch64
