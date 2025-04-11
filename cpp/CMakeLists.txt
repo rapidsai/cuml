@@ -16,7 +16,7 @@
 
 cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
 
-include(../rapids_config.cmake)
+include(../cmake/rapids_config.cmake)
 
 include(rapids-cmake)
 include(rapids-cpm)
@@ -349,7 +349,6 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/decisiontree/batched-levelalgo/kernels/mse-float.cu
         src/decisiontree/batched-levelalgo/kernels/poisson-double.cu
         src/decisiontree/batched-levelalgo/kernels/poisson-float.cu
-        src/decisiontree/batched-levelalgo/kernels/quantiles.cu
         src/decisiontree/decisiontree.cu)
   endif()
 
