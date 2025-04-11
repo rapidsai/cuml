@@ -888,3 +888,17 @@ def test_callback():
     reducer = cuUMAP(n_components=2, callback=callback)
     reducer.fit(digits.data)
     callback.check()
+
+
+def test_umap_small_fit_large_transform():
+    data, _ = make_blobs(
+        n_samples=10_000, n_features=8, centers=5, random_state=0
+    )
+    train, infer = data[:1000], data[1000:]
+
+    model = cuUMAP(build_algo="brute_force_knn", init="random")
+    model.fit(train)
+    embeddings = model.transform(infer)
+
+    trust = trustworthiness(infer, embeddings, n_neighbors=10)
+    assert trust >= 0.9

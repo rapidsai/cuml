@@ -48,7 +48,7 @@ from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.ensemble.randomforest_common import _obtain_fil_model
 from cuml.ensemble.randomforest_shared cimport *
 
-from cuml.fil.fil import TreeliteModel
+from cuml.legacy.fil.fil import TreeliteModel
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint64_t
@@ -262,7 +262,7 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     _hyperparam_interop_translator = {
         "criterion": {
-            "log_loss": "NotImplemented"
+            "log_loss": "NotImplemented",
         },
         "oob_score": {
             True: "NotImplemented",

@@ -472,6 +472,11 @@ def test_rf_regression(
     assert fil_r2 >= (cu_r2 - 0.02)
 
 
+@pytest.mark.skipif(
+    cudf_pandas_active,
+    reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
+    "Issue: https://github.com/rapidsai/cuml/issues/5991",
+)
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 def test_rf_classification_seed(small_clf, datatype):
 
@@ -1447,3 +1452,10 @@ def test_rf_predict_returns_int():
     clf = cuml.ensemble.RandomForestClassifier().fit(X, y)
     pred = clf.predict(X)
     assert pred.dtype == np.int64
+
+
+def test_ensemble_estimator_length():
+    X, y = make_classification()
+    clf = cuml.ensemble.RandomForestClassifier(n_estimators=3)
+    clf.fit(X, y)
+    assert len(clf) == 3
