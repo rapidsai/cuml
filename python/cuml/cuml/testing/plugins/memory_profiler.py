@@ -13,42 +13,35 @@
 # limitations under the License.
 #
 
-import os
-import psutil
+import warnings
+
+import pytest
+from rmm.statistics import get_statistics, statistics
+
+
+class HighMemoryUsageWarning(UserWarning):
+    """Warning emitted when a test exceeds the memory usage threshold."""
+
+    pass
+
 
 # Memory threshold in MB for reporting memory usage
 MEMORY_REPORT_THRESHOLD_MB = 1024
 
 
-def get_process_memory():
-    """Get the current process memory usage in MB."""
-    process = psutil.Process(os.getpid())
-    return process.memory_info().rss / 1024 / 1024  # Convert to MB
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_call(item):
+    """Wrap test execution with GPU memory profiler."""
+    with statistics():
+        yield
 
+        # Check memory usage after test completion
+        stats = get_statistics()
+        peak_memory_mb = stats.peak_bytes / (1024 * 1024)
 
-class MemoryProfiler:
-    def __init__(self):
-        self.start_memory = None
-        self.max_memory = 0
-
-    def pytest_runtest_setup(self, item):
-        """Record memory usage at test setup."""
-        self.start_memory = get_process_memory()
-
-    def pytest_runtest_teardown(self, item):
-        """Record memory usage at test teardown and report if significant."""
-        end_memory = get_process_memory()
-        if self.start_memory is not None:
-            memory_used = end_memory - self.start_memory
-            self.max_memory = max(self.max_memory, end_memory)
-            if memory_used > MEMORY_REPORT_THRESHOLD_MB:
-                print(f"\nMemory usage for {item.nodeid}:")
-                print(f"  Start: {self.start_memory:.2f} MB")
-                print(f"  End: {end_memory:.2f} MB")
-                print(f"  Delta: {memory_used:.2f} MB")
-                print(f"  Max: {self.max_memory:.2f} MB")
-
-
-def pytest_configure(config):
-    """Register the memory profiler plugin."""
-    config.pluginmanager.register(MemoryProfiler())
+        if peak_memory_mb > MEMORY_REPORT_THRESHOLD_MB:
+            msg = (
+                f"Test {item.nodeid} used {peak_memory_mb:.2f} MB of GPU memory, "
+                f"exceeding threshold of {MEMORY_REPORT_THRESHOLD_MB} MB"
+            )
+            warnings.warn(msg, HighMemoryUsageWarning)
