@@ -51,6 +51,7 @@ from sklearn.datasets import (
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.linear_model import LogisticRegression as skLog
 from sklearn.linear_model import Ridge as skRidge
+from sklearn.linear_model import ElasticNet as skElasticNet
 from sklearn.model_selection import train_test_split
 
 from cuml import ElasticNet as cuElasticNet
@@ -1208,3 +1209,50 @@ def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
         assert not array_equal(X, X_copy)
     else:
         assert array_equal(X, X_copy)
+
+
+@pytest.mark.parametrize("ntargets", [1, 2])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+@pytest.mark.parametrize("solver", ["cd", "qn"])
+@pytest.mark.parametrize(
+    "nrows", [unit_param(1000), quality_param(5000), stress_param(500000)]
+)
+@pytest.mark.parametrize(
+    "column_info",
+    [
+        unit_param([20, 10]),
+        quality_param([100, 50]),
+        stress_param([1000, 500]),
+    ],
+)
+def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
+    ncols, n_info = column_info
+    X_train, X_test, y_train, y_test = make_regression_dataset(
+        datatype, nrows, ncols, n_info, n_targets=ntargets
+    )
+
+    # Initialization of cuML's elastic net model
+    cuelastic = cuElasticNet(alpha=0.1, l1_ratio=0.5, solver=solver)
+
+    if ntargets > 1:
+        with pytest.raises(
+            ValueError,
+            match="The .* solver does not support multi-target regression.",
+        ):
+            cuelastic.fit(X_train, y_train)
+        return
+
+    # fit and predict cuml elastic net model
+    cuelastic.fit(X_train, y_train)
+    cuelastic_predict = cuelastic.predict(X_test)
+
+    if nrows < 500000:
+        # sklearn elastic net model initialization, fit and predict
+        skelastic = skElasticNet(alpha=0.1, l1_ratio=0.5)
+        skelastic.fit(X_train, y_train)
+
+        skelastic_predict = skelastic.predict(X_test)
+
+        assert array_equal(
+            skelastic_predict, cuelastic_predict, 3e-0, with_sign=True
+        )

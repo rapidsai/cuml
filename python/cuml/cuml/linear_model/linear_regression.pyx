@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -122,6 +122,8 @@ def fit_multi_target(X, y, fit_intercept=True, sample_weight=None):
     params = vh.T @ divide_non_zero(u.T @ y_arr, s[:, None])
 
     coef = params[:-1] if fit_intercept else params
+    # Transpose coef to match scikit-learn's shape (n_targets, n_features)
+    coef = coef.T
     intercept = params[-1] if fit_intercept else None
 
     return (
@@ -464,8 +466,8 @@ class LinearRegression(LinearPredictMixin,
         self.coef_ = CumlArray.from_input(
             coef,
             check_dtype=self.dtype,
-            check_rows=self.n_features_in_,
-            check_cols=y_cols
+            check_rows=y_cols,
+            check_cols=self.n_features_in_
         )
         if self.fit_intercept:
             self.intercept_ = CumlArray.from_input(

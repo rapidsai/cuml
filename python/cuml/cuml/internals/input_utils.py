@@ -279,7 +279,22 @@ def determine_array_type_full(X):
     return _input_type_to_str[gen_type], gen_type in _SPARSE_TYPES
 
 
-def is_array_like(X):
+def is_array_like(X, accept_lists=False):
+    """Check if X is array-like.
+
+    Parameters
+    ----------
+    X : object
+        The object to check
+    accept_lists : bool, default=False
+        If True, treat list and tuple objects as array-like.
+        If False, only treat actual array-like objects as array-like.
+
+    Returns
+    -------
+    bool
+        True if X is array-like, False otherwise
+    """
     if (
         hasattr(X, "__cuda_array_interface__")
         or (
@@ -299,6 +314,7 @@ def is_array_like(X):
                 PandasDataFrame,
             ),
         )
+        or (accept_lists and isinstance(X, (list, tuple)))
     ):
         return True
 

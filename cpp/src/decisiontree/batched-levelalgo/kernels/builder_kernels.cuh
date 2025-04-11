@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 
 #include <cuml/common/utils.hpp>
 
+#include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
 
 #include <cub/cub.cuh>
@@ -74,23 +75,26 @@ DI OutT* alignPointer(InT dataset)
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-__attribute__((visibility("hidden"))) __global__ void nodeSplitKernel(
-  const IdxT max_depth,
-  const IdxT min_samples_leaf,
-  const IdxT min_samples_split,
-  const IdxT max_leaves,
-  const DataT min_impurity_decrease,
-  const Dataset<DataT, LabelT, IdxT> dataset,
-  const NodeWorkItem* work_items,
-  const Split<DataT, IdxT>* splits);
+void launchNodeSplitKernel(const IdxT max_depth,
+                           const IdxT min_samples_leaf,
+                           const IdxT min_samples_split,
+                           const IdxT max_leaves,
+                           const DataT min_impurity_decrease,
+                           const Dataset<DataT, LabelT, IdxT>& dataset,
+                           const NodeWorkItem* work_items,
+                           const size_t work_items_size,
+                           const Split<DataT, IdxT>* splits,
+                           cudaStream_t builder_stream);
 
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
-__attribute__((visibility("hidden"))) __global__ void leafKernel(
-  ObjectiveT objective,
-  DatasetT dataset,
-  const NodeT* tree,
-  const InstanceRange* instance_ranges,
-  DataT* leaves);
+void launchLeafKernel(ObjectiveT objective,
+                      DatasetT& dataset,
+                      const NodeT* tree,
+                      const InstanceRange* instance_ranges,
+                      DataT* leaves,
+                      int batch_size,
+                      size_t smem_size,
+                      cudaStream_t builder_stream);
 // 32-bit FNV1a hash
 // Reference: http://www.isthe.com/chongo/tech/comp/fnv/index.html
 const uint32_t fnv1a32_prime = uint32_t(16777619);
@@ -348,24 +352,26 @@ template <typename DataT,
           int TPB,
           typename ObjectiveT,
           typename BinT>
-__attribute__((visibility("hidden"))) __global__ void computeSplitKernel(
-  BinT* histograms,
-  IdxT n_bins,
-  IdxT max_depth,
-  IdxT min_samples_split,
-  IdxT max_leaves,
-  const Dataset<DataT, LabelT, IdxT> dataset,
-  const Quantiles<DataT, IdxT> quantiles,
-  const NodeWorkItem* work_items,
-  IdxT colStart,
-  const IdxT* colids,
-  int* done_count,
-  int* mutex,
-  volatile Split<DataT, IdxT>* splits,
-  ObjectiveT objective,
-  IdxT treeid,
-  const WorkloadInfo<IdxT>* workload_info,
-  uint64_t seed);
+void launchComputeSplitKernel(BinT* histograms,
+                              IdxT n_bins,
+                              IdxT max_depth,
+                              IdxT min_samples_split,
+                              IdxT max_leaves,
+                              const Dataset<DataT, LabelT, IdxT>& dataset,
+                              const Quantiles<DataT, IdxT>& quantiles,
+                              const NodeWorkItem* work_items,
+                              IdxT colStart,
+                              const IdxT* colids,
+                              int* done_count,
+                              int* mutex,
+                              volatile Split<DataT, IdxT>* splits,
+                              ObjectiveT& objective,
+                              IdxT treeid,
+                              const WorkloadInfo<IdxT>* workload_info,
+                              uint64_t seed,
+                              dim3 grid,
+                              size_t smem_size,
+                              cudaStream_t builder_stream);
 
 }  // namespace DT
 }  // namespace ML

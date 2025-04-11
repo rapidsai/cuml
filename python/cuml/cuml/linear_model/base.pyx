@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,7 +64,6 @@ class LinearPredictMixin:
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.
-
         """
         self.dtype = self.coef_.dtype
 
@@ -73,23 +72,39 @@ class LinearPredictMixin:
                 "LinearModel.predict() cannot be called before fit(). "
                 "Please fit the model first."
             )
-        self.dtype = self.coef_.dtype
-        if len(self.coef_.shape) == 2 and self.coef_.shape[0] > 1:
-            # Handle multi-target prediction in Python.
-            coef_arr = CumlArray.from_input(self.coef_).to_output('array')
-            X_arr = CumlArray.from_input(
-                X,
-                check_dtype=self.dtype,
-                convert_to_dtype=(self.dtype if convert_dtype else None),
-                check_cols=self.n_features_in_
-            ).to_output('array')
-            intercept_arr = CumlArray.from_input(
-                self.intercept_
-            ).to_output('array')
-            preds_arr = X_arr @ coef_arr + intercept_arr
-            return preds_arr
 
-        # Handle single-target prediction in C++
+        multi_target = (len(self.coef_.shape) == 2 and self.coef_.shape[0] > 1)
+        if multi_target:
+            return self._predict_multi_target(X, convert_dtype)
+        else:
+            return self._predict_single_target(X, convert_dtype)
+
+    def _predict_multi_target(self, X, convert_dtype=True) -> CumlArray:
+        """
+        Predict for multi-target case.
+        """
+        coef_arr = CumlArray.from_input(self.coef_).to_output('array')
+        X_m = CumlArray.from_input(
+            X,
+            check_dtype=self.dtype,
+            convert_to_dtype=(self.dtype if convert_dtype else None),
+            check_cols=self.n_features_in_
+        )
+        X_arr = X_m.to_output('array')
+        if isinstance(self.intercept_, (int, float, np.number)):
+            intercept_ = self.intercept_
+        else:
+            intercept_ = CumlArray.from_input(self.intercept_).to_output('array')
+
+        preds_arr = X_arr @ coef_arr.T + intercept_
+
+        # Preserve the input's index in the prediction output
+        return CumlArray(preds_arr, index=X_m.index)
+
+    def _predict_single_target(self, X, convert_dtype=True) -> CumlArray:
+        """
+        Predict for single-target case using C++ implementation.
+        """
         X_m, _n_rows, _n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
@@ -98,7 +113,27 @@ class LinearPredictMixin:
         cdef uintptr_t _X_ptr = X_m.ptr
         cdef uintptr_t _coef_ptr = self.coef_.ptr
 
-        preds = CumlArray.zeros(_n_rows, dtype=dtype, index=X_m.index)
+        # Assume intercept is a scalar for single-target case
+        if isinstance(self.intercept_, CumlArray):
+            try:
+                intercept = self.intercept_.item()
+            except (ValueError, TypeError):
+                raise ValueError(
+                    "For single-target prediction, intercept must be a scalar "
+                    "or size-1 array"
+                )
+        else:
+            intercept = self.intercept_
+
+        # If coef_ is 2D with shape (1, n_features), ensure predictions are also 2D
+        if len(self.coef_.shape) == 2:
+            # coef_ is 2D with shape (1, n_features), but this function only
+            # handles single-target prediction. For multi-target prediction, use
+            # _predict_multi_target() instead.
+            assert self.coef_.shape == (1, _n_cols)
+            preds = CumlArray.zeros((_n_rows, 1), dtype=dtype, index=X_m.index)
+        else:
+            preds = CumlArray.zeros(_n_rows, dtype=dtype, index=X_m.index)
         cdef uintptr_t _preds_ptr = preds.ptr
 
         IF GPUBUILD == 1:
@@ -109,7 +144,7 @@ class LinearPredictMixin:
                             <size_t>_n_rows,
                             <size_t>_n_cols,
                             <float*>_coef_ptr,
-                            <float>self.intercept_,
+                            <float>intercept,
                             <float*>_preds_ptr)
             else:
                 gemmPredict(handle_[0],
@@ -117,7 +152,7 @@ class LinearPredictMixin:
                             <size_t>_n_rows,
                             <size_t>_n_cols,
                             <double*>_coef_ptr,
-                            <double>self.intercept_,
+                            <double>intercept,
                             <double*>_preds_ptr)
 
         self.handle.sync()
