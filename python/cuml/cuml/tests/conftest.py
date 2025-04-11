@@ -51,8 +51,12 @@ cp = gpu_only_import("cupy")
 pytest_plugins = "cuml.testing.plugins.quick_run_plugin"
 
 
-# Install SSL certificates
 def pytest_sessionstart(session):
+    """Initialize SSL certificates for secure HTTP connections.
+
+    This function is called at the start of the test session to ensure
+    proper SSL certificate handling for dataset downloads.
+    """
     ssl_context = create_default_context(cafile=certifi.where())
     https_handler = HTTPSHandler(context=ssl_context)
     install_opener(build_opener(https_handler))
@@ -120,9 +124,13 @@ hypothesis.settings.register_profile(
 
 
 def pytest_addoption(parser):
-    # Any custom option, that should be available at any time (not just a
-    # plugin), goes here.
+    """Add custom command line options for pytest.
 
+    This function adds three custom options to control test execution:
+    - --run_stress: Run stress tests
+    - --run_quality: Run quality tests
+    - --run_unit: Run unit tests
+    """
     group = parser.getgroup("cuML Custom Options")
 
     group.addoption(
@@ -158,6 +166,12 @@ def pytest_addoption(parser):
 
 
 def pytest_collection_modifyitems(config, items):
+    """Modify test collection based on command line options.
+
+    This function:
+    1. Checks for hypothesis tests without examples
+    2. Selectively skip tests based on selected categories (unit/quality/stress)
+    """
     # Check for hypothesis tests without examples
     tests_without_examples = []
     for item in items:
@@ -215,6 +229,13 @@ def pytest_collection_modifyitems(config, items):
 
 
 def pytest_configure(config):
+    """Configure pytest settings and load hypothesis profiles.
+
+    This function:
+    1. Adds custom markers
+    2. Records the available GPU memory
+    3. Loads appropriate hypothesis profiles based on test execution context
+    """
     config.addinivalue_line(
         "markers",
         "cudf_pandas: mark test as requiring the cudf.pandas wrapper",
@@ -237,7 +258,7 @@ def pytest_configure(config):
 
 
 def pytest_pyfunc_call(pyfuncitem):
-    """Skip tests that require the cudf.pandas accelerator
+    """Skip tests that require the cudf.pandas accelerator.
 
     Tests marked with `@pytest.mark.cudf_pandas` will only be run if the
     cudf.pandas accelerator is enabled via the `cudf.pandas` plugin.
@@ -247,6 +268,7 @@ def pytest_pyfunc_call(pyfuncitem):
 
 
 def _get_gpu_memory():
+    """Get the total GPU memory in GB."""
     bash_command = "nvidia-smi --query-gpu=memory.total --format=csv"
     output = subprocess.check_output(bash_command, shell=True).decode("utf-8")
     lines = output.split("\n")
@@ -268,6 +290,11 @@ def _get_gpu_memory():
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
+    """Create a test report and attach it to the test item.
+
+    This function is used to create detailed test reports and attach them
+    to the test items for later use in fixtures like failure_logger.
+    """
     outcome = yield
     rep = outcome.get_result()
     setattr(item, "rep_" + rep.when, rep)
@@ -275,8 +302,10 @@ def pytest_runtest_makereport(item, call):
 
 @pytest.fixture(scope="function")
 def failure_logger(request):
-    """
-    To be used when willing to log the random seed used in some failing test.
+    """Log the random seed used in failing tests.
+
+    This fixture is used to log the random seed when a test fails,
+    which helps in reproducing test failures.
     """
     yield
     if request.node.rep_call.failed:
@@ -294,6 +323,11 @@ def failure_logger(request):
 
 @pytest.fixture(scope="session")
 def random_seed(request):
+    """Generate or retrieve a random seed for test reproducibility.
+
+    This fixture improves reproducibility of tests using random numbers
+    by using the same seed throughout the test session.
+    """
     current_random_seed = os.getenv("PYTEST_RANDOM_SEED")
     if current_random_seed is not None and current_random_seed.isdigit():
         random_seed = int(current_random_seed)
@@ -310,7 +344,11 @@ def random_seed(request):
 
 
 def dataset_fetch_retry(func, attempts=3, min_wait=1, max_wait=10):
-    """Decorator for retrying dataset fetching operations with exponential backoff."""
+    """Decorator for retrying dataset fetching operations with exponential backoff.
+
+    This decorator implements retry logic for dataset fetching
+    operations with exponential backoff. Wait times are in seconds.
+    """
     return retry(
         stop=stop_after_attempt(attempts),
         wait=wait_exponential(multiplier=min_wait, max=max_wait),
@@ -320,6 +358,17 @@ def dataset_fetch_retry(func, attempts=3, min_wait=1, max_wait=10):
 
 @pytest.fixture(scope="session")
 def nlp_20news():
+    """Load and preprocess the 20 newsgroups dataset.
+
+    This fixture loads the 20 newsgroups dataset, preprocesses it using
+    CountVectorizer, and returns the feature matrix and target vector.
+
+    Returns
+    -------
+    tuple
+        (X, Y) where X is the feature matrix and Y is the target vector
+    """
+
     @dataset_fetch_retry
     def _fetch_20news():
         return fetch_20newsgroups(
@@ -340,6 +389,18 @@ def nlp_20news():
 
 @pytest.fixture(scope="session")
 def housing_dataset():
+    """Load and preprocess the California housing dataset.
+
+    This fixture loads the California housing dataset and returns the
+    feature matrix, target vector, and feature names.
+
+    Returns
+    -------
+    tuple
+        (X, y, feature_names) where X is the feature matrix, y is the target
+        vector, and feature_names is a list of feature names
+    """
+
     @dataset_fetch_retry
     def _fetch_housing():
         return fetch_california_housing()
@@ -358,9 +419,20 @@ def housing_dataset():
 
 @pytest.fixture(scope="session")
 def deprecated_boston_dataset():
-    # dataset was removed in Scikit-learn 1.2, we should change it for a
-    # better dataset for tests, see
-    # https://github.com/rapidsai/cuml/issues/5158
+    """Load and preprocess the deprecated Boston housing dataset.
+
+    This fixture loads the Boston housing dataset from a GitHub URL since
+    it was removed from scikit-learn. It returns the feature matrix and
+    target vector.
+
+    Note: This dataset is deprecated and should be replaced with a better
+    alternative. See https://github.com/rapidsai/cuml/issues/5158
+
+    Returns
+    -------
+    Bunch
+        A Bunch object containing the data and target arrays
+    """
 
     @dataset_fetch_retry
     def _get_boston_data():
@@ -387,6 +459,11 @@ def deprecated_boston_dataset():
     params=["digits", "deprecated_boston_dataset", "diabetes", "cancer"],
 )
 def supervised_learning_dataset(request, deprecated_boston_dataset):
+    """Provide various supervised learning datasets for testing.
+
+    This fixture provides access to multiple standard supervised learning
+    datasets. It is parameterized to allow testing with different datasets.
+    """
     datasets_dict = {
         "digits": datasets.load_digits(),
         "deprecated_boston_dataset": deprecated_boston_dataset,
@@ -399,6 +476,16 @@ def supervised_learning_dataset(request, deprecated_boston_dataset):
 
 @pytest.fixture(scope="session")
 def exact_shap_regression_dataset():
+    """Generate a synthetic regression dataset for SHAP testing.
+
+    This fixture creates a synthetic regression dataset with known
+    properties for testing SHAP (SHapley Additive exPlanations) values.
+
+    Returns
+    -------
+    tuple
+        (X_train, X_test, y_train, y_test) split of the synthetic dataset
+    """
     X, y = with_dtype(
         make_regression(
             n_samples=101, n_features=11, noise=0.1, random_state=42
@@ -410,6 +497,16 @@ def exact_shap_regression_dataset():
 
 @pytest.fixture(scope="session")
 def exact_shap_classification_dataset():
+    """Generate a synthetic classification dataset for SHAP testing.
+
+    This fixture creates a synthetic classification dataset with known
+    properties for testing SHAP (SHapley Additive exPlanations) values.
+
+    Returns
+    -------
+    tuple
+        (X_train, X_test, y_train, y_test) split of the synthetic dataset
+    """
     X, y = with_dtype(
         make_classification(
             n_samples=101, n_features=11, n_classes=2, random_state=42
