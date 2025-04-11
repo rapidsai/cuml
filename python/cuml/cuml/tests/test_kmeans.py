@@ -24,7 +24,7 @@ from cuml.testing.utils import (
     stress_param,
     array_equal,
 )
-from cuml.testing.datasets import make_blobs, make_pattern
+from cuml.testing.datasets import make_pattern
 import pytest
 import random
 
