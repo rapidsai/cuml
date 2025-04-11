@@ -15,7 +15,6 @@
 
 
 from cuml.common import rmm_cupy_ary, has_scipy
-from dask.distributed import default_client
 from cuml.internals.memory_utils import with_cupy_rmm
 import dask.dataframe as dd
 import dask
