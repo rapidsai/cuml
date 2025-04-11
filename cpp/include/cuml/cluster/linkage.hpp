@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/core/handle.hpp>
-#include <raft/sparse/hierarchy/common.h>
 
+#include <cuvs/cluster/agglomerative.hpp>
 #include <cuvs/distance/distance.hpp>
 
 namespace raft {
@@ -46,7 +46,7 @@ void single_linkage_pairwise(const raft::handle_t& handle,
                              const float* X,
                              size_t m,
                              size_t n,
-                             raft::hierarchy::linkage_output<int>* out,
+                             cuvs::cluster::agglomerative::single_linkage_output<int>* out,
                              cuvs::distance::DistanceType metric,
                              int n_clusters = 5);
 
@@ -74,7 +74,7 @@ void single_linkage_neighbors(
   const float* X,
   size_t m,
   size_t n,
-  raft::hierarchy::linkage_output<int>* out,
+  cuvs::cluster::agglomerative::single_linkage_output<int>* out,
   cuvs::distance::DistanceType metric = cuvs::distance::DistanceType::L2Unexpanded,
   int c                               = 15,
   int n_clusters                      = 5);
@@ -83,7 +83,7 @@ void single_linkage_pairwise(const raft::handle_t& handle,
                              const float* X,
                              size_t m,
                              size_t n,
-                             raft::hierarchy::linkage_output<int64_t>* out,
+                             cuvs::cluster::agglomerative::single_linkage_output<int64_t>* out,
                              cuvs::distance::DistanceType metric,
                              int n_clusters = 5);
 
