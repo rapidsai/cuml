@@ -29,7 +29,7 @@ from cuml.testing.utils import get_handle
 import pytest
 from cuml.internals.safe_imports import cpu_only_import_from
 from cuml.internals.safe_imports import cpu_only_import
-from cuml.testing.datasets import make_pattern_dataset
+from cuml.testing.datasets import make_pattern
 
 np = cpu_only_import("numpy")
 assert_raises = cpu_only_import_from("numpy.testing", "assert_raises")
@@ -230,7 +230,7 @@ def test_dbscan_sklearn_comparison(name, nrows, eps):
         "n_clusters": 2,
     }
     n_samples = nrows
-    pat = make_pattern_dataset(name, n_samples)
+    pat = make_pattern(name, n_samples)
     params = default_base.copy()
     params.update(pat[1])
     X, y = pat[0]
@@ -266,7 +266,7 @@ def test_dbscan_default(name):
         "n_clusters": 2,
     }
     n_samples = 500
-    pat = make_pattern_dataset(name, n_samples)
+    pat = make_pattern(name, n_samples)
     params = default_base.copy()
     params.update(pat[1])
     X, y = pat[0]
@@ -485,7 +485,7 @@ def test_dbscan_no_calc_core_point_indices():
 
     params = {"eps": 1.1, "min_samples": 4}
     n_samples = 1000
-    pat = make_pattern_dataset("noisy_moons", n_samples)
+    pat = make_pattern("noisy_moons", n_samples)
 
     X, y = pat[0]
 

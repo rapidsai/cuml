@@ -56,7 +56,7 @@ from sklearn.datasets import make_classification, make_blobs
 from sklearn.metrics import hinge_loss as sk_hinge
 from cuml.internals.safe_imports import cpu_only_import_from
 from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.testing.datasets import make_pattern_dataset
+from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import (
     get_handle,
     array_equal,
@@ -299,7 +299,7 @@ def test_rand_index_score(name, nrows):
         "n_clusters": 3,
     }
 
-    pat = make_pattern_dataset(name, nrows)
+    pat = make_pattern(name, nrows)
 
     params = default_base.copy()
     params.update(pat[1])
