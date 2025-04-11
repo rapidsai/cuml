@@ -386,15 +386,15 @@ def deprecated_boston_dataset():
     scope="session",
     params=["digits", "deprecated_boston_dataset", "diabetes", "cancer"],
 )
-def test_datasets(request, deprecated_boston_dataset):
-    test_datasets_dict = {
+def supervised_learning_dataset(request, deprecated_boston_dataset):
+    datasets_dict = {
         "digits": datasets.load_digits(),
         "deprecated_boston_dataset": deprecated_boston_dataset,
         "diabetes": datasets.load_diabetes(),
         "cancer": datasets.load_breast_cancer(),
     }
 
-    return test_datasets_dict[request.param]
+    return datasets_dict[request.param].data
 
 
 @pytest.fixture(scope="session")
