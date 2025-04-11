@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -211,10 +211,10 @@ template <bool COLS_IN_SHMEM_    = false,
           leaf_algo_t LEAF_ALGO_ = MIN_LEAF_ALGO,
           int N_ITEMS_           = 1>
 struct KernelTemplateParams {
-  static const bool COLS_IN_SHMEM    = COLS_IN_SHMEM_;
-  static const bool CATS_SUPPORTED   = CATS_SUPPORTED_;
-  static const leaf_algo_t LEAF_ALGO = LEAF_ALGO_;
-  static const int N_ITEMS           = N_ITEMS_;
+  static const bool COLS_IN_SHMEM     = COLS_IN_SHMEM_;
+  static const bool CATS_SUPPORTED    = CATS_SUPPORTED_;
+  static const leaf_algo_t LEAF_ALGO  = LEAF_ALGO_;
+  auto static constexpr const N_ITEMS = 1;
 
   template <bool _cats_supported>
   using ReplaceCatsSupported =
@@ -224,7 +224,7 @@ struct KernelTemplateParams {
   template <leaf_algo_t NEW_LEAF_ALGO>
   using ReplaceLeafAlgo =
     KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, NEW_LEAF_ALGO, N_ITEMS>;
-  using IncNItems = KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, LEAF_ALGO, N_ITEMS + 1>;
+  using IncNItems = KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, LEAF_ALGO, N_ITEMS_ + 1>;
 };
 
 // inherit from this struct to pass the functor to dispatch_on_fil_template_params()
@@ -241,14 +241,7 @@ namespace dispatch {
 template <class KernelParams, class Func, class T = typename Func::return_t>
 T dispatch_on_n_items(Func func, predict_params params)
 {
-  if (params.n_items == KernelParams::N_ITEMS) {
-    return func.template run<KernelParams>(params);
-  } else if constexpr (KernelParams::N_ITEMS < MAX_N_ITEMS) {
-    return dispatch_on_n_items<class KernelParams::IncNItems>(func, params);
-  } else {
-    ASSERT(false, "n_items > %d or < 1", MAX_N_ITEMS);
-  }
-  return T();  // appeasing the compiler
+  return func.template run<KernelParams>(params);
 }
 
 template <class KernelParams, class Func, class T = typename Func::return_t>

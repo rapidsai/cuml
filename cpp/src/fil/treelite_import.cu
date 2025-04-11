@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -481,7 +481,8 @@ void tl2fil_common(forest_params_t* params,
                    const treelite_params_t* tl_params)
 {
   // fill in forest-independent params
-  params->algo      = tl_params->algo;
+  params->algo = tl_params->algo;
+  if (params->algo == algo_t::BATCH_TREE_REORG) { params->algo = algo_t::TREE_REORG; }
   params->threshold = tl_params->threshold;
 
   // fill in forest-dependent params
@@ -613,6 +614,7 @@ struct tl2fil_t {
   {
     static const bool IS_DENSE = node_traits<fil_node_t>::IS_DENSE;
     tl2fil_common(&params_, model_, model_preset_, &tl_params_);
+    if (params_.algo == algo_t::BATCH_TREE_REORG) { params_.algo = algo_t::TREE_REORG; }
     node_traits<fil_node_t>::check(model_, model_preset_);
 
     std::size_t num_trees = model_preset_.trees.size();
@@ -654,6 +656,7 @@ struct tl2fil_t {
   /// initializes FIL forest object, to be ready to infer
   void init_forest(const raft::handle_t& handle, forest_t<real_t>* pforest)
   {
+    if (params_.algo == algo_t::BATCH_TREE_REORG) { params_.algo = algo_t::TREE_REORG; }
     ML::fil::init(
       handle, pforest, cat_sets_.accessor(), vector_leaf_, roots_.data(), nodes_.data(), &params_);
     // sync is necessary as nodes_ are used in init(),

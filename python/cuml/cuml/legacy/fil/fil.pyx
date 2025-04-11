@@ -387,8 +387,8 @@ cdef class ForestInference_impl():
                    'auto': algo_t.ALGO_AUTO,
                    'NAIVE': algo_t.NAIVE,
                    'naive': algo_t.NAIVE,
-                   'BATCH_TREE_REORG': algo_t.BATCH_TREE_REORG,
-                   'batch_tree_reorg': algo_t.BATCH_TREE_REORG,
+                   'BATCH_TREE_REORG': algo_t.TREE_REORG,
+                   'batch_tree_reorg': algo_t.TREE_REORG,
                    'TREE_REORG': algo_t.TREE_REORG,
                    'tree_reorg': algo_t.TREE_REORG}
         if algo_str not in algo_dict.keys():

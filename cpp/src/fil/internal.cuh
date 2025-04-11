@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -573,7 +573,7 @@ void init(const raft::handle_t& h,
           const std::vector<real_t>& vector_leaf,
           const int* trees,
           const fil_node_t* nodes,
-          const forest_params_t* params);
+          forest_params_t* params);
 
 struct predict_params;
 
