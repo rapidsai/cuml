@@ -235,7 +235,7 @@ def test_hdbscan_blobs(
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
 @pytest.mark.parametrize("connectivity", ["knn"])
 def test_hdbscan_sklearn_datasets(
-    test_datasets,
+    supervised_learning_dataset,
     connectivity,
     cluster_selection_epsilon,
     cluster_selection_method,
@@ -249,7 +249,7 @@ def test_hdbscan_sklearn_datasets(
         max_cluster_size,
     ) = min_samples_cluster_size_bounds
 
-    X = test_datasets.data
+    X = supervised_learning_dataset
 
     cuml_agg = HDBSCAN(
         verbose=logger.level_enum.info,
@@ -299,7 +299,7 @@ def test_hdbscan_sklearn_datasets(
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
 @pytest.mark.parametrize("connectivity", ["knn"])
 def test_hdbscan_sklearn_extract_clusters(
-    test_datasets,
+    supervised_learning_dataset,
     connectivity,
     cluster_selection_epsilon,
     cluster_selection_method,
@@ -308,7 +308,7 @@ def test_hdbscan_sklearn_extract_clusters(
     max_cluster_size,
     allow_single_cluster,
 ):
-    X = test_datasets.data
+    X = supervised_learning_dataset
     cuml_agg = HDBSCAN(
         verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
