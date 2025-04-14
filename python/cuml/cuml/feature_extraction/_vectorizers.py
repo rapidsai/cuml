@@ -468,7 +468,7 @@ class CountVectorizer(_VectorizerMixin):
         tokenized_df["token"] = (
             tokenized_df["token"]
             .cat.set_categories(self.vocabulary_)
-            ._column.codes
+            .cat.codes
         )
 
         # Count of each token in each document
@@ -491,7 +491,7 @@ class CountVectorizer(_VectorizerMixin):
             df[column]
             .astype("category")
             .cat.set_categories(keep_values)
-            ._column.codes
+            .cat.codes
         )
         df = df.dropna(subset=column)
         return df
