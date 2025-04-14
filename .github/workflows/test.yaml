@@ -62,6 +62,8 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: "ci/test_python_scikit_learn_tests.sh"
+      # Select amd64 and one job per major CUDA version with the latest CUDA and Python versions
+      matrix_filter: map(select(.ARCH == "amd64")) | group_by(.CUDA_VER|split(".")|map(tonumber)|.[0]) | map(max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber))))
   wheel-tests-cuml:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.06
