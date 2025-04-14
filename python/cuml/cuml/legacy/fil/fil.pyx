@@ -29,6 +29,7 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free as c_free
 
 import cuml.internals
+import warnings
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from pylibraft.common.handle cimport handle_t
@@ -386,8 +387,8 @@ cdef class ForestInference_impl():
                    'auto': algo_t.ALGO_AUTO,
                    'NAIVE': algo_t.NAIVE,
                    'naive': algo_t.NAIVE,
-                   'BATCH_TREE_REORG': algo_t.BATCH_TREE_REORG,
-                   'batch_tree_reorg': algo_t.BATCH_TREE_REORG,
+                   'BATCH_TREE_REORG': algo_t.TREE_REORG,
+                   'batch_tree_reorg': algo_t.TREE_REORG,
                    'TREE_REORG': algo_t.TREE_REORG,
                    'tree_reorg': algo_t.TREE_REORG}
         if algo_str not in algo_dict.keys():
@@ -757,6 +758,12 @@ class ForestInference(Base,
                  handle=None,
                  output_type=None,
                  verbose=False):
+        warnings.warn(
+            "This version of ForestInference is deprecated. Please use `from"
+            " cuml.fil import ForestInference` to import the new ForestInference"
+            " implementation.",
+            FutureWarning
+        )
         super().__init__(handle=handle,
                          verbose=verbose,
                          output_type=output_type)

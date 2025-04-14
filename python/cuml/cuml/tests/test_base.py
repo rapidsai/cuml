@@ -160,6 +160,7 @@ def test_base_subclass_init_matches_docs(child_class: str):
 @pytest.mark.parametrize("child_class", list(all_base_children.keys()))
 # ignore ColumnTransformer init warning
 @pytest.mark.filterwarnings("ignore:Transformers are required")
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_base_children__get_param_names(child_class: str):
     """
     This test ensures that the arguments in `Base.__init__` are available in

@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
 
-include(../../rapids_config.cmake)
+include(../../cmake/rapids_config.cmake)
 
 option(CUML_CPU "Build only cuML CPU Python components." OFF)
 set(language_list "CXX")
@@ -144,7 +144,7 @@ add_subdirectory(cuml/decomposition)
 add_subdirectory(cuml/ensemble)
 add_subdirectory(cuml/explainer)
 add_subdirectory(cuml/experimental/fil)
-add_subdirectory(cuml/fil)
+add_subdirectory(cuml/legacy/fil)
 add_subdirectory(cuml/kernel_ridge)
 add_subdirectory(cuml/linear_model)
 add_subdirectory(cuml/manifold)

@@ -73,15 +73,26 @@ void get_probabilities(const raft::handle_t& handle,
   rmm::device_uvector<value_t> deaths(n_clusters, stream);
   thrust::fill(exec_policy, deaths.begin(), deaths.end(), 0.0f);
 
-  cudaError_t (*reduce_func)(void*,
-                             size_t&,
-                             const value_t*,
-                             value_t*,
-                             int,
-                             const value_idx*,
-                             const value_idx*,
-                             cudaStream_t) =
-    cub::DeviceSegmentedReduce::Max<const value_t*, value_t*, const value_idx*, const value_idx*>;
+  // CCCL has changed `num_segments` to int64_t to support larger segment sizes
+  // Avoid explicitly instantiating a given overload but rely on conversion from int
+  auto reduce_func = [](void* d_temp_storage,
+                        size_t& temp_storage_bytes,
+                        const value_t* d_in,
+                        value_t* d_out,
+                        int num_segments,
+                        const value_idx* d_begin_offsets,
+                        const value_idx* d_end_offsets,
+                        cudaStream_t stream = 0) -> cudaError_t {
+    return cub::DeviceSegmentedReduce::Max(d_temp_storage,
+                                           temp_storage_bytes,
+                                           d_in,
+                                           d_out,
+                                           num_segments,
+                                           d_begin_offsets,
+                                           d_end_offsets,
+                                           stream);
+  };
+
   Utils::cub_segmented_reduce(
     lambdas, deaths.data(), n_clusters, sorted_parents_offsets.data(), stream, reduce_func);
 
