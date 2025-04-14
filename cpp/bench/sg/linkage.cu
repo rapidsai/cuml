@@ -19,8 +19,6 @@
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/common/logger.hpp>
 
-#include <raft/sparse/hierarchy/common.h>
-
 #include <cuvs/distance/distance.hpp>
 
 #include <utility>
