@@ -88,6 +88,39 @@ We support three main approaches for test input generation:
        pass
    ```
 
+### Test Parameter Levels
+Note: For dataset size scaling, prefer using hypothesis with `standard_regression_datasets()` or similar generators. The parameter levels below should primarily be used for non-dataset parameters.
+
+We use three levels of test parameters to support different testing needs:
+
+1. **Unit Tests** (`unit_param`):
+   - Small parameter values for quick testing
+   - Fast execution time
+   - Focused on basic functionality verification
+   - Example: `unit_param(2)` for number of components
+
+2. **Quality Tests** (`quality_param`):
+   - Medium parameter values
+   - More thorough testing
+   - Tests more realistic scenarios
+   - Example: `quality_param(10)` for number of components
+
+3. **Stress Tests** (`stress_param`):
+   - Large parameter values
+   - Tests performance and scalability
+   - Verifies behavior under heavy load
+   - Example: `stress_param(100)` for number of components
+
+These parameters can be controlled via command line options:
+- `--run_unit`: Run only unit tests (default)
+- `--run_quality`: Run quality tests
+- `--run_stress`: Run stress tests
+
+When writing tests, use the appropriate parameter level based on the test's purpose:
+- Use `unit_param` for basic correctness testing
+- Use `quality_param` for more comprehensive testing
+- Use `stress_param` only when testing performance or scalability
+
 ### Testing Guidelines
 
 1. **Accuracy Testing**
