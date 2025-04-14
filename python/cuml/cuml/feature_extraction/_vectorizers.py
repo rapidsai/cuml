@@ -28,7 +28,18 @@ Series = gpu_only_import_from("cudf", "Series")
 
 cp = gpu_only_import("cupy")
 cudf = gpu_only_import("cudf")
+np = cpu_only_import("numpy")
 pd = cpu_only_import("pandas")
+
+
+def min_signed_type(n):
+    for int_dtype in (np.int8, np.int16, np.int32, np.int64):
+        dtype = np.dtype(int_dtype)
+        if (dtype.itemsize * 8) >= 8:
+            if np.iinfo(int_dtype).min <= n <= np.iinfo(int_dtype).max:
+                return dtype
+    # resort to using `int64` and let numpy raise appropriate exception:
+    return np.int64(n).dtype
 
 
 def _preprocess(
@@ -255,7 +266,7 @@ class _VectorizerMixin:
         of documents.
         """
         remaining_docs = count_df["doc_id"].unique()
-        dtype = cudf.utils.dtypes.min_signed_type(n_doc)
+        dtype = min_signed_type(n_doc)
         doc_ids = cudf.DataFrame(
             data={"all_ids": cp.arange(0, n_doc, dtype=dtype)}, dtype=dtype
         )

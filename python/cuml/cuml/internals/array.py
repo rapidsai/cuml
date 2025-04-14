@@ -44,7 +44,6 @@ cuda = gpu_only_import_from("numba", "cuda")
 cached_property = safe_import_from(
     "functools", "cached_property", alt=null_decorator
 )
-CudfBuffer = gpu_only_import_from("cudf.core.buffer", "Buffer")
 CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
 CudfIndex = gpu_only_import_from("cudf", "Index")
 CudfSeries = gpu_only_import_from("cudf", "Series")
