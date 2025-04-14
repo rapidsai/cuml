@@ -72,7 +72,7 @@ _ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
 algorithms = st.sampled_from(_ALGORITHMS)
 
 
-# TODO(24.08): remove this test
+# TODO(25.08): remove this test
 def test_logreg_penalty_deprecation():
     with pytest.warns(
         FutureWarning,
