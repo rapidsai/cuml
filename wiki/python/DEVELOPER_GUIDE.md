@@ -88,6 +88,34 @@ We support three main approaches for test input generation:
        pass
    ```
 
+### Test Parameter Levels
+
+You can mark test parameters for different scales with (`unit_param`, `quality_param`, and `stress_param`).
+
+_Note: For dataset scaling, prefer using hypothesis, e.g. with `standard_regression_datasets()`._
+
+We provide three test parameter levels:
+
+1. **Unit Tests** (`unit_param`): Small values for quick, basic functionality testing
+   ```python
+   unit_param(2)  # For number of components
+   ```
+
+2. **Quality Tests** (`quality_param`): Medium values for thorough testing
+   ```python
+   quality_param(10)  # For number of components
+   ```
+
+3. **Stress Tests** (`stress_param`): Large values for performance testing
+   ```python
+   stress_param(100)  # For number of components
+   ```
+
+Control via these pytest options:
+- `--run_unit`: Unit tests (default)
+- `--run_quality`: Quality tests
+- `--run_stress`: Stress tests
+
 ### Testing Guidelines
 
 1. **Accuracy Testing**
