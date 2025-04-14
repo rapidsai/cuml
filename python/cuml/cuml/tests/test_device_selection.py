@@ -70,6 +70,7 @@ import itertools as it
 import pytest
 import cuml
 from cuml.internals.safe_imports import cpu_only_import
+import gc
 
 np = cpu_only_import("numpy")
 pd = cpu_only_import("pandas")
@@ -1121,6 +1122,8 @@ def test_svc_methods(
     class_type,
     probability,
 ):
+    gc.collect()  # mitigation for https://github.com/rapidsai/cuml/issues/6480
+
     if class_type == "single_class":
         X_train = X_train_class
         y_train = y_train_class

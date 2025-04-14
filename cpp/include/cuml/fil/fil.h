@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ using forest64_t = forest<double>*;
 using forest_variant = std::variant<forest_t<float>, forest_t<double>>;
 
 /** MAX_N_ITEMS determines the maximum allowed value for tl_params::n_items */
-constexpr int MAX_N_ITEMS = 4;
+auto constexpr MAX_N_ITEMS = 1;
 
 /** treelite_params_t are parameters for importing treelite models */
 struct treelite_params_t {
