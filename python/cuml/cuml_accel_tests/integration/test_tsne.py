@@ -16,16 +16,10 @@
 
 import pytest
 import numpy as np
-from cuml.internals.global_settings import GlobalSettings
 from sklearn.datasets import make_classification
 from sklearn.manifold import TSNE
 from sklearn.metrics import pairwise_distances
 from sklearn.preprocessing import StandardScaler
-
-pytestmark = pytest.mark.skipif(
-    not GlobalSettings().accelerator_active,
-    reason="Tests take a long time on CI without GPU acceleration",
-)
 
 
 @pytest.fixture(scope="module")
