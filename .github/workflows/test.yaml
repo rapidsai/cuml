@@ -55,13 +55,15 @@ jobs:
       script: "ci/test_python_dask.sh"
   conda-python-scikit-learn-accel-tests:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.04
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@branch-25.06
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: "ci/test_python_scikit_learn_tests.sh"
+      # Select amd64 and one job per major CUDA version with the latest CUDA and Python versions
+      matrix_filter: map(select(.ARCH == "amd64")) | group_by(.CUDA_VER|split(".")|map(tonumber)|.[0]) | map(max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber))))
   wheel-tests-cuml:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@branch-25.06
