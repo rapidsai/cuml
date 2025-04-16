@@ -609,10 +609,6 @@ def _determine_stateless_output_type(output_type, input_obj):
 
 
 class UniversalBase(Base):
-    # variable to enable dispatching non-implemented methods to CPU
-    # estimators, experimental.
-    _experimental_dispatching = False
-
     def import_cpu_model(self):
         # skip if the CPU estimator has been imported already
         if hasattr(self, '_cpu_model_class'):
@@ -699,7 +695,7 @@ class UniversalBase(Base):
         new_kwargs = dict()
         for kw, arg in kwargs.items():
             # if array-like, ensure array-like is on the host
-            if is_array_like(arg):
+            if is_array_like(arg, accept_lists=GlobalSettings().accelerator_active):
                 new_kwargs[kw] = input_to_host_array_with_sparse_support(arg)
             # if Real or string or NoneType, pass as is
             elif isinstance(arg, (numbers.Real, str, type(None))):
@@ -833,11 +829,10 @@ class UniversalBase(Base):
             return super().__getattr__(attr)
         except AttributeError as ex:
 
-            # When using cuml.accel or setting the self._experimental_dispatching
-            # flag to True, we look for methods that are not in the cuML estimator
+            # When using cuml.accel we look for methods that are not in the cuML estimator
             # in the host estimator
             gs = GlobalSettings()
-            if gs.accelerator_active or self._experimental_dispatching:
+            if gs.accelerator_active:
                 # we don't want to special sklearn dispatch cloning function
                 # so that cloning works with this class as a regular estimator
                 # without __sklearn_clone__
@@ -846,20 +841,13 @@ class UniversalBase(Base):
 
                 self.import_cpu_model()
                 if hasattr(self._cpu_model_class, attr):
-                    # we turn off and cache the dispatching variables off so that
-                    # build_cpu_model and gpu_to_cpu don't recurse infinitely
-                    orig_dispatching = self._experimental_dispatching
-                    orig_accelerator_active = gs.accelerator_active
-
-                    self._experimental_dispatching = False
+                    # we turn off cuml.accel so that gpu_to_cpu doesn't recurse infinitely
                     gs.accelerator_active = False
                     try:
                         self.build_cpu_model()
                         self.gpu_to_cpu()
                     finally:
-                        # Reset back to original values
-                        self._experimental_dispatching = orig_dispatching
-                        gs.accelerator_active = orig_accelerator_active
+                        gs.accelerator_active = True
 
                     return getattr(self._cpu_model, attr)
             raise
@@ -959,7 +947,7 @@ class UniversalBase(Base):
         params : dict
             Parameter names mapped to their values.
         """
-        if GlobalSettings().accelerator_active or self._experimental_dispatching:
+        if GlobalSettings().accelerator_active:
             return self._cpu_model.get_params(deep=deep)
         else:
             return super().get_params(deep=deep)
@@ -978,7 +966,7 @@ class UniversalBase(Base):
         self : estimator instance
             The estimnator instance
         """
-        if GlobalSettings().accelerator_active or self._experimental_dispatching:
+        if GlobalSettings().accelerator_active:
             self._cpu_model.set_params(**params)
             params, gpuaccel = self._hyperparam_translator(**params)
             params = {key: params[key] for key in self._get_param_names() if key in params}

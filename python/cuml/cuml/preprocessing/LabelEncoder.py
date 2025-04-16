@@ -292,12 +292,7 @@ class LabelEncoder(Base):
 
         y = y.astype(self.dtype)
 
-        # TODO: Remove ._column once .replace correctly accepts cudf.Index
-        ran_idx = (
-            cudf.Index(cp.arange(len(self.classes_)))
-            .astype(self.dtype)
-            ._column
-        )
+        ran_idx = cudf.Index(cp.arange(len(self.classes_))).astype(self.dtype)
         res = y.replace(ran_idx, self.classes_)
 
         return res

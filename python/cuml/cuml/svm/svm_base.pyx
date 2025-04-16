@@ -43,8 +43,8 @@ from cuml.internals.available_devices import is_cuda_available
 from libcpp cimport bool
 
 
-cdef extern from "raft/distance/distance_types.hpp" \
-        namespace "raft::distance::kernels":
+cdef extern from "cuvs/distance/distance.hpp" \
+        namespace "cuvs::distance::kernels":
     enum KernelType:
         LINEAR,
         POLYNOMIAL,

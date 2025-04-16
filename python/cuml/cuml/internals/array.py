@@ -44,7 +44,6 @@ cuda = gpu_only_import_from("numba", "cuda")
 cached_property = safe_import_from(
     "functools", "cached_property", alt=null_decorator
 )
-CudfBuffer = gpu_only_import_from("cudf.core.buffer", "Buffer")
 CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
 CudfIndex = gpu_only_import_from("cudf", "Index")
 CudfSeries = gpu_only_import_from("cudf", "Series")
@@ -247,6 +246,14 @@ class CumlArray:
                 self._array_interface = data.__array_interface__
                 self._mem_type = MemoryType.host
                 self._owner = data
+            elif (  # we accept lists and tuples in accel mode
+                GlobalSettings().accelerator_active
+                and isinstance(data, (list, tuple))
+            ):
+                data = np.asarray(data)
+                self._owner = data
+                self._array_interface = data.__array_interface__
+                self._mem_type = MemoryType.host
             else:  # Must construct array interface
                 if dtype is None:
                     if hasattr(data, "dtype"):
@@ -707,9 +714,15 @@ class CumlArray:
                 out_index = cudf_to_pandas(self.index)
             else:
                 out_index = self.index
+            if output_mem_type.is_device_accessible:
+                # Do not convert NaNs to nulls in cuDF
+                df_kwargs = {"nan_as_null": False}
+            else:
+                df_kwargs = {}
             try:
-                result = output_mem_type.xdf.DataFrame(arr, index=out_index)
-                return result
+                return output_mem_type.xdf.DataFrame(
+                    arr, index=out_index, **df_kwargs
+                )
             except TypeError:
                 raise ValueError("Unsupported dtype for DataFrame")
 
@@ -1103,6 +1116,12 @@ class CumlArray:
             # temporarily use this codepath to avoid errors, substitute
             # usage of dataframe interchange protocol once ready.
             X = X.to_numpy()
+            deepcopy = False
+        elif (  # we accept lists and tuples in accel mode
+            GlobalSettings().accelerator_active
+            and isinstance(X, (list, tuple))
+        ):
+            X = np.asarray(X)
             deepcopy = False
 
         requested_order = (order, None)[fail_on_order]

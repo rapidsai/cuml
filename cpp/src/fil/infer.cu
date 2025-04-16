@@ -862,12 +862,8 @@ template <class KernelParams>
 int compute_smem_footprint::run(predict_params ssp)
 {
   switch (ssp.sizeof_real) {
-    case 4:
-      return ssp
-        .template get_smem_footprint<KernelParams::N_ITEMS, float, KernelParams::LEAF_ALGO>();
-    case 8:
-      return ssp
-        .template get_smem_footprint<KernelParams::N_ITEMS, double, KernelParams::LEAF_ALGO>();
+    case 4: return ssp.template get_smem_footprint<1, float, KernelParams::LEAF_ALGO>();
+    case 8: return ssp.template get_smem_footprint<1, double, KernelParams::LEAF_ALGO>();
     default:
       ASSERT(false,
              "internal error: sizeof_real == %d, but must be 4 or 8",
@@ -895,10 +891,7 @@ struct infer_k_storage_template : dispatch_functor<void> {
     params.num_blocks = params.num_blocks != 0
                           ? params.num_blocks
                           : raft::ceildiv(int(params.num_rows), params.n_items);
-    infer_k<KernelParams::N_ITEMS,
-            KernelParams::LEAF_ALGO,
-            KernelParams::COLS_IN_SHMEM,
-            KernelParams::CATS_SUPPORTED>
+    infer_k<1, KernelParams::LEAF_ALGO, KernelParams::COLS_IN_SHMEM, KernelParams::CATS_SUPPORTED>
       <<<params.num_blocks, params.block_dim_x, params.shm_sz, stream>>>(forest, params);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
@@ -912,7 +905,7 @@ struct opt_into_arch_dependent_shmem : dispatch_functor<void> {
   template <typename KernelParams = KernelTemplateParams<>>
   void run(predict_params p)
   {
-    auto kernel = infer_k<KernelParams::N_ITEMS,
+    auto kernel = infer_k<1,
                           KernelParams::LEAF_ALGO,
                           KernelParams::COLS_IN_SHMEM,
                           KernelParams::CATS_SUPPORTED,
