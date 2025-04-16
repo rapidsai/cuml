@@ -15,7 +15,7 @@
 
 import pytest
 import numpy as np
-
+import sklearn
 from cuml.cluster import KMeans, DBSCAN
 from cuml.decomposition import PCA, TruncatedSVD
 from cuml.linear_model import (
@@ -27,11 +27,15 @@ from cuml.linear_model import (
 )
 from cuml.manifold import TSNE
 from cuml.neighbors import NearestNeighbors
+from cuml.internals.base import UniversalBase
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 
 from cuml.testing.utils import array_equal
 
 from numpy.testing import assert_allclose
 
+from sklearn.base import BaseEstimator
 from sklearn.datasets import make_blobs, make_classification, make_regression
 from sklearn.utils.validation import check_is_fitted
 from sklearn.cluster import KMeans as SkKMeans
@@ -256,3 +260,126 @@ def test_nearest_neighbors(random_state):
     dist_roundtrip, ind_roundtrip = roundtrip_model.kneighbors(X)
     assert_allclose(dist_original, dist_roundtrip)
     assert_allclose(ind_original, ind_roundtrip)
+
+
+def test_mismatching_default_values(monkeypatch):
+    # Check that round-tripping works when different versions of scikit-learn
+    # have different default values for the same hyper-parameter.
+    class SklearnEstimatorV1(BaseEstimator):
+        def __init__(self, n_init=42, solver="lbfgs"):
+            super().__init__()
+            self.n_init = n_init
+            self.solver = solver
+
+        def fit(self, X, y):
+            assert self.solver == "lbfgs"
+            self.bar_ = 42
+
+        def transform(self, X):
+            assert self.solver == "lbfgs"
+            return X
+
+    class SklearnEstimatorV2(BaseEstimator):
+        def __init__(self, n_init="auto", solver="auto"):
+            super().__init__()
+            self.n_init = n_init
+            self.solver = solver
+
+        def fit(self, X, y):
+            assert self.solver in ("auto", "lbfgs")
+            self.bar_ = 42
+
+        def transform(self, X):
+            assert self.solver in ("auto", "lbfgs")
+            return X
+
+    class CuMLEstimator(UniversalBase):
+        # Setting these by hand as `import_cpu_model` is a bit tricky to use with
+        # classes defined in a test function.
+        _cpu_model_class = SklearnEstimatorV1
+        _cpu_hyperparams = ["n_init", "solver"]
+
+        # scikit-learn -> cuml
+        _hyperparam_interop_translator = {
+            "solver": {"lbfgs": "qn", "auto": "qn"},
+        }
+        # cuml -> scikit-learn
+        _reverse_hyperparam_interop_translator = {
+            "1.5": {
+                "solver": {"qn": "lbfgs"},
+            },
+            "1.4": {
+                "solver": {"qn": "auto"},
+            },
+        }
+
+        @device_interop_preparation
+        def __init__(
+            self,
+            n_init=42,
+            solver="qn",
+            handle=None,
+            verbose=False,
+            output_type=None,
+        ):
+            super().__init__(
+                handle=handle, verbose=verbose, output_type=output_type
+            )
+            self.n_init = n_init
+            self.solver = solver
+
+        @enable_device_interop
+        def fit(self, X, y, convert_dtype=True, sample_weight=None):
+            assert self.solver == "qn"
+            self.bar_ = 42
+
+        def transform(self, X):
+            assert self.solver == "qn"
+            return X
+
+        @classmethod
+        def _get_param_names(cls):
+            return super()._get_param_names() + ["n_init", "solver"]
+
+        def get_attr_names(self):
+            return ["bar_"]
+
+    X = np.asarray([[1, 2, 3], [4, 5, 6]])
+    y = np.asarray([1, 2])
+
+    # Check against v1 of the scikit-learn estimator
+    cml = CuMLEstimator()
+    # skl = cml.as_sklearn()
+    # skl.transform(X)
+
+    # Set the version to something independent of what is actually installed
+    with monkeypatch.context() as m:
+        m.setattr(sklearn, "__version__", "1.4.2")
+        skl = SklearnEstimatorV1()
+        cml1 = CuMLEstimator.from_sklearn(skl)
+        skl1 = cml1.as_sklearn()
+        assert skl1.get_params()["solver"] == "auto"
+        cml1.fit(X, y)
+
+        assert_estimator_roundtrip(
+            cml, SklearnEstimatorV1, X, y=y, transform=True
+        )
+
+        cml = CuMLEstimator(n_init=12)
+        assert_estimator_roundtrip(
+            cml, SklearnEstimatorV1, X, y=y, transform=True
+        )
+
+        # Check against v2 of the scikit-learn estimator
+        CuMLEstimator._cpu_model_class = SklearnEstimatorV2
+
+        # XXX In this case should we pass "auto" or 42 to the scikit-learn constructor?
+        cml = CuMLEstimator()
+        assert_estimator_roundtrip(
+            cml, SklearnEstimatorV2, X, y=y, transform=True
+        )
+
+        cml = CuMLEstimator(n_init=12)
+        assert_estimator_roundtrip(
+            cml, SklearnEstimatorV2, X, y=y, transform=True
+        )

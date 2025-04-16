@@ -21,6 +21,7 @@ import os
 import inspect
 import numbers
 from importlib import import_module
+from packaging.version import Version
 from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.safe_imports import (
     cpu_only_import,
@@ -35,7 +36,7 @@ try:
 except ImportError:
     estimator_html_repr = None
 
-
+import sklearn
 import cuml
 import cuml.common
 from cuml.common.sparse_utils import is_sparse
@@ -637,14 +638,23 @@ class UniversalBase(Base):
         if kwargs:
             filtered_kwargs = kwargs
         else:
+            # XXX Which way around should this be, get_params updated with kwargs
+            # XXX or kwargs updated with get_params?
+            all_kwargs = self.get_params()
+            all_kwargs.update(self._full_kwargs)
+
             filtered_kwargs = {}
-            for keyword, arg in self._full_kwargs.items():
+            for keyword, arg in all_kwargs.items():
+                # These are cuml specific arguments that should not be passed
+                # to scikit-learn
+                if keyword in ("output_type", "handle"):
+                    continue
                 if keyword in self._cpu_hyperparams:
                     filtered_kwargs[keyword] = arg
                 else:
-                    logger.info("Unused keyword parameter: {} "
-                                "during CPU estimator "
-                                "initialization".format(keyword))
+                    logger.debug("Unused keyword parameter: {} "
+                                 "during CPU estimator "
+                                 "initialization".format(keyword))
 
         # initialize model
         self._cpu_model = self._cpu_model_class(**filtered_kwargs)
@@ -880,10 +890,32 @@ class UniversalBase(Base):
         """
         self.import_cpu_model()
         self.build_cpu_model()
+
+        # Translate cuml hyper-parameters to scikit-learn
+        sklearn_version = Version(sklearn.__version__)
+        translations = self._reverse_hyperparam_interop_translator[f"{sklearn_version.major}.{sklearn_version.minor}"]
+
+        params = self.get_params()
+        for parameter_name, value in params.items():
+            try:
+                remapping = translations[parameter_name][value]
+                params[parameter_name] = remapping
+            except (KeyError, TypeError):
+                pass
+
+        params.pop("output_type", None)
+        params.pop("handle", None)
+        params.pop("verbose", None)
+
         self.gpu_to_cpu()
         if deepcopy:
-            return copy.deepcopy(self._cpu_model)
+            model = copy.deepcopy(self._cpu_model)
+            model.set_params(**params)
+            return model
         else:
+            # XXX This modifies the model held as part of this instance,
+            # XXX not sure that is great
+            self._cpu_model.set_params(**params)
             return self._cpu_model
 
     @classmethod
