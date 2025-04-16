@@ -40,21 +40,6 @@ rattler-build build --recipe conda/recipes/cuml \
 
 sccache --show-adv-stats
 
-# Build cuml-cpu only in CUDA 12 jobs since it only depends on python
-# version
-RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
-if [[ ${RAPIDS_CUDA_MAJOR} == "12" ]]; then
-  rapids-logger "Building cuml-cpu"
-
-  sccache --zero-stats
-
-  rattler-build build --recipe conda/recipes/cuml-cpu \
-                      "${RATTLER_ARGS[@]}" \
-                      "${RATTLER_CHANNELS[@]}"
-
-  sccache --show-adv-stats
-fi
-
 # remove build_cache directory to avoid uploading the entire source tree
 # tracked in https://github.com/prefix-dev/rattler-build/issues/1424
 rm -rf "$RAPIDS_CONDA_BLD_OUTPUT_DIR"/build_cache
