@@ -27,7 +27,7 @@ from cuml.dask.common.utils import (
     raise_mg_import_exception,
     wait_and_raise_from_futures,
 )
-from cuml.dask.neighbors import NearestNeighbors
+from cuml.dask.neighbors.nearest_neighbors import NearestNeighbors
 from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
 np = cpu_only_import("numpy")

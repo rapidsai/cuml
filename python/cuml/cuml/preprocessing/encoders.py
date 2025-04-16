@@ -26,6 +26,7 @@ from cuml.internals.safe_imports import (
     gpu_only_import_from,
 )
 from cuml.preprocessing import LabelEncoder
+from cuml.preprocessing.LabelEncoder import LabelEncoder
 
 np = cpu_only_import("numpy")
 cudf = gpu_only_import("cudf")

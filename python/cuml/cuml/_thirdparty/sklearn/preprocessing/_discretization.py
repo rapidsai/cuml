@@ -31,7 +31,7 @@ import warnings
 from cuml.cluster import KMeans
 from cuml.internals.mixins import SparseInputTagMixin
 from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-from cuml.preprocessing import OneHotEncoder
+from cuml.preprocessing.encoders import OneHotEncoder
 
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals.array_sparse import SparseCumlArray

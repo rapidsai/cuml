@@ -22,7 +22,7 @@ from cuml.internals.global_settings import _global_settings_data
 from cuml.internals.import_utils import has_sklearn
 
 from ....thirdparty_adapters import check_array
-from ..preprocessing import FunctionTransformer
+from ..preprocessing._function_transformer import FunctionTransformer
 from ..utils.skl_dependencies import (
     BaseComposition,
     BaseEstimator,

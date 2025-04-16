@@ -19,7 +19,7 @@ import numbers
 import cuml.internals
 from cuml import Base
 from cuml.common import input_to_cuml_array
-from cuml.decomposition import PCA
+from cuml.decomposition.pca import PCA
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
