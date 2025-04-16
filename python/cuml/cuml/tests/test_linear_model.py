@@ -67,9 +67,7 @@ rmm = gpu_only_import("rmm")
 csr_matrix = cpu_only_import_from("scipy.sparse", "csr_matrix")
 
 
-_ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
-
-algorithms = st.sampled_from(_ALGORITHMS)
+ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
 
 
 # TODO(25.08): remove this test
@@ -1062,7 +1060,7 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
     assert np.corrcoef(cd.coef_, qn.coef_)[0, 1] > 0.98
 
 
-@pytest.mark.parametrize("algorithm", _ALGORITHMS)
+@pytest.mark.parametrize("algorithm", ALGORITHMS)
 @pytest.mark.parametrize("xp", [np, cp])
 @pytest.mark.parametrize("copy", [True, False, ...])
 @given(
