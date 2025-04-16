@@ -400,8 +400,7 @@ class UMAP(UniversalBase,
         if init == "spectral" or init == "random":
             self.init = init
         else:
-            gs = GlobalSettings()
-            if not (gs.accelerator_active or self._experimental_dispatching):
+            if not GlobalSettings().accelerator_active:
                 raise Exception(f"Initialization strategy not supported: {init}")
 
         if a is None or b is None:
@@ -428,8 +427,7 @@ class UMAP(UniversalBase,
         if target_metric == "euclidean" or target_metric == "categorical":
             self.target_metric = target_metric
         else:
-            gs = GlobalSettings()
-            if not (gs.accelerator_active or self._experimental_dispatching):
+            if not GlobalSettings().accelerator_active:
                 raise Exception(f"Invalid target metric: {target_metric}")
 
         self.callback = callback  # prevent callback destruction

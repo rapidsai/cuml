@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@
 
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/common/logger.hpp>
-
-#include <raft/sparse/hierarchy/common.h>
 
 #include <cuvs/distance/distance.hpp>
 
@@ -77,7 +75,7 @@ class Linkage : public BlobsFixture<D> {
  private:
   int* labels;
   int* out_children;
-  raft::hierarchy::linkage_output<int> out_arrs;
+  cuvs::cluster::agglomerative::single_linkage_output<int> out_arrs;
 };
 
 std::vector<Params> getInputs()

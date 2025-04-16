@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@
 #include <cuml/svm/svm_parameter.h>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/kernels.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/gemv.cuh>
 
@@ -43,6 +42,8 @@
 #include <thrust/iterator/counting_iterator.h>
 
 #include <cublas_v2.h>
+#include <cuvs/distance/distance.hpp>
+#include <cuvs/distance/grammian.hpp>
 
 #include <iostream>
 
@@ -56,7 +57,7 @@ void svcFitX(const raft::handle_t& handle,
              int n_cols,
              math_t* labels,
              const SvmParameter& param,
-             raft::distance::kernels::KernelParams& kernel_params,
+             cuvs::distance::kernels::KernelParams& kernel_params,
              SvmModel<math_t>& model,
              const math_t* sample_weight)
 {
@@ -85,8 +86,8 @@ void svcFitX(const raft::handle_t& handle,
   raft::label::getOvrlabels(
     labels, n_rows, model.unique_labels, model.n_classes, y.data(), 1, stream);
 
-  raft::distance::kernels::GramMatrixBase<math_t>* kernel =
-    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params);
+  cuvs::distance::kernels::GramMatrixBase<math_t>* kernel =
+    cuvs::distance::kernels::KernelFactory<math_t>::create(kernel_params);
   SmoSolver<math_t> smo(handle_impl, param, kernel_params.kernel, kernel);
   smo.Solve(matrix,
             n_rows,
@@ -111,7 +112,7 @@ void svcFit(const raft::handle_t& handle,
             int n_cols,
             math_t* labels,
             const SvmParameter& param,
-            raft::distance::kernels::KernelParams& kernel_params,
+            cuvs::distance::kernels::KernelParams& kernel_params,
             SvmModel<math_t>& model,
             const math_t* sample_weight)
 {
@@ -130,7 +131,7 @@ void svcFitSparse(const raft::handle_t& handle,
                   int nnz,
                   math_t* labels,
                   const SvmParameter& param,
-                  raft::distance::kernels::KernelParams& kernel_params,
+                  cuvs::distance::kernels::KernelParams& kernel_params,
                   SvmModel<math_t>& model,
                   const math_t* sample_weight)
 {
@@ -146,7 +147,7 @@ void svcPredictX(const raft::handle_t& handle,
                  MatrixViewType matrix,
                  int n_rows,
                  int n_cols,
-                 raft::distance::kernels::KernelParams& kernel_params,
+                 cuvs::distance::kernels::KernelParams& kernel_params,
                  const SvmModel<math_t>& model,
                  math_t* preds,
                  math_t buffer_size,
@@ -172,8 +173,8 @@ void svcPredictX(const raft::handle_t& handle,
     RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
   }
 
-  raft::distance::kernels::GramMatrixBase<math_t>* kernel =
-    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params);
+  cuvs::distance::kernels::GramMatrixBase<math_t>* kernel =
+    cuvs::distance::kernels::KernelFactory<math_t>::create(kernel_params);
 
   /*
     // kernel computation:
@@ -218,7 +219,7 @@ void svcPredictX(const raft::handle_t& handle,
       : raft::make_device_csr_matrix_view<math_t, int, int, int>(nullptr, csr_structure_view);
 
   bool transpose_kernel = is_csr_support && !is_csr_input;
-  if (model.n_support > 0 && kernel_params.kernel == raft::distance::kernels::RBF) {
+  if (model.n_support > 0 && kernel_params.kernel == cuvs::distance::kernels::RBF) {
     l2_input.resize(n_rows, stream);
     l2_support.resize(model.n_support, stream);
     ML::SVM::matrixRowNorm(handle, matrix, l2_input.data(), raft::linalg::NormType::L2Norm);
@@ -312,7 +313,7 @@ void svcPredict(const raft::handle_t& handle,
                 math_t* input,
                 int n_rows,
                 int n_cols,
-                raft::distance::kernels::KernelParams& kernel_params,
+                cuvs::distance::kernels::KernelParams& kernel_params,
                 const SvmModel<math_t>& model,
                 math_t* preds,
                 math_t buffer_size,
@@ -332,7 +333,7 @@ void svcPredictSparse(const raft::handle_t& handle,
                       int n_rows,
                       int n_cols,
                       int nnz,
-                      raft::distance::kernels::KernelParams& kernel_params,
+                      cuvs::distance::kernels::KernelParams& kernel_params,
                       const SvmModel<math_t>& model,
                       math_t* preds,
                       math_t buffer_size,

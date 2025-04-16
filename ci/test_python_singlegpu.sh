@@ -2,7 +2,7 @@
 # Copyright (c) 2022-2025, NVIDIA CORPORATION.
 
 # Support invoking test_python_singlegpu.sh outside the script directory
-cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
+cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../ || exit 1
 
 # Common setup steps shared by Python test jobs
 source ./ci/test_python_common.sh
@@ -25,7 +25,7 @@ rapids-logger "pytest cuml single GPU"
   --numprocesses=8 \
   --dist=worksteal \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel.xml" \
-  --cov-config=../../../.coveragerc \
+  --cov-config=../.coveragerc \
   --cov=cuml \
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-accel-coverage.xml"
 
