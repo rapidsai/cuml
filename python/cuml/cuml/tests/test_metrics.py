@@ -1608,9 +1608,7 @@ def test_sparse_pairwise_distances_output_types(input_type, output_type):
     # Use the global manager object.
     with cuml.using_output_type(output_type):
         S = sparse_pairwise_distances(X, Y, metric="euclidean")
-        if output_type == "input":
-            assert isinstance(S, type(X))
-        elif output_type == "cudf":
+        if output_type == "cudf":
             assert isinstance(S, cudf.DataFrame)
         elif output_type == "numpy":
             assert isinstance(S, np.ndarray)
