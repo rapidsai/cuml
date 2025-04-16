@@ -19,10 +19,9 @@
 import sys
 import threading
 
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
+import cuml.accel
+from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import,
@@ -34,6 +33,7 @@ np = cpu_only_import('numpy')
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 rmm = gpu_only_import('rmm')
 
+from cuml.internals.array import CumlArray
 import cuml.internals
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
@@ -802,7 +802,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         # RF, which proxymodule interferes with. We work around that
         # temporarily here just for treelite internal check and
         # restore the __class__ at the end of the method.
-        if GlobalSettings().accelerator_active:
+        if cuml.accel.enabled():
             with self._cpu_model_class_lock:
                 original_class = self._cpu_model.__class__
                 self._cpu_model.__class__ = sys.modules['sklearn.ensemble'].RandomForestRegressor

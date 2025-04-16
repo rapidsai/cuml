@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,20 @@
 # limitations under the License.
 #
 
-import cuml.cluster
+import cuml.neighbors
 from cuml.accel.estimator_proxy import ProxyMixin
 
 
-__all__ = ("HDBSCAN",)
+__all__ = ("NearestNeighbors", "KNeighborsClassifier", "KNeighborsRegressor")
 
 
-class HDBSCAN(ProxyMixin, cuml.cluster.HDBSCAN):
+class NearestNeighbors(ProxyMixin, cuml.neighbors.NearestNeighbors):
+    pass
+
+
+class KNeighborsClassifier(ProxyMixin, cuml.neighbors.KNeighborsClassifier):
+    pass
+
+
+class KNeighborsRegressor(ProxyMixin, cuml.neighbors.KNeighborsRegressor):
     pass

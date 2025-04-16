@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,8 +18,12 @@ import cuml.cluster
 from cuml.accel.estimator_proxy import ProxyMixin
 
 
-__all__ = ("HDBSCAN",)
+__all__ = ("KMeans", "DBSCAN")
 
 
-class HDBSCAN(ProxyMixin, cuml.cluster.HDBSCAN):
+class KMeans(ProxyMixin, cuml.cluster.KMeans):
+    pass
+
+
+class DBSCAN(ProxyMixin, cuml.cluster.DBSCAN):
     pass

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,16 @@
 # limitations under the License.
 #
 
-import cuml.cluster
+import cuml.decomposition
 from cuml.accel.estimator_proxy import ProxyMixin
 
 
-__all__ = ("HDBSCAN",)
+__all__ = ("PCA", "TruncatedSVD")
 
 
-class HDBSCAN(ProxyMixin, cuml.cluster.HDBSCAN):
+class PCA(ProxyMixin, cuml.decomposition.PCA):
+    pass
+
+
+class TruncatedSVD(ProxyMixin, cuml.decomposition.TruncatedSVD):
     pass

@@ -37,6 +37,7 @@ cp_csr_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csr_matrix')
 cp_coo_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'coo_matrix')
 cp_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')
 
+import cuml.accel
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger
@@ -416,9 +417,8 @@ class UMAP(UniversalBase,
 
         if init == "spectral" or init == "random":
             self.init = init
-        else:
-            if not GlobalSettings().accelerator_active:
-                raise Exception(f"Initialization strategy not supported: {init}")
+        elif not cuml.accel.enabled():
+            raise Exception(f"Initialization strategy not supported: {init}")
 
         if a is None or b is None:
             a, b = type(self).find_ab_params(spread, min_dist)
@@ -443,9 +443,8 @@ class UMAP(UniversalBase,
 
         if target_metric == "euclidean" or target_metric == "categorical":
             self.target_metric = target_metric
-        else:
-            if not GlobalSettings().accelerator_active:
-                raise Exception(f"Invalid target metric: {target_metric}")
+        elif not cuml.accel.enabled():
+            raise Exception(f"Invalid target metric: {target_metric}")
 
         self.callback = callback  # prevent callback destruction
         self.embedding_ = None

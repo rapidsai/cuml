@@ -16,10 +16,9 @@
 import threading
 
 import treelite.sklearn
-
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.global_settings import GlobalSettings
+import cuml.accel
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.api_decorators import device_interop_preparation
 
 cp = gpu_only_import('cupy')
 import math
@@ -125,7 +124,7 @@ class BaseRandomForestModel(UniversalBase):
                           "class_weight": class_weight}
 
         for key, vals in sklearn_params.items():
-            if vals and not GlobalSettings().accelerator_active:
+            if vals and not cuml.accel.enabled():
                 raise TypeError(
                     " The Scikit-learn variable ", key,
                     " is not supported in cuML,"
@@ -134,7 +133,7 @@ class BaseRandomForestModel(UniversalBase):
                     "api.html#random-forest) for more information")
 
         for key in kwargs.keys():
-            if key not in self._param_names and not GlobalSettings().accelerator_active:
+            if key not in self._param_names and not cuml.accel.enabled():
                 raise TypeError(
                     " The variable ", key,
                     " is not supported in cuML,"
@@ -334,7 +333,7 @@ class BaseRandomForestModel(UniversalBase):
         # We only transfer "simple" attributes, not np.ndarrays or DecisionTree
         # instances, as these could be used by the GPU model to make predictions.
         # The list of names below is hand vetted.
-        if GlobalSettings().accelerator_active:
+        if cuml.accel.enabled():
             for name in ('n_features_in_', 'n_outputs_', 'n_classes_', 'oob_score_'):
                 # Not all attributes are always present
                 try:

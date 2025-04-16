@@ -154,7 +154,9 @@ def _make_decorator_function(
                 # Wraps the decorated function, executed at runtime.
 
                 # Accept list/tuple inputs when accelerator is active
-                accept_lists = GlobalSettings().accelerator_active
+                import cuml.accel
+
+                accept_lists = cuml.accel.enabled()
 
                 with context_manager_cls(func, args) as cm:
 

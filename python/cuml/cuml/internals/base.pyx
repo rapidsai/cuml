@@ -39,6 +39,7 @@ except ImportError:
 
 
 import cuml
+import cuml.accel
 import cuml.common
 import cuml.internals
 import cuml.internals.input_utils
@@ -649,7 +650,9 @@ class UniversalBase(Base):
         """Transfer attributes from GPU estimator to CPU estimator."""
         for name in self.get_attr_names():
             try:
-                value = getattr(self, name)
+                # This avoids calling `__getattr__`, which may recurse
+                # in cuml.accel models.
+                value = object.__getattribute__(self, name)
             except AttributeError:
                 # Skip missing attributes
                 continue
@@ -691,7 +694,7 @@ class UniversalBase(Base):
         new_kwargs = dict()
         for kw, arg in kwargs.items():
             # if array-like, ensure array-like is on the host
-            if is_array_like(arg, accept_lists=GlobalSettings().accelerator_active):
+            if is_array_like(arg, accept_lists=cuml.accel.enabled()):
                 new_kwargs[kw] = input_to_host_array_with_sparse_support(arg)
             # if Real or string or NoneType, pass as is
             elif isinstance(arg, (numbers.Real, str, type(None))):
@@ -726,7 +729,7 @@ class UniversalBase(Base):
 
         if device_type == DeviceType.device:
             # call the function from the GPU estimator
-            if GlobalSettings().accelerator_active:
+            if cuml.accel.enabled():
                 logger.debug(f"cuML: Performing {func_name} in GPU")
             return gpu_func(self, *args, **kwargs)
 
@@ -778,7 +781,7 @@ class UniversalBase(Base):
         if args and is_sparse(args[0]):
             if sparse_support:
                 return DeviceType.device
-            elif GlobalSettings().accelerator_active and not sparse_support:
+            elif cuml.accel.enabled():
                 logger.info(
                     f"cuML: Estimator {self} does not support sparse inputs in GPU."
                 )
@@ -819,34 +822,6 @@ class UniversalBase(Base):
         """
 
         return False
-
-    def __getattr__(self, attr):
-        try:
-            return super().__getattr__(attr)
-        except AttributeError as ex:
-
-            # When using cuml.accel we look for methods that are not in the cuML estimator
-            # in the host estimator
-            gs = GlobalSettings()
-            if gs.accelerator_active:
-                # we don't want to special sklearn dispatch cloning function
-                # so that cloning works with this class as a regular estimator
-                # without __sklearn_clone__
-                if attr == "__sklearn_clone__":
-                    raise ex
-
-                self.import_cpu_model()
-                if hasattr(self._cpu_model_class, attr):
-                    # we turn off cuml.accel so that gpu_to_cpu doesn't recurse infinitely
-                    gs.accelerator_active = False
-                    try:
-                        self.build_cpu_model()
-                        self.gpu_to_cpu()
-                    finally:
-                        gs.accelerator_active = True
-
-                    return getattr(self._cpu_model, attr)
-            raise
 
     def as_sklearn(self, deepcopy=False):
         """
@@ -927,44 +902,3 @@ class UniversalBase(Base):
         estimator.output_mem_type = MemoryType.host
 
         return estimator
-
-    def get_params(self, deep=True):
-        """
-        Get parameters for this estimator.
-
-        Parameters
-        ----------
-        deep : bool, default=True
-            If True, will return the parameters for this estimator and
-            contained subobjects that are estimators.
-
-        Returns
-        -------
-        params : dict
-            Parameter names mapped to their values.
-        """
-        if GlobalSettings().accelerator_active:
-            return self._cpu_model.get_params(deep=deep)
-        else:
-            return super().get_params(deep=deep)
-
-    def set_params(self, **params):
-        """
-        Set parameters for this estimator.
-
-        Parameters
-        ----------
-        **params : dict
-            Estimator parameters
-
-        Returns
-        -------
-        self : estimator instance
-            The estimnator instance
-        """
-        if GlobalSettings().accelerator_active:
-            self._cpu_model.set_params(**params)
-            params, gpuaccel = self._hyperparam_translator(**params)
-            params = {key: params[key] for key in self._get_param_names() if key in params}
-        super().set_params(**params)
-        return self

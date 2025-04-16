@@ -14,20 +14,27 @@
 # limitations under the License.
 #
 
-import importlib
-
 from cuda.bindings import runtime
 
 from cuml.internals import logger
-from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import set_global_output_type
-from cuml.internals.safe_imports import UnavailableError, gpu_only_import
-
-rmm = gpu_only_import("rmm")
+from cuml.accel.accelerator import Accelerator
 
 
-def _install_for_library(library_name):
-    importlib.import_module(f"cuml.accel._wrappers.{library_name}", __name__)
+ACCELERATED_MODULES = [
+    "hdbscan",
+    "sklearn.cluster",
+    "sklearn.decomposition",
+    "sklearn.ensemble",
+    "sklearn.linear_model",
+    "sklearn.manifold",
+    "sklearn.neighbors",
+    "umap",
+]
+
+ACCEL = Accelerator(["sklearn", "umap", "hdbscan", "cuml"])
+for module in ACCELERATED_MODULES:
+    ACCEL.register(module, f"cuml.accel._wrappers.{module}")
 
 
 def _is_concurrent_managed_access_supported():
@@ -51,6 +58,11 @@ def _is_concurrent_managed_access_supported():
     return supports_managed_access != 0
 
 
+def enabled() -> bool:
+    """Returns whether the accelerator is enabled."""
+    return ACCEL.enabled
+
+
 def install(disable_uvm=False):
     """Enable cuML Accelerator Mode."""
     logger.set_level(logger.level_enum.info)
@@ -58,53 +70,17 @@ def install(disable_uvm=False):
 
     if not disable_uvm:
         if _is_concurrent_managed_access_supported():
+            import rmm
+
             logger.debug("cuML: Enabling managed memory...")
             rmm.mr.set_current_device_resource(rmm.mr.ManagedMemoryResource())
         else:
             logger.warn("cuML: Could not enable managed memory.")
 
-    logger.debug("cuML: Installing accelerator...")
-    libraries_to_accelerate = ["sklearn", "umap", "hdbscan"]
-    accelerated_libraries = []
-    failed_to_accelerate = []
-    for library_name in libraries_to_accelerate:
-        try:
-            logger.debug(
-                f"cuML: Attempt to install accelerator for {library_name}..."
-            )
-            _install_for_library(library_name)
-        except (
-            ModuleNotFoundError,
-            UnavailableError,
-        ) as error:  # underlying package not installed (expected)
-            logger.debug(
-                f"cuML: Did not install accelerator for {library_name}, the underlying library is not installed: {error}"
-            )
-        except Exception as error:  # something else went wrong
-            failed_to_accelerate.append(library_name)
-            logger.error(
-                f"cuML: Failed to install accelerator for {library_name}: {error}."
-            )
-        else:
-            accelerated_libraries.append(library_name)
-            logger.info(f"cuML: Installed accelerator for {library_name}.")
-
-    GlobalSettings().accelerated_libraries = accelerated_libraries
-    GlobalSettings().accelerator_loaded = any(accelerated_libraries)
-    GlobalSettings().accelerator_active = any(accelerated_libraries)
-
-    if any(accelerated_libraries) and not any(failed_to_accelerate):
-        logger.info("cuML: Successfully initialized accelerator.")
-    elif any(accelerated_libraries) and any(failed_to_accelerate):
-        logger.warn(
-            "cuML: Accelerator initialized, but failed to initialize for some libraries."
-        )
-    elif not any(accelerated_libraries) and not any(failed_to_accelerate):
-        logger.warn(
-            "cuML: Accelerator failed to initialize, because none of the underlying libraries are installed."
-        )
-
+    ACCEL.install()
     set_global_output_type("numpy")
+
+    logger.info("cuML: Accelerator installed.")
 
 
 def pytest_load_initial_conftests(early_config, parser, args):
