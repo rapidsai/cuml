@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import threading
-
 import treelite.sklearn
 import cuml.accel
 from cuml.internals.safe_imports import gpu_only_import
@@ -201,7 +199,6 @@ class BaseRandomForestModel(UniversalBase):
         self.model_pbuf_bytes = bytearray()
         self.treelite_handle = None
         self.treelite_serialized_model = None
-        self._cpu_model_class_lock = threading.RLock()
 
     def __len__(self):
         """Return the number of estimators in the ensemble."""

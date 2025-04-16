@@ -32,7 +32,7 @@ ACCELERATED_MODULES = [
     "umap",
 ]
 
-ACCEL = Accelerator(["sklearn", "umap", "hdbscan", "cuml"])
+ACCEL = Accelerator(["sklearn", "umap", "hdbscan", "cuml", "treelite"])
 for module in ACCELERATED_MODULES:
     ACCEL.register(module, f"cuml.accel._wrappers.{module}")
 
