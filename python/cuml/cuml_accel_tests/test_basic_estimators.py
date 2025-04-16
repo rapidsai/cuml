@@ -14,8 +14,6 @@
 
 import numpy as np
 from sklearn import clone
-import cuml  # noqa: F401
-from cuml.internals.global_settings import GlobalSettings  # noqa: F401
 from cuml.internals.safe_imports import gpu_only_import
 from sklearn.datasets import make_classification, make_regression, make_blobs
 from sklearn.linear_model import (
