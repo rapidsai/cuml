@@ -16,19 +16,24 @@
 
 import ctypes
 import math
-import numpy as np
 import warnings
 
+import numpy as np
+
+from libc.stdint cimport uint64_t, uintptr_t
+from libc.stdlib cimport calloc, free, malloc
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t, uint64_t
-from libc.stdlib cimport calloc, malloc, free
-from libcpp.vector cimport vector
 from libcpp.string cimport string
+from libcpp.vector cimport vector
 
 from pylibraft.common.handle import Handle
+
 from cuml.internals.base import Base
+
 from pylibraft.common.handle cimport handle_t
+
 cimport cuml.common.cuda
+
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* TreeliteModelHandle

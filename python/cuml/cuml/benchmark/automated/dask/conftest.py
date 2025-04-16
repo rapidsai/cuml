@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,11 +15,9 @@
 #
 
 import pytest
-
-from dask_cuda import initialize
-from dask_cuda import LocalCUDACluster
-from dask_cuda.utils_test import IncreasedCloseTimeoutNanny
 from dask.distributed import Client
+from dask_cuda import LocalCUDACluster, initialize
+from dask_cuda.utils_test import IncreasedCloseTimeoutNanny
 
 enable_tcp_over_ucx = True
 enable_nvlink = False

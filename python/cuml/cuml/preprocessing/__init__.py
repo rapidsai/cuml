@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.model_selection import train_test_split
-from cuml.preprocessing.LabelEncoder import LabelEncoder
-from cuml.preprocessing.label import LabelBinarizer, label_binarize
-from cuml.preprocessing.encoders import OneHotEncoder, OrdinalEncoder
-from cuml.preprocessing.TargetEncoder import TargetEncoder
-from cuml.preprocessing import text
-
 from cuml._thirdparty.sklearn.preprocessing import (
     Binarizer,
     FunctionTransformer,
@@ -35,9 +28,6 @@ from cuml._thirdparty.sklearn.preprocessing import (
     RobustScaler,
     SimpleImputer,
     StandardScaler,
-)
-
-from cuml._thirdparty.sklearn.preprocessing import (
     add_dummy_feature,
     binarize,
     maxabs_scale,
@@ -48,7 +38,12 @@ from cuml._thirdparty.sklearn.preprocessing import (
     robust_scale,
     scale,
 )
-
+from cuml.model_selection import train_test_split
+from cuml.preprocessing import text
+from cuml.preprocessing.encoders import OneHotEncoder, OrdinalEncoder
+from cuml.preprocessing.label import LabelBinarizer, label_binarize
+from cuml.preprocessing.LabelEncoder import LabelEncoder
+from cuml.preprocessing.TargetEncoder import TargetEncoder
 
 __all__ = [
     # Classes

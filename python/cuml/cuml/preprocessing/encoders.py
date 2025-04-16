@@ -19,12 +19,12 @@ import cuml.internals.logger as logger
 from cuml import Base
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
+from cuml.internals.output_utils import cudf_to_pandas
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import,
     gpu_only_import_from,
 )
-from cuml.internals.output_utils import cudf_to_pandas
 from cuml.preprocessing import LabelEncoder
 
 np = cpu_only_import("numpy")

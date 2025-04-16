@@ -1,13 +1,13 @@
 # Copyright (c) 2020-2025, NVIDIA CORPORATION.
 
+from ssl import create_default_context
+from urllib.request import HTTPSHandler, build_opener, install_opener
+
 import certifi
 import pytest
-from ssl import create_default_context
-from urllib.request import build_opener, HTTPSHandler, install_opener
-
+from dask.distributed import Client
 from dask_cuda import LocalCUDACluster
 from dask_cuda.utils_test import IncreasedCloseTimeoutNanny
-from dask.distributed import Client
 
 enable_tcp_over_ucx = True
 enable_nvlink = False

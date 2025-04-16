@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 #
 
 from .adapters import (
-    check_array,
     _get_mask,
-    _masked_column_median,
     _masked_column_mean,
+    _masked_column_median,
     _masked_column_mode,
+    check_array,
 )

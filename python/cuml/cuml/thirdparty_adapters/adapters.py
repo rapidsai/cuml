@@ -17,12 +17,15 @@
 from scipy import sparse as cpu_sparse
 from scipy.sparse import csc_matrix as cpu_coo_matrix
 from scipy.sparse import csc_matrix as cpu_csc_matrix
-from cuml.internals.safe_imports import cpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import_from
+
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import input_to_cupy_array, input_to_host_array
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    cpu_only_import_from,
+    gpu_only_import,
+    gpu_only_import_from,
+)
 
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")

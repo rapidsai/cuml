@@ -13,9 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.manifold import UMAP
+import os
+import pickle as pickle
+from time import perf_counter
+
+import sklearn.ensemble as skl_ensemble
+
+import cuml
 from cuml.benchmark import datagen
 from cuml.common.device_selection import using_device_type
+from cuml.internals import input_utils
 from cuml.internals.device_type import DeviceType
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.safe_imports import (
@@ -24,12 +31,7 @@ from cuml.internals.safe_imports import (
     gpu_only_import_from,
     safe_import,
 )
-import sklearn.ensemble as skl_ensemble
-import pickle as pickle
-import os
-import cuml
-from cuml.internals import input_utils
-from time import perf_counter
+from cuml.manifold import UMAP
 
 np = cpu_only_import("numpy")
 pd = cpu_only_import("pandas")

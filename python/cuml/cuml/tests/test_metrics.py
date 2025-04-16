@@ -15,69 +15,72 @@
 #
 
 import platform
+import random
+from itertools import chain, permutations
 
+import pytest
 import sklearn.metrics
-from cuml.metrics.cluster import v_measure_score
-from sklearn.metrics.cluster import v_measure_score as sklearn_v_measure_score
 from scipy.special import rel_entr as scipy_kl_divergence
+from sklearn import preprocessing
+from sklearn.datasets import make_blobs, make_classification
+from sklearn.metrics import confusion_matrix as sk_confusion_matrix
+from sklearn.metrics import hinge_loss as sk_hinge
+from sklearn.metrics import log_loss as sklearn_log_loss
 from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
-from cuml.metrics import (
-    pairwise_distances,
-    sparse_pairwise_distances,
-    PAIRWISE_DISTANCE_METRICS,
-    PAIRWISE_DISTANCE_SPARSE_METRICS,
-)
 from sklearn.metrics import (
     precision_recall_curve as sklearn_precision_recall_curve,
 )
 from sklearn.metrics import roc_auc_score as sklearn_roc_auc_score
-from cuml.metrics import log_loss
-from cuml.metrics import precision_recall_curve
-from cuml.metrics import roc_auc_score
-from cuml.common.sparsefuncs import csr_row_normalize_l1
-from cuml.common import has_scipy
-from cuml.metrics import confusion_matrix
-from sklearn.metrics import confusion_matrix as sk_confusion_matrix
-from cuml.model_selection import train_test_split
-from cuml.metrics.cluster import entropy
-from cuml.metrics import kl_divergence as cu_kl_divergence
-from cuml.metrics import hinge_loss as cuml_hinge
-from cuml import LogisticRegression as cu_log
-from sklearn import preprocessing
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics.cluster import silhouette_samples as sk_silhouette_samples
-from sklearn.metrics.cluster import silhouette_score as sk_silhouette_score
-from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
+from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.metrics.cluster import completeness_score as sk_completeness_score
 from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
-from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
-from sklearn.metrics import log_loss as sklearn_log_loss
-from sklearn.datasets import make_classification, make_blobs
-from sklearn.metrics import hinge_loss as sk_hinge
-from cuml.internals.safe_imports import cpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.testing.utils import (
-    get_handle,
-    get_pattern,
-    array_equal,
-    unit_param,
-    quality_param,
-    stress_param,
-    generate_random_labels,
-    score_labeling_with_handle,
-)
-from cuml.metrics.cluster import silhouette_samples as cu_silhouette_samples
-from cuml.metrics.cluster import silhouette_score as cu_silhouette_score
-from cuml.metrics.cluster import adjusted_rand_score as cu_ars
-from cuml.internals.safe_imports import cpu_only_import
-import pytest
-
-import random
-from itertools import chain, permutations
+from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
+from sklearn.metrics.cluster import silhouette_samples as sk_silhouette_samples
+from sklearn.metrics.cluster import silhouette_score as sk_silhouette_score
+from sklearn.metrics.cluster import v_measure_score as sklearn_v_measure_score
+from sklearn.preprocessing import StandardScaler
 
 import cuml
 import cuml.internals.logger as logger
-from cuml.internals.safe_imports import gpu_only_import
+from cuml import LogisticRegression as cu_log
+from cuml.common import has_scipy
+from cuml.common.sparsefuncs import csr_row_normalize_l1
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    cpu_only_import_from,
+    gpu_only_import,
+    gpu_only_import_from,
+)
+from cuml.metrics import (
+    PAIRWISE_DISTANCE_METRICS,
+    PAIRWISE_DISTANCE_SPARSE_METRICS,
+    confusion_matrix,
+)
+from cuml.metrics import hinge_loss as cuml_hinge
+from cuml.metrics import kl_divergence as cu_kl_divergence
+from cuml.metrics import (
+    log_loss,
+    pairwise_distances,
+    precision_recall_curve,
+    roc_auc_score,
+    sparse_pairwise_distances,
+)
+from cuml.metrics.cluster import adjusted_rand_score as cu_ars
+from cuml.metrics.cluster import entropy
+from cuml.metrics.cluster import silhouette_samples as cu_silhouette_samples
+from cuml.metrics.cluster import silhouette_score as cu_silhouette_score
+from cuml.metrics.cluster import v_measure_score
+from cuml.model_selection import train_test_split
+from cuml.testing.utils import (
+    array_equal,
+    generate_random_labels,
+    get_handle,
+    get_pattern,
+    quality_param,
+    score_labeling_with_handle,
+    stress_param,
+    unit_param,
+)
 
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
@@ -141,11 +144,12 @@ def labeled_clusters(request, random_state):
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_sklearn_search():
     """Test ensures scoring function works with sklearn machinery"""
-    import numpy as np
-    from cuml import Ridge as cumlRidge
     import cudf
+    import numpy as np
     from sklearn import datasets
-    from sklearn.model_selection import train_test_split, GridSearchCV
+    from sklearn.model_selection import GridSearchCV, train_test_split
+
+    from cuml import Ridge as cumlRidge
 
     diabetes = datasets.load_diabetes()
     X_train, X_test, y_train, y_test = train_test_split(

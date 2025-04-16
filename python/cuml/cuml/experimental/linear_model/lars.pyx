@@ -20,23 +20,29 @@
 # cython: language_level = 3
 
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 from cuml.internals import logger
+
 from cuml.internals cimport logger
+
 import cuml.internals
 
-from libcpp cimport nullptr
 from libc.stdint cimport uintptr_t
+from libcpp cimport nullptr
 
 from cuml.common import input_to_cuml_array
-from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import RegressorMixin
-from cuml.common.doc_utils import generate_docstring
+
 from pylibraft.common.handle cimport handle_t
+
 
 cdef extern from "cuml/solvers/lars.hpp" namespace "ML::Solver::Lars":
 

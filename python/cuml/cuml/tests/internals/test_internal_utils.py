@@ -15,8 +15,9 @@
 #
 
 import numpy as np
-from cuml.internals.input_utils import is_array_like
+
 from cuml.internals.api_decorators import _get_value
+from cuml.internals.input_utils import is_array_like
 
 
 def test_is_array_like_with_lists():

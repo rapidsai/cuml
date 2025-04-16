@@ -17,14 +17,18 @@
 import gc
 import operator
 import pickle
-import pytest
 from copy import deepcopy
+
+import pytest
+from hypothesis import assume, example, given, settings
+from hypothesis import strategies as st
+
+from cuml import global_settings
 from cuml.internals.array import (
     CumlArray,
     _order_to_strides,
     array_to_memory_order,
 )
-from cuml import global_settings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import (
     _get_size_from_shape,
@@ -47,10 +51,10 @@ from cuml.testing.strategies import (
     cuml_array_dtypes,
     cuml_array_input_types,
     cuml_array_inputs,
+    cuml_array_mem_types,
     cuml_array_orders,
     cuml_array_output_types,
     cuml_array_shapes,
-    cuml_array_mem_types,
 )
 from cuml.testing.utils import (
     normalized_shape,
@@ -58,8 +62,6 @@ from cuml.testing.utils import (
     squeezed_shape,
     to_nparray,
 )
-from hypothesis import assume, example, given, settings
-from hypothesis import strategies as st
 
 cp = gpu_only_import("cupy")
 cudf = gpu_only_import("cudf")

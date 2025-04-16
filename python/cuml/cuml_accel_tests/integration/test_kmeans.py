@@ -14,12 +14,12 @@
 # limitations under the License.
 #
 
-import pytest
 import numpy as np
-from sklearn.datasets import make_blobs
-from sklearn.cluster import KMeans
-from sklearn.metrics import adjusted_rand_score
+import pytest
 from scipy.sparse import csr_matrix
+from sklearn.cluster import KMeans
+from sklearn.datasets import make_blobs
+from sklearn.metrics import adjusted_rand_score
 
 
 @pytest.fixture(scope="module")

@@ -19,25 +19,29 @@
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import_from,
-    null_decorator
+    null_decorator,
 )
+
 np = cpu_only_import('numpy')
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from libcpp.vector cimport vector
-from typing import Tuple, Dict, Mapping, Optional, Union
+
+from typing import Dict, Mapping, Optional, Tuple, Union
 
 import cuml.internals
-from cuml.internals.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+
 from pylibraft.common.handle cimport handle_t
-from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
+
 import cuml.internals.logger as logger
 from cuml.common import has_scipy
 from cuml.internals.input_utils import input_to_cuml_array
+from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":

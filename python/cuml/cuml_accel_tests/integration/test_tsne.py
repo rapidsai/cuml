@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 
-import pytest
 import numpy as np
+import pytest
 from sklearn.datasets import make_classification
 from sklearn.manifold import TSNE
 from sklearn.metrics import pairwise_distances

@@ -16,23 +16,24 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.global_settings import GlobalSettings
-from cuml.common.doc_utils import generate_docstring
 from cuml.common import input_to_cuml_array
-from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
-
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.base import Base
+from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.mixins import FMajorInputTagMixin
 
 IF GPUBUILD == 1:
     from libcpp cimport bool
