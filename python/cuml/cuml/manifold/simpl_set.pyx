@@ -16,6 +16,7 @@
 
 # distutils: language = c++
 
+import cuml
 from cuml.internals.safe_imports import cpu_only_import
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
@@ -147,9 +148,9 @@ def fuzzy_simplicial_set(X,
             rs = random_state
         else:
             rs = np.random.RandomState(random_state)
-        random_state = rs.randint(low=np.iinfo(np.int32).min,
-                                  high=np.iinfo(np.int32).max,
-                                  dtype=np.int32)
+        random_state = rs.randint(low=0,
+                                  high=np.iinfo(np.uint64).max,
+                                  dtype=np.uint64)
 
     cdef UMAPParams* umap_params = new UMAPParams()
     umap_params.n_neighbors = <int> n_neighbors
@@ -212,6 +213,7 @@ def fuzzy_simplicial_set(X,
     return fss_graph.get_cupy_coo()
 
 
+@cuml.internals.api_return_array(get_output_type=True)
 def simplicial_set_embedding(
     data,
     graph,
@@ -318,9 +320,9 @@ def simplicial_set_embedding(
             rs = random_state
         else:
             rs = np.random.RandomState(random_state)
-        random_state = rs.randint(low=np.iinfo(np.int32).min,
-                                  high=np.iinfo(np.int32).max,
-                                  dtype=np.int32)
+        random_state = rs.randint(low=0,
+                                  high=np.iinfo(np.uint64).max,
+                                  dtype=np.uint64)
 
     cdef UMAPParams* umap_params = new UMAPParams()
     umap_params.n_components = <int> n_components
@@ -331,7 +333,7 @@ def simplicial_set_embedding(
     umap_params.repulsion_strength = <float> gamma
     umap_params.negative_sample_rate = <int> negative_sample_rate
     umap_params.n_epochs = <int> n_epochs
-    umap_params.random_state = <int> random_state
+    umap_params.random_state = <uint64_t> random_state
     umap_params.deterministic = <bool> deterministic
     if isinstance(init, str):
         if init == "random":
