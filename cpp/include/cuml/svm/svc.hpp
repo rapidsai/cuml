@@ -22,7 +22,9 @@
 #include <cuml/common/logger.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance_types.hpp>
+
+#include <cuvs/distance/distance.hpp>
+#include <cuvs/distance/grammian.hpp>
 
 // namespace raft {
 // class handle_t;
@@ -59,7 +61,7 @@ void svcFit(const raft::handle_t& handle,
             int n_cols,
             math_t* labels,
             const SvmParameter& param,
-            raft::distance::kernels::KernelParams& kernel_params,
+            cuvs::distance::kernels::KernelParams& kernel_params,
             SvmModel<math_t>& model,
             const math_t* sample_weight);
 
@@ -95,7 +97,7 @@ void svcFitSparse(const raft::handle_t& handle,
                   int nnz,
                   math_t* labels,
                   const SvmParameter& param,
-                  raft::distance::kernels::KernelParams& kernel_params,
+                  cuvs::distance::kernels::KernelParams& kernel_params,
                   SvmModel<math_t>& model,
                   const math_t* sample_weight);
 
@@ -133,7 +135,7 @@ void svcPredict(const raft::handle_t& handle,
                 math_t* input,
                 int n_rows,
                 int n_cols,
-                raft::distance::kernels::KernelParams& kernel_params,
+                cuvs::distance::kernels::KernelParams& kernel_params,
                 const SvmModel<math_t>& model,
                 math_t* preds,
                 math_t buffer_size,
@@ -178,7 +180,7 @@ void svcPredictSparse(const raft::handle_t& handle,
                       int n_rows,
                       int n_cols,
                       int nnz,
-                      raft::distance::kernels::KernelParams& kernel_params,
+                      cuvs::distance::kernels::KernelParams& kernel_params,
                       const SvmModel<math_t>& model,
                       math_t* preds,
                       math_t buffer_size,
@@ -217,7 +219,7 @@ class SVC {
  public:
   // Public members for easier access during testing from Python.
 
-  raft::distance::kernels::KernelParams kernel_params;
+  cuvs::distance::kernels::KernelParams kernel_params;
   SvmParameter param;
   SvmModel<math_t> model;
   /**
@@ -234,8 +236,8 @@ class SVC {
   SVC(raft::handle_t& handle,
       math_t C   = 1,
       math_t tol = 1.0e-3,
-      raft::distance::kernels::KernelParams kernel_params =
-        raft::distance::kernels::KernelParams{raft::distance::kernels::LINEAR, 3, 1, 0},
+      cuvs::distance::kernels::KernelParams kernel_params =
+        cuvs::distance::kernels::KernelParams{cuvs::distance::kernels::LINEAR, 3, 1, 0},
       math_t cache_size                   = 200,
       int max_iter                        = -1,
       int nochange_steps                  = 1000,

@@ -111,8 +111,8 @@ if has_sklearn():
                 return self.multi_class_model.predict_proba(X)
 
 
-cdef extern from "raft/distance/distance_types.hpp" \
-        namespace "raft::distance::kernels":
+cdef extern from "cuvs/distance/distance.hpp" \
+        namespace "cuvs::distance::kernels":
     enum KernelType:
         LINEAR,
         POLYNOMIAL,
