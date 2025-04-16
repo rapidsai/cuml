@@ -17,14 +17,14 @@ from cuml.internals.safe_imports import gpu_only_import
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import adjusted_rand_score
 from sklearn import cluster
+from cuml.datasets import make_blobs
 from cuml.testing.utils import (
-    get_pattern,
     unit_param,
     quality_param,
     stress_param,
     array_equal,
 )
-from cuml.datasets import make_blobs
+from cuml.testing.datasets import make_pattern
 import pytest
 import random
 
@@ -225,7 +225,7 @@ def test_kmeans_sklearn_comparison(name, nrows, random_state):
         "n_clusters": 3,
     }
 
-    pat = get_pattern(name, nrows)
+    pat = make_pattern(name, nrows)
 
     params = default_base.copy()
     params.update(pat[1])
@@ -270,7 +270,7 @@ def test_kmeans_sklearn_comparison_default(name, nrows, random_state):
         "n_clusters": 3,
     }
 
-    pat = get_pattern(name, nrows)
+    pat = make_pattern(name, nrows)
 
     params = default_base.copy()
     params.update(pat[1])

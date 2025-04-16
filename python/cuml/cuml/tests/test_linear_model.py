@@ -12,29 +12,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from functools import lru_cache
-
-from packaging.version import Version
 import pytest
 import sklearn
-from cuml.internals.array import elements_in_representable_range
+from cuml import ElasticNet as cuElasticNet
+from cuml import LinearRegression as cuLinearRegression
+from cuml import LogisticRegression as cuLog
+from cuml import Ridge as cuRidge
 from cuml.internals.safe_imports import (
     cpu_only_import,
     cpu_only_import_from,
     gpu_only_import,
 )
-from cuml.testing.strategies import (
+from cuml.testing.datasets import (
     regression_datasets,
     split_datasets,
     standard_classification_datasets,
     standard_regression_datasets,
+    small_classification_dataset,
+    small_regression_dataset,
+    make_regression_dataset,
+    make_classification_dataset,
+    sklearn_compatible_dataset,
+    cuml_compatible_dataset,
+    make_classification,
+    make_regression,
 )
 from cuml.testing.utils import (
     array_difference,
     array_equal,
     quality_param,
-    small_classification_dataset,
-    small_regression_dataset,
     stress_param,
     unit_param,
 )
@@ -42,22 +48,16 @@ from hypothesis import assume, example, given, note
 from hypothesis import strategies as st
 from hypothesis import target
 from hypothesis.extra.numpy import floating_dtypes
+from packaging.version import Version
 from sklearn.datasets import (
     load_breast_cancer,
     load_digits,
-    make_classification,
-    make_regression,
 )
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.linear_model import LogisticRegression as skLog
 from sklearn.linear_model import Ridge as skRidge
 from sklearn.linear_model import ElasticNet as skElasticNet
 from sklearn.model_selection import train_test_split
-
-from cuml import ElasticNet as cuElasticNet
-from cuml import LinearRegression as cuLinearRegression
-from cuml import LogisticRegression as cuLog
-from cuml import Ridge as cuRidge
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
@@ -68,84 +68,10 @@ rmm = gpu_only_import("rmm")
 csr_matrix = cpu_only_import_from("scipy.sparse", "csr_matrix")
 
 
-def _make_regression_dataset_uncached(nrows, ncols, n_info, **kwargs):
-    X, y = make_regression(
-        **kwargs,
-        n_samples=nrows,
-        n_features=ncols,
-        n_informative=n_info,
-        random_state=0,
-    )
-    return train_test_split(X, y, train_size=0.8, random_state=10)
+ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
 
 
-@lru_cache(4)
-def _make_regression_dataset_from_cache(nrows, ncols, n_info, **kwargs):
-    return _make_regression_dataset_uncached(nrows, ncols, n_info, **kwargs)
-
-
-def make_regression_dataset(datatype, nrows, ncols, n_info, **kwargs):
-    if nrows * ncols < 1e8:  # Keep cache under 4 GB
-        dataset = _make_regression_dataset_from_cache(
-            nrows, ncols, n_info, **kwargs
-        )
-    else:
-        dataset = _make_regression_dataset_uncached(
-            nrows, ncols, n_info, **kwargs
-        )
-
-    return map(lambda arr: arr.astype(datatype), dataset)
-
-
-def make_classification_dataset(datatype, nrows, ncols, n_info, num_classes):
-    X, y = make_classification(
-        n_samples=nrows,
-        n_features=ncols,
-        n_informative=n_info,
-        n_classes=num_classes,
-        random_state=0,
-    )
-    X = X.astype(datatype)
-    y = y.astype(np.int32)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=0.8, random_state=10
-    )
-
-    return X_train, X_test, y_train, y_test
-
-
-def sklearn_compatible_dataset(X_train, X_test, y_train, _=None):
-    return (
-        X_train.shape[1] >= 1
-        and (X_train > 0).any()
-        and (y_train > 0).any()
-        and all(
-            np.isfinite(x).all()
-            for x in (X_train, X_test, y_train)
-            if x is not None
-        )
-    )
-
-
-def cuml_compatible_dataset(X_train, X_test, y_train, _=None):
-    return (
-        X_train.shape[0] >= 2
-        and X_train.shape[1] >= 1
-        and np.isfinite(X_train).all()
-        and all(
-            elements_in_representable_range(x, np.float32)
-            for x in (X_train, X_test, y_train)
-            if x is not None
-        )
-    )
-
-
-_ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
-
-algorithms = st.sampled_from(_ALGORITHMS)
-
-
-# TODO(24.08): remove this test
+# TODO(25.08): remove this test
 def test_logreg_penalty_deprecation():
     with pytest.warns(
         FutureWarning,
@@ -596,13 +522,13 @@ def test_logistic_regression(
         assert np.array_equal(culog.intercept_, sklog.intercept_)
 
 
+@pytest.mark.parametrize("penalty", [None, "l1", "l2", "elasticnet"])
 @given(
     dtype=floating_dtypes(sizes=(32, 64)),
-    penalty=st.sampled_from((None, "l1", "l2", "elasticnet")),
     l1_ratio=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0)),
 )
-@example(dtype=np.float32, penalty=None, l1_ratio=None)
-@example(dtype=np.float64, penalty=None, l1_ratio=None)
+@example(dtype=np.float32, l1_ratio=None)
+@example(dtype=np.float64, l1_ratio=None)
 def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
     if penalty == "elasticnet":
         assume(l1_ratio is not None)
@@ -652,41 +578,13 @@ def test_logistic_regression_model_default(dtype):
     assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.022
 
 
-@given(
-    dtype=st.sampled_from((np.float32, np.float64)),
-    order=st.sampled_from(("C", "F")),
-    sparse_input=st.booleans(),
-    fit_intercept=st.booleans(),
-    penalty=st.sampled_from((None, "l1", "l2")),
-)
-@example(
-    dtype=np.float32,
-    order="C",
-    sparse_input=False,
-    fit_intercept=True,
-    penalty=None,
-)
-@example(
-    dtype=np.float64,
-    order="C",
-    sparse_input=False,
-    fit_intercept=True,
-    penalty=None,
-)
-@example(
-    dtype=np.float32,
-    order="F",
-    sparse_input=False,
-    fit_intercept=True,
-    penalty=None,
-)
-@example(
-    dtype=np.float64,
-    order="F",
-    sparse_input=False,
-    fit_intercept=True,
-    penalty=None,
-)
+@pytest.mark.parametrize("order", ["C", "F"])
+@pytest.mark.parametrize("sparse_input", [True, False])
+@pytest.mark.parametrize("fit_intercept", [True, False])
+@pytest.mark.parametrize("penalty", [None, "l1", "l2"])
+@given(dtype=floating_dtypes(sizes=(32, 64)))
+@example(dtype=np.float32)
+@example(dtype=np.float64)
 def test_logistic_regression_model_digits(
     dtype, order, sparse_input, fit_intercept, penalty
 ):
@@ -713,8 +611,7 @@ def test_logistic_regression_model_digits(
     assert score >= acceptable_score
 
 
-@given(dtype=st.sampled_from((np.float32, np.float64)))
-@example(dtype=np.float32)
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_logistic_regression_sparse_only(dtype, nlp_20news):
 
     # sklearn score with max_iter = 10000
@@ -735,6 +632,8 @@ def test_logistic_regression_sparse_only(dtype, nlp_20news):
     assert score >= acceptable_score
 
 
+@pytest.mark.parametrize("fit_intercept", [True, False])
+@pytest.mark.parametrize("sparse_input", [True, False])
 @given(
     dataset=split_datasets(
         standard_classification_datasets(
@@ -744,28 +643,12 @@ def test_logistic_regression_sparse_only(dtype, nlp_20news):
             n_informative=st.just(10),
         )
     ),
-    fit_intercept=st.booleans(),
-    sparse_input=st.booleans(),
 )
 @example(
     dataset=small_classification_dataset(np.float32),
-    fit_intercept=True,
-    sparse_input=False,
-)
-@example(
-    dataset=small_classification_dataset(np.float32),
-    fit_intercept=False,
-    sparse_input=True,
 )
 @example(
     dataset=small_classification_dataset(np.float64),
-    fit_intercept=True,
-    sparse_input=False,
-)
-@example(
-    dataset=small_classification_dataset(np.float64),
-    fit_intercept=False,
-    sparse_input=True,
 )
 def test_logistic_regression_decision_function(
     dataset, fit_intercept, sparse_input
@@ -1178,21 +1061,17 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
     assert np.corrcoef(cd.coef_, qn.coef_)[0, 1] > 0.98
 
 
+@pytest.mark.parametrize("algorithm", ALGORITHMS)
+@pytest.mark.parametrize("xp", [np, cp])
+@pytest.mark.parametrize("copy", [True, False, ...])
 @given(
     dataset=standard_regression_datasets(
         n_features=st.integers(min_value=1, max_value=10),
-        dtypes=floating_dtypes(sizes=(32, 64)),
-    ),
-    algorithm=algorithms,
-    xp=st.sampled_from([np, cp]),
-    copy=st.sampled_from((True, False, ...)),
+        dtypes=st.sampled_from((np.float32, np.float64)),
+    )
 )
-@example(make_regression(n_features=1), "svd", cp, True)
-@example(make_regression(n_features=1), "svd", cp, False)
-@example(make_regression(n_features=1), "svd", cp, ...)
-@example(make_regression(n_features=1), "svd", np, False)
-@example(make_regression(n_features=2), "svd", cp, False)
-@example(make_regression(n_features=2), "eig", np, False)
+@example(dataset=make_regression(n_features=1))
+@example(dataset=make_regression(n_features=2))
 def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
     X, y = dataset
     X, y = xp.asarray(X), xp.asarray(y)

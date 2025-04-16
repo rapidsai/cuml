@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 
 from cuml.internals.input_utils import sparse_scipy_to_cp
-from cuml.testing.utils import small_classification_dataset
+from cuml.testing.datasets import small_classification_dataset
 from cuml.naive_bayes import MultinomialNB
 from cuml import LogisticRegression
 from cuml.internals.safe_imports import cpu_only_import
