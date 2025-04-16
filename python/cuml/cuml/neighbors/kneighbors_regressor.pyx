@@ -147,6 +147,8 @@ class KNeighborsRegressor(RegressorMixin,
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
     """
 
+    _cpu_estimator_import_path = "sklearn.neighbors.KNeighborsRegressor"
+
     y = CumlArrayDescriptor()
 
     _hyperparam_interop_translator = {

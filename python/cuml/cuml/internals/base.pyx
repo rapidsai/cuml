@@ -611,26 +611,20 @@ def _determine_stateless_output_type(output_type, input_obj):
 
 
 class UniversalBase(Base):
-    def import_cpu_model(self):
-        # skip if the CPU estimator has been imported already
-        if hasattr(self, '_cpu_model_class'):
+    @classmethod
+    def import_cpu_model(cls):
+        # We check in `__dict__` instead of with hasattr to ensure that subclasses
+        # have their respective model class imported again, rather than accidentally
+        # reusing one loaded for the base class.
+        if "_cpu_model_class" in cls.__dict__:
             return
-        if hasattr(self, '_cpu_estimator_import_path'):
-            # if import path differs from the one of sklearn
-            # look for _cpu_estimator_import_path
-            estimator_path = self._cpu_estimator_import_path.split('.')
-            model_path = '.'.join(estimator_path[:-1])
-            model_name = estimator_path[-1]
-        else:
-            # import from similar path to the current estimator
-            # class
-            model_path = 'sklearn' + self.__class__.__module__[4:]
-            model_name = self.__class__.__name__
-        self._cpu_model_class = getattr(import_module(model_path), model_name)
+
+        module, _, name = cls._cpu_estimator_import_path.rpartition(".")
+        cls._cpu_model_class = getattr(import_module(module), name)
 
         # Save list of available CPU estimator hyperparameters
-        self._cpu_hyperparams = list(
-            inspect.signature(self._cpu_model_class.__init__).parameters.keys()
+        cls._cpu_hyperparams = list(
+            inspect.signature(cls._cpu_model_class.__init__).parameters.keys()
         )
 
     def build_cpu_model(self, **kwargs):
