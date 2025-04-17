@@ -17,8 +17,10 @@
 
 
 # distutils: language = c++
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import,
@@ -30,14 +32,11 @@ np = cpu_only_import('numpy')
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 rmm = gpu_only_import('rmm')
 
-from cuml.internals.array import CumlArray
-from cuml.internals.mixins import ClassifierMixin
 import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.internals import logger
 from cuml.internals.array import CumlArray
-from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.utils import check_random_seed
 

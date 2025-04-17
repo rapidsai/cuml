@@ -17,7 +17,6 @@
 import cuml.neighbors
 from cuml.accel.estimator_proxy import ProxyMixin
 
-
 __all__ = ("NearestNeighbors", "KNeighborsClassifier", "KNeighborsRegressor")
 
 

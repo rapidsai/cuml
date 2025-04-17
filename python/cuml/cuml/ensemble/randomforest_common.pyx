@@ -14,9 +14,10 @@
 # limitations under the License.
 #
 import treelite.sklearn
+
 import cuml.accel
-from cuml.internals.safe_imports import gpu_only_import
 from cuml.internals.api_decorators import device_interop_preparation
+from cuml.internals.safe_imports import gpu_only_import
 
 cp = gpu_only_import('cupy')
 import math

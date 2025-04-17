@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from cuml.accel.core import install, enabled
+from cuml.accel.core import enabled, install
 from cuml.accel.magics import load_ipython_extension
 from cuml.accel.pytest_plugin import pytest_load_initial_conftests
 

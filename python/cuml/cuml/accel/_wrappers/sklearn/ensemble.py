@@ -17,7 +17,6 @@
 import cuml.ensemble
 from cuml.accel.estimator_proxy import ProxyMixin
 
-
 __all__ = ("RandomForestRegressor", "RandomForestClassifier")
 
 

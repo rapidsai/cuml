@@ -17,7 +17,6 @@
 import cuml.cluster
 from cuml.accel.estimator_proxy import ProxyMixin
 
-
 __all__ = ("HDBSCAN",)
 
 

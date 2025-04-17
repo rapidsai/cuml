@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 
-import inspect
 import importlib
+import inspect
 
 
 def reconstruct_proxy(proxy_module, proxy_name, state):
