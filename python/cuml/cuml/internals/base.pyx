@@ -17,16 +17,18 @@
 # distutils: language = c++
 
 import copy
-import os
 import inspect
 import numbers
+import os
 from importlib import import_module
+
 from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import_from,
     null_decorator,
 )
+
 np = cpu_only_import('numpy')
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
@@ -38,12 +40,13 @@ except ImportError:
 
 import cuml
 import cuml.common
-from cuml.common.sparse_utils import is_sparse
-from cuml.common.array_descriptor import CumlArrayDescriptor
-import cuml.internals.logger as logger
 import cuml.internals
-from cuml.internals import api_context_managers
 import cuml.internals.input_utils
+import cuml.internals.logger as logger
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.sparse_utils import is_sparse
+from cuml.internals import api_context_managers
+from cuml.internals.array import CumlArray
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
 from cuml.internals.global_settings import GlobalSettings
@@ -52,21 +55,19 @@ from cuml.internals.input_utils import (
     input_to_cuml_array,
     input_to_host_array,
     input_to_host_array_with_sparse_support,
-    is_array_like
+    is_array_like,
 )
-from cuml.internals.memory_utils import determine_array_memtype
 from cuml.internals.mem_type import MemoryType
-from cuml.internals.memory_utils import using_memory_type
+from cuml.internals.memory_utils import (
+    determine_array_memtype,
+    using_memory_type,
+)
+from cuml.internals.mixins import TagsMixin
 from cuml.internals.output_type import (
     INTERNAL_VALID_OUTPUT_TYPES,
-    VALID_OUTPUT_TYPES
+    VALID_OUTPUT_TYPES,
 )
-from cuml.internals.array import CumlArray
-from cuml.internals.safe_imports import (
-    gpu_only_import, gpu_only_import_from
-)
-
-from cuml.internals.mixins import TagsMixin
+from cuml.internals.safe_imports import gpu_only_import, gpu_only_import_from
 
 cp_ndarray = gpu_only_import_from('cupy', 'ndarray')
 cp = gpu_only_import('cupy')
@@ -74,6 +75,7 @@ cp = gpu_only_import('cupy')
 
 IF GPUBUILD == 1:
     import pylibraft.common.handle
+
     import cuml.common.cuda
 
 

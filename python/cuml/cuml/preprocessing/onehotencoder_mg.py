@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 
-from cuml.dask.common.dask_arr_utils import to_dask_cudf
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.preprocessing.encoders import OneHotEncoder
 import dask
-from cuml.internals.safe_imports import gpu_only_import
+
+from cuml.dask.common.dask_arr_utils import to_dask_cudf
+from cuml.internals.safe_imports import gpu_only_import, gpu_only_import_from
+from cuml.preprocessing.encoders import OneHotEncoder
 
 cp = gpu_only_import("cupy")
 DataFrame = gpu_only_import_from("cudf", "DataFrame")

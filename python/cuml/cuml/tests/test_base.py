@@ -15,10 +15,8 @@
 
 import inspect
 
-import cuml
-import pytest
 import numpydoc.docscrape
-
+import pytest
 from pylibraft.common.cuda import Stream
 
 from cuml.testing.datasets import small_classification_dataset

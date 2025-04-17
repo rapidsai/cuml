@@ -14,17 +14,17 @@
 #
 
 import pytest
-from sklearn.manifold import TSNE as skTSNE
 from sklearn import datasets
-from sklearn.manifold import trustworthiness
 from sklearn.datasets import make_blobs
+from sklearn.manifold import TSNE as skTSNE
+from sklearn.manifold import trustworthiness
 from sklearn.neighbors import NearestNeighbors
+
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.manifold import TSNE
-from cuml.neighbors import NearestNeighbors as cuKNN
 from cuml.metrics import pairwise_distances
+from cuml.neighbors import NearestNeighbors as cuKNN
 from cuml.testing.utils import array_equal, stress_param
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
 
 np = cpu_only_import("numpy")
 scipy = cpu_only_import("scipy")

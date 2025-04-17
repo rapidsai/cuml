@@ -13,16 +13,16 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import adjusted_rand_score
+import random
+
+import pytest
 from sklearn import cluster
 from cuml.datasets import make_blobs
 from cuml.testing.utils import (
     unit_param,
     quality_param,
     stress_param,
-    array_equal,
+    unit_param,
 )
 from cuml.testing.datasets import make_pattern
 import pytest

@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-from packaging.version import Version
 import pytest
 import sklearn
 from cuml.internals.safe_imports import (

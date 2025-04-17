@@ -13,14 +13,12 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import
-from sklearn.model_selection import train_test_split
-from sklearn import datasets
-from hdbscan.plots import CondensedTree
 import hdbscan
-from cuml.internals import logger
 import pytest
-
+from hdbscan.plots import CondensedTree
+from sklearn import datasets
+from sklearn.datasets import make_blobs
+from sklearn.model_selection import train_test_split
 
 from cuml.cluster.hdbscan import HDBSCAN, condense_hierarchy
 from cuml.cluster.hdbscan.prediction import (
@@ -28,8 +26,8 @@ from cuml.cluster.hdbscan.prediction import (
     approximate_predict,
     membership_vector,
 )
-from sklearn.datasets import make_blobs
-
+from cuml.internals import logger
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.metrics import adjusted_rand_score
 from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import array_equal

@@ -13,16 +13,19 @@
 # limitations under the License.
 #
 
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import pairwise_distances
-from sklearn.datasets import make_blobs
+import pytest
 from sklearn.cluster import DBSCAN as skDBSCAN
+from sklearn.datasets import make_blobs
+from sklearn.metrics import pairwise_distances
+from sklearn.preprocessing import StandardScaler
+
+from cuml import DBSCAN as cuDBSCAN
+from cuml.internals.safe_imports import cpu_only_import, cpu_only_import_from
 from cuml.testing.utils import (
     unit_param,
     quality_param,
     stress_param,
-    array_equal,
-    assert_dbscan_equal,
+    unit_param,
 )
 from cuml import DBSCAN as cuDBSCAN
 from cuml.testing.utils import get_handle

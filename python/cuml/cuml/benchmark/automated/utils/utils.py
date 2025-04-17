@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,32 +32,32 @@ except ImportError:
         pass
 
 
-import os
-import json
-import time
-import math
 import itertools as it
+import json
+import math
+import os
+import time
 import warnings
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-import pytest
-from cuml.benchmark import datagen, algorithms
-from cuml.benchmark.nvtx_benchmark import Profiler
-from dask.distributed import wait
-import dask.array as da
-import dask.dataframe as df
 from copy import copy
 
+import dask.array as da
+import dask.dataframe as df
+import pytest
+from dask.distributed import wait
+
+from cuml.benchmark import algorithms, datagen
 from cuml.benchmark.bench_helper_funcs import (
-    pass_func,
     fit,
-    predict,
-    transform,
-    kneighbors,
+    fit_kneighbors,
     fit_predict,
     fit_transform,
-    fit_kneighbors,
+    kneighbors,
+    pass_func,
+    predict,
+    transform,
 )
+from cuml.benchmark.nvtx_benchmark import Profiler
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")

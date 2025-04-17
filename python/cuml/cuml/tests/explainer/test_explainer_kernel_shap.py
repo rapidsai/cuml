@@ -25,6 +25,7 @@ from cuml import KernelExplainer, Lasso
 from cuml.testing.datasets import with_dtype
 from cuml.testing.utils import (
     ClassEnumerator,
+    create_synthetic_dataset,
     get_shap_values,
 )
 from cuml.datasets import make_regression

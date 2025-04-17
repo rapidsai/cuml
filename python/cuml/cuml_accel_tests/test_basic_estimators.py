@@ -14,23 +14,24 @@
 
 import numpy as np
 from sklearn import clone
-from cuml.internals.safe_imports import gpu_only_import
-from sklearn.datasets import make_classification, make_regression, make_blobs
+from sklearn.cluster import DBSCAN, KMeans
+from sklearn.datasets import make_blobs, make_classification, make_regression
+from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.linear_model import (
+    ElasticNet,
+    Lasso,
     LinearRegression,
     LogisticRegression,
-    ElasticNet,
     Ridge,
-    Lasso,
 )
-from sklearn.cluster import KMeans, DBSCAN
-from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.manifold import TSNE
 from sklearn.neighbors import (
-    NearestNeighbors,
     KNeighborsClassifier,
     KNeighborsRegressor,
+    NearestNeighbors,
 )
+
+from cuml.internals.safe_imports import gpu_only_import
 
 cp = gpu_only_import("cupy")
 

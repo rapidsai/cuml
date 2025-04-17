@@ -11,6 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import inspect
+from copy import deepcopy
+from itertools import dropwhile
+from numbers import Number
+from textwrap import dedent, indent
+
 import pytest
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
@@ -27,7 +33,15 @@ from cuml.internals.safe_imports import cpu_only_import
 import inspect
 from textwrap import dedent, indent
 
-from cuml.internals.safe_imports import gpu_only_import
+import cuml
+from cuml.internals.base import Base
+from cuml.internals.input_utils import input_to_cuml_array, is_array_like
+from cuml.internals.mem_type import MemoryType
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+)
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
@@ -387,8 +401,8 @@ def get_classes_from_package(package, import_sub_packages=False):
     """
 
     if import_sub_packages:
-        import os
         import importlib
+        import os
 
         # First, find all __init__.py files in subdirectories of this package
         root_dir = os.path.dirname(package.__file__)

@@ -16,7 +16,6 @@
 
 from cuml.accel.estimator_proxy import intercept
 
-
 HDBSCAN = intercept(
     original_module="hdbscan",
     accelerated_module="cuml.cluster",

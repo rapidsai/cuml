@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 
-import pytest
 import numpy as np
+import pytest
+from scipy.sparse import csr_matrix
 from sklearn.datasets import make_classification
 from sklearn.decomposition import TruncatedSVD
-from scipy.sparse import csr_matrix
 
 
 @pytest.fixture(scope="module")

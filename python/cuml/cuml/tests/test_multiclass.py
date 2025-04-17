@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import sys
+
+import pytest
+
 from cuml import LogisticRegression as cuLog
 from cuml import multiclass as cu_multiclass
-import sys
-import pytest
 from cuml.internals.safe_imports import cpu_only_import
 from cuml.testing.datasets import make_classification_dataset
 

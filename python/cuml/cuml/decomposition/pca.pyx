@@ -17,8 +17,10 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
 scipy = cpu_only_import('scipy')
@@ -28,29 +30,32 @@ rmm = gpu_only_import('rmm')
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
+import cuml.internals.logger as logger
+from cuml.common import using_output_type
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.exceptions import NotFittedError
+from cuml.common.sparse_utils import is_sparse
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
-from cuml.common.doc_utils import generate_docstring
-import cuml.internals.logger as logger
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.input_utils import input_to_cupy_array
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common import using_output_type
-from cuml.common.sparse_utils import is_sparse
+from cuml.internals.input_utils import (
+    input_to_cuml_array,
+    input_to_cupy_array,
+    sparse_scipy_to_cp,
+)
+from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
 from cuml.prims.stats import cov
-from cuml.internals.input_utils import sparse_scipy_to_cp
-from cuml.common.exceptions import NotFittedError
-from cuml.internals.mixins import FMajorInputTagMixin
-from cuml.internals.mixins import SparseInputTagMixin
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
-
 
 IF GPUBUILD == 1:
     from enum import IntEnum
     from cython.operator cimport dereference as deref
-    from cuml.decomposition.utils cimport *
     from pylibraft.common.handle cimport handle_t
+
+    from cuml.decomposition.utils cimport *
 
     cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
 

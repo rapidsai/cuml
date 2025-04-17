@@ -15,6 +15,12 @@
 #
 
 
+import pytest
+import sklearn.neighbors
+
+import cuml
+from cuml import PermutationExplainer
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import (
     ClassEnumerator,
     get_shap_values,

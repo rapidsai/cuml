@@ -15,25 +15,25 @@
 #
 
 import pytest
+import scipy as sp
+from sklearn.cluster import DBSCAN, KMeans
+from sklearn.datasets import make_classification, make_regression
 from sklearn.decomposition import PCA, TruncatedSVD
-from sklearn.cluster import KMeans, DBSCAN
 from sklearn.linear_model import (
-    LogisticRegression,
-    LinearRegression,
     ElasticNet,
-    Ridge,
     Lasso,
+    LinearRegression,
+    LogisticRegression,
+    Ridge,
 )
+from sklearn.model_selection import train_test_split
 from sklearn.neighbors import (
-    NearestNeighbors,
     KNeighborsClassifier,
     KNeighborsRegressor,
+    NearestNeighbors,
 )
 from sklearn.pipeline import Pipeline, make_pipeline
-from sklearn.datasets import make_classification, make_regression
-from sklearn.model_selection import train_test_split
 from umap import UMAP
-import scipy as sp
 
 
 @pytest.fixture

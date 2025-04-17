@@ -13,20 +13,15 @@
 # limitations under the License.
 #
 
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import pairwise_distances
-from sklearn.datasets import make_blobs
+import pytest
 from sklearn.cluster import DBSCAN as skDBSCAN
 from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import (
     unit_param,
     quality_param,
     stress_param,
-    array_equal,
-    assert_dbscan_equal,
+    unit_param,
 )
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
 
 np = cpu_only_import("numpy")
 

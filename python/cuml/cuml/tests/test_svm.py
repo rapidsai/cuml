@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,28 +14,37 @@
 #
 
 import platform
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
-from sklearn.datasets import make_classification, make_gaussian_quantiles
-from sklearn.datasets import make_regression, make_friedman1
-from sklearn.datasets import load_iris, make_blobs
+
+import pytest
 from sklearn import svm
+from sklearn.datasets import (
+    load_iris,
+    make_blobs,
+    make_classification,
+    make_friedman1,
+    make_gaussian_quantiles,
+    make_regression,
+)
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+import cuml
+import cuml.svm as cu_svm
+from cuml.common import input_to_cuml_array
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+)
 from cuml.testing.utils import (
-    unit_param,
+    compare_probabilistic_svm,
+    compare_svm,
     quality_param,
     stress_param,
-    compare_svm,
-    compare_probabilistic_svm,
     svm_array_equal,
+    unit_param,
 )
-from cuml.common import input_to_cuml_array
-import cuml.svm as cu_svm
-import cuml
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import cpu_only_import
-import pytest
-from cuml.internals.safe_imports import gpu_only_import
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
