@@ -18,20 +18,9 @@ from numbers import Number
 from textwrap import dedent, indent
 
 import pytest
-from cuml.internals.mem_type import MemoryType
-from cuml.internals.input_utils import input_to_cuml_array, is_array_like
-from cuml.internals.base import Base
-import cuml
-from sklearn.metrics import mean_squared_error, brier_score_loss
-from pylibraft.common.cuda import Stream
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
-from numbers import Number
-from cuml.internals.safe_imports import gpu_only_import_from
-from itertools import dropwhile
-from copy import deepcopy
-from cuml.internals.safe_imports import cpu_only_import
-import inspect
-from textwrap import dedent, indent
+from pylibraft.common.cuda import Stream
+from sklearn.metrics import brier_score_loss, mean_squared_error
 
 import cuml
 from cuml.internals.base import Base

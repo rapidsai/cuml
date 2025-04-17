@@ -13,24 +13,25 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.array import elements_in_representable_range
-from cuml.testing.strategies import (
-    standard_datasets,
-    standard_regression_datasets,
-    standard_classification_datasets,
-    split_datasets,
-    regression_datasets,
-    combined_datasets_strategy,
-)
+from sklearn.datasets import make_blobs as sklearn_make_blobs
 from sklearn.datasets import (
-    make_classification,
-    make_regression,
     make_circles,
+    make_classification,
     make_moons,
-    make_blobs as sklearn_make_blobs,
+    make_regression,
 )
 from sklearn.model_selection import train_test_split
+
+from cuml.internals.array import elements_in_representable_range
+from cuml.internals.safe_imports import cpu_only_import
+from cuml.testing.strategies import (
+    combined_datasets_strategy,
+    regression_datasets,
+    split_datasets,
+    standard_classification_datasets,
+    standard_datasets,
+    standard_regression_datasets,
+)
 
 np = cpu_only_import("numpy")
 

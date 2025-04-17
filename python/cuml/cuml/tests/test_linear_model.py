@@ -15,24 +15,40 @@
 
 import pytest
 import sklearn
+from hypothesis import assume, example, given, note
+from hypothesis import strategies as st
+from hypothesis import target
+from hypothesis.extra.numpy import floating_dtypes
+from packaging.version import Version
+from sklearn.datasets import load_breast_cancer, load_digits
+from sklearn.linear_model import ElasticNet as skElasticNet
+from sklearn.linear_model import LinearRegression as skLinearRegression
+from sklearn.linear_model import LogisticRegression as skLog
+from sklearn.linear_model import Ridge as skRidge
+from sklearn.model_selection import train_test_split
+
+from cuml import ElasticNet as cuElasticNet
+from cuml import LinearRegression as cuLinearRegression
+from cuml import LogisticRegression as cuLog
+from cuml import Ridge as cuRidge
 from cuml.internals.safe_imports import (
     cpu_only_import,
     cpu_only_import_from,
     gpu_only_import,
 )
 from cuml.testing.datasets import (
+    cuml_compatible_dataset,
+    make_classification,
+    make_classification_dataset,
+    make_regression,
+    make_regression_dataset,
     regression_datasets,
+    sklearn_compatible_dataset,
+    small_classification_dataset,
+    small_regression_dataset,
     split_datasets,
     standard_classification_datasets,
     standard_regression_datasets,
-    small_classification_dataset,
-    small_regression_dataset,
-    make_regression_dataset,
-    make_classification_dataset,
-    sklearn_compatible_dataset,
-    cuml_compatible_dataset,
-    make_classification,
-    make_regression,
 )
 from cuml.testing.utils import (
     array_difference,
@@ -41,24 +57,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-from hypothesis import assume, example, given, note
-from hypothesis import strategies as st
-from hypothesis import target
-from hypothesis.extra.numpy import floating_dtypes
-from sklearn.datasets import (
-    load_breast_cancer,
-    load_digits,
-)
-from sklearn.linear_model import LinearRegression as skLinearRegression
-from sklearn.linear_model import LogisticRegression as skLog
-from sklearn.linear_model import Ridge as skRidge
-from sklearn.linear_model import ElasticNet as skElasticNet
-from sklearn.model_selection import train_test_split
-
-from cuml import ElasticNet as cuElasticNet
-from cuml import LinearRegression as cuLinearRegression
-from cuml import LogisticRegression as cuLog
-from cuml import Ridge as cuRidge
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")

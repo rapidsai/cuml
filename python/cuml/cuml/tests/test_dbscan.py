@@ -21,18 +21,15 @@ from sklearn.preprocessing import StandardScaler
 
 from cuml import DBSCAN as cuDBSCAN
 from cuml.internals.safe_imports import cpu_only_import, cpu_only_import_from
+from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import (
-    unit_param,
+    array_equal,
+    assert_dbscan_equal,
+    get_handle,
     quality_param,
     stress_param,
     unit_param,
 )
-from cuml import DBSCAN as cuDBSCAN
-from cuml.testing.utils import get_handle
-import pytest
-from cuml.internals.safe_imports import cpu_only_import_from
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.testing.datasets import make_pattern
 
 np = cpu_only_import("numpy")
 assert_raises = cpu_only_import_from("numpy.testing", "assert_raises")

@@ -14,9 +14,10 @@
 
 import numpy as np
 import pytest
-from cuml.testing.datasets import with_dtype
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
+
+from cuml.testing.datasets import with_dtype
 
 
 @pytest.fixture(scope="session")

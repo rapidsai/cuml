@@ -17,24 +17,22 @@ import random
 
 import pytest
 from sklearn import cluster
+from sklearn.metrics import adjusted_rand_score
+from sklearn.preprocessing import StandardScaler
+
+import cuml
+import cuml.internals.logger as logger
 from cuml.datasets import make_blobs
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import (
-    unit_param,
+    array_equal,
     quality_param,
     stress_param,
     unit_param,
 )
-from cuml.testing.datasets import make_pattern
-import pytest
-import random
-
-import cuml
-import cuml.internals.logger as logger
-from cuml.internals.safe_imports import cpu_only_import
 
 np = cpu_only_import("numpy")
-
-
 cp = gpu_only_import("cupy")
 
 

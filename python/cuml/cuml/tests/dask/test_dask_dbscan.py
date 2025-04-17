@@ -15,9 +15,15 @@
 
 import pytest
 from sklearn.cluster import DBSCAN as skDBSCAN
+from sklearn.datasets import make_blobs
+from sklearn.metrics import pairwise_distances
+from sklearn.preprocessing import StandardScaler
+
+from cuml.internals.safe_imports import cpu_only_import
 from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import (
-    unit_param,
+    array_equal,
+    assert_dbscan_equal,
     quality_param,
     stress_param,
     unit_param,

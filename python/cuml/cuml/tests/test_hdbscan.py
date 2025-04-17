@@ -32,8 +32,6 @@ from cuml.metrics import adjusted_rand_score
 from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import array_equal
 
-from cuml.internals.safe_imports import cpu_only_import
-
 np = cpu_only_import("numpy")
 
 

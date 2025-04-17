@@ -34,19 +34,48 @@ from sklearn.metrics import roc_auc_score as sklearn_roc_auc_score
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.metrics.cluster import completeness_score as sk_completeness_score
 from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
-from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
-from sklearn.metrics import log_loss as sklearn_log_loss
-from sklearn.datasets import make_classification, make_blobs
-from sklearn.metrics import hinge_loss as sk_hinge
-from cuml.internals.safe_imports import cpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import_from
+from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
+from sklearn.metrics.cluster import silhouette_samples as sk_silhouette_samples
+from sklearn.metrics.cluster import silhouette_score as sk_silhouette_score
+from sklearn.metrics.cluster import v_measure_score as sklearn_v_measure_score
+from sklearn.preprocessing import StandardScaler
+
+import cuml
+import cuml.internals.logger as logger
+from cuml import LogisticRegression as cu_log
+from cuml.common import has_scipy
+from cuml.common.sparsefuncs import csr_row_normalize_l1
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    cpu_only_import_from,
+    gpu_only_import,
+    gpu_only_import_from,
+)
+from cuml.metrics import (
+    PAIRWISE_DISTANCE_METRICS,
+    PAIRWISE_DISTANCE_SPARSE_METRICS,
+    confusion_matrix,
+)
+from cuml.metrics import hinge_loss as cuml_hinge
+from cuml.metrics import kl_divergence as cu_kl_divergence
+from cuml.metrics import (
+    log_loss,
+    pairwise_distances,
+    precision_recall_curve,
+    roc_auc_score,
+    sparse_pairwise_distances,
+)
+from cuml.metrics.cluster import adjusted_rand_score as cu_ars
+from cuml.metrics.cluster import entropy
+from cuml.metrics.cluster import silhouette_samples as cu_silhouette_samples
+from cuml.metrics.cluster import silhouette_score as cu_silhouette_score
+from cuml.metrics.cluster import v_measure_score
+from cuml.model_selection import train_test_split
 from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import (
     array_equal,
     generate_random_labels,
     get_handle,
-    array_equal,
-    unit_param,
     quality_param,
     score_labeling_with_handle,
     stress_param,

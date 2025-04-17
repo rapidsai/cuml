@@ -22,18 +22,13 @@ from sklearn.linear_model import Lars as skLars
 
 from cuml.experimental.linear_model import Lars as cuLars
 from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.testing.datasets import make_regression_dataset
 from cuml.testing.utils import (
     array_equal,
     quality_param,
     stress_param,
     unit_param,
 )
-from cuml.experimental.linear_model import Lars as cuLars
-import sys
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.testing.datasets import make_regression_dataset
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")

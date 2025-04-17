@@ -17,23 +17,14 @@
 
 import pytest
 import sklearn.neighbors
+from sklearn.datasets import make_regression
+from sklearn.model_selection import train_test_split
 
 import cuml
 from cuml import PermutationExplainer
 from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-from cuml.testing.utils import (
-    ClassEnumerator,
-    get_shap_values,
-)
-from cuml import PermutationExplainer
-import sklearn.neighbors
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
-import cuml
-from cuml.internals.safe_imports import gpu_only_import
 from cuml.testing.datasets import with_dtype
-from sklearn.datasets import make_regression
-from sklearn.model_selection import train_test_split
+from cuml.testing.utils import ClassEnumerator, get_shap_values
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
