@@ -13,18 +13,16 @@
 # limitations under the License.
 #
 
-import cuml
 import inspect
+from functools import lru_cache
+
 import numpy as np
 import pytest
 
+import cuml
 from cuml.datasets import make_regression
 from cuml.model_selection import train_test_split
-from cuml.testing.utils import (
-    ClassEnumerator,
-)
-from functools import lru_cache
-
+from cuml.testing.utils import ClassEnumerator
 
 ###############################################################################
 #                              Configurations                                 #

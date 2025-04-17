@@ -16,10 +16,10 @@
 
 import numpy as np
 import pytest
+from sklearn.linear_model import LogisticRegression, Ridge
+
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cuml_array
-from sklearn.linear_model import LogisticRegression
-from sklearn.linear_model import Ridge
 
 
 @pytest.mark.parametrize(

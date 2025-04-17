@@ -19,7 +19,6 @@
 
 import logging
 
-
 IF GPUBUILD == 1:
     import sys
 

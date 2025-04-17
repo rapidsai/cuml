@@ -16,7 +16,6 @@
 
 from cuml.accel.estimator_proxy import intercept
 
-
 UMAP = intercept(
     original_module="umap",
     accelerated_module="cuml.manifold",

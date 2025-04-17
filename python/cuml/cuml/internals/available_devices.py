@@ -13,11 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from functools import cache
+
 from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.safe_imports import UnavailableError
-
-
-from functools import cache
 
 
 def gpu_available_no_context_creation():

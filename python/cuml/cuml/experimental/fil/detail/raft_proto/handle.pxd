@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +20,12 @@
 # cython: language_level = 3
 
 
-from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport cuda_stream as raft_proto_stream_t
 from pylibraft.common.handle cimport handle_t as raft_handle_t
+
+from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport (
+    cuda_stream as raft_proto_stream_t,
+)
+
 
 cdef extern from "cuml/experimental/fil/detail/raft_proto/handle.hpp" namespace "raft_proto" nogil:
     cdef cppclass handle_t:

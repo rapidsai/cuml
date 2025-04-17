@@ -13,18 +13,19 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import
-import pytest
-from cuml.dask.common import utils as dask_utils
+import random
 from functools import partial
-from sklearn.metrics import accuracy_score
+
+import pytest
+from scipy.sparse import csr_matrix
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression as skLR
-from cuml.internals.safe_imports import cpu_only_import
+from sklearn.metrics import accuracy_score
+
+from cuml.dask.common import utils as dask_utils
 from cuml.internals import logger
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import array_equal
-from scipy.sparse import csr_matrix
-import random
 
 random.seed(0)
 
@@ -736,6 +737,7 @@ def test_standardization_on_scaled_dataset(
 
     from sklearn.linear_model import LogisticRegression as CPULR
     from sklearn.model_selection import train_test_split
+
     from cuml.dask.linear_model.logistic_regression import (
         LogisticRegression as cumlLBFGS_dask,
     )

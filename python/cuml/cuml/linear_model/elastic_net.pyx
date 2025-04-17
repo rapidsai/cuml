@@ -18,17 +18,19 @@
 
 from inspect import signature
 
-from cuml.solvers import CD, QN
-from cuml.internals.base import UniversalBase
-from cuml.internals.mixins import RegressorMixin, FMajorInputTagMixin
-from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.logger import warn
-from cuml.linear_model.base import LinearPredictMixin
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
 from cuml.common import input_to_cuml_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
+from cuml.internals.array import CumlArray
+from cuml.internals.base import UniversalBase
+from cuml.internals.logger import warn
+from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
+from cuml.linear_model.base import LinearPredictMixin
+from cuml.solvers import CD, QN
 
 
 class ElasticNet(UniversalBase,

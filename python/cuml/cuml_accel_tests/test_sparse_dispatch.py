@@ -14,24 +14,21 @@
 # limitations under the License.
 #
 
-import pytest
 import numpy as np
-
+import pytest
+from hdbscan import HDBSCAN
 from scipy.sparse import csr_matrix
-from sklearn.cluster import KMeans, DBSCAN
+from sklearn.base import is_classifier, is_regressor
+from sklearn.cluster import DBSCAN, KMeans
 from sklearn.decomposition import TruncatedSVD
 from sklearn.linear_model import (
+    ElasticNet,
+    Lasso,
     LinearRegression,
     LogisticRegression,
-    ElasticNet,
     Ridge,
-    Lasso,
 )
-from sklearn.neighbors import (
-    NearestNeighbors,
-)
-from sklearn.base import is_classifier, is_regressor
-from hdbscan import HDBSCAN
+from sklearn.neighbors import NearestNeighbors
 from umap import UMAP
 
 estimators = {

@@ -12,17 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.internals.safe_imports import cpu_only_import
-import cuml.internals.logger as logger
-from cuml.internals.type_utils import CUPY_SPARSE_DTYPES
 import numbers
-from cuml.internals.safe_imports import gpu_only_import
 from functools import partial
-from cuml.common.sparsefuncs import create_csr_matrix_from_count_df
-from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
-from cuml.feature_extraction._stop_words import ENGLISH_STOP_WORDS
+
+import cuml.internals.logger as logger
 from cuml.common.exceptions import NotFittedError
-from cuml.internals.safe_imports import gpu_only_import_from
+from cuml.common.sparsefuncs import (
+    create_csr_matrix_from_count_df,
+    csr_row_normalize_l1,
+    csr_row_normalize_l2,
+)
+from cuml.feature_extraction._stop_words import ENGLISH_STOP_WORDS
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+)
+from cuml.internals.type_utils import CUPY_SPARSE_DTYPES
 
 Series = gpu_only_import_from("cudf", "Series")
 

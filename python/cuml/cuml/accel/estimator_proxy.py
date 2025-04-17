@@ -17,11 +17,11 @@
 import inspect
 import sys
 import types
-from typing import Optional, Tuple, Dict, Any, Type, List
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from cuml.internals import logger
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.safe_imports import gpu_only_import, cpu_only_import
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
 
 class ProxyModule:

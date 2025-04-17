@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 
-import pytest
+import hdbscan
 import numpy as np
+import pytest
 from sklearn.datasets import make_blobs, make_moons
 from sklearn.preprocessing import StandardScaler
-import hdbscan
 
 
 @pytest.fixture(scope="module")

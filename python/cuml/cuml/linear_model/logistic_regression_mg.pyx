@@ -16,25 +16,29 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t
+from libcpp cimport bool
 
-from cuml.common import input_to_cuml_array
 import numpy as np
 
 import cuml.internals
+from cuml.common import input_to_cuml_array
 from cuml.internals.array import CumlArray
-from cuml.linear_model.base_mg import MGFitMixin
 from cuml.linear_model import LogisticRegression
+from cuml.linear_model.base_mg import MGFitMixin
 from cuml.solvers.qn import QNParams
-from cython.operator cimport dereference as deref
 
+from cython.operator cimport dereference as deref
 from pylibraft.common.handle cimport handle_t
+
 from cuml.common.opg_data_utils_mg cimport *
+
 
 # the cdef was copied from cuml.linear_model.qn
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:

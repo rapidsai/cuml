@@ -14,34 +14,41 @@
 # limitations under the License.
 #
 import threading
+
 import treelite.sklearn
-from cuml.internals.safe_imports import gpu_only_import
+
 from cuml.internals.api_decorators import device_interop_preparation
 from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.safe_imports import gpu_only_import
 
 cp = gpu_only_import('cupy')
 import math
-import warnings
 import typing
+import warnings
 
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
-from cuml.legacy.fil.fil import ForestInference
-from cuml.legacy.fil.fil import TreeliteModel
 from pylibraft.common.handle import Handle
-from cuml.internals.base import UniversalBase
-from cuml.internals.array import CumlArray
-from cuml.common.exceptions import NotFittedError
+
 import cuml.internals
+from cuml.common.exceptions import NotFittedError
+from cuml.internals.array import CumlArray
+from cuml.internals.base import UniversalBase
+from cuml.legacy.fil.fil import ForestInference, TreeliteModel
 
 from cython.operator cimport dereference as deref
 
-from cuml.ensemble.randomforest_shared import treelite_serialize, \
-    treelite_deserialize
+from cuml.ensemble.randomforest_shared import (
+    treelite_deserialize,
+    treelite_serialize,
+)
+
 from cuml.ensemble.randomforest_shared cimport *
+
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.prims.label.classlabels import make_monotonic, check_labels
+from cuml.prims.label.classlabels import check_labels, make_monotonic
 
 
 class BaseRandomForestModel(UniversalBase):

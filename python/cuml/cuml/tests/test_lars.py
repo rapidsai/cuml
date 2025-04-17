@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,21 +13,21 @@
 # limitations under the License.
 #
 
-import sklearn
+import sys
 
-from sklearn.linear_model import Lars as skLars
+import pytest
+import sklearn
 from sklearn.datasets import fetch_california_housing
+from sklearn.linear_model import Lars as skLars
+
+from cuml.experimental.linear_model import Lars as cuLars
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import (
     array_equal,
-    unit_param,
     quality_param,
     stress_param,
+    unit_param,
 )
-from cuml.experimental.linear_model import Lars as cuLars
-import sys
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")

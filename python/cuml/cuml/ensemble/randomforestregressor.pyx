@@ -19,43 +19,50 @@
 import sys
 import threading
 
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import,
     gpu_only_import_from,
-    null_decorator
+    null_decorator,
 )
+
 np = cpu_only_import('numpy')
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 rmm = gpu_only_import('rmm')
 
-from cuml.internals.array import CumlArray
-from cuml.internals.global_settings import GlobalSettings
 import cuml.internals
 from cuml.internals import logger
-
+from cuml.internals.array import CumlArray
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mixins import RegressorMixin
+
 from cuml.internals.logger cimport level_enum
-from cuml.common.doc_utils import generate_docstring
-from cuml.common.doc_utils import insert_into_docstring
+
 from cuml.common import input_to_cuml_array
+from cuml.common.doc_utils import generate_docstring, insert_into_docstring
+from cuml.ensemble.randomforest_common import (
+    BaseRandomForestModel,
+    _obtain_fil_model,
+)
 from cuml.internals.utils import check_random_seed
 
-from cuml.ensemble.randomforest_common import BaseRandomForestModel
-from cuml.ensemble.randomforest_common import _obtain_fil_model
 from cuml.ensemble.randomforest_shared cimport *
 
 from cuml.legacy.fil.fil import TreeliteModel
 
+from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t, uint64_t
 
 from cuml.internals.safe_imports import gpu_only_import_from
+
 cuda = gpu_only_import_from('numba', 'cuda')
 
 from pylibraft.common.handle cimport handle_t
+
 cimport cuml.common.cuda
 
 

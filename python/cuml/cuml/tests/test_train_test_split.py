@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,15 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.datasets import make_classification
-from cuml.model_selection import train_test_split
 import pytest
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
+
+from cuml.datasets import make_classification
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+)
+from cuml.model_selection import train_test_split
 
 cudf = gpu_only_import("cudf")
 cp = gpu_only_import("cupy")

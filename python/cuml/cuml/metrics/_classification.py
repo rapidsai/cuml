@@ -17,8 +17,7 @@ import warnings
 
 import cuml.internals
 from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
 cp = gpu_only_import("cupy")
 cudf = gpu_only_import("cudf")

@@ -17,6 +17,7 @@
 import importlib
 
 from cuda.bindings import runtime
+
 from cuml.internals import logger
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.memory_utils import set_global_output_type

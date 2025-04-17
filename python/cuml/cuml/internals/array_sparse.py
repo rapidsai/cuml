@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,20 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from collections import namedtuple
+
 from cuml.internals.array import CumlArray
 from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import class_with_cupy_rmm
-from cuml.internals.logger import debug
 from cuml.internals.safe_imports import (
+    UnavailableError,
     cpu_only_import,
     gpu_only_import,
     gpu_only_import_from,
     null_decorator,
-    UnavailableError,
 )
-from collections import namedtuple
-
 
 cpx_sparse = gpu_only_import("cupyx.scipy.sparse")
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)

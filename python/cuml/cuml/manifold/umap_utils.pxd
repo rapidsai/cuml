@@ -16,16 +16,16 @@
 
 # distutils: language = c++
 
-from rmm.pylibrmm.memory_resource cimport DeviceMemoryResource
-from rmm.librmm.cuda_stream_view cimport cuda_stream_view
-from libcpp.memory cimport unique_ptr
-
-from libc.stdint cimport uint64_t, uintptr_t, int64_t
+from libc.stdint cimport int64_t, uint64_t, uintptr_t
 from libcpp cimport bool
-from libcpp.memory cimport shared_ptr
+from libcpp.memory cimport shared_ptr, unique_ptr
+from rmm.librmm.cuda_stream_view cimport cuda_stream_view
+from rmm.pylibrmm.memory_resource cimport DeviceMemoryResource
+
+from cuml.internals.logger cimport level_enum
 from cuml.metrics.distance_type cimport DistanceType
 from cuml.metrics.raft_distance_type cimport DistanceType as RaftDistanceType
-from cuml.internals.logger cimport level_enum
+
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams":
 

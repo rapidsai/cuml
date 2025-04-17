@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2023, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,8 @@
 
 import argparse
 import json
-from cuml.benchmark import datagen, algorithms
+
+from cuml.benchmark import algorithms, datagen
 from cuml.benchmark.automated.utils.utils import setup_bench
 
 parser = argparse.ArgumentParser(

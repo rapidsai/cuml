@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,20 +13,21 @@
 # limitations under the License.
 #
 
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import pairwise_distances
-from sklearn.datasets import make_blobs
+import pytest
 from sklearn.cluster import DBSCAN as skDBSCAN
+from sklearn.datasets import make_blobs
+from sklearn.metrics import pairwise_distances
+from sklearn.preprocessing import StandardScaler
+
+from cuml.internals.safe_imports import cpu_only_import
 from cuml.testing.utils import (
-    get_pattern,
-    unit_param,
-    quality_param,
-    stress_param,
     array_equal,
     assert_dbscan_equal,
+    get_pattern,
+    quality_param,
+    stress_param,
+    unit_param,
 )
-import pytest
-from cuml.internals.safe_imports import cpu_only_import
 
 np = cpu_only_import("numpy")
 

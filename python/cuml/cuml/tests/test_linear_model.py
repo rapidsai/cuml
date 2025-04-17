@@ -14,9 +14,29 @@
 #
 from functools import lru_cache
 
-from packaging.version import Version
 import pytest
 import sklearn
+from hypothesis import assume, example, given, note
+from hypothesis import strategies as st
+from hypothesis import target
+from hypothesis.extra.numpy import floating_dtypes
+from packaging.version import Version
+from sklearn.datasets import (
+    load_breast_cancer,
+    load_digits,
+    make_classification,
+    make_regression,
+)
+from sklearn.linear_model import ElasticNet as skElasticNet
+from sklearn.linear_model import LinearRegression as skLinearRegression
+from sklearn.linear_model import LogisticRegression as skLog
+from sklearn.linear_model import Ridge as skRidge
+from sklearn.model_selection import train_test_split
+
+from cuml import ElasticNet as cuElasticNet
+from cuml import LinearRegression as cuLinearRegression
+from cuml import LogisticRegression as cuLog
+from cuml import Ridge as cuRidge
 from cuml.internals.array import elements_in_representable_range
 from cuml.internals.safe_imports import (
     cpu_only_import,
@@ -38,26 +58,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-from hypothesis import assume, example, given, note
-from hypothesis import strategies as st
-from hypothesis import target
-from hypothesis.extra.numpy import floating_dtypes
-from sklearn.datasets import (
-    load_breast_cancer,
-    load_digits,
-    make_classification,
-    make_regression,
-)
-from sklearn.linear_model import LinearRegression as skLinearRegression
-from sklearn.linear_model import LogisticRegression as skLog
-from sklearn.linear_model import Ridge as skRidge
-from sklearn.linear_model import ElasticNet as skElasticNet
-from sklearn.model_selection import train_test_split
-
-from cuml import ElasticNet as cuElasticNet
-from cuml import LinearRegression as cuLinearRegression
-from cuml import LogisticRegression as cuLog
-from cuml import Ridge as cuRidge
 
 cp = gpu_only_import("cupy")
 np = cpu_only_import("numpy")
