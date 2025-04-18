@@ -1,5 +1,4 @@
-#
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,13 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
-import cuml.cluster
+import cuml.accel
 from cuml.accel.estimator_proxy import ProxyMixin
 
-__all__ = ("HDBSCAN",)
+
+def test_multiple_import_styles_work():
+    from sklearn import linear_model
+    from sklearn.linear_model import LogisticRegression
+
+    assert linear_model.LogisticRegression is LogisticRegression
+    assert issubclass(LogisticRegression, ProxyMixin)
 
 
-class HDBSCAN(ProxyMixin, cuml.cluster.HDBSCAN):
-    pass
+def test_enabled():
+    assert cuml.accel.enabled()

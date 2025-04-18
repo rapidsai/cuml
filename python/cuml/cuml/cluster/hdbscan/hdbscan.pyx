@@ -17,6 +17,7 @@
 
 from libc.stdint cimport uintptr_t
 
+import cuml.accel
 from cuml.internals.safe_imports import cpu_only_import
 
 np = cpu_only_import('numpy')
@@ -781,7 +782,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.n_rows = n_rows
         self.n_cols = n_cols
 
-        if GlobalSettings().accelerator_active:
+        if cuml.accel.enabled():
             self._raw_data = self.X_m.to_output("numpy")
 
         cdef uintptr_t _input_ptr = X_m.ptr
@@ -968,6 +969,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
             handle=state["handle"],
             verbose=state["_verbose"]
         )
+
+        if (cpu_model := state.get("_cpu_model")) is not None:
+            self._cpu_model = cpu_model
 
         if not state["fit_called_"]:
             return

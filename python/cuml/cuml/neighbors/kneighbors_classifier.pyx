@@ -136,6 +136,7 @@ class KNeighborsClassifier(ClassifierMixin,
     For additional docs, see `scikitlearn's KNeighborsClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
     """
+    _cpu_estimator_import_path = "sklearn.neighbors.KNeighborsClassifier"
 
     y = CumlArrayDescriptor()
     classes_ = CumlArrayDescriptor()
