@@ -22,6 +22,7 @@ from sklearn.linear_model import Lars as skLars
 
 from cuml.experimental.linear_model import Lars as cuLars
 from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.testing.datasets import make_regression_dataset
 from cuml.testing.utils import (
     array_equal,
     quality_param,
@@ -35,7 +36,6 @@ np = cpu_only_import("numpy")
 
 # As tests directory is not a module, we need to add it to the path
 sys.path.insert(0, ".")
-from test_linear_model import make_regression_dataset  # noqa: E402
 
 
 def normalize_data(X, y):

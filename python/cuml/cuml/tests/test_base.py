@@ -23,10 +23,8 @@ import cuml
 from cuml._thirdparty.sklearn.utils.skl_dependencies import (
     BaseEstimator as sklBaseEstimator,
 )
-from cuml.testing.utils import (
-    get_classes_from_package,
-    small_classification_dataset,
-)
+from cuml.testing.datasets import small_classification_dataset
+from cuml.testing.utils import get_classes_from_package
 
 all_base_children = get_classes_from_package(cuml, import_sub_packages=True)
 

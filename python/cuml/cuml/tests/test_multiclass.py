@@ -19,13 +19,13 @@ import pytest
 from cuml import LogisticRegression as cuLog
 from cuml import multiclass as cu_multiclass
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.testing.datasets import make_classification_dataset
 
 np = cpu_only_import("numpy")
 
 
 # As tests directory is not a module, we need to add it to the path
 sys.path.insert(0, ".")
-from test_linear_model import make_classification_dataset  # noqa: E402
 
 
 @pytest.mark.parametrize("strategy", ["ovr", "ovo"])
