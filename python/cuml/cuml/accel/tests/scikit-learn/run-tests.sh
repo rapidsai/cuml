@@ -11,4 +11,6 @@
 
 set -eu
 
-pytest -p cuml.accel --pyargs sklearn -v "$@"
+pytest -p cuml.accel --pyargs sklearn -v \
+    --xfail-list="$(dirname "$0")/xfail-list.yaml" \
+    "$@"

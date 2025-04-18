@@ -16,10 +16,16 @@
 
 from cuml.accel.core import install
 from cuml.accel.magics import load_ipython_extension
-from cuml.accel.pytest_plugin import pytest_load_initial_conftests
+from cuml.accel.pytest_plugin import (
+    pytest_addoption,
+    pytest_collection_modifyitems,
+    pytest_load_initial_conftests,
+)
 
 __all__ = (
     "install",
     "load_ipython_extension",
     "pytest_load_initial_conftests",
+    "pytest_collection_modifyitems",
+    "pytest_addoption",
 )
