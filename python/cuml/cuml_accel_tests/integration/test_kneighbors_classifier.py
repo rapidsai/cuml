@@ -50,7 +50,7 @@ def test_knn_classifier_n_neighbors(classification_data, n_neighbors):
     ), f"Accuracy should be reasonable with n_neighbors={n_neighbors}"
 
 
-@pytest.mark.parametrize("weights", ["uniform"])
+@pytest.mark.parametrize("weights", ["uniform", "distance"])
 def test_knn_classifier_weights(classification_data, weights):
     X, y = classification_data
     model = KNeighborsClassifier(weights=weights)
