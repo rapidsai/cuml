@@ -14,11 +14,8 @@
 # limitations under the License.
 #
 
-
-import cuml
-
-import pytest
 import numpy as np
+import pytest
 from sklearn.datasets import make_regression
 from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score
@@ -156,20 +153,12 @@ def test_ridge_positive(regression_data):
     ), "All coefficients should be non-negative when positive=True"
 
 
-@pytest.mark.skipif(
-    not cuml.GlobalSettings().accelerator_active,
-    reason="Skipping test because accelerator is not active",
-)
 def test_ridge_solver_attribute_default():
     """Test that the solver attribute is correct when not specified."""
     model = Ridge(random_state=42)
     assert model.solver == "auto", "Default solver should be 'auto'"
 
 
-@pytest.mark.skipif(
-    not cuml.GlobalSettings().accelerator_active,
-    reason="Skipping test because accelerator is not active",
-)
 @pytest.mark.parametrize(
     "solver,expected",
     [
@@ -190,10 +179,6 @@ def test_ridge_solver_attribute_initialization(solver, expected):
     ), f"{solver} solver should be translated to '{expected}'"
 
 
-@pytest.mark.skipif(
-    not cuml.GlobalSettings().accelerator_active,
-    reason="Skipping test because accelerator is not active",
-)
 @pytest.mark.parametrize(
     "solver,expected_solver_",
     [

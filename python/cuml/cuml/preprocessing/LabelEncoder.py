@@ -18,10 +18,7 @@ from typing import TYPE_CHECKING
 
 from cuml import Base
 from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-)
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
 if TYPE_CHECKING:
     import cudf
@@ -292,12 +289,7 @@ class LabelEncoder(Base):
 
         y = y.astype(self.dtype)
 
-        # TODO: Remove ._column once .replace correctly accepts cudf.Index
-        ran_idx = (
-            cudf.Index(cp.arange(len(self.classes_)))
-            .astype(self.dtype)
-            ._column
-        )
+        ran_idx = cudf.Index(cp.arange(len(self.classes_))).astype(self.dtype)
         res = y.replace(ran_idx, self.classes_)
 
         return res

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,16 +25,16 @@ except ImportError:
 
 import cuml.internals.input_utils
 import cuml.internals.memory_utils
-
 from cuml.internals.array_sparse import SparseCumlArray
 
 if TYPE_CHECKING:
     from cuml.internals.base import Base
+
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.safe_imports import (
-    gpu_only_import_from,
     UnavailableNullContext,
+    gpu_only_import_from,
 )
 
 cupy_using_allocator = gpu_only_import_from(

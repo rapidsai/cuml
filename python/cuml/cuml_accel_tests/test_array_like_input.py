@@ -16,11 +16,10 @@
 
 import numpy as np
 import pytest
+from sklearn.linear_model import LogisticRegression, Ridge
+
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.global_settings import GlobalSettings
-from sklearn.linear_model import LogisticRegression
-from sklearn.linear_model import Ridge
 
 
 @pytest.mark.parametrize(
@@ -34,9 +33,6 @@ from sklearn.linear_model import Ridge
 )
 def test_cumlarray_list_tuple_input(input_data, expected):
     """Test CumlArray construction with list/tuple inputs."""
-    if not GlobalSettings().accelerator_active:
-        pytest.skip("Skipping test because accelerator is not active")
-
     arr = CumlArray(input_data)
     assert isinstance(arr, CumlArray)
     np.testing.assert_array_equal(arr.to_output("numpy"), expected)
@@ -53,9 +49,6 @@ def test_cumlarray_list_tuple_input(input_data, expected):
 )
 def test_cumlarray_construction_with_empty_lists(input_data, expected):
     """Test CumlArray construction with empty lists/tuples."""
-    if not GlobalSettings().accelerator_active:
-        pytest.skip("Skipping test because accelerator is not active")
-
     arr = CumlArray(input_data)
     assert isinstance(arr, CumlArray)
     np.testing.assert_array_equal(arr.to_output("numpy"), expected)
@@ -70,9 +63,6 @@ def test_cumlarray_construction_with_empty_lists(input_data, expected):
 )
 def test_cumlarray_construction_with_mixed_types(input_data, expected):
     """Test CumlArray construction with mixed type inputs."""
-    if not GlobalSettings().accelerator_active:
-        pytest.skip("Skipping test because accelerator is not active")
-
     arr = CumlArray(input_data)
     assert isinstance(arr, CumlArray)
     np.testing.assert_array_equal(arr.to_output("numpy"), expected)
@@ -92,9 +82,6 @@ def test_cumlarray_construction_with_mixed_types(input_data, expected):
 )
 def test_cumlarray_from_input(input_data, expected):
     """Test CumlArray.from_input() with array-like inputs."""
-    if not GlobalSettings().accelerator_active:
-        pytest.skip("Skipping test because accelerator is not active")
-
     arr = CumlArray.from_input(input_data)
     assert isinstance(arr, CumlArray)
     np.testing.assert_array_equal(arr.to_output("numpy"), expected)
@@ -103,9 +90,6 @@ def test_cumlarray_from_input(input_data, expected):
 @pytest.mark.parametrize("dtype", [np.float32, np.float64, np.int32, np.int64])
 def test_cumlarray_from_input_with_dtype(dtype):
     """Test CumlArray.from_input() with different dtypes."""
-    if not GlobalSettings().accelerator_active:
-        pytest.skip("Skipping test because accelerator is not active")
-
     arr = CumlArray.from_input([1, 2, 3], convert_to_dtype=dtype)
     assert isinstance(arr, CumlArray)
     np.testing.assert_array_equal(
@@ -124,9 +108,6 @@ def test_cumlarray_from_input_with_dtype(dtype):
 )
 def test_input_to_cuml_array_list_tuple_input(input_data, expected):
     """Test input_to_cuml_array with list/tuple inputs."""
-    if not GlobalSettings().accelerator_active:
-        pytest.skip("Skipping test because accelerator is not active")
-
     result = input_to_cuml_array(input_data)
     assert isinstance(result.array, CumlArray)
     np.testing.assert_array_equal(result.array.to_output("numpy"), expected)
@@ -143,9 +124,6 @@ def test_input_to_cuml_array_list_tuple_input(input_data, expected):
 )
 def test_input_to_cuml_array_empty_lists(input_data, expected):
     """Test input_to_cuml_array with empty lists/tuples."""
-    if not GlobalSettings().accelerator_active:
-        pytest.skip("Skipping test because accelerator is not active")
-
     result = input_to_cuml_array(input_data)
     assert isinstance(result.array, CumlArray)
     np.testing.assert_array_equal(result.array.to_output("numpy"), expected)
@@ -160,9 +138,6 @@ def test_input_to_cuml_array_empty_lists(input_data, expected):
 )
 def test_input_to_cuml_array_mixed_types(input_data, expected):
     """Test input_to_cuml_array with mixed type inputs."""
-    if not GlobalSettings().accelerator_active:
-        pytest.skip("Skipping test because accelerator is not active")
-
     result = input_to_cuml_array(input_data)
     assert isinstance(result.array, CumlArray)
     np.testing.assert_array_equal(result.array.to_output("numpy"), expected)
@@ -170,9 +145,6 @@ def test_input_to_cuml_array_mixed_types(input_data, expected):
 
 def test_logistic_regression_list_input():
     """Test LogisticRegression with list input."""
-    if not GlobalSettings().accelerator_active:
-        pytest.skip("Skipping test because accelerator is not active")
-
     # Create simple binary classification data
     X = [[1, 2], [3, 4], [5, 6]]
     y = [0, 1, 0]
@@ -192,9 +164,6 @@ def test_logistic_regression_list_input():
 
 def test_ridge_list_input():
     """Test Ridge regression with list input."""
-    if not GlobalSettings().accelerator_active:
-        pytest.skip("Skipping test because accelerator is not active")
-
     # Create simple regression data
     X = [[1, 2], [3, 4], [5, 6]]
     y = [2, 4, 6]

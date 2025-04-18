@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,17 +15,22 @@
 #
 
 
-from cuml.internals.safe_imports import cpu_only_import
-from cuml.internals.safe_imports import cpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import_from
-from sklearn.feature_extraction.text import TfidfVectorizer as SkTfidfVect
-from sklearn.feature_extraction.text import HashingVectorizer as SkHashVect
-from sklearn.feature_extraction.text import CountVectorizer as SkCountVect
 import pytest
-from cuml.feature_extraction.text import CountVectorizer
-from cuml.feature_extraction.text import TfidfVectorizer
-from cuml.feature_extraction.text import HashingVectorizer
-from cuml.internals.safe_imports import gpu_only_import
+from sklearn.feature_extraction.text import CountVectorizer as SkCountVect
+from sklearn.feature_extraction.text import HashingVectorizer as SkHashVect
+from sklearn.feature_extraction.text import TfidfVectorizer as SkTfidfVect
+
+from cuml.feature_extraction.text import (
+    CountVectorizer,
+    HashingVectorizer,
+    TfidfVectorizer,
+)
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    cpu_only_import_from,
+    gpu_only_import,
+    gpu_only_import_from,
+)
 
 cp = gpu_only_import("cupy")
 

@@ -17,29 +17,32 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals import logger
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
-from cuml.internals import logger
-from cuml.common.doc_utils import generate_docstring
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.mixins import ClusterMixin
-from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
+
 from cuml.internals.logger cimport level_enum
 
-
 IF GPUBUILD == 1:
+    from libc.stdint cimport int64_t, uintptr_t
     from libcpp cimport bool
-    from libc.stdint cimport uintptr_t, int64_t
     from pylibraft.common.handle cimport handle_t
+
     from cuml.metrics.distance_type cimport DistanceType
-    from cuml.common import input_to_cuml_array
-    from cuml.common import using_output_type
+    from cuml.common import input_to_cuml_array, using_output_type
     cdef extern from "cuml/cluster/dbscan.hpp" \
             namespace "ML::Dbscan":
 

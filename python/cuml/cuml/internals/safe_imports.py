@@ -17,14 +17,14 @@
 
 import importlib
 import traceback
-
 from contextlib import contextmanager
+
+from cuml.internals import logger
 from cuml.internals.device_support import (
     CPU_ENABLED,
     GPU_ENABLED,
     MIN_SKLEARN_PRESENT,
 )
-from cuml.internals import logger
 
 
 class UnavailableError(Exception):

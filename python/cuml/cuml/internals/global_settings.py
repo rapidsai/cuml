@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+# Copyright (c) 2021-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 import os
 import threading
+
 from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.device_type import DeviceType
 from cuml.internals.mem_type import MemoryType
@@ -50,9 +51,6 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
             {
                 "_output_type": None,
                 "root_cm": None,
-                "accelerator_active": False,
-                "accelerator_loaded": False,
-                "accelerated_modules": {},
             }
         )
 

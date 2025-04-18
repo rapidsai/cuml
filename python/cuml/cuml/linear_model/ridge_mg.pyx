@@ -16,22 +16,27 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 
 from cuml.internals.safe_imports import gpu_only_import
+
 rmm = gpu_only_import('rmm')
 
-from libcpp cimport bool
-from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
+from libc.stdint cimport uintptr_t
+from libcpp cimport bool
 
 import cuml.internals
+
 from pylibraft.common.handle cimport handle_t
+
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.decomposition.utils cimport *
 
 from cuml.linear_model import Ridge
 from cuml.linear_model.base_mg import MGFitMixin
+
 
 cdef extern from "cuml/linear_model/ridge_mg.hpp" namespace "ML::Ridge::opg":
 

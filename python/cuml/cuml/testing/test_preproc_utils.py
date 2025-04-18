@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,17 +13,19 @@
 # limitations under the License.
 #
 
-from cuml.common import input_to_cuml_array
+import pytest
+from cupyx.scipy.sparse import coo_matrix as gpu_coo_matrix
 from scipy.sparse import coo_matrix as cpu_coo_matrix
 from scipy.sparse import csc_matrix as cpu_csc_matrix
-from cupyx.scipy.sparse import coo_matrix as gpu_coo_matrix
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals.safe_imports import cpu_only_import
-import pytest
 
-from cuml.datasets import make_classification, make_blobs
-from cuml.internals.safe_imports import cpu_only_import_from
+from cuml.common import input_to_cuml_array
+from cuml.datasets import make_blobs, make_classification
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    cpu_only_import_from,
+    gpu_only_import,
+    gpu_only_import_from,
+)
 
 np_assert_allclose = cpu_only_import_from("numpy.testing", "assert_allclose")
 

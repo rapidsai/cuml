@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,24 +17,29 @@
 # distutils: language = c++
 
 import typing
+
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import_from,
-    null_decorator
+    null_decorator,
 )
+
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
 np = cpu_only_import('numpy')
 
 import cuml.internals
 from cuml.internals.array import CumlArray
+
 from pylibraft.common.handle cimport handle_t
+
 from pylibraft.common.handle import Handle
 
-from libcpp cimport bool
 from libc.stdint cimport uint64_t, uintptr_t
+from libcpp cimport bool
 
 from random import randint
+
 
 cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML":
     void cpp_make_regression "ML::Datasets::make_regression" (

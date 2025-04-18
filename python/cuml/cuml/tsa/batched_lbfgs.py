@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 
-from cuml.common import has_scipy
 import cuml.internals.logger as logger
+from cuml.common import has_scipy
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import_from,
