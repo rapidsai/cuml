@@ -318,6 +318,9 @@
 - id: "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-full]"
 - id: "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-randomized]"
 - id: "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[arpack-sparse]"
+- id: "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[randomized-sparse]"
+  reason: "This test will fail non-deterministically on the GPU"
+  strict: false
 - id: "sklearn.decomposition.tests.test_truncated_svd::test_truncated_svd_eq_pca"
 - id: "sklearn.ensemble.tests.test_bagging::test_bagging_small_max_features"
 - id: "sklearn.ensemble.tests.test_bagging::test_estimators_samples"
@@ -1323,4 +1326,3 @@
 - id: "sklearn.utils.tests.test_estimator_html_repr::test_show_arrow_pipeline"
 - id: "sklearn.utils.tests.test_parallel::test_dispatch_config_parallel[2]"
 - id: "sklearn.utils.tests.test_validation::test_has_fit_parameter"
-
