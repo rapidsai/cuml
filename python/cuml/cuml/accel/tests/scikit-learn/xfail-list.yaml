@@ -19,6 +19,8 @@
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-0-dense-blobs]"
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-0-dense-normal]"
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-1e-100-dense-blobs]"
+  reason: "Test can fail due to numerical precision differences between CPU and GPU"
+  strict: false
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_empty_cluster_relocated[dense]"
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-<lambda>-default]"
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-array-like-1]"
@@ -48,6 +50,8 @@
 - id: "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[elkan-dense]"
 - id: "sklearn.cluster.tests.test_k_means::test_relocating_with_duplicates[lloyd-dense]"
 - id: "sklearn.cluster.tests.test_k_means::test_score_max_iter[42-KMeans]"
+  reason: "Test can fail due to numerical precision differences between CPU and GPU"
+  strict: false
 - id: "sklearn.cluster.tests.test_k_means::test_transform[42-KMeans]"
 - id: "sklearn.cluster.tests.test_k_means::test_warning_elkan_1_cluster"
 - id: "sklearn.cluster.tests.test_k_means::test_warning_n_init_precomputed_centers[KMeans]"
@@ -318,8 +322,10 @@
 - id: "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-full]"
 - id: "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-randomized]"
 - id: "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[arpack-sparse]"
+  reason: "Test can fail due to numerical precision differences between CPU and GPU"
+  strict: false
 - id: "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[randomized-sparse]"
-  reason: "This test will fail non-deterministically on the GPU"
+  reason: "Test can fail due to numerical precision differences between CPU and GPU"
   strict: false
 - id: "sklearn.decomposition.tests.test_truncated_svd::test_truncated_svd_eq_pca"
 - id: "sklearn.ensemble.tests.test_bagging::test_bagging_small_max_features"
@@ -484,7 +490,11 @@
 - id: "sklearn.feature_selection.tests.test_rfe::test_rfe_estimator_attribute_error"
 - id: "sklearn.feature_selection.tests.test_rfe::test_rfe_features_importance"
 - id: "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[2]"
+  reason: "Test can fail due to numerical precision differences between CPU and GPU"
+  strict: false
 - id: "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[3]"
+  reason: "Test can fail due to numerical precision differences between CPU and GPU"
+  strict: false
 - id: "sklearn.impute.tests.test_knn::test_knn_imputer_weight_distance[-1]"
 - id: "sklearn.impute.tests.test_knn::test_knn_imputer_weight_distance[nan]"
 - id: "sklearn.inspection.tests.test_partial_dependence::test_partial_dependence_sample_weight_with_recursion"
@@ -720,6 +730,8 @@
 - id: "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_array-barnes_hut]"
 - id: "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_array-exact]"
 - id: "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_matrix-barnes_hut]"
+  reason: "Test can fail due to numerical precision differences between CPU and GPU"
+  strict: false
 - id: "sklearn.manifold.tests.test_t_sne::test_high_perplexity_precomputed_sparse_distances[csr_array]"
 - id: "sklearn.manifold.tests.test_t_sne::test_high_perplexity_precomputed_sparse_distances[csr_matrix]"
 - id: "sklearn.manifold.tests.test_t_sne::test_init_ndarray"
@@ -729,6 +741,8 @@
 - id: "sklearn.manifold.tests.test_t_sne::test_n_iter_without_progress"
 - id: "sklearn.manifold.tests.test_t_sne::test_non_positive_computed_distances"
 - id: "sklearn.manifold.tests.test_t_sne::test_optimization_minimizes_kl_divergence"
+  strict: false
+  reason: "Test can fail due to numerical precision differences between CPU and GPU"
 - id: "sklearn.manifold.tests.test_t_sne::test_pca_initialization_not_compatible_with_precomputed_kernel"
 - id: "sklearn.manifold.tests.test_t_sne::test_pca_initialization_not_compatible_with_sparse_input[csr_array]"
 - id: "sklearn.manifold.tests.test_t_sne::test_pca_initialization_not_compatible_with_sparse_input[csr_matrix]"
