@@ -18,7 +18,6 @@ from collections import defaultdict
 from importlib.metadata import version
 from pathlib import Path
 
-import pytest
 import yaml
 from packaging.requirements import Requirement
 
@@ -71,6 +70,10 @@ def create_version_condition(condition_str: str) -> bool:
 
 def pytest_collection_modifyitems(config, items):
     """Apply xfail markers to tests listed in the xfail list file."""
+    # Import pytest lazily to avoid requiring it for normal cuml usage.
+    # pytest is only needed when running tests.
+    import pytest
+
     xfail_list_path = config.getoption("xfail_list")
     if not xfail_list_path:
         return
