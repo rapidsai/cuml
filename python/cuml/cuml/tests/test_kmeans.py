@@ -197,12 +197,14 @@ def test_kmeans_clusters_blobs(
         random_state=0,
     )
 
+    # Set n_init to 2 to improve stability of k-means|| initialization
+    # See https://github.com/rapidsai/cuml/issues/5530 for details
     cuml_kmeans = cuml.KMeans(
         init="k-means||",
         n_clusters=nclusters,
         random_state=random_state,
         output_type="numpy",
-        n_init=1,
+        n_init=2,
     )
 
     preds = cuml_kmeans.fit_predict(X)
