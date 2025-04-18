@@ -187,8 +187,6 @@ void build_linkage(const raft::handle_t& handle,
     metric,
     params.alpha);
 
-  // int n_rows = static_cast<int>(m);
-
   cuvs::cluster::agglomerative::build_mutual_reachability_linkage(
     handle,
     raft::make_device_matrix_view<const value_t, value_idx>(X, m, n),
