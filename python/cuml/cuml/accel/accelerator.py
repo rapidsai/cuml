@@ -24,7 +24,7 @@ import sys
 import types
 from collections.abc import Iterable
 from threading import RLock
-from typing import Any, Callable, Union, overload
+from typing import Any, Callable, Union
 
 __all__ = ("Accelerator",)
 
@@ -250,24 +250,14 @@ class Accelerator:
         # minimizing the changes needed if/when we want to add that feature.
         return self.installed
 
-    @overload
-    def register(self, name: str, patch: PatchType) -> None:
-        ...
-
-    @overload
-    def register(
-        self, name: str, patch: None = None
-    ) -> Callable[[PatchType], PatchType]:
-        ...
-
-    def register(self, name, patch=None):
+    def register(self, name: str, patch: PatchType):
         """Register a new patch for a module.
 
         Parameters
         ----------
         name : str
             The name of the unaccelerated module to patch.
-        patch : mapping, callable, or str, optional
+        patch : mapping, callable, or str
             May be one of the following:
 
             - A mapping of attributes to override in the accelerated module.
@@ -277,8 +267,6 @@ class Accelerator:
               specified in `__all__` in the module will be used to override
               attributes in the accelerated module.
 
-            May also be elided to use `register` as a decorator instead.
-
         Examples
         --------
         >>> accel = Accelerator()
@@ -287,27 +275,12 @@ class Accelerator:
 
         >>> accel.register("fizzbuzz", {"fizz": lambda: "buzz"})
 
-        Register a callable returning a mapping of overrides for module ``foobar``.
+        Register a module path defining overrides to use for module ``foobar``.
 
-        >>> @accel.register("foobar")
-        ... def patch(module):
-        ...     return {"foo": lambda: "bar"}
+        >>> accel.register("foobar", "fast.foobar")
         """
-
-        def inner(patch):
-            self.patches[name] = patch
-            # Check if the accelerator is already installed - if it is we
-            # might want to apply the patch eagerly.
-            with self._lock:
-                if self._installed:
-                    self._maybe_patch(name)
-            # Return the function from the decorator
-            return patch
-
-        if patch is None:
-            return inner
-        else:
-            inner(patch)
+        assert not self._installed
+        self.patches[name] = patch
 
     def _maybe_patch(self, name: str) -> None:
         if (module := sys.modules.get(name)) is None:
