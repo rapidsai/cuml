@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@
 #include <thrust/scatter.h>
 #include <thrust/transform.h>
 
+#include <cuvs/cluster/agglomerative.hpp>
 #include <cuvs/neighbors/reachability.hpp>
 
 namespace ML {
@@ -186,42 +187,21 @@ void build_linkage(const raft::handle_t& handle,
     metric,
     params.alpha);
 
-  /**
-   * Construct MST sorted by weights
-   */
+  // int n_rows = static_cast<int>(m);
 
-  rmm::device_uvector<value_idx> color(m, stream);
-  FixConnectivitiesRedOp<value_idx, value_t> red_op(core_dists, m);
-  // during knn graph connection
-  raft::cluster::detail::build_sorted_mst(handle,
-                                          X,
-                                          mutual_reachability_indptr.data(),
-                                          mutual_reachability_coo.cols(),
-                                          mutual_reachability_coo.vals(),
-                                          m,
-                                          n,
-                                          out.get_mst_src(),
-                                          out.get_mst_dst(),
-                                          out.get_mst_weights(),
-                                          color.data(),
-                                          mutual_reachability_coo.nnz,
-                                          red_op,
-                                          static_cast<raft::distance::DistanceType>(metric),
-                                          (size_t)10);
-
-  /**
-   * Perform hierarchical labeling
-   */
-  size_t n_edges = m - 1;
-
-  raft::cluster::detail::build_dendrogram_host(handle,
-                                               out.get_mst_src(),
-                                               out.get_mst_dst(),
-                                               out.get_mst_weights(),
-                                               n_edges,
-                                               out.get_children(),
-                                               out.get_deltas(),
-                                               out.get_sizes());
+  cuvs::cluster::agglomerative::build_mutual_reachability_linkage(
+    handle,
+    raft::make_device_matrix_view<const value_t, value_idx>(X, m, n),
+    metric,
+    raft::make_device_vector_view<value_t, value_idx>(core_dists, m),
+    raft::make_device_vector_view<value_idx, value_idx>(mutual_reachability_indptr.data(), m + 1),
+    mutual_reachability_coo,
+    raft::make_device_vector_view<value_idx, value_idx>(out.get_mst_src(), m - 1),
+    raft::make_device_vector_view<value_idx, value_idx>(out.get_mst_dst(), m - 1),
+    raft::make_device_vector_view<value_t, value_idx>(out.get_mst_weights(), m - 1),
+    raft::make_device_matrix_view<value_idx, value_idx>(out.get_children(), m - 1, 2),
+    raft::make_device_vector_view<value_t, value_idx>(out.get_deltas(), m - 1),
+    raft::make_device_vector_view<value_idx, value_idx>(out.get_sizes(), m - 1));
 }
 
 template <typename value_idx = int64_t, typename value_t = float>

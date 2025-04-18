@@ -48,8 +48,8 @@ function(find_and_configure_cuvs)
       BUILD_EXPORT_SET    cuml-exports
       INSTALL_EXPORT_SET  cuml-exports
       CPM_ARGS
-        GIT_REPOSITORY         https://github.com/${PKG_FORK}/cuvs.git
-        GIT_TAG                ${PKG_PINNED_TAG}
+        GIT_REPOSITORY         https://github.com/tarang-jain/cuvs.git
+        GIT_TAG                build-linkage
         SOURCE_SUBDIR          cpp
         EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
         OPTIONS
