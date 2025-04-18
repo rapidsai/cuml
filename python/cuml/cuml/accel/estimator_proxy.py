@@ -18,6 +18,16 @@ import importlib
 import inspect
 
 
+def is_proxy(instance_or_class) -> bool:
+    """Check if an instance or class is a proxy object created by the accelerator."""
+
+    if isinstance(instance_or_class, type):
+        cls = instance_or_class
+    else:
+        cls = type(instance_or_class)
+    return issubclass(cls, ProxyMixin)
+
+
 def reconstruct_proxy(proxy_module, proxy_name, state):
     module = importlib.import_module(proxy_module)
     cls = getattr(module, proxy_name)

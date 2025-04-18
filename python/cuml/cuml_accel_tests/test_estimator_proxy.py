@@ -22,6 +22,18 @@ from sklearn import clone
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.neighbors import NearestNeighbors
 
+from cuml.accel import is_proxy
+
+
+def test_is_proxy():
+    class Foo:
+        pass
+
+    assert is_proxy(PCA)
+    assert is_proxy(PCA())
+    assert not is_proxy(Foo)
+    assert not is_proxy(Foo())
+
 
 def test_meta_attributes():
     # Check that the proxy estimator pretends to look like the
