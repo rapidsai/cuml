@@ -23,6 +23,22 @@ from pathlib import Path
 import yaml
 
 
+class QuoteTestID(str):
+    """String subclass to force quoting of test IDs."""
+
+    pass
+
+
+def setup_yaml():
+    """Configure YAML dumper with custom string handling."""
+
+    def quoted_scalar(dumper, data):
+        scalar_tag = "tag:yaml.org,2002:str"
+        return dumper.represent_scalar(scalar_tag, data, style='"')
+
+    yaml.add_representer(QuoteTestID, quoted_scalar)
+
+
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -115,10 +131,12 @@ def main():
                 if not classname.startswith("sklearn."):
                     classname = f"sklearn.{classname}"
                 test_id = f"{classname}::{testcase.get('name')}"
-                xfail_list.append({"id": test_id})
+                # Only quote the test ID value, not the key
+                xfail_list.append({"id": QuoteTestID(test_id)})
         # Sort entries alphabetically by test ID
         xfail_list.sort(key=lambda x: x["id"])
         # Use a large width to prevent unwanted line breaks
+        setup_yaml()
         print(yaml.dump(xfail_list, sort_keys=False, width=float("inf")))
         return
 
