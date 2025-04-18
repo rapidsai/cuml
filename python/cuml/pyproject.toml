@@ -129,7 +129,7 @@ test = [
     "cython>=3.0.0",
     "dask-ml",
     "hdbscan>=0.8.39,<0.8.40",
-    "hypothesis>=6.0,<7",
+    "hypothesis>=6.0,<6.131.1",
     "nltk",
     "numpydoc",
     "pynndescent",
