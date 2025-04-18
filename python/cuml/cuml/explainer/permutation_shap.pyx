@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,23 +15,27 @@
 #
 
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 import time
 
 from cuml.internals.safe_imports import gpu_only_import_from
+
 cu_df = gpu_only_import_from('cudf', 'DataFrame')
 from cuml.explainer.base import SHAPBase
-from cuml.explainer.common import get_cai_ptr
-from cuml.explainer.common import model_func_call
+from cuml.explainer.common import get_cai_ptr, model_func_call
+
 cuda = gpu_only_import_from('numba', 'cuda')
 from cuml.internals.safe_imports import cpu_only_import_from
+
 pd_df = cpu_only_import_from('pandas', 'DataFrame')
 
-from pylibraft.common.handle cimport handle_t
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t
+from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
 
 
 cdef extern from "cuml/explainer/permutation_shap.hpp" namespace "ML":

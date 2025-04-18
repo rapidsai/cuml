@@ -27,7 +27,6 @@ from cuml.manifold.umap import (
 from cuml.metrics import trustworthiness
 from cuml.neighbors import NearestNeighbors
 
-
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")

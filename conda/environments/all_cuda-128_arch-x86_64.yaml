@@ -71,6 +71,7 @@ dependencies:
 - sphinx<8.2.0
 - statsmodels
 - sysroot_linux-64==2.28
+- tenacity
 - treelite==4.4.1
 - umap-learn==0.5.6
 - xgboost>=2.1.0,<3.0.0

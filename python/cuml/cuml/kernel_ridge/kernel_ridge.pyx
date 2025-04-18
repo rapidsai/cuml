@@ -16,23 +16,26 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
 import warnings
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals.safe_imports import gpu_only_import
-from cupyx import lapack, geterr, seterr
-from cuml.internals.array import CumlArray
+
+from cupyx import geterr, lapack, seterr
+
+from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.base import UniversalBase
+from cuml.common.doc_utils import generate_docstring
 from cuml.internals.api_decorators import (
+    api_base_return_array,
     device_interop_preparation,
     enable_device_interop,
-    api_base_return_array,
 )
+from cuml.internals.array import CumlArray
+from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import RegressorMixin
-from cuml.common.doc_utils import generate_docstring
-from cuml.common import input_to_cuml_array
-
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+)
 from cuml.metrics import pairwise_kernels
 
 cp = gpu_only_import('cupy')

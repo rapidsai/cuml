@@ -13,6 +13,12 @@ repos:
           - id: black
             files: python/.*
             args: [--config, python/cuml/pyproject.toml]
+    - repo: https://github.com/pycqa/isort
+      rev: 5.13.2
+      hooks:
+          - id: isort
+            files: python/.*
+            args: ["--settings-path", "python/cuml/pyproject.toml"]
     - repo: https://github.com/PyCQA/flake8
       rev: 7.1.1
       hooks:

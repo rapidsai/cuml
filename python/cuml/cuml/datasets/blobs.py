@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,13 +15,13 @@
 #
 
 import numbers
-import cuml.internals
-
 from collections.abc import Iterable
-from cuml.internals.safe_imports import gpu_only_import
+
+import cuml.internals
 from cuml.datasets.utils import _create_rs_generator
 from cuml.internals.safe_imports import (
     cpu_only_import,
+    gpu_only_import,
     gpu_only_import_from,
     null_decorator,
 )

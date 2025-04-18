@@ -16,46 +16,67 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import gpu_only_import
+
 cudf = gpu_only_import('cudf')
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 
 from cuml.internals.safe_imports import gpu_only_import_from
+
 cuda = gpu_only_import_from('numba', 'cuda')
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 
 import warnings
-import cuml.internals
-from cuml.internals.array import CumlArray
-from cuml.internals.mixins import ClassifierMixin
-from cuml.common.doc_utils import generate_docstring
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.logger import warn
-from cuml.internals.logger cimport level_enum
-from pylibraft.common.handle cimport handle_t
-from pylibraft.common.interruptible import cuda_interruptible
-from cuml.common import input_to_cuml_array, input_to_host_array, input_to_host_array_with_sparse_support
-from cuml.internals.input_utils import input_to_cupy_array, determine_array_type_full
-from cuml.preprocessing import LabelEncoder
-from libcpp cimport nullptr
-from cuml.svm.svm_base import SVMBase
-from cuml.internals.import_utils import has_sklearn
-from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.api_decorators import device_interop_preparation, enable_device_interop
 
-from cuml.internals.mem_type import MemoryType
+import cuml.internals
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.array import CumlArray
+from cuml.internals.logger import warn
+from cuml.internals.mixins import ClassifierMixin
+
+from pylibraft.common.handle cimport handle_t
+
+from cuml.internals.logger cimport level_enum
+
+from pylibraft.common.interruptible import cuda_interruptible
+
+from cuml.common import (
+    input_to_cuml_array,
+    input_to_host_array,
+    input_to_host_array_with_sparse_support,
+)
+from cuml.internals.input_utils import (
+    determine_array_type_full,
+    input_to_cupy_array,
+)
+from cuml.preprocessing import LabelEncoder
+
+from libcpp cimport nullptr
+
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.available_devices import is_cuda_available
+from cuml.internals.import_utils import has_sklearn
+from cuml.internals.mem_type import MemoryType
+from cuml.svm.svm_base import SVMBase
 
 if has_sklearn():
-    from cuml.multiclass import MulticlassClassifier
     from sklearn.calibration import CalibratedClassifierCV
-    from sklearn.svm import SVC as skSVC
+    from sklearn.multiclass import OneVsOneClassifier, OneVsRestClassifier
     from sklearn.preprocessing import LabelBinarizer
-    from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
+    from sklearn.svm import SVC as skSVC
+
+    from cuml.multiclass import MulticlassClassifier
 
     # TODO: this is a hack to support the current cuml.accel design - we should
     # refactor so normal sklearn.svm classes may be used instead.
@@ -111,8 +132,8 @@ if has_sklearn():
                 return self.multi_class_model.predict_proba(X)
 
 
-cdef extern from "raft/distance/distance_types.hpp" \
-        namespace "raft::distance::kernels":
+cdef extern from "cuvs/distance/distance.hpp" \
+        namespace "cuvs::distance::kernels":
     enum KernelType:
         LINEAR,
         POLYNOMIAL,

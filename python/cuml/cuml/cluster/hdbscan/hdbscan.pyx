@@ -17,33 +17,36 @@
 
 from libc.stdint cimport uintptr_t
 
+import cuml.accel
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 from warnings import warn
 
-from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
-from cuml.common.doc_utils import generate_docstring
-
+import cuml
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
+from cuml.internals.array import CumlArray
+from cuml.internals.base import UniversalBase
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.mixins import ClusterMixin
-from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.import_utils import has_hdbscan
-import cuml
-
+from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 
 IF GPUBUILD == 1:
-    from libcpp cimport bool
-    from libc.stdlib cimport free
     from cython.operator cimport dereference as deref
-    from cuml.metrics.distance_type cimport DistanceType
+    from libc.stdlib cimport free
+    from libcpp cimport bool
     from rmm.librmm.device_uvector cimport device_uvector
+
+    from cuml.metrics.distance_type cimport DistanceType
     from pylibraft.common.handle import Handle
     from pylibraft.common.handle cimport handle_t
 
@@ -608,8 +611,8 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
 
         if self.prediction_data_obj is None:
             if has_hdbscan(raise_if_unavailable=True):
-                from sklearn.neighbors import KDTree, BallTree
                 from hdbscan.prediction import PredictionData
+                from sklearn.neighbors import BallTree, KDTree
 
                 FAST_METRICS = KDTree.valid_metrics + \
                     BallTree.valid_metrics + ["cosine", "arccos"]
@@ -779,7 +782,7 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
         self.n_rows = n_rows
         self.n_cols = n_cols
 
-        if GlobalSettings().accelerator_active:
+        if cuml.accel.enabled():
             self._raw_data = self.X_m.to_output("numpy")
 
         cdef uintptr_t _input_ptr = X_m.ptr
@@ -966,6 +969,9 @@ class HDBSCAN(UniversalBase, ClusterMixin, CMajorInputTagMixin):
             handle=state["handle"],
             verbose=state["_verbose"]
         )
+
+        if (cpu_model := state.get("_cpu_model")) is not None:
+            self._cpu_model = cpu_model
 
         if not state["fit_called_"]:
             return

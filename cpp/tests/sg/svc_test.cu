@@ -22,7 +22,6 @@
 #include <cuml/svm/svr.hpp>
 
 #include <raft/core/math.hpp>
-#include <raft/distance/kernels.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/transpose.cuh>
@@ -43,6 +42,8 @@
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
 
+#include <cuvs/distance/distance.hpp>
+#include <cuvs/distance/grammian.hpp>
 #include <gtest/gtest.h>
 #include <svm/smoblocksolve.cuh>
 #include <svm/smosolver.cuh>
@@ -56,7 +57,7 @@
 
 namespace ML {
 namespace SVM {
-using namespace raft::distance::kernels;
+using namespace cuvs::distance::kernels;
 
 // Initialize device vector C_vec with scalar C
 template <typename math_t>

@@ -16,8 +16,8 @@
 
 import pytest
 from sklearn.datasets import make_swiss_roll
-from umap import UMAP
 from sklearn.manifold import trustworthiness
+from umap import UMAP
 
 
 @pytest.fixture(scope="module")

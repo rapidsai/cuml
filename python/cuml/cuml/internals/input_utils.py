@@ -21,15 +21,15 @@ from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.safe_imports import (
+    UnavailableError,
     cpu_only_import,
     cpu_only_import_from,
     gpu_only_import,
     gpu_only_import_from,
-    safe_import,
-    safe_import_from,
     null_decorator,
     return_false,
-    UnavailableError,
+    safe_import,
+    safe_import_from,
 )
 
 cudf = gpu_only_import("cudf")

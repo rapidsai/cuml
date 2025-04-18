@@ -34,17 +34,21 @@ GPU arrays directly instead.
 
 """
 
-from cuml.internals.import_utils import has_scipy
-from cuml.internals.safe_imports import gpu_only_import_from
-from cuml.internals import input_utils
-from urllib.request import urlretrieve
-import sklearn.model_selection
-from sklearn.datasets import load_svmlight_file, fetch_covtype
-import cuml.datasets
-from cuml.internals.safe_imports import cpu_only_import
-import os
 import functools
-from cuml.internals.safe_imports import gpu_only_import
+import os
+from urllib.request import urlretrieve
+
+import sklearn.model_selection
+from sklearn.datasets import fetch_covtype, load_svmlight_file
+
+import cuml.datasets
+from cuml.internals import input_utils
+from cuml.internals.import_utils import has_scipy
+from cuml.internals.safe_imports import (
+    cpu_only_import,
+    gpu_only_import,
+    gpu_only_import_from,
+)
 
 cudf = gpu_only_import("cudf")
 np = cpu_only_import("numpy")

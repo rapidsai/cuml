@@ -15,13 +15,12 @@
 #
 
 
-import pytest
+import hdbscan
 import numpy as np
+import pytest
+from hdbscan import prediction, validity
 from sklearn.datasets import make_blobs
 from sklearn.preprocessing import StandardScaler
-import hdbscan
-from hdbscan import validity
-from hdbscan import prediction
 
 
 @pytest.fixture(scope="module")
