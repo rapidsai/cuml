@@ -38,10 +38,10 @@ class ProxyMixin:
         cls.__init__.__signature__ = cls._cpu_model_sig
 
     def __init__(self, *args, **kwargs):
-        # The cuml signature may not align with the sklearn signature.
-        # Additionally, some sklearn models support positional arguments.
+        # The cuml signature may not align with the CPU signature.
+        # Additionally, some models support positional arguments.
         # To work around this, we
-        # - Bind arguments to the sklearn signature
+        # - Bind arguments to the CPU signature
         # - Convert the arguments to named parameters
         # - Translate them to cuml equivalents
         # - Then forward them on to the cuml class

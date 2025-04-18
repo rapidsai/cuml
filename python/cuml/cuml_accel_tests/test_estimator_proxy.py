@@ -86,7 +86,7 @@ def test_pickle_loads_doesnt_install_accelerator():
         from cuml.accel.estimator_proxy import ProxyMixin
         from sklearn.decomposition import PCA
 
-        # Unpickling doesn't installed the accelerator or patch sklearn
+        # Unpickling hasn't installed the accelerator or patched sklearn
         assert not issubclass(PCA, ProxyMixin)
         assert not enabled()
         """

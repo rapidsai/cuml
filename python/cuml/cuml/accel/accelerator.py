@@ -54,21 +54,28 @@ class AccelModule(types.ModuleType):
 
     def __getattr__(self, name: str) -> Any:
         if (accelerated := self._accel_overrides.get(name)) is not None:
-            # This _could_ be accelerated. Check that the caller frame
-            # isn't in the denylist first.
+            # This has an override and could be accelerated. We first need
+            # to check that the accessing module isn't in the denylist.
+            #
+            # To do this we walk up the stack, skipping frames in importlib
             frame = sys._getframe()
             while True:
                 assert frame.f_back is not None
+                # Get the module name of the caller (if available)
                 modname = frame.f_back.f_globals.get("__name__")
-                if modname is None:
-                    break
-                modname = modname.split(".", 1)[0]
-                if modname != "importlib":
-                    break
-                frame = frame.f_back
+                if modname is not None:
+                    modname = modname.split(".", 1)[0]
+                    if modname == "importlib":
+                        # Caller is in importlib, continue up the stack
+                        frame = frame.f_back
+                        continue
+                # Found a valid module name
+                break
 
             if modname not in self._accel_denylist:
+                # Not in denylist, use the accelerated version
                 return accelerated
+
         return getattr(self._accel_module, name)
 
     def __setattr__(self, name: str, val: Any) -> None:
@@ -280,6 +287,7 @@ class Accelerator:
         >>> accel.register("foobar", "fast.foobar")
         """
         assert not self._installed
+        assert name not in self.patches
         self.patches[name] = patch
 
     def _maybe_patch(self, name: str) -> None:
