@@ -45,7 +45,7 @@ def test_knn_regressor_n_neighbors(regression_data, n_neighbors):
     r2_score(y, y_pred)
 
 
-@pytest.mark.parametrize("weights", ["uniform"])
+@pytest.mark.parametrize("weights", ["uniform", "distance"])
 def test_knn_regressor_weights(regression_data, weights):
     X, y = regression_data
     model = KNeighborsRegressor(weights=weights)

@@ -795,10 +795,6 @@ class UniversalBase(Base):
         if not hasattr(self, "_gpuaccel"):
             return cuml.global_settings.device_type
 
-        # if using accelerator and doing inference, always use GPU
-        elif func_name not in ['fit', 'fit_transform', 'fit_predict']:
-            device_type = DeviceType.device
-
         # otherwise we select CPU when _gpuaccel is off
         elif not self._gpuaccel:
             device_type = DeviceType.host
