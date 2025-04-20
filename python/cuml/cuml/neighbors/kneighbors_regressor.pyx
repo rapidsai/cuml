@@ -193,8 +193,7 @@ class KNeighborsRegressor(RegressorMixin,
         predict the labels for X
 
         """
-        if (convert_dtype):
-            cuml.internals.set_api_output_dtype(self._get_target_dtype())
+        out_dtype = self._get_target_dtype()
 
         knn_indices = self.kneighbors(X, return_distance=False,
                                       convert_dtype=convert_dtype)
@@ -235,6 +234,8 @@ class KNeighborsRegressor(RegressorMixin,
 
         self.handle.sync()
 
+        if results.dtype != out_dtype:
+            results = results.astype(out_dtype)
         return results
 
     @classmethod

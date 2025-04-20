@@ -216,7 +216,7 @@ cdef class ForestInference_impl():
             preds=None,
             chunk_size=None,
             output_dtype=None):
-        set_api_output_dtype(output_dtype)
+        out_dtype = output_dtype or self.get_dtype()
         model_dtype = self.get_dtype()
 
         cdef uintptr_t in_ptr
@@ -293,7 +293,8 @@ cdef class ForestInference_impl():
 
         if GlobalSettings().device_type == DeviceType.device:
             self.raft_proto_handle.synchronize()
-
+        if preds.dtype != out_dtype:
+            preds = preds.astype(out_dtype)
         return preds
 
     def predict(

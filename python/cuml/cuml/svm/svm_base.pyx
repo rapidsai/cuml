@@ -731,12 +731,7 @@ class SVMBase(Base,
         y : cuDF Series
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
-        if predict_class:
-            out_dtype = self._get_target_dtype()
-        else:
-            out_dtype = self.dtype
-
-        cuml.internals.set_api_output_dtype(out_dtype)
+        out_dtype = self._get_target_dtype() if predict_class else self.dtype
 
         self._check_is_fitted('_model')
 
@@ -799,6 +794,8 @@ class SVMBase(Base,
 
         del X_m
 
+        if preds.dtype != out_dtype:
+            preds = preds.astype(out_dtype)
         return preds
 
     def __getstate__(self):
