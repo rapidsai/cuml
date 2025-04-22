@@ -14,13 +14,12 @@
 # limitations under the License.
 #
 
-import pytest
 import numpy as np
-import cuml
-from sklearn.datasets import make_blobs
-from sklearn.cluster import KMeans
-from sklearn.metrics import adjusted_rand_score
+import pytest
 from scipy.sparse import csr_matrix
+from sklearn.cluster import KMeans
+from sklearn.datasets import make_blobs
+from sklearn.metrics import adjusted_rand_score
 
 
 @pytest.fixture(scope="module")
@@ -104,10 +103,6 @@ def test_kmeans_random_state(clustering_data):
     assert np.allclose(kmeans1.cluster_centers_, kmeans2.cluster_centers_)
 
 
-@pytest.mark.skipif(
-    not cuml.GlobalSettings().accelerator_active,
-    reason="Skipping test because accelerator is not active",
-)
 def test_kmeans_init_parameter():
     # Check that not passing a value for a constructor argument and passing the
     # scikit-learn default value leads to the same behavior.
@@ -127,9 +122,6 @@ def test_kmeans_init_parameter():
 
 def test_kmeans_sparse_cpu_dispatch():
     """Test that sparse inputs are dispatched to CPU in accel mode"""
-    if not cuml.GlobalSettings().accelerator_active:
-        pytest.skip("Skipping test because accelerator is not active")
-
     # Generate dense data
     X, y = make_blobs(
         n_samples=100,

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,15 @@
 # limitations under the License.
 #
 
-from cuml.dask.common.base import BaseEstimator
-from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.dask.common.base import mnmg_import
-from cuml.dask.common.base import SyncFitMixinLinearModel
-from raft_dask.common.comms import get_raft_comm_state
 from dask.distributed import get_worker
+from raft_dask.common.comms import get_raft_comm_state
+
+from cuml.dask.common.base import (
+    BaseEstimator,
+    DelayedPredictionMixin,
+    SyncFitMixinLinearModel,
+    mnmg_import,
+)
 
 
 class LinearRegression(

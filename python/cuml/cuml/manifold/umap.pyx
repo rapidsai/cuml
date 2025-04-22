@@ -17,49 +17,59 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
 
-import joblib
 import warnings
 
+import joblib
+
 from cuml.internals.safe_imports import gpu_only_import
+
 cupy = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
 
 from cuml.common.sparsefuncs import extract_knn_infos
 from cuml.internals.safe_imports import gpu_only_import_from
+
 cp_csr_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csr_matrix')
 cp_coo_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'coo_matrix')
 cp_csc_matrix = gpu_only_import_from('cupyx.scipy.sparse', 'csc_matrix')
 
+import cuml.accel
 import cuml.internals
-from cuml.internals.base import UniversalBase
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger
+from cuml.internals.base import UniversalBase
+
 from cuml.internals.logger cimport level_enum
-from cuml.internals.available_devices import is_cuda_available
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.mem_type import MemoryType
-from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
-from cuml.common.sparse_utils import is_sparse
-from cuml.internals.utils import check_random_seed
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.common.sparse_utils import is_sparse
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.mem_type import MemoryType
+from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.utils import check_random_seed
 
 rmm = gpu_only_import('rmm')
 
 from libc.stdint cimport uintptr_t
 
-
 if is_cuda_available():
     from cuml.manifold.simpl_set import fuzzy_simplicial_set  # no-cython-lint
-    from cuml.manifold.simpl_set import simplicial_set_embedding  # no-cython-lint
+    from cuml.manifold.simpl_set import (
+        simplicial_set_embedding,  # no-cython-lint
+    )
+
     # TODO: These two symbols are considered part of the public API of this module
     # which is why imports should not be removed. The no-cython-lint markers can be
     # replaced with an explicit __all__ specifications once
@@ -72,10 +82,18 @@ else:
 
 IF GPUBUILD == 1:
     from libc.stdlib cimport free
-    from cuml.manifold.umap_utils cimport *
     from pylibraft.common.handle cimport handle_t
-    from cuml.manifold.umap_utils import GraphHolder, find_ab_params, coerce_metric
-    from cuml.manifold.simpl_set import fuzzy_simplicial_set, simplicial_set_embedding
+
+    from cuml.manifold.umap_utils cimport *
+    from cuml.manifold.simpl_set import (
+        fuzzy_simplicial_set,
+        simplicial_set_embedding,
+    )
+    from cuml.manifold.umap_utils import (
+        GraphHolder,
+        coerce_metric,
+        find_ab_params,
+    )
 
     cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP":
 
@@ -399,10 +417,8 @@ class UMAP(UniversalBase,
 
         if init == "spectral" or init == "random":
             self.init = init
-        else:
-            gs = GlobalSettings()
-            if not (gs.accelerator_active or self._experimental_dispatching):
-                raise Exception(f"Initialization strategy not supported: {init}")
+        elif not cuml.accel.enabled():
+            raise Exception(f"Initialization strategy not supported: {init}")
 
         if a is None or b is None:
             a, b = type(self).find_ab_params(spread, min_dist)
@@ -427,10 +443,8 @@ class UMAP(UniversalBase,
 
         if target_metric == "euclidean" or target_metric == "categorical":
             self.target_metric = target_metric
-        else:
-            gs = GlobalSettings()
-            if not (gs.accelerator_active or self._experimental_dispatching):
-                raise Exception(f"Invalid target metric: {target_metric}")
+        elif not cuml.accel.enabled():
+            raise Exception(f"Invalid target metric: {target_metric}")
 
         self.callback = callback  # prevent callback destruction
         self.embedding_ = None

@@ -17,28 +17,31 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 
 from cuml.internals.safe_imports import gpu_only_import
+
 rmm = gpu_only_import('rmm')
 from libc.stdint cimport uintptr_t
 
-from cuml.internals.array import CumlArray
-from cuml.internals.base import UniversalBase
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
+from cuml.internals.array import CumlArray
+from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import FMajorInputTagMixin
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
-
 
 IF GPUBUILD == 1:
     from enum import IntEnum
     from cython.operator cimport dereference as deref
-    from cuml.decomposition.utils cimport *
-    from cuml.decomposition.utils cimport *
     from pylibraft.common.handle cimport handle_t
+
+    from cuml.decomposition.utils cimport *
     cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML":
 
         cdef void tsvdFit(handle_t& handle,

@@ -21,8 +21,8 @@ from libcpp.string cimport string
 
 IF GPUBUILD == 1:
     import sys
-    from libcpp.memory cimport make_shared, shared_ptr
     from libcpp cimport bool
+    from libcpp.memory cimport make_shared, shared_ptr
 
     cdef extern from "rapids_logger/logger.hpp" namespace "rapids_logger" nogil:
 

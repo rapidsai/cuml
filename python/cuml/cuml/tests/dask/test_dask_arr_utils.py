@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2024, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,13 @@
 # limitations under the License.
 #
 
-from cuml.dask.common.part_utils import _extract_partitions
 import dask
-from cuml.dask.common.dask_arr_utils import validate_dask_array
 import pytest
 
-from cuml.testing.utils import array_equal
-
+from cuml.dask.common.dask_arr_utils import validate_dask_array
+from cuml.dask.common.part_utils import _extract_partitions
 from cuml.internals.safe_imports import gpu_only_import
+from cuml.testing.utils import array_equal
 
 dask_cudf = gpu_only_import("dask_cudf")
 cudf = gpu_only_import("cudf")

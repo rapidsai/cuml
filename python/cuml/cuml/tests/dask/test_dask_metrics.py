@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import dask.array as da
-from cuml.dask.metrics import confusion_matrix
-from cuml.testing.utils import stress_param, generate_random_labels
-from sklearn.metrics import confusion_matrix as sk_confusion_matrix
-import pytest
-from cuml.internals.safe_imports import gpu_only_import
 from itertools import chain, permutations
 
-from cuml.internals.safe_imports import cpu_only_import
+import dask.array as da
+import pytest
+from sklearn.metrics import confusion_matrix as sk_confusion_matrix
+
+from cuml.dask.metrics import confusion_matrix
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.testing.utils import generate_random_labels, stress_param
 
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")

@@ -14,48 +14,49 @@
 # limitations under the License.
 #
 # distutils: language = c++
-
-
-import sys
-import threading
-
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import,
     gpu_only_import_from,
-    null_decorator
+    null_decorator,
 )
+
 np = cpu_only_import('numpy')
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 rmm = gpu_only_import('rmm')
 
-from cuml.internals.array import CumlArray
-from cuml.internals.global_settings import GlobalSettings
 import cuml.internals
 from cuml.internals import logger
-
+from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
+
 from cuml.internals.logger cimport level_enum
-from cuml.common.doc_utils import generate_docstring
-from cuml.common.doc_utils import insert_into_docstring
+
 from cuml.common import input_to_cuml_array
+from cuml.common.doc_utils import generate_docstring, insert_into_docstring
+from cuml.ensemble.randomforest_common import (
+    BaseRandomForestModel,
+    _obtain_fil_model,
+)
 from cuml.internals.utils import check_random_seed
 
-from cuml.ensemble.randomforest_common import BaseRandomForestModel
-from cuml.ensemble.randomforest_common import _obtain_fil_model
 from cuml.ensemble.randomforest_shared cimport *
 
 from cuml.legacy.fil.fil import TreeliteModel
 
+from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t, uint64_t
 
 from cuml.internals.safe_imports import gpu_only_import_from
+
 cuda = gpu_only_import_from('numba', 'cuda')
 
 from pylibraft.common.handle cimport handle_t
+
 cimport cuml.common.cuda
 
 
@@ -325,9 +326,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         state["treelite_handle"] = None
         state["split_criterion"] = self.split_criterion
 
-        if "_cpu_model_class_lock" in state:
-            del state["_cpu_model_class_lock"]
-
         return state
 
     def __setstate__(self, state):
@@ -349,7 +347,6 @@ class RandomForestRegressor(BaseRandomForestModel,
 
         self.treelite_serialized_model = state["treelite_serialized_model"]
         self.__dict__.update(state)
-        self._cpu_model_class_lock = threading.RLock()
 
     def __del__(self):
         self._reset_forest_data()
@@ -789,24 +786,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         if self.dtype == np.float64:
             return get_rf_json(rf_forest64).decode('utf-8')
         return get_rf_json(rf_forest).decode('utf-8')
-
-    def cpu_to_gpu(self):
-        # treelite does an internal isinstance check to detect an sklearn
-        # RF, which proxymodule interferes with. We work around that
-        # temporarily here just for treelite internal check and
-        # restore the __class__ at the end of the method.
-        if GlobalSettings().accelerator_active:
-            with self._cpu_model_class_lock:
-                original_class = self._cpu_model.__class__
-                self._cpu_model.__class__ = sys.modules['sklearn.ensemble'].RandomForestRegressor
-
-                try:
-                    super().cpu_to_gpu()
-                finally:
-                    self._cpu_model.__class__ = original_class
-
-        else:
-            super().cpu_to_gpu()
 
     @classmethod
     def _hyperparam_translator(cls, **kwargs):

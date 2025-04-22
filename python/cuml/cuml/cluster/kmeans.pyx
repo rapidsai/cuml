@@ -19,12 +19,15 @@
 import warnings
 
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
+
 rmm = gpu_only_import('rmm')
-from cuml.internals.safe_imports import safe_import_from, return_false
-from cuml.internals.utils import check_random_seed
 import typing
+
+from cuml.internals.safe_imports import return_false, safe_import_from
+from cuml.internals.utils import check_random_seed
 
 IF GPUBUILD == 1:
     from cython.operator cimport dereference as deref
@@ -42,17 +45,18 @@ IF GPUBUILD == 1:
     from cuml.cluster cimport kmeans_utils
     from cuml.internals.logger cimport level_enum
 
-from cuml.internals.array import CumlArray
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.base import UniversalBase
-from cuml.common.doc_utils import generate_docstring
-from cuml.internals.mixins import ClusterMixin
-from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.common import input_to_cuml_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
-from cuml.internals.api_decorators import device_interop_preparation
-from cuml.internals.api_decorators import enable_device_interop
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
+from cuml.internals.array import CumlArray
+from cuml.internals.base import UniversalBase
 from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 
 # from sklearn.utils._openmp_helpers import _openmp_effective_n_threads
 _openmp_effective_n_threads = safe_import_from(

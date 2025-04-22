@@ -18,8 +18,10 @@ from cuml.common import rmm_cupy_ary, has_scipy
 from cuml.internals.memory_utils import with_cupy_rmm
 import dask.dataframe as dd
 import dask
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.internals.safe_imports import cpu_only_import
+
+from cuml.common import has_scipy, rmm_cupy_ary
+from cuml.internals.memory_utils import with_cupy_rmm
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")

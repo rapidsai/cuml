@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from cuml.internals.safe_imports import gpu_only_import
-from cuml.common.sparsefuncs import csr_row_normalize_l1
-from cuml.common.sparsefuncs import csr_row_normalize_l2
-from sklearn.utils.sparsefuncs_fast import inplace_csr_row_normalize_l1
-from sklearn.utils.sparsefuncs_fast import inplace_csr_row_normalize_l2
-
 import pytest
-from cuml.internals.safe_imports import cpu_only_import
+from sklearn.utils.sparsefuncs_fast import (
+    inplace_csr_row_normalize_l1,
+    inplace_csr_row_normalize_l2,
+)
+
+from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
 np = cpu_only_import("numpy")
 sp = cpu_only_import("scipy.sparse")

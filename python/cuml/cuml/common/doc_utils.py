@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,9 +38,8 @@ cuml.dask datatype version of the docstrings will come in a future update.
 
 """
 
-from inspect import signature
 import inspect
-
+from inspect import signature
 
 _parameters_docstrings = {
     "dense": "{name} : array-like (device or host) shape = {shape}\n"

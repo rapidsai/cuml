@@ -14,41 +14,48 @@
 # limitations under the License.
 #
 import itertools
-import numpy as np
 import pathlib
+
+import numpy as np
 import treelite.sklearn
-from libcpp cimport bool
+
 from libc.stdint cimport uint32_t, uintptr_t
+from libcpp cimport bool
 
 from cuml.common.device_selection import using_device_type
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.safe_imports import (
-    gpu_only_import_from,
-    null_decorator
-)
 from cuml.internals.array import CumlArray
+from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.experimental.fil.postprocessing cimport element_op, row_op
+from cuml.internals.safe_imports import gpu_only_import_from, null_decorator
+
+from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport (
+    cuda_stream as raft_proto_stream_t,
+)
+from cuml.experimental.fil.detail.raft_proto.device_type cimport (
+    device_type as raft_proto_device_t,
+)
+from cuml.experimental.fil.detail.raft_proto.handle cimport (
+    handle_t as raft_proto_handle_t,
+)
+from cuml.experimental.fil.detail.raft_proto.optional cimport nullopt, optional
 from cuml.experimental.fil.infer_kind cimport infer_kind
+from cuml.experimental.fil.postprocessing cimport element_op, row_op
 from cuml.experimental.fil.tree_layout cimport tree_layout as fil_tree_layout
-from cuml.experimental.fil.detail.raft_proto.cuda_stream cimport cuda_stream as raft_proto_stream_t
-from cuml.experimental.fil.detail.raft_proto.device_type cimport device_type as raft_proto_device_t
-from cuml.experimental.fil.detail.raft_proto.handle cimport handle_t as raft_proto_handle_t
-from cuml.experimental.fil.detail.raft_proto.optional cimport optional, nullopt
+
 from cuml.internals import set_api_output_dtype
 from cuml.internals.base import UniversalBase
 from cuml.internals.device_type import DeviceType, DeviceTypeError
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
+
 from pylibraft.common.handle cimport handle_t as raft_handle_t
+
 from time import perf_counter
 
 nvtx_annotate = gpu_only_import_from('nvtx', 'annotate', alt=null_decorator)
 
-from cuml.internals.safe_imports import (
-    gpu_only_import_from,
-    null_decorator
-)
+from cuml.internals.safe_imports import gpu_only_import_from, null_decorator
+
 nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
 cdef extern from "treelite/c_api.h":

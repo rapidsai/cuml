@@ -17,20 +17,22 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 cupyx = gpu_only_import('cupyx')
 
 from cuml.manifold.umap_utils cimport *
-from cuml.manifold.umap_utils import GraphHolder, find_ab_params, \
-    coerce_metric
 
-from cuml.internals.input_utils import input_to_cuml_array, is_array_like
-from cuml.internals.array import CumlArray
 from cuml.internals import logger
+from cuml.internals.array import CumlArray
+from cuml.internals.input_utils import input_to_cuml_array, is_array_like
+from cuml.manifold.umap_utils import GraphHolder, coerce_metric, find_ab_params
 
 from pylibraft.common.handle cimport handle_t
+
 from pylibraft.common.handle import Handle
 
 from libc.stdint cimport uintptr_t

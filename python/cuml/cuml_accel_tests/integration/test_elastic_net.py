@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 
-import pytest
 import numpy as np
+import pytest
 from sklearn.datasets import make_regression
 from sklearn.linear_model import ElasticNet
 from sklearn.metrics import r2_score

@@ -13,35 +13,34 @@
 # limitations under the License.
 #
 
-import numpy as np
-import pytest
 import os
-import pandas as pd
 from math import ceil
 
-from cuml.experimental import ForestInference
-from cuml.testing.utils import (
-    array_equal,
-    unit_param,
-    quality_param,
-    stress_param,
-)
-from cuml.internals.import_utils import has_lightgbm, has_xgboost
-from cuml.common.device_selection import using_device_type
-
+import numpy as np
+import pandas as pd
+import pytest
+import treelite
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import (
+    ExtraTreesClassifier,
+    ExtraTreesRegressor,
     GradientBoostingClassifier,
     GradientBoostingRegressor,
     RandomForestClassifier,
     RandomForestRegressor,
-    ExtraTreesClassifier,
-    ExtraTreesRegressor,
 )
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
-import treelite
 
+from cuml.common.device_selection import using_device_type
+from cuml.experimental import ForestInference
+from cuml.internals.import_utils import has_lightgbm, has_xgboost
+from cuml.testing.utils import (
+    array_equal,
+    quality_param,
+    stress_param,
+    unit_param,
+)
 
 if has_xgboost():
     import xgboost as xgb

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2024, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,33 +18,32 @@
 
 import typing
 
-from cuml.neighbors.nearest_neighbors import NearestNeighbors
-
 import cuml.internals
-from cuml.internals.array import CumlArray
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.mixins import ClassifierMixin
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.api_decorators import enable_device_interop
-
+from cuml.internals.array import CumlArray
+from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
 from cuml.internals.safe_imports import cpu_only_import
+from cuml.neighbors.nearest_neighbors import NearestNeighbors
+
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 
 
 from cython.operator cimport dereference as deref
-
-from pylibraft.common.handle cimport handle_t
 from libcpp.vector cimport vector
+from pylibraft.common.handle cimport handle_t
 
 rmm = gpu_only_import('rmm')
 
-from libc.stdint cimport uintptr_t, int64_t
+from libc.stdint cimport int64_t, uintptr_t
 
 from cuml.internals.safe_imports import gpu_only_import_from
+
 cuda = gpu_only_import_from('numba', 'cuda')
 
 cimport cuml.common.cuda
@@ -137,6 +136,7 @@ class KNeighborsClassifier(ClassifierMixin,
     For additional docs, see `scikitlearn's KNeighborsClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html>`_.
     """
+    _cpu_estimator_import_path = "sklearn.neighbors.KNeighborsClassifier"
 
     y = CumlArrayDescriptor()
     classes_ = CumlArrayDescriptor()
