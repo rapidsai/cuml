@@ -31,9 +31,22 @@ ACCELERATED_MODULES = [
     "umap",
 ]
 
-ACCEL = Accelerator(
-    denylist=["sklearn", "umap", "hdbscan", "cuml", "treelite"]
-)
+
+def _exclude_from_acceleration(module: str) -> bool:
+    """Whether a module should be excluded from acceleration"""
+    parts = module.split(".")
+    name = parts[0]
+    if name == "sklearn":
+        # Exclude all of sklearn _except_ for modules like `sklearn.*.tests.test_*`
+        # since we want to be able to run the sklearn test suite with cuml.accel
+        # enabled
+        return len(parts) < 2 or parts[-2] != "tests"
+
+    # Exclude any module under these packages
+    return name in ("umap", "hdbscan", "cuml", "treelite")
+
+
+ACCEL = Accelerator(exclude=_exclude_from_acceleration)
 for module in ACCELERATED_MODULES:
     ACCEL.register(module, f"cuml.accel._wrappers.{module}")
 

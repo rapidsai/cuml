@@ -125,11 +125,11 @@ def test_accelerator(mockmod):
     assert mod.fizzbuzz() == "FIZZbuzz"
 
 
-def test_accelerator_denylist(mockmod):
+def test_accelerator_exclude_sequence(mockmod):
     def fizz():
         return "FIZZ"
 
-    accel = Accelerator(denylist=[mockmod])
+    accel = Accelerator(exclude=[mockmod])
     accel.register(f"{mockmod}.utils", {"fizz": fizz})
     accel.install()
 
@@ -139,11 +139,33 @@ def test_accelerator_denylist(mockmod):
     assert mod.fizzbuzz() == "fizzbuzz"
 
 
-def test_accelerator_external_denylist(mockmod):
+def test_accelerator_exclude_callable(mockmod):
+    exclude_called = False
+
+    def exclude(module):
+        nonlocal exclude_called
+        exclude_called = True
+        return module.split(".", 1)[0] == mockmod
+
     def fizz():
         return "FIZZ"
 
-    accel = Accelerator(denylist=[mockmod, __name__])
+    accel = Accelerator(exclude=exclude)
+    accel.register(f"{mockmod}.utils", {"fizz": fizz})
+    accel.install()
+
+    mod = importlib.import_module(mockmod)
+    assert exclude_called
+    assert mod.utils.fizz is fizz
+    assert mod.fizz is not fizz
+    assert mod.fizzbuzz() == "fizzbuzz"
+
+
+def test_accelerator_external_exclude(mockmod):
+    def fizz():
+        return "FIZZ"
+
+    accel = Accelerator(exclude=[mockmod, __name__])
     accel.register(f"{mockmod}.utils", {"fizz": fizz})
     accel.install()
 
