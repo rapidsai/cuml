@@ -32,6 +32,11 @@ Run tests and save the report:
 ./run-tests.sh --junitxml=report.xml
 ```
 
+**Tip**: Run tests in parallel with `-n auto` to use all available CPU cores:
+```bash
+./run-tests.sh --junitxml=report.xml -n auto
+```
+
 ### 2. Analyze results
 Generate a summary from the report:
 ```bash
