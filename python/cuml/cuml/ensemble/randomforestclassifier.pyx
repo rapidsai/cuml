@@ -203,6 +203,9 @@ class RandomForestClassifier(BaseRandomForestModel,
         increasing the number of bins may improve accuracy.
     n_streams : int (default = 4)
         Number of parallel streams used for forest building.
+        For nearly reproducible results, set ``n_streams=1``. If ``n_streams``
+        is greater than 1, results may vary due to unpredictable differences in
+        stream/thread timing, even when a ``random_state`` is specified.
     min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.\n
          * If type ``int``, then ``min_samples_leaf`` represents the minimum
