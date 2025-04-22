@@ -420,7 +420,7 @@ def test_svm_numeric_arraytype(x_dtype, y_dtype):
     X = X.astype(x_dtype, order="F")
     y = y.astype(y_dtype)
 
-    params = {"kernel": "rbf", "C": 1, "gamma": 0.25}
+    params = {"kernel": "rbf", "C": 1, "gamma": "scale"}
     cuSVC = cu_svm.SVC(**params)
     cuSVC.fit(X, y)
     intercept_exp = 0.23468959692060373
