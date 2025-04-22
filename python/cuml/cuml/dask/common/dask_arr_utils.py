@@ -14,10 +14,8 @@
 #
 
 
-from cuml.common import rmm_cupy_ary, has_scipy
-from cuml.internals.memory_utils import with_cupy_rmm
-import dask.dataframe as dd
 import dask
+import dask.dataframe as dd
 
 from cuml.common import has_scipy, rmm_cupy_ary
 from cuml.internals.memory_utils import with_cupy_rmm
