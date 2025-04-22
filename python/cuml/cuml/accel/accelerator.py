@@ -46,7 +46,7 @@ class AccelModule(types.ModuleType):
     # Internal state. All have prefix `_accel_` to try and avoid accidental collisions
     # with names on the wrapped module.
     _accel_module: types.ModuleType
-    _accel_denylist: frozenset[str]
+    _accel_exclude: Callable[[str], bool]
     _accel_overrides: dict[str, Any]
 
     def __repr__(self) -> str:
@@ -55,7 +55,7 @@ class AccelModule(types.ModuleType):
     def __getattr__(self, name: str) -> Any:
         if (accelerated := self._accel_overrides.get(name)) is not None:
             # This has an override and could be accelerated. We first need
-            # to check that the accessing module isn't in the denylist.
+            # to check that the accessing module isn't excluded.
             #
             # To do this we walk up the stack, skipping frames in importlib
             frame = sys._getframe()
@@ -63,23 +63,24 @@ class AccelModule(types.ModuleType):
                 assert frame.f_back is not None
                 # Get the module name of the caller (if available)
                 modname = frame.f_back.f_globals.get("__name__")
-                if modname is not None:
-                    modname = modname.split(".", 1)[0]
-                    if modname == "importlib":
-                        # Caller is in importlib, continue up the stack
-                        frame = frame.f_back
-                        continue
-                # Found a valid module name
-                break
 
-            if modname not in self._accel_denylist:
-                # Not in denylist, use the accelerated version
+                if modname is None:
+                    return getattr(self._accel_module, name)
+
+                if modname.split(".", 1)[0] == "importlib":
+                    # Caller is in importlib, continue up the stack
+                    frame = frame.f_back
+                else:
+                    break
+
+            if not self._accel_exclude(modname):
+                # Not excluded, use the accelerated version
                 return accelerated
 
         return getattr(self._accel_module, name)
 
     def __setattr__(self, name: str, val: Any) -> None:
-        if name in ("_accel_module", "_accel_denylist", "_accel_overrides"):
+        if name in ("_accel_module", "_accel_exclude", "_accel_overrides"):
             super().__setattr__(name, val)
         else:
             setattr(self._accel_module, name, val)
@@ -89,7 +90,7 @@ class AccelModule(types.ModuleType):
 
 
 def wrap_module(
-    module: types.ModuleType, denylist: Iterable[str] | None = None
+    module: types.ModuleType, exclude: Callable[[str], bool]
 ) -> AccelModule:
     """Create a new AccelModule instance.
 
@@ -97,10 +98,9 @@ def wrap_module(
     ----------
     module : ModuleType
         The original, unaccelerated module.
-    denylist : sequence, optional
-        A sequence of module names that shouldn't have access to the accelerated versions.
-        Imports and attribute access from within these modules will always give the
-        unaccelerated versions.
+    exclude : callable
+        A callable for determining if a requesting module should be excluded from
+        accessing an accelerated attribute.
 
     Returns
     -------
@@ -109,7 +109,7 @@ def wrap_module(
     """
     out = AccelModule(module.__name__, doc=getattr(module, "__doc__", None))
     out._accel_module = module
-    out._accel_denylist = frozenset(denylist or ())
+    out._accel_exclude = exclude
     out._accel_overrides = {}
 
     # ModuleType instances come with a few attributes pre-defined. Delete these
@@ -162,18 +162,18 @@ class AccelLoader(importlib.abc.Loader):
         self,
         spec: importlib.machinery.ModuleSpec,
         patch: PatchType,
-        denylist: Iterable[str] | None = None,
+        exclude: Callable[[str], bool] | None = None,
     ) -> None:
         self._spec = spec
         self._patch = patch
-        self._denylist = denylist
+        self._exclude = exclude
 
     def create_module(
         self, spec: importlib.machinery.ModuleSpec
     ) -> AccelModule:
         assert spec.name == self._spec.name
         module = importlib.util.module_from_spec(self._spec)
-        return wrap_module(module, self._denylist)
+        return wrap_module(module, self._exclude)
 
     def exec_module(self, module: types.ModuleType) -> None:
         assert isinstance(module, AccelModule)
@@ -217,7 +217,7 @@ class AccelFinder(importlib.abc.MetaPathFinder):
 
         spec = importlib.machinery.ModuleSpec(
             name=fullname,
-            loader=AccelLoader(real_spec, patch, self.accelerator.denylist),
+            loader=AccelLoader(real_spec, patch, self.accelerator.exclude),
             origin=real_spec.origin,
             loader_state=real_spec.loader_state,
             is_package=real_spec.submodule_search_locations is not None,
@@ -231,15 +231,26 @@ class Accelerator:
 
     Parameters
     ----------
-    denylist : sequence, optional
+    exclude : sequence or callable, optional
         A sequence of module names that shouldn't have access to the accelerated versions.
         Imports and attribute access from within these modules will always give the
         unaccelerated versions.
     """
 
-    def __init__(self, denylist: Iterable[str] | None = None):
-        self.denylist = frozenset(denylist or ())
-        self.patches: dict[str, PatchType] = {}
+    exclude: Callable[[str], bool]
+    patches: dict[str, PatchType]
+    _lock: RLock
+    _installed: bool
+
+    def __init__(
+        self, exclude: Iterable[str] | Callable[[str], bool] | None = None
+    ):
+        if callable(exclude):
+            self.exclude = exclude
+        else:
+            self.exclude = frozenset(exclude or ()).__contains__
+
+        self.patches = {}
         self._lock = RLock()
         self._installed = False
 
@@ -301,7 +312,7 @@ class Accelerator:
 
         # The unaccelerated module is already imported.
         # 1. Wrap the unaccelerated module
-        accelerated = wrap_module(module, self.denylist)
+        accelerated = wrap_module(module, self.exclude)
 
         # 2. Replace it in sys.modules
         sys.modules[name] = accelerated
