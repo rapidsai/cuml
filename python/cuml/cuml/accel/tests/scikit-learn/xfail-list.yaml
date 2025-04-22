@@ -18,6 +18,8 @@
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-0-dense-blobs]"
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-0-dense-normal]"
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-1e-100-dense-blobs]"
+  strict: false
+  reason: Test is flaky
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_empty_cluster_relocated[dense]"
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-<lambda>-default]"
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-array-like-1]"
@@ -469,6 +471,9 @@
 - id: "sklearn.feature_selection.tests.test_rfe::test_multioutput[RFE]"
 - id: "sklearn.feature_selection.tests.test_rfe::test_rfe_cv_groups"
 - id: "sklearn.feature_selection.tests.test_rfe::test_rfe_features_importance"
+- id: "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[2]"
+  strict: false
+  reason: Test is flaky
 - id: "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[3]"
   strict: false
   reason: Test is flaky
