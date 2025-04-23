@@ -38,13 +38,13 @@ from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
 from cuml.testing.datasets import (
-    cuml_compatible_dataset,
+    is_cuml_compatible_dataset,
+    is_sklearn_compatible_dataset,
     make_classification,
     make_classification_dataset,
     make_regression,
     make_regression_dataset,
     regression_datasets,
-    sklearn_compatible_dataset,
     small_classification_dataset,
     small_regression_dataset,
     split_datasets,
@@ -215,8 +215,8 @@ def test_linear_regression_model_default(dataset):
     X_train, X_test, y_train, _ = dataset
 
     # Filter datasets based on required assumptions
-    assume(sklearn_compatible_dataset(X_train, X_test, y_train))
-    assume(cuml_compatible_dataset(X_train, X_test, y_train))
+    assume(is_sklearn_compatible_dataset(X_train, X_test, y_train))
+    assume(is_cuml_compatible_dataset(X_train, X_test, y_train))
 
     # Initialization of cuML's linear regression model
     cuols = cuLinearRegression()
@@ -248,8 +248,8 @@ def test_linear_regression_model_default_generalized(dataset):
     X_train, X_test, y_train, _ = dataset
 
     # Filter datasets based on required assumptions
-    assume(sklearn_compatible_dataset(X_train, X_test, y_train))
-    assume(cuml_compatible_dataset(X_train, X_test, y_train))
+    assume(is_sklearn_compatible_dataset(X_train, X_test, y_train))
+    assume(is_cuml_compatible_dataset(X_train, X_test, y_train))
 
     # Initialization of cuML's linear regression model
     cuols = cuLinearRegression()
@@ -279,8 +279,8 @@ def test_linear_regression_model_default_generalized(dataset):
 @example(small_regression_dataset(np.float64))
 def test_ridge_regression_model_default(dataset):
 
-    assume(sklearn_compatible_dataset(*dataset))
-    assume(cuml_compatible_dataset(*dataset))
+    assume(is_sklearn_compatible_dataset(*dataset))
+    assume(is_cuml_compatible_dataset(*dataset))
     X_train, X_test, y_train, _ = dataset
 
     curidge = cuRidge()
@@ -847,7 +847,7 @@ def test_linreg_predict_convert_dtype(train_dtype, test_dtype):
 @example(dataset=small_regression_dataset(np.float64), test_dtype=np.float32)
 @example(dataset=small_regression_dataset(np.float64), test_dtype=np.float64)
 def test_ridge_predict_convert_dtype(dataset, test_dtype):
-    assume(cuml_compatible_dataset(*dataset))
+    assume(is_cuml_compatible_dataset(*dataset))
     X_train, X_test, y_train, _ = dataset
 
     clf = cuRidge()
