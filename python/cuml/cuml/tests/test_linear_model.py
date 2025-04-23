@@ -23,7 +23,6 @@ import sklearn
 from hypothesis import assume, example, given, note
 from hypothesis import strategies as st
 from hypothesis import target
-from hypothesis.extra.numpy import floating_dtypes
 from packaging.version import Version
 from scipy.sparse import csr_matrix
 from sklearn.datasets import load_breast_cancer, load_digits
@@ -51,6 +50,7 @@ from cuml.testing.datasets import (
     standard_classification_datasets,
     standard_regression_datasets,
 )
+from cuml.testing.strategies import dataset_dtypes
 from cuml.testing.utils import (
     array_difference,
     array_equal,
@@ -201,7 +201,6 @@ def test_linear_regression_single_column():
 @given(
     split_datasets(
         standard_regression_datasets(
-            dtypes=floating_dtypes(sizes=(32, 64)),
             n_samples=st.just(1000),
             n_targets=st.integers(1, 10),
         ),
@@ -238,9 +237,7 @@ def test_linear_regression_model_default(dataset):
 # TODO: Replace test_linear_regression_model_default with this test once #4963
 # is resolved.
 @pytest.mark.skip(reason="https://github.com/rapidsai/cuml/issues/4963")
-@given(
-    split_datasets(regression_datasets(dtypes=floating_dtypes(sizes=(32, 64))))
-)
+@given(split_datasets(regression_datasets()))
 @example(small_regression_dataset(np.float32))
 @example(small_regression_dataset(np.float64))
 def test_linear_regression_model_default_generalized(dataset):
@@ -270,9 +267,7 @@ def test_linear_regression_model_default_generalized(dataset):
 
 @given(
     split_datasets(
-        standard_regression_datasets(
-            dtypes=floating_dtypes(sizes=(32, 64)),
-        ),
+        standard_regression_datasets(),
     ),
 )
 @example(small_regression_dataset(np.float32))
@@ -516,7 +511,7 @@ def test_logistic_regression(
 
 @pytest.mark.parametrize("penalty", [None, "l1", "l2", "elasticnet"])
 @given(
-    dtype=floating_dtypes(sizes=(32, 64)),
+    dtype=dataset_dtypes(),
     l1_ratio=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0)),
 )
 @example(dtype=np.float32, l1_ratio=None)
@@ -555,7 +550,9 @@ def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
     assert score_test >= 0.94
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@given(dtype=dataset_dtypes())
+@example(dtype=np.float32)
+@example(dtype=np.float64)
 def test_logistic_regression_model_default(dtype):
 
     X_train, X_test, y_train, y_test = small_classification_dataset(dtype)
@@ -574,7 +571,7 @@ def test_logistic_regression_model_default(dtype):
 @pytest.mark.parametrize("sparse_input", [True, False])
 @pytest.mark.parametrize("fit_intercept", [True, False])
 @pytest.mark.parametrize("penalty", [None, "l1", "l2"])
-@given(dtype=floating_dtypes(sizes=(32, 64)))
+@given(dtype=dataset_dtypes())
 @example(dtype=np.float32)
 @example(dtype=np.float64)
 def test_logistic_regression_model_digits(
@@ -603,7 +600,9 @@ def test_logistic_regression_model_digits(
     assert score >= acceptable_score
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@given(dtype=dataset_dtypes())
+@example(dtype=np.float32)
+@example(dtype=np.float64)
 def test_logistic_regression_sparse_only(dtype, nlp_20news):
 
     # sklearn score with max_iter = 10000
@@ -629,23 +628,17 @@ def test_logistic_regression_sparse_only(dtype, nlp_20news):
 @given(
     dataset=split_datasets(
         standard_classification_datasets(
-            dtypes=st.sampled_from((np.float32, np.float64)),
             n_classes=st.sampled_from((2, 10)),
             n_features=st.just(20),
             n_informative=st.just(10),
         )
     ),
 )
-@example(
-    dataset=small_classification_dataset(np.float32),
-)
-@example(
-    dataset=small_classification_dataset(np.float64),
-)
+@example(dataset=small_classification_dataset(np.float32))
+@example(dataset=small_classification_dataset(np.float64))
 def test_logistic_regression_decision_function(
     dataset, fit_intercept, sparse_input
 ):
-
     X_train, X_test, y_train, y_test = dataset
 
     # Assumption needed to avoid qn.h: logistic loss invalid C error.
@@ -675,7 +668,6 @@ def test_logistic_regression_decision_function(
 @given(
     dataset=split_datasets(
         standard_classification_datasets(
-            dtypes=st.sampled_from((np.float32, np.float64)),
             n_classes=st.sampled_from((2, 10)),
             n_features=st.just(20),
             n_informative=st.just(10),
@@ -687,7 +679,6 @@ def test_logistic_regression_decision_function(
 def test_logistic_regression_predict_proba(
     dataset, fit_intercept, sparse_input
 ):
-
     X_train, X_test, y_train, y_test = dataset
 
     # Assumption needed to avoid qn.h: logistic loss invalid C error.
@@ -819,8 +810,11 @@ def test_logistic_regression_categorical_y(y_kind):
     assert res.dtype == "object"
 
 
-@pytest.mark.parametrize("train_dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("test_dtype", [np.float64, np.float32])
+@given(train_dtype=dataset_dtypes(), test_dtype=dataset_dtypes())
+@example(train_dtype=np.float32, test_dtype=np.float32)
+@example(train_dtype=np.float32, test_dtype=np.float64)
+@example(train_dtype=np.float64, test_dtype=np.float32)
+@example(train_dtype=np.float64, test_dtype=np.float64)
 def test_linreg_predict_convert_dtype(train_dtype, test_dtype):
     X, y = make_regression(
         n_samples=50, n_features=10, n_informative=5, random_state=0
@@ -838,9 +832,9 @@ def test_linreg_predict_convert_dtype(train_dtype, test_dtype):
 
 @given(
     dataset=split_datasets(
-        standard_regression_datasets(dtypes=floating_dtypes(sizes=(32, 64)))
+        standard_regression_datasets(),
     ),
-    test_dtype=floating_dtypes(sizes=(32, 64)),
+    test_dtype=dataset_dtypes(),
 )
 @example(dataset=small_regression_dataset(np.float32), test_dtype=np.float32)
 @example(dataset=small_regression_dataset(np.float32), test_dtype=np.float64)
@@ -857,11 +851,9 @@ def test_ridge_predict_convert_dtype(dataset, test_dtype):
 
 @given(
     dataset=split_datasets(
-        standard_classification_datasets(
-            dtypes=floating_dtypes(sizes=(32, 64))
-        )
+        standard_classification_datasets(),
     ),
-    test_dtype=floating_dtypes(sizes=(32, 64)),
+    test_dtype=dataset_dtypes(),
 )
 @example(
     dataset=small_classification_dataset(np.float32), test_dtype=np.float32
@@ -1041,7 +1033,6 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
 @given(
     dataset=standard_regression_datasets(
         n_features=st.integers(min_value=1, max_value=10),
-        dtypes=st.sampled_from((np.float32, np.float64)),
     )
 )
 @example(dataset=make_regression(n_features=1))
@@ -1065,7 +1056,6 @@ def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
 
 
 @pytest.mark.parametrize("ntargets", [1, 2])
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("solver", ["cd", "qn"])
 @pytest.mark.parametrize(
     "nrows", [unit_param(1000), quality_param(5000), stress_param(500000)]
@@ -1078,6 +1068,9 @@ def test_linear_regression_input_copy(dataset, algorithm, xp, copy):
         stress_param([1000, 500]),
     ],
 )
+@given(datatype=dataset_dtypes())
+@example(datatype=np.float32)
+@example(datatype=np.float64)
 def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(
