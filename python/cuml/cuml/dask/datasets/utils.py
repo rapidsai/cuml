@@ -16,6 +16,8 @@
 
 import dask.array as da
 import dask.delayed
+from dask.delayed import Delayed
+from distributed import Future
 
 from cuml.internals.safe_imports import gpu_only_import
 
@@ -36,8 +38,10 @@ def _dask_array_from_delayed(part, dtype, nrows, ncols=None):
     # and make an array of shape (nrows, 1)
 
     shape = (nrows, ncols) if ncols else (nrows,)
+    if not isinstance(part, (Delayed, Future)):
+        part = dask.delayed(part)
     return da.from_delayed(
-        dask.delayed(part), shape=shape, meta=cp.zeros((1)), dtype=dtype
+        part, shape=shape, meta=cp.zeros((0,) * len(shape), dtype=dtype)
     )
 
 

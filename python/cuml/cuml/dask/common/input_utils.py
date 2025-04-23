@@ -154,7 +154,14 @@ class DistributedDataHandler:
             for idx, wf in enumerate(self.worker_to_parts.items())
         ]
 
-        sizes = self.client.compute(parts, sync=True)
+        worker_addresses, futures = zip(*parts)
+        results = self.client.gather(futures)
+        sizes = [
+            (worker_address, result)
+            for worker_address, result in zip(
+                worker_addresses, results, strict=True
+            )
+        ]
 
         for w, sizes_parts in sizes:
             sizes, total = sizes_parts

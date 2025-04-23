@@ -18,6 +18,7 @@ from functools import wraps
 
 import cudf.comm.serialize  # noqa: F401
 import dask
+from dask.delayed import Delayed
 from dask_cudf import Series as dcSeries
 from distributed.client import Future
 from raft_dask.common.comms import Comms
@@ -304,9 +305,11 @@ class DelayedParallelFunc(object):
         if output_collection_type is None:
             output_collection_type = self.datatype
 
-        model_delayed = dask.delayed(
-            self._get_internal_model(), pure=True, traverse=False
-        )
+        model_delayed = self._get_internal_model()
+        if not isinstance(model_delayed, (Future, Delayed)):
+            model_delayed = dask.delayed(
+                model_delayed, pure=True, traverse=False
+            )
 
         func = dask.delayed(func, pure=False, nout=1)
         if isinstance(X, dcDataFrame):
