@@ -18,8 +18,6 @@ include(../../cmake/rapids_config.cmake)
 
 set(language_list "CXX")
 
-# We always need CUDA for cuML GPU because the raft dependency brings in a
-# header-only cuco dependency that enables CUDA unconditionally.
 include(rapids-cuda)
 rapids_cuda_init_architectures(cuml-python)
 list(APPEND language_list "CUDA")
