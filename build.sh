@@ -231,6 +231,8 @@ while true; do
     shift
 done
 
+echo "BUILD_REPORT_METRICS: $BUILD_REPORT_METRICS"
+echo "BUILD_REPORT_INCL_CACHE_STATS: $BUILD_REPORT_INCL_CACHE_STATS"
 
 # If clean given, run it prior to any other steps
 if (( ${CLEAN} == 1 )); then
@@ -329,6 +331,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
         echo "The HTML report can be found at [${BMR_DIR}/ninja_log.html]. In CI, this report"
         echo "will also be uploaded to the appropriate subdirectory of https://downloads.rapids.ai/ci/cuml/, and"
         echo "the entire URL can be found in \"conda-cpp-build\" runs under the task \"Upload additional artifacts\""
+        echo "Metrics output dir: [$BMR_DIR]"
         mkdir -p ${BMR_DIR}
         MSG_OUTFILE="$(mktemp)"
         echo "$MSG" > "${MSG_OUTFILE}"
