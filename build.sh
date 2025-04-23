@@ -269,12 +269,6 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
-    # get the current count before the compile starts
-    CACHE_TOOL=${CACHE_TOOL:-sccache}
-    if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" && -x "$(command -v ${CACHE_TOOL})" ]]; then
-        "${CACHE_TOOL}" --zero-stats
-    fi
-
     mkdir -p ${LIBCUML_BUILD_DIR}
     cd ${LIBCUML_BUILD_DIR}
 
@@ -295,6 +289,22 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           ${CUML_EXTRA_CMAKE_ARGS} \
           ..
+fi
+
+# If `./build.sh cuml` is called, don't build C/C++ components
+if (! hasArg --configure-only) && (completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests); then
+    # get the current count before the compile starts
+    CACHE_TOOL=${CACHE_TOOL:-sccache}
+    if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" && -x "$(command -v ${CACHE_TOOL})" ]]; then
+        "${CACHE_TOOL}" --zero-stats
+    fi
+
+    cd ${LIBCUML_BUILD_DIR}
+    if [ -n "${INSTALL_TARGET}" ]; then
+      cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} --target ${INSTALL_TARGET} ${VERBOSE_FLAG}
+    else
+      cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} ${VERBOSE_FLAG}
+    fi
 
     if [[ "$BUILD_REPORT_METRICS" == "ON" && -f "${LIBCUML_BUILD_DIR}/.ninja_log" ]]; then
       if ! rapids-build-metrics-reporter.py 2> /dev/null && [ ! -f rapids-build-metrics-reporter.py ]; then
@@ -338,16 +348,6 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
         PATH=".:$PATH" python rapids-build-metrics-reporter.py ${LIBCUML_BUILD_DIR}/.ninja_log --fmt html --msg "${MSG_OUTFILE}" > ${BMR_DIR}/ninja_log.html
         cp ${LIBCUML_BUILD_DIR}/.ninja_log ${BMR_DIR}/ninja.log
       fi
-fi
-
-# If `./build.sh cuml` is called, don't build C/C++ components
-if (! hasArg --configure-only) && (completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests); then
-    cd ${LIBCUML_BUILD_DIR}
-    if [ -n "${INSTALL_TARGET}" ]; then
-      cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} --target ${INSTALL_TARGET} ${VERBOSE_FLAG}
-    else
-      cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} ${VERBOSE_FLAG}
-    fi
 fi
 
 if (! hasArg --configure-only) && hasArg cppdocs; then
