@@ -83,7 +83,7 @@ BUILD_CUML_TESTS=ON
 BUILD_CUML_MG_TESTS=OFF
 BUILD_STATIC_TREELITE=OFF
 CMAKE_LOG_LEVEL=WARNING
-BUILD_REPORT_METRICS=""
+BUILD_REPORT_METRICS=OFF
 BUILD_REPORT_INCL_CACHE_STATS=OFF
 
 # Set defaults for vars that may not have been defined externally
@@ -123,25 +123,6 @@ function completeBuild {
     true
 }
 
-function buildMetrics {
-    # Check for multiple build-metrics options
-    if [[ $(echo $ARGS | { grep -Eo "\-\-build\-metrics" || true; } | wc -l ) -gt 1 ]]; then
-        echo "Multiple --build-metrics options were provided, please provide only one: ${ARGS}"
-        exit 1
-    fi
-    # Check for build-metrics option
-    if [[ -n $(echo $ARGS | { grep -E "\-\-build\-metrics" || true; } ) ]]; then
-        # There are possible weird edge cases that may cause this regex filter to output nothing and fail silently
-        # the true pipe will catch any weird edge cases that may happen and will cause the program to fall back
-        # on the invalid option error
-        BUILD_REPORT_METRICS=$(echo $ARGS | sed -e 's/.*--build-metrics=//' -e 's/ .*//')
-        if [[ -n ${BUILD_REPORT_METRICS} ]]; then
-            # Remove the full BUILD_REPORT_METRICS argument from list of args so that it passes validArgs function
-            ARGS=${ARGS//--build-metrics=$BUILD_REPORT_METRICS/}
-        fi
-    fi
-}
-
 if hasArg -h || hasArg --help; then
     echo "${HELP}"
     exit 0
@@ -153,9 +134,6 @@ fi
 
 if hasArg cpp-mgtests; then
     BUILD_CUML_MG_TESTS=ON
-fi
-if hasArg --incl-cache-stats; then
-    BUILD_REPORT_INCL_CACHE_STATS=ON
 fi
 
 # Long arguments
@@ -172,6 +150,8 @@ LONG_ARGUMENT_LIST=(
     "nolibcumltest"
     "nocloneraft"
     "configure-only"
+    "build-metrics"
+    "incl-cache-stats"
 )
 
 # Short arguments
@@ -236,6 +216,12 @@ while true; do
             ;;
         --static-treelite )
             BUILD_STATIC_TREELITE=ON
+            ;;
+        --build-metrics )
+            BUILD_REPORT_METRICS=ON
+            ;;
+        --incl-cache-stats )
+            BUILD_REPORT_INCL_CACHE_STATS=ON
             ;;
         --)
             shift
@@ -308,7 +294,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           ${CUML_EXTRA_CMAKE_ARGS} \
           ..
 
-    if [[ -n "$BUILD_REPORT_METRICS" && -f "${LIBCUML_BUILD_DIR}/.ninja_log" ]]; then
+    if [[ "$BUILD_REPORT_METRICS" == "ON" && -f "${LIBCUML_BUILD_DIR}/.ninja_log" ]]; then
       if ! rapids-build-metrics-reporter.py 2> /dev/null && [ ! -f rapids-build-metrics-reporter.py ]; then
           echo "Downloading rapids-build-metrics-reporter.py"
           curl -sO https://raw.githubusercontent.com/rapidsai/build-metrics-reporter/v1/rapids-build-metrics-reporter.py
@@ -340,13 +326,13 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
             MSG="${MSG}<br/>libcuml.so size: $LIBCUML_FS"
         fi
         BMR_DIR=${RAPIDS_ARTIFACTS_DIR:-"${LIBCUML_BUILD_DIR}"}
-        echo "The HTML report can be found at [${BMR_DIR}/${BUILD_REPORT_METRICS}.html]. In CI, this report"
+        echo "The HTML report can be found at [${BMR_DIR}/ninja_log.html]. In CI, this report"
         echo "will also be uploaded to the appropriate subdirectory of https://downloads.rapids.ai/ci/cuml/, and"
         echo "the entire URL can be found in \"conda-cpp-build\" runs under the task \"Upload additional artifacts\""
         mkdir -p ${BMR_DIR}
         MSG_OUTFILE="$(mktemp)"
         echo "$MSG" > "${MSG_OUTFILE}"
-        PATH=".:$PATH" python rapids-build-metrics-reporter.py ${LIBCUML_BUILD_DIR}/.ninja_log --fmt html --msg "${MSG_OUTFILE}" > ${BMR_DIR}/${BUILD_REPORT_METRICS}.html
+        PATH=".:$PATH" python rapids-build-metrics-reporter.py ${LIBCUML_BUILD_DIR}/.ninja_log --fmt html --msg "${MSG_OUTFILE}" > ${BMR_DIR}/ninja_log.html
         cp ${LIBCUML_BUILD_DIR}/.ninja_log ${BMR_DIR}/ninja.log
       fi
 fi
