@@ -231,9 +231,6 @@ while true; do
     shift
 done
 
-echo "BUILD_REPORT_METRICS: $BUILD_REPORT_METRICS"
-echo "BUILD_REPORT_INCL_CACHE_STATS: $BUILD_REPORT_INCL_CACHE_STATS"
-
 # If clean given, run it prior to any other steps
 if (( ${CLEAN} == 1 )); then
     # If the dirs to clean are mounted dirs in a container, the
