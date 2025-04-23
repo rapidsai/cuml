@@ -199,7 +199,11 @@ void kernel_dataset_impl(const raft::handle_t& handle,
 
   // check if random part of the dataset is needed
   if (len_samples > 0) {
-    nblks = len_samples / 2;
+    if (len_samples % 2 == 0) {
+      nblks = len_samples / 2 - 1;
+    } else {
+      nblks = len_samples / 2;
+    }
     // each block does a sample and its compliment
     sampled_rows_kernel<<<nblks, nthreads, 0, stream>>>(
       nsamples,
