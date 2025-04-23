@@ -19,6 +19,8 @@ import functools
 import inspect
 import typing
 
+import cuml.accel
+
 # TODO: Try to resolve circular import that makes this necessary:
 from cuml.internals import input_utils as iu
 from cuml.internals import logger
@@ -154,7 +156,7 @@ def _make_decorator_function(
                 # Wraps the decorated function, executed at runtime.
 
                 # Accept list/tuple inputs when accelerator is active
-                accept_lists = GlobalSettings().accelerator_active
+                accept_lists = cuml.accel.enabled()
 
                 with context_manager_cls(func, args) as cm:
 

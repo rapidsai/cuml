@@ -21,11 +21,11 @@ from sklearn.preprocessing import StandardScaler
 
 from cuml import DBSCAN as cuDBSCAN
 from cuml.internals.safe_imports import cpu_only_import, cpu_only_import_from
+from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import (
     array_equal,
     assert_dbscan_equal,
     get_handle,
-    get_pattern,
     quality_param,
     stress_param,
     unit_param,
@@ -230,7 +230,7 @@ def test_dbscan_sklearn_comparison(name, nrows, eps):
         "n_clusters": 2,
     }
     n_samples = nrows
-    pat = get_pattern(name, n_samples)
+    pat = make_pattern(name, n_samples)
     params = default_base.copy()
     params.update(pat[1])
     X, y = pat[0]
@@ -266,7 +266,7 @@ def test_dbscan_default(name):
         "n_clusters": 2,
     }
     n_samples = 500
-    pat = get_pattern(name, n_samples)
+    pat = make_pattern(name, n_samples)
     params = default_base.copy()
     params.update(pat[1])
     X, y = pat[0]
@@ -485,7 +485,7 @@ def test_dbscan_no_calc_core_point_indices():
 
     params = {"eps": 1.1, "min_samples": 4}
     n_samples = 1000
-    pat = get_pattern("noisy_moons", n_samples)
+    pat = make_pattern("noisy_moons", n_samples)
 
     X, y = pat[0]
 

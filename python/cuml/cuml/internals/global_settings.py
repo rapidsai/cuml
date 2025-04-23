@@ -51,9 +51,6 @@ class _GlobalSettingsData(threading.local):  # pylint: disable=R0903
             {
                 "_output_type": None,
                 "root_cm": None,
-                "accelerator_active": False,
-                "accelerator_loaded": False,
-                "accelerated_modules": {},
             }
         )
 

@@ -24,17 +24,15 @@ import cuml
 import cuml.internals.logger as logger
 from cuml.datasets import make_blobs
 from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import (
     array_equal,
-    get_pattern,
     quality_param,
     stress_param,
     unit_param,
 )
 
 np = cpu_only_import("numpy")
-
-
 cp = gpu_only_import("cupy")
 
 
@@ -199,12 +197,14 @@ def test_kmeans_clusters_blobs(
         random_state=0,
     )
 
+    # Set n_init to 2 to improve stability of k-means|| initialization
+    # See https://github.com/rapidsai/cuml/issues/5530 for details
     cuml_kmeans = cuml.KMeans(
         init="k-means||",
         n_clusters=nclusters,
         random_state=random_state,
         output_type="numpy",
-        n_init=1,
+        n_init=2,
     )
 
     preds = cuml_kmeans.fit_predict(X)
@@ -225,7 +225,7 @@ def test_kmeans_sklearn_comparison(name, nrows, random_state):
         "n_clusters": 3,
     }
 
-    pat = get_pattern(name, nrows)
+    pat = make_pattern(name, nrows)
 
     params = default_base.copy()
     params.update(pat[1])
@@ -270,7 +270,7 @@ def test_kmeans_sklearn_comparison_default(name, nrows, random_state):
         "n_clusters": 3,
     }
 
-    pat = get_pattern(name, nrows)
+    pat = make_pattern(name, nrows)
 
     params = default_base.copy()
     params.update(pat[1])

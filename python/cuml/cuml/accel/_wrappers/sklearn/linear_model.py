@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,33 @@
 # limitations under the License.
 #
 
-import cuml.cluster
+import cuml.linear_model
 from cuml.accel.estimator_proxy import ProxyMixin
 
-__all__ = ("HDBSCAN",)
+__all__ = (
+    "LinearRegression",
+    "LogisticRegression",
+    "ElasticNet",
+    "Ridge",
+    "Lasso",
+)
 
 
-class HDBSCAN(ProxyMixin, cuml.cluster.HDBSCAN):
+class LinearRegression(ProxyMixin, cuml.linear_model.LinearRegression):
+    pass
+
+
+class LogisticRegression(ProxyMixin, cuml.linear_model.LogisticRegression):
+    pass
+
+
+class ElasticNet(ProxyMixin, cuml.linear_model.ElasticNet):
+    pass
+
+
+class Ridge(ProxyMixin, cuml.linear_model.Ridge):
+    pass
+
+
+class Lasso(ProxyMixin, cuml.linear_model.Lasso):
     pass

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,19 @@
 # limitations under the License.
 #
 
-from cuml.accel.core import enabled, install
-from cuml.accel.estimator_proxy import is_proxy
-from cuml.accel.magics import load_ipython_extension
-from cuml.accel.pytest_plugin import pytest_load_initial_conftests
+import cuml.neighbors
+from cuml.accel.estimator_proxy import ProxyMixin
 
-__all__ = (
-    "enabled",
-    "install",
-    "is_proxy",
-    "load_ipython_extension",
-    "pytest_load_initial_conftests",
-)
+__all__ = ("NearestNeighbors", "KNeighborsClassifier", "KNeighborsRegressor")
+
+
+class NearestNeighbors(ProxyMixin, cuml.neighbors.NearestNeighbors):
+    pass
+
+
+class KNeighborsClassifier(ProxyMixin, cuml.neighbors.KNeighborsClassifier):
+    pass
+
+
+class KNeighborsRegressor(ProxyMixin, cuml.neighbors.KNeighborsRegressor):
+    pass

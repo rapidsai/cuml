@@ -18,6 +18,7 @@ import copy
 import operator
 from typing import Tuple
 
+import cuml.accel
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
@@ -221,7 +222,6 @@ class CumlArray:
         mem_type=None,
         validate=None,
     ):
-
         if dtype is not None:
             dtype = GlobalSettings().xpy.dtype(dtype)
 
@@ -246,10 +246,8 @@ class CumlArray:
                 self._array_interface = data.__array_interface__
                 self._mem_type = MemoryType.host
                 self._owner = data
-            elif (  # we accept lists and tuples in accel mode
-                GlobalSettings().accelerator_active
-                and isinstance(data, (list, tuple))
-            ):
+            elif isinstance(data, (list, tuple)) and cuml.accel.enabled():
+                # we accept lists and tuples in accel mode
                 data = np.asarray(data)
                 self._owner = data
                 self._array_interface = data.__array_interface__
@@ -1117,10 +1115,8 @@ class CumlArray:
             # usage of dataframe interchange protocol once ready.
             X = X.to_numpy()
             deepcopy = False
-        elif (  # we accept lists and tuples in accel mode
-            GlobalSettings().accelerator_active
-            and isinstance(X, (list, tuple))
-        ):
+        elif isinstance(X, (list, tuple)) and cuml.accel.enabled():
+            # we accept lists and tuples in accel mode
             X = np.asarray(X)
             deepcopy = False
 

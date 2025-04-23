@@ -71,11 +71,11 @@ from cuml.metrics.cluster import silhouette_samples as cu_silhouette_samples
 from cuml.metrics.cluster import silhouette_score as cu_silhouette_score
 from cuml.metrics.cluster import v_measure_score
 from cuml.model_selection import train_test_split
+from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import (
     array_equal,
     generate_random_labels,
     get_handle,
-    get_pattern,
     quality_param,
     score_labeling_with_handle,
     stress_param,
@@ -303,7 +303,7 @@ def test_rand_index_score(name, nrows):
         "n_clusters": 3,
     }
 
-    pat = get_pattern(name, nrows)
+    pat = make_pattern(name, nrows)
 
     params = default_base.copy()
     params.update(pat[1])
