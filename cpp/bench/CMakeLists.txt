@@ -32,7 +32,6 @@ if(BUILD_CUML_BENCH)
     sg/svc.cu
     sg/svr.cu
     sg/umap.cu
-    sg/fil.cu
     sg/filex.cu
   )
   if (CUML_ENABLE_GPU)
