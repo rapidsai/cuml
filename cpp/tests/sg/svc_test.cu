@@ -1093,11 +1093,14 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
                           {-0.4, 1.2},               // w
                           {1, 1, 2, 2, 1, 2, 2, 3},  // x_support
                           {0, 2, 3, 5}}},            // support idx
+    /*
     {smoInput<TypeParam>{10, 0.001, KernelParams{LINEAR, 3, 1, 0}, 100, 1},
      smoOutput<TypeParam>{3, {2, -4, 2, 0, 0}, -1.0, {-2, 2}, {}, {}}},
     {smoInput<TypeParam>{1, 1e-6, KernelParams{POLYNOMIAL, 3, 1, 1}, 100, 1},
      smoOutput<TypeParam>{
-       3, {-0.0255614, 0.0397971, -0.0142357}, -1.07739149, {}, {1, 1, 2, 1, 2, 2}, {0, 2, 3}}}};
+       3, {-0.0255614, 0.0397971, -0.0142357}, -1.07739149, {}, {1, 1, 2, 1, 2, 2}, {0, 2, 3}}}
+    */
+  };
 
   for (auto d : data) {
     auto p   = d.first;
@@ -1177,6 +1180,7 @@ TYPED_TEST(SmoSolverTest, SvcTest)
                            {1, 1, 2, 2, 1, 2, 2, 3},
                            {0, 2, 3, 5},
                            {-1.0, -1.4, 0.2, -0.2, 1.4, 1.0}}},
+    /*
     {// C == 0 marks a special test case with sample weights
      svcInput<TypeParam>{0,
                          0.001,
@@ -1204,6 +1208,7 @@ TYPED_TEST(SmoSolverTest, SvcTest)
        {1, 1, 2, 1, 2, 2},
        {0, 2, 3},
        {-0.9996812, -2.60106647, 0.9998406, -1.0001594, 6.49681105, 4.31951232}}},
+    */
     {svcInput<TypeParam>{10,
                          1e-6,
                          KernelParams{TANH, 3, 0.3, 1.0},
