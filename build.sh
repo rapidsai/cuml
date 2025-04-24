@@ -19,36 +19,38 @@ ARGS=$*
 REPODIR=$(cd "$(dirname $0)"; pwd)
 
 VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
-VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov --ccache --configure-only -h --help "
+VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov --ccache --configure-only --build-metrics --incl-cache-stats -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
-   clean             - remove all existing build artifacts and configuration (start over)
-   libcuml           - build the cuml C++ code only. Also builds the C-wrapper library
+   clean              - remove all existing build artifacts and configuration (start over)
+   libcuml            - build the cuml C++ code only. Also builds the C-wrapper library
                        around the C++ code.
-   cuml              - build the cuml Python package
-   cpp-mgtests       - build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
-   prims             - build the ml-prims tests
-   bench             - build the libcuml C++ benchmark
-   prims-bench       - build the ml-prims C++ benchmark
-   cppdocs           - build the C++ API doxygen documentation
-   pydocs            - build the general and Python API documentation
+   cuml               - build the cuml Python package
+   cpp-mgtests        - build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
+   prims              - build the ml-prims tests
+   bench              - build the libcuml C++ benchmark
+   prims-bench        - build the ml-prims C++ benchmark
+   cppdocs            - build the C++ API doxygen documentation
+   pydocs             - build the general and Python API documentation
  and <flag> is:
-   -v                - verbose build mode
-   -g                - build for debug
-   -n                - no install step
-   -h                - print this text
-   --allgpuarch      - build for all supported GPU architectures
-   --singlegpu       - Build libcuml and cuml without multigpu components
-   --nolibcumltest   - disable building libcuml C++ tests for a faster build
-   --nvtx            - Enable nvtx for profiling support
-   --show_depr_warn  - show cmake deprecation warnings
-   --codecov         - Enable code coverage support by compiling with Cython linetracing
-                       and profiling enabled (WARNING: Impacts performance)
-   --ccache          - Use ccache to cache previous compilations
-   --configure-only  - Invoke CMake without actually building
-   --nocloneraft     - CMake will clone RAFT even if it is in the environment, use this flag to disable that behavior
-   --static-treelite - Force CMake to use the Treelite static libs, cloning and building them if necessary
+   -v                 - verbose build mode
+   -g                 - build for debug
+   -n                 - no install step
+   -h                 - print this text
+   --allgpuarch       - build for all supported GPU architectures
+   --singlegpu        - Build libcuml and cuml without multigpu components
+   --nolibcumltest    - disable building libcuml C++ tests for a faster build
+   --nvtx             - Enable nvtx for profiling support
+   --show_depr_warn   - show cmake deprecation warnings
+   --codecov          - Enable code coverage support by compiling with Cython linetracing
+                        and profiling enabled (WARNING: Impacts performance)
+   --ccache           - Use ccache to cache previous compilations
+   --configure-only   - Invoke CMake without actually building
+   --nocloneraft      - CMake will clone RAFT even if it is in the environment, use this flag to disable that behavior
+   --static-treelite  - Force CMake to use the Treelite static libs, cloning and building them if necessary
+   --build-metrics    - filename for generating build metrics report for libcuml
+   --incl-cache-stats - include cache statistics in build metrics report
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
 
@@ -80,6 +82,8 @@ BUILD_CUML_TESTS=ON
 BUILD_CUML_MG_TESTS=OFF
 BUILD_STATIC_TREELITE=OFF
 CMAKE_LOG_LEVEL=WARNING
+BUILD_REPORT_METRICS=OFF
+BUILD_REPORT_INCL_CACHE_STATS=OFF
 
 # Set defaults for vars that may not have been defined externally
 INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX:=$LIBCUML_BUILD_DIR/install}}}
@@ -145,6 +149,8 @@ LONG_ARGUMENT_LIST=(
     "nolibcumltest"
     "nocloneraft"
     "configure-only"
+    "build-metrics"
+    "incl-cache-stats"
 )
 
 # Short arguments
@@ -210,6 +216,12 @@ while true; do
         --static-treelite )
             BUILD_STATIC_TREELITE=ON
             ;;
+        --build-metrics )
+            BUILD_REPORT_METRICS=ON
+            ;;
+        --incl-cache-stats )
+            BUILD_REPORT_INCL_CACHE_STATS=ON
+            ;;
         --)
             shift
             break
@@ -217,7 +229,6 @@ while true; do
     esac
     shift
 done
-
 
 # If clean given, run it prior to any other steps
 if (( ${CLEAN} == 1 )); then
@@ -278,12 +289,61 @@ fi
 
 # If `./build.sh cuml` is called, don't build C/C++ components
 if (! hasArg --configure-only) && (completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests); then
+    # get the current count before the compile starts
+    CACHE_TOOL=${CACHE_TOOL:-sccache}
+    if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" && -x "$(command -v ${CACHE_TOOL})" ]]; then
+        "${CACHE_TOOL}" --zero-stats
+    fi
+
     cd ${LIBCUML_BUILD_DIR}
     if [ -n "${INSTALL_TARGET}" ]; then
       cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} --target ${INSTALL_TARGET} ${VERBOSE_FLAG}
     else
       cmake --build ${LIBCUML_BUILD_DIR} -j${PARALLEL_LEVEL} ${build_args} ${VERBOSE_FLAG}
     fi
+
+    if [[ "$BUILD_REPORT_METRICS" == "ON" && -f "${LIBCUML_BUILD_DIR}/.ninja_log" ]]; then
+      if ! rapids-build-metrics-reporter.py 2> /dev/null && [ ! -f rapids-build-metrics-reporter.py ]; then
+          echo "Downloading rapids-build-metrics-reporter.py"
+          curl -sO https://raw.githubusercontent.com/rapidsai/build-metrics-reporter/v1/rapids-build-metrics-reporter.py
+      fi
+
+      echo "Formatting build metrics"
+      MSG=""
+      # get some sccache/ccache stats after the compile
+      if [[ "$BUILD_REPORT_INCL_CACHE_STATS" == "ON" ]]; then
+          if [[ ${CACHE_TOOL} == "sccache" && -x "$(command -v sccache)" ]]; then
+              COMPILE_REQUESTS=$(sccache -s | grep "Compile requests \+ [0-9]\+$" | awk '{ print $NF }')
+              CACHE_HITS=$(sccache -s | grep "Cache hits \+ [0-9]\+$" | awk '{ print $NF }')
+              HIT_RATE=$(COMPILE_REQUESTS="${COMPILE_REQUESTS}" CACHE_HITS="${CACHE_HITS}" python3 -c "import os; print(f'{int(os.getenv(\"CACHE_HITS\")) / int(os.getenv(\"COMPILE_REQUESTS\")):.2f}' if int(os.getenv(\"COMPILE_REQUESTS\")) else 'nan')")
+              MSG="${MSG}<br/>cache hit rate ${HIT_RATE} %"
+          elif [[ ${CACHE_TOOL} == "ccache" && -x "$(command -v ccache)" ]]; then
+              CACHE_STATS_LINE=$(ccache -s | grep "Hits: \+ [0-9]\+ / [0-9]\+" | tail -n1)
+              if [[ ! -z "$CACHE_STATS_LINE" ]]; then
+                  CACHE_HITS=$(echo "$CACHE_STATS_LINE" - | awk '{ print $2 }')
+                  COMPILE_REQUESTS=$(echo "$CACHE_STATS_LINE" - | awk '{ print $4 }')
+                  HIT_RATE=$(COMPILE_REQUESTS="${COMPILE_REQUESTS}" CACHE_HITS="${CACHE_HITS}" python3 -c "import os; print(f'{int(os.getenv(\"CACHE_HITS\")) / int(os.getenv(\"COMPILE_REQUESTS\")):.2f}' if int(os.getenv(\"COMPILE_REQUESTS\")) else 'nan')")
+                  MSG="${MSG}<br/>cache hit rate ${HIT_RATE} %"
+              fi
+          fi
+        fi
+        MSG="${MSG}<br/>parallel setting: $PARALLEL_LEVEL"
+        MSG="${MSG}<br/>parallel build time: $compile_total seconds"
+        if [[ -f "${LIBCUML_BUILD_DIR}/libcuml++.so" ]]; then
+            LIBCUML_FS=$(ls -lh ${LIBCUML_BUILD_DIR}/libcuml++.so | awk '{print $5}')
+            MSG="${MSG}<br/>libcuml++.so size: $LIBCUML_FS"
+        fi
+        BMR_DIR=${RAPIDS_ARTIFACTS_DIR:-"${LIBCUML_BUILD_DIR}"}
+        echo "The HTML report can be found at [${BMR_DIR}/ninja_log.html]. In CI, this report"
+        echo "will also be uploaded to the appropriate subdirectory of https://downloads.rapids.ai/ci/cuml/, and"
+        echo "the entire URL can be found in \"conda-cpp-build\" runs under the task \"Upload additional artifacts\""
+        echo "Metrics output dir: [$BMR_DIR]"
+        mkdir -p ${BMR_DIR}
+        MSG_OUTFILE="$(mktemp)"
+        echo "$MSG" > "${MSG_OUTFILE}"
+        PATH=".:$PATH" python rapids-build-metrics-reporter.py ${LIBCUML_BUILD_DIR}/.ninja_log --fmt html --msg "${MSG_OUTFILE}" > ${BMR_DIR}/ninja_log.html
+        cp ${LIBCUML_BUILD_DIR}/.ninja_log ${BMR_DIR}/ninja.log
+      fi
 fi
 
 if (! hasArg --configure-only) && hasArg cppdocs; then
