@@ -48,7 +48,10 @@ def test_rf_criterion_reg(regression_data, criterion):
         criterion=criterion, n_estimators=50, random_state=42
     )
     reg.fit(X, y)
-    _ = r2_score(y, reg.predict(X))
+    score1 = r2_score(y, reg.predict(X))
+    assert isinstance(score1, float)
+    score2 = reg.score(X, y)
+    assert isinstance(score2, float)
 
 
 @pytest.mark.parametrize("max_depth", [None, 5, 10])
