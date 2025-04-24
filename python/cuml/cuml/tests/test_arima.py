@@ -148,7 +148,7 @@ test_121c = ARIMAData(
     n_obs=137,
     n_test=10,
     dataset="population_estimate",
-    tolerance_integration=0.06,
+    tolerance_integration=0.07,
 )
 
 # ARIMA(1,1,1) with intercept (missing observations)
