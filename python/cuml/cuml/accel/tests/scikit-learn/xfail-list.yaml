@@ -19,7 +19,7 @@
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-0-dense-normal]"
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-1e-100-dense-blobs]"
   strict: false
-  reason: Test is flaky
+  reason: Test is flaky with cuml.accel
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_empty_cluster_relocated[dense]"
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-<lambda>-default]"
 - id: "sklearn.cluster.tests.test_k_means::test_kmeans_init_auto_with_initial_centroids[KMeans-array-like-1]"
@@ -321,10 +321,10 @@
 - id: "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-randomized]"
 - id: "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[arpack-sparse]"
   strict: false
-  reason: Test is flaky
+  reason: Test is flaky with cuml.accel
 - id: "sklearn.decomposition.tests.test_truncated_svd::test_explained_variance_components_10_20[randomized-sparse]"
   strict: false
-  reason: Test is flaky
+  reason: Test is flaky with cuml.accel
 - id: "sklearn.decomposition.tests.test_truncated_svd::test_truncated_svd_eq_pca"
 - id: "sklearn.ensemble.tests.test_forest::test_1d_input[RandomForestClassifier]"
 - id: "sklearn.ensemble.tests.test_forest::test_1d_input[RandomForestRegressor]"
@@ -473,10 +473,10 @@
 - id: "sklearn.feature_selection.tests.test_rfe::test_rfe_features_importance"
 - id: "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[2]"
   strict: false
-  reason: Test is flaky
+  reason: Test is flaky with cuml.accel
 - id: "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[3]"
   strict: false
-  reason: Test is flaky
+  reason: Test is flaky with cuml.accel
 - id: "sklearn.impute.tests.test_knn::test_knn_imputer_weight_distance[-1]"
 - id: "sklearn.impute.tests.test_knn::test_knn_imputer_weight_distance[nan]"
 - id: "sklearn.inspection.tests.test_partial_dependence::test_multiclass_multioutput[KNeighborsClassifier]"
@@ -740,7 +740,7 @@
 - id: "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_array-exact]"
 - id: "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_matrix-barnes_hut]"
   strict: false
-  reason: Test is flaky
+  reason: Test is flaky with cuml.accel
 - id: "sklearn.manifold.tests.test_t_sne::test_high_perplexity_precomputed_sparse_distances[csr_array]"
 - id: "sklearn.manifold.tests.test_t_sne::test_high_perplexity_precomputed_sparse_distances[csr_matrix]"
 - id: "sklearn.manifold.tests.test_t_sne::test_init_ndarray"

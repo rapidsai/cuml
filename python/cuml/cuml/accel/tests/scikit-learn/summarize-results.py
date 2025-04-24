@@ -136,7 +136,7 @@ def update_xfail_list(existing_list, test_results, xpassed_action="keep"):
                     # Mark strict xpassed tests as flaky
                     entry = entry.copy()
                     entry["strict"] = False
-                    entry["reason"] = "Test is flaky"
+                    entry["reason"] = "Test is flaky with cuml.accel"
                     updated_entries[test_id] = entry
                 # For "remove", we don't add xpassed tests at all
             elif entry.get("strict", True) is False:
