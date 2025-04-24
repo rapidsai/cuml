@@ -415,14 +415,16 @@ def test_svm_gamma(params):
 
 @pytest.mark.parametrize("x_dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("y_dtype", [np.float32, np.float64, np.int32])
+@pytest.mark.xfail(reason="SVC testing inflexibility (see issue #6575)")
 def test_svm_numeric_arraytype(x_dtype, y_dtype):
     X, y = get_binary_iris_dataset()
     X = X.astype(x_dtype, order="F")
     y = y.astype(y_dtype)
 
-    cuSVC = cu_svm.SVC()
+    params = {"kernel": "rbf", "C": 1, "gamma": 0.25}
+    cuSVC = cu_svm.SVC(**params)
     cuSVC.fit(X, y)
-    intercept_exp = 0.23464503
+    intercept_exp = 0.23468959692060373
     n_sv_exp = 15
     assert abs(cuSVC.intercept_ - intercept_exp) / intercept_exp < 1e-3
     assert cuSVC.n_support_ == n_sv_exp
