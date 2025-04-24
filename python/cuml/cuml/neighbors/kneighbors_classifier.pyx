@@ -164,17 +164,18 @@ class KNeighborsClassifier(ClassifierMixin,
         self.classes_ = None
         self.weights = weights
 
-        if weights != "uniform":
-            raise ValueError("Only uniform weighting strategy is "
-                             "supported currently.")
-
     @generate_docstring(convert_dtype_cast='np.float32')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
+    @enable_device_interop
     def fit(self, X, y, convert_dtype=True) -> "KNeighborsClassifier":
         """
         Fit a GPU index for k-nearest neighbors classifier model.
 
         """
+        if self.weights != "uniform":
+            raise ValueError("Only uniform weighting strategy is "
+                             "supported currently.")
+
         super(KNeighborsClassifier, self).fit(X, convert_dtype)
         self.y, _, _, _ = \
             input_to_cuml_array(y, order='F', check_dtype=np.int32,
@@ -190,6 +191,7 @@ class KNeighborsClassifier(ClassifierMixin,
                                        'description': 'Labels predicted',
                                        'shape': '(n_samples, 1)'})
     @cuml.internals.api_base_return_array(get_output_dtype=True)
+    @enable_device_interop
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors classifier to
