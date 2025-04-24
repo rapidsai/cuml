@@ -35,25 +35,26 @@ from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cuml_array
 
-IF GPUBUILD == 1:
-    from pylibraft.common.handle cimport handle_t
-    cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
+from pylibraft.common.handle cimport handle_t
 
-        cdef void gemmPredict(handle_t& handle,
-                              const float *input,
-                              size_t _n_rows,
-                              size_t _n_cols,
-                              const float *coef,
-                              float intercept,
-                              float *preds) except +
 
-        cdef void gemmPredict(handle_t& handle,
-                              const double *input,
-                              size_t _n_rows,
-                              size_t _n_cols,
-                              const double *coef,
-                              double intercept,
-                              double *preds) except +
+cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
+
+    cdef void gemmPredict(handle_t& handle,
+                          const float *input,
+                          size_t _n_rows,
+                          size_t _n_cols,
+                          const float *coef,
+                          float intercept,
+                          float *preds) except +
+
+    cdef void gemmPredict(handle_t& handle,
+                          const double *input,
+                          size_t _n_rows,
+                          size_t _n_cols,
+                          const double *coef,
+                          double intercept,
+                          double *preds) except +
 
 
 class LinearPredictMixin:
@@ -138,24 +139,23 @@ class LinearPredictMixin:
             preds = CumlArray.zeros(_n_rows, dtype=dtype, index=X_m.index)
         cdef uintptr_t _preds_ptr = preds.ptr
 
-        IF GPUBUILD == 1:
-            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-            if dtype.type == np.float32:
-                gemmPredict(handle_[0],
-                            <float*>_X_ptr,
-                            <size_t>_n_rows,
-                            <size_t>_n_cols,
-                            <float*>_coef_ptr,
-                            <float>intercept,
-                            <float*>_preds_ptr)
-            else:
-                gemmPredict(handle_[0],
-                            <double*>_X_ptr,
-                            <size_t>_n_rows,
-                            <size_t>_n_cols,
-                            <double*>_coef_ptr,
-                            <double>intercept,
-                            <double*>_preds_ptr)
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        if dtype.type == np.float32:
+            gemmPredict(handle_[0],
+                        <float*>_X_ptr,
+                        <size_t>_n_rows,
+                        <size_t>_n_cols,
+                        <float*>_coef_ptr,
+                        <float>intercept,
+                        <float*>_preds_ptr)
+        else:
+            gemmPredict(handle_[0],
+                        <double*>_X_ptr,
+                        <size_t>_n_rows,
+                        <size_t>_n_cols,
+                        <double*>_coef_ptr,
+                        <double>intercept,
+                        <double*>_preds_ptr)
 
         self.handle.sync()
 

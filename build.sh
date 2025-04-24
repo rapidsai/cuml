@@ -18,7 +18,7 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd "$(dirname $0)"; pwd)
 
-VALIDTARGETS="clean libcuml cuml cuml-cpu cpp-mgtests prims bench prims-bench cppdocs pydocs"
+VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
 VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov --ccache --configure-only --build-metrics --incl-cache-stats -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
@@ -27,7 +27,6 @@ HELP="$0 [<target> ...] [<flag> ...]
    libcuml            - build the cuml C++ code only. Also builds the C-wrapper library
                        around the C++ code.
    cuml               - build the cuml Python package
-   cuml-cpu           - build the cuml CPU Python package
    cpp-mgtests        - build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
    prims              - build the ml-prims tests
    bench              - build the libcuml C++ benchmark
@@ -365,9 +364,4 @@ if (! hasArg --configure-only) && (completeBuild || hasArg cuml || hasArg pydocs
         cd ${REPODIR}/docs
         make html
     fi
-fi
-
-if hasArg cuml-cpu; then
-    SKBUILD_CMAKE_ARGS="-DCUML_CPU=ON;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE" \
-        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true ${REPODIR}/python/cuml
 fi

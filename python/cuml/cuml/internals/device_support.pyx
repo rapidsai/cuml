@@ -25,7 +25,7 @@ try:
 
     CPU_ENABLED = True
 
-    if(Version(sklearn.__version__) >= MIN_SKLEARN_VERSION):
+    if (Version(sklearn.__version__) >= MIN_SKLEARN_VERSION):
         MIN_SKLEARN_PRESENT = (True, None, None)
     else:
         MIN_SKLEARN_PRESENT = (False, sklearn.__version__, MIN_SKLEARN_VERSION)
@@ -34,17 +34,4 @@ except ImportError:
     CPU_ENABLED = False
     MIN_SKLEARN_PRESENT = (False, None, None)
 
-IF GPUBUILD == 1:
-    GPU_ENABLED = True
-
-ELSE:
-    GPU_ENABLED = False
-
-    import warnings
-    warnings.warn(
-        "`cuml-cpu` is deprecated in favor of `cuml.accel`, cuML's new Zero Code "
-        "Change Acceleration layer. The final release of `cuml-cpu` is version 25.04. "
-        "To learn more about `cuml.accel` please see "
-        "https://docs.rapids.ai/api/cuml/stable/zero-code-change/",
-        FutureWarning
-    )
+GPU_ENABLED = True
