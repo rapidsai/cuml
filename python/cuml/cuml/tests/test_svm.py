@@ -420,10 +420,9 @@ def test_svm_numeric_arraytype(x_dtype, y_dtype):
     X = X.astype(x_dtype, order="F")
     y = y.astype(y_dtype)
 
-    params = {"kernel": "rbf", "C": 1, "gamma": "scale"}
-    cuSVC = cu_svm.SVC(**params)
+    cuSVC = cu_svm.SVC()
     cuSVC.fit(X, y)
-    intercept_exp = 0.23468959692060373
+    intercept_exp = 0.23464503
     n_sv_exp = 15
     assert abs(cuSVC.intercept_ - intercept_exp) / intercept_exp < 1e-3
     assert cuSVC.n_support_ == n_sv_exp
