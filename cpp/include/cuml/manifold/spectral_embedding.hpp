@@ -22,4 +22,5 @@
 // template <typename IndexTypeT, typename ValueTypeT>
 auto spectral_embedding(raft::resources const& handle,
                         raft::device_matrix_view<float, int, raft::row_major> nums,
+                        raft::device_matrix_view<float, int, raft::col_major> embedding,
                         ML::spectral_embedding_config config) -> int;

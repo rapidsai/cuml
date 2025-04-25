@@ -23,6 +23,8 @@ namespace ML {
 struct spectral_embedding_config {
   /** The number of components to reduce the data to. */
   int n_components;
+  /** The number of neighbors to use for the nearest neighbors graph. */
+  int n_neighbors;
   /** Whether to normalize the Laplacian matrix. */
   bool norm_laplacian;
   /** Whether to drop the first eigenvector. */

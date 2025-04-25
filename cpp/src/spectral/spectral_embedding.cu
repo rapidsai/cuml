@@ -21,6 +21,7 @@
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/resources.hpp>
+#include <raft/matrix/gather.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/linalg/laplacian.cuh>
 #include <raft/sparse/linalg/symmetrize.cuh>
@@ -49,6 +50,34 @@
 
 //   // if (idx < size) { vec[idx] = (fabs(vec[idx]) < threshold) ? 0 : vec[idx]; }
 // }
+
+void scale_eigenvectors_by_diagonal(
+  raft::device_matrix_view<float, int, raft::col_major> eigenvectors,
+  const raft::device_vector<float, int>& diagonal,
+  raft::resources const& handle)
+{
+  int n_rows = eigenvectors.extent(0);
+  int n_cols = eigenvectors.extent(1);
+
+  auto eigenvectors_ptr = eigenvectors.data_handle();
+  auto diagonal_ptr     = diagonal.data_handle();
+
+  auto policy = thrust::cuda::par.on(raft::resource::get_cuda_stream(handle));
+
+  // For each row in the eigenvectors matrix
+  thrust::for_each(policy,
+                   thrust::counting_iterator<int>(0),
+                   thrust::counting_iterator<int>(n_rows),
+                   [eigenvectors_ptr, diagonal_ptr, n_cols, n_rows] __device__(int row) {
+                     // For each column in this row
+                     for (int col = 0; col < n_cols; col++) {
+                       // With column-major layout, index is (row + col * n_rows)
+                       int idx = row + col * n_rows;
+                       // Divide by the corresponding diagonal element
+                       eigenvectors_ptr[idx] /= diagonal_ptr[row];
+                     }
+                   });
+}
 
 template <typename T, typename IndexType>
 void scale_csr_by_diagonal_symmetric(
@@ -186,12 +215,13 @@ struct both_index_and_value_odd {
 
 auto spectral_embedding(raft::resources const& handle,
                         raft::device_matrix_view<float, int, raft::row_major> nums,
+                        raft::device_matrix_view<float, int, raft::col_major> embedding,
                         ML::spectral_embedding_config spectral_embedding_config) -> int
 {
   // Define our sample data (similar to the Python example)
   const int n_samples     = nums.extent(0);
   const int n_features    = nums.extent(1);
-  const int k             = 12;     // Number of neighbors
+  const int k             = spectral_embedding_config.n_neighbors;  // Number of neighbors
   const bool include_self = false;  // Set to false to exclude self-connections
   const bool drop_first   = spectral_embedding_config.drop_first;
 
@@ -578,8 +608,7 @@ auto spectral_embedding(raft::resources const& handle,
   // laplacian_structure.get_indptr().data(), laplacian_structure.get_n_rows() + 1, std::cout);
 
   auto config           = raft::sparse::solver::lanczos_solver_config<float>();
-  config.n_components   = drop_first ? spectral_embedding_config.n_components + 1
-                                     : spectral_embedding_config.n_components;
+  config.n_components   = spectral_embedding_config.n_components;
   config.max_iterations = 1000;
   config.ncv =
     std::min(laplacian_structure.get_n_rows(), std::max(2 * config.n_components + 1, 20));
@@ -607,12 +636,50 @@ auto spectral_embedding(raft::resources const& handle,
 
   raft::print_device_vector(
     "eigenvalues", eigenvalues.data_handle(), eigenvalues.size(), std::cout);
-  raft::print_device_vector(
-    "eigenvectors", eigenvectors.data_handle(), eigenvectors.size(), std::cout);
+  // raft::print_device_vector(
+  //   "eigenvectors", eigenvectors.data_handle(), eigenvectors.size(), std::cout);
 
   // raft::sparse::solver::lanczos_compute_smallest_eigenvectors(handle, config, 1, 1, 1, 1, 1, 1);
   // raft::sparse::solver::lanczos_compute_smallest_eigenvectors(handle, laplacian_structure,
   // laplacian, diagonal, eigenvalues, eigenvectors);
+
+  if (spectral_embedding_config.norm_laplacian) {
+    scale_eigenvectors_by_diagonal(eigenvectors.view(), diagonal, handle);
+  }
+
+  // Replace the direct copy with a gather operation that reverses columns
+
+  // Create a sequence of reversed column indices
+  config.n_components = drop_first ? config.n_components - 1 : config.n_components;
+  auto col_indices    = raft::make_device_vector<int>(handle, config.n_components);
+  thrust::sequence(thrust::device,
+                   col_indices.data_handle(),
+                   col_indices.data_handle() + config.n_components,
+                   config.n_components - 1,  // Start from the last column index
+                   -1                        // Decrement (move backward)
+  );
+
+  // Create row-major views of the column-major matrices
+  // This is just a view re-interpretation, no data movement
+  auto eigenvectors_row_view = raft::make_device_matrix_view<float, int, raft::row_major>(
+    eigenvectors.data_handle(),
+    eigenvectors.extent(1),  // Swap dimensions for the view
+    eigenvectors.extent(0));
+
+  auto embedding_row_view = raft::make_device_matrix_view<float, int, raft::row_major>(
+    embedding.data_handle(),
+    embedding.extent(1),  // Swap dimensions for the view
+    embedding.extent(0));
+
+  raft::matrix::gather<float, int, int>(
+    handle,
+    raft::make_const_mdspan(eigenvectors_row_view),  // Source matrix (as row-major view)
+    raft::make_const_mdspan(col_indices.view()),     // Column indices to gather
+    embedding_row_view                               // Destination matrix (as row-major view)
+  );
+
+  // copy eigenvectors to embedding
+  // raft::copy(embedding.data_handle(), eigenvectors.data_handle(), eigenvectors.size(), stream);
 
   return 100;
 }

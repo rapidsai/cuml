@@ -44,6 +44,7 @@ from pylibraft.random.cpp.rng_state cimport RngState
 cdef extern from "cuml/manifold/spectral_embedding_types.hpp" namespace "ML":
     cdef cppclass spectral_embedding_config:
         int n_components
+        int n_neighbors
         bool norm_laplacian
         bool drop_first
         uint64_t seed
@@ -55,44 +56,38 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp":
     cdef int spectral_embedding(
         const device_resources &handle,
         device_matrix_view[float, int, row_major] nums,
+        device_matrix_view[float, int, col_major] embedding,
         spectral_embedding_config config) except +
 
 @auto_sync_handle
-def get_affinity_matrix(A, handle=None):
+def get_affinity_matrix(A, n_components, random_state=None, n_neighbors=None, norm_laplacian=True, drop_first=True, handle=None):
 
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
-    print(A)
     A = cai_wrapper(A)
     A_ptr = <uintptr_t>A.data
 
-    print(A)
-    print(A.shape)
+    config.n_components = n_components
+    config.seed = random_state
 
-    config.n_components = 2
-    config.norm_laplacian = True
-    config.drop_first = True
-    config.seed = 1234
+    config.n_neighbors = (
+        n_neighbors
+        if n_neighbors is not None
+        else max(int(A.shape[0] / 10), 1)
+    )
 
-    # X_m = SparseCumlArray(A, convert_to_dtype=cp.float32,
-    #                         convert_format=False)
+    config.norm_laplacian = norm_laplacian
+    config.drop_first = drop_first
 
-    # # Need to establish result matrices for indices (Nxk)
-    # # and for distances (Nxk)
-    # I_ndarr = CumlArray.zeros((X_m.shape[0], n_neighbors),
-    #                             dtype=np.int32, order="C")
-    # D_ndarr = CumlArray.zeros((X_m.shape[0], n_neighbors),
-    #                             dtype=np.float32, order="C")
+    if config.drop_first:
+        config.n_components += 1
 
-    # cdef uintptr_t _I_ptr = I_ndarr.ptr
-    # cdef uintptr_t _D_ptr = D_ndarr.ptr
 
-    # eigenvectors_cai = cai_wrapper(eigenvectors)
-    # eigenvectors_ptr = <uintptr_t>eigenvectors_cai.data
+    eigenvectors = device_ndarray.empty((A.shape[0], n_components), dtype=A.dtype, order='F')
 
-    # make_device_matrix_view[float, uint32_t, col_major](
-    #             <float *>eigenvectors_ptr, <uint32_t> N, <uint32_t> k)
+    eigenvectors_cai = cai_wrapper(eigenvectors)
+    eigenvectors_ptr = <uintptr_t>eigenvectors_cai.data
 
-    cdef int result = spectral_embedding(deref(h), make_device_matrix_view[float, int, row_major](<float *>A_ptr, <int> A.shape[0], <int> A.shape[1]), config)
+    cdef int result = spectral_embedding(deref(h), make_device_matrix_view[float, int, row_major](<float *>A_ptr, <int> A.shape[0], <int> A.shape[1]), make_device_matrix_view[float, int, col_major](<float *>eigenvectors_ptr, <int> A.shape[0], <int> n_components), config)
 
-    return result
+    return cp.asarray(eigenvectors)
