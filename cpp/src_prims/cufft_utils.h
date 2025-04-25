@@ -43,10 +43,14 @@ const char* getCufftErrStr(cufftResult status)
     case CUFFT_EXEC_FAILED: return "Failed to execute an FFT on the GPU.";
     case CUFFT_SETUP_FAILED: return "The cuFFT library failed to initialize.";
     case CUFFT_INVALID_SIZE: return "User specified an invalid transform size.";
+#if defined(CUDART_VERSION) && CUDART_VERSION < 13000
     case CUFFT_INCOMPLETE_PARAMETER_LIST: return "Missing parameters in call.";
+#endif
     case CUFFT_INVALID_DEVICE:
       return "Execution of a plan was on different GPU than plan creation.";
+#if defined(CUDART_VERSION) && CUDART_VERSION < 13000
     case CUFFT_PARSE_ERROR: return "Internal plan database error.";
+#endif
     case CUFFT_NO_WORKSPACE: return "No workspace has been provided prior to plan execution.";
     case CUFFT_NOT_IMPLEMENTED:
       return "Function does not implement functionality for parameters given.";
