@@ -14,12 +14,11 @@
 # limitations under the License.
 #
 
+import numpy as np
+
 import cuml.internals.logger as logger
 import cuml.internals.nvtx as nvtx
 from cuml.common import has_scipy
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
 
 
 def _fd_fprime(x, f, h):

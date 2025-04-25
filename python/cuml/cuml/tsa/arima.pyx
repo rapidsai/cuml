@@ -16,10 +16,9 @@
 
 # distutils: language = c++
 
-import cuml.internals.nvtx as nvtx
-from cuml.internals.safe_imports import cpu_only_import
+import numpy as np
 
-np = cpu_only_import('numpy')
+import cuml.internals.nvtx as nvtx
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
