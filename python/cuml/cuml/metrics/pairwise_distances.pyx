@@ -26,11 +26,8 @@ import cudf
 import cupy as cp
 import numpy as np
 import pandas as pd
+import scipy.sparse
 from pylibraft.common.handle import Handle
-
-from cuml.internals.safe_imports import cpu_only_import
-
-scipy = cpu_only_import('scipy')
 
 import cuml.internals
 from cuml.common import CumlArray, input_to_cuml_array
