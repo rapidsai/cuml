@@ -15,18 +15,13 @@
 #
 import inspect
 
+import cupy as cp
+import numpy as np
+from numba import cuda
+
 import cuml.internals
 from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
 from cuml.metrics import pairwise_distances
-
-cuda = gpu_only_import_from("numba", "cuda")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
 
 
 def linear_kernel(X, Y):

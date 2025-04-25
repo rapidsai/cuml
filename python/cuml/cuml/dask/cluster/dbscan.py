@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import numpy as np
 from dask.distributed import get_worker
 from raft_dask.common.comms import Comms, get_raft_comm_state
 
@@ -24,9 +25,6 @@ from cuml.dask.common.base import (
 )
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.internals.memory_utils import with_cupy_rmm
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
 
 
 class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):

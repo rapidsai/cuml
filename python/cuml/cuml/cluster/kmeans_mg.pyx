@@ -16,13 +16,7 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-
-from cuml.internals.safe_imports import gpu_only_import
-
-rmm = gpu_only_import('rmm')
+import numpy as np
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t, uintptr_t

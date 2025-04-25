@@ -18,9 +18,6 @@
 
 import typing
 
-from cuml.internals.safe_imports import gpu_only_import_from
-
-cudfDataFrame = gpu_only_import_from('cudf', 'DataFrame')
 import cuml.internals.logger as logger
 from cuml.common import input_to_cuml_array
 from cuml.internals import api_base_return_generic_skipall

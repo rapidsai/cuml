@@ -13,18 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
 import time
 from functools import lru_cache
 from itertools import combinations
 from numbers import Number
 from random import randint
+
+import cupy as cp
+import numpy as np
 
 from cuml.explainer.base import SHAPBase
 from cuml.explainer.common import get_cai_ptr, model_func_call

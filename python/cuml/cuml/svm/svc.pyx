@@ -15,19 +15,9 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import gpu_only_import
-
-cudf = gpu_only_import('cudf')
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-
-from cuml.internals.safe_imports import gpu_only_import_from
-
-cuda = gpu_only_import_from('numba', 'cuda')
+import cudf
+import cupy as cp
+import numpy as np
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t

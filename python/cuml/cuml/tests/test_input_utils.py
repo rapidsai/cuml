@@ -14,9 +14,13 @@
 # limitations under the License.
 #
 
+import cudf
+import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
+from cudf.pandas import LOADED as cudf_pandas_active
+from numba import cuda as nbcuda
 from pandas import Series as pdSeries
 
 from cuml.common import (
@@ -26,22 +30,7 @@ from cuml.common import (
     input_to_host_array,
 )
 from cuml.internals.input_utils import convert_dtype, input_to_cupy_array
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
-)
 from cuml.manifold import umap
-
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
-nbcuda = gpu_only_import_from("numba", "cuda")
-cudf_pandas_active = gpu_only_import_from("cudf.pandas", "LOADED")
-pdDF = cpu_only_import_from("pandas", "DataFrame")
-
 
 ###############################################################################
 #                                    Parameters                               #
@@ -414,7 +403,7 @@ def get_input(
         result = cudf.Series(rand_mat.reshape(nrows), index=index)
 
     if type == "pandas":
-        result = pdDF(cp.asnumpy(rand_mat), index=index)
+        result = pd.DataFrame(cp.asnumpy(rand_mat), index=index)
 
     if type == "pandas-series":
         result = pdSeries(

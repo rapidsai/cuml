@@ -14,7 +14,9 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import
+
+import cudf
+import cupy as cp
 
 from .porter_stemmer_utils.consonant_vowel_utils import (
     contains_vowel,
@@ -38,9 +40,6 @@ from .porter_stemmer_utils.suffix_utils import (
     get_str_replacement_series,
     replace_suffix,
 )
-
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
 
 
 # Implementation based on nltk//stem/porter.html

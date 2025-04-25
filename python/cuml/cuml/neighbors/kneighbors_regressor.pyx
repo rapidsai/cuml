@@ -16,6 +16,8 @@
 
 # distutils: language = c++
 
+import numpy as np
+
 import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -23,26 +25,12 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.api_decorators import enable_device_interop
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
-np = cpu_only_import('numpy')
-
-
 from cython.operator cimport dereference as deref
+from libc.stdint cimport int64_t, uintptr_t
 from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
-
-from cuml.internals.safe_imports import gpu_only_import
-
-rmm = gpu_only_import('rmm')
-
-from libc.stdint cimport int64_t, uintptr_t
-
-from cuml.internals.safe_imports import gpu_only_import_from
-
-cuda = gpu_only_import_from('numba', 'cuda')
-import rmm
 
 cimport cuml.common.cuda
 

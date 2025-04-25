@@ -14,10 +14,9 @@
 # limitations under the License.
 #
 
-from cuml.internals.import_utils import has_scipy
-from cuml.internals.safe_imports import gpu_only_import
+import cupyx
 
-cupyx = gpu_only_import("cupyx")
+from cuml.internals.import_utils import has_scipy
 
 if has_scipy():
     import scipy.sparse

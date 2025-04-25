@@ -13,25 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
 import time
 
-from cuml.internals.safe_imports import gpu_only_import_from
+import cupy as cp
 
-cu_df = gpu_only_import_from('cudf', 'DataFrame')
 from cuml.explainer.base import SHAPBase
 from cuml.explainer.common import get_cai_ptr, model_func_call
-
-cuda = gpu_only_import_from('numba', 'cuda')
-from cuml.internals.safe_imports import cpu_only_import_from
-
-pd_df = cpu_only_import_from('pandas', 'DataFrame')
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool

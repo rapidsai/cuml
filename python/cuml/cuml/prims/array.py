@@ -16,10 +16,9 @@
 
 import math
 
-from cuml.common.kernel_utils import cuda_kernel_factory
-from cuml.internals.safe_imports import gpu_only_import
+import cupy as cp
 
-cp = gpu_only_import("cupy")
+from cuml.common.kernel_utils import cuda_kernel_factory
 
 
 def _binarize_kernel(x_dtype):

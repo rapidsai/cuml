@@ -19,6 +19,8 @@ import multiprocessing as mp
 import time
 from queue import Empty
 
+import cupy as cp
+import numpy as np
 import pytest
 import sklearn.svm as sk
 
@@ -28,12 +30,7 @@ import cuml.internals.logger as logger
 import cuml.model_selection as dsel
 import cuml.svm as cu
 from cuml.common import input_to_cuml_array
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import as_type, quality_param, stress_param, unit_param
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
 
 SEED = 42
 ERROR_TOLERANCE_REL = 0.1

@@ -19,6 +19,9 @@
 import pprint
 import warnings
 
+import cupy as cp
+import numpy as np
+
 import cuml.internals
 from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -38,13 +41,8 @@ from cuml.internals.mixins import (
     SparseInputTagMixin,
 )
 from cuml.internals.output_utils import cudf_to_pandas
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.preprocessing import LabelEncoder
 from cuml.solvers import QN
-
-cp = gpu_only_import('cupy')
-np = cpu_only_import('numpy')
-
 
 supported_penalties = ["l1", "l2", None, "none", "elasticnet"]
 

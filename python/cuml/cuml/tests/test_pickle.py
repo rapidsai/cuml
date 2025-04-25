@@ -15,14 +15,15 @@
 
 import pickle
 
+import numpy as np
 import pytest
+import scipy.sparse as scipy_sparse
 from sklearn.base import clone
 from sklearn.datasets import load_iris, make_classification, make_regression
 from sklearn.manifold import trustworthiness
 from sklearn.model_selection import train_test_split
 
 import cuml
-from cuml.internals.safe_imports import cpu_only_import, cpu_only_import_from
 from cuml.testing.utils import (
     ClassEnumerator,
     array_equal,
@@ -33,9 +34,6 @@ from cuml.testing.utils import (
     unit_param,
 )
 from cuml.tsa.arima import ARIMA
-
-np = cpu_only_import("numpy")
-scipy_sparse = cpu_only_import_from("scipy", "sparse")
 
 regression_config = ClassEnumerator(module=cuml.linear_model)
 regression_models = regression_config.get_models()

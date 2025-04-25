@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import numpy as np
 import pytest
 from sklearn.datasets import make_blobs
 from sklearn.random_projection import (
@@ -20,7 +21,6 @@ from sklearn.random_projection import (
 )
 
 from cuml.common import has_scipy
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.random_projection import (
     GaussianRandomProjection,
     SparseRandomProjection,
@@ -28,8 +28,6 @@ from cuml.random_projection import (
 from cuml.random_projection import (
     johnson_lindenstrauss_min_dim as cuml_johnson_lindenstrauss_min_dim,
 )
-
-np = cpu_only_import("numpy")
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])

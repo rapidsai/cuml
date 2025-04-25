@@ -13,14 +13,12 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import numpy as np
 import pytest
 
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 from cuml.testing.utils import array_equal
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
 
 
 @pytest.mark.parametrize("arr_type", ["np", "cp"])

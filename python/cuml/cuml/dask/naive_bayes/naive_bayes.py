@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import cupy as cp
 import dask
 import dask.array
 from toolz import first
@@ -23,10 +24,7 @@ from cuml.dask.common.base import BaseEstimator, DelayedPredictionMixin
 from cuml.dask.common.func import reduce, tree_reduce
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.internals.safe_imports import gpu_only_import
 from cuml.naive_bayes import MultinomialNB as MNB
-
-cp = gpu_only_import("cupy")
 
 
 class MultinomialNB(BaseEstimator, DelayedPredictionMixin):

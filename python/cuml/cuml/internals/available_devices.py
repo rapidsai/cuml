@@ -16,7 +16,6 @@
 from functools import cache
 
 from cuml.internals.device_support import GPU_ENABLED
-from cuml.internals.safe_imports import UnavailableError
 
 
 def gpu_available_no_context_creation():
@@ -34,7 +33,4 @@ def gpu_available_no_context_creation():
 
 @cache
 def is_cuda_available():
-    try:
-        return GPU_ENABLED and gpu_available_no_context_creation()
-    except UnavailableError:
-        return False
+    return GPU_ENABLED and gpu_available_no_context_creation()

@@ -13,13 +13,19 @@
 # limitations under the License.
 #
 
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
 import pytest
+import rmm
 import sklearn
 from hypothesis import assume, example, given, note
 from hypothesis import strategies as st
 from hypothesis import target
 from hypothesis.extra.numpy import floating_dtypes
 from packaging.version import Version
+from scipy.sparse import csr_matrix
 from sklearn.datasets import load_breast_cancer, load_digits
 from sklearn.linear_model import ElasticNet as skElasticNet
 from sklearn.linear_model import LinearRegression as skLinearRegression
@@ -31,11 +37,6 @@ from cuml import ElasticNet as cuElasticNet
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml import Ridge as cuRidge
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-)
 from cuml.testing.datasets import (
     cuml_compatible_dataset,
     make_classification,
@@ -57,15 +58,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-cudf = gpu_only_import("cudf")
-rmm = gpu_only_import("rmm")
-
-csr_matrix = cpu_only_import_from("scipy.sparse", "csr_matrix")
-
 
 _ALGORITHMS = ["svd", "eig", "qr", "svd-qr", "svd-jacobi"]
 

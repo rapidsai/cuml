@@ -15,12 +15,10 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
+from cudf import DataFrame
 from sklearn.preprocessing import OrdinalEncoder as skOrdinalEncoder
 
-from cuml.internals.safe_imports import gpu_only_import_from
 from cuml.preprocessing import OrdinalEncoder
-
-DataFrame = gpu_only_import_from("cudf", "DataFrame")
 
 
 @pytest.fixture

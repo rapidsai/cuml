@@ -16,13 +16,7 @@
 
 # distutils: language = c++
 
-
-from cuml.internals.safe_imports import gpu_only_import_from
-
-from_cuda_array_interface = gpu_only_import_from(
-    'numba.cuda.api',
-    'from_cuda_array_interface'
-)
+from numba.cuda.api import from_cuda_array_interface
 
 
 cdef extern from "Python.h":

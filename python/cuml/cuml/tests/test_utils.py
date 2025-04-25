@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import numpy as np
 import pytest
 from hypothesis import example, given, note
 from hypothesis import strategies as st
@@ -23,10 +24,7 @@ from hypothesis.extra.numpy import (
     integer_dtypes,
 )
 
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.testing.utils import array_equal, assert_array_equal
-
-np = cpu_only_import("numpy")
 
 
 @example(array=np.array([1, 2, 3]), tol=1e-4)

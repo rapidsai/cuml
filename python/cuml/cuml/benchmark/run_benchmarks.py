@@ -17,11 +17,9 @@
 
 import json
 
+import numpy as np
+
 from cuml.benchmark import algorithms, datagen, runners
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import("numpy")
-
 
 PrecisionMap = {
     "fp32": np.float32,

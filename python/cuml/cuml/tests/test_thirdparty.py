@@ -13,6 +13,9 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import cupyx as cpx
+import numpy as np
 import pytest
 from sklearn.utils.extmath import (
     _incremental_mean_and_var as sk_incremental_mean_and_var,
@@ -52,12 +55,7 @@ from cuml._thirdparty.sklearn.utils.sparsefuncs import (
     min_max_axis as cu_min_max_axis,
 )
 from cuml._thirdparty.sklearn.utils.validation import check_X_y
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.test_preproc_utils import assert_allclose
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-cpx = gpu_only_import("cupyx")
 
 
 @pytest.fixture(scope="session")

@@ -13,16 +13,15 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import cupyx
+
 import cuml.internals
 from cuml import Base
 from cuml.common import CumlArray, has_scipy
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.safe_imports import gpu_only_import
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
-
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
 
 
 @cuml.internals.api_return_sparse_array()

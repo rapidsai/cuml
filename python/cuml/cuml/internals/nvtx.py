@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,12 +15,19 @@
 #
 
 
-import cupy as cp
+try:
+    from nvtx import annotate
+except ImportError:
 
+    from contextlib import contextmanager
 
-def sorted_unique_labels(*ys):
-    """Extract an ordered array of unique labels from one or more arrays of
-    labels."""
-    ys = (cp.unique(y) for y in ys)
-    labels = cp.unique(cp.concatenate(ys))
-    return labels
+    @contextmanager
+    def annotate(*args, **kwargs):
+        if len(kwargs) == 0 and len(args) == 1 and callable(args[0]):
+            return args[0]
+        else:
+
+            def inner(func):
+                return func
+
+            return inner
