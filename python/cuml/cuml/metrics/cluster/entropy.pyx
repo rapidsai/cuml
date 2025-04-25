@@ -18,23 +18,16 @@
 import math
 import typing
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
-
-from libc.stdint cimport uintptr_t
-
-import cuml.internals
-
-from pylibraft.common.handle cimport handle_t
-
+import cupy as cp
+import numpy as np
 from pylibraft.common.handle import Handle
 
+import cuml.internals
 from cuml.common import CumlArray
 from cuml.internals.input_utils import input_to_cupy_array
+
+from libc.stdint cimport uintptr_t
+from pylibraft.common.handle cimport handle_t
 
 cimport cuml.common.cuda
 
