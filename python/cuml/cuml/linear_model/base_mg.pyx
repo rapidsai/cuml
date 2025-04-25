@@ -16,13 +16,9 @@
 # distutils: language = c++
 
 
+import numpy as np
+
 import cuml.common.opg_data_utils_mg as opg
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-
-rmm = gpu_only_import('rmm')
 
 from libc.stdint cimport uintptr_t
 
