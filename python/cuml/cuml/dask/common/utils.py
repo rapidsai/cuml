@@ -21,13 +21,11 @@ from asyncio import InvalidStateError
 from threading import Lock
 
 import dask
+import numba.cuda as numba_cuda
 from dask.distributed import default_client, wait
 
 from cuml.common import device_of_gpu_matrix
 from cuml.internals.import_utils import check_min_dask_version
-from cuml.internals.safe_imports import gpu_only_import
-
-numba_cuda = gpu_only_import("numba.cuda")
 
 
 def get_visible_devices():

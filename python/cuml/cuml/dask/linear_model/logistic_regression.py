@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+import cupyx
+import numpy as np
 from dask.distributed import get_worker
 from raft_dask.common.comms import get_raft_comm_state
 
@@ -20,11 +22,8 @@ from cuml.common.sparse_utils import has_scipy, is_sparse
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.input_utils import concatenate
 from cuml.dask.linear_model import LinearRegression
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import
 
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-np = cpu_only_import("numpy")
 scipy = cpu_only_import("scipy")
 
 

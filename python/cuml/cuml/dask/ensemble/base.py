@@ -18,17 +18,15 @@ import math
 import warnings
 from collections.abc import Iterable
 
+import cupy as cp
 import dask
+import numpy as np
 from dask.distributed import Future
 
 from cuml import using_output_type
 from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
 from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.legacy.fil.fil import TreeliteModel
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
 
 
 class BaseRandomForestModel(object):
