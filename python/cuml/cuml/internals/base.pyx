@@ -22,7 +22,6 @@ import numbers
 import os
 from importlib import import_module
 
-from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import_from,
@@ -54,7 +53,6 @@ from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import (
     determine_array_type,
     input_to_cuml_array,
-    input_to_host_array,
     input_to_host_array_with_sparse_support,
     is_array_like,
 )
@@ -74,10 +72,9 @@ cp_ndarray = gpu_only_import_from('cupy', 'ndarray')
 cp = gpu_only_import('cupy')
 
 
-IF GPUBUILD == 1:
-    import pylibraft.common.handle
+import pylibraft.common.handle
 
-    import cuml.common.cuda
+import cuml.common.cuda
 
 
 class VerbosityDescriptor:
@@ -256,11 +253,7 @@ class Base(TagsMixin,
         Constructor. All children must call init method of this base class.
 
         """
-        IF GPUBUILD == 1:
-            self.handle = pylibraft.common.handle.Handle() if handle is None \
-                else handle
-        ELSE:
-            self.handle = None
+        self.handle = pylibraft.common.handle.Handle() if handle is None else handle
 
         # The following manipulation of the root_cm ensures that the verbose
         # descriptor sees any set or get of the verbose attribute as happening
@@ -795,10 +788,6 @@ class UniversalBase(Base):
         if not hasattr(self, "_gpuaccel"):
             return cuml.global_settings.device_type
 
-        # if using accelerator and doing inference, always use GPU
-        elif func_name not in ['fit', 'fit_transform', 'fit_predict']:
-            device_type = DeviceType.device
-
         # otherwise we select CPU when _gpuaccel is off
         elif not self._gpuaccel:
             device_type = DeviceType.host
@@ -889,7 +878,7 @@ class UniversalBase(Base):
         estimator = cls()
         estimator.import_cpu_model()
         estimator._cpu_model = model
-        params, gpuaccel = cls._hyperparam_translator(**model.get_params())
+        params, _ = cls._hyperparam_translator(**model.get_params())
         params = {key: params[key] for key in cls._get_param_names() if key in params}
         estimator.set_params(**params)
         estimator.cpu_to_gpu()
