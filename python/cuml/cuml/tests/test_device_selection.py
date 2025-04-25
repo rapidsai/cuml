@@ -19,6 +19,9 @@ import itertools as it
 import pickle
 from importlib import import_module
 
+import cudf
+import numpy as np
+import pandas as pd
 import pytest
 from hdbscan import HDBSCAN as refHDBSCAN
 from pytest_cases import fixture, fixture_union
@@ -50,7 +53,6 @@ from cuml.decomposition import PCA, TruncatedSVD
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import using_memory_type
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.kernel_ridge import KernelRidge
 from cuml.linear_model import (
     ElasticNet,
@@ -65,10 +67,6 @@ from cuml.neighbors import NearestNeighbors
 from cuml.svm import SVC, SVR
 from cuml.testing.test_preproc_utils import to_output_type
 from cuml.testing.utils import array_equal, assert_dbscan_equal
-
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-cudf = gpu_only_import("cudf")
 
 
 def assert_membership_vectors(cu_vecs, sk_vecs):

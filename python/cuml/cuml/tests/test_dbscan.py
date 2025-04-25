@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import numpy as np
 import pytest
 from sklearn.cluster import DBSCAN as skDBSCAN
 from sklearn.datasets import make_blobs
@@ -20,7 +21,6 @@ from sklearn.metrics import pairwise_distances
 from sklearn.preprocessing import StandardScaler
 
 from cuml import DBSCAN as cuDBSCAN
-from cuml.internals.safe_imports import cpu_only_import, cpu_only_import_from
 from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import (
     array_equal,
@@ -30,9 +30,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-
-np = cpu_only_import("numpy")
-assert_raises = cpu_only_import_from("numpy.testing", "assert_raises")
 
 
 @pytest.mark.parametrize("max_mbytes_per_batch", [1e3, None])
@@ -509,4 +506,5 @@ def test_dbscan_on_empty_array():
     X = np.array([])
     cuml_dbscan = cuDBSCAN()
 
-    assert_raises(ValueError, cuml_dbscan.fit, X)
+    with pytest.raises(ValueError):
+        cuml_dbscan.fit(X)

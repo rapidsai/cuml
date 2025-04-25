@@ -17,9 +17,15 @@
 import gc
 import math
 
+import cudf
+import cupy as cp
+import cupyx
+import numpy as np
+import pandas as pd
 import pytest
 import sklearn
 from numpy.testing import assert_allclose, assert_array_equal
+from scipy.sparse import isspmatrix_csr
 from sklearn.metrics import pairwise_distances
 from sklearn.neighbors import NearestNeighbors as skKNN
 
@@ -27,11 +33,6 @@ import cuml
 from cuml.common import has_scipy
 from cuml.datasets import make_blobs
 from cuml.internals import logger  # noqa: F401
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-)
 from cuml.metrics import pairwise_distances as cuPW
 from cuml.neighbors import NearestNeighbors as cuKNN
 from cuml.testing.utils import (
@@ -40,14 +41,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
-cudf = gpu_only_import("cudf")
-pd = cpu_only_import("pandas")
-np = cpu_only_import("numpy")
-isspmatrix_csr = cpu_only_import_from("scipy.sparse", "isspmatrix_csr")
-
 
 pytestmark = pytest.mark.filterwarnings(
     "ignore:((.|\n)*)#4020((.|\n)*):" "UserWarning:cuml[.*]"

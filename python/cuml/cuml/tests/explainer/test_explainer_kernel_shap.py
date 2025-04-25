@@ -16,6 +16,8 @@
 
 import math
 
+import cupy as cp
+import numpy as np
 import pytest
 import sklearn.neighbors
 from sklearn.datasets import make_regression
@@ -25,13 +27,8 @@ import cuml
 from cuml import KernelExplainer, Lasso
 from cuml.datasets import make_regression
 from cuml.internals.import_utils import has_scipy, has_shap
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.datasets import with_dtype
 from cuml.testing.utils import ClassEnumerator, get_shap_values
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
 
 models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()

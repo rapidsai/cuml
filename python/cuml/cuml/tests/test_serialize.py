@@ -15,13 +15,11 @@
 
 import pickle
 
+import cupy as cp
+import cupyx
 from distributed.protocol.serialize import serialize as ser
 
-from cuml.internals.safe_imports import gpu_only_import
 from cuml.naive_bayes.naive_bayes import MultinomialNB
-
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
 
 
 def test_naive_bayes_cuda():

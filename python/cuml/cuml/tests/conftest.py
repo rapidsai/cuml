@@ -23,7 +23,9 @@ from urllib.request import HTTPSHandler, build_opener, install_opener
 
 import certifi
 import cudf.pandas
+import cupy as cp
 import hypothesis
+import numpy as np
 import pandas as pd
 import pytest
 from sklearn import datasets
@@ -31,11 +33,6 @@ from sklearn.datasets import fetch_20newsgroups, fetch_california_housing
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.utils import Bunch
 from tenacity import retry, stop_after_attempt, wait_exponential
-
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
 
 # =============================================================================
 # Pytest Configuration

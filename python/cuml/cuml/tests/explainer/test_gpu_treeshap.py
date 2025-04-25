@@ -16,6 +16,10 @@
 
 import json
 
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
 import pytest
 import treelite
 from hypothesis import HealthCheck, assume, example, given, settings
@@ -27,13 +31,7 @@ from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.explainer.tree_shap import TreeExplainer
 from cuml.internals.import_utils import has_lightgbm, has_shap, has_sklearn
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import as_type
-
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-cp = gpu_only_import("cupy")
-cudf = gpu_only_import("cudf")
 
 pytestmark = pytest.mark.skip
 

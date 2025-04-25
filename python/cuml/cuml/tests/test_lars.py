@@ -15,13 +15,14 @@
 
 import sys
 
+import cupy as cp
+import numpy as np
 import pytest
 import sklearn
 from sklearn.datasets import fetch_california_housing
 from sklearn.linear_model import Lars as skLars
 
 from cuml.experimental.linear_model import Lars as cuLars
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.datasets import make_regression_dataset
 from cuml.testing.utils import (
     array_equal,
@@ -29,10 +30,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
 
 # As tests directory is not a module, we need to add it to the path
 sys.path.insert(0, ".")

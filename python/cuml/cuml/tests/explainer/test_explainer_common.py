@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import numpy as np
 import pytest
 from pylibraft.common.handle import Handle
 from sklearn.linear_model import LinearRegression as skreg
@@ -31,12 +33,7 @@ from cuml.explainer.common import (
     link_dict,
     model_func_call,
 )
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import ClassEnumerator
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
 
 models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()

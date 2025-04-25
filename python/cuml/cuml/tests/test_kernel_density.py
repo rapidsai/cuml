@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import numpy as np
 import pytest
 from hypothesis import assume, example, given, settings
 from hypothesis import strategies as st
@@ -23,11 +24,8 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors._ball_tree import kernel_norm
 
 from cuml.common.exceptions import NotFittedError
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.neighbors import VALID_KERNELS, KernelDensity, logsumexp_kernel
 from cuml.testing.utils import as_type
-
-np = cpu_only_import("numpy")
 
 
 # not in log probability space

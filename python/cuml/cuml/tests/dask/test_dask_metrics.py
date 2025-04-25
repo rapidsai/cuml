@@ -15,16 +15,14 @@
 #
 from itertools import chain, permutations
 
+import cupy as cp
 import dask.array as da
+import numpy as np
 import pytest
 from sklearn.metrics import confusion_matrix as sk_confusion_matrix
 
 from cuml.dask.metrics import confusion_matrix
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.testing.utils import generate_random_labels, stress_param
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
 
 
 @pytest.mark.mg
