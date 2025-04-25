@@ -22,9 +22,9 @@ import numpy as np
 from cudf import Index
 
 import cuml.internals.logger as logger
-from cuml import Base
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
+from cuml.internals.base import Base
 from cuml.internals.output_utils import cudf_to_pandas
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 

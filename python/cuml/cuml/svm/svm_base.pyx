@@ -35,7 +35,6 @@ from cuml.internals.logger import warn
 from cuml.internals.logger cimport level_enum
 
 from cuml.internals.array_sparse import SparseCumlArray, SparseCumlArrayInput
-from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
 
@@ -742,26 +741,22 @@ class SVMBase(UniversalBase,
 
         self._intercept_ = input_to_cuml_array(
             intercept_,
-            convert_to_mem_type=(MemoryType.host,
-                                 MemoryType.device)[is_cuda_available()],
+            convert_to_mem_type=MemoryType.device,
             convert_to_dtype=np.float64,
             order='F')[0]
         self.dual_coef_ = input_to_cuml_array(
             dual_coef_,
-            convert_to_mem_type=(MemoryType.host,
-                                 MemoryType.device)[is_cuda_available()],
+            convert_to_mem_type=MemoryType.device,
             convert_to_dtype=np.float64,
             order='F')[0]
         self.support_ = input_to_cuml_array(
             self._cpu_model.support_,
-            convert_to_mem_type=(MemoryType.host,
-                                 MemoryType.device)[is_cuda_available()],
+            convert_to_mem_type=MemoryType.device,
             convert_to_dtype=np.int32,
             order='F')[0]
         self.support_vectors_ = input_to_cuml_array(
             self._cpu_model.support_vectors_,
-            convert_to_mem_type=(MemoryType.host,
-                                 MemoryType.device)[is_cuda_available()],
+            convert_to_mem_type=MemoryType.device,
             convert_to_dtype=np.float64,
             order='F')[0]
 
