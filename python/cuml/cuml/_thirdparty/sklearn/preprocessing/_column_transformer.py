@@ -22,6 +22,7 @@ import cupy as np
 import numba
 import numpy as cpu_np
 import pandas as pd
+import scipy.sparse as sp_sparse
 from cupyx.scipy import sparse as cu_sparse
 from joblib import Parallel
 
@@ -29,7 +30,6 @@ import cuml
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import _global_settings_data
 from cuml.internals.import_utils import has_sklearn
-from cuml.internals.safe_imports import cpu_only_import_from
 
 from ....thirdparty_adapters import check_array
 from ..preprocessing._function_transformer import FunctionTransformer
@@ -39,8 +39,6 @@ from ..utils.skl_dependencies import (
     TransformerMixin,
 )
 from ..utils.validation import check_is_fitted
-
-sp_sparse = cpu_only_import_from('scipy', 'sparse')
 
 if has_sklearn():
     from sklearn.base import clone

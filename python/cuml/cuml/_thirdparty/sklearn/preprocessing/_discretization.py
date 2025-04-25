@@ -33,7 +33,6 @@ import numpy as cpu_np
 
 from cuml.cluster import KMeans
 from cuml.internals.mixins import SparseInputTagMixin
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.preprocessing.encoders import OneHotEncoder
 
 from ....common.array_descriptor import CumlArrayDescriptor

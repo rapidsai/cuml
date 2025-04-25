@@ -35,15 +35,16 @@ from itertools import combinations_with_replacement as combinations_w_r
 
 import cupy as np
 import numpy as cpu_np
-from scipy import optimize
+from cupyx.scipy import sparse
+from scipy import optimize, stats
 from scipy.special import boxcox
+from sklearn.utils import resample
 
 from cuml.internals.mixins import (
     AllowNaNTagMixin,
     SparseInputTagMixin,
     StatelessTagMixin,
 )
-from cuml.internals.safe_imports import cpu_only_import_from
 
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals import api_return_generic
@@ -68,12 +69,6 @@ from ..utils.validation import (
     check_is_fitted,
     check_random_state,
 )
-
-resample = cpu_only_import_from('sklearn.utils._indexing', 'resample')
-from cupyx.scipy import sparse
-
-stats = cpu_only_import_from('scipy', 'stats')
-
 
 BOUNDS_THRESHOLD = 1e-7
 

@@ -22,8 +22,6 @@ import cupy as cp
 import cupyx.scipy.sparse as sp
 import numpy as np
 
-from cuml.internals.safe_imports import cpu_only_import
-
 from ....common.exceptions import NotFittedError
 from ....thirdparty_adapters import check_array
 

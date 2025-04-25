@@ -23,7 +23,6 @@ from cuml.internals.mixins import (
     SparseInputTagMixin,
     StringInputTagMixin,
 )
-from cuml.internals.safe_imports import cpu_only_import
 
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals.array_sparse import SparseCumlArray
