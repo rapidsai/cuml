@@ -17,7 +17,12 @@ import os
 import pickle as pickle
 from time import perf_counter
 
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
 import sklearn.ensemble as skl_ensemble
+from numba import cuda
 
 import cuml
 from cuml.benchmark import datagen
@@ -25,19 +30,9 @@ from cuml.common.device_selection import using_device_type
 from cuml.internals import input_utils
 from cuml.internals.device_type import DeviceType
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-    safe_import,
-)
+from cuml.internals.safe_imports import safe_import
 from cuml.manifold import UMAP
 
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-cudf = gpu_only_import("cudf")
-cuda = gpu_only_import_from("numba", "cuda")
-cp = gpu_only_import("cupy")
 xgb = safe_import("xgboost")
 treelite = safe_import("treelite")
 
