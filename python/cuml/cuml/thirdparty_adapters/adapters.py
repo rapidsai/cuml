@@ -14,29 +14,22 @@
 # limitations under the License.
 #
 
+import cudf
 import cupy as cp
 import cupyx.scipy.sparse as gpu_sparse
 import numpy as np
+import pandas as pd
 from cupyx.scipy.sparse import coo_matrix as gpu_coo_matrix
 from cupyx.scipy.sparse import csc_matrix as gpu_csc_matrix
 from cupyx.scipy.sparse import csr_matrix as gpu_csr_matrix
 from scipy import sparse as cpu_sparse
 from scipy.sparse import csc_matrix as cpu_coo_matrix
 from scipy.sparse import csc_matrix as cpu_csc_matrix
+from scipy.sparse import csr_matrix as cpu_csr_matrix
 
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import input_to_cupy_array, input_to_host_array
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
-)
-
-cpu_csr_matrix = cpu_only_import_from("scipy.sparse", "csr_matrix")
-
-pdDataFrame = cpu_only_import_from("pandas", "DataFrame")
-from cudf import DataFrame as cuDataFrame
+from cuml.internals.safe_imports import cpu_only_import, cpu_only_import_from
 
 numeric_types = [
     np.int8,
@@ -121,7 +114,7 @@ def check_dtype(array, dtypes="numeric"):
     dtype or raise error
     """
     if dtypes is None:
-        if not isinstance(array, cuDataFrame):
+        if not isinstance(array, cudf.DataFrame):
             return array.dtype
         else:
             return array.dtypes.tolist()[0]
@@ -133,13 +126,13 @@ def check_dtype(array, dtypes="numeric"):
         # fp16 is not supported, so remove from the list of dtypes if present
         dtypes = [d for d in dtypes if d != np.float16]
 
-        if not isinstance(array, (pdDataFrame, cuDataFrame)):
+        if not isinstance(array, (pd.DataFrame, cudf.DataFrame)):
             if array.dtype not in dtypes:
                 return dtypes[0]
         elif any([dt not in dtypes for dt in array.dtypes.tolist()]):
             return dtypes[0]
 
-        if not isinstance(array, (pdDataFrame, cuDataFrame)):
+        if not isinstance(array, (pd.DataFrame, cudf.DataFrame)):
             return array.dtype
         else:
             return array.dtypes.tolist()[0]
@@ -261,7 +254,7 @@ def check_array(
     correct_dtype = check_dtype(array, dtype)
 
     if (
-        not isinstance(array, (pdDataFrame, cuDataFrame))
+        not isinstance(array, (pd.DataFrame, cudf.DataFrame))
         and copy
         and not order
         and hasattr(array, "flags")
