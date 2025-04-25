@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
+# distutils: language = c++
 
 import numpy as np
 
@@ -22,9 +22,11 @@ import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
+from cuml.ensemble.randomforest_common import (
+    BaseRandomForestModel,
+    _obtain_fil_model,
+)
 from cuml.internals import logger
-
-# distutils: language = c++
 from cuml.internals.api_decorators import (
     device_interop_preparation,
     enable_device_interop,
@@ -32,26 +34,16 @@ from cuml.internals.api_decorators import (
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.utils import check_random_seed
-
-from cuml.internals.logger cimport level_enum
-
-from cuml.ensemble.randomforest_common import (
-    BaseRandomForestModel,
-    _obtain_fil_model,
-)
-
-from cuml.ensemble.randomforest_shared cimport *
-
 from cuml.legacy.fil.fil import TreeliteModel
+from cuml.prims.label.classlabels import check_labels, invert_labels
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
-
-from cuml.prims.label.classlabels import check_labels, invert_labels
-
 from pylibraft.common.handle cimport handle_t
 
 cimport cuml.common.cuda
+from cuml.ensemble.randomforest_shared cimport *
+from cuml.internals.logger cimport level_enum
 
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":

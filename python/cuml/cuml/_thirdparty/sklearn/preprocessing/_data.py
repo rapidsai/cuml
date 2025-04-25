@@ -38,7 +38,6 @@ import numpy as cpu_np
 from cupyx.scipy import sparse
 from scipy import optimize, stats
 from scipy.special import boxcox
-from sklearn.utils import resample
 
 from cuml.internals.mixins import (
     AllowNaNTagMixin,
@@ -2297,6 +2296,7 @@ class QuantileTransformer(TransformerMixin,
         X = np.asnumpy(X)
         if self.subsample is not None and self.subsample < n_samples:
             # Take a subsample of `X`
+            from sklearn.utils import resample
             X = resample(
                 X, replace=False, n_samples=self.subsample, random_state=random_state
             )

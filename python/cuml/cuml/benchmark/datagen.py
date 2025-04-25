@@ -40,7 +40,7 @@ from urllib.request import urlretrieve
 
 import cudf
 import cupy as cp
-import nummpy as np
+import numpy as np
 import pandas as pd
 import sklearn.model_selection
 from numba import cuda
