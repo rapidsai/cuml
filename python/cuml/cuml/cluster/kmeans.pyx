@@ -16,13 +16,9 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-
-rmm = gpu_only_import('rmm')
 import typing
+
+import numpy as np
 
 from cuml.internals.safe_imports import return_false, safe_import_from
 from cuml.internals.utils import check_random_seed
