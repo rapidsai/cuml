@@ -16,22 +16,18 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
+from random import randint
 
-np = cpu_only_import('numpy')
+import numpy as np
+from pylibraft.common.handle import Handle
 
 import cuml.internals
 from cuml.internals.array import CumlArray as cumlArray
 
+from libc.stdint cimport uint64_t, uintptr_t
 from pylibraft.common.handle cimport handle_t
 
-from pylibraft.common.handle import Handle
-
-from libc.stdint cimport uint64_t, uintptr_t
-
 from cuml.tsa.arima cimport ARIMAOrder
-
-from random import randint
 
 
 cdef extern from "cuml/datasets/make_arima.hpp" namespace "ML":
