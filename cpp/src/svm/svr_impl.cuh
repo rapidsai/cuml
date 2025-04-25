@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@
 #include <cuml/svm/svm_parameter.h>
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/kernels.cuh>
 #include <raft/linalg/unary_op.cuh>
 
 #include <thrust/copy.h>
@@ -36,6 +35,8 @@
 #include <thrust/iterator/counting_iterator.h>
 
 #include <cublas_v2.h>
+#include <cuvs/distance/distance.hpp>
+#include <cuvs/distance/grammian.hpp>
 
 #include <iostream>
 
@@ -49,7 +50,7 @@ void svrFitX(const raft::handle_t& handle,
              int n_cols,
              math_t* y,
              const SvmParameter& param,
-             raft::distance::kernels::KernelParams& kernel_params,
+             cuvs::distance::kernels::KernelParams& kernel_params,
              SvmModel<math_t>& model,
              const math_t* sample_weight)
 {
@@ -62,8 +63,8 @@ void svrFitX(const raft::handle_t& handle,
   const raft::handle_t& handle_impl = handle;
 
   cudaStream_t stream = handle_impl.get_stream();
-  raft::distance::kernels::GramMatrixBase<math_t>* kernel =
-    raft::distance::kernels::KernelFactory<math_t>::create(kernel_params);
+  cuvs::distance::kernels::GramMatrixBase<math_t>* kernel =
+    cuvs::distance::kernels::KernelFactory<math_t>::create(kernel_params);
 
   SmoSolver<math_t> smo(handle_impl, param, kernel_params.kernel, kernel);
   smo.Solve(matrix,
@@ -88,7 +89,7 @@ void svrFit(const raft::handle_t& handle,
             int n_cols,
             math_t* y,
             const SvmParameter& param,
-            raft::distance::kernels::KernelParams& kernel_params,
+            cuvs::distance::kernels::KernelParams& kernel_params,
             SvmModel<math_t>& model,
             const math_t* sample_weight)
 {
@@ -107,7 +108,7 @@ void svrFitSparse(const raft::handle_t& handle,
                   int nnz,
                   math_t* y,
                   const SvmParameter& param,
-                  raft::distance::kernels::KernelParams& kernel_params,
+                  cuvs::distance::kernels::KernelParams& kernel_params,
                   SvmModel<math_t>& model,
                   const math_t* sample_weight)
 {

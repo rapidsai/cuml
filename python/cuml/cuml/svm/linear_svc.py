@@ -18,7 +18,6 @@ from cuml.internals.mixins import ClassifierMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
 from cuml.svm.svc import apply_class_weight
 
-
 __all__ = ["LinearSVC"]
 
 

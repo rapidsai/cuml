@@ -48,10 +48,10 @@ def load_library():
     """Dynamically load libcuml++.so and its dependencies"""
     try:
         # These libraries must all be loaded before libcuml
-        import rapids_logger
-        import librmm
-        import libraft
         import libcuvs
+        import libraft
+        import librmm
+        import rapids_logger
 
         rapids_logger.load_library()
         librmm.load_library()

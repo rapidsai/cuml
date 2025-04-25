@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,16 +13,18 @@
 # limitations under the License.
 #
 
-from threading import Lock
-from asyncio import InvalidStateError
-from cuml.internals.import_utils import check_min_dask_version
-from cuml.common import device_of_gpu_matrix
-from dask.distributed import default_client, wait
-import time
-import random
-import dask
 import logging
 import os
+import random
+import time
+from asyncio import InvalidStateError
+from threading import Lock
+
+import dask
+from dask.distributed import default_client, wait
+
+from cuml.common import device_of_gpu_matrix
+from cuml.internals.import_utils import check_min_dask_version
 from cuml.internals.safe_imports import gpu_only_import
 
 numba_cuda = gpu_only_import("numba.cuda")

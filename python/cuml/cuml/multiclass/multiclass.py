@@ -14,16 +14,15 @@
 #
 
 import cuml.internals
-
-from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
-from cuml.internals.import_utils import has_sklearn
-from cuml.internals.mixins import ClassifierMixin
-from cuml.common.doc_utils import generate_docstring
 from cuml.common import (
     input_to_host_array,
     input_to_host_array_with_sparse_support,
 )
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.import_utils import has_sklearn
+from cuml.internals.mixins import ClassifierMixin
 
 
 class MulticlassClassifier(Base, ClassifierMixin):

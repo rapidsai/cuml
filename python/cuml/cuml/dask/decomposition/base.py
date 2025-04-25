@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2023, NVIDIA CORPORATION.
+# Copyright (c) 2019-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,19 +13,13 @@
 # limitations under the License.
 #
 
-from cuml.dask.common import raise_exception_from_futures
-from raft_dask.common.comms import get_raft_comm_state
-from raft_dask.common.comms import Comms
+from dask.distributed import get_worker, wait
+from raft_dask.common.comms import Comms, get_raft_comm_state
 
-from cuml.dask.common.input_utils import to_output
-from cuml.dask.common import parts_to_ranks
-
-from cuml.dask.common.part_utils import flatten_grouped_results
-
-from dask.distributed import wait, get_worker
-
+from cuml.dask.common import parts_to_ranks, raise_exception_from_futures
 from cuml.dask.common.base import BaseEstimator
-from cuml.dask.common.input_utils import DistributedDataHandler
+from cuml.dask.common.input_utils import DistributedDataHandler, to_output
+from cuml.dask.common.part_utils import flatten_grouped_results
 
 
 class BaseDecomposition(BaseEstimator):

@@ -14,26 +14,26 @@
 # limitations under the License.
 #
 
-import pytest
 import numpy as np
+import pytest
 from scipy.sparse import csr_matrix
-from cuml.cluster import KMeans, DBSCAN
+from sklearn.base import is_classifier, is_regressor
+
+from cuml.cluster import DBSCAN, HDBSCAN, KMeans
 from cuml.decomposition import TruncatedSVD
 from cuml.kernel_ridge import KernelRidge  # noqa: F401
 from cuml.linear_model import (  # noqa: F401
+    ElasticNet,
+    Lasso,
     LinearRegression,
     LogisticRegression,
-    ElasticNet,
     Ridge,
-    Lasso,
 )
 from cuml.neighbors import (  # noqa: F401
-    NearestNeighbors,
     KNeighborsClassifier,
     KNeighborsRegressor,
+    NearestNeighbors,
 )
-from sklearn.base import is_classifier, is_regressor
-from cuml.cluster import HDBSCAN
 
 # Currently only UniversalBase estimators raise a NotImplementedError
 estimators = {

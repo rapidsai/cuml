@@ -16,10 +16,10 @@
 
 import warnings
 
-from cuml.internals.array import CumlArray
 from cuml.experimental.fil.fil import (
     ForestInference as ExperimentalForestInference,
 )
+from cuml.internals.array import CumlArray
 from cuml.internals.global_settings import GlobalSettings
 
 

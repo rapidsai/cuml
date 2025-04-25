@@ -13,14 +13,12 @@
 # limitations under the License.
 #
 
-from cuml.internals.safe_imports import gpu_only_import
-from sklearn.model_selection import train_test_split
-from sklearn import datasets
-from hdbscan.plots import CondensedTree
 import hdbscan
-from cuml.internals import logger
 import pytest
-
+from hdbscan.plots import CondensedTree
+from sklearn import datasets
+from sklearn.datasets import make_blobs
+from sklearn.model_selection import train_test_split
 
 from cuml.cluster.hdbscan import HDBSCAN, condense_hierarchy
 from cuml.cluster.hdbscan.prediction import (
@@ -28,12 +26,11 @@ from cuml.cluster.hdbscan.prediction import (
     approximate_predict,
     membership_vector,
 )
-from sklearn.datasets import make_blobs
-
+from cuml.internals import logger
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.metrics import adjusted_rand_score
-from cuml.testing.utils import get_pattern, array_equal
-
-from cuml.internals.safe_imports import cpu_only_import
+from cuml.testing.datasets import make_pattern
+from cuml.testing.utils import array_equal
 
 np = cpu_only_import("numpy")
 
@@ -234,7 +231,7 @@ def test_hdbscan_blobs(
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
 @pytest.mark.parametrize("connectivity", ["knn"])
 def test_hdbscan_sklearn_datasets(
-    test_datasets,
+    supervised_learning_dataset,
     connectivity,
     cluster_selection_epsilon,
     cluster_selection_method,
@@ -248,7 +245,7 @@ def test_hdbscan_sklearn_datasets(
         max_cluster_size,
     ) = min_samples_cluster_size_bounds
 
-    X = test_datasets.data
+    X = supervised_learning_dataset
 
     cuml_agg = HDBSCAN(
         verbose=logger.level_enum.info,
@@ -298,7 +295,7 @@ def test_hdbscan_sklearn_datasets(
 @pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
 @pytest.mark.parametrize("connectivity", ["knn"])
 def test_hdbscan_sklearn_extract_clusters(
-    test_datasets,
+    supervised_learning_dataset,
     connectivity,
     cluster_selection_epsilon,
     cluster_selection_method,
@@ -307,7 +304,7 @@ def test_hdbscan_sklearn_extract_clusters(
     max_cluster_size,
     allow_single_cluster,
 ):
-    X = test_datasets.data
+    X = supervised_learning_dataset
     cuml_agg = HDBSCAN(
         verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
@@ -362,7 +359,7 @@ def test_hdbscan_cluster_patterns(
 ):
 
     # This also tests duplicate data points
-    X, y = get_pattern(dataset, nrows)[0]
+    X, y = make_pattern(dataset, nrows)[0]
 
     cuml_agg = HDBSCAN(
         verbose=logger.level_enum.info,
@@ -425,7 +422,7 @@ def test_hdbscan_cluster_patterns_extract_clusters(
 ):
 
     # This also tests duplicate data points
-    X, y = get_pattern(dataset, nrows)[0]
+    X, y = make_pattern(dataset, nrows)[0]
 
     cuml_agg = HDBSCAN(
         verbose=logger.level_enum.info,

@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2023, NVIDIA CORPORATION.
+# Copyright (c) 2020-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +13,14 @@
 # limitations under the License.
 #
 
-import cuml.internals.logger as logger
 import dask
-
-from cuml.dask.common.utils import get_client
-from cuml.dask.common.part_utils import hosts_to_parts
-from cuml.dask.common.part_utils import workers_to_parts
 from dask.delayed import Delayed
 from dask.distributed import wait
 from toolz import first
+
+import cuml.internals.logger as logger
+from cuml.dask.common.part_utils import hosts_to_parts, workers_to_parts
+from cuml.dask.common.utils import get_client
 
 
 def reduce(futures, func, client=None):

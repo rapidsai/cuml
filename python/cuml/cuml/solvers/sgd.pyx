@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2024, NVIDIA CORPORATION.
+# Copyright (c) 2018-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,105 +17,109 @@
 
 
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 from cuml.internals.safe_imports import gpu_only_import
+
 cp = gpu_only_import('cupy')
 
 from cuml.internals.safe_imports import gpu_only_import_from
+
 cuda = gpu_only_import_from('numba', 'cuda')
 
 from libc.stdint cimport uintptr_t
 
 import cuml.internals
-from cuml.internals.base import Base
-from cuml.internals.array import CumlArray
+from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common import input_to_cuml_array
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
 from cuml.internals.mixins import FMajorInputTagMixin
 
-IF GPUBUILD == 1:
-    from libcpp cimport bool
-    from pylibraft.common.handle cimport handle_t
-    cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
+from libcpp cimport bool
+from pylibraft.common.handle cimport handle_t
 
-        cdef void sgdFit(handle_t& handle,
-                         float *input,
+
+cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
+
+    cdef void sgdFit(handle_t& handle,
+                     float *input,
+                     int n_rows,
+                     int n_cols,
+                     float *labels,
+                     float *coef,
+                     float *intercept,
+                     bool fit_intercept,
+                     int batch_size,
+                     int epochs,
+                     int lr_type,
+                     float eta0,
+                     float power_t,
+                     int loss,
+                     int penalty,
+                     float alpha,
+                     float l1_ratio,
+                     bool shuffle,
+                     float tol,
+                     int n_iter_no_change) except +
+
+    cdef void sgdFit(handle_t& handle,
+                     double *input,
+                     int n_rows,
+                     int n_cols,
+                     double *labels,
+                     double *coef,
+                     double *intercept,
+                     bool fit_intercept,
+                     int batch_size,
+                     int epochs,
+                     int lr_type,
+                     double eta0,
+                     double power_t,
+                     int loss,
+                     int penalty,
+                     double alpha,
+                     double l1_ratio,
+                     bool shuffle,
+                     double tol,
+                     int n_iter_no_change) except +
+
+    cdef void sgdPredict(handle_t& handle,
+                         const float *input,
                          int n_rows,
                          int n_cols,
-                         float *labels,
-                         float *coef,
-                         float *intercept,
-                         bool fit_intercept,
-                         int batch_size,
-                         int epochs,
-                         int lr_type,
-                         float eta0,
-                         float power_t,
-                         int loss,
-                         int penalty,
-                         float alpha,
-                         float l1_ratio,
-                         bool shuffle,
-                         float tol,
-                         int n_iter_no_change) except +
+                         const float *coef,
+                         float intercept,
+                         float *preds,
+                         int loss) except +
 
-        cdef void sgdFit(handle_t& handle,
-                         double *input,
+    cdef void sgdPredict(handle_t& handle,
+                         const double *input,
                          int n_rows,
                          int n_cols,
-                         double *labels,
-                         double *coef,
-                         double *intercept,
-                         bool fit_intercept,
-                         int batch_size,
-                         int epochs,
-                         int lr_type,
-                         double eta0,
-                         double power_t,
-                         int loss,
-                         int penalty,
-                         double alpha,
-                         double l1_ratio,
-                         bool shuffle,
-                         double tol,
-                         int n_iter_no_change) except +
+                         const double *coef,
+                         double intercept,
+                         double *preds,
+                         int loss) except +
 
-        cdef void sgdPredict(handle_t& handle,
-                             const float *input,
-                             int n_rows,
-                             int n_cols,
-                             const float *coef,
-                             float intercept,
-                             float *preds,
-                             int loss) except +
+    cdef void sgdPredictBinaryClass(handle_t& handle,
+                                    const float *input,
+                                    int n_rows,
+                                    int n_cols,
+                                    const float *coef,
+                                    float intercept,
+                                    float *preds,
+                                    int loss) except +
 
-        cdef void sgdPredict(handle_t& handle,
-                             const double *input,
-                             int n_rows,
-                             int n_cols,
-                             const double *coef,
-                             double intercept,
-                             double *preds,
-                             int loss) except +
-
-        cdef void sgdPredictBinaryClass(handle_t& handle,
-                                        const float *input,
-                                        int n_rows,
-                                        int n_cols,
-                                        const float *coef,
-                                        float intercept,
-                                        float *preds,
-                                        int loss) except +
-
-        cdef void sgdPredictBinaryClass(handle_t& handle,
-                                        const double *input,
-                                        int n_rows,
-                                        int n_cols,
-                                        const double *coef,
-                                        double intercept,
-                                        double *preds,
-                                        int loss) except +
+    cdef void sgdPredictBinaryClass(handle_t& handle,
+                                    const double *input,
+                                    int n_rows,
+                                    int n_cols,
+                                    const double *coef,
+                                    double intercept,
+                                    double *preds,
+                                    int loss) except +
 
 
 class SGD(Base,
@@ -347,55 +351,54 @@ class SGD(Base,
         cdef float _c_intercept_f32
         cdef double _c_intercept_f64
 
-        IF GPUBUILD == 1:
-            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-            if self.dtype == np.float32:
-                sgdFit(handle_[0],
-                       <float*>_X_ptr,
-                       <int>n_rows,
-                       <int>self.n_cols,
-                       <float*>_y_ptr,
-                       <float*>_coef_ptr,
-                       <float*>&_c_intercept_f32,
-                       <bool>self.fit_intercept,
-                       <int>self.batch_size,
-                       <int>self.epochs,
-                       <int>self.lr_type,
-                       <float>self.eta0,
-                       <float>self.power_t,
-                       <int>self._get_loss_int(),
-                       <int>self._get_penalty_int(),
-                       <float>self.alpha,
-                       <float>self.l1_ratio,
-                       <bool>self.shuffle,
-                       <float>self.tol,
-                       <int>self.n_iter_no_change)
+        if self.dtype == np.float32:
+            sgdFit(handle_[0],
+                   <float*>_X_ptr,
+                   <int>n_rows,
+                   <int>self.n_cols,
+                   <float*>_y_ptr,
+                   <float*>_coef_ptr,
+                   <float*>&_c_intercept_f32,
+                   <bool>self.fit_intercept,
+                   <int>self.batch_size,
+                   <int>self.epochs,
+                   <int>self.lr_type,
+                   <float>self.eta0,
+                   <float>self.power_t,
+                   <int>self._get_loss_int(),
+                   <int>self._get_penalty_int(),
+                   <float>self.alpha,
+                   <float>self.l1_ratio,
+                   <bool>self.shuffle,
+                   <float>self.tol,
+                   <int>self.n_iter_no_change)
 
-                self.intercept_ = _c_intercept_f32
-            else:
-                sgdFit(handle_[0],
-                       <double*>_X_ptr,
-                       <int>n_rows,
-                       <int>self.n_cols,
-                       <double*>_y_ptr,
-                       <double*>_coef_ptr,
-                       <double*>&_c_intercept_f64,
-                       <bool>self.fit_intercept,
-                       <int>self.batch_size,
-                       <int>self.epochs,
-                       <int>self.lr_type,
-                       <double>self.eta0,
-                       <double>self.power_t,
-                       <int>self._get_loss_int(),
-                       <int>self._get_penalty_int(),
-                       <double>self.alpha,
-                       <double>self.l1_ratio,
-                       <bool>self.shuffle,
-                       <double>self.tol,
-                       <int>self.n_iter_no_change)
+            self.intercept_ = _c_intercept_f32
+        else:
+            sgdFit(handle_[0],
+                   <double*>_X_ptr,
+                   <int>n_rows,
+                   <int>self.n_cols,
+                   <double*>_y_ptr,
+                   <double*>_coef_ptr,
+                   <double*>&_c_intercept_f64,
+                   <bool>self.fit_intercept,
+                   <int>self.batch_size,
+                   <int>self.epochs,
+                   <int>self.lr_type,
+                   <double>self.eta0,
+                   <double>self.power_t,
+                   <int>self._get_loss_int(),
+                   <int>self._get_penalty_int(),
+                   <double>self.alpha,
+                   <double>self.l1_ratio,
+                   <bool>self.shuffle,
+                   <double>self.tol,
+                   <int>self.n_iter_no_change)
 
-                self.intercept_ = _c_intercept_f64
+            self.intercept_ = _c_intercept_f64
 
         self.handle.sync()
 
@@ -425,27 +428,26 @@ class SGD(Base,
         preds = CumlArray.zeros(_n_rows, dtype=self.dtype, index=X_m.index)
         cdef uintptr_t _preds_ptr = preds.ptr
 
-        IF GPUBUILD == 1:
-            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-            if self.dtype == np.float32:
-                sgdPredict(handle_[0],
-                           <float*>_X_ptr,
-                           <int>_n_rows,
-                           <int>_n_cols,
-                           <float*>_coef_ptr,
-                           <float>self.intercept_,
-                           <float*>_preds_ptr,
-                           <int>self._get_loss_int())
-            else:
-                sgdPredict(handle_[0],
-                           <double*>_X_ptr,
-                           <int>_n_rows,
-                           <int>_n_cols,
-                           <double*>_coef_ptr,
-                           <double>self.intercept_,
-                           <double*>_preds_ptr,
-                           <int>self._get_loss_int())
+        if self.dtype == np.float32:
+            sgdPredict(handle_[0],
+                       <float*>_X_ptr,
+                       <int>_n_rows,
+                       <int>_n_cols,
+                       <float*>_coef_ptr,
+                       <float>self.intercept_,
+                       <float*>_preds_ptr,
+                       <int>self._get_loss_int())
+        else:
+            sgdPredict(handle_[0],
+                       <double*>_X_ptr,
+                       <int>_n_rows,
+                       <int>_n_cols,
+                       <double*>_coef_ptr,
+                       <double>self.intercept_,
+                       <double*>_preds_ptr,
+                       <int>self._get_loss_int())
 
         self.handle.sync()
 
@@ -474,27 +476,26 @@ class SGD(Base,
         preds = CumlArray.zeros(_n_rows, dtype=dtype, index=X_m.index)
         cdef uintptr_t _preds_ptr = preds.ptr
 
-        IF GPUBUILD == 1:
-            cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-            if dtype.type == np.float32:
-                sgdPredictBinaryClass(handle_[0],
-                                      <float*>_X_ptr,
-                                      <int>_n_rows,
-                                      <int>_n_cols,
-                                      <float*>_coef_ptr,
-                                      <float>self.intercept_,
-                                      <float*>_preds_ptr,
-                                      <int>self._get_loss_int())
-            else:
-                sgdPredictBinaryClass(handle_[0],
-                                      <double*>_X_ptr,
-                                      <int>_n_rows,
-                                      <int>_n_cols,
-                                      <double*>_coef_ptr,
-                                      <double>self.intercept_,
-                                      <double*>_preds_ptr,
-                                      <int>self._get_loss_int())
+        if dtype.type == np.float32:
+            sgdPredictBinaryClass(handle_[0],
+                                  <float*>_X_ptr,
+                                  <int>_n_rows,
+                                  <int>_n_cols,
+                                  <float*>_coef_ptr,
+                                  <float>self.intercept_,
+                                  <float*>_preds_ptr,
+                                  <int>self._get_loss_int())
+        else:
+            sgdPredictBinaryClass(handle_[0],
+                                  <double*>_X_ptr,
+                                  <int>_n_rows,
+                                  <int>_n_cols,
+                                  <double*>_coef_ptr,
+                                  <double>self.intercept_,
+                                  <double*>_preds_ptr,
+                                  <int>self._get_loss_int())
 
         self.handle.sync()
 

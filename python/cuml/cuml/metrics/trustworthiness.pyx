@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2024, NVIDIA CORPORATION.
+# Copyright (c) 2018-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,16 +17,22 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 
 from cuml.internals.safe_imports import gpu_only_import_from
+
 cuda = gpu_only_import_from('numba', 'cuda')
 
 from libc.stdint cimport uintptr_t
+
+from pylibraft.common.handle import Handle
+
 import cuml.internals
 from cuml.internals.input_utils import input_to_cuml_array
-from pylibraft.common.handle import Handle
+
 from pylibraft.common.handle cimport handle_t
+
 
 cdef extern from "cuvs/distance/distance.hpp" namespace "cuvs::distance":
 

@@ -13,18 +13,19 @@
 # limitations under the License.
 #
 
-from cuml.legacy.fil.fil import TreeliteModel
-from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
-from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
-from dask.distributed import Future
-from collections.abc import Iterable
-from cuml import using_output_type
-import warnings
-from cuml.internals.safe_imports import gpu_only_import
-import dask
 import json
 import math
-from cuml.internals.safe_imports import cpu_only_import
+import warnings
+from collections.abc import Iterable
+
+import dask
+from dask.distributed import Future
+
+from cuml import using_output_type
+from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
+from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.legacy.fil.fil import TreeliteModel
 
 np = cpu_only_import("numpy")
 cp = gpu_only_import("cupy")

@@ -17,8 +17,7 @@ import platform
 
 from packaging.version import Version
 
-from cuml.internals.safe_imports import gpu_only_import, UnavailableError
-
+from cuml.internals.safe_imports import UnavailableError, gpu_only_import
 
 numba = gpu_only_import("numba")
 
@@ -26,8 +25,8 @@ numba = gpu_only_import("numba")
 def has_dask():
     try:
         import dask  # NOQA
-        import dask.distributed  # NOQA
         import dask.dataframe  # NOQA
+        import dask.distributed  # NOQA
 
         return True
     except ImportError:

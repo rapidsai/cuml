@@ -14,13 +14,15 @@
 # limitations under the License.
 #
 
-from cuml.accel.core import install
+from cuml.accel.core import enabled, install
+from cuml.accel.estimator_proxy import is_proxy
 from cuml.accel.magics import load_ipython_extension
 from cuml.accel.pytest_plugin import pytest_load_initial_conftests
 
-
 __all__ = (
+    "enabled",
     "install",
+    "is_proxy",
     "load_ipython_extension",
     "pytest_load_initial_conftests",
 )

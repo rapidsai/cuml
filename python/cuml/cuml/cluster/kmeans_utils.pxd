@@ -15,11 +15,13 @@
 #
 
 import ctypes
+
 from libcpp cimport bool
 
 from cuml.common.rng_state cimport RngState
-from cuml.metrics.distance_type cimport DistanceType
 from cuml.internals.logger cimport level_enum
+from cuml.metrics.distance_type cimport DistanceType
+
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace \
         "cuvs::cluster::kmeans::params":

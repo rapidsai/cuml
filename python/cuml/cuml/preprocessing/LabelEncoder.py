@@ -18,10 +18,7 @@ from typing import TYPE_CHECKING
 
 from cuml import Base
 from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-)
+from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
 if TYPE_CHECKING:
     import cudf

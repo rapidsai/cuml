@@ -17,26 +17,32 @@
 # distutils: language = c++
 
 from cuml.internals.safe_imports import cpu_only_import
+
 np = cpu_only_import('numpy')
 pd = cpu_only_import('pandas')
 from inspect import getdoc
 
 from cuml.internals.safe_imports import gpu_only_import
+
 rmm = gpu_only_import('rmm')
 
-from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free as c_free
+from libcpp cimport bool
+
+import warnings
 
 import cuml.internals
-import warnings
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+
 from pylibraft.common.handle cimport handle_t
+
 from cuml.common import input_to_cuml_array
+from cuml.common.doc_utils import _parameters_docstrings
 from cuml.internals import logger
 from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.common.doc_utils import _parameters_docstrings
+
 from rmm.pylibrmm.memory_resource cimport (
     DeviceMemoryResource,
     get_current_device_resource,
@@ -45,6 +51,7 @@ from rmm.pylibrmm.memory_resource cimport (
 import treelite.sklearn as tl_skl
 
 cimport cuml.common.cuda
+
 
 cdef extern from "treelite/c_api.h":
     cdef struct TreelitePyBufferFrame:
