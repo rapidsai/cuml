@@ -17,7 +17,6 @@
 
 import importlib
 import traceback
-from contextlib import contextmanager
 
 from cuml.internals import logger
 from cuml.internals.device_support import (
@@ -34,18 +33,6 @@ class UnavailableError(Exception):
 def return_false(*args, **kwargs):
     """A placeholder function that always returns False"""
     return False
-
-
-@contextmanager
-def null_decorator(*args, **kwargs):
-    if len(kwargs) == 0 and len(args) == 1 and callable(args[0]):
-        return args[0]
-    else:
-
-        def inner(func):
-            return func
-
-        return inner
 
 
 class UnavailableMeta(type):

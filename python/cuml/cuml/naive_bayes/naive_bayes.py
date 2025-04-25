@@ -16,6 +16,7 @@
 import math
 import warnings
 
+import cuml.internals.nvtx as nvtx
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
@@ -24,15 +25,10 @@ from cuml.internals.base import Base
 from cuml.internals.import_utils import has_scipy
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.safe_imports import (
-    gpu_only_import,
-    gpu_only_import_from,
-    null_decorator,
-)
+from cuml.internals.safe_imports import gpu_only_import
 from cuml.prims.array import binarize
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 cp = gpu_only_import("cupy")
 cupyx = gpu_only_import("cupyx")
 
@@ -394,7 +390,7 @@ class GaussianNB(_BaseNB):
             sample_weight=sample_weight,
         )
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="naive_bayes.GaussianNB._partial_fit", domain="cuml_python"
     )
     def _partial_fit(
@@ -825,7 +821,7 @@ class _BaseDiscreteNB(_BaseNB):
             X, y, sample_weight=sample_weight, _classes=classes
         )
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="naive_bayes._BaseDiscreteNB._partial_fit",
         domain="cuml_python",
     )

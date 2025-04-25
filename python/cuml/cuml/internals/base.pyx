@@ -22,14 +22,14 @@ import numbers
 import os
 from importlib import import_module
 
+import cuml.internals.nvtx as nvtx
 from cuml.internals.safe_imports import (
     cpu_only_import,
+    gpu_only_import,
     gpu_only_import_from,
-    null_decorator,
 )
 
 np = cpu_only_import('numpy')
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 
 try:
     from sklearn.utils import estimator_html_repr
@@ -66,7 +66,6 @@ from cuml.internals.output_type import (
     INTERNAL_VALID_OUTPUT_TYPES,
     VALID_OUTPUT_TYPES,
 )
-from cuml.internals.safe_imports import gpu_only_import, gpu_only_import_from
 
 cp_ndarray = gpu_only_import_from('cupy', 'ndarray')
 cp = gpu_only_import('cupy')
@@ -520,7 +519,7 @@ class Base(TagsMixin,
                                  addr=hex(id(self)))
                 msg = msg[5:]  # remove cuml.
                 func = getattr(self, func_name)
-                func = nvtx_annotate(message=msg, domain="cuml_python")(func)
+                func = nvtx.annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
 
     @classmethod

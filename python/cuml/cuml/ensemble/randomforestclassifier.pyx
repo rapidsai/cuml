@@ -25,14 +25,13 @@ from cuml.internals.safe_imports import (
     cpu_only_import,
     gpu_only_import,
     gpu_only_import_from,
-    null_decorator,
 )
 
 np = cpu_only_import('numpy')
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 rmm = gpu_only_import('rmm')
 
 import cuml.internals
+import cuml.internals.nvtx as nvtx
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.internals import logger
@@ -53,8 +52,6 @@ from cuml.legacy.fil.fil import TreeliteModel
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
-
-from cuml.internals.safe_imports import gpu_only_import_from
 
 cuda = gpu_only_import_from('numba', 'cuda')
 from cuml.prims.label.classlabels import check_labels, invert_labels
@@ -444,7 +441,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                                  algo=algo,
                                  fil_sparse_format=fil_sparse_format)
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="fit RF-Classifier @randomforestclassifier.pyx",
         domain="cuml_python")
     @generate_docstring(skip_parameters_heading=True,
@@ -585,7 +582,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         del X_m
         return preds
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="predict RF-Classifier @randomforestclassifier.pyx",
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
@@ -709,7 +706,7 @@ class RandomForestClassifier(BaseRandomForestModel,
 
         return preds_proba
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="score RF-Classifier @randomforestclassifier.pyx",
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),

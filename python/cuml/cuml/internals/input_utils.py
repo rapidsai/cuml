@@ -16,6 +16,7 @@
 
 from collections import namedtuple
 
+import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
@@ -26,7 +27,6 @@ from cuml.internals.safe_imports import (
     cpu_only_import_from,
     gpu_only_import,
     gpu_only_import_from,
-    null_decorator,
     return_false,
     safe_import,
     safe_import_from,
@@ -62,7 +62,6 @@ cupyx_isspmatrix = gpu_only_import_from(
     "cupyx.scipy.sparse", "isspmatrix", alt=return_false
 )
 
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 PandasSeries = cpu_only_import_from("pandas", "Series")
 PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
 PandasIndex = cpu_only_import_from("pandas", "Index")
@@ -336,7 +335,7 @@ def is_array_like(X, accept_lists=False):
     return False
 
 
-@nvtx_annotate(
+@nvtx.annotate(
     message="common.input_utils.input_to_cuml_array",
     category="utils",
     domain="cuml_python",
@@ -453,7 +452,7 @@ def input_to_cuml_array(
     return cuml_array(array=arr, n_rows=n_rows, n_cols=n_cols, dtype=arr.dtype)
 
 
-@nvtx_annotate(
+@nvtx.annotate(
     message="common.input_utils.input_to_cupy_array",
     category="utils",
     domain="cuml_python",
@@ -499,7 +498,7 @@ def input_to_cupy_array(
     return out_data._replace(array=out_data.array.to_output("cupy"))
 
 
-@nvtx_annotate(
+@nvtx.annotate(
     message="common.input_utils.input_to_host_array",
     category="utils",
     domain="cuml_python",

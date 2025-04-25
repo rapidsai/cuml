@@ -16,9 +16,11 @@
 
 import copy
 import operator
+from functools import cached_property
 from typing import Tuple
 
 import cuml.accel
+import cuml.internals.nvtx as nvtx
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
@@ -29,10 +31,8 @@ from cuml.internals.safe_imports import (
     cpu_only_import_from,
     gpu_only_import,
     gpu_only_import_from,
-    null_decorator,
     return_false,
     safe_import,
-    safe_import_from,
 )
 
 cudf = gpu_only_import("cudf")
@@ -42,9 +42,6 @@ rmm = gpu_only_import("rmm")
 host_xpy = safe_import("numpy", alt=cp)
 
 cuda = gpu_only_import_from("numba", "cuda")
-cached_property = safe_import_from(
-    "functools", "cached_property", alt=null_decorator
-)
 CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
 CudfIndex = gpu_only_import_from("cudf", "Index")
 CudfSeries = gpu_only_import_from("cudf", "Series")
@@ -53,7 +50,6 @@ DaskCudfSeries = gpu_only_import_from("dask_cudf", "Series")
 DaskDataFrame = gpu_only_import_from("dask.dataframe", "DataFrame")
 DaskSeries = gpu_only_import_from("dask.dataframe", "Series")
 DeviceBuffer = gpu_only_import_from("rmm", "DeviceBuffer")
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
 PandasIndex = cpu_only_import_from("pandas", "Index")
 PandasSeries = cpu_only_import_from("pandas", "Series")
@@ -205,7 +201,7 @@ class CumlArray:
 
     """
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="internals.CumlArray.__init__",
         category="utils",
         domain="cuml_python",
@@ -552,7 +548,7 @@ class CumlArray:
     def item(self):
         return self._mem_type.xpy.asarray(self).item()
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.to_output",
         category="utils",
         domain="cuml_python",
@@ -726,7 +722,7 @@ class CumlArray:
 
         return self
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.host_serialize",
         category="utils",
         domain="cuml_python",
@@ -745,7 +741,7 @@ class CumlArray:
         obj = cls.deserialize(header, frames)
         return obj
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.device_serialize",
         category="utils",
         domain="cuml_python",
@@ -764,7 +760,7 @@ class CumlArray:
         obj = cls.deserialize(header, frames)
         return obj
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.serialize",
         category="utils",
         domain="cuml_python",
@@ -805,7 +801,7 @@ class CumlArray:
         header, frames = self.host_serialize()
         return self.host_deserialize, (header, frames)
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.to_host_array",
         category="utils",
         domain="cuml_python",
@@ -819,7 +815,7 @@ class CumlArray:
             validate=False,
         )
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.to_host_array",
         category="utils",
         domain="cuml_python",
@@ -827,7 +823,7 @@ class CumlArray:
     def to_host_array(self):
         return self.to_output("numpy")
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.to_host_array",
         category="utils",
         domain="cuml_python",
@@ -836,7 +832,7 @@ class CumlArray:
         return self.to_output("cupy")
 
     @classmethod
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.empty",
         category="utils",
         domain="cuml_python",
@@ -860,7 +856,7 @@ class CumlArray:
         return CumlArray(mem_type.xpy.empty(shape, dtype, order), index=index)
 
     @classmethod
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.full", category="utils", domain="cuml_python"
     )
     def full(cls, shape, value, dtype, order="F", index=None, mem_type=None):
@@ -884,7 +880,7 @@ class CumlArray:
         )
 
     @classmethod
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.zeros",
         category="utils",
         domain="cuml_python",
@@ -914,7 +910,7 @@ class CumlArray:
         )
 
     @classmethod
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.ones", category="utils", domain="cuml_python"
     )
     def ones(
@@ -942,7 +938,7 @@ class CumlArray:
         )
 
     @classmethod
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.CumlArray.from_input",
         category="utils",
         domain="cuml_python",

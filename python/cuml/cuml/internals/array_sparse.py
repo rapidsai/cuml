@@ -15,6 +15,7 @@
 #
 from collections import namedtuple
 
+import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
@@ -24,12 +25,9 @@ from cuml.internals.safe_imports import (
     UnavailableError,
     cpu_only_import,
     gpu_only_import,
-    gpu_only_import_from,
-    null_decorator,
 )
 
 cpx_sparse = gpu_only_import("cupyx.scipy.sparse")
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 scipy_sparse = cpu_only_import("scipy.sparse")
 
 sparse_matrix_classes = []
@@ -93,7 +91,7 @@ class SparseCumlArray:
         Number of nonzeros in underlying arrays
     """
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.SparseCumlArray.__init__",
         category="utils",
         domain="cuml_python",
@@ -187,7 +185,7 @@ class SparseCumlArray:
         self.nnz = data.nnz
         self.index = None
 
-    @nvtx_annotate(
+    @nvtx.annotate(
         message="common.SparseCumlArray.to_output",
         category="utils",
         domain="cuml_python",

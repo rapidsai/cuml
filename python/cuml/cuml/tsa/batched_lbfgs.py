@@ -15,14 +15,10 @@
 #
 
 import cuml.internals.logger as logger
+import cuml.internals.nvtx as nvtx
 from cuml.common import has_scipy
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import_from,
-    null_decorator,
-)
+from cuml.internals.safe_imports import cpu_only_import
 
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
 np = cpu_only_import("numpy")
 
 
@@ -41,7 +37,7 @@ def _fd_fprime(x, f, h):
     return g
 
 
-@nvtx_annotate(message="LBFGS", domain="cuml_python")
+@nvtx.annotate(message="LBFGS", domain="cuml_python")
 def batched_fmin_lbfgs_b(
     func,
     x0,
@@ -168,7 +164,7 @@ def batched_fmin_lbfgs_b(
     warn_flag = np.zeros(num_batches)
 
     while not all(converged):
-        with nvtx_annotate("LBFGS-ITERATION", domain="cuml_python"):
+        with nvtx.annotate("LBFGS-ITERATION", domain="cuml_python"):
             for ib in range(num_batches):
                 if converged[ib]:
                     continue
