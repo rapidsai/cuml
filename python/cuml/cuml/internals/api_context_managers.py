@@ -17,32 +17,19 @@
 import contextlib
 import typing
 from collections import deque
+from typing import TYPE_CHECKING
 
-try:
-    from typing import TYPE_CHECKING
-except ImportError:
-    TYPE_CHECKING = False
+from cupy.cuda import using_allocator as cupy_using_allocator
+from rmm.allocators.cupy import rmm_cupy_allocator
 
 import cuml.internals.input_utils
 import cuml.internals.memory_utils
 from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.mem_type import MemoryType
 
 if TYPE_CHECKING:
     from cuml.internals.base import Base
-
-from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.mem_type import MemoryType
-from cuml.internals.safe_imports import (
-    UnavailableNullContext,
-    gpu_only_import_from,
-)
-
-cupy_using_allocator = gpu_only_import_from(
-    "cupy.cuda", "using_allocator", alt=UnavailableNullContext
-)
-rmm_cupy_allocator = gpu_only_import_from(
-    "rmm.allocators.cupy", "rmm_cupy_allocator"
-)
 
 
 @contextlib.contextmanager

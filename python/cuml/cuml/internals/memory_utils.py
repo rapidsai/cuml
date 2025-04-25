@@ -19,8 +19,10 @@ import operator
 import re
 from functools import wraps
 
-from cudf import DataFrame as CudfDataFrame
-from cudf import Series as CudfSeries
+import cudf
+import pandas as pd
+from cupy.cuda import using_allocator as cupy_using_allocator
+from rmm.allocators.cupy import rmm_cupy_allocator
 
 from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.global_settings import GlobalSettings
@@ -28,20 +30,6 @@ from cuml.internals.mem_type import MemoryType
 from cuml.internals.output_type import (
     INTERNAL_VALID_OUTPUT_TYPES,
     VALID_OUTPUT_TYPES,
-)
-from cuml.internals.safe_imports import (
-    UnavailableNullContext,
-    cpu_only_import_from,
-    gpu_only_import_from,
-)
-
-cupy_using_allocator = gpu_only_import_from(
-    "cupy.cuda", "using_allocator", alt=UnavailableNullContext
-)
-PandasSeries = cpu_only_import_from("pandas", "Series")
-PandasDataFrame = cpu_only_import_from("pandas", "DataFrame")
-rmm_cupy_allocator = gpu_only_import_from(
-    "rmm.allocators.cupy", "rmm_cupy_allocator"
 )
 
 
@@ -404,8 +392,8 @@ def determine_array_memtype(X):
         return MemoryType.device
     if hasattr(X, "__array_interface__"):
         return MemoryType.host
-    if isinstance(X, (CudfDataFrame, CudfSeries)):
+    if isinstance(X, (cudf.DataFrame, cudf.Series)):
         return MemoryType.device
-    if isinstance(X, (PandasDataFrame, PandasSeries)):
+    if isinstance(X, (pd.DataFrame, pd.Series)):
         return MemoryType.host
     return None
