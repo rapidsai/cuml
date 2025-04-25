@@ -28,9 +28,11 @@
 import numbers
 import warnings
 
+import cupy as np
+
 from cuml.cluster import KMeans
 from cuml.internals.mixins import SparseInputTagMixin
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+from cuml.internals.safe_imports import cpu_only_import
 from cuml.preprocessing.encoders import OneHotEncoder
 
 from ....common.array_descriptor import CumlArrayDescriptor
@@ -40,8 +42,7 @@ from ....thirdparty_adapters import check_array
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import FLOAT_DTYPES, check_is_fitted
 
-np = gpu_only_import('cupy')
-cpu_np = cpu_only_import('numpy')
+cpu_import numpy as np
 
 
 def digitize(x, bins):

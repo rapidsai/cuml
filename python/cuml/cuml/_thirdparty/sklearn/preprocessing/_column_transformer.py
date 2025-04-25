@@ -45,14 +45,14 @@ from cuml.internals.safe_imports import (
     gpu_only_import_from,
 )
 
-cpu_np = cpu_only_import('numpy')
-cu_sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
-np = gpu_only_import('cupy')
-numba = gpu_only_import('numba')
-pd = cpu_only_import('pandas')
-sp_sparse = cpu_only_import_from('scipy', 'sparse')
-cudf = gpu_only_import('cudf')
+cpu_import numpy as np
+import cupy as np
+import numba
+import pandas as pd
+from cupyx.scipy import sparse as cu_sparse
 
+sp_sparse = cpu_only_import_from('scipy', 'sparse')
+import cudf
 
 _ERR_MSG_1DCOLUMN = ("1D data passed to a transformer that expects 2D data. "
                      "Try to specify the column selection as a list of one "

@@ -72,10 +72,12 @@ from ..utils.validation import (
     check_random_state,
 )
 
-cpu_np = cpu_only_import('numpy')
-np = gpu_only_import('cupy')
+cpu_import numpy as np
+import cupy as np
+
 resample = cpu_only_import_from('sklearn.utils._indexing', 'resample')
-sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
+from cupyx.scipy import sparse
+
 stats = cpu_only_import_from('scipy', 'stats')
 
 

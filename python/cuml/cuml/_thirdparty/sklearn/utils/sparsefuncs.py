@@ -28,9 +28,10 @@ from ....thirdparty_adapters.sparsefuncs_fast import (
 )
 
 cpu_sp = cpu_only_import_from('scipy', 'sparse')
-gpu_sp = gpu_only_import_from('cupyx.scipy', 'sparse')
+from cupyx.scipy import sparse as gpu_sp
+
 np = gpu_only_import('cupy', alt=numpy)
-cpu_np = cpu_only_import('numpy')
+cpu_import numpy as np
 
 
 def iscsr(X):

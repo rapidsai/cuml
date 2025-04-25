@@ -38,7 +38,7 @@ from ..utils.validation import FLOAT_DTYPES, check_is_fitted
 
 numpy = cpu_only_import('numpy')
 np = gpu_only_import('cupy', alt=numpy)
-sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
+from cupyx.scipy import sparse
 
 
 def is_scalar_nan(x):
