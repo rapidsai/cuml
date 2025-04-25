@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 import cupy as cp
+from scipy.sparse import issparse
 
 import cuml
 from cuml import KMeans
@@ -20,10 +21,7 @@ from cuml.internals.input_utils import (
     determine_array_type,
     get_supported_input_type,
 )
-from cuml.internals.safe_imports import cpu_only_import_from
 from cuml.preprocessing import SimpleImputer
-
-issparse = cpu_only_import_from("scipy.sparse", "issparse")
 
 
 @cuml.internals.api_return_generic()
