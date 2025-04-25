@@ -21,12 +21,10 @@ import cudf
 import cupy as cp
 import cupyx.scipy.sparse as cpx_sparse
 import numpy as np
+import pandas
+import scipy.sparse as scipy_sparse
 
 from cuml.internals.device_support import GPU_ENABLED
-from cuml.internals.safe_imports import cpu_only_import
-
-pandas = cpu_only_import("pandas")
-scipy_sparse = cpu_only_import("scipy.sparse")
 
 
 class MemoryTypeError(Exception):

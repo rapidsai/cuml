@@ -16,6 +16,7 @@
 from collections import namedtuple
 
 import cupyx.scipy.sparse as cpx_sparse
+import scipy.sparse as scipy_sparse
 
 import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
@@ -23,20 +24,11 @@ from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import class_with_cupy_rmm
-from cuml.internals.safe_imports import UnavailableError, cpu_only_import
 
-scipy_sparse = cpu_only_import("scipy.sparse")
-
-sparse_matrix_classes = []
-try:
-    sparse_matrix_classes.append(cpx_sparse.csr_matrix)
-except UnavailableError:
-    pass
-try:
-    sparse_matrix_classes.append(scipy_sparse.csr_matrix)
-except UnavailableError:
-    pass
-sparse_matrix_classes = tuple(sparse_matrix_classes)
+sparse_matrix_classes = (
+    cpx_sparse.csr_matrix,
+    scipy_sparse.csr_matrix,
+)
 
 SparseCumlArrayInput = namedtuple(
     "SparseCumlArrayInput",
@@ -102,19 +94,11 @@ class SparseCumlArray:
         convert_format=True,
     ):
         if not isinstance(data, SparseCumlArrayInput):
-            is_sparse = False
-            try:
-                is_sparse = cpx_sparse.isspmatrix(data)
+            if cpx_sparse.isspmatrix(data):
                 from_mem_type = MemoryType.device
-            except UnavailableError:
-                pass
-            if not is_sparse:
-                try:
-                    is_sparse = scipy_sparse.isspmatrix(data)
-                    from_mem_type = MemoryType.host
-                except UnavailableError:
-                    pass
-            if not is_sparse:
+            elif scipy_sparse.isspmatrix(data):
+                from_mem_type = MemoryType.host
+            else:
                 raise ValueError(
                     "A sparse matrix is expected as input. "
                     "Received %s" % type(data)
