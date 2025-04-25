@@ -30,11 +30,7 @@ from cuml.common.device_selection import using_device_type
 from cuml.internals import input_utils
 from cuml.internals.device_type import DeviceType
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.safe_imports import safe_import
 from cuml.manifold import UMAP
-
-xgb = safe_import("xgboost")
-treelite = safe_import("treelite")
 
 
 def call(m, func_name, X, y=None):
@@ -122,6 +118,7 @@ def _training_data_to_numpy(X, y):
 
 def _build_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking"""
+    import xgboost as xgb
 
     train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
@@ -180,6 +177,8 @@ class OptimizedFilWrapper:
 def _build_optimized_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking with optimal
     parameters"""
+    import xgboost as xgb
+
     with using_device_type("gpu"):
 
         train_data, train_label = _training_data_to_numpy(data[0], data[1])
@@ -365,6 +364,8 @@ class GtilWrapper:
         self.infer_type = infer_type
 
     def predict(self, X):
+        import treelite
+
         if self.infer_type == "per_tree":
             return treelite.gtil.predict_per_tree(self.tl_model, X)
         return treelite.gtil.predict(self.tl_model, X)
@@ -372,6 +373,8 @@ class GtilWrapper:
 
 def _build_gtil_classifier(m, data, args, tmpdir):
     """Setup function for treelite classification benchmarking"""
+    import treelite
+    import xgboost as xgb
 
     max_depth = args["max_depth"]
     num_rounds = args["num_rounds"]

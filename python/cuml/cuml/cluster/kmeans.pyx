@@ -20,7 +20,6 @@ import typing
 
 import numpy as np
 
-from cuml.internals.safe_imports import return_false, safe_import_from
 from cuml.internals.utils import check_random_seed
 
 from cython.operator cimport dereference as deref
@@ -49,10 +48,11 @@ from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 
-# from sklearn.utils._openmp_helpers import _openmp_effective_n_threads
-_openmp_effective_n_threads = safe_import_from(
-    "sklearn.utils._openmp_helpers", "_openmp_effective_n_threads", alt=return_false
-)
+try:
+    from sklearn.utils._openmp_helpers import _openmp_effective_n_threads
+except ImportError:
+    def _openmp_effective_n_threads():
+        return 1
 
 
 class KMeans(UniversalBase,
@@ -268,10 +268,7 @@ class KMeans(UniversalBase,
         self.cluster_centers_ = None
 
         # For sklearn interoperability
-        if _openmp_effective_n_threads():
-            self._n_threads = _openmp_effective_n_threads()
-        else:
-            self._n_threads = 1
+        self._n_threads = _openmp_effective_n_threads()
 
         # cuPy does not allow comparing with string. See issue #2372
         init_str = init if isinstance(init, str) else None

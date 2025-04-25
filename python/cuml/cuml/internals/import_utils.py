@@ -18,8 +18,6 @@ import platform
 import numba
 from packaging.version import Version
 
-from cuml.internals.safe_imports import UnavailableError
-
 
 def has_dask():
     try:
@@ -127,10 +125,7 @@ def check_min_dask_version(version):
 
 
 def check_min_numba_version(version):
-    try:
-        return Version(str(numba.__version__)) >= Version(version)
-    except UnavailableError:
-        return False
+    return Version(str(numba.__version__)) >= Version(version)
 
 
 def check_min_cupy_version(version):
