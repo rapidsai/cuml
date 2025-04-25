@@ -415,6 +415,7 @@ def test_svm_gamma(params):
 
 @pytest.mark.parametrize("x_dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("y_dtype", [np.float32, np.float64, np.int32])
+@pytest.mark.xfail(reason="SVC testing inflexibility (see issue #6575)")
 def test_svm_numeric_arraytype(x_dtype, y_dtype):
     X, y = get_binary_iris_dataset()
     X = X.astype(x_dtype, order="F")
