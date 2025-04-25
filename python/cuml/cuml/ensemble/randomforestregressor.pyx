@@ -629,6 +629,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         domain="cuml_python")
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense', '(n_samples, 1)')])
+    @enable_device_interop
     def score(self, X, y, algo='auto', convert_dtype=True,
               fil_sparse_format='auto', predict_model="GPU"):
         """
