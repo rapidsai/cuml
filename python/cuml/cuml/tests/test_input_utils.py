@@ -371,11 +371,12 @@ def check_numpy_order(ary, order):
 
 def check_ptr(a, b, input_type):
     if input_type == "cudf":
-        for (_, col_a), (_, col_b) in zip(a._data.items(), b._data.items()):
-            with cudf.core.buffer.acquire_spill_lock():
-                assert col_a.base_data.get_ptr(
-                    mode="read"
-                ) == col_b.base_data.get_ptr(mode="read")
+        for col_a, col_b in zip(a._columns, b._columns, strict=True):
+            # get_ptr could spill the buffer data, but possibly OK
+            # if this is only used for testing
+            assert col_a.base_data.get_ptr(
+                mode="read"
+            ) == col_b.base_data.get_ptr(mode="read")
     else:
 
         def get_ptr(x):
