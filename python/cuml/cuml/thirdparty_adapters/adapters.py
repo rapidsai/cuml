@@ -29,7 +29,6 @@ from scipy.sparse import csr_matrix as cpu_csr_matrix
 
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import input_to_cupy_array, input_to_host_array
-from cuml.internals.safe_imports import cpu_only_import, cpu_only_import_from
 
 numeric_types = [
     np.int8,
