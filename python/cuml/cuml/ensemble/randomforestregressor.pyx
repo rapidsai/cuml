@@ -14,22 +14,15 @@
 # limitations under the License.
 #
 # distutils: language = c++
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
-
-np = cpu_only_import('numpy')
-rmm = gpu_only_import('rmm')
+import numpy as np
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.internals import logger
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
 
@@ -49,9 +42,6 @@ from cuml.legacy.fil.fil import TreeliteModel
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
-
-cuda = gpu_only_import_from('numba', 'cuda')
-
 from pylibraft.common.handle cimport handle_t
 
 cimport cuml.common.cuda

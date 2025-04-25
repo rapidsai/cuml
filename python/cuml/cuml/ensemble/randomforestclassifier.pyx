@@ -16,25 +16,19 @@
 #
 
 
-# distutils: language = c++
-from cuml.internals.api_decorators import (
-    device_interop_preparation,
-    enable_device_interop,
-)
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
-
-np = cpu_only_import('numpy')
-rmm = gpu_only_import('rmm')
+import numpy as np
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.internals import logger
+
+# distutils: language = c++
+from cuml.internals.api_decorators import (
+    device_interop_preparation,
+    enable_device_interop,
+)
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.utils import check_random_seed
@@ -53,7 +47,6 @@ from cuml.legacy.fil.fil import TreeliteModel
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
 
-cuda = gpu_only_import_from('numba', 'cuda')
 from cuml.prims.label.classlabels import check_labels, invert_labels
 
 from pylibraft.common.handle cimport handle_t
