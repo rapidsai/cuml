@@ -19,10 +19,7 @@
 import cupy as cp
 import cupyx
 import numpy as np
-
-from cuml.internals.safe_imports import cpu_only_import
-
-scipy = cpu_only_import('scipy')
+import scipy.sparse
 
 from libc.stdint cimport uintptr_t
 
