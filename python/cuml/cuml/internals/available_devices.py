@@ -15,8 +15,6 @@
 #
 from functools import cache
 
-from cuml.internals.device_support import GPU_ENABLED
-
 
 def gpu_available_no_context_creation():
     """
@@ -33,4 +31,4 @@ def gpu_available_no_context_creation():
 
 @cache
 def is_cuda_available():
-    return GPU_ENABLED and gpu_available_no_context_creation()
+    return gpu_available_no_context_creation()

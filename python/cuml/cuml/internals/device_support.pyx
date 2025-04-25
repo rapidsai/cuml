@@ -33,5 +33,3 @@ try:
 except ImportError:
     CPU_ENABLED = False
     MIN_SKLEARN_PRESENT = (False, None, None)
-
-GPU_ENABLED = True

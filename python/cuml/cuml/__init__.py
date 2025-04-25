@@ -24,7 +24,7 @@ else:
     libcuml.load_library()
     del libcuml
 
-from cuml.internals.available_devices import GPU_ENABLED, is_cuda_available
+from cuml.internals.available_devices import is_cuda_available
 from cuml.internals.base import Base, UniversalBase
 
 # GPU only packages
@@ -72,7 +72,11 @@ if is_cuda_available():
 
 # Universal packages
 
+from cuml._version import __git_commit__, __version__
 from cuml.cluster.hdbscan import HDBSCAN
+from cuml.decomposition.pca import PCA
+from cuml.decomposition.tsvd import TruncatedSVD
+from cuml.fil import ForestInference, fil
 from cuml.internals.global_settings import (
     GlobalSettings,
     _global_settings_data,
@@ -81,16 +85,6 @@ from cuml.internals.memory_utils import (
     set_global_output_type,
     using_output_type,
 )
-
-# FIL is currently not built in cuml-cpu distributions, even though it can be
-# used in a CPU-only environment. Only import if the build supports it.
-if GPU_ENABLED:
-    from cuml.fil import ForestInference
-    from cuml.fil import fil
-
-from cuml._version import __git_commit__, __version__
-from cuml.decomposition.pca import PCA
-from cuml.decomposition.tsvd import TruncatedSVD
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.linear_regression import LinearRegression

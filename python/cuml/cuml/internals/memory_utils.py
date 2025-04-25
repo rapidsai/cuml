@@ -24,7 +24,6 @@ import pandas as pd
 from cupy.cuda import using_allocator as cupy_using_allocator
 from rmm.allocators.cupy import rmm_cupy_allocator
 
-from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.output_type import (
@@ -71,10 +70,8 @@ def with_cupy_rmm(func):
 
     @wraps(func)
     def cupy_rmm_wrapper(*args, **kwargs):
-        if GPU_ENABLED:
-            with cupy_using_allocator(rmm_cupy_allocator):
-                return func(*args, **kwargs)
-        return func(*args, **kwargs)
+        with cupy_using_allocator(rmm_cupy_allocator):
+            return func(*args, **kwargs)
 
     # Mark the function as already wrapped
     cupy_rmm_wrapper.__dict__["__cuml_rmm_wrapped"] = True
@@ -178,14 +175,8 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
     array([0., 0., 0., 0., 0.])
 
     """
-
-    if GPU_ENABLED:
-        with cupy_using_allocator(rmm_cupy_allocator):
-            result = cupy_fn(*args, **kwargs)
-    else:
-        result = cupy_fn(*args, **kwargs)
-
-    return result
+    with cupy_using_allocator(rmm_cupy_allocator):
+        return cupy_fn(*args, **kwargs)
 
 
 def _get_size_from_shape(shape, dtype):
