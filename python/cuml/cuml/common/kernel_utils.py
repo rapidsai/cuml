@@ -17,12 +17,10 @@
 import functools
 from uuid import uuid1
 
+import cupy as cp
+import numpy as np
+
 import cuml.internals.logger as logger
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-
 
 # Mapping of common PyData dtypes to their corresponding C-primitive
 dtype_str_map = {

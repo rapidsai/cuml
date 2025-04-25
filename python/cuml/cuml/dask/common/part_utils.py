@@ -17,21 +17,17 @@ from collections import OrderedDict
 from collections.abc import Sequence
 from functools import reduce
 
+import numpy as np
 from dask.array.core import Array as daskArray
 from dask.dataframe import DataFrame as daskDataFrame
 from dask.dataframe import Series as daskSeries
 from dask.distributed import default_client, futures_of, wait
+from dask_cudf import DataFrame as dcDataFrame
 from dask_cudf import Series as dcSeries
 from toolz import first
 from tornado import gen
 
 from cuml.dask.common.utils import parse_host_port
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import_from
-
-np = cpu_only_import("numpy")
-
-
-dcDataFrame = gpu_only_import_from("dask_cudf", "DataFrame")
 
 
 def hosts_to_parts(futures):

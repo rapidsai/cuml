@@ -18,17 +18,16 @@ from typing import TYPE_CHECKING
 
 from cuml import Base
 from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 
 if TYPE_CHECKING:
     import cudf
     import cupy as cp
     import numpy as np
 else:
-    cudf = gpu_only_import("cudf")
-    cp = gpu_only_import("cupy")
-    np = cpu_only_import("numpy")
-    pd = cpu_only_import("pandas")
+    import cudf
+    import cupy as cp
+    import numpy as np
+    import pandas as pd
 
 
 def _to_cudf_series(y, **kwargs):

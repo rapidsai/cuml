@@ -11,14 +11,10 @@
 # This code is under BSD 3 clause license.
 # Authors mentioned above do not endorse or promote this production.
 
-import numpy
-
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
-)
+import cupy as np
+import numpy as cpu_np
+import scipy.sparse as cpu_sp
+from cupyx.scipy import sparse as gpu_sp
 
 from ....thirdparty_adapters.sparsefuncs_fast import (
     csc_mean_variance_axis0 as _csc_mean_var_axis0,
@@ -26,11 +22,6 @@ from ....thirdparty_adapters.sparsefuncs_fast import (
 from ....thirdparty_adapters.sparsefuncs_fast import (
     csr_mean_variance_axis0 as _csr_mean_var_axis0,
 )
-
-cpu_sp = cpu_only_import_from('scipy', 'sparse')
-gpu_sp = gpu_only_import_from('cupyx.scipy', 'sparse')
-np = gpu_only_import('cupy', alt=numpy)
-cpu_np = cpu_only_import('numpy')
 
 
 def iscsr(X):

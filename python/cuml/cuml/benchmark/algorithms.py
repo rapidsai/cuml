@@ -15,6 +15,7 @@
 #
 import tempfile
 
+import numpy as np
 import sklearn
 import sklearn.cluster
 import sklearn.ensemble
@@ -54,7 +55,6 @@ from cuml.dask import (  # noqa: F401
     neighbors,
 )
 from cuml.internals.import_utils import has_hdbscan, has_umap
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.preprocessing import (
     MaxAbsScaler,
     MinMaxScaler,
@@ -64,9 +64,6 @@ from cuml.preprocessing import (
     SimpleImputer,
     StandardScaler,
 )
-
-np = cpu_only_import("numpy")
-
 
 if has_umap():
     import umap

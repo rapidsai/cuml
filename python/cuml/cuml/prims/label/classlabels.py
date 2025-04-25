@@ -17,14 +17,12 @@
 import math
 import typing
 
+import cupy as cp
+
 import cuml.internals
 from cuml.common.kernel_utils import cuda_kernel_factory
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
-
 
 map_kernel_str = r"""
 ({0} *x, int x_n, {0} *labels, int n_labels) {

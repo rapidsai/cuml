@@ -20,9 +20,7 @@ import warnings
 
 from libc.stdint cimport uintptr_t
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
+import numpy as np
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray

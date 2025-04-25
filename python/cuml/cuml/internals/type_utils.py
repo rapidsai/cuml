@@ -16,16 +16,9 @@
 import functools
 import typing
 
-from cuml.internals.safe_imports import UnavailableError, gpu_only_import
+import cupy as cp
 
-cp = gpu_only_import("cupy")
-
-
-try:
-    # Those are the only data types supported by cupyx.scipy.sparse matrices.
-    CUPY_SPARSE_DTYPES = [cp.float32, cp.float64, cp.complex64, cp.complex128]
-except UnavailableError:
-    CUPY_SPARSE_DTYPES = []
+CUPY_SPARSE_DTYPES = [cp.float32, cp.float64, cp.complex64, cp.complex128]
 
 # Use _DecoratorType as a type variable for decorators. See:
 # https://github.com/python/mypy/pull/8336/files#diff-eb668b35b7c0c4f88822160f3ca4c111f444c88a38a3b9df9bb8427131538f9cR260

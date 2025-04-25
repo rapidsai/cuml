@@ -17,14 +17,11 @@
 
 import warnings
 
+import numpy as np
 import pytest
 from statsmodels.tsa import stattools
 
-from cuml.internals.safe_imports import cpu_only_import
 from cuml.tsa import stationarity
-
-np = cpu_only_import("numpy")
-
 
 ###############################################################################
 #                       Helpers and reference functions                       #

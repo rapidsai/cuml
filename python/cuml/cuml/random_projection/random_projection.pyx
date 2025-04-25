@@ -16,9 +16,7 @@
 
 # distutils: language = c++
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
+import numpy as np
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool

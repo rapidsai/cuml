@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import cupy as cp
+import cupyx
+import numpy as np
 import pytest
 import umap.distances as dist
 from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
 from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
 
 from cuml.datasets import make_blobs
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.manifold.umap import UMAP
 from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
 from cuml.manifold.umap import (
@@ -26,10 +28,6 @@ from cuml.manifold.umap import (
 )
 from cuml.metrics import trustworthiness
 from cuml.neighbors import NearestNeighbors
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-cupyx = gpu_only_import("cupyx")
 
 
 def correctness_dense(a, b, rtol=0.1, threshold=0.95):

@@ -13,17 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-from cuml.internals.safe_imports import gpu_only_import
-
-cudf = gpu_only_import('cudf')
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
-pandas = cpu_only_import('pandas')
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
 
 import cuml.internals.logger as logger
 from cuml.explainer.common import (
@@ -188,9 +181,7 @@ class SHAPBase():
 
         self.random_state = random_state
 
-        if isinstance(background,
-                      pandas.DataFrame) or isinstance(background,
-                                                      cudf.DataFrame):
+        if isinstance(background, pd.DataFrame) or isinstance(background, cudf.DataFrame):
             self.feature_names = background.columns.to_list()
         else:
             self.feature_names = [None for _ in range(len(background))]

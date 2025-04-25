@@ -26,9 +26,7 @@ from libc.stdint cimport uintptr_t
 
 import re
 
-from cuml.internals.safe_imports import cpu_only_import
-
-np = cpu_only_import('numpy')
+import numpy as np
 import treelite
 
 if has_sklearn():

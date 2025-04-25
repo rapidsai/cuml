@@ -12,16 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import cudf
+import numpy as np
 import pytest
 from sklearn.datasets import make_blobs
 from sklearn.manifold import trustworthiness as sklearn_trustworthiness
 from umap import UMAP
 
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.metrics import trustworthiness as cuml_trustworthiness
-
-cudf = gpu_only_import("cudf")
-np = cpu_only_import("numpy")
 
 
 @pytest.mark.parametrize("input_type", ["ndarray", "dataframe"])

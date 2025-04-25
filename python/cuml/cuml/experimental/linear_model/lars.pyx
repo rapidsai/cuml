@@ -19,12 +19,9 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-from cuml.internals.safe_imports import cpu_only_import
+import cupy as cp
+import numpy as np
 
-np = cpu_only_import('numpy')
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import('cupy')
 from cuml.internals import logger
 
 from cuml.internals cimport logger

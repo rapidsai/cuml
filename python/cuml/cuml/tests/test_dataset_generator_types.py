@@ -14,6 +14,10 @@
 # limitations under the License.
 #
 
+import cudf
+import cupy as cp
+import numba
+import numpy as np
 import pytest
 
 import cuml
@@ -23,13 +27,6 @@ from cuml.datasets import (
     make_classification,
     make_regression,
 )
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-numba = gpu_only_import("numba")
-np = cpu_only_import("numpy")
-
 
 TEST_OUTPUT_TYPES = (
     (None, (cp.ndarray, cp.ndarray)),  # Default is cupy if None is used

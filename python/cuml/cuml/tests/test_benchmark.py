@@ -14,7 +14,11 @@
 #
 import time
 
+import cudf
+import numpy as np
+import pandas as pd
 import pytest
+from numba import cuda
 from sklearn import metrics
 
 from cuml.benchmark import algorithms, datagen
@@ -29,17 +33,6 @@ from cuml.benchmark.runners import (
     run_variations,
 )
 from cuml.internals.import_utils import has_umap, has_xgboost
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
-
-np = cpu_only_import("numpy")
-cudf = gpu_only_import("cudf")
-cuda = gpu_only_import_from("numba", "cuda")
-pd = cpu_only_import("pandas")
-
 
 pytestmark = pytest.mark.skip
 

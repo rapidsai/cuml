@@ -30,10 +30,6 @@ from sklearn.neighbors import (
 )
 from sklearn.svm import SVC, SVR
 
-from cuml.internals.safe_imports import gpu_only_import
-
-cp = gpu_only_import("cupy")
-
 
 def test_kmeans():
     X, y_true = make_blobs(n_samples=100, centers=3, random_state=42)

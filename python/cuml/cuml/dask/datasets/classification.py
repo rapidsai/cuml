@@ -13,7 +13,9 @@
 # limitations under the License.
 #
 
+import cupy as cp
 import dask.array as da
+import numpy as np
 
 from cuml.common import with_cupy_rmm
 from cuml.dask.common.utils import get_client
@@ -23,10 +25,6 @@ from cuml.datasets.classification import (
     make_classification as sg_make_classification,
 )
 from cuml.datasets.utils import _create_rs_generator
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
 
 
 def _create_covariance(dims, seed, dtype="float32"):

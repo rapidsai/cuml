@@ -13,16 +13,14 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import numpy as np
 import pytest
 
 from cuml.datasets.classification import make_classification
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
 from cuml.metrics import accuracy_score
 from cuml.model_selection import train_test_split
 from cuml.solvers import QN as cuQN
-
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
 
 
 # todo: add util functions to better compare against precomputed solutions

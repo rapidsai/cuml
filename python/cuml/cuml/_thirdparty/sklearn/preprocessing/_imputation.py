@@ -13,16 +13,15 @@
 import numbers
 import warnings
 
+import cupy as np
+import numpy as cpu_np
+from cupyx.scipy import sparse
+
 import cuml
 from cuml.internals.mixins import (
     AllowNaNTagMixin,
     SparseInputTagMixin,
     StringInputTagMixin,
-)
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
 )
 
 from ....common.array_descriptor import CumlArrayDescriptor
@@ -35,10 +34,6 @@ from ....thirdparty_adapters import (
 )
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import FLOAT_DTYPES, check_is_fitted
-
-numpy = cpu_only_import('numpy')
-np = gpu_only_import('cupy', alt=numpy)
-sparse = gpu_only_import_from('cupyx.scipy', 'sparse')
 
 
 def is_scalar_nan(x):
@@ -720,8 +715,7 @@ class MissingIndicator(TransformerMixin,
         if self.features == "missing-only":
             with cuml.using_output_type("numpy"):
                 np_features = np.asnumpy(features)
-                features_diff_fit_trans = numpy.setdiff1d(np_features,
-                                                          self.features_)
+                features_diff_fit_trans = cpu_np.setdiff1d(np_features, self.features_)
                 if (self.error_on_new and features_diff_fit_trans.size > 0):
                     raise ValueError("The features {} have missing values "
                                      "in transform but have no missing values "

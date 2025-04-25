@@ -18,6 +18,9 @@
 
 import warnings
 
+import cupy as cp
+import numpy as np
+from cupy import linalg
 from cupyx import geterr, lapack, seterr
 
 from cuml.common import input_to_cuml_array
@@ -31,16 +34,7 @@ from cuml.internals.api_decorators import (
 from cuml.internals.array import CumlArray
 from cuml.internals.base import UniversalBase
 from cuml.internals.mixins import RegressorMixin
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
 from cuml.metrics import pairwise_kernels
-
-cp = gpu_only_import('cupy')
-linalg = gpu_only_import_from('cupy', 'linalg')
-np = cpu_only_import('numpy')
 
 
 # cholesky solve with fallback to least squares for singular problems

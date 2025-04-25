@@ -13,22 +13,15 @@
 # limitations under the License.
 #
 
+import cudf
+import cupy as cp
+import numpy as np
+import pandas as pd
 import pytest
+from numba import cuda
 
 from cuml.datasets import make_classification
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
 from cuml.model_selection import train_test_split
-
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
-pd = cpu_only_import("pandas")
-
-cuda = gpu_only_import_from("numba", "cuda")
 
 test_seeds = ["int", "cupy", "numpy"]
 

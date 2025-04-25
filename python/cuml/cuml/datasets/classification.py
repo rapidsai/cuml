@@ -13,20 +13,13 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import numpy as np
+
 import cuml.internals
+import cuml.internals.nvtx as nvtx
 from cuml.datasets.utils import _create_rs_generator
 from cuml.internals.import_utils import has_sklearn
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-    null_decorator,
-)
-
-nvtx_annotate = gpu_only_import_from("nvtx", "annotate", alt=null_decorator)
-
-cp = gpu_only_import("cupy")
-np = cpu_only_import("numpy")
 
 
 def _generate_hypercube(samples, dimensions, rng):
@@ -54,7 +47,7 @@ def _generate_hypercube(samples, dimensions, rng):
     return out
 
 
-@nvtx_annotate(message="datasets.make_classification", domain="cuml_python")
+@nvtx.annotate(message="datasets.make_classification", domain="cuml_python")
 @cuml.internals.api_return_generic()
 def make_classification(
     n_samples=100,
