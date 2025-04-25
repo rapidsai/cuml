@@ -12,14 +12,24 @@
 import functools
 import numbers
 import timeit
+import warnings
+from collections import defaultdict
+from contextlib import contextmanager
 from itertools import chain, compress
 
+import cudf
+import cupy as np
+import numba
+import numpy as cpu_np
+import pandas as pd
+from cupyx.scipy import sparse as cu_sparse
 from joblib import Parallel
 
 import cuml
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import _global_settings_data
 from cuml.internals.import_utils import has_sklearn
+from cuml.internals.safe_imports import cpu_only_import_from
 
 from ....thirdparty_adapters import check_array
 from ..preprocessing._function_transformer import FunctionTransformer
@@ -30,29 +40,12 @@ from ..utils.skl_dependencies import (
 )
 from ..utils.validation import check_is_fitted
 
+sp_sparse = cpu_only_import_from('scipy', 'sparse')
+
 if has_sklearn():
     from sklearn.base import clone
     from sklearn.utils import Bunch
 
-import warnings
-from collections import defaultdict
-from contextlib import contextmanager
-
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
-)
-
-cpu_import numpy as np
-import cupy as np
-import numba
-import pandas as pd
-from cupyx.scipy import sparse as cu_sparse
-
-sp_sparse = cpu_only_import_from('scipy', 'sparse')
-import cudf
 
 _ERR_MSG_1DCOLUMN = ("1D data passed to a transformer that expects 2D data. "
                      "Try to specify the column selection as a list of one "

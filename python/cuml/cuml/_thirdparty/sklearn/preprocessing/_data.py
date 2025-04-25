@@ -33,6 +33,8 @@ import warnings
 from itertools import chain, combinations
 from itertools import combinations_with_replacement as combinations_w_r
 
+import cupy as np
+import numpy as cpu_np
 from scipy import optimize
 from scipy.special import boxcox
 
@@ -41,12 +43,7 @@ from cuml.internals.mixins import (
     SparseInputTagMixin,
     StatelessTagMixin,
 )
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    cpu_only_import_from,
-    gpu_only_import,
-    gpu_only_import_from,
-)
+from cuml.internals.safe_imports import cpu_only_import_from
 
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals import api_return_generic
@@ -71,9 +68,6 @@ from ..utils.validation import (
     check_is_fitted,
     check_random_state,
 )
-
-cpu_import numpy as np
-import cupy as np
 
 resample = cpu_only_import_from('sklearn.utils._indexing', 'resample')
 from cupyx.scipy import sparse
