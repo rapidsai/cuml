@@ -28,6 +28,7 @@ from sklearn.neighbors import (
     KNeighborsRegressor,
     NearestNeighbors,
 )
+from sklearn.svm import SVC, SVR
 
 from cuml.internals.safe_imports import gpu_only_import
 
@@ -134,3 +135,19 @@ def test_k_neighbors_regressor():
         for metric in ["euclidean", "manhattan"]:
             knr = KNeighborsRegressor().fit(X, y)
             knr.predict(X)
+
+
+def test_svr():
+    X, y = make_regression(
+        n_samples=100, n_features=20, noise=0.1, random_state=42
+    )
+    svr = SVR().fit(X, y)
+    svr.predict(X)
+
+
+def test_svc():
+    X, y = make_classification(
+        n_samples=100, n_features=20, n_classes=2, random_state=42
+    )
+    svc = SVC().fit(X, y)
+    svc.predict(X)
