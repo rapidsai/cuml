@@ -19,11 +19,7 @@ import importlib
 import traceback
 
 from cuml.internals import logger
-from cuml.internals.device_support import (
-    CPU_ENABLED,
-    GPU_ENABLED,
-    MIN_SKLEARN_PRESENT,
-)
+from cuml.internals.device_support import CPU_ENABLED, MIN_SKLEARN_PRESENT
 
 
 class UnavailableError(Exception):
@@ -315,83 +311,6 @@ def safe_import_from(module, symbol, *, msg=None, alt=None):
         return UnavailableMeta(symbol, (), {"_msg": msg})
     else:
         return alt
-
-
-def gpu_only_import(module, *, alt=None):
-    """A function used to import modules required only in GPU installs
-
-    This function will attempt to import a module with the given name, but it
-    will only throw an ImportError if the attempt fails AND this is not a
-    CPU-only build. This allows GPU-only dependencies to be cleanly
-    imported in CPU-only builds but guarantees that the correct exception
-    will be raised if a required dependency is unavailable. If the import
-    fails on a CPU-only build and no alternate module is indicated via the
-    keyword `alt` argument, a placeholder object will be returned which raises
-    an exception only if used.
-
-    Parameters
-    ----------
-    module: str
-        The name of the module to import.
-    alt: object
-        An optional module to be used in place of the given module if it
-        fails to import in a non-GPU-enabled install
-
-    Returns
-    -------
-    object
-        The imported module, the given alternate, or a class derived from
-        UnavailableMeta.
-    """
-    if GPU_ENABLED:
-        return importlib.import_module(module)
-    else:
-        return safe_import(
-            module,
-            msg=f"{module} is not installed in non GPU-enabled installations",
-            alt=alt,
-        )
-
-
-def gpu_only_import_from(module, symbol, *, alt=None):
-    """A function used to import symbols required only in GPU installs
-
-    This function will attempt to import a symbol from a module with the given
-    names, but it will only throw an ImportError if the attempt fails AND this
-    is not a CPU-only build. This allows GPU-only dependencies to be cleanly
-    imported in CPU-only builds but guarantees that the correct exception will
-    be raised if a required dependency is unavailable. If the import fails on a
-    CPU-only build and no alternate module is indicated via the keyword `alt`
-    argument, a placeholder object will be returned which raises an exception
-    only if used.
-
-    Parameters
-    ----------
-    module: str
-        The name of the module to import.
-    symbol: str
-        The name of the symbol to import.
-    alt: object
-        An optional object to be used in place of the given symbol if it fails
-        to import in a non-GPU-enabled install
-
-    Returns
-    -------
-    object
-        The imported symbol, the given alternate, or a class derived from
-        UnavailableMeta.
-    """
-    if GPU_ENABLED:
-        imported_module = importlib.import_module(module)
-        return getattr(imported_module, symbol)
-    else:
-        return safe_import_from(
-            module,
-            symbol,
-            msg=f"{module}.{symbol} is not available in CPU-only"
-            " installations",
-            alt=alt,
-        )
 
 
 def cpu_only_import(module, *, alt=None):
