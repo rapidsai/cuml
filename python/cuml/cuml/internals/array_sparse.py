@@ -15,19 +15,16 @@
 #
 from collections import namedtuple
 
+import cupyx.scipy.sparse as cpx_sparse
+
 import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.memory_utils import class_with_cupy_rmm
-from cuml.internals.safe_imports import (
-    UnavailableError,
-    cpu_only_import,
-    gpu_only_import,
-)
+from cuml.internals.safe_imports import UnavailableError, cpu_only_import
 
-cpx_sparse = gpu_only_import("cupyx.scipy.sparse")
 scipy_sparse = cpu_only_import("scipy.sparse")
 
 sparse_matrix_classes = []

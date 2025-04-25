@@ -17,13 +17,14 @@
 
 from enum import Enum, auto
 
-from cuml.internals.device_support import GPU_ENABLED
-from cuml.internals.safe_imports import cpu_only_import, gpu_only_import
+import cudf
+import cupy as cp
+import cupyx.scipy.sparse as cpx_sparse
+import numpy as np
 
-cudf = gpu_only_import("cudf")
-cp = gpu_only_import("cupy")
-cpx_sparse = gpu_only_import("cupyx.scipy.sparse")
-np = cpu_only_import("numpy")
+from cuml.internals.device_support import GPU_ENABLED
+from cuml.internals.safe_imports import cpu_only_import
+
 pandas = cpu_only_import("pandas")
 scipy_sparse = cpu_only_import("scipy.sparse")
 

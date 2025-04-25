@@ -22,14 +22,9 @@ import numbers
 import os
 from importlib import import_module
 
-import cuml.internals.nvtx as nvtx
-from cuml.internals.safe_imports import (
-    cpu_only_import,
-    gpu_only_import,
-    gpu_only_import_from,
-)
+import numpy as np
 
-np = cpu_only_import('numpy')
+import cuml.internals.nvtx as nvtx
 
 try:
     from sklearn.utils import estimator_html_repr
@@ -37,9 +32,14 @@ except ImportError:
     estimator_html_repr = None
 
 
+import cupy as cp
+import pylibraft.common.handle
+from cupy import ndarray as cp_ndarray
+
 import cuml
 import cuml.accel
 import cuml.common
+import cuml.common.cuda
 import cuml.internals
 import cuml.internals.input_utils
 import cuml.internals.logger as logger
@@ -66,14 +66,6 @@ from cuml.internals.output_type import (
     INTERNAL_VALID_OUTPUT_TYPES,
     VALID_OUTPUT_TYPES,
 )
-
-cp_ndarray = gpu_only_import_from('cupy', 'ndarray')
-cp = gpu_only_import('cupy')
-
-
-import pylibraft.common.handle
-
-import cuml.common.cuda
 
 
 class VerbosityDescriptor:

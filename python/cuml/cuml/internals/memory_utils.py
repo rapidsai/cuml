@@ -19,6 +19,9 @@ import operator
 import re
 from functools import wraps
 
+from cudf import DataFrame as CudfDataFrame
+from cudf import Series as CudfSeries
+
 from cuml.internals.device_support import GPU_ENABLED
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
@@ -32,8 +35,6 @@ from cuml.internals.safe_imports import (
     gpu_only_import_from,
 )
 
-CudfSeries = gpu_only_import_from("cudf", "Series")
-CudfDataFrame = gpu_only_import_from("cudf", "DataFrame")
 cupy_using_allocator = gpu_only_import_from(
     "cupy.cuda", "using_allocator", alt=UnavailableNullContext
 )

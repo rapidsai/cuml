@@ -16,10 +16,9 @@
 import functools
 import typing
 
-from cuml.internals.safe_imports import UnavailableError, gpu_only_import
+import cupy as cp
 
-cp = gpu_only_import("cupy")
-
+from cuml.internals.safe_imports import UnavailableError
 
 try:
     # Those are the only data types supported by cupyx.scipy.sparse matrices.

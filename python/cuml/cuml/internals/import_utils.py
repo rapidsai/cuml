@@ -15,11 +15,10 @@
 #
 import platform
 
+import numba
 from packaging.version import Version
 
-from cuml.internals.safe_imports import UnavailableError, gpu_only_import
-
-numba = gpu_only_import("numba")
+from cuml.internals.safe_imports import UnavailableError
 
 
 def has_dask():
