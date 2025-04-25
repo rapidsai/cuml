@@ -14,6 +14,12 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import cupyx.scipy.sparse as gpu_sparse
+import numpy as np
+from cupyx.scipy.sparse import coo_matrix as gpu_coo_matrix
+from cupyx.scipy.sparse import csc_matrix as gpu_csc_matrix
+from cupyx.scipy.sparse import csr_matrix as gpu_csr_matrix
 from scipy import sparse as cpu_sparse
 from scipy.sparse import csc_matrix as cpu_coo_matrix
 from scipy.sparse import csc_matrix as cpu_csc_matrix
@@ -27,16 +33,10 @@ from cuml.internals.safe_imports import (
     gpu_only_import_from,
 )
 
-np = cpu_only_import("numpy")
-cp = gpu_only_import("cupy")
-gpu_sparse = gpu_only_import("cupyx.scipy.sparse")
-gpu_coo_matrix = gpu_only_import_from("cupyx.scipy.sparse", "coo_matrix")
-gpu_csr_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csr_matrix")
-gpu_csc_matrix = gpu_only_import_from("cupyx.scipy.sparse", "csc_matrix")
 cpu_csr_matrix = cpu_only_import_from("scipy.sparse", "csr_matrix")
 
 pdDataFrame = cpu_only_import_from("pandas", "DataFrame")
-cuDataFrame = gpu_only_import_from("cudf", "DataFrame")
+from cudf import DataFrame as cuDataFrame
 
 numeric_types = [
     np.int8,
