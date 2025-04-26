@@ -40,6 +40,9 @@ from pylibraft.common.cpp.optional cimport optional
 from pylibraft.common.handle cimport device_resources
 from pylibraft.random.cpp.rng_state cimport RngState
 
+from cuml.internals.base import UniversalBase
+from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+
 
 cdef extern from "cuml/manifold/spectral_embedding_types.hpp" namespace "ML":
     cdef cppclass spectral_embedding_config:
@@ -58,6 +61,61 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp":
         device_matrix_view[float, int, row_major] nums,
         device_matrix_view[float, int, col_major] embedding,
         spectral_embedding_config config) except +
+
+
+class SpectralEmbedding(UniversalBase,
+           CMajorInputTagMixin,
+           SparseInputTagMixin):
+
+    def __init__(self, n_components=2, random_state=None, n_neighbors=None, norm_laplacian=True, drop_first=True, handle=None):
+        super().__init__(handle=handle)
+        self.n_components = n_components
+        self.random_state = random_state
+        self.n_neighbors = n_neighbors
+        self.norm_laplacian = norm_laplacian
+        self.drop_first = drop_first
+
+    def fit_transform(self, X, y=None, convert_dtype=True):
+        self.fit(X, y, convert_dtype)
+        return self.embedding_
+
+    def fit(self, X, y=None, convert_dtype=True):
+
+        self.embedding_ = self._fit(X, self.n_components, self.random_state, self.n_neighbors, self.norm_laplacian, self.drop_first)
+        return self
+
+    def _fit(self, A, n_components, random_state=None, n_neighbors=None, norm_laplacian=True, drop_first=True):
+
+        cdef device_resources *h = <device_resources*><size_t>self.handle.getHandle()
+
+        A = cai_wrapper(A)
+        A_ptr = <uintptr_t>A.data
+
+        config.n_components = n_components
+        config.seed = random_state
+
+        config.n_neighbors = (
+            n_neighbors
+            if n_neighbors is not None
+            else max(int(A.shape[0] / 10), 1)
+        )
+
+        config.norm_laplacian = norm_laplacian
+        config.drop_first = drop_first
+
+        if config.drop_first:
+            config.n_components += 1
+
+
+        eigenvectors = device_ndarray.empty((A.shape[0], n_components), dtype=A.dtype, order='F')
+
+        eigenvectors_cai = cai_wrapper(eigenvectors)
+        eigenvectors_ptr = <uintptr_t>eigenvectors_cai.data
+
+        cdef int result = spectral_embedding(deref(h), make_device_matrix_view[float, int, row_major](<float *>A_ptr, <int> A.shape[0], <int> A.shape[1]), make_device_matrix_view[float, int, col_major](<float *>eigenvectors_ptr, <int> A.shape[0], <int> n_components), config)
+
+        return cp.asarray(eigenvectors)
+
 
 @auto_sync_handle
 def get_affinity_matrix(A, n_components, random_state=None, n_neighbors=None, norm_laplacian=True, drop_first=True, handle=None):

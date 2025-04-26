@@ -424,7 +424,7 @@ auto spectral_embedding(raft::resources const& handle,
   raft::copy(knn_coo.cols(), knn_cols.data_handle(), nnz, stream);
   raft::copy(knn_coo.vals(), d_distances.data_handle(), nnz, stream);
 
-  printf("knn_coo.nnz = %ld\n", nnz);
+  // printf("knn_coo.nnz = %ld\n", nnz);
 
   // raft::print_device_vector("knn_coo.rows", knn_coo.rows(), knn_coo.nnz, std::cout);
   // raft::print_device_vector("knn_coo.cols", knn_coo.cols(), knn_coo.nnz, std::cout);
@@ -437,10 +437,11 @@ auto spectral_embedding(raft::resources const& handle,
   // binarize to 1s
   thrust::fill(thrust::device, coo_no_zeros.vals(), coo_no_zeros.vals() + coo_no_zeros.nnz, 1.0f);
 
-  printf("coo_no_zeros.nnz = %ld\n", coo_no_zeros.nnz);
-  raft::print_device_vector("coo_no_zeros.rows", coo_no_zeros.rows(), coo_no_zeros.nnz, std::cout);
-  raft::print_device_vector("coo_no_zeros.cols", coo_no_zeros.cols(), coo_no_zeros.nnz, std::cout);
-  raft::print_device_vector("coo_no_zeros.vals", coo_no_zeros.vals(), coo_no_zeros.nnz, std::cout);
+  // printf("coo_no_zeros.nnz = %ld\n", coo_no_zeros.nnz);
+  // raft::print_device_vector("coo_no_zeros.rows", coo_no_zeros.rows(), coo_no_zeros.nnz,
+  // std::cout); raft::print_device_vector("coo_no_zeros.cols", coo_no_zeros.cols(),
+  // coo_no_zeros.nnz, std::cout); raft::print_device_vector("coo_no_zeros.vals",
+  // coo_no_zeros.vals(), coo_no_zeros.nnz, std::cout);
 
   // Create output COO for symmetrized result - create unallocated COO
   raft::sparse::COO<float> sym_coo1(stream);  // Don't pre-allocate dimensions
@@ -467,9 +468,9 @@ auto spectral_embedding(raft::resources const& handle,
   raft::sparse::COO<float> sym_coo(stream);  // Don't pre-allocate dimensions
   raft::sparse::op::coo_remove_zeros<float>(&sym_coo1, &sym_coo, stream);
 
-  raft::print_device_vector("sym_coo.rows", sym_coo.rows(), sym_coo.nnz, std::cout);
-  raft::print_device_vector("sym_coo.cols", sym_coo.cols(), sym_coo.nnz, std::cout);
-  raft::print_device_vector("sym_coo.vals", sym_coo.vals(), sym_coo.nnz, std::cout);
+  // raft::print_device_vector("sym_coo.rows", sym_coo.rows(), sym_coo.nnz, std::cout);
+  // raft::print_device_vector("sym_coo.cols", sym_coo.cols(), sym_coo.nnz, std::cout);
+  // raft::print_device_vector("sym_coo.vals", sym_coo.vals(), sym_coo.nnz, std::cout);
 
   nnz = sym_coo.nnz;
   printf("\nSymmetrized COO Matrix (nnz=%ld):\n", nnz);
@@ -479,24 +480,24 @@ auto spectral_embedding(raft::resources const& handle,
   using size_type = size_t;
 
   // Copy COO data to host for display
-  value_idx* h_rows = new value_idx[nnz];
-  value_idx* h_cols = new value_idx[nnz];
-  value_t* h_vals   = new value_t[nnz];
+  // value_idx* h_rows = new value_idx[nnz];
+  // value_idx* h_cols = new value_idx[nnz];
+  // value_t* h_vals   = new value_t[nnz];
 
-  raft::copy(h_rows, sym_coo.rows(), nnz, stream);
-  raft::copy(h_cols, sym_coo.cols(), nnz, stream);
-  raft::copy(h_vals, sym_coo.vals(), nnz, stream);
+  // raft::copy(h_rows, sym_coo.rows(), nnz, stream);
+  // raft::copy(h_cols, sym_coo.cols(), nnz, stream);
+  // raft::copy(h_vals, sym_coo.vals(), nnz, stream);
 
-  // Print the COO elements
+  // // Print the COO elements
+  // // for (size_type i = 0; i < nnz; i++) {
+  // //   printf("(%d, %d) = %.1f\n", h_rows[i], h_cols[i], h_vals[i]);
+  // // }
+
+  // // For visualization, convert to dense matrix
+  // float* h_dense_symmetric = new float[n_samples * n_samples]();
   // for (size_type i = 0; i < nnz; i++) {
-  //   printf("(%d, %d) = %.1f\n", h_rows[i], h_cols[i], h_vals[i]);
+  //   h_dense_symmetric[h_rows[i] * n_samples + h_cols[i]] = h_vals[i];
   // }
-
-  // For visualization, convert to dense matrix
-  float* h_dense_symmetric = new float[n_samples * n_samples]();
-  for (size_type i = 0; i < nnz; i++) {
-    h_dense_symmetric[h_rows[i] * n_samples + h_cols[i]] = h_vals[i];
-  }
 
   // Print as dense matrix
   // printf("\nSymmetrized Dense Matrix:\n");

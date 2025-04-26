@@ -20,4 +20,7 @@ from cuml.manifold.umap import UMAP
 if is_cuda_available():
     from cuml.manifold.t_sne import TSNE
 
-from cuml.manifold.spectral_embedding import get_affinity_matrix
+from cuml.manifold.spectral_embedding import (
+    SpectralEmbedding,
+    get_affinity_matrix,
+)
