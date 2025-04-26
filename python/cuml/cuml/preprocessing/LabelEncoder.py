@@ -16,8 +16,8 @@
 
 from typing import TYPE_CHECKING
 
-from cuml import Base
 from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
+from cuml.internals.base import Base
 
 if TYPE_CHECKING:
     import cudf
