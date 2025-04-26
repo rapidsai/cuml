@@ -22,5 +22,5 @@ if is_cuda_available():
 
 from cuml.manifold.spectral_embedding import (
     SpectralEmbedding,
-    get_affinity_matrix,
+    spectral_embedding,
 )

@@ -213,10 +213,10 @@ struct both_index_and_value_odd {
   }
 };
 
-auto spectral_embedding(raft::resources const& handle,
-                        raft::device_matrix_view<float, int, raft::row_major> nums,
-                        raft::device_matrix_view<float, int, raft::col_major> embedding,
-                        ML::spectral_embedding_config spectral_embedding_config) -> int
+auto spectral_embedding_cuml(raft::resources const& handle,
+                             raft::device_matrix_view<float, int, raft::row_major> nums,
+                             raft::device_matrix_view<float, int, raft::col_major> embedding,
+                             ML::spectral_embedding_config spectral_embedding_config) -> int
 {
   // Define our sample data (similar to the Python example)
   const int n_samples     = nums.extent(0);

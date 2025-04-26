@@ -56,69 +56,15 @@ cdef spectral_embedding_config config
 
 cdef extern from "cuml/manifold/spectral_embedding.hpp":
 
-    cdef int spectral_embedding(
+    cdef int spectral_embedding_cuml(
         const device_resources &handle,
         device_matrix_view[float, int, row_major] nums,
         device_matrix_view[float, int, col_major] embedding,
         spectral_embedding_config config) except +
 
 
-class SpectralEmbedding(UniversalBase,
-           CMajorInputTagMixin,
-           SparseInputTagMixin):
-
-    def __init__(self, n_components=2, random_state=None, n_neighbors=None, norm_laplacian=True, drop_first=True, handle=None):
-        super().__init__(handle=handle)
-        self.n_components = n_components
-        self.random_state = random_state
-        self.n_neighbors = n_neighbors
-        self.norm_laplacian = norm_laplacian
-        self.drop_first = drop_first
-
-    def fit_transform(self, X, y=None, convert_dtype=True):
-        self.fit(X, y, convert_dtype)
-        return self.embedding_
-
-    def fit(self, X, y=None, convert_dtype=True):
-
-        self.embedding_ = self._fit(X, self.n_components, self.random_state, self.n_neighbors, self.norm_laplacian, self.drop_first)
-        return self
-
-    def _fit(self, A, n_components, random_state=None, n_neighbors=None, norm_laplacian=True, drop_first=True):
-
-        cdef device_resources *h = <device_resources*><size_t>self.handle.getHandle()
-
-        A = cai_wrapper(A)
-        A_ptr = <uintptr_t>A.data
-
-        config.n_components = n_components
-        config.seed = random_state
-
-        config.n_neighbors = (
-            n_neighbors
-            if n_neighbors is not None
-            else max(int(A.shape[0] / 10), 1)
-        )
-
-        config.norm_laplacian = norm_laplacian
-        config.drop_first = drop_first
-
-        if config.drop_first:
-            config.n_components += 1
-
-
-        eigenvectors = device_ndarray.empty((A.shape[0], n_components), dtype=A.dtype, order='F')
-
-        eigenvectors_cai = cai_wrapper(eigenvectors)
-        eigenvectors_ptr = <uintptr_t>eigenvectors_cai.data
-
-        cdef int result = spectral_embedding(deref(h), make_device_matrix_view[float, int, row_major](<float *>A_ptr, <int> A.shape[0], <int> A.shape[1]), make_device_matrix_view[float, int, col_major](<float *>eigenvectors_ptr, <int> A.shape[0], <int> n_components), config)
-
-        return cp.asarray(eigenvectors)
-
-
 @auto_sync_handle
-def get_affinity_matrix(A, n_components, random_state=None, n_neighbors=None, norm_laplacian=True, drop_first=True, handle=None):
+def spectral_embedding(A, n_components, random_state=None, n_neighbors=None, norm_laplacian=True, drop_first=True, handle=None):
 
     cdef device_resources *h = <device_resources*><size_t>handle.getHandle()
 
@@ -126,7 +72,7 @@ def get_affinity_matrix(A, n_components, random_state=None, n_neighbors=None, no
     A_ptr = <uintptr_t>A.data
 
     config.n_components = n_components
-    config.seed = random_state
+    config.seed = random_state if random_state is not None else 42
 
     config.n_neighbors = (
         n_neighbors
@@ -146,6 +92,27 @@ def get_affinity_matrix(A, n_components, random_state=None, n_neighbors=None, no
     eigenvectors_cai = cai_wrapper(eigenvectors)
     eigenvectors_ptr = <uintptr_t>eigenvectors_cai.data
 
-    cdef int result = spectral_embedding(deref(h), make_device_matrix_view[float, int, row_major](<float *>A_ptr, <int> A.shape[0], <int> A.shape[1]), make_device_matrix_view[float, int, col_major](<float *>eigenvectors_ptr, <int> A.shape[0], <int> n_components), config)
+    cdef int result = spectral_embedding_cuml(deref(h), make_device_matrix_view[float, int, row_major](<float *>A_ptr, <int> A.shape[0], <int> A.shape[1]), make_device_matrix_view[float, int, col_major](<float *>eigenvectors_ptr, <int> A.shape[0], <int> n_components), config)
 
     return cp.asarray(eigenvectors)
+
+class SpectralEmbedding(UniversalBase,
+                        CMajorInputTagMixin,
+                        SparseInputTagMixin):
+
+    def __init__(self, n_components=2, random_state=None, n_neighbors=None, handle=None):
+        super().__init__(handle=handle)
+        self.n_components = n_components
+        self.random_state = random_state
+        self.n_neighbors = n_neighbors
+
+    def fit_transform(self, X, y=None):
+        self.fit(X, y)
+        return self.embedding_
+
+    def fit(self, X, y=None):
+        self.embedding_ = self._fit(X, self.n_components, random_state=self.random_state, n_neighbors=self.n_neighbors)
+        return self
+
+    def _fit(self, A, n_components, random_state=None, n_neighbors=None):
+        return spectral_embedding(A, n_components, random_state=random_state, n_neighbors=n_neighbors)
