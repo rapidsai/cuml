@@ -69,12 +69,6 @@ def has_xgboost():
         return False
 
 
-def check_min_cupy_version(version):
-    import cupy
-
-    return Version(str(cupy.__version__)) >= Version(version)
-
-
 def has_sklearn():
     try:
         import sklearn  # NOQA
