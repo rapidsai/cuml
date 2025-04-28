@@ -30,15 +30,6 @@ def has_dask():
         return False
 
 
-def has_cupy():
-    try:
-        import cupy  # NOQA
-
-        return True
-    except ImportError:
-        return False
-
-
 def has_ucp():
     try:
         import ucp  # NOQA
@@ -111,12 +102,9 @@ def check_min_numba_version(version):
 
 
 def check_min_cupy_version(version):
-    if has_cupy():
-        import cupy
+    import cupy
 
-        return Version(str(cupy.__version__)) >= Version(version)
-    else:
-        return False
+    return Version(str(cupy.__version__)) >= Version(version)
 
 
 def has_sklearn():

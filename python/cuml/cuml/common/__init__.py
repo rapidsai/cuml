@@ -26,7 +26,6 @@ from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.import_utils import (
     check_min_cupy_version,
     check_min_numba_version,
-    has_cupy,
     has_dask,
 )
 from cuml.internals.input_utils import (
@@ -53,7 +52,6 @@ __all__ = [
     "CumlArray",
     "SparseCumlArray",
     "device_of_gpu_matrix",
-    "has_cupy",
     "has_dask",
     "check_min_numba_version",
     "check_min_cupy_version",
